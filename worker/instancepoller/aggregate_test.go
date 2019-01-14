@@ -8,17 +8,17 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -92,7 +92,7 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	// We setup a couple variables here so that we can use them locally without
 	// type assertions. Then we use them in the aggregatorConfig.
 	testGetter := new(testInstanceGetter)
-	clock := jujutesting.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	delay := time.Minute
 	cfg := aggregatorConfigForTest(clock, delay, testGetter)
 
@@ -135,7 +135,7 @@ func (*credentialAPIForTest) InvalidateModelCredential(reason string) error {
 	return nil
 }
 
-func aggregatorConfigForTest(clock *jujutesting.Clock, delay time.Duration, environ InstanceGetter) aggregatorConfig {
+func aggregatorConfigForTest(clock *testclock.Clock, delay time.Duration, environ InstanceGetter) aggregatorConfig {
 	return aggregatorConfig{
 		Clock:         clock,
 		Delay:         delay,
@@ -149,7 +149,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	// We setup a couple variables here so that we can use them locally without
 	// type assertions. Then we use them in the aggregatorConfig.
 	testGetter := new(testInstanceGetter)
-	clock := jujutesting.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	delay := time.Minute
 	cfg := aggregatorConfigForTest(clock, delay, testGetter)
 
@@ -205,7 +205,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 func (s *aggregateSuite) TestKillingWorkerKillsPendinReqs(c *gc.C) {
 	// Setup local variables.
 	testGetter := new(testInstanceGetter)
-	clock := jujutesting.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	delay := time.Minute
 	cfg := aggregatorConfigForTest(clock, delay, testGetter)
 
@@ -256,7 +256,7 @@ func (s *aggregateSuite) TestKillingWorkerKillsPendinReqs(c *gc.C) {
 func (s *aggregateSuite) TestMultipleBatches(c *gc.C) {
 	// Setup some local variables.
 	testGetter := new(testInstanceGetter)
-	clock := jujutesting.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	delay := time.Second
 	cfg := aggregatorConfigForTest(clock, delay, testGetter)
 
@@ -335,7 +335,7 @@ func (s *aggregateSuite) TestMultipleBatches(c *gc.C) {
 func (s *aggregateSuite) TestInstancesErrors(c *gc.C) {
 	// Setup local variables.
 	testGetter := new(testInstanceGetter)
-	clock := jujutesting.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	delay := time.Millisecond
 	cfg := aggregatorConfigForTest(clock, delay, testGetter)
 
@@ -370,7 +370,7 @@ func (s *aggregateSuite) TestInstancesErrors(c *gc.C) {
 
 func (s *aggregateSuite) TestPartialInstanceErrors(c *gc.C) {
 	testGetter := new(testInstanceGetter)
-	clock := jujutesting.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	delay := time.Second
 
 	cfg := aggregatorConfigForTest(clock, delay, testGetter)
@@ -425,7 +425,7 @@ func (s *aggregateSuite) TestPartialInstanceErrors(c *gc.C) {
 	c.Assert(testGetter.counter, gc.Equals, int32(1))
 }
 
-func waitAlarms(c *gc.C, clock *jujutesting.Clock, count int) {
+func waitAlarms(c *gc.C, clock *testclock.Clock, count int) {
 	timeout := time.After(testing.LongWait)
 	for i := 0; i < count; i++ {
 		select {

@@ -10,8 +10,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/watcher"
 )
 
 // storageEntityLife queries the lifecycle state of each specified
@@ -23,13 +23,17 @@ func storageEntityLife(ctx *context, tags []names.Tag) (alive, dying, dead []nam
 		return nil, nil, nil, errors.Annotate(err, "getting storage entity life")
 	}
 	for i, result := range lifeResults {
+		life := result.Life
 		if result.Error != nil {
-			return nil, nil, nil, errors.Annotatef(
-				result.Error, "getting life of %s",
-				names.ReadableString(tags[i]),
-			)
+			if !params.IsCodeNotFound(result.Error) {
+				return nil, nil, nil, errors.Annotatef(
+					result.Error, "getting life of %s",
+					names.ReadableString(tags[i]),
+				)
+			}
+			life = params.Dead
 		}
-		switch result.Life {
+		switch life {
 		case params.Alive:
 			alive = append(alive, tags[i])
 		case params.Dying:
@@ -51,13 +55,17 @@ func attachmentLife(ctx *context, ids []params.MachineStorageId) (
 		return nil, nil, nil, errors.Annotate(err, "getting machine attachment life")
 	}
 	for i, result := range lifeResults {
+		life := result.Life
 		if result.Error != nil {
-			return nil, nil, nil, errors.Annotatef(
-				result.Error, "getting life of %s attached to %s",
-				ids[i].AttachmentTag, ids[i].MachineTag,
-			)
+			if !params.IsCodeNotFound(result.Error) {
+				return nil, nil, nil, errors.Annotatef(
+					result.Error, "getting life of %s attached to %s",
+					ids[i].AttachmentTag, ids[i].MachineTag,
+				)
+			}
+			life = params.Dead
 		}
-		switch result.Life {
+		switch life {
 		case params.Alive:
 			alive = append(alive, ids[i])
 		case params.Dying:
@@ -97,7 +105,8 @@ func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
 		return errors.Annotate(err, "removing attachments")
 	}
 	for i, result := range errorResults {
-		if result.Error != nil {
+		if result.Error != nil && !params.IsCodeNotFound(result.Error) {
+			// ignore not found error.
 			return errors.Annotatef(
 				result.Error, "removing attachment of %s to %s from state",
 				ids[i].AttachmentTag, ids[i].MachineTag,

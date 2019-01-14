@@ -82,7 +82,7 @@ func NewDomain(p domainParams) (Domain, error) {
 			},
 		},
 		Console: []Console{
-			Console{
+			{
 				Type: "pty",
 				TTY:  "/dev/pts/2",
 				Target: ConsoleTarget{

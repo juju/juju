@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/voyeur"
 	"github.com/kr/pretty"
@@ -22,10 +22,10 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -53,7 +53,7 @@ var (
 
 type workerSuite struct {
 	coretesting.BaseSuite
-	clock *testing.Clock
+	clock *testclock.Clock
 	hub   Hub
 }
 
@@ -61,7 +61,7 @@ var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.hub = nopHub{}
 	logger.SetLogLevel(loggo.TRACE)
 }
@@ -393,8 +393,6 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 }
 
 func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
-	coretesting.SkipIfI386(c, "lp:1425569")
-
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
@@ -1084,7 +1082,7 @@ func (s *workerSuite) newWorkerWithConfig(
 ) worker.Worker {
 	// We create a new clock for the worker so we can wait on alarms even when
 	// a single test tests both ipv4 and 6 so is creating two workers.
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	config.Clock = s.clock
 	w, err := New(config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1099,7 +1097,6 @@ func (s *workerSuite) newWorker(
 	apiHostPortsSetter APIHostPortsSetter,
 ) worker.Worker {
 	return s.newWorkerWithConfig(c, Config{
-		Clock:              s.clock,
 		State:              st,
 		MongoSession:       session,
 		APIHostPortsSetter: apiHostPortsSetter,

@@ -9,12 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
-	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/core/lease"
 )
 
 func removeLeadershipSettingsOp(applicationId string) txn.Op {
@@ -29,8 +27,9 @@ func leadershipSettingsKey(applicationId string) string {
 // state's model.
 func (st *State) LeadershipClaimer() leadership.Claimer {
 	return leadershipClaimer{
-		lazyLeaseManager{func() *lease.Manager {
-			return st.workers.leadershipManager()
+		lazyLeaseClaimer{func() (lease.Claimer, error) {
+			manager := st.workers.leadershipManager()
+			return manager.Claimer(applicationLeadershipNamespace, st.modelUUID())
 		}},
 	}
 }
@@ -39,8 +38,9 @@ func (st *State) LeadershipClaimer() leadership.Claimer {
 // state's model.
 func (st *State) LeadershipChecker() leadership.Checker {
 	return leadershipChecker{
-		lazyLeaseManager{func() *lease.Manager {
-			return st.workers.leadershipManager()
+		lazyLeaseChecker{func() (lease.Checker, error) {
+			manager := st.workers.leadershipManager()
+			return manager.Checker(applicationLeadershipNamespace, st.modelUUID())
 		}},
 	}
 }
@@ -63,74 +63,46 @@ func buildTxnWithLeadership(buildTxn jujutxn.TransactionSource, token leadership
 	}
 }
 
-// leadershipSecretary implements lease.Secretary; it checks that leases are
-// application names, and holders are unit names.
-type leadershipSecretary struct{}
-
-// CheckLease is part of the lease.Secretary interface.
-func (leadershipSecretary) CheckLease(name string) error {
-	if !names.IsValidApplication(name) {
-		return errors.NewNotValid(nil, "not an application name")
-	}
-	return nil
-}
-
-// CheckHolder is part of the lease.Secretary interface.
-func (leadershipSecretary) CheckHolder(name string) error {
-	if !names.IsValidUnit(name) {
-		return errors.NewNotValid(nil, "not a unit name")
-	}
-	return nil
-}
-
-// CheckDuration is part of the lease.Secretary interface.
-func (leadershipSecretary) CheckDuration(duration time.Duration) error {
-	if duration <= 0 {
-		return errors.NewNotValid(nil, "non-positive")
-	}
-	return nil
-}
-
 // leadershipChecker implements leadership.Checker by wrapping a lease.Checker.
 type leadershipChecker struct {
-	checker corelease.Checker
+	checker lease.Checker
 }
 
 // LeadershipCheck is part of the leadership.Checker interface.
-func (m leadershipChecker) LeadershipCheck(applicationname, unitName string) leadership.Token {
-	token := m.checker.Token(applicationname, unitName)
+func (m leadershipChecker) LeadershipCheck(applicationName, unitName string) leadership.Token {
+	token := m.checker.Token(applicationName, unitName)
 	return leadershipToken{
-		applicationname: applicationname,
+		applicationName: applicationName,
 		unitName:        unitName,
 		token:           token,
 	}
 }
 
-// leadershipToken implements leadership.Token by wrapping a corelease.Token.
+// leadershipToken implements leadership.Token by wrapping a lease.Token.
 type leadershipToken struct {
-	applicationname string
+	applicationName string
 	unitName        string
-	token           corelease.Token
+	token           lease.Token
 }
 
 // Check is part of the leadership.Token interface.
 func (t leadershipToken) Check(out interface{}) error {
 	err := t.token.Check(out)
-	if errors.Cause(err) == corelease.ErrNotHeld {
-		return errors.Errorf("%q is not leader of %q", t.unitName, t.applicationname)
+	if errors.Cause(err) == lease.ErrNotHeld {
+		return errors.Errorf("%q is not leader of %q", t.unitName, t.applicationName)
 	}
 	return errors.Trace(err)
 }
 
-// leadershipClaimer implements leadership.Claimer by wrappping a lease.Claimer.
+// leadershipClaimer implements leadership.Claimer by wrapping a lease.Claimer.
 type leadershipClaimer struct {
-	claimer corelease.Claimer
+	claimer lease.Claimer
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.
 func (m leadershipClaimer) ClaimLeadership(applicationname, unitName string, duration time.Duration) error {
 	err := m.claimer.Claim(applicationname, unitName, duration)
-	if errors.Cause(err) == corelease.ErrClaimDenied {
+	if errors.Cause(err) == lease.ErrClaimDenied {
 		return leadership.ErrClaimDenied
 	}
 	return errors.Trace(err)
@@ -139,7 +111,7 @@ func (m leadershipClaimer) ClaimLeadership(applicationname, unitName string, dur
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
 func (m leadershipClaimer) BlockUntilLeadershipReleased(applicationname string, cancel <-chan struct{}) error {
 	err := m.claimer.WaitUntilExpired(applicationname, cancel)
-	if errors.Cause(err) == corelease.ErrWaitCancelled {
+	if errors.Cause(err) == lease.ErrWaitCancelled {
 		return leadership.ErrBlockCancelled
 	}
 	return errors.Trace(err)

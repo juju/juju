@@ -10,6 +10,10 @@ import (
 )
 
 const (
+	// OperatorStoragePoolName is the storage pool used to define
+	// storage for application operators.
+	OperatorStoragePoolName = "operator-storage"
+
 	// JujuExternalHostNameKey specifies the hostname of a CAAS application.
 	JujuExternalHostNameKey = "juju-external-hostname"
 

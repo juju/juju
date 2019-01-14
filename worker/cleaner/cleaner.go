@@ -6,13 +6,13 @@ package cleaner
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 // period is the amount of time to wait before running cleanups,

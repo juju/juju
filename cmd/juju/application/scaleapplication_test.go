@@ -1,0 +1,97 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package application
+
+import (
+	"strings"
+
+	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/apiserver/params"
+)
+
+type ScaleApplicationSuite struct {
+	testing.IsolationSuite
+
+	mockAPI *mockScaleApplicationAPI
+}
+
+var _ = gc.Suite(&ScaleApplicationSuite{})
+
+type mockScaleApplicationAPI struct {
+	*testing.Stub
+	version int
+	err     error
+}
+
+func (s mockScaleApplicationAPI) Close() error {
+	s.MethodCall(s, "Close")
+	return s.NextErr()
+}
+
+func (s mockScaleApplicationAPI) ScaleApplication(args application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+	s.MethodCall(s, "ScaleApplication", args)
+	return params.ScaleApplicationResult{Info: &params.ScaleApplicationInfo{Scale: args.Scale}}, s.NextErr()
+}
+
+func (s mockScaleApplicationAPI) BestAPIVersion() int {
+	return s.version
+}
+
+func (s *ScaleApplicationSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.mockAPI = &mockScaleApplicationAPI{Stub: &testing.Stub{}, version: 8}
+}
+
+func (s *ScaleApplicationSuite) runScaleApplication(c *gc.C, args ...string) (*cmd.Context, error) {
+	store := jujuclienttesting.MinimalStore()
+	store.Models["arthur"] = &jujuclient.ControllerModels{
+		CurrentModel: "king/sword",
+		Models: map[string]jujuclient.ModelDetails{"king/sword": {
+			ModelType: model.CAAS,
+		}},
+	}
+	return cmdtesting.RunCommand(c, NewScaleCommandForTest(s.mockAPI, store), args...)
+}
+
+func (s *ScaleApplicationSuite) TestScaleApplication(c *gc.C) {
+	ctx, err := s.runScaleApplication(c, "foo", "2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	stderr := cmdtesting.Stderr(ctx)
+	out := strings.Replace(stderr, "\n", "", -1)
+	c.Assert(out, gc.Equals, `foo scaled to 2 units`)
+}
+
+func (s *ScaleApplicationSuite) TestScaleApplicationWrongModel(c *gc.C) {
+	store := jujuclienttesting.MinimalStore()
+	_, err := cmdtesting.RunCommand(c, NewScaleCommandForTest(s.mockAPI, store), "foo", "2")
+	c.Assert(err, gc.ErrorMatches, `Juju command "scale-application" not supported on non-container models`)
+}
+
+func (s *ScaleApplicationSuite) TestInvalidArgs(c *gc.C) {
+	_, err := s.runScaleApplication(c)
+	c.Assert(err, gc.ErrorMatches, `no application specified`)
+	_, err = s.runScaleApplication(c, "invalid:name")
+	c.Assert(err, gc.ErrorMatches, `invalid application name "invalid:name"`)
+	_, err = s.runScaleApplication(c, "name")
+	c.Assert(err, gc.ErrorMatches, `no scale specified`)
+	_, err = s.runScaleApplication(c, "name", "scale")
+	c.Assert(err, gc.ErrorMatches, `invalid scale "scale": strconv.Atoi: parsing "scale": invalid syntax`)
+}
+
+func (s *ScaleApplicationSuite) TestOldServer(c *gc.C) {
+	s.mockAPI.version = 4
+	_, err := s.runScaleApplication(c, "foo", "2")
+	c.Assert(err, gc.ErrorMatches, "scaling applications is not supported by this controller")
+	s.mockAPI.CheckCall(c, 0, "Close")
+}

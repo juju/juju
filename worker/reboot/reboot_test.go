@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"

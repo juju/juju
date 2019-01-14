@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -33,7 +33,7 @@ func (r *pingSuite) TestPingTimeout(c *gc.C) {
 	action := func() {
 		close(triggered)
 	}
-	clock := jujutesting.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	timeout := apiserver.NewPingTimeout(action, clock, 50*time.Millisecond)
 	for i := 0; i < 2; i++ {
 		waitAlarm(c, clock)
@@ -62,7 +62,7 @@ func (r *pingSuite) TestPingTimeoutStopped(c *gc.C) {
 	action := func() {
 		close(triggered)
 	}
-	clock := jujutesting.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	timeout := apiserver.NewPingTimeout(action, clock, 20*time.Millisecond)
 
 	waitAlarm(c, clock)
@@ -77,7 +77,7 @@ func (r *pingSuite) TestPingTimeoutStopped(c *gc.C) {
 	}
 }
 
-func waitAlarm(c *gc.C, clock *jujutesting.Clock) {
+func waitAlarm(c *gc.C, clock *testclock.Clock) {
 	select {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("alarm never set")

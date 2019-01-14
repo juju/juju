@@ -6,9 +6,9 @@ package unit
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -20,8 +20,8 @@ import (
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -93,7 +93,7 @@ type ManifoldsConfig struct {
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
-	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
+	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool) error
 
 	// MachineLock is a central source for acquiring the machine lock.
 	// This is used by a number of workers to ensure serialisation of actions
@@ -204,7 +204,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			// Realistically,  units should not open state for any reason.
-			OpenStateForUpgrade: func() (*state.State, error) {
+			OpenStateForUpgrade: func() (*state.StatePool, error) {
 				return nil, errors.New("unit agent cannot open state")
 			},
 			PreUpgradeSteps: config.PreUpgradeSteps,

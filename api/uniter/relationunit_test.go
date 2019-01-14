@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 // commonRelationSuiteMixin contains fields used by both relationSuite

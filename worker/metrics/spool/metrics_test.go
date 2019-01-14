@@ -121,8 +121,8 @@ func (s *metricsRecorderSuite) TestInit(c *gc.C) {
 		spool.MetricRecorderConfig{
 			SpoolDir: s.paths.GetMetricsSpoolDir(),
 			Metrics: map[string]corecharm.Metric{
-				"pings": corecharm.Metric{},
-				"pongs": corecharm.Metric{},
+				"pings": {},
+				"pongs": {},
 			},
 			CharmURL: "local:precise/wordpress",
 			UnitTag:  s.unitTag,
@@ -191,8 +191,8 @@ func (s *metricsRecorderSuite) TestMetricValidation(c *gc.C) {
 			spool.MetricRecorderConfig{
 				SpoolDir: s.paths.GetMetricsSpoolDir(),
 				Metrics: map[string]corecharm.Metric{
-					"juju-units": corecharm.Metric{},
-					"pongs": corecharm.Metric{
+					"juju-units": {},
+					"pongs": {
 						Type: corecharm.MetricTypeAbsolute,
 					},
 				},
@@ -239,7 +239,7 @@ func (s *metricsReaderSuite) SetUpTest(c *gc.C) {
 	s.w, err = spool.NewJSONMetricRecorder(
 		spool.MetricRecorderConfig{
 			SpoolDir: s.paths.GetMetricsSpoolDir(),
-			Metrics:  map[string]corecharm.Metric{"pings": corecharm.Metric{}},
+			Metrics:  map[string]corecharm.Metric{"pings": {}},
 			CharmURL: "local:precise/wordpress",
 			UnitTag:  s.unitTag,
 		})

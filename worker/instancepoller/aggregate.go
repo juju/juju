@@ -6,8 +6,8 @@ package instancepoller
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/environs"
@@ -60,7 +60,7 @@ func newAggregator(config aggregatorConfig) (*aggregator, error) {
 	a := &aggregator{
 		config:      config,
 		reqc:        make(chan instanceInfoReq),
-		callContext: common.NewCloudCallContext(config.CredentialAPI),
+		callContext: common.NewCloudCallContext(config.CredentialAPI, nil),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &a.catacomb,

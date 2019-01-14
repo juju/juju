@@ -24,20 +24,13 @@ type collectMetricsSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&collectMetricsSuite{})
+var (
+	_ = gc.Suite(&collectMetricsSuite{})
 
-func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
-	runClient := &testRunClient{}
-	applicationClient := &testApplicationClient{}
-	applicationClient.charmURL = "local:quantal/charm"
-	s.PatchValue(metricsdebug.NewAPIConn, noConn)
-	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
-	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(applicationClient))
+	actionTag1 = names.NewActionTag("01234567-89ab-cdef-0123-456789abcdef")
+	actionTag2 = names.NewActionTag("11234567-89ab-cdef-0123-456789abcdef")
 
-	actionTag1 := names.NewActionTag("01234567-89ab-cdef-0123-456789abcdef")
-	actionTag2 := names.NewActionTag("11234567-89ab-cdef-0123-456789abcdef")
-
-	tests := []struct {
+	tests = []struct {
 		about     string
 		args      []string
 		stdout    string
@@ -55,19 +48,19 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "all is well",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag2.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag1.String(),
 					Receiver: "unit-uptime-0",
@@ -77,7 +70,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 					"Stderr": "",
 				},
 			},
-			actionTag2.Id(): params.ActionResult{
+			actionTag2.Id(): {
 				Action: &params.Action{
 					Tag: actionTag2.String(),
 				},
@@ -91,7 +84,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "invalid tag returned",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: "invalid",
 				},
@@ -102,7 +95,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "no action found",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
@@ -113,28 +106,28 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "fail to parse result",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{},
+			actionTag1.Id(): {},
 		},
 		stdout: "failed to collect metrics: could not read stdout\n",
 	}, {
 		about: "no results on sendResults",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -150,12 +143,12 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "too many sendResults",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
@@ -166,7 +159,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -182,19 +175,19 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "sendResults error",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Error: &params.Error{
 					Message: "permission denied",
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -210,19 +203,19 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "couldn't get sendResults action",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag2.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -238,19 +231,19 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "couldn't parse sendResults action",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag2.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -260,26 +253,26 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 					"Stderr": "",
 				},
 			},
-			actionTag2.Id(): params.ActionResult{},
+			actionTag2.Id(): {},
 		},
 		stdout: "failed to send metrics for unit uptime/0: could not read stdout\n",
 	}, {
 		about: "sendResults action stderr",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag2.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -289,7 +282,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 					"Stderr": "",
 				},
 			},
-			actionTag2.Id(): params.ActionResult{
+			actionTag2.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -302,6 +295,15 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		},
 		stdout: "failed to send metrics for unit uptime/0: kek\n",
 	}}
+)
+
+func (s *collectMetricsSuite) TestCollectMetricsLocal(c *gc.C) {
+	runClient := &testRunClient{}
+	applicationClient := &testApplicationClient{}
+	applicationClient.charmURL = "local:quantal/charm"
+	s.PatchValue(metricsdebug.NewAPIConn, noConn)
+	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
+	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(applicationClient))
 
 	for i, test := range tests {
 		c.Logf("running test %d: %v", i, test.about)
@@ -320,16 +322,29 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 	}
 }
 
-func (s *collectMetricsSuite) TestCollectMetricsFailsOnNonLocalCharm(c *gc.C) {
+func (s *collectMetricsSuite) TestCollectMetricsRemote(c *gc.C) {
 	runClient := &testRunClient{}
-	appClient := &testApplicationClient{}
-	appClient.charmURL = "cs:quantal/charm"
+	applicationClient := &testApplicationClient{}
+	applicationClient.charmURL = "quantal/charm"
 	s.PatchValue(metricsdebug.NewAPIConn, noConn)
 	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
-	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(appClient))
-	_, err := cmdtesting.RunCommand(c, metricsdebug.NewCollectMetricsCommandForTest(), "foobar")
-	c.Assert(err, gc.ErrorMatches, `"foobar" is not a local charm`)
-	runClient.CheckCallNames(c, "Close")
+	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(applicationClient))
+
+	for i, test := range tests {
+		c.Logf("running test %d: %v", i, test.about)
+		runClient.reset()
+		if test.results != nil {
+			runClient.results = test.results
+		}
+		metricsdebug.PatchGetActionResult(s.PatchValue, test.actionMap)
+		ctx, err := cmdtesting.RunCommand(c, metricsdebug.NewCollectMetricsCommandForTest(), test.args...)
+		if test.err != "" {
+			c.Assert(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(cmdtesting.Stdout(ctx), gc.Matches, test.stdout)
+		}
+	}
 }
 
 type testRunClient struct {

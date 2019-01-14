@@ -8,10 +8,11 @@ import (
 	"time"
 
 	coreraft "github.com/hashicorp/raft"
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
@@ -36,7 +37,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		StorageDir: c.MkDir(),
 		LocalID:    "123",
 		Transport:  s.newTransport("123"),
-		Clock:      testing.NewClock(time.Time{}),
+		Clock:      testclock.NewClock(time.Time{}),
 	}
 }
 
@@ -114,7 +115,7 @@ func (s *WorkerValidationSuite) TestBootstrapTransport(c *gc.C) {
 type WorkerSuite struct {
 	workerFixture
 	worker *raft.Worker
-	clock  *testing.Clock
+	clock  *testclock.Clock
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -138,7 +139,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	// Make a new clock so the waits from the bootstrap aren't hanging
 	// around. Use time.Now() as the start so the time can be compared
 	// to raft.LastContact(), which unfortunately uses wallclock time.
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.config.Clock = s.clock
 	s.config.NoLeaderTimeout = 4 * time.Second
 
@@ -375,7 +376,7 @@ func (s *WorkerTimeoutSuite) TestNewWorkerTimesOut(c *gc.C) {
 	// object we don't want to just hang - that can make it really
 	// hard to work out what's going on. Instead we should timeout if
 	// the raft loop doesn't get started.
-	testClock := testing.NewClock(time.Time{})
+	testClock := testclock.NewClock(time.Time{})
 	s.config.Clock = testClock
 	_, underlying := coreraft.NewInmemTransport("something")
 	s.config.Transport = &hangingTransport{

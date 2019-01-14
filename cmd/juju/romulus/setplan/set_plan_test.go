@@ -19,7 +19,9 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	"gopkg.in/macaroon.v2-unstable"
 
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/juju/romulus/setplan"
+	"github.com/juju/juju/cmd/modelcmd"
 	jjjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -62,6 +64,9 @@ func (s *setPlanCommandSuite) SetUpTest(c *gc.C) {
 	s.mockAPI = mockAPI
 
 	s.PatchValue(setplan.NewAuthorizationClient, setplan.APIClientFnc(s.mockAPI))
+	s.PatchValue(&rcmd.GetMeteringURLForModelCmd, func(c *modelcmd.ModelCommandBase) (string, error) {
+		return "http://example.com", nil
+	})
 }
 
 func (s setPlanCommandSuite) TestSetPlanCommand(c *gc.C) {

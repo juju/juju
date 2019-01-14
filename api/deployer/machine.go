@@ -10,7 +10,7 @@ import (
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Machine represents a juju machine as seen by the deployer worker.

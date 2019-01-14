@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -48,6 +48,7 @@ type Pool interface {
 type PrecheckModel interface {
 	UUID() string
 	Name() string
+	Type() state.ModelType
 	Owner() names.UserTag
 	Life() state.Life
 	MigrationMode() state.MigrationMode
@@ -86,6 +87,7 @@ type PrecheckUnit interface {
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
 	AgentPresence() (bool, error)
+	ShouldBeAssigned() bool
 }
 
 // PrecheckRelation describes the state interface for relations needed
@@ -336,6 +338,10 @@ func (ctx *precheckContext) checkApplications() (map[string][]PrecheckUnit, erro
 		return nil, errors.Annotate(err, "retrieving applications")
 	}
 
+	model, err := ctx.backend.Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving model")
+	}
 	appUnits := make(map[string][]PrecheckUnit, len(apps))
 	for _, app := range apps {
 		if app.Life() != state.Alive {
@@ -345,7 +351,7 @@ func (ctx *precheckContext) checkApplications() (map[string][]PrecheckUnit, erro
 		if err != nil {
 			return nil, errors.Annotatef(err, "retrieving units for %s", app.Name())
 		}
-		err = ctx.checkUnits(app, units, modelVersion)
+		err = ctx.checkUnits(app, units, modelVersion, model.Type())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -354,7 +360,7 @@ func (ctx *precheckContext) checkApplications() (map[string][]PrecheckUnit, erro
 	return appUnits, nil
 }
 
-func (ctx *precheckContext) checkUnits(app PrecheckApplication, units []PrecheckUnit, modelVersion version.Number) error {
+func (ctx *precheckContext) checkUnits(app PrecheckApplication, units []PrecheckUnit, modelVersion version.Number, modelType state.ModelType) error {
 	if len(units) < app.MinUnits() {
 		return errors.Errorf("application %s is below its minimum units threshold", app.Name())
 	}
@@ -370,8 +376,10 @@ func (ctx *precheckContext) checkUnits(app PrecheckApplication, units []Precheck
 			return errors.Trace(err)
 		}
 
-		if err := checkAgentTools(modelVersion, unit, "unit "+unit.Name()); err != nil {
-			return errors.Trace(err)
+		if modelType == state.ModelTypeIAAS {
+			if err := checkAgentTools(modelVersion, unit, "unit "+unit.Name()); err != nil {
+				return errors.Trace(err)
+			}
 		}
 
 		unitCharmURL, _ := unit.CharmURL()

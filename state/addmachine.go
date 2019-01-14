@@ -9,13 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
 
@@ -63,7 +62,7 @@ type MachineTemplate struct {
 
 	// Volumes holds the parameters for volumes that are to be created
 	// and attached to the machine.
-	Volumes []MachineVolumeParams
+	Volumes []HostVolumeParams
 
 	// VolumeAttachments holds the parameters for attaching existing
 	// volumes to the machine.
@@ -71,7 +70,7 @@ type MachineTemplate struct {
 
 	// Filesystems holds the parameters for filesystems that are to be
 	// created and attached to the machine.
-	Filesystems []MachineFilesystemParams
+	Filesystems []HostFilesystemParams
 
 	// FilesystemAttachments holds the parameters for attaching existing
 	// filesystems to the machine.
@@ -95,16 +94,16 @@ type MachineTemplate struct {
 	principals []string
 }
 
-// MachineVolumeParams holds the parameters for creating a volume and
-// attaching it to a new machine.
-type MachineVolumeParams struct {
+// HostVolumeParams holds the parameters for creating a volume and
+// attaching it to a new host.
+type HostVolumeParams struct {
 	Volume     VolumeParams
 	Attachment VolumeAttachmentParams
 }
 
-// MachineFilesystemParams holds the parameters for creating a filesystem
-// and attaching it to a new machine.
-type MachineFilesystemParams struct {
+// HostFilesystemParams holds the parameters for creating a filesystem
+// and attaching it to a new host.
+type HostFilesystemParams struct {
 	Filesystem FilesystemParams
 	Attachment FilesystemAttachmentParams
 }
@@ -356,6 +355,15 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 		return nil, nil, errors.Errorf("machine %s cannot host %s containers", parentId, containerType)
 	}
 
+	// Ensure that the machine is not locked for series-upgrade.
+	locked, err := parent.IsLockedForSeriesUpgrade()
+	if err != nil {
+		return nil, nil, err
+	}
+	if locked {
+		return nil, nil, errors.Errorf("machine %s is locked for series upgrade", parentId)
+	}
+
 	newId, err := st.newContainerId(parentId, containerType)
 	if err != nil {
 		return nil, nil, err
@@ -449,13 +457,13 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 }
 
 func (st *State) machineTemplateVolumeAttachmentParams(t MachineTemplate) ([]storage.VolumeAttachmentParams, error) {
-	im, err := st.IAASModel()
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	out := make([]storage.VolumeAttachmentParams, 0, len(t.VolumeAttachments))
 	for volumeTag, a := range t.VolumeAttachments {
-		v, err := im.Volume(volumeTag)
+		v, err := sb.Volume(volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -463,7 +471,7 @@ func (st *State) machineTemplateVolumeAttachmentParams(t MachineTemplate) ([]sto
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		providerType, _, err := poolStorageProvider(im, volumeInfo.Pool)
+		providerType, _, err := poolStorageProvider(sb, volumeInfo.Pool)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -531,8 +539,12 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		template.Constraints,
 	)
 
-	storageOps, volumeAttachments, filesystemAttachments, err := st.machineStorageOps(
-		mdoc, &machineStorageParams{
+	sb, err := NewStorageBackend(st)
+	if err != nil {
+		return nil, txn.Op{}, errors.Trace(err)
+	}
+	storageOps, volumeAttachments, filesystemAttachments, err := sb.hostStorageOps(
+		mdoc.Id, &storageParams{
 			filesystems:           template.Filesystems,
 			filesystemAttachments: template.FilesystemAttachments,
 			volumes:               template.Volumes,
@@ -578,174 +590,4 @@ func (st *State) baseNewMachineOps(mdoc *machineDoc, machineStatusDoc, instanceS
 		addModelMachineRefOp(st, mdoc.Id),
 	}
 	return prereqOps, machineOp
-}
-
-type machineStorageParams struct {
-	volumes               []MachineVolumeParams
-	volumeAttachments     map[names.VolumeTag]VolumeAttachmentParams
-	filesystems           []MachineFilesystemParams
-	filesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
-}
-
-func combineMachineStorageParams(lhs, rhs *machineStorageParams) *machineStorageParams {
-	out := &machineStorageParams{}
-	out.volumes = append(lhs.volumes[:], rhs.volumes...)
-	out.filesystems = append(lhs.filesystems[:], rhs.filesystems...)
-	if lhs.volumeAttachments != nil || rhs.volumeAttachments != nil {
-		out.volumeAttachments = make(map[names.VolumeTag]VolumeAttachmentParams)
-		for k, v := range lhs.volumeAttachments {
-			out.volumeAttachments[k] = v
-		}
-		for k, v := range rhs.volumeAttachments {
-			out.volumeAttachments[k] = v
-		}
-	}
-	if lhs.filesystemAttachments != nil || rhs.filesystemAttachments != nil {
-		out.filesystemAttachments = make(map[names.FilesystemTag]FilesystemAttachmentParams)
-		for k, v := range lhs.filesystemAttachments {
-			out.filesystemAttachments[k] = v
-		}
-		for k, v := range rhs.filesystemAttachments {
-			out.filesystemAttachments[k] = v
-		}
-	}
-	return out
-}
-
-// machineStorageOps creates txn.Ops for creating volumes, filesystems,
-// and attachments to the specified machine. The results are the txn.Ops,
-// and the tags of volumes and filesystems newly attached to the machine.
-func (st *State) machineStorageOps(
-	mdoc *machineDoc, args *machineStorageParams,
-) ([]txn.Op, []volumeAttachmentTemplate, []filesystemAttachmentTemplate, error) {
-	var filesystemOps, volumeOps []txn.Op
-	var fsAttachments []filesystemAttachmentTemplate
-	var volumeAttachments []volumeAttachmentTemplate
-
-	const (
-		createAndAttach = false
-		attachOnly      = true
-	)
-
-	im, err := st.IAASModel()
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
-
-	// Create filesystems and filesystem attachments.
-	for _, f := range args.filesystems {
-		ops, filesystemTag, volumeTag, err := im.addFilesystemOps(f.Filesystem, mdoc.Id)
-		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
-		}
-		filesystemOps = append(filesystemOps, ops...)
-		fsAttachments = append(fsAttachments, filesystemAttachmentTemplate{
-			filesystemTag, f.Filesystem.storage, f.Attachment, createAndAttach,
-		})
-		if volumeTag != (names.VolumeTag{}) {
-			// The filesystem requires a volume, so create a volume attachment too.
-			volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
-				volumeTag, VolumeAttachmentParams{}, createAndAttach,
-			})
-		}
-	}
-	for tag, filesystemAttachment := range args.filesystemAttachments {
-		fsAttachments = append(fsAttachments, filesystemAttachmentTemplate{
-			tag, names.StorageTag{}, filesystemAttachment, attachOnly,
-		})
-	}
-
-	// Create volumes and volume attachments.
-	for _, v := range args.volumes {
-		ops, tag, err := im.addVolumeOps(v.Volume, mdoc.Id)
-		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
-		}
-		volumeOps = append(volumeOps, ops...)
-		volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
-			tag, v.Attachment, createAndAttach,
-		})
-	}
-	for tag, volumeAttachment := range args.volumeAttachments {
-		volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
-			tag, volumeAttachment, attachOnly,
-		})
-	}
-
-	ops := make([]txn.Op, 0, len(filesystemOps)+len(volumeOps)+len(fsAttachments)+len(volumeAttachments))
-	if len(fsAttachments) > 0 {
-		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachments)
-		ops = append(ops, filesystemOps...)
-		ops = append(ops, attachmentOps...)
-	}
-	if len(volumeAttachments) > 0 {
-		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachments)
-		ops = append(ops, volumeOps...)
-		ops = append(ops, attachmentOps...)
-	}
-	return ops, volumeAttachments, fsAttachments, nil
-}
-
-// addMachineStorageAttachmentsOps returns txn.Ops for adding the IDs of
-// attached volumes and filesystems to an existing machine. Filesystem
-// mount points are checked against existing filesystem attachments for
-// conflicts, with a txn.Op added to prevent concurrent additions as
-// necessary.
-func addMachineStorageAttachmentsOps(
-	machine *Machine,
-	volumes []volumeAttachmentTemplate,
-	filesystems []filesystemAttachmentTemplate,
-) ([]txn.Op, error) {
-	var addToSet bson.D
-	assert := isAliveDoc
-	if len(volumes) > 0 {
-		volumeIds := make([]string, len(volumes))
-		for i, v := range volumes {
-			volumeIds[i] = v.tag.Id()
-		}
-		addToSet = append(addToSet, bson.DocElem{
-			"volumes", bson.D{{"$each", volumeIds}},
-		})
-	}
-	if len(filesystems) > 0 {
-		filesystemIds := make([]string, len(filesystems))
-		var withLocation []filesystemAttachmentTemplate
-		for i, f := range filesystems {
-			filesystemIds[i] = f.tag.Id()
-			if !f.params.locationAutoGenerated {
-				// If the location was not automatically
-				// generated, we must ensure it does not
-				// conflict with any existing storage.
-				// Generated paths are guaranteed to be
-				// unique.
-				withLocation = append(withLocation, f)
-			}
-		}
-		addToSet = append(addToSet, bson.DocElem{
-			"filesystems", bson.D{{"$each", filesystemIds}},
-		})
-		if len(withLocation) > 0 {
-			if err := validateFilesystemMountPoints(machine, withLocation); err != nil {
-				return nil, errors.Annotate(err, "validating filesystem mount points")
-			}
-			// Make sure no filesystems are added concurrently.
-			assert = append(assert, bson.DocElem{
-				"filesystems", bson.D{{"$not", bson.D{{
-					"$elemMatch", bson.D{{
-						"$nin", machine.doc.Filesystems,
-					}},
-				}}}},
-			})
-		}
-	}
-	var update interface{}
-	if len(addToSet) > 0 {
-		update = bson.D{{"$addToSet", addToSet}}
-	}
-	return []txn.Op{{
-		C:      machinesC,
-		Id:     machine.doc.Id,
-		Assert: assert,
-		Update: update,
-	}}, nil
 }

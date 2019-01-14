@@ -26,10 +26,11 @@ func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 			Status: "attached",
 		},
 		MachineAttachments: map[string]params.FilesystemAttachmentDetails{
-			s.machineTag.String(): params.FilesystemAttachmentDetails{
+			s.machineTag.String(): {
 				Life: "dead",
 			},
 		},
+		UnitAttachments: map[string]params.FilesystemAttachmentDetails{},
 		Storage: &params.StorageDetails{
 			StorageTag: "storage-data-0",
 			OwnerTag:   "unit-mysql-0",
@@ -39,7 +40,7 @@ func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 				Status: "attached",
 			},
 			Attachments: map[string]params.StorageAttachmentDetails{
-				"unit-mysql-0": params.StorageAttachmentDetails{
+				"unit-mysql-0": {
 					StorageTag: "storage-data-0",
 					UnitTag:    "unit-mysql-0",
 					MachineTag: "machine-66",
@@ -62,7 +63,7 @@ func (s *filesystemSuite) TestListFilesystemsEmptyFilter(c *gc.C) {
 
 func (s *filesystemSuite) TestListFilesystemsError(c *gc.C) {
 	msg := "inventing error"
-	s.state.allFilesystems = func() ([]state.Filesystem, error) {
+	s.storageAccessor.allFilesystems = func() ([]state.Filesystem, error) {
 		return nil, errors.New(msg)
 	}
 	results, err := s.api.ListFilesystems(params.FilesystemFilters{
@@ -74,7 +75,7 @@ func (s *filesystemSuite) TestListFilesystemsError(c *gc.C) {
 }
 
 func (s *filesystemSuite) TestListFilesystemsNoFilesystems(c *gc.C) {
-	s.state.allFilesystems = func() ([]state.Filesystem, error) {
+	s.storageAccessor.allFilesystems = func() ([]state.Filesystem, error) {
 		return nil, nil
 	}
 	results, err := s.api.ListFilesystems(params.FilesystemFilters{})
@@ -124,6 +125,7 @@ func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *gc.C) {
 		MountPoint: "/tmp",
 		ReadOnly:   true,
 	}
+	s.state.assignedMachine = s.machineTag.Id()
 	expected := s.expectedFilesystemDetails()
 	expected.MachineAttachments[s.machineTag.String()] = params.FilesystemAttachmentDetails{
 		FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{

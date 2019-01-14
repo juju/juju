@@ -4,7 +4,7 @@
 package azure
 
 import (
-	"context"
+	stdcontext "context"
 	"fmt"
 	"path"
 	"strings"
@@ -13,15 +13,16 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
 	armstorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
-	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/storage"
 )
 
@@ -161,7 +162,7 @@ type azureVolumeSource struct {
 }
 
 // CreateVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
+func (v *azureVolumeSource) CreateVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
 	results := make([]storage.CreateVolumesResult, len(params))
 	for i, p := range params {
 		if err := v.ValidateVolumeParams(p); err != nil {
@@ -170,19 +171,19 @@ func (v *azureVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []st
 		}
 	}
 	if v.maybeStorageClient == nil {
-		v.createManagedDiskVolumes(params, results)
+		v.createManagedDiskVolumes(ctx, params, results)
 		return results, nil
 	}
-	return results, v.createUnmanagedDiskVolumes(params, results)
+	return results, v.createUnmanagedDiskVolumes(ctx, params, results)
 }
 
 // createManagedDiskVolumes creates volumes with associated managed disks.
-func (v *azureVolumeSource) createManagedDiskVolumes(params []storage.VolumeParams, results []storage.CreateVolumesResult) {
+func (v *azureVolumeSource) createManagedDiskVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams, results []storage.CreateVolumesResult) {
 	for i, p := range params {
 		if results[i].Error != nil {
 			continue
 		}
-		volume, err := v.createManagedDiskVolume(p)
+		volume, err := v.createManagedDiskVolume(ctx, p)
 		if err != nil {
 			results[i].Error = err
 			continue
@@ -192,7 +193,7 @@ func (v *azureVolumeSource) createManagedDiskVolumes(params []storage.VolumePara
 }
 
 // createManagedDiskVolume creates a managed disk.
-func (v *azureVolumeSource) createManagedDiskVolume(p storage.VolumeParams) (*storage.Volume, error) {
+func (v *azureVolumeSource) createManagedDiskVolume(ctx context.ProviderCallContext, p storage.VolumeParams) (*storage.Volume, error) {
 	cfg, err := newAzureStorageConfig(p.Attributes)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -218,17 +219,17 @@ func (v *azureVolumeSource) createManagedDiskVolume(p storage.VolumeParams) (*st
 	}
 
 	diskClient := compute.DisksClient{v.env.disk}
-	sdkCtx := context.Background()
+	sdkCtx := stdcontext.Background()
 	future, err := diskClient.CreateOrUpdate(sdkCtx, v.env.resourceGroup, diskName, diskModel)
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id())
+		return nil, errorutils.HandleCredentialError(errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id()), ctx)
 	}
 	err = future.WaitForCompletionRef(sdkCtx, diskClient.Client)
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id())
+		return nil, errorutils.HandleCredentialError(errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id()), ctx)
 	}
 	result, err := future.Result(diskClient)
-	if err != nil && !isNotFoundResponse(result.Response) {
+	if err != nil && !isNotFoundResult(result.Response) {
 		return nil, errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id())
 	}
 
@@ -244,7 +245,7 @@ func (v *azureVolumeSource) createManagedDiskVolume(p storage.VolumeParams) (*st
 }
 
 // createUnmanagedDiskVolumes creates volumes with associated unmanaged disks (blobs).
-func (v *azureVolumeSource) createUnmanagedDiskVolumes(params []storage.VolumeParams, results []storage.CreateVolumesResult) error {
+func (v *azureVolumeSource) createUnmanagedDiskVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams, results []storage.CreateVolumesResult) error {
 	var instanceIds []instance.Id
 	for i, p := range params {
 		if results[i].Error != nil {
@@ -255,7 +256,7 @@ func (v *azureVolumeSource) createUnmanagedDiskVolumes(params []storage.VolumePa
 	if len(instanceIds) == 0 {
 		return nil
 	}
-	virtualMachines, err := v.virtualMachines(instanceIds)
+	virtualMachines, err := v.virtualMachines(ctx, instanceIds)
 	if err != nil {
 		return errors.Annotate(err, "getting virtual machines")
 	}
@@ -283,7 +284,7 @@ func (v *azureVolumeSource) createUnmanagedDiskVolumes(params []storage.VolumePa
 		results[i].VolumeAttachment = volumeAttachment
 	}
 
-	updateResults, err := v.updateVirtualMachines(virtualMachines, instanceIds)
+	updateResults, err := v.updateVirtualMachines(ctx, virtualMachines, instanceIds)
 	if err != nil {
 		return errors.Annotate(err, "updating virtual machines")
 	}
@@ -334,24 +335,24 @@ func (v *azureVolumeSource) createUnmanagedDiskVolume(
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) ListVolumes() ([]string, error) {
+func (v *azureVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
 	if v.maybeStorageClient == nil {
-		return v.listManagedDiskVolumes()
+		return v.listManagedDiskVolumes(ctx)
 	}
-	return v.listUnmanagedDiskVolumes()
+	return v.listUnmanagedDiskVolumes(ctx)
 }
 
-func (v *azureVolumeSource) listManagedDiskVolumes() ([]string, error) {
+func (v *azureVolumeSource) listManagedDiskVolumes(ctx context.ProviderCallContext) ([]string, error) {
 	var volumeIds []string
 	diskClient := compute.DisksClient{v.env.disk}
-	sdkCtx := context.Background()
+	sdkCtx := stdcontext.Background()
 	list, err := diskClient.ListComplete(sdkCtx)
 	if err != nil {
-		return nil, errors.Annotate(err, "listing disks")
+		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing disks"), ctx)
 	}
 	for ; list.NotDone(); err = list.NextWithContext(sdkCtx) {
 		if err != nil {
-			return nil, errors.Annotate(err, "listing disks")
+			return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing disks"), ctx)
 		}
 		diskName := to.String(list.Value().Name)
 		if _, err := names.ParseVolumeTag(diskName); err != nil {
@@ -362,8 +363,8 @@ func (v *azureVolumeSource) listManagedDiskVolumes() ([]string, error) {
 	return volumeIds, nil
 }
 
-func (v *azureVolumeSource) listUnmanagedDiskVolumes() ([]string, error) {
-	blobs, err := v.listBlobs()
+func (v *azureVolumeSource) listUnmanagedDiskVolumes(ctx context.ProviderCallContext) ([]string, error) {
+	blobs, err := v.listBlobs(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing volumes")
 	}
@@ -379,13 +380,14 @@ func (v *azureVolumeSource) listUnmanagedDiskVolumes() ([]string, error) {
 }
 
 // listBlobs returns a list of blobs in the data-disk container.
-func (v *azureVolumeSource) listBlobs() ([]internalazurestorage.Blob, error) {
+func (v *azureVolumeSource) listBlobs(ctx context.ProviderCallContext) ([]internalazurestorage.Blob, error) {
 	blobsClient := v.maybeStorageClient.GetBlobService()
 	vhdContainer := blobsClient.GetContainerReference(dataDiskVHDContainer)
 	// TODO(axw) consider taking a set of IDs and computing the
 	//           longest common prefix to pass in the parameters
 	blobs, err := vhdContainer.Blobs()
 	if err != nil {
+		errorutils.HandleCredentialError(err, ctx)
 		if err, ok := err.(azurestorage.AzureStorageServiceError); ok {
 			switch err.Code {
 			case "ContainerNotFound":
@@ -398,28 +400,28 @@ func (v *azureVolumeSource) listBlobs() ([]internalazurestorage.Blob, error) {
 }
 
 // DescribeVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.DescribeVolumesResult, error) {
+func (v *azureVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
 	if v.maybeStorageClient == nil {
-		return v.describeManagedDiskVolumes(volumeIds)
+		return v.describeManagedDiskVolumes(ctx, volumeIds)
 	}
-	return v.describeUnmanagedDiskVolumes(volumeIds)
+	return v.describeUnmanagedDiskVolumes(ctx, volumeIds)
 }
 
-func (v *azureVolumeSource) describeManagedDiskVolumes(volumeIds []string) ([]storage.DescribeVolumesResult, error) {
+func (v *azureVolumeSource) describeManagedDiskVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
 	diskClient := compute.DisksClient{v.env.disk}
 	results := make([]storage.DescribeVolumesResult, len(volumeIds))
 	var wg sync.WaitGroup
-	sdkCtx := context.Background()
+	sdkCtx := stdcontext.Background()
 	for i, volumeId := range volumeIds {
 		wg.Add(1)
 		go func(i int, volumeId string) {
 			defer wg.Done()
 			disk, err := diskClient.Get(sdkCtx, v.env.resourceGroup, volumeId)
 			if err != nil {
-				if isNotFoundResponse(disk.Response) {
+				if isNotFoundResult(disk.Response) {
 					err = errors.NotFoundf("disk %s", volumeId)
 				}
-				results[i].Error = err
+				results[i].Error = errorutils.HandleCredentialError(err, ctx)
 				return
 			}
 			results[i].VolumeInfo = &storage.VolumeInfo{
@@ -433,8 +435,8 @@ func (v *azureVolumeSource) describeManagedDiskVolumes(volumeIds []string) ([]st
 	return results, nil
 }
 
-func (v *azureVolumeSource) describeUnmanagedDiskVolumes(volumeIds []string) ([]storage.DescribeVolumesResult, error) {
-	blobs, err := v.listBlobs()
+func (v *azureVolumeSource) describeUnmanagedDiskVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
+	blobs, err := v.listBlobs(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing volumes")
 	}
@@ -467,21 +469,21 @@ func (v *azureVolumeSource) describeUnmanagedDiskVolumes(volumeIds []string) ([]
 }
 
 // DestroyVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) {
+func (v *azureVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	if v.maybeStorageClient == nil {
-		return v.destroyManagedDiskVolumes(volumeIds)
+		return v.destroyManagedDiskVolumes(ctx, volumeIds)
 	}
-	return v.destroyUnmanagedDiskVolumes(volumeIds)
+	return v.destroyUnmanagedDiskVolumes(ctx, volumeIds)
 }
 
-func (v *azureVolumeSource) destroyManagedDiskVolumes(volumeIds []string) ([]error, error) {
+func (v *azureVolumeSource) destroyManagedDiskVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	diskClient := compute.DisksClient{v.env.disk}
-	sdkCtx := context.Background()
+	sdkCtx := stdcontext.Background()
 	return foreachVolume(volumeIds, func(volumeId string) error {
 		future, err := diskClient.Delete(sdkCtx, v.env.resourceGroup, volumeId)
 		if err != nil {
-			if !isNotFoundResponse(autorest.Response{future.Response()}) {
-				return errors.Annotatef(err, "deleting disk %q", volumeId)
+			if !isNotFoundResponse(future.Response()) {
+				return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting disk %q", volumeId), ctx)
 			}
 			return nil
 		}
@@ -490,20 +492,20 @@ func (v *azureVolumeSource) destroyManagedDiskVolumes(volumeIds []string) ([]err
 			return errors.Annotatef(err, "deleting disk %q", volumeId)
 		}
 		result, err := future.Result(diskClient)
-		if err != nil && !isNotFoundResponse(result) {
+		if err != nil && !isNotFoundResult(result) {
 			return errors.Annotatef(err, "deleting disk %q", volumeId)
 		}
 		return nil
 	}), nil
 }
 
-func (v *azureVolumeSource) destroyUnmanagedDiskVolumes(volumeIds []string) ([]error, error) {
+func (v *azureVolumeSource) destroyUnmanagedDiskVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	blobsClient := v.maybeStorageClient.GetBlobService()
 	vhdContainer := blobsClient.GetContainerReference(dataDiskVHDContainer)
 	return foreachVolume(volumeIds, func(volumeId string) error {
 		vhdBlob := vhdContainer.Blob(volumeId + vhdExtension)
 		_, err := vhdBlob.DeleteIfExists(nil)
-		return errors.Annotatef(err, "deleting blob %q", vhdBlob.Name())
+		return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting blob %q", vhdBlob.Name()), ctx)
 	}), nil
 }
 
@@ -522,7 +524,7 @@ func foreachVolume(volumeIds []string, f func(string) error) []error {
 }
 
 // ReleaseVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) {
+func (v *azureVolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	// Releasing volumes is not supported, see azureStorageProvider.Releasable.
 	//
 	// When managed disks can be moved between resource groups, we may want to
@@ -544,7 +546,7 @@ func (v *azureVolumeSource) ValidateVolumeParams(params storage.VolumeParams) er
 }
 
 // AttachVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(attachParams))
 	instanceIds := make([]instance.Id, len(attachParams))
 	for i, p := range attachParams {
@@ -553,7 +555,7 @@ func (v *azureVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmen
 	if len(instanceIds) == 0 {
 		return results, nil
 	}
-	virtualMachines, err := v.virtualMachines(instanceIds)
+	virtualMachines, err := v.virtualMachines(ctx, instanceIds)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting virtual machines")
 	}
@@ -591,7 +593,7 @@ func (v *azureVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmen
 		}
 	}
 
-	updateResults, err := v.updateVirtualMachines(virtualMachines, instanceIds)
+	updateResults, err := v.updateVirtualMachines(ctx, virtualMachines, instanceIds)
 	if err != nil {
 		return nil, errors.Annotate(err, "updating virtual machines")
 	}
@@ -642,7 +644,7 @@ func (v *azureVolumeSource) addDataDisk(
 	vm *compute.VirtualMachine,
 	diskName string,
 	volumeTag names.VolumeTag,
-	machineTag names.MachineTag,
+	machineTag names.Tag,
 	createOption compute.DiskCreateOptionTypes,
 	diskSizeGB *int32,
 ) (*storage.VolumeAttachment, error) {
@@ -689,7 +691,7 @@ func (v *azureVolumeSource) addDataDisk(
 }
 
 // DetachVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmentParams) ([]error, error) {
+func (v *azureVolumeSource) DetachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
 	results := make([]error, len(attachParams))
 	instanceIds := make([]instance.Id, len(attachParams))
 	for i, p := range attachParams {
@@ -698,7 +700,7 @@ func (v *azureVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmen
 	if len(instanceIds) == 0 {
 		return results, nil
 	}
-	virtualMachines, err := v.virtualMachines(instanceIds)
+	virtualMachines, err := v.virtualMachines(ctx, instanceIds)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting virtual machines")
 	}
@@ -729,7 +731,7 @@ func (v *azureVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmen
 		}
 	}
 
-	updateResults, err := v.updateVirtualMachines(virtualMachines, instanceIds)
+	updateResults, err := v.updateVirtualMachines(ctx, virtualMachines, instanceIds)
 	if err != nil {
 		return nil, errors.Annotate(err, "updating virtual machines")
 	}
@@ -783,12 +785,12 @@ type maybeVirtualMachine struct {
 
 // virtualMachines returns a mapping of instance IDs to VirtualMachines and
 // errors, for each of the specified instance IDs.
-func (v *azureVolumeSource) virtualMachines(instanceIds []instance.Id) (map[instance.Id]*maybeVirtualMachine, error) {
+func (v *azureVolumeSource) virtualMachines(ctx context.ProviderCallContext, instanceIds []instance.Id) (map[instance.Id]*maybeVirtualMachine, error) {
 	vmsClient := compute.VirtualMachinesClient{v.env.compute}
-	sdkCtx := context.Background()
+	sdkCtx := stdcontext.Background()
 	result, err := vmsClient.ListComplete(sdkCtx, v.env.resourceGroup)
 	if err != nil {
-		return nil, errors.Annotate(err, "listing virtual machines")
+		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing virtual machines"), ctx)
 	}
 
 	all := make(map[instance.Id]*compute.VirtualMachine)
@@ -814,6 +816,7 @@ func (v *azureVolumeSource) virtualMachines(instanceIds []instance.Id) (map[inst
 // through the list of instance IDs in order, and updating each corresponding
 // virtual machine at most once.
 func (v *azureVolumeSource) updateVirtualMachines(
+	ctx context.ProviderCallContext,
 	virtualMachines map[instance.Id]*maybeVirtualMachine, instanceIds []instance.Id,
 ) ([]error, error) {
 	results := make([]error, len(instanceIds))
@@ -827,12 +830,15 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			results[i] = vm.err
 			continue
 		}
-		sdkCtx := context.Background()
+		sdkCtx := stdcontext.Background()
 		future, err := vmsClient.CreateOrUpdate(
 			sdkCtx,
 			v.env.resourceGroup, to.String(vm.vm.Name), *vm.vm,
 		)
 		if err != nil {
+			if errorutils.MaybeInvalidateCredential(err, ctx) {
+				return nil, errors.Trace(err)
+			}
 			results[i] = err
 			vm.err = err
 			continue
@@ -949,10 +955,10 @@ func getStorageAccountKey(
 	resourceGroup, accountName string,
 ) (*armstorage.AccountKey, error) {
 	logger.Debugf("getting keys for storage account %q", accountName)
-	sdkCtx := context.Background()
+	sdkCtx := stdcontext.Background()
 	listKeysResult, err := client.ListKeys(sdkCtx, resourceGroup, accountName)
 	if err != nil {
-		if isNotFoundResponse(listKeysResult.Response) {
+		if isNotFoundResult(listKeysResult.Response) {
 			return nil, errors.NewNotFound(err, "storage account keys not found")
 		}
 		return nil, errors.Annotate(err, "listing storage account keys")

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"github.com/kr/pretty"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -21,12 +22,13 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -175,6 +177,14 @@ func (m *Machine) ContainerType() instance.ContainerType {
 	return instance.ContainerType(m.doc.ContainerType)
 }
 
+func (m *Machine) ModelName() string {
+	name, err := m.st.modelName()
+	if err != nil {
+		logger.Errorf(err.Error())
+	}
+	return name
+}
+
 // machineGlobalKey returns the global database key for the identified machine.
 func machineGlobalKey(id string) string {
 	return "m#" + id
@@ -212,6 +222,10 @@ type instanceData struct {
 	// KeepInstance is set to true if, on machine removal from Juju,
 	// the cloud instance should be retained.
 	KeepInstance bool `bson:"keep-instance,omitempty"`
+
+	// CharmProfiles contains the names of LXD profiles used by this machine.
+	// Profiles would have been defined in the charm deployed to this machine.
+	CharmProfiles []string `bson:"charm-profiles,omitempty"`
 }
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
@@ -248,6 +262,84 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 		return instanceData{}, fmt.Errorf("cannot get instance data for machine %v: %v", id, err)
 	}
 	return instData, nil
+}
+
+// instanceCharmProfileDataC holds attributes relevant to a lxd charm profile
+// data that's on the machine
+type instanceCharmProfileData struct {
+	DocID     string `bson:"_id"`
+	MachineId string `bson:"machineid"`
+
+	// UpgradeCharmProfileApplication holds the name of the application where there
+	// is an charm upgrade event and a charm profile, even if there is no charm
+	// profile.
+	UpgradeCharmProfileApplication string `bson:",omitempty"`
+
+	// UpgradeCharmProfileCharmURL holds the charm URL when there is an charm
+	// upgrade event with a charm profile.  This is used before the application
+	// contains the new charm URL during a charm upgrade.
+	UpgradeCharmProfileCharmURL string `bson:",omitempty"`
+
+	// UpgradeCharmProfileComplete holds the outcome of charm upgrade event
+	// with a charm profile in play.  Success, Not Required or the Error.
+	UpgradeCharmProfileComplete string `bson:",omitempty"`
+}
+
+func getInstanceCharmProfileData(st *State, id string) (instanceCharmProfileData, error) {
+	collection, closer := st.db().GetCollection(instanceCharmProfileDataC)
+	defer closer()
+
+	var instData instanceCharmProfileData
+	err := collection.FindId(id).One(&instData)
+	if err == mgo.ErrNotFound {
+		return instanceCharmProfileData{}, errors.NotFoundf("instance charm profile data %v", id)
+	}
+	if err != nil {
+		return instanceCharmProfileData{}, errors.Annotatef(err, "cannot get instance charm profile data for machine %v", id)
+	}
+	return instData, nil
+}
+
+// TODO (stickupkid): We can no longer cache the information directly on the
+// machine and reuse that in other places, instead we could potentially optimise
+// the following calls, so that we return both UpgradeCharmProfileApplication
+// and UpgradeCharmProfileCharmURL as one call, instead of double requesting the
+// data.
+
+// UpgradeCharmProfileApplication returns the replacement profile application name for the machine.
+func (m *Machine) UpgradeCharmProfileApplication() (string, error) {
+	instData, err := getInstanceCharmProfileData(m.st, m.Id())
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	return instData.UpgradeCharmProfileApplication, nil
+}
+
+// UpgradeCharmProfileCharmURL returns the charm url for the replacement profile for the machine.
+func (m *Machine) UpgradeCharmProfileCharmURL() (string, error) {
+	instData, err := getInstanceCharmProfileData(m.st, m.Id())
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	return instData.UpgradeCharmProfileCharmURL, nil
+}
+
+// UpgradeCharmProfileComplete returns the charm upgrade with profile completion message
+func (m *Machine) UpgradeCharmProfileComplete() (string, error) {
+	instData, err := getInstanceCharmProfileData(m.st, m.Id())
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return lxdprofile.NotKnownStatus, nil
+		}
+		return "", err
+	}
+	return instData.UpgradeCharmProfileComplete, nil
 }
 
 // Tag returns a tag identifying the machine. The String method provides a
@@ -300,6 +392,54 @@ func (m *Machine) KeepInstance() (bool, error) {
 		return false, err
 	}
 	return instData.KeepInstance, nil
+}
+
+// CharmProfiles returns the names of any LXD profiles used by the machine,
+// which were defined in the charm deployed to that machine.
+func (m *Machine) CharmProfiles() ([]string, error) {
+	instData, err := getInstanceData(m.st, m.Id())
+	if errors.IsNotFound(err) {
+		err = errors.NotProvisionedf("machine %v", m.Id())
+	}
+	if err != nil {
+		return nil, err
+	}
+	return instData.CharmProfiles, nil
+}
+
+// SetCharmProfiles sets the names of the charm profiles used on a machine
+// in its instanceData.
+func (m *Machine) SetCharmProfiles(profiles []string) error {
+	if len(profiles) == 0 {
+		return nil
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		// Exit early if the Machine profiles doesn't need to change.
+		mProfiles, err := m.CharmProfiles()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		mProfilesSet := set.NewStrings(mProfiles...)
+		if mProfilesSet.Union(set.NewStrings(profiles...)).Size() == mProfilesSet.Size() {
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		ops := []txn.Op{{
+			C:      instanceDataC,
+			Id:     m.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"charm-profiles", profiles}}}},
+		}}
+
+		return ops, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	return errors.Annotatef(err, "cannot update profiles for %q to %s", m, strings.Join(profiles, ", "))
 }
 
 // WantsVote reports whether the machine is a controller
@@ -852,14 +992,10 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 // filesystems attached to the machine, and returns any mgo/txn assertions
 // required to ensure that remains true.
 func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
-	im, err := m.st.IAASModel()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	attachments := names.NewSet()
 	for _, v := range m.doc.Volumes {
 		tag := names.NewVolumeTag(v)
-		detachable, err := isDetachableVolumeTag(im.mb.db(), tag)
+		detachable, err := isDetachableVolumeTag(m.st.db(), tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -869,7 +1005,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	}
 	for _, f := range m.doc.Filesystems {
 		tag := names.NewFilesystemTag(f)
-		detachable, err := isDetachableFilesystemTag(im.mb.db(), tag)
+		detachable, err := isDetachableFilesystemTag(m.st.db(), tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -930,10 +1066,6 @@ func (m *Machine) removePortsOps() ([]txn.Op, error) {
 }
 
 func (m *Machine) removeOps() ([]txn.Op, error) {
-	im, err := m.st.IAASModel()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	if m.doc.Life != Dead {
 		return nil, fmt.Errorf("machine is not dead")
 	}
@@ -970,14 +1102,20 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filesystemOps, err := im.removeMachineFilesystemsOps(m)
+
+	sb, err := NewStorageBackend(m.st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	volumeOps, err := im.removeMachineVolumesOps(m)
+	filesystemOps, err := sb.removeMachineFilesystemsOps(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	volumeOps, err := sb.removeMachineVolumesOps(m)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	ops = append(ops, linkLayerDevicesOps...)
 	ops = append(ops, devicesAddressesOps...)
 	ops = append(ops, portsOps...)
@@ -1158,6 +1296,20 @@ func (m *Machine) AvailabilityZone() (string, error) {
 	return zone, nil
 }
 
+// ApplicationNames returns the names of applications
+// represented by units running on the machine.
+func (m *Machine) ApplicationNames() ([]string, error) {
+	units, err := m.Units()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	apps := set.NewStrings()
+	for _, unit := range units {
+		apps.Add(unit.ApplicationName())
+	}
+	return apps.SortedValues(), nil
+}
+
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get units assigned to machine %v", m)
@@ -1196,7 +1348,8 @@ func convertSpacesFromConstraints(spaces *[]string) ([]string, []string) {
 	if spaces == nil || len(*spaces) == 0 {
 		return nil, nil
 	}
-	return parseDelimitedValues(*spaces)
+	positive, negative := parseDelimitedValues(*spaces)
+	return positive, negative
 }
 
 // parseDelimitedValues parses a slice of raw values coming from constraints
@@ -1329,14 +1482,15 @@ func (m *Machine) SetProvisioned(
 	return fmt.Errorf("already set")
 }
 
-// SetInstanceInfo is used to provision a machine and in one steps set it's
+// SetInstanceInfo is used to provision a machine and in one step sets it's
 // instance id, nonce, hardware characteristics, add link-layer devices and set
-// their addresses as needed.
+// their addresses as needed.  After, set charm profiles if needed.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	devicesArgs []LinkLayerDeviceArgs, devicesAddrs []LinkLayerDeviceAddress,
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
+	charmProfiles []string,
 ) error {
 	logger.Tracef(
 		"setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v",
@@ -1349,17 +1503,17 @@ func (m *Machine) SetInstanceInfo(
 		return errors.Trace(err)
 	}
 
-	im, err := m.st.IAASModel()
+	sb, err := NewStorageBackend(m.st)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Record volumes and volume attachments, and set the initial
 	// status: attached or attaching.
-	if err := setProvisionedVolumeInfo(im, volumes); err != nil {
+	if err := setProvisionedVolumeInfo(sb, volumes); err != nil {
 		return errors.Trace(err)
 	}
-	if err := setMachineVolumeAttachmentInfo(im, m.Id(), volumeAttachments); err != nil {
+	if err := setMachineVolumeAttachmentInfo(sb, m.Id(), volumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
 	volumeStatus := make(map[names.VolumeTag]status.Status)
@@ -1369,15 +1523,24 @@ func (m *Machine) SetInstanceInfo(
 	for tag := range volumeAttachments {
 		volumeStatus[tag] = status.Attached
 	}
-	for tag, status := range volumeStatus {
-		if err := im.SetVolumeStatus(tag, status, "", nil, nil); err != nil {
+	for tag, volStatus := range volumeStatus {
+		vol, err := sb.Volume(tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := vol.SetStatus(status.StatusInfo{
+			Status: volStatus,
+		}); err != nil {
 			return errors.Annotatef(
 				err, "setting status of %s", names.ReadableString(tag),
 			)
 		}
 	}
 
-	return m.SetProvisioned(id, nonce, characteristics)
+	if err := m.SetProvisioned(id, nonce, characteristics); err != nil {
+		return errors.Trace(err)
+	}
+	return m.SetCharmProfiles(charmProfiles)
 }
 
 // Addresses returns any hostnames and ips associated with a machine,
@@ -1433,7 +1596,7 @@ func maybeGetNewAddress(
 	}
 	// The order of these checks is important. If the stored address is
 	// empty we *always* want to check for a new address so we do that
-	// first. If the stored address is unavilable we also *must* check for
+	// first. If the stored address is unavailable we also *must* check for
 	// a new address so we do that next. If the original is a machine
 	// address and a provider address is available we want to switch to
 	// that. Finally we check to see if a better match on scope from the
@@ -1915,11 +2078,11 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 
 // VolumeAttachments returns the machine's volume attachments.
 func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
-	im, err := m.st.IAASModel()
+	sb, err := NewStorageBackend(m.st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return im.MachineVolumeAttachments(m.MachineTag())
+	return sb.MachineVolumeAttachments(m.MachineTag())
 }
 
 // AddAction is part of the ActionReceiver interface.
@@ -1991,7 +2154,7 @@ func (m *Machine) UpdateMachineSeries(series string, force bool) error {
 		}
 
 		principals := m.Principals() // unit names
-		verifiedUnits, err := m.verifyUnitsSeries(principals, series, force)
+		verifiedUnits, err := m.VerifyUnitsSeries(principals, series, force)
 		if err != nil {
 			return nil, err
 		}
@@ -2017,11 +2180,15 @@ func (m *Machine) UpdateMachineSeries(series string, force bool) error {
 		return ops, nil
 	}
 	err := m.st.db().Run(buildTxn)
-	return errors.Annotatef(err, "cannot update series for %q to %s", m, series)
+	return errors.Annotatef(err, "updating series for machine %q", m)
 }
 
-func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force bool) ([]*Unit, error) {
-	results := []*Unit{}
+// VerifyUnitsSeries iterates over the units with the input names, and checks
+// that the application for each supports the input series.
+// Recursion is used to verify all subordinates, with the results accrued into
+// a slice before returning.
+func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force bool) ([]*Unit, error) {
+	var results []*Unit
 	for _, u := range unitNames {
 		unit, err := m.st.Unit(u)
 		if err != nil {
@@ -2037,7 +2204,7 @@ func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force boo
 		}
 
 		subordinates := unit.SubordinateNames()
-		subUnits, err := m.verifyUnitsSeries(subordinates, series, force)
+		subUnits, err := m.VerifyUnitsSeries(subordinates, series, force)
 		if err != nil {
 			return nil, err
 		}
@@ -2045,6 +2212,261 @@ func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force boo
 		results = append(results, subUnits...)
 	}
 	return results, nil
+}
+
+// SetUpgradeCharmProfile sets an application name and a charm url for
+// machine's needing a charm profile change.  For an LXD container or
+// machine only.
+func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		life := m.Life()
+		if life == Dead || life == Dying {
+			return nil, ErrDead
+		}
+		return m.SetUpgradeCharmProfileTxns(appName, chURL)
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetUpgradeCharmProfileTxns does the checks and creates the txns to
+// write an instanceCharmProfileDoc to trigger a profile change on a
+// machine.  AppName and Charm with an LXDProfile, adds or updates
+// the charm lxd profile on the machine. AppName and Charm without
+// an LXDProfile, removes the charm lxd profile from the machine if
+// was previously applied.  AppName without a Charm URL causes a
+// previously applied lxd profile for the charm to be removed from
+// the machine.
+func (m *Machine) SetUpgradeCharmProfileTxns(appName, chURL string) ([]txn.Op, error) {
+	// Check to see if the doc created in these txn already exists
+	// and has expected data.
+	err := m.verifyInstanceCharmProfileData(appName, chURL)
+	if err != nil {
+		return nil, err
+	}
+
+	charmURL, err := charm.ParseURL(chURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ch, err := m.st.Charm(charmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var emptyProfile bool
+	if ch == nil || (ch.LXDProfile() == nil || ch.LXDProfile().Empty()) {
+		emptyProfile = true
+	}
+
+	ops := []txn.Op{
+		{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: isAliveDoc,
+		}, {
+			C:      charmsC,
+			Id:     ch.doc.DocID,
+			Assert: bson.D{{"url", ch.URL()}},
+		},
+	}
+
+	provisioned := true
+	profiles, err := m.CharmProfiles()
+	if err != nil {
+		if errors.IsNotProvisioned(err) {
+			provisioned = false
+		} else {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	// The doc containing charm-profiles only exists after a machine
+	// is provisioned.  Even then, there is no guarantee the machine
+	// has a charm profile applied.
+	if provisioned {
+		if len(profiles) > 0 {
+			ops = append(ops, txn.Op{
+				C:      instanceDataC,
+				Id:     m.doc.DocID,
+				Assert: bson.D{{"charm-profiles", profiles}},
+			})
+		} else {
+			// "charm-profiles" is configured as omitempty,
+			// so an assert with an empty slice will fail.
+			// Do this instead:
+			ops = append(ops, m.checkCharmProfilesIsEmptyOp())
+		}
+	}
+
+	// If the new charm has no profile, check to see if the application
+	// already has a profile applied to the machine, if not, we can
+	// set NotRequiredStatus.
+	if emptyProfile {
+		appliedProfileName, err := lxdprofile.MatchProfileNameByAppName(profiles, appName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if appliedProfileName == "" {
+			return append(ops, m.SetUpgradeCharmProfileOp(appName, "", lxdprofile.NotRequiredStatus)), nil
+		}
+	}
+
+	// We can always insert, because the doc was removed after the
+	// change triggered by this transaction was make.  Or should have
+	// been. Either during charm upgrade or when a new unit was added
+	// to an existing machine, perhaps a subordinate.
+	return append(ops, m.SetUpgradeCharmProfileOp(appName, chURL, lxdprofile.EmptyStatus)),
+		nil
+}
+
+// SetUpgradeCharmProfileOp returns a transaction for the machine to
+// trigger a change to its LXD Profile(s).
+func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL, status string) txn.Op {
+	instanceData := instanceCharmProfileData{
+		DocID:                          m.doc.DocID,
+		MachineId:                      m.doc.Id,
+		UpgradeCharmProfileCharmURL:    chURL,
+		UpgradeCharmProfileApplication: appName,
+		UpgradeCharmProfileComplete:    status,
+	}
+	// We can always insert, because the doc was removed after the
+	// change triggered by this transaction was make.  Either during
+	// charm upgrade or when a new subordinate was added.
+	return txn.Op{
+		C:      instanceCharmProfileDataC,
+		Id:     m.doc.DocID,
+		Assert: txn.DocMissing,
+		Insert: instanceData,
+	}
+}
+
+// verifyInstanceCharmProfileData checks to see if there is any InstanceCharmProfileData
+// for the machine with provided appName and chURL.  If one exists, does it contain
+// expected data?  If does not exist, returns nil.  If exists as expected return
+// jujutxn.ErrNoOperations.  Otherwise return the error.
+func (m *Machine) verifyInstanceCharmProfileData(appName, chURL string) error {
+	data, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	if (data.UpgradeCharmProfileApplication == appName &&
+		data.UpgradeCharmProfileCharmURL == chURL &&
+		data.UpgradeCharmProfileComplete == lxdprofile.EmptyStatus) ||
+		(data.UpgradeCharmProfileApplication == appName &&
+			data.UpgradeCharmProfileComplete == lxdprofile.NotRequiredStatus) {
+		logger.Tracef("Instance charm profile data already exists with expected values for machine %s and %q", data.MachineId, chURL)
+		return jujutxn.ErrNoOperations
+	}
+	return errors.Trace(errors.Errorf(
+		"upgrade charm profile already in process for machine %s, profile from %q",
+		data.MachineId, data.UpgradeCharmProfileCharmURL,
+	))
+}
+
+// checkCharmProfilesIsEmptyOp ensures that the charm-profiles on the instance
+// data is empty
+func (m *Machine) checkCharmProfilesIsEmptyOp() txn.Op {
+	return txn.Op{
+		C:  instanceDataC,
+		Id: m.doc.DocID,
+		Assert: bson.D{{
+			"$or", []bson.D{
+				{{"charm-profiles", bson.D{{"$size", 0}}}},
+				{{"charm-profiles", bson.D{{"$exists", false}}}},
+			},
+		}},
+	}
+}
+
+// SetUpgradeCharmProfileComplete on the instance charm profile data.
+// If the profile has been removed, then this will throw an error upon
+// running the transaction
+func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		life := m.Life()
+		if life == Dead || life == Dying {
+			return nil, ErrDead
+		}
+		data, err := getInstanceCharmProfileData(m.st, m.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if data.UpgradeCharmProfileComplete == msg {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return []txn.Op{
+			{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Assert: isAliveDoc,
+			},
+			{
+				C:      instanceCharmProfileDataC,
+				Id:     m.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecomplete", msg}}}},
+			},
+		}, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RemoveUpgradeCharmProfileData completely removes the instance charm profile
+// data for a machine, even if the machine is dead.
+func (m *Machine) RemoveUpgradeCharmProfileData() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		data, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+		// If the instance data is removed already, just
+		if errors.IsNotFound(err) {
+			logger.Tracef("Instance charm profile data already removed for machine %s", m.Id())
+			return nil, jujutxn.ErrNoOperations
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err == nil {
+			// Write the instance data out to a log, so that we can audit the
+			// information if there is an issue.
+			logger.Debugf("Removing instance charm profile data %#v", data)
+		}
+
+		// Note: we don't care if the machine is alive or not, we do want to
+		// remove the charm profile data, even if the machine is dead. The is
+		// for two reasons
+		//  1. Ensure we don't leave any orphans
+		//  2. To prevent any watchers from miss-firing on old data.
+		return []txn.Op{{
+			C:      instanceCharmProfileDataC,
+			Id:     m.doc.DocID,
+			Assert: txn.DocExists,
+			Remove: true,
+		}}, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.

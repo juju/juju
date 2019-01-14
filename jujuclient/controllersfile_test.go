@@ -6,7 +6,11 @@ package jujuclient_test
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -64,6 +68,15 @@ func (s *ControllersFileSuite) TestReadNoFile(c *gc.C) {
 	c.Assert(controllers.CurrentController, gc.Equals, "")
 }
 
+func (s *ControllersFileSuite) TestReadPermissionsError(c *gc.C) {
+	path := filepath.Join(os.TempDir(), fmt.Sprintf("file-%d", time.Now().UnixNano()))
+	err := ioutil.WriteFile(path, []byte(""), 0377)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = jujuclient.ReadControllersFile(path)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "open .*: permission denied")
+}
+
 func (s *ControllersFileSuite) TestReadEmptyFile(c *gc.C) {
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("controllers.yaml"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,7 +106,7 @@ func writeTestControllersFile(c *gc.C) *jujuclient.Controllers {
 func (s *ControllersFileSuite) TestParseControllerMetadata(c *gc.C) {
 	controllers := parseControllers(c)
 	var names []string
-	for name, _ := range controllers.Controllers {
+	for name := range controllers.Controllers {
 		names = append(names, name)
 	}
 	c.Assert(names, jc.SameContents,
@@ -137,7 +150,7 @@ current-controller: aws-test
 	expectedDetails := jujuclient.ControllerDetails{
 		ControllerUUID: "this-is-the-aws-test-uuid",
 		APIEndpoints:   []string{"this-is-aws-test-of-many-api-endpoints"},
-		DNSCache:       map[string][]string{"example.com": []string{"0.1.1.1", "0.2.2.2"}},
+		DNSCache:       map[string][]string{"example.com": {"0.1.1.1", "0.2.2.2"}},
 		CACert:         "this-is-aws-test-ca-cert",
 		Cloud:          "aws",
 		CloudRegion:    "us-east-1",

@@ -21,7 +21,7 @@ type cloudSuite struct {
 var _ = gc.Suite(&cloudSuite{})
 
 var publicCloudNames = []string{
-	"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "rackspace", "joyent", "cloudsigma", "oracle",
+	"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "rackspace", "joyent", "cloudsigma", "oracle", "oracle-classic",
 }
 
 func parsePublicClouds(c *gc.C) map[string]cloud.Cloud {
@@ -34,7 +34,7 @@ func parsePublicClouds(c *gc.C) map[string]cloud.Cloud {
 func (s *cloudSuite) TestParseClouds(c *gc.C) {
 	clouds := parsePublicClouds(c)
 	var cloudNames []string
-	for name, _ := range clouds {
+	for name := range clouds {
 		cloudNames = append(cloudNames, name)
 	}
 	c.Assert(cloudNames, jc.SameContents, publicCloudNames)
@@ -145,7 +145,7 @@ func (s *cloudSuite) TestPublicCloudsMetadataFallback(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fallbackUsed, jc.IsTrue)
 	var cloudNames []string
-	for name, _ := range clouds {
+	for name := range clouds {
 		cloudNames = append(cloudNames, name)
 	}
 	c.Assert(cloudNames, jc.SameContents, publicCloudNames)
@@ -166,7 +166,7 @@ clouds:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fallbackUsed, jc.IsFalse)
 	c.Assert(clouds, jc.DeepEquals, map[string]cloud.Cloud{
-		"aws-me": cloud.Cloud{
+		"aws-me": {
 			Name:        "aws-me",
 			Type:        "aws",
 			Description: "Amazon Web Services",
@@ -187,7 +187,7 @@ func (s *cloudSuite) TestGeneratedPublicCloudInfo(c *gc.C) {
 
 func (s *cloudSuite) TestWritePublicCloudsMetadata(c *gc.C) {
 	clouds := map[string]cloud.Cloud{
-		"aws-me": cloud.Cloud{
+		"aws-me": {
 			Name:        "aws-me",
 			Type:        "aws",
 			Description: "Amazon Web Services",

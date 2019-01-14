@@ -92,7 +92,7 @@ func (*undertakerSuite) TestAllMachineRemovals(c *gc.C) {
 func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *gc.C) {
 	backend, _, api := makeAPI(c, "")
 	backend.machines = map[string]*mockMachine{
-		"0": &mockMachine{
+		"0": {
 			Stub: &testing.Stub{},
 			interfaceInfos: []network.ProviderInterfaceInfo{{
 				InterfaceName: "billy",
@@ -103,7 +103,7 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *gc.C) {
 				MACAddress:    "octal?",
 				ProviderId:    "different number",
 			}}},
-		"2": &mockMachine{
+		"2": {
 			Stub: &testing.Stub{},
 			interfaceInfos: []network.ProviderInterfaceInfo{{
 				InterfaceName: "gilly",
@@ -153,7 +153,7 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *gc.C) {
 func (*undertakerSuite) TestGetMachineProviderInterfaceInfoHandlesError(c *gc.C) {
 	backend, _, api := makeAPI(c, "")
 	backend.machines = map[string]*mockMachine{
-		"0": &mockMachine{Stub: backend.Stub},
+		"0": {Stub: backend.Stub},
 	}
 	backend.SetErrors(nil, errors.New("oops - problem getting interface infos"))
 	result := api.GetMachineProviderInterfaceInfo(makeEntities("machine-0"))

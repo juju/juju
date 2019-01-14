@@ -10,7 +10,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 // NewClient returns a new Client based on an existing API connection.

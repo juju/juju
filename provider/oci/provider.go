@@ -6,13 +6,15 @@ package oci
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
+	"os"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
-	"github.com/juju/utils/clock"
 	ociCore "github.com/oracle/oci-go-sdk/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/identity"
 	"gopkg.in/ini.v1"
@@ -23,10 +25,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
-	providerCommon "github.com/juju/juju/provider/oci/common"
+	"github.com/juju/juju/provider/oci/common"
 )
 
-var logger = loggo.GetLogger("juju.provider.oracle")
+var logger = loggo.GetLogger("juju.provider.oci")
 
 // EnvironProvider type implements environs.EnvironProvider interface
 type EnvironProvider struct{}
@@ -39,36 +41,41 @@ type environConfig struct {
 var _ config.ConfigSchemaSource = (*EnvironProvider)(nil)
 var _ environs.ProviderSchema = (*EnvironProvider)(nil)
 
-var cloudSchema = &jsonschema.Schema{
-	Type:     []jsonschema.Type{jsonschema.ObjectType},
-	Required: []string{cloud.RegionsKey, cloud.AuthTypesKey},
-	Order:    []string{cloud.RegionsKey, cloud.AuthTypesKey},
-	Properties: map[string]*jsonschema.Schema{
-		cloud.RegionsKey: {
-			Type:     []jsonschema.Type{jsonschema.ObjectType},
-			Singular: "region",
-			Plural:   "regions",
-			AdditionalProperties: &jsonschema.Schema{
-				Type: []jsonschema.Type{jsonschema.ObjectType},
-			},
-		},
-		cloud.AuthTypesKey: {
-			// don't need a prompt, since there's only one choice.
-			Type: []jsonschema.Type{jsonschema.ArrayType},
-			Enum: []interface{}{[]string{string(cloud.HTTPSigAuthType)}},
-		},
-	},
-}
+// var cloudSchema = &jsonschema.Schema{
+// 	Type:     []jsonschema.Type{jsonschema.ObjectType},
+// 	Required: []string{cloud.RegionsKey, cloud.AuthTypesKey},
+// 	Order:    []string{cloud.RegionsKey, cloud.AuthTypesKey},
+// 	Properties: map[string]*jsonschema.Schema{
+// 		cloud.RegionsKey: {
+// 			Type:     []jsonschema.Type{jsonschema.ObjectType},
+// 			Singular: "region",
+// 			Plural:   "regions",
+// 			AdditionalProperties: &jsonschema.Schema{
+// 				Type: []jsonschema.Type{jsonschema.ObjectType},
+// 			},
+// 		},
+// 		cloud.AuthTypesKey: {
+// 			// don't need a prompt, since there's only one choice.
+// 			Type: []jsonschema.Type{jsonschema.ArrayType},
+// 			Enum: []interface{}{[]string{string(cloud.HTTPSigAuthType)}},
+// 		},
+// 	},
+// }
 
 var configSchema = environschema.Fields{
 	"compartment-id": {
 		Description: "The OCID of the compartment in which juju has access to create resources.",
 		Type:        environschema.Tstring,
 	},
+	"address-space": {
+		Description: "The CIDR block to use when creating default subnets. The subnet must have at least a /16 size.",
+		Type:        environschema.Tstring,
+	},
 }
 
 var configDefaults = schema.Defaults{
 	"compartment-id": "",
+	"address-space":  DefaultAddressSpace,
 }
 
 var configFields = func() schema.Fields {
@@ -128,6 +135,10 @@ var credentialSchema = map[cloud.AuthType]cloud.CredentialSchema{
 }
 
 func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+	if cfg == nil {
+		return nil, errors.New("cannot set config on uninitialized env")
+	}
+
 	valid, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
@@ -141,6 +152,14 @@ func (c *environConfig) compartmentID() *string {
 		return nil
 	}
 	return &compartmentID
+}
+
+func (c *environConfig) addressSpace() *string {
+	addressSpace := c.attrs["address-space"].(string)
+	if addressSpace == "" {
+		addressSpace = DefaultAddressSpace
+	}
+	return &addressSpace
 }
 
 // Schema implements environs.ProviderSchema
@@ -169,7 +188,7 @@ func (e EnvironProvider) Version() int {
 
 // CloudSchema implements environs.EnvironProvider.
 func (e EnvironProvider) CloudSchema() *jsonschema.Schema {
-	return cloudSchema
+	return nil
 }
 
 // Ping implements environs.EnvironProvider.
@@ -208,7 +227,7 @@ func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, er
 	}
 
 	creds := params.Cloud.Credential.Attributes()
-	jujuConfig := providerCommon.JujuConfigProvider{
+	jujuConfig := common.JujuConfigProvider{
 		Key:         []byte(creds["key"]),
 		Fingerprint: creds["fingerprint"],
 		Passphrase:  creds["pass-phrase"],
@@ -246,8 +265,9 @@ func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, er
 		Storage:    storage,
 		Firewall:   networking,
 		Identity:   identity,
-		p:          e,
+		ociConfig:  provider,
 		clock:      clock.WallClock,
+		p:          e,
 	}
 
 	if err := env.SetConfig(params.Config); err != nil {
@@ -259,6 +279,16 @@ func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, er
 	cfg := env.ecfg()
 	if cfg.compartmentID() == nil {
 		return nil, errors.New("compartment-id may not be empty")
+	}
+
+	addressSpace := cfg.addressSpace()
+	if _, ipNET, err := net.ParseCIDR(*addressSpace); err == nil {
+		size, _ := ipNET.Mask.Size()
+		if size > 16 {
+			return nil, errors.Errorf("configured subnet (%q) is not large enough. Please use a prefix length in the range /8 to /16. Current prefix length is /%d", *addressSpace, size)
+		}
+	} else {
+		return nil, errors.Trace(err)
 	}
 
 	return env, nil
@@ -273,8 +303,14 @@ func (e EnvironProvider) CredentialSchemas() map[cloud.AuthType]cloud.Credential
 // Configuration options for the OCI SDK are detailed here:
 // https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
 func (e EnvironProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	result := cloud.CloudCredential{
+		AuthCredentials: make(map[string]cloud.Credential),
+	}
 	cfg_file, err := ociConfigFile()
 	if err != nil {
+		if os.IsNotExist(errors.Cause(err)) {
+			return &result, nil
+		}
 		return nil, errors.Trace(err)
 	}
 
@@ -283,10 +319,6 @@ func (e EnvironProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 		return nil, errors.Trace(err)
 	}
 	cfg.NameMapper = ini.TitleUnderscore
-
-	result := cloud.CloudCredential{
-		AuthCredentials: make(map[string]cloud.Credential),
-	}
 
 	var defaultRegion string
 
@@ -325,7 +357,7 @@ func (e EnvironProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if err := providerCommon.ValidateKey(pemFileContent, values.PassPhrase); err != nil {
+		if err := common.ValidateKey(pemFileContent, values.PassPhrase); err != nil {
 			logger.Warningf("failed to decrypt PEM %s using the configured pass phrase", values.KeyFile)
 			continue
 		}

@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -22,13 +22,13 @@ import (
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
@@ -82,7 +82,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.machineIsMaster = true
-	fakeIsMachineMaster := func(*state.State, string) (bool, error) {
+	fakeIsMachineMaster := func(*state.StatePool, string) (bool, error) {
 		return s.machineIsMaster, nil
 	}
 	s.PatchValue(&IsMachineMaster, fakeIsMachineMaster)
@@ -426,24 +426,22 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 	return worker.Wait(), config, machineStatus.Calls, doneLock
 }
 
-func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
-	newPolicy := stateenvirons.GetNewPolicyFunc(
-		stateenvirons.GetNewEnvironFunc(environs.New),
-	)
-	st, err := state.Open(state.OpenParams{
+func (s *UpgradeSuite) openStateForUpgrade() (*state.StatePool, error) {
+	newPolicy := stateenvirons.GetNewPolicyFunc()
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.IAASModel.ModelTag(),
+		ControllerModelTag: s.Model.ModelTag(),
 		MongoSession:       s.State.MongoSession(),
 		NewPolicy:          newPolicy,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return st, nil
+	return pool, nil
 }
 
-func (s *UpgradeSuite) preUpgradeSteps(st *state.State, agentConf agent.Config, isController, isMasterController bool) error {
+func (s *UpgradeSuite) preUpgradeSteps(pool *state.StatePool, agentConf agent.Config, isController, isMasterController bool) error {
 	if s.preUpgradeError {
 		return errors.New("preupgrade error")
 	}
@@ -568,7 +566,7 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, ex
 }
 
 func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Number) {
-	envConfig, err := s.IAASModel.ModelConfig()
+	envConfig, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

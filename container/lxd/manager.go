@@ -11,18 +11,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/arch"
+	"github.com/lxc/lxd/shared/api"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 )
 
 var (
@@ -223,7 +225,7 @@ func (m *containerManager) getContainerSpec(
 		Name:     name,
 		Image:    found,
 		Config:   cfg,
-		Profiles: nil,
+		Profiles: instanceConfig.Profiles,
 		Devices:  nics,
 	}
 	spec.ApplyConstraints(cons)
@@ -233,18 +235,18 @@ func (m *containerManager) getContainerSpec(
 
 // getImageSources returns a list of LXD remote image sources based on the
 // configuration that was passed into the container manager.
-func (m *containerManager) getImageSources() ([]RemoteServer, error) {
+func (m *containerManager) getImageSources() ([]ServerSpec, error) {
 	imURL := m.imageMetadataURL
 
 	// Unless the configuration explicitly requests the daily stream,
 	// an empty image metadata URL results in a search of the default sources.
 	if imURL == "" && m.imageStream != "daily" {
 		logger.Debugf("checking default image metadata sources")
-		return []RemoteServer{CloudImagesRemote, CloudImagesDailyRemote}, nil
+		return []ServerSpec{CloudImagesRemote, CloudImagesDailyRemote}, nil
 	}
 	// Otherwise only check the daily stream.
 	if imURL == "" {
-		return []RemoteServer{CloudImagesDailyRemote}, nil
+		return []ServerSpec{CloudImagesDailyRemote}, nil
 	}
 
 	imURL, err := imagemetadata.ImageMetadataURL(imURL, m.imageStream)
@@ -252,7 +254,7 @@ func (m *containerManager) getImageSources() ([]RemoteServer, error) {
 		return nil, errors.Annotatef(err, "generating image metadata source")
 	}
 	imURL = EnsureHTTPS(imURL)
-	remote := RemoteServer{
+	remote := ServerSpec{
 		Name:     strings.Replace(imURL, "https://", "", 1),
 		Host:     imURL,
 		Protocol: SimpleStreamsProtocol,
@@ -261,9 +263,9 @@ func (m *containerManager) getImageSources() ([]RemoteServer, error) {
 	// If the daily stream was configured with custom image metadata URL,
 	// only use the Ubuntu daily as a fallback.
 	if m.imageStream == "daily" {
-		return []RemoteServer{remote, CloudImagesDailyRemote}, nil
+		return []ServerSpec{remote, CloudImagesDailyRemote}, nil
 	}
-	return []RemoteServer{remote, CloudImagesRemote, CloudImagesDailyRemote}, nil
+	return []ServerSpec{remote, CloudImagesRemote, CloudImagesDailyRemote}, nil
 }
 
 // networkDevicesFromConfig uses the input container network configuration to
@@ -281,17 +283,51 @@ func (m *containerManager) networkDevicesFromConfig(netConfig *container.Network
 		}, nil, nil
 	}
 
-	// Get the NICs from the default profile and ensure they have MAC addresses.
-	profile, _, err := m.server.GetProfile(lxdDefaultProfileName)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	nics, err := m.server.GetNICsFromProfile(lxdDefaultProfileName)
+	return nics, nil, errors.Trace(err)
+}
 
-	nics := getProfileNICs(profile)
-	for name := range nics {
-		if nics[name]["hwaddr"] == "" {
-			nics[name]["hwaddr"] = network.GenerateVirtualMACAddress()
+// MaybeWriteLXDProfile implements container.LXDProfileManager.
+func (m *containerManager) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	hasProfile, err := m.server.HasProfile(pName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if hasProfile {
+		logger.Debugf("lxd profile %q already exists, not written again", pName)
+		return nil
+	}
+	post := api.ProfilesPost{
+		Name:       pName,
+		ProfilePut: api.ProfilePut(*put),
+	}
+	if err = m.server.CreateProfile(post); err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("wrote lxd profile %q", pName)
+	return nil
+}
+
+// LXDProfileNames implements container.LXDProfileManager
+func (m *containerManager) LXDProfileNames(containerName string) ([]string, error) {
+	return m.server.GetContainerProfiles(containerName)
+}
+
+// ReplaceOrAddLXDProfile implements environs.LXDProfiler.
+func (m *containerManager) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
+	if put != nil {
+		if err := m.MaybeWriteLXDProfile(newProfile, put); err != nil {
+			return []string{}, errors.Trace(err)
 		}
 	}
-	return nics, nil, nil
+	if err := m.server.ReplaceOrAddContainerProfile(instId, oldProfile, newProfile); err != nil {
+		return []string{}, errors.Trace(err)
+	}
+	if oldProfile != "" {
+		if err := m.server.DeleteProfile(oldProfile); err != nil {
+			// most likely the failure is because the profile is already in use
+			logger.Debugf("failed to delete profile %q: %s", oldProfile, err)
+		}
+	}
+	return m.LXDProfileNames(instId)
 }

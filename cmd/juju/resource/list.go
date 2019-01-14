@@ -11,6 +11,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 )
@@ -48,7 +49,7 @@ func NewListCommand(deps ListDeps) modelcmd.ModelCommand {
 
 // Info implements cmd.Command.Info.
 func (c *ListCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "resources",
 		Aliases: []string{"list-resources"},
 		Args:    "<application or unit>",
@@ -58,7 +59,7 @@ This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any
 updates available for resources from the charmstore.
 `,
-	}
+	})
 }
 
 // SetFlags implements cmd.Command.SetFlags.

@@ -25,7 +25,7 @@ func (s *ModelConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 	}{
 		{
 			args: []string{"-s", "mysql"},
-			err:  "flag provided but not defined: -s",
+			err:  "option provided but not defined: -s",
 		}, {
 			args: []string{"="},
 			err:  `malformed constraint "="`,
@@ -49,7 +49,7 @@ func (s *ModelConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 	}{
 		{
 			args: []string{"-s", "mysql"},
-			err:  "flag provided but not defined: -s",
+			err:  "option provided but not defined: -s",
 		}, {
 			args: []string{"mysql"},
 			err:  `unrecognized args: \["mysql"\]`,

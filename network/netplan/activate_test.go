@@ -1,3 +1,6 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package netplan_test
 
 import (
@@ -5,9 +8,9 @@ import (
 	"path"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network/netplan"
@@ -30,7 +33,7 @@ func (s *ActivateSuite) TestNoDevices(c *gc.C) {
 func (s *ActivateSuite) TestNoDirectory(c *gc.C) {
 	params := netplan.ActivationParams{
 		Devices: []netplan.DeviceToBridge{
-			netplan.DeviceToBridge{},
+			{},
 		},
 		Directory: "/quite/for/sure/this/doesnotexists",
 	}

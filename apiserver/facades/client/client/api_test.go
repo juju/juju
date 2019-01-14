@@ -18,13 +18,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -393,7 +393,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 	setDefaultPassword(c, u)
 	add(u)
-	err = s.IAASModel.UpdateModelConfig(map[string]interface{}{
+	err = s.Model.UpdateModelConfig(map[string]interface{}{
 		config.AgentVersionKey: "1.2.3"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 

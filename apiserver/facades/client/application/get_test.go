@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/juju/names.v2"
 
 	apiapplication "github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/common"
@@ -28,7 +29,7 @@ import (
 type getSuite struct {
 	jujutesting.JujuConnSuite
 
-	applicationAPI *application.APIv6
+	applicationAPI *application.APIv8
 	authorizer     apiservertesting.FakeAuthorizer
 }
 
@@ -40,23 +41,30 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	backend, err := application.NewStateBackend(s.State)
+	storageAccess, err := application.GetStorageState(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	api, err := application.NewAPIBase(
-		backend,
+		application.GetState(s.State),
+		storageAccess,
 		s.authorizer,
 		blockChecker,
+		model.ModelTag(),
+		model.Type(),
 		application.CharmToStateCharm,
 		application.DeployApplication,
+		&mockStoragePoolManager{},
+		common.NewResources(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.applicationAPI = &application.APIv6{api}
+	s.applicationAPI = &application.APIv8{api}
 }
 
 func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v4 := &application.APIv4{&application.APIv5{s.applicationAPI}}
+	v4 := &application.APIv4{&application.APIv5{&application.APIv6{&application.APIv7{s.applicationAPI}}}}
 	results, err := v4.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -76,7 +84,7 @@ func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 
 func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v5 := &application.APIv5{s.applicationAPI}
+	v5 := &application.APIv5{&application.APIv6{&application.APIv7{s.applicationAPI}}}
 	results, err := v5.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -125,14 +133,11 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmoketest(c *gc.C) {
 }
 
 func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
-	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "dashboard4miner", Charm: ch})
 
 	schemaFields, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
@@ -177,31 +182,36 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 		expectedAppConfig[name] = info
 	}
 
-	backend, err := application.NewStateBackend(st)
+	storageAccess, err := application.GetStorageState(st)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
 	api, err := application.NewAPIBase(
-		backend,
+		application.GetState(st),
+		storageAccess,
 		s.authorizer,
 		blockChecker,
+		names.NewModelTag(st.ModelUUID()),
+		state.ModelTypeCAAS,
 		application.CharmToStateCharm,
 		application.DeployApplication,
+		&mockStoragePoolManager{},
+		common.NewResources(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	apiV6 := &application.APIv6{api}
+	apiV8 := &application.APIv8{api}
 
-	results, err := apiV6.Get(params.ApplicationGet{"wordpress"})
+	results, err := apiV8.Get(params.ApplicationGet{"dashboard4miner"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
-		Application: "wordpress",
-		Charm:       "wordpress",
+		Application: "dashboard4miner",
+		Charm:       "dashboard4miner",
 		CharmConfig: map[string]interface{}{
-			"blog-title": map[string]interface{}{
-				"default":     "My Title",
-				"description": "A descriptive title used for the blog.",
+			"port": map[string]interface{}{
+				"default":     int64(443),
+				"description": "https port",
 				"source":      "default",
-				"type":        "string",
-				"value":       "My Title",
+				"type":        "int",
+				"value":       int64(443),
 			},
 		},
 		ApplicationConfig: expectedAppConfig,

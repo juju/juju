@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
@@ -103,7 +105,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	offerAuthCtxt := srv.offerAuthCtxt.WithDischargeURL(localOfferAccessEndpoint.String())
 	if err := r.resources.RegisterNamed(
 		"offerAccessAuthContext",
-		common.ValueResource{offerAuthCtxt},
+		common.ValueResource{Value: offerAuthCtxt},
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -406,10 +408,11 @@ func (ctx *facadeContext) Presence() facade.Presence {
 
 // ModelPresence implements facade.ModelPresence.
 func (ctx *facadeContext) ModelPresence(modelUUID string) facade.ModelPresence {
-	if ctx.r.shared.featureEnabled(feature.NewPresence) {
-		return ctx.r.shared.presence.Connections().ForModel(modelUUID)
+	if ctx.r.shared.featureEnabled(feature.OldPresence) {
+		// Used in common/presence.go to determine which code path to follow.
+		return nil
 	}
-	return nil
+	return ctx.r.shared.presence.Connections().ForModel(modelUUID)
 }
 
 // Hub implements facade.Context.
@@ -430,6 +433,70 @@ func (ctx *facadeContext) StatePool() *state.StatePool {
 // ID is part of of the facade.Context interface.
 func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
+}
+
+// LeadershipClaimer is part of the facade.Context interface. Getting
+// a claimer for an arbitrary model is only supported for raft leases
+// - only a claimer for the current model can be obtained with legacy
+// leases.
+func (ctx *facadeContext) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
+	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+		if modelUUID != ctx.State().ModelUUID() {
+			return nil, errors.Errorf("can't get leadership claimer for different model with legacy lease manager")
+		}
+		return ctx.State().LeadershipClaimer(), nil
+	}
+	claimer, err := ctx.r.shared.leaseManager.Claimer(
+		lease.ApplicationLeadershipNamespace,
+		modelUUID,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipClaimer{claimer}, nil
+}
+
+// LeadershipChecker is part of the facade.Context interface.
+func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
+	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+		return ctx.State().LeadershipChecker(), nil
+	}
+	checker, err := ctx.r.shared.leaseManager.Checker(
+		lease.ApplicationLeadershipNamespace,
+		ctx.State().ModelUUID(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipChecker{checker}, nil
+}
+
+// LeadershipPinner is part of the facade.Context interface.
+// Pinning functionality is only available with the Raft leases implementation.
+func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner, error) {
+	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+		return nil, errors.NotImplementedf(
+			"unable to get leadership pinner; pinning is not available with the legacy lease manager")
+	}
+	pinner, err := ctx.r.shared.leaseManager.Pinner(
+		lease.ApplicationLeadershipNamespace,
+		modelUUID,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipPinner{pinner}, nil
+}
+
+// SingularClaimer is part of the facade.Context interface.
+func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
+	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+		return ctx.State().SingularClaimer(), nil
+	}
+	return ctx.r.shared.leaseManager.Claimer(
+		lease.SingularControllerNamespace,
+		ctx.State().ModelUUID(),
+	)
 }
 
 // adminRoot dispatches API calls to those available to an anonymous connection
@@ -535,9 +602,9 @@ func (r *apiHandler) UserHasPermission(user names.UserTag, operation permission.
 func DescribeFacades(registry *facade.Registry) []params.FacadeVersions {
 	facades := registry.List()
 	result := make([]params.FacadeVersions, len(facades))
-	for i, facade := range facades {
-		result[i].Name = facade.Name
-		result[i].Versions = facade.Versions
+	for i, f := range facades {
+		result[i].Name = f.Name
+		result[i].Versions = f.Versions
 	}
 	return result
 }

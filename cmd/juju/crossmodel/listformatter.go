@@ -44,7 +44,7 @@ func formatListEndpointsSummary(writer io.Writer, offers offeredApplications) er
 	for _, offer := range allOffers {
 		// Sort endpoints alphabetically.
 		endpoints := []string{}
-		for endpoint, _ := range offer.Endpoints {
+		for endpoint := range offer.Endpoints {
 			endpoints = append(endpoints, endpoint)
 		}
 		sort.Strings(endpoints)
@@ -105,7 +105,7 @@ func formatListEndpointsTabular(writer io.Writer, offers offeredApplications) er
 	for _, offer := range allOffers {
 		// Sort endpoints alphabetically.
 		endpoints := []string{}
-		for endpoint, _ := range offer.Endpoints {
+		for endpoint := range offer.Endpoints {
 			endpoints = append(endpoints, endpoint)
 		}
 		sort.Strings(endpoints)

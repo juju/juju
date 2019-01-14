@@ -4,19 +4,27 @@
 package upgrades
 
 import (
+	"io"
+	"time"
+
 	"github.com/juju/replicaset"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
+	raftleasestore "github.com/juju/juju/state/raftlease"
 )
 
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
 	ControllerUUID() string
 	StateServingInfo() (state.StateServingInfo, error)
+	ControllerConfig() (controller.Config, error)
+	LeaseNotifyTarget(io.Writer, raftleasestore.Logger) raftlease.NotifyTarget
 
 	StripLocalUserDomain() error
 	RenameAddModelPermission() error
@@ -46,6 +54,10 @@ type StateBackend interface {
 	RemoveVotingMachineIds() error
 	AddCloudModelCounts() error
 	ReplicaSetMembers() ([]replicaset.Member, error)
+	MigrateStorageMachineIdFields() error
+	MigrateAddModelPermissions() error
+	LegacyLeases(time.Time) (map[lease.Key]lease.Info, error)
+	SetEnableDiskUUIDOnVsphere() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -55,147 +67,155 @@ type Model interface {
 	CloudSpec() (environs.CloudSpec, error)
 }
 
-// NewStateBackend returns a new StateBackend using a *state.State object.
-func NewStateBackend(st *state.State) StateBackend {
-	return stateBackend{st}
+// NewStateBackend returns a new StateBackend using a *state.StatePool object.
+func NewStateBackend(pool *state.StatePool) StateBackend {
+	return stateBackend{pool}
 }
 
 type stateBackend struct {
-	st *state.State
+	pool *state.StatePool
 }
 
 func (s stateBackend) ControllerUUID() string {
-	return s.st.ControllerUUID()
+	return s.pool.SystemState().ControllerUUID()
 }
 
 func (s stateBackend) StateServingInfo() (state.StateServingInfo, error) {
-	return s.st.StateServingInfo()
+	return s.pool.SystemState().StateServingInfo()
 }
 
 func (s stateBackend) StripLocalUserDomain() error {
-	return state.StripLocalUserDomain(s.st)
+	return state.StripLocalUserDomain(s.pool)
 }
 
 func (s stateBackend) RenameAddModelPermission() error {
-	return state.RenameAddModelPermission(s.st)
+	return state.RenameAddModelPermission(s.pool)
 }
 
 func (s stateBackend) AddMigrationAttempt() error {
-	return state.AddMigrationAttempt(s.st)
+	return state.AddMigrationAttempt(s.pool)
 }
 
 func (s stateBackend) AddLocalCharmSequences() error {
-	return state.AddLocalCharmSequences(s.st)
+	return state.AddLocalCharmSequences(s.pool)
 }
 
 func (s stateBackend) UpdateLegacyLXDCloudCredentials(endpoint string, credential cloud.Credential) error {
-	return state.UpdateLegacyLXDCloudCredentials(s.st, endpoint, credential)
+	return state.UpdateLegacyLXDCloudCredentials(s.pool.SystemState(), endpoint, credential)
 }
 
 func (s stateBackend) UpgradeNoProxyDefaults() error {
-	return state.UpgradeNoProxyDefaults(s.st)
+	return state.UpgradeNoProxyDefaults(s.pool)
 }
 
 func (s stateBackend) AddNonDetachableStorageMachineId() error {
-	return state.AddNonDetachableStorageMachineId(s.st)
+	return state.AddNonDetachableStorageMachineId(s.pool)
 }
 
 func (s stateBackend) RemoveNilValueApplicationSettings() error {
-	return state.RemoveNilValueApplicationSettings(s.st)
+	return state.RemoveNilValueApplicationSettings(s.pool)
 }
 
 func (s stateBackend) AddControllerLogCollectionsSizeSettings() error {
-	return state.AddControllerLogCollectionsSizeSettings(s.st)
+	return state.AddControllerLogCollectionsSizeSettings(s.pool)
 }
 
 func (s stateBackend) AddStatusHistoryPruneSettings() error {
-	return state.AddStatusHistoryPruneSettings(s.st)
+	return state.AddStatusHistoryPruneSettings(s.pool)
 }
 
 func (s stateBackend) AddActionPruneSettings() error {
-	return state.AddActionPruneSettings(s.st)
+	return state.AddActionPruneSettings(s.pool)
 }
 
 func (s stateBackend) AddUpdateStatusHookSettings() error {
-	return state.AddUpdateStatusHookSettings(s.st)
+	return state.AddUpdateStatusHookSettings(s.pool)
 }
 
 func (s stateBackend) AddStorageInstanceConstraints() error {
-	return state.AddStorageInstanceConstraints(s.st)
+	return state.AddStorageInstanceConstraints(s.pool)
 }
 
 func (s stateBackend) SplitLogCollections() error {
-	return state.SplitLogCollections(s.st)
+	return state.SplitLogCollections(s.pool)
 }
 
 func (s stateBackend) CorrectRelationUnitCounts() error {
-	return state.CorrectRelationUnitCounts(s.st)
+	return state.CorrectRelationUnitCounts(s.pool)
 }
 
 func (s stateBackend) AddModelEnvironVersion() error {
-	return state.AddModelEnvironVersion(s.st)
+	return state.AddModelEnvironVersion(s.pool)
 }
 
 func (s stateBackend) AddModelType() error {
-	return state.AddModelType(s.st)
+	return state.AddModelType(s.pool)
 }
 
 func (s stateBackend) MigrateLeasesToGlobalTime() error {
-	return state.MigrateLeasesToGlobalTime(s.st)
+	return state.MigrateLeasesToGlobalTime(s.pool)
 }
 
 func (s stateBackend) MoveOldAuditLog() error {
-	return state.MoveOldAuditLog(s.st)
+	return state.MoveOldAuditLog(s.pool)
 }
 
 func (s stateBackend) AddRelationStatus() error {
-	return state.AddRelationStatus(s.st)
+	return state.AddRelationStatus(s.pool)
 }
 
 func (s stateBackend) MoveMongoSpaceToHASpaceConfig() error {
-	return state.MoveMongoSpaceToHASpaceConfig(s.st)
+	return state.MoveMongoSpaceToHASpaceConfig(s.pool)
 }
 
 func (s stateBackend) CreateMissingApplicationConfig() error {
-	return state.CreateMissingApplicationConfig(s.st)
+	return state.CreateMissingApplicationConfig(s.pool)
 }
 
 func (s stateBackend) RemoveVotingMachineIds() error {
-	return state.RemoveVotingMachineIds(s.st)
+	return state.RemoveVotingMachineIds(s.pool)
 }
 
 func (s stateBackend) AddCloudModelCounts() error {
-	return state.AddCloudModelCounts(s.st)
+	return state.AddCloudModelCounts(s.pool)
 }
 
 func (s stateBackend) ReplicaSetMembers() ([]replicaset.Member, error) {
-	return state.ReplicaSetMembers(s.st)
+	return state.ReplicaSetMembers(s.pool)
 }
 
-type modelShim struct {
-	st *state.State
-	m  *state.Model
+func (s stateBackend) MigrateStorageMachineIdFields() error {
+	return state.MigrateStorageMachineIdFields(s.pool)
 }
 
-func (m *modelShim) Config() (*config.Config, error) {
-	return m.m.Config()
-}
-
-func (m *modelShim) CloudSpec() (environs.CloudSpec, error) {
-	cloudName := m.m.Cloud()
-	regionName := m.m.CloudRegion()
-	credentialTag, _ := m.m.CloudCredential()
-	return stateenvirons.CloudSpec(m.st, cloudName, regionName, credentialTag)
+func (s stateBackend) MigrateAddModelPermissions() error {
+	return state.MigrateAddModelPermissions(s.pool)
 }
 
 func (s stateBackend) DeleteCloudImageMetadata() error {
-	return state.DeleteCloudImageMetadata(s.st)
+	return state.DeleteCloudImageMetadata(s.pool)
 }
 
 func (s stateBackend) EnsureContainerImageStreamDefault() error {
-	return state.UpgradeContainerImageStreamDefault(s.st)
+	return state.UpgradeContainerImageStreamDefault(s.pool)
 }
 
 func (s stateBackend) RemoveContainerImageStreamFromNonModelSettings() error {
-	return state.RemoveContainerImageStreamFromNonModelSettings(s.st)
+	return state.RemoveContainerImageStreamFromNonModelSettings(s.pool)
+}
+
+func (s stateBackend) ControllerConfig() (controller.Config, error) {
+	return s.pool.SystemState().ControllerConfig()
+}
+
+func (s stateBackend) LeaseNotifyTarget(w io.Writer, logger raftleasestore.Logger) raftlease.NotifyTarget {
+	return s.pool.SystemState().LeaseNotifyTarget(w, logger)
+}
+
+func (s stateBackend) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Info, error) {
+	return state.LegacyLeases(s.pool, localTime)
+}
+
+func (s stateBackend) SetEnableDiskUUIDOnVsphere() error {
+	return state.SetEnableDiskUUIDOnVsphere(s.pool)
 }

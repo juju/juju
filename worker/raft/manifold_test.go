@@ -8,6 +8,7 @@ import (
 	"time"
 
 	coreraft "github.com/hashicorp/raft"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -28,7 +29,7 @@ type ManifoldSuite struct {
 	context   dependency.Context
 	agent     *mockAgent
 	transport *coreraft.InmemTransport
-	clock     *testing.Clock
+	clock     *testclock.Clock
 	fsm       *raft.SimpleFSM
 	logger    loggo.Logger
 	worker    *mockRaftWorker
@@ -62,7 +63,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		s.transport.Close()
 	})
 
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 
 	s.context = s.newContext(nil)
 	s.manifold = raft.Manifold(raft.ManifoldConfig{

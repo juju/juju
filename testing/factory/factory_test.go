@@ -27,7 +27,6 @@ import (
 
 type factorySuite struct {
 	statetesting.StateSuite
-	Factory *factory.Factory
 }
 
 var _ = gc.Suite(&factorySuite{})
@@ -41,7 +40,6 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 		}
 	}
 	s.StateSuite.SetUpTest(c)
-	s.Factory = factory.NewFactory(s.State)
 }
 
 func (s *factorySuite) TestMakeUserNil(c *gc.C) {
@@ -96,7 +94,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
 	c.Assert(savedLastLogin, gc.Equals, lastLogin)
 
-	_, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
+	_, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -131,7 +129,7 @@ func (s *factorySuite) TestMakeUserNoModelUser(c *gc.C) {
 
 	_, err := s.State.User(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
+	_, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -172,7 +170,7 @@ func (s *factorySuite) TestMakeModelUserParams(c *gc.C) {
 		DisplayName: "Foo Bar",
 	})
 
-	saved, err := s.State.UserAccess(modelUser.UserTag, s.IAASModel.ModelTag())
+	saved, err := s.State.UserAccess(modelUser.UserTag, s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Object.Id(), gc.Equals, modelUser.Object.Id())
 	c.Assert(saved.UserName, gc.Equals, "foobar")
@@ -189,7 +187,7 @@ func (s *factorySuite) TestMakeModelUserInvalidCreatedBy(c *gc.C) {
 	}
 
 	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
-	saved, err := s.State.UserAccess(names.NewLocalUserTag("bob"), s.IAASModel.ModelTag())
+	saved, err := s.State.UserAccess(names.NewLocalUserTag("bob"), s.Model.ModelTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(saved, gc.DeepEquals, permission.UserAccess{})
 }
@@ -202,7 +200,7 @@ func (s *factorySuite) TestMakeModelUserNonLocalUser(c *gc.C) {
 		CreatedBy:   creator.UserTag(),
 	})
 
-	saved, err := s.State.UserAccess(modelUser.UserTag, s.IAASModel.ModelTag())
+	saved, err := s.State.UserAccess(modelUser.UserTag, s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Object.Id(), gc.Equals, modelUser.Object.Id())
 	c.Assert(saved.UserName, gc.Equals, "foobar@ubuntuone")
@@ -239,8 +237,8 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	nonce := "some-nonce"
 	id := instance.Id("some-id")
-	volumes := []state.MachineVolumeParams{{Volume: state.VolumeParams{Size: 1024}}}
-	filesystems := []state.MachineFilesystemParams{{
+	volumes := []state.HostVolumeParams{{Volume: state.VolumeParams{Size: 1024}}}
+	filesystems := []state.HostFilesystemParams{{
 		Filesystem: state.FilesystemParams{Pool: "loop", Size: 2048},
 	}}
 
@@ -264,29 +262,31 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
 	c.Assert(machine.PasswordValid(password), jc.IsTrue)
 
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
 	assertVolume := func(name string, size uint64) {
-		volume, err := s.IAASModel.Volume(names.NewVolumeTag(name))
+		volume, err := sb.Volume(names.NewVolumeTag(name))
 		c.Assert(err, jc.ErrorIsNil)
 		volParams, ok := volume.Params()
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(volParams, jc.DeepEquals, state.VolumeParams{Pool: "loop", Size: size})
-		volAttachments, err := s.IAASModel.VolumeAttachments(volume.VolumeTag())
+		volAttachments, err := sb.VolumeAttachments(volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(volAttachments, gc.HasLen, 1)
-		c.Assert(volAttachments[0].Machine(), gc.Equals, machine.Tag())
+		c.Assert(volAttachments[0].Host(), gc.Equals, machine.Tag())
 	}
 	assertVolume(machine.Id()+"/0", 2048) // backing the filesystem
 	assertVolume(machine.Id()+"/1", 1024)
 
-	filesystem, err := s.IAASModel.Filesystem(names.NewFilesystemTag(machine.Id() + "/0"))
+	filesystem, err := sb.Filesystem(names.NewFilesystemTag(machine.Id() + "/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	fsParams, ok := filesystem.Params()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(fsParams, jc.DeepEquals, state.FilesystemParams{Pool: "loop", Size: 2048})
-	fsAttachments, err := s.IAASModel.MachineFilesystemAttachments(machine.Tag().(names.MachineTag))
+	fsAttachments, err := sb.MachineFilesystemAttachments(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fsAttachments, gc.HasLen, 1)
-	c.Assert(fsAttachments[0].Machine(), gc.Equals, machine.Tag())
+	c.Assert(fsAttachments[0].Host(), gc.Equals, machine.Tag())
 
 	saved, err := s.State.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)

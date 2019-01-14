@@ -201,6 +201,26 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	c.Assert(sch.BundleSha256(), gc.Not(gc.Equals), "")
 }
 
+func (s *charmsSuite) TestUploadVersion(c *gc.C) {
+	// Add the dummy charm with version "juju-2.4-beta3-146-g725cfd3-dirty".
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+
+	expectedVersion := "dummy-146-g725cfd3-dirty"
+
+	f, err := os.Open(ch.Path)
+	c.Assert(err, jc.ErrorIsNil)
+	defer f.Close()
+	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", f)
+
+	inputURL := charm.MustParseURL("local:quantal/dummy-1")
+	s.assertUploadResponse(c, resp, inputURL.String())
+	sch, err := s.State.Charm(inputURL)
+	c.Assert(err, jc.ErrorIsNil)
+
+	version := sch.Version()
+	c.Assert(version, gc.Equals, expectedVersion)
+}
+
 func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	// Make a dummy charm dir with revision 123.
 	dir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
@@ -609,7 +629,7 @@ func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
 
 	curl := charm.MustParseURL("local:quantal/dummy-1")
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	_, err := jujutesting.AddCharm(newSt, curl, ch)
+	_, err := jujutesting.AddCharm(newSt, curl, ch, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Controller machine should be able to download the charm from
@@ -666,7 +686,7 @@ func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
 
 	curl := charm.MustParseURL("local:quantal/dummy-1")
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	_, err := jujutesting.AddCharm(newSt, curl, ch)
+	_, err := jujutesting.AddCharm(newSt, curl, ch, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	url := s.charmsURL("url=" + curl.String() + "&file=revision")

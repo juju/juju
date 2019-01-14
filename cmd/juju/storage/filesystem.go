@@ -48,11 +48,12 @@ type FilesystemInfo struct {
 }
 
 type FilesystemAttachments struct {
-	Machines map[string]MachineFilesystemAttachment `yaml:"machines,omitempty" json:"machines,omitempty"`
-	Units    map[string]UnitStorageAttachment       `yaml:"units,omitempty" json:"units,omitempty"`
+	Machines   map[string]FilesystemAttachment  `yaml:"machines,omitempty" json:"machines,omitempty"`
+	Containers map[string]FilesystemAttachment  `yaml:"containers,omitempty" json:"containers,omitempty"`
+	Units      map[string]UnitStorageAttachment `yaml:"units,omitempty" json:"units,omitempty"`
 }
 
-type MachineFilesystemAttachment struct {
+type FilesystemAttachment struct {
 	MountPoint string `yaml:"mount-point" json:"mount-point"`
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
 	Life       string `yaml:"life,omitempty" json:"life,omitempty"`
@@ -63,7 +64,7 @@ func generateListFilesystemsOutput(ctx *cmd.Context, api StorageListAPI, ids []s
 
 	results, err := api.ListFilesystems(ids)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// filter out valid output, if any
@@ -121,22 +122,42 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 		info.Volume = volumeId
 	}
 
-	if len(details.MachineAttachments) > 0 {
-		machineAttachments := make(map[string]MachineFilesystemAttachment)
-		for machineTag, attachment := range details.MachineAttachments {
-			machineId, err := idFromTag(machineTag)
+	attachmentsFromDetails := func(
+		in map[string]params.FilesystemAttachmentDetails,
+		out map[string]FilesystemAttachment,
+	) error {
+		for tag, attachment := range in {
+			id, err := idFromTag(tag)
 			if err != nil {
-				return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
+				return errors.Trace(err)
 			}
-			machineAttachments[machineId] = MachineFilesystemAttachment{
+			out[id] = FilesystemAttachment{
 				attachment.MountPoint,
 				attachment.ReadOnly,
 				string(attachment.Life),
 			}
 		}
+		return nil
+	}
+
+	if len(details.MachineAttachments) > 0 {
+		machineAttachments := make(map[string]FilesystemAttachment)
+		if err := attachmentsFromDetails(details.MachineAttachments, machineAttachments); err != nil {
+			return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
+		}
 		info.Attachments = &FilesystemAttachments{
 			Machines: machineAttachments,
 		}
+	}
+	if len(details.UnitAttachments) > 0 {
+		unitAttachments := make(map[string]FilesystemAttachment)
+		if err := attachmentsFromDetails(details.UnitAttachments, unitAttachments); err != nil {
+			return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
+		}
+		if info.Attachments == nil {
+			info.Attachments = &FilesystemAttachments{}
+		}
+		info.Attachments.Containers = unitAttachments
 	}
 
 	if details.Storage != nil {

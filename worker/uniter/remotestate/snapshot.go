@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
 // Snapshot is a snapshot of the remote state of the unit.
@@ -45,9 +46,17 @@ type Snapshot struct {
 	// set to ResolvedNone.
 	RetryHookVersion int
 
-	// ConfigVersion is the last published version of
-	// the unit's config settings.
-	ConfigVersion int
+	// ConfigHash is a hash of the last published version of the
+	// unit's config settings.
+	ConfigHash string
+
+	// TrustHash is a hash of the last published version of the unit's
+	// trust settings.
+	TrustHash string
+
+	// AddressesHash is a hash of the last published addresses for the
+	// unit's machine/container.
+	AddressesHash string
 
 	// Leader indicates whether or not the unit is the
 	// elected leader.
@@ -69,8 +78,13 @@ type Snapshot struct {
 	// executed by this unit.
 	Commands []string
 
-	// Series is the current series running on the unit
-	Series string
+	// UpgradeSeriesStatus is the preparation status of any currently running
+	// series upgrade
+	UpgradeSeriesStatus model.UpgradeSeriesStatus
+
+	// UpgradeCharmProfileStatus represents the current upgrade charm profile
+	// status for the currently running unit
+	UpgradeCharmProfileStatus string
 }
 
 type RelationSnapshot struct {

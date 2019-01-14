@@ -250,7 +250,7 @@ func (s *AddModelSuite) TestCredentialsNoDefaultCloud(c *gc.C) {
 	_, err := s.run(c, "test", "--credential", "secrets")
 	c.Assert(err, gc.ErrorMatches, `there is no default cloud defined, please specify one using:
 
-    juju add-model \[flags\] \<model-name\> cloud\[/region\]`)
+    juju add-model \[options\] \<model-name\> cloud\[/region\]`)
 }
 
 func (s *AddModelSuite) TestCredentialsOneCached(c *gc.C) {
@@ -273,7 +273,7 @@ func (s *AddModelSuite) TestCredentialsOneCached(c *gc.C) {
 	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "us-west-1")
 }
 
-func (s *AddModelSuite) TestCredentialsDetected(c *gc.C) {
+func (s *AddModelSuite) TestControllerCredentialsDetected(c *gc.C) {
 	// Disable empty auth and clear the local credentials,
 	// forcing a check for credentials in the controller.
 	// There are multiple credentials in the controller,
@@ -293,11 +293,10 @@ func (s *AddModelSuite) TestCredentialsDetected(c *gc.C) {
 	credential.Label = "finalized"
 
 	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, credentialTag)
-	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud", "UserCredentials", "UpdateCredential")
-	s.fakeCloudAPI.CheckCall(c, 3, "UpdateCredential", credentialTag, credential)
+	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud", "UserCredentials")
 }
 
-func (s *AddModelSuite) TestCredentialsDetectedAmbiguous(c *gc.C) {
+func (s *AddModelSuite) TestControllerCredentialsDetectedAmbiguous(c *gc.C) {
 	// Disable empty auth and clear the local credentials,
 	// forcing a check for credentials in the controller.
 	// There are multiple credentials in the controller,
@@ -323,7 +322,7 @@ to the client with:
 
     juju autoload-credentials
 
-and then run the add-model command again with the --credential flag.`[1:])
+and then run the add-model command again with the --credential option.`[1:])
 }
 
 func (s *AddModelSuite) TestCloudRegionPassedThrough(c *gc.C) {
@@ -671,8 +670,8 @@ func (c *fakeCloudAPI) UserCredentials(user names.UserTag, cloud names.CloudTag)
 	return c.credentials, c.NextErr()
 }
 
-func (c *fakeCloudAPI) UpdateCredential(credentialTag names.CloudCredentialTag, credential cloud.Credential) error {
-	c.MethodCall(c, "UpdateCredential", credentialTag, credential)
+func (c *fakeCloudAPI) AddCredential(tag string, credential cloud.Credential) error {
+	c.MethodCall(c, "AddCredential", tag, credential)
 	return c.NextErr()
 }
 
@@ -709,5 +708,5 @@ func (p *fakeProvider) FinalizeCredential(
 }
 
 func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: cloud.CredentialSchema{}}
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }

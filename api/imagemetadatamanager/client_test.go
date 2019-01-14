@@ -57,7 +57,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 
 			if results, k := result.(*params.ListCloudImageMetadataResult); k {
 				instances := []params.CloudImageMetadata{
-					params.CloudImageMetadata{
+					{
 						ImageId:         imageId,
 						Stream:          args.Stream,
 						Region:          args.Region,
@@ -85,7 +85,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 
 	c.Assert(called, jc.IsTrue)
 	expected := []params.CloudImageMetadata{
-		params.CloudImageMetadata{
+		{
 			ImageId:         imageId,
 			Stream:          stream,
 			Region:          region,

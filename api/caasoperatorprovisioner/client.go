@@ -9,16 +9,15 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/storage"
 )
 
 // Client allows access to the CAAS operator provisioner API endpoint.
 type Client struct {
-	*common.APIAddresser
 	facade base.FacadeCaller
 }
 
@@ -26,8 +25,7 @@ type Client struct {
 func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASOperatorProvisioner")
 	return &Client{
-		facade:       facadeCaller,
-		APIAddresser: common.NewAPIAddresser(facadeCaller),
+		facade: facadeCaller,
 	}
 }
 
@@ -105,8 +103,11 @@ func (c *Client) Life(appName string) (life.Value, error) {
 
 // OperatorProvisioningInfo holds the info needed to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImagePath string
-	Version   version.Number
+	ImagePath    string
+	Version      version.Number
+	APIAddresses []string
+	Tags         map[string]string
+	CharmStorage storage.KubernetesFilesystemParams
 }
 
 // OperatorProvisioningInfo returns the info needed to provision an operator.
@@ -115,8 +116,22 @@ func (c *Client) OperatorProvisioningInfo() (OperatorProvisioningInfo, error) {
 	if err := c.facade.FacadeCall("OperatorProvisioningInfo", nil, &result); err != nil {
 		return OperatorProvisioningInfo{}, err
 	}
-	return OperatorProvisioningInfo{
-		ImagePath: result.ImagePath,
-		Version:   result.Version,
-	}, nil
+	info := OperatorProvisioningInfo{
+		ImagePath:    result.ImagePath,
+		Version:      result.Version,
+		APIAddresses: result.APIAddresses,
+		Tags:         result.Tags,
+		CharmStorage: filesystemFromParams(result.CharmStorage),
+	}
+	return info, nil
+}
+
+func filesystemFromParams(in params.KubernetesFilesystemParams) storage.KubernetesFilesystemParams {
+	return storage.KubernetesFilesystemParams{
+		StorageName:  in.StorageName,
+		Provider:     storage.ProviderType(in.Provider),
+		Size:         in.Size,
+		Attributes:   in.Attributes,
+		ResourceTags: in.Tags,
+	}
 }

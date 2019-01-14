@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/api/machineundertaker"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 )
 
 type undertakerSuite struct {

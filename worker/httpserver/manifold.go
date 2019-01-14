@@ -5,18 +5,15 @@ package httpserver
 
 import (
 	"crypto/tls"
-	"net"
-	"net/http"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
@@ -36,14 +33,13 @@ type ManifoldConfig struct {
 	// their handlers are registered.
 	RaftTransportName string
 	APIServerName     string
-	RaftEnabledName   string
 
 	AgentName            string
 	Clock                clock.Clock
 	PrometheusRegisterer prometheus.Registerer
 
 	GetControllerConfig func(*state.State) (controller.Config, error)
-	NewTLSConfig        func(*state.State, func() *tls.Certificate) (*tls.Config, http.Handler, error)
+	NewTLSConfig        func(*state.State, func() *tls.Certificate) (*tls.Config, error)
 	NewWorker           func(Config) (worker.Worker, error)
 }
 
@@ -60,9 +56,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
-	}
-	if config.RaftEnabledName == "" {
-		return errors.NotValidf("empty RaftEnabledName")
 	}
 	if config.RaftTransportName == "" {
 		return errors.NotValidf("empty RaftTransportName")
@@ -101,7 +94,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.HubName,
 			config.StateName,
 			config.MuxName,
-			config.RaftEnabledName,
 			config.RaftTransportName,
 			config.APIServerName,
 		},
@@ -135,15 +127,8 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	if err := context.Get(config.APIServerName, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Only check for the raft transport if raft is enabled.
-	var raftEnabled engine.Flag
-	if err := context.Get(config.RaftEnabledName, &raftEnabled); err != nil {
+	if err := context.Get(config.RaftTransportName, nil); err != nil {
 		return nil, errors.Trace(err)
-	}
-	if raftEnabled.Check() {
-		if err := context.Get(config.RaftTransportName, nil); err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 
 	var stTracker workerstate.StateTracker
@@ -161,7 +146,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	}()
 
 	systemState := statePool.SystemState()
-	tlsConfig, autocertHandler, err := config.NewTLSConfig(systemState, getCertificate)
+	tlsConfig, err := config.NewTLSConfig(systemState, getCertificate)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -170,33 +155,12 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
 
-	var autocertListener net.Listener
-	if autocertHandler != nil {
-		autocertListener, err = net.Listen("tcp", ":80")
-		if err != nil {
-			// This manifold must be in a test - get a random port instead.
-			logger.Errorf("couldn't listen for autocert challenges on port 80: %s", err)
-			autocertListener, err = net.Listen("tcp", ":0")
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			logger.Debugf("listening for autocert challenges at %s instead", autocertListener.Addr())
-		}
-		defer func() {
-			if err != nil {
-				autocertListener.Close()
-			}
-		}()
-	}
-
 	w, err := config.NewWorker(Config{
 		AgentName:            config.AgentName,
 		Clock:                config.Clock,
 		PrometheusRegisterer: config.PrometheusRegisterer,
 		Hub:                  hub,
 		TLSConfig:            tlsConfig,
-		AutocertHandler:      autocertHandler,
-		AutocertListener:     autocertListener,
 		Mux:                  mux,
 		APIPort:              controllerConfig.APIPort(),
 		APIPortOpenDelay:     controllerConfig.APIPortOpenDelay(),

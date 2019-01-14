@@ -6,8 +6,8 @@ package apiserver
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/facade"

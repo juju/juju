@@ -23,61 +23,57 @@ var _ = gc.Suite(&clientMacaroonSuite{})
 // macaroon authentication.
 type clientMacaroonSuite struct {
 	apitesting.MacaroonSuite
-	client    *api.Client
-	cookieJar *apitesting.ClearableCookieJar
 }
 
-func (s *clientMacaroonSuite) SetUpTest(c *gc.C) {
-	s.MacaroonSuite.SetUpTest(c)
-	const username = "testuser@somewhere"
+func (s *clientMacaroonSuite) createTestClient(c *gc.C) *api.Client {
+	username := "testuser@somewhere"
 	s.AddModelUser(c, username)
 	s.AddControllerUser(c, username, permission.LoginAccess)
-	s.cookieJar = apitesting.NewClearableCookieJar()
+	cookieJar := apitesting.NewClearableCookieJar()
 	s.DischargerLogin = func() string { return username }
-	s.client = s.OpenAPI(c, nil, s.cookieJar).Client()
+	client := s.OpenAPI(c, nil, cookieJar).Client()
 
 	// Even though we've logged into the API, we want
 	// the tests below to exercise the discharging logic
 	// so we clear the cookies.
-	s.cookieJar.Clear()
-}
-
-func (s *clientMacaroonSuite) TearDownTest(c *gc.C) {
-	s.client.Close()
-	s.MacaroonSuite.TearDownTest(c)
+	cookieJar.Clear()
+	return client
 }
 
 func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
+	client := s.createTestClient(c)
 	s.DischargerLogin = func() string { return "" }
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	savedURL, err := s.client.AddLocalCharm(curl, charmArchive)
+	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, gc.ErrorMatches, `POST https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(savedURL, gc.IsNil)
 }
 
 func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
-	c.Skip("dimitern: disabled as flaky - see http://pad.lv/1560511 as possible root cause")
-
+	client := s.createTestClient(c)
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
+	testcharms.CheckCharmReady(c, charmArchive)
+
 	// Upload an archive with its original revision.
-	savedURL, err := s.client.AddLocalCharm(curl, charmArchive)
+	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 }
 
 func (s *clientMacaroonSuite) TestAddLocalCharmUnauthorized(c *gc.C) {
+	client := s.createTestClient(c)
 	s.DischargerLogin = func() string { return "baduser" }
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	// Upload an archive with its original revision.
-	_, err := s.client.AddLocalCharm(curl, charmArchive)
+	_, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, gc.ErrorMatches, `.*invalid entity name or password$`)
 }

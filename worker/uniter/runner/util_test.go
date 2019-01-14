@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/fs"
@@ -67,7 +67,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	storageData0 := names.NewStorageTag("data/0")
 	s.storage = &runnertesting.StorageContextAccessor{
 		map[names.StorageTag]*runnertesting.ContextStorage{
-			storageData0: &runnertesting.ContextStorage{
+			storageData0: {
 				storageData0,
 				storage.StorageKindBlock,
 				"/dev/sdb",
@@ -108,7 +108,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,
-		Clock:            jujutesting.NewClock(time.Time{}),
+		Clock:            testclock.NewClock(time.Time{}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

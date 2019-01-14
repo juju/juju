@@ -10,7 +10,7 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 var logger = loggo.GetLogger("juju.api.credentialvalidator")
@@ -19,6 +19,10 @@ var logger = loggo.GetLogger("juju.api.credentialvalidator")
 // credential validity has changed: either a valid credential became invalid
 // or invalid credential became valid.
 var ErrValidityChanged = errors.New("cloud credential validity has changed")
+
+// ErrModelCredentialChanged indicates that a Worker has bounced because its
+// model's cloud credential has changed.
+var ErrModelCredentialChanged = errors.New("model cloud credential has changed")
 
 // Facade exposes functionality required by a Worker to access and watch
 // a cloud credential that a model uses.
@@ -30,6 +34,9 @@ type Facade interface {
 
 	// WatchCredential gets cloud credential watcher.
 	WatchCredential(string) (watcher.NotifyWatcher, error)
+
+	// WatchModelCredential gets model's cloud credential watcher.
+	WatchModelCredential() (watcher.NotifyWatcher, error)
 }
 
 // Config holds the dependencies and configuration for a Worker.
@@ -58,32 +65,42 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	v := &validator{
-		validatorFacade: config.Facade,
-		credential:      mc,
+	// This worker needs to monitor both the changes to the credential content that
+	// this model uses as well as what credential the model uses.
+	// It needs to be restarted if there is a change in either.
+	mcw, err := config.Facade.WatchModelCredential()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
+	v := &validator{
+		validatorFacade:        config.Facade,
+		credential:             mc,
+		modelCredentialWatcher: mcw,
+	}
+
+	// The watcher needs to be added to the worker's catacomb plan
+	// here in order to be controlled by this worker's lifecycle events:
+	// for example, to be destroyed when this worker is destroyed, etc.
+	// We also add the watcher to the Plan.Init collection to ensure that
+	// the worker's Plan.Work method is executed after the watcher
+	// is initialised and watcher's changes collection obtains the changes.
+	// Watchers that are added using catacomb.Add method
+	// miss out on a first call of Worker's Plan.Work method and can, thus,
+	// be missing out on an initial change.
 	plan := catacomb.Plan{
 		Site: &v.catacomb,
 		Work: v.loop,
+		Init: []worker.Worker{v.modelCredentialWatcher},
 	}
 
 	if mc.CloudCredential != "" {
 		var err error
-		v.watcher, err = config.Facade.WatchCredential(mc.CloudCredential)
+		v.credentialWatcher, err = config.Facade.WatchCredential(mc.CloudCredential)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// The watcher needs to be added to the worker's catacomb plan
-		// here in order to be controlled by this worker's lifecycle events:
-		// for example, to be destroyed when this worker is destroyed, etc.
-		// We also add the watcher to the Plan.Init collection to ensure that
-		// the worker's Plan.Work method is executed after the watcher
-		// is initialised and watcher's changes collection obtains the changes.
-		// Watchers that are added using catacomb.Add method
-		// miss out on a first call of Worker's Plan.Work method and can, thus,
-		// be missing out on an initial change.
-		plan.Init = []worker.Worker{v.watcher}
+		plan.Init = append(plan.Init, v.credentialWatcher)
 	}
 
 	if err := catacomb.Invoke(plan); err != nil {
@@ -93,14 +110,14 @@ func NewWorker(config Config) (worker.Worker, error) {
 }
 
 type validator struct {
-	catacomb catacomb.Catacomb
+	catacomb        catacomb.Catacomb
+	validatorFacade Facade
+
+	modelCredentialWatcher watcher.NotifyWatcher
 
 	credential base.StoredCredential
-
-	// watcher may sometimes be nil when there is no credential to watch.
-	watcher watcher.NotifyWatcher
-
-	validatorFacade Facade
+	// could be nil when there is no model credential to watch
+	credentialWatcher watcher.NotifyWatcher
 }
 
 // Kill is part of the worker.Worker interface.
@@ -120,14 +137,25 @@ func (v *validator) Check() bool {
 
 func (v *validator) loop() error {
 	var watcherChanges watcher.NotifyChannel
-	if v.watcher != nil {
-		watcherChanges = v.watcher.Changes()
+	if v.credentialWatcher != nil {
+		watcherChanges = v.credentialWatcher.Changes()
 	}
 
 	for {
 		select {
 		case <-v.catacomb.Dying():
 			return v.catacomb.ErrDying()
+		case _, ok := <-v.modelCredentialWatcher.Changes():
+			if !ok {
+				return v.catacomb.ErrDying()
+			}
+			updatedCredential, err := modelCredential(v.validatorFacade)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if v.credential.CloudCredential != updatedCredential.CloudCredential {
+				return ErrModelCredentialChanged
+			}
 		case _, ok := <-watcherChanges:
 			if !ok {
 				return v.catacomb.ErrDying()
@@ -136,10 +164,6 @@ func (v *validator) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			// TODO (anastasiamac 2018-05-31) model's reference to cloud credential
-			// is immutable at this stage. Planned worked caters for situations
-			// where model credential is changed.
-			// Once this is implemented, this worker will need to be changed too.
 			if v.credential.Valid != updatedCredential.Valid {
 				return ErrValidityChanged
 			}

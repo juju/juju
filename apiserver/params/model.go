@@ -285,6 +285,7 @@ type ModelMachineInfo struct {
 	Hardware   *MachineHardware `json:"hardware,omitempty"`
 	InstanceId string           `json:"instance-id,omitempty"`
 	Status     string           `json:"status,omitempty"`
+	Message    string           `json:"message,omitempty"`
 	HasVote    bool             `json:"has-vote,omitempty"`
 	WantsVote  bool             `json:"wants-vote,omitempty"`
 }
@@ -305,6 +306,7 @@ type ModelVolumeInfo struct {
 	Id         string `json:"id"`
 	ProviderId string `json:"provider-id,omitempty"`
 	Status     string `json:"status,omitempty"`
+	Message    string `json:"message,omitempty"`
 	Detachable bool   `json:"detachable,omitempty"`
 }
 
@@ -313,6 +315,7 @@ type ModelFilesystemInfo struct {
 	Id         string `json:"id"`
 	ProviderId string `json:"provider-id,omitempty"`
 	Status     string `json:"status,omitempty"`
+	Message    string `json:"message,omitempty"`
 	Detachable bool   `json:"detachable,omitempty"`
 }
 
@@ -405,4 +408,20 @@ type ModelCredential struct {
 	// and whether this credential works for this model, i.e. all model
 	// machines can be accessed with this credential.
 	Valid bool `json:"valid,omitempty"`
+}
+
+// ChangeModelCredentialParams holds the argument to replace cloud credential
+// used by a model.
+type ChangeModelCredentialParams struct {
+	// ModelTag is a tag for the model where cloud credential change takes place.
+	ModelTag string `json:"model-tag"`
+
+	// CloudCredentialTag is the tag for the new cloud credential.
+	CloudCredentialTag string `json:"credential-tag"`
+}
+
+// ChangeModelCredentialsParams holds the arguments for changing
+// cloud credentials on models.
+type ChangeModelCredentialsParams struct {
+	Models []ChangeModelCredentialParams `json:"model-credentials"`
 }

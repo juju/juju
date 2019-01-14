@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
@@ -32,7 +32,7 @@ func checkErr(label string, err error) {
 
 const dataDir = "/var/lib/juju"
 
-func getState() (*state.State, error) {
+func getState() (*state.StatePool, error) {
 	tag, err := getCurrentMachineTag(dataDir)
 	if err != nil {
 		return nil, errors.Annotate(err, "finding machine tag")
@@ -55,7 +55,7 @@ func getState() (*state.State, error) {
 	}
 	defer session.Close()
 
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
@@ -64,7 +64,7 @@ func getState() (*state.State, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "opening state connection")
 	}
-	return st, nil
+	return pool, nil
 }
 
 func getCurrentMachineTag(datadir string) (names.MachineTag, error) {
@@ -109,12 +109,10 @@ func main() {
 		jversion.Current = agentVersion
 	}
 
-	st, err := getState()
+	statePool, err := getState()
 	checkErr("getting state connection", err)
-	defer st.Close()
-
-	statePool := state.NewStatePool(st)
 	defer statePool.Close()
+
 	modelSt, err := statePool.Get(modelUUID)
 	checkErr("open model", err)
 	defer func() {

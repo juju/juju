@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/agent" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/unitassigner"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
+	"github.com/juju/juju/apiserver/facades/agent/upgradeseries"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/application" // ModelUser Write
@@ -50,6 +51,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/client"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/cloud"      // ModelUser Read
 	"github.com/juju/juju/apiserver/facades/client/controller" // ModelUser Admin (although some methods check for read only)
+	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
 	"github.com/juju/juju/apiserver/facades/client/firewallrules"
 	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemanager"     // ModelUser Write
@@ -85,7 +87,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	"github.com/juju/juju/apiserver/facades/controller/metricsmanager"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
-	"github.com/juju/juju/apiserver/facades/controller/migrationtarget" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/facades/controller/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/resumer"
@@ -124,7 +126,8 @@ func AllFacades() *facade.Registry {
 		}
 	}
 
-	reg("Action", 2, action.NewActionAPI)
+	reg("Action", 2, action.NewActionAPIV2)
+	reg("Action", 3, action.NewActionAPIV3)
 	reg("ActionPruner", 1, actionpruner.NewAPI)
 	reg("Agent", 2, agent.NewAgentAPIV2)
 	reg("AgentTools", 1, agenttools.NewFacade)
@@ -139,6 +142,8 @@ func AllFacades() *facade.Registry {
 	reg("Application", 4, application.NewFacadeV4)
 	reg("Application", 5, application.NewFacadeV5) // adds AttachStorage & UpdateApplicationSeries & SetRelationStatus
 	reg("Application", 6, application.NewFacadeV6)
+	reg("Application", 7, application.NewFacadeV7)
+	reg("Application", 8, application.NewFacadeV8)
 
 	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
 	reg("ApplicationOffers", 2, applicationoffers.NewOffersAPIV2)
@@ -153,8 +158,9 @@ func AllFacades() *facade.Registry {
 	reg("Cleaner", 2, cleaner.NewCleanerAPI)
 	reg("Client", 1, client.NewFacadeV1)
 	reg("Client", 2, client.NewFacade)
-	reg("Cloud", 1, cloud.NewFacade)
-	reg("Cloud", 2, cloud.NewFacadeV2) // adds CredentialContents, RemoveCloud
+	reg("Cloud", 1, cloud.NewFacadeV1)
+	reg("Cloud", 2, cloud.NewFacadeV2) // adds AddCloud, AddCredentials, CredentialContents, RemoveClouds
+	reg("Cloud", 3, cloud.NewFacadeV3) // changes signature of UpdateCredentials, adds ModifyCloudAccess
 
 	// CAAS related facades.
 	// Move these to the correct place above once the feature flag disappears.
@@ -169,7 +175,9 @@ func AllFacades() *facade.Registry {
 	reg("Controller", 5, controller.NewControllerAPIv5)
 	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
-	reg("CredentialValidator", 1, credentialvalidator.NewCredentialValidatorAPI)
+	reg("CredentialManager", 1, credentialmanager.NewCredentialManagerAPI)
+	reg("CredentialValidator", 1, credentialvalidator.NewCredentialValidatorAPIv1)
+	reg("CredentialValidator", 2, credentialvalidator.NewCredentialValidatorAPI) // adds WatchModelCredential
 	reg("ExternalControllerUpdater", 1, externalcontrollerupdater.NewStateAPI)
 
 	reg("Deployer", 1, deployer.NewDeployerAPI)
@@ -191,20 +199,23 @@ func AllFacades() *facade.Registry {
 	reg("InstancePoller", 3, instancepoller.NewFacade)
 	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
 	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
+
 	reg("LeadershipService", 2, leadership.NewLeadershipServiceFacade)
+
 	reg("LifeFlag", 1, lifeflag.NewExternalFacade)
 	reg("Logger", 1, loggerapi.NewLoggerAPI)
 	reg("LogForwarding", 1, logfwd.NewFacade)
 	reg("MachineActions", 1, machineactions.NewExternalFacade)
 
 	reg("MachineManager", 2, machinemanager.NewFacade)
-	reg("MachineManager", 3, machinemanager.NewFacade)   // Version 3 adds DestroyMachine and ForceDestroyMachine.
-	reg("MachineManager", 4, machinemanager.NewFacadeV4) // Version 4 adds DestroyMachineWithParams.
+	reg("MachineManager", 3, machinemanager.NewFacade)   // Adds DestroyMachine and ForceDestroyMachine.
+	reg("MachineManager", 4, machinemanager.NewFacadeV4) // Adds DestroyMachineWithParams.
+	reg("MachineManager", 5, machinemanager.NewFacadeV5) // Adds UpgradeSeriesPrepare, removes UpdateMachineSeries.
 
 	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
 	reg("Machiner", 1, machine.NewMachinerAPI)
 
-	reg("MeterStatus", 1, meterstatus.NewMeterStatusAPI)
+	reg("MeterStatus", 1, meterstatus.NewMeterStatusFacade)
 	reg("MetricsAdder", 2, metricsadder.NewMetricsAdderAPI)
 	reg("MetricsDebug", 2, metricsdebug.NewMetricsDebugAPI)
 	reg("MetricsManager", 1, metricsmanager.NewFacade)
@@ -219,6 +230,7 @@ func AllFacades() *facade.Registry {
 	reg("ModelManager", 2, modelmanager.NewFacadeV2)
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
 	reg("ModelManager", 4, modelmanager.NewFacadeV4)
+	reg("ModelManager", 5, modelmanager.NewFacadeV5) // adds ChangeModelCredential
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
 
 	reg("Payloads", 1, payloads.NewFacade)
@@ -233,6 +245,7 @@ func AllFacades() *facade.Registry {
 	reg("Provisioner", 4, provisioner.NewProvisionerAPIV4)
 	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5) // v5 adds DistributionGroupByMachineId()
 	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6) // v6 adds more proxy settings
+	reg("Provisioner", 7, provisioner.NewProvisionerAPIV7) // v7 adds charm profile watcher
 
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
@@ -240,11 +253,7 @@ func AllFacades() *facade.Registry {
 	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
 
 	reg("Resources", 1, resources.NewPublicFacade)
-	regHookContext(
-		"ResourcesHookContext", 1,
-		resourceshookcontext.NewHookContextFacade,
-		reflect.TypeOf(&resourceshookcontext.UnitFacade{}),
-	)
+	reg("ResourcesHookContext", 1, resourceshookcontext.NewStateFacade)
 
 	reg("Resumer", 2, resumer.NewResumerAPI)
 	reg("RetryStrategy", 1, retrystrategy.NewRetryStrategyAPI)
@@ -271,9 +280,11 @@ func AllFacades() *facade.Registry {
 	reg("Uniter", 5, uniter.NewUniterAPIV5)
 	reg("Uniter", 6, uniter.NewUniterAPIV6)
 	reg("Uniter", 7, uniter.NewUniterAPIV7)
-	reg("Uniter", 8, uniter.NewUniterAPI)
+	reg("Uniter", 8, uniter.NewUniterAPIV8)
+	reg("Uniter", 9, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
+	reg("UpgradeSeries", 1, upgradeseries.NewAPI)
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)
 	reg("UserManager", 2, usermanager.NewUserManagerAPI) // Adds ResetPassword
 
@@ -289,6 +300,7 @@ func AllFacades() *facade.Registry {
 	regRaw("RelationStatusWatcher", 1, newRelationStatusWatcher, reflect.TypeOf((*srvRelationStatusWatcher)(nil)))
 	regRaw("RelationUnitsWatcher", 1, newRelationUnitsWatcher, reflect.TypeOf((*srvRelationUnitsWatcher)(nil)))
 	regRaw("VolumeAttachmentsWatcher", 2, newVolumeAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
+	regRaw("VolumeAttachmentPlansWatcher", 1, newVolumeAttachmentPlansWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
 	regRaw("FilesystemAttachmentsWatcher", 2, newFilesystemAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
 	regRaw("EntityWatcher", 2, newEntitiesWatcher, reflect.TypeOf((*srvEntitiesWatcher)(nil)))
 	regRaw("MigrationStatusWatcher", 1, newMigrationStatusWatcher, reflect.TypeOf((*srvMigrationStatusWatcher)(nil)))

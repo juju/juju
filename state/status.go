@@ -8,19 +8,21 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/clock"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/status"
 )
+
+type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo
 
 // ModelStatus holds all the current status values for a given model
 // and offers accessors for the various parts of a model.
@@ -77,28 +79,38 @@ func (m *ModelStatus) Model() (status.StatusInfo, error) {
 // Application returns the status of the model.
 // The unitNames are needed due to the current weird implementation of
 // application status.
+// Considers the operator pods status (for caas models)
 func (m *ModelStatus) Application(appName string, unitNames []string) (status.StatusInfo, error) {
-	// This is kinda terrible, see notes in applcation.go for *Application.Status().
+	// This is kinda terrible, see notes in application.go for *Application.Status().
 	doc, err := m.getDoc(applicationGlobalKey(appName), "application")
 	if err != nil {
 		return status.StatusInfo{}, err
 	}
+	appStatus := doc.asStatusInfo()
 	if doc.NeverSet {
 		// Get the status for the agents, and derive a status from that.
 		var unitStatuses []status.StatusInfo
 		for _, name := range unitNames {
 			unitStatus, err := m.UnitWorkload(name)
 			if err != nil {
-				errors.Annotatef(err, "deriving application status from %q", name)
+				return status.StatusInfo{}, errors.Annotatef(err, "deriving application status from %q", name)
 			}
 			unitStatuses = append(unitStatuses, unitStatus)
 		}
 		if len(unitStatuses) > 0 {
-			return deriveApplicationStatus(unitStatuses), nil
+			appStatus = deriveApplicationStatus(unitStatuses)
 		}
 
 	}
-	return doc.asStatusInfo(), nil
+	if m.model.Type() == ModelTypeIAAS {
+		return appStatus, nil
+	}
+
+	operatorStatusDoc, err := m.getDoc(applicationGlobalOperatorKey(appName), "operator")
+	if err != nil {
+		return status.StatusInfo{}, errors.Trace(err)
+	}
+	return caasApplicationDisplayStatus(appStatus, operatorStatusDoc.asStatusInfo()), nil
 }
 
 // MachineAgent returns the status of the machine agent.
@@ -118,7 +130,7 @@ func (m *ModelStatus) FullUnitWorkloadVersion(unitName string) (status.StatusInf
 	return m.getStatus(globalWorkloadVersionKey(unitName), "workload")
 }
 
-// UnitWorkload returns the status of the machine instance.
+// UnitWorkloadVersion returns workload version for the unit
 func (m *ModelStatus) UnitWorkloadVersion(unitName string) (string, error) {
 	info, err := m.getStatus(globalWorkloadVersionKey(unitName), "workload")
 	if err != nil {
@@ -127,7 +139,7 @@ func (m *ModelStatus) UnitWorkloadVersion(unitName string) (string, error) {
 	return info.Message, nil
 }
 
-// UnitWorkload returns the status of the machine instance.
+// UnitAgent returns the status of the Unit's agent.
 func (m *ModelStatus) UnitAgent(unitName string) (status.StatusInfo, error) {
 	// We do horrible things with unit status.
 	// See notes in unitagent.go.
@@ -146,7 +158,7 @@ func (m *ModelStatus) UnitAgent(unitName string) (status.StatusInfo, error) {
 	return info, nil
 }
 
-// UnitWorkload returns the status of the machine instance.
+// UnitWorkload returns the status of the unit's workload.
 func (m *ModelStatus) UnitWorkload(unitName string) (status.StatusInfo, error) {
 	// We do horrible things with unit status.
 	// See notes in unit.go.
@@ -157,7 +169,96 @@ func (m *ModelStatus) UnitWorkload(unitName string) (status.StatusInfo, error) {
 		return info, nil
 	}
 
-	return m.getStatus(unitGlobalKey(unitName), "workload")
+	// (for CAAS models) Use cloud container status over unit if the cloud
+	// container status is error or active or the unit status hasn't shifted
+	// from 'allocating'
+	info, err = m.getStatus(unitGlobalKey(unitName), "workload")
+	if err != nil {
+		return info, errors.Trace(err)
+	}
+
+	if m.model.Type() == ModelTypeIAAS {
+		return info, nil
+	}
+
+	containerInfo, err := m.getStatus(globalCloudContainerKey(unitName), "cloud container")
+	if err != nil && !errors.IsNotFound(err) {
+		return info, err
+	}
+	return caasUnitDisplayStatus(info, containerInfo), nil
+}
+
+func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo {
+	if unitStatus.Status == status.Terminated {
+		return unitStatus
+	}
+	if containerStatus.Status == status.Terminated {
+		return containerStatus
+	}
+	if containerStatus.Status == "" {
+		// No container update received from k8s yet.
+		// Unit may have set status.
+		if unitStatus.Status != "" {
+			return unitStatus
+		}
+
+		// If no unit status set, assume still allocating.
+		return status.StatusInfo{
+			Status:  status.Waiting,
+			Message: status.MessageWaitForContainer,
+		}
+	}
+	if unitStatus.Status != status.Active && unitStatus.Status != status.Waiting && unitStatus.Status != status.Blocked {
+		// Charm has said that there's a problem (error) or
+		// it's doing something (maintenance) so we'll stick with that.
+		return unitStatus
+	}
+
+	// Charm may think it's active, but as yet there's no way for it to
+	// query the workload state, so we'll ensure that we only say that
+	// it's active if the pod is reported as running. If not, we'll report
+	// any pod error.
+	switch containerStatus.Status {
+	case status.Error, status.Blocked, status.Allocating:
+		return containerStatus
+	case status.Waiting:
+		if unitStatus.Status == status.Active {
+			return containerStatus
+		}
+	case status.Running:
+		// Unit hasn't moved from initial state.
+		if unitStatus.Status == status.Waiting && unitStatus.Message == status.MessageWaitForContainer {
+			return containerStatus
+		}
+	}
+	return unitStatus
+}
+
+// caasApplicationDisplayStatus determines which of the two statuses to use when displaying application status in a CAAS model.
+func caasApplicationDisplayStatus(applicationStatus, operatorStatus status.StatusInfo) status.StatusInfo {
+	if applicationStatus.Status == status.Terminated {
+		return applicationStatus
+	}
+	// Only interested in the operator status if it's not running/active.
+	if operatorStatus.Status != status.Running && operatorStatus.Status != status.Active {
+		return operatorStatus
+	}
+
+	return applicationStatus
+}
+
+// caasHistoryRewriteDoc determines which status should be stored as history.
+func caasHistoryRewriteDoc(jujuStatus, caasStatus status.StatusInfo, displayStatus displayStatusFunc, clock clock.Clock) (*statusDoc, error) {
+	modifiedStatus := displayStatus(jujuStatus, caasStatus)
+	if modifiedStatus.Status == jujuStatus.Status && modifiedStatus.Message == jujuStatus.Message {
+		return nil, nil
+	}
+	return &statusDoc{
+		Status:     modifiedStatus.Status,
+		StatusInfo: modifiedStatus.Message,
+		StatusData: utils.EscapeKeys(modifiedStatus.Data),
+		Updated:    timeOrNow(modifiedStatus.Since, clock).UnixNano(),
+	}, nil
 }
 
 type statusDocWithID struct {
@@ -278,6 +379,13 @@ type setStatusParams struct {
 
 	// updated, the time the status was set.
 	updated *time.Time
+
+	// historyOverwrite provides an optional ability to write a different
+	// version of status as history (vs. what status actually gets set.)
+	// Used only with caas models as there is currently no way for a charm
+	// to query its' workload and the cloud container status might contradict
+	// what it thinks it is.
+	historyOverwrite *statusDoc
 }
 
 func timeOrNow(t *time.Time, clock clock.Clock) *time.Time {
@@ -302,8 +410,13 @@ func setStatus(db Database, params setStatusParams) (err error) {
 		Updated:    params.updated.UnixNano(),
 	}
 
-	newStatus, historyErr := probablyUpdateStatusHistory(db, params.globalKey, doc)
-	if !newStatus && historyErr == nil {
+	historyDoc := &doc
+	if params.historyOverwrite != nil {
+		historyDoc = params.historyOverwrite
+	}
+
+	newStatus, historyErr := probablyUpdateStatusHistory(db, params.globalKey, *historyDoc)
+	if params.historyOverwrite == nil && (!newStatus && historyErr == nil) {
 		// If this status is not new (i.e. it is exactly the same as
 		// our last status), there is no need to update the record.
 		// Update here will only reset the 'Since' field.
@@ -401,10 +514,39 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (
 	history, closer := db.GetCollection(statusesHistoryC)
 	defer closer()
 
+	exists, currentID := statusHistoryExists(db, historyDoc)
+	if exists {
+		// If the status values have not changed since the last run,
+		// update history record with this timestamp
+		// to keep correct track of when SetStatus ran.
+		historyW := history.Writeable()
+		err := historyW.Update(
+			bson.D{{"_id", currentID}},
+			bson.D{{"$set", bson.D{{"updated", doc.Updated}}}})
+		if err != nil {
+			logger.Errorf("failed to update status history: %v", err)
+			return false, err
+		}
+		return false, nil
+	}
+
+	historyW := history.Writeable()
+	err := historyW.Insert(historyDoc)
+	if err != nil {
+		logger.Errorf("failed to write status history: %v", err)
+		return false, err
+	}
+	return true, nil
+}
+
+func statusHistoryExists(db Database, historyDoc *historicalStatusDoc) (bool, bson.ObjectId) {
 	// Find the current value to see if it is worthwhile adding the new
 	// status value.
+	history, closer := db.GetCollection(statusesHistoryC)
+	defer closer()
+
 	var latest []recordedHistoricalStatusDoc
-	query := history.Find(bson.D{{globalKeyField, globalKey}})
+	query := history.Find(bson.D{{globalKeyField, historyDoc.GlobalKey}})
 	query = query.Sort("-updated").Limit(1)
 	err := query.All(&latest)
 	if err == nil && len(latest) == 1 {
@@ -425,31 +567,13 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (
 		}
 		// Check the data last as the short circuit evaluation may mean
 		// we rarely need to drop down into the reflect library.
-		if current.Status == doc.Status &&
-			current.StatusInfo == doc.StatusInfo &&
-			dataSame(current.StatusData, doc.StatusData) {
-			// If the status values have not changed since the last run,
-			// update history record with this timestamp
-			// to keep correct track of when SetStatus ran.
-			historyW := history.Writeable()
-			err = historyW.Update(
-				bson.D{{"_id", current.ID}},
-				bson.D{{"$set", bson.D{{"updated", doc.Updated}}}})
-			if err != nil {
-				logger.Errorf("failed to update status history: %v", err)
-				return false, err
-			}
-			return false, nil
+		if current.Status == historyDoc.Status &&
+			current.StatusInfo == historyDoc.StatusInfo &&
+			dataSame(current.StatusData, historyDoc.StatusData) {
+			return true, current.ID
 		}
 	}
-
-	historyW := history.Writeable()
-	err = historyW.Insert(historyDoc)
-	if err != nil {
-		logger.Errorf("failed to write status history: %v", err)
-		return false, err
-	}
-	return true, nil
+	return false, ""
 }
 
 // eraseStatusHistory removes all status history documents for

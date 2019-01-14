@@ -3,12 +3,12 @@ juju
 
 juju is devops distilled.
 
-Juju enables you to use [Charms](https://jujucharms.com/docs/stable/charms) to deploy your
+Juju enables you to use [Charms](https://docs.jujucharms.com/stable/en/charms) to deploy your
 application architectures to EC2, OpenStack, Azure, GCE, your data center, and
 even your own Ubuntu based laptop.  Moving between models is simple giving you
 the flexibility to switch hosts whenever you want — for free.
 
-For more information, see the [docs](https://jujucharms.com/docs/stable/getting-started).
+For more information, see the [docs](https://docs.jujucharms.com/stable/en/getting-started).
 
 Getting started
 ===============
@@ -23,12 +23,12 @@ If you are looking for binary releases of `juju`, they are available in the snap
 Installing Go
 --------------
 
-`Juju's` source code currently depends on Go 1.10. One of the easiest ways
+`Juju's` source code currently depends on Go 1.11. One of the easiest ways
 to install golang is from a snap. You may need to first install
 the [snap client](https://snapcraft.io/docs/core/install). Installing the golang
 snap package is then as easy as
 
-    snap install go --channel=1.10/stable --classic
+    snap install go --channel=1.11/stable --classic
 
 You can read about the "classic" confinement policy [here](https://insights.ubuntu.com/2017/01/09/how-to-snap-introducing-classic-confinement/)
 
@@ -36,7 +36,7 @@ If you want to use `apt`, then you can add the [Golang Gophers PPA](https://laun
 
     sudo add-apt-repository ppa:gophers/archive
     sudo apt-get update
-    sudo apt install golang-1.10
+    sudo apt install golang-1.11
 
 Alternatively, you can always follow the official [binary installation instructions](https://golang.org/doc/install#install)
 
@@ -105,12 +105,12 @@ install dependencies and other features.  It is advisable, when installing
 
 Juju needs some dependencies in order to be installed and the preferred way to
 collect the necessary packages is to use the provided `Makefile`.
-The target `godeps` will download the go packages listed in `dependencies.tsv`.
+The target `dep` will download the go packages listed in `Gopkg.lock`.
 The following bash code will install the dependencies.
 
     cd $GOPATH/src/github.com/juju/juju
     export JUJU_MAKE_GODEPS=true
-    make godeps
+    make dep
 
 ### *Runtime Dependencies*
 
@@ -173,7 +173,17 @@ Building Juju as a Snap Package
 
 Building
 --------
-Make sure your snapcraft version is >= 2.26. Run snapcraft at the root of the repository. A snap will build.
+Make sure your snapcraft version is >= 2.26. Run `snapcraft` at the root of the repository. A snap will build.
+
+Building with Local Changes
+--------
+
+Note that the default snapcraft.yaml file does a git clone of a local repository so if you need to include
+any local changes, they have to be committed first as git ignores uncommitted changes during a local clone.
+
+In some cases patches for dependencies are applied locally by invoking `patch` with snap scriptlets (see snapcraft.yaml).
+This may cause successive rebuilds after `snapcraft clean -s build` to fail as patches will be applied
+on an already patched code-base. In order to avoid that just clear all stages via `snapcraft clean`.
 
 Current State
 -------------
@@ -188,6 +198,6 @@ Needed for confinement
 To enable strict mode, the following bugs need to be resolved, and the snap updated accordingly.
 
  * Missing support for abstract unix sockets (https://bugs.launchpad.net/snappy/+bug/1604967)
- * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)
- * Bash completion doesn't work (https://launchpad.net/bugs/1612303)
  * Juju plugin support (https://bugs.launchpad.net/juju/+bug/1628538)
+ 
+

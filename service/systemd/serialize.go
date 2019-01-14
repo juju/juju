@@ -23,7 +23,7 @@ import (
 
 // UnitSerialize encodes all of the given UnitOption objects into a unit file.
 // Renamed from Serialize from github.com/coreos/go-systemd/unit so as to not
-// confict with the exported internal function in export_test.go.
+// conflict with the exported internal function in export_test.go.
 func UnitSerialize(opts []*unit.UnitOption) io.Reader {
 	var buf bytes.Buffer
 

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/storage"
 )
 
 type provisionerSuite struct {
@@ -163,15 +164,33 @@ func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
 		c.Assert(a, gc.IsNil)
 		c.Assert(result, gc.FitsTypeOf, &params.OperatorProvisioningInfo{})
 		*(result.(*params.OperatorProvisioningInfo)) = params.OperatorProvisioningInfo{
-			ImagePath: "juju-operator-image",
-			Version:   vers,
+			ImagePath:    "juju-operator-image",
+			Version:      vers,
+			APIAddresses: []string{"10.0.0.1:1"},
+			Tags:         map[string]string{"foo": "bar"},
+			CharmStorage: params.KubernetesFilesystemParams{
+				Size:        10,
+				Provider:    "kubernetes",
+				StorageName: "stor",
+				Tags:        map[string]string{"model": "model-tag"},
+				Attributes:  map[string]interface{}{"key": "value"},
+			},
 		}
 		return nil
 	})
 	info, err := client.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, caasoperatorprovisioner.OperatorProvisioningInfo{
-		ImagePath: "juju-operator-image",
-		Version:   vers,
+		ImagePath:    "juju-operator-image",
+		Version:      vers,
+		APIAddresses: []string{"10.0.0.1:1"},
+		Tags:         map[string]string{"foo": "bar"},
+		CharmStorage: storage.KubernetesFilesystemParams{
+			Size:         10,
+			Provider:     "kubernetes",
+			StorageName:  "stor",
+			ResourceTags: map[string]string{"model": "model-tag"},
+			Attributes:   map[string]interface{}{"key": "value"},
+		},
 	})
 }

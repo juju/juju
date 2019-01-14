@@ -1,12 +1,12 @@
 # network-health-3-machines:
 machines:
   '0':
-    series: xenial
+    series: bionic
   '1':
-    series: xenial
+    series: bionic
   '2':
-    series: xenial
-series: xenial
+    series: bionic
+series: bionic
 services:
   dummy-source-a:
     charm: ~juju-qa/dummy-source

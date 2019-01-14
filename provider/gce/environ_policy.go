@@ -18,7 +18,7 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if _, err := env.instancePlacementZone(args.Placement, volumeAttachmentsZone); err != nil {
+	if _, err := env.instancePlacementZone(ctx, args.Placement, volumeAttachmentsZone); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -48,7 +48,7 @@ var instanceTypeConstraints = []string{
 
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.
-func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
+func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 
 	// conflicts

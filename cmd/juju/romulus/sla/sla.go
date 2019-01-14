@@ -21,7 +21,9 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelconfig"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -100,7 +102,7 @@ func (c *slaCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Info implements cmd.Command.
 func (c *slaCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "sla",
 		Args:    "<level>",
 		Purpose: "Set the SLA level for a model.",
@@ -116,7 +118,7 @@ Examples:
     # display the current support level for the model.
     juju sla
 `,
-	}
+	})
 }
 
 // Init implements cmd.Command.
@@ -136,7 +138,11 @@ func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, string
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
-	authClient, err := c.newAuthorizationClient(sla.HTTPClient(hc))
+	apiRoot, err := rcmd.GetMeteringURLForModelCmd(&c.ModelCommandBase)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	authClient, err := c.newAuthorizationClient(sla.APIRoot(apiRoot), sla.HTTPClient(hc))
 	if err != nil {
 		return fail(errors.Trace(err))
 	}

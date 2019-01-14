@@ -1,3 +1,6 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package jujuc_test
 
 import (
@@ -26,7 +29,7 @@ func runCredentialGetCommand(s *CredentialGetSuite, c *gc.C, args []string) (*cm
 	com, err := jujuc.NewCommand(hctx, cmdString("credential-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, args)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 	return ctx, code
 }
 

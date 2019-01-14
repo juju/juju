@@ -17,6 +17,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 )
@@ -58,12 +59,12 @@ agent using --agent. e.g.
 
 // Info returns usage information for the command.
 func (c *IntrospectCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "juju-introspect",
 		Args:    "(--listen=...|<path>)",
 		Purpose: "introspect Juju agents running on this machine",
 		Doc:     introspectCommandDoc,
-	}
+	})
 }
 
 func (c *IntrospectCommand) SetFlags(f *gnuflag.FlagSet) {

@@ -14,23 +14,23 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	proxyutils "github.com/juju/proxy"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/cmd/jujud/introspect"
-	"github.com/juju/juju/cmd/jujud/updateseries"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
+
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/upgrades"
@@ -248,8 +248,6 @@ func Main(args []string) int {
 		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
 	case names.JujuIntrospect:
 		code = cmd.Main(&introspect.IntrospectCommand{}, ctx, args[1:])
-	case names.JujuUpdateSeries:
-		code = cmd.Main(&updateseries.UpdateSeriesCommand{}, ctx, args[1:])
 	default:
 		code, err = hookToolMain(commandName, ctx, args)
 	}

@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -32,12 +33,12 @@ type resolvedCommand struct {
 }
 
 func (c *resolvedCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "resolved",
 		Args:    "[<unit> ...]",
 		Purpose: "Marks unit errors resolved and re-executes failed hooks.",
 		Aliases: []string{"resolve"},
-	}
+	})
 }
 
 func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {

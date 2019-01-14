@@ -13,7 +13,7 @@ const JujuRunActionName = "juju-run"
 
 // PredefinedActionsSpec defines a spec for each predefined action.
 var PredefinedActionsSpec = map[string]charm.ActionSpec{
-	JujuRunActionName: charm.ActionSpec{
+	JujuRunActionName: {
 		Description: "predefined juju-run action",
 		Params: map[string]interface{}{
 			"type":        "object",

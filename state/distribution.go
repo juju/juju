@@ -12,17 +12,18 @@ import (
 	"github.com/juju/juju/instance"
 )
 
-// distributeuUnit takes a unit and set of clean, possibly empty, instances
+// distributeUnit takes a unit and set of clean, possibly empty, instances
 // and asks the InstanceDistributor policy (if any) which ones are suitable
 // for assigning the unit to. If there is no InstanceDistributor, or the
 // distribution group is empty, then all of the candidates will be returned.
-func distributeUnit(u *Unit, candidates []instance.Id) ([]instance.Id, error) {
+func distributeUnit(u *Unit, candidates []instance.Id, limitZones []string) ([]instance.Id, error) {
 	if len(candidates) == 0 {
 		return nil, nil
 	}
 	if u.st.policy == nil {
 		return candidates, nil
 	}
+
 	distributor, err := u.st.policy.InstanceDistributor()
 	if errors.IsNotImplemented(err) {
 		return candidates, nil
@@ -32,6 +33,7 @@ func distributeUnit(u *Unit, candidates []instance.Id) ([]instance.Id, error) {
 	if distributor == nil {
 		return nil, fmt.Errorf("policy returned nil instance distributor without an error")
 	}
+
 	distributionGroup, err := ApplicationInstances(u.st, u.doc.Application)
 	if err != nil {
 		return nil, err
@@ -39,7 +41,7 @@ func distributeUnit(u *Unit, candidates []instance.Id) ([]instance.Id, error) {
 	if len(distributionGroup) == 0 {
 		return candidates, nil
 	}
-	return distributor.DistributeInstances(CallContext(u.st), candidates, distributionGroup)
+	return distributor.DistributeInstances(CallContext(u.st), candidates, distributionGroup, limitZones)
 }
 
 // ApplicationInstances returns the instance IDs of provisioned

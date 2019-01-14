@@ -57,11 +57,14 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 		controller.StatePort:               1234,
 		controller.SetNUMAControlPolicyKey: true,
 	}
-	_, err = bootstrap.Prepare(ctx, controllerStore, bootstrap.PrepareParams{
+	fakeCert := testing.CACert
+	cloudSpec := dummy.SampleCloudSpec()
+	cloudSpec.CACertificates = []string{fakeCert}
+	_, err = bootstrap.PrepareController(false, ctx, controllerStore, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
 		ModelConfig:      cfg.AllAttrs(),
-		Cloud:            dummy.SampleCloudSpec(),
+		Cloud:            cloudSpec,
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,10 +104,11 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 		CloudEndpoint:         "dummy-endpoint",
 		CloudIdentityEndpoint: "dummy-identity-endpoint",
 		CloudStorageEndpoint:  "dummy-storage-endpoint",
+		CloudCACertificates:   []string{fakeCert},
 	})
 
 	// Check we cannot call Prepare again.
-	_, err = bootstrap.Prepare(ctx, controllerStore, bootstrap.PrepareParams{
+	_, err = bootstrap.PrepareController(false, ctx, controllerStore, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
 		ModelConfig:      cfg.AllAttrs(),

@@ -928,7 +928,7 @@ func (m *Machine) AllNetworkAddresses() ([]network.Address, error) {
 // NaturallySortDeviceNames
 func deviceMapToSortedList(deviceMap map[string]*LinkLayerDevice) []*LinkLayerDevice {
 	names := make([]string, 0, len(deviceMap))
-	for name, _ := range deviceMap {
+	for name := range deviceMap {
 		// name must == device.Name()
 		names = append(names, name)
 	}

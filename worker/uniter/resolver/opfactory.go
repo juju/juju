@@ -9,6 +9,8 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -48,6 +50,32 @@ func (s *resolverOpFactory) NewSkipHook(info hook.Info) (operation.Operation, er
 	return s.wrapHookOp(op, info), nil
 }
 
+func (s *resolverOpFactory) NewNoOpFinishUpgradeSeries() (operation.Operation, error) {
+	op, err := s.Factory.NewNoOpFinishUpgradeSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	f := func(*operation.State) {
+		s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
+	}
+	op = onCommitWrapper{op, f}
+	return op, nil
+}
+
+// NewFinishUpgradeCharmProfile completes the process of a charm profile, by
+// setting the local state to a not known state.
+func (s *resolverOpFactory) NewFinishUpgradeCharmProfile(charmURL *charm.URL) (operation.Operation, error) {
+	op, err := s.Factory.NewFinishUpgradeCharmProfile(charmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	f := func(*operation.State) {
+		s.LocalState.UpgradeCharmProfileStatus = lxdprofile.NotKnownStatus
+	}
+	op = onCommitWrapper{op, f}
+	return op, nil
+}
+
 func (s *resolverOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
 	op, err := s.Factory.NewUpgrade(charmURL)
 	if err != nil {
@@ -85,7 +113,7 @@ func (s *resolverOpFactory) NewAction(id string) (operation.Operation, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	f := func() {
+	f := func(*operation.State) {
 		if s.LocalState.CompletedActions == nil {
 			s.LocalState.CompletedActions = make(map[string]struct{})
 		}
@@ -108,33 +136,59 @@ func trimCompletedActions(pendingActions []string, completedActions map[string]s
 
 func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *charm.URL) operation.Operation {
 	charmModifiedVersion := s.RemoteState.CharmModifiedVersion
-	return onCommitWrapper{op, func() {
+	return onCommitWrapper{op, func(*operation.State) {
 		s.LocalState.CharmURL = charmURL
 		s.LocalState.Restart = true
 		s.LocalState.Conflicted = false
 		s.LocalState.CharmModifiedVersion = charmModifiedVersion
+		s.LocalState.UpgradeCharmProfileStatus = lxdprofile.EmptyStatus
 	}}
 }
 
 func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) operation.Operation {
 	switch info.Kind {
+	case hooks.PreSeriesUpgrade:
+		op = onPrepareWrapper{op, func() {
+			//on prepare the local status should be made to reflect
+			//that the upgrade process for this united has started.
+			s.LocalState.UpgradeSeriesStatus = s.RemoteState.UpgradeSeriesStatus
+		}}
+		op = onCommitWrapper{op, func(*operation.State) {
+			// on commit, the local status should indicate the hook
+			// has completed. The remote status should already
+			// indicate completion. We sync the states here.
+			s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareCompleted
+		}}
+	case hooks.PostSeriesUpgrade:
+		op = onPrepareWrapper{op, func() {
+			s.LocalState.UpgradeSeriesStatus = s.RemoteState.UpgradeSeriesStatus
+		}}
+		op = onCommitWrapper{op, func(*operation.State) {
+			s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesCompleted
+		}}
 	case hooks.ConfigChanged:
-		v := s.RemoteState.ConfigVersion
-		series := s.RemoteState.Series
-		op = onCommitWrapper{op, func() {
-			s.LocalState.ConfigVersion = v
-			s.LocalState.Series = series
+		configHash := s.RemoteState.ConfigHash
+		trustHash := s.RemoteState.TrustHash
+		addressesHash := s.RemoteState.AddressesHash
+		op = onCommitWrapper{op, func(state *operation.State) {
+			if state != nil {
+				// Assign these on the operation.State so it gets
+				// written into the state file on disk.
+				state.ConfigHash = configHash
+				state.TrustHash = trustHash
+				state.AddressesHash = addressesHash
+			}
 		}}
 	case hooks.LeaderSettingsChanged:
 		v := s.RemoteState.LeaderSettingsVersion
-		op = onCommitWrapper{op, func() {
+		op = onCommitWrapper{op, func(*operation.State) {
 			s.LocalState.LeaderSettingsVersion = v
 		}}
 	}
 
 	charmModifiedVersion := s.RemoteState.CharmModifiedVersion
 	updateStatusVersion := s.RemoteState.UpdateStatusVersion
-	op = onCommitWrapper{op, func() {
+	op = onCommitWrapper{op, func(*operation.State) {
 		// Update UpdateStatusVersion so that the update-status
 		// hook only fires after the next timer.
 		s.LocalState.UpdateStatusVersion = updateStatusVersion
@@ -155,7 +209,7 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 
 type onCommitWrapper struct {
 	operation.Operation
-	onCommit func()
+	onCommit func(*operation.State)
 }
 
 func (op onCommitWrapper) Commit(state operation.State) (*operation.State, error) {
@@ -163,7 +217,7 @@ func (op onCommitWrapper) Commit(state operation.State) (*operation.State, error
 	if err != nil {
 		return nil, err
 	}
-	op.onCommit()
+	op.onCommit(st)
 	return st, nil
 }
 

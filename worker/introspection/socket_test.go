@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
@@ -179,7 +180,7 @@ func (s *introspectionSuite) TestDisabledPresenceReporter(c *gc.C) {
 	// We need to make sure the existing worker is shut down
 	// so we can connect to the socket.
 	workertest.CheckKill(c, s.worker)
-	s.recorder = presence.New(testing.NewClock(time.Now()))
+	s.recorder = presence.New(testclock.NewClock(time.Now()))
 	s.startWorker(c)
 
 	buf := s.call(c, "/presence/")
@@ -191,7 +192,7 @@ func (s *introspectionSuite) TestEnabledPresenceReporter(c *gc.C) {
 	// We need to make sure the existing worker is shut down
 	// so we can connect to the socket.
 	workertest.CheckKill(c, s.worker)
-	s.recorder = presence.New(testing.NewClock(time.Now()))
+	s.recorder = presence.New(testclock.NewClock(time.Now()))
 	s.recorder.Enable()
 	s.recorder.Connect("server", "model-uuid", "agent-1", 42, false, "")
 	s.startWorker(c)

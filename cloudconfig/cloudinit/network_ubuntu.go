@@ -186,7 +186,7 @@ func GenerateNetplan(interfaces []network.InterfaceInfo) (string, error) {
 		}
 		netPlan.Network.Ethernets[info.InterfaceName] = iface
 	}
-	out, err := netplan.Marshal(netPlan)
+	out, err := netplan.Marshal(&netPlan)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

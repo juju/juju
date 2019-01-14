@@ -66,6 +66,14 @@ func (s *loggerSuite) TestNewLoggerAPIAcceptsUnitAgent(c *gc.C) {
 	c.Assert(endPoint, gc.NotNil)
 }
 
+func (s *loggerSuite) TestNewLoggerAPIAcceptsApplicationAgent(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = names.NewApplicationTag("germany")
+	endPoint, err := logger.NewLoggerAPI(s.State, s.resources, anAuthorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(endPoint, gc.NotNil)
+}
+
 func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
 	// Not an error to watch nothing
 	results := s.logger.WatchLoggingConfig(params.Entities{})
@@ -75,7 +83,7 @@ func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"logging-config": loggingConfig}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelConfig.LoggingConfig(), gc.Equals, loggingConfig)
 }

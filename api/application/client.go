@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
@@ -95,6 +96,10 @@ type DeployArgs struct {
 	// handled.
 	Storage map[string]storage.Constraints
 
+	// Devices contains Constraints specifying how devices should be
+	// handled.
+	Devices map[string]devices.Constraints
+
 	// AttachStorage contains IDs of existing storage that should be
 	// attached to the application unit that will be deployed. This
 	// may be non-empty only if NumUnits is 1.
@@ -140,6 +145,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			Constraints:      args.Cons,
 			Placement:        args.Placement,
 			Storage:          args.Storage,
+			Devices:          args.Devices,
 			AttachStorage:    attachStorage,
 			EndpointBindings: args.EndpointBindings,
 			Resources:        args.Resources,
@@ -261,6 +267,14 @@ type SetCharmConfig struct {
 	// facade version 2
 	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
 
+	// Force forces the use of the charm in the following scenarios:
+	// overriding a lxd profile upgrade.
+	// In the future, we should deprecate ForceSeries and ForceUnits and just
+	// use Force for all instances.
+	// TODO (stickupkid): deprecate ForceSeries and ForceUnits in favour of
+	// just using Force.
+	Force bool
+
 	// ForceSeries forces the use of the charm even if it doesn't match the
 	// series of the unit.
 	ForceSeries bool
@@ -305,6 +319,7 @@ func (c *Client) SetCharm(cfg SetCharmConfig) error {
 		Channel:            string(cfg.CharmID.Channel),
 		ConfigSettings:     cfg.ConfigSettings,
 		ConfigSettingsYAML: cfg.ConfigSettingsYAML,
+		Force:              cfg.Force,
 		ForceSeries:        cfg.ForceSeries,
 		ForceUnits:         cfg.ForceUnits,
 		ResourceIDs:        cfg.ResourceIDs,
@@ -574,6 +589,49 @@ func (c *Client) DestroyConsumedApplication(saasNames ...string) ([]params.Error
 	return allResults, nil
 }
 
+// ScaleApplicationParams contains parameters for the ScaleApplication API method.
+type ScaleApplicationParams struct {
+	// ApplicationName is the application to scale.
+	ApplicationName string
+
+	// Scale is the target number of units which should should be running.
+	Scale int
+
+	// ScaleChange is the amount of change to the target number of existing units.
+	ScaleChange int
+}
+
+// ScaleApplication sets the desired unit count for one or more applications.
+func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+	if !names.IsValidApplication(in.ApplicationName) {
+		return params.ScaleApplicationResult{}, errors.NotValidf("application %q", in.ApplicationName)
+	}
+
+	if err := validateApplicationScale(in.Scale, in.ScaleChange); err != nil {
+		return params.ScaleApplicationResult{}, errors.Trace(err)
+	}
+
+	args := params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
+			Scale:          in.Scale,
+			ScaleChange:    in.ScaleChange,
+		}},
+	}
+	var results params.ScaleApplicationResults
+	if err := c.facade.FacadeCall("ScaleApplications", args, &results); err != nil {
+		return params.ScaleApplicationResult{}, errors.Trace(err)
+	}
+	if n := len(results.Results); n != 1 {
+		return params.ScaleApplicationResult{}, errors.Errorf("expected 1 result, got %d", n)
+	}
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return params.ScaleApplicationResult{}, err
+	}
+	return results.Results[0], nil
+}
+
 // GetConstraints returns the constraints for the given applications.
 func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, error) {
 	var allConstraints []constraints.Value
@@ -809,4 +867,15 @@ func (c *Client) ResolveUnitErrors(units []string, all, retry bool) error {
 		return errors.Trace(err)
 	}
 	return errors.Trace(results.Combine())
+}
+
+func validateApplicationScale(scale, scaleChange int) error {
+	if scale == 0 && scaleChange == 0 {
+		return errors.NotValidf("scale of 0")
+	} else if scale < 0 && scaleChange == 0 {
+		return errors.NotValidf("scale < 0")
+	} else if scale != 0 && scaleChange != 0 {
+		return errors.NotValidf("requesting both scale and scale-change")
+	}
+	return nil
 }

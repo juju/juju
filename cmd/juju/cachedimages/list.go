@@ -11,6 +11,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
@@ -49,12 +50,12 @@ type listCommand struct {
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "cached-images",
 		Purpose: "Shows cached os images.",
 		Doc:     listCommandDoc,
 		Aliases: []string{"list-cached-images"},
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

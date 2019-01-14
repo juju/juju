@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 var _ environs.InstanceTypesFetcher = (*environ)(nil)
@@ -26,7 +27,7 @@ func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints
 	}
 	zones, err := env.gce.AvailabilityZones(reg.Region)
 	if err != nil {
-		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
+		return instances.InstanceTypesWithCostMetadata{}, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	resultUnique := map[string]instances.InstanceType{}
 
@@ -36,7 +37,7 @@ func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints
 		}
 		machines, err := env.gce.ListMachineTypes(z.Name())
 		if err != nil {
-			return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
+			return instances.InstanceTypesWithCostMetadata{}, google.HandleCredentialError(errors.Trace(err), ctx)
 		}
 		for _, m := range machines {
 			i := instances.InstanceType{

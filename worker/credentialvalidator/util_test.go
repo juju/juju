@@ -12,9 +12,9 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/credentialvalidator"
 )
 
@@ -24,7 +24,8 @@ type mockFacade struct {
 	credential *base.StoredCredential
 	exists     bool
 
-	watcher *watchertest.MockNotifyWatcher
+	watcher      *watchertest.MockNotifyWatcher
+	modelWatcher *watchertest.MockNotifyWatcher
 }
 
 func (m *mockFacade) setupModelHasNoCredential() {
@@ -49,6 +50,15 @@ func (mock *mockFacade) WatchCredential(id string) (watcher.NotifyWatcher, error
 		return nil, err
 	}
 	return mock.watcher, nil
+}
+
+// WatchModelCredential is part of the credentialvalidator.Facade interface.
+func (mock *mockFacade) WatchModelCredential() (watcher.NotifyWatcher, error) {
+	mock.AddCall("WatchModelCredential")
+	if err := mock.NextErr(); err != nil {
+		return nil, err
+	}
+	return mock.modelWatcher, nil
 }
 
 // credentialTag is the credential tag we're using in the tests.

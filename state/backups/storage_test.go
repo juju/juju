@@ -7,48 +7,18 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
 )
 
 type storageSuite struct {
-	gitjujutesting.MgoSuite
-	testing.BaseSuite
-	State *state.State
+	statetesting.StateSuite
 }
 
 var _ = gc.Suite(&storageSuite{})
-
-func (s *storageSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
-}
-
-func (s *storageSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *storageSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
-	s.State = statetesting.NewState(c)
-}
-
-func (s *storageSuite) TearDownTest(c *gc.C) {
-	if s.State != nil {
-		// If setup fails, we don't have a State yet
-		s.State.Close()
-	}
-	s.MgoSuite.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
-}
 
 func (s *storageSuite) metadata(c *gc.C) *backups.Metadata {
 	meta := backups.NewMetadata()

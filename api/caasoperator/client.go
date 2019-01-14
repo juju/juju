@@ -15,20 +15,22 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Client allows access to the CAAS operator API endpoint.
 type Client struct {
 	facade base.FacadeCaller
+	*common.APIAddresser
 }
 
 // NewClient returns a client used to access the CAAS Operator API.
 func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASOperator")
 	return &Client{
-		facade: facadeCaller,
+		facade:       facadeCaller,
+		APIAddresser: common.NewAPIAddresser(facadeCaller),
 	}
 }
 

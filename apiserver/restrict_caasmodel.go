@@ -14,7 +14,9 @@ import (
 // and IAAS models.
 var commonModelFacadeNames = set.NewStrings(
 	"ActionPruner",
+	"AllWatcher",
 	"Agent",
+	"Annotations",
 	"Application",
 	"CharmRevisionUpdater",
 	"Charms",
@@ -22,8 +24,10 @@ var commonModelFacadeNames = set.NewStrings(
 	"Client",
 	"Cloud",
 	"CredentialValidator",
+	"FilesystemAttachmentsWatcher",
 	"LeadershipService",
 	"LifeFlag",
+	"Logger",
 	"MeterStatus",
 	"MigrationFlag",
 	"MigrationMaster",
@@ -34,14 +38,21 @@ var commonModelFacadeNames = set.NewStrings(
 	"ModelUpgrader",
 	"NotifyWatcher",
 	"Pinger",
+	"Resources",
+	"GetResource",
+	"GetResourceInfo",
 	"RelationUnitsWatcher",
+	"ResourcesHookContext",
 	"RemoteRelations",
 	"RetryStrategy",
 	"Singular",
 	"StatusHistory",
+	"Storage",
+	"StorageProvisioner",
 	"StringsWatcher",
 	"Undertaker",
 	"Uniter",
+	"VolumeAttachmentsWatcher",
 )
 
 // caasModelFacadeNames lists facades that are only used with CAAS

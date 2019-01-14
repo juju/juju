@@ -39,11 +39,11 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		cloudspec.MakeCloudSpecGetterForModel(s.State),
-		common.AuthFuncForTag(s.IAASModel.ModelTag()),
+		common.AuthFuncForTag(s.Model.ModelTag()),
 	)
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewFirewallerAPI(
-		firewaller.StateShim(s.State, s.IAASModel.Model),
+		firewaller.StateShim(s.State, s.Model),
 		s.resources,
 		s.authorizer,
 		cloudSpecAPI,

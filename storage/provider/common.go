@@ -22,7 +22,7 @@ var (
 // CommonStorageProviders returns a storage.ProviderRegistry that contains
 // the common storage providers.
 func CommonStorageProviders() storage.ProviderRegistry {
-	return storage.StaticProviderRegistry{commonStorageProviders}
+	return storage.StaticProviderRegistry{Providers: commonStorageProviders}
 }
 
 // ValidateConfig performs storage provider config validation, including

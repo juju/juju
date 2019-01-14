@@ -8,11 +8,11 @@ import (
 
 	"gopkg.in/amz.v3/ec2"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 )
 
 type ec2Instance struct {
@@ -81,7 +81,7 @@ func (inst *ec2Instance) OpenPorts(ctx context.ProviderCallContext, machineId st
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	if err := inst.e.openPortsInGroup(name, rules); err != nil {
+	if err := inst.e.openPortsInGroup(ctx, name, rules); err != nil {
 		return err
 	}
 	logger.Infof("opened ports in security group %s: %v", name, rules)
@@ -94,7 +94,7 @@ func (inst *ec2Instance) ClosePorts(ctx context.ProviderCallContext, machineId s
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	if err := inst.e.closePortsInGroup(name, ports); err != nil {
+	if err := inst.e.closePortsInGroup(ctx, name, ports); err != nil {
 		return err
 	}
 	logger.Infof("closed ports in security group %s: %v", name, ports)
@@ -107,7 +107,7 @@ func (inst *ec2Instance) IngressRules(ctx context.ProviderCallContext, machineId
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	ranges, err := inst.e.ingressRulesInGroup(name)
+	ranges, err := inst.e.ingressRulesInGroup(ctx, name)
 	if err != nil {
 		return nil, err
 	}

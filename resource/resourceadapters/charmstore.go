@@ -7,9 +7,9 @@ import (
 	"io"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"github.com/juju/utils/clock"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 
@@ -53,7 +53,11 @@ func newCharmstoreOpener(st *state.State) *charmstoreOpener {
 }
 
 func newCharmStoreClient(st *state.State) (charmstore.Client, error) {
-	return charmstore.NewCachingClient(state.MacaroonCache{st}, nil)
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return charmstore.Client{}, errors.Trace(err)
+	}
+	return charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
 }
 
 // NewClient opens a new charm store client.

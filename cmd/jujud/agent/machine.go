@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cert"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/cmd/jujud/reboot"
@@ -53,6 +54,7 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
@@ -67,7 +69,6 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
 	workercommon "github.com/juju/juju/worker/common"
@@ -232,10 +233,10 @@ func (a *machineAgentCmd) SetFlags(f *gnuflag.FlagSet) {
 
 // Info returns usage information for the command.
 func (a *machineAgentCmd) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "machine",
 		Purpose: "run a juju machine agent",
-	}
+	})
 }
 
 // MachineAgentFactoryFn returns a function which instantiates a
@@ -557,7 +558,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			UpgradeStepsLock:        a.upgradeComplete,
 			UpgradeCheckLock:        a.initialUpgradeCheckComplete,
 			OpenController:          a.initController,
-			OpenState:               a.initState,
+			OpenStatePool:           a.initState,
 			OpenStateForUpgrade:     a.openStateForUpgrade,
 			StartAPIWorkers:         a.startAPIWorkers,
 			PreUpgradeSteps:         a.preUpgradeSteps,
@@ -762,7 +763,7 @@ func (a *MachineAgent) Restart() error {
 //
 // TODO(mjs)- review the need for this once the dependency engine is
 // in use. Why can't upgradesteps depend on the main state connection?
-func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
+func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 	agentConfig := a.CurrentConfig()
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, errors.Trace(err)
@@ -785,14 +786,12 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	}
 	defer session.Close()
 
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
 		MongoSession:       session,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(
-			stateenvirons.GetNewEnvironFunc(environs.New),
-		),
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(),
 		// state.InitDatabase is idempotent and needs to be called just
 		// prior to performing any upgrades since a new Juju binary may
 		// declare new indices or explicit collections.
@@ -806,7 +805,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st, nil
+	return pool, nil
 }
 
 // validateMigration is called by the migrationminion to help check
@@ -947,19 +946,17 @@ func (a *MachineAgent) initController(agentConfig agent.Config) (*state.Controll
 	defer session.Close()
 
 	ctlr, err := state.OpenController(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      agentConfig.Controller(),
-		ControllerModelTag: agentConfig.Model(),
-		MongoSession:       session,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(
-			stateenvirons.GetNewEnvironFunc(environs.New),
-		),
+		Clock:                  clock.WallClock,
+		ControllerTag:          agentConfig.Controller(),
+		ControllerModelTag:     agentConfig.Model(),
+		MongoSession:           session,
+		NewPolicy:              stateenvirons.GetNewPolicyFunc(),
 		RunTransactionObserver: a.mongoTxnCollector.AfterRunTransaction,
 	})
 	return ctlr, nil
 }
 
-func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error) {
+func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, error) {
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, err
@@ -973,7 +970,7 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, _, err := openState(
+	pool, _, err := openStatePool(
 		agentConfig,
 		dialOpts,
 		a.mongoTxnCollector.AfterRunTransaction,
@@ -982,9 +979,9 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error)
 		return nil, err
 	}
 
-	reportOpenedState(st)
+	reportOpenedState(pool.SystemState())
 
-	return st, nil
+	return pool, nil
 }
 
 // startModelWorkers starts the set of workers that run for every model
@@ -1076,11 +1073,11 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	return nil
 }
 
-func openState(
+func openStatePool(
 	agentConfig agent.Config,
 	dialOpts mongo.DialOpts,
 	runTransactionObserver state.RunTransactionObserverFunc,
-) (_ *state.State, _ *state.Machine, err error) {
+) (_ *state.StatePool, _ *state.Machine, err error) {
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return nil, nil, errors.Errorf("no state info available")
@@ -1091,14 +1088,12 @@ func openState(
 	}
 	defer session.Close()
 
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      agentConfig.Controller(),
-		ControllerModelTag: agentConfig.Model(),
-		MongoSession:       session,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(
-			stateenvirons.GetNewEnvironFunc(environs.New),
-		),
+	pool, err := state.OpenStatePool(state.OpenParams{
+		Clock:                  clock.WallClock,
+		ControllerTag:          agentConfig.Controller(),
+		ControllerModelTag:     agentConfig.Model(),
+		MongoSession:           session,
+		NewPolicy:              stateenvirons.GetNewPolicyFunc(),
 		RunTransactionObserver: runTransactionObserver,
 	})
 	if err != nil {
@@ -1106,9 +1101,10 @@ func openState(
 	}
 	defer func() {
 		if err != nil {
-			st.Close()
+			pool.Close()
 		}
 	}()
+	st := pool.SystemState()
 	m0, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -1127,7 +1123,7 @@ func openState(
 		logger.Errorf("running machine %v agent on inappropriate instance", m)
 		return nil, nil, jworker.ErrTerminateAgent
 	}
-	return st, m, nil
+	return pool, m, nil
 }
 
 // startWorkerAfterUpgrade starts a worker to run the specified child worker

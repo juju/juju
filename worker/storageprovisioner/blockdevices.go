@@ -87,7 +87,8 @@ func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error
 	if !ok {
 		// This function should only be called by machine-scoped
 		// storage provisioners.
-		panic(errors.New("expected machine tag"))
+		logger.Warningf("refresh block devices, expected machine tag, got %v", ctx.config.Scope)
+		return nil
 	}
 	ids := make([]params.MachineStorageId, len(volumeTags))
 	for i, volumeTag := range volumeTags {

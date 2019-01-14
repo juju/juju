@@ -25,13 +25,19 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -52,11 +58,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	err := runDeploy(c, "bundle/wordpress-simple", "--config", "config.yaml")
-	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: --config")
+	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")
 	err = runDeploy(c, "bundle/wordpress-simple", "-n", "2")
-	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: -n")
-	err = runDeploy(c, "bundle/wordpress-simple", "--series", "xenial", "--force")
-	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: --force, --series")
+	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: -n")
+	err = runDeploy(c, "bundle/wordpress-simple", "--series", "xenial")
+	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --series")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
@@ -77,26 +83,59 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
-	stub := &testing.Stub{}
-	handler := &testMetricsRegistrationHandler{Stub: stub}
-	server := httptest.NewServer(handler)
-	defer server.Close()
+func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C) {
+	// Set up a CAAS model to replace the IAAS one.
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{
+		Name:  "test",
+		Owner: names.NewUserTag("admin"),
+	})
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	// Close the state pool before the state object itself.
+	s.StatePool.Close()
+	s.StatePool = nil
+	err := s.State.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State = st
 
+	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/mariadb-42", "mariadb", "kubernetes")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/gitlab-47", "gitlab", "kubernetes")
+	testcharms.UploadBundle(c, s.client, "bundle/kubernetes-simple-1", "kubernetes-simple")
+
+	settings := state.NewStateSettings(s.State)
+	registry := storage.StaticProviderRegistry{
+		Providers: map[storage.ProviderType]storage.Provider{
+			"kubernetes": &dummystorage.StorageProvider{},
+		},
+	}
+	pm := poolmanager.New(settings, registry)
+	_, err = pm.Create("operator-storage", provider.K8s_ProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = runDeploy(c, "-m", "admin/test", "bundle/kubernetes-simple")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "cs:kubernetes/gitlab-47", "cs:kubernetes/mariadb-42")
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"mariadb": {charm: "cs:kubernetes/mariadb-42", config: mysqlch.Config().DefaultSettings()},
+		"gitlab":  {charm: "cs:kubernetes/gitlab-47", config: wpch.Config().DefaultSettings(), placement: "foo=bar", scale: 1},
+	})
+	s.assertRelationsEstablished(c, "gitlab:db mariadb:server")
+}
+
+func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-plans-1", "wordpress-with-plans")
 
 	deploy := NewDeployCommandForTest(
 		nil,
-		[]DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		[]DeployStep{&RegisterMeteredCharm{PlanURL: s.server.URL, RegisterPath: "", QueryPath: ""}},
 	)
 	_, err := cmdtesting.RunCommand(c, deploy, "bundle/wordpress-with-plans")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The order of calls here does not matter and is, in fact, not guaranteed.
 	// All we care about here is that the calls exist.
-	stub.CheckCallsUnordered(c, []testing.StubCall{{
+	s.stub.CheckCallsUnordered(c, []testing.StubCall{{
 		FuncName: "DefaultPlan",
 		Args:     []interface{}{"cs:wordpress"},
 	}, {
@@ -174,6 +213,46 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 	})
 }
 
+type CAASModelDeployCharmStoreSuite struct {
+	CAASDeploySuiteBase
+}
+
+var _ = gc.Suite(&CAASModelDeployCharmStoreSuite{})
+
+func (s *CAASModelDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
+	c.Skip("Test disabled until flakiness is fixed - see bug lp:1781250")
+
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, minerCharm := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
+	_, dashboardCharm := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/dashboard4miner-3", "dashboard4miner", "kubernetes")
+
+	testcharms.UploadBundle(c, s.client, "bundle/bitcoinminer-with-dashboard-1", "bitcoinminer-with-dashboard")
+	err = runDeploy(
+		c, "bundle/bitcoinminer-with-dashboard",
+		"-m", m.Name(),
+		"--device", "miner:bitcoinminer=10,nvidia.com/gpu", // override bitcoinminer
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "cs:kubernetes/dashboard4miner-3", "cs:kubernetes/bitcoin-miner-1")
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"miner": {
+			charm:  "cs:kubernetes/bitcoin-miner-1",
+			config: minerCharm.Config().DefaultSettings(),
+			devices: map[string]state.DeviceConstraints{
+				"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10, Attributes: map[string]string{}},
+			},
+		},
+		"dashboard": {charm: "cs:kubernetes/dashboard4miner-3", config: dashboardCharm.Config().DefaultSettings()},
+	})
+	s.assertRelationsEstablished(c, "dashboard:miner miner:miner")
+	s.assertUnitsCreated(c, map[string]string{
+		"miner/0":     "",
+		"dashboard/0": "",
+	})
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings")
@@ -247,8 +326,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 		"Executing changes:\n"+
 		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
 		"- deploy application mysql on xenial using cs:xenial/mysql-42\n"+
+		"- set annotations for mysql\n"+
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n"+
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n"+
+		"- set annotations for wordpress\n"+
 		"- add relation wordpress:db - mysql:server\n"+
 		"- add unit mysql/0 to new machine 0\n"+
 		"- add unit wordpress/0 to new machine 1",
@@ -286,8 +367,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 		"Changes to deploy bundle:\n" +
 		"- upload charm cs:xenial/mysql-42 for series xenial\n" +
 		"- deploy application mysql on xenial using cs:xenial/mysql-42\n" +
+		"- set annotations for mysql\n" +
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
+		"- set annotations for wordpress\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit mysql/0 to new machine 0\n" +
 		"- add unit wordpress/0 to new machine 1"
@@ -324,8 +407,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "" +
 		"Changes to deploy bundle:\n" +
+		"- set annotations for mysql\n" +
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
+		"- set annotations for wordpress\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit wordpress/0 to new machine 1"
 
@@ -531,6 +616,9 @@ func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, serviceapplication
 
 type BundleDeployCharmStoreSuite struct {
 	charmStoreSuite
+
+	stub   *testing.Stub
+	server *httptest.Server
 }
 
 var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
@@ -541,8 +629,24 @@ func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
+	s.stub = &testing.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: s.stub}
+	s.server = httptest.NewServer(handler)
+	// Set metering URL config so the config is set during bootstrap
+	if s.ControllerConfigAttrs == nil {
+		s.ControllerConfigAttrs = make(map[string]interface{})
+	}
+	s.ControllerConfigAttrs[controller.MeteringURL] = s.server.URL
+
 	s.charmStoreSuite.SetUpTest(c)
 	logger.SetLogLevel(loggo.TRACE)
+}
+
+func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {
+	if s.server != nil {
+		s.server.Close()
+	}
+	s.charmStoreSuite.TearDownTest(c)
 }
 
 func (s *BundleDeployCharmStoreSuite) Client() *csclient.Client {
@@ -599,7 +703,7 @@ charm path in application "mysql" does not exist: .*mysql`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
-	err:     `cannot unmarshal bundle data: yaml: .*`,
+	err:     `(?s)cannot unmarshal bundle data: yaml: .*`,
 }, {
 	about: "invalid bundle data",
 	content: `
@@ -695,7 +799,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
             1:
                 series: xenial
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for application "django": adding new machine to host unit "django/0": cannot assign unit "django/0" to machine 0: series does not match`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for application "django": acquiring machine to host unit "django/0": cannot assign unit "django/0" to machine 0: series does not match`)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidBinding(c *gc.C) {
@@ -727,7 +831,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSpace(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
-	coretesting.SkipFlaky(c, "lp:1625213")
 	// Inject an "AllWatcher" that never delivers a result.
 	ch := make(chan struct{})
 	defer close(ch)
@@ -808,7 +911,42 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
 		"--overlay", "missing-file")
-	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to read bundle overlay file .*")
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to process overlays: unable to read bundle overlay file .*")
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
+	charmsPath := c.MkDir()
+	lxdProfilePath := testcharms.Repo.ClonedDirPath(charmsPath, "lxd-profile")
+	err := s.DeployBundleYAML(c, fmt.Sprintf(`
+        series: bionic
+        services:
+            lxd-profile:
+                charm: %s
+                num_units: 1
+    `, lxdProfilePath))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "local:bionic/lxd-profile-0")
+	lxdProfile, err := s.State.Charm(charm.MustParseURL("local:bionic/lxd-profile-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"lxd-profile": {charm: "local:bionic/lxd-profile-0", config: lxdProfile.Config().DefaultSettings()},
+	})
+	s.assertUnitsCreated(c, map[string]string{
+		"lxd-profile/0": "0",
+	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfile(c *gc.C) {
+	charmsPath := c.MkDir()
+	lxdProfilePath := testcharms.Repo.ClonedDirPath(charmsPath, "lxd-profile-fail")
+	err := s.DeployBundleYAML(c, fmt.Sprintf(`
+        series: bionic
+        services:
+            lxd-profile-fail:
+                charm: %s
+                num_units: 1
+    `, lxdProfilePath))
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: cannot deploy local charm at .*: invalid lxd-profile.yaml: contains device type \"unix-disk\"")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *gc.C) {
@@ -921,7 +1059,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C
 	})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstrants(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *gc.C) {
 	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	_, dch := testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
 	err := s.DeployBundleYAML(c, `
@@ -951,6 +1089,24 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstrants(c *g
 	s.assertUnitsCreated(c, map[string]string{
 		"customized/0": "0",
 	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	err := runDeploy(c, "bundle/wordpress-simple")
+	c.Assert(err, jc.ErrorIsNil)
+	application, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	ann, err := s.Model.Annotations(application)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
+	application2, err := s.State.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	ann2, err := s.Model.Annotations(application2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann2, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C) {
@@ -1303,7 +1459,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C)
 	expectedCons, err := constraints.Parse("cores=4 mem=4G")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, expectedCons)
-	ann, err := s.IAASModel.Annotations(m)
+	ann, err := s.Model.Annotations(m)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, jc.DeepEquals, map[string]string{"foo": "bar"})
 }
@@ -1624,7 +1780,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := s.State.Application("django")
 	c.Assert(err, jc.ErrorIsNil)
-	ann, err := s.IAASModel.Annotations(svc)
+	ann, err := s.Model.Annotations(svc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, jc.DeepEquals, map[string]string{
 		"key1": "value1",
@@ -1632,7 +1788,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
 	})
 	m, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
-	ann, err = s.IAASModel.Annotations(m)
+	ann, err = s.Model.Annotations(m)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, jc.DeepEquals, map[string]string{"foo": "bar"})
 
@@ -1651,13 +1807,13 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
                 annotations: {answer: 42}
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	ann, err = s.IAASModel.Annotations(svc)
+	ann, err = s.Model.Annotations(svc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, jc.DeepEquals, map[string]string{
 		"key1": "new value!",
 		"key2": "value2",
 	})
-	ann, err = s.IAASModel.Annotations(m)
+	ann, err = s.Model.Annotations(m)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, jc.DeepEquals, map[string]string{
 		"foo":    "bar",
@@ -1923,7 +2079,7 @@ func (s *ProcessBundleOverlaySuite) TestBadFile(c *gc.C) {
 func (s *ProcessBundleOverlaySuite) TestGoodYAML(c *gc.C) {
 	filename := s.writeFile(c, "bad:\n\tindent")
 	err := processBundleOverlay(s.bundleData, filename)
-	c.Assert(err, gc.ErrorMatches, `unable to read bundle overlay file ".*": cannot unmarshal bundle data: yaml: line 1: found character that cannot start any token`)
+	c.Assert(err, gc.ErrorMatches, `unable to read bundle overlay file ".*": cannot unmarshal bundle data: yaml: line 2: found character that cannot start any token`)
 }
 
 func (s *ProcessBundleOverlaySuite) TestReplaceZeroValues(c *gc.C) {
@@ -2062,12 +2218,14 @@ func (s *ProcessBundleOverlaySuite) TestRemainingFields(c *gc.C) {
                 resources:
                     something: or other
                 to:
-                  - 3
+                - 3
                 constraints: big machine
                 storage:
-                  disk: big
+                    disk: big
+                devices:
+                    gpu: 1,nvidia.com/gpu
                 bindings:
-                  where: dmz
+                    where: dmz
     `
 	filename := s.writeFile(c, config)
 	err := processBundleOverlay(s.bundleData, filename)
@@ -2082,6 +2240,8 @@ func (s *ProcessBundleOverlaySuite) TestRemainingFields(c *gc.C) {
 	c.Check(django.Constraints, gc.Equals, "big machine")
 	c.Check(django.Storage, jc.DeepEquals, map[string]string{
 		"disk": "big"})
+	c.Check(django.Devices, jc.DeepEquals, map[string]string{
+		"gpu": "1,nvidia.com/gpu"})
 	c.Check(django.EndpointBindings, jc.DeepEquals, map[string]string{
 		"where": "dmz"})
 }

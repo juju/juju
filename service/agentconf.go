@@ -1,13 +1,18 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// This file has routines which can be used for agent specific functionalities related to service files:
+// This file has routines which can be used for agent specific functionality
+// related to service files:
 //	- finding all agents in the machine
 //	- create conf file using the machine details
 // 	- write systemd service file and setting links
 // 	- copy all tools and related to agents and setup the links
 // 	- start all the agents
-// These routines can be used by any tools/cmds trying to implement the above functionality as part of the process, eg. juju-updateseries command.
+// These routines can be used by any tools/cmds trying to implement the above
+// functionality as part of the process, eg. upgrade-series.
+
+// TODO (manadart 2018-07-31) This module is specific to systemd and should
+// reside in the service/systemd package.
 
 package service
 
@@ -16,11 +21,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/fs"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
@@ -36,35 +41,90 @@ type SystemdServiceManager interface {
 	// FindAgents finds all the agents available in the machine.
 	FindAgents(dataDir string) (string, []string, []string, error)
 
-	// WriteSystemdAgents creates systemd files and create symlinks for the list of machine and units passed in the standard filepath.
-	WriteSystemdAgents(machineAgent string, unitAgents []string, dataDir string, symLinkSystemdDir string, symLinkSystemdMultiUserDir string, series string) ([]string, []string, []string, error)
+	// WriteSystemdAgents creates systemd files and create symlinks for the
+	// list of machine and units passed in the standard filepath.
+	WriteSystemdAgents(
+		machineAgent string, unitAgents []string, dataDir, symLinkSystemdDir, symLinkSystemdMultiUserDir string,
+	) ([]string, []string, []string, error)
 
-	//CreateAgentConf creates the configfile for specified agent running on a host with specified series.
-	CreateAgentConf(agentName string, dataDir string, series string) (common.Conf, error)
+	//CreateAgentConf creates the configfile for specified agent running on a
+	// host with specified series.
+	CreateAgentConf(agentName string, dataDir string) (common.Conf, error)
 
 	// CopyAgentBinary copies all the tools into the path specified for each agent.
-	CopyAgentBinary(machineAgent string, unitAgents []string, dataDir string, toSeries string, fromSeries string, jujuVersion version.Number) error
+	CopyAgentBinary(
+		machineAgent string, unitAgents []string, dataDir, toSeries, fromSeries string, jujuVersion version.Number) error
 
 	// StartAllAgents starts all the agents in the machine with specified series.
-	StartAllAgents(machineAgent string, unitAgents []string, dataDir string, series string) (string, []string, error)
+	StartAllAgents(machineAgent string, unitAgents []string, dataDir string) (string, []string, error)
 
-	// WriteServiceFile writes the service file in '/lib/systemd/system' path.
-	// this is done as part of upgrade step.
-	WriteServiceFile() error
+	// WriteServiceFiles writes the service files for machine and unit agents
+	// in the '/lib/systemd/system' path.
+	WriteServiceFiles() error
 }
 
 type systemdServiceManager struct {
-	isRunning func() (bool, error)
+	isRunning  func() bool
+	newService func(string, common.Conf) (Service, error)
 }
 
-// NewSystemdServiceManager returns object of systemServiceManager interface.
-func NewSystemdServiceManager(isRunning func() (bool, error)) SystemdServiceManager {
-	return &systemdServiceManager{isRunning: isRunning}
+// NewServiceManagerWithDefaults returns a SystemdServiceManager created with
+// sensible defaults.
+func NewServiceManagerWithDefaults() SystemdServiceManager {
+	return NewServiceManager(
+		systemd.IsRunning,
+		func(name string, conf common.Conf) (Service, error) {
+			return systemd.NewServiceWithDefaults(name, conf)
+		},
+	)
 }
 
-// FindAgents finds all the agents available in the machine.
+// NewServiceManager allows creation of a new SystemdServiceManager from
+// custom dependencies.
+func NewServiceManager(
+	isRunning func() bool,
+	newService func(string, common.Conf) (Service, error),
+) SystemdServiceManager {
+	return &systemdServiceManager{
+		isRunning:  isRunning,
+		newService: newService,
+	}
+}
+
+// WriteServiceFiles writes service files to the standard
+// "/lib/systemd/system" path.
+func (s *systemdServiceManager) WriteServiceFiles() error {
+	machineAgent, unitAgents, _, err := s.FindAgents(paths.NixDataDir)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	serviceNames, linkNames, failed, err := s.WriteSystemdAgents(
+		machineAgent,
+		unitAgents,
+		paths.NixDataDir,
+		systemd.EtcSystemdDir,
+		systemd.EtcSystemdMultiUserDir,
+	)
+	if err != nil {
+		for _, agent := range failed {
+			logger.Errorf("failed to write service for %s: %s", agent, err)
+		}
+		logger.Errorf("%s", err)
+		return errors.Trace(err)
+	}
+	for _, s := range serviceNames {
+		logger.Infof("wrote %s agent, enabled and linked by systemd", s)
+	}
+	for _, s := range linkNames {
+		logger.Infof("wrote %s agent, enabled and linked by symlink", s)
+	}
+
+	return errors.Trace(systemd.SysdReload())
+}
+
+// FindAgents finds all the agents available on the machine.
 func (s *systemdServiceManager) FindAgents(dataDir string) (string, []string, []string, error) {
-
 	var (
 		machineAgent  string
 		unitAgents    []string
@@ -101,9 +161,11 @@ func (s *systemdServiceManager) FindAgents(dataDir string) (string, []string, []
 	return machineAgent, unitAgents, errAgentNames, nil
 }
 
-// WriteSystemdAgents creates systemd files and create symlinks for the list of machine and units passed in the standard filepath '/var/lib/juju' during the upgrade process.
-func (s *systemdServiceManager) WriteSystemdAgents(machineAgent string, unitAgents []string, dataDir string, symLinkSystemdDir string, symLinkSystemdMultiUserDir string, series string) ([]string, []string, []string, error) {
-
+// WriteSystemdAgents creates systemd files and symlinks for the input machine
+// and unit agents, in the standard filepath '/var/lib/juju'.
+func (s *systemdServiceManager) WriteSystemdAgents(
+	machineAgent string, unitAgents []string, dataDir, symLinkSystemdDir, symLinkSystemdMultiUserDir string,
+) ([]string, []string, []string, error) {
 	var (
 		startedSysServiceNames []string
 		startedSymServiceNames []string
@@ -112,7 +174,7 @@ func (s *systemdServiceManager) WriteSystemdAgents(machineAgent string, unitAgen
 	)
 
 	for _, agentName := range append(unitAgents, machineAgent) {
-		conf, err := s.CreateAgentConf(agentName, dataDir, series)
+		conf, err := s.CreateAgentConf(agentName, dataDir)
 		if err != nil {
 			logger.Infof("%s", err)
 			lastError = err
@@ -120,51 +182,61 @@ func (s *systemdServiceManager) WriteSystemdAgents(machineAgent string, unitAgen
 		}
 
 		svcName := serviceName(agentName)
-		svc, err := NewService(svcName, conf, series)
+		svc, err := s.newService(svcName, conf)
 		if err != nil {
 			logger.Infof("Failed to create new service %s: ", err)
 			continue
 		}
 
-		upSvc, ok := svc.(UpgradableService)
+		uSvc, ok := svc.(UpgradableService)
 		if !ok {
-			initName, err := VersionInitSystem(series)
-			if err != nil {
-				return nil, nil, nil, errors.Trace(errors.Annotate(err, "nor is service an UpgradableService"))
-			}
-			return nil, nil, nil, errors.Errorf("%s service not of type UpgradableService", initName)
+			return nil, nil, nil, errors.Errorf("%s service not of type UpgradableService", svcName)
 		}
 
-		if err = upSvc.WriteService(); err != nil {
-			logger.Infof("failed to write service for %s: %s", agentName, err)
-			errAgentNames = append(errAgentNames, agentName)
-			lastError = err
-			continue
+		dbusMethodFound := true
+		if err = uSvc.WriteService(); err != nil {
+			// Note that this error is already logged by the systemd package.
+
+			// This is not ideal, but it is possible on an Upstart-based OS
+			// (such as Trusty) for run/systemd/system to exist, which is used
+			// for detection of systemd as the running init system.
+			// If this happens, then D-Bus will error with the message below.
+			// We need to detect this condition and fall through to linking the
+			// service files manually.
+			if strings.Contains(strings.ToLower(err.Error()), "no such method") {
+				dbusMethodFound = false
+				logger.Infof("attempting to manually link service file for %s", agentName)
+			} else {
+				errAgentNames = append(errAgentNames, agentName)
+				lastError = err
+				continue
+			}
 		} else {
 			logger.Infof("successfully wrote service for %s:", agentName)
 		}
 
-		running, err := s.isRunning()
-		switch {
-		case err != nil:
-			return nil, nil, nil, errors.Errorf("failure attempting to determine if systemd is running: %#v\n", err)
-		case running:
-			// Links for manual and automatic use of the service
-			// have been written, move to the next.
+		// If systemd is the running init system on this host, *and* if the
+		// call to DBusAPI.LinkUnitFiles in WriteService above returned no
+		// error, it will have resulted in updated sym-links for the file.
+		// We are done.
+		if s.isRunning() && dbusMethodFound {
 			startedSysServiceNames = append(startedSysServiceNames, svcName)
 			logger.Infof("wrote %s agent, enabled and linked by systemd", svcName)
 			continue
 		}
 
+		// Otherwise we need to manually ensure the service unit links.
 		svcFileName := svcName + ".service"
-		if err = os.Symlink(path.Join(dataDir, "init", svcName, svcFileName),
+		if err = os.Symlink(path.Join(systemd.LibSystemdDir, svcName, svcFileName),
 			path.Join(symLinkSystemdDir, svcFileName)); err != nil && !os.IsExist(err) {
-			return nil, nil, nil, errors.Errorf("failed to link service file (%s) in systemd dir: %s\n", svcFileName, err)
+			return nil, nil, nil, errors.Errorf(
+				"failed to link service file (%s) in systemd dir: %s\n", svcFileName, err)
 		}
 
-		if err = os.Symlink(path.Join(dataDir, "init", svcName, svcFileName),
+		if err = os.Symlink(path.Join(systemd.LibSystemdDir, svcName, svcFileName),
 			path.Join(symLinkSystemdMultiUserDir, svcFileName)); err != nil && !os.IsExist(err) {
-			return nil, nil, nil, errors.Errorf("failed to link service file (%s) in multi-user.target.wants dir: %s\n", svcFileName, err)
+			return nil, nil, nil, errors.Errorf(
+				"failed to link service file (%s) in multi-user.target.wants dir: %s\n", svcFileName, err)
 		}
 
 		startedSymServiceNames = append(startedSymServiceNames, svcName)
@@ -174,10 +246,10 @@ func (s *systemdServiceManager) WriteSystemdAgents(machineAgent string, unitAgen
 }
 
 // CreateAgentConf creates the configfile for specified agent running on a host with specified series.
-func (s *systemdServiceManager) CreateAgentConf(agentName string, dataDir string, series string) (_ common.Conf, err error) {
+func (s *systemdServiceManager) CreateAgentConf(name string, dataDir string) (_ common.Conf, err error) {
 	defer func() {
 		if err != nil {
-			logger.Infof("failed create agent conf for %s: %s", agentName, err)
+			logger.Infof("failed create agent conf for %s: %s", name, err)
 		}
 	}()
 
@@ -186,11 +258,10 @@ func (s *systemdServiceManager) CreateAgentConf(agentName string, dataDir string
 		return common.Conf{}, err
 	}
 
-	tag, err := names.ParseTag(agentName)
+	tag, err := names.ParseTag(name)
 	if err != nil {
 		return common.Conf{}, err
 	}
-	name := tag.Id()
 
 	var kind AgentKind
 	switch tag.Kind() {
@@ -199,28 +270,32 @@ func (s *systemdServiceManager) CreateAgentConf(agentName string, dataDir string
 	case names.UnitTagKind:
 		kind = AgentKindUnit
 	default:
-		return common.Conf{}, errors.NewNotValid(nil, fmt.Sprintf("agent %q is neither a machine nor a unit", agentName))
+		return common.Conf{}, errors.NewNotValid(nil, fmt.Sprintf("agent %q is neither a machine nor a unit", name))
 	}
 
 	srvPath := path.Join(paths.NixLogDir, "juju")
 	info := NewAgentInfo(
 		kind,
-		name,
+		tag.Id(),
 		dataDir,
 		srvPath)
 	return AgentConf(info, renderer), nil
 }
 
 // CopyAgentBinary copies all the tools into the path specified for each agent.
-func (s *systemdServiceManager) CopyAgentBinary(machineAgent string, unitAgents []string, dataDir string, toSeries string, fromSeries string, jujuVersion version.Number) (err error) {
+func (s *systemdServiceManager) CopyAgentBinary(
+	machineAgent string,
+	unitAgents []string,
+	dataDir, toSeries, fromSeries string,
+	jujuVersion version.Number,
+) (err error) {
 	defer func() {
 		if err != nil {
 			err = errors.Annotate(err, "failed to copy tools")
 		}
 	}()
 
-	// Setup new and old version.Binarys with only the series
-	// different.
+	// Setup new and old version.Binary instances with different series.
 	fromVers := version.Binary{
 		Number: jujuVersion,
 		Arch:   arch.HostArch(),
@@ -271,109 +346,51 @@ func (s *systemdServiceManager) CopyAgentBinary(machineAgent string, unitAgents 
 	return lastError
 }
 
-// StartAllAgents starts all the agents in the machine with specified series.
-func (s *systemdServiceManager) StartAllAgents(machineAgent string, unitAgents []string, dataDir string, series string) (string, []string, error) {
-
-	var (
-		startedMachineName string
-		startedUnitNames   []string
-		err                error
-	)
-
-	running, err := s.isRunning()
-
-	switch {
-	case err != nil:
-		return "", nil, err
-	case !running:
-		return "", nil, errors.Errorf("systemd is not fully running, please reboot to start agents")
+// StartAllAgents starts all of the input agents.
+func (s *systemdServiceManager) StartAllAgents(
+	machineAgent string, unitAgents []string, dataDir string,
+) (string, []string, error) {
+	if !s.isRunning() {
+		return "", nil, errors.Errorf("cannot interact with systemd; reboot to start agents")
 	}
 
+	var startedUnits []string
 	for _, unit := range unitAgents {
-		if err = startAgent(unit, AgentKindUnit, dataDir, series); err != nil {
-			return "", nil, errors.Annotatef(err, "failed to start %s service", serviceName(unit))
+		if err := s.startAgent(unit, AgentKindUnit, dataDir); err != nil {
+			return "", startedUnits, errors.Annotatef(err, "failed to start %s service", serviceName(unit))
 		}
-		startedUnitNames = append(startedUnitNames, serviceName(unit))
+		startedUnits = append(startedUnits, serviceName(unit))
 		logger.Infof("started %s service", serviceName(unit))
 	}
 
-	err = startAgent(machineAgent, AgentKindMachine, dataDir, series)
+	machineService := serviceName(machineAgent)
+	err := s.startAgent(machineAgent, AgentKindMachine, dataDir)
 	if err == nil {
-		startedMachineName = serviceName(machineAgent)
-		logger.Infof("started %s service", serviceName(machineAgent))
+		logger.Infof("started %s service", machineService)
+		return machineService, startedUnits, nil
 	}
-	return startedMachineName, startedUnitNames, errors.Annotatef(err, "failed to start %s service", serviceName(machineAgent))
+
+	return "", startedUnits, errors.Annotatef(err, "failed to start %s service", machineService)
 }
 
-func startAgent(name string, kind AgentKind, dataDir string, series string) (err error) {
+func (s *systemdServiceManager) startAgent(name string, kind AgentKind, dataDir string) (err error) {
 	renderer, err := shell.NewRenderer("")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+
 	srvPath := path.Join(paths.NixLogDir, "juju")
-	info := NewAgentInfo(
-		kind,
-		name,
-		dataDir,
-		srvPath,
-	)
+	info := NewAgentInfo(kind, name, dataDir, srvPath)
 	conf := AgentConf(info, renderer)
-	svcName := serviceName(name)
-	svc, err := NewService(svcName, conf, series)
-	if err = svc.Start(); err != nil {
-		return err
+
+	svc, err := s.newService(serviceName(name), conf)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return nil
+
+	return errors.Trace(svc.Start())
 }
 
 func serviceName(agent string) string {
 	return "jujud-" + agent
-}
-
-// WriteServiceFile writes the service life in standard '/lib/systemd/system' path.
-func (s *systemdServiceManager) WriteServiceFile() error {
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		return err
-	}
-	dataDir, err := paths.DataDir(hostSeries)
-	if err != nil {
-		return err
-	}
-
-	// find the agents.
-	machineAgent, unitAgents, failedAgentNames, err := s.FindAgents(dataDir)
-	if err != nil {
-		return err
-	}
-
-	startedSysdServiceNames, startedSymServiceNames, failedAgentNames, err := s.WriteSystemdAgents(
-		machineAgent,
-		unitAgents,
-		dataDir,
-		"/etc/systemd/system",
-		"/etc/systemd/system/multi-user.target.wants",
-		hostSeries,
-	)
-	if err != nil {
-		for _, agentName := range failedAgentNames {
-			logger.Errorf("failed to write service for %s: %s", agentName, err)
-		}
-		logger.Errorf("%s", err)
-		return err
-	}
-	for _, sysSvcName := range startedSysdServiceNames {
-		logger.Infof("wrote %s agent, enabled and linked by systemd", sysSvcName)
-	}
-	for _, symSvcName := range startedSymServiceNames {
-		logger.Infof("wrote %s agent, enabled and linked by symlink", symSvcName)
-	}
-
-	// reload the services.
-	err = systemd.SysdReload()
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

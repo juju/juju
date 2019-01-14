@@ -30,7 +30,7 @@ type applicationSuite struct {
 var _ = gc.Suite(&applicationSuite{})
 
 func newClient(f basetesting.APICallerFunc) *application.Client {
-	return application.NewClient(basetesting.BestVersionCaller{f, 6})
+	return application.NewClient(basetesting.BestVersionCaller{f, 8})
 }
 
 func newClientV4(f basetesting.APICallerFunc) *application.Client {
@@ -96,7 +96,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 				c.Assert(app.Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
 				c.Assert(app.Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
 				c.Assert(app.EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
-				c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+				c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": {Pool: "pool"}})
 				c.Assert(app.AttachStorage, gc.DeepEquals, []string{"storage-data-0"})
 				c.Assert(app.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
 
@@ -119,7 +119,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 		Config:           map[string]string{"foo": "bar"},
 		Cons:             constraints.MustParse("mem=4G"),
 		Placement:        []*instance.Placement{{"scope", "directive"}},
-		Storage:          map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
+		Storage:          map[string]storage.Constraints{"data": {Pool: "pool"}},
 		AttachStorage:    []string{"data/0"},
 		Resources:        map[string]string{"foo": "bar"},
 		EndpointBindings: map[string]string{"foo": "bar"},
@@ -263,6 +263,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 			"c": "d",
 		})
 		c.Assert(args.ConfigSettingsYAML, gc.Equals, "yaml")
+		c.Assert(args.Force, gc.Equals, true)
 		c.Assert(args.ForceSeries, gc.Equals, true)
 		c.Assert(args.ForceUnits, gc.Equals, true)
 		c.Assert(args.StorageConstraints, jc.DeepEquals, map[string]params.StorageConstraints{
@@ -283,6 +284,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 			"c": "d",
 		},
 		ConfigSettingsYAML: "yaml",
+		Force:              true,
 		ForceSeries:        true,
 		ForceUnits:         true,
 		StorageConstraints: map[string]storage.Constraints{
@@ -1120,4 +1122,169 @@ func (s *applicationSuite) TestResolveUnitErrorsAll(c *gc.C) {
 	err := client.ResolveUnitErrors(nil, true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestScaleApplication(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "ScaleApplications")
+			args, ok := a.(params.ScaleApplicationsParams)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ScaleApplicationsParams{
+				Applications: []params.ScaleApplicationParams{
+					{ApplicationTag: "application-foo", Scale: 5},
+				}})
+
+			result, ok := response.(*params.ScaleApplicationResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ScaleApplicationResult{
+				{Info: &params.ScaleApplicationInfo{Scale: 5}},
+			}
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+	results, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		Scale:           5,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{Scale: 5},
+	})
+}
+
+func (s *applicationSuite) TestChangeScaleApplication(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "ScaleApplications")
+			args, ok := a.(params.ScaleApplicationsParams)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ScaleApplicationsParams{
+				Applications: []params.ScaleApplicationParams{
+					{ApplicationTag: "application-foo", ScaleChange: 5},
+				}})
+
+			result, ok := response.(*params.ScaleApplicationResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ScaleApplicationResult{
+				{Info: &params.ScaleApplicationInfo{Scale: 7}},
+			}
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+	results, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		ScaleChange:     5,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{Scale: 7},
+	})
+}
+
+func (s *applicationSuite) TestScaleApplicationArity(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "ScaleApplications")
+			args, ok := a.(params.ScaleApplicationsParams)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ScaleApplicationsParams{
+				Applications: []params.ScaleApplicationParams{
+					{ApplicationTag: "application-foo", Scale: 5},
+				}})
+
+			result, ok := response.(*params.ScaleApplicationResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ScaleApplicationResult{
+				{Info: &params.ScaleApplicationInfo{Scale: 5}},
+				{Info: &params.ScaleApplicationInfo{Scale: 3}},
+			}
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+	_, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		Scale:           5,
+	})
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *applicationSuite) TestScaleApplicationValidation(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+
+	for i, test := range []struct {
+		scale       int
+		scaleChange int
+		errorStr    string
+	}{{
+		scale:       5,
+		scaleChange: 5,
+		errorStr:    "requesting both scale and scale-change not valid",
+	}, {
+		scale:       0,
+		scaleChange: 0,
+		errorStr:    "scale of 0 not valid",
+	}, {
+		scale:       -1,
+		scaleChange: 0,
+		errorStr:    "scale < 0 not valid",
+	}} {
+		c.Logf("test #%d", i)
+		_, err := client.ScaleApplication(application.ScaleApplicationParams{
+			ApplicationName: "foo",
+			Scale:           test.scale,
+			ScaleChange:     test.scaleChange,
+		})
+		c.Assert(err, gc.ErrorMatches, test.errorStr)
+	}
+}
+
+func (s *applicationSuite) TestScaleApplicationError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "ScaleApplications")
+			args, ok := a.(params.ScaleApplicationsParams)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ScaleApplicationsParams{
+				Applications: []params.ScaleApplicationParams{
+					{ApplicationTag: "application-foo", Scale: 5},
+				}})
+
+			result, ok := response.(*params.ScaleApplicationResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ScaleApplicationResult{
+				{Error: &params.Error{Message: "boom"}},
+			}
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+	_, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		Scale:           5,
+	})
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *applicationSuite) TestScaleApplicationCallError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "ScaleApplications")
+			return errors.New("boom")
+		},
+	)
+	client := application.NewClient(apiCaller)
+	_, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		Scale:           5,
+	})
+	c.Assert(err, gc.ErrorMatches, "boom")
 }

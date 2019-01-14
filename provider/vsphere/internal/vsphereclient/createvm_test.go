@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -36,7 +37,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	}
 
 	args := baseCreateVirtualMachineParams(c)
-	testClock := args.Clock.(*testing.Clock)
+	testClock := args.Clock.(*testclock.Clock)
 	s.onImageUpload = func(r *http.Request) {
 		dequeueStatusUpdates()
 
@@ -82,7 +83,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatastore1", "FakeDatastore2"),
 		retrievePropertiesStubCall("FakeDatastore2"),
 
-		testing.StubCall{"SearchDatastore", []interface{}{
+		{"SearchDatastore", []interface{}{
 			"[datastore2] juju-vmdks/ctrl/xenial",
 			&types.HostDatastoreBrowserSearchSpec{
 				MatchPattern: []string{"4d9f679a703b95c99189eab283c8c1b36caa062321c531f3dac8163a59c70087.vmdk"},
@@ -94,31 +95,31 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 				},
 			},
 		}},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 
-		testing.StubCall{"DeleteDatastoreFile", []interface{}{
+		{"DeleteDatastoreFile", []interface{}{
 			"[datastore2] juju-vmdks/ctrl/xenial",
 		}},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 
-		testing.StubCall{"MakeDirectory", []interface{}{
+		{"MakeDirectory", []interface{}{
 			"[datastore2] juju-vmdks/ctrl/xenial",
 		}},
 
-		testing.StubCall{"MoveDatastoreFile", []interface{}{
+		{"MoveDatastoreFile", []interface{}{
 			"[datastore2] juju-vmdks/ctrl/xenial/4d9f679a703b95c99189eab283c8c1b36caa062321c531f3dac8163a59c70087.vmdk.tmp",
 			"[datastore2] juju-vmdks/ctrl/xenial/4d9f679a703b95c99189eab283c8c1b36caa062321c531f3dac8163a59c70087.vmdk",
 			newBool(true),
 		}},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 
-		testing.StubCall{"CreateImportSpec", []interface{}{
+		{"CreateImportSpec", []interface{}{
 			UbuntuOVF,
 			types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
 			baseCisp(),
@@ -126,43 +127,62 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("network-0", "network-1"),
 		retrievePropertiesStubCall("onetwork-0"),
 		retrievePropertiesStubCall("dvportgroup-0"),
-		testing.StubCall{"ImportVApp", []interface{}{&types.VirtualMachineImportSpec{
+		{"ImportVApp", []interface{}{&types.VirtualMachineImportSpec{
 			ConfigSpec: types.VirtualMachineConfigSpec{
 				Name: "vm-name.tmp",
 				ExtraConfig: []types.BaseOptionValue{
 					&types.OptionValue{Key: "k", Value: "v"},
 				},
+				Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
 			},
 		}}},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 
-		testing.StubCall{"HttpNfcLeaseComplete", []interface{}{"FakeLease"}},
+		{"HttpNfcLeaseComplete", []interface{}{"FakeLease"}},
 
-		testing.StubCall{"CloneVM_Task", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"CloneVM_Task", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 
 		retrievePropertiesStubCall("FakeVm0"),
 
-		testing.StubCall{"ReconfigVM_Task", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"ReconfigVM_Task", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 
-		testing.StubCall{"PowerOnVM_Task", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"PowerOnVM_Task", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 
 		retrievePropertiesStubCall(""),
 
-		testing.StubCall{"Destroy_Task", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"Destroy_Task", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
+	})
+}
+
+func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.EnableDiskUUID = false
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.roundTripper.CheckCall(c, 26, "ImportVApp", &types.VirtualMachineImportSpec{
+		ConfigSpec: types.VirtualMachineConfigSpec{
+			Name: "vm-name.tmp",
+			ExtraConfig: []types.BaseOptionValue{
+				&types.OptionValue{Key: "k", Value: "v"},
+			},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(false)},
+		},
 	})
 }
 
@@ -247,8 +267,8 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNoneAccessible(c *gc.C) {
 func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefault(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
 	args.NetworkDevices = []NetworkDevice{
-		NetworkDevice{MAC: "00:50:56:11:22:33"},
-		NetworkDevice{Network: "arpa"},
+		{MAC: "00:50:56:11:22:33"},
+		{Network: "arpa"},
 	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
@@ -297,6 +317,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 					Device:    &networkDevice2,
 				},
 			},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
 		},
 	})
 }
@@ -304,7 +325,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
 	args.NetworkDevices = []NetworkDevice{
-		NetworkDevice{Network: "yoink"},
+		{Network: "yoink"},
 	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
@@ -343,6 +364,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 					Device:    &networkDevice,
 				},
 			},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
 		},
 	})
 }
@@ -350,7 +372,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
 	args.NetworkDevices = []NetworkDevice{
-		NetworkDevice{Network: "fourtytwo"},
+		{Network: "fourtytwo"},
 	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
@@ -361,7 +383,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
 func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
 	args.NetworkDevices = []NetworkDevice{
-		NetworkDevice{MAC: "00:11:22:33:44:55"},
+		{MAC: "00:11:22:33:44:55"},
 	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
@@ -450,7 +472,8 @@ func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 		Constraints:            constraints.Value{},
 		UpdateProgress:         func(status string) {},
 		UpdateProgressInterval: time.Second,
-		Clock:                  testing.NewClock(time.Time{}),
+		Clock:                  testclock.NewClock(time.Time{}),
+		EnableDiskUUID:         true,
 	}
 }
 

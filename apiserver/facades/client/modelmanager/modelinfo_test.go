@@ -18,8 +18,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -27,7 +29,6 @@ import (
 	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -148,14 +149,14 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewCloudCallContext()
 
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, &s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, &s.authorizer, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, s.authorizer, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -536,6 +537,18 @@ type metricSender interface {
 	CleanupOldMetrics() error
 }
 
+type mockCaasBroker struct {
+	gitjujutesting.Stub
+	caas.Broker
+
+	namespaces []string
+}
+
+func (m *mockCaasBroker) Namespaces() ([]string, error) {
+	m.MethodCall(m, "Namespaces")
+	return m.namespaces, nil
+}
+
 type mockState struct {
 	gitjujutesting.Stub
 
@@ -549,6 +562,7 @@ type mockState struct {
 	controllerUUID  string
 	cloud           cloud.Cloud
 	clouds          map[names.CloudTag]cloud.Cloud
+	cloudUsers      map[string]permission.Access
 	model           *mockModel
 	controllerModel *mockModel
 	users           []permission.UserAccess
@@ -590,10 +604,12 @@ func (st *mockState) ControllerModelTag() names.ModelTag {
 }
 
 func (st *mockState) Export() (description.Model, error) {
+	st.MethodCall(st, "Export")
 	return &fakeModelDescription{UUID: st.model.UUID()}, nil
 }
 
-func (st *mockState) ExportPartial(state.ExportConfig) (description.Model, error) {
+func (st *mockState) ExportPartial(cfg state.ExportConfig) (description.Model, error) {
+	st.MethodCall(st, "ExportPartial", cfg)
 	return st.Export()
 }
 
@@ -651,6 +667,14 @@ func (st *mockState) IsControllerAdmin(user names.UserTag) (bool, error) {
 		}
 	}
 	return false, st.NextErr()
+}
+
+func (st *mockState) GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error) {
+	st.MethodCall(st, "GetCloudAccess", user)
+	if perm, ok := st.cloudUsers[user.Id()]; ok {
+		return perm, nil
+	}
+	return permission.NoAccess, errors.NotFoundf("user %v", user.Id())
 }
 
 func (st *mockState) NewModel(args state.ModelArgs) (common.Model, common.ModelManagerBackend, error) {
@@ -914,15 +938,16 @@ func (m *mockMachine) Status() (status.StatusInfo, error) {
 
 type mockModel struct {
 	gitjujutesting.Stub
-	owner           names.UserTag
-	life            state.Life
-	tag             names.ModelTag
-	status          status.StatusInfo
-	cfg             *config.Config
-	users           []*mockModelUser
-	migrationStatus state.MigrationMode
-	controllerUUID  string
-	cfgDefaults     config.ModelDefaultAttributes
+	owner               names.UserTag
+	life                state.Life
+	tag                 names.ModelTag
+	status              status.StatusInfo
+	cfg                 *config.Config
+	users               []*mockModelUser
+	migrationStatus     state.MigrationMode
+	controllerUUID      string
+	cfgDefaults         config.ModelDefaultAttributes
+	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
 }
 
 func (m *mockModel) Config() (*config.Config, error) {
@@ -1058,6 +1083,11 @@ func (m *mockModel) getModelDetails() state.ModelSummary {
 		CloudRegion:        m.CloudRegion(),
 		CloudCredentialTag: cred.String(),
 	}
+}
+
+func (m *mockModel) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
+	m.MethodCall(m, "SetCloudCredential", tag)
+	return m.setCloudCredentialF(tag)
 }
 
 type mockModelUser struct {

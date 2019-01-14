@@ -187,7 +187,7 @@ var (
 	DefaultFakeRules = FakeRules{
 		All: response.AllSecRules{
 			Result: []response.SecRule{
-				response.SecRule{
+				{
 					Action:      common.SecRulePermit,
 					Application: "/Compute-acme/jack.jones@example.com/video_streaming_udp",
 					Name:        "/Compute-acme/jack.jones@example.com/es_to_videoservers_stream",
@@ -205,7 +205,7 @@ var (
 	DefaultSecApplications = FakeApplication{
 		All: response.AllSecApplications{
 			Result: []response.SecApplication{
-				response.SecApplication{
+				{
 					Description: "Juju created security application",
 					Dport:       "17070",
 					Icmpcode:    "",
@@ -217,7 +217,7 @@ var (
 					Value2:      -1,
 					Id:          "1869cb17-5b12-49c5-a09a-046da8899bc9",
 				},
-				response.SecApplication{
+				{
 					Description: "Juju created security application",
 					Dport:       "37017",
 					Icmpcode:    "",
@@ -234,7 +234,7 @@ var (
 		AllErr: nil,
 		Default: response.AllSecApplications{
 			Result: []response.SecApplication{
-				response.SecApplication{
+				{
 					Description: "",
 					Dport:       "",
 					Icmpcode:    "",
@@ -246,7 +246,7 @@ var (
 					Value2:      0,
 					Id:          "381c2267-1b38-4bbd-b53d-5149deddb094",
 				},
-				response.SecApplication{
+				{
 					Description: "",
 					Dport:       "",
 					Icmpcode:    "",
@@ -258,7 +258,7 @@ var (
 					Value2:      0,
 					Id:          "57b0350b-2f02-4a2d-b5ec-cf731de36027",
 				},
-				response.SecApplication{
+				{
 					Description: "",
 					Dport:       "",
 					Icmpcode:    "",
@@ -270,7 +270,7 @@ var (
 					Value2:      255,
 					Id:          "abb27ccd-1872-48f9-86ef-38c72d6f8a38",
 				},
-				response.SecApplication{
+				{
 					Description: "",
 					Dport:       "",
 					Icmpcode:    "",
@@ -282,7 +282,7 @@ var (
 					Value2:      0,
 					Id:          "3ad808d4-b740-42c1-805c-57feb7c96d40",
 				},
-				response.SecApplication{
+				{
 					Description: "",
 					Dport:       "3306",
 					Icmpcode:    "",
@@ -294,7 +294,7 @@ var (
 					Value2:      -1,
 					Id:          "2fb5eaff-3127-4334-8b03-367a44bb83bd",
 				},
-				response.SecApplication{
+				{
 					Description: "",
 					Dport:       "22",
 					Icmpcode:    "",
@@ -313,7 +313,7 @@ var (
 	DefaultSecIp = FakeSecIp{
 		All: response.AllSecIpLists{
 			Result: []response.SecIpList{
-				response.SecIpList{
+				{
 					Description: nil,
 					Name:        "/oracle/public/site",
 					Secipentries: []string{
@@ -328,7 +328,7 @@ var (
 					Group_id: "1003",
 					Id:       "492ad26e-4c86-44bb-a439-535614d25f56",
 				},
-				response.SecIpList{
+				{
 					Description: nil,
 					Name:        "/oracle/public/paas-infra",
 					Secipentries: []string{
@@ -340,7 +340,7 @@ var (
 					Group_id: "1006",
 					Id:       "a671b8b6-2422-45ef-84fc-c65010f0c1a5",
 				},
-				response.SecIpList{
+				{
 					Description: nil,
 					Name:        "/oracle/public/instance",
 					Secipentries: []string{
@@ -361,7 +361,7 @@ var (
 					Group_id: "1004",
 					Id:       "5c3a5100-ced7-43f8-a5cd-10dce263db33",
 				},
-				response.SecIpList{
+				{
 					Description:  nil,
 					Name:         "/oracle/public/public-internet",
 					Secipentries: []string{"0.0.0.0/0"},
@@ -396,7 +396,7 @@ var (
 	DefaultFakeAssociation = FakeAssociation{
 		All: response.AllSecAssociations{
 			Result: []response.SecAssociation{
-				response.SecAssociation{
+				{
 					Name:    "/Compute-a432100/sgiulitti@cloudbase.com/faa46f2e-28c9-4500-b060-0997717540a6/9e5c3f31-1769-46b6-bdc3-b8f3db0f0479",
 					Seclist: "/Compute-a432100/default/default",
 					Vcable:  "/Compute-a432100/sgiulitti@cloudbase.com/faa46f2e-28c9-4500-b060-0997717540a6",

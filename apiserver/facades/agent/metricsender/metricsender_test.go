@@ -7,10 +7,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	wireformat "github.com/juju/romulus/wireformat/metrics"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
@@ -52,7 +52,7 @@ func (s *MetricSenderSuite) SetUpTest(c *gc.C) {
 	meteredApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	s.meteredUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApp, SetCharmURL: true})
 	s.credUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: credApp, SetCharmURL: true})
-	s.clock = jujutesting.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *MetricSenderSuite) TestToWire(c *gc.C) {
@@ -87,11 +87,11 @@ func (s *MetricSenderSuite) TestToWire(c *gc.C) {
 func (s *MetricSenderSuite) TestSendMetricsFromNewModel(c *gc.C) {
 	var sender testing.MockSender
 	now := time.Now()
-	clock := jujutesting.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 
 	state := s.Factory.MakeModel(c, &factory.ModelParams{Name: "test-model"})
 	defer state.Close()
-	f := factory.NewFactory(state)
+	f := factory.NewFactory(state, s.StatePool)
 	model, err := state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelName := model.Name()
@@ -126,7 +126,7 @@ func (s *MetricSenderSuite) TestSendMetrics(c *gc.C) {
 	unsent1 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
 	unsent2 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.IAASModel.Model}, &sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
@@ -147,7 +147,7 @@ func (s *MetricSenderSuite) TestSendingHandlesModelMeterStatus(c *gc.C) {
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.IAASModel.Model}, &sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
@@ -165,7 +165,7 @@ func (s *MetricSenderSuite) TestSendingHandlesEmptyModelMeterStatus(c *gc.C) {
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.IAASModel.Model}, &sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
@@ -189,7 +189,7 @@ func (s *MetricSenderSuite) TestSendMetricsAbort(c *gc.C) {
 	sender.IgnoreBatches(metrics[0:2]...)
 
 	// Send 4 batches per POST.
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.IAASModel.Model}, sender, s.clock, 4, true)
+	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, sender, s.clock, 4, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 4)
 
@@ -217,7 +217,7 @@ func (s *MetricSenderSuite) TestHoldMetrics(c *gc.C) {
 	unsent1 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
 	unsent2 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.IAASModel.Model}, &sender, s.clock, 10, false)
+	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 1)
@@ -241,7 +241,7 @@ func (s *MetricSenderSuite) TestHoldMetricsSetsMeterStatus(c *gc.C) {
 	unsent1 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
-	err = metricsender.SendMetrics(TestSenderBackend{s.State, s.IAASModel.Model}, &sender, s.clock, 10, false)
+	err = metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 1)
@@ -264,7 +264,7 @@ func (s *MetricSenderSuite) TestSendBulkMetrics(c *gc.C) {
 	for i := 0; i < 100; i++ {
 		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
 	}
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.IAASModel.Model}, &sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(sender.Data, gc.HasLen, 10)
@@ -280,7 +280,7 @@ func (s *MetricSenderSuite) TestDontSendWithNopSender(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
 	}
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.IAASModel.Model}, metricsender.NopSender{}, s.clock, 10, true)
+	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, metricsender.NopSender{}, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	sent, err := s.State.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
@@ -293,7 +293,7 @@ func (s *MetricSenderSuite) TestFailureIncrementsConsecutiveFailures(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
 	}
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.IAASModel.Model}, sender, s.clock, 1, true)
+	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, sender, s.clock, 1, true)
 	c.Assert(err, gc.ErrorMatches, "something went wrong")
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
@@ -309,7 +309,7 @@ func (s *MetricSenderSuite) TestFailuresResetOnSuccessfulSend(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
 	}
-	err = metricsender.SendMetrics(TestSenderBackend{s.State, s.IAASModel.Model}, metricsender.NopSender{}, s.clock, 10, true)
+	err = metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, metricsender.NopSender{}, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err = s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)

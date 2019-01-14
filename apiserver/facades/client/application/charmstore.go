@@ -20,14 +20,23 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
 )
 
+//go:generate mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/storage Storage
+//go:generate mockgen -package mocks -destination mocks/interface_mock.go gopkg.in/juju/charmrepo.v3 Interface
+//go:generate mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
+//go:generate mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
+//go:generate mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State
+
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.
+
 // NewCharmStoreRepo instantiates a new charm store repository.
 // It is exported for testing purposes.
 var NewCharmStoreRepo = newCharmStoreFromClient
@@ -38,13 +47,53 @@ func newCharmStoreFromClient(csClient *csclient.Client) charmrepo.Interface {
 	return charmrepo.NewCharmStoreFromClient(csClient)
 }
 
-// AddCharmWithAuthorization adds the given charm URL (which must include revision) to
-// the environment, if it does not exist yet. Local charms are not
-// supported, only charm store URLs. See also AddLocalCharm().
+// StateCharm represents a Charm from the state package
+type StateCharm interface {
+	IsUploaded() bool
+}
+
+// StateModel represents a Model from the state package
+type StateModel interface {
+	ModelConfig() (*config.Config, error)
+}
+
+// CharmState represents directives for accessing charm methods
+type CharmState interface {
+	UpdateUploadedCharm(info state.CharmInfo) (*state.Charm, error)
+	PrepareStoreCharmUpload(curl *charm.URL) (StateCharm, error)
+}
+
+// ModelState represents methods for accessing model definitions
+type ModelState interface {
+	Model() (StateModel, error)
+	ModelUUID() string
+}
+
+// ControllerState represents information defined for accessing controller
+// configuration
+type ControllerState interface {
+	ControllerConfig() (controller.Config, error)
+}
+
+// State represents the access patterns for the charm store methods.
+type State interface {
+	CharmState
+	ModelState
+	ControllerState
+	state.MongoSessioner
+}
+
+// AddCharmWithAuthorizationAndRepo adds the given charm URL (which must include
+// revision) to the environment, if it does not exist yet.
+// Local charms are not supported, only charm store URLs.
+// See also AddLocalCharm().
+// Additionally a Repo (See charmrepo.Interface) function factory can be
+// provided to help with overriding the source of downloading charms. The main
+// benefit of this indirection is to help with testing (mocking)
 //
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
-func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthorization) error {
+func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthorization, repoFn func() (charmrepo.Interface, error)) error {
 	charmURL, err := charm.ParseURL(args.URL)
 	if err != nil {
 		return err
@@ -66,20 +115,8 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		return nil
 	}
 
-	// Open a charm store client.
-	repo, err := openCSRepo(args)
-	if err != nil {
-		return err
-	}
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	modelConfig, err := model.ModelConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	repo = config.SpecializeCharmRepo(repo, modelConfig).(*charmrepo.CharmStore)
+	// Get the repo from the constructor
+	repo, err := repoFn()
 
 	// Get the charm and its information from the store.
 	downloadedCharm, err := repo.Get(charmURL)
@@ -99,6 +136,13 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	downloadedBundle, ok := downloadedCharm.(*charm.CharmArchive)
 	if !ok {
 		return errors.Errorf("expected a charm archive, got %T", downloadedCharm)
+	}
+
+	// Validate the charm lxd profile once we've downloaded it.
+	if err := lxdprofile.ValidateCharmLXDProfile(downloadedCharm); err != nil {
+		if !args.Force {
+			return errors.Annotate(err, "cannot add charm")
+		}
 	}
 
 	// Clean up the downloaded charm - we don't need to cache it in
@@ -133,8 +177,39 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	return StoreCharmArchive(st, ca)
 }
 
-func openCSRepo(args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
-	csClient, err := openCSClient(args)
+// AddCharmWithAuthorization adds the given charm URL (which must include revision) to
+// the environment, if it does not exist yet. Local charms are not
+// supported, only charm store URLs. See also AddLocalCharm().
+//
+// The authorization macaroon, args.CharmStoreMacaroon, may be
+// omitted, in which case this call is equivalent to AddCharm.
+func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization) error {
+	return AddCharmWithAuthorizationAndRepo(st, args, func() (charmrepo.Interface, error) {
+		// determine which charmstore api url to use.
+		controllerCfg, err := st.ControllerConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		repo, err := openCSRepo(controllerCfg.CharmStoreURL(), args)
+		if err != nil {
+			return nil, err
+		}
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		modelConfig, err := model.ModelConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		repo = config.SpecializeCharmRepo(repo, modelConfig).(*charmrepo.CharmStore)
+		return repo, nil
+	})
+}
+
+func openCSRepo(csURL string, args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
+	csClient, err := openCSClient(csURL, args)
 	if err != nil {
 		return nil, err
 	}
@@ -142,8 +217,8 @@ func openCSRepo(args params.AddCharmWithAuthorization) (charmrepo.Interface, err
 	return repo, nil
 }
 
-func openCSClient(args params.AddCharmWithAuthorization) (*csclient.Client, error) {
-	csURL, err := url.Parse(csclient.ServerURL)
+func openCSClient(csAPIURL string, args params.AddCharmWithAuthorization) (*csclient.Client, error) {
+	csURL, err := url.Parse(csAPIURL)
 	if err != nil {
 		return nil, err
 	}
@@ -206,10 +281,13 @@ type CharmArchive struct {
 
 	// Macaroon is the authorization macaroon for accessing the charmstore.
 	Macaroon macaroon.Slice
+
+	// Charm Version contains semantic version of charm, typically the output of git describe.
+	CharmVersion string
 }
 
 // StoreCharmArchive stores a charm archive in environment storage.
-func StoreCharmArchive(st *state.State, archive CharmArchive) error {
+func StoreCharmArchive(st State, archive CharmArchive) error {
 	storage := newStateStorage(st.ModelUUID(), st.MongoSession())
 	storagePath, err := charmArchiveStoragePath(archive.ID)
 	if err != nil {
@@ -225,6 +303,7 @@ func StoreCharmArchive(st *state.State, archive CharmArchive) error {
 		StoragePath: storagePath,
 		SHA256:      archive.SHA256,
 		Macaroon:    archive.Macaroon,
+		Version:     archive.CharmVersion,
 	}
 
 	// Now update the charm data in state and mark it as no longer pending.
@@ -263,7 +342,7 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
-func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCharmResults, error) {
+func ResolveCharms(st State, args params.ResolveCharms) (params.ResolveCharmResults, error) {
 	var results params.ResolveCharmResults
 
 	model, err := st.Model()
@@ -274,8 +353,15 @@ func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCh
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return params.ResolveCharmResults{}, err
+	}
+	csParams := csclient.Params{
+		URL: controllerCfg.CharmStoreURL(),
+	}
 	repo := config.SpecializeCharmRepo(
-		NewCharmStoreRepo(csclient.New(csclient.Params{})),
+		NewCharmStoreRepo(csclient.New(csParams)),
 		envConfig)
 
 	for _, ref := range args.References {
@@ -298,7 +384,7 @@ func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCh
 
 func resolveCharm(ref *charm.URL, repo charmrepo.Interface) (*charm.URL, error) {
 	if ref.Schema != "cs" {
-		return nil, fmt.Errorf("only charm store charm references are supported, with cs: schema")
+		return nil, errors.New("only charm store charm references are supported, with cs: schema")
 	}
 
 	// Resolve the charm location with the repository.
@@ -310,4 +396,46 @@ func resolveCharm(ref *charm.URL, repo charmrepo.Interface) (*charm.URL, error) 
 		return nil, errors.Errorf("no series found in charm URL %q", resolved)
 	}
 	return resolved.WithRevision(ref.Revision), nil
+}
+
+type csStateShim struct {
+	*state.State
+}
+
+func NewStateShim(st *state.State) State {
+	return csStateShim{
+		State: st,
+	}
+}
+
+func (s csStateShim) PrepareStoreCharmUpload(curl *charm.URL) (StateCharm, error) {
+	charm, err := s.State.PrepareStoreCharmUpload(curl)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return csStateCharmShim{Charm: charm}, nil
+}
+
+func (s csStateShim) Model() (StateModel, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return csStateModelShim{Model: model}, nil
+}
+
+type csStateCharmShim struct {
+	*state.Charm
+}
+
+func (s csStateCharmShim) IsUploaded() bool {
+	return s.Charm.IsUploaded()
+}
+
+type csStateModelShim struct {
+	*state.Model
+}
+
+func (s csStateModelShim) ModelConfig() (*config.Config, error) {
+	return s.Model.ModelConfig()
 }

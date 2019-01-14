@@ -6,6 +6,7 @@ package leadership_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
@@ -22,7 +23,7 @@ type TrackerSuite struct {
 	testing.IsolationSuite
 	unitTag names.UnitTag
 	claimer *StubClaimer
-	clock   *testing.Clock
+	clock   *testclock.Clock
 }
 
 var _ = gc.Suite(&TrackerSuite{})
@@ -48,7 +49,7 @@ func (s *TrackerSuite) refreshes(count int) {
 func (s *TrackerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.unitTag = names.NewUnitTag("led-service/123")
-	s.clock = testing.NewClock(time.Date(2016, 10, 9, 12, 0, 0, 0, time.UTC))
+	s.clock = testclock.NewClock(time.Date(2016, 10, 9, 12, 0, 0, 0, time.UTC))
 	s.claimer = &StubClaimer{
 		Stub:     &testing.Stub{},
 		releases: make(chan struct{}),

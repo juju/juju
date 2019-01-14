@@ -105,6 +105,20 @@ func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	})
 }
 
+func (s *CredentialValidatorSuite) TestWatchModelCredential(c *gc.C) {
+	result, err := s.api.WatchModelCredential()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+}
+
+func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *gc.C) {
+	s.backend.SetErrors(errors.New("no nope niet"))
+	_, err := s.api.WatchModelCredential()
+	c.Assert(err, gc.ErrorMatches, "no nope niet")
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+}
+
 // modelUUID is the model tag we're using in the tests.
 var modelUUID = "01234567-89ab-cdef-0123-456789abcdef"
 
@@ -157,4 +171,12 @@ func (b *testBackend) WatchCredential(t names.CloudCredentialTag) state.NotifyWa
 func (b *testBackend) InvalidateModelCredential(reason string) error {
 	b.AddCall("InvalidateModelCredential", reason)
 	return b.NextErr()
+}
+
+func (b *testBackend) WatchModelCredential() (state.NotifyWatcher, error) {
+	b.AddCall("WatchModelCredential")
+	if err := b.NextErr(); err != nil {
+		return nil, err
+	}
+	return apiservertesting.NewFakeNotifyWatcher(), nil
 }

@@ -78,7 +78,7 @@ func (s *ApplicationConfigSuite) assertApplicationDeployed(c *gc.C) {
 
 	// Ensure both outputs have all charm config keys
 	s.settingKeys = set.NewStrings()
-	for k, _ := range s.charm.Config().Options {
+	for k := range s.charm.Config().Options {
 		s.settingKeys.Add(k)
 	}
 }
@@ -133,7 +133,6 @@ func (s *ApplicationConfigSuite) TestConfigAndConfigGetReturnAllCharmSettings(c 
 func (s *ApplicationConfigSuite) TestConfigNoValueSingleSetting(c *gc.C) {
 	appName := "appconfigsingle"
 	charm := s.AddTestingCharm(c, appName)
-
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  appName,
 		Charm: charm,
@@ -145,7 +144,6 @@ func (s *ApplicationConfigSuite) TestConfigNoValueSingleSetting(c *gc.C) {
 		output := s.configCommandOutput(c, appName, option)
 		c.Assert(output, gc.Equals, "")
 	}
-
 	// set value to be something so that we can check newline added
 	s.configCommandOutput(c, appName, "stremptydefault=a")
 	output := s.configCommandOutput(c, appName, "stremptydefault")

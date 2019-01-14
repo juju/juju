@@ -8,9 +8,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/gomaasapi"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 )
 
 type maas2InstanceSuite struct {

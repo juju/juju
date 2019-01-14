@@ -11,11 +11,11 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 // ModelManagerBackend defines methods provided by a state
@@ -52,6 +52,7 @@ type ModelManagerBackend interface {
 	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
+	GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error)
 	AllMachines() (machines []Machine, err error)
 	AllApplications() (applications []Application, err error)
 	AllFilesystems() ([]state.Filesystem, error)
@@ -101,6 +102,7 @@ type Model interface {
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 	AutoConfigureContainerNetworking(environ environs.Environ) error
 	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
+	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)
@@ -119,7 +121,8 @@ func NewModelManagerBackend(m *state.Model, pool *state.StatePool) ModelManagerB
 
 // NewModel implements ModelManagerBackend.
 func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelManagerBackend, error) {
-	otherModel, otherState, err := st.State.NewModel(args)
+	controller := state.NewController(st.pool)
+	otherModel, otherState, err := controller.NewModel(args)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -228,19 +231,19 @@ func (st modelManagerStateShim) AllApplications() ([]Application, error) {
 }
 
 func (st modelManagerStateShim) AllFilesystems() ([]state.Filesystem, error) {
-	model, err := st.State.IAASModel()
+	sb, err := state.NewStorageBackend(st.State)
 	if err != nil {
 		return nil, err
 	}
-	return model.AllFilesystems()
+	return sb.AllFilesystems()
 }
 
 func (st modelManagerStateShim) AllVolumes() ([]state.Volume, error) {
-	model, err := st.State.IAASModel()
+	sb, err := state.NewStorageBackend(st.State)
 	if err != nil {
 		return nil, err
 	}
-	return model.AllVolumes()
+	return sb.AllVolumes()
 }
 
 // ModelConfig returns the underlying model's config. Exposed here to satisfy the

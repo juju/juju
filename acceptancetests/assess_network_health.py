@@ -75,7 +75,7 @@ class AssessNetworkHealth:
             if results_pre:
                 error_string.extend(results_pre)
                 raise Exception('\n'.join(error_string))
-            log.info('SUCESS')
+            log.info('SUCCESS')
             return
         log.info('Units completed pre-reboot tests, rebooting machines.')
         self.reboot_machines(client)
@@ -86,7 +86,7 @@ class AssessNetworkHealth:
             error_string.extend(['Post-reboot test failures:'])
             error_string.extend(results_post or 'No post-reboot failures.')
             raise Exception('\n'.join(error_string))
-        log.info('SUCESS')
+        log.info('SUCCESS')
         return
 
     def testing_iterations(self, client, series, target_model, reboot_msg=''):
@@ -358,10 +358,10 @@ class AssessNetworkHealth:
         log.info('Removing previous network-health charms')
 
         """
-        This is done to work with the beahvior used in other network-health
+        This is done to work with the behavior used in other network-health
         tests to circumvent Juju's lack of support for multi-series charms.
         If a multi-series subordinate is deployed under one of its available
-        series, then a second copy of that charm in a differnt series cannot
+        series, then a second copy of that charm in a different series cannot
         also be deployed. Subsequently, when we deploy the NH charms for the
         above tests, the series is appended to the end of the charm. In order
         for the expose test to work properly the NH charm has to be exposed,
@@ -569,7 +569,7 @@ def parse_args(argv):
                         help='Test under maas')
     parser.set_defaults(maas=False)
     parser.set_defaults(reboot=False)
-    parser.set_defaults(series='xenial')
+    parser.set_defaults(series='bionic')
     return parser.parse_args(argv)
 
 

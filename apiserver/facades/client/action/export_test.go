@@ -6,4 +6,5 @@ package action
 var (
 	GetAllUnitNames = getAllUnitNames
 	QueueActions    = &queueActions
+	NewActionAPI    = newActionAPI
 )

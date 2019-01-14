@@ -306,10 +306,16 @@ func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsFails
 	s.CheckCallNames(c, "RefreshModels")
 }
 
-func (s *SwitchSimpleSuite) TestSettingWhenEnvVarSet(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSettingWhenModelEnvVarSet(c *gc.C) {
 	os.Setenv("JUJU_MODEL", "using-model")
 	_, err := s.run(c, "erewhemos-2")
 	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_MODEL is overriding the model \(set to "using-model"\)`)
+}
+
+func (s *SwitchSimpleSuite) TestSettingWhenControllerEnvVarSet(c *gc.C) {
+	os.Setenv("JUJU_CONTROLLER", "using-controller")
+	_, err := s.run(c, "erewhemos-2")
+	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_CONTROLLER is overriding the controller \(set to "using-controller"\)`)
 }
 
 func (s *SwitchSimpleSuite) TestTooManyParams(c *gc.C) {

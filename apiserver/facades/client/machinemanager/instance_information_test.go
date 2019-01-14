@@ -5,11 +5,13 @@ package machinemanager_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
@@ -40,7 +42,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	failureCons := constraints.Value{}
 	env := mockEnviron{
 		results: map[constraints.Value]instances.InstanceTypesWithCostMetadata{
-			itCons: instances.InstanceTypesWithCostMetadata{
+			itCons: {
 				CostUnit:     "USD/h",
 				CostCurrency: "USD",
 				InstanceTypes: []instances.InstanceType{
@@ -49,7 +51,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			},
 		},
 	}
-	api, err := machinemanager.NewMachineManagerAPI(backend, pool, authorizer, context.NewCloudCallContext())
+	api, err := machinemanager.NewMachineManagerAPI(backend, backend, pool, authorizer, backend.ModelTag(), context.NewCloudCallContext(), common.NewResources())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := params.ModelInstanceTypesConstraints{
@@ -64,28 +66,37 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 3)
 	expected := []params.InstanceTypesResult{
-		params.InstanceTypesResult{
+		{
 			InstanceTypes: []params.InstanceType{
-				params.InstanceType{
+				{
 					Name: "instancetype-1",
 				},
-				params.InstanceType{
+				{
 					Name: "instancetype-2",
 				}},
 			CostUnit:     "USD/h",
 			CostCurrency: "USD",
 		},
-		params.InstanceTypesResult{
+		{
 			Error: &params.Error{Message: "Instances matching constraint  not found", Code: "not found"}},
-		params.InstanceTypesResult{
+		{
 			Error: &params.Error{Message: "Instances matching constraint  not found", Code: "not found"}}}
 	c.Assert(r.Results, gc.DeepEquals, expected)
 }
 
 type mockBackend struct {
 	machinemanager.Backend
+	storagecommon.StorageAccess
 
 	cloudSpec environs.CloudSpec
+}
+
+func (st *mockBackend) VolumeAccess() storagecommon.VolumeAccess {
+	return nil
+}
+
+func (st *mockBackend) FilesystemAccess() storagecommon.FilesystemAccess {
+	return nil
 }
 
 func (b *mockBackend) ModelTag() names.ModelTag {

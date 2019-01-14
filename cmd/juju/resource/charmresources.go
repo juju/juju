@@ -11,7 +11,10 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/charmstore"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -33,7 +36,7 @@ func (c *CharmResourcesCommand) Info() *cmd.Info {
 	i := c.baseInfo()
 	i.Name = "charm-resources"
 	i.Aliases = []string{"list-charm-resources"}
-	return i
+	return jujucmd.Info(i)
 }
 
 // SetFlags implements cmd.Command.
@@ -76,11 +79,11 @@ func (b *baseCharmResourcesCommand) setResourceLister(resourceLister ResourceLis
 }
 
 func (c *baseCharmResourcesCommand) baseInfo() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Args:    "<charm>",
 		Purpose: "Display the resources for a charm in the charm store.",
 		Doc:     charmResourcesDoc,
-	}
+	})
 }
 
 func (c *baseCharmResourcesCommand) setBaseFlags(f *gnuflag.FlagSet) {
@@ -160,7 +163,15 @@ func (c *baseCharmResourcesCommand) ListResources(ids []charmstore.CharmID) ([][
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client, err := charmstore.NewCustomClient(bakeryClient, nil)
+	conAPIRoot, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	csURL, err := getCharmStoreAPIURL(conAPIRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	client, err := charmstore.NewCustomClient(bakeryClient, csURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -178,4 +189,14 @@ func resolveCharm(raw string) (*charm.URL, error) {
 	}
 
 	return charmURL, nil
+}
+
+// getCharmStoreAPIURL consults the controller config for the charmstore api url to use.
+var getCharmStoreAPIURL = func(conAPIRoot api.Connection) (string, error) {
+	controllerAPI := controller.NewClient(conAPIRoot)
+	controllerCfg, err := controllerAPI.ControllerConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return controllerCfg.CharmStoreURL(), nil
 }

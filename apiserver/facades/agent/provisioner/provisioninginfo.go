@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -81,6 +82,11 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 		return nil, errors.Annotate(err, "cannot match subnets to zones")
 	}
 
+	pNames, err := p.machineLXDProfileNames(m, env)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot write lxd profiles")
+	}
+
 	endpointBindings, err := p.machineEndpointBindings(m)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot determine machine endpoint bindings")
@@ -109,6 +115,7 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 		ImageMetadata:     imageMetadata,
 		ControllerConfig:  controllerCfg,
 		CloudInitUserData: env.Config().CloudInitUserData(),
+		CharmLXDProfiles:  pNames,
 	}, nil
 }
 
@@ -119,7 +126,7 @@ func (p *ProvisionerAPI) machineVolumeParams(
 	m *state.Machine,
 	env environs.Environ,
 ) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
-	im, err := p.st.IAASModel()
+	sb, err := state.NewStorageBackend(p.st)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -142,12 +149,12 @@ func (p *ProvisionerAPI) machineVolumeParams(
 	var allVolumeAttachmentParams []params.VolumeAttachmentParams
 	for _, volumeAttachment := range volumeAttachments {
 		volumeTag := volumeAttachment.Volume()
-		volume, err := im.Volume(volumeTag)
+		volume, err := sb.Volume(volumeTag)
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "getting volume %q", volumeTag.Id())
 		}
 		storageInstance, err := storagecommon.MaybeAssignedStorageInstance(
-			volume.StorageInstance, im.StorageInstance,
+			volume.StorageInstance, sb.StorageInstance,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
@@ -300,6 +307,43 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 		subnetsToZones[string(providerId)] = []string{zone}
 	}
 	return subnetsToZones, nil
+}
+
+// machineLXDProfileNames give the environ info to write lxd profiles needed for
+// the given machine and returns the names of profiles. Unlike
+// containerLXDProfilesInfo which returns the info necessary to write lxd profiles
+// via the lxd broker.
+func (p *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs.Environ) ([]string, error) {
+	profileEnv, ok := env.(environs.LXDProfiler)
+	if !ok {
+		logger.Tracef("LXDProfiler not implemented by environ")
+		return nil, nil
+	}
+	units, err := m.Units()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var names []string
+	for _, unit := range units {
+		app, err := unit.Application()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ch, _, err := app.Charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		profile := ch.LXDProfile()
+		if profile == nil || (profile != nil && profile.Empty()) {
+			continue
+		}
+		pName := lxdprofile.Name(p.m.Name(), app.Name(), ch.Revision())
+		if err := profileEnv.MaybeWriteLXDProfile(pName, profile); err != nil {
+			return nil, errors.Trace(err)
+		}
+		names = append(names, pName)
+	}
+	return names, nil
 }
 
 func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]string, error) {

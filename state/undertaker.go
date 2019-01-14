@@ -5,8 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 )
 
 var ErrModelNotDying = errors.New("model is not dying")
@@ -19,55 +17,34 @@ var ErrModelNotDying = errors.New("model is not dying")
 // be returned. If the model is otherwise non-empty, an error satisfying
 // IsNonEmptyModelError will be returned.
 func (st *State) ProcessDyingModel() (err error) {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 
-		if model.Life() != Dying {
-			return nil, errors.Trace(ErrModelNotDying)
-		}
-
-		if st.IsController() {
-			// We should not mark the controller model as Dead until
-			// all hosted models have been removed, otherwise the
-			// hosted model environs may not have been destroyed.
-			modelUUIDs, err := st.AllModelUUIDsIncludingDead()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if n := len(modelUUIDs) - 1; n > 0 {
-				return nil, errors.Trace(hasHostedModelsError(n))
-			}
-		}
-
-		modelEntityRefsDoc, err := model.getEntityRefs()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if _, err := checkModelEntityRefsEmpty(modelEntityRefsDoc); err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		ops := []txn.Op{{
-			C:      modelsC,
-			Id:     st.ModelUUID(),
-			Assert: isDyingDoc,
-			Update: bson.M{"$set": bson.M{
-				"life":          Dead,
-				"time-of-death": st.nowToTheSecond(),
-			}},
-		}, {
-			// Cleanup the owner:modelName unique key.
-			C:      usermodelnameC,
-			Id:     model.uniqueIndexID(),
-			Remove: true,
-		}}
-		return ops, nil
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	if err = st.db().Run(buildTxn); err != nil {
+	if model.Life() != Dying {
+		return errors.Trace(ErrModelNotDying)
+	}
+
+	if st.IsController() {
+		// We should not mark the controller model as Dead until
+		// all hosted models have been removed, otherwise the
+		// hosted model environs may not have been destroyed.
+		modelUUIDs, err := st.AllModelUUIDsIncludingDead()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if n := len(modelUUIDs) - 1; n > 0 {
+			return errors.Trace(hasHostedModelsError(n))
+		}
+	}
+
+	modelEntityRefsDoc, err := model.getEntityRefs()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := checkModelEntityRefsEmpty(modelEntityRefsDoc); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

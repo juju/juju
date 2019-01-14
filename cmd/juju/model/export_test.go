@@ -4,8 +4,7 @@
 package model
 
 import (
-	"time"
-
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/api"
@@ -81,14 +80,14 @@ func NewDestroyCommandForTest(
 	api DestroyModelAPI,
 	configAPI ModelConfigAPI,
 	storageAPI StorageAPI,
+	clk jujuclock.Clock,
 	refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore,
-	sleepFunc func(time.Duration),
 ) cmd.Command {
 	cmd := &destroyCommand{
 		api:        api,
+		clock:      clk,
 		configAPI:  configAPI,
 		storageAPI: storageAPI,
-		sleepFunc:  sleepFunc,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetModelRefresh(refreshFunc)
@@ -127,6 +126,32 @@ func NewRevokeCommandForTest(modelsApi RevokeModelAPI, offersAPI RevokeOfferAPI,
 	return modelcmd.WrapController(cmd), &RevokeCommand{cmd}
 }
 
+type GrantCloudCommand struct {
+	*grantCloudCommand
+}
+
+type RevokeCloudCommand struct {
+	*revokeCloudCommand
+}
+
+// NewGrantCloudCommandForTest returns a grantCloudCommand with the api provided as specified.
+func NewGrantCloudCommandForTest(cloudsApi GrantCloudAPI, store jujuclient.ClientStore) (cmd.Command, *GrantCloudCommand) {
+	cmd := &grantCloudCommand{
+		cloudsApi: cloudsApi,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd), &GrantCloudCommand{cmd}
+}
+
+// NewRevokeCloudCommandForTest returns a revokeCloudCommand with the api provided as specified.
+func NewRevokeCloudCommandForTest(cloudsApi RevokeCloudAPI, store jujuclient.ClientStore) (cmd.Command, *RevokeCloudCommand) {
+	cmd := &revokeCloudCommand{
+		cloudsApi: cloudsApi,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd), &RevokeCloudCommand{cmd}
+}
+
 func NewModelSetConstraintsCommandForTest() cmd.Command {
 	cmd := &modelSetConstraintsCommand{}
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
@@ -140,3 +165,18 @@ func NewModelGetConstraintsCommandForTest() cmd.Command {
 }
 
 var GetBudgetAPIClient = &getBudgetAPIClient
+
+// NewModelCredentialCommandForTest returns a ModelCredentialCommand with the api provided as specified.
+func NewModelCredentialCommandForTest(modelClient ModelCredentialAPI, cloudClient CloudAPI, rootFunc func() (base.APICallCloser, error), store jujuclient.ClientStore) cmd.Command {
+	cmd := &modelCredentialCommand{
+		newModelCredentialAPIFunc: func(root base.APICallCloser) ModelCredentialAPI {
+			return modelClient
+		},
+		newCloudAPIFunc: func(root base.APICallCloser) CloudAPI {
+			return cloudClient
+		},
+		newAPIRootFunc: rootFunc,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}

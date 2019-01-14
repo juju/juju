@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/utils/clock"
+	"github.com/juju/clock"
 )
 
 func newThrottlingListener(inner net.Listener, cfg RateLimitConfig, clk clock.Clock) net.Listener {

@@ -4,9 +4,9 @@
 package metricobserver_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 

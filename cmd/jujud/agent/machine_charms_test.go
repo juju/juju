@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	charmtesting "github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -35,6 +36,11 @@ func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
+	s.ControllerConfigAttrs = map[string]interface{}{
+		// TODO(raftlease): setting this temporarily until the startup
+		// issue is resolved.
+		controller.Features: []interface{}{"legacy-leases"},
+	}
 	s.commonMachineSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
 }

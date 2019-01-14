@@ -4,9 +4,9 @@
 package state_test
 
 import (
+	"github.com/juju/clock"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -24,6 +25,7 @@ import (
 type InitializeSuite struct {
 	gitjujutesting.MgoSuite
 	testing.BaseSuite
+	Pool  *state.StatePool
 	State *state.State
 	Model *state.Model
 }
@@ -46,13 +48,15 @@ func (s *InitializeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: modelTag,
 		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	st := pool.SystemState()
+	s.Pool = pool
 	s.State = st
 
 	m, err := st.Model()
@@ -61,8 +65,8 @@ func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
 }
 
 func (s *InitializeSuite) TearDownTest(c *gc.C) {
-	if s.State != nil {
-		err := s.State.Close()
+	if s.Pool != nil {
+		err := s.Pool.Close()
 		c.Check(err, jc.ErrorIsNil)
 	}
 	s.MgoSuite.TearDownTest(c)
@@ -114,7 +118,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	}
 	controllerCfg := testing.FakeControllerConfig()
 
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -139,14 +143,12 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		AdminPassword:    "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
+	c.Assert(ctlr, gc.NotNil)
+	st := ctlr.SystemState()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
-
-	err = st.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,6 +209,11 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		"dummy/initialize-admin/empty-credential": expectedEmptyCredential,
 	})
 
+	// Check that the cloud owner has admin access.
+	access, err := s.State.GetCloudAccess("dummy", owner)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.AdminAccess)
+
 	// Check that the cloud's model count is initially 1.
 	cloud, err := s.State.Cloud("dummy")
 	c.Assert(err, jc.ErrorIsNil)
@@ -221,7 +228,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	credentialTag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/borken")
-	_, _, err := state.Initialize(state.InitializeParams{
+	_, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -245,7 +252,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 		AdminPassword: "dummy-secret",
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`validating initialization args: validating cloud credentials: credential "dummy/initialize-admin/borken" with auth-type "userpass" is not supported \(expected one of \["access-key" "oauth1"\]\)`,
+		`validating initialization args: validating credential "dummy/initialize-admin/borken" for cloud "dummy": supported auth-types \["access-key" "oauth1"\], "userpass" not supported`,
 	)
 }
 
@@ -259,7 +266,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -279,14 +286,12 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 		AdminPassword:             "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
+	c.Assert(ctlr, gc.NotNil)
+	st := ctlr.SystemState()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
-
-	err = st.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -334,19 +339,14 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 		MongoSession:  s.Session,
 		AdminPassword: "dummy-secret",
 	}
-	ctlr, st, err := state.Initialize(args)
+	ctlr, err := state.Initialize(args)
 	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.Close()
-	c.Check(err, jc.ErrorIsNil)
-
 	err = ctlr.Close()
 	c.Check(err, jc.ErrorIsNil)
 
-	ctlr, st, err = state.Initialize(args)
+	ctlr, err = state.Initialize(args)
 	c.Check(err, gc.ErrorMatches, "already initialized")
 	c.Check(ctlr, gc.IsNil)
-	c.Check(st, gc.IsNil)
 }
 
 func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
@@ -397,16 +397,16 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 		MongoSession:  s.Session,
 		AdminPassword: "dummy-secret",
 	}
-	_, _, err = state.Initialize(args)
+	_, err = state.Initialize(args)
 	c.Assert(err, gc.ErrorMatches, expect)
 
 	args.ControllerModelArgs.Config = good
-	ctlr, st, err := state.Initialize(args)
+	ctlr, err := state.Initialize(args)
 	c.Assert(err, jc.ErrorIsNil)
-	st.Close()
+	modelUUID := ctlr.SystemState().ModelUUID()
 	ctlr.Close()
 
-	s.openState(c, names.NewModelTag(st.ModelUUID()))
+	s.openState(c, names.NewModelTag(modelUUID))
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -455,7 +455,7 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 	for _, badAttrName := range badAttrNames {
 		badAttrs := map[string]interface{}{badAttrName: "foo"}
 		args.ControllerInheritedConfig = badAttrs
-		_, _, err := state.Initialize(args)
+		_, err := state.Initialize(args)
 		c.Assert(err, gc.ErrorMatches, "local cloud config cannot contain .*")
 	}
 }
@@ -476,7 +476,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -496,14 +496,12 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 		AdminPassword: "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
+	c.Assert(ctlr, gc.NotNil)
+	st := ctlr.SystemState()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
-
-	err = st.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -541,7 +539,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -562,14 +560,11 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 		AdminPassword:             "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
-	m, err := st.Model()
+	c.Assert(ctlr, gc.NotNil)
+	m, err := ctlr.SystemState().Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
-
-	err = st.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -602,7 +597,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -623,14 +618,11 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 		AdminPassword:             "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
-	m, err := st.Model()
+	c.Assert(ctlr, gc.NotNil)
+	m, err := ctlr.SystemState().Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
-
-	err = st.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)

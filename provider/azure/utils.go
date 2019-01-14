@@ -4,7 +4,7 @@
 package azure
 
 import (
-	"context"
+	stdcontext "context"
 	"math/rand"
 	"net/http"
 	"time"
@@ -14,6 +14,9 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+
+	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
 const (
@@ -50,7 +53,11 @@ func randomAdminPassword() string {
 	return string(password)
 }
 
-func isNotFoundResponse(resp autorest.Response) bool {
+func isNotFoundResponse(resp *http.Response) bool {
+	return isNotFoundResult(autorest.Response{resp})
+}
+
+func isNotFoundResult(resp autorest.Response) bool {
 	if resp.Response != nil && resp.StatusCode == http.StatusNotFound {
 		return true
 	}
@@ -62,17 +69,17 @@ func isNotFoundResponse(resp autorest.Response) bool {
 // Management API, because the API version requested must match the
 // type of the resource being manipulated through the API, rather than
 // the API version specified statically in the resource client code.
-func collectAPIVersions(sdkCtx context.Context, client resources.ProvidersClient) (map[string]string, error) {
+func collectAPIVersions(ctx context.ProviderCallContext, sdkCtx stdcontext.Context, client resources.ProvidersClient) (map[string]string, error) {
 	result := make(map[string]string)
 
 	var res resources.ProviderListResultIterator
 	res, err := client.ListComplete(sdkCtx, nil, "")
 	if err != nil {
-		return result, errors.Trace(err)
+		return result, errorutils.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	for ; res.NotDone(); err = res.NextWithContext(sdkCtx) {
 		if err != nil {
-			return nil, errors.Annotate(err, "listing resources")
+			return map[string]string{}, errorutils.HandleCredentialError(errors.Trace(err), ctx)
 		}
 
 		provider := res.Value()

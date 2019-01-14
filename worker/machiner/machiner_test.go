@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/machiner"
@@ -182,6 +182,12 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 	c.Check(
 		err, gc.ErrorMatches,
 		"machine-123 failed to set machine to dead: cannot ensure machine is dead",
+	)
+	s.accessor.machine.CheckCall(
+		c, 7, "SetStatus",
+		status.Error,
+		"destroying machine: machine-123 failed to set machine to dead: cannot ensure machine is dead",
+		map[string]interface{}(nil),
 	)
 }
 

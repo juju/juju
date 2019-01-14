@@ -6,7 +6,7 @@ package state_test
 import (
 	"time"
 
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -104,7 +104,7 @@ func (s *SingularSuite) TestSingularClaimerRestarts(c *gc.C) {
 
 	// SetClockForTesting will restart the workers, and
 	// will have replaced them by the time it returns.
-	s.State.SetClockForTesting(gitjujutesting.NewClock(time.Time{}))
+	s.State.SetClockForTesting(testclock.NewClock(time.Time{}))
 
 	err := claimer.Claim(s.modelTag.Id(), "machine-123", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)

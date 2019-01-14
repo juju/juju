@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-//go:generate mockgen -package testing -destination testing/package_mock.go github.com/juju/juju/environs EnvironProvider,CloudEnvironProvider,ProviderSchema,ProviderCredentials,FinalizeCredentialContext,FinalizeCloudContext,CloudFinalizer,CloudDetector,CloudRegionDetector,ModelConfigUpgrader,ConfigGetter,CloudDestroyer,Environ,InstancePrechecker,Firewaller,InstanceTagger,InstanceTypesFetcher,Upgrader,UpgradeStep,DefaultConstraintsChecker,NetworkingEnviron
+//go:generate mockgen -package testing -destination testing/package_mock.go github.com/juju/juju/environs EnvironProvider,CloudEnvironProvider,ProviderSchema,ProviderCredentials,FinalizeCredentialContext,FinalizeCloudContext,CloudFinalizer,CloudDetector,CloudRegionDetector,ModelConfigUpgrader,ConfigGetter,CloudDestroyer,Environ,InstancePrechecker,Firewaller,InstanceTagger,InstanceTypesFetcher,Upgrader,UpgradeStep,DefaultConstraintsChecker,ProviderCredentialsRegister,RequestFinalizeCredential,NetworkingEnviron
 
 // A EnvironProvider represents a computing and storage provider
 // for either a traditional cloud or a container substrate like k8s.
@@ -125,6 +125,30 @@ type ProviderCredentials interface {
 		FinalizeCredentialContext,
 		FinalizeCredentialParams,
 	) (*cloud.Credential, error)
+}
+
+// ProviderCredentialsRegister is an interface that an EnvironProvider
+// implements in order to validate and automatically register credentials for
+// clouds supported by the provider.
+type ProviderCredentialsRegister interface {
+
+	// RegisterCredentials will return any credentials that need to be
+	// registered for the provider.
+	//
+	// If no credentials can be found, RegisterCredentials should return
+	// an error satisfying errors.IsNotFound.
+	RegisterCredentials(cloud.Cloud) (map[string]*cloud.CloudCredential, error)
+}
+
+// RequestFinalizeCredential is an interface that an EnvironProvider implements
+// in order to call ProviderCredentials.FinalizeCredential strictly rather than
+// lazily to gather fully formed credentials.
+type RequestFinalizeCredential interface {
+
+	// ShouldFinalizeCredential asks if a EnvironProvider wants to strictly
+	// finalize a credential. The provider just returns true if they want to
+	// call FinalizeCredential from ProviderCredentials when asked.
+	ShouldFinalizeCredential(cloud.Credential) bool
 }
 
 // FinalizeCredentialContext is an interface passed into FinalizeCredential
@@ -232,6 +256,53 @@ type ConfigGetter interface {
 	Config() *config.Config
 }
 
+// ConfigSetter implements access to an environment's configuration.
+type ConfigSetter interface {
+	// SetConfig updates the Environ's configuration.
+	//
+	// Calls to SetConfig do not affect the configuration of
+	// values previously obtained from Storage.
+	SetConfig(cfg *config.Config) error
+}
+
+// Bootstraper provides the way for bootstrapping controller.
+type Bootstraper interface {
+	// This will be called very early in the bootstrap procedure, to
+	// give an Environ a chance to perform interactive operations that
+	// are required for bootstrapping.
+	PrepareForBootstrap(ctx BootstrapContext) error
+
+	// Bootstrap creates a new environment, and an instance to host the
+	// controller for that environment. The instance will have the
+	// series and architecture of the Environ's choice, constrained to
+	// those of the available tools. Bootstrap will return the instance's
+	// architecture, series, and a function that must be called to finalize
+	// the bootstrap process by transferring the tools and installing the
+	// initial Juju controller.
+	//
+	// It is possible to direct Bootstrap to use a specific architecture
+	// (or fail if it cannot start an instance of that architecture) by
+	// using an architecture constraint; this will have the effect of
+	// limiting the available tools to just those matching the specified
+	// architecture.
+	Bootstrap(ctx BootstrapContext, callCtx context.ProviderCallContext, params BootstrapParams) (*BootstrapResult, error)
+}
+
+// Configer implements access to an environment's configuration.
+type Configer interface {
+	ConfigGetter
+	ConfigSetter
+}
+
+// BootstrapEnviron is an interface that an EnvironProvider implements
+// in order to bootstrap a controller.
+type BootstrapEnviron interface {
+	Configer
+	Bootstraper
+	ConstraintsChecker
+	ControllerDestroyer
+}
+
 // CloudDestroyer provides the API to cleanup cloud resources.
 type CloudDestroyer interface {
 	// Destroy shuts down all known machines and destroys the
@@ -267,27 +338,8 @@ type Environ interface {
 	// CloudDestroyer provides the API to cleanup cloud resources.
 	CloudDestroyer
 
-	// PrepareForBootstrap prepares an environment for bootstrapping.
-	//
-	// This will be called very early in the bootstrap procedure, to
-	// give an Environ a chance to perform interactive operations that
-	// are required for bootstrapping.
-	PrepareForBootstrap(ctx BootstrapContext) error
-
-	// Bootstrap creates a new environment, and an instance to host the
-	// controller for that environment. The instnace will have have the
-	// series and architecture of the Environ's choice, constrained to
-	// those of the available tools. Bootstrap will return the instance's
-	// architecture, series, and a function that must be called to finalize
-	// the bootstrap process by transferring the tools and installing the
-	// initial Juju controller.
-	//
-	// It is possible to direct Bootstrap to use a specific architecture
-	// (or fail if it cannot start an instance of that architecture) by
-	// using an architecture constraint; this will have the effect of
-	// limiting the available tools to just those matching the specified
-	// architecture.
-	Bootstrap(ctx BootstrapContext, callCtx context.ProviderCallContext, params BootstrapParams) (*BootstrapResult, error)
+	// Bootstraper prepares an environment for bootstrapping.
+	Bootstraper
 
 	// Create creates the environment for a new hosted model.
 	//
@@ -299,35 +351,18 @@ type Environ interface {
 	// the Bootstrap method's job to create the controller model.
 	Create(context.ProviderCallContext, CreateParams) error
 
-	// AdoptResources is called when the model is moved from one
-	// controller to another using model migration. Some providers tag
-	// instances, disks, and cloud storage with the controller UUID to
-	// aid in clean destruction. This method will be called on the
-	// environ for the target controller so it can update the
-	// controller tags for all of those things. For providers that do
-	// not track the controller UUID, a simple method returning nil
-	// will suffice. The version number of the source controller is
-	// provided for backwards compatibility - if the technique used to
-	// tag items changes, the version number can be used to decide how
-	// to remove the old tags correctly.
-	AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error
+	// ResourceAdopter defines methods for adopting resources.
+	ResourceAdopter
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.
 	InstanceBroker
 
-	// ConfigGetter allows the retrieval of the configuration data.
-	ConfigGetter
+	// Configer allows the access of the configuration data.
+	Configer
 
-	// ConstraintsValidator returns a Validator instance which
-	// is used to validate and merge constraints.
-	ConstraintsValidator() (constraints.Validator, error)
-
-	// SetConfig updates the Environ's configuration.
-	//
-	// Calls to SetConfig do not affect the configuration of
-	// values previously obtained from Storage.
-	SetConfig(cfg *config.Config) error
+	// ConstraintsChecker provides a means to check that constraints are valid.
+	ConstraintsChecker
 
 	// Instances returns a slice of instances corresponding to the
 	// given instance ids.  If no instances were found, but there
@@ -344,15 +379,6 @@ type Environ interface {
 	// then ErrNotBootstrapped should be returned instead.
 	ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error)
 
-	// DestroyController is similar to Destroy() in that it destroys
-	// the model, which in this case will be the controller model.
-	//
-	// In addition, this method also destroys any resources relating
-	// to hosted models on the controller on which it is invoked.
-	// This ensures that "kill-controller" can clean up hosted models
-	// when the Juju controller process is unavailable.
-	DestroyController(ctx context.ProviderCallContext, controllerUUID string) error
-
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 
@@ -361,6 +387,43 @@ type Environ interface {
 	// InstanceTypesFetcher represents an environment that can return
 	// information about the available instance types.
 	InstanceTypesFetcher
+
+	// ControllerDestroyer is similar to Destroy() in that it destroys
+	// the model, which in this case will be the controller model.
+	ControllerDestroyer
+}
+
+// ControllerDestroyer is similar to Destroy() in that it destroys
+// the model, which in this case will be the controller model.
+//
+// In addition, this method also destroys any resources relating
+// to hosted models on the controller on which it is invoked.
+// This ensures that "kill-controller" can clean up hosted models
+// when the Juju controller process is unavailable.
+type ControllerDestroyer interface {
+	DestroyController(ctx context.ProviderCallContext, controllerUUID string) error
+}
+
+type ResourceAdopter interface {
+	// AdoptResources is called when the model is moved from one
+	// controller to another using model migration. Some providers tag
+	// instances, disks, and cloud storage with the controller UUID to
+	// aid in clean destruction. This method will be called on the
+	// environ for the target controller so it can update the
+	// controller tags for all of those things. For providers that do
+	// not track the controller UUID, a simple method returning nil
+	// will suffice. The version number of the source controller is
+	// provided for backwards compatibility - if the technique used to
+	// tag items changes, the version number can be used to decide how
+	// to remove the old tags correctly.
+	AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error
+}
+
+// ConstraintsChecker provides a means to check that constraints are valid.
+type ConstraintsChecker interface {
+	// ConstraintsValidator returns a Validator instance which
+	// is used to validate and merge constraints.
+	ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error)
 }
 
 // InstancePrechecker provides a means of "prechecking" instance

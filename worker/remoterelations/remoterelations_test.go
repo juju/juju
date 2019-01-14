@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,9 +23,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/remoterelations"
 )
 
@@ -54,7 +54,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 		NewRemoteModelFacadeFunc: func(*api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 			return s.remoteRelationsFacade, nil
 		},
-		Clock: testing.NewClock(time.Time{}),
+		Clock: testclock.NewClock(time.Time{}),
 	}
 }
 
@@ -648,10 +648,10 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 	// Allow the worker to resume.
 	s.stub.SetErrors(nil)
 	s.stub.ResetCalls()
-	s.config.Clock.(*testing.Clock).WaitAdvance(50*time.Second, coretesting.LongWait, 1)
+	s.config.Clock.(*testclock.Clock).WaitAdvance(50*time.Second, coretesting.LongWait, 1)
 	// Not resumed yet.
 	c.Assert(s.stub.Calls(), gc.HasLen, 0)
-	s.config.Clock.(*testing.Clock).WaitAdvance(10*time.Second, coretesting.LongWait, 1)
+	s.config.Clock.(*testclock.Clock).WaitAdvance(10*time.Second, coretesting.LongWait, 1)
 
 	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)

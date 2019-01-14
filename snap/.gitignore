@@ -1,0 +1,4 @@
+*.snap
+*.pyc
+.snapcraft
+__pycache__

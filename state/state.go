@@ -8,12 +8,14 @@ package state
 
 import (
 	"fmt"
+	"io"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -22,7 +24,6 @@ import (
 	"github.com/juju/pubsub"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -36,6 +37,9 @@ import (
 	"github.com/juju/juju/core/application"
 	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -44,8 +48,8 @@ import (
 	"github.com/juju/juju/state/globalclock"
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
+	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -63,11 +67,11 @@ const (
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
 
-	// applicationLeadershipNamespace is the name of the lease.Client namespace
+	// applicationLeadershipNamespace is the name of the lease.Store namespace
 	// used by the leadership manager.
 	applicationLeadershipNamespace = "application-leadership"
 
-	// singularControllerNamespace is the name of the lease.Client namespace
+	// singularControllerNamespace is the name of the lease.Store namespace
 	// used by the singular manager
 	singularControllerNamespace = "singular-controller"
 )
@@ -93,10 +97,10 @@ type State struct {
 	// represented by this state runs.
 	cloudName string
 
-	// leaseClientId is used by the lease infrastructure to
+	// leaseStoreId is used by the lease infrastructure to
 	// differentiate between machines whose clocks may be
 	// relatively-skewed.
-	leaseClientId string
+	leaseStoreId string
 
 	// workers is responsible for keeping the various sub-workers
 	// available by starting new ones as they fail. It doesn't do
@@ -126,6 +130,24 @@ type StateServingInfo struct {
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string
 	SystemIdentity string
+}
+
+func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
+	session := st.session.Copy()
+	newSt, err := newState(
+		names.NewModelTag(modelUUID),
+		st.controllerModelTag,
+		session,
+		st.newPolicy,
+		st.stateClock,
+		st.runTransactionObserver,
+	)
+	// We explicitly don't start the workers.
+	if err != nil {
+		session.Close()
+		return nil, errors.Trace(err)
+	}
+	return newSt, nil
 }
 
 // IsController returns true if this state instance has the bootstrap
@@ -171,8 +193,8 @@ func (st *State) ControllerModelTag() names.ModelTag {
 
 // ControllerOwner returns the owner of the controller model.
 func (st *State) ControllerOwner() (names.UserTag, error) {
-	models, close := st.db().GetCollection(modelsC)
-	defer close()
+	models, closer := st.db().GetCollection(modelsC)
+	defer closer()
 	var doc map[string]string
 	err := models.FindId(st.ControllerModelUUID()).Select(bson.M{"owner": 1}).One(&doc)
 	if err != nil {
@@ -189,12 +211,55 @@ func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
 	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
 }
 
-// RemoveAllModelDocs removes all documents from multi-model
-// collections. The model should be put into a dying state before call
-// this method. Otherwise, there is a race condition in which collections
-// could be added to during or after the running of this method.
-func (st *State) RemoveAllModelDocs() error {
-	err := st.removeAllModelDocs(bson.D{{"life", Dead}})
+// setDyingModelToDead sets current dying model to dead.
+func (st *State) setDyingModelToDead() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if model.Life() != Dying {
+			return nil, errors.Trace(ErrModelNotDying)
+		}
+		ops := []txn.Op{{
+			C:      modelsC,
+			Id:     st.ModelUUID(),
+			Assert: isDyingDoc,
+			Update: bson.M{"$set": bson.M{
+				"life":          Dead,
+				"time-of-death": st.nowToTheSecond(),
+			}},
+		}, {
+			// Cleanup the owner:modelName unique key.
+			C:      usermodelnameC,
+			Id:     model.uniqueIndexID(),
+			Remove: true,
+		}}
+		return ops, nil
+	}
+	if err := st.db().Run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RemoveDyingModel sets current model to dead then removes all documents from
+// multi-model collections.
+func (st *State) RemoveDyingModel() error {
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if model.Life() == Alive {
+		return errors.Errorf("can't remove model: model still alive")
+	}
+	if model.Life() == Dying {
+		// set model to dead if it's dying.
+		if err = st.setDyingModelToDead(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	err = st.removeAllModelDocs(bson.D{{"life", Dead}})
 	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not dead")
 	}
@@ -277,7 +342,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		return errors.Trace(err)
 	}
 
-	// Now remove remove the model.
+	// Now remove the model.
 	model, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
@@ -349,7 +414,7 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 }
 
 // start makes a *State functional post-creation, by:
-//   * setting controllerTag, cloudName and leaseClientId
+//   * setting controllerTag, cloudName and leaseStoreId
 //   * starting lease managers and watcher backends
 //   * creating cloud metadata storage
 //
@@ -367,7 +432,7 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 	st.controllerTag = controllerTag
 
 	// Run the "connectionStatus" Mongo command to obtain the authenticated
-	// user name, if any. This is used below for the lease client ID.
+	// user name, if any. This is used below for the lease store ID.
 	// See: https://docs.mongodb.com/manual/reference/command/connectionStatus/
 	//
 	// TODO(axw) when we move the workers to a higher level state.Manager
@@ -385,19 +450,19 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 	}
 
 	if len(connectionStatus.AuthInfo.AuthenticatedUsers) == 1 {
-		st.leaseClientId = connectionStatus.AuthInfo.AuthenticatedUsers[0].User
+		st.leaseStoreId = connectionStatus.AuthInfo.AuthenticatedUsers[0].User
 	} else {
 		// If we're running state anonymously, we can still use the lease
-		// manager; but we need to make sure we use a unique client ID, and
+		// manager; but we need to make sure we use a unique store ID, and
 		// will thus not be very performant.
-		logger.Infof("running state anonymously; using unique client id")
+		logger.Infof("running state anonymously; using unique store id")
 		uuid, err := utils.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		st.leaseClientId = fmt.Sprintf("anon-%s", uuid.String())
+		st.leaseStoreId = fmt.Sprintf("anon-%s", uuid.String())
 	}
-	// now we've set up leaseClientId, we can use workersFactory
+	// now we've set up leaseStoreId, we can use workersFactory
 
 	logger.Infof("starting standard state workers")
 	workers, err := newWorkers(st, hub)
@@ -419,30 +484,42 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 // ApplicationLeaders returns a map of the application name to the
 // unit name that is the current leader.
 func (st *State) ApplicationLeaders() (map[string]string, error) {
-	client, err := st.getLeadershipLeaseClient()
+	config, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	leases := client.Leases()
+	if !config.Features().Contains(feature.LegacyLeases) {
+		return raftleasestore.LeaseHolders(
+			&environMongo{st},
+			leaseHoldersC,
+			lease.ApplicationLeadershipNamespace,
+			st.ModelUUID(),
+		)
+	}
+	store, err := st.getLeadershipLeaseStore()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	leases := store.Leases()
 	result := make(map[string]string, len(leases))
 	for key, value := range leases {
-		result[key] = value.Holder
+		result[key.Lease] = value.Holder
 	}
 	return result, nil
 }
 
-func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
-	return st.getLeaseClient(applicationLeadershipNamespace)
+func (st *State) getLeadershipLeaseStore() (lease.Store, error) {
+	return st.getLeaseStore(lease.ApplicationLeadershipNamespace)
 }
 
-func (st *State) getSingularLeaseClient() (lease.Client, error) {
-	return st.getLeaseClient(singularControllerNamespace)
+func (st *State) getSingularLeaseStore() (lease.Store, error) {
+	return st.getLeaseStore(lease.SingularControllerNamespace)
 }
 
-func (st *State) getLeaseClient(namespace string) (lease.Client, error) {
+func (st *State) getLeaseStore(namespace string) (lease.Store, error) {
 	globalClock, err := st.globalClockReader()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting global clock for lease client")
+		return nil, errors.Annotate(err, "getting global clock for lease store")
 	}
 
 	// NOTE(axw) due to the lease managers being embedded in State,
@@ -454,18 +531,31 @@ func (st *State) getLeaseClient(namespace string) (lease.Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	client, err := statelease.NewClient(statelease.ClientConfig{
-		Id:          st.leaseClientId,
+	store, err := statelease.NewStore(statelease.StoreConfig{
+		Id:          st.leaseStoreId,
 		Namespace:   namespace,
+		ModelUUID:   st.modelUUID(),
 		Collection:  leasesC,
 		Mongo:       &environMongo{st},
 		LocalClock:  st.stateClock,
 		GlobalClock: globalClock,
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot create %q lease client", namespace)
+		return nil, errors.Annotatef(err, "cannot create %q lease store", namespace)
 	}
-	return client, nil
+	return store, nil
+}
+
+// LeaseNotifyTarget returns a raftlease.NotifyTarget for storing
+// lease changes in the database.
+func (st *State) LeaseNotifyTarget(logDest io.Writer, errorLogger raftleasestore.Logger) raftlease.NotifyTarget {
+	return raftleasestore.NewNotifyTarget(&environMongo{st}, leaseHoldersC, logDest, errorLogger)
+}
+
+// LeaseTrapdoorFunc returns a raftlease.TrapdoorFunc for checking
+// lease state in a database.
+func LeaseTrapdoorFunc() raftlease.TrapdoorFunc {
+	return raftleasestore.MakeTrapdoorFunc(leaseHoldersC)
 }
 
 // ModelUUID returns the model UUID for the model
@@ -916,17 +1006,17 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 			return st.Charm(url)
 		}
 	case names.VolumeTag:
-		im, err := st.IAASModel()
+		sb, err := NewStorageBackend(st)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return im.Volume(tag)
+		return sb.Volume(tag)
 	case names.FilesystemTag:
-		im, err := st.IAASModel()
+		sb, err := NewStorageBackend(st)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return im.Filesystem(tag)
+		return sb.Filesystem(tag)
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
@@ -1022,6 +1112,7 @@ type AddApplicationArgs struct {
 	Charm             *Charm
 	Channel           csparams.Channel
 	Storage           map[string]StorageConstraints
+	Devices           map[string]DeviceConstraints
 	AttachStorage     []names.StorageTag
 	EndpointBindings  map[string]string
 	ApplicationConfig *application.Config
@@ -1054,6 +1145,22 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return nil, errors.Trace(err)
 	}
 
+	// CAAS charms don't support volume/block storage yet.
+	if model.Type() == ModelTypeCAAS {
+		for name, charmStorage := range args.Charm.Meta().Storage {
+			if storageKind(charmStorage.Type) != storage.StorageKindBlock {
+				continue
+			}
+			var count uint64
+			if arg, ok := args.Storage[name]; ok {
+				count = arg.Count
+			}
+			if charmStorage.CountMin > 0 || count > 0 {
+				return nil, errors.NotSupportedf("block storage on a Kubernetes model")
+			}
+		}
+	}
+
 	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
 		return nil, errors.Errorf("AttachStorage is non-empty but NumUnits is %d, must be 1", args.NumUnits)
 	}
@@ -1070,11 +1177,42 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err := checkModelActive(st); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// ensure storage
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
+	sb, err := NewStorageBackend(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := addDefaultStorageConstraints(sb, args.Storage, args.Charm.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := validateStorageConstraints(sb, args.Storage, args.Charm.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	storagePools := make(set.Strings)
+	for _, storageParams := range args.Storage {
+		storagePools.Add(storageParams.Pool)
+	}
+
+	// ensure Devices
+	if args.Devices == nil {
+		args.Devices = make(map[string]DeviceConstraints)
+	}
+	deviceb, err := NewDeviceBackend(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := validateDeviceConstraints(deviceb, args.Devices, args.Charm.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Perform model specific arg processing.
+	scale := 0
+	placement := ""
 	switch model.Type() {
 	case ModelTypeIAAS:
 		if err := st.processIAASModelApplicationArgs(&args); err != nil {
@@ -1083,6 +1221,10 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	case ModelTypeCAAS:
 		if err := st.processCAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
+		}
+		scale = args.NumUnits
+		if len(args.Placement) == 1 {
+			placement = args.Placement[0].Directive
 		}
 	}
 
@@ -1103,6 +1245,10 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
+
+		// CAAS
+		DesiredScale: scale,
+		Placement:    placement,
 	}
 
 	app := newApplication(st, appDoc)
@@ -1122,8 +1268,8 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Updated:    st.clock().Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
-		// sense. It is only relevant for IAAS models.
-		NeverSet: model.Type() == ModelTypeIAAS,
+		// sense.
+		NeverSet: true,
 	}
 	if model.Type() == ModelTypeCAAS {
 		statusDoc.StatusInfo = status.MessageWaitForContainer
@@ -1171,6 +1317,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			statusDoc:         statusDoc,
 			constraints:       args.Constraints,
 			storage:           args.Storage,
+			devices:           args.Devices,
 			applicationConfig: appConfigAttrs,
 			charmConfig:       map[string]interface{}(args.CharmConfig),
 		})
@@ -1234,22 +1381,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	return nil, errors.Trace(err)
 }
 
-func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error {
-	im, err := st.IAASModel()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := addDefaultStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
-		return errors.Trace(err)
-	}
-	if err := validateStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
-		return errors.Trace(err)
-	}
-	storagePools := make(set.Strings)
-	for _, storageParams := range args.Storage {
-		storagePools.Add(storageParams.Pool)
-	}
-
+func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) error {
 	if args.Series == "" {
 		// args.Series is not set, so use the series in the URL.
 		args.Series = args.Charm.URL().Series
@@ -1298,9 +1430,26 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 	// Ignore constraints that result from this call as
 	// these would be accumulation of model and application constraints
 	// but we only want application constraints to be persisted here.
-	_, err = st.resolveConstraints(args.Constraints)
+	cons, err := st.resolveConstraints(args.Constraints)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	unsupported, err := st.validateConstraints(cons)
+	if len(unsupported) > 0 {
+		logger.Warningf(
+			"deploying %q: unsupported constraints: %v", args.Name, strings.Join(unsupported, ","))
+	}
+	return errors.Trace(err)
+}
+
+func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error {
+	if err := st.processCommonModelApplicationArgs(args); err != nil {
+		return errors.Trace(err)
+	}
+
+	storagePools := make(set.Strings)
+	for _, storageParams := range args.Storage {
+		storagePools.Add(storageParams.Pool)
 	}
 
 	for _, placement := range args.Placement {
@@ -1329,13 +1478,13 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 			// attached. We need to pass them along to precheckInstance, in
 			// case the volumes cannot be attached to a machine with the given
 			// placement directive.
-			im, err := st.IAASModel()
+			sb, err := NewStorageBackend(st)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
 			for _, storageTag := range args.AttachStorage {
-				v, err := im.StorageInstanceVolume(storageTag)
+				v, err := sb.StorageInstanceVolume(storageTag)
 				if errors.IsNotFound(err) {
 					continue
 				} else if err != nil {
@@ -1347,7 +1496,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 					// so it cannot be attached.
 					continue
 				}
-				providerType, _, err := poolStorageProvider(im, volumeInfo.Pool)
+				providerType, _, err := poolStorageProvider(sb, volumeInfo.Pool)
 				if err != nil {
 					return errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
 				}
@@ -1375,19 +1524,32 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 }
 
 func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error {
-	if args.Series == "" {
-		// args.Series is not set, so use the series in the URL.
-		args.Series = args.Charm.URL().Series
-		if args.Series == "" {
-			// Should not happen, but just in case.
-			return errors.New("series is empty")
+	if err := st.processCommonModelApplicationArgs(args); err != nil {
+		return errors.Trace(err)
+	}
+	if len(args.Placement) > 1 {
+		return errors.Errorf("only 1 placement directive is supported, got %d", len(args.Placement))
+	}
+	if len(args.Placement) == 0 {
+		return nil
+	}
+	data, err := st.parsePlacement(args.Placement[0])
+	if err != nil {
+		return errors.Trace(err)
+	}
+	switch data.placementType() {
+	case machinePlacement:
+		return errors.NotValidf("machine placement directive %q", args.Placement[0].String())
+	case directivePlacement:
+		if err := st.precheckInstance(
+			args.Series,
+			args.Constraints,
+			data.directive,
+			nil,
+		); err != nil {
+			return errors.Trace(err)
 		}
 	}
-
-	// TODO(caas) restrict the series to CAAS series.
-	// TODO(caas) check that AddApplicationArgs doesn't
-	// contain IAAS-specific things.
-
 	return nil
 }
 
@@ -1439,8 +1601,8 @@ func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
 }
 
 func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
-	col, close := st.db().GetCollection(assignUnitC)
-	defer close()
+	col, closer := st.db().GetCollection(assignUnitC)
+	defer closer()
 
 	var docs []assignUnitDoc
 	if err := col.Find(query).All(&docs); err != nil {
@@ -1538,7 +1700,8 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 	}
 }
 
-// addMachineWithPlacement finds a machine that matches the given placement directive for the given unit.
+// addMachineWithPlacement finds a machine that matches the given
+// placement directive for the given unit.
 func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
@@ -1556,6 +1719,33 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 	// transaction as adding a machine.  See bug
 	// https://launchpad.net/bugs/1506994
 
+	mId := data.machineId
+	var machine *Machine
+	if data.machineId != "" {
+		machine, err = st.Machine(mId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// Check if an upgrade-series lock is present for the requested
+		// machine or its parent.
+		// If one exists, return an error to prevent deployment.
+		locked, err := machine.IsLockedForSeriesUpgrade()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if locked {
+			return nil, errors.Errorf("machine %q is locked for series upgrade", mId)
+		}
+		locked, err = machine.IsParentLockedForSeriesUpgrade()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if locked {
+			return nil, errors.Errorf("machine hosting %q is locked for series upgrade", mId)
+		}
+	}
+
 	switch data.placementType() {
 	case containerPlacement:
 		// If a container is to be used, create it.
@@ -1565,8 +1755,8 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 			Dirty:       true,
 			Constraints: *unitCons,
 		}
-		if data.machineId != "" {
-			return st.AddMachineInsideMachine(template, data.machineId, data.containerType)
+		if mId != "" {
+			return st.AddMachineInsideMachine(template, mId, data.containerType)
 		}
 		return st.AddMachineInsideNewMachine(template, template, data.containerType)
 	case directivePlacement:
@@ -1581,8 +1771,29 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 		return st.AddOneMachine(template)
 	default:
 		// Otherwise use an existing machine.
-		return st.Machine(data.machineId)
+		if err = st.maybeApplyCharmProfileToMachine(unit, machine); err != nil {
+			return nil, err
+		}
+		return machine, nil
 	}
+}
+
+func (st *State) maybeApplyCharmProfileToMachine(unit *Unit, machine *Machine) error {
+	app, err := unit.Application()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	profile := ch.LXDProfile()
+	if profile == nil || (profile != nil && profile.Empty()) {
+		// no profile to add
+		return nil
+	}
+	logger.Tracef("Set up to add new charm profile to existing machine %s for %s", machine.Id(), unit.Name())
+	return machine.SetUpgradeCharmProfile(app.Name(), ch.URL().String())
 }
 
 // Application returns a application state by name.
@@ -1810,13 +2021,13 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	// If either endpoint has container scope, so must the other; and the
 	// applications's series must also match, because they'll be deployed to
 	// the same machines.
-	matchSeries := true
+	compatibleSeries := true
 	if eps[0].Scope == charm.ScopeContainer {
 		eps[1].Scope = charm.ScopeContainer
 	} else if eps[1].Scope == charm.ScopeContainer {
 		eps[0].Scope = charm.ScopeContainer
 	} else {
-		matchSeries = false
+		compatibleSeries = false
 	}
 	// We only get a unique relation id once, to save on roundtrips. If it's
 	// -1, we haven't got it yet (we don't get it at this stage, because we
@@ -1836,7 +2047,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		// Collect per-application operations, checking sanity as we go.
 		var ops []txn.Op
 		var subordinateCount int
-		series := map[string]bool{}
+		appSeries := map[string][]string{}
 		for _, ep := range eps {
 			app, err := aliveApplication(st, ep.ApplicationName)
 			if err != nil {
@@ -1863,7 +2074,6 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if localApp.doc.Subordinate {
 					subordinateCount++
 				}
-				series[localApp.doc.Series] = true
 				ch, _, err := localApp.Charm()
 				if err != nil {
 					return nil, errors.Trace(err)
@@ -1871,6 +2081,11 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if !ep.ImplementedBy(ch) {
 					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
 				}
+				charmSeries := ch.Meta().Series
+				if len(charmSeries) == 0 {
+					charmSeries = []string{localApp.doc.Series}
+				}
+				appSeries[localApp.doc.Name] = charmSeries
 				ops = append(ops, txn.Op{
 					C:      applicationsC,
 					Id:     st.docID(ep.ApplicationName),
@@ -1879,8 +2094,14 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				})
 			}
 		}
-		if matchSeries && len(series) != 1 {
-			return nil, errors.Errorf("principal and subordinate applications' series must match")
+		if compatibleSeries && len(appSeries) > 1 {
+			// We need to ensure that there's intersection between the supported
+			// series of both applications' charms.
+			app1Series := set.NewStrings(appSeries[eps[0].ApplicationName]...)
+			app2Series := set.NewStrings(appSeries[eps[1].ApplicationName]...)
+			if app1Series.Intersection(app2Series).Size() == 0 {
+				return nil, errors.Errorf("principal and subordinate applications' series must match")
+			}
 		}
 		if eps[0].Scope == charm.ScopeContainer && subordinateCount < 1 {
 			return nil, errors.Errorf("container scoped relation requires at least one subordinate application")
@@ -2113,10 +2334,22 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 type hasStartSync interface {
 	StartSync()
 }
+type hasAdvance interface {
+	Advance(time.Duration)
+}
 
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
+// This method is called only from tests.
 func (st *State) StartSync() {
+	if advanceable, ok := st.clock().(hasAdvance); ok {
+		// The amount of time we advance here just needs to be more
+		// than 10ms as that is the minimum time the txnwatcher
+		// is waiting on, however one second is more human noticeable.
+		// The state testing StateSuite type changes the polling interval
+		// of the pool's txnwatcher to be one second.
+		advanceable.Advance(time.Second)
+	}
 	if syncable, ok := st.workers.txnLogWatcher().(hasStartSync); ok {
 		syncable.StartSync()
 	}

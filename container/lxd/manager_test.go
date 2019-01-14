@@ -22,12 +22,13 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	"gopkg.in/juju/charm.v6"
 )
 
 func Test(t *stdtesting.T) {
@@ -98,6 +99,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 		false,
 		false,
 		nil,
+		nil,
 	)
 	list := coretools.List{
 		&coretools.Tools{Version: version.MustParseBinary("2.3.4-trusty-amd64")},
@@ -115,8 +117,6 @@ func prepNetworkConfig() *container.NetworkConfig {
 		ParentInterfaceName: "eth0",
 	}})
 }
-
-var noOpCallback = func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 
 func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	ctrl := gomock.NewController(c)
@@ -163,7 +163,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	)
 
 	instance, hc, err := manager.CreateContainer(
-		iCfg, constraints.Value{}, "xenial", prepNetworkConfig(), &container.StorageConfig{}, noOpCallback,
+		iCfg, constraints.Value{}, "xenial", prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -219,7 +219,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 		ParentInterfaceName: network.DefaultLXDBridge,
 	}})
 	_, _, err = manager.CreateContainer(
-		iCfg, constraints.Value{}, "xenial", netConfig, &container.StorageConfig{}, noOpCallback,
+		iCfg, constraints.Value{}, "xenial", netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -249,7 +249,7 @@ func (s *managerSuite) TestCreateContainerCreateFailed(c *gc.C) {
 		"xenial",
 		prepNetworkConfig(),
 		&container.StorageConfig{},
-		noOpCallback,
+		lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, gc.ErrorMatches, ".*create failed")
 }
@@ -279,9 +279,9 @@ func (s *managerSuite) TestCreateContainerSpecCreationError(c *gc.C) {
 		"xenial",
 		prepNetworkConfig(),
 		&container.StorageConfig{},
-		noOpCallback,
+		lxdtesting.NoOpCallback,
 	)
-	c.Assert(err, gc.ErrorMatches, ".*unrecognised remote server")
+	c.Assert(err, gc.ErrorMatches, ".*unrecognized remote server")
 }
 
 func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
@@ -317,7 +317,7 @@ func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
 		"xenial",
 		prepNetworkConfig(),
 		&container.StorageConfig{},
-		noOpCallback,
+		lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, gc.ErrorMatches, ".*start failed")
 }
@@ -457,7 +457,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *gc.
 	cSvr := s.NewMockServer(ctrl)
 	s.patch(cSvr)
 
-	cSvr.EXPECT().GetProfile("default").Return(defaultProfile(), lxdtesting.ETag, nil)
+	cSvr.EXPECT().GetProfile("default").Return(defaultProfileWithNIC(), lxdtesting.ETag, nil)
 
 	result, _, err := lxd.NetworkDevicesFromConfig(s.makeManager(c, cSvr), &container.NetworkConfig{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,7 +483,7 @@ func (s *managerSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.RemoteServer{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
@@ -497,7 +497,7 @@ func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.RemoteServer{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
@@ -511,7 +511,7 @@ func (s *managerSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.RemoteServer{lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesDailyRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc.C) {
@@ -526,7 +526,7 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedSources := []lxd.RemoteServer{
+	expectedSources := []lxd.ServerSpec{
 		{
 			Name:     "special.container.sauce",
 			Host:     "https://special.container.sauce",
@@ -551,7 +551,7 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedSources := []lxd.RemoteServer{
+	expectedSources := []lxd.ServerSpec{
 		{
 			Name:     "special.container.sauce",
 			Host:     "https://special.container.sauce",
@@ -560,4 +560,90 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
 		lxd.CloudImagesDailyRemote,
 	}
 	c.Check(sources, gc.DeepEquals, expectedSources)
+}
+
+func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	mgr := s.makeManager(c, cSvr)
+	proMgr, ok := mgr.(container.LXDProfileManager)
+	c.Assert(ok, jc.IsTrue)
+
+	put := charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting":    "true",
+			"security.privileged": "true",
+		},
+		Description: "lxd profile for testing",
+		Devices: map[string]map[string]string{
+			"tun": {
+				"path": "/dev/net/tun",
+				"type": "unix-char",
+			},
+		},
+	}
+	post := lxdapi.ProfilesPost{
+		ProfilePut: lxdapi.ProfilePut(put),
+		Name:       "juju-default-lxd-0",
+	}
+	cSvr.EXPECT().CreateProfile(post).Return(nil).Times(1)
+	cSvr.EXPECT().GetProfileNames().Return([]string{"default", "custom"}, nil).Times(1)
+
+	err := proMgr.MaybeWriteLXDProfile("juju-default-lxd-0", &put)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *managerSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+	// Operation arrangements.
+	updateOp := lxdtesting.NewMockOperation(ctrl)
+	updateOp.EXPECT().Wait().Return(nil)
+	updateOp.EXPECT().Get().Return(lxdapi.Operation{Description: "Updating ontainer"})
+
+	instId := "testme"
+	old := "old-profile"
+	oldProfiles := []string{"default", "juju-default", old}
+	new := "new-profile"
+	newProfiles := []string{"default", "juju-default", new}
+	put := charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting": "true",
+		},
+		Description: "test profile",
+	}
+	post := lxdapi.ProfilesPost{
+		ProfilePut: lxdapi.ProfilePut(put),
+		Name:       new,
+	}
+	cExp := cSvr.EXPECT()
+	gomock.InOrder(
+		cExp.GetProfileNames().Return(oldProfiles, nil),
+		cExp.CreateProfile(post).Return(nil),
+		cExp.GetContainer(instId).Return(
+			&lxdapi.Container{
+				ContainerPut: lxdapi.ContainerPut{
+					Profiles: oldProfiles,
+				},
+			}, "", nil),
+		cExp.UpdateContainer(instId, gomock.Any(), gomock.Any()).Return(updateOp, nil),
+		cExp.DeleteProfile(old).Return(nil),
+		cExp.GetContainer(instId).Return(
+			&lxdapi.Container{
+				ContainerPut: lxdapi.ContainerPut{
+					Profiles: newProfiles,
+				},
+			}, "", nil),
+	)
+
+	mgr := s.makeManager(c, cSvr)
+	proMgr, ok := mgr.(container.LXDProfileManager)
+	c.Assert(ok, jc.IsTrue)
+
+	obtained, err := proMgr.ReplaceOrAddInstanceProfile(instId, old, new, &put)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, newProfiles)
 }

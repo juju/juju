@@ -4,6 +4,8 @@
 package provisioner_test
 
 import (
+	"fmt"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -37,7 +39,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 		Placement:   "valid",
-		Volumes: []state.MachineVolumeParams{
+		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static-pool"}},
 			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
 		},
@@ -158,8 +160,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 					tags.JujuMachine:    "controller-machine-5",
 				},
 				SubnetsToZones: map[string][]string{
-					"subnet-1": []string{"zone1"},
-					"subnet-2": []string{"zone2"},
+					"subnet-1": {"zone1"},
+					"subnet-2": {"zone2"},
 				},
 			},
 		}}}
@@ -279,12 +281,57 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
+func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
+	profileMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	profileCharm := s.AddTestingCharm(c, "lxd-profile")
+	profileService := s.AddTestingApplication(c, "lxd-profile", profileCharm)
+	profileUnit, err := profileService.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = profileUnit.AssignToMachine(profileMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: profileMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerCfg := coretesting.FakeControllerConfig()
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.APIPort(s.Environ.Provider())
+	controllerCfg["api-port"] = apiPort
+
+	pName := fmt.Sprintf("juju-%s-lxd-profile-0", profileMachine.ModelName())
+	expected := params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{{
+			Result: &params.ProvisioningInfo{
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuController:    coretesting.ControllerTag.Id(),
+					tags.JujuModel:         coretesting.ModelTag.Id(),
+					tags.JujuMachine:       "controller-machine-5",
+					tags.JujuUnitsDeployed: profileUnit.Name(),
+				},
+				EndpointBindings: map[string]string{},
+				CharmLXDProfiles: []string{pName},
+			},
+		}}}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
 func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	template := state.MachineTemplate{
 		Series:    "quantal",
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "valid",
-		Volumes: []state.MachineVolumeParams{
+		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Size: 1000, Pool: "loop"}},
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
 		},
@@ -341,7 +388,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{
+		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 		},
@@ -350,7 +397,9 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision just one of the volumes, but neither of the attachments.
-	err = s.IAASModel.SetVolumeInfo(names.NewVolumeTag("1"), state.VolumeInfo{
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.SetVolumeInfo(names.NewVolumeTag("1"), state.VolumeInfo{
 		Pool:       "modelscoped",
 		Size:       1000,
 		VolumeId:   "vol-ume",

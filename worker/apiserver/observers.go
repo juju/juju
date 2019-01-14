@@ -4,10 +4,10 @@
 package apiserver
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"

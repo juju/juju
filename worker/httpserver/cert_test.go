@@ -32,7 +32,7 @@ var _ = gc.Suite(&certSuite{})
 
 func (s *certSuite) SetUpTest(c *gc.C) {
 	s.workerFixture.SetUpTest(c)
-	tlsConfig, _ := httpserver.InternalNewTLSConfig(
+	tlsConfig := httpserver.InternalNewTLSConfig(
 		"",
 		"https://0.1.2.3/no-autocert-here",
 		nil,
@@ -111,7 +111,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 
 	// Dropping the handler returned here disables the challenge
 	// listener.
-	tlsConfig, _ := httpserver.InternalNewTLSConfig(
+	tlsConfig := httpserver.InternalNewTLSConfig(
 		"somewhere.example",
 		"https://0.1.2.3/no-autocert-here",
 		nil,
@@ -148,7 +148,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 }
 
 func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
-	tlsConfig, _ := httpserver.InternalNewTLSConfig(
+	tlsConfig := httpserver.InternalNewTLSConfig(
 		"somewhere.example",
 		"https://0.1.2.3/no-autocert-here",
 		nil,

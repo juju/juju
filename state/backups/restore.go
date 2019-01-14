@@ -14,16 +14,15 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -141,14 +140,14 @@ func updateMachineAddresses(machine *state.Machine, privateAddress, publicAddres
 var mongoDefaultDialOpts = mongo.DefaultDialOpts
 var environsGetNewPolicyFunc = stateenvirons.GetNewPolicyFunc
 
-// newStateConnection tries to connect to the newly restored controller.
-func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelTag, info *mongo.MongoInfo) (*state.State, error) {
+// connectToDB tries to connect to the newly restored controller.
+func connectToDB(controllerTag names.ControllerTag, modelTag names.ModelTag, info *mongo.MongoInfo) (*state.StatePool, error) {
 	// We need to retry here to allow mongo to come up on the restored controller.
 	// The connection might succeed due to the mongo dial retries but there may still
 	// be a problem issuing database commands.
 	var (
-		st  *state.State
-		err error
+		pool *state.StatePool
+		err  error
 	)
 	const (
 		newStateConnDelay       = 15 * time.Second
@@ -156,7 +155,6 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 	)
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
-	getEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 
 	session, err := mongo.DialWithInfo(*info, mongoDefaultDialOpts())
 	if err != nil {
@@ -165,19 +163,19 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 	defer session.Close()
 
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(state.OpenParams{
+		pool, err = state.OpenStatePool(state.OpenParams{
 			Clock:              clock.WallClock,
 			ControllerTag:      controllerTag,
 			ControllerModelTag: modelTag,
 			MongoSession:       session,
-			NewPolicy:          environsGetNewPolicyFunc(getEnviron),
+			NewPolicy:          environsGetNewPolicyFunc(),
 		})
 		if err == nil {
-			return st, nil
+			return pool, nil
 		}
 		logger.Errorf("cannot open state, retrying: %v", err)
 	}
-	return st, errors.Annotate(err, "cannot open state")
+	return nil, errors.Annotate(err, "cannot open state")
 }
 
 type machineModel struct {

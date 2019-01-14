@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasfirewaller"
 )
 
@@ -58,6 +58,8 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.config = caasfirewaller.Config{
+		ControllerUUID:    coretesting.ControllerTag.Id(),
+		ModelUUID:         coretesting.ModelTag.Id(),
 		ApplicationGetter: &s.applicationGetter,
 		ServiceExposer:    &s.serviceExposer,
 		LifeGetter:        &s.lifeGetter,
@@ -73,6 +75,14 @@ func (s *WorkerSuite) sendApplicationExposedChange(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
+	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
+		config.ControllerUUID = ""
+	}, `missing ControllerUUID not valid`)
+
+	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
+		config.ModelUUID = ""
+	}, `missing ModelUUID not valid`)
+
 	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
 		config.ApplicationGetter = nil
 	}, `missing ApplicationGetter not valid`)
@@ -137,6 +147,9 @@ func (s *WorkerSuite) TestExposedChange(c *gc.C) {
 	}
 	s.serviceExposer.CheckCallNames(c, "UnexposeService", "ExposeService")
 	s.serviceExposer.CheckCall(c, 1, "ExposeService", "gitlab",
+		map[string]string{
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+			"juju-model-uuid":      coretesting.ModelTag.Id()},
 		application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 

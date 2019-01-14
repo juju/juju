@@ -11,8 +11,8 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.apiaddressupdater")

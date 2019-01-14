@@ -54,7 +54,8 @@ type baseProviderSuite struct {
 	envtesting.ToolsFixture
 	controllerUUID string
 
-	callCtx context.ProviderCallContext
+	callCtx           *context.CloudCallContext
+	invalidCredential bool
 }
 
 func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
@@ -81,10 +82,16 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLTS() })
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			s.invalidCredential = true
+			return nil
+		},
+	}
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {
+	s.invalidCredential = false
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }

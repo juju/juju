@@ -38,7 +38,7 @@ log = logging.getLogger("assess_wallet")
 
 
 def _get_new_wallet_limit(client):
-    """Return availible limit for new wallet"""
+    """Return available limit for new wallet"""
     wallets = json.loads(list_wallets(client))
     limit = int(wallets['total']['limit'])
     credit = int(wallets['credit'])
@@ -262,7 +262,7 @@ def set_controller_cookie_file(client):
         with EnvironmentVariable('HOME', tmp_home):
             move_usso_token_to_juju_home(tmp_home)
 
-            # charm login shoulnd't be interactive, fail if it is.
+            # charm login shouldn't be interactive, fail if it is.
             try:
                 command = pexpect.spawn(
                     'charm', ['login'], env={'HOME': tmp_home})

@@ -482,6 +482,7 @@ func (p *Ports) removeOps() []txn.Op {
 	return []txn.Op{{
 		C:      openedPortsC,
 		Id:     p.doc.DocID,
+		Assert: txn.DocExists,
 		Remove: true,
 	}}
 }

@@ -6,7 +6,6 @@ package cloud
 import (
 	"io"
 	"sort"
-	"strings"
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/output"
 )
@@ -29,17 +29,26 @@ type listCloudsCommand struct {
 // listCloudsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 var listCloudsDoc = "" +
-	"Provided information includes 'cloud' (as understood by Juju), cloud\n" +
-	"'type', and cloud 'regions'.\n" +
-	"The listing will consist of public clouds and any custom clouds made\n" +
-	"available through the `juju add-cloud` command. The former can be updated\n" +
-	"via the `juju update-clouds` command.\n" +
-	"By default, the tabular format is used.\n" + listCloudsDocExamples
+	"Output includes fundamental properties for each cloud known to the\n" +
+	"current Juju client: name, number of regions, default region, type,\n" +
+	"and description.\n" +
+	"\nThe default output shows public clouds known to Juju out of the box.\n" +
+	"These may change between Juju versions. In addition to these public\n" +
+	"clouds, the 'localhost' cloud (local LXD) is also listed.\n" +
+	"\nThis command's default output format is 'tabular'.\n" +
+	"\nCloud metadata sometimes changes, e.g. AWS adds a new region. Use the\n" +
+	"`update-clouds` command to update the current Juju client accordingly.\n" +
+	"\nUse the `add-cloud` command to add a private cloud to the list of\n" +
+	"clouds known to the current Juju client.\n" +
+	"\nUse the `regions` command to list a cloud's regions. Use the\n" +
+	"`show-cloud` command to get more detail, such as regions and endpoints.\n" +
+	"\nFurther reading: https://docs.jujucharms.com/stable/clouds\n" + listCloudsDocExamples
 
 var listCloudsDocExamples = `
 Examples:
 
     juju clouds
+    juju clouds --format yaml
 
 See also:
     add-cloud
@@ -54,12 +63,12 @@ func NewListCloudsCommand() cmd.Command {
 }
 
 func (c *listCloudsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "clouds",
 		Purpose: "Lists all clouds available to Juju.",
 		Doc:     listCloudsDoc,
 		Aliases: []string{"list-clouds"},
-	}
+	})
 }
 
 func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -176,7 +185,7 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 	cloudNamesSorted := func(someClouds map[string]*cloudDetails) []string {
 		// For tabular we'll sort alphabetically, user clouds last.
 		var names []string
-		for name, _ := range someClouds {
+		for name := range someClouds {
 			names = append(names, name)
 		}
 		sort.Strings(names)
@@ -204,18 +213,6 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 	printClouds(clouds.builtin, nil)
 	printClouds(clouds.personal, ansiterm.Foreground(ansiterm.BrightBlue))
 
-	// Get other provider types supported by add-cloud.
-	// These will typically be for private clouds like maas etc.
-	providers, _, err := addableCloudProviders()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	w.Println("\nTry 'list-regions <cloud>' to see available regions.")
-	w.Println("'show-cloud <cloud>' or 'regions --format yaml <cloud>' can be used to see region endpoints.")
-	w.Println("Update the known public clouds with 'update-clouds'.")
-	w.Println("'add-cloud' can add private or custom clouds / infrastructure built for the following provider types:")
-	w.Printf("  - %s\n", strings.Join(providers, ", "))
 	tw.Flush()
 	return nil
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
-	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -124,7 +124,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		}
 		ops, err := validateCloudCredentials(cloud, credentials)
 		if err != nil {
-			return nil, errors.Annotate(err, "validating cloud credentials")
+			return nil, errors.Trace(err)
 		}
 		_, err = st.CloudCredential(tag)
 		if err != nil && !errors.IsNotFound(err) {
@@ -267,24 +267,9 @@ func validateCloudCredentials(
 ) ([]txn.Op, error) {
 	requiredAuthTypes := make(set.Strings)
 	for tag, credential := range credentials {
-		if tag.Cloud().Id() != cloud.Name {
-			return nil, errors.NewNotValid(nil, fmt.Sprintf(
-				"credential %q for non-matching cloud is not valid (expected %q)",
-				tag.Id(), cloud.Name,
-			))
-		}
-		var found bool
-		for _, authType := range cloud.AuthTypes {
-			if credential.AuthType == string(authType) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, errors.NewNotValid(nil, fmt.Sprintf(
-				"credential %q with auth-type %q is not supported (expected one of %q)",
-				tag.Id(), credential.AuthType, cloud.AuthTypes,
-			))
+		err := validateCredentialForCloud(cloud, tag, credential)
+		if err != nil {
+			return nil, errors.Annotatef(err, "validating credential %q for cloud %q", tag.Id(), cloud.Name)
 		}
 		requiredAuthTypes.Add(credential.AuthType)
 	}
@@ -297,6 +282,26 @@ func validateCloudCredentials(
 		}
 	}
 	return ops, nil
+}
+
+func validateCredentialForCloud(nuage cloud.Cloud, tag names.CloudCredentialTag, credential Credential) error {
+	if tag.Cloud().Id() != nuage.Name {
+		return errors.NotValidf("cloud %q", tag.Cloud().Id())
+	}
+
+	supportedAuth := func() bool {
+		for _, authType := range nuage.AuthTypes {
+			if credential.AuthType == string(authType) {
+				return true
+			}
+		}
+		return false
+	}
+
+	if !supportedAuth() {
+		return errors.NotSupportedf("supported auth-types %q, %q", nuage.AuthTypes, credential.AuthType)
+	}
+	return nil
 }
 
 // WatchCredential returns a new NotifyWatcher watching for
@@ -343,9 +348,36 @@ func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
 	return credentials, nil
 }
 
+// CredentialModels returns all models that use given cloud credential.
+func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
+	coll, cleanup := st.db().GetCollection(modelsC)
+	defer cleanup()
+
+	sel := bson.D{
+		{"cloud-credential", tag.Id()},
+		{"life", bson.D{{"$ne", Dead}}},
+	}
+
+	var docs []modelDoc
+	err := coll.Find(sel).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting models that use cloud credential %q", tag.Id())
+	}
+	if len(docs) == 0 {
+		return nil, errors.NotFoundf("models that use cloud credentials %q", tag.Id())
+	}
+
+	results := make(map[string]string, len(docs))
+	for _, model := range docs {
+		results[model.UUID] = model.Name
+	}
+	return results, nil
+}
+
 // CredentialOwnerModelAccess stores cloud credential model information for the credential owner
 // or an error retrieving it.
 type CredentialOwnerModelAccess struct {
+	ModelUUID   string
 	ModelName   string
 	OwnerAccess permission.Access
 	Error       error
@@ -354,31 +386,23 @@ type CredentialOwnerModelAccess struct {
 // CredentialModelsAndOwnerAccess returns all models that use given cloud credential as well as
 // what access the credential owner has on these models.
 func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]CredentialOwnerModelAccess, error) {
-	coll, cleanup := st.db().GetCollection(modelsC)
-	defer cleanup()
-
-	var docs []modelDoc
-	err := coll.Find(bson.D{{"cloud-credential", tag.Id()}}).All(&docs)
+	models, err := st.CredentialModels(tag)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting models that use cloud credential %q", tag.Id())
-	}
-	if len(docs) == 0 {
-		return nil, errors.NotFoundf("models that use cloud credentials %q", tag.Id())
+		return nil, errors.Trace(err)
 	}
 
-	results := make([]CredentialOwnerModelAccess, len(docs))
-	for i, model := range docs {
-		results[i] = CredentialOwnerModelAccess{ModelName: model.Name}
-		ownerAccess, err := st.UserAccess(tag.Owner(), names.NewModelTag(model.UUID))
+	var results []CredentialOwnerModelAccess
+	for uuid, name := range models {
+		ownerAccess, err := st.UserAccess(tag.Owner(), names.NewModelTag(uuid))
 		if err != nil {
 			if errors.IsNotFound(err) {
-				results[i].OwnerAccess = permission.NoAccess
+				results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelUUID: uuid, OwnerAccess: permission.NoAccess})
 				continue
 			}
-			results[i].Error = errors.Trace(err)
+			results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelUUID: uuid, Error: errors.Trace(err)})
 			continue
 		}
-		results[i].OwnerAccess = ownerAccess.Access
+		results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelUUID: uuid, OwnerAccess: ownerAccess.Access})
 	}
 	return results, nil
 }

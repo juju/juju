@@ -4,15 +4,18 @@
 package azure
 
 import (
-	"context"
+	stdcontext "context"
 
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
 func createDeployment(
+	ctx context.ProviderCallContext,
 	client resources.DeploymentsClient,
 	resourceGroup string,
 	deploymentName string,
@@ -28,7 +31,7 @@ func createDeployment(
 			Mode:     resources.Incremental,
 		},
 	}
-	sdkCtx := context.Background()
+	sdkCtx := stdcontext.Background()
 	_, err = client.CreateOrUpdate(
 		sdkCtx,
 		resourceGroup,
@@ -36,7 +39,7 @@ func createDeployment(
 		deployment,
 	)
 	if err != nil {
-		return errors.Annotatef(err, "creating deployment %q", deploymentName)
+		return errorutils.HandleCredentialError(errors.Annotatef(err, "creating deployment %q", deploymentName), ctx)
 	}
 	return nil
 }

@@ -152,16 +152,25 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 		Instances: []instance.Id{s.Instance.Id()},
 	}}
 
-	inst, err := gce.NewRawInstance(s.Env, s.StartInstArgs, s.spec)
+	inst, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(inst, jc.DeepEquals, s.BaseInstance)
 }
 
+func (s *environBrokerSuite) TestNewRawInstanceZoneInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	_, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
+}
+
 func (s *environBrokerSuite) TestNewRawInstanceZoneSpecificError(c *gc.C) {
 	s.FakeConn.Err = errors.New("blargh")
 
-	_, err := gce.NewRawInstance(s.Env, s.StartInstArgs, s.spec)
+	_, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
 	c.Assert(err, gc.ErrorMatches, "blargh")
 	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 }
@@ -260,4 +269,12 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	c.Check(calls, gc.HasLen, 1)
 	c.Check(calls[0].Prefix, gc.Equals, s.Prefix())
 	c.Check(calls[0].IDs, jc.DeepEquals, []string{"spam"})
+}
+
+func (s *environBrokerSuite) TestStopInstancesInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	err := s.Env.StopInstances(s.CallCtx, s.Instance.Id())
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }

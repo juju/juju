@@ -25,7 +25,7 @@ func (s *ApplicationVersionSetSuite) createCommand(c *gc.C, err error) (*Context
 
 	com, err := jujuc.NewCommand(hctx, cmdString("application-version-set"))
 	c.Assert(err, jc.ErrorIsNil)
-	return hctx, com
+	return hctx, jujuc.NewJujucCommandWrappedForTest(com)
 }
 
 func (s *ApplicationVersionSetSuite) TestApplicationVersionSetNoArguments(c *gc.C) {

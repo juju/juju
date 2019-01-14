@@ -329,7 +329,7 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Test Network Spaces")
     add_basic_testing_arguments(parser)
-    parser.set_defaults(series='xenial')
+    parser.set_defaults(series='bionic')
     return parser.parse_args(argv)
 
 

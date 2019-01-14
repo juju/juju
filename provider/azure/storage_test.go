@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/azure"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
@@ -34,6 +35,9 @@ type storageSuite struct {
 	provider          storage.Provider
 	requests          []*http.Request
 	sender            azuretesting.Senders
+
+	cloudCallCtx      *context.CloudCallContext
+	invalidCredential bool
 }
 
 var _ = gc.Suite(&storageSuite{})
@@ -60,6 +64,17 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	azure.SetRetries(env)
 	s.provider, err = env.StorageProvider("azure")
 	c.Assert(err, jc.ErrorIsNil)
+	s.cloudCallCtx = &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			s.invalidCredential = true
+			return nil
+		},
+	}
+}
+
+func (s *storageSuite) TearDownTest(c *gc.C) {
+	s.invalidCredential = false
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *storageSuite) volumeSource(c *gc.C, legacy bool, attrs ...testing.Attrs) storage.VolumeSource {
@@ -198,7 +213,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		makeSender("volume-2", 1), // future.Results call
 	}
 
-	results, err := volumeSource.CreateVolumes(params)
+	results, err := volumeSource.CreateVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 	c.Check(results[0].Error, jc.ErrorIsNil)
@@ -256,6 +271,87 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	assertRequestBody(c, s.requests[0], makeDisk("volume-0", 1))
 	assertRequestBody(c, s.requests[2], makeDisk("volume-1", 2))
 	assertRequestBody(c, s.requests[4], makeDisk("volume-2", 1))
+}
+
+func (s *storageSuite) createSenderWithUnauthorisedStatusCode(c *gc.C) {
+	mockSender := mocks.NewSender()
+	mockSender.AppendResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
+	s.sender = azuretesting.Senders{
+		mockSender,
+	}
+}
+
+func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
+	makeVolumeParams := func(volume, machine string, size uint64) storage.VolumeParams {
+		return storage.VolumeParams{
+			Tag:          names.NewVolumeTag(volume),
+			Size:         size,
+			Provider:     "azure",
+			ResourceTags: map[string]string{"foo": "bar"},
+			Attachment: &storage.VolumeAttachmentParams{
+				AttachmentParams: storage.AttachmentParams{
+					Provider:   "azure",
+					Machine:    names.NewMachineTag(machine),
+					InstanceId: instance.Id("machine-" + machine),
+				},
+				Volume: names.NewVolumeTag(volume),
+			},
+		}
+	}
+	params := []storage.VolumeParams{
+		makeVolumeParams("0", "0", 1),
+		makeVolumeParams("1", "1", 1025),
+		makeVolumeParams("2", "0", 1024),
+	}
+
+	volumeSource := s.volumeSource(c, false)
+	s.requests = nil
+	s.createSenderWithUnauthorisedStatusCode(c)
+
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	results, err := volumeSource.CreateVolumes(s.cloudCallCtx, params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, len(params))
+	c.Check(results[0].Error, gc.NotNil)
+	c.Check(results[1].Error, gc.NotNil)
+	c.Check(results[2].Error, gc.NotNil)
+
+	// Attachments are deferred.
+	c.Check(results[0].VolumeAttachment, gc.IsNil)
+	c.Check(results[1].VolumeAttachment, gc.IsNil)
+	c.Check(results[2].VolumeAttachment, gc.IsNil)
+	c.Assert(s.invalidCredential, jc.IsTrue)
+
+	// Validate HTTP request bodies.
+	// account for the retry attemptd for volumes 1,2
+	c.Assert(s.requests, gc.HasLen, 5)
+	c.Assert(s.requests[0].Method, gc.Equals, "PUT") // create volume-0
+	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // create volume-1
+	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // create volume-2
+
+	makeDisk := func(name string, size int32) *compute.Disk {
+		tags := map[string]*string{
+			"foo": to.StringPtr("bar"),
+		}
+		return &compute.Disk{
+			Name:     to.StringPtr(name),
+			Location: to.StringPtr("westus"),
+			Tags:     tags,
+			DiskProperties: &compute.DiskProperties{
+				DiskSizeGB: to.Int32Ptr(size),
+				CreationData: &compute.CreationData{
+					CreateOption: compute.Empty,
+				},
+			},
+			Sku: &compute.DiskSku{
+				Name: compute.DiskStorageAccountTypes("Standard_LRS"),
+			},
+		}
+	}
+	// account for the retry attemptd for volumes 1,2
+	assertRequestBody(c, s.requests[0], makeDisk("volume-0", 1))
+	assertRequestBody(c, s.requests[1], makeDisk("volume-1", 2))
+	assertRequestBody(c, s.requests[3], makeDisk("volume-2", 1))
 }
 
 func (s *storageSuite) TestCreateVolumesLegacy(c *gc.C) {
@@ -331,7 +427,7 @@ func (s *storageSuite) TestCreateVolumesLegacy(c *gc.C) {
 		updateVirtualMachine1Sender,
 	}
 
-	results, err := volumeSource.CreateVolumes(params)
+	results, err := volumeSource.CreateVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 
@@ -430,9 +526,19 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks`
 	s.sender = azuretesting.Senders{volumeSender}
 
-	volumeIds, err := volumeSource.ListVolumes()
+	volumeIds, err := volumeSource.ListVolumes(s.cloudCallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeIds, jc.SameContents, []string{"volume-0", "volume-1"})
+}
+
+func (s *storageSuite) TestListVolumesWithInvalidCredential(c *gc.C) {
+	volumeSource := s.volumeSource(c, false)
+	s.createSenderWithUnauthorisedStatusCode(c)
+
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
+	c.Assert(err, gc.NotNil)
+	c.Assert(s.invalidCredential, jc.IsTrue)
 }
 
 func (s *storageSuite) TestListVolumesLegacy(c *gc.C) {
@@ -457,7 +563,7 @@ func (s *storageSuite) TestListVolumesLegacy(c *gc.C) {
 	s.datavhdsContainer.Blobs_ = []internalazurestorage.Blob{blob1, blob0, junkBlob, volumeBlob}
 
 	volumeSource := s.volumeSource(c, true)
-	volumeIds, err := volumeSource.ListVolumes()
+	volumeIds, err := volumeSource.ListVolumes(s.cloudCallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageClient.CheckCallNames(c, "NewClient", "GetContainerReference")
 	s.storageClient.CheckCall(
@@ -477,14 +583,14 @@ func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
 		sender,
 		sender, // for the retry attempt
 	}
-	_, err := volumeSource.ListVolumes()
+	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
 	c.Assert(err, gc.ErrorMatches, "listing disks: .*: no disks for you")
 }
 
 func (s *storageSuite) TestListVolumesErrorsLegacy(c *gc.C) {
 	volumeSource := s.volumeSource(c, true)
 	s.datavhdsContainer.SetErrors(errors.New("no blobs for you"))
-	_, err := volumeSource.ListVolumes()
+	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
 	c.Assert(err, gc.ErrorMatches, "listing volumes: listing blobs: no blobs for you")
 }
 
@@ -498,7 +604,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks/volume-0`
 	s.sender = azuretesting.Senders{volumeSender}
 
-	results, err := volumeSource.DescribeVolumes([]string{"volume-0"})
+	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{
@@ -507,6 +613,18 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 			Persistent: true,
 		},
 	}})
+}
+
+func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *gc.C) {
+	volumeSource := s.volumeSource(c, false)
+	s.createSenderWithUnauthorisedStatusCode(c)
+
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	_, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
+	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results[0].Error, gc.NotNil)
+	c.Assert(s.invalidCredential, jc.IsTrue)
 }
 
 func (s *storageSuite) TestDescribeVolumesNotFound(c *gc.C) {
@@ -519,7 +637,7 @@ func (s *storageSuite) TestDescribeVolumesNotFound(c *gc.C) {
 	)
 	volumeSender.AppendResponse(response)
 	s.sender = azuretesting.Senders{volumeSender}
-	results, err := volumeSource.DescribeVolumes([]string{"volume-42"})
+	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0].Error, jc.Satisfies, errors.IsNotFound)
@@ -542,7 +660,7 @@ func (s *storageSuite) TestDescribeVolumesLegacy(c *gc.C) {
 	s.datavhdsContainer.Blobs_ = []internalazurestorage.Blob{blob1, blob0}
 
 	volumeSource := s.volumeSource(c, true)
-	results, err := volumeSource.DescribeVolumes([]string{"volume-0", "volume-1", "volume-0", "volume-42"})
+	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0", "volume-1", "volume-0", "volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageClient.CheckCallNames(c, "NewClient", "GetContainerReference")
 	s.storageClient.CheckCall(
@@ -579,10 +697,22 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	volume0Sender.PathPattern = `.*/Microsoft\.Compute/disks/volume-0`
 	s.sender = azuretesting.Senders{volume0Sender}
 
-	results, err := volumeSource.DestroyVolumes([]string{"volume-0"})
+	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0], jc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestDestroyVolumesWithInvalidCredential(c *gc.C) {
+	volumeSource := s.volumeSource(c, false)
+
+	s.createSenderWithUnauthorisedStatusCode(c)
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0], gc.NotNil)
+	c.Assert(s.invalidCredential, jc.IsTrue)
 }
 
 func (s *storageSuite) TestDestroyVolumesNotFound(c *gc.C) {
@@ -594,7 +724,7 @@ func (s *storageSuite) TestDestroyVolumesNotFound(c *gc.C) {
 	))
 	s.sender = azuretesting.Senders{volume42Sender}
 
-	results, err := volumeSource.DestroyVolumes([]string{"volume-42"})
+	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0], jc.ErrorIsNil)
@@ -610,7 +740,7 @@ func (s *storageSuite) TestDestroyVolumesLegacy(c *gc.C) {
 	s.datavhdsContainer.Blobs_ = []internalazurestorage.Blob{blob0, blob1}
 
 	volumeSource := s.volumeSource(c, true)
-	results, err := volumeSource.DestroyVolumes([]string{"volume-0", "volume-42"})
+	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-0", "volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results[0], jc.ErrorIsNil)
@@ -711,7 +841,7 @@ func (s *storageSuite) testAttachVolumes(c *gc.C, legacy bool) {
 		updateVirtualMachine0Sender,
 	}
 
-	results, err := volumeSource.AttachVolumes(params)
+	results, err := volumeSource.AttachVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 
@@ -832,7 +962,7 @@ func (s *storageSuite) testDetachVolumes(c *gc.C, legacy bool) {
 		updateVirtualMachine0Sender,
 	}
 
-	results, err := volumeSource.DetachVolumes(params)
+	results, err := volumeSource.DetachVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 
@@ -901,7 +1031,7 @@ func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
 		updateVirtualMachine0Sender, // future.Results call
 	}
 
-	results, err := volumeSource.DetachVolumes(params)
+	results, err := volumeSource.DetachVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 	c.Assert(results[0], jc.ErrorIsNil)

@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
@@ -28,18 +29,18 @@ import (
 	servercommon "github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/resource/resourcetesting"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationmaster"
 )
 
 type Suite struct {
 	coretesting.BaseSuite
-	clock         *jujutesting.Clock
+	clock         *testclock.Clock
 	stub          *jujutesting.Stub
 	connection    *stubConnection
 	connectionErr error
@@ -160,7 +161,7 @@ var (
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.clock = jujutesting.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.stub = new(jujutesting.Stub)
 	s.connection = &stubConnection{
 		stub:          s.stub,
@@ -659,9 +660,10 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *gc.C) {
 	// See note for TestMinionWaitFailedMachine above.
 	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
 	s.facade.queueMinionReports(coremigration.MinionReports{
-		MigrationId: "model-uuid:2",
-		Phase:       coremigration.SUCCESS,
-		FailedUnits: []string{"foo/2"},
+		MigrationId:        "model-uuid:2",
+		Phase:              coremigration.SUCCESS,
+		FailedUnits:        []string{"foo/2"},
+		FailedApplications: []string{"bar"},
 	})
 
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)

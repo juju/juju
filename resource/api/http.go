@@ -55,13 +55,6 @@ const (
 	QueryParamPendingID = "pendingid"
 )
 
-const (
-	// TODO(natefinch): remove this and use http.MethodPut when we upgrade to go1.5+.
-
-	// MethodPut is the common HTTP PUT method.
-	MethodPut = "PUT"
-)
-
 // NewEndpointPath returns the API URL path for the identified resource.
 func NewEndpointPath(application, name string) string {
 	return fmt.Sprintf(HTTPEndpointPath, application, name)
@@ -87,7 +80,7 @@ func SendHTTPError(w http.ResponseWriter, err error) {
 	})
 }
 
-// SendStatusAndJSON sends an HTTP status code and
+// SendHTTPStatusAndJSON sends an HTTP status code and
 // a JSON-encoded response to a client.
 func SendHTTPStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) {
 	body, err := json.Marshal(response)

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 )
 
@@ -110,7 +111,7 @@ func (s *tmpfsFilesystemSource) ValidateFilesystemParams(params storage.Filesyst
 }
 
 // CreateFilesystems is defined on the FilesystemSource interface.
-func (s *tmpfsFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+func (s *tmpfsFilesystemSource) CreateFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
 	results := make([]storage.CreateFilesystemsResult, len(args))
 	for i, arg := range args {
 		filesystem, err := s.createFilesystem(arg)
@@ -154,7 +155,7 @@ func (s *tmpfsFilesystemSource) createFilesystem(params storage.FilesystemParams
 }
 
 // DestroyFilesystems is defined on the FilesystemSource interface.
-func (s *tmpfsFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]error, error) {
+func (s *tmpfsFilesystemSource) DestroyFilesystems(ctx context.ProviderCallContext, filesystemIds []string) ([]error, error) {
 	// DestroyFilesystems is a no-op; there is nothing to destroy,
 	// since the filesystem is ephemeral and disappears once
 	// detached.
@@ -162,12 +163,12 @@ func (s *tmpfsFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]er
 }
 
 // ReleaseFilesystems is defined on the FilesystemSource interface.
-func (s *tmpfsFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]error, error) {
+func (s *tmpfsFilesystemSource) ReleaseFilesystems(ctx context.ProviderCallContext, filesystemIds []string) ([]error, error) {
 	return make([]error, len(filesystemIds)), nil
 }
 
 // AttachFilesystems is defined on the FilesystemSource interface.
-func (s *tmpfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+func (s *tmpfsFilesystemSource) AttachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	results := make([]storage.AttachFilesystemsResult, len(args))
 	for i, arg := range args {
 		attachment, err := s.attachFilesystem(arg)
@@ -225,7 +226,7 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 }
 
 // DetachFilesystems is defined on the FilesystemSource interface.
-func (s *tmpfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) ([]error, error) {
+func (s *tmpfsFilesystemSource) DetachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]error, error) {
 	results := make([]error, len(args))
 	for i, arg := range args {
 		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {

@@ -69,7 +69,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 func filterErrors(err error) error {
 	cause := errors.Cause(err)
-	if cause == ErrValidityChanged {
+	if cause == ErrValidityChanged ||
+		cause == ErrModelCredentialChanged {
 		return dependency.ErrBounce
 	}
 	return err

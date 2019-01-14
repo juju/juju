@@ -98,7 +98,7 @@ type FakeStorageAPI struct {
 var (
 	DefaultAllStorageVolumes = response.AllStorageVolumes{
 		Result: []response.StorageVolume{
-			response.StorageVolume{
+			{
 				Account:           "/Compute-a432100/default",
 				Bootable:          true,
 				Description:       nil,
@@ -233,7 +233,7 @@ var (
 		FakeStorageAttachment: FakeStorageAttachment{
 			All: response.AllStorageAttachments{
 				Result: []response.StorageAttachment{
-					response.StorageAttachment{
+					{
 						Account:             nil,
 						Hypervisor:          nil,
 						Index:               1,

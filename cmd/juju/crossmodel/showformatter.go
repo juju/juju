@@ -62,7 +62,7 @@ func formatOfferedEndpointsTabular(writer io.Writer, all map[string]ShowOfferedA
 		maxIterations := max(len(one.Endpoints), len(descLines))
 
 		names := []string{}
-		for name, _ := range one.Endpoints {
+		for name := range one.Endpoints {
 			names = append(names, name)
 		}
 		sort.Strings(names)

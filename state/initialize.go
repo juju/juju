@@ -4,19 +4,19 @@
 package state
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
@@ -98,7 +98,7 @@ func (p InitializeParams) Validate() error {
 		credentials[tag] = convertCloudCredentialToState(tag, cred)
 	}
 	if _, err := validateCloudCredentials(p.Cloud, credentials); err != nil {
-		return errors.Annotate(err, "validating cloud credentials")
+		return errors.Trace(err)
 	}
 	creds := make(map[string]Credential, len(credentials))
 	for tag, cred := range credentials {
@@ -132,19 +132,20 @@ func convertCloudCredentialToState(tag names.CloudCredentialTag, cloudCredential
 // create the collections and indices in a Juju database.
 type InitDatabaseFunc func(*mgo.Session, string, *controller.Config) error
 
-// Initialize sets up an initial empty state and returns it.
+// Initialize sets up the database with all the collections and indices it needs.
+// It also creates the initial model for the controller.
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
+func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err := args.Validate(); err != nil {
-		return nil, nil, errors.Annotate(err, "validating initialization args")
+		return nil, errors.Annotate(err, "validating initialization args")
 	}
 
 	controllerTag := names.NewControllerTag(args.ControllerConfig.ControllerUUID())
 
 	modelUUID := args.ControllerModelArgs.Config.UUID()
 	if !names.IsValidModel(modelUUID) {
-		return nil, nil, errors.New("invalid model UUID")
+		return nil, errors.New("invalid model UUID")
 	}
 	modelTag := names.NewModelTag(modelUUID)
 
@@ -157,7 +158,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 		InitDatabaseFunc:   InitDatabase,
 	})
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "opening controller")
+		return nil, errors.Annotate(err, "opening controller")
 	}
 	defer func() {
 		if err != nil {
@@ -167,26 +168,17 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 		}
 	}()
 
-	st, err := ctlr.NewState(modelTag)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "opening state")
-	}
-	defer func() {
-		if err != nil {
-			if closeErr := st.Close(); closeErr != nil {
-				logger.Errorf("error closing state while aborting Initialize: %v", closeErr)
-			}
-		}
-	}()
-	st.controllerModelTag = modelTag
+	// The system state is owned by the pool, which is closed by the
+	// controller close, so no close needed here.
+	st := ctlr.pool.SystemState()
 
 	// A valid model is used as a signal that the
 	// state has already been initialized. If this is the case
 	// do nothing.
 	if _, err := st.Model(); err == nil {
-		return nil, nil, errors.New("already initialized")
+		return nil, errors.New("already initialized")
 	} else if !errors.IsNotFound(err) {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
@@ -199,11 +191,11 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 			RegionConfig:     args.RegionInheritedConfig,
 		})
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	salt, err := utils.RandomSalt()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	dateCreated := st.nowToTheSecond()
@@ -218,8 +210,13 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 	// The controller cloud is initially used by 1 model (the controller model).
 	cloudRefCountOp, err := incCloudModelRefOp(st, args.Cloud.Name)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+	// Ensure the controller cloud owner has admin.
+	cloudPermissionOps := createPermissionOp(
+		cloudGlobalKey(args.Cloud.Name),
+		userGlobalKey(userAccessID(args.ControllerModelArgs.Owner)),
+		permission.AdminAccess)
 
 	ops = append(ops,
 		txn.Op{
@@ -232,6 +229,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 			},
 		},
 		createCloudOp(args.Cloud),
+		cloudPermissionOps,
 		cloudRefCountOp,
 		txn.Op{
 			C:      controllersC,
@@ -273,10 +271,10 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 	ops = append(ops, modelOps...)
 
 	if err := st.db().RunTransaction(ops); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	probablyUpdateStatusHistory(st.db(), modelGlobalKey, modelStatusDoc)
-	return ctlr, st, nil
+	return ctlr, nil
 }
 
 // InitDatabase creates all the collections and indices in a Juju database.
@@ -373,6 +371,10 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	}
 	// Some values require marshalling before storage.
 	modelCfg = config.CoerceForStorage(modelCfg)
+	qualifier := args.Owner.Id()
+	if args.Type == ModelTypeCAAS {
+		qualifier = args.CloudName
+	}
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(modelUUID),
@@ -385,7 +387,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 			args.MigrationMode,
 			args.EnvironVersion,
 		),
-		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
+		createUniqueOwnerModelNameOp(qualifier, args.Config.Name()),
 	)
 	ops = append(ops, modelUserOps...)
 	return ops, modelStatusDoc, nil

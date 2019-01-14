@@ -10,9 +10,13 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/storage"
 )
 
 // Client allows access to the CAAS unit provisioner API endpoint.
@@ -75,18 +79,18 @@ func (c *Client) ApplicationConfig(applicationName string) (application.ConfigAt
 	return application.ConfigAttributes(results.Results[0].Config), nil
 }
 
-// WatchUnits returns a StringsWatcher that notifies of
+// WatchApplicationScale returns a NotifyWatcher that notifies of
 // changes to the lifecycles of units of the specified
 // CAAS application in the current model.
-func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) {
+func (c *Client) WatchApplicationScale(application string) (watcher.NotifyWatcher, error) {
 	applicationTag, err := applicationTag(application)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	args := entities(applicationTag)
 
-	var results params.StringsWatchResults
-	if err := c.facade.FacadeCall("WatchUnits", args, &results); err != nil {
+	var results params.NotifyWatchResults
+	if err := c.facade.FacadeCall("WatchApplicationsScale", args, &results); err != nil {
 		return nil, err
 	}
 	if n := len(results.Results); n != 1 {
@@ -95,8 +99,24 @@ func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) 
 	if err := results.Results[0].Error; err != nil {
 		return nil, errors.Trace(err)
 	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), results.Results[0])
+	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), results.Results[0])
 	return w, nil
+}
+
+// ApplicationScale returns the scale for the specified application.
+func (c *Client) ApplicationScale(applicationName string) (int, error) {
+	var results params.IntResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
+	}
+	err := c.facade.FacadeCall("ApplicationsScale", args, &results)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	if len(results.Results) != len(args.Entities) {
+		return 0, errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(results.Results))
+	}
+	return results.Results[0].Result, nil
 }
 
 // WatchPodSpec returns a NotifyWatcher that notifies of
@@ -123,26 +143,90 @@ func (c *Client) WatchPodSpec(application string) (watcher.NotifyWatcher, error)
 	return w, nil
 }
 
+// ProvisioningInfo holds unit provisioning info.
+type ProvisioningInfo struct {
+	PodSpec     string
+	Placement   string
+	Constraints constraints.Value
+	Filesystems []storage.KubernetesFilesystemParams
+	Devices     []devices.KubernetesDeviceParams
+	Tags        map[string]string
+}
+
 // ProvisioningInfo returns the provisioning info for the specified CAAS
 // application in the current model.
-func (c *Client) ProvisioningInfo(appName string) (params.KubernetesProvisioningInfo, error) {
+func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 	appTag, err := applicationTag(appName)
 	if err != nil {
-		return params.KubernetesProvisioningInfo{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	args := entities(appTag)
 
 	var results params.KubernetesProvisioningInfoResults
 	if err := c.facade.FacadeCall("ProvisioningInfo", args, &results); err != nil {
-		return params.KubernetesProvisioningInfo{}, err
+		return nil, err
 	}
 	if n := len(results.Results); n != 1 {
-		return params.KubernetesProvisioningInfo{}, errors.Errorf("expected 1 result, got %d", n)
+		return nil, errors.Errorf("expected 1 result, got %d", n)
 	}
 	if err := results.Results[0].Error; err != nil {
-		return params.KubernetesProvisioningInfo{}, maybeNotFound(err)
+		return nil, maybeNotFound(err)
 	}
-	return *results.Results[0].Result, nil
+	result := results.Results[0].Result
+	info := &ProvisioningInfo{
+		PodSpec:     result.PodSpec,
+		Placement:   result.Placement,
+		Constraints: result.Constraints,
+		Tags:        result.Tags,
+	}
+
+	for _, fs := range result.Filesystems {
+		fsInfo, err := filesystemFromParams(fs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		info.Filesystems = append(info.Filesystems, *fsInfo)
+	}
+
+	var devs []devices.KubernetesDeviceParams
+	for _, device := range result.Devices {
+		devs = append(devs, devices.KubernetesDeviceParams{
+			Type:       devices.DeviceType(device.Type),
+			Count:      device.Count,
+			Attributes: device.Attributes,
+		})
+	}
+	info.Devices = devs
+	return info, nil
+}
+
+func filesystemFromParams(in params.KubernetesFilesystemParams) (*storage.KubernetesFilesystemParams, error) {
+	var attachment *storage.KubernetesFilesystemAttachmentParams
+	if in.Attachment != nil {
+		var err error
+		attachment, err = filesystemAttachmentFromParams(*in.Attachment)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return &storage.KubernetesFilesystemParams{
+		StorageName:  in.StorageName,
+		Provider:     storage.ProviderType(in.Provider),
+		Size:         in.Size,
+		Attributes:   in.Attributes,
+		ResourceTags: in.Tags,
+		Attachment:   attachment,
+	}, nil
+}
+
+func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentParams) (*storage.KubernetesFilesystemAttachmentParams, error) {
+	return &storage.KubernetesFilesystemAttachmentParams{
+		AttachmentParams: storage.AttachmentParams{
+			Provider: storage.ProviderType(in.Provider),
+			ReadOnly: in.ReadOnly,
+		},
+		Path: in.MountPoint,
+	}, nil
 }
 
 // Life returns the lifecycle state for the specified CAAS application
@@ -214,4 +298,17 @@ func (c *Client) UpdateApplicationService(arg params.UpdateApplicationServiceArg
 		return nil
 	}
 	return maybeNotFound(result.Results[0].Error)
+}
+
+// SetOperatorStatus updates the provisioning status of an operator.
+func (c *Client) SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error {
+	var result params.ErrorResults
+	args := params.SetStatus{Entities: []params.EntityStatusArgs{
+		{Tag: names.NewApplicationTag(appName).String(), Status: status.String(), Info: message, Data: data},
+	}}
+	err := c.facade.FacadeCall("SetOperatorStatus", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }

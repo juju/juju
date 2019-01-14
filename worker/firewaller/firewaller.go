@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/EvilSuperstars/go-cidrman"
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -23,12 +23,12 @@ import (
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -185,7 +185,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 			// For any failures, try again in 1 minute.
 			RestartDelay: time.Minute,
 		}),
-		cloudCallContext: common.NewCloudCallContext(cfg.CredentialAPI),
+		cloudCallContext: common.NewCloudCallContext(cfg.CredentialAPI, nil),
 	}
 
 	switch cfg.Mode {
@@ -618,6 +618,9 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 			// TODO(dfc) fw.machineds should be map[names.Tag]
 		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag] != nil {
 			err = fw.startUnit(unit, machineTag)
+			if params.IsCodeNotFound(err) {
+				continue
+			}
 			if err != nil {
 				return err
 			}
@@ -632,8 +635,12 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 }
 
 // openedPortsChanged handles port change notifications
-func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, subnetTag names.SubnetTag) error {
-
+func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, subnetTag names.SubnetTag) (err error) {
+	defer func() {
+		if params.IsCodeNotFound(err) {
+			err = nil
+		}
+	}()
 	machined, ok := fw.machineds[machineTag]
 	if !ok {
 		// It is common to receive a port change notification before
@@ -876,7 +883,13 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.IngressRule) 
 }
 
 // flushInstancePorts opens and closes ports global on the machine.
-func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []network.IngressRule) error {
+func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []network.IngressRule) (err error) {
+	defer func() {
+		if params.IsCodeNotFound(err) {
+			err = nil
+		}
+	}()
+
 	// If there's nothing to do, do nothing.
 	// This is important because when a machine is first created,
 	// it will have no instance id but also no open ports -
@@ -886,9 +899,6 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 		return nil
 	}
 	m, err := machined.machine()
-	if params.IsCodeNotFound(err) {
-		return nil
-	}
 	if err != nil {
 		return err
 	}

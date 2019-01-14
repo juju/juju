@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -26,7 +26,7 @@ func (s *FilesystemStatusSuite) SetUpTest(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{
 				Pool: "modelscoped", Size: 1024,
 			},
@@ -34,11 +34,11 @@ func (s *FilesystemStatusSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	filesystemAttachments, err := s.IAASModel.MachineFilesystemAttachments(machine.MachineTag())
+	filesystemAttachments, err := s.storageBackend.MachineFilesystemAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystemAttachments, gc.HasLen, 1)
 
-	filesystem, err := s.IAASModel.Filesystem(filesystemAttachments[0].Filesystem())
+	filesystem, err := s.storageBackend.Filesystem(filesystemAttachments[0].Filesystem())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine = machine
@@ -119,7 +119,7 @@ func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
 	err := s.filesystem.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
-	filesystem, err := s.IAASModel.Filesystem(s.filesystem.FilesystemTag())
+	filesystem, err := s.storageBackend.Filesystem(s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	statusInfo, err := filesystem.Status()
@@ -135,21 +135,21 @@ func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
 }
 
 func (s *FilesystemStatusSuite) TestGetSetStatusDying(c *gc.C) {
-	err := s.IAASModel.DestroyFilesystem(s.filesystem.FilesystemTag())
+	err := s.storageBackend.DestroyFilesystem(s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
 func (s *FilesystemStatusSuite) TestGetSetStatusDead(c *gc.C) {
-	err := s.IAASModel.DestroyFilesystem(s.filesystem.FilesystemTag())
+	err := s.storageBackend.DestroyFilesystem(s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.IAASModel.DetachFilesystem(s.machine.MachineTag(), s.filesystem.FilesystemTag())
+	err = s.storageBackend.DetachFilesystem(s.machine.MachineTag(), s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.IAASModel.RemoveFilesystemAttachment(s.machine.MachineTag(), s.filesystem.FilesystemTag())
+	err = s.storageBackend.RemoveFilesystemAttachment(s.machine.MachineTag(), s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	filesystem, err := s.IAASModel.Filesystem(s.filesystem.FilesystemTag())
+	filesystem, err := s.storageBackend.Filesystem(s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystem.Life(), gc.Equals, state.Dead)
 
@@ -188,7 +188,7 @@ func (s *FilesystemStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 }
 
 func (s *FilesystemStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
-	err := s.IAASModel.SetFilesystemInfo(s.filesystem.FilesystemTag(), state.FilesystemInfo{
+	err := s.storageBackend.SetFilesystemInfo(s.filesystem.FilesystemTag(), state.FilesystemInfo{
 		FilesystemId: "fs-id",
 	})
 	c.Assert(err, jc.ErrorIsNil)

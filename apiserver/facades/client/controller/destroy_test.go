@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -65,7 +66,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.controller = controller
 
 	s.otherModelOwner = names.NewUserTag("jess@dummy")
-	s.otherState = factory.NewFactory(s.State).MakeModel(c, &factory.ModelParams{
+	s.otherState = s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:  "dummytoo",
 		Owner: s.otherModelOwner,
 		ConfigAttrs: testing.Attrs{
@@ -142,6 +143,10 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.otherModel.Refresh(), jc.ErrorIsNil)
+	c.Assert(s.otherModel.Life(), gc.Equals, state.Dying)
+	c.Assert(s.otherModel.State().RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(s.otherModel.Refresh(), jc.Satisfies, errors.IsNotFound)
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -181,7 +186,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified(c *gc.C) {
-	f := factory.NewFactory(s.otherState)
+	f := factory.NewFactory(s.otherState, s.StatePool)
 	f.MakeUnit(c, &factory.UnitParams{
 		Application: f.MakeApplication(c, &factory.ApplicationParams{
 			Charm: f.MakeCharm(c, &factory.CharmParams{
@@ -204,7 +209,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c *gc.C) {
-	f := factory.NewFactory(s.otherState)
+	f := factory.NewFactory(s.otherState, s.StatePool)
 	f.MakeUnit(c, &factory.UnitParams{
 		Application: f.MakeApplication(c, &factory.ApplicationParams{
 			Charm: f.MakeCharm(c, &factory.CharmParams{
@@ -237,7 +242,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	f := factory.NewFactory(s.otherState)
+	f := factory.NewFactory(s.otherState, s.StatePool)
 	f.MakeUnit(c, &factory.UnitParams{
 		Application: f.MakeApplication(c, &factory.ApplicationParams{
 			Charm: f.MakeCharm(c, &factory.CharmParams{

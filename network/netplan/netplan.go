@@ -1,3 +1,6 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package netplan
 
 import (
@@ -283,11 +286,69 @@ func (np *Netplan) createBridgeFromInterface(bridgeName, deviceId string, intf *
 	*intf = Interface{MTU: intf.MTU}
 }
 
-func Unmarshal(in []byte, out interface{}) (err error) {
-	return goyaml.UnmarshalStrict(in, out)
+func (np *Netplan) merge(other *Netplan) {
+	// Only copy attributes that would be unmarshalled from yaml.
+	// This blithely replaces keys in the maps (eg. Ethernets or
+	// Wifis) if they're set in both np and other - it's not clear
+	// from the reference whether this is the right thing to do.
+	// See https://bugs.launchpad.net/juju/+bug/1701429 and
+	// https://netplan.io/reference#general-structure
+	np.Network.Version = other.Network.Version
+	np.Network.Renderer = other.Network.Renderer
+	np.Network.Routes = other.Network.Routes
+	if np.Network.Ethernets == nil {
+		np.Network.Ethernets = other.Network.Ethernets
+	} else {
+		for key, val := range other.Network.Ethernets {
+			np.Network.Ethernets[key] = val
+		}
+	}
+	if np.Network.Wifis == nil {
+		np.Network.Wifis = other.Network.Wifis
+	} else {
+		for key, val := range other.Network.Wifis {
+			np.Network.Wifis[key] = val
+		}
+	}
+	if np.Network.Bridges == nil {
+		np.Network.Bridges = other.Network.Bridges
+	} else {
+		for key, val := range other.Network.Bridges {
+			np.Network.Bridges[key] = val
+		}
+	}
+	if np.Network.Bonds == nil {
+		np.Network.Bonds = other.Network.Bonds
+	} else {
+		for key, val := range other.Network.Bonds {
+			np.Network.Bonds[key] = val
+		}
+	}
+	if np.Network.VLANs == nil {
+		np.Network.VLANs = other.Network.VLANs
+	} else {
+		for key, val := range other.Network.VLANs {
+			np.Network.VLANs[key] = val
+		}
+	}
 }
 
-func Marshal(in interface{}) (out []byte, err error) {
+func Unmarshal(in []byte, out *Netplan) error {
+	if out == nil {
+		return errors.NotValidf("nil out Netplan")
+	}
+	// Use UnmarshalStrict because we want errors for unknown
+	// attributes. This also refuses to overwrite keys (which we need)
+	// so unmarshal locally and copy across.
+	var local Netplan
+	if err := goyaml.UnmarshalStrict(in, &local); err != nil {
+		return errors.Trace(err)
+	}
+	out.merge(&local)
+	return nil
+}
+
+func Marshal(in *Netplan) (out []byte, err error) {
 	return goyaml.Marshal(in)
 }
 

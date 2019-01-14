@@ -126,7 +126,7 @@ func (v *validator) UpdateVocabulary(attributeName string, allowedValues interfa
 func (v *validator) updateVocabularyFromMap(attributeName string, valuesMap map[interface{}]bool) {
 	attributeName = resolveAlias(attributeName)
 	var merged []interface{}
-	for one, _ := range valuesMap {
+	for one := range valuesMap {
 		// TODO (anastasiamac) Because it's coming from the map, the order maybe affected
 		// and can be unreliable. Not sure how to fix it yet...
 		// How can we guarantee the order here?

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 type subnetMap map[string]network.SubnetInfo
@@ -31,7 +32,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 	ids := makeIncludeSet(subnetIds)
 	var results []network.SubnetInfo
 	if inst == instance.UnknownId {
-		results, err = e.getMatchingSubnets(ids, zones)
+		results, err = e.getMatchingSubnets(ctx, ids, zones)
 	} else {
 		results, err = e.getInstanceSubnets(ctx, inst, ids, zones)
 	}
@@ -58,10 +59,10 @@ func (e *environ) zoneNames(ctx context.ProviderCallContext) ([]string, error) {
 	return names, nil
 }
 
-func (e *environ) networksByURL() (networkMap, error) {
+func (e *environ) networksByURL(ctx context.ProviderCallContext) (networkMap, error) {
 	networks, err := e.gce.Networks()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	results := make(networkMap)
 	for _, network := range networks {
@@ -70,12 +71,12 @@ func (e *environ) networksByURL() (networkMap, error) {
 	return results, nil
 }
 
-func (e *environ) getMatchingSubnets(subnetIds IncludeSet, zones []string) ([]network.SubnetInfo, error) {
+func (e *environ) getMatchingSubnets(ctx context.ProviderCallContext, subnetIds IncludeSet, zones []string) ([]network.SubnetInfo, error) {
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
-	networks, err := e.networksByURL()
+	networks, err := e.networksByURL(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -143,7 +144,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	networks, err := e.networksByURL()
+	networks, err := e.networksByURL(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -156,7 +157,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 			subnetURLs = append(subnetURLs, iface.Subnetwork)
 		}
 	}
-	subnets, err := e.subnetsByURL(subnetURLs, networks, zones)
+	subnets, err := e.subnetsByURL(ctx, subnetURLs, networks, zones)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -222,14 +223,14 @@ func findNetworkDetails(iface compute.NetworkInterface, subnets subnetMap, netwo
 	return result, nil
 }
 
-func (e *environ) subnetsByURL(urls []string, networks networkMap, zones []string) (subnetMap, error) {
+func (e *environ) subnetsByURL(ctx context.ProviderCallContext, urls []string, networks networkMap, zones []string) (subnetMap, error) {
 	if len(urls) == 0 {
 		return make(map[string]network.SubnetInfo), nil
 	}
 	urlSet := includeSet{items: set.NewStrings(urls...)}
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	results := make(map[string]network.SubnetInfo)
 	for _, subnet := range allSubnets {

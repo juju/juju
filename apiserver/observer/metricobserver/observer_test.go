@@ -6,6 +6,7 @@ package metricobserver_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
@@ -19,7 +20,7 @@ import (
 
 type observerSuite struct {
 	testing.IsolationSuite
-	clock    *testing.Clock
+	clock    *testclock.Clock
 	registry *prometheus.Registry
 	factory  observer.ObserverFactory
 }
@@ -28,7 +29,7 @@ var _ = gc.Suite(&observerSuite{})
 
 func (s *observerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.registry = prometheus.NewPedanticRegistry()
 
 	var err error

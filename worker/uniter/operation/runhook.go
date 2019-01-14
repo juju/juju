@@ -10,8 +10,9 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -26,6 +27,8 @@ type runHook struct {
 
 	name   string
 	runner runner.Runner
+
+	hookFound bool
 
 	RequiresMachineLock
 }
@@ -110,14 +113,14 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	// to count so reset it here before running the hook.
 	rh.runner.Context().ResetExecutionSetUnitStatus()
 
-	ranHook := true
+	rh.hookFound = true
 	step := Done
 
 	err := rh.runner.RunHook(rh.name)
 	cause := errors.Cause(err)
 	switch {
 	case charmrunner.IsMissingHookError(cause):
-		ranHook = false
+		rh.hookFound = false
 		err = nil
 	case cause == context.ErrRequeueAndReboot:
 		step = Queued
@@ -131,7 +134,7 @@ func (rh *runHook) Execute(state State) (*State, error) {
 		return nil, ErrHookFailed
 	}
 
-	if ranHook {
+	if rh.hookFound {
 		logger.Infof("ran %q hook", rh.name)
 		rh.callbacks.NotifyHookCompleted(rh.name, rh.runner.Context())
 	} else {
@@ -168,6 +171,10 @@ func (rh *runHook) beforeHook(state State) error {
 			Status: string(status.Maintenance),
 			Info:   "cleaning up prior to charm deletion",
 		})
+	case hooks.PreSeriesUpgrade:
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareRunning, "pre-series-upgrade hook running")
+	case hooks.PostSeriesUpgrade:
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleteRunning, "post-series-upgrade hook running")
 	}
 
 	if err != nil {
@@ -211,12 +218,19 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 		if !isLeader || err != nil {
 			return hasRunStatusSet && err == nil, err
 		}
-		rel, err := ctx.Relation(rh.info.RelationId)
-		if err == nil && rel.Suspended() {
+		rel, rErr := ctx.Relation(rh.info.RelationId)
+		if rErr == nil && rel.Suspended() {
 			err = rel.SetStatus(relation.Suspended)
 		}
 	}
 	return hasRunStatusSet && err == nil, err
+}
+
+func createUpgradeSeriesStatusMessage(name string, hookFound bool) string {
+	if !hookFound {
+		return fmt.Sprintf("%s hook not found, skipping", name)
+	}
+	return fmt.Sprintf("%s completed", name)
 }
 
 // Commit updates relation state to include the fact of the hook's execution,
@@ -224,7 +238,9 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 // config-changed hooks to directly follow install and upgrade-charm hooks.
 // Commit is part of the Operation interface.
 func (rh *runHook) Commit(state State) (*State, error) {
-	if err := rh.callbacks.CommitHook(rh.info); err != nil {
+	var err error
+	err = rh.callbacks.CommitHook(rh.info)
+	if err != nil {
 		return nil, err
 	}
 
@@ -233,7 +249,7 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		Step: Pending,
 	}
 
-	var hi *hook.Info = &hook.Info{Kind: hooks.ConfigChanged}
+	hi := &hook.Info{Kind: hooks.ConfigChanged}
 	switch rh.info.Kind {
 	case hooks.ConfigChanged:
 		if state.Started {
@@ -247,6 +263,15 @@ func (rh *runHook) Commit(state State) (*State, error) {
 			Step: Queued,
 			Hook: hi,
 		}
+	case hooks.PreSeriesUpgrade:
+		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, message)
+	case hooks.PostSeriesUpgrade:
+		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	newState := change.apply(state)

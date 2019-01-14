@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/juju/core/lxdprofile"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
@@ -18,11 +20,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/status"
 )
 
 func agentStatusFromStatusInfo(s []status.StatusInfo, kind status.HistoryKind) []params.DetailedStatus {
@@ -413,9 +415,12 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		Since:  status.Since,
 		Data:   status.Data,
 	}
-	ms := m.MeterStatus()
-	if isColorStatus(ms.Code) {
-		info.MeterStatus = params.MeterStatus{Color: strings.ToLower(ms.Code.String()), Message: ms.Info}
+
+	if info.SLA != "unsupported" {
+		ms := m.MeterStatus()
+		if isColorStatus(ms.Code) {
+			info.MeterStatus = params.MeterStatus{Color: strings.ToLower(ms.Code.String()), Message: ms.Info}
+		}
 	}
 
 	return info, nil
@@ -433,6 +438,9 @@ type applicationStatusInfo struct {
 
 	// endpointpointBindings: application name -> endpoint -> space
 	endpointBindings map[string]map[string]string
+
+	// lxdProfiles: lxd profile name -> lxd profile
+	lxdProfiles map[string]*charm.LXDProfile
 }
 
 type statusContext struct {
@@ -618,19 +626,31 @@ func fetchAllApplicationsAndUnits(
 		allBindingsByApp[bindings.AppName] = bindings.Bindings
 	}
 
+	lxdProfiles := make(map[string]*charm.LXDProfile)
 	for _, app := range applications {
 		appMap[app.Name()] = app
 		appUnits := allUnitsByApp[app.Name()]
+		charmURL, _ := app.CharmURL()
+
 		if len(appUnits) > 0 {
 			unitMap[app.Name()] = appUnits
 			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
-			charmURL, _ := app.CharmURL()
 			if charmURL.Schema == "cs" {
 				latestCharms[*charmURL.WithRevision(-1)] = nil
 			}
 		}
+
+		ch, _, err := app.Charm()
+		if err != nil {
+			continue
+		}
+		chName := lxdprofile.Name(model.Name(), app.Name(), ch.Revision())
+		if profile := ch.LXDProfile(); profile != nil {
+			lxdProfiles[chName] = profile
+		}
 	}
+
 	for baseURL := range latestCharms {
 		ch, err := st.LatestPlaceholderCharm(&baseURL)
 		if errors.IsNotFound(err) {
@@ -647,6 +667,7 @@ func fetchAllApplicationsAndUnits(
 		units:            unitMap,
 		latestCharms:     latestCharms,
 		endpointBindings: allBindingsByApp,
+		lxdProfiles:      lxdProfiles,
 	}, nil
 }
 
@@ -751,7 +772,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 
 		// Element 0 is assumed to be the top-level machine.
 		tlMachine := machines[0]
-		hostStatus := c.makeMachineStatus(tlMachine)
+		hostStatus := c.makeMachineStatus(tlMachine, c.allAppsUnitsCharmBindings)
 		machinesMap[id] = hostStatus
 		cache[id] = hostStatus
 
@@ -762,7 +783,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 				continue
 			}
 
-			status := c.makeMachineStatus(machine)
+			status := c.makeMachineStatus(machine, c.allAppsUnitsCharmBindings)
 			parent.Containers[machine.Id()] = status
 			cache[machine.Id()] = status
 		}
@@ -770,7 +791,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 	return machinesMap
 }
 
-func (c *statusContext) makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
+func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo applicationStatusInfo) (status params.MachineStatus) {
 	machineID := machine.Id()
 	ipAddresses := c.ipAddresses[machineID]
 	spaces := c.spaces[machineID]
@@ -882,6 +903,24 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine) (status params
 		status.Hardware = hc.String()
 	}
 	status.Containers = make(map[string]params.MachineStatus)
+
+	lxdProfiles := make(map[string]params.LXDProfile)
+	charmProfiles, err := machine.CharmProfiles()
+	if err == nil {
+		for _, v := range charmProfiles {
+			if profile, ok := appStatusInfo.lxdProfiles[v]; ok {
+				lxdProfiles[v] = params.LXDProfile{
+					Config:      profile.Config,
+					Description: profile.Description,
+					Devices:     profile.Devices,
+				}
+			}
+		}
+	} else {
+		logger.Tracef("error fetching lxd profiles for %s: %q", machine.String(), err.Error())
+	}
+	status.LXDProfiles = lxdProfiles
+
 	return
 }
 
@@ -969,10 +1008,11 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 
 	var processedStatus = params.ApplicationStatus{
-		Charm:   applicationCharm.URL().String(),
-		Series:  application.Series(),
-		Exposed: application.IsExposed(),
-		Life:    processLife(application),
+		Charm:        applicationCharm.URL().String(),
+		Series:       application.Series(),
+		Exposed:      application.IsExposed(),
+		Life:         processLife(application),
+		CharmVersion: applicationCharm.Version(),
 	}
 
 	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*applicationCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {
@@ -1061,6 +1101,8 @@ func (context *statusContext) processApplication(application *state.Application)
 		} else {
 			logger.Debugf("no service details for %v: %v", application.Name(), err)
 		}
+		processedStatus.Scale = application.GetScale()
+		processedStatus.Placement = application.GetPlacement()
 	}
 
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]

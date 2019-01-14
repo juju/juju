@@ -13,8 +13,8 @@ var (
 
 // APIClientFnc returns a function that returns the provided apiClient
 // and can be used to patch the NewAPIClient variable for tests.
-func APIClientFnc(api apiClient) func(client *httpbakery.Client) (apiClient, error) {
-	return func(*httpbakery.Client) (apiClient, error) {
+func APIClientFnc(api apiClient) func(string, *httpbakery.Client) (apiClient, error) {
+	return func(string, *httpbakery.Client) (apiClient, error) {
 		return api, nil
 	}
 }

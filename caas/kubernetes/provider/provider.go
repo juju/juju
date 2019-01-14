@@ -6,8 +6,10 @@ package provider
 import (
 	"net/url"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -30,9 +32,17 @@ func (kubernetesEnvironProvider) Version() int {
 	return 0
 }
 
-func newK8sClient(c *rest.Config) (kubernetes.Interface, error) {
-	client, err := kubernetes.NewForConfig(c)
-	return client, err
+func newK8sClient(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
+	k8sClient, err := kubernetes.NewForConfig(c)
+	if err != nil {
+		return nil, nil, err
+	}
+	var apiextensionsclient *apiextensionsclientset.Clientset
+	apiextensionsclient, err = apiextensionsclientset.NewForConfig(c)
+	if err != nil {
+		return nil, nil, err
+	}
+	return k8sClient, apiextensionsclient, nil
 }
 
 // Open is part of the ContainerEnvironProvider interface.
@@ -41,7 +51,7 @@ func (kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, er
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	broker, err := NewK8sBroker(args.Cloud, args.Config.Name(), newK8sClient)
+	broker, err := NewK8sBroker(args.Cloud, args.Config, newK8sClient, newKubernetesWatcher, jujuclock.WallClock)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +82,15 @@ func (p kubernetesEnvironProvider) PrepareConfig(args environs.PrepareConfigPara
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	return args.Config, nil
+	// Set the default storage sources.
+	attrs := make(map[string]interface{})
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = K8s_ProviderType
+	}
+	if _, ok := args.Config.StorageDefaultFilesystemSource(); !ok {
+		attrs[config.StorageDefaultFilesystemSourceKey] = K8s_ProviderType
+	}
+	return args.Config.Apply(attrs)
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.
@@ -87,6 +105,14 @@ func (p kubernetesEnvironProvider) Validate(cfg, old *config.Config) (*config.Co
 	return cfg, nil
 }
 
+func (p kubernetesEnvironProvider) newConfig(cfg *config.Config) (*config.Config, error) {
+	valid, err := p.Validate(cfg, nil)
+	if err != nil {
+		return nil, err
+	}
+	return valid, nil
+}
+
 func validateCloudSpec(spec environs.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
@@ -97,7 +123,7 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType {
+	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType && authType != cloud.CertificateAuthType {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil

@@ -6,6 +6,7 @@ package storageprovisioner_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
 
@@ -42,9 +44,10 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 	)
 	config := enginetest.AgentAPIManifoldTestConfig()
 	s.config = storageprovisioner.MachineManifoldConfig{
-		AgentName:     config.AgentName,
-		APICallerName: config.APICallerName,
-		Clock:         testing.NewClock(defaultClockStart),
+		AgentName:                    config.AgentName,
+		APICallerName:                config.APICallerName,
+		Clock:                        testclock.NewClock(defaultClockStart),
+		NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 	}
 }
 
@@ -67,21 +70,12 @@ func (s *MachineManifoldSuite) TestMissingClock(c *gc.C) {
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 
-func (s *MachineManifoldSuite) TestUnit(c *gc.C) {
-	_, err := enginetest.RunAgentAPIManifold(
-		storageprovisioner.MachineManifold(s.config),
-		&fakeAgent{tag: names.NewUnitTag("foo/0")},
-		&fakeAPIConn{})
-	c.Assert(err, gc.ErrorMatches, "expected ModelTag or MachineTag, got names.UnitTag")
-	c.Assert(s.newCalled, jc.IsFalse)
-}
-
 func (s *MachineManifoldSuite) TestNonAgent(c *gc.C) {
 	_, err := enginetest.RunAgentAPIManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewUserTag("foo")},
 		&fakeAPIConn{})
-	c.Assert(err, gc.ErrorMatches, "expected ModelTag or MachineTag, got names.UserTag")
+	c.Assert(err, gc.ErrorMatches, "this manifold may only be used inside a machine agent")
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 

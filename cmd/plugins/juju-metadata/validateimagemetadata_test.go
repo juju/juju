@@ -36,7 +36,7 @@ var _ = gc.Suite(&ValidateImageMetadataSuite{})
 func runValidateImageMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
 	cmd := &validateImageMetadataCommand{}
 	cmd.SetClientStore(store)
-	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.WrapController(cmd), args...)
 }
 
 var validateInitImageErrorTests = []struct {
@@ -60,7 +60,7 @@ func (s *ValidateImageMetadataSuite) TestInitErrors(c *gc.C) {
 		c.Logf("test %d", i)
 		cmd := &validateImageMetadataCommand{}
 		cmd.SetClientStore(jujuclienttesting.MinimalStore())
-		err := cmdtesting.InitCommand(modelcmd.Wrap(cmd), t.args)
+		err := cmdtesting.InitCommand(modelcmd.WrapController(cmd), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -218,7 +218,7 @@ func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region, stre
 
 func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *gc.C, stream string) {
 	s.setupEc2LocalMetadata(c, "us-east-1", stream)
-	ctx, err := runValidateImageMetadata(c, s.store, "-m", "ec2-controller:ec2", "-d", s.metadataDir, "--stream", stream)
+	ctx, err := runValidateImageMetadata(c, s.store, "-c", "ec2-controller", "-d", s.metadataDir, "--stream", stream)
 	c.Assert(err, jc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
 	stderr := cmdtesting.Stderr(ctx)
@@ -241,7 +241,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 	s.PatchEnvironment("EC2_ACCESS_KEY", "")
 	s.PatchEnvironment("EC2_SECRET_KEY", "")
 	s.setupEc2LocalMetadata(c, "us-east-1", "")
-	_, err := runValidateImageMetadata(c, s.store, "-m", "ec2-controller:ec2", "-d", s.metadataDir)
+	_, err := runValidateImageMetadata(c, s.store, "-c", "ec2-controller", "-d", s.metadataDir)
 	c.Assert(err, gc.ErrorMatches, `detecting credentials.*AWS_SECRET_ACCESS_KEY not found in environment`)
 }
 

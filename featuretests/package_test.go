@@ -59,7 +59,6 @@ func init() {
 	gc.Suite(&ApplicationConfigSuite{})
 	gc.Suite(&CharmUpgradeSuite{})
 	gc.Suite(&ResourcesCmdSuite{})
-	gc.Suite(&cmdUpdateSeriesSuite{})
 	gc.Suite(&FirewallRulesSuite{})
 	gc.Suite(&introspectionSuite{})
 	gc.Suite(&debugLogDbSuite1{})
@@ -70,8 +69,10 @@ func init() {
 	gc.Suite(&meterStatusIntegrationSuite{})
 	gc.Suite(&CAASOperatorSuite{})
 	gc.Suite(&StatusSuite{})
+	gc.Suite(&cmdSetSeriesSuite{})
 	gc.Suite(&CmdExportBundleSuite{})
 	gc.Suite(&cmdDeploySuite{})
+	gc.Suite(&CredentialManagerSuite{})
 
 	// TODO (anastasiamac 2016-07-19) Bug#1603585
 	// These tests cannot run on windows - they require a bootstrapped controller.

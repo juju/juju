@@ -48,7 +48,7 @@ func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
 		Image:     &image,
 		LXDServer: iSvr,
 	}
-	err = jujuSvr.CopyRemoteImage(sourced, []string{"local/image/alias"}, noOpCallback)
+	err = jujuSvr.CopyRemoteImage(sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -67,7 +67,7 @@ func (s *imageSuite) TestFindImageLocalServer(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := jujuSvr.FindImage("xenial", s.Arch(), []lxd.RemoteServer{{}}, false, nil)
+	found, err := jujuSvr.FindImage("xenial", s.Arch(), []lxd.ServerSpec{{}}, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, iSvr)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -82,7 +82,7 @@ func (s *imageSuite) TestFindImageLocalServerUnknownSeries(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = jujuSvr.FindImage("pldlinux", s.Arch(), []lxd.RemoteServer{{}}, false, nil)
+	_, err = jujuSvr.FindImage("pldlinux", s.Arch(), []lxd.ServerSpec{{}}, false, nil)
 	c.Check(err, gc.ErrorMatches, `.*series: "pldlinux".*`)
 }
 
@@ -110,7 +110,7 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	remotes := []lxd.RemoteServer{
+	remotes := []lxd.ServerSpec{
 		{Name: "server-that-wont-work", Protocol: lxd.LXDProtocol},
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
 		{Name: "server-that-should-not-be-touched", Protocol: lxd.LXDProtocol},
@@ -149,7 +149,7 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	remotes := []lxd.RemoteServer{
+	remotes := []lxd.ServerSpec{
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
 	}
 	found, err := jujuSvr.FindImage("xenial", s.Arch(), remotes, true, nil)
@@ -179,7 +179,7 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	remotes := []lxd.RemoteServer{{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol}}
+	remotes := []lxd.ServerSpec{{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol}}
 	_, err = jujuSvr.FindImage("bionic", s.Arch(), remotes, false, nil)
 	c.Assert(err, gc.ErrorMatches, ".*failed to retrieve image.*")
 }

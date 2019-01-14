@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -20,6 +21,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
+	environsTesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/testing"
@@ -303,6 +305,53 @@ Credential "bobscreds" added locally for cloud "somecloud".
 	})
 }
 
+func (s *addCredentialSuite) TestAddCredentialCredSchemaInteractive(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
+	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		"interactive": {{"username", jujucloud.CredentialAttr{}}},
+		jujucloud.UserPassAuthType: {
+			{
+				"username", jujucloud.CredentialAttr{Optional: false},
+			}, {
+				"password", jujucloud.CredentialAttr{Hidden: true},
+			},
+		},
+	}
+
+	stdin := strings.NewReader("bobscreds\n\nbob\n")
+	ctx, err := s.run(c, stdin, "somecloud")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// there's an extra line return after Using auth-type because the rest get a
+	// second line return from the user hitting return when they enter a value
+	// (which is not shown here), but that one does not.
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+Enter credential name: 
+Auth Types
+  userpass
+  interactive
+
+Select auth type [interactive]: 
+Enter username: 
+Credential "bobscreds" added locally for cloud "somecloud".
+
+`[1:])
+
+	// FinalizeCredential should have generated a userpass credential
+	// based on the input from the interactive credential.
+	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+		"somecloud": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"bobscreds": jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
+					"username":             "bob",
+					"password":             "cloud-endpoint",
+					"application-password": "cloud-identity-endpoint",
+				}),
+			},
+		},
+	})
+}
+
 func (s *addCredentialSuite) TestAddCredentialReplace(c *gc.C) {
 	s.store.Credentials = map[string]jujucloud.CloudCredential{
 		"somecloud": {
@@ -457,4 +506,81 @@ func (s *addCredentialSuite) TestAddMAASCredential(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *addCredentialSuite) TestAddGCEFileCredentials(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.JSONFileAuthType}
+	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		jujucloud.JSONFileAuthType: {
+			{
+				"file",
+				jujucloud.CredentialAttr{
+					Description: "path to the credential file",
+					Optional:    false,
+					FilePath:    true,
+				},
+			},
+		},
+	}
+	sourceFile := s.createTestCredentialDataWithAuthType(c, fmt.Sprintf("%v", jujucloud.JSONFileAuthType))
+	stdin := strings.NewReader(fmt.Sprintf("blah\n%s\n", sourceFile))
+	ctx, err := s.run(c, stdin, "somecloud")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := `
+Enter credential name: 
+Using auth-type "jsonfile".
+
+Enter path to the credential file: 
+Credential "blah" added locally for cloud "somecloud".
+
+`[1:]
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
+}
+
+func (s *addCredentialSuite) TestShouldFinalizeCredentialWithEnvironProvider(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider := environsTesting.NewMockEnvironProvider(ctrl)
+	cred := jujucloud.Credential{}
+	got := cloud.ShouldFinalizeCredential(provider, cred)
+	c.Assert(got, jc.IsFalse)
+}
+
+func (s *addCredentialSuite) TestShouldFinalizeCredentialSuccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider := struct {
+		environs.EnvironProvider
+		*environsTesting.MockRequestFinalizeCredential
+	}{
+		EnvironProvider:               environsTesting.NewMockEnvironProvider(ctrl),
+		MockRequestFinalizeCredential: environsTesting.NewMockRequestFinalizeCredential(ctrl),
+	}
+
+	cred := jujucloud.Credential{}
+	provider.MockRequestFinalizeCredential.EXPECT().ShouldFinalizeCredential(cred).Return(true)
+
+	got := cloud.ShouldFinalizeCredential(provider, cred)
+	c.Assert(got, jc.IsTrue)
+}
+
+func (s *addCredentialSuite) TestShouldFinalizeCredentialFailure(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider := struct {
+		environs.EnvironProvider
+		*environsTesting.MockRequestFinalizeCredential
+	}{
+		EnvironProvider:               environsTesting.NewMockEnvironProvider(ctrl),
+		MockRequestFinalizeCredential: environsTesting.NewMockRequestFinalizeCredential(ctrl),
+	}
+
+	cred := jujucloud.Credential{}
+	provider.MockRequestFinalizeCredential.EXPECT().ShouldFinalizeCredential(cred).Return(false)
+
+	got := cloud.ShouldFinalizeCredential(provider, cred)
+	c.Assert(got, jc.IsFalse)
 }

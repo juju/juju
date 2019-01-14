@@ -44,7 +44,7 @@ func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 	var (
 		calledWithMajor, calledWithMinor int
 	)
-	fakeToolFinder := func(e environs.Environ, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		calledWithMajor = maj
 		calledWithMinor = min
 		ver := version.Binary{Number: version.Number{Major: maj, Minor: min}}
@@ -73,7 +73,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 		calledWithMajor, calledWithMinor int
 		calledWithStreams                [][]string
 	)
-	fakeToolFinder := func(e environs.Environ, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		calledWithMajor = maj
 		calledWithMinor = min
 		calledWithStreams = append(calledWithStreams, streams)
@@ -111,7 +111,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 	}
 	s.PatchValue(&modelConfig, fakeModelConfig)
 
-	fakeToolFinder := func(_ environs.Environ, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
 		ver := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 2}}
 		olderVer := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 1}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
@@ -145,7 +145,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 	s.PatchValue(&modelConfig, fakeModelConfig)
 
 	// No new tools available.
-	fakeToolFinder := func(_ environs.Environ, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	}
 

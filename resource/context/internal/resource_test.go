@@ -4,6 +4,8 @@
 package internal_test
 
 import (
+	"io/ioutil"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -68,4 +70,23 @@ func (s *OpenedResourceSuite) TestInfo(c *gc.C) {
 
 	s.stub.CheckNoCalls(c)
 	c.Check(info, jc.DeepEquals, expected)
+}
+
+func (s *OpenedResourceSuite) TestDockerImage(c *gc.C) {
+	jsonContent := `{"ImageName":"image-name","Username":"docker-registry","Password":"secret"}`
+	info, reader := newDockerResource(c, s.stub.Stub, "spam", jsonContent)
+	s.stub.ReturnGetResourceInfo = info
+	s.stub.ReturnGetResourceData = reader
+
+	opened, err := internal.OpenResource("spam", s.stub)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opened.Path, gc.Equals, "content.yaml")
+	content := opened.Content()
+	data, err := ioutil.ReadAll(content.Data)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), gc.Equals, `
+registrypath: image-name
+username: docker-registry
+password: secret
+`[1:])
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
+	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,7 +31,8 @@ type environUpgradeSuite struct {
 	provider environs.EnvironProvider
 	env      environs.Environ
 
-	callCtx context.ProviderCallContext
+	callCtx           *context.CloudCallContext
+	invalidCredential bool
 }
 
 var _ = gc.Suite(&environUpgradeSuite{})
@@ -46,7 +48,12 @@ func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			s.invalidCredential = true
+			return nil
+		},
+	}
 }
 
 func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *gc.C) {
@@ -203,4 +210,24 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 
 	op0 := upgrader.UpgradeOperations(s.callCtx, environs.UpgradeOperationsParams{})[0]
 	c.Assert(op0.Steps[0].Run(s.callCtx), jc.ErrorIsNil)
+}
+
+func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentControllerModelWithInvalidCredential(c *gc.C) {
+	s.sender = nil
+	s.requests = nil
+	env := openEnviron(c, s.provider, &s.sender, testing.Attrs{"name": "controller"})
+	upgrader := env.(environs.Upgrader)
+
+	controllerTags := make(map[string]*string)
+	trueString := "true"
+	controllerTags["juju-is-controller"] = &trueString
+
+	mockSender := mocks.NewSender()
+	mockSender.AppendResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
+	s.sender = append(s.sender, mockSender)
+
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	op0 := upgrader.UpgradeOperations(s.callCtx, environs.UpgradeOperationsParams{})[0]
+	c.Assert(op0.Steps[0].Run(s.callCtx), gc.NotNil)
+	c.Assert(s.invalidCredential, jc.IsTrue)
 }

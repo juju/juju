@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 

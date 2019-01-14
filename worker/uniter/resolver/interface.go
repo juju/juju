@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
@@ -81,10 +82,6 @@ type LocalState struct {
 	// remotestate.Snapshot for which a hook has been retried.
 	RetryHookVersion int
 
-	// ConfigVersion is the version of config from remotestate.Snapshot
-	// for which a config-changed hook has been committed.
-	ConfigVersion int
-
 	// LeaderSettingsVersion is the version of leader settings from
 	// remotestate.Snapshot for which a leader-settings-changed hook has
 	// been committed.
@@ -95,7 +92,11 @@ type LocalState struct {
 	// controller.
 	CompletedActions map[string]struct{}
 
-	// Series is the current series running on the unit from remotestate.Snapshot
-	// for which a config-changed hook has been committed.
-	Series string
+	// UpgradeSeriesStatus is the current state of any currently running
+	// upgrade series.
+	UpgradeSeriesStatus model.UpgradeSeriesStatus
+
+	// UpgradeCharmProfileStatus is the current state of the upgrade charm
+	// profile.
+	UpgradeCharmProfileStatus string
 }

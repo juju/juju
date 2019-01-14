@@ -17,11 +17,12 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/status"
 )
 
 // TODO(peritto666) - add tests
@@ -63,17 +64,17 @@ The statuses are available for the following types.
 `, supportedHistoryKindDescs())
 
 func (c *statusHistoryCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-status-log",
 		Args:    "<entity name>",
 		Purpose: "Output past statuses for the specified entity.",
 		Doc:     statusHistoryDoc,
-	}
+	})
 }
 
 func supportedHistoryKindTypes() string {
 	supported := set.NewStrings()
-	for k, _ := range status.AllHistoryKind() {
+	for k := range status.AllHistoryKind() {
 		supported.Add(string(k))
 	}
 	return strings.Join(supported.SortedValues(), "|")
@@ -82,7 +83,7 @@ func supportedHistoryKindTypes() string {
 func supportedHistoryKindDescs() string {
 	types := status.AllHistoryKind()
 	supported := set.NewStrings()
-	for k, _ := range types {
+	for k := range types {
 		supported.Add(string(k))
 	}
 	all := ""

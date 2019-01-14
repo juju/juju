@@ -19,6 +19,14 @@ type environAZSuite struct {
 
 var _ = gc.Suite(&environAZSuite{})
 
+func (s *environAZSuite) TestAvailabilityZonesInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	_, err := s.Env.AvailabilityZones(s.CallCtx)
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+}
+
 func (s *environAZSuite) TestAvailabilityZones(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{
 		google.NewZone("a-zone", google.StatusUp, "", ""),
@@ -72,6 +80,15 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNamesAPIs(c *gc.C) {
 	s.FakeEnviron.CheckCalls(c, []gce.FakeCall{{
 		FuncName: "GetInstances", Args: gce.FakeCallArgs{"switch": s.Env},
 	}})
+}
+
+func (s *environAZSuite) TestDeriveAvailabilityZonesInvalidCredentialError(c *gc.C) {
+	s.StartInstArgs.Placement = "zone=test-available"
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	_, err := s.Env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environAZSuite) TestDeriveAvailabilityZones(c *gc.C) {

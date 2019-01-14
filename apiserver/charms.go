@@ -5,9 +5,11 @@ package apiserver
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -401,9 +403,29 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 	if err := archive.ExpandTo(extractPath); err != nil {
 		return errors.Annotate(err, "cannot extract uploaded charm")
 	}
+
 	charmDir, err := charm.ReadCharmDir(extractPath)
 	if err != nil {
 		return errors.Annotate(err, "cannot read extracted charm")
+	}
+
+	// Try to get the version details here.
+	// read just the first line of the file.
+	var version string
+	versionPath := filepath.Join(extractPath, "version")
+	if file, err := os.Open(versionPath); err == nil {
+		scanner := bufio.NewScanner(file)
+		scanner.Scan()
+		file.Close()
+		if err := scanner.Err(); err != nil {
+			return errors.Annotate(err, "cannot read version file")
+		}
+		revLine := scanner.Text()
+		// bzr revision info starts with "revision-id: " so strip that.
+		revLine = strings.TrimPrefix(revLine, "revision-id: ")
+		version = fmt.Sprintf("%.100s", revLine)
+	} else if !os.IsNotExist(err) {
+		return errors.Annotate(err, "cannot open version file")
 	}
 
 	// Bundle the charm and calculate its sha256 hash at the same time.
@@ -416,14 +438,16 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
 
 	info := application.CharmArchive{
-		ID:     curl,
-		Charm:  archive,
-		Data:   &repackagedArchive,
-		Size:   int64(repackagedArchive.Len()),
-		SHA256: bundleSHA256,
+		ID:           curl,
+		Charm:        archive,
+		Data:         &repackagedArchive,
+		Size:         int64(repackagedArchive.Len()),
+		SHA256:       bundleSHA256,
+		CharmVersion: version,
 	}
 	// Store the charm archive in environment storage.
-	return application.StoreCharmArchive(st, info)
+	shim := application.NewStateShim(st)
+	return application.StoreCharmArchive(shim, info)
 }
 
 // processGet handles a charm file GET request after authentication.

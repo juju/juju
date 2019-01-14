@@ -32,14 +32,16 @@ func (*accessSuite) TestEqualOrGreaterModelAccessThan(c *gc.C) {
 		c.Check(value.EqualOrGreaterModelAccessThan(write), jc.IsFalse)
 		c.Check(value.EqualOrGreaterModelAccessThan(admin), jc.IsFalse)
 		c.Check(value.EqualOrGreaterModelAccessThan(login), jc.IsFalse)
-		c.Check(value.EqualOrGreaterModelAccessThan(addmodel), jc.IsFalse)
 		c.Check(value.EqualOrGreaterModelAccessThan(superuser), jc.IsFalse)
 	}
 	// No comparison against a controller permission will return true
 	for _, value := range []permission.Access{undefined, read, write, admin} {
 		c.Check(value.EqualOrGreaterModelAccessThan(login), jc.IsFalse)
-		c.Check(value.EqualOrGreaterModelAccessThan(addmodel), jc.IsFalse)
 		c.Check(value.EqualOrGreaterModelAccessThan(superuser), jc.IsFalse)
+	}
+	// No comparison against a cloud permission will return true
+	for _, value := range []permission.Access{undefined, read, write, admin} {
+		c.Check(value.EqualOrGreaterModelAccessThan(addmodel), jc.IsFalse)
 	}
 
 	c.Check(undefined.EqualOrGreaterModelAccessThan(undefined), jc.IsTrue)
@@ -81,14 +83,16 @@ func (*accessSuite) TestGreaterModelAccessThan(c *gc.C) {
 		c.Check(value.GreaterModelAccessThan(write), jc.IsFalse)
 		c.Check(value.GreaterModelAccessThan(admin), jc.IsFalse)
 		c.Check(value.GreaterModelAccessThan(login), jc.IsFalse)
-		c.Check(value.GreaterModelAccessThan(addmodel), jc.IsFalse)
 		c.Check(value.GreaterModelAccessThan(superuser), jc.IsFalse)
 	}
 	// No comparison against a controller permission will return true
 	for _, value := range []permission.Access{undefined, read, write, admin} {
 		c.Check(value.GreaterModelAccessThan(login), jc.IsFalse)
-		c.Check(value.GreaterModelAccessThan(addmodel), jc.IsFalse)
 		c.Check(value.GreaterModelAccessThan(superuser), jc.IsFalse)
+	}
+	// No comparison against a cloud permission will return true
+	for _, value := range []permission.Access{undefined, read, write, admin} {
+		c.Check(value.GreaterModelAccessThan(addmodel), jc.IsFalse)
 	}
 
 	c.Check(read.GreaterModelAccessThan(undefined), jc.IsTrue)
@@ -125,34 +129,29 @@ func (*accessSuite) TestEqualOrGreaterControllerAccessThan(c *gc.C) {
 		c.Check(value.EqualOrGreaterControllerAccessThan(write), jc.IsFalse)
 		c.Check(value.EqualOrGreaterControllerAccessThan(admin), jc.IsFalse)
 		c.Check(value.EqualOrGreaterControllerAccessThan(login), jc.IsFalse)
-		c.Check(value.EqualOrGreaterControllerAccessThan(addmodel), jc.IsFalse)
 		c.Check(value.EqualOrGreaterControllerAccessThan(superuser), jc.IsFalse)
 	}
 	// No comparison against a model permission will return true
-	for _, value := range []permission.Access{undefined, login, addmodel, superuser} {
+	for _, value := range []permission.Access{undefined, login, superuser} {
 		c.Check(value.EqualOrGreaterControllerAccessThan(read), jc.IsFalse)
 		c.Check(value.EqualOrGreaterControllerAccessThan(write), jc.IsFalse)
 		c.Check(value.EqualOrGreaterControllerAccessThan(admin), jc.IsFalse)
 	}
+	// No comparison against a cloud permission will return true
+	for _, value := range []permission.Access{undefined, login, superuser} {
+		c.Check(value.EqualOrGreaterControllerAccessThan(addmodel), jc.IsFalse)
+	}
 
 	c.Check(undefined.EqualOrGreaterControllerAccessThan(undefined), jc.IsTrue)
 	c.Check(undefined.EqualOrGreaterControllerAccessThan(login), jc.IsFalse)
-	c.Check(undefined.EqualOrGreaterControllerAccessThan(addmodel), jc.IsFalse)
 	c.Check(undefined.EqualOrGreaterControllerAccessThan(superuser), jc.IsFalse)
 
 	c.Check(login.EqualOrGreaterControllerAccessThan(undefined), jc.IsTrue)
 	c.Check(login.EqualOrGreaterControllerAccessThan(login), jc.IsTrue)
-	c.Check(login.EqualOrGreaterControllerAccessThan(addmodel), jc.IsFalse)
 	c.Check(login.EqualOrGreaterControllerAccessThan(superuser), jc.IsFalse)
-
-	c.Check(addmodel.EqualOrGreaterControllerAccessThan(undefined), jc.IsTrue)
-	c.Check(addmodel.EqualOrGreaterControllerAccessThan(login), jc.IsTrue)
-	c.Check(addmodel.EqualOrGreaterControllerAccessThan(addmodel), jc.IsTrue)
-	c.Check(addmodel.EqualOrGreaterControllerAccessThan(superuser), jc.IsFalse)
 
 	c.Check(superuser.EqualOrGreaterControllerAccessThan(undefined), jc.IsTrue)
 	c.Check(superuser.EqualOrGreaterControllerAccessThan(login), jc.IsTrue)
-	c.Check(superuser.EqualOrGreaterControllerAccessThan(addmodel), jc.IsTrue)
 	c.Check(superuser.EqualOrGreaterControllerAccessThan(superuser), jc.IsTrue)
 }
 
@@ -174,28 +173,54 @@ func (*accessSuite) TestGreaterControllerAccessThan(c *gc.C) {
 		c.Check(value.GreaterControllerAccessThan(write), jc.IsFalse)
 		c.Check(value.GreaterControllerAccessThan(admin), jc.IsFalse)
 		c.Check(value.GreaterControllerAccessThan(login), jc.IsFalse)
-		c.Check(value.GreaterControllerAccessThan(addmodel), jc.IsFalse)
 		c.Check(value.GreaterControllerAccessThan(superuser), jc.IsFalse)
 	}
 	// No comparison against a model permission will return true
-	for _, value := range []permission.Access{undefined, login, addmodel, superuser} {
+	for _, value := range []permission.Access{undefined, login, superuser} {
 		c.Check(value.GreaterControllerAccessThan(read), jc.IsFalse)
 		c.Check(value.GreaterControllerAccessThan(write), jc.IsFalse)
 		c.Check(value.GreaterControllerAccessThan(admin), jc.IsFalse)
 	}
+	// No comparison against a cloud permission will return true
+	for _, value := range []permission.Access{undefined, login, superuser} {
+		c.Check(value.GreaterModelAccessThan(addmodel), jc.IsFalse)
+	}
 
 	c.Check(login.GreaterControllerAccessThan(undefined), jc.IsTrue)
 	c.Check(login.GreaterControllerAccessThan(login), jc.IsFalse)
-	c.Check(login.GreaterControllerAccessThan(addmodel), jc.IsFalse)
 	c.Check(login.GreaterControllerAccessThan(superuser), jc.IsFalse)
-
-	c.Check(addmodel.GreaterControllerAccessThan(undefined), jc.IsTrue)
-	c.Check(addmodel.GreaterControllerAccessThan(login), jc.IsTrue)
-	c.Check(addmodel.GreaterControllerAccessThan(addmodel), jc.IsFalse)
-	c.Check(addmodel.GreaterControllerAccessThan(superuser), jc.IsFalse)
 
 	c.Check(superuser.GreaterControllerAccessThan(undefined), jc.IsTrue)
 	c.Check(superuser.GreaterControllerAccessThan(login), jc.IsTrue)
-	c.Check(superuser.GreaterControllerAccessThan(addmodel), jc.IsTrue)
 	c.Check(superuser.GreaterControllerAccessThan(superuser), jc.IsFalse)
+}
+
+func (*accessSuite) TestEqualOrGreaterCloudAccessThan(c *gc.C) {
+	// A very boring but necessary test to test explicit responses.
+	var (
+		undefined = permission.NoAccess
+		read      = permission.ReadAccess
+		write     = permission.WriteAccess
+		admin     = permission.AdminAccess
+		login     = permission.LoginAccess
+		addmodel  = permission.AddModelAccess
+		superuser = permission.SuperuserAccess
+	)
+	// None of the model permissions return true for any comparison.
+	for _, value := range []permission.Access{read, write} {
+		c.Check(value.EqualOrGreaterControllerAccessThan(addmodel), jc.IsFalse)
+	}
+	// No comparison against a model permission will return true
+	for _, value := range []permission.Access{addmodel} {
+		c.Check(value.EqualOrGreaterControllerAccessThan(read), jc.IsFalse)
+		c.Check(value.EqualOrGreaterControllerAccessThan(write), jc.IsFalse)
+	}
+	// No comparison against a controller permission will return true
+	for _, value := range []permission.Access{undefined, login, superuser} {
+		c.Check(value.EqualOrGreaterControllerAccessThan(addmodel), jc.IsFalse)
+	}
+
+	c.Check(addmodel.EqualOrGreaterCloudAccessThan(addmodel), jc.IsTrue)
+	c.Check(addmodel.EqualOrGreaterCloudAccessThan(admin), jc.IsFalse)
+	c.Check(admin.EqualOrGreaterCloudAccessThan(addmodel), jc.IsTrue)
 }

@@ -9,8 +9,9 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
 )
 
 type formattedStatus struct {
@@ -20,6 +21,7 @@ type formattedStatus struct {
 	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
 	Offers             map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
 	Relations          []relationStatus                   `json:"-" yaml:"-"`
+	Storage            *storage.CombinedStorage           `json:"storage,omitempty" yaml:"storage,omitempty"`
 	Controller         *controllerStatus                  `json:"controller,omitempty" yaml:"controller,omitempty"`
 }
 
@@ -59,19 +61,20 @@ type networkInterface struct {
 }
 
 type machineStatus struct {
-	Err               error                       `json:"-" yaml:",omitempty"`
-	JujuStatus        statusInfoContents          `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
-	DNSName           string                      `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
-	IPAddresses       []string                    `json:"ip-addresses,omitempty" yaml:"ip-addresses,omitempty"`
-	InstanceId        instance.Id                 `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
-	MachineStatus     statusInfoContents          `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
-	Series            string                      `json:"series,omitempty" yaml:"series,omitempty"`
-	Id                string                      `json:"-" yaml:"-"`
-	NetworkInterfaces map[string]networkInterface `json:"network-interfaces,omitempty" yaml:"network-interfaces,omitempty"`
-	Containers        map[string]machineStatus    `json:"containers,omitempty" yaml:"containers,omitempty"`
-	Constraints       string                      `json:"constraints,omitempty" yaml:"constraints,omitempty"`
-	Hardware          string                      `json:"hardware,omitempty" yaml:"hardware,omitempty"`
-	HAStatus          string                      `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
+	Err               error                         `json:"-" yaml:",omitempty"`
+	JujuStatus        statusInfoContents            `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
+	DNSName           string                        `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	IPAddresses       []string                      `json:"ip-addresses,omitempty" yaml:"ip-addresses,omitempty"`
+	InstanceId        instance.Id                   `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
+	MachineStatus     statusInfoContents            `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
+	Series            string                        `json:"series,omitempty" yaml:"series,omitempty"`
+	Id                string                        `json:"-" yaml:"-"`
+	NetworkInterfaces map[string]networkInterface   `json:"network-interfaces,omitempty" yaml:"network-interfaces,omitempty"`
+	Containers        map[string]machineStatus      `json:"containers,omitempty" yaml:"containers,omitempty"`
+	Constraints       string                        `json:"constraints,omitempty" yaml:"constraints,omitempty"`
+	Hardware          string                        `json:"hardware,omitempty" yaml:"hardware,omitempty"`
+	HAStatus          string                        `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
+	LXDProfiles       map[string]lxdProfileContents `json:"lxd-profiles,omitempty" yaml:"lxd-profiles,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types
@@ -92,6 +95,13 @@ func (s machineStatus) MarshalYAML() (interface{}, error) {
 	return machineStatusNoMarshal(s), nil
 }
 
+// LXDProfile holds status info about a LXDProfile
+type lxdProfileContents struct {
+	Config      map[string]string            `json:"config" yaml:"config"`
+	Description string                       `json:"description" yaml:"description"`
+	Devices     map[string]map[string]string `json:"devices" yaml:"devices"`
+}
+
 type applicationStatus struct {
 	Err              error                 `json:"-" yaml:",omitempty"`
 	Charm            string                `json:"charm" yaml:"charm"`
@@ -100,7 +110,10 @@ type applicationStatus struct {
 	CharmOrigin      string                `json:"charm-origin" yaml:"charm-origin"`
 	CharmName        string                `json:"charm-name" yaml:"charm-name"`
 	CharmRev         int                   `json:"charm-rev" yaml:"charm-rev"`
+	CharmVersion     string                `json:"charm-version,omitempty" yaml:"charm-version,omitempty"`
 	CanUpgradeTo     string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
+	Scale            int                   `json:"scale,omitempty" yaml:"scale,omitempty"`
+	Placement        string                `json:"placement,omitempty" yaml:"placement,omitempty"`
 	ProviderId       string                `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
 	Address          string                `json:"address,omitempty" yaml:"address,omitempty"`
 	Exposed          bool                  `json:"exposed" yaml:"exposed"`
@@ -215,10 +228,10 @@ func (s *formattedStatus) applicationScale(name string) (string, bool) {
 
 	app := s.Applications[name]
 	match := func(u unitStatus) {
-		desiredUnitCount += 1
+		desiredUnitCount++
 		switch u.JujuStatusInfo.Current {
 		case status.Executing, status.Idle, status.Running:
-			currentUnitCount += 1
+			currentUnitCount++
 		}
 	}
 	// If the app is subordinate to other units, then this is a subordinate charm.
@@ -236,6 +249,9 @@ func (s *formattedStatus) applicationScale(name string) (string, bool) {
 		for _, u := range app.Units {
 			match(u)
 		}
+	}
+	if s.Model.Type == "caas" {
+		desiredUnitCount = app.Scale
 	}
 	if currentUnitCount == desiredUnitCount {
 		return fmt.Sprint(currentUnitCount), false

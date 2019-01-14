@@ -26,21 +26,21 @@ type strv struct{ v string }
 type uint64v struct{ v uint64 }
 
 var defConstraints = map[string]sigmaConstraints{
-	"bootstrap-trusty": sigmaConstraints{
+	"bootstrap-trusty": {
 		driveTemplate: validImageId,
 		driveSize:     5 * gosigma.Gigabyte,
 		cores:         1,
 		power:         2000,
 		mem:           2 * gosigma.Gigabyte,
 	},
-	"trusty": sigmaConstraints{
+	"trusty": {
 		driveTemplate: validImageId,
 		driveSize:     0,
 		cores:         1,
 		power:         2000,
 		mem:           2 * gosigma.Gigabyte,
 	},
-	"trusty-c2-p4000": sigmaConstraints{
+	"trusty-c2-p4000": {
 		driveTemplate: validImageId,
 		driveSize:     0,
 		cores:         2,

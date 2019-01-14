@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/testing"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -48,7 +48,7 @@ func assertENIBridgerError(c *gc.C, devices []network.DeviceToBridge, timeout ti
 
 func (*BridgeSuite) TestENIBridgerWithMissingFilenameArgument(c *gc.C) {
 	devices := []network.DeviceToBridge{
-		network.DeviceToBridge{
+		{
 			DeviceName: "ens123",
 			BridgeName: "br-ens123",
 		},
@@ -65,7 +65,7 @@ func (*BridgeSuite) TestENIBridgerWithEmptyDeviceNamesArgument(c *gc.C) {
 
 func (*BridgeSuite) TestENIBridgerWithNonExistentFile(c *gc.C) {
 	devices := []network.DeviceToBridge{
-		network.DeviceToBridge{
+		{
 			DeviceName: "ens123",
 			BridgeName: "br-ens123",
 		},
@@ -76,7 +76,7 @@ func (*BridgeSuite) TestENIBridgerWithNonExistentFile(c *gc.C) {
 
 func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
 	devices := []network.DeviceToBridge{
-		network.DeviceToBridge{
+		{
 			DeviceName: "ens123",
 			BridgeName: "br-ens123",
 		},
@@ -88,7 +88,7 @@ func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
 
 func (*BridgeSuite) TestENIBridgerWithDryRun(c *gc.C) {
 	devices := []network.DeviceToBridge{
-		network.DeviceToBridge{
+		{
 			DeviceName: "ens123",
 			BridgeName: "br-ens123",
 		},

@@ -16,6 +16,8 @@ var logger = loggo.GetLogger("juju.workers.caasfirewaller")
 
 // Config holds configuration for the CAAS unit firewaller worker.
 type Config struct {
+	ControllerUUID    string
+	ModelUUID         string
 	ApplicationGetter ApplicationGetter
 	LifeGetter        LifeGetter
 	ServiceExposer    ServiceExposer
@@ -23,6 +25,12 @@ type Config struct {
 
 // Validate validates the worker configuration.
 func (config Config) Validate() error {
+	if config.ControllerUUID == "" {
+		return errors.NotValidf("missing ControllerUUID")
+	}
+	if config.ModelUUID == "" {
+		return errors.NotValidf("missing ModelUUID")
+	}
 	if config.ApplicationGetter == nil {
 		return errors.NotValidf("missing ApplicationGetter")
 	}
@@ -102,6 +110,8 @@ func (p *firewaller) loop() error {
 					continue
 				}
 				w, err := newApplicationWorker(
+					p.config.ControllerUUID,
+					p.config.ModelUUID,
 					appId,
 					p.config.ApplicationGetter,
 					p.config.ServiceExposer,

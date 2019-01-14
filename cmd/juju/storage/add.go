@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/storage"
@@ -80,6 +81,7 @@ Examples:
 // addCommand adds unit storage instances dynamically.
 type addCommand struct {
 	StorageCommandBase
+	modelcmd.IAASOnlyCommand
 	unitTag names.UnitTag
 
 	// storageCons is a map of storage constraints, keyed on the storage name
@@ -106,12 +108,12 @@ func (c *addCommand) Init(args []string) (err error) {
 
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-storage",
 		Purpose: "Adds unit storage dynamically.",
 		Doc:     addCommandDoc,
 		Args:    addCommandAgs,
-	}
+	})
 }
 
 // Run implements Command.Run.

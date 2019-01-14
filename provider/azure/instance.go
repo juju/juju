@@ -15,10 +15,11 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
 type azureInstance struct {
@@ -74,16 +75,17 @@ func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Inst
 // VirtualMachines are up-to-date, and that there are no concurrent accesses
 // to the instances.
 func setInstanceAddresses(
+	ctx context.ProviderCallContext,
 	resourceGroup string,
 	nicClient network.InterfacesClient,
 	pipClient network.PublicIPAddressesClient,
 	instances []*azureInstance,
 ) (err error) {
-	instanceNics, err := instanceNetworkInterfaces(resourceGroup, nicClient)
+	instanceNics, err := instanceNetworkInterfaces(ctx, resourceGroup, nicClient)
 	if err != nil {
 		return errors.Annotate(err, "listing network interfaces")
 	}
-	instancePips, err := instancePublicIPAddresses(resourceGroup, pipClient)
+	instancePips, err := instancePublicIPAddresses(ctx, resourceGroup, pipClient)
 	if err != nil {
 		return errors.Annotate(err, "listing public IP addresses")
 	}
@@ -98,13 +100,14 @@ func setInstanceAddresses(
 // group, and returns a mapping from instance ID to the network interfaces
 // associated with that instance.
 func instanceNetworkInterfaces(
+	ctx context.ProviderCallContext,
 	resourceGroup string,
 	nicClient network.InterfacesClient,
 ) (map[instance.Id][]network.Interface, error) {
 	sdkCtx := stdcontext.Background()
 	nicsResult, err := nicClient.ListComplete(sdkCtx, resourceGroup)
 	if err != nil {
-		return nil, errors.Annotate(err, "listing network interfaces")
+		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing network interfaces"), ctx)
 	}
 	if nicsResult.Response().IsEmpty() {
 		return nil, nil
@@ -122,13 +125,14 @@ func instanceNetworkInterfaces(
 // group, and returns a mapping from instance ID to the public IP addresses
 // associated with that instance.
 func instancePublicIPAddresses(
+	ctx context.ProviderCallContext,
 	resourceGroup string,
 	pipClient network.PublicIPAddressesClient,
 ) (map[instance.Id][]network.PublicIPAddress, error) {
 	sdkCtx := stdcontext.Background()
 	pipsResult, err := pipClient.ListComplete(sdkCtx, resourceGroup)
 	if err != nil {
-		return nil, errors.Annotate(err, "listing public IP addresses")
+		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing public IP addresses"), ctx)
 	}
 	if pipsResult.Response().IsEmpty() {
 		return nil, nil
@@ -213,7 +217,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 	sdkCtx := stdcontext.Background()
 	nsg, err := nsgClient.Get(sdkCtx, inst.env.resourceGroup, securityGroupName, "")
 	if err != nil {
-		return errors.Annotate(err, "querying network security group")
+		return errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
 	}
 
 	var securityRules []network.SecurityRule
@@ -289,7 +293,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 			inst.env.resourceGroup, securityGroupName, ruleName, securityRule,
 		)
 		if err != nil {
-			return errors.Annotatef(err, "creating security rule for %q", ruleName)
+			return errorutils.HandleCredentialError(errors.Annotatef(err, "creating security rule for %q", ruleName), ctx)
 		}
 		securityRules = append(securityRules, securityRule)
 	}
@@ -316,7 +320,7 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 			inst.env.resourceGroup, securityGroupName, ruleName,
 		)
 		if err != nil {
-			if !isNotFoundResponse(autorest.Response{future.Response()}) {
+			if !isNotFoundResponse(future.Response()) {
 				return errors.Annotatef(err, "deleting security rule %q", ruleName)
 			}
 			continue
@@ -326,8 +330,8 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 			return errors.Annotatef(err, "deleting security rule %q", ruleName)
 		}
 		result, err := future.Result(securityRuleClient)
-		if err != nil && !isNotFoundResponse(result) {
-			return errors.Annotatef(err, "deleting security rule %q", ruleName)
+		if err != nil && !isNotFoundResult(result) {
+			return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting security rule %q", ruleName), ctx)
 		}
 	}
 	return nil
@@ -339,7 +343,7 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 	securityGroupName := internalSecurityGroupName
 	nsg, err := nsgClient.Get(stdcontext.Background(), inst.env.resourceGroup, securityGroupName, "")
 	if err != nil {
-		return nil, errors.Annotate(err, "querying network security group")
+		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
 	}
 	if nsg.SecurityRules == nil {
 		return nil, nil
@@ -428,6 +432,7 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 // i.e. both the ones opened by OpenPorts above, and the ones opened for API
 // access.
 func deleteInstanceNetworkSecurityRules(
+	ctx context.ProviderCallContext,
 	resourceGroup string, id instance.Id,
 	nsgClient network.SecurityGroupsClient,
 	securityRuleClient network.SecurityRulesClient,
@@ -438,7 +443,7 @@ func deleteInstanceNetworkSecurityRules(
 		if err2, ok := err.(autorest.DetailedError); ok && err2.Response.StatusCode == http.StatusNotFound {
 			return nil
 		}
-		return errors.Annotate(err, "querying network security group")
+		return errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
 	}
 	if nsg.SecurityRules == nil {
 		return nil
@@ -456,7 +461,7 @@ func deleteInstanceNetworkSecurityRules(
 			ruleName,
 		)
 		if err != nil {
-			if !isNotFoundResponse(autorest.Response{future.Response()}) {
+			if !isNotFoundResponse(future.Response()) {
 				return errors.Annotatef(err, "deleting security rule %q", ruleName)
 			}
 			continue
@@ -466,8 +471,8 @@ func deleteInstanceNetworkSecurityRules(
 			return errors.Annotatef(err, "deleting security rule %q", ruleName)
 		}
 		result, err := future.Result(securityRuleClient)
-		if err != nil && !isNotFoundResponse(result) {
-			return errors.Annotatef(err, "deleting security rule %q", ruleName)
+		if err != nil && !isNotFoundResult(result) {
+			return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting security rule %q", ruleName), ctx)
 		}
 	}
 	return nil

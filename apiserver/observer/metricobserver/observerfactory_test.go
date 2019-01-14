@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,7 +18,7 @@ import (
 
 type observerFactorySuite struct {
 	testing.IsolationSuite
-	clock      *testing.Clock
+	clock      *testclock.Clock
 	registerer fakePrometheusRegisterer
 }
 
@@ -25,7 +26,7 @@ var _ = gc.Suite(&observerFactorySuite{})
 
 func (s *observerFactorySuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.registerer = fakePrometheusRegisterer{}
 }
 

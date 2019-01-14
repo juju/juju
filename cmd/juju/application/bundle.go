@@ -31,6 +31,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -55,25 +57,22 @@ type deploymentLogger interface {
 	Infof(string, ...interface{})
 }
 
-// deployBundle deploys the given bundle data using the given API client and
-// charm store client. The deployment is not transactional, and its progress is
-// notified using the given deployment logger.
-func deployBundle(
-	bundleDir string,
-	data *charm.BundleData,
-	bundleOverlayFile []string,
-	channel csparams.Channel,
-	apiRoot DeployAPI,
-	ctx *cmd.Context,
-	bundleStorage map[string]map[string]storage.Constraints,
-	dryRun bool,
-	useExistingMachines bool,
-	bundleMachines map[string]string,
-) (map[*charm.URL]*macaroon.Macaroon, error) {
-
-	if err := processBundleOverlay(data, bundleOverlayFile...); err != nil {
-		return nil, err
+// composeBundle adds the overlays and bundle includes into the passed bundle
+// data struct.
+func composeBundle(data *charm.BundleData, ctx *cmd.Context, bundleDir string, overlayFileNames []string) error {
+	if err := processBundleOverlay(data, overlayFileNames...); err != nil {
+		return errors.Annotate(err, "unable to process overlays")
 	}
+	if bundleDir == "" {
+		bundleDir = ctx.Dir
+	}
+	if err := processBundleIncludes(bundleDir, data); err != nil {
+		return errors.Annotate(err, "unable to process includes")
+	}
+	return nil
+}
+
+func verifyBundle(data *charm.BundleData, bundleDir string) error {
 	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
 		return err
@@ -82,33 +81,54 @@ func deployBundle(
 		_, err := storage.ParseConstraints(s)
 		return err
 	}
+	verifyDevices := func(s string) error {
+		_, err := devices.ParseConstraints(s)
+		return err
+	}
 	var verifyError error
 	if bundleDir == "" {
-		// Process includes in the bundle data.
-		if err := processBundleIncludes(ctx.Dir, data); err != nil {
-			return nil, errors.Annotate(err, "unable to process includes")
-		}
-		verifyError = data.Verify(verifyConstraints, verifyStorage, nil)
+		verifyError = data.Verify(verifyConstraints, verifyStorage, verifyDevices)
 	} else {
-		// Process includes in the bundle data.
-		if err := processBundleIncludes(bundleDir, data); err != nil {
-			return nil, errors.Annotate(err, "unable to process includes")
-		}
-		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage, nil)
+		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage, verifyDevices)
 	}
-	if verifyError != nil {
-		if verr, ok := verifyError.(*charm.VerificationError); ok {
-			errs := make([]string, len(verr.Errors))
-			for i, err := range verr.Errors {
-				errs[i] = err.Error()
-			}
-			return nil, errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
+
+	if verr, ok := errors.Cause(verifyError).(*charm.VerificationError); ok {
+		errs := make([]string, len(verr.Errors))
+		for i, err := range verr.Errors {
+			errs[i] = err.Error()
 		}
-		return nil, errors.Trace(verifyError)
+		return errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
+	}
+	return errors.Trace(verifyError)
+}
+
+// deployBundle deploys the given bundle data using the given API client and
+// charm store client. The deployment is not transactional, and its progress is
+// notified using the given deployment logger.
+func deployBundle(
+	bundleDir string,
+	data *charm.BundleData,
+	bundleURL *charm.URL,
+	bundleOverlayFile []string,
+	channel csparams.Channel,
+	apiRoot DeployAPI,
+	ctx *cmd.Context,
+	bundleStorage map[string]map[string]storage.Constraints,
+	bundleDevices map[string]map[string]devices.Constraints,
+	dryRun bool,
+	useExistingMachines bool,
+	bundleMachines map[string]string,
+) (map[*charm.URL]*macaroon.Macaroon, error) {
+
+	if err := composeBundle(data, ctx, bundleDir, bundleOverlayFile); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := verifyBundle(data, bundleDir); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleStorage)
+	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleURL, bundleStorage, bundleDevices)
 	if err := h.makeModel(useExistingMachines, bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -163,6 +183,12 @@ type bundleHandler struct {
 	// in the bundle itself.
 	bundleStorage map[string]map[string]storage.Constraints
 
+	// bundleDevices contains a mapping of application-specific device
+	// constraints. For each application, the device constraints in the
+	// map will replace or augment the device constraints specified
+	// in the bundle itself.
+	bundleDevices map[string]map[string]devices.Constraints
+
 	// ctx is the command context, which is used to output messages to the
 	// user, so that the user can keep track of the bundle deployment
 	// progress.
@@ -170,6 +196,10 @@ type bundleHandler struct {
 
 	// data is the original bundle data that we want to deploy.
 	data *charm.BundleData
+
+	// bundleURL is the URL of the bundle when deploying a bundle from the
+	// charmstore, nil otherwise.
+	bundleURL *charm.URL
 
 	// unitStatus reflects the environment status and maps unit names to their
 	// corresponding machine identifiers. This is kept updated by both change
@@ -201,7 +231,9 @@ func makeBundleHandler(
 	api DeployAPI,
 	ctx *cmd.Context,
 	data *charm.BundleData,
+	bundleURL *charm.URL,
 	bundleStorage map[string]map[string]storage.Constraints,
+	bundleDevices map[string]map[string]devices.Constraints,
 ) *bundleHandler {
 	applications := set.NewStrings()
 	for name := range data.Applications {
@@ -215,8 +247,10 @@ func makeBundleHandler(
 		channel:       channel,
 		api:           api,
 		bundleStorage: bundleStorage,
+		bundleDevices: bundleDevices,
 		ctx:           ctx,
 		data:          data,
+		bundleURL:     bundleURL,
 		unitStatus:    make(map[string]string),
 		macaroons:     make(map[*charm.URL]*macaroon.Macaroon),
 		channels:      make(map[*charm.URL]csparams.Channel),
@@ -227,13 +261,11 @@ func (h *bundleHandler) makeModel(
 	useExistingMachines bool,
 	bundleMachines map[string]string,
 ) error {
-
 	// Initialize the unit status.
 	status, err := h.api.Status(nil)
 	if err != nil {
 		return errors.Annotate(err, "cannot get model status")
 	}
-
 	h.model, err = buildModelRepresentation(status, h.api, useExistingMachines, bundleMachines)
 	if err != nil {
 		return errors.Trace(err)
@@ -297,7 +329,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := h.api.Resolve(h.modelConfig, ch)
+		url, _, _, err := resolveCharm(h.api.ResolveWithChannel, ch)
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -316,11 +348,16 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 }
 
 func (h *bundleHandler) getChanges() error {
+	bundleURL := ""
+	if h.bundleURL != nil {
+		bundleURL = h.bundleURL.String()
+	}
 	changes, err := bundlechanges.FromData(
 		bundlechanges.ChangesConfig{
-			Bundle: h.data,
-			Model:  h.model,
-			Logger: logger,
+			Bundle:    h.data,
+			BundleURL: bundleURL,
+			Model:     h.model,
+			Logger:    logger,
 		})
 	if err != nil {
 		return errors.Trace(err)
@@ -363,6 +400,8 @@ func (h *bundleHandler) handleChanges() error {
 			err = h.addRelation(change)
 		case *bundlechanges.AddApplicationChange:
 			err = h.addApplication(change)
+		case *bundlechanges.ScaleChange:
+			err = h.scaleApplication(change)
 		case *bundlechanges.AddUnitChange:
 			err = h.addUnit(change)
 		case *bundlechanges.ExposeChange:
@@ -417,7 +456,10 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 		}
 		if err == nil {
-			if curl, err = h.api.AddLocalCharm(curl, ch); err != nil {
+			if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
+				return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
+			}
+			if curl, err = h.api.AddLocalCharm(curl, ch, false); err != nil {
 				return err
 			}
 			logger.Debugf("added charm %s", curl)
@@ -432,7 +474,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := h.api.Resolve(h.modelConfig, ch)
+	url, channel, _, err := resolveCharm(h.api.ResolveWithChannel, ch)
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -440,7 +482,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var macaroon *macaroon.Macaroon
-	url, macaroon, err = addCharmFromURL(h.api, url, channel)
+	url, macaroon, err = addCharmFromURL(h.api, url, channel, false)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
@@ -520,11 +562,34 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			storageConstraints[k] = cons
 		}
 	}
+	deviceConstraints := h.bundleDevices[p.Application]
+	if len(p.Devices) > 0 {
+		if deviceConstraints == nil {
+			deviceConstraints = make(map[string]devices.Constraints)
+		}
+		for k, v := range p.Devices {
+			if _, ok := deviceConstraints[k]; ok {
+				// Device constraints overridden
+				// on the command line.
+				continue
+			}
+			cons, err := devices.ParseConstraints(v)
+			if err != nil {
+				return errors.Annotate(err, "invalid device constraints")
+			}
+			deviceConstraints[k] = cons
+		}
+	}
 	resources := h.makeResourceMap(p.Resources, p.LocalResources)
 	charmInfo, err := h.api.CharmInfo(ch)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+
+	if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
+		return errors.Trace(err)
+	}
+
 	resNames2IDs, err := resourceadapters.DeployResources(
 		p.Application,
 		chID,
@@ -554,20 +619,37 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
+	// Only Kubernetes bundles send the unit count and placement with the deploy API call.
+	numUnits := 0
+	var placement []*instance.Placement
+	if h.data.Type == "kubernetes" {
+		numUnits = p.NumUnits
+		if p.Placement != "" {
+			p := &instance.Placement{
+				Scope:     h.modelConfig.UUID(),
+				Directive: p.Placement,
+			}
+			placement = []*instance.Placement{p}
+		}
+	}
 	// Deploy the application.
 	if err := h.api.Deploy(application.DeployArgs{
 		CharmID:          chID,
 		Cons:             cons,
 		ApplicationName:  p.Application,
 		Series:           series,
+		NumUnits:         numUnits,
+		Placement:        placement,
 		ConfigYAML:       configYAML,
 		Storage:          storageConstraints,
+		Devices:          deviceConstraints,
 		Resources:        resNames2IDs,
 		EndpointBindings: p.EndpointBindings,
 	}); err != nil {
 		return errors.Annotatef(err, "cannot deploy application %q", p.Application)
 	}
 	h.writeAddedResources(resNames2IDs)
+
 	return nil
 }
 
@@ -580,6 +662,27 @@ func (h *bundleHandler) writeAddedResources(resNames2IDs map[string]string) {
 	for _, name := range names.SortedValues() {
 		h.ctx.Infof("  added resource %s", name)
 	}
+}
+
+// scaleApplication updates the number of units for an application.
+func (h *bundleHandler) scaleApplication(change *bundlechanges.ScaleChange) error {
+	if h.dryRun {
+		return nil
+	}
+
+	p := change.Params
+
+	result, err := h.api.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: p.Application,
+		Scale:           p.Scale,
+	})
+	if err == nil && result.Error != nil {
+		err = result.Error
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot scale application %q", p.Application)
+	}
+	return nil
 }
 
 // addMachine creates a new top-level machine or container in the environment.
@@ -1137,6 +1240,7 @@ func processBundleOverlay(data *charm.BundleData, bundleOverlayFiles ...string) 
 		}
 		// Make sure the filename is absolute.
 		if !filepath.IsAbs(bundleOverlayFile) {
+			// TODO(babbageclunk): pass in ctx.Dir rather than using os.Getwd.
 			cwd, err := os.Getwd()
 			if err != nil {
 				return errors.Trace(err)
@@ -1264,6 +1368,14 @@ func processSingleBundleOverlay(data *charm.BundleData, bundleOverlayFile string
 				app.Storage[key] = value
 			}
 		}
+		if _, set := fieldCheck["devices"]; set {
+			if app.Devices == nil {
+				app.Devices = make(map[string]string)
+			}
+			for key, value := range bc.Devices {
+				app.Devices[key] = value
+			}
+		}
 		if _, set := fieldCheck["bindings"]; set {
 			if app.EndpointBindings == nil {
 				app.EndpointBindings = make(map[string]string)
@@ -1312,9 +1424,18 @@ func removeRelations(data [][]string, appName string) [][]string {
 	return result
 }
 
+// ModelExtractor provides everything we need to build a
+// bundlechanges.Model from a model API connection.
+type ModelExtractor interface {
+	GetAnnotations(tags []string) ([]params.AnnotationsGetResult, error)
+	GetConstraints(applications ...string) ([]constraints.Value, error)
+	GetConfig(applications ...string) ([]map[string]interface{}, error)
+	Sequences() (map[string]int, error)
+}
+
 func buildModelRepresentation(
 	status *params.FullStatus,
-	apiRoot DeployAPI,
+	apiRoot ModelExtractor,
 	useExistingMachines bool,
 	bundleMachines map[string]string,
 ) (*bundlechanges.Model, error) {
@@ -1325,8 +1446,11 @@ func buildModelRepresentation(
 	)
 	machineMap := make(map[string]string)
 	machines := make(map[string]*bundlechanges.Machine)
-	for id := range status.Machines {
-		machines[id] = &bundlechanges.Machine{ID: id}
+	for id, machineStatus := range status.Machines {
+		machines[id] = &bundlechanges.Machine{
+			ID:     id,
+			Series: machineStatus.Series,
+		}
 		tag := names.NewMachineTag(id)
 		annotationTags = append(annotationTags, tag.String())
 		if useExistingMachines && tag.ContainerType() == "" {
@@ -1340,9 +1464,13 @@ func buildModelRepresentation(
 	applications := make(map[string]*bundlechanges.Application)
 	for name, appStatus := range status.Applications {
 		application := &bundlechanges.Application{
-			Name:    name,
-			Charm:   appStatus.Charm,
-			Exposed: appStatus.Exposed,
+			Name:          name,
+			Charm:         appStatus.Charm,
+			Scale:         appStatus.Scale,
+			Exposed:       appStatus.Exposed,
+			Series:        appStatus.Series,
+			Placement:     appStatus.Placement,
+			SubordinateTo: appStatus.SubordinateTo,
 		}
 		for unitName, unit := range appStatus.Units {
 			application.Units = append(application.Units, bundlechanges.Unit{

@@ -6,6 +6,7 @@ package caasoperatorprovisioner_test
 import (
 	"sync"
 
+	"github.com/juju/juju/storage"
 	"github.com/juju/testing"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -16,8 +17,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 )
 
@@ -56,8 +57,16 @@ func (m *mockProvisionerFacade) OperatorProvisioningInfo() (apicaasprovisioner.O
 		return apicaasprovisioner.OperatorProvisioningInfo{}, err
 	}
 	return apicaasprovisioner.OperatorProvisioningInfo{
-		ImagePath: "juju-operator-image",
-		Version:   version.MustParse("2.99.0"),
+		ImagePath:    "juju-operator-image",
+		Version:      version.MustParse("2.99.0"),
+		APIAddresses: []string{"10.0.0.1:17070", "192.18.1.1:17070"},
+		Tags:         map[string]string{"fred": "mary"},
+		CharmStorage: storage.KubernetesFilesystemParams{
+			Provider:     "kubernetes",
+			Size:         uint64(1024),
+			ResourceTags: map[string]string{"foo": "bar"},
+			Attributes:   map[string]interface{}{"key": "value"},
+		},
 	}, nil
 }
 
@@ -81,26 +90,6 @@ func (m *mockProvisionerFacade) SetPasswords(passwords []apicaasprovisioner.Appl
 	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(passwords)),
 	}, nil
-}
-
-func (m *mockProvisionerFacade) APIAddresses() ([]string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.stub.MethodCall(m, "APIAddresses")
-	if err := m.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return []string{"10.0.0.1:17070", "192.18.1.1:17070"}, nil
-}
-
-func (m *mockProvisionerFacade) WatchAPIHostPorts() (watcher.NotifyWatcher, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.stub.MethodCall(m, "WatchAPIHostPorts")
-	if err := m.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return m.apiWatcher, nil
 }
 
 type mockAgentConfig struct {
@@ -130,11 +119,17 @@ func (m *mockAgentConfig) CACert() string {
 type mockBroker struct {
 	testing.Stub
 	caas.Broker
+	operatorExists bool
 }
 
 func (m *mockBroker) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
 	m.MethodCall(m, "EnsureOperator", appName, agentPath, config)
 	return m.NextErr()
+}
+
+func (m *mockBroker) OperatorExists(appName string) (bool, error) {
+	m.MethodCall(m, "OperatorExists", appName)
+	return m.operatorExists, m.NextErr()
 }
 
 func (m *mockBroker) DeleteOperator(appName string) error {

@@ -10,6 +10,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 var keyRule = charm.GetActionNameRule()
@@ -50,12 +52,12 @@ Example usage:
      zab: "4"
    baz: "1"
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "action-set",
 		Args:    "<key>=<value> [<key>=<value> ...]",
 		Purpose: "set action results",
 		Doc:     doc,
-	}
+	})
 }
 
 // SetFlags handles known option flags.

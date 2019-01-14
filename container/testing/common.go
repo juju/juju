@@ -13,10 +13,10 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )

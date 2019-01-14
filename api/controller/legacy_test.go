@@ -89,7 +89,7 @@ func (s *legacySuite) TestControllerConfig(c *gc.C) {
 
 func (s *legacySuite) TestDestroyController(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"})
-	factory.NewFactory(st).MakeMachine(c, nil) // make it non-empty
+	factory.NewFactory(st, s.StatePool).MakeMachine(c, nil) // make it non-empty
 	st.Close()
 
 	sysManager := s.OpenAPI(c)
@@ -268,9 +268,9 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 func (s *legacySuite) TestGetControllerAccess(c *gc.C) {
 	controller := s.OpenAPI(c)
 	defer controller.Close()
-	err := controller.GrantController("fred@external", "add-model")
+	err := controller.GrantController("fred@external", "superuser")
 	c.Assert(err, jc.ErrorIsNil)
 	access, err := controller.GetControllerAccess("fred@external")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.Access("add-model"))
+	c.Assert(access, gc.Equals, permission.Access("superuser"))
 }

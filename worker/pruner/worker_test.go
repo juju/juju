@@ -7,15 +7,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/statushistorypruner"
 )
@@ -26,7 +26,7 @@ type PrunerSuite struct {
 
 var _ = gc.Suite(&PrunerSuite{})
 
-func (s *PrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testing.Clock) {
+func (s *PrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testclock.Clock) {
 	facade := newFakeFacade()
 	attrs := coretesting.FakeConfig()
 	attrs["max-status-history-age"] = "1s"
@@ -35,7 +35,7 @@ func (s *PrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testing.Clock) {
 	c.Assert(err, jc.ErrorIsNil)
 	facade.modelConfig = cfg
 
-	testClock := testing.NewClock(time.Time{})
+	testClock := testclock.NewClock(time.Time{})
 	conf := pruner.Config{
 		Facade:        facade,
 		PruneInterval: coretesting.ShortWait,
@@ -60,7 +60,7 @@ func (s *PrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testing.Clock) {
 	return facade, testClock
 }
 
-func (s *PrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeFacade, testClock *testing.Clock, collectionSize int) {
+func (s *PrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeFacade, testClock *testclock.Clock, collectionSize int) {
 	// NewTimer/Reset will have been called with the PruneInterval.
 	testClock.WaitAdvance(coretesting.ShortWait-time.Nanosecond, coretesting.LongWait, 1)
 	select {

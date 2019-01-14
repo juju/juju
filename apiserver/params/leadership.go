@@ -30,28 +30,6 @@ type ClaimLeadershipParams struct {
 // leadership claim.
 type ClaimLeadershipBulkResults ErrorResults
 
-// ReleaseLeadershipBulkParams is a collection of parameters needed to
-// make a bulk release leadership call.
-type ReleaseLeadershipBulkParams struct {
-	Params []ReleaseLeadershipParams `json:"params"`
-}
-
-// ReleaseLeadershipParams are the parameters needed to release a
-// leadership claim.
-type ReleaseLeadershipParams struct {
-
-	// ApplicationTag is the application for which you want to make a
-	// leadership claim.
-	ApplicationTag string `json:"application-tag"`
-
-	// UnitTag is the unit which is making the leadership claim.
-	UnitTag string `json:"unit-tag"`
-}
-
-// ReleaseLeadershipBulkResults is a type which contains results from
-// a bulk leadership call.
-type ReleaseLeadershipBulkResults ErrorResults
-
 // GetLeadershipSettingsBulkResults is the collection of results from
 // a bulk request for leadership settings.
 type GetLeadershipSettingsBulkResults struct {
@@ -87,4 +65,32 @@ type MergeLeadershipSettingsParam struct {
 
 	// Settings are the Leadership settings you wish to merge in.
 	Settings Settings `json:"settings"`
+}
+
+// PinApplicationsResults returns all applications for which pinning or
+// unpinning was attempted, including any errors that occurred.
+type PinApplicationsResults struct {
+	// Results is collection with each application tag and pin/unpin result.
+	Results []PinApplicationResult `json:"results"`
+}
+
+// PinApplicationResult represents the result of a single application
+// leadership pin/unpin operation
+type PinApplicationResult struct {
+	// ApplicationName is the application for which a leadership pin/unpin
+	// operation was attempted.
+	ApplicationName string `json:"application-name"`
+	// Error will contain a reference to an error resulting from pin/unpin
+	// if one occurred.
+	Error *Error `json:"error,omitempty"`
+}
+
+// PinnedLeadershipResults holds data representing the current applications for
+// which leadership is pinned
+type PinnedLeadershipResult struct {
+	// Result has:
+	// - Application name keys representing the application pinned.
+	// - Tag slice values representing the entities requiring pinned
+	//   behaviour for each application.
+	Result map[string][]string `json:"result,omitempty"`
 }

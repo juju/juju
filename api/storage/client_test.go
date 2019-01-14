@@ -50,10 +50,10 @@ func (s *storageMockSuite) TestStorageDetails(c *gc.C) {
 
 			if results, k := result.(*params.StorageDetailsResults); k {
 				instances := []params.StorageDetailsResult{
-					params.StorageDetailsResult{
+					{
 						Result: &params.StorageDetails{StorageTag: oneTag.String()},
 					},
-					params.StorageDetailsResult{
+					{
 						Result: &params.StorageDetails{
 							StorageTag: twoTag.String(),
 							Status: params.EntityStatus{
@@ -62,7 +62,7 @@ func (s *storageMockSuite) TestStorageDetails(c *gc.C) {
 							Persistent: true,
 						},
 					},
-					params.StorageDetailsResult{
+					{
 						Error: common.ServerError(errors.New(msg)),
 					},
 				}
@@ -172,9 +172,9 @@ func (s *storageMockSuite) TestListStorageDetailsFacadeCallError(c *gc.C) {
 
 func (s *storageMockSuite) TestListPools(c *gc.C) {
 	expected := []params.StoragePool{
-		params.StoragePool{Name: "name0", Provider: "type0"},
-		params.StoragePool{Name: "name1", Provider: "type1"},
-		params.StoragePool{Name: "name2", Provider: "type2"},
+		{Name: "name0", Provider: "type0"},
+		{Name: "name1", Provider: "type1"},
+		{Name: "name2", Provider: "type2"},
 	}
 	want := len(expected)
 
@@ -408,7 +408,7 @@ func (s *storageMockSuite) TestListFilesystems(c *gc.C) {
 			Status: "attached",
 		},
 		MachineAttachments: map[string]params.FilesystemAttachmentDetails{
-			"0": params.FilesystemAttachmentDetails{
+			"0": {
 				FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
 					MountPoint: "/mnt/kinabalu",
 					ReadOnly:   false,
@@ -510,9 +510,9 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 
 	errOut := "error"
 	unitStorages := []params.StorageAddParams{
-		params.StorageAddParams{UnitTag: "u-a", StorageName: "one", Constraints: cons},
-		params.StorageAddParams{UnitTag: "u-b", StorageName: errOut, Constraints: cons},
-		params.StorageAddParams{UnitTag: "u-b", StorageName: "nil-constraints"},
+		{UnitTag: "u-a", StorageName: "one", Constraints: cons},
+		{UnitTag: "u-b", StorageName: errOut, Constraints: cons},
+		{UnitTag: "u-b", StorageName: "nil-constraints"},
 	}
 
 	storageN := 3
@@ -567,7 +567,7 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 
 func (s *storageMockSuite) TestAddToUnitFacadeCallError(c *gc.C) {
 	unitStorages := []params.StorageAddParams{
-		params.StorageAddParams{UnitTag: "u-a", StorageName: "one"},
+		{UnitTag: "u-a", StorageName: "one"},
 	}
 
 	msg := "facade failure"

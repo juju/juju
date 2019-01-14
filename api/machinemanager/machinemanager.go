@@ -8,7 +8,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 )
 
 const machineManagerFacade = "MachineManager"
@@ -19,10 +22,15 @@ type Client struct {
 	facade base.FacadeCaller
 }
 
+// ConstructClient is a constructor function for a machine manager client
+func ConstructClient(clientFacade base.ClientFacade, facadeCaller base.FacadeCaller) *Client {
+	return &Client{ClientFacade: clientFacade, facade: facadeCaller}
+}
+
 // NewClient returns a new machinemanager client.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, machineManagerFacade)
-	return &Client{ClientFacade: frontend, facade: backend}
+	return ConstructClient(frontend, backend)
 }
 
 // AddMachines adds new machines with the supplied parameters, creating any requested disks.
@@ -118,20 +126,129 @@ func (client *Client) destroyMachines(method string, machines []string) ([]param
 	return allResults, nil
 }
 
-// UpdateMachineSeries updates the series of the machine in the db.
-func (client *Client) UpdateMachineSeries(machineName, series string, force bool) error {
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
-			Series: series,
-			Force:  force,
-		}},
+// UpgradeSeriesPrepare notifies the controller that a series upgrade is taking
+// place for a given machine and as such the machine is guarded against
+// operations that would impede, fail, or interfere with the upgrade process.
+func (client *Client) UpgradeSeriesPrepare(machineName, series string, force bool) error {
+	if client.BestAPIVersion() < 5 {
+		return errors.NotSupportedf("upgrade-series prepare")
+	}
+	args := params.UpdateSeriesArg{
+		Entity: params.Entity{
+			Tag: names.NewMachineTag(machineName).String()},
+		Series: series,
+		Force:  force,
+	}
+	result := params.ErrorResult{}
+	if err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result); err != nil {
+		return errors.Trace(err)
 	}
 
-	results := new(params.ErrorResults)
-	err := client.facade.FacadeCall("UpdateMachineSeries", args, results)
+	err := result.Error
+	if err != nil {
+		return common.RestoreError(err)
+	}
+	return nil
+}
+
+// UpgradeSeriesComplete notifies the controller that a given machine has
+// successfully completed the managed series upgrade process.
+func (client *Client) UpgradeSeriesComplete(machineName string) error {
+	if client.BestAPIVersion() < 5 {
+		return errors.NotSupportedf("UpgradeSeriesComplete")
+	}
+	args := params.UpdateSeriesArg{
+		Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
+	}
+	result := new(params.ErrorResult)
+	err := client.facade.FacadeCall("UpgradeSeriesComplete", args, result)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return results.OneError()
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}
+
+func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]string, error) {
+	if client.BestAPIVersion() < 5 {
+		return nil, errors.NotSupportedf("UpgradeSeriesValidate")
+	}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{
+			{
+				Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
+				Series: series,
+			},
+		},
+	}
+	results := new(params.UpgradeSeriesUnitsResults)
+	err := client.facade.FacadeCall("UpgradeSeriesValidate", args, results)
+	if err != nil {
+		return nil, err
+	}
+	if n := len(results.Results); n != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", n)
+	}
+	if results.Results[0].Error != nil {
+		return nil, results.Results[0].Error
+	}
+	return results.Results[0].UnitNames, nil
+}
+
+// WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing the state of
+// a series upgrade.
+func (client *Client) WatchUpgradeSeriesNotifications(machineName string) (watcher.NotifyWatcher, string, error) {
+	if client.BestAPIVersion() < 5 {
+		return nil, "", errors.NotSupportedf("WatchUpgradeSeriesNotifications")
+	}
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewMachineTag(machineName).String()}},
+	}
+	err := client.facade.FacadeCall("WatchUpgradeSeriesNotifications", args, &results)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, "", result.Error
+	}
+	w := apiwatcher.NewNotifyWatcher(client.facade.RawAPICaller(), result)
+	return w, result.NotifyWatcherId, nil
+}
+
+// GetUpgradeSeriesMessages returns a StringsWatcher for observing the state of
+// a series upgrade.
+func (client *Client) GetUpgradeSeriesMessages(machineName, watcherId string) ([]string, error) {
+	if client.BestAPIVersion() < 5 {
+		return nil, errors.NotSupportedf("GetUpgradeSeriesMessages")
+	}
+	var results params.StringsResults
+	args := params.UpgradeSeriesNotificationParams{
+		Params: []params.UpgradeSeriesNotificationParam{
+			{
+				Entity:    params.Entity{Tag: names.NewMachineTag(machineName).String()},
+				WatcherId: watcherId,
+			},
+		},
+	}
+	err := client.facade.FacadeCall("GetUpgradeSeriesMessages", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return result.Result, nil
 }

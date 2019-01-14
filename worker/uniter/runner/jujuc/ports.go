@@ -12,6 +12,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 const (
@@ -132,7 +134,7 @@ type portCommand struct {
 }
 
 func (c *portCommand) Info() *cmd.Info {
-	return c.info
+	return jujucmd.Info(c.info)
 }
 
 func (c *portCommand) SetFlags(f *gnuflag.FlagSet) {

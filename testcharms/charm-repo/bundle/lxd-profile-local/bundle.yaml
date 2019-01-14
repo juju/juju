@@ -1,0 +1,3 @@
+services:
+    lxd-profile-local: ./../../quantal/lxd-profile
+        num_units: 1

@@ -6,11 +6,11 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -34,6 +35,7 @@ type internalStateSuite struct {
 	jujutesting.MgoSuite
 	testing.BaseSuite
 	controller *Controller
+	pool       *StatePool
 	state      *State
 	owner      names.UserTag
 	modelCount int
@@ -56,8 +58,8 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	s.owner = names.NewLocalUserTag("test-admin")
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
-	ctlr, st, err := Initialize(InitializeParams{
-		Clock:            clock.WallClock,
+	ctlr, err := Initialize(InitializeParams{
+		Clock:            testclock.NewClock(testing.NonZeroTime()),
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{
 			Type:        ModelTypeIAAS,
@@ -75,7 +77,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			Regions: []cloud.Region{
-				cloud.Region{
+				{
 					Name: "dummy-region",
 				},
 			},
@@ -88,9 +90,10 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctlr
-	s.state = st
+	s.pool = ctlr.StatePool()
+	s.state = ctlr.SystemState()
 	s.AddCleanup(func(*gc.C) {
-		s.state.Close()
+		// Controller closes pool, pool closes all states.
 		s.controller.Close()
 	})
 }
@@ -106,7 +109,7 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 		"name": fmt.Sprintf("testmodel%d", s.modelCount),
 		"uuid": utils.MustNewUUID().String(),
 	})
-	_, st, err := s.state.NewModel(ModelArgs{
+	_, st, err := s.controller.NewModel(ModelArgs{
 		Type:        ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -132,7 +135,7 @@ func (internalStatePolicy) ConfigValidator() (config.Validator, error) {
 	return nil, errors.NotImplementedf("ConfigValidator")
 }
 
-func (internalStatePolicy) ConstraintsValidator() (constraints.Validator, error) {
+func (internalStatePolicy) ConstraintsValidator(context.ProviderCallContext) (constraints.Validator, error) {
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 

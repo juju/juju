@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api/remoterelations"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 	coretesting "github.com/juju/juju/testing"
 )
 

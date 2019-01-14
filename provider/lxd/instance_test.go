@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 type instanceSuite struct {
@@ -20,9 +19,9 @@ type instanceSuite struct {
 var _ = gc.Suite(&instanceSuite{})
 
 func (s *instanceSuite) TestNewInstance(c *gc.C) {
-	inst := lxd.NewInstance(s.RawInstance, s.Env)
+	inst := lxd.NewInstance(s.Container, s.Env)
 
-	c.Check(lxd.ExposeInstRaw(inst), gc.Equals, s.RawInstance)
+	c.Check(lxd.ExposeInstContainer(inst), gc.Equals, s.Container)
 	c.Check(lxd.ExposeInstEnv(inst), gc.Equals, s.Env)
 	s.CheckNoAPI(c)
 }
@@ -37,7 +36,7 @@ func (s *instanceSuite) TestID(c *gc.C) {
 func (s *instanceSuite) TestStatus(c *gc.C) {
 	instanceStatus := s.Instance.Status(context.NewCloudCallContext())
 
-	c.Check(instanceStatus.Message, gc.Equals, lxdclient.StatusRunning)
+	c.Check(instanceStatus.Message, gc.Equals, "Running")
 	s.CheckNoAPI(c)
 }
 

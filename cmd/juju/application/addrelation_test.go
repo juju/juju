@@ -1,7 +1,7 @@
 // Copyright 2012 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application
+package application_test
 
 import (
 	"strings"
@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	jtesting "github.com/juju/juju/testing"
@@ -37,7 +38,7 @@ func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func (s *AddRelationSuite) runAddRelation(c *gc.C, args ...string) error {
-	cmd := NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
+	cmd := application.NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return err
@@ -86,7 +87,7 @@ func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C)
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	})
-	cmd := NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
+	cmd := application.NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	ctx, _ := cmdtesting.RunCommand(c, cmd, "application1", "application2")
 	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)

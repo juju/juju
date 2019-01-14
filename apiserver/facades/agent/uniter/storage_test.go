@@ -4,8 +4,7 @@
 package uniter_test
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -14,7 +13,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -37,14 +38,14 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *gc.C) {
 		changes: make(chan []string, 1),
 	}
 	watcher.changes <- []string{"storage/0", "storage/1"}
-	state := &mockStorageState{
+	st := &mockStorageState{
 		watchStorageAttachments: func(u names.UnitTag) state.StringsWatcher {
 			c.Assert(u, gc.DeepEquals, unitTag)
 			return watcher
 		},
 	}
 
-	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	watches, err := storage.WatchUnitStorageAttachments(params.Entities{
 		Entities: []params.Entity{{unitTag.String()}},
@@ -85,7 +86,8 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 	}
 	blockDevicesWatcher.changes <- struct{}{}
 	var calls []string
-	state := &mockStorageState{
+	st := &mockStorageState{
+		assignedMachine: "66",
 		storageInstance: func(s names.StorageTag) (state.StorageInstance, error) {
 			calls = append(calls, "StorageInstance")
 			c.Assert(s, gc.DeepEquals, storageTag)
@@ -96,20 +98,15 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 			c.Assert(s, gc.DeepEquals, storageTag)
 			return volume, nil
 		},
-		unitAssignedMachine: func(u names.UnitTag) (names.MachineTag, error) {
-			calls = append(calls, "UnitAssignedMachine")
-			c.Assert(u, gc.DeepEquals, unitTag)
-			return machineTag, nil
-		},
 		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) state.NotifyWatcher {
 			calls = append(calls, "WatchStorageAttachment")
 			c.Assert(s, gc.DeepEquals, storageTag)
 			c.Assert(u, gc.DeepEquals, unitTag)
 			return storageWatcher
 		},
-		watchVolumeAttachment: func(m names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
+		watchVolumeAttachment: func(host names.Tag, v names.VolumeTag) state.NotifyWatcher {
 			calls = append(calls, "WatchVolumeAttachment")
-			c.Assert(m, gc.DeepEquals, machineTag)
+			c.Assert(host, gc.DeepEquals, machineTag)
 			c.Assert(v, gc.DeepEquals, volumeTag)
 			return volumeWatcher
 		},
@@ -120,7 +117,7 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 		},
 	}
 
-	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	watches, err := storage.WatchStorageAttachments(params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
@@ -135,7 +132,6 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 		}},
 	})
 	c.Assert(calls, gc.DeepEquals, []string{
-		"UnitAssignedMachine",
 		"StorageInstance",
 		"StorageInstanceVolume",
 		"WatchVolumeAttachment",
@@ -144,7 +140,15 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
+func (s *storageSuite) TestCAASWatchStorageAttachmentFilesystem(c *gc.C) {
+	s.assertWatchStorageAttachmentFilesystem(c, "")
+}
+
+func (s *storageSuite) TestIAASWatchStorageAttachmentFilesystem(c *gc.C) {
+	s.assertWatchStorageAttachmentFilesystem(c, "66")
+}
+
+func (s *storageSuite) assertWatchStorageAttachmentFilesystem(c *gc.C, assignedMachine string) {
 	resources := common.NewResources()
 	getCanAccess := func() (common.AuthFunc, error) {
 		return func(names.Tag) bool {
@@ -153,7 +157,11 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 	}
 	unitTag := names.NewUnitTag("mysql/0")
 	storageTag := names.NewStorageTag("data/0")
-	machineTag := names.NewMachineTag("66")
+	var hostTag names.Tag
+	hostTag = unitTag
+	if assignedMachine != "" {
+		hostTag = names.NewMachineTag(assignedMachine)
+	}
 	filesystemTag := names.NewFilesystemTag("104")
 	filesystem := &mockFilesystem{tag: filesystemTag}
 	storageInstance := &mockStorageInstance{kind: state.StorageKindFilesystem}
@@ -166,7 +174,8 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 	}
 	filesystemWatcher.changes <- struct{}{}
 	var calls []string
-	state := &mockStorageState{
+	st := &mockStorageState{
+		assignedMachine: assignedMachine,
 		storageInstance: func(s names.StorageTag) (state.StorageInstance, error) {
 			calls = append(calls, "StorageInstance")
 			c.Assert(s, gc.DeepEquals, storageTag)
@@ -177,26 +186,21 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 			c.Assert(s, gc.DeepEquals, storageTag)
 			return filesystem, nil
 		},
-		unitAssignedMachine: func(u names.UnitTag) (names.MachineTag, error) {
-			calls = append(calls, "UnitAssignedMachine")
-			c.Assert(u, gc.DeepEquals, unitTag)
-			return machineTag, nil
-		},
 		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) state.NotifyWatcher {
 			calls = append(calls, "WatchStorageAttachment")
 			c.Assert(s, gc.DeepEquals, storageTag)
 			c.Assert(u, gc.DeepEquals, unitTag)
 			return storageWatcher
 		},
-		watchFilesystemAttachment: func(m names.MachineTag, f names.FilesystemTag) state.NotifyWatcher {
+		watchFilesystemAttachment: func(host names.Tag, f names.FilesystemTag) state.NotifyWatcher {
 			calls = append(calls, "WatchFilesystemAttachment")
-			c.Assert(m, gc.DeepEquals, machineTag)
+			c.Assert(host, gc.DeepEquals, hostTag)
 			c.Assert(f, gc.DeepEquals, filesystemTag)
 			return filesystemWatcher
 		},
 	}
 
-	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	watches, err := storage.WatchStorageAttachments(params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
@@ -211,7 +215,6 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 		}},
 	})
 	c.Assert(calls, gc.DeepEquals, []string{
-		"UnitAssignedMachine",
 		"StorageInstance",
 		"StorageInstanceFilesystem",
 		"WatchFilesystemAttachment",
@@ -228,7 +231,7 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	}
 	unitTag := names.NewUnitTag("mysql/0")
 	var calls []string
-	state := &mockStorageState{
+	st := &mockStorageState{
 		destroyUnitStorageAttachments: func(u names.UnitTag) error {
 			calls = append(calls, "DestroyUnitStorageAttachments")
 			c.Assert(u, gc.DeepEquals, unitTag)
@@ -236,16 +239,16 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 		},
 	}
 
-	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	errors, err := storage.DestroyUnitStorageAttachments(params.Entities{
+	destroyErrors, err := storage.DestroyUnitStorageAttachments(params.Entities{
 		Entities: []params.Entity{{
 			Tag: unitTag.String(),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calls, jc.DeepEquals, []string{"DestroyUnitStorageAttachments"})
-	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
+	c.Assert(destroyErrors, jc.DeepEquals, params.ErrorResults{
 		[]params.ErrorResult{{}},
 	})
 }
@@ -267,8 +270,8 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 		}, nil
 	}
 
-	state := &mockStorageState{}
-	setMock(state, func(s names.StorageTag, u names.UnitTag) error {
+	st := &mockStorageState{}
+	setMock(st, func(s names.StorageTag, u names.UnitTag) error {
 		c.Assert(u, gc.DeepEquals, unitTag0)
 		if s == storageTag1 {
 			return errors.New("badness")
@@ -276,9 +279,9 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 		return nil
 	})
 
-	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	errors, err := storage.RemoveStorageAttachments(params.StorageAttachmentIds{
+	removeErrors, err := storage.RemoveStorageAttachments(params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag0.String(),
 			UnitTag:    unitTag0.String(),
@@ -297,7 +300,7 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
+	c.Assert(removeErrors, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
 			{&params.Error{Message: "badness"}},
@@ -309,15 +312,10 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 }
 
 const (
-	unitConstraintsCall = "mockUnitStorageConstraints"
-	addStorageCall      = "mockAdd"
+	addStorageCall = "mockAdd"
 )
 
 func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
-	setMockConstraints := func(st *mockStorageState, f func(u names.UnitTag) (map[string]state.StorageConstraints, error)) {
-		st.unitStorageConstraints = f
-	}
-
 	unitTag0 := names.NewUnitTag("mysql/0")
 	storageName0 := "data"
 	storageName1 := "store"
@@ -330,21 +328,17 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 	}
 
 	s.called = []string{}
-	mockState := &mockStorageState{}
-	setMockConstraints(mockState, func(u names.UnitTag) (map[string]state.StorageConstraints, error) {
-		s.called = append(s.called, unitConstraintsCall)
-		c.Assert(u, gc.DeepEquals, unitTag0)
+	mockState := &mockStorageState{
+		unitStorageConstraints: map[string]state.StorageConstraints{
+			storageName0: {},
+		},
+	}
 
-		return map[string]state.StorageConstraints{
-			storageName0: state.StorageConstraints{},
-		}, nil
-	})
-
-	storage, err := uniter.NewStorageAPI(mockState, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(mockState, mockState, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	size := uint64(10)
 	count := uint64(0)
-	errors, err := storage.AddUnitStorage(params.StoragesAddParams{
+	addErrors, err := storage.AddUnitStorage(params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
 			{
 				UnitTag:     unitTag0.String(),
@@ -370,14 +364,8 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 		}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.called, jc.SameContents, []string{
-		unitConstraintsCall,
-		unitConstraintsCall,
-		unitConstraintsCall,
-		unitConstraintsCall,
-		unitConstraintsCall,
-	})
-	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
+	c.Assert(s.called, gc.HasLen, 0)
+	c.Assert(addErrors, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified`}},
 			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified`}},
@@ -391,9 +379,6 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 }
 
 func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
-	setMockConstraints := func(st *mockStorageState, f func(u names.UnitTag) (map[string]state.StorageConstraints, error)) {
-		st.unitStorageConstraints = f
-	}
 	setMockAdd := func(st *mockStorageState, f func(tag names.UnitTag, name string, cons state.StorageConstraints) error) {
 		st.addUnitStorage = f
 	}
@@ -416,21 +401,16 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 	}
 
 	s.called = []string{}
-	mockState := &mockStorageState{}
-
-	setMockConstraints(mockState, func(u names.UnitTag) (map[string]state.StorageConstraints, error) {
-		s.called = append(s.called, unitConstraintsCall)
-		c.Assert(u, gc.DeepEquals, unitTag0)
-
-		return map[string]state.StorageConstraints{
-			storageName0: state.StorageConstraints{
+	mockState := &mockStorageState{
+		unitStorageConstraints: map[string]state.StorageConstraints{
+			storageName0: {
 				Pool:  unitPool,
 				Size:  unitSize,
 				Count: unitCount,
 			},
-			storageName1: state.StorageConstraints{},
-		}, nil
-	})
+			storageName1: {},
+		},
+	}
 
 	setMockAdd(mockState, func(u names.UnitTag, name string, cons state.StorageConstraints) error {
 		s.called = append(s.called, addStorageCall)
@@ -445,9 +425,9 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 		return nil
 	})
 
-	storage, err := uniter.NewStorageAPI(mockState, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(mockState, mockState, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	errors, err := storage.AddUnitStorage(params.StoragesAddParams{
+	addErrors, err := storage.AddUnitStorage(params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
 			{
 				UnitTag:     unitTag0.String(),
@@ -462,10 +442,10 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.called, jc.SameContents, []string{
-		unitConstraintsCall, addStorageCall,
-		unitConstraintsCall, addStorageCall,
+		addStorageCall,
+		addStorageCall,
 	})
-	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
+	c.Assert(addErrors, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
 			{&params.Error{Message: "adding storage store for unit-mysql-0: badness"}},
@@ -473,21 +453,59 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 	})
 }
 
+type mockUnit struct {
+	assignedMachine    string
+	storageConstraints map[string]state.StorageConstraints
+}
+
+func (u *mockUnit) ShouldBeAssigned() bool {
+	return u.assignedMachine != ""
+}
+
+func (u *mockUnit) AssignedMachineId() (string, error) {
+	if u.assignedMachine == "" {
+		return "", errors.NotAssignedf("unit not assigned")
+	}
+	return u.assignedMachine, nil
+}
+
+func (u *mockUnit) StorageConstraints() (map[string]state.StorageConstraints, error) {
+	return u.storageConstraints, nil
+}
+
 type mockStorageState struct {
+	unitStorageConstraints map[string]state.StorageConstraints
+	assignedMachine        string
+
+	uniter.Backend
 	uniter.StorageStateInterface
+	uniter.StorageVolumeInterface
+	uniter.StorageFilesystemInterface
 	destroyUnitStorageAttachments func(names.UnitTag) error
 	remove                        func(names.StorageTag, names.UnitTag) error
 	storageInstance               func(names.StorageTag) (state.StorageInstance, error)
 	storageInstanceFilesystem     func(names.StorageTag) (state.Filesystem, error)
 	storageInstanceVolume         func(names.StorageTag) (state.Volume, error)
-	unitAssignedMachine           func(names.UnitTag) (names.MachineTag, error)
 	watchStorageAttachments       func(names.UnitTag) state.StringsWatcher
 	watchStorageAttachment        func(names.StorageTag, names.UnitTag) state.NotifyWatcher
-	watchFilesystemAttachment     func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
-	watchVolumeAttachment         func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	watchFilesystemAttachment     func(names.Tag, names.FilesystemTag) state.NotifyWatcher
+	watchVolumeAttachment         func(names.Tag, names.VolumeTag) state.NotifyWatcher
 	watchBlockDevices             func(names.MachineTag) state.NotifyWatcher
 	addUnitStorage                func(u names.UnitTag, name string, cons state.StorageConstraints) error
-	unitStorageConstraints        func(u names.UnitTag) (map[string]state.StorageConstraints, error)
+}
+
+func (m *mockStorageState) VolumeAccess() uniter.StorageVolumeInterface {
+	return m
+}
+
+func (m *mockStorageState) FilesystemAccess() uniter.StorageFilesystemInterface {
+	return m
+}
+
+func (m *mockStorageState) Unit(name string) (uniter.Unit, error) {
+	return &mockUnit{
+		assignedMachine:    m.assignedMachine,
+		storageConstraints: m.unitStorageConstraints}, nil
 }
 
 func (m *mockStorageState) DestroyUnitStorageAttachments(u names.UnitTag) error {
@@ -510,10 +528,6 @@ func (m *mockStorageState) StorageInstanceVolume(s names.StorageTag) (state.Volu
 	return m.storageInstanceVolume(s)
 }
 
-func (m *mockStorageState) UnitAssignedMachine(u names.UnitTag) (names.MachineTag, error) {
-	return m.unitAssignedMachine(u)
-}
-
 func (m *mockStorageState) WatchStorageAttachments(u names.UnitTag) state.StringsWatcher {
 	return m.watchStorageAttachments(u)
 }
@@ -522,12 +536,12 @@ func (m *mockStorageState) WatchStorageAttachment(s names.StorageTag, u names.Un
 	return m.watchStorageAttachment(s, u)
 }
 
-func (m *mockStorageState) WatchFilesystemAttachment(mtag names.MachineTag, f names.FilesystemTag) state.NotifyWatcher {
-	return m.watchFilesystemAttachment(mtag, f)
+func (m *mockStorageState) WatchFilesystemAttachment(hostTag names.Tag, f names.FilesystemTag) state.NotifyWatcher {
+	return m.watchFilesystemAttachment(hostTag, f)
 }
 
-func (m *mockStorageState) WatchVolumeAttachment(mtag names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
-	return m.watchVolumeAttachment(mtag, v)
+func (m *mockStorageState) WatchVolumeAttachment(hostTag names.Tag, v names.VolumeTag) state.NotifyWatcher {
+	return m.watchVolumeAttachment(hostTag, v)
 }
 
 func (m *mockStorageState) WatchBlockDevices(mtag names.MachineTag) state.NotifyWatcher {
@@ -536,10 +550,6 @@ func (m *mockStorageState) WatchBlockDevices(mtag names.MachineTag) state.Notify
 
 func (m *mockStorageState) AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 	return nil, m.addUnitStorage(tag, name, cons)
-}
-
-func (m *mockStorageState) UnitStorageConstraints(u names.UnitTag) (map[string]state.StorageConstraints, error) {
-	return m.unitStorageConstraints(u)
 }
 
 type mockStringsWatcher struct {
@@ -602,4 +612,95 @@ type mockStorageInstance struct {
 
 func (m *mockStorageInstance) Kind() state.StorageKind {
 	return m.kind
+}
+
+type watchStorageAttachmentSuite struct {
+	storageTag               names.StorageTag
+	machineTag               names.MachineTag
+	unitTag                  names.UnitTag
+	st                       *fakeStorage
+	storageInstance          *fakeStorageInstance
+	volume                   *fakeVolume
+	volumeAttachmentWatcher  *apiservertesting.FakeNotifyWatcher
+	blockDevicesWatcher      *apiservertesting.FakeNotifyWatcher
+	storageAttachmentWatcher *apiservertesting.FakeNotifyWatcher
+}
+
+var _ = gc.Suite(&watchStorageAttachmentSuite{})
+
+func (s *watchStorageAttachmentSuite) SetUpTest(c *gc.C) {
+	s.storageTag = names.NewStorageTag("osd-devices/0")
+	s.machineTag = names.NewMachineTag("0")
+	s.unitTag = names.NewUnitTag("ceph/0")
+	s.storageInstance = &fakeStorageInstance{
+		tag:   s.storageTag,
+		owner: s.machineTag,
+		kind:  state.StorageKindBlock,
+	}
+	s.volume = &fakeVolume{tag: names.NewVolumeTag("0")}
+	s.volumeAttachmentWatcher = apiservertesting.NewFakeNotifyWatcher()
+	s.blockDevicesWatcher = apiservertesting.NewFakeNotifyWatcher()
+	s.storageAttachmentWatcher = apiservertesting.NewFakeNotifyWatcher()
+	s.st = &fakeStorage{
+		storageInstance: func(tag names.StorageTag) (state.StorageInstance, error) {
+			return s.storageInstance, nil
+		},
+		storageInstanceVolume: func(tag names.StorageTag) (state.Volume, error) {
+			return s.volume, nil
+		},
+		watchVolumeAttachment: func(names.Tag, names.VolumeTag) state.NotifyWatcher {
+			return s.volumeAttachmentWatcher
+		},
+		watchBlockDevices: func(names.MachineTag) state.NotifyWatcher {
+			return s.blockDevicesWatcher
+		},
+		watchStorageAttachment: func(names.StorageTag, names.UnitTag) state.NotifyWatcher {
+			return s.storageAttachmentWatcher
+		},
+	}
+}
+
+func (s *watchStorageAttachmentSuite) TestWatchStorageAttachmentVolumeAttachmentChanges(c *gc.C) {
+	s.testWatchBlockStorageAttachment(c, func() {
+		s.volumeAttachmentWatcher.C <- struct{}{}
+	})
+}
+
+func (s *watchStorageAttachmentSuite) TestWatchStorageAttachmentStorageAttachmentChanges(c *gc.C) {
+	s.testWatchBlockStorageAttachment(c, func() {
+		s.storageAttachmentWatcher.C <- struct{}{}
+	})
+}
+
+func (s *watchStorageAttachmentSuite) TestWatchStorageAttachmentBlockDevicesChange(c *gc.C) {
+	s.testWatchBlockStorageAttachment(c, func() {
+		s.blockDevicesWatcher.C <- struct{}{}
+	})
+}
+
+func (s *watchStorageAttachmentSuite) testWatchBlockStorageAttachment(c *gc.C, change func()) {
+	s.testWatchStorageAttachment(c, change)
+	s.st.CheckCallNames(c,
+		"StorageInstance",
+		"StorageInstanceVolume",
+		"WatchVolumeAttachment",
+		"WatchBlockDevices",
+		"WatchStorageAttachment",
+	)
+}
+
+func (s *watchStorageAttachmentSuite) testWatchStorageAttachment(c *gc.C, change func()) {
+	w, err := uniter.WatchStorageAttachment(
+		s.st,
+		s.st,
+		s.st,
+		s.storageTag,
+		s.machineTag,
+		s.unitTag,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	wc := statetesting.NewNotifyWatcherC(c, nopSyncStarter{}, w)
+	wc.AssertOneChange()
+	change()
+	wc.AssertOneChange()
 }

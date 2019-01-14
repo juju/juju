@@ -5,8 +5,10 @@ package gce
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -309,7 +311,8 @@ type BaseSuite struct {
 	FakeCommon  *fakeCommon
 	FakeEnviron *fakeEnviron
 
-	CallCtx context.ProviderCallContext
+	CallCtx                *context.CloudCallContext
+	InvalidatedCredentials bool
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -333,7 +336,17 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
 	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
 
-	s.CallCtx = context.NewCloudCallContext()
+	s.CallCtx = &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			s.InvalidatedCredentials = true
+			return nil
+		},
+	}
+}
+
+func (s *BaseSuite) TearDownTest(c *gc.C) {
+	s.BaseSuiteUnpatched.TearDownTest(c)
+	s.InvalidatedCredentials = false
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
@@ -379,7 +392,7 @@ type fakeCommon struct {
 
 	Arch        string
 	Series      string
-	BSFinalizer environs.BootstrapFinalizer
+	BSFinalizer environs.CloudBootstrapFinalizer
 	AZInstances []common.AvailabilityZoneInstances
 }
 
@@ -391,9 +404,9 @@ func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Envi
 	})
 
 	result := &environs.BootstrapResult{
-		Arch:     fc.Arch,
-		Series:   fc.Series,
-		Finalize: fc.BSFinalizer,
+		Arch:                    fc.Arch,
+		Series:                  fc.Series,
+		CloudBootstrapFinalizer: fc.BSFinalizer,
 	}
 	return result, fc.err()
 }
@@ -422,7 +435,7 @@ type fakeEnviron struct {
 	Spec  *instances.InstanceSpec
 }
 
-func (fe *fakeEnviron) GetInstances(env *environ) ([]instance.Instance, error) {
+func (fe *fakeEnviron) GetInstances(env *environ, ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	fe.addCall("GetInstances", FakeCallArgs{
 		"switch": env,
 	})
@@ -446,7 +459,7 @@ func (fe *fakeEnviron) GetHardwareCharacteristics(env *environ, spec *instances.
 	return fe.Hwc
 }
 
-func (fe *fakeEnviron) NewRawInstance(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
+func (fe *fakeEnviron) NewRawInstance(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	fe.addCall("NewRawInstance", FakeCallArgs{
 		"switch": env,
 		"args":   args,
@@ -718,3 +731,5 @@ func (fc *fakeConn) ListMachineTypes(zone string) ([]google.MachineType, error) 
 		{Name: "type-2", MemoryMb: 2048},
 	}, nil
 }
+
+var InvalidCredentialError = &url.Error{"Get", "testbad.com", errors.New("400 Bad Request")}

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 // State provides access to an logger worker's view of the state.

@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/logger"
+	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 type loggerSuite struct {
@@ -52,7 +52,7 @@ func (s *loggerSuite) TestLoggingConfig(c *gc.C) {
 }
 
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
-	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"logging-config": loggingConfig}, nil)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"logging-config": loggingConfig}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

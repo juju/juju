@@ -51,7 +51,7 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 		return nil, errors.Trace(err)
 	}
 
-	raw, err := newRawInstance(env, args, spec)
+	raw, err := newRawInstance(env, ctx, args, spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -71,8 +71,8 @@ var buildInstanceSpec = func(env *environ, args environs.StartInstanceParams) (*
 	return env.buildInstanceSpec(args)
 }
 
-var newRawInstance = func(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
-	return env.newRawInstance(args, spec)
+var newRawInstance = func(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
+	return env.newRawInstance(ctx, args, spec)
 }
 
 var getHardwareCharacteristics = func(env *environ, spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
@@ -134,7 +134,7 @@ func (env *environ) findInstanceSpec(
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (_ *google.Instance, err error) {
+func (env *environ) newRawInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (_ *google.Instance, err error) {
 
 	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
@@ -183,7 +183,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		// We currently treat all AddInstance failures
 		// as being zone-specific, so we'll retry in
 		// another zone.
-		return nil, errors.Trace(err)
+		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	return inst, nil
 }
@@ -285,7 +285,7 @@ func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, ins
 
 // AllInstances implements environs.InstanceBroker.
 func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
-	instances, err := getInstances(env)
+	instances, err := getInstances(env, ctx)
 	return instances, errors.Trace(err)
 }
 
@@ -298,5 +298,5 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 
 	prefix := env.namespace.Prefix()
 	err := env.gce.RemoveInstances(prefix, ids...)
-	return errors.Trace(err)
+	return google.HandleCredentialError(errors.Trace(err), ctx)
 }

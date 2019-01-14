@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
@@ -110,27 +110,30 @@ func (e *environ) Name() string {
 
 // PrepareForBootstrap is part of the Environ interface.
 func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	callCtx := context.NewCloudCallContext()
+	// Cannot really invalidate a credential here since nothing is bootstrapped yet.
+	callCtx.InvalidateCredentialFunc = func(string) error { return nil }
 	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(env); err != nil {
+		if err := verifyCredentials(env, callCtx); err != nil {
 			return err
 		}
 	}
 	ecfg := env.ecfg()
 	vpcID, forceVPCID := ecfg.vpcID(), ecfg.forceVPCID()
-	if err := validateBootstrapVPC(env.ec2, env.cloud.Region, vpcID, forceVPCID, ctx); err != nil {
-		return errors.Trace(maybeConvertCredentialError(err))
+	if err := validateBootstrapVPC(env.ec2, callCtx, env.cloud.Region, vpcID, forceVPCID, ctx); err != nil {
+		return errors.Trace(maybeConvertCredentialError(err, callCtx))
 	}
 	return nil
 }
 
 // Create is part of the Environ interface.
 func (env *environ) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
-	if err := verifyCredentials(env); err != nil {
+	if err := verifyCredentials(env, ctx); err != nil {
 		return err
 	}
 	vpcID := env.ecfg().vpcID()
-	if err := validateModelVPC(env.ec2, env.name, vpcID); err != nil {
-		return errors.Trace(maybeConvertCredentialError(err))
+	if err := validateModelVPC(env.ec2, ctx, env.name, vpcID); err != nil {
+		return errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
 	// TODO(axw) 2016-08-04 #1609643
 	// Create global security group(s) here.
@@ -140,7 +143,7 @@ func (env *environ) Create(ctx context.ProviderCallContext, args environs.Create
 // Bootstrap is part of the Environ interface.
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	r, err := common.Bootstrap(ctx, e, callCtx, args)
-	return r, maybeConvertCredentialError(err)
+	return r, maybeConvertCredentialError(err, callCtx)
 }
 
 // SupportsSpaces is specified on environs.Networking.
@@ -166,13 +169,13 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
+func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Cores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	instanceTypes, err := e.supportedInstanceTypes()
+	instanceTypes, err := e.supportedInstanceTypes(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -220,7 +223,7 @@ func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.A
 		filter.Add("region-name", e.cloud.Region)
 		resp, err := ec2AvailabilityZones(e.ec2, filter)
 		if err != nil {
-			return nil, maybeConvertCredentialError(err)
+			return nil, maybeConvertCredentialError(err, ctx)
 		}
 		logger.Debugf("availability zones: %+v", resp)
 		e.availabilityZones = make([]common.AvailabilityZone, len(resp.Zones))
@@ -288,7 +291,7 @@ func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 		matcher := CreateSubnetMatcher(value)
 		// Get all known subnets, look for a match
 		allSubnets := []string{}
-		subnetResp, vpcId, err := e.subnetsForVPC()
+		subnetResp, vpcId, err := e.subnetsForVPC(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -332,7 +335,7 @@ func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
-	instanceTypes, err := e.supportedInstanceTypes()
+	instanceTypes, err := e.supportedInstanceTypes(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -387,8 +390,10 @@ const (
 )
 
 // DistributeInstances implements the state.InstanceDistributor policy.
-func (e *environ) DistributeInstances(ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
-	return common.DistributeInstances(e, ctx, candidates, distributionGroup)
+func (e *environ) DistributeInstances(
+	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
+) ([]instance.Id, error) {
+	return common.DistributeInstances(e, ctx, candidates, distributionGroup, limitZones)
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
@@ -425,7 +430,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		// If there is a problem with authentication/authorisation,
 		// we want a correctly typed error.
 		annotatedErr := errors.Annotate(
-			maybeConvertCredentialError(received),
+			maybeConvertCredentialError(received, ctx),
 			annotation)
 		if common.IsCredentialNotValid(annotatedErr) {
 			return annotatedErr
@@ -455,7 +460,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 
 	arches := args.Tools.Arches()
 
-	instanceTypes, err := e.supportedInstanceTypes()
+	instanceTypes, err := e.supportedInstanceTypes(ctx)
 	if err != nil {
 		return nil, wrapError(err)
 	}
@@ -512,7 +517,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		apiPorts = append(apiPorts, args.InstanceConfig.APIInfo.Ports()[0])
 	}
 	callback(status.Allocating, "Setting up groups", nil)
-	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPorts)
+	groups, err := e.setUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId, apiPorts)
 	if err != nil {
 		return nil, annotateWrapError(err, "cannot set up groups")
 	}
@@ -559,12 +564,12 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		if placementSubnetID != "" {
 			allowedSubnetIDs = []string{placementSubnetID}
 		} else {
-			for subnetID, _ := range args.SubnetsToZones {
+			for subnetID := range args.SubnetsToZones {
 				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
 			}
 		}
-		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
-	} else if args.Constraints.HaveSpaces() {
+		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, ctx, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
+	} else if args.Constraints.HasSpaces() {
 		subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
 		if subnetErr == nil && placementSubnetID != "" {
 			asSet := set.NewStrings(subnetIDsForZone...)
@@ -581,7 +586,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	case subnetErr != nil && errors.IsNotFound(subnetErr):
 		return nil, errors.Trace(subnetErr)
 	case subnetErr != nil:
-		return nil, errors.Annotatef(maybeConvertCredentialError(subnetErr), "getting subnets for zone %q", availabilityZone)
+		return nil, errors.Annotatef(maybeConvertCredentialError(subnetErr, ctx), "getting subnets for zone %q", availabilityZone)
 	case len(subnetIDsForZone) > 1:
 		// With multiple equally suitable subnets, picking one at random
 		// will allow for better instance spread within the same zone, and
@@ -596,7 +601,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}
 
 	callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
-	instResp, err = runInstances(e.ec2, runArgs, callback)
+	instResp, err = runInstances(e.ec2, ctx, runArgs, callback)
 	if err != nil {
 		if !isZoneOrSubnetConstrainedError(err) {
 			err = annotateWrapError(err, "cannot run instances")
@@ -625,7 +630,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
 	)
 	args.InstanceConfig.Tags[tagName] = instanceName
-	if err := tagResources(e.ec2, args.InstanceConfig.Tags, string(inst.Id())); err != nil {
+	if err := tagResources(e.ec2, ctx, args.InstanceConfig.Tags, string(inst.Id())); err != nil {
 		return nil, annotateWrapError(err, "tagging instance")
 	}
 
@@ -638,7 +643,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			cfg,
 		)
 		tags[tagName] = instanceName + "-root"
-		if err := tagRootDisk(e.ec2, tags, inst.Instance); err != nil {
+		if err := tagRootDisk(e.ec2, ctx, tags, inst.Instance); err != nil {
 			return nil, annotateWrapError(err, "tagging root disk")
 		}
 	}
@@ -667,7 +672,7 @@ func (e *environ) deriveAvailabilityZoneAndSubnetID(ctx context.ProviderCallCont
 	// Determine the availability zones of existing volumes that are to be
 	// attached to the machine. They must all match, and must be the same
 	// as specified zone (if any).
-	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, ctx, args.VolumeAttachments)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -740,7 +745,7 @@ func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placeme
 // volumeAttachmentsZone determines the availability zone for each volume
 // identified in the volume attachment parameters, checking that they are
 // all the same, and returns the availability zone name.
-func volumeAttachmentsZone(ec2 *ec2.EC2, attachments []storage.VolumeAttachmentParams) (string, error) {
+func volumeAttachmentsZone(ec2 *ec2.EC2, ctx context.ProviderCallContext, attachments []storage.VolumeAttachmentParams) (string, error) {
 	volumeIds := make([]string, 0, len(attachments))
 	for _, a := range attachments {
 		if a.Provider != EBS_ProviderType {
@@ -753,7 +758,7 @@ func volumeAttachmentsZone(ec2 *ec2.EC2, attachments []storage.VolumeAttachmentP
 	}
 	resp, err := ec2.Volumes(volumeIds, nil)
 	if err != nil {
-		return "", errors.Annotatef(maybeConvertCredentialError(err), "getting volume details (%s)", volumeIds)
+		return "", errors.Annotatef(maybeConvertCredentialError(err, ctx), "getting volume details (%s)", volumeIds)
 	}
 	if len(resp.Volumes) == 0 {
 		return "", nil
@@ -772,7 +777,7 @@ func volumeAttachmentsZone(ec2 *ec2.EC2, attachments []storage.VolumeAttachmentP
 // tagResources calls ec2.CreateTags, tagging each of the specified resources
 // with the given tags. tagResources will retry for a short period of time
 // if it receives a *.NotFound error response from EC2.
-func tagResources(e *ec2.EC2, tags map[string]string, resourceIds ...string) error {
+func tagResources(e *ec2.EC2, ctx context.ProviderCallContext, tags map[string]string, resourceIds ...string) error {
 	if len(tags) == 0 {
 		return nil
 	}
@@ -787,10 +792,10 @@ func tagResources(e *ec2.EC2, tags map[string]string, resourceIds ...string) err
 			return err
 		}
 	}
-	return maybeConvertCredentialError(err)
+	return maybeConvertCredentialError(err, ctx)
 }
 
-func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
+func tagRootDisk(e *ec2.EC2, ctx context.ProviderCallContext, tags map[string]string, inst *ec2.Instance) error {
 	if len(tags) == 0 {
 		return nil
 	}
@@ -814,7 +819,7 @@ func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
 	for a := waitRootDiskAttempt.Start(); volumeId == "" && a.Next(); {
 		resp, err := e.Instances([]string{inst.InstanceId}, nil)
 		if err != nil {
-			err = errors.Annotate(maybeConvertCredentialError(err), "cannot fetch instance information")
+			err = errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot fetch instance information")
 			logger.Warningf("%v", err)
 			if a.HasNext() == false {
 				return err
@@ -830,7 +835,7 @@ func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
 	if volumeId == "" {
 		return errors.New("timed out waiting for EBS volume to be associated")
 	}
-	return tagResources(e, tags, volumeId)
+	return tagResources(e, ctx, tags, volumeId)
 }
 
 var runInstances = _runInstances
@@ -838,7 +843,7 @@ var runInstances = _runInstances
 // runInstances calls ec2.RunInstances for a fixed number of attempts until
 // RunInstances returns an error code that does not indicate an error that
 // may be caused by eventual consistency.
-func _runInstances(e *ec2.EC2, ri *ec2.RunInstances, c environs.StatusCallbackFunc) (resp *ec2.RunInstancesResp, err error) {
+func _runInstances(e *ec2.EC2, ctx context.ProviderCallContext, ri *ec2.RunInstances, c environs.StatusCallbackFunc) (resp *ec2.RunInstancesResp, err error) {
 	try := 1
 	for a := shortAttempt.Start(); a.Next(); {
 		c(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
@@ -848,7 +853,7 @@ func _runInstances(e *ec2.EC2, ri *ec2.RunInstances, c environs.StatusCallbackFu
 		}
 		try++
 	}
-	return resp, maybeConvertCredentialError(err)
+	return resp, maybeConvertCredentialError(err, ctx)
 }
 
 func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
@@ -857,10 +862,10 @@ func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance
 
 // groupInfoByName returns information on the security group
 // with the given name including rules and other details.
-func (e *environ) groupInfoByName(groupName string) (ec2.SecurityGroupInfo, error) {
+func (e *environ) groupInfoByName(ctx context.ProviderCallContext, groupName string) (ec2.SecurityGroupInfo, error) {
 	resp, err := e.securityGroupsByNameOrID(groupName)
 	if err != nil {
-		return ec2.SecurityGroupInfo{}, maybeConvertCredentialError(err)
+		return ec2.SecurityGroupInfo{}, maybeConvertCredentialError(err, ctx)
 	}
 
 	if len(resp.Groups) != 1 {
@@ -873,8 +878,8 @@ func (e *environ) groupInfoByName(groupName string) (ec2.SecurityGroupInfo, erro
 }
 
 // groupByName returns the security group with the given name.
-func (e *environ) groupByName(groupName string) (ec2.SecurityGroup, error) {
-	groupInfo, err := e.groupInfoByName(groupName)
+func (e *environ) groupByName(ctx context.ProviderCallContext, groupName string) (ec2.SecurityGroup, error) {
+	groupInfo, err := e.groupInfoByName(ctx, groupName)
 	return groupInfo.SecurityGroup, err
 }
 
@@ -906,7 +911,7 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 		filter.Add("instance-state-name", aliveInstanceStates...)
 		filter.Add("instance-id", need...)
 		e.addModelFilter(filter)
-		err = e.gatherInstances(ids, insts, filter)
+		err = e.gatherInstances(ctx, ids, insts, filter)
 		if err == nil || err != environs.ErrPartialInstances {
 			break
 		}
@@ -931,13 +936,14 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 // This function returns environs.ErrPartialInstances if the
 // insts slice has not been completely filled.
 func (e *environ) gatherInstances(
+	ctx context.ProviderCallContext,
 	ids []instance.Id,
 	insts []instance.Instance,
 	filter *ec2.Filter,
 ) error {
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
-		return maybeConvertCredentialError(err)
+		return maybeConvertCredentialError(err, ctx)
 	}
 	n := 0
 	// For each requested id, add it to the returned instances
@@ -977,7 +983,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 		networkInterfacesResp, err = e.ec2.NetworkInterfaces(nil, filter)
 		logger.Tracef("instance %q NICs: %#v (err: %v)", instId, networkInterfacesResp, err)
 		if err != nil {
-			err = maybeConvertCredentialError(err)
+			err = maybeConvertCredentialError(err, ctx)
 			if common.IsCredentialNotValid(err) {
 				// no need to re-try: there is a problem with credentials
 				break
@@ -1002,7 +1008,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 	for i, iface := range ec2Interfaces {
 		resp, err := e.ec2.Subnets([]string{iface.SubnetId}, nil)
 		if err != nil {
-			return nil, errors.Annotatef(maybeConvertCredentialError(err), "failed to retrieve subnet %q info", iface.SubnetId)
+			return nil, errors.Annotatef(maybeConvertCredentialError(err, ctx), "failed to retrieve subnet %q info", iface.SubnetId)
 		}
 		if len(resp.Subnets) != 1 {
 			return nil, errors.Errorf("expected 1 subnet, got %d", len(resp.Subnets))
@@ -1090,7 +1096,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, s
 			results = append(results, info)
 		}
 	} else {
-		resp, _, err := e.subnetsForVPC()
+		resp, _, err := e.subnetsForVPC(ctx)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
@@ -1131,17 +1137,17 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, s
 	return results, nil
 }
 
-func (e *environ) subnetsForVPC() (resp *ec2.SubnetsResp, vpcId string, err error) {
+func (e *environ) subnetsForVPC(ctx context.ProviderCallContext) (resp *ec2.SubnetsResp, vpcId string, err error) {
 	filter := ec2.NewFilter()
 	vpcId = e.ecfg().vpcID()
 	if !isVPCIDSet(vpcId) {
-		if hasDefaultVPC, err := e.hasDefaultVPC(); err == nil && hasDefaultVPC {
+		if hasDefaultVPC, err := e.hasDefaultVPC(ctx); err == nil && hasDefaultVPC {
 			vpcId = e.defaultVPC.Id
 		}
 	}
 	filter.Add("vpc-id", vpcId)
 	resp, err = e.ec2.Subnets(nil, filter)
-	return resp, vpcId, maybeConvertCredentialError(err)
+	return resp, vpcId, maybeConvertCredentialError(err, ctx)
 }
 
 // AdoptResources is part of the Environ interface.
@@ -1154,11 +1160,11 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 	// We want to update the controller tags on root disks even though
 	// they are destroyed automatically with the instance they're
 	// attached to.
-	volumeIds, err := e.allModelVolumes(true)
+	volumeIds, err := e.allModelVolumes(ctx, true)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	groupIds, err := e.modelSecurityGroupIDs()
+	groupIds, err := e.modelSecurityGroupIDs(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1171,7 +1177,7 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 	resourceIds = append(resourceIds, groupIds...)
 
 	tags := map[string]string{tags.JujuController: controllerUUID}
-	return errors.Annotate(tagResources(e.ec2, tags, resourceIds...), "updating tags")
+	return errors.Annotate(tagResources(e.ec2, ctx, tags, resourceIds...), "updating tags")
 }
 
 // AllInstances is part of the environs.InstanceBroker interface.
@@ -1203,17 +1209,17 @@ func (e *environ) AllInstancesByState(ctx context.ProviderCallContext, states ..
 	// An EC2 API call is required to resolve the group name to an id, as
 	// VPC enabled accounts do not support name based filtering.
 	groupName := e.jujuGroupName()
-	group, err := e.groupByName(groupName)
+	group, err := e.groupByName(ctx, groupName)
 	if isNotFoundError(err) {
 		// If there's no group, then there cannot be any instances.
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.Trace(maybeConvertCredentialError(err))
+		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", states...)
 	filter.Add("instance.group-id", group.Id)
-	return e.allInstances(filter)
+	return e.allInstances(ctx, filter)
 }
 
 // ControllerInstances is part of the environs.Environ interface.
@@ -1222,9 +1228,9 @@ func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controlle
 	filter.Add("instance-state-name", aliveInstanceStates...)
 	filter.Add(fmt.Sprintf("tag:%s", tags.JujuIsController), "true")
 	e.addControllerFilter(filter, controllerUUID)
-	ids, err := e.allInstanceIDs(filter)
+	ids, err := e.allInstanceIDs(ctx, filter)
 	if err != nil {
-		return nil, errors.Trace(maybeConvertCredentialError(err))
+		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
 	if len(ids) == 0 {
 		return nil, environs.ErrNotBootstrapped
@@ -1237,17 +1243,17 @@ func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controlle
 //
 // Note that this requires that all instances are tagged; we cannot filter on
 // security groups, as we do not know the names of the models.
-func (e *environ) allControllerManagedInstances(controllerUUID string) ([]instance.Id, error) {
+func (e *environ) allControllerManagedInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", aliveInstanceStates...)
 	e.addControllerFilter(filter, controllerUUID)
-	return e.allInstanceIDs(filter)
+	return e.allInstanceIDs(ctx, filter)
 }
 
-func (e *environ) allInstanceIDs(filter *ec2.Filter) ([]instance.Id, error) {
-	insts, err := e.allInstances(filter)
+func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filter *ec2.Filter) ([]instance.Id, error) {
+	insts, err := e.allInstances(ctx, filter)
 	if err != nil {
-		return nil, errors.Trace(maybeConvertCredentialError(err))
+		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
 	ids := make([]instance.Id, len(insts))
 	for i, inst := range insts {
@@ -1256,10 +1262,10 @@ func (e *environ) allInstanceIDs(filter *ec2.Filter) ([]instance.Id, error) {
 	return ids, nil
 }
 
-func (e *environ) allInstances(filter *ec2.Filter) ([]instance.Instance, error) {
+func (e *environ) allInstances(ctx context.ProviderCallContext, filter *ec2.Filter) ([]instance.Instance, error) {
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
-		return nil, errors.Annotate(maybeConvertCredentialError(err), "listing instances")
+		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing instances")
 	}
 	var insts []instance.Instance
 	for _, r := range resp.Reservations {
@@ -1275,10 +1281,10 @@ func (e *environ) allInstances(filter *ec2.Filter) ([]instance.Instance, error) 
 // Destroy is part of the environs.Environ interface.
 func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 	if err := common.Destroy(e, ctx); err != nil {
-		return errors.Trace(maybeConvertCredentialError(err))
+		return errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
-	if err := e.cleanEnvironmentSecurityGroups(); err != nil {
-		return errors.Annotate(maybeConvertCredentialError(err), "cannot delete environment security groups")
+	if err := e.cleanEnvironmentSecurityGroups(ctx); err != nil {
+		return errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot delete environment security groups")
 	}
 	return nil
 }
@@ -1299,7 +1305,7 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallContext, controllerUUID string) error {
 
 	// Terminate all instances managed by the controller.
-	instIds, err := e.allControllerManagedInstances(controllerUUID)
+	instIds, err := e.allControllerManagedInstances(ctx, controllerUUID)
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
 	}
@@ -1308,11 +1314,11 @@ func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallConte
 	}
 
 	// Delete all volumes managed by the controller. (No need to delete root disks manually.)
-	volIds, err := e.allControllerManagedVolumes(controllerUUID, false)
+	volIds, err := e.allControllerManagedVolumes(ctx, controllerUUID, false)
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")
 	}
-	errs := foreachVolume(e.ec2, volIds, destroyVolume)
+	errs := foreachVolume(e.ec2, ctx, volIds, destroyVolume)
 	for i, err := range errs {
 		if err == nil {
 			continue
@@ -1324,12 +1330,12 @@ func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallConte
 	}
 
 	// Delete security groups managed by the controller.
-	groups, err := e.controllerSecurityGroups(controllerUUID)
+	groups, err := e.controllerSecurityGroups(ctx, controllerUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, g := range groups {
-		if err := deleteSecurityGroupInsistently(e.ec2, g, clock.WallClock); err != nil {
+		if err := deleteSecurityGroupInsistently(e.ec2, ctx, g, clock.WallClock); err != nil {
 			return errors.Annotatef(
 				err, "cannot delete security group %q (%q)",
 				g.Name, g.Id,
@@ -1339,16 +1345,16 @@ func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallConte
 	return nil
 }
 
-func (e *environ) allControllerManagedVolumes(controllerUUID string, includeRootDisks bool) ([]string, error) {
+func (e *environ) allControllerManagedVolumes(ctx context.ProviderCallContext, controllerUUID string, includeRootDisks bool) ([]string, error) {
 	filter := ec2.NewFilter()
 	e.addControllerFilter(filter, controllerUUID)
-	return listVolumes(e.ec2, filter, includeRootDisks)
+	return listVolumes(e.ec2, ctx, filter, includeRootDisks)
 }
 
-func (e *environ) allModelVolumes(includeRootDisks bool) ([]string, error) {
+func (e *environ) allModelVolumes(ctx context.ProviderCallContext, includeRootDisks bool) ([]string, error) {
 	filter := ec2.NewFilter()
 	e.addModelFilter(filter)
-	return listVolumes(e.ec2, filter, includeRootDisks)
+	return listVolumes(e.ec2, ctx, filter, includeRootDisks)
 }
 
 func rulesToIPPerms(rules []network.IngressRule) []ec2.IPPerm {
@@ -1369,12 +1375,12 @@ func rulesToIPPerms(rules []network.IngressRule) []ec2.IPPerm {
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, rules []network.IngressRule) error {
+func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string, rules []network.IngressRule) error {
 	if len(rules) == 0 {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
-	g, err := e.groupByName(name)
+	g, err := e.groupByName(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -1391,37 +1397,37 @@ func (e *environ) openPortsInGroup(name string, rules []network.IngressRule) err
 		for i := range ipPerms {
 			_, err := e.ec2.AuthorizeSecurityGroup(g, ipPerms[i:i+1])
 			if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
-				return errors.Annotatef(maybeConvertCredentialError(err), "cannot open port %v", ipPerms[i])
+				return errors.Annotatef(maybeConvertCredentialError(err, ctx), "cannot open port %v", ipPerms[i])
 			}
 		}
 		return nil
 	}
 	if err != nil {
-		return errors.Annotate(maybeConvertCredentialError(err), "cannot open ports")
+		return errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot open ports")
 	}
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, rules []network.IngressRule) error {
+func (e *environ) closePortsInGroup(ctx context.ProviderCallContext, name string, rules []network.IngressRule) error {
 	if len(rules) == 0 {
 		return nil
 	}
 	// Revoke permissions for anyone to access the given ports.
 	// Note that ec2 allows the revocation of permissions that aren't
 	// granted, so this is naturally idempotent.
-	g, err := e.groupByName(name)
+	g, err := e.groupByName(ctx, name)
 	if err != nil {
 		return err
 	}
 	_, err = e.ec2.RevokeSecurityGroup(g, rulesToIPPerms(rules))
 	if err != nil {
-		return errors.Annotate(maybeConvertCredentialError(err), "cannot close ports")
+		return errors.Annotate(maybeConvertCredentialError(err, ctx), "cannot close ports")
 	}
 	return nil
 }
 
-func (e *environ) ingressRulesInGroup(name string) (rules []network.IngressRule, err error) {
-	group, err := e.groupInfoByName(name)
+func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name string) (rules []network.IngressRule, err error) {
+	group, err := e.groupInfoByName(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -1444,7 +1450,7 @@ func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.Ing
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for opening ports on model", e.Config().FirewallMode())
 	}
-	if err := e.openPortsInGroup(e.globalGroupName(), rules); err != nil {
+	if err := e.openPortsInGroup(ctx, e.globalGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
 	logger.Infof("opened ports in global group: %v", rules)
@@ -1455,7 +1461,7 @@ func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules []network.In
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for closing ports on model", e.Config().FirewallMode())
 	}
-	if err := e.closePortsInGroup(e.globalGroupName(), rules); err != nil {
+	if err := e.closePortsInGroup(ctx, e.globalGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
 	logger.Infof("closed ports in global group: %v", rules)
@@ -1466,14 +1472,14 @@ func (e *environ) IngressRules(ctx context.ProviderCallContext) ([]network.Ingre
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from model", e.Config().FirewallMode())
 	}
-	return e.ingressRulesInGroup(e.globalGroupName())
+	return e.ingressRulesInGroup(ctx, e.globalGroupName())
 }
 
 func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
+func (e *environ) instanceSecurityGroups(ctx context.ProviderCallContext, instIDs []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
 	strInstID := make([]string, len(instIDs))
 	for i := range instIDs {
 		strInstID[i] = string(instIDs[i])
@@ -1486,7 +1492,7 @@ func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string
 
 	resp, err := e.ec2.Instances(strInstID, filter)
 	if err != nil {
-		return nil, errors.Annotatef(maybeConvertCredentialError(err), "cannot retrieve instance information from aws to delete security groups")
+		return nil, errors.Annotatef(maybeConvertCredentialError(err, ctx), "cannot retrieve instance information from aws to delete security groups")
 	}
 
 	securityGroups := []ec2.SecurityGroup{}
@@ -1501,12 +1507,12 @@ func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string
 
 // controllerSecurityGroups returns the details of all security groups managed
 // by the environment's controller.
-func (e *environ) controllerSecurityGroups(controllerUUID string) ([]ec2.SecurityGroup, error) {
+func (e *environ) controllerSecurityGroups(ctx context.ProviderCallContext, controllerUUID string) ([]ec2.SecurityGroup, error) {
 	filter := ec2.NewFilter()
 	e.addControllerFilter(filter, controllerUUID)
 	resp, err := e.ec2.SecurityGroups(nil, filter)
 	if err != nil {
-		return nil, errors.Annotate(maybeConvertCredentialError(err), "listing security groups")
+		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing security groups")
 	}
 	groups := make([]ec2.SecurityGroup, len(resp.Groups))
 	for i, info := range resp.Groups {
@@ -1515,12 +1521,12 @@ func (e *environ) controllerSecurityGroups(controllerUUID string) ([]ec2.Securit
 	return groups, nil
 }
 
-func (e *environ) modelSecurityGroupIDs() ([]string, error) {
+func (e *environ) modelSecurityGroupIDs(ctx context.ProviderCallContext) ([]string, error) {
 	filter := ec2.NewFilter()
 	e.addModelFilter(filter)
 	resp, err := e.ec2.SecurityGroups(nil, filter)
 	if err != nil {
-		return nil, errors.Annotate(maybeConvertCredentialError(err), "listing security groups")
+		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing security groups")
 	}
 	groupIDs := make([]string, len(resp.Groups))
 	for i, info := range resp.Groups {
@@ -1531,16 +1537,16 @@ func (e *environ) modelSecurityGroupIDs() ([]string, error) {
 
 // cleanEnvironmentSecurityGroups attempts to delete all security groups owned
 // by the environment.
-func (e *environ) cleanEnvironmentSecurityGroups() error {
+func (e *environ) cleanEnvironmentSecurityGroups(ctx context.ProviderCallContext) error {
 	jujuGroup := e.jujuGroupName()
-	g, err := e.groupByName(jujuGroup)
+	g, err := e.groupByName(ctx, jujuGroup)
 	if isNotFoundError(err) {
 		return nil
 	}
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve default security group: %q", jujuGroup)
 	}
-	if err := deleteSecurityGroupInsistently(e.ec2, g, clock.WallClock); err != nil {
+	if err := deleteSecurityGroupInsistently(e.ec2, ctx, g, clock.WallClock); err != nil {
 		return errors.Annotate(err, "cannot delete default security group")
 	}
 	return nil
@@ -1554,7 +1560,7 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	// TODO (anastasiamac 2016-04-11) Err if instances still have resources hanging around.
 	// LP#1568654
 	defer func() {
-		e.deleteSecurityGroupsForInstances(ids)
+		e.deleteSecurityGroupsForInstances(ctx, ids)
 	}()
 
 	// TODO (anastasiamac 2016-04-7) instance termination would benefit
@@ -1562,11 +1568,11 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	// in defer. Bug#1567179.
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
-		_, err = terminateInstancesById(e.ec2, ids...)
+		_, err = terminateInstancesById(e.ec2, ctx, ids...)
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 			// This will return either success at terminating all instances (1st condition) or
 			// encountered error as long as it's not NotFound (2nd condition).
-			return maybeConvertCredentialError(err)
+			return maybeConvertCredentialError(err, ctx)
 		}
 	}
 
@@ -1581,7 +1587,7 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	// So try each instance individually, ignoring a NotFound error this time.
 	deletedIDs := []instance.Id{}
 	for _, id := range ids {
-		_, err = terminateInstancesById(e.ec2, id)
+		_, err = terminateInstancesById(e.ec2, ctx, id)
 		if err == nil {
 			deletedIDs = append(deletedIDs, id)
 		}
@@ -1596,19 +1602,19 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	return nil
 }
 
-var terminateInstancesById = func(ec2inst *ec2.EC2, ids ...instance.Id) (*ec2.TerminateInstancesResp, error) {
+var terminateInstancesById = func(ec2inst *ec2.EC2, ctx context.ProviderCallContext, ids ...instance.Id) (*ec2.TerminateInstancesResp, error) {
 	strs := make([]string, len(ids))
 	for i, id := range ids {
 		strs[i] = string(id)
 	}
 	r, err := ec2inst.TerminateInstances(strs)
 	if err != nil {
-		return nil, maybeConvertCredentialError(err)
+		return nil, maybeConvertCredentialError(err, ctx)
 	}
 	return r, nil
 }
 
-func (e *environ) deleteSecurityGroupsForInstances(ids []instance.Id) {
+func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallContext, ids []instance.Id) {
 	if len(ids) == 0 {
 		logger.Debugf("no need to delete security groups: no intances were terminated successfully")
 		return
@@ -1616,7 +1622,7 @@ func (e *environ) deleteSecurityGroupsForInstances(ids []instance.Id) {
 
 	// We only want to attempt deleting security groups for the
 	// instances that have been successfully terminated.
-	securityGroups, err := e.instanceSecurityGroups(ids, "shutting-down", "terminated")
+	securityGroups, err := e.instanceSecurityGroups(ctx, ids, "shutting-down", "terminated")
 	if err != nil {
 		logger.Errorf("cannot determine security groups to delete: %v", err)
 		return
@@ -1632,7 +1638,7 @@ func (e *environ) deleteSecurityGroupsForInstances(ids []instance.Id) {
 		if deletable.Name == jujuGroup {
 			continue
 		}
-		if err := deleteSecurityGroupInsistently(e.ec2, deletable, clock.WallClock); err != nil {
+		if err := deleteSecurityGroupInsistently(e.ec2, ctx, deletable, clock.WallClock); err != nil {
 			// In ideal world, we would err out here.
 			// However:
 			// 1. We do not know if all instances have been terminated.
@@ -1653,7 +1659,7 @@ type SecurityGroupCleaner interface {
 	DeleteSecurityGroup(group ec2.SecurityGroup) (resp *ec2.SimpleResp, err error)
 }
 
-var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.SecurityGroup, clock clock.Clock) error {
+var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, ctx context.ProviderCallContext, group ec2.SecurityGroup, clock clock.Clock) error {
 	err := retry.Call(retry.CallArgs{
 		Attempts:    30,
 		Delay:       time.Second,
@@ -1666,7 +1672,7 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.S
 				logger.Debugf("deleting security group %q", group.Name)
 				return nil
 			}
-			return errors.Trace(maybeConvertCredentialError(err))
+			return errors.Trace(maybeConvertCredentialError(err, ctx))
 		},
 		IsFatalError: func(err error) bool {
 			return common.IsCredentialNotValid(err)
@@ -1712,7 +1718,7 @@ func (e *environ) jujuGroupName() string {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(controllerUUID, machineId string, apiPorts []int) ([]ec2.SecurityGroup, error) {
+func (e *environ) setUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string, apiPorts []int) ([]ec2.SecurityGroup, error) {
 	perms := []ec2.IPPerm{{
 		Protocol:  "tcp",
 		FromPort:  22,
@@ -1741,7 +1747,7 @@ func (e *environ) setUpGroups(controllerUUID, machineId string, apiPorts []int) 
 		ToPort:   -1,
 	})
 	// Ensure there's a global group for Juju-related traffic.
-	jujuGroup, err := e.ensureGroup(controllerUUID, e.jujuGroupName(), perms)
+	jujuGroup, err := e.ensureGroup(ctx, controllerUUID, e.jujuGroupName(), perms)
 	if err != nil {
 		return nil, err
 	}
@@ -1749,9 +1755,9 @@ func (e *environ) setUpGroups(controllerUUID, machineId string, apiPorts []int) 
 	var machineGroup ec2.SecurityGroup
 	switch e.Config().FirewallMode() {
 	case config.FwInstance:
-		machineGroup, err = e.ensureGroup(controllerUUID, e.machineGroupName(machineId), nil)
+		machineGroup, err = e.ensureGroup(ctx, controllerUUID, e.machineGroupName(machineId), nil)
 	case config.FwGlobal:
-		machineGroup, err = e.ensureGroup(controllerUUID, e.globalGroupName(), nil)
+		machineGroup, err = e.ensureGroup(ctx, controllerUUID, e.globalGroupName(), nil)
 	}
 	if err != nil {
 		return nil, err
@@ -1786,7 +1792,7 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroup
 // If it exists, its permissions are set to perms.
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
-func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	// Due to parallelization of the provisioner, it's possible that we try
 	// to create the model security group a second time before the first time
 	// is complete causing failures.
@@ -1803,7 +1809,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 
 	resp, err := e.ec2.CreateSecurityGroup(chosenVPCID, name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
-		err = errors.Annotatef(maybeConvertCredentialError(err), "creating security group %q%s", name, inVPCLogSuffix)
+		err = errors.Annotatef(maybeConvertCredentialError(err, ctx), "creating security group %q%s", name, inVPCLogSuffix)
 		return zeroGroup, err
 	}
 
@@ -1817,14 +1823,14 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 			names.NewControllerTag(controllerUUID),
 			cfg,
 		)
-		if err := tagResources(e.ec2, tags, g.Id); err != nil {
+		if err := tagResources(e.ec2, ctx, tags, g.Id); err != nil {
 			return g, errors.Annotate(err, "tagging security group")
 		}
 		logger.Debugf("created security group %q with ID %q%s", name, g.Id, inVPCLogSuffix)
 	} else {
 		resp, err := e.securityGroupsByNameOrID(name)
 		if err != nil {
-			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err), "fetching security group %q%s", name, inVPCLogSuffix)
+			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err, ctx), "fetching security group %q%s", name, inVPCLogSuffix)
 		}
 		if len(resp.Groups) == 0 {
 			return zeroGroup, errors.NotFoundf("security group %q%s", name, inVPCLogSuffix)
@@ -1848,7 +1854,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 	if len(revoke) > 0 {
 		_, err := e.ec2.RevokeSecurityGroup(g, revoke.ipPerms())
 		if err != nil {
-			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err), "revoking security group %q%s", g.Id, inVPCLogSuffix)
+			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err, ctx), "revoking security group %q%s", g.Id, inVPCLogSuffix)
 		}
 	}
 
@@ -1861,7 +1867,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 	if len(add) > 0 {
 		_, err := e.ec2.AuthorizeSecurityGroup(g, add.ipPerms())
 		if err != nil {
-			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err), "authorizing security group %q%s", g.Id, inVPCLogSuffix)
+			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err, ctx), "authorizing security group %q%s", g.Id, inVPCLogSuffix)
 		}
 	}
 	return g, nil
@@ -1993,12 +1999,12 @@ func (e *environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, int
 	return errors.NotSupportedf("container address allocation")
 }
 
-func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
+func (e *environ) supportedInstanceTypes(ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
 	allInstanceTypes := ec2instancetypes.RegionInstanceTypes(e.cloud.Region)
 	if isVPCIDSet(e.ecfg().vpcID()) {
 		return allInstanceTypes, nil
 	}
-	hasDefaultVPC, err := e.hasDefaultVPC()
+	hasDefaultVPC, err := e.hasDefaultVPC(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2019,7 +2025,7 @@ func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
 	return supportedInstanceTypes, nil
 }
 
-func (e *environ) hasDefaultVPC() (bool, error) {
+func (e *environ) hasDefaultVPC(ctx context.ProviderCallContext) (bool, error) {
 	e.defaultVPCMutex.Lock()
 	defer e.defaultVPCMutex.Unlock()
 	if !e.defaultVPCChecked {
@@ -2027,7 +2033,7 @@ func (e *environ) hasDefaultVPC() (bool, error) {
 		filter.Add("isDefault", "true")
 		resp, err := e.ec2.VPCs(nil, filter)
 		if err != nil {
-			return false, errors.Trace(maybeConvertCredentialError(err))
+			return false, errors.Trace(maybeConvertCredentialError(err, ctx))
 		}
 		if len(resp.VPCs) > 0 {
 			e.defaultVPC = &resp.VPCs[0]
@@ -2056,14 +2062,14 @@ func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []networ
 func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
 	vpcId := e.ecfg().vpcID()
 	if !isVPCIDSet(vpcId) {
-		if hasDefaultVPC, err := e.hasDefaultVPC(); err == nil && hasDefaultVPC {
+		if hasDefaultVPC, err := e.hasDefaultVPC(ctx); err == nil && hasDefaultVPC {
 			vpcId = e.defaultVPC.Id
 		}
 	}
 	if !isVPCIDSet(vpcId) {
 		return nil, errors.NotSupportedf("Not a VPC environment")
 	}
-	cidr, err := getVPCCIDR(e.ec2, vpcId)
+	cidr, err := getVPCCIDR(e.ec2, ctx, vpcId)
 	if err != nil {
 		return nil, err
 	}

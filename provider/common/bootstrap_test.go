@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -35,7 +36,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -393,7 +393,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(result.Series, gc.Equals, config.PreferredSeries(mocksConfig))
-	c.Assert(result.Finalize, gc.NotNil)
+	c.Assert(result.CloudBootstrapFinalizer, gc.NotNil)
 
 	// Check that we make the SSH connection with desired options.
 	var knownHosts string
@@ -429,7 +429,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		}
 		return nil
 	})
-	err = result.Finalize(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
+	err = result.CloudBootstrapFinalizer(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
 		Timeout: coretesting.LongWait,
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: .*") // icfg hasn't been finalized
@@ -482,8 +482,8 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result.Finalize, gc.NotNil)
-	err = result.Finalize(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
+	c.Assert(result.CloudBootstrapFinalizer, gc.NotNil)
+	err = result.CloudBootstrapFinalizer(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
 		Timeout: coretesting.ShortWait,
 	})
 	c.Assert(err, gc.ErrorMatches, "waited for 50ms without being able to connect.*")

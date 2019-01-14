@@ -8,7 +8,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 )
 
@@ -50,7 +51,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 		if len(volumeParams) == 0 {
 			continue
 		}
-		results, err := volumeSource.CreateVolumes(volumeParams)
+		results, err := volumeSource.CreateVolumes(ctx.config.CloudCallContext, volumeParams)
 		if err != nil {
 			return errors.Annotatef(err, "creating volumes from source %q", sourceName)
 		}
@@ -145,10 +146,11 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 			// to do here.
 			continue
 		}
-		results, err := volumeSource.AttachVolumes(volumeAttachmentParams)
+		results, err := volumeSource.AttachVolumes(ctx.config.CloudCallContext, volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "attaching volumes from source %q", sourceName)
 		}
+
 		for i, result := range results {
 			p := volumeAttachmentParams[i]
 			statuses = append(statuses, params.EntityStatusArgs{
@@ -183,10 +185,66 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 	}
 	scheduleOperations(ctx, reschedule...)
 	setStatus(ctx, statuses)
+	if err := createVolumeAttachmentPlans(ctx, volumeAttachments); err != nil {
+		return errors.Trace(err)
+	}
 	if err := setVolumeAttachmentInfo(ctx, volumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
+
 	return nil
+}
+
+// createVolumeAttachmentPlans creates a volume info plan in state, which notifies the machine
+// agent of the target instance that something has been attached to it.
+func createVolumeAttachmentPlans(ctx *context, volumeAttachments []storage.VolumeAttachment) error {
+	// NOTE(gsamfira): should we merge this with setVolumeInfo?
+	if len(volumeAttachments) == 0 {
+		return nil
+	}
+
+	volumeAttachmentPlans := make([]params.VolumeAttachmentPlan, len(volumeAttachments))
+	for i, val := range volumeAttachments {
+		volumeAttachmentPlans[i] = volumeAttachmentPlanFromAttachment(val)
+	}
+
+	errorResults, err := ctx.config.Volumes.CreateVolumeAttachmentPlans(volumeAttachmentPlans)
+	if err != nil {
+		return errors.Annotatef(err, "creating volume plans")
+	}
+	for i, result := range errorResults {
+		if result.Error != nil {
+			return errors.Annotatef(
+				result.Error, "creating volume plan of %s to %s to state",
+				names.ReadableString(volumeAttachments[i].Volume),
+				names.ReadableString(volumeAttachments[i].Machine),
+			)
+		}
+		// Record the volume attachment in the context.
+		id := params.MachineStorageId{
+			MachineTag:    volumeAttachmentPlans[i].MachineTag,
+			AttachmentTag: volumeAttachmentPlans[i].VolumeTag,
+		}
+		ctx.volumeAttachments[id] = volumeAttachments[i]
+		// removePendingVolumeAttachment(ctx, id)
+	}
+	return nil
+}
+
+func volumeAttachmentPlanFromAttachment(attachment storage.VolumeAttachment) params.VolumeAttachmentPlan {
+	var planInfo params.VolumeAttachmentPlanInfo
+	if attachment.PlanInfo != nil {
+		planInfo.DeviceAttributes = attachment.PlanInfo.DeviceAttributes
+		planInfo.DeviceType = attachment.PlanInfo.DeviceType
+	} else {
+		planInfo.DeviceType = storage.DeviceTypeLocal
+	}
+	return params.VolumeAttachmentPlan{
+		VolumeTag:  attachment.Volume.String(),
+		MachineTag: attachment.Machine.String(),
+		Life:       params.Alive,
+		PlanInfo:   planInfo,
+	}
 }
 
 // removeVolumes destroys or releases volumes with the specified parameters.
@@ -217,11 +275,11 @@ func removeVolumes(ctx *context, ops map[names.VolumeTag]*removeVolumeOp) error 
 	var remove []names.Tag
 	var reschedule []scheduleOp
 	var statuses []params.EntityStatusArgs
-	removeVolumes := func(tags []names.VolumeTag, ids []string, f func([]string) ([]error, error)) error {
+	removeVolumes := func(tags []names.VolumeTag, ids []string, f func(environscontext.ProviderCallContext, []string) ([]error, error)) error {
 		if len(ids) == 0 {
 			return nil
 		}
-		errs, err := f(ids)
+		errs, err := f(ctx.config.CloudCallContext, ids)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -235,8 +293,8 @@ func removeVolumes(ctx *context, ops map[names.VolumeTag]*removeVolumeOp) error 
 			reschedule = append(reschedule, ops[tag])
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
-				Status: status.Destroying.String(),
-				Info:   err.Error(),
+				Status: status.Error.String(),
+				Info:   errors.Annotate(err, "destroying volume").Error(),
 			})
 		}
 		return nil
@@ -252,14 +310,10 @@ func removeVolumes(ctx *context, ops map[names.VolumeTag]*removeVolumeOp) error 
 		}
 		destroyTags, destroyIds, releaseTags, releaseIds := partitionRemoveVolumeParams(removeTags, removeParams)
 		if err := removeVolumes(destroyTags, destroyIds, volumeSource.DestroyVolumes); err != nil {
-			if err != nil {
-				return errors.Trace(err)
-			}
+			return errors.Trace(err)
 		}
 		if err := removeVolumes(releaseTags, releaseIds, volumeSource.ReleaseVolumes); err != nil {
-			if err != nil {
-				return errors.Trace(err)
-			}
+			return errors.Trace(err)
 		}
 	}
 	scheduleOperations(ctx, reschedule...)
@@ -315,7 +369,7 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 			// to do here.
 			continue
 		}
-		errs, err := volumeSource.DetachVolumes(volumeAttachmentParams)
+		errs, err := volumeSource.DetachVolumes(ctx.config.CloudCallContext, volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "detaching volumes from source %q", sourceName)
 		}

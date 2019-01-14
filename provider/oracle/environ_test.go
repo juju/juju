@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
@@ -58,8 +59,8 @@ func (e *environSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&environSuite{})
 
 // shamelessly copied from one of the OpenStack tests
-var clk = gitjujutesting.NewClock(time.Time{})
-var advancingClock = gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+var clk = testclock.NewClock(time.Time{})
+var advancingClock = testclock.AutoAdvancingClock{clk, clk.Advance}
 
 func (e *environSuite) TestAvailabilityZone(c *gc.C) {
 	zones, err := e.env.AvailabilityZones(e.callCtx)
@@ -237,7 +238,7 @@ func (e *environSuite) TestConfig(c *gc.C) {
 }
 
 func (e *environSuite) TestConstraintsValidator(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator()
+	validator, err := e.env.ConstraintsValidator(e.callCtx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(validator, gc.NotNil)
 }

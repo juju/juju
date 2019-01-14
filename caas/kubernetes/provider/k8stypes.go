@@ -4,8 +4,10 @@
 package provider
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 	core "k8s.io/api/core/v1"
@@ -38,6 +40,9 @@ func (*K8sContainerSpec) Validate() error {
 	return nil
 }
 
+var boolValues = set.NewStrings(
+	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...)
+
 // parseK8sPodSpec parses a YAML file which defines how to
 // configure a CAAS pod. We allow for generic container
 // set up plus k8s select specific features.
@@ -59,6 +64,19 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 		return nil, errors.New("require at least one container spec")
 	}
 
+	// Any string config values that could be interpreted as bools need to be quoted.
+	for _, container := range containers.Containers {
+		for k, v := range container.Config {
+			strValue, ok := v.(string)
+			if !ok {
+				continue
+			}
+			if boolValues.Contains(strValue) {
+				container.Config[k] = fmt.Sprintf("'%s'", strValue)
+			}
+		}
+	}
+
 	// Compose the result.
 	spec.Containers = make([]caas.ContainerSpec, len(containers.Containers))
 	for i, c := range containers.Containers {
@@ -66,11 +84,15 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 			return nil, errors.Trace(err)
 		}
 		spec.Containers[i] = caas.ContainerSpec{
-			Name:   c.Name,
-			Image:  c.Image,
-			Ports:  c.Ports,
-			Config: c.Config,
-			Files:  c.Files,
+			ImageDetails: c.ImageDetails,
+			Name:         c.Name,
+			Image:        c.Image,
+			Ports:        c.Ports,
+			Command:      c.Command,
+			Args:         c.Args,
+			WorkingDir:   c.WorkingDir,
+			Config:       c.Config,
+			Files:        c.Files,
 		}
 		if c.K8sContainerSpec != nil {
 			spec.Containers[i].ProviderContainer = c.K8sContainerSpec

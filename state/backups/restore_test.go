@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,7 +25,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -215,24 +215,22 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer server.DestroyWithLog()
 
-	ctlr, st := statetesting.InitializeWithArgs(c,
+	ctlr := statetesting.InitializeWithArgs(c,
 		statetesting.InitializeArgs{
 			Owner: names.NewLocalUserTag("test-admin"),
-			Clock: gitjujutesting.NewClock(coretesting.NonZeroTime()),
+			Clock: testclock.NewClock(coretesting.NonZeroTime()),
 		})
-	c.Assert(st.Close(), jc.ErrorIsNil)
+	st := ctlr.SystemState()
 	c.Assert(ctlr.Close(), jc.ErrorIsNil)
 
 	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)
-	r.PatchValue(&environsGetNewPolicyFunc, func(
-		func(*state.State) (environs.Environ, error),
-	) state.NewPolicyFunc {
+	r.PatchValue(&environsGetNewPolicyFunc, func() state.NewPolicyFunc {
 		return nil
 	})
 
-	st, err = newStateConnection(st.ControllerTag(), names.NewModelTag(st.ModelUUID()), statetesting.NewMongoInfo())
+	newConnection, err := connectToDB(st.ControllerTag(), names.NewModelTag(st.ModelUUID()), statetesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st.Close(), jc.ErrorIsNil)
+	c.Assert(newConnection.Close(), jc.ErrorIsNil)
 }
 
 func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {

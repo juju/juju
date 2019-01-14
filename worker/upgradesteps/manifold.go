@@ -22,8 +22,8 @@ type ManifoldConfig struct {
 	AgentName            string
 	APICallerName        string
 	UpgradeStepsGateName string
-	OpenStateForUpgrade  func() (*state.State, error)
-	PreUpgradeSteps      func(*state.State, agent.Config, bool, bool) error
+	OpenStateForUpgrade  func() (*state.StatePool, error)
+	PreUpgradeSteps      func(*state.StatePool, agent.Config, bool, bool) error
 	NewEnvironFunc       environs.NewEnvironFunc
 	NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
 }

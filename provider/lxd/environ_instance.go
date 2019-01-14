@@ -7,11 +7,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/juju/provider/common"
 )
 
 // Instances returns the available instances in the environment that
@@ -31,6 +32,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 		// will return either ErrPartialInstances or ErrNoInstances.
 		// TODO(ericsnow) Skip returning here only for certain errors?
 		logger.Errorf("failed to get instances from LXD: %v", err)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		err = errors.Trace(err)
 	}
 
@@ -76,17 +78,15 @@ func (env *environ) allInstances() ([]*environInstance, error) {
 
 // prefixedInstances returns instances with the specified prefix.
 func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error) {
-	instances, err := env.raw.Instances(prefix, lxdclient.AliveStatuses...)
+	containers, err := env.server.AliveContainers(prefix)
 	err = errors.Trace(err)
 
-	// Turn lxdclient.Instance values into *environInstance values,
+	// Turn lxd.Container values into *environInstance values,
 	// whether or not we got an error.
 	var results []*environInstance
-	for _, base := range instances {
-		// If we don't make a copy then the same pointer is used for the
-		// base of all resulting instances.
-		copied := base
-		inst := newInstance(&copied, env)
+	for _, c := range containers {
+		c := c
+		inst := newInstance(&c, env)
 		results = append(results, inst)
 	}
 	return results, err
@@ -95,18 +95,19 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
 func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	instances, err := env.raw.Instances("juju-", lxdclient.AliveStatuses...)
+	containers, err := env.server.AliveContainers("juju-")
 	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
 
 	var results []instance.Id
-	for _, inst := range instances {
-		if inst.Metadata()[tags.JujuController] != controllerUUID {
+	for _, c := range containers {
+		if c.Metadata(tags.JujuController) != controllerUUID {
 			continue
 		}
-		if inst.Metadata()[tags.JujuIsController] == "true" {
-			results = append(results, instance.Id(inst.Name))
+		if c.Metadata(tags.JujuIsController) == "true" {
+			results = append(results, instance.Id(c.Name))
 		}
 	}
 	if len(results) == 0 {
@@ -115,29 +116,25 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 	return results, nil
 }
 
-type instPlacement struct{}
-
-func (env *environ) parsePlacement(placement string) (*instPlacement, error) {
-	if placement == "" {
-		return &instPlacement{}, nil
-	}
-
-	return nil, errors.Errorf("unknown placement directive: %v", placement)
-}
-
 // AdoptResources updates the controller tags on all instances to have the
 // new controller id. It's part of the Environ interface.
 func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	instances, err := env.AllInstances(ctx)
 	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Annotate(err, "all instances")
 	}
 
 	var failed []instance.Id
-	qualifiedKey := lxdclient.ResolveConfigKey(tags.JujuController, lxdclient.MetadataNamespace)
+	qualifiedKey := lxd.UserNamespacePrefix + tags.JujuController
 	for _, instance := range instances {
 		id := instance.Id()
-		err := env.raw.UpdateContainerConfig(string(id), map[string]string{qualifiedKey: controllerUUID})
+		// TODO (manadart 2018-06-27) This is a smell.
+		// Everywhere else, we update the container config on a container and then call WriteContainer.
+		// If we added a method directly to environInstance to do this, we wouldn't need this
+		// implementation of UpdateContainerConfig at all, and the container representation we are
+		// holding would be consistent with that on the server.
+		err := env.server.UpdateContainerConfig(string(id), map[string]string{qualifiedKey: controllerUUID})
 		if err != nil {
 			logger.Errorf("error setting controller uuid tag for %q: %v", id, err)
 			failed = append(failed, id)

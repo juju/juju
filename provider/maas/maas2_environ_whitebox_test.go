@@ -143,6 +143,17 @@ func (suite *maas2EnvironSuite) TestInstances(c *gc.C) {
 	c.Assert(actualMachines, gc.DeepEquals, expectedMachines)
 }
 
+func (suite *maas2EnvironSuite) TestInstancesInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		machinesError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.Instances(suite.callCtx, []instance.Id{"jake", "bonnibel"})
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
+}
+
 func (suite *maas2EnvironSuite) TestInstancesPartialResult(c *gc.C) {
 	env := suite.makeEnvironWithMachines(
 		c, []string{"jake", "bonnibel"}, []string{"tuco", "bonnibel"},
@@ -173,6 +184,17 @@ func (suite *maas2EnvironSuite) TestAvailabilityZonesError(c *gc.C) {
 	env := suite.makeEnviron(c, controller)
 	_, err := env.AvailabilityZones(suite.callCtx)
 	c.Assert(err, gc.ErrorMatches, "a bad thing")
+}
+
+func (suite *maas2EnvironSuite) TestAvailabilityZonesInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		zonesError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.AvailabilityZones(suite.callCtx)
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
 }
 
 func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
@@ -217,6 +239,17 @@ func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
 	env := suite.makeEnviron(c, controller)
 	_, err := env.Spaces(suite.callCtx)
 	c.Assert(err, gc.ErrorMatches, "Joe Manginiello")
+}
+
+func (suite *maas2EnvironSuite) TestSpacesInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		spacesError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.Spaces(suite.callCtx)
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
 }
 
 func collectReleaseArgs(controller *fakeController) []gomaasapi.ReleaseMachinesArgs {
@@ -678,11 +711,12 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
 
@@ -697,11 +731,12 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentRetry(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Check(c.GetTestLog(), jc.Contains, "WARNING juju.provider.maas failed to get instance from provider attempt")
 }
 
@@ -716,11 +751,12 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2152,11 +2188,12 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	}
 
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine.Stub.CheckCallNames(c, "Start", "SetOwnerData")
@@ -2240,6 +2277,18 @@ func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
 	}
 }
 
+func (suite *maas2EnvironSuite) TestControllerInstancesInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		machinesError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.ControllerInstances(suite.callCtx, suite.controllerUUID)
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
+}
+
 func (suite *maas2EnvironSuite) TestDestroy(c *gc.C) {
 	file1 := &fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"}
 	file2 := &fakeFile{name: coretesting.ModelTag.Id() + "-horace"}
@@ -2264,14 +2313,15 @@ func (suite *maas2EnvironSuite) TestDestroy(c *gc.C) {
 func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron(c, newFakeController())
 	vers := version.MustParse("1.2.3")
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-		// Disable auto-uploading by setting the agent version
-		// to something that's not the current version.
-		AgentVersion: &vers,
-	})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+			// Disable auto-uploading by setting the agent version
+			// to something that's not the current version.
+			AgentVersion: &vers,
+		})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*")
 }
 
@@ -2280,11 +2330,12 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	controller := newFakeController()
 	controller.allocateMachineError = gomaasapi.NewNoMatchError("oops")
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, "cannot start bootstrap instance in any availability zone \\(mossack, fonseca\\)")
@@ -2305,12 +2356,35 @@ func (suite *maas2EnvironSuite) TestConstraintsValidator(c *gc.C) {
 	controller := newFakeController()
 	controller.bootResources = []gomaasapi.BootResource{&fakeBootResource{name: "trusty", architecture: "amd64"}}
 	env := suite.makeEnviron(c, controller)
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "virt-type"})
+}
+
+func (suite *maas2EnvironSuite) TestConstraintsValidatorInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		bootResources:      []gomaasapi.BootResource{&fakeBootResource{name: "trusty", architecture: "amd64"}},
+		bootResourcesError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.ConstraintsValidator(suite.callCtx)
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
+}
+
+func (suite *maas2EnvironSuite) TestDomainsInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		domainsError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.Domains(suite.callCtx)
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
 }
 
 func (suite *maas2EnvironSuite) TestConstraintsValidatorVocab(c *gc.C) {
@@ -2320,7 +2394,7 @@ func (suite *maas2EnvironSuite) TestConstraintsValidatorVocab(c *gc.C) {
 		&fakeBootResource{name: "precise", architecture: "armhf"},
 	}
 	env := suite.makeEnviron(c, controller)
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)

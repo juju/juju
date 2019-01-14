@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/pubsub/apiserver"
@@ -77,7 +77,7 @@ func NewRequestObserver(ctx RequestObserverContext) *RequestObserver {
 
 func (n *RequestObserver) isAgent(entity names.Tag) bool {
 	switch entity.(type) {
-	case names.UnitTag, names.MachineTag:
+	case names.UnitTag, names.MachineTag, names.ApplicationTag:
 		return true
 	default:
 		return false

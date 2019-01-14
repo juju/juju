@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -68,22 +69,22 @@ type enableCommand struct {
 
 // Info implements Command.Info.
 func (c *disableCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "disable-user",
 		Args:    "<user name>",
 		Purpose: usageDisableUserSummary,
 		Doc:     usageDisableUserDetails,
-	}
+	})
 }
 
 // Info implements Command.Info.
 func (c *enableCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "enable-user",
 		Args:    "<user name>",
 		Purpose: usageEnableUserSummary,
 		Doc:     usageEnableUserDetails,
-	}
+	})
 }
 
 // Init implements Command.Init.

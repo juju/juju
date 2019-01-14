@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/watcher/watchertest"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/worker/caasfirewaller"
 )
 
@@ -33,8 +33,8 @@ type mockServiceExposer struct {
 	unexposed chan<- struct{}
 }
 
-func (m *mockServiceExposer) ExposeService(appName string, config application.ConfigAttributes) error {
-	m.MethodCall(m, "ExposeService", appName, config)
+func (m *mockServiceExposer) ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error {
+	m.MethodCall(m, "ExposeService", appName, resourceTags, config)
 	m.exposed <- struct{}{}
 	return m.NextErr()
 }

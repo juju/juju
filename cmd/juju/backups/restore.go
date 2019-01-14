@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/bootstrap"
@@ -69,7 +70,7 @@ environment to match the restored database, e.g. no units, relations, nor
 machines will be added or removed during the restore process.
 
 Note: Extra care is needed to restore in an HA environment, please see
-https://docs.jujucharms.com/devel/en/controllers-backup for more information.
+https://docs.jujucharms.com/stable/controllers-backup for more information.
 
 If the provided state cannot be restored, this command will fail with
 an explanation.
@@ -77,12 +78,12 @@ an explanation.
 
 // Info returns the content for --help.
 func (c *restoreCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "restore-backup",
 		Purpose: "Restore from a backup archive to the existing controller.",
 		Args:    "",
 		Doc:     strings.TrimSpace(restoreDoc),
-	}
+	})
 }
 
 // SetFlags handles known option flags.
@@ -166,7 +167,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	activeCount, _ := controller.ControllerMachineCounts(controllerModelUUID, modelStatus)
 	if activeCount > 1 {
-		return errors.Errorf("unable to restore backup in HA configuration.  For help see https://docs.jujucharms.com/devel/en/controllers-backup")
+		return errors.Errorf("unable to restore backup in HA configuration.  For help see https://docs.jujucharms.com/stable/controllers-backup")
 	}
 
 	var archive ArchiveReader

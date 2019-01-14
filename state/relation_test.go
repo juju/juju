@@ -12,10 +12,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -205,6 +205,46 @@ func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": principal and subordinate applications' series must match`)
+}
+
+func (s *RelationSuite) TestAddContainerRelationMultiSeriesMatch(c *gc.C) {
+	principal := s.AddTestingApplication(c, "multi-series", s.AddSeriesCharm(c, "multi-series", "precise"))
+	principalEP, err := principal.Endpoint("multi-directory")
+	c.Assert(err, jc.ErrorIsNil)
+	subord := s.AddTestingApplication(c, "multi-series-subordinate", s.AddSeriesCharm(c, "multi-series-subordinate", "trusty"))
+	subordEP, err := subord.Endpoint("multi-directory")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddRelation(principalEP, subordEP)
+	principalEP.Scope = charm.ScopeContainer
+	c.Assert(err, jc.ErrorIsNil)
+	assertOneRelation(c, subord, 0, subordEP, principalEP)
+	assertOneRelation(c, principal, 0, principalEP, subordEP)
+}
+
+func (s *RelationSuite) TestAddContainerRelationMultiSeriesNoMatch(c *gc.C) {
+	principal := s.AddTestingApplication(c, "multi-series", s.AddTestingCharm(c, "multi-series"))
+	principalEP, err := principal.Endpoint("multi-directory")
+	c.Assert(err, jc.ErrorIsNil)
+	meta := `
+name: multi-series-subordinate
+summary: a test charm
+description: a test
+subordinate: true
+series:
+    - bionic
+requires:
+    multi-directory:
+       interface: logging
+       scope: container
+`[1:]
+	subord := s.AddTestingApplication(c, "multi-series-subordinate", s.AddMetaCharm(c, "multi-series-subordinate", meta, 1))
+	subordEP, err := subord.Endpoint("multi-directory")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddRelation(principalEP, subordEP)
+	principalEP.Scope = charm.ScopeContainer
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "multi-series-subordinate:multi-directory multi-series:multi-directory": principal and subordinate applications' series must match`)
 }
 
 func (s *RelationSuite) TestAddContainerRelationWithNoSubordinate(c *gc.C) {

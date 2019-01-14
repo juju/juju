@@ -13,6 +13,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter"
 	uniteractions "github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -22,6 +24,8 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/storage"
+	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
+	"github.com/juju/juju/worker/uniter/upgradeseries"
 )
 
 type resolverSuite struct {
@@ -32,12 +36,33 @@ type resolverSuite struct {
 	opFactory            operation.Factory
 	resolver             resolver.Resolver
 	resolverConfig       uniter.ResolverConfig
+	modelType            model.ModelType
 
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
 }
 
-var _ = gc.Suite(&resolverSuite{})
+type caasResolverSuite struct {
+	resolverSuite
+}
+
+type iaasResolverSuite struct {
+	resolverSuite
+}
+
+var _ = gc.Suite(&caasResolverSuite{})
+var _ = gc.Suite(&iaasResolverSuite{})
+
+func (s *caasResolverSuite) SetUpTest(c *gc.C) {
+	s.modelType = model.CAAS
+	s.resolverSuite.SetUpTest(c)
+}
+
+func (s *iaasResolverSuite) SetUpTest(c *gc.C) {
+	s.modelType = model.IAAS
+	s.resolverSuite.SetUpTest(c)
+	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
+}
 
 func (s *resolverSuite) SetUpTest(c *gc.C) {
 	s.stub = testing.Stub{}
@@ -65,11 +90,14 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		StartRetryHookTimer: func() { s.stub.AddCall("StartRetryHookTimer") },
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
+		UpgradeSeries:       upgradeseries.NewResolver(),
+		UpgradeCharmProfile: upgradecharmprofile.NewResolver(),
 		Leadership:          leadership.NewResolver(),
 		Actions:             uniteractions.NewResolver(),
 		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
-		Storage:             storage.NewResolver(attachments),
+		Storage:             storage.NewResolver(attachments, s.modelType),
 		Commands:            nopResolver{},
+		ModelType:           s.modelType,
 	}
 
 	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
@@ -109,37 +137,164 @@ func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run install hook")
 }
 
-func (s *resolverSuite) TestSeriesChanged(c *gc.C) {
+func (s *iaasResolverSuite) TestCharmModifiedTakesPrecedenceOverRelationsChanges(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
-		Series:               s.charmURL.Series,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
 			Started:   true,
 		},
 	}
-	s.remoteState.Series = "trusty"
+	s.remoteState.CharmModifiedVersion = s.charmModifiedVersion + 1
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.NotRequiredStatus
+	// Change relation state (to simulate simultaneous change remote state update)
+	s.remoteState.Relations = map[int]remotestate.RelationSnapshot{0: {}}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "run config-changed hook")
+	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-2")
 }
 
-func (s *resolverSuite) TestSeriesChangedBlank(c *gc.C) {
+func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
+		UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
 			Started:   true,
 		},
 	}
-	s.remoteState.Series = "trusty"
+	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareStarted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "run config-changed hook")
+	c.Assert(op.String(), gc.Equals, "run pre-series-upgrade hook")
+}
+
+func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion:  s.charmModifiedVersion,
+		CharmURL:              s.charmURL,
+		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
+		LeaderSettingsVersion: 1,
+		State: operation.State{
+			Kind:       operation.Continue,
+			Installed:  true,
+			Started:    true,
+			ConfigHash: "version1",
+		},
+	}
+	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesCompleteStarted
+
+	// Bumping the remote state versions verifies that the upgrade-series
+	// completion hook takes precedence.
+	s.remoteState.ConfigHash = "version2"
+	s.remoteState.LeaderSettingsVersion = 2
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run post-series-upgrade hook")
+}
+
+func (s *iaasResolverSuite) TestRunsOperationToResetLocalUpgradeSeriesStateWhenConditionsAreMet(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		UpgradeSeriesStatus:  model.UpgradeSeriesCompleted,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "complete upgrade series")
+}
+
+func (s *iaasResolverSuite) TestUniterIdlesWhenRemoteStateIsUpgradeSeriesCompleted(c *gc.C) {
+	localState := resolver.LocalState{
+		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		CharmURL:            s.charmURL,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+		},
+	}
+	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareCompleted
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}
+
+func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenNotRequired(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion:      s.charmModifiedVersion,
+		CharmURL:                  s.charmURL,
+		UpgradeCharmProfileStatus: lxdprofile.NotRequiredStatus,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.NotRequiredStatus
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-2")
+}
+
+func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenSuccess(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion:      s.charmModifiedVersion,
+		CharmURL:                  s.charmURL,
+		UpgradeCharmProfileStatus: lxdprofile.SuccessStatus,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.SuccessStatus
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-2")
+}
+
+func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenErrorState(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion:      s.charmModifiedVersion,
+		CharmURL:                  s.charmURL,
+		UpgradeCharmProfileStatus: lxdprofile.ErrorStatus,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.ErrorStatus
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "finish upgrade charm profile")
+}
+
+func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenLocalStateIsNotErroredState(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion:      s.charmModifiedVersion,
+		CharmURL:                  s.charmURL,
+		UpgradeCharmProfileStatus: lxdprofile.NotRequiredStatus,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.ErrorStatus
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "finish upgrade charm profile")
 }
 
 func (s *resolverSuite) TestHookErrorDoesNotStartRetryTimerIfShouldRetryFalse(c *gc.C) {
@@ -284,4 +439,79 @@ func (s *resolverSuite) TestRunHookStopRetryTimer(c *gc.C) {
 	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 	s.stub.CheckCallNames(c, "StartRetryHookTimer", "StopRetryHookTimer")
+}
+
+func (s *resolverSuite) TestRunsConfigChangedIfConfigHashChanges(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		State: operation.State{
+			Kind:       operation.Continue,
+			Installed:  true,
+			Started:    true,
+			ConfigHash: "somehash",
+		},
+	}
+	s.remoteState.ConfigHash = "differenthash"
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run config-changed hook")
+}
+
+func (s *resolverSuite) TestRunsConfigChangedIfTrustHashChanges(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+			TrustHash: "somehash",
+		},
+	}
+	s.remoteState.TrustHash = "differenthash"
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run config-changed hook")
+}
+
+func (s *resolverSuite) TestRunsConfigChangedIfAddressesHashChanges(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		State: operation.State{
+			Kind:          operation.Continue,
+			Installed:     true,
+			Started:       true,
+			AddressesHash: "somehash",
+		},
+	}
+	s.remoteState.AddressesHash = "differenthash"
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run config-changed hook")
+}
+
+func (s *resolverSuite) TestNoOperationIfHashesAllMatch(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		State: operation.State{
+			Kind:          operation.Continue,
+			Installed:     true,
+			Started:       true,
+			ConfigHash:    "config",
+			TrustHash:     "trust",
+			AddressesHash: "addresses",
+		},
+	}
+	s.remoteState.ConfigHash = "config"
+	s.remoteState.TrustHash = "trust"
+	s.remoteState.AddressesHash = "addresses"
+
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }

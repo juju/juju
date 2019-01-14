@@ -445,6 +445,7 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 		"base":             base,
 		"bakeryEnabled":    ctrl.IdentityURL() != "",
 		"controllerSocket": "/api",
+		"charmstoreURL":    ctrl.CharmStoreURL(),
 		"host":             req.Host,
 		"socket":           "/model/$uuid/api",
 		// staticURL holds the root of the static hierarchy, hence why the

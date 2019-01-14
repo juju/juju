@@ -21,14 +21,15 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
@@ -41,13 +42,17 @@ const (
 )
 
 type Factory struct {
-	st *state.State
+	pool *state.StatePool
+	st   *state.State
 }
 
 var index uint32
 
-func NewFactory(st *state.State) *Factory {
-	return &Factory{st: st}
+func NewFactory(st *state.State, pool *state.StatePool) *Factory {
+	return &Factory{
+		st:   st,
+		pool: pool,
+	}
 }
 
 // UserParams defines the parameters for creating a user with MakeUser.
@@ -87,8 +92,8 @@ type MachineParams struct {
 	InstanceId      instance.Id
 	Characteristics *instance.HardwareCharacteristics
 	Addresses       []network.Address
-	Volumes         []state.MachineVolumeParams
-	Filesystems     []state.MachineFilesystemParams
+	Volumes         []state.HostVolumeParams
+	Filesystems     []state.HostFilesystemParams
 }
 
 // ApplicationParams is used when specifying parameters for a new application.
@@ -103,6 +108,8 @@ type ApplicationParams struct {
 	Constraints             constraints.Value
 	EndpointBindings        map[string]string
 	Password                string
+	Placement               []*instance.Placement
+	DesiredScale            int
 }
 
 // UnitParams are used to create units.
@@ -411,7 +418,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 		params.URL = fmt.Sprintf("cs:%s/%s-%s", params.Series, params.Name, params.Revision)
 	}
 
-	ch := testcharms.Repo.CharmDir(params.Name)
+	ch := testcharms.RepoForSeries(params.Series).CharmDir(params.Name)
 
 	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := uniqueString("bundlesha")
@@ -479,9 +486,12 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Constraints:       params.Constraints,
 		Resources:         resourceMap,
 		EndpointBindings:  params.EndpointBindings,
+		Placement:         params.Placement,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	application.SetPassword(params.Password)
+	err = application.SetPassword(params.Password)
+	c.Assert(err, jc.ErrorIsNil)
+	err = application.Scale(params.DesiredScale)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
@@ -689,12 +699,6 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 	return relation
 }
 
-// NilStorageProviderRegistry is used to specify a model
-// should be created with a nil storage.ProviderRegistry.
-type NilStorageProviderRegistry struct {
-	storage.ProviderRegistry
-}
-
 // MakeModel creates an model with specified params,
 // filling in sane defaults for missing values. If params is nil,
 // defaults are used for all values.
@@ -729,22 +733,25 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params.StorageProviderRegistry == nil {
 		params.StorageProviderRegistry = provider.CommonStorageProviders()
 	}
-	nilRegistry := NilStorageProviderRegistry{}
-	if params.StorageProviderRegistry == nilRegistry {
-		params.StorageProviderRegistry = nil
-	}
-	// It only makes sense to make an model with the same provider
+
+	// For IAAS models, it only makes sense to make a model with the same provider
 	// as the initial model, or things will break elsewhere.
+	// For CAAS models, the type is "kubernetes".
 	currentCfg := factory.currentCfg(c)
+	cfgType := currentCfg.Type()
+	if params.Type == state.ModelTypeCAAS {
+		cfgType = "kubernetes"
+	}
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": params.Name,
 		"uuid": uuid.String(),
-		"type": currentCfg.Type(),
+		"type": cfgType,
 	}.Merge(params.ConfigAttrs))
-	_, st, err := factory.st.NewModel(state.ModelArgs{
+	controller := state.NewController(factory.pool)
+	_, st, err := controller.NewModel(state.ModelArgs{
 		Type:                    params.Type,
 		CloudName:               params.CloudName,
 		CloudRegion:             params.CloudRegion,
@@ -756,6 +763,45 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
+}
+
+// MakeCAASModel creates a CAAS model with specified params,
+// filling in sane defaults for missing values. If params is nil,
+// defaults are used for all values.
+func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State {
+	if params == nil {
+		params = &ModelParams{}
+	}
+	params.Type = state.ModelTypeCAAS
+	params.CloudRegion = "<none>"
+	if params.Owner == nil {
+		origEnv, err := factory.st.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		params.Owner = origEnv.Owner()
+	}
+	if params.CloudName == "" {
+		err := factory.st.AddCloud(cloud.Cloud{
+			Name:      "caascloud",
+			Type:      "kubernetes",
+			AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
+		}, params.Owner.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		params.CloudName = "caascloud"
+	}
+	if params.CloudCredential.IsZero() {
+		if params.Owner == nil {
+			origEnv, err := factory.st.Model()
+			c.Assert(err, jc.ErrorIsNil)
+			params.Owner = origEnv.Owner()
+		}
+		cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
+		tag := names.NewCloudCredentialTag(
+			fmt.Sprintf("%s/%s/dummy-credential", params.CloudName, params.Owner.Id()))
+		err := factory.st.UpdateCloudCredential(tag, cred)
+		c.Assert(err, jc.ErrorIsNil)
+		params.CloudCredential = tag
+	}
+	return factory.MakeModel(c, params)
 }
 
 // MakeSpace will create a new space with the specified params. If the space

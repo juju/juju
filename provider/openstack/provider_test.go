@@ -468,12 +468,30 @@ func (localTests) TestPingInvalidResponse(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "No Openstack server running at "+server.URL)
 }
 
+func (localTests) TestPingOKCACertificate(c *gc.C) {
+	server := httptest.NewTLSServer(handlerFunc)
+	defer server.Close()
+	pingOk(c, server)
+}
+
 func (localTests) TestPingOK(c *gc.C) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// This line is critical, the openstack provider will reject the message
-		// if you return 200 like a mere mortal.
-		w.WriteHeader(http.StatusMultipleChoices)
-		fmt.Fprint(w, `
+	server := httptest.NewServer(handlerFunc)
+	defer server.Close()
+	pingOk(c, server)
+}
+
+func pingOk(c *gc.C, server *httptest.Server) {
+	p, err := environs.Provider("openstack")
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.Ping(context.NewCloudCallContext(), server.URL)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+var handlerFunc = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// This line is critical, the openstack provider will reject the message
+	// if you return 200 like a mere mortal.
+	w.WriteHeader(http.StatusMultipleChoices)
+	fmt.Fprint(w, `
 {
   "versions": {
     "values": [
@@ -533,13 +551,7 @@ func (localTests) TestPingOK(c *gc.C) {
   }
 }
 `)
-	}))
-	defer server.Close()
-	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(context.NewCloudCallContext(), server.URL)
-	c.Assert(err, jc.ErrorIsNil)
-}
+})
 
 type providerUnitTests struct {
 	gitjujutesting.IsolationSuite
@@ -583,7 +595,7 @@ func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
 	checkIdentityClientVersion(c, "https://keystone.internal/", -1)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithVersion3(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithVersion3(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":     "3",
 		"username":    "user",
@@ -591,7 +603,6 @@ func (s *providerUnitTests) TestnewCredentialsWithVersion3(c *gc.C) {
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-
 	clouldSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
@@ -599,7 +610,6 @@ func (s *providerUnitTests) TestnewCredentialsWithVersion3(c *gc.C) {
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-
 	cred, authmode, err := newCredentials(clouldSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{
@@ -617,7 +627,7 @@ func (s *providerUnitTests) TestnewCredentialsWithVersion3(c *gc.C) {
 	c.Check(authmode, gc.Equals, identity.AuthUserPassV3)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithFaultVersion(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithFaultVersion(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":     "abc",
 		"username":    "user",
@@ -625,7 +635,6 @@ func (s *providerUnitTests) TestnewCredentialsWithFaultVersion(c *gc.C) {
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-
 	clouldSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
@@ -633,21 +642,18 @@ func (s *providerUnitTests) TestnewCredentialsWithFaultVersion(c *gc.C) {
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-
 	_, _, err := newCredentials(clouldSpec)
-	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches,
 		"cred.Version is not a valid integer type : strconv.Atoi: parsing \"abc\": invalid syntax")
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithoutVersion(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersion(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":    "user",
 		"password":    "secret",
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-
 	clouldSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
@@ -655,7 +661,6 @@ func (s *providerUnitTests) TestnewCredentialsWithoutVersion(c *gc.C) {
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-
 	cred, authmode, err := newCredentials(clouldSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{
@@ -672,7 +677,7 @@ func (s *providerUnitTests) TestnewCredentialsWithoutVersion(c *gc.C) {
 	c.Check(authmode, gc.Equals, identity.AuthUserPass)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithFaultVersionandProjectDomainName(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithFaultVersionandProjectDomainName(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":             "abc",
 		"username":            "user",
@@ -681,7 +686,6 @@ func (s *providerUnitTests) TestnewCredentialsWithFaultVersionandProjectDomainNa
 		"tenant-id":           "someID",
 		"project-domain-name": "openstack_projectdomain",
 	})
-
 	clouldSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
@@ -689,14 +693,12 @@ func (s *providerUnitTests) TestnewCredentialsWithFaultVersionandProjectDomainNa
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-
 	_, _, err := newCredentials(clouldSpec)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches,
 		"cred.Version is not a valid integer type : strconv.Atoi: parsing \"abc\": invalid syntax")
 }
-
-func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithProjectDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithProjectDomain(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":            "user",
 		"password":            "secret",
@@ -704,7 +706,6 @@ func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithProjectDomain(c 
 		"tenant-id":           "someID",
 		"project-domain-name": "openstack_projectdomain",
 	})
-
 	clouldSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
@@ -712,7 +713,6 @@ func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithProjectDomain(c 
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-
 	cred, authmode, err := newCredentials(clouldSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{
@@ -729,7 +729,7 @@ func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithProjectDomain(c 
 	c.Check(authmode, gc.Equals, identity.AuthUserPassV3)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithUserDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithUserDomain(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":         "user",
 		"password":         "secret",
@@ -737,7 +737,6 @@ func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithUserDomain(c *gc
 		"tenant-id":        "someID",
 		"user-domain-name": "openstack_userdomain",
 	})
-
 	clouldSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
@@ -745,7 +744,6 @@ func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithUserDomain(c *gc
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-
 	cred, authmode, err := newCredentials(clouldSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{
@@ -763,7 +761,7 @@ func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithUserDomain(c *gc
 	c.Check(authmode, gc.Equals, identity.AuthUserPassV3)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithVersion2(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithVersion2(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":     "2",
 		"username":    "user",
@@ -771,7 +769,6 @@ func (s *providerUnitTests) TestnewCredentialsWithVersion2(c *gc.C) {
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-
 	clouldSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
@@ -779,7 +776,6 @@ func (s *providerUnitTests) TestnewCredentialsWithVersion2(c *gc.C) {
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-
 	cred, authmode, err := newCredentials(clouldSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{
@@ -797,7 +793,7 @@ func (s *providerUnitTests) TestnewCredentialsWithVersion2(c *gc.C) {
 	c.Check(authmode, gc.Equals, identity.AuthUserPass)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithVersion2AndDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithVersion2AndDomain(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":             "2",
 		"username":            "user",
@@ -806,7 +802,6 @@ func (s *providerUnitTests) TestnewCredentialsWithVersion2AndDomain(c *gc.C) {
 		"tenant-id":           "someID",
 		"project-domain-name": "openstack_projectdomain",
 	})
-
 	clouldSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
@@ -814,7 +809,6 @@ func (s *providerUnitTests) TestnewCredentialsWithVersion2AndDomain(c *gc.C) {
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-
 	cred, authmode, err := newCredentials(clouldSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{

@@ -198,7 +198,14 @@ func AssertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expect
 		manifoldNames.Add(name)
 		dependencies[name] = ManifoldDependencies(manifolds, name, manifold).SortedValues()
 	}
-	c.Assert(len(dependencies), gc.Equals, len(expected))
+
+	empty := set.NewStrings()
+	names := set.NewStrings(keys(dependencies)...)
+	expectedNames := set.NewStrings(keys(expected)...)
+	// Unexpected names...
+	c.Assert(names.Difference(expectedNames), gc.DeepEquals, empty)
+	// Missing names...
+	c.Assert(expectedNames.Difference(names), gc.DeepEquals, empty)
 
 	for _, n := range manifoldNames.SortedValues() {
 		c.Check(dependencies[n], jc.SameContents, expected[n], gc.Commentf("mismatched dependencies for worker %q", n))
@@ -211,6 +218,14 @@ func ManifoldDependencies(all dependency.Manifolds, name string, manifold depend
 	for _, input := range manifold.Inputs {
 		result.Add(input)
 		result = result.Union(ManifoldDependencies(all, input, all[input]))
+	}
+	return result
+}
+
+func keys(items map[string][]string) []string {
+	result := make([]string, 0, len(items))
+	for key := range items {
+		result = append(result, key)
 	}
 	return result
 }

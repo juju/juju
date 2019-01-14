@@ -16,6 +16,8 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -163,6 +165,7 @@ type RelationSuspendedArg struct {
 type AddCharm struct {
 	URL     string `json:"url"`
 	Channel string `json:"channel"`
+	Force   bool   `json:"force"`
 }
 
 // AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
@@ -170,6 +173,7 @@ type AddCharmWithAuthorization struct {
 	URL                string             `json:"url"`
 	Channel            string             `json:"channel"`
 	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
+	Force              bool               `json:"force"`
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
@@ -263,6 +267,7 @@ type ApplicationDeploy struct {
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
 	Policy           string                         `json:"policy,omitempty"`
 	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
+	Devices          map[string]devices.Constraints `json:"devices,omitempty"`
 	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
 	Resources        map[string]string              `json:"resources,omitempty"`
@@ -291,12 +296,37 @@ type ApplicationDeployV5 struct {
 	Resources        map[string]string              `json:"resources,omitempty"`
 }
 
+// ApplicationsDeployV6 holds the parameters for deploying one or more applications.
+type ApplicationsDeployV6 struct {
+	Applications []ApplicationDeployV6 `json:"applications"`
+}
+
+// ApplicationDeployV6 holds the parameters for making the application Deploy call for
+// application facades older than v6. Missing the newer Device arg.
+type ApplicationDeployV6 struct {
+	ApplicationName  string                         `json:"application"`
+	Series           string                         `json:"series"`
+	CharmURL         string                         `json:"charm-url"`
+	Channel          string                         `json:"channel"`
+	NumUnits         int                            `json:"num-units"`
+	Config           map[string]string              `json:"config,omitempty"`
+	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
+	Constraints      constraints.Value              `json:"constraints"`
+	Placement        []*instance.Placement          `json:"placement,omitempty"`
+	Policy           string                         `json:"policy,omitempty"`
+	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
+	AttachStorage    []string                       `json:"attach-storage,omitempty"`
+	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
+	Resources        map[string]string              `json:"resources,omitempty"`
+}
+
 // ApplicationUpdate holds the parameters for making the application Update call.
 type ApplicationUpdate struct {
 	ApplicationName string             `json:"application"`
 	CharmURL        string             `json:"charm-url"`
 	ForceCharmURL   bool               `json:"force-charm-url"`
 	ForceSeries     bool               `json:"force-series"`
+	Force           bool               `json:"force"`
 	MinUnits        *int               `json:"min-units,omitempty"`
 	SettingsStrings map[string]string  `json:"settings,omitempty"`
 	SettingsYAML    string             `json:"settings-yaml"` // Takes precedence over SettingsStrings if both are present.
@@ -342,6 +372,9 @@ type ApplicationSetCharm struct {
 	// over ConfigSettings. This field is only understood by Application
 	// facade version 2
 	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
+
+	// Force forces the lxd profile validation overriding even if it's fails.
+	Force bool `json:"force"`
 
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool `json:"force-units"`
@@ -394,6 +427,7 @@ type ApplicationGetResults struct {
 	ApplicationConfig map[string]interface{} `json:"application-config,omitempty"`
 	Constraints       constraints.Value      `json:"constraints"`
 	Series            string                 `json:"series"`
+	Channel           string                 `json:"channel"`
 }
 
 // ApplicationConfigSetArgs holds the parameters for
@@ -446,6 +480,26 @@ type ApplicationGetConfigResults struct {
 	Results []ConfigResult
 }
 
+// LXDProfileUpgrade holds the parameters for an application
+// lxd profile machines
+type LXDProfileUpgrade struct {
+	Entities        []Entity `json:"entities"`
+	ApplicationName string   `json:"application-name"`
+}
+
+// UpgradeCharmProfileStatusResult contains the lxd profile status result for an upgrading
+// machine or container.
+type UpgradeCharmProfileStatusResult struct {
+	Error  *Error `json:"error,omitempty"`
+	Status string `json:"status,omitempty"`
+}
+
+// UpgradeCharmProfileStatusResults contains the lxd profile status results for
+// upgrading machines or container.
+type UpgradeCharmProfileStatusResults struct {
+	Results []UpgradeCharmProfileStatusResult `json:"results,omitempty"`
+}
+
 // ConfigResults holds configuration values for an entity.
 type ConfigResult struct {
 	Config map[string]interface{} `json:"config"`
@@ -454,8 +508,11 @@ type ConfigResult struct {
 
 // OperatorProvisioningInfo holds info need to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImagePath string         `json:"image-path"`
-	Version   version.Number `json:"version"`
+	ImagePath    string                     `json:"image-path"`
+	Version      version.Number             `json:"version"`
+	APIAddresses []string                   `json:"api-addresses"`
+	Tags         map[string]string          `json:"tags,omitempty"`
+	CharmStorage KubernetesFilesystemParams `json:"charm-storage"`
 }
 
 // PublicAddress holds parameters for the PublicAddress call.
@@ -536,13 +593,14 @@ type UpdateApplicationUnits struct {
 
 // ApplicationUnitParams holds unit parameters used to update a unit.
 type ApplicationUnitParams struct {
-	ProviderId string                 `json:"provider-id"`
-	UnitTag    string                 `json:"unit-tag"`
-	Address    string                 `json:"address"`
-	Ports      []string               `json:"ports"`
-	Status     string                 `json:"status"`
-	Info       string                 `json:"info"`
-	Data       map[string]interface{} `json:"data"`
+	ProviderId     string                     `json:"provider-id"`
+	UnitTag        string                     `json:"unit-tag"`
+	Address        string                     `json:"address"`
+	Ports          []string                   `json:"ports"`
+	FilesystemInfo []KubernetesFilesystemInfo `json:"filesystem-info,omitempty"`
+	Status         string                     `json:"status"`
+	Info           string                     `json:"info"`
+	Data           map[string]interface{}     `json:"data,omitempty"`
 }
 
 // UpdateApplicationServiceArgs holds the parameters for
@@ -1075,6 +1133,7 @@ type BundleChangesParams struct {
 	// BundleDataYAML is the YAML-encoded charm bundle data
 	// (see "github.com/juju/charm.BundleData").
 	BundleDataYAML string `json:"yaml"`
+	BundleURL      string `json:"bundleURL"`
 }
 
 // BundleChangesResults holds results of the Bundle.GetChanges call.
@@ -1244,10 +1303,133 @@ type DestroyUnitInfo struct {
 	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
 }
 
+// ScaleApplicationsParams holds bulk parameters for the Application.ScaleApplication call.
+type ScaleApplicationsParams struct {
+	Applications []ScaleApplicationParams `json:"applications"`
+}
+
+// ScaleApplicationParams holds parameters for the Application.ScaleApplication call.
+type ScaleApplicationParams struct {
+	// ApplicationTag holds the tag of the application to scale.
+	ApplicationTag string `json:"application-tag"`
+
+	// Scale is the number of units which should be running.
+	Scale int `json:"scale"`
+
+	// Scale is the number of units which should be added/removed from the existing count.
+	ScaleChange int `json:"scale-change,omitempty"`
+}
+
+// ScaleApplicationResults contains the results of a ScaleApplication
+// API request.
+type ScaleApplicationResults struct {
+	Results []ScaleApplicationResult `json:"results,omitempty"`
+}
+
+// ScaleApplicationResult contains one of the results of a
+// ScaleApplication API request.
+type ScaleApplicationResult struct {
+	Error *Error                `json:"error,omitempty"`
+	Info  *ScaleApplicationInfo `json:"info,omitempty"`
+}
+
+// ScaleApplicationInfo contains information related to the scaling of
+// an application.
+type ScaleApplicationInfo struct {
+	// Scale is the number of units which should be running.
+	Scale int `json:"num-units"`
+}
+
 // DumpModelRequest wraps the request for a dump-model call.
 // A simplified dump will not contain a complete export, but instead
 // a reduced set that is determined by the server.
 type DumpModelRequest struct {
 	Entities   []Entity `json:"entities"`
 	Simplified bool     `json:"simplified"`
+}
+
+// UpgradeSeriesStatusResult contains the upgrade series status result for an upgrading
+// machine or unit
+type UpgradeSeriesStatusResult struct {
+	Error  *Error                    `json:"error,omitempty"`
+	Status model.UpgradeSeriesStatus `json:"status,omitempty"`
+}
+
+// UpgradeSeriesStatusResults contains the upgrade series status results for
+// upgrading machines or units.
+type UpgradeSeriesStatusResults struct {
+	Results []UpgradeSeriesStatusResult `json:"results,omitempty"`
+}
+
+// UpgradeSeriesStatusParams contains the entities and desired statuses for
+// those entities.
+type UpgradeSeriesStatusParams struct {
+	Params []UpgradeSeriesStatusParam `json:"params"`
+}
+
+// UpgradeSeriesStatusParam contains the entity and desired status for that
+// entity along with a context message describing why the change to the status
+// is being requested.
+type UpgradeSeriesStatusParam struct {
+	Entity  Entity                    `json:"entity"`
+	Status  model.UpgradeSeriesStatus `json:"status"`
+	Message string                    `json:"message"`
+}
+
+// UpgradeSeriesStartUnitCompletionParam contains entities and a context message.
+type UpgradeSeriesStartUnitCompletionParam struct {
+	Entities []Entity `json:"entities"`
+	Message  string   `json:"message"`
+}
+
+type UpgradeSeriesNotificationParams struct {
+	Params []UpgradeSeriesNotificationParam `json:"params"`
+}
+
+type UpgradeSeriesNotificationParam struct {
+	Entity    Entity `json:"entity"`
+	WatcherId string `json:"watcher-id"`
+}
+
+// UpgradeSeriesUnitsResults contains the units affected by a series per
+// machine entity.
+type UpgradeSeriesUnitsResults struct {
+	Results []UpgradeSeriesUnitsResult
+}
+
+// UpgradeSeriesUnitsResults contains the units affected by a series for
+// a given machine.
+type UpgradeSeriesUnitsResult struct {
+	Error     *Error   `json:"error,omitempty"`
+	UnitNames []string `json:"unit-names"`
+}
+
+type ProfileChangeResult struct {
+	OldProfileName string           `json:"old-profile-name,omitempty"`
+	NewProfileName string           `json:"new-profile-name,omitempty"`
+	Profile        *CharmLXDProfile `json:"profile,omitempty"`
+	Subordinate    bool             `json:"subordinate,omitempty"`
+	Error          *Error           `json:"error,omitempty"`
+}
+
+type ProfileChangeResults struct {
+	Results []ProfileChangeResult `json:"results"`
+}
+
+type SetProfileArgs struct {
+	Args []SetProfileArg `json:"args"`
+}
+
+type SetProfileArg struct {
+	Entity   Entity   `json:"entity"`
+	Profiles []string `json:"profiles"`
+}
+
+type SetProfileUpgradeCompleteArgs struct {
+	Args []SetProfileUpgradeCompleteArg `json:"args"`
+}
+
+type SetProfileUpgradeCompleteArg struct {
+	Entity  Entity `json:"entity"`
+	Message string `json:"message"`
 }

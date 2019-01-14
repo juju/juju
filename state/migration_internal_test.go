@@ -26,6 +26,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		modelUserLastConnectionC,
 		permissionsC,
 		settingsC,
+		generationsC,
 		sequenceC,
 		sshHostKeysC,
 		statusesC,
@@ -33,6 +34,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// machine
 		instanceDataC,
+		instanceCharmProfileDataC,
+		machineUpgradeSeriesLocksC,
 		machinesC,
 		openedPortsC,
 
@@ -76,6 +79,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		podSpecsC,
 		cloudContainersC,
 		cloudServicesC,
+		deviceConstraintsC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -188,6 +192,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// we include the name of the leader unit. On import, a new lease
 		// is created for the leader unit.
 		leasesC,
+
+		// Volume attachment plans are ignored if missing. A missing collection
+		// simply defaults to the old code path.
+		volumeAttachmentPlanC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -201,6 +209,12 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		externalControllersC,
 		relationNetworksC,
 		firewallRulesC,
+		dockerResourcesC,
+		// TODO(raftlease)
+		// This collection shouldn't be migrated, but we need to make
+		// sure the leader units' leases are claimed in the target
+		// controller when leases are managed in raft.
+		leaseHoldersC,
 	)
 
 	modelCollections := set.NewStrings()
@@ -349,8 +363,22 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"CpuPower",
 		"Tags",
 		"AvailZone",
+		"CharmProfiles",
 	)
 	s.AssertExportedFields(c, instanceData{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestInstanceCharmProfileDataFields(c *gc.C) {
+	ignored := set.NewStrings(
+		// DocID is the model + machine id
+		"DocID",
+		"MachineId",
+		"UpgradeCharmProfileApplication",
+		"UpgradeCharmProfileCharmURL",
+		"UpgradeCharmProfileComplete",
+	)
+	migrated := set.NewStrings()
+	s.AssertExportedFields(c, instanceCharmProfileData{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
@@ -383,6 +411,8 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"MetricCredentials",
 		"PasswordHash",
 		"Tools",
+		"DesiredScale",
+		"Placement",
 	)
 	s.AssertExportedFields(c, applicationDoc{}, migrated.Union(ignored))
 }
@@ -490,7 +520,7 @@ func (s *MigrationSuite) TestRelationScopeDocFields(c *gc.C) {
 	s.AssertExportedFields(c, relationScopeDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestAnnatatorDocFields(c *gc.C) {
+func (s *MigrationSuite) TestAnnotatorDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
@@ -549,6 +579,7 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"Tags",
 		"Spaces",
 		"VirtType",
+		"Zones",
 	)
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }
@@ -705,7 +736,7 @@ func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 		"ModelUUID",
 		"DocID",
 		"Life",
-		"MachineId", // recreated from pool properties
+		"HostId",    // recreated from pool properties
 		"Releasing", // only when dying; can't migrate dying storage
 	)
 	migrated := set.NewStrings(
@@ -731,14 +762,14 @@ func (s *MigrationSuite) TestVolumeAttachmentDocFields(c *gc.C) {
 	)
 	migrated := set.NewStrings(
 		"Volume",
-		"Machine",
+		"Host",
 		"Info",
 		"Params",
 	)
 	s.AssertExportedFields(c, volumeAttachmentDoc{}, migrated.Union(ignored))
 	// The info and params fields ar structs.
 	s.AssertExportedFields(c, VolumeAttachmentInfo{}, set.NewStrings(
-		"DeviceName", "DeviceLink", "BusAddress", "ReadOnly"))
+		"DeviceName", "DeviceLink", "BusAddress", "ReadOnly", "PlanInfo"))
 	s.AssertExportedFields(c, VolumeAttachmentParams{}, set.NewStrings(
 		"ReadOnly"))
 }
@@ -748,7 +779,7 @@ func (s *MigrationSuite) TestFilesystemDocFields(c *gc.C) {
 		"ModelUUID",
 		"DocID",
 		"Life",
-		"MachineId", // recreated from pool properties
+		"HostId",    // recreated from pool properties
 		"Releasing", // only when dying; can't migrate dying storage
 	)
 	migrated := set.NewStrings(
@@ -775,7 +806,7 @@ func (s *MigrationSuite) TestFilesystemAttachmentDocFields(c *gc.C) {
 	)
 	migrated := set.NewStrings(
 		"Filesystem",
-		"Machine",
+		"Host",
 		"Info",
 		"Params",
 	)

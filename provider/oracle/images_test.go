@@ -63,7 +63,7 @@ func (i imageSuite) TestFindInstanceSpec(c *gc.C) {
 		oracletesting.DefaultEnvironAPI,
 		TestImageMetadata,
 		[]instances.InstanceType{
-			instances.InstanceType{
+			{
 				Id:     "win2018r2",
 				Name:   "",
 				Arches: []string{"amd64"},
@@ -86,7 +86,7 @@ func (i imageSuite) TestFindInstanceSpecWithSeriesError(c *gc.C) {
 		oracletesting.DefaultEnvironAPI,
 		TestImageMetadata,
 		[]instances.InstanceType{
-			instances.InstanceType{
+			{
 				Id:     "win2018r2",
 				Name:   "",
 				Arches: []string{"amd64"},
@@ -107,7 +107,7 @@ func (i imageSuite) TestFindInstanceSpecWithError(c *gc.C) {
 		oracletesting.DefaultEnvironAPI,
 		[]*imagemetadata.ImageMetadata{},
 		[]instances.InstanceType{
-			instances.InstanceType{
+			{
 				Id:     "win2018r2",
 				Name:   "",
 				Arches: []string{"amd64"},
@@ -130,7 +130,7 @@ func (i imageSuite) TestInstanceTypes(c *gc.C) {
 
 func (i imageSuite) TestInstanceTypesWithErrrors(c *gc.C) {
 	for _, fake := range []*oracletesting.FakeEnvironAPI{
-		&oracletesting.FakeEnvironAPI{
+		{
 			FakeShaper: oracletesting.FakeShaper{
 				AllErr: errors.New("FakeShaperErr"),
 			},
@@ -142,7 +142,7 @@ func (i imageSuite) TestInstanceTypesWithErrrors(c *gc.C) {
 }
 
 var TestImageMetadata = []*imagemetadata.ImageMetadata{
-	&imagemetadata.ImageMetadata{
+	{
 		Id:          "win2012r2",
 		Storage:     "",
 		VirtType:    "",
@@ -153,7 +153,7 @@ var TestImageMetadata = []*imagemetadata.ImageMetadata{
 		Endpoint:    "https://compute.uscom-central-1.oraclecloud.com",
 		Stream:      "",
 	},
-	&imagemetadata.ImageMetadata{
+	{
 		Id:          "20170307",
 		Storage:     "",
 		VirtType:    "",
@@ -164,7 +164,7 @@ var TestImageMetadata = []*imagemetadata.ImageMetadata{
 		Endpoint:    "https://compute.uscom-central-1.oraclecloud.com",
 		Stream:      "",
 	},
-	&imagemetadata.ImageMetadata{
+	{
 		Id:          "20170307",
 		Storage:     "",
 		VirtType:    "",
@@ -175,7 +175,7 @@ var TestImageMetadata = []*imagemetadata.ImageMetadata{
 		Endpoint:    "https://compute.uscom-central-1.oraclecloud.com",
 		Stream:      "",
 	},
-	&imagemetadata.ImageMetadata{
+	{
 		Id:          "20170307",
 		Storage:     "",
 		VirtType:    "",
@@ -186,7 +186,7 @@ var TestImageMetadata = []*imagemetadata.ImageMetadata{
 		Endpoint:    "https://compute.uscom-central-1.oraclecloud.com",
 		Stream:      "",
 	},
-	&imagemetadata.ImageMetadata{
+	{
 		Id:          "win2018r2",
 		Storage:     "",
 		VirtType:    "",

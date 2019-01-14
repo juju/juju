@@ -13,14 +13,17 @@ import (
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -41,9 +44,8 @@ var _ = gc.Suite(&UnitSuite{})
 func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "wordpress")
-	var err error
 	s.application = s.AddTestingApplication(c, "wordpress", s.charm)
-	c.Assert(err, jc.ErrorIsNil)
+	var err error
 	s.unit, err = s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
@@ -164,6 +166,167 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	// another event, because the originally-watched document will become
 	// unreferenced and be removed. But I'm not testing that behaviour
 	// because it's not very helpful and subject to change.
+}
+
+func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
+	newCharm := s.AddConfigCharm(c, "wordpress", sortableConfig, 123)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err := s.application.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.SetCharmURL(newCharm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := s.unit.WatchConfigSettingsHash()
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w)
+
+	// Initial event.
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("606cdac123d3d8d3031fe93db3d5afd9c95f709dfbc17e5eade1332b081ec6f9")
+
+	// Non-change is not reported.
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Add an attribute that comes before.
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"alphabetic": 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Sanity check.
+	config, err := s.unit.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(config, gc.DeepEquals, charm.Settings{
+		// Ints that get round-tripped through mongo come back as int64.
+		"alphabetic": int64(1),
+		"blog-title": "sauceror central",
+		"zygomatic":  nil,
+	})
+	wc.AssertChange("886b9586df944be35b189e5678a85ac0b2ed4da46fcb10cecfd8c06b6d1baf0f")
+
+	// And one that comes after.
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"zygomatic": 23,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("9ca0a511647f09db8fab07be3c70f49cc93f38f300ca82d6e26ec7d4a8b1b4c2")
+
+	// Setting a value to int64 instead of int has no effect on the
+	// hash (the information always comes back as int64).
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"alphabetic": int64(1),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Change application's charm; nothing detected.
+	newCharm = s.AddConfigCharm(c, "wordpress", floatConfig, 125)
+	cfg = state.SetCharmConfig{Charm: newCharm}
+	err = s.application.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Change application config for new charm; nothing detected.
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"key": 42.0,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// NOTE: if we were to change the unit to use the new charm, we'd see
+	// another event, because the originally-watched document will become
+	// unreferenced and be removed. But I'm not testing that behaviour
+	// because it's not very helpful and subject to change.
+
+	err = s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("")
+}
+
+func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
+	// Config hashes should be different if the charm url changes,
+	// even if the config is otherwise unchanged. This ensures that
+	// config-changed will be run on a unit after its charm is
+	// upgraded.
+	c.Logf("charm url %s", s.charm.URL())
+	err := s.application.UpdateCharmConfig(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	w1, err := s.unit.WatchConfigSettingsHash()
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w1)
+
+	wc1 := testing.NewStringsWatcherC(c, s.State, w1)
+	wc1.AssertChange("2e1f49c3e8b53892b822558401af33589522094681276a98458595114e04c0c1")
+
+	newCharm := s.AddConfigCharm(c, "wordpress", wordpressConfig, 125)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err = s.application.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Logf("new charm url %s", newCharm.URL())
+	err = s.unit.SetCharmURL(newCharm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	w3, err := s.unit.WatchConfigSettingsHash()
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w3)
+
+	wc3 := testing.NewStringsWatcherC(c, s.State, w3)
+	wc3.AssertChange("35412457529c9e0b64b7642ad0f76137ee13b104c94136d0c18b2fe54ddf5d36")
+}
+
+func (s *UnitSuite) TestWatchApplicationConfigSettingsHash(c *gc.C) {
+	w, err := s.unit.WatchApplicationConfigSettingsHash()
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("92652ce7679e295c6567a3891c562dcab727c71543f8c1c3a38c3626ce064019")
+
+	schema := environschema.Fields{
+		"username":    environschema.Attr{Type: environschema.Tstring},
+		"alive":       environschema.Attr{Type: environschema.Tbool},
+		"skill-level": environschema.Attr{Type: environschema.Tint},
+		"options":     environschema.Attr{Type: environschema.Tattrs},
+	}
+
+	err = s.application.UpdateApplicationConfig(application.ConfigAttributes{
+		"username":    "abbas",
+		"alive":       true,
+		"skill-level": 23,
+		"options": map[string]string{
+			"fortuna": "crescis",
+			"luna":    "velut",
+			"status":  "malus",
+		},
+	}, nil, schema, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange("fa3b92db7c37210ed80da08c522abbe8ffffc9982ad2136342f3df8f221b5768")
+
+	// For reasons that I don't understand, application config
+	// converts int64s to int while charm config converts ints to
+	// int64 - I'm not going to try to untangle that now.
+	err = s.application.UpdateApplicationConfig(application.ConfigAttributes{
+		"username":    "bob",
+		"skill-level": int64(23),
+	}, nil, schema, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange("d437a3b548fecf7f8c7748bf8d2acab0960ceb53f316a22803a6ca7442a9b8b3")
 }
 
 func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
@@ -418,6 +581,8 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 func (s *UnitSuite) TestRemoveUnitMachineFastForwardDestroy(c *gc.C) {
 	for _, tc := range s.destroyMachineTestCases(c) {
 		c.Log(tc.desc)
+		err := tc.host.SetProvisioned("inst-id", "fake_nonce", nil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.Destroy(), gc.IsNil)
 		if tc.destroyed {
 			assertLife(c, tc.host, state.Dying)
@@ -432,6 +597,8 @@ func (s *UnitSuite) TestRemoveUnitMachineFastForwardDestroy(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineNoFastForwardDestroy(c *gc.C) {
 	for _, tc := range s.destroyMachineTestCases(c) {
 		c.Log(tc.desc)
+		err := tc.host.SetProvisioned("inst-id", "fake_nonce", nil)
+		c.Assert(err, jc.ErrorIsNil)
 		preventUnitDestroyRemove(c, tc.target)
 		c.Assert(tc.target.Destroy(), gc.IsNil)
 		c.Assert(tc.target.EnsureDead(), gc.IsNil)
@@ -446,6 +613,105 @@ func (s *UnitSuite) TestRemoveUnitMachineNoFastForwardDestroy(c *gc.C) {
 	}
 }
 
+func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfile(c *gc.C) {
+	charmWithProfile := s.AddTestingCharm(c, "lxd-profile")
+	applicationWithProfile := s.AddTestingApplication(c, "lxd-profile", charmWithProfile)
+
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	target, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+
+	colocated, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
+
+	// Set a profile name on the machine, destroyHostOps will only
+	// set up to remove a profile from the machine it if it exists.
+	profileName := lxdprofile.Name("default", applicationWithProfile.Name(), charmWithProfile.Revision())
+	host.SetCharmProfiles([]string{profileName})
+	c.Assert(colocated.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
+
+	chAppName, err := host.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, "lxd-profile")
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chCharmURL, gc.Equals, "")
+
+	c.Assert(host.Destroy(), gc.NotNil)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
+	charmWithOut := s.AddTestingCharm(c, "mysql")
+	applicationWithOutProfile := s.AddTestingApplication(c, "mysql", charmWithOut)
+
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	target, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+
+	colocated, err := applicationWithOutProfile.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
+	c.Assert(colocated.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
+
+	// "", nil is equivalent to IsNotFound, which is what we
+	// expect here
+	chAppName, err := host.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, "")
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chCharmURL, gc.Equals, "")
+
+	c.Assert(host.Destroy(), gc.NotNil)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineDestroyCleanUpProfileDoc(c *gc.C) {
+	charmWithProfile := s.AddTestingCharm(c, "lxd-profile")
+	applicationWithProfile := s.AddTestingApplication(c, "lxd-profile", charmWithProfile)
+
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToMachine(host), gc.IsNil)
+
+	// create a instanceCharmProfileData which hasn't been completed
+	// to check it's been deleted.
+	err = host.SetUpgradeCharmProfile(applicationWithProfile.Name(), charmWithProfile.URL().String())
+	c.Assert(err, jc.ErrorIsNil)
+	chAppName, err := host.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, applicationWithProfile.Name())
+
+	c.Assert(unit.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Dying)
+
+	// "", nil is equivalent to IsNotFound, which is what we
+	// expect here
+	chAppName, err = host.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, "")
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chCharmURL, gc.Equals, "")
+}
+
 func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
 	m, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -454,6 +720,8 @@ func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
 
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -478,6 +746,8 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
@@ -492,6 +762,8 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -536,6 +808,8 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -748,6 +1022,8 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 
 func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetRetryHooks(c, s.State, func() {
@@ -1360,6 +1636,8 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 
 func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1982,15 +2260,12 @@ var _ = gc.Suite(&CAASUnitSuite{})
 
 func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	st := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { st.Close() })
 
-	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
-	s.application = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	s.application = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 }
 
 func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
@@ -2040,6 +2315,7 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitProviderId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := existingUnit.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "another-uuid")
 	addr := network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal)
 	c.Assert(info.Address(), gc.DeepEquals, &addr)
@@ -2061,6 +2337,7 @@ func (s *CAASUnitSuite) TestAddCAASUnitProviderId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := existingUnit.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "another-uuid")
 	c.Check(info.Address(), gc.NotNil)
 	c.Check(*info.Address(), jc.DeepEquals, network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal))
@@ -2083,6 +2360,7 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := existingUnit.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "unit-uuid")
 	addr := network.NewScopedAddress("192.168.1.2", network.ScopeMachineLocal)
 	c.Assert(info.Address(), jc.DeepEquals, &addr)
@@ -2105,6 +2383,7 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := existingUnit.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "unit-uuid")
 	addr := network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal)
 	c.Assert(info.Address(), jc.DeepEquals, &addr)
@@ -2233,10 +2512,88 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
+	// Ensure the following operation to set the unit as Dying
+	// is not short circuited to remove the unit.
+	err = unit.SetAgentStatus(status.StatusInfo{Status: status.Idle})
+	c.Assert(err, jc.ErrorIsNil)
 	// Make it Dying: not reported.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+	// Double check the unit is dying and not removed.
+	err = unit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
+
+	// Make it Dead: not reported.
+	err = unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Remove it: watcher eventually closed and Err
+	// returns an IsNotFound error.
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher not closed")
+	}
+	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CAASUnitSuite) TestWatchContainerAddressesHash(c *gc.C) {
+	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := unit.WatchContainerAddressesHash()
+	defer w.Stop()
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("")
+
+	// Change the container port: not reported.
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
+		Ports: &[]string{"443"},
+	})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set container addresses: reported.
+	addr := "10.0.0.1"
+	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
+		Address: &addr,
+	})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("0b94e9ad737e2ff4d50dc9d8cd443d336e6a6d638b038e31b973959be89d5dec")
+
+	// Set different container addresses: reported.
+	addr = "10.0.0.2"
+	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
+		Address: &addr,
+	})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("30762101196c8bbafa8e495a941c74fe17a1fe9fdb17c2ed091343dc0f2f2633")
+
+	// Ensure the following operation to set the unit as Dying
+	// is not short circuited to remove the unit.
+	err = unit.SetAgentStatus(status.StatusInfo{Status: status.Idle})
+	c.Assert(err, jc.ErrorIsNil)
+	// Make it Dying: not reported.
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+	// Double check the unit is dying and not removed.
+	err = unit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
 
 	// Make it Dead: not reported.
 	err = unit.EnsureDead()

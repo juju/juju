@@ -6,31 +6,41 @@ package globalclockupdater
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
+	"github.com/juju/juju/core/globalclock"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
 // ManifoldConfig holds the information necessary to run a GlobalClockUpdater
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
-	ClockName string
-	StateName string
+	ClockName        string
+	StateName        string
+	LeaseManagerName string
+	RaftName         string
 
 	NewWorker      func(Config) (worker.Worker, error)
 	UpdateInterval time.Duration
 	BackoffDelay   time.Duration
+	Logger         Logger
 }
 
 func (config ManifoldConfig) Validate() error {
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
 	}
-	if config.StateName == "" {
-		return errors.NotValidf("empty StateName")
+	if config.StateName == "" && config.LeaseManagerName == "" {
+		return errors.NotValidf("both StateName and LeaseManagerName empty")
+	}
+	if config.StateName != "" && config.LeaseManagerName != "" {
+		return errors.NewNotValid(nil, "only one of StateName and LeaseManagerName can be set")
+	}
+	if config.StateName != "" && config.RaftName != "" {
+		return errors.NewNotValid(nil, "RaftName only valid with LeaseManagerName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -41,18 +51,27 @@ func (config ManifoldConfig) Validate() error {
 	if config.BackoffDelay <= 0 {
 		return errors.NotValidf("non-positive BackoffDelay")
 	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
 	return nil
 }
 
 // Manifold returns a dependency.Manifold that will run a global clock
 // updater worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
+	inputs := []string{config.ClockName}
+	if config.StateName != "" {
+		inputs = append(inputs, config.StateName)
+	} else {
+		inputs = append(inputs, config.LeaseManagerName)
+	}
+	if config.RaftName != "" {
+		inputs = append(inputs, config.RaftName)
+	}
 	return dependency.Manifold{
-		Inputs: []string{
-			config.ClockName,
-			config.StateName,
-		},
-		Start: config.start,
+		Inputs: inputs,
+		Start:  config.start,
 	}
 }
 
@@ -67,29 +86,53 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var stTracker workerstate.StateTracker
-	if err := context.Get(config.StateName, &stTracker); err != nil {
-		return nil, errors.Trace(err)
+	if config.RaftName != "" {
+		// We don't need anything from raft directly, but if it's set
+		// ensure it's running before continuing.
+		if err := context.Get(config.RaftName, nil); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	statePool, err := stTracker.Use()
-	if err != nil {
-		return nil, errors.Trace(err)
+
+	cleanup := func() error { return nil }
+	var updaterFunc func() (globalclock.Updater, error)
+	if config.StateName != "" {
+		var stTracker workerstate.StateTracker
+		if err := context.Get(config.StateName, &stTracker); err != nil {
+			return nil, errors.Trace(err)
+		}
+		statePool, err := stTracker.Use()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cleanup = stTracker.Done
+		updaterFunc = statePool.SystemState().GlobalClockUpdater
+	} else {
+
+		var updater globalclock.Updater
+		if err := context.Get(config.LeaseManagerName, &updater); err != nil {
+			return nil, errors.Trace(err)
+		}
+		updaterFunc = func() (globalclock.Updater, error) {
+			return updater, nil
+		}
 	}
 
 	worker, err := config.NewWorker(Config{
-		NewUpdater:     statePool.SystemState().GlobalClockUpdater,
+		NewUpdater:     updaterFunc,
 		LocalClock:     clock,
 		UpdateInterval: config.UpdateInterval,
 		BackoffDelay:   config.BackoffDelay,
+		Logger:         config.Logger,
 	})
 	if err != nil {
-		stTracker.Done()
+		cleanup()
 		return nil, errors.Trace(err)
 	}
 
 	go func() {
 		worker.Wait()
-		stTracker.Done()
+		cleanup()
 	}()
 	return worker, nil
 }

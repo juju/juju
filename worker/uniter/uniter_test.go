@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/component/all"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -44,7 +44,7 @@ type UniterSuite struct {
 
 var _ = gc.Suite(&UniterSuite{})
 
-var leaseClock *jujutesting.Clock
+var leaseClock *testclock.Clock
 
 // This guarantees that we get proper platform
 // specific error directly from their source
@@ -80,7 +80,7 @@ func (s *UniterSuite) SetUpTest(c *gc.C) {
 	zone, err := time.LoadLocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
-	leaseClock = jujutesting.NewClock(now)
+	leaseClock = testclock.NewClock(now)
 	s.updateStatusHookTicker = newManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
@@ -110,20 +110,14 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 		func() {
 			defer s.Reset(c)
 
-			model, err := s.State.Model()
-			c.Assert(err, jc.ErrorIsNil)
-
-			im, err := s.State.IAASModel()
-			c.Assert(err, jc.ErrorIsNil)
-
 			ctx := &context{
 				s:                      s,
 				st:                     s.State,
-				im:                     im,
-				uuid:                   model.UUID(),
+				uuid:                   s.State.ModelUUID(),
 				path:                   s.unitDir,
 				dataDir:                s.dataDir,
 				charms:                 make(map[string][]byte),
+				leaseManager:           s.LeaseManager,
 				updateStatusHookTicker: s.updateStatusHookTicker,
 				charmDirGuard:          &mockCharmDirGuard{},
 			}
@@ -329,7 +323,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 				status:       status.Maintenance,
 				info:         "installing charm software",
 			},
-			waitHooks{"config-changed"},
+			waitHooks{},
 			verifyRunning{},
 		), ut(
 			"start hook fail and retry",
@@ -353,7 +347,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 			waitUnitAgent{
 				status: status.Idle,
 			},
-			waitHooks{"start", "config-changed"},
+			waitHooks{"start"},
 			verifyRunning{},
 		),
 	})
@@ -675,38 +669,15 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeRetry(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterSteadyStateUpgradeRelations(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			// This test does an add-relation as quickly as possible
-			// after an upgrade-charm, in the hope that the scheduler will
-			// deliver the events in the wrong order. The observed
-			// behaviour should be the same in either case.
-			"ignore unknown relations until upgrade is done",
-			quickStart{},
-			createCharm{
-				revision: 2,
-				customize: func(c *gc.C, ctx *context, path string) {
-					renameRelation(c, path, "db", "db2")
-					hpath := filepath.Join(path, "hooks", "db2-relation-joined")
-					ctx.writeHook(c, hpath, true)
-				},
-			},
-			serveCharm{},
-			upgradeCharm{revision: 2},
-			addRelation{},
-			addRelationUnit{},
-			waitHooks{"upgrade-charm", "config-changed", "db2-relation-joined mysql/0 db2:0"},
-			verifyCharm{revision: 2},
-		),
-	})
-}
-
 func (s *UniterSuite) TestUpdateResourceCausesUpgrade(c *gc.C) {
 	// appendStorageMetadata customises the wordpress charm's metadata,
 	// adding a "wp-content" filesystem store. We do it here rather
 	// than in the charm itself to avoid modifying all of the other
 	// scenarios.
+	// NOTE: this test does not expect the charm profile data to be
+	// in place for the resource charm upgrade. In fact it's important
+	// that we don't have it there, otherwise it causes the resource
+	// changes to stall out in real world scenarios.
 	appendResource := func(c *gc.C, ctx *context, path string) {
 		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1081,7 +1052,7 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 				ft.Dir{"state/relations/90210", 0755}.Create(c, ctx.path)
 			}},
 			startUniter{},
-			waitHooks{"config-changed"},
+			waitHooks{},
 			custom{func(c *gc.C, ctx *context) {
 				ft.Removed{"state/relations/90210"}.Check(c, ctx.path)
 			}},
@@ -1115,6 +1086,10 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 				// they shouldn't been available until after the start hook.
 				ft.File{"charm/relations.out", "", 0644}.Check(c, ctx.path)
 			}},
+			// Now that starting the uniter doesn't always fire
+			// config-changed we need to tweak the config to trigger
+			// it.
+			changeConfig{"blog-title": "Goodness Gracious Me"},
 			startUniter{},
 			waitHooks{"config-changed"},
 			custom{func(c *gc.C, ctx *context) {
@@ -1550,6 +1525,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		path:                   filepath.Join(s.dataDir, "agents", "unit-u-0"),
 		dataDir:                s.dataDir,
 		charms:                 make(map[string][]byte),
+		leaseManager:           s.LeaseManager,
 		updateStatusHookTicker: s.updateStatusHookTicker,
 		charmDirGuard:          &mockCharmDirGuard{},
 	}
@@ -1750,7 +1726,7 @@ func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
 			runCommands{"juju-reboot"},
 			waitUniterDead{err: "machine needs to reboot"},
 			startUniter{},
-			waitHooks{"config-changed"},
+			waitHooks{},
 		), ut(
 			"test juju-reboot with bad hook",
 			startupError{"install"},
@@ -1764,7 +1740,7 @@ func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
 			runCommands{"juju-reboot --now"},
 			waitUniterDead{err: "machine needs to reboot"},
 			startUniter{},
-			waitHooks{"config-changed"},
+			waitHooks{},
 		), ut(
 			"test juju-reboot --now with bad hook",
 			startupError{"install"},

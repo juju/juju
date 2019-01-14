@@ -113,6 +113,17 @@ type MachineStatus struct {
 	Jobs      []multiwatcher.MachineJob `json:"jobs"`
 	HasVote   bool                      `json:"has-vote"`
 	WantsVote bool                      `json:"wants-vote"`
+
+	// LXDProfiles holds all the machines current LXD profiles that have
+	// been applied to the machine
+	LXDProfiles map[string]LXDProfile `json:"lxd-profiles,omitempty"`
+}
+
+// LXDProfile holds status info about a LXDProfile
+type LXDProfile struct {
+	Config      map[string]string            `json:"config"`
+	Description string                       `json:"description"`
+	Devices     map[string]map[string]string `json:"devices"`
 }
 
 // ApplicationStatus holds status info about an application.
@@ -129,9 +140,12 @@ type ApplicationStatus struct {
 	MeterStatuses    map[string]MeterStatus `json:"meter-statuses"`
 	Status           DetailedStatus         `json:"status"`
 	WorkloadVersion  string                 `json:"workload-version"`
+	CharmVersion     string                 `json:"charm-verion"`
 	EndpointBindings map[string]string      `json:"endpoint-bindings"`
 
 	// The following are for CAAS models.
+	Scale         int    `json:"int,omitempty"`
+	Placement     string `json:"string,omitempty"`
 	ProviderId    string `json:"provider-id,omitempty"`
 	PublicAddress string `json:"public-address"`
 }

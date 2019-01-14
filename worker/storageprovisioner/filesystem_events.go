@@ -8,9 +8,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/watcher"
 )
 
 // filesystemsChanged is called when the lifecycle states of the filesystems
@@ -174,7 +174,7 @@ func updatePendingFilesystemAttachment(
 		}
 	}
 	if params.InstanceId == "" {
-		watchMachine(ctx, params.Machine)
+		watchMachine(ctx, params.Machine.(names.MachineTag))
 		incomplete = true
 	}
 	if params.FilesystemId == "" {
@@ -292,11 +292,13 @@ func processAliveFilesystems(ctx *context, tags []names.FilesystemTag, filesyste
 				return errors.Annotate(err, "getting filesystem info")
 			}
 			updateFilesystem(ctx, filesystem)
-			if filesystem.Volume != (names.VolumeTag{}) {
-				// Ensure that volume-backed filesystems' block
-				// devices are present even after creating the
-				// filesystem, so that attachments can be made.
-				maybeAddPendingVolumeBlockDevice(ctx, filesystem.Volume)
+			if !ctx.isApplicationKind() {
+				if filesystem.Volume != (names.VolumeTag{}) {
+					// Ensure that volume-backed filesystems' block
+					// devices are present even after creating the
+					// filesystem, so that attachments can be made.
+					maybeAddPendingVolumeBlockDevice(ctx, filesystem.Volume)
+				}
 			}
 			continue
 		}
@@ -317,6 +319,10 @@ func processAliveFilesystems(ctx *context, tags []names.FilesystemTag, filesyste
 		return errors.Annotate(err, "getting filesystem params")
 	}
 	for _, params := range params {
+		if ctx.isApplicationKind() {
+			logger.Debugf("not queuing filesystem for %v unit", ctx.config.Scope.Id())
+			continue
+		}
 		updatePendingFilesystem(ctx, params)
 	}
 	return nil
@@ -373,6 +379,10 @@ func processAliveFilesystemAttachments(
 		return errors.Trace(err)
 	}
 	for i, params := range params {
+		if params.Machine != nil && params.Machine.Kind() != names.MachineTagKind {
+			logger.Debugf("not queuing filesystem attachment for non-machine %v", params.Machine)
+			continue
+		}
 		updatePendingFilesystemAttachment(ctx, pending[i], params)
 	}
 	return nil
@@ -472,17 +482,17 @@ func filesystemParamsFromParams(in params.FilesystemParams) (storage.FilesystemP
 	}
 	providerType := storage.ProviderType(in.Provider)
 	return storage.FilesystemParams{
-		filesystemTag,
-		volumeTag,
-		in.Size,
-		providerType,
-		in.Attributes,
-		in.Tags,
+		Tag:          filesystemTag,
+		Volume:       volumeTag,
+		Size:         in.Size,
+		Provider:     providerType,
+		Attributes:   in.Attributes,
+		ResourceTags: in.Tags,
 	}, nil
 }
 
 func filesystemAttachmentParamsFromParams(in params.FilesystemAttachmentParams) (storage.FilesystemAttachmentParams, error) {
-	machineTag, err := names.ParseMachineTag(in.MachineTag)
+	hostTag, err := names.ParseTag(in.MachineTag)
 	if err != nil {
 		return storage.FilesystemAttachmentParams{}, errors.Trace(err)
 	}
@@ -493,7 +503,7 @@ func filesystemAttachmentParamsFromParams(in params.FilesystemAttachmentParams) 
 	return storage.FilesystemAttachmentParams{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   storage.ProviderType(in.Provider),
-			Machine:    machineTag,
+			Machine:    hostTag,
 			InstanceId: instance.Id(in.InstanceId),
 			ReadOnly:   in.ReadOnly,
 		},

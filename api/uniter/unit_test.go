@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
+	coretesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -22,12 +23,13 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	jujufactory "github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 type unitSuite struct {
@@ -237,17 +239,6 @@ func (s *unitSuite) TestRefreshResolve(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mode = s.apiUnit.Resolved()
 	c.Assert(mode, gc.Equals, params.ResolvedNone)
-}
-
-func (s *unitSuite) TestRefreshSeries(c *gc.C) {
-	c.Assert(s.apiUnit.Series(), gc.Equals, "quantal")
-	err := s.wordpressMachine.UpdateMachineSeries("xenial", true)
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiUnit.Series(), gc.Equals, "quantal")
-
-	err = s.apiUnit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.Series(), gc.Equals, "xenial")
 }
 
 func (s *unitSuite) TestWatch(c *gc.C) {
@@ -476,7 +467,7 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 		called++
 		if called == 1 {
 			*(result.(*params.UnitRefreshResults)) = params.UnitRefreshResults{
-				Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"}}}
+				Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone}}}
 			return nil
 		}
 		c.Check(objType, gc.Equals, "Uniter")
@@ -536,34 +527,28 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 		"blog-title": "superhero paparazzi",
 	})
 }
-
-func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
-	// Make sure WatchConfigSettings returns an error when
+func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
+	// Make sure WatchConfigSettingsHash returns an error when
 	// no charm URL is set, as its state counterpart does.
-	w, err := s.apiUnit.WatchConfigSettings()
+	w, err := s.apiUnit.WatchConfigSettingsHash()
 	c.Assert(err, gc.ErrorMatches, "unit charm not set")
 
 	// Now set the charm and try again.
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err = s.apiUnit.WatchConfigSettings()
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	w, err = s.apiUnit.WatchConfigSettingsHash()
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
-	// Initial event.
-	wc.AssertOneChange()
+	// Initial event - this is the sha-256 hash of an empty bson.D.
+	wc.AssertChange("e8d7e8dfff0eed1e77b15638581672f7b25ecc1163cc5fd5a52d29d51d096c00")
 
-	// Update config a couple of times, check a single event.
-	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
-		"blog-title": "superhero paparazzi",
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	wc.AssertChange("7ed6151e9c3d5144faf0946d20c283c466b4885dded6a6122ff3fdac7ee2334f")
 
 	// Non-change is not reported.
 	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
@@ -573,15 +558,16 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *unitSuite) TestWatchTrustConfigSettings(c *gc.C) {
-	watcher, err := s.apiUnit.WatchTrustConfigSettings()
+func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
+	watcher, err := s.apiUnit.WatchTrustConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
 
-	notifyWatcher := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
-	defer notifyWatcher.AssertStops()
+	stringsWatcher := watchertest.NewStringsWatcherC(c, watcher, s.BackingState.StartSync)
+	defer stringsWatcher.AssertStops()
 
-	// Initial event.
-	notifyWatcher.AssertOneChange()
+	// Initial event - this is the hash of the settings key
+	// a#wordpress#application + an empty bson.D.
+	stringsWatcher.AssertChange("92652ce7679e295c6567a3891c562dcab727c71543f8c1c3a38c3626ce064019")
 
 	// Update application config and see if it is reported
 	trustFieldKey := "trust"
@@ -598,7 +584,7 @@ func (s *unitSuite) TestWatchTrustConfigSettings(c *gc.C) {
 			trustFieldKey: false,
 		},
 	)
-	notifyWatcher.AssertOneChange()
+	stringsWatcher.AssertChange("2f1368bde39be8106dcdca15e35cc3b5f7db5b8e429806369f621a47fb938519")
 }
 
 func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
@@ -684,6 +670,94 @@ func (s *unitSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
 }
 
+func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
+	watcher, err := s.apiUnit.WatchUpgradeSeriesNotifications()
+	c.Assert(err, jc.ErrorIsNil)
+
+	notifyWatcher := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
+	defer notifyWatcher.AssertStops()
+
+	notifyWatcher.AssertOneChange()
+
+	s.CreateUpgradeSeriesLock(c)
+
+	// Expect a notification that the document was created (i.e. a lock was placed)
+	notifyWatcher.AssertOneChange()
+
+	err = s.wordpressMachine.RemoveUpgradeSeriesLock()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// A notification that the document was removed (i.e. the lock was released)
+	notifyWatcher.AssertOneChange()
+}
+
+func (s *unitSuite) TestUpgradeSeriesStatusIsInitializedToUnitStarted(c *gc.C) {
+	// First we create the prepare lock
+	s.CreateUpgradeSeriesLock(c)
+
+	// Then we check to see the status of our upgrade. We note that creating
+	// the lock essentially kicks off an upgrade from the perspective of
+	// assigned units.
+	status, err := s.apiUnit.UpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, model.UpgradeSeriesPrepareStarted)
+}
+
+func (s *unitSuite) TestSetUpgradeSeriesStatusFailsIfNoLockExists(c *gc.C) {
+	arbitraryStatus := model.UpgradeSeriesNotStarted
+	arbitraryReason := ""
+
+	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryStatus, arbitraryReason)
+	c.Assert(err, gc.ErrorMatches, "upgrade lock for machine \"[0-9]*\" not found")
+}
+
+func (s *unitSuite) TestSetUpgradeSeriesStatusUpdatesStatus(c *gc.C) {
+	arbitraryNonDefaultStatus := model.UpgradeSeriesPrepareRunning
+	arbitraryReason := ""
+
+	// First we create the prepare lock or the required state will not exists
+	s.CreateUpgradeSeriesLock(c)
+
+	// Change the state to something other than the default remote state of UpgradeSeriesPrepareStarted
+	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryNonDefaultStatus, arbitraryReason)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check to see that the upgrade status has been set appropriately
+	status, err := s.apiUnit.UpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, arbitraryNonDefaultStatus)
+}
+
+func (s *unitSuite) TestSetUpgradeSeriesStatusShouldOnlySetSpecifiedUnit(c *gc.C) {
+	// add another unit
+	unit2, err := s.wordpressApplication.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit2.AssignToMachine(s.wordpressMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Creating a lock for the machine transitions all units to started state
+	s.CreateUpgradeSeriesLock(c, unit2.Name())
+
+	// Complete one unit
+	err = unit2.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The other unit should still be in the started state
+	status, err := s.wordpressUnit.UpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, model.UpgradeSeriesPrepareStarted)
+}
+
+func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C, additionalUnits ...string) {
+	unitNames := additionalUnits
+	unitNames = append(unitNames, s.wordpressUnit.Name())
+	series := "trust"
+
+	err := s.wordpressMachine.CreateUpgradeSeriesLock(unitNames, series)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *unitSuite) TestApplicationNameAndTag(c *gc.C) {
 	c.Assert(s.apiUnit.ApplicationName(), gc.Equals, s.wordpressApplication.Name())
 	c.Assert(s.apiUnit.ApplicationTag(), gc.Equals, s.wordpressApplication.Tag())
@@ -717,21 +791,19 @@ func (s *unitSuite) TestRelationSuspended(c *gc.C) {
 	}})
 }
 
-func (s *unitSuite) TestWatchAddresses(c *gc.C) {
-	w, err := s.apiUnit.WatchAddresses()
+func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
+	w, err := s.apiUnit.WatchAddressesHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
 	// Initial event.
-	wc.AssertOneChange()
+	wc.AssertChange("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
-	// Update config a couple of times, check a single event.
-	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
+	// Update config get an event.
 	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	wc.AssertChange("e8686213014563c18d8b3838ac3ac247dc2c7ceb0000cb01c19aa401ffc76e80")
 
 	// Non-change is not reported.
 	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
@@ -741,18 +813,18 @@ func (s *unitSuite) TestWatchAddresses(c *gc.C) {
 	// Change is reported for machine addresses.
 	err = s.wordpressMachine.SetMachineAddresses(network.NewAddress("0.1.2.5"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	wc.AssertChange("ad269642567ef00c2c9c6ff84e9c04ecf3aa3342c1b4d98d76142471781c4495")
 
 	// Set machine addresses to empty is reported.
 	err = s.wordpressMachine.SetMachineAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	wc.AssertChange("e8686213014563c18d8b3838ac3ac247dc2c7ceb0000cb01c19aa401ffc76e80")
 }
 
-func (s *unitSuite) TestWatchAddressesErrors(c *gc.C) {
+func (s *unitSuite) TestWatchAddressesHashErrors(c *gc.C) {
 	err := s.wordpressUnit.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.apiUnit.WatchAddresses()
+	_, err = s.apiUnit.WatchAddressesHash()
 	c.Assert(err, jc.Satisfies, params.IsCodeNotAssigned)
 }
 
@@ -859,36 +931,36 @@ func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
 	c.Assert(statusInfo, gc.Equals, "")
 }
 
-func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
-	w, err := s.apiUnit.WatchMeterStatus()
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
-	defer wc.AssertStops()
-
-	// Initial event.
-	wc.AssertOneChange()
-
-	err = s.wordpressUnit.SetMeterStatus("GREEN", "ok")
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Non-change is not reported.
-	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	mm, err := s.State.MetricsManager()
-	c.Assert(err, jc.ErrorIsNil)
-	err = mm.SetLastSuccessfulSend(time.Now())
-	c.Assert(err, jc.ErrorIsNil)
-	for i := 0; i < 3; i++ {
-		err := mm.IncrementConsecutiveErrors()
-		c.Assert(err, jc.ErrorIsNil)
+func (s *unitSuite) TestUpgradeSeriesStatusMultipleReturnsError(c *gc.C) {
+	facadeCaller := testing.StubFacadeCaller{Stub: &coretesting.Stub{}}
+	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+		*(response.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
+			Results: []params.UpgradeSeriesStatusResult{
+				{Status: "prepare started"},
+				{Status: "completed"},
+			},
+		}
+		return nil
 	}
-	status := mm.MeterStatus()
-	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
-	wc.AssertOneChange()
+	uniter.PatchUnitUpgradeSeriesFacade(s.apiUnit, &facadeCaller)
+
+	_, err := s.apiUnit.UpgradeSeriesStatus()
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *unitSuite) TestUpgradeSeriesStatusSingleResult(c *gc.C) {
+	facadeCaller := testing.StubFacadeCaller{Stub: &coretesting.Stub{}}
+	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+		*(response.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
+			Results: []params.UpgradeSeriesStatusResult{{Status: "completed"}},
+		}
+		return nil
+	}
+	uniter.PatchUnitUpgradeSeriesFacade(s.apiUnit, &facadeCaller)
+
+	sts, err := s.apiUnit.UpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sts, gc.Equals, model.UpgradeSeriesCompleted)
 }
 
 type unitMetricBatchesSuite struct {

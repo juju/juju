@@ -278,7 +278,7 @@ func (s mockListAPI) List(stream, region string, ser, arch []string, virtType, r
 }
 
 var testData = []params.CloudImageMetadata{
-	params.CloudImageMetadata{
+	{
 		Source:          "custom",
 		Series:          "vivid",
 		Arch:            "amd64",
@@ -288,7 +288,7 @@ var testData = []params.CloudImageMetadata{
 		VirtType:        "kvm",
 		RootStorageType: "ebs",
 	},
-	params.CloudImageMetadata{
+	{
 		Source:          "custom",
 		Series:          "vivid",
 		Arch:            "amd64",
@@ -298,7 +298,7 @@ var testData = []params.CloudImageMetadata{
 		VirtType:        "kvm",
 		RootStorageType: "ebs",
 	},
-	params.CloudImageMetadata{
+	{
 		Source:          "custom",
 		Series:          "vivid",
 		Arch:            "amd64",
@@ -308,7 +308,7 @@ var testData = []params.CloudImageMetadata{
 		VirtType:        "kvm",
 		RootStorageType: "ebs",
 	},
-	params.CloudImageMetadata{
+	{
 		Source:          "public",
 		Series:          "vivid",
 		Arch:            "amd64",
@@ -318,7 +318,7 @@ var testData = []params.CloudImageMetadata{
 		VirtType:        "kvm",
 		RootStorageType: "ebs",
 	},
-	params.CloudImageMetadata{
+	{
 		Source:          "custom",
 		Series:          "trusty",
 		Arch:            "amd64",
@@ -328,7 +328,7 @@ var testData = []params.CloudImageMetadata{
 		VirtType:        "kvm",
 		RootStorageType: "ebs",
 	},
-	params.CloudImageMetadata{
+	{
 		Source:          "custom",
 		Series:          "trusty",
 		Arch:            "i386",
@@ -338,7 +338,7 @@ var testData = []params.CloudImageMetadata{
 		VirtType:        "kvm",
 		RootStorageType: "ebs",
 	},
-	params.CloudImageMetadata{
+	{
 		Source:          "custom",
 		Series:          "trusty",
 		Arch:            "i386",
@@ -348,7 +348,7 @@ var testData = []params.CloudImageMetadata{
 		VirtType:        "kvm",
 		RootStorageType: "ebs",
 	},
-	params.CloudImageMetadata{
+	{
 		Source:          "public",
 		Series:          "trusty",
 		Arch:            "i386",
@@ -358,7 +358,7 @@ var testData = []params.CloudImageMetadata{
 		VirtType:        "kvm",
 		RootStorageType: "ebs",
 	},
-	params.CloudImageMetadata{
+	{
 		Source:          "public",
 		Series:          "trusty",
 		Arch:            "i386",
@@ -368,7 +368,7 @@ var testData = []params.CloudImageMetadata{
 		VirtType:        "kvm",
 		RootStorageType: "ebs",
 	},
-	params.CloudImageMetadata{
+	{
 		Source:          "public",
 		Series:          "trusty",
 		Arch:            "i386",
@@ -377,7 +377,7 @@ var testData = []params.CloudImageMetadata{
 		Stream:          "devel",
 		RootStorageType: "ebs",
 	},
-	params.CloudImageMetadata{
+	{
 		Source:   "public",
 		Series:   "trusty",
 		Arch:     "i386",
@@ -386,7 +386,7 @@ var testData = []params.CloudImageMetadata{
 		Stream:   "devel",
 		VirtType: "kvm",
 	},
-	params.CloudImageMetadata{
+	{
 		Source:  "public",
 		Series:  "trusty",
 		Arch:    "i386",

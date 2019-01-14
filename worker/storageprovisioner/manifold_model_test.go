@@ -4,10 +4,10 @@
 package storageprovisioner_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
@@ -25,9 +25,9 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) TestManifold(c *gc.C) {
 	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-		APICallerName: "grenouille",
-		ClockName:     "bustopher",
-		EnvironName:   "environ",
+		APICallerName:       "grenouille",
+		ClockName:           "bustopher",
+		StorageRegistryName: "environ",
 	})
 	c.Check(manifold.Inputs, jc.DeepEquals, []string{"grenouille", "bustopher", "environ"})
 	c.Check(manifold.Output, gc.IsNil)
@@ -37,9 +37,9 @@ func (s *ManifoldSuite) TestManifold(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingClock(c *gc.C) {
 	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-		APICallerName: "api-caller",
-		ClockName:     "clock",
-		EnvironName:   "environ",
+		APICallerName:       "api-caller",
+		ClockName:           "clock",
+		StorageRegistryName: "environ",
 	})
 	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
@@ -51,9 +51,9 @@ func (s *ManifoldSuite) TestMissingClock(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-		APICallerName: "api-caller",
-		ClockName:     "clock",
-		EnvironName:   "environ",
+		APICallerName:       "api-caller",
+		ClockName:           "clock",
+		StorageRegistryName: "environ",
 	})
 	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
@@ -65,9 +65,9 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingEnviron(c *gc.C) {
 	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-		APICallerName: "api-caller",
-		ClockName:     "clock",
-		EnvironName:   "environ",
+		APICallerName:       "api-caller",
+		ClockName:           "clock",
+		StorageRegistryName: "environ",
 	})
 	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},

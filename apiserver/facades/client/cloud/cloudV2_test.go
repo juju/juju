@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	cloudfacade "github.com/juju/juju/apiserver/facades/client/cloud"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -22,6 +23,7 @@ import (
 	_ "github.com/juju/juju/provider/maas"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&cloudSuiteV2{})
@@ -33,14 +35,13 @@ type cloudSuiteV2 struct {
 	authorizer *apiservertesting.FakeAuthorizer
 
 	apiv2 *cloudfacade.CloudAPIV2
+
+	statePool *mockStatePool
 }
 
 func (s *cloudSuiteV2) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	owner := names.NewUserTag("admin")
-	s.authorizer = &apiservertesting.FakeAuthorizer{
-		Tag: owner,
-	}
 
 	dummyCred := statetesting.CloudCredential(cloud.UserPassAuthType, map[string]string{
 		"username": "admin",
@@ -77,19 +78,53 @@ func (s *cloudSuiteV2) SetUpTest(c *gc.C) {
 			maasCred,
 		},
 		models: map[names.CloudCredentialTag][]state.CredentialOwnerModelAccess{
-			dummyCredTag: []state.CredentialOwnerModelAccess{
+			dummyCredTag: {
 				{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess},
 				{ModelName: "xyzmodel", OwnerAccess: permission.ReadAccess},
 			},
-			awsCredTag: []state.CredentialOwnerModelAccess{
+			awsCredTag: {
 				{ModelName: "whynotmodel", OwnerAccess: permission.NoAccess},
 			},
 		},
+		credentialModelsF: func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return nil, nil
+		},
 	}
 
-	client, err := cloudfacade.NewCloudAPIV2(s.backend, s.backend, s.authorizer, context.NewCloudCallContext())
+	s.setTestAPIForUser(c, owner)
+	newModel := func(uuid string) *mockPooledModel {
+		return &mockPooledModel{
+			model: &mockModelBackend{
+				uuid: uuid,
+				model: &mockModel{
+					cloud:       "dummy",
+					cloudRegion: "nether",
+					cfg:         coretesting.ModelConfig(c),
+				},
+				cloud: cloud.Cloud{
+					Name:      "dummy",
+					Type:      "dummy",
+					AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+					Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+				},
+			},
+			release: true,
+		}
+	}
+	s.statePool = &mockStatePool{
+		getF: func(modelUUID string) (cloudfacade.PooledModelBackend, error) {
+			return newModel(modelUUID), nil
+		},
+	}
+}
+
+func (s *cloudSuiteV2) setTestAPIForUser(c *gc.C, user names.UserTag) {
+	s.authorizer = &apiservertesting.FakeAuthorizer{
+		Tag: user,
+	}
+	client, err := cloudfacade.NewCloudAPI(s.backend, s.backend, s.statePool, s.authorizer, context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiv2 = client
+	s.apiv2 = &cloudfacade.CloudAPIV2{client}
 }
 
 func (s *cloudSuiteV2) TestCredentialContentsAllNoSecrets(c *gc.C) {
@@ -102,7 +137,7 @@ func (s *cloudSuiteV2) TestCredentialContentsAllNoSecrets(c *gc.C) {
 		"Cloud", "CredentialModelsAndOwnerAccess")
 
 	expected := []params.CredentialContentResult{
-		params.CredentialContentResult{
+		{
 			Result: &params.ControllerCredentialInfo{
 				Content: params.CredentialContent{
 					Name:     "onecredential",
@@ -118,7 +153,7 @@ func (s *cloudSuiteV2) TestCredentialContentsAllNoSecrets(c *gc.C) {
 				},
 			},
 		},
-		params.CredentialContentResult{
+		{
 			Result: &params.ControllerCredentialInfo{
 				Content: params.CredentialContent{
 					Name:     "twocredential",
@@ -133,7 +168,7 @@ func (s *cloudSuiteV2) TestCredentialContentsAllNoSecrets(c *gc.C) {
 				},
 			},
 		},
-		params.CredentialContentResult{
+		{
 			Result: &params.ControllerCredentialInfo{
 				Content: params.CredentialContent{
 					Name:       "mcredential",
@@ -166,7 +201,7 @@ func (s *cloudSuiteV2) TestCredentialContentsNamedWithSecrets(c *gc.C) {
 	s.backend.CheckCallNames(c, "CloudCredential", "Cloud", "CredentialModelsAndOwnerAccess")
 
 	expected := []params.CredentialContentResult{
-		params.CredentialContentResult{
+		{
 			Result: &params.ControllerCredentialInfo{
 				Content: params.CredentialContent{
 					Name:     "twocredential",
@@ -187,7 +222,6 @@ func (s *cloudSuiteV2) TestCredentialContentsNamedWithSecrets(c *gc.C) {
 }
 
 func (s *cloudSuiteV2) TestAddCloudInV2(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin")
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
@@ -205,23 +239,22 @@ func (s *cloudSuiteV2) TestAddCloudInV2(c *gc.C) {
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Endpoint:  "fake-endpoint",
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
-	})
+	}, "admin")
 }
 
 func (s *cloudSuiteV2) TestRemoveCloudInV2(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin")
+	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "cloud-foo"}, {Tag: "cloud-bar"}}}
 	result, err := s.apiv2.RemoveClouds(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
-	s.backend.CheckCallNames(c, "RemoveCloud", "RemoveCloud")
-	s.backend.CheckCall(c, 0, "RemoveCloud", "foo")
-	s.backend.CheckCall(c, 1, "RemoveCloud", "bar")
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}, {Error: &params.Error{Code: "unauthorized access", Message: "permission denied"}}}})
+	s.backend.CheckCallNames(c, "ControllerTag", "GetCloudAccess", "RemoveCloud", "GetCloudAccess")
+	s.backend.CheckCall(c, 2, "RemoveCloud", "foo")
 }
 
 func (s *cloudSuiteV2) TestAddCredentialInV2(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin")
 	paramsCreds := params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag: "cloudcred-fake_fake_fake",
 		Credential: params.CloudCredential{
@@ -239,6 +272,172 @@ func (s *cloudSuiteV2) TestAddCredentialInV2(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
+func (s *cloudSuiteV2) TestUpdateCredentials(c *gc.C) {
+	s.backend.SetErrors(nil, errors.NotFoundf("cloud"))
+	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
+	results, err := s.apiv2.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+		Tag: "machine-0",
+	}, {
+		Tag: "cloudcred-meep_admin_whatever",
+	}, {
+		Tag: "cloudcred-meep_bruce_three",
+		Credential: params.CloudCredential{
+			AuthType:   "oauth1",
+			Attributes: map[string]string{"token": "foo:bar:baz"},
+		},
+	}, {
+		Tag: "cloudcred-badcloud_bruce_three",
+		Credential: params.CloudCredential{
+			AuthType:   "oauth1",
+			Attributes: map[string]string{"token": "foo:bar:baz"},
+		},
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "UpdateCloudCredential", "CredentialModels", "UpdateCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 4)
+	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: `"machine-0" is not a valid cloudcred tag`,
+	})
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: "permission denied", Code: params.CodeUnauthorized,
+	})
+	c.Assert(results.Results[2].Error, gc.IsNil)
+	c.Assert(results.Results[3].Error, jc.DeepEquals, &params.Error{
+		Message: `cannot update credential "three": controller does not manage cloud "badcloud"`,
+	})
+
+	s.backend.CheckCall(
+		c, 2, "UpdateCloudCredential",
+		names.NewCloudCredentialTag("meep/bruce/three"),
+		cloud.NewCredential(
+			cloud.OAuth1AuthType,
+			map[string]string{"token": "foo:bar:baz"},
+		),
+	)
+}
+
+func (s *cloudSuiteV2) TestUpdateCredentialsAdminAccess(c *gc.C) {
+	results, err := s.apiv2.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+		Tag: "cloudcred-meep_julia_three",
+		Credential: params.CloudCredential{
+			AuthType:   "oauth1",
+			Attributes: map[string]string{"token": "foo:bar:baz"},
+		},
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "UpdateCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 1)
+	// admin can update others' credentials
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *cloudSuiteV2) TestUpdateCredentialsWithBrokenModels(c *gc.C) {
+	s.backend.SetErrors(nil, errors.NotFoundf("cloud"))
+	s.backend.credentialModelsF = func(tag names.CloudCredentialTag) (map[string]string, error) {
+		return map[string]string{
+			coretesting.ModelTag.Id():              "testModel1",
+			"deadbeef-2f18-4fd2-967d-db9663db7bea": "testModel2",
+		}, nil
+	}
+	s.PatchValue(cloudfacade.ValidateNewCredentialForModelFunc, func(backend credentialcommon.PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
+		if uuid := backend.(*mockModelBackend).uuid; uuid == coretesting.ModelTag.Id() {
+			return params.ErrorResults{[]params.ErrorResult{
+				{&params.Error{Message: "not valid for model"}},
+				{&params.Error{Message: "cannot find machine failure"}},
+			}}, nil
+		} else if uuid != "deadbeef-2f18-4fd2-967d-db9663db7bea" {
+			panic("bad uuid: " + uuid)
+		}
+		return params.ErrorResults{[]params.ErrorResult{}}, nil
+	})
+	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
+	results, err := s.apiv2.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+		Tag: "cloudcred-meep_bruce_three",
+		Credential: params.CloudCredential{
+			AuthType:   "oauth1",
+			Attributes: map[string]string{"token": "foo:bar:baz"},
+		},
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels")
+	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{
+			Message: "some models are no longer visible\nmodel \"testModel1\" (uuid deadbeef-0bad-400d-8000-4b1d0d06f00d): not valid for model\ncannot find machine failure"},
+		},
+	})
+}
+
+func (s *cloudSuiteV2) TestRevokeCredentials(c *gc.C) {
+	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
+	results, err := s.apiv2.RevokeCredentials(params.Entities{Entities: []params.Entity{{
+		Tag: "machine-0",
+	}, {
+		Tag: "cloudcred-meep_admin_whatever",
+	}, {
+		Tag: "cloudcred-meep_bruce_three",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: `"machine-0" is not a valid cloudcred tag`,
+	})
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: "permission denied", Code: params.CodeUnauthorized,
+	})
+	c.Assert(results.Results[2].Error, gc.IsNil)
+
+	s.backend.CheckCall(
+		c, 2, "RemoveCloudCredential",
+		names.NewCloudCredentialTag("meep/bruce/three"),
+	)
+}
+
+func (s *cloudSuiteV2) TestRevokeCredentialsAdminAccess(c *gc.C) {
+	results, err := s.apiv2.RevokeCredentials(params.Entities{Entities: []params.Entity{{
+		Tag: "cloudcred-meep_julia_three",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 1)
+	// admin can revoke others' credentials
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *cloudSuiteV2) TestRevokeCredentialsCantGetModels(c *gc.C) {
+	s.assertCredentialRemoved(c,
+		func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return nil, errors.New("no niet nope")
+		},
+		" WARNING juju.apiserver.cloud could not get models that use credential cloudcred-meep_julia_three: no niet nope",
+	)
+}
+
+func (s *cloudSuiteV2) TestRevokeCredentialsLogModels(c *gc.C) {
+	s.assertCredentialRemoved(c,
+		func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return map[string]string{
+				coretesting.ModelTag.Id(): "modelName",
+			}, nil
+		},
+		" WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is still used by model deadbeef-0bad-400d-8000-4b1d0d06f00d",
+	)
+}
+
+type credentialModelFunction func(tag names.CloudCredentialTag) (map[string]string, error)
+
+func (s *cloudSuiteV2) assertCredentialRemoved(c *gc.C, f credentialModelFunction, expectedLog string) {
+	s.backend.credentialModelsF = f
+	results, err := s.apiv2.RevokeCredentials(params.Entities{Entities: []params.Entity{{
+		Tag: "cloudcred-meep_julia_three",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(c.GetTestLog(), jc.Contains, expectedLog)
+}
+
 var cloudTypes = map[string]string{
 	"aws":   "ec2",
 	"dummy": "dummy",
@@ -247,8 +446,10 @@ var cloudTypes = map[string]string{
 
 type mockBackendV2 struct {
 	gitjujutesting.Stub
-	credentials []state.Credential
-	models      map[names.CloudCredentialTag][]state.CredentialOwnerModelAccess
+	cloudfacade.Backend
+	credentials       []state.Credential
+	models            map[names.CloudCredentialTag][]state.CredentialOwnerModelAccess
+	credentialModelsF func(tag names.CloudCredentialTag) (map[string]string, error)
 }
 
 func (st *mockBackendV2) AllCloudCredentials(user names.UserTag) ([]state.Credential, error) {
@@ -316,8 +517,8 @@ func (st *mockBackendV2) UpdateCloudCredential(tag names.CloudCredentialTag, cre
 	return st.NextErr()
 }
 
-func (st *mockBackendV2) AddCloud(cloud cloud.Cloud) error {
-	st.MethodCall(st, "AddCloud", cloud)
+func (st *mockBackendV2) AddCloud(cloud cloud.Cloud, user string) error {
+	st.MethodCall(st, "AddCloud", cloud, user)
 	return st.NextErr()
 }
 
@@ -343,10 +544,23 @@ func (st *mockBackendV2) CloudCredentials(user names.UserTag, cloudName string) 
 
 func (st *mockBackendV2) RemoveCloudCredential(tag names.CloudCredentialTag) error {
 	st.MethodCall(st, "RemoveCloudCredential", tag)
-	return errors.NewNotImplemented(nil, "RemoveCloudCredential")
+	return st.NextErr()
 }
 
 func (st *mockBackendV2) ModelConfig() (*config.Config, error) {
 	st.MethodCall(st, "ModelConfig")
 	return nil, errors.NewNotImplemented(nil, "ModelConfig")
+}
+
+func (st *mockBackendV2) CredentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
+	st.MethodCall(st, "CredentialModels", tag)
+	return st.credentialModelsF(tag)
+}
+
+func (st *mockBackendV2) GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error) {
+	st.MethodCall(st, "GetCloudAccess", cloud, user)
+	if cloud == "bar" {
+		return permission.NoAccess, errors.NotFoundf("cloud your-cloud")
+	}
+	return permission.AdminAccess, nil
 }

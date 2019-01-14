@@ -5,15 +5,23 @@ package provider
 
 import (
 	core "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/storage"
 )
 
 var (
-	MakeUnitSpec    = makeUnitSpec
-	ParseK8sPodSpec = parseK8sPodSpec
-	OperatorPod     = operatorPod
+	MakeUnitSpec           = makeUnitSpec
+	ParseK8sPodSpec        = parseK8sPodSpec
+	OperatorPod            = operatorPod
+	ExtractRegistryURL     = extractRegistryURL
+	CreateDockerConfigJSON = createDockerConfigJSON
+	NewStorageConfig       = newStorageConfig
+	NewKubernetesWatcher   = newKubernetesWatcher
 )
+
+type KubernetesWatcher = kubernetesWatcher
 
 func PodSpec(u *unitSpec) core.PodSpec {
 	return u.Pod
@@ -21,4 +29,24 @@ func PodSpec(u *unitSpec) core.PodSpec {
 
 func NewProvider() caas.ContainerEnvironProvider {
 	return kubernetesEnvironProvider{}
+}
+
+func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.Provider {
+	return &storageProvider{&kubernetesClient{Interface: k8sClient, namespace: namespace}}
+}
+
+func StorageClass(cfg *storageConfig) string {
+	return cfg.storageClass
+}
+
+func ExistingStorageClass(cfg *storageConfig) string {
+	return cfg.existingStorageClass
+}
+
+func StorageProvisioner(cfg *storageConfig) string {
+	return cfg.storageProvisioner
+}
+
+func StorageParameters(cfg *storageConfig) map[string]string {
+	return cfg.parameters
 }

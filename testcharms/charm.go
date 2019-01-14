@@ -6,7 +6,9 @@
 package testcharms
 
 import (
+	"os"
 	"strings"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,13 +16,22 @@ import (
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmrepo.v3/testing"
+
+	jtesting "github.com/juju/juju/testing"
 )
 
+const defaultSeries = "quantal"
+
 // Repo provides access to the test charm repository.
-var Repo = testing.NewRepo("charm-repo", "quantal")
+var Repo = testing.NewRepo("charm-repo", defaultSeries)
 
 // RepoForSeries returns a new charm repository for the specified series.
 func RepoForSeries(series string) *testing.Repo {
+	// TODO(ycliuhw): workaround - currently `quantal` is not exact series
+	// (for example, here makes deploy charm at charm-repo/quantal/mysql --series precise possible )!
+	if series != "kubernetes" {
+		series = defaultSeries
+	}
 	return testing.NewRepo("charm-repo", series)
 }
 
@@ -43,12 +54,17 @@ func UploadCharmWithMeta(c *gc.C, client *csclient.Client, charmURL, meta, metri
 	return chURL, ch
 }
 
-// UploadCharm uploads a charm using the given charm store client, and returns
+// UploadCharm sets default series to quantal
+func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL, charm.Charm) {
+	return UploadCharmWithSeries(c, client, url, name, defaultSeries)
+}
+
+// UploadCharmWithSeries uploads a charm using the given charm store client, and returns
 // the resulting charm URL and charm.
 //
 // It also adds any required resources that haven't already been uploaded
 // with the content "<resourcename> content".
-func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL, charm.Charm) {
+func UploadCharmWithSeries(c *gc.C, client *csclient.Client, url, name, series string) (*charm.URL, charm.Charm) {
 	id := charm.MustParseURL(url)
 	promulgatedRevision := -1
 	if id.User == "" {
@@ -56,7 +72,7 @@ func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL
 		id.User = "who"
 		promulgatedRevision = id.Revision
 	}
-	ch := Repo.CharmArchive(c.MkDir(), name)
+	ch := RepoForSeries(series).CharmArchive(c.MkDir(), name)
 
 	// Upload the charm.
 	err := client.UploadCharmWithRevision(id, ch, promulgatedRevision)
@@ -74,9 +90,14 @@ func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL
 		for _, r := range current {
 			if r.Revision == -1 {
 				// The resource doesn't exist so upload one.
-				content := r.Name + " content"
-				_, err := client.UploadResource(id, r.Name, "", strings.NewReader(content), int64(len(content)), nil)
-				c.Assert(err, jc.ErrorIsNil)
+				if r.Type == "oci-image" {
+					_, err = client.AddDockerResource(id, r.Name, "Image", "sha")
+					c.Assert(err, jc.ErrorIsNil)
+				} else {
+					content := r.Name + " content"
+					_, err := client.UploadResource(id, r.Name, "", strings.NewReader(content), int64(len(content)), nil)
+					c.Assert(err, jc.ErrorIsNil)
+				}
 				r.Revision = 0
 			}
 			resources[r.Name] = r.Revision
@@ -150,4 +171,37 @@ func SetPublicWithResources(c *gc.C, client *csclient.Client, id *charm.URL, res
 // published with global read permissions to the stable channel.
 func SetPublic(c *gc.C, client *csclient.Client, id *charm.URL) {
 	SetPublicWithResources(c, client, id, nil)
+}
+
+// CheckCharmReady ensures that a desired charm archive exists and
+// has some content.
+func CheckCharmReady(c *gc.C, charmArchive *charm.CharmArchive) {
+	fileSize := func() int64 {
+		f, err := os.Open(charmArchive.Path)
+		c.Assert(err, jc.ErrorIsNil)
+		defer f.Close()
+
+		fi, err := f.Stat()
+		c.Assert(err, jc.ErrorIsNil)
+		return fi.Size()
+	}
+
+	var oldSize, currentSize int64
+	var charmReady bool
+	runs := 1
+	timeout := time.After(jtesting.LongWait)
+	for !charmReady {
+		select {
+		case <-time.After(jtesting.ShortWait):
+			currentSize = fileSize()
+			// Since we do not know when the charm is ready, for as long as the size changes
+			// we'll assume that we'd need to wait.
+			charmReady = oldSize != 0 && currentSize == oldSize
+			c.Logf("%d: new file size %v (old size %v)", runs, currentSize, oldSize)
+			oldSize = currentSize
+			runs++
+		case <-timeout:
+			c.Fatalf("timed out waiting for charm @%v to be ready", charmArchive.Path)
+		}
+	}
 }

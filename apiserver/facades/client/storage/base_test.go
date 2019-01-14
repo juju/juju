@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 	jujustorage "github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -25,9 +26,11 @@ type baseStorageSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	api   *storage.APIv4
-	apiv3 *storage.APIv3
-	state *mockState
+	api             *storage.APIv4
+	apiCaas         *storage.APIv4
+	apiv3           *storage.APIv3
+	storageAccessor *mockStorageAccessor
+	state           *mockState
 
 	storageTag      names.StorageTag
 	storageInstance *mockStorageInstance
@@ -37,6 +40,7 @@ type baseStorageSuite struct {
 	volumeTag            names.VolumeTag
 	volume               *mockVolume
 	volumeAttachment     *mockVolumeAttachment
+	volumeAttachmentPlan *mockVolumeAttachmentPlan
 	filesystemTag        names.FilesystemTag
 	filesystem           *mockFilesystem
 	filesystemAttachment *mockFilesystemAttachment
@@ -46,7 +50,8 @@ type baseStorageSuite struct {
 	poolManager *mockPoolManager
 	pools       map[string]*jujustorage.Config
 
-	blocks map[state.BlockType]state.Block
+	blocks      map[state.BlockType]state.Block
+	callContext context.ProviderCallContext
 }
 
 func (s *baseStorageSuite) SetUpTest(c *gc.C) {
@@ -55,15 +60,18 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
 	s.stub.ResetCalls()
 	s.state = s.constructState()
+	s.storageAccessor = s.constructStorageAccessor()
 
 	s.registry = jujustorage.StaticProviderRegistry{map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.pools = make(map[string]*jujustorage.Config)
 	s.poolManager = s.constructPoolManager()
 
+	s.callContext = context.NewCloudCallContext()
 	var err error
-	s.api, err = storage.NewAPIv4(s.state, s.registry, s.poolManager, s.resources, s.authorizer)
+	s.api, err = storage.NewAPIv4(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
+	s.apiCaas, err = storage.NewAPIv4(s.state, state.ModelTypeCAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiv3, err = storage.NewAPIv3(s.state, s.registry, s.poolManager, s.resources, s.authorizer)
+	s.apiv3, err = storage.NewAPIv3(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -75,7 +83,6 @@ func (s *baseStorageSuite) assertCalls(c *gc.C, expectedCalls []string) {
 const (
 	allStorageInstancesCall                 = "allStorageInstances"
 	storageInstanceAttachmentsCall          = "storageInstanceAttachments"
-	unitAssignedMachineCall                 = "UnitAssignedMachine"
 	storageInstanceCall                     = "StorageInstance"
 	storageInstanceFilesystemCall           = "StorageInstanceFilesystem"
 	storageInstanceFilesystemAttachmentCall = "storageInstanceFilesystemAttachment"
@@ -91,6 +98,8 @@ const (
 	addStorageForUnitCall                   = "addStorageForUnit"
 	getBlockForTypeCall                     = "getBlockForType"
 	volumeAttachmentCall                    = "volumeAttachment"
+	volumeAttachmentPlanCall                = "volumeAttachmentPlan"
+	volumeAttachmentPlansCall               = "volumeAttachmentPlans"
 	attachStorageCall                       = "attachStorage"
 	detachStorageCall                       = "detachStorage"
 	destroyStorageInstanceCall              = "destroyStorageInstance"
@@ -100,6 +109,19 @@ const (
 
 func (s *baseStorageSuite) constructState() *mockState {
 	s.unitTag = names.NewUnitTag("mysql/0")
+	s.blocks = make(map[state.BlockType]state.Block)
+	return &mockState{
+		unitName:        s.unitTag.Id(),
+		assignedMachine: s.machineTag.Id(),
+		getBlockForType: func(t state.BlockType) (state.Block, bool, error) {
+			s.stub.AddCall(getBlockForTypeCall, t)
+			val, found := s.blocks[t]
+			return val, found, nil
+		},
+	}
+}
+
+func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 	s.storageTag = names.NewStorageTag("data/0")
 
 	s.storageInstance = &mockStorageInstance{
@@ -129,13 +151,20 @@ func (s *baseStorageSuite) constructState() *mockState {
 	}
 	s.volume = &mockVolume{tag: s.volumeTag, storage: &s.storageTag}
 	s.volumeAttachment = &mockVolumeAttachment{
-		VolumeTag:  s.volumeTag,
-		MachineTag: s.machineTag,
-		life:       state.Alive,
+		VolumeTag: s.volumeTag,
+		HostTag:   s.machineTag,
+		life:      state.Alive,
 	}
 
-	s.blocks = make(map[state.BlockType]state.Block)
-	return &mockState{
+	s.volumeAttachmentPlan = &mockVolumeAttachmentPlan{
+		VolumeTag: s.volumeTag,
+		HostTag:   s.machineTag,
+		life:      state.Alive,
+		info:      &state.VolumeAttachmentPlanInfo{},
+		blk:       &state.BlockDeviceInfo{},
+	}
+
+	return &mockStorageAccessor{
 		allStorageInstances: func() ([]state.StorageInstance, error) {
 			s.stub.AddCall(allStorageInstancesCall)
 			return []state.StorageInstance{s.storageInstance}, nil
@@ -161,7 +190,7 @@ func (s *baseStorageSuite) constructState() *mockState {
 			}
 			return nil, errors.NotFoundf("%s", names.ReadableString(sTag))
 		},
-		storageInstanceFilesystemAttachment: func(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error) {
+		storageInstanceFilesystemAttachment: func(m names.Tag, f names.FilesystemTag) (state.FilesystemAttachment, error) {
 			s.stub.AddCall(storageInstanceFilesystemAttachmentCall)
 			if m == s.machineTag && f == s.filesystemTag {
 				return s.filesystemAttachment, nil
@@ -175,16 +204,17 @@ func (s *baseStorageSuite) constructState() *mockState {
 			}
 			return nil, errors.NotFoundf("%s", names.ReadableString(t))
 		},
-		volumeAttachment: func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error) {
+		volumeAttachment: func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error) {
 			s.stub.AddCall(volumeAttachmentCall)
 			return s.volumeAttachment, nil
 		},
-		unitAssignedMachine: func(u names.UnitTag) (names.MachineTag, error) {
-			s.stub.AddCall(unitAssignedMachineCall)
-			if u == s.unitTag {
-				return s.machineTag, nil
-			}
-			return names.MachineTag{}, errors.NotFoundf("%s", names.ReadableString(u))
+		volumeAttachmentPlan: func(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error) {
+			s.stub.AddCall(volumeAttachmentPlanCall)
+			return s.volumeAttachmentPlan, nil
+		},
+		volumeAttachmentPlans: func(names.VolumeTag) ([]state.VolumeAttachmentPlan, error) {
+			s.stub.AddCall(volumeAttachmentPlansCall)
+			return []state.VolumeAttachmentPlan{s.volumeAttachmentPlan}, nil
 		},
 		volume: func(tag names.VolumeTag) (state.Volume, error) {
 			s.stub.AddCall(volumeCall)
@@ -236,15 +266,9 @@ func (s *baseStorageSuite) constructState() *mockState {
 			s.stub.AddCall(allFilesystemsCall)
 			return []state.Filesystem{s.filesystem}, nil
 		},
-		modelName: "storagetest",
 		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 			s.stub.AddCall(addStorageForUnitCall)
 			return nil, nil
-		},
-		getBlockForType: func(t state.BlockType) (state.Block, bool, error) {
-			s.stub.AddCall(getBlockForTypeCall, t)
-			val, found := s.blocks[t]
-			return val, found, nil
 		},
 		detachStorage: func(storage names.StorageTag, unit names.UnitTag) error {
 			s.stub.AddCall(detachStorageCall, storage, unit)

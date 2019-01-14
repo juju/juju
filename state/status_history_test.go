@@ -8,29 +8,28 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
 type StatusHistorySuite struct {
-	// TODO Migrate to StateSuite (with testing clock).
-	statetesting.StateWithWallClockSuite
+	statetesting.StateSuite
 }
 
 var _ = gc.Suite(&StatusHistorySuite{})
 
+func (s *StatusHistorySuite) SetUpTest(c *gc.C) {
+	s.InitialTime = time.Now()
+	s.StateSuite.SetUpTest(c)
+}
+
 func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
-	clock := testing.NewClock(coretesting.NonZeroTime())
-	err := s.State.SetClockForTesting(clock)
-	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 
 	initialHistory := 20000
@@ -46,7 +45,7 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 	}
 
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
-	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, initialHistory, 1000, nil)
+	state.PrimeUnitStatusHistory(c, s.Clock, unit, status.Active, initialHistory, 1000, nil)
 
 	history, err := unit.StatusHistory(filter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,16 +67,13 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 }
 
 func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
-	clock := testing.NewClock(coretesting.NonZeroTime())
-	err := s.State.SetClockForTesting(clock)
-	c.Assert(err, jc.ErrorIsNil)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{})
 	defer st.Close()
 
-	localFactory := factory.NewFactory(st)
+	localFactory := factory.NewFactory(st, s.StatePool)
 	application := localFactory.MakeApplication(c, nil)
 	unit := localFactory.MakeUnit(c, &factory.UnitParams{Application: application})
-	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, 20000, 1000, nil)
+	state.PrimeUnitStatusHistory(c, s.Clock, unit, status.Active, 20000, 1000, nil)
 
 	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
 	c.Assert(err, jc.ErrorIsNil)

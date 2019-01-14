@@ -9,7 +9,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/meterstatus"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/common/charmrunner"
 )
 

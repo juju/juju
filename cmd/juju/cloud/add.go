@@ -12,10 +12,13 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils"
+	"github.com/juju/utils/cert"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/environs"
@@ -31,26 +34,62 @@ type CloudMetadataStore interface {
 }
 
 var usageAddCloudSummary = `
-Adds a user-defined cloud to Juju from among known cloud types.`[1:]
+Adds a cloud definition to Juju.`[1:]
 
 var usageAddCloudDetails = `
+Juju needs to know how to connect to clouds. A cloud definition 
+describes a cloud's endpoints and authentication requirements. Each
+definition is stored and accessed later as <cloud name>.
+
+If you are accessing a public cloud, running add-cloud unlikely to be 
+necessary.  Juju already contains definitions for the public cloud 
+providers it supports.
+
+add-cloud operates in two modes:
+
+    juju add-cloud
+    juju add-cloud <cloud name> <cloud definition file>
+
+When invoked without arguments, add-cloud begins an interactive session
+designed for working with private clouds.  The session will enable you 
+to instruct Juju how to connect to your private cloud.
+
+When <cloud definition file> is provided with <cloud name>, 
+Juju stores that definition its internal cache directly after 
+validating the contents.
+
+If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
+option is required.
+
 A cloud definition file has the following YAML format:
 
-clouds:
-  mycloud:
-    type: openstack
+clouds:                           # mandatory
+  mycloud:                        # <cloud name> argument
+    type: openstack               # <cloud type>, see below
     auth-types: [ userpass ]
     regions:
       london:
         endpoint: https://london.mycloud.com:35574/v3.0/
 
-If the named cloud already exists, the `[1:] + "`--replace`" + ` option is required to 
-overwrite its configuration.
-Known cloud types: azure, cloudsigma, ec2, gce, joyent, lxd, maas, manual,
-openstack, rackspace
+<cloud types> for private clouds: 
+ - lxd
+ - maas
+ - manual
+ - openstack
+ - vsphere
+
+<cloud types> for public clouds:
+ - azure
+ - cloudsigma
+ - ec2
+ - gce
+ - joyent
+ - oci
 
 Examples:
+    juju add-cloud
     juju add-cloud mycloud ~/mycloud.yaml
+    juju add-cloud --replace mycloud ~/mycloud2.yaml
 
 See also: 
     clouds`
@@ -74,16 +113,19 @@ type AddCloudCommand struct {
 	// default it just calls the correct provider's Ping method.
 	Ping func(p environs.EnvironProvider, endpoint string) error
 
+	// CloudCallCtx contains context to be used for any cloud calls.
+	CloudCallCtx       *context.CloudCallContext
 	cloudMetadataStore CloudMetadataStore
 }
 
 // NewAddCloudCommand returns a command to add cloud information.
 func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) *AddCloudCommand {
 	cloudCallCtx := context.NewCloudCallContext()
-	// Ping is provider.Ping except in tests where we don't actually want to
-	// require a valid cloud.
 	return &AddCloudCommand{
 		cloudMetadataStore: cloudMetadataStore,
+		CloudCallCtx:       cloudCallCtx,
+		// Ping is provider.Ping except in tests where we don't actually want to
+		// require a valid cloud.
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
 			return p.Ping(cloudCallCtx, endpoint)
 		},
@@ -92,18 +134,18 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) *AddCloudCommand 
 
 // Info returns help information about the command.
 func (c *AddCloudCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-cloud",
 		Args:    "<cloud name> <cloud definition file>",
 		Purpose: usageAddCloudSummary,
 		Doc:     usageAddCloudDetails,
-	}
+	})
 }
 
 // SetFlags initializes the flags supported by the command.
 func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information")
+	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information for <cloud name>")
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
 }
 
@@ -117,7 +159,7 @@ func (c *AddCloudCommand) Init(args []string) (err error) {
 	}
 	if len(args) > 1 {
 		if c.CloudFile != args[1] && c.CloudFile != "" {
-			return errors.BadRequestf("cannot specify cloud file with flag and argument")
+			return errors.BadRequestf("cannot specify cloud file with option and argument")
 		}
 		c.CloudFile = args[1]
 	}
@@ -192,10 +234,34 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	pollster.VerifyURLs = func(s string) (ok bool, msg string, err error) {
-		err = c.Ping(provider, s)
+	// At this stage, since we do not have a reference to any model, nor can we get it,
+	// nor do we need to have a model for anything that this command does,
+	// no cloud credential stored server-side can be invalidated.
+	// So, just log an informative message.
+	c.CloudCallCtx.InvalidateCredentialFunc = func(reason string) error {
+		ctxt.Infof("Cloud credential is not accepted by cloud provider: %v", reason)
+		return nil
+	}
+
+	// VerifyURLs will return true if a schema format type jsonschema.FormatURI is used
+	// and the value will Ping().
+	pollster.VerifyURLs = func(s string) (bool, string, error) {
+		err := c.Ping(provider, s)
 		if err != nil {
 			return false, "Can't validate endpoint: " + err.Error(), nil
+		}
+		return true, "", nil
+	}
+
+	// VerifyCertFile will return true if the schema format type "cert-filename" is used
+	// and the value is readable and a valid cert file.
+	pollster.VerifyCertFile = func(s string) (bool, string, error) {
+		out, err := ioutil.ReadFile(s)
+		if err != nil {
+			return false, "Can't validate CA Certificate file: " + err.Error(), nil
+		}
+		if _, err := cert.ParseCert(string(out)); err != nil {
+			return false, fmt.Sprintf("Can't validate CA Certificate %s: %s", s, err.Error()), nil
 		}
 		return true, "", nil
 	}
@@ -208,6 +274,17 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	filename, alt, err := addCertificate(b)
+	switch {
+	case errors.IsNotFound(err):
+	case err != nil:
+		return errors.Annotate(err, "CA Certificate")
+	default:
+		ctxt.Infof("Successfully read CA Certificate from %s", filename)
+		b = alt
+	}
+
 	newCloud, err := c.cloudMetadataStore.ParseOneCloud(b)
 	if err != nil {
 		return errors.Trace(err)
@@ -218,9 +295,55 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	ctxt.Infof("Cloud %q successfully added", name)
-	ctxt.Infof("You may bootstrap with 'juju bootstrap %s'", name)
+	ctxt.Infof("")
+	ctxt.Infof("You will need to add credentials for this cloud (`juju add-credential %s`)", name)
+	ctxt.Infof("before creating a controller (`juju bootstrap %s`).", name)
 
 	return nil
+}
+
+// addCertificate reads the cloud certificate file if available and adds the contents
+// to the byte slice with the appropriate key.  A NotFound error is returned if
+// a cloud.CertFilenameKey is not contained in the data, or the value is empty, this is
+// not a fatal error.
+func addCertificate(data []byte) (string, []byte, error) {
+	vals, err := ensureStringMaps(string(data))
+	if err != nil {
+		return "", nil, err
+	}
+	name, ok := vals[cloud.CertFilenameKey]
+	if !ok {
+		return "", nil, errors.NotFoundf("yaml has no certificate file")
+	}
+	filename := name.(string)
+	if ok && filename != "" {
+		out, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return filename, nil, err
+		}
+		certificate := string(out)
+		if _, err := cert.ParseCert(certificate); err != nil {
+			return filename, nil, errors.Annotate(err, "bad cloud CA certificate")
+		}
+		vals["ca-certificates"] = []string{certificate}
+
+	} else {
+		return filename, nil, errors.NotFoundf("yaml has no certificate file")
+	}
+	alt, err := yaml.Marshal(vals)
+	return filename, alt, err
+}
+
+func ensureStringMaps(in string) (map[string]interface{}, error) {
+	userDataMap := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(in), &userDataMap); err != nil {
+		return nil, errors.Annotate(err, "must be valid YAML")
+	}
+	out, err := utils.ConformYAML(userDataMap)
+	if err != nil {
+		return nil, err
+	}
+	return out.(map[string]interface{}), nil
 }
 
 func queryName(

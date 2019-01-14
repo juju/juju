@@ -14,18 +14,18 @@ import (
 )
 
 // Watchers provides methods for watching filesystems. The watches aggregate
-// results from machine- and model-scoped watchers, to conform to the behaviour
+// results from host- and model-scoped watchers, to conform to the behaviour
 // of the storageprovisioner worker. The model-level storageprovisioner watches
-// model-scoped filesystems that have no backing volume. The machine-level worker
-// watches both machine-scoped filesystems, and model-scoped filesystems whose
-// backing volumes are attached to the machine.
+// model-scoped filesystems that have no backing volume. The host-level worker
+// watches both host-scoped filesystems, and model-scoped filesystems whose
+// backing volumes are attached to the host.
 type Watchers struct {
 	Backend Backend
 }
 
 // WatchModelManagedFilesystems returns a strings watcher that reports
 // model-scoped filesystems that have no backing volume. Volume-backed
-// filesystems are always managed by the machine to which they are attached.
+// filesystems are always managed by the host to which they are attached.
 func (fw Watchers) WatchModelManagedFilesystems() state.StringsWatcher {
 	return newFilteredStringsWatcher(fw.Backend.WatchModelFilesystems(), func(id string) (bool, error) {
 		f, err := fw.Backend.Filesystem(names.NewFilesystemTag(id))
@@ -39,23 +39,29 @@ func (fw Watchers) WatchModelManagedFilesystems() state.StringsWatcher {
 	})
 }
 
-// WatchMachineManagedFilesystems returns a strings watcher that reports both
-// machine-scoped filesystems, and model-scoped, volume-backed filesystems
-// that are attached to the specified machine.
-func (fw Watchers) WatchMachineManagedFilesystems(m names.MachineTag) state.StringsWatcher {
-	w := &machineFilesystemsWatcher{
+// WatchUnitManagedFilesystems returns a strings watcher that reports both
+// unit-scoped filesystems, and model-scoped, volume-backed filesystems
+// that are attached to units of the specified application.
+func (fw Watchers) WatchUnitManagedFilesystems(app names.ApplicationTag) state.StringsWatcher {
+	w := &hostFilesystemsWatcher{
 		stringsWatcherBase:     stringsWatcherBase{out: make(chan []string)},
 		backend:                fw.Backend,
-		machine:                m,
 		changes:                set.NewStrings(),
-		machineFilesystems:     fw.Backend.WatchMachineFilesystems(m),
+		hostFilesystems:        fw.Backend.WatchUnitFilesystems(app),
 		modelFilesystems:       fw.Backend.WatchModelFilesystems(),
 		modelVolumeAttachments: fw.Backend.WatchModelVolumeAttachments(),
 		modelVolumesAttached:   names.NewSet(),
 		modelVolumeFilesystems: make(map[names.VolumeTag]names.FilesystemTag),
+		hostMatch: func(tag names.Tag) (bool, error) {
+			entity, err := names.UnitApplication(tag.Id())
+			if err != nil {
+				return false, errors.Trace(err)
+			}
+			return app.Id() == entity, nil
+		},
 	}
 	w.tomb.Go(func() error {
-		defer watcher.Stop(w.machineFilesystems, &w.tomb)
+		defer watcher.Stop(w.hostFilesystems, &w.tomb)
 		defer watcher.Stop(w.modelFilesystems, &w.tomb)
 		defer watcher.Stop(w.modelVolumeAttachments, &w.tomb)
 		return w.loop()
@@ -63,29 +69,55 @@ func (fw Watchers) WatchMachineManagedFilesystems(m names.MachineTag) state.Stri
 	return w
 }
 
-// machineFilesystemsWatcher is a strings watcher that reports both
+// WatchMachineManagedFilesystems returns a strings watcher that reports both
 // machine-scoped filesystems, and model-scoped, volume-backed filesystems
 // that are attached to the specified machine.
+func (fw Watchers) WatchMachineManagedFilesystems(m names.MachineTag) state.StringsWatcher {
+	w := &hostFilesystemsWatcher{
+		stringsWatcherBase:     stringsWatcherBase{out: make(chan []string)},
+		backend:                fw.Backend,
+		changes:                set.NewStrings(),
+		hostFilesystems:        fw.Backend.WatchMachineFilesystems(m),
+		modelFilesystems:       fw.Backend.WatchModelFilesystems(),
+		modelVolumeAttachments: fw.Backend.WatchModelVolumeAttachments(),
+		modelVolumesAttached:   names.NewSet(),
+		modelVolumeFilesystems: make(map[names.VolumeTag]names.FilesystemTag),
+		hostMatch: func(tag names.Tag) (bool, error) {
+			return tag == m, nil
+		},
+	}
+	w.tomb.Go(func() error {
+		defer watcher.Stop(w.hostFilesystems, &w.tomb)
+		defer watcher.Stop(w.modelFilesystems, &w.tomb)
+		defer watcher.Stop(w.modelVolumeAttachments, &w.tomb)
+		return w.loop()
+	})
+	return w
+}
+
+// hostFilesystemsWatcher is a strings watcher that reports both
+// host-scoped filesystems, and model-scoped, volume-backed filesystems
+// that are attached to the specified host.
 //
 // NOTE(axw) we use the existence of the *volume* attachment rather than
 // filesystem attachment because the filesystem attachment can be destroyed
 // before the filesystem, but the volume attachment cannot.
-type machineFilesystemsWatcher struct {
+type hostFilesystemsWatcher struct {
 	stringsWatcherBase
 	changes                set.Strings
 	backend                Backend
-	machine                names.MachineTag
-	machineFilesystems     state.StringsWatcher
+	hostFilesystems        state.StringsWatcher
 	modelFilesystems       state.StringsWatcher
 	modelVolumeAttachments state.StringsWatcher
 	modelVolumesAttached   names.Set
 	modelVolumeFilesystems map[names.VolumeTag]names.FilesystemTag
+	hostMatch              func(names.Tag) (bool, error)
 }
 
-func (w *machineFilesystemsWatcher) loop() error {
+func (w *hostFilesystemsWatcher) loop() error {
 	defer close(w.out)
 	var out chan<- []string
-	var machineFilesystemsReceived bool
+	var hostFilesystemsReceived bool
 	var modelFilesystemsReceived bool
 	var modelVolumeAttachmentsReceived bool
 	var sentFirst bool
@@ -93,11 +125,11 @@ func (w *machineFilesystemsWatcher) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case values, ok := <-w.machineFilesystems.Changes():
+		case values, ok := <-w.hostFilesystems.Changes():
 			if !ok {
-				return watcher.EnsureErr(w.machineFilesystems)
+				return watcher.EnsureErr(w.hostFilesystems)
 			}
-			machineFilesystemsReceived = true
+			hostFilesystemsReceived = true
 			for _, v := range values {
 				w.changes.Add(v)
 			}
@@ -118,14 +150,18 @@ func (w *machineFilesystemsWatcher) loop() error {
 			}
 			modelVolumeAttachmentsReceived = true
 			for _, id := range values {
-				machineTag, volumeTag, err := state.ParseVolumeAttachmentId(id)
+				hostTag, volumeTag, err := state.ParseVolumeAttachmentId(id)
 				if err != nil {
 					return errors.Annotate(err, "parsing volume attachment ID")
 				}
-				if machineTag != w.machine {
+				match, err := w.hostMatch(hostTag)
+				if err != nil {
+					return errors.Annotate(err, "parsing volume host tag")
+				}
+				if !match {
 					continue
 				}
-				if err := w.modelVolumeAttachmentChanged(volumeTag); err != nil {
+				if err := w.modelVolumeAttachmentChanged(hostTag, volumeTag); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -137,7 +173,7 @@ func (w *machineFilesystemsWatcher) loop() error {
 		// an initial event from each of the watchers. This ensures
 		// that we provide a complete view of the world in the initial
 		// event, which is expected of all watchers.
-		if machineFilesystemsReceived &&
+		if hostFilesystemsReceived &&
 			modelFilesystemsReceived &&
 			modelVolumeAttachmentsReceived &&
 			(!sentFirst || len(w.changes) > 0) {
@@ -147,7 +183,7 @@ func (w *machineFilesystemsWatcher) loop() error {
 	}
 }
 
-func (w *machineFilesystemsWatcher) modelFilesystemChanged(filesystemTag names.FilesystemTag) error {
+func (w *hostFilesystemsWatcher) modelFilesystemChanged(filesystemTag names.FilesystemTag) error {
 	filesystem, err := w.backend.Filesystem(filesystemTag)
 	if errors.IsNotFound(err) {
 		// Filesystem removed: nothing more to do.
@@ -169,8 +205,8 @@ func (w *machineFilesystemsWatcher) modelFilesystemChanged(filesystemTag names.F
 	return nil
 }
 
-func (w *machineFilesystemsWatcher) modelVolumeAttachmentChanged(volumeTag names.VolumeTag) error {
-	va, err := w.backend.VolumeAttachment(w.machine, volumeTag)
+func (w *hostFilesystemsWatcher) modelVolumeAttachmentChanged(hostTag names.Tag, volumeTag names.VolumeTag) error {
+	va, err := w.backend.VolumeAttachment(hostTag, volumeTag)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "getting volume attachment")
 	}
@@ -197,7 +233,7 @@ func (w *machineFilesystemsWatcher) modelVolumeAttachmentChanged(volumeTag names
 // WatchModelManagedFilesystemAttachments returns a strings watcher that
 // reports lifecycle changes to attachments of model-scoped filesystem that
 // have no backing volume. Volume-backed filesystems are always managed by
-// the machine to which they are attached.
+// the host to which they are attached.
 func (fw Watchers) WatchModelManagedFilesystemAttachments() state.StringsWatcher {
 	return newFilteredStringsWatcher(fw.Backend.WatchModelFilesystemAttachments(), func(id string) (bool, error) {
 		_, filesystemTag, err := state.ParseFilesystemAttachmentId(id)
@@ -216,24 +252,26 @@ func (fw Watchers) WatchModelManagedFilesystemAttachments() state.StringsWatcher
 }
 
 // WatchMachineManagedFilesystemAttachments returns a strings watcher that
-// reports lifecycle change sfor attachments to both machine-scoped filesystems,
+// reports lifecycle changes for attachments to both machine-scoped filesystems,
 // and model-scoped, volume-backed filesystems that are attached to the
 // specified machine.
 func (fw Watchers) WatchMachineManagedFilesystemAttachments(m names.MachineTag) state.StringsWatcher {
-	w := &machineFilesystemAttachmentsWatcher{
+	w := &hostFilesystemAttachmentsWatcher{
 		stringsWatcherBase:               stringsWatcherBase{out: make(chan []string)},
 		backend:                          fw.Backend,
-		machine:                          m,
 		changes:                          set.NewStrings(),
-		machineFilesystemAttachments:     fw.Backend.WatchMachineFilesystemAttachments(m),
+		hostFilesystemAttachments:        fw.Backend.WatchMachineFilesystemAttachments(m),
 		modelFilesystemAttachments:       fw.Backend.WatchModelFilesystemAttachments(),
 		modelVolumeAttachments:           fw.Backend.WatchModelVolumeAttachments(),
 		modelVolumesAttached:             names.NewSet(),
 		modelVolumeFilesystemAttachments: make(map[names.VolumeTag]string),
+		hostMatch: func(tag names.Tag) (bool, error) {
+			return tag == m, nil
+		},
 	}
 
 	w.tomb.Go(func() error {
-		defer watcher.Stop(w.machineFilesystemAttachments, &w.tomb)
+		defer watcher.Stop(w.hostFilesystemAttachments, &w.tomb)
 		defer watcher.Stop(w.modelFilesystemAttachments, &w.tomb)
 		defer watcher.Stop(w.modelVolumeAttachments, &w.tomb)
 		return w.loop()
@@ -241,27 +279,59 @@ func (fw Watchers) WatchMachineManagedFilesystemAttachments(m names.MachineTag) 
 	return w
 }
 
-// machineFilesystemAttachmentsWatcher is a strings watcher that reports
-// lifechcle changes for attachments to both machine-scoped filesystems,
+// WatchMachineManagedFilesystemAttachments returns a strings watcher that
+// reports lifecycle changes for attachments to both unit-scoped filesystems,
+// and model-scoped, volume-backed filesystems that are attached to units of the
+// specified application.
+func (fw Watchers) WatchUnitManagedFilesystemAttachments(app names.ApplicationTag) state.StringsWatcher {
+	w := &hostFilesystemAttachmentsWatcher{
+		stringsWatcherBase:               stringsWatcherBase{out: make(chan []string)},
+		backend:                          fw.Backend,
+		changes:                          set.NewStrings(),
+		hostFilesystemAttachments:        fw.Backend.WatchUnitFilesystemAttachments(app),
+		modelFilesystemAttachments:       fw.Backend.WatchModelFilesystemAttachments(),
+		modelVolumeAttachments:           fw.Backend.WatchModelVolumeAttachments(),
+		modelVolumesAttached:             names.NewSet(),
+		modelVolumeFilesystemAttachments: make(map[names.VolumeTag]string),
+		hostMatch: func(tag names.Tag) (bool, error) {
+			unitApp, err := names.UnitApplication(tag.Id())
+			if err != nil {
+				return false, errors.Trace(err)
+			}
+			return unitApp == app.Id(), nil
+		},
+	}
+
+	w.tomb.Go(func() error {
+		defer watcher.Stop(w.hostFilesystemAttachments, &w.tomb)
+		defer watcher.Stop(w.modelFilesystemAttachments, &w.tomb)
+		defer watcher.Stop(w.modelVolumeAttachments, &w.tomb)
+		return w.loop()
+	})
+	return w
+}
+
+// hostFilesystemAttachmentsWatcher is a strings watcher that reports
+// lifechcle changes for attachments to both host-scoped filesystems,
 // and model-scoped, volume-backed filesystems that are attached to the
-// specified machine.
+// specified host.
 //
 // NOTE(axw) we use the existence of the *volume* attachment rather than
 // filesystem attachment because the filesystem attachment can be destroyed
 // before the filesystem, but the volume attachment cannot.
-type machineFilesystemAttachmentsWatcher struct {
+type hostFilesystemAttachmentsWatcher struct {
 	stringsWatcherBase
 	changes                          set.Strings
 	backend                          Backend
-	machine                          names.MachineTag
-	machineFilesystemAttachments     state.StringsWatcher
+	hostFilesystemAttachments        state.StringsWatcher
 	modelFilesystemAttachments       state.StringsWatcher
 	modelVolumeAttachments           state.StringsWatcher
 	modelVolumesAttached             names.Set
 	modelVolumeFilesystemAttachments map[names.VolumeTag]string
+	hostMatch                        func(names.Tag) (bool, error)
 }
 
-func (w *machineFilesystemAttachmentsWatcher) loop() error {
+func (w *hostFilesystemAttachmentsWatcher) loop() error {
 	defer close(w.out)
 	var out chan<- []string
 	var machineFilesystemAttachmentsReceived bool
@@ -272,9 +342,9 @@ func (w *machineFilesystemAttachmentsWatcher) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case values, ok := <-w.machineFilesystemAttachments.Changes():
+		case values, ok := <-w.hostFilesystemAttachments.Changes():
 			if !ok {
-				return watcher.EnsureErr(w.machineFilesystemAttachments)
+				return watcher.EnsureErr(w.hostFilesystemAttachments)
 			}
 			machineFilesystemAttachmentsReceived = true
 			for _, v := range values {
@@ -286,11 +356,15 @@ func (w *machineFilesystemAttachmentsWatcher) loop() error {
 			}
 			modelFilesystemAttachmentsReceived = true
 			for _, id := range values {
-				machineTag, filesystemTag, err := state.ParseFilesystemAttachmentId(id)
+				hostTag, filesystemTag, err := state.ParseFilesystemAttachmentId(id)
 				if err != nil {
 					return errors.Annotate(err, "parsing filesystem attachment ID")
 				}
-				if machineTag != w.machine {
+				match, err := w.hostMatch(hostTag)
+				if err != nil {
+					return errors.Annotate(err, "parsing filesystem host tag")
+				}
+				if !match {
 					continue
 				}
 				if err := w.modelFilesystemAttachmentChanged(id, filesystemTag); err != nil {
@@ -303,14 +377,18 @@ func (w *machineFilesystemAttachmentsWatcher) loop() error {
 			}
 			modelVolumeAttachmentsReceived = true
 			for _, id := range values {
-				machineTag, volumeTag, err := state.ParseVolumeAttachmentId(id)
+				hostTag, volumeTag, err := state.ParseVolumeAttachmentId(id)
 				if err != nil {
 					return errors.Annotate(err, "parsing volume attachment ID")
 				}
-				if machineTag != w.machine {
+				match, err := w.hostMatch(hostTag)
+				if err != nil {
+					return errors.Annotate(err, "parsing volume host tag")
+				}
+				if !match {
 					continue
 				}
-				if err := w.modelVolumeAttachmentChanged(volumeTag); err != nil {
+				if err := w.modelVolumeAttachmentChanged(hostTag, volumeTag); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -332,7 +410,7 @@ func (w *machineFilesystemAttachmentsWatcher) loop() error {
 	}
 }
 
-func (w *machineFilesystemAttachmentsWatcher) modelFilesystemAttachmentChanged(
+func (w *hostFilesystemAttachmentsWatcher) modelFilesystemAttachmentChanged(
 	filesystemAttachmentId string,
 	filesystemTag names.FilesystemTag,
 ) error {
@@ -357,8 +435,8 @@ func (w *machineFilesystemAttachmentsWatcher) modelFilesystemAttachmentChanged(
 	return nil
 }
 
-func (w *machineFilesystemAttachmentsWatcher) modelVolumeAttachmentChanged(volumeTag names.VolumeTag) error {
-	va, err := w.backend.VolumeAttachment(w.machine, volumeTag)
+func (w *hostFilesystemAttachmentsWatcher) modelVolumeAttachmentChanged(hostTag names.Tag, volumeTag names.VolumeTag) error {
+	va, err := w.backend.VolumeAttachment(hostTag, volumeTag)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "getting volume attachment")
 	}

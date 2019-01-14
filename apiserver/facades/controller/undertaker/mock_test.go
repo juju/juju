@@ -10,9 +10,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 // mockState implements State interface and allows inspection of called
@@ -52,9 +52,9 @@ func (m *mockState) EnsureModelRemoved() error {
 	return nil
 }
 
-func (m *mockState) RemoveAllModelDocs() error {
-	if m.model.life != state.Dead {
-		return errors.New("model not dead")
+func (m *mockState) RemoveDyingModel() error {
+	if m.model.life == state.Alive {
+		return errors.New("model not dying or dead")
 	}
 	m.removed = true
 	return nil

@@ -8,7 +8,9 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -33,6 +35,10 @@ func PatchUnitResponse(p testing.Patcher, u *Unit, expectedRequest string, respo
 	})
 }
 
+func PatchUnitUpgradeSeriesFacade(u *Unit, facadeCaller base.FacadeCaller) {
+	u.st.UpgradeSeriesAPI = common.NewUpgradeSeriesAPI(facadeCaller, u.Tag())
+}
+
 // CreateUnit creates uniter.Unit for tests.
 func CreateUnit(st *State, tag names.UnitTag) *Unit {
 	return &Unit{
@@ -40,7 +46,6 @@ func CreateUnit(st *State, tag names.UnitTag) *Unit {
 		tag:          tag,
 		life:         params.Alive,
 		resolvedMode: params.ResolvedNone,
-		series:       "trusty",
 	}
 }
 

@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/crosscontroller"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.externalcontrollerupdater")

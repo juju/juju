@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/core/status"
 	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/status"
 )
 
 type ListSuite struct {
@@ -43,13 +43,12 @@ func (s *ListSuite) TestList(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-[Storage]
-Unit          Id            Type        Pool      Provider id                     Size    Status    Message
-              persistent/1  filesystem                                                    detached  
-postgresql/0  db-dir/1100   block                 provider-supplied-filesystem-5  3.0MiB  attached  
-transcode/0   db-dir/1000   block                                                         pending   creating volume
-transcode/0   shared-fs/0   filesystem  radiance  provider-supplied-volume-4      1.0GiB  attached  
-transcode/1   shared-fs/0   filesystem  radiance  provider-supplied-volume-4      1.0GiB  attached  
+Unit          Storage id    Type        Pool      Size    Status    Message
+              persistent/1  filesystem                    detached  
+postgresql/0  db-dir/1100   block                 3.0MiB  attached  
+transcode/0   db-dir/1000   block                         pending   creating volume
+transcode/0   shared-fs/0   filesystem  radiance  1.0GiB  attached  
+transcode/1   shared-fs/0   filesystem  radiance  1.0GiB  attached  
 
 `[1:])
 }
@@ -61,13 +60,12 @@ func (s *ListSuite) TestListNoPool(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-[Storage]
-Unit          Id            Type        Provider id                     Size    Status    Message
-              persistent/1  filesystem                                          detached  
-postgresql/0  db-dir/1100   block       provider-supplied-filesystem-5  3.0MiB  attached  
-transcode/0   db-dir/1000   block                                               pending   creating volume
-transcode/0   shared-fs/0   filesystem  provider-supplied-volume-4      1.0GiB  attached  
-transcode/1   shared-fs/0   filesystem  provider-supplied-volume-4      1.0GiB  attached  
+Unit          Storage id    Type        Size    Status    Message
+              persistent/1  filesystem          detached  
+postgresql/0  db-dir/1100   block       3.0MiB  attached  
+transcode/0   db-dir/1000   block               pending   creating volume
+transcode/0   shared-fs/0   filesystem  1.0GiB  attached  
+transcode/1   shared-fs/0   filesystem  1.0GiB  attached  
 
 `[1:])
 }
@@ -294,7 +292,7 @@ volumes:
 
 func (s *ListSuite) TestListInitErrors(c *gc.C) {
 	s.testListInitError(c, []string{"--filesystem", "--volume"}, "--filesystem and --volume can not be used together")
-	s.testListInitError(c, []string{"storage-id"}, "specifying IDs only supported with --filesystem and --volume flags")
+	s.testListInitError(c, []string{"storage-id"}, "specifying IDs only supported with --filesystem and --volume options")
 }
 
 func (s *ListSuite) testListInitError(c *gc.C, args []string, expectedErr string) {
@@ -356,7 +354,7 @@ func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 			Info:   "creating volume",
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
-			"unit-transcode-0": params.StorageAttachmentDetails{
+			"unit-transcode-0": {
 				Location: "thither",
 			},
 		},
@@ -371,7 +369,7 @@ func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		},
 		Persistent: true,
 		Attachments: map[string]params.StorageAttachmentDetails{
-			"unit-postgresql-0": params.StorageAttachmentDetails{
+			"unit-postgresql-0": {
 				Location: "hither",
 				Life:     "dying",
 			},
@@ -386,10 +384,10 @@ func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		},
 		Persistent: true,
 		Attachments: map[string]params.StorageAttachmentDetails{
-			"unit-transcode-0": params.StorageAttachmentDetails{
+			"unit-transcode-0": {
 				Location: "there",
 			},
-			"unit-transcode-1": params.StorageAttachmentDetails{
+			"unit-transcode-1": {
 				Location: "here",
 			},
 		},

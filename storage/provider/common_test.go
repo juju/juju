@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 )
@@ -38,7 +39,7 @@ func (s *providerCommonSuite) TestCommonProvidersExported(c *gc.C) {
 
 // testDetachFilesystems is a test-case for detaching filesystems that use
 // the common "maybeUnmount" method.
-func testDetachFilesystems(c *gc.C, commands *mockRunCommand, source storage.FilesystemSource, mounted bool) {
+func testDetachFilesystems(c *gc.C, commands *mockRunCommand, source storage.FilesystemSource, callCtx context.ProviderCallContext, mounted bool) {
 	const testMountPoint = "/in/the/place"
 
 	cmd := commands.expect("df", "--output=source", filepath.Dir(testMountPoint))
@@ -51,7 +52,7 @@ func testDetachFilesystems(c *gc.C, commands *mockRunCommand, source storage.Fil
 		cmd.respond("headers\n/same/as/rootfs", nil)
 	}
 
-	results, err := source.DetachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.DetachFilesystems(callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("0/0"),
 		FilesystemId: "filesystem-0-0",
 		AttachmentParams: storage.AttachmentParams{

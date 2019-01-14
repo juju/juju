@@ -12,8 +12,10 @@ import (
 )
 
 const (
-	CredAttrUsername = "username"
-	CredAttrPassword = "password"
+	CredAttrUsername              = "username"
+	CredAttrPassword              = "password"
+	CredAttrClientCertificateData = "ClientCertificateData"
+	CredAttrClientKeyData         = "ClientKeyData"
 )
 
 type environProviderCredentials struct{}
@@ -27,6 +29,21 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 			}, {
 				CredAttrPassword, cloud.CredentialAttr{
 					Description: "The password for the specified username.",
+					Hidden:      true,
+				},
+			},
+		},
+		cloud.CertificateAuthType: {
+			{
+				Name: CredAttrClientCertificateData,
+				CredentialAttr: cloud.CredentialAttr{
+					Description: "the kubernetes certificate data",
+				},
+			},
+			{
+				Name: CredAttrClientKeyData,
+				CredentialAttr: cloud.CredentialAttr{
+					Description: "the kubernetes private key data",
 					Hidden:      true,
 				},
 			},

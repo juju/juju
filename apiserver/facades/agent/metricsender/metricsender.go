@@ -6,10 +6,10 @@
 package metricsender
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	wireformat "github.com/juju/romulus/wireformat/metrics"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/state"
 )
@@ -22,9 +22,13 @@ type MetricSender interface {
 	Send([]*wireformat.MetricBatch) (*wireformat.Response, error)
 }
 
+type SenderFactory func(url string) MetricSender
+
 var (
-	defaultMaxBatchesPerSend              = 1000
-	defaultSender            MetricSender = &HTTPSender{}
+	defaultMaxBatchesPerSend               = 1000
+	defaultSenderFactory     SenderFactory = func(url string) MetricSender {
+		return &HTTPSender{url: url}
+	}
 )
 
 func handleModelResponse(st ModelBackend, modelUUID string, modelResp wireformat.EnvResponse) int {
@@ -158,7 +162,7 @@ func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchS
 }
 
 func setHeldBatchUnitMeterStatus(st ModelBackend, units map[string]bool) {
-	for unitID, _ := range units {
+	for unitID := range units {
 		unit, err := st.Unit(unitID)
 		if err != nil {
 			logger.Warningf("failed to get unit for setting held batch meter status: %v", err)
@@ -174,9 +178,9 @@ func DefaultMaxBatchesPerSend() int {
 	return defaultMaxBatchesPerSend
 }
 
-// DefaultMetricSender returns the default metric sender.
-func DefaultMetricSender() MetricSender {
-	return defaultSender
+// DefaultSenderFactory returns the default sender factory.
+func DefaultSenderFactory() SenderFactory {
+	return defaultSenderFactory
 }
 
 // ToWire converts the state.MetricBatch into a type

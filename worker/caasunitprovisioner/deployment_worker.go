@@ -11,37 +11,36 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 // deploymentWorker informs the CAAS broker of how many pods to run and their spec, and
 // lets the broker figure out how to make that all happen.
 type deploymentWorker struct {
-	catacomb               catacomb.Catacomb
-	application            string
-	broker                 ServiceBroker
-	applicationGetter      ApplicationGetter
-	applicationUpdater     ApplicationUpdater
-	provisioningInfoGetter ProvisioningInfoGetter
-
-	aliveUnitsChan <-chan []string
+	catacomb                 catacomb.Catacomb
+	application              string
+	provisioningStatusSetter ProvisioningStatusSetter
+	broker                   ServiceBroker
+	applicationGetter        ApplicationGetter
+	applicationUpdater       ApplicationUpdater
+	provisioningInfoGetter   ProvisioningInfoGetter
 }
 
 func newDeploymentWorker(
 	application string,
+	provisioningStatusSetter ProvisioningStatusSetter,
 	broker ServiceBroker,
 	provisioningInfoGetter ProvisioningInfoGetter,
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
-	aliveUnitsChan <-chan []string,
 ) (worker.Worker, error) {
 	w := &deploymentWorker{
-		application:            application,
-		broker:                 broker,
-		provisioningInfoGetter: provisioningInfoGetter,
-		applicationGetter:      applicationGetter,
-		applicationUpdater:     applicationUpdater,
-		aliveUnitsChan:         aliveUnitsChan,
+		application:              application,
+		provisioningStatusSetter: provisioningStatusSetter,
+		broker:                   broker,
+		provisioningInfoGetter:   provisioningInfoGetter,
+		applicationGetter:        applicationGetter,
+		applicationUpdater:       applicationUpdater,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -63,24 +62,37 @@ func (w *deploymentWorker) Wait() error {
 }
 
 func (w *deploymentWorker) loop() error {
+	appScaleWatcher, err := w.applicationGetter.WatchApplicationScale(w.application)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.catacomb.Add(appScaleWatcher)
 
 	var (
-		aliveUnits []string
-		cw         watcher.NotifyWatcher
-		specChan   watcher.NotifyChannel
+		cw       watcher.NotifyWatcher
+		specChan watcher.NotifyChannel
 
-		currentAliveCount int
-		currentSpec       string
+		currentScale int
+		currentSpec  string
 	)
 
 	gotSpecNotify := false
 	serviceUpdated := false
+	scale := 0
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case aliveUnits = <-w.aliveUnitsChan:
-			if len(aliveUnits) > 0 && specChan == nil {
+		case _, ok := <-appScaleWatcher.Changes():
+			if !ok {
+				return errors.New("watcher closed channel")
+			}
+			var err error
+			scale, err = w.applicationGetter.ApplicationScale(w.application)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if scale > 0 && specChan == nil {
 				var err error
 				cw, err = w.provisioningInfoGetter.WatchPodSpec(w.application)
 				if err != nil {
@@ -95,11 +107,17 @@ func (w *deploymentWorker) loop() error {
 			}
 			gotSpecNotify = true
 		}
-		if len(aliveUnits) == 0 {
+		if scale == 0 {
 			if cw != nil {
 				worker.Stop(cw)
 				specChan = nil
 			}
+			logger.Debugf("no units for %v", w.application)
+			err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, &caas.ServiceParams{}, 0, nil)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			currentScale = scale
 			continue
 		}
 
@@ -116,12 +134,11 @@ func (w *deploymentWorker) loop() error {
 		}
 		specStr := info.PodSpec
 
-		numUnits := len(aliveUnits)
-		if numUnits == currentAliveCount && specStr == currentSpec {
+		if scale == currentScale && specStr == currentSpec {
 			continue
 		}
 
-		currentAliveCount = numUnits
+		currentScale = scale
 		currentSpec = specStr
 
 		appConfig, err := w.applicationGetter.ApplicationConfig(w.application)
@@ -132,14 +149,26 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}
-		serviceParams := &caas.ServiceParams{
-			PodSpec: spec,
+		if len(spec.CustomResourceDefinitions) > 0 {
+			err = w.broker.EnsureCustomResourceDefinition(w.application, spec)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			logger.Debugf("created/updated custom resource definition for %q.", w.application)
 		}
-		err = w.broker.EnsureService(w.application, serviceParams, numUnits, appConfig)
+		serviceParams := &caas.ServiceParams{
+			PodSpec:      spec,
+			Constraints:  info.Constraints,
+			Placement:    info.Placement,
+			ResourceTags: info.Tags,
+			Filesystems:  info.Filesystems,
+			Devices:      info.Devices,
+		}
+		err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, currentScale, appConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("created/updated deployment for %s for %d units", w.application, numUnits)
+		logger.Debugf("created/updated deployment for %s for %v units", w.application, currentScale)
 		if !serviceUpdated && !spec.OmitServiceFrontend {
 			// TODO(caas) - add a service watcher
 			service, err := w.broker.Service(w.application)

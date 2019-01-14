@@ -13,12 +13,12 @@ import (
 	"github.com/juju/juju/api/undertaker"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/watcher/watchertest"
 	"gopkg.in/juju/names.v2"
 )
 
@@ -89,7 +89,7 @@ func (s *undertakerSuite) TestStateRemoveEnvironFails(c *gc.C) {
 	undertakerClient, err := undertaker.NewClient(st, apiwatcher.NewNotifyWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
-	c.Assert(undertakerClient.RemoveModel(), gc.ErrorMatches, "can't remove model: model not dead")
+	c.Assert(undertakerClient.RemoveModel(), gc.ErrorMatches, "can't remove model: model still alive")
 }
 
 func (s *undertakerSuite) TestHostedEnvironInfo(c *gc.C) {
@@ -115,7 +115,7 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	err := undertakerClient.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
-	factory.NewFactory(otherSt).MakeApplication(c, nil)
+	factory.NewFactory(otherSt, s.StatePool).MakeApplication(c, nil)
 	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -127,7 +127,7 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dead)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
 }
 
 func (s *undertakerSuite) TestWatchModelResources(c *gc.C) {
@@ -148,16 +148,12 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 
 	// Aborts on alive environ.
 	err := undertakerClient.RemoveModel()
-	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model still alive")
 
-	factory.NewFactory(otherSt).MakeApplication(c, nil)
+	factory.NewFactory(otherSt, s.StatePool).MakeApplication(c, nil)
 	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-
-	// Aborts on dying environ.
-	err = undertakerClient.RemoveModel()
-	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
 
 	err = otherSt.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)

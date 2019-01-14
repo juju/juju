@@ -10,10 +10,10 @@ import (
 	"time"
 
 	gorillaws "github.com/gorilla/websocket"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/ratelimit"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 

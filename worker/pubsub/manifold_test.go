@@ -6,6 +6,7 @@ package pubsub_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
@@ -33,7 +34,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = psworker.ManifoldConfig{
 		AgentName:      "agent",
 		CentralHubName: "central-hub",
-		Clock:          testing.NewClock(time.Now()),
+		Clock:          testclock.NewClock(time.Now()),
 	}
 }
 

@@ -339,11 +339,11 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
 	err := controller.ChangeControllerAccess(
 		s.State, s.AdminUserTag(c), names.NewUserTag("fred@external"),
-		params.GrantControllerAccess, permission.AddModelAccess)
+		params.GrantControllerAccess, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	err = controller.ChangeControllerAccess(
 		s.State, s.AdminUserTag(c), names.NewUserTag("everyone@external"),
-		params.GrantControllerAccess, permission.AddModelAccess)
+		params.GrantControllerAccess, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.UserInfoRequest{
@@ -394,12 +394,12 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 		}, {
 			info: &params.UserInfo{
 				Username: "fred@external",
-				Access:   "add-model",
+				Access:   "superuser",
 			},
 		}, {
 			info: &params.UserInfo{
 				Username: "mary@external",
-				Access:   "add-model",
+				Access:   "superuser",
 			},
 		}, {
 			err: &params.Error{
@@ -511,7 +511,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
 	_, err := s.State.AddControllerUser(state.UserAccessSpec{
 		User:      names.NewUserTag("everyone@external"),
-		Access:    permission.AddModelAccess,
+		Access:    permission.SuperuserAccess,
 		CreatedBy: s.AdminUserTag(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -529,7 +529,7 @@ func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.UserInfoResults{
 		Results: []params.UserInfoResult{{Result: &params.UserInfo{
 			Username: "aardvark@external",
-			Access:   "add-model",
+			Access:   "superuser",
 		}}},
 	})
 }
@@ -855,11 +855,11 @@ func (s *userManagerSuite) TestResetPasswordMultiple(c *gc.C) {
 	err = barb.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
-		params.AddUserResult{
+		{
 			Tag:       alex.Tag().String(),
 			SecretKey: alex.SecretKey(),
 		},
-		params.AddUserResult{
+		{
 			Tag:       barb.Tag().String(),
 			SecretKey: barb.SecretKey(),
 		},
@@ -896,7 +896,7 @@ func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
-		params.AddUserResult{
+		{
 			Tag:   alex.Tag().String(),
 			Error: common.ServerError(common.ErrPerm),
 		},
@@ -925,11 +925,11 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 	err = barb.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
-		params.AddUserResult{
+		{
 			Tag:   alex.Tag().String(),
 			Error: common.ServerError(common.ErrPerm),
 		},
-		params.AddUserResult{
+		{
 			Tag:   barb.Tag().String(),
 			Error: common.ServerError(common.ErrPerm),
 		},
@@ -949,11 +949,11 @@ func (s *userManagerSuite) TestResetPasswordFail(c *gc.C) {
 	results, err := s.usermanager.ResetPassword(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
-		params.AddUserResult{
+		{
 			Tag:   "user-invalid",
 			Error: common.ServerError(common.ErrPerm),
 		},
-		params.AddUserResult{
+		{
 			Tag:   alex.Tag().String(),
 			Error: common.ServerError(fmt.Errorf("cannot reset password for user \"alex\": user deactivated")),
 		},
@@ -973,11 +973,11 @@ func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
-		params.AddUserResult{
+		{
 			Tag:   "user-invalid",
 			Error: common.ServerError(common.ErrPerm),
 		},
-		params.AddUserResult{
+		{
 			Tag:       alex.Tag().String(),
 			SecretKey: alex.SecretKey(),
 		},

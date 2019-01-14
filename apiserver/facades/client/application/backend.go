@@ -4,7 +4,6 @@
 package application
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -15,18 +14,16 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 // Backend defines the state functionality required by the application
 // facade. For details on the methods, see the methods on state.State
 // with the same names.
 type Backend interface {
-	storagecommon.StorageInterface
-
 	AllModelUUIDs() ([]string, error)
 	Application(string) (Application, error)
 	ApplyOperation(state.ModelOperation) error
@@ -39,8 +36,6 @@ type Backend interface {
 	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	Machine(string) (Machine, error)
-	ModelTag() names.ModelTag
-	ModelType() state.ModelType
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
@@ -79,12 +74,15 @@ type Application interface {
 	SetCharm(state.SetCharmConfig) error
 	SetConstraints(constraints.Value) error
 	SetExposed() error
+	SetCharmProfile(string) error
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
 	UpdateCharmConfig(charm.Settings) error
 	ApplicationConfig() (application.ConfigAttributes, error)
 	UpdateApplicationConfig(application.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
+	Scale(int) error
+	ChangeScale(int) (int, error)
 }
 
 // Charm defines a subset of the functionality provided by the
@@ -100,6 +98,10 @@ type Charm interface {
 // details on the methods, see the methods on state.Machine with
 // the same names.
 type Machine interface {
+	IsLockedForSeriesUpgrade() (bool, error)
+	IsParentLockedForSeriesUpgrade() (bool, error)
+	UpgradeCharmProfileComplete() (string, error)
+	RemoveUpgradeCharmProfileData() error
 }
 
 // Relation defines a subset of the functionality provided by the
@@ -121,6 +123,8 @@ type Relation interface {
 // details on the methods, see the methods on state.Unit with
 // the same names.
 type Unit interface {
+	Name() string
+	Tag() names.Tag
 	UnitTag() names.UnitTag
 	Destroy() error
 	DestroyOperation() *state.DestroyUnitOperation
@@ -128,6 +132,7 @@ type Unit interface {
 	Life() state.Life
 	Resolve(retryHooks bool) error
 
+	AssignedMachineId() (string, error)
 	AssignWithPolicy(state.AssignmentPolicy) error
 	AssignWithPlacement(*instance.Placement) error
 }
@@ -151,12 +156,8 @@ type Resources interface {
 	RemovePendingAppResources(string, map[string]string) error
 }
 
-// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
-// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	*state.IAASModel
-	*state.CAASModel
 }
 
 type ExternalController state.ExternalController
@@ -166,39 +167,45 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 	return api.Save(controllerInfo, modelUUID)
 }
 
-func (s stateShim) model() Model {
-	if s.IAASModel != nil {
-		return s.IAASModel
-	}
-	return s.CAASModel
+type storageInterface interface {
+	storagecommon.StorageAccess
+	VolumeAccess() storagecommon.VolumeAccess
+	FilesystemAccess() storagecommon.FilesystemAccess
 }
 
-func (s stateShim) ModelTag() names.ModelTag {
-	return s.model().ModelTag()
-}
-
-func (s stateShim) ModelType() state.ModelType {
-	return s.model().Type()
-}
-
-// NewStateBackend converts a state.State into a Backend.
-func NewStateBackend(st *state.State) (Backend, error) {
+var getStorageState = func(st *state.State) (storageInterface, error) {
 	m, err := st.Model()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
-
-	result := &stateShim{State: st}
-	if m.Type() == state.ModelTypeIAAS {
-		result.IAASModel, err = m.IAASModel()
-	} else {
-		result.CAASModel, err = m.CAASModel()
-	}
+	sb, err := state.NewStorageBackend(st)
 	if err != nil {
-		return nil, errors.Annotatef(err, "could not convert state into either IAAS or CAASModel")
+		return nil, err
 	}
+	storageAccess := &storageShim{
+		StorageAccess: sb,
+		va:            sb,
+		fa:            sb,
+	}
+	// CAAS models don't support volume storage yet.
+	if m.Type() == state.ModelTypeCAAS {
+		storageAccess.va = nil
+	}
+	return storageAccess, nil
+}
 
-	return result, nil
+type storageShim struct {
+	storagecommon.StorageAccess
+	fa storagecommon.FilesystemAccess
+	va storagecommon.VolumeAccess
+}
+
+func (s *storageShim) VolumeAccess() storagecommon.VolumeAccess {
+	return s.va
+}
+
+func (s *storageShim) FilesystemAccess() storagecommon.FilesystemAccess {
+	return s.fa
 }
 
 // NewStateApplication converts a state.Application into an Application.

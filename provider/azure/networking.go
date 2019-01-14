@@ -250,7 +250,7 @@ func networkSecurityRules(
 	sdkCtx := context.Background()
 	nsg, err := nsgClient.Get(sdkCtx, resourceGroup, internalSecurityGroupName, "")
 	if err != nil {
-		if isNotFoundResponse(nsg.Response) {
+		if isNotFoundResult(nsg.Response) {
 			return nil, errors.NotFoundf("security group")
 		}
 		return nil, errors.Annotate(err, "querying network security group")

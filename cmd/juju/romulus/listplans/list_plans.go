@@ -21,6 +21,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/yaml.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -32,8 +33,8 @@ type apiClient interface {
 	GetAssociatedPlans(charmURL string) ([]wireformat.Plan, error)
 }
 
-var newClient = func(client *httpbakery.Client) (apiClient, error) {
-	return api.NewClient(api.HTTPClient(client))
+var newClient = func(apiRoot string, client *httpbakery.Client) (apiClient, error) {
+	return api.NewClient(api.APIRoot(apiRoot), api.HTTPClient(client))
 }
 
 const listPlansDoc = `
@@ -49,26 +50,22 @@ type ListPlansCommand struct {
 
 	out      cmd.Output
 	CharmURL string
-
-	CharmResolver rcmd.CharmResolver
 }
 
 // NewListPlansCommand creates a new ListPlansCommand.
 func NewListPlansCommand() modelcmd.ControllerCommand {
-	return modelcmd.WrapController(&ListPlansCommand{
-		CharmResolver: rcmd.NewCharmStoreResolver(),
-	})
+	return modelcmd.WrapController(&ListPlansCommand{})
 }
 
 // Info implements Command.Info.
 func (c *ListPlansCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "plans",
 		Args:    "",
 		Purpose: "List plans.",
 		Doc:     listPlansDoc,
 		Aliases: []string{"list-plans"},
-	}
+	})
 }
 
 // Init reads and verifies the cli arguments for the ListPlansCommand
@@ -106,13 +103,21 @@ func (c *ListPlansCommand) Run(ctx *cmd.Context) (rErr error) {
 		return errors.Annotate(err, "failed to create an http client")
 	}
 
-	resolvedURL, err := c.CharmResolver.Resolve(client, c.CharmURL)
+	resolver, err := rcmd.NewCharmStoreResolverForControllerCmd(&c.ControllerCommandBase)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	resolvedURL, err := resolver.Resolve(client, c.CharmURL)
 	if err != nil {
 		return errors.Annotatef(err, "failed to resolve charmURL %v", c.CharmURL)
 	}
 	c.CharmURL = resolvedURL
 
-	apiClient, err := newClient(client)
+	apiRoot, err := rcmd.GetMeteringURLForControllerCmd(&c.ControllerCommandBase)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	apiClient, err := newClient(apiRoot, client)
 	if err != nil {
 		return errors.Annotate(err, "failed to create a plan API client")
 	}

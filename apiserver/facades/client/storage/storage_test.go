@@ -13,8 +13,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
@@ -27,7 +28,7 @@ type storageSuite struct {
 var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
-	s.state.allStorageInstances = func() ([]state.StorageInstance, error) {
+	s.storageAccessor.allStorageInstances = func() ([]state.StorageInstance, error) {
 		s.stub.AddCall(allStorageInstancesCall)
 		return []state.StorageInstance{}, nil
 	}
@@ -52,7 +53,6 @@ func (s *storageSuite) TestStorageListFilesystem(c *gc.C) {
 		allStorageInstancesCall,
 		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
-		unitAssignedMachineCall,
 		storageInstanceCall,
 		storageInstanceFilesystemCall,
 		storageInstanceFilesystemAttachmentCall,
@@ -77,7 +77,6 @@ func (s *storageSuite) TestStorageListVolume(c *gc.C) {
 		allStorageInstancesCall,
 		storageInstanceVolumeCall,
 		storageInstanceAttachmentsCall,
-		unitAssignedMachineCall,
 		storageInstanceCall,
 		storageInstanceVolumeCall,
 	}
@@ -94,7 +93,7 @@ func (s *storageSuite) TestStorageListVolume(c *gc.C) {
 
 func (s *storageSuite) TestStorageListError(c *gc.C) {
 	msg := "list test error"
-	s.state.allStorageInstances = func() ([]state.StorageInstance, error) {
+	s.storageAccessor.allStorageInstances = func() ([]state.StorageInstance, error) {
 		s.stub.AddCall(allStorageInstancesCall)
 		return []state.StorageInstance{}, errors.Errorf(msg)
 	}
@@ -112,7 +111,7 @@ func (s *storageSuite) TestStorageListError(c *gc.C) {
 
 func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 	msg := "list test error"
-	s.state.storageInstance = func(sTag names.StorageTag) (state.StorageInstance, error) {
+	s.storageAccessor.storageInstance = func(sTag names.StorageTag) (state.StorageInstance, error) {
 		s.stub.AddCall(storageInstanceCall)
 		c.Assert(sTag, jc.DeepEquals, s.storageTag)
 		return nil, errors.Errorf(msg)
@@ -127,7 +126,6 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 		allStorageInstancesCall,
 		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
-		unitAssignedMachineCall,
 		storageInstanceCall,
 	}
 	s.assertCalls(c, expectedCalls)
@@ -138,7 +136,7 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 }
 
 func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
-	s.state.storageInstanceAttachments = func(tag names.StorageTag) ([]state.StorageAttachment, error) {
+	s.storageAccessor.storageInstanceAttachments = func(tag names.StorageTag) ([]state.StorageAttachment, error) {
 		s.stub.AddCall(storageInstanceAttachmentsCall)
 		c.Assert(tag, jc.DeepEquals, s.storageTag)
 		return []state.StorageAttachment{}, errors.Errorf("list test error")
@@ -162,12 +160,7 @@ func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
 
 func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 	msg := "list test error"
-	s.state.unitAssignedMachine = func(u names.UnitTag) (names.MachineTag, error) {
-		s.stub.AddCall(unitAssignedMachineCall)
-		c.Assert(u, jc.DeepEquals, s.unitTag)
-		return names.MachineTag{}, errors.Errorf(msg)
-	}
-
+	s.state.unitErr = msg
 	found, err := s.api.ListStorageDetails(
 		params.StorageFilters{[]params.StorageFilter{{}}},
 	)
@@ -177,7 +170,6 @@ func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 		allStorageInstancesCall,
 		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
-		unitAssignedMachineCall,
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
@@ -188,7 +180,7 @@ func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 
 func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 	msg := "list test error"
-	s.state.storageInstanceFilesystem = func(sTag names.StorageTag) (state.Filesystem, error) {
+	s.storageAccessor.storageInstanceFilesystem = func(sTag names.StorageTag) (state.Filesystem, error) {
 		s.stub.AddCall(storageInstanceFilesystemCall)
 		c.Assert(sTag, jc.DeepEquals, s.storageTag)
 		return nil, errors.Errorf(msg)
@@ -212,11 +204,7 @@ func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 
 func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
 	msg := "list test error"
-	s.state.unitAssignedMachine = func(u names.UnitTag) (names.MachineTag, error) {
-		s.stub.AddCall(unitAssignedMachineCall)
-		c.Assert(u, jc.DeepEquals, s.unitTag)
-		return s.machineTag, errors.Errorf(msg)
-	}
+	s.state.unitErr = msg
 
 	found, err := s.api.ListStorageDetails(
 		params.StorageFilters{[]params.StorageFilter{{}}},
@@ -227,7 +215,6 @@ func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
 		allStorageInstancesCall,
 		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
-		unitAssignedMachineCall,
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
@@ -246,7 +233,7 @@ func (s *storageSuite) createTestStorageDetails() params.StorageDetails {
 			Status: "attached",
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
-			s.unitTag.String(): params.StorageAttachmentDetails{
+			s.unitTag.String(): {
 				s.storageTag.String(),
 				s.unitTag.String(),
 				s.machineTag.String(),
@@ -304,7 +291,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 			Status: "attached",
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
-			s.unitTag.String(): params.StorageAttachmentDetails{
+			s.unitTag.String(): {
 				s.storageTag.String(),
 				s.unitTag.String(),
 				s.machineTag.String(),
@@ -442,7 +429,7 @@ func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *gc.C) {
 	//     a list of alive attachments
 	//  2. attachment is concurrently destroyed
 	//     and removed by another process
-	s.state.detachStorage = func(sTag names.StorageTag, uTag names.UnitTag) error {
+	s.storageAccessor.detachStorage = func(sTag names.StorageTag, uTag names.UnitTag) error {
 		s.stub.AddCall(detachStorageCall, sTag, uTag)
 		return errors.NotFoundf(
 			"attachment of %s to %s",
@@ -532,6 +519,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	}})
 	filesystemSource.CheckCalls(c, []testing.StubCall{
 		{"ImportFilesystem", []interface{}{
+			s.callContext,
 			"foo", map[string]string{
 				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -581,6 +569,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	}})
 	volumeSource.CheckCalls(c, []testing.StubCall{
 		{"ImportVolume", []interface{}{
+			s.callContext,
 			"foo", map[string]string{
 				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -714,8 +703,8 @@ type filesystemImporter struct {
 }
 
 // ImportFilesystem is part of the storage.FilesystemImporter interface.
-func (f filesystemImporter) ImportFilesystem(providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
-	f.MethodCall(f, "ImportFilesystem", providerId, tags)
+func (f filesystemImporter) ImportFilesystem(ctx context.ProviderCallContext, providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
+	f.MethodCall(f, "ImportFilesystem", ctx, providerId, tags)
 	return storage.FilesystemInfo{
 		FilesystemId: providerId,
 		Size:         123,
@@ -727,8 +716,8 @@ type volumeImporter struct {
 }
 
 // ImportVolume is part of the storage.VolumeImporter interface.
-func (v volumeImporter) ImportVolume(providerId string, tags map[string]string) (storage.VolumeInfo, error) {
-	v.MethodCall(v, "ImportVolume", providerId, tags)
+func (v volumeImporter) ImportVolume(ctx context.ProviderCallContext, providerId string, tags map[string]string) (storage.VolumeInfo, error) {
+	v.MethodCall(v, "ImportVolume", ctx, providerId, tags)
 	return storage.VolumeInfo{
 		VolumeId:   providerId,
 		Size:       123,

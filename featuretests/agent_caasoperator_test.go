@@ -10,18 +10,14 @@ import (
 
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloud"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/logsender"
@@ -43,28 +39,12 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
 	// Set up a CAAS model to replace the IAAS one.
-	err := s.State.AddCloud(cloud.Cloud{
-		Name:      "caascloud",
-		Type:      "kubernetes",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name": "caas-model",
-		"uuid": utils.MustNewUUID().String(),
-	})
-	_, st, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		Owner:     names.NewUserTag("admin"),
-		CloudName: "caascloud",
-		Config:    cfg,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.Factory.MakeCAASModel(c, nil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	// Close the state pool before the state object itself.
 	s.StatePool.Close()
 	s.StatePool = nil
-	err = s.State.Close()
+	err := s.State.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 }
@@ -143,8 +123,12 @@ func TrackCAASOperator(c *gc.C, tracker *agenttest.EngineTracker, inner CAASOper
 var (
 	alwaysCAASWorkers = []string{
 		"agent",
+		"api-address-updater",
 		"api-caller",
+		"api-config-watcher",
 		"clock",
+		"logging-config-updater",
+		"log-sender",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -159,7 +143,6 @@ var (
 )
 
 func (s *CAASOperatorSuite) TestWorkers(c *gc.C) {
-	coretesting.SkipIfWindowsBug(c, "lp:1610993")
 	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackCAASOperator(c, tracker, jujudagent.CaasOperatorManifolds)
 	s.PatchValue(&jujudagent.CaasOperatorManifolds, instrumented)

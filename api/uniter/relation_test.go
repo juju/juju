@@ -11,10 +11,11 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/leadership"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 )
 
 type relationSuite struct {
@@ -89,7 +90,8 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *relationSuite) TestSetStatus(c *gc.C) {
-	err := s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	claimer := leadership.NewClient(s.st)
+	err := claimer.ClaimLeadership("wordpress", "wordpress/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.apiRelation.SetStatus(relation.Suspended)
 	c.Assert(err, jc.ErrorIsNil)

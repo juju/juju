@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/application"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -38,12 +39,12 @@ type unexposeCommand struct {
 }
 
 func (c *unexposeCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "unexpose",
 		Args:    "<application name>",
 		Purpose: usageUnexposeSummary,
 		Doc:     usageUnexposeDetails,
-	}
+	})
 }
 
 func (c *unexposeCommand) Init(args []string) error {

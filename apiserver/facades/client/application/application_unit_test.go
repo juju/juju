@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -20,45 +21,54 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type ApplicationSuite struct {
 	testing.IsolationSuite
 	coretesting.JujuOSEnvSuite
-	backend     mockBackend
-	endpoints   []state.Endpoint
-	relation    mockRelation
-	application mockApplication
+	backend            mockBackend
+	endpoints          []state.Endpoint
+	relation           mockRelation
+	application        mockApplication
+	storagePoolManager *mockStoragePoolManager
 
 	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.APIv6
+	api          *application.APIv8
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
 
 func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
+	s.storagePoolManager = &mockStoragePoolManager{storageType: k8s.K8s_ProviderType}
 	api, err := application.NewAPIBase(
+		&s.backend,
 		&s.backend,
 		s.authorizer,
 		&s.blockChecker,
+		names.NewModelTag(utils.MustNewUUID().String()),
+		state.ModelTypeIAAS,
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
 		},
 		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
 			return nil, nil
 		},
+		s.storagePoolManager,
+		common.NewResources(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv6{api}
+	s.api = &application.APIv8{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
@@ -74,7 +84,6 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.relation = mockRelation{tag: names.NewRelationTag("wordpress:db mysql:db")}
 	s.backend = mockBackend{
-		modelType:   state.ModelTypeIAAS,
 		controllers: make(map[string]crossmodel.ControllerInfo),
 		applications: map[string]*mockApplication{
 			"postgresql": {
@@ -90,12 +99,21 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 					},
 				},
 				units: []*mockUnit{
-					{tag: names.NewUnitTag("postgresql/0")},
-					{tag: names.NewUnitTag("postgresql/1")},
+					{
+						name:      "postgresql/0",
+						tag:       names.NewUnitTag("postgresql/0"),
+						machineId: "machine-0",
+					},
+					{
+						name:      "postgresql/1",
+						tag:       names.NewUnitTag("postgresql/1"),
+						machineId: "machine-1",
+					},
 				},
 				addedUnit: mockUnit{
 					tag: names.NewUnitTag("postgresql/99"),
 				},
+				lxdProfileUpgradeChanges: make(chan struct{}),
 			},
 			"postgresql-subordinate": {
 				name:        "postgresql-subordinate",
@@ -116,6 +134,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				addedUnit: mockUnit{
 					tag: names.NewUnitTag("postgresql-subordinate/99"),
 				},
+				lxdProfileUpgradeChanges: make(chan struct{}),
 			},
 		},
 		remoteApplications: map[string]application.RemoteApplication{
@@ -159,6 +178,10 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 			"pgdata/0": {detachable: true},
 			"pgdata/1": {detachable: false},
 		},
+		machines: map[string]*mockMachine{
+			"machine-0": {id: "0", upgradeCharmProfileComplete: ""},
+			"machine-1": {id: "1", upgradeCharmProfileComplete: "not required"},
+		},
 	}
 	s.blockChecker = mockBlockChecker{}
 	s.setAPIUser(c, names.NewUserTag("admin"))
@@ -186,8 +209,9 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharm")
-	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "SetCharmProfile", "SetCharm")
+	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
+	app.CheckCall(c, 1, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		StorageConstraints: map[string]state.StorageConstraints{
 			"a": {},
@@ -208,8 +232,9 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharm")
-	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "SetCharmProfile", "SetCharm")
+	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
+	app.CheckCall(c, 1, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -228,8 +253,9 @@ postgresql:
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharm")
-	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "SetCharmProfile", "SetCharm")
+	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
+	app.CheckCall(c, 1, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -468,7 +494,7 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
@@ -483,7 +509,7 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 			ApplicationName: "baz",
 			CharmURL:        "local:baz-0",
 			NumUnits:        1,
-			Placement:       []*instance.Placement{{}},
+			Placement:       []*instance.Placement{{}, {}},
 		}},
 	}
 	results, err := s.api.Deploy(args)
@@ -491,7 +517,69 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, "Placement may not be specified for caas models")
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, "only 1 placement directive is supported for caas models, got 2")
+}
+
+func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.storagePoolManager.SetErrors(errors.NotFoundf("pool"))
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+		}},
+	}
+	_, err := s.api.Deploy(args)
+	c.Assert(err, gc.ErrorMatches, `deploying a Kubernetes application requires a storage pool called "operator-storage": .*`)
+}
+
+func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.storagePoolManager.storageType = provider.RootfsProviderType
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+		}},
+	}
+	_, err := s.api.Deploy(args)
+	c.Assert(err, gc.ErrorMatches, `the "operator-storage" storage pool requires a provider type of "kubernetes", not "rootfs"`)
+}
+
+func (s *ApplicationSuite) TestDeployCAASModelNoStoragePool(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+			Storage: map[string]storage.Constraints{
+				"database": {},
+			},
+		}},
+	}
+	result, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, `storage pool for "database" must be specified`)
+}
+
+func (s *ApplicationSuite) TestDeployCAASModelWrongStorageType(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+			Storage: map[string]storage.Constraints{
+				"database": {Pool: "db"},
+			},
+		}},
+	}
+	result, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, `invalid storage provider type "rootfs" for "database"`)
 }
 
 func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
@@ -510,19 +598,112 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddUnitsCAASModel(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
-	results, err := s.api.AddUnits(params.AddApplicationUnits{
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",
 		NumUnits:        1,
 	})
+	c.Assert(err, gc.ErrorMatches, "adding units on a non-container model not supported")
+	app := s.backend.applications["postgresql"]
+	app.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestDestroyUnitsCAASModel(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	_, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{
+			{UnitTag: "unit-postgresql-0"},
+			{
+				UnitTag:        "unit-postgresql-1",
+				DestroyStorage: true,
+			},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "removing units on a non-container model not supported")
+	app := s.backend.applications["postgresql"]
+	app.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsCAASModel(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			Scale:          5,
+		}}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.AddApplicationUnitsResults{
-		Units: []string{"postgresql/99"},
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResults{
+		Results: []params.ScaleApplicationResult{{
+			Info: &params.ScaleApplicationInfo{Scale: 5},
+		}},
 	})
 	app := s.backend.applications["postgresql"]
-	app.CheckCall(c, 0, "AddUnit", state.AddUnitParams{})
-	app.addedUnit.CheckNoCalls(c) // no assignment
+	app.CheckCall(c, 0, "Scale", 5)
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChange(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.backend.applications["postgresql"].scale = 2
+	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			ScaleChange:    5,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResults{
+		Results: []params.ScaleApplicationResult{{
+			Info: &params.ScaleApplicationInfo{Scale: 7},
+		}},
+	})
+	app := s.backend.applications["postgresql"]
+	app.CheckCall(c, 0, "ChangeScale", 5)
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleArgCheck(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.backend.applications["postgresql"].scale = 2
+
+	for i, test := range []struct {
+		scale       int
+		scaleChange int
+		errorStr    string
+	}{{
+		scale:       5,
+		scaleChange: 5,
+		errorStr:    "requesting both scale and scale-change not valid",
+	}, {
+		scale:       0,
+		scaleChange: 0,
+		errorStr:    "scale of 0 not valid",
+	}, {
+		scale:       -1,
+		scaleChange: 0,
+		errorStr:    "scale < 0 not valid",
+	}} {
+		c.Logf("test #%d", i)
+		results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+			Applications: []params.ScaleApplicationParams{{
+				ApplicationTag: "application-postgresql",
+				Scale:          test.scale,
+				ScaleChange:    test.scaleChange,
+			}}})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(results.Results, gc.HasLen, 1)
+		c.Assert(results.Results[0].Error, gc.ErrorMatches, test.errorStr)
+	}
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsIAASModel(c *gc.C) {
+	_, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			Scale:          5,
+		}}})
+	c.Assert(err, gc.ErrorMatches, "scaling applications on a non-container model not supported")
+	app := s.backend.applications["postgresql"]
+	app.CheckNoCalls(c)
 }
 
 func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
@@ -555,26 +736,6 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
 		AttachStorage:   []string{"volume-0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `"volume-0" is not a valid storage tag`)
-}
-
-func (s *ApplicationSuite) TestAddUnitsAttachStorageCAASModel(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
-	_, err := s.api.AddUnits(params.AddApplicationUnits{
-		ApplicationName: "postgresql",
-		NumUnits:        1,
-		AttachStorage:   []string{"storage-pgdata-0"},
-	})
-	c.Assert(err, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
-}
-
-func (s *ApplicationSuite) TestAddUnitsPlacementCAASModel(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
-	_, err := s.api.AddUnits(params.AddApplicationUnits{
-		ApplicationName: "postgresql",
-		NumUnits:        1,
-		Placement:       []*instance.Placement{{}},
-	})
-	c.Assert(err, gc.ErrorMatches, "Placement may not be specified for caas models")
 }
 
 func (s *ApplicationSuite) TestSetRelationSuspended(c *gc.C) {
@@ -994,7 +1155,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesIncompatibleSeries(c *gc.C) {
 	app := s.backend.applications["postgresql"]
-	app.SetErrors(nil, nil, &state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
+	app.SetErrors(nil, nil, &state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial", "testCharm"})
 	results, err := s.api.UpdateApplicationSeries(
 		params.UpdateSeriesArgs{
 			Args: []params.UpdateSeriesArg{{
@@ -1007,7 +1168,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesIncompatibleSeries(c *gc.C
 	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeIncompatibleSeries,
-			Message: "series \"xenial\" not supported by charm, supported series are: yakkety,zesty",
+			Message: "series \"xenial\" not supported by charm \"testCharm\", supported series are: yakkety, zesty",
 		},
 	})
 }
@@ -1039,7 +1200,7 @@ func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	result, err := s.api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
@@ -1084,7 +1245,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigPermissionDenied(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	result, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
@@ -1183,7 +1344,7 @@ func (s *ApplicationSuite) TestResolveUnitErrorsPermissionDenied(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestCAASExposeWithoutHostname(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	err := s.api.Expose(params.ApplicationExpose{
 		ApplicationName: "postgresql",
 	})
@@ -1193,7 +1354,7 @@ func (s *ApplicationSuite) TestCAASExposeWithoutHostname(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	app := s.backend.applications["postgresql"]
 	app.config = coreapplication.ConfigAttributes{"juju-external-hostname": "exthost"}
 	err := s.api.Expose(params.ApplicationExpose{

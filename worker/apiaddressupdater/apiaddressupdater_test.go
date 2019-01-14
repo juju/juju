@@ -82,7 +82,7 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 	reporter, ok := updater.(worker.Reporter)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
-		"servers": [][]string{[]string{"localhost:1234", "127.0.0.1:1234"}},
+		"servers": [][]string{{"localhost:1234", "127.0.0.1:1234"}},
 	})
 
 }

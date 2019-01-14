@@ -6,13 +6,14 @@ package controller
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -100,12 +101,17 @@ func NewDestroyCommandForTest(
 	storageAPI storageAPI,
 	store jujuclient.ClientStore,
 	apierr error,
+	controllerCredentialAPIFunc newCredentialAPIFunc,
+	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error,
+
 ) cmd.Command {
 	cmd := &destroyCommand{
 		destroyCommandBase: destroyCommandBase{
-			api:       api,
-			clientapi: clientapi,
-			apierr:    apierr,
+			api:                         api,
+			clientapi:                   clientapi,
+			apierr:                      apierr,
+			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
+			environsDestroy:             environsDestroy,
 		},
 		storageAPI: storageAPI,
 	}
@@ -126,12 +132,16 @@ func NewKillCommandForTest(
 	apierr error,
 	clock clock.Clock,
 	apiOpen api.OpenFunc,
+	controllerCredentialAPIFunc newCredentialAPIFunc,
+	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error,
 ) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
-			api:       api,
-			clientapi: clientapi,
-			apierr:    apierr,
+			api:                         api,
+			clientapi:                   clientapi,
+			apierr:                      apierr,
+			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
+			environsDestroy:             environsDestroy,
 		},
 		clock: clock,
 	}
@@ -153,7 +163,7 @@ func KillWaitForModels(command cmd.Command, ctx *cmd.Context, api destroyControl
 	return modelcmd.InnerCommand(command).(*killCommand).WaitForModels(ctx, api, uuid)
 }
 
-// NewConfigCommandCommandForTest returns a ConfigCommand with
+// NewConfigCommandForTest returns a ConfigCommand with
 // the api provided as specified.
 func NewConfigCommandForTest(api controllerAPI, store jujuclient.ClientStore) cmd.Command {
 	c := &configCommand{api: api}

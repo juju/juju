@@ -105,20 +105,19 @@ var _ = gc.Suite(&metricsAdderIntegrationSuite{})
 
 func (s *metricsAdderIntegrationSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	f := factory.NewFactory(s.State)
-	machine0 := f.MakeMachine(c, &factory.MachineParams{
+	machine0 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
 
-	meteredCharm := f.MakeCharm(c, &factory.CharmParams{
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	meteredApp := f.MakeApplication(c, &factory.ApplicationParams{
+	meteredApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
 	})
-	meteredUnit := f.MakeUnit(c, &factory.UnitParams{
+	meteredUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: meteredApp,
 		SetCharmURL: true,
 		Machine:     machine0,

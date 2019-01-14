@@ -141,7 +141,7 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 
 	com, err := jujuc.NewCommand(hctx, cmdString("network-get"))
 	c.Assert(err, jc.ErrorIsNil)
-	return com
+	return jujuc.NewJujucCommandWrappedForTest(com)
 }
 
 func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {

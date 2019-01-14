@@ -11,15 +11,19 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	containerlxd "github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 type storageSuite struct {
 	lxd.BaseSuite
 
 	provider storage.Provider
+
+	callCtx           context.ProviderCallContext
+	invalidCredential bool
 }
 
 var _ = gc.Suite(&storageSuite{})
@@ -31,6 +35,17 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.provider = provider
 	s.Stub.ResetCalls()
+	s.callCtx = &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			s.invalidCredential = true
+			return nil
+		},
+	}
+}
+
+func (s *storageSuite) TearDownTest(c *gc.C) {
+	s.invalidCredential = false
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *storageSuite) filesystemSource(c *gc.C, pool string) storage.FilesystemSource {
@@ -58,7 +73,7 @@ func (s *storageSuite) TestStorageDefaultPools(c *gc.C) {
 	c.Assert(pools, gc.HasLen, 2)
 	c.Assert(pools[0].Name(), gc.Equals, "lxd-zfs")
 	c.Assert(pools[1].Name(), gc.Equals, "lxd-btrfs")
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "CreateStoragePool")
+	s.Stub.CheckCallNames(c, "CreatePool", "CreatePool")
 }
 
 func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
@@ -69,7 +84,7 @@ func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
 	pools := s.provider.DefaultPools()
 	c.Assert(pools, gc.HasLen, 1)
 	c.Assert(pools[0].Name(), gc.Equals, "lxd-btrfs")
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "StoragePool", "CreateStoragePool")
+	s.Stub.CheckCallNames(c, "CreatePool", "GetStoragePool", "CreatePool")
 }
 
 func (s *storageSuite) TestVolumeSource(c *gc.C) {
@@ -97,7 +112,7 @@ func (s *storageSuite) TestScope(c *gc.C) {
 
 func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 	source := s.filesystemSource(c, "source")
-	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:      names.NewFilesystemTag("0"),
 		Provider: "lxd",
 		Size:     1024,
@@ -121,9 +136,9 @@ func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 		},
 	})
 
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "VolumeCreate")
-	s.Stub.CheckCall(c, 0, "CreateStoragePool", "radiance", "btrfs", map[string]string(nil))
-	s.Stub.CheckCall(c, 1, "VolumeCreate", "radiance", "juju-f75cba-filesystem-0", map[string]string{
+	s.Stub.CheckCallNames(c, "CreatePool", "CreateVolume")
+	s.Stub.CheckCall(c, 0, "CreatePool", "radiance", "btrfs", map[string]string(nil))
+	s.Stub.CheckCall(c, 1, "CreateVolume", "radiance", "juju-f75cba-filesystem-0", map[string]string{
 		"user.key": "value",
 		"size":     "1024MB",
 	})
@@ -132,7 +147,7 @@ func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
 	s.Stub.SetErrors(errors.New("pool already exists"))
 	source := s.filesystemSource(c, "source")
-	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:      names.NewFilesystemTag("0"),
 		Provider: "lxd",
 		Size:     1024,
@@ -156,18 +171,41 @@ func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
 		},
 	})
 
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "StoragePool", "VolumeCreate")
-	s.Stub.CheckCall(c, 0, "CreateStoragePool", "radiance", "dir", map[string]string(nil))
-	s.Stub.CheckCall(c, 1, "StoragePool", "radiance")
-	s.Stub.CheckCall(c, 2, "VolumeCreate", "radiance", "juju-f75cba-filesystem-0", map[string]string{
+	s.Stub.CheckCallNames(c, "CreatePool", "GetStoragePool", "CreateVolume")
+	s.Stub.CheckCall(c, 0, "CreatePool", "radiance", "dir", map[string]string(nil))
+	s.Stub.CheckCall(c, 1, "GetStoragePool", "radiance")
+	s.Stub.CheckCall(c, 2, "CreateVolume", "radiance", "juju-f75cba-filesystem-0", map[string]string{
 		"user.key": "value",
 	})
+}
+
+func (s *storageSuite) TestCreateFilesystemsInvalidCredentials(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	source := s.filesystemSource(c, "source")
+	s.Client.Stub.SetErrors(nil, errTestUnAuth)
+	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
+		Tag:      names.NewFilesystemTag("0"),
+		Provider: "lxd",
+		Size:     1024,
+		ResourceTags: map[string]string{
+			"key": "value",
+		},
+		Attributes: map[string]interface{}{
+			"lxd-pool": "radiance",
+			"driver":   "btrfs",
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Error, gc.ErrorMatches, ".*not authorized")
+	c.Assert(results[0].Filesystem, jc.DeepEquals, (*storage.Filesystem)(nil))
 }
 
 func (s *storageSuite) TestDestroyFilesystems(c *gc.C) {
 	s.Stub.SetErrors(nil, errors.New("boom"))
 	source := s.filesystemSource(c, "source")
-	results, err := source.DestroyFilesystems([]string{
+	results, err := source.DestroyFilesystems(s.callCtx, []string{
 		"filesystem-0",
 		"pool0:filesystem-0",
 		"pool1:filesystem-1",
@@ -179,15 +217,28 @@ func (s *storageSuite) TestDestroyFilesystems(c *gc.C) {
 	c.Assert(results[2], gc.ErrorMatches, "boom")
 
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"VolumeDelete", []interface{}{"pool0", "filesystem-0"}},
-		{"VolumeDelete", []interface{}{"pool1", "filesystem-1"}},
+		{"DeleteStoragePoolVolume", []interface{}{"pool0", "custom", "filesystem-0"}},
+		{"DeleteStoragePoolVolume", []interface{}{"pool1", "custom", "filesystem-1"}},
 	})
+}
+
+func (s *storageSuite) TestDestroyFilesystemsInvalidCredentials(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	s.Client.Stub.SetErrors(errTestUnAuth)
+	source := s.filesystemSource(c, "source")
+	results, err := source.DestroyFilesystems(s.callCtx, []string{
+		"pool0:filesystem-0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0], gc.ErrorMatches, "not authorized")
 }
 
 func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 	s.Stub.SetErrors(nil, nil, nil, errors.New("boom"))
 	s.Client.Volumes = map[string][]api.StorageVolume{
-		"foo": []api.StorageVolume{{
+		"foo": {{
 			Name: "filesystem-0",
 			StorageVolumePut: api.StorageVolumePut{
 				Config: map[string]string{
@@ -207,7 +258,7 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 	}
 
 	source := s.filesystemSource(c, "source")
-	results, err := source.ReleaseFilesystems([]string{
+	results, err := source.ReleaseFilesystems(s.callCtx, []string{
 		"filesystem-0",
 		"foo:filesystem-0",
 		"foo:filesystem-1",
@@ -218,33 +269,45 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 	c.Assert(results[1], jc.ErrorIsNil)
 	c.Assert(results[2], gc.ErrorMatches, `removing tags from volume "filesystem-1" in pool "foo": boom`)
 
-	update0 := api.StorageVolume{
-		Name: "filesystem-0",
-		StorageVolumePut: api.StorageVolumePut{
-			Config: map[string]string{
-				"foo": "bar",
-			},
+	update0 := api.StorageVolumePut{
+		Config: map[string]string{
+			"foo": "bar",
 		},
 	}
-	update1 := api.StorageVolume{
-		Name: "filesystem-1",
-		StorageVolumePut: api.StorageVolumePut{
-			Config: map[string]string{},
-		},
+	update1 := api.StorageVolumePut{
+		Config: map[string]string{},
 	}
 
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"Volume", []interface{}{"foo", "filesystem-0"}},
-		{"VolumeUpdate", []interface{}{"foo", "filesystem-0", update0}},
-		{"Volume", []interface{}{"foo", "filesystem-1"}},
-		{"VolumeUpdate", []interface{}{"foo", "filesystem-1", update1}},
+		{"GetStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-0"}},
+		{"UpdateStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-0", update0, "eTag"}},
+		{"GetStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-1"}},
+		{"UpdateStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-1", update1, "eTag"}},
+	})
+}
+
+func (s *storageSuite) TestReleaseFilesystemsInvalidCredentials(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	s.Stub.SetErrors(errTestUnAuth)
+
+	source := s.filesystemSource(c, "source")
+	results, err := source.ReleaseFilesystems(s.callCtx, []string{
+		"foo:filesystem-0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0], gc.ErrorMatches, "not authorized")
+
+	s.Stub.CheckCalls(c, []testing.StubCall{
+		{"GetStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-0"}},
 	})
 }
 
 func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
-	raw := s.NewRawInstance(c, "inst-0")
-	raw.Devices = map[string]map[string]string{
-		"filesystem-1": map[string]string{
+	container := s.NewContainer(c, "inst-0")
+	container.Devices = map[string]map[string]string{
+		"filesystem-1": {
 			"type":     "disk",
 			"source":   "filesystem-1",
 			"pool":     "pool",
@@ -252,10 +315,10 @@ func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 			"readonly": "true",
 		},
 	}
-	s.Client.Insts = []lxdclient.Instance{*raw}
+	s.Client.Containers = []containerlxd.Container{*container}
 
 	source := s.filesystemSource(c, "pool")
-	results, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("123"),
@@ -296,39 +359,97 @@ func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 			ReadOnly: true,
 		},
 	})
-	c.Assert(results[1].Error, jc.ErrorIsNil)
-	c.Assert(results[1].FilesystemAttachment, jc.DeepEquals, &storage.FilesystemAttachment{
-		names.NewFilesystemTag("1"),
-		names.NewMachineTag("123"),
-		storage.FilesystemAttachmentInfo{
-			Path:     "/mnt/socio",
-			ReadOnly: true,
-		},
-	})
 	c.Assert(
-		results[2].Error,
+		results[1].Error,
 		gc.ErrorMatches,
-		`attaching filesystem 2 to machine 42: instance "inst-42" not found`,
+		`attaching filesystem 1 to machine 123: container "inst-0" already has a device "filesystem-1"`)
+	c.Assert(
+		results[2].Error, gc.ErrorMatches, `attaching filesystem 2 to machine 42: instance "inst-42" not found`,
 	)
 
+	// TODO (manadart 2018-06-25) We need to check the device written to the
+	// container as config.
 	s.Stub.CheckCalls(c, []testing.StubCall{{
-		"Instances",
-		[]interface{}{"juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"}},
+		"AliveContainers",
+		[]interface{}{"juju-f75cba-"},
 	}, {
-		"AttachDisk",
-		[]interface{}{"inst-0", "filesystem-0", lxdclient.DiskDevice{
-			Path:     "/mnt/path",
-			Source:   "filesystem-0",
-			Pool:     "pool",
-			ReadOnly: true,
-		}},
+		"WriteContainer",
+		[]interface{}{&s.Client.Containers[0]},
 	}})
 }
 
+func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsInstanceError(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	s.Client.Stub.SetErrors(errTestUnAuth)
+
+	container := s.NewContainer(c, "inst-0")
+	container.Devices = map[string]map[string]string{
+		"filesystem-1": {
+			"type":     "disk",
+			"source":   "filesystem-1",
+			"pool":     "pool",
+			"path":     "/mnt/path",
+			"readonly": "true",
+		},
+	}
+	s.Client.Containers = []containerlxd.Container{*container}
+
+	source := s.filesystemSource(c, "pool")
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+		AttachmentParams: storage.AttachmentParams{
+			Provider:   "lxd",
+			Machine:    names.NewMachineTag("123"),
+			InstanceId: "inst-0",
+			ReadOnly:   true,
+		},
+		Filesystem:   names.NewFilesystemTag("0"),
+		FilesystemId: "pool:filesystem-0",
+		Path:         "/mnt/path",
+	}})
+	c.Assert(err, gc.ErrorMatches, "not authorized")
+	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(results, gc.HasLen, 0)
+}
+
+func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsAttachingFilesystems(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	s.Client.Stub.SetErrors(nil, errTestUnAuth)
+
+	container := s.NewContainer(c, "inst-0")
+	container.Devices = map[string]map[string]string{
+		"filesystem-1": {
+			"type":     "disk",
+			"source":   "filesystem-1",
+			"pool":     "pool",
+			"path":     "/mnt/path",
+			"readonly": "true",
+		},
+	}
+	s.Client.Containers = []containerlxd.Container{*container}
+
+	source := s.filesystemSource(c, "pool")
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+		AttachmentParams: storage.AttachmentParams{
+			Provider:   "lxd",
+			Machine:    names.NewMachineTag("123"),
+			InstanceId: "inst-0",
+			ReadOnly:   true,
+		},
+		Filesystem:   names.NewFilesystemTag("0"),
+		FilesystemId: "pool:filesystem-0",
+		Path:         "/mnt/path",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Error, gc.ErrorMatches, ".*not authorized")
+	c.Assert(results[0].FilesystemAttachment, jc.DeepEquals, (*storage.FilesystemAttachment)(nil))
+}
+
 func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
-	raw := s.NewRawInstance(c, "inst-0")
-	raw.Devices = map[string]map[string]string{
-		"filesystem-0": map[string]string{
+	container := s.NewContainer(c, "inst-0")
+	container.Devices = map[string]map[string]string{
+		"filesystem-0": {
 			"type":     "disk",
 			"source":   "filesystem-0",
 			"pool":     "pool",
@@ -336,10 +457,10 @@ func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 			"readonly": "true",
 		},
 	}
-	s.Client.Insts = []lxdclient.Instance{*raw}
+	s.Client.Containers = []containerlxd.Container{*container}
 
 	source := s.filesystemSource(c, "pool")
-	results, err := source.DetachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.DetachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("123"),
@@ -370,12 +491,69 @@ func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 	c.Assert(results[1], jc.ErrorIsNil)
 	c.Assert(results[2], jc.ErrorIsNil)
 
+	// TODO (manadart 2018-06-25) We need to check the container config to
+	// ensure it represents the removed device.
 	s.Stub.CheckCalls(c, []testing.StubCall{{
-		"Instances",
-		[]interface{}{"juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"}},
+		"AliveContainers",
+		[]interface{}{"juju-f75cba-"},
 	}, {
-		"RemoveDevice", []interface{}{"inst-0", "filesystem-0"},
+		"WriteContainer",
+		[]interface{}{&s.Client.Containers[0]},
+	}, {
+		"WriteContainer",
+		[]interface{}{&s.Client.Containers[0]},
 	}})
+}
+
+func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsInstanceErrors(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	s.Client.Stub.SetErrors(errTestUnAuth)
+
+	source := s.filesystemSource(c, "pool")
+	results, err := source.DetachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+		AttachmentParams: storage.AttachmentParams{
+			Provider:   "lxd",
+			Machine:    names.NewMachineTag("123"),
+			InstanceId: "inst-0",
+		},
+		Filesystem:   names.NewFilesystemTag("0"),
+		FilesystemId: "pool:filesystem-0",
+	}})
+	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "not authorized")
+	c.Assert(results, gc.HasLen, 0)
+}
+
+func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsDetachFilesystem(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	s.Client.Stub.SetErrors(nil, errTestUnAuth)
+
+	container := s.NewContainer(c, "inst-0")
+	container.Devices = map[string]map[string]string{
+		"filesystem-0": {
+			"type":     "disk",
+			"source":   "filesystem-0",
+			"pool":     "pool",
+			"path":     "/mnt/path",
+			"readonly": "true",
+		},
+	}
+	s.Client.Containers = []containerlxd.Container{*container}
+
+	source := s.filesystemSource(c, "pool")
+	results, err := source.DetachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+		AttachmentParams: storage.AttachmentParams{
+			Provider:   "lxd",
+			Machine:    names.NewMachineTag("123"),
+			InstanceId: "inst-0",
+		},
+		Filesystem:   names.NewFilesystemTag("0"),
+		FilesystemId: "pool:filesystem-0",
+	}})
+	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0], gc.ErrorMatches, ".*not authorized")
 }
 
 func (s *storageSuite) TestImportFilesystem(c *gc.C) {
@@ -384,7 +562,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	importer := source.(storage.FilesystemImporter)
 
 	s.Client.Volumes = map[string][]api.StorageVolume{
-		"foo": []api.StorageVolume{{
+		"foo": {{
 			Name: "bar",
 			StorageVolumePut: api.StorageVolumePut{
 				Config: map[string]string{
@@ -394,26 +572,69 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		}},
 	}
 
-	info, err := importer.ImportFilesystem("foo:bar", map[string]string{
-		"baz": "qux",
-	})
+	info, err := importer.ImportFilesystem(s.callCtx,
+		"foo:bar", map[string]string{
+			"baz": "qux",
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, storage.FilesystemInfo{
 		FilesystemId: "foo:bar",
 		Size:         10 * 1024,
 	})
 
-	update := api.StorageVolume{
-		Name: "bar",
-		StorageVolumePut: api.StorageVolumePut{
-			Config: map[string]string{
-				"size":     "10GB",
-				"user.baz": "qux",
-			},
+	update := api.StorageVolumePut{
+		Config: map[string]string{
+			"size":     "10GB",
+			"user.baz": "qux",
 		},
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"Volume", []interface{}{"foo", "bar"}},
-		{"VolumeUpdate", []interface{}{"foo", "bar", update}},
+		{"GetStoragePoolVolume", []interface{}{"foo", "custom", "bar"}},
+		{"UpdateStoragePoolVolume", []interface{}{"foo", "custom", "bar", update, "eTag"}},
 	})
+}
+
+func (s *storageSuite) TestImportFilesystemInvalidCredentialsGetPool(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	s.Client.Stub.SetErrors(errTestUnAuth)
+	source := s.filesystemSource(c, "pool")
+
+	c.Assert(source, gc.Implements, new(storage.FilesystemImporter))
+	importer := source.(storage.FilesystemImporter)
+
+	info, err := importer.ImportFilesystem(s.callCtx,
+		"foo:bar", map[string]string{
+			"baz": "qux",
+		})
+	c.Assert(err, gc.ErrorMatches, ".*not authorized")
+	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(info, jc.DeepEquals, storage.FilesystemInfo{})
+}
+
+func (s *storageSuite) TestImportFilesystemInvalidCredentialsUpdatePool(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	s.Client.Stub.SetErrors(nil, errTestUnAuth)
+	source := s.filesystemSource(c, "pool")
+
+	c.Assert(source, gc.Implements, new(storage.FilesystemImporter))
+	importer := source.(storage.FilesystemImporter)
+
+	s.Client.Volumes = map[string][]api.StorageVolume{
+		"foo": {{
+			Name: "bar",
+			StorageVolumePut: api.StorageVolumePut{
+				Config: map[string]string{
+					"size": "10GB",
+				},
+			},
+		}},
+	}
+
+	info, err := importer.ImportFilesystem(s.callCtx,
+		"foo:bar", map[string]string{
+			"baz": "qux",
+		})
+	c.Assert(err, gc.ErrorMatches, ".*not authorized")
+	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(info, jc.DeepEquals, storage.FilesystemInfo{})
 }

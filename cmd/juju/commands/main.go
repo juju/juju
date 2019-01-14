@@ -88,7 +88,7 @@ Azure, OpenStack, and Rackspace. It also works very well with MAAS and
 LXD. Juju allows for easy installation and management of workloads on a
 chosen resource pool.
 
-See https://jujucharms.com/docs/stable/help for documentation.
+See https://jujucharms.com/docs/stable for documentation.
 
 Common commands:
 
@@ -113,7 +113,7 @@ Example help commands:
     ` + "`juju help deploy`" + `   Shows help for command 'deploy'
 `
 
-var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
+var x = []byte("\x96\x8c\x8a\x91\x93\x9a\x9e\x8c\x97\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
 
 // Main registers subcommands for the juju executable, and hands over control
 // to the cmd package. This function is not redundant with main, because it
@@ -164,9 +164,15 @@ func (m main) Run(args []string) int {
 	for i := range x {
 		x[i] ^= 255
 	}
-	if len(args) == 2 && args[1] == string(x[0:2]) {
-		os.Stdout.Write(x[2:])
-		return 0
+	if len(args) == 2 {
+		if args[1] == string(x[0:2]) {
+			os.Stdout.Write(x[9:])
+			return 0
+		}
+		if args[1] == string(x[2:9]) {
+			os.Stdout.Write(model.ExtractCert())
+			return 0
+		}
 	}
 
 	jcmd := NewJujuCommand(ctx)
@@ -253,6 +259,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		Doc:                 jujuDoc,
 		MissingCallback:     RunPlugin,
 		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
+		FlagKnownAs:         "option",
 	})
 	jcmd.AddHelpTopic("basics", "Basic Help Summary", usageHelp)
 	registerCommands(jcmd, ctx)
@@ -313,7 +320,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newSyncToolsCommand())
 	r.Register(newUpgradeJujuCommand(nil, nil))
 	r.Register(application.NewUpgradeCharmCommand())
-	r.Register(application.NewUpdateSeriesCommand())
+	r.Register(application.NewSetSeriesCommand())
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
@@ -357,6 +364,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(machine.NewRemoveCommand())
 	r.Register(machine.NewListMachinesCommand())
 	r.Register(machine.NewShowMachineCommand())
+	r.Register(machine.NewUpgradeSeriesCommand())
 
 	// Manage model
 	r.Register(model.NewConfigCommand())
@@ -366,6 +374,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewGrantCommand())
 	r.Register(model.NewRevokeCommand())
 	r.Register(model.NewShowCommand())
+	r.Register(model.NewModelCredentialCommand())
 
 	r.Register(newMigrateCommand())
 	r.Register(model.NewExportBundleCommand())
@@ -393,6 +402,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewUnexposeCommand())
 	r.Register(application.NewApplicationGetConstraintsCommand())
 	r.Register(application.NewApplicationSetConstraintsCommand())
+	r.Register(application.NewBundleDiffCommand())
 
 	// Operation protection commands
 	r.Register(block.NewDisableCommand())
@@ -460,10 +470,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewRemoveCredentialCommand())
 	r.Register(cloud.NewUpdateCredentialCommand())
 	r.Register(cloud.NewShowCredentialCommand())
+	r.Register(model.NewGrantCloudCommand())
+	r.Register(model.NewRevokeCloudCommand())
 
 	// CAAS commands
 	r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))
 	r.Register(caas.NewRemoveCAASCommand(&cloudToCommandAdapter{}))
+	r.Register(application.NewScaleApplicationCommand())
 
 	// Manage Application Credential Access
 	r.Register(application.NewTrustCommand())

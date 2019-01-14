@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
@@ -64,7 +65,11 @@ OpenStack
   Credentials:
     1. On Linux, $HOME/.novarc
     2. Environment variables OS_USERNAME, OS_PASSWORD, OS_TENANT_NAME,
-       OS_DOMAIN_NAME
+	   OS_DOMAIN_NAME
+
+LXD
+  Credentials:
+    1. On Linux, $HOME/.config/lxc/config.yml
 
 Example:
     juju autoload-credentials
@@ -90,11 +95,11 @@ func NewDetectCredentialsCommand() cmd.Command {
 }
 
 func (c *detectCredentialsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "autoload-credentials",
 		Purpose: detectCredentialsSummary,
 		Doc:     detectCredentialsDoc,
-	}
+	})
 }
 
 type discoveredCredential struct {

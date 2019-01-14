@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
@@ -17,7 +18,7 @@ var _ = gc.Suite(&MonitorSuite{})
 
 type MonitorSuite struct {
 	testing.IsolationSuite
-	clock   *testing.Clock
+	clock   *testclock.Clock
 	closed  chan (struct{})
 	dead    chan (struct{})
 	broken  chan (struct{})
@@ -29,7 +30,7 @@ const testPingTimeout = time.Second
 
 func (s *MonitorSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.closed = make(chan struct{})
 	s.dead = make(chan struct{})
 	s.broken = make(chan struct{})

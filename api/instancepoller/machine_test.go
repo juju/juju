@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 

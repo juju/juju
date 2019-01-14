@@ -34,12 +34,11 @@ var _ = gc.Suite(&PortsDocSuite{})
 func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
-	f := factory.NewFactory(s.State)
-	s.charm = f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	s.application = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: s.charm})
-	s.machine = f.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
-	s.unit1 = f.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})
-	s.unit2 = f.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})
+	s.charm = s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	s.application = s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: s.charm})
+	s.machine = s.Factory.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
+	s.unit1 = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})
+	s.unit2 = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})
 
 	var err error
 	s.subnet, err = s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})

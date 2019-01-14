@@ -11,8 +11,8 @@ import (
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/status"
 )
 
 // RemoteRelationsAPI provides access to the RemoteRelations API facade.

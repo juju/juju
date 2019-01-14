@@ -50,7 +50,7 @@ func (*FlagsSuite) TestConfigFlagSet(c *gc.C) {
 func (*FlagsSuite) TestConfigFlagSetErrors(c *gc.C) {
 	var f ConfigFlag
 	c.Assert(f.Set(""), gc.ErrorMatches, "empty string not valid")
-	c.Assert(f.Set("x=!"), gc.ErrorMatches, "yaml: did not find URI escaped octet")
+	c.Assert(f.Set("x=%"), gc.ErrorMatches, "yaml: could not find expected directive name")
 }
 
 func (*FlagsSuite) TestConfigFlagString(c *gc.C) {

@@ -16,11 +16,11 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -40,6 +40,7 @@ type Provisioner interface {
 	worker.Worker
 	getMachineWatcher() (watcher.StringsWatcher, error)
 	getRetryWatcher() (watcher.NotifyWatcher, error)
+	getProfileWatcher() (watcher.StringsWatcher, error)
 }
 
 // environProvisioner represents a running provisioning worker for machine nodes
@@ -55,7 +56,7 @@ type environProvisioner struct {
 type containerProvisioner struct {
 	provisioner
 	containerType  instance.ContainerType
-	machine        *apiprovisioner.Machine
+	machine        apiprovisioner.MachineProvisioner
 	configObserver configObserver
 }
 
@@ -150,6 +151,10 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	if err != nil && !errors.IsNotImplemented(err) {
 		return nil, err
 	}
+	profileWatcher, err := p.getProfileWatcher()
+	if err != nil {
+		return nil, err
+	}
 	tag := p.agentConfig.Tag()
 	machineTag, ok := tag.(names.MachineTag)
 	if !ok {
@@ -175,6 +180,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		p.toolsFinder,
 		machineWatcher,
 		retryWatcher,
+		profileWatcher,
 		p.broker,
 		auth,
 		modelCfg.ImageStream(),
@@ -201,7 +207,7 @@ func NewEnvironProvisioner(st *apiprovisioner.State,
 			agentConfig:             agentConfig,
 			toolsFinder:             getToolsFinder(st),
 			distributionGroupFinder: getDistributionGroupFinder(st),
-			callContext:             common.NewCloudCallContext(credentialAPI),
+			callContext:             common.NewCloudCallContext(credentialAPI, nil),
 		},
 		environ: environ,
 	}
@@ -273,11 +279,15 @@ func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return p.st.WatchMachineErrorRetry()
 }
 
+func (p *environProvisioner) getProfileWatcher() (watcher.StringsWatcher, error) {
+	return p.st.WatchModelMachinesCharmProfiles()
+}
+
 // setConfig updates the environment configuration and notifies
 // the config observer.
 func (p *environProvisioner) setConfig(modelConfig *config.Config) error {
 	if err := p.environ.SetConfig(modelConfig); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	p.configObserver.notify(modelConfig)
 	return nil
@@ -302,7 +312,7 @@ func NewContainerProvisioner(
 			broker:                  broker,
 			toolsFinder:             toolsFinder,
 			distributionGroupFinder: distributionGroupFinder,
-			callContext:             common.NewCloudCallContext(credentialAPI),
+			callContext:             common.NewCloudCallContext(credentialAPI, nil),
 		},
 		containerType: containerType,
 	}
@@ -330,14 +340,14 @@ func (p *containerProvisioner) loop() error {
 
 	modelConfig, err := p.st.ModelConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	p.configObserver.notify(modelConfig)
 	harvestMode := modelConfig.ProvisionerHarvestMode()
 
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
-		return err
+		return loggedErrorStack(errors.Trace(err))
 	}
 	if err := p.catacomb.Add(task); err != nil {
 		return errors.Trace(err)
@@ -361,7 +371,7 @@ func (p *containerProvisioner) loop() error {
 	}
 }
 
-func (p *containerProvisioner) getMachine() (*apiprovisioner.Machine, error) {
+func (p *containerProvisioner) getMachine() (apiprovisioner.MachineProvisioner, error) {
 	if p.machine == nil {
 		tag := p.agentConfig.Tag()
 		machineTag, ok := tag.(names.MachineTag)
@@ -392,4 +402,16 @@ func (p *containerProvisioner) getMachineWatcher() (watcher.StringsWatcher, erro
 
 func (p *containerProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return nil, errors.NotImplementedf("getRetryWatcher")
+}
+
+func (p *containerProvisioner) getProfileWatcher() (watcher.StringsWatcher, error) {
+	// Note: we don't care what type the container is when watching. The
+	// provisioner task will make this become a no-op.
+	// Also we'll always clean up any documents once the uniter has finished
+	// deploying/upgrading a charm.
+	machine, err := p.getMachine()
+	if err != nil {
+		return nil, err
+	}
+	return machine.WatchContainersCharmProfiles(p.containerType)
 }

@@ -78,6 +78,37 @@ def assert_mediawiki_is_responding(client):
     if '<title>Please set name of wiki</title>' not in resp.content:
         raise AssertionError('Got unexpected mediawiki page content: {}'.format(resp.content))
 
+def deploy_keystone_with_db(client):
+    client.deploy('cs:percona-cluster')
+    client.wait_for_started()
+    client.wait_for_workloads()
+    client.juju('run', ('--unit', 'percona-cluster/0', 'leader-get'))
+
+    # use a charm which is under development by
+    # canonical to try to avoid rot.
+    client.deploy('cs:keystone')
+    client.wait_for_started()
+    client.juju('relate', ('keystone:shared-db', 'percona-cluster:shared-db'))
+    client.wait_for_workloads()
+    client.wait_for_started()
+    client.juju('expose', 'keystone')
+    client.wait_for_workloads()
+    client.wait_for_started()
+
+def assert_keystone_is_responding(client):
+    log.debug('Assert keystone is responding.')
+    status = client.get_status()
+    [keystone_unit_name] = [
+        k for k, v in status.get_applications()['keystone']['units'].items()
+        if v.get('leader', False)]
+    dash_ip = get_unit_public_ip(client, keystone_unit_name)
+    resp = requests.get('http://{}:5000'.format(dash_ip))
+    if not resp.ok:
+        raise AssertionError('keystone not responding; {}: {}'.format(
+            resp.status_code, resp.reason
+        ))
+    if '{"versions": {"values":' not in resp.content:
+        raise AssertionError('Got unexpected keystone page content: {}'.format(resp.content))
 
 def deploy_simple_server_to_new_model(
         client, model_name, resource_contents=None, series='xenial'):

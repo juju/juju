@@ -38,15 +38,13 @@ type StateTracker interface {
 // number of calls to Use.
 type stateTracker struct {
 	mu         sync.Mutex
-	st         *state.State
 	pool       *state.StatePool
 	references int
 }
 
-func newStateTracker(st *state.State) StateTracker {
+func newStateTracker(pool *state.StatePool) StateTracker {
 	return &stateTracker{
-		st:         st,
-		pool:       state.NewStatePool(st),
+		pool:       pool,
 		references: 1,
 	}
 }
@@ -75,9 +73,6 @@ func (c *stateTracker) Done() error {
 	if c.references == 0 {
 		if err := c.pool.Close(); err != nil {
 			logger.Errorf("error when closing state pool: %v", err)
-		}
-		if err := c.st.Close(); err != nil {
-			logger.Errorf("error when closing state: %v", err)
 		}
 	}
 	return nil

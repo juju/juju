@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 
 	coreraft "github.com/hashicorp/raft"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
@@ -76,7 +76,7 @@ func InitializeState(
 	args InitializeStateParams,
 	dialOpts mongo.DialOpts,
 	newPolicy state.NewPolicyFunc,
-) (_ *state.State, _ *state.Machine, resultErr error) {
+) (_ *state.Controller, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.NewMachineTag(agent.BootstrapMachineId) {
 		return nil, nil, errors.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -116,7 +116,7 @@ func InitializeState(
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
 			Type:                    state.ModelTypeIAAS,
@@ -144,16 +144,15 @@ func InitializeState(
 	logger.Debugf("connected to initial state")
 	defer func() {
 		if resultErr != nil {
-			st.Close()
+			ctlr.Close()
 		}
 	}()
-	ctlr.Close()
 	servingInfo.SharedSecret = args.SharedSecret
 	c.SetStateServingInfo(servingInfo)
 
 	// Filter out any LXC or LXD bridge addresses from the machine addresses.
 	args.BootstrapMachineAddresses = network.FilterBridgeAddresses(args.BootstrapMachineAddresses)
-
+	st := ctlr.SystemState()
 	if err = initAPIHostPorts(c, st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
 	}
@@ -214,7 +213,7 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "creating hosted model environment")
 	}
 
-	model, hostedModelState, err := st.NewModel(state.ModelArgs{
+	model, hostedModelState, err := ctlr.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		Owner:                   adminUser,
 		Config:                  hostedModelConfig,
@@ -244,7 +243,7 @@ func InitializeState(
 		}
 	}
 
-	return st, m, nil
+	return ctlr, m, nil
 }
 
 func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 )
 
@@ -105,7 +106,7 @@ type loopVolumeSource struct {
 var _ storage.VolumeSource = (*loopVolumeSource)(nil)
 
 // CreateVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+func (lvs *loopVolumeSource) CreateVolumes(ctx context.ProviderCallContext, args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
 	results := make([]storage.CreateVolumesResult, len(args))
 	for i, arg := range args {
 		volume, err := lvs.createVolume(arg)
@@ -140,19 +141,19 @@ func (lvs *loopVolumeSource) volumeFilePath(tag names.VolumeTag) string {
 }
 
 // ListVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) ListVolumes() ([]string, error) {
+func (lvs *loopVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
 	// TODO(axw) implement this when we need it.
 	return nil, errors.NotImplementedf("ListVolumes")
 }
 
 // DescribeVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.DescribeVolumesResult, error) {
+func (lvs *loopVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
 	// TODO(axw) implement this when we need it.
 	return nil, errors.NotImplementedf("DescribeVolumes")
 }
 
 // DestroyVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) {
+func (lvs *loopVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	results := make([]error, len(volumeIds))
 	for i, volumeId := range volumeIds {
 		if err := lvs.destroyVolume(volumeId); err != nil {
@@ -163,7 +164,7 @@ func (lvs *loopVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error)
 }
 
 // ReleaseVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) {
+func (lvs *loopVolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	return make([]error, len(volumeIds)), nil
 }
 
@@ -189,7 +190,7 @@ func (lvs *loopVolumeSource) ValidateVolumeParams(params storage.VolumeParams) e
 }
 
 // AttachVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (lvs *loopVolumeSource) AttachVolumes(ctx context.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(args))
 	for i, arg := range args {
 		attachment, err := lvs.attachVolume(arg)
@@ -220,7 +221,7 @@ func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 }
 
 // DetachVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams) ([]error, error) {
+func (lvs *loopVolumeSource) DetachVolumes(ctx context.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]error, error) {
 	results := make([]error, len(args))
 	for i, arg := range args {
 		if err := lvs.detachVolume(arg.Volume); err != nil {

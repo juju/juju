@@ -142,7 +142,7 @@ def verify_deployed_charm(client, remote, unit="0"):
     log.info("Charm verification done successfully")
 
 
-def deploy_machine_and_verify(client, series="xenial"):
+def deploy_machine_and_verify(client, series="bionic"):
     """Deploy machine using juju add-machine of specified series
     and verify that it make use of same agent-file used by the
     controller.
@@ -168,7 +168,7 @@ def deploy_machine_and_verify(client, series="xenial"):
     log.info("add-machine verification done successfully")
 
 
-def deploy_charm_and_verify(client, series="xenial", charm_app="dummy-source"):
+def deploy_charm_and_verify(client, series="bionic", charm_app="dummy-source"):
     """
     Deploy dummy charm from local repository and
     verify it uses the specified agent-metadata-url option
@@ -228,7 +228,7 @@ def get_controller_series_and_alternative_series(client):
     :param client: The juju client
     :return: controller and non-controller series
     """
-    supported_series = ['xenial', 'trusty', 'zesty']
+    supported_series = ['bionic', 'xenial', 'trusty', 'zesty']
     controller_status = client.get_status(controller=True)
     machines = dict(controller_status.iter_machines())
     controller_series = machines['0']['series']
@@ -332,7 +332,7 @@ def assess_add_cloud(args, agent_dir, agent_stream):
         log.info('Metadata bootstrap successful.')
         verify_deployed_tool(agent_dir, client, agent_stream)
         log.info("Successfully deployed and verified add-cloud")
-        deploy_charm_and_verify(client, "xenial", "dummy-source")
+        deploy_charm_and_verify(client, "bionic", "dummy-source")
         log.info("Successfully deployed charm and verified")
 
 

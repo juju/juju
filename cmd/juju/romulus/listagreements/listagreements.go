@@ -16,6 +16,7 @@ import (
 	"github.com/juju/terms-client/api/wireformat"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -75,12 +76,12 @@ func (c *listAgreementsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Info implements Command.Info.
 func (c *listAgreementsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "agreements",
 		Purpose: "List user's agreements.",
 		Doc:     listAgreementsDoc,
 		Aliases: []string{"list-agreements"},
-	}
+	})
 }
 
 // Run implements Command.Run.

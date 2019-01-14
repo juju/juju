@@ -61,6 +61,9 @@ func (s *ListPlansCommandSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.mockAPI = newMockAPI(s.stub)
 	s.PatchValue(listplans.NewClient, listplans.APIClientFnc(s.mockAPI))
+	s.PatchValue(&rcmd.GetMeteringURLForControllerCmd, func(c *modelcmd.ControllerCommandBase) (string, error) {
+		return "http://example.com", nil
+	})
 }
 
 func (s *ListPlansCommandSuite) TestTabularOutput(c *gc.C) {
@@ -121,9 +124,12 @@ carol/test-plan-2
 }
 
 func (s *ListPlansCommandSuite) runCommand(c *gc.C, resolver rcmd.CharmResolver, args ...string) (*cmd.Context, error) {
+	cleanup := testing.PatchValue(&rcmd.NewCharmStoreResolverForControllerCmd, func(c *modelcmd.ControllerCommandBase) (rcmd.CharmResolver, error) {
+		return resolver, nil
+	})
+	defer cleanup()
 	cmd := listplans.NewListPlansCommand()
 	cmd.SetClientStore(newMockStore())
-	modelcmd.InnerCommand(cmd).(*listplans.ListPlansCommand).CharmResolver = resolver
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 

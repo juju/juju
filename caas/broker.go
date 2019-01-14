@@ -8,15 +8,17 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/watcher"
 )
 
 // ContainerEnvironProvider represents a computing and storage provider
@@ -68,20 +70,29 @@ func Open(p environs.EnvironProvider, args environs.OpenParams) (Broker, error) 
 // NewContainerBrokerFunc returns a Container Broker.
 type NewContainerBrokerFunc func(args environs.OpenParams) (Broker, error)
 
+// StatusCallbackFunc represents a function that can be called to report a status.
+type StatusCallbackFunc func(appName string, settableStatus status.Status, info string, data map[string]interface{}) error
+
 // ServiceParams defines parameters used to create a service.
 type ServiceParams struct {
 	// PodSpec is the spec used to configure a pod.
 	PodSpec *PodSpec
+
+	// ResourceTags is a set of tags to set on the created service.
+	ResourceTags map[string]string
+
+	// Placement defines node affinity rules.
+	Placement string
 
 	// Constraints is a set of constraints on
 	// the pod to create.
 	Constraints constraints.Value
 
 	// Filesystems is a set of parameters for filesystems that should be created.
-	Filesystems []storage.FilesystemParams
+	Filesystems []storage.KubernetesFilesystemParams
 
-	// FilesystemAttachments is a set of parameters for attaching filesystems.
-	FilesystemAttachments []storage.FilesystemAttachmentParams
+	// Devices is a set of parameters for Devices that is required.
+	Devices []devices.KubernetesDeviceParams
 }
 
 // Broker instances interact with the CAAS substrate.
@@ -92,6 +103,9 @@ type Broker interface {
 	// Destroy terminates all containers and other resources in this broker's namespace.
 	Destroy(context.ProviderCallContext) error
 
+	// Namespaces returns name names of the namespaces on the cluster.
+	Namespaces() ([]string, error)
+
 	// EnsureNamespace ensures this broker's namespace is created.
 	EnsureNamespace() error
 
@@ -99,11 +113,18 @@ type Broker interface {
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
 
+	// OperatorExists returns true if the operator for the specified
+	// application exists.
+	OperatorExists(appName string) (bool, error)
+
 	// DeleteOperator deletes the specified operator.
 	DeleteOperator(appName string) error
 
 	// EnsureService creates or updates a service for pods with the given params.
-	EnsureService(appName string, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
+	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
+
+	// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
+	EnsureCustomResourceDefinition(appName string, podSpec *PodSpec) error
 
 	// Service returns the service for the specified application.
 	Service(appName string) (*Service, error)
@@ -112,23 +133,52 @@ type Broker interface {
 	DeleteService(appName string) error
 
 	// ExposeService sets up external access to the specified service.
-	ExposeService(appName string, config application.ConfigAttributes) error
+	ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error
 
 	// UnexposeService removes external access to the specified service.
 	UnexposeService(appName string) error
-
-	// EnsureUnit creates or updates a pod with the given spec.
-	EnsureUnit(appName, unitName string, spec *PodSpec) error
-
-	// DeleteUnit deletes a unit pod with the given unit name.
-	DeleteUnit(unitName string) error
 
 	// WatchUnits returns a watcher which notifies when there
 	// are changes to units of the specified application.
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)
 
-	// Units returns all units of the specified application.
+	// Units returns all units and any associated filesystems
+	// of the specified application. Filesystems are mounted
+	// via volumes bound to the unit.
 	Units(appName string) ([]Unit, error)
+
+	// WatchOperator returns a watcher which notifies when there
+	// are changes to the operator of the specified application.
+	WatchOperator(string) (watcher.NotifyWatcher, error)
+
+	// GetNamespace returns the namespace for the specified name or current namespace.
+	GetNamespace(name string) (*core.Namespace, error)
+
+	// Operator returns an Operator with current status and life details.
+	Operator(string) (*Operator, error)
+
+	// NamespaceWatcher provides the API to watch caas namespace.
+	NamespaceWatcher
+
+	// ProviderRegistry is an interface for obtaining storage providers.
+	storage.ProviderRegistry
+
+	// InstancePrechecker provides a means of "prechecking" placement
+	// arguments before recording them in state.
+	environs.InstancePrechecker
+
+	// BootstrapEnviron defines methods for bootstraping a controller.
+	environs.BootstrapEnviron
+
+	// ResourceAdopter defines methods for adopting resources.
+	environs.ResourceAdopter
+}
+
+// NamespaceWatcher provides the API to watch caas namespace.
+type NamespaceWatcher interface {
+	// WatchNamespace returns a watcher which notifies when there
+	// are changes to current namespace.
+	WatchNamespace() (watcher.NotifyWatcher, error)
 }
 
 // Service represents information about the status of a caas service entity.
@@ -137,14 +187,60 @@ type Service struct {
 	Addresses []network.Address
 }
 
+// FilesystemInfo represents information about a filesystem
+// mounted by a unit.
+type FilesystemInfo struct {
+	StorageName  string
+	FilesystemId string
+	Size         uint64
+	MountPoint   string
+	ReadOnly     bool
+	Status       status.StatusInfo
+	Volume       VolumeInfo
+}
+
+// VolumeInfo represents information about a volume
+// mounted by a unit.
+type VolumeInfo struct {
+	VolumeId   string
+	Size       uint64
+	Persistent bool
+	Status     status.StatusInfo
+}
+
 // Unit represents information about the status of a "pod".
 type Unit struct {
-	Id      string
-	UnitTag string
-	Address string
-	Ports   []string
-	Dying   bool
-	Status  status.StatusInfo
+	Id             string
+	Address        string
+	Ports          []string
+	Dying          bool
+	Status         status.StatusInfo
+	FilesystemInfo []FilesystemInfo
+}
+
+// Operator represents information about the status of an "operator pod".
+type Operator struct {
+	Id     string
+	Dying  bool
+	Status status.StatusInfo
+}
+
+// CharmStorageParams defines parameters used to create storage
+// for operators to use for charm state.
+type CharmStorageParams struct {
+	// Size is the minimum size of the filesystem in MiB.
+	Size uint64
+
+	// The provider type for this filesystem.
+	Provider storage.ProviderType
+
+	// Attributes is a set of provider-specific options for storage creation,
+	// as defined in a storage pool.
+	Attributes map[string]interface{}
+
+	// ResourceTags is a set of tags to set on the created filesystem, if the
+	// storage provider supports tags.
+	ResourceTags map[string]string
 }
 
 // OperatorConfig is the config to use when creating an operator.
@@ -155,6 +251,13 @@ type OperatorConfig struct {
 	// Version is the Juju version of the operator image.
 	Version version.Number
 
+	// CharmStorage defines parameters used to create storage
+	// for operators to use for charm state.
+	CharmStorage CharmStorageParams
+
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte
+
+	// ResourceTags is a set of tags to set on the operator pod.
+	ResourceTags map[string]string
 }

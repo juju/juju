@@ -86,7 +86,15 @@ func (e *mockOpExecutor) Run(op operation.Operation) error {
 
 type mockOp struct {
 	operation.Operation
-	commit func(operation.State) (*operation.State, error)
+	commit  func(operation.State) (*operation.State, error)
+	prepare func(operation.State) (*operation.State, error)
+}
+
+func (op mockOp) Prepare(st operation.State) (*operation.State, error) {
+	if op.prepare != nil {
+		return op.prepare(st)
+	}
+	return &st, nil
 }
 
 func (op mockOp) Commit(st operation.State) (*operation.State, error) {

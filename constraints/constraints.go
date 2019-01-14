@@ -32,6 +32,7 @@ const (
 	InstanceType = "instance-type"
 	Spaces       = "spaces"
 	VirtType     = "virt-type"
+	Zones        = "zones"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -85,6 +86,10 @@ type Value struct {
 	// VirtType, if not nil or empty, indicates that a machine must run the named
 	// virtual type. Only valid for clouds with multi-hypervisor support.
 	VirtType *string `json:"virt-type,omitempty" yaml:"virt-type,omitempty"`
+
+	// Zones, if not nil, holds a list of availability zones limiting where
+	// the machine can be located.
+	Zones *[]string `json:"zones,omitempty" yaml:"zones,omitempty"`
 }
 
 var rawAliases = map[string]string{
@@ -170,14 +175,19 @@ func (v *Value) ExcludeSpaces() []string {
 	return v.extractItems(*v.Spaces, false)
 }
 
-// HaveSpaces returns whether any spaces constraints were specified.
-func (v *Value) HaveSpaces() bool {
+// HasSpaces returns whether any spaces constraints were specified.
+func (v *Value) HasSpaces() bool {
 	return v.Spaces != nil && len(*v.Spaces) > 0
 }
 
 // HasVirtType returns true if the constraints.Value specifies an virtual type.
 func (v *Value) HasVirtType() bool {
 	return v.VirtType != nil && *v.VirtType != ""
+}
+
+// HasZones returns whether any zone constraints were specified.
+func (v *Value) HasZones() bool {
+	return v.Zones != nil && len(*v.Zones) > 0
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
@@ -223,6 +233,10 @@ func (v Value) String() string {
 	if v.VirtType != nil {
 		strs = append(strs, "virt-type="+(*v.VirtType))
 	}
+	if v.Zones != nil {
+		s := strings.Join(*v.Zones, ",")
+		strs = append(strs, "zones="+s)
+	}
 	return strings.Join(strs, " ")
 }
 
@@ -263,6 +277,11 @@ func (v Value) GoString() string {
 	}
 	if v.VirtType != nil {
 		values = append(values, fmt.Sprintf("VirtType: %q", *v.VirtType))
+	}
+	if v.Zones != nil && *v.Zones != nil {
+		values = append(values, fmt.Sprintf("Zones: %q", *v.Zones))
+	} else if v.Zones != nil {
+		values = append(values, "Zones: (*[]string)(nil)")
 	}
 	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
 }
@@ -420,6 +439,8 @@ func (v *Value) setRaw(name, str string) error {
 		err = v.setSpaces(str)
 	case VirtType:
 		err = v.setVirtType(str)
+	case Zones:
+		err = v.setZones(str)
 	default:
 		return errors.Errorf("unknown constraint %q", name)
 	}
@@ -483,6 +504,8 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			}
 		case VirtType:
 			v.VirtType = &vstr
+		case Zones:
+			v.Zones, err = parseYamlStrings("zones", val)
 		default:
 			return errors.Errorf("unknown constraint value: %v", k)
 		}
@@ -604,6 +627,14 @@ func (v *Value) setVirtType(str string) error {
 		return errors.Errorf("already set")
 	}
 	v.VirtType = &str
+	return nil
+}
+
+func (v *Value) setZones(str string) error {
+	if v.Zones != nil {
+		return errors.Errorf("already set")
+	}
+	v.Zones = parseCommaDelimited(str)
 	return nil
 }
 

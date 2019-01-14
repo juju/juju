@@ -1,8 +1,10 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package oci_test
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -116,13 +118,18 @@ func (s *credentialsSuite) TestPassphraseHiddenAttributes(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
-	_, err := s.provider.DetectCredentials()
-	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+	result := cloud.CloudCredential{
+		AuthCredentials: make(map[string]cloud.Credential),
+	}
+	creds, err := s.provider.DetectCredentials()
+	c.Assert(err, gc.IsNil)
+	c.Assert(creds, gc.NotNil)
+	c.Assert(*creds, jc.DeepEquals, result)
 }
 
 func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 	cfg := map[string]map[string]string{
-		"DEFAULT": map[string]string{
+		"DEFAULT": {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": ocitesting.PrivateKeyPassphrase,
 			"key":         ocitesting.PrivateKeyEncrypted,
@@ -138,7 +145,7 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *gc.C) {
 	cfg := map[string]map[string]string{
-		"DEFAULT": map[string]string{
+		"DEFAULT": {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": "bogus",
 			"key":         ocitesting.PrivateKeyEncrypted,
@@ -152,13 +159,13 @@ func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsMultiSection(c *gc.C) {
 	cfg := map[string]map[string]string{
-		"DEFAULT": map[string]string{
+		"DEFAULT": {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": ocitesting.PrivateKeyPassphrase,
 			"key":         ocitesting.PrivateKeyEncrypted,
 			"region":      "us-ashburn-1",
 		},
-		"SECONDARY": map[string]string{
+		"SECONDARY": {
 			"fingerprint": ocitesting.PrivateKeyUnencryptedFingerprint,
 			"pass-phrase": "",
 			"key":         ocitesting.PrivateKeyUnencrypted,
@@ -176,13 +183,13 @@ func (s *credentialsSuite) TestDetectCredentialsMultiSectionInvalidConfig(c *gc.
 	cfg := map[string]map[string]string{
 		// The default section is invalid, due to incorrect password
 		// This section should be skipped by DetectCredentials()
-		"DEFAULT": map[string]string{
+		"DEFAULT": {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": "bogus",
 			"key":         ocitesting.PrivateKeyEncrypted,
 			"region":      "us-ashburn-1",
 		},
-		"SECONDARY": map[string]string{
+		"SECONDARY": {
 			"fingerprint": ocitesting.PrivateKeyUnencryptedFingerprint,
 			"pass-phrase": "",
 			"key":         ocitesting.PrivateKeyUnencrypted,

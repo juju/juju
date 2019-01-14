@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,7 +32,7 @@ type workerFixture struct {
 	prometheusRegisterer stubPrometheusRegisterer
 	agentName            string
 	mux                  *apiserverhttp.Mux
-	clock                *testing.Clock
+	clock                *testclock.Clock
 	hub                  *pubsub.StructuredHub
 	config               httpserver.Config
 	stub                 testing.Stub
@@ -46,7 +47,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.mux = apiserverhttp.NewMux()
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.agentName = "machine-42"
 	s.config = httpserver.Config{
@@ -85,11 +86,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *httpserver.Config) { cfg.PrometheusRegisterer = nil },
 		"nil PrometheusRegisterer not valid",
-	}, {
-		func(cfg *httpserver.Config) {
-			cfg.AutocertHandler = http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
-		},
-		"AutocertListener must not be nil if AutocertHandler is not nil",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
@@ -389,48 +385,4 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 	delete(reportPorts, "status")
 	reportPorts["agent"] = fmt.Sprintf("[::]:%d", s.config.APIPort)
 	c.Check(worker.Report(), jc.DeepEquals, report)
-}
-
-type WorkerAutocertSuite struct {
-	workerFixture
-	stub   testing.Stub
-	worker *httpserver.Worker
-	url    string
-}
-
-var _ = gc.Suite(&WorkerAutocertSuite{})
-
-func (s *WorkerAutocertSuite) SetUpTest(c *gc.C) {
-	s.workerFixture.SetUpTest(c)
-	s.config.AutocertHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.stub.AddCall("AutocertHandler")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("yay\n"))
-	})
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { listener.Close() })
-	s.config.AutocertListener = listener
-	s.url = fmt.Sprintf("http://%s/whatever/", listener.Addr())
-	worker, err := httpserver.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		workertest.DirtyKill(c, worker)
-	})
-	s.worker = worker
-}
-
-func (s *WorkerAutocertSuite) TestAutocertHandler(c *gc.C) {
-	client := &http.Client{}
-	response, err := client.Get(s.url)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
-	content, err := ioutil.ReadAll(response.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, "yay\n")
-
-	workertest.CleanKill(c, s.worker)
-
-	_, err = client.Get(s.url)
-	c.Assert(err, gc.ErrorMatches, ".*connection refused$")
 }

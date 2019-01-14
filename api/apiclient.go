@@ -21,10 +21,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/parallel"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"

@@ -14,13 +14,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -35,7 +35,8 @@ type instanceSuite struct {
 	networkInterfaces []network.Interface
 	publicIPAddresses []network.PublicIPAddress
 
-	callCtx context.ProviderCallContext
+	callCtx             *context.CloudCallContext
+	invalidteCredential bool
 }
 
 var _ = gc.Suite(&instanceSuite{})
@@ -59,7 +60,12 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		makeDeployment("machine-0"),
 		makeDeployment("machine-1"),
 	}
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			s.invalidteCredential = true
+			return nil
+		},
+	}
 }
 
 func makeDeployment(name string) resources.DeploymentExtended {

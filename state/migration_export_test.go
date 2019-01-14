@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"github.com/juju/juju/instance"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
@@ -22,6 +24,8 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
@@ -32,7 +36,6 @@ import (
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -81,8 +84,7 @@ func (s *MigrationBaseSuite) primeStatusHistory(c *gc.C, entity statusSetter, st
 	}, 0, "")
 }
 
-func (s *MigrationBaseSuite) makeApplicationWithLeader(c *gc.C, applicationname string, count int, leader int) {
-	c.Assert(leader < count, jc.IsTrue)
+func (s *MigrationBaseSuite) makeApplicationWithUnits(c *gc.C, applicationname string, count int) {
 	units := make([]*state.Unit, count)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: applicationname,
@@ -95,9 +97,23 @@ func (s *MigrationBaseSuite) makeApplicationWithLeader(c *gc.C, applicationname 
 			Application: application,
 		})
 	}
+}
+
+func (s *MigrationBaseSuite) makeUnitApplicationLeader(c *gc.C, unitName, applicationName string) {
+	target := s.State.LeaseNotifyTarget(
+		ioutil.Discard,
+		loggo.GetLogger("migration_export_test"),
+	)
+	target.Claimed(
+		lease.Key{"application-leadership", s.State.ModelUUID(), applicationName},
+		unitName,
+	)
+}
+
+func (s *MigrationBaseSuite) makeUnitApplicationLeaderLegacy(c *gc.C, unitName, applicationName string) {
 	err := s.State.LeadershipClaimer().ClaimLeadership(
-		application.Name(),
-		units[leader].Name(),
+		applicationName,
+		unitName,
 		time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -203,7 +219,7 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	// Make sure we have some last connection times for the admin user,
 	// and create a few other users.
 	lastConnection := state.NowToTheSecond(s.State)
-	owner, err := s.State.UserAccess(s.Owner, s.IAASModel.ModelTag())
+	owner, err := s.State.UserAccess(s.Owner, s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(s.State, owner, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
@@ -374,10 +390,7 @@ func (s *MigrationExportSuite) TestApplications(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestCAASApplications(c *gc.C) {
-	caasSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	s.assertMigrateApplications(c, caasSt, constraints.MustParse("arch=amd64 mem=8G"))
@@ -388,7 +401,7 @@ func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.State, cons constraints.Value) {
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 
 	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -407,7 +420,9 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		},
 		ApplicationConfigFields: environschema.Fields{
 			"app foo": environschema.Attr{Type: environschema.Tstring}},
-		Constraints: cons,
+		Constraints:  cons,
+		DesiredScale: 3,
+		Placement:    []*instance.Placement{{Scope: st.ModelUUID(), Directive: "foo=bar"}},
 	})
 	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -417,9 +432,10 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(err, jc.ErrorIsNil)
 	err = dbModel.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
+		application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
+
 		caasModel, err := dbModel.CAASModel()
 		c.Assert(err, jc.ErrorIsNil)
 		err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
@@ -428,6 +444,8 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		err = application.UpdateCloudService("provider-id", []network.Address{addr})
 		c.Assert(err, jc.ErrorIsNil)
 	}
+
+	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
 
 	model, err := st.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -468,6 +486,8 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	if dbModel.Type() == state.ModelTypeCAAS {
 		c.Assert(exported.PodSpec(), gc.Equals, "pod spec")
 		c.Assert(exported.CloudService().ProviderId(), gc.Equals, "provider-id")
+		c.Assert(exported.DesiredScale(), gc.Equals, 3)
+		c.Assert(exported.Placement(), gc.Equals, "foo=bar")
 		addresses := exported.CloudService().Addresses()
 		addr := addresses[0]
 		c.Assert(addr.Value(), gc.Equals, "192.168.1.1")
@@ -503,17 +523,14 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestCAASUnits(c *gc.C) {
-	caasSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	s.assertMigrateUnits(c, caasSt)
 }
 
 func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
@@ -526,24 +543,31 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	}
 	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = dbModel.SetAnnotations(unit, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, unit, status.Active, addedHistoryCount)
-	s.primeStatusHistory(c, unit.Agent(), status.Idle, addedHistoryCount)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
+		// need to set a cloud container status so that SetStatus for
+		// the unit doesn't throw away the history writes.
 		var updateUnits state.UpdateUnitsOperation
 		updateUnits.Updates = []*state.UpdateUnitOperation{
 			unit.UpdateOperation(state.UnitUpdateProperties{
 				ProviderId: strPtr("provider-id"),
 				Address:    strPtr("192.168.1.1"),
 				Ports:      &[]string{"80"},
+				CloudContainerStatus: &status.StatusInfo{
+					Status:  status.Running,
+					Message: "cloud container running",
+				},
 			})}
 		app, err := unit.Application()
 		c.Assert(err, jc.ErrorIsNil)
 		err = app.UpdateUnits(&updateUnits)
 		c.Assert(err, jc.ErrorIsNil)
 	}
+
+	err = dbModel.SetAnnotations(unit, testAnnotations)
+	c.Assert(err, jc.ErrorIsNil)
+	s.primeStatusHistory(c, unit, status.Active, addedHistoryCount)
+	s.primeStatusHistory(c, unit.Agent(), status.Idle, addedHistoryCount)
 
 	model, err := st.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -570,7 +594,16 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
 
 	workloadHistory := exported.WorkloadStatusHistory()
-	c.Assert(workloadHistory, gc.HasLen, expectedHistoryCount)
+	if dbModel.Type() == state.ModelTypeCAAS {
+		// Account for the extra cloud container status history addition.
+		c.Assert(workloadHistory, gc.HasLen, expectedHistoryCount+1)
+		c.Assert(workloadHistory[expectedHistoryCount].Message(), gc.Equals, "waiting for container")
+		c.Assert(workloadHistory[expectedHistoryCount].Value(), gc.Equals, "waiting")
+		c.Assert(workloadHistory[expectedHistoryCount-1].Message(), gc.Equals, "cloud container running")
+		c.Assert(workloadHistory[expectedHistoryCount-1].Value(), gc.Equals, "running")
+	} else {
+		c.Assert(workloadHistory, gc.HasLen, expectedHistoryCount)
+	}
 	s.checkStatusHistory(c, workloadHistory[:addedHistoryCount], status.Active)
 
 	agentHistory := exported.AgentStatusHistory()
@@ -608,9 +641,36 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	}
 }
 
+func (s *MigrationExportSuite) TestApplicationLeadershipLegacy(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		"features": []interface{}{feature.LegacyLeases},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.makeApplicationWithUnits(c, "mysql", 2)
+	s.makeUnitApplicationLeaderLegacy(c, "mysql/1", "mysql")
+
+	s.makeApplicationWithUnits(c, "wordpress", 4)
+	s.makeUnitApplicationLeaderLegacy(c, "wordpress/2", "wordpress")
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	leaders := make(map[string]string)
+	for _, application := range model.Applications() {
+		leaders[application.Name()] = application.Leader()
+	}
+	c.Assert(leaders, jc.DeepEquals, map[string]string{
+		"mysql":     "mysql/1",
+		"wordpress": "wordpress/2",
+	})
+}
+
 func (s *MigrationExportSuite) TestApplicationLeadership(c *gc.C) {
-	s.makeApplicationWithLeader(c, "mysql", 2, 1)
-	s.makeApplicationWithLeader(c, "wordpress", 4, 2)
+	s.makeApplicationWithUnits(c, "mysql", 2)
+	s.makeUnitApplicationLeader(c, "mysql/1", "mysql")
+
+	s.makeApplicationWithUnits(c, "wordpress", 4)
+	s.makeUnitApplicationLeader(c, "wordpress/2", "wordpress")
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1177,9 +1237,228 @@ func (*goodToken) Check(interface{}) error {
 	return nil
 }
 
+func (s *MigrationExportSuite) TestVolumeAttachmentPlansLocalDisk(c *gc.C) {
+	// Storage attachment plans aim to allow the development of external
+	// storage backends like iSCSI to be attachable to machines. These
+	// types of storage backends, need extra initialization in userspace
+	// before they are usable. But this feature also aims to preserve the
+	// old codepath, where no extra initialization is needed, and where the
+	// providers are forced to guess the final device name that will appear on
+	// the machine agents as a result of attaching a disk.
+	// This test will ensure that given a local disk (the way it worked before
+	// this feature was added), the information set by the provider in
+	// VolumeAttachmentInfo is preserved. Different DeviceTypes may overwrite
+	// this information, based on what they discover from the newly attached
+	// device, after userspace initialization happens. For example, in the
+	// case of an iSCSI device, there is no way to guess the final device name,
+	// the WWN or any other kind of information about it, until we actually log
+	// into the iSCSI target. That information is later sent by the machine
+	// worker using SetVolumeAttachmentPlanBlockInfo.
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Volumes: []state.HostVolumeParams{{
+			Volume:     state.VolumeParams{Size: 1234},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	// We know that the first volume is called "0/0" as it is the first volume
+	// (volumes use sequences), and it is bound to machine 0.
+	volTag := names.NewVolumeTag("0/0")
+	err = sb.SetVolumeInfo(volTag, state.VolumeInfo{
+		HardwareId: "magic",
+		WWN:        "drbr",
+		Size:       1500,
+		VolumeId:   "volume id",
+		Persistent: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	attachmentPlanInfo := state.VolumeAttachmentPlanInfo{
+		DeviceType: storage.DeviceTypeLocal,
+	}
+	attachmentInfo := state.VolumeAttachmentInfo{
+		DeviceName: "device name",
+		DeviceLink: "device link",
+		BusAddress: "bus address",
+		ReadOnly:   true,
+		PlanInfo:   &attachmentPlanInfo,
+	}
+	err = sb.SetVolumeAttachmentInfo(machineTag, volTag, attachmentInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sb.CreateVolumeAttachmentPlan(machineTag, volTag, attachmentPlanInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumes := model.Volumes()
+	c.Assert(volumes, gc.HasLen, 1)
+	volume := volumes[0]
+
+	c.Check(volume.Tag(), gc.Equals, volTag)
+	c.Check(volume.Provisioned(), jc.IsTrue)
+	c.Check(volume.Size(), gc.Equals, uint64(1500))
+	c.Check(volume.Pool(), gc.Equals, "loop")
+	c.Check(volume.HardwareID(), gc.Equals, "magic")
+	c.Check(volume.WWN(), gc.Equals, "drbr")
+	c.Check(volume.VolumeID(), gc.Equals, "volume id")
+	c.Check(volume.Persistent(), jc.IsTrue)
+	attachments := volume.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment := attachments[0]
+	c.Check(attachment.Host(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsTrue)
+	c.Check(attachment.ReadOnly(), jc.IsTrue)
+	c.Check(attachment.DeviceName(), gc.Equals, "device name")
+	c.Check(attachment.DeviceLink(), gc.Equals, "device link")
+	c.Check(attachment.BusAddress(), gc.Equals, "bus address")
+
+	attachmentPlans := volume.AttachmentPlans()
+	c.Assert(attachmentPlans, gc.HasLen, 1)
+
+	plan := attachmentPlans[0]
+	c.Check(plan.Machine(), gc.Equals, machineTag)
+	c.Check(plan.VolumePlanInfo(), gc.NotNil)
+	c.Check(storage.DeviceType(plan.VolumePlanInfo().DeviceType()), gc.Equals, storage.DeviceTypeLocal)
+	c.Check(plan.VolumePlanInfo().DeviceAttributes(), gc.DeepEquals, map[string]string(nil))
+
+	// This should all be empty
+	planBlockDeviceInfo := plan.BlockDevice()
+	c.Check(planBlockDeviceInfo.Name(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.Label(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.UUID(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.HardwareID(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.WWN(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.BusAddress(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.FilesystemType(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.MountPoint(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.Links(), gc.IsNil)
+	c.Check(planBlockDeviceInfo.InUse(), gc.Equals, false)
+	c.Check(planBlockDeviceInfo.Size(), gc.Equals, uint64(0))
+}
+
+func (s *MigrationExportSuite) TestVolumeAttachmentPlansISCSIDisk(c *gc.C) {
+	// An ISCSI disk will also set the plan block info back in state. This means
+	// that once the machine agent logs into the target, and a disk appears on
+	// the system, the machine agent fetches all relevant info about that disk
+	// and sends it back to state. This info will take precedence when identifying
+	// the attached disk, as this info is observed on the machine itself, not
+	// guessed by the provider.
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Volumes: []state.HostVolumeParams{{
+			Volume:     state.VolumeParams{Size: 1234},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	// We know that the first volume is called "0/0" as it is the first volume
+	// (volumes use sequences), and it is bound to machine 0.
+	volTag := names.NewVolumeTag("0/0")
+	err = sb.SetVolumeInfo(volTag, state.VolumeInfo{
+		HardwareId: "magic",
+		WWN:        "drbr",
+		Size:       1500,
+		VolumeId:   "volume id",
+		Persistent: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	deviceAttrs := map[string]string{
+		"iqn":         "bogusIQN",
+		"address":     "192.168.1.1",
+		"port":        "9999",
+		"chap-user":   "example",
+		"chap-secret": "supersecretpassword",
+	}
+
+	attachmentPlanInfo := state.VolumeAttachmentPlanInfo{
+		DeviceType:       storage.DeviceTypeISCSI,
+		DeviceAttributes: deviceAttrs,
+	}
+	attachmentInfo := state.VolumeAttachmentInfo{
+		DeviceName: "device name",
+		DeviceLink: "device link",
+		BusAddress: "bus address",
+		ReadOnly:   true,
+		PlanInfo:   &attachmentPlanInfo,
+	}
+	err = sb.SetVolumeAttachmentInfo(machineTag, volTag, attachmentInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sb.CreateVolumeAttachmentPlan(machineTag, volTag, attachmentPlanInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	deviceLinks := []string{"/dev/sdb", "/dev/mapper/testDevice"}
+
+	blockInfo := state.BlockDeviceInfo{
+		WWN:         "testWWN",
+		DeviceLinks: deviceLinks,
+		HardwareId:  "test-id",
+	}
+
+	err = sb.SetVolumeAttachmentPlanBlockInfo(machineTag, volTag, blockInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumes := model.Volumes()
+	c.Assert(volumes, gc.HasLen, 1)
+	volume := volumes[0]
+
+	c.Check(volume.Tag(), gc.Equals, volTag)
+	c.Check(volume.Provisioned(), jc.IsTrue)
+	c.Check(volume.Size(), gc.Equals, uint64(1500))
+	c.Check(volume.Pool(), gc.Equals, "loop")
+	c.Check(volume.HardwareID(), gc.Equals, "magic")
+	c.Check(volume.WWN(), gc.Equals, "drbr")
+	c.Check(volume.VolumeID(), gc.Equals, "volume id")
+	c.Check(volume.Persistent(), jc.IsTrue)
+	attachments := volume.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment := attachments[0]
+	c.Check(attachment.Host(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsTrue)
+	c.Check(attachment.ReadOnly(), jc.IsTrue)
+	c.Check(attachment.DeviceName(), gc.Equals, "device name")
+	c.Check(attachment.DeviceLink(), gc.Equals, "device link")
+	c.Check(attachment.BusAddress(), gc.Equals, "bus address")
+
+	attachmentPlans := volume.AttachmentPlans()
+	c.Assert(attachmentPlans, gc.HasLen, 1)
+
+	plan := attachmentPlans[0]
+	c.Check(plan.Machine(), gc.Equals, machineTag)
+	c.Check(plan.VolumePlanInfo(), gc.NotNil)
+	c.Check(storage.DeviceType(plan.VolumePlanInfo().DeviceType()), gc.Equals, storage.DeviceTypeISCSI)
+	c.Check(plan.VolumePlanInfo().DeviceAttributes(), gc.DeepEquals, deviceAttrs)
+
+	// This should all be empty
+	planBlockDeviceInfo := plan.BlockDevice()
+	c.Check(planBlockDeviceInfo.Name(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.Label(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.UUID(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.HardwareID(), gc.Equals, blockInfo.HardwareId)
+	c.Check(planBlockDeviceInfo.WWN(), gc.Equals, blockInfo.WWN)
+	c.Check(planBlockDeviceInfo.BusAddress(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.FilesystemType(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.MountPoint(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.Links(), gc.DeepEquals, blockInfo.DeviceLinks)
+	c.Check(planBlockDeviceInfo.InUse(), gc.Equals, false)
+	c.Check(planBlockDeviceInfo.Size(), gc.Equals, uint64(0))
+
+}
+
 func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume:     state.VolumeParams{Size: 1234},
 			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
 		}, {
@@ -1188,10 +1467,12 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	})
 	machineTag := machine.MachineTag()
 
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
 	// We know that the first volume is called "0/0" as it is the first volume
 	// (volumes use sequences), and it is bound to machine 0.
 	volTag := names.NewVolumeTag("0/0")
-	err := s.IAASModel.SetVolumeInfo(volTag, state.VolumeInfo{
+	err = sb.SetVolumeInfo(volTag, state.VolumeInfo{
 		HardwareId: "magic",
 		WWN:        "drbr",
 		Size:       1500,
@@ -1199,7 +1480,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 		Persistent: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.IAASModel.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
+	err = sb.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
 		DeviceName: "device name",
 		DeviceLink: "device link",
 		BusAddress: "bus address",
@@ -1225,12 +1506,15 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	attachments := provisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment := attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.DeviceName(), gc.Equals, "device name")
 	c.Check(attachment.DeviceLink(), gc.Equals, "device link")
 	c.Check(attachment.BusAddress(), gc.Equals, "bus address")
+
+	attachmentPlans := provisioned.AttachmentPlans()
+	c.Assert(attachmentPlans, gc.HasLen, 0)
 
 	c.Check(notProvisioned.Tag(), gc.Equals, names.NewVolumeTag("0/1"))
 	c.Check(notProvisioned.Provisioned(), jc.IsFalse)
@@ -1242,7 +1526,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	attachments = notProvisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment = attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsFalse)
 	c.Check(attachment.ReadOnly(), jc.IsFalse)
 	c.Check(attachment.DeviceName(), gc.Equals, "")
@@ -1256,7 +1540,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 
 func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Size: 1234},
 			Attachment: state.FilesystemAttachmentParams{
 				Location: "location",
@@ -1270,12 +1554,14 @@ func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	// We know that the first filesystem is called "0/0" as it is the first
 	// filesystem (filesystems use sequences), and it is bound to machine 0.
 	fsTag := names.NewFilesystemTag("0/0")
-	err := s.IAASModel.SetFilesystemInfo(fsTag, state.FilesystemInfo{
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.SetFilesystemInfo(fsTag, state.FilesystemInfo{
 		Size:         1500,
 		FilesystemId: "filesystem id",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.IAASModel.SetFilesystemAttachmentInfo(machineTag, fsTag, state.FilesystemAttachmentInfo{
+	err = sb.SetFilesystemAttachmentInfo(machineTag, fsTag, state.FilesystemAttachmentInfo{
 		MountPoint: "/mnt/foo",
 		ReadOnly:   true,
 	})
@@ -1298,7 +1584,7 @@ func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	attachments := provisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment := attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.MountPoint(), gc.Equals, "/mnt/foo")
@@ -1313,7 +1599,7 @@ func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	attachments = notProvisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment = attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsFalse)
 	c.Check(attachment.ReadOnly(), jc.IsFalse)
 	c.Check(attachment.MountPoint(), gc.Equals, "")
@@ -1527,7 +1813,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
-		SourceModel: s.IAASModel.ModelTag(),
+		SourceModel: s.Model.ModelTag(),
 		Token:       "charisma",
 		OfferUUID:   "offer-uuid",
 		Endpoints: []charm.Relation{{
@@ -1608,7 +1894,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Check(app.Name(), gc.Equals, "gravy-rainbow")
 	c.Check(app.OfferUUID(), gc.Equals, "offer-uuid")
 	c.Check(app.URL(), gc.Equals, "me/model.rainbow")
-	c.Check(app.SourceModelTag(), gc.Equals, s.IAASModel.ModelTag())
+	c.Check(app.SourceModelTag(), gc.Equals, s.Model.ModelTag())
 	c.Check(app.IsConsumerProxy(), jc.IsFalse)
 	c.Check(app.Bindings(), gc.DeepEquals, map[string]string{
 		"db":       "private",

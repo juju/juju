@@ -195,7 +195,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the agent will think it's the master controller.
-	fakeIsMachineMaster := func(*state.State, string) (bool, error) {
+	fakeIsMachineMaster := func(*state.StatePool, string) (bool, error) {
 		return true, nil
 	}
 	s.PatchValue(&upgradesteps.IsMachineMaster, fakeIsMachineMaster)
@@ -250,7 +250,7 @@ func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgen
 	return a
 }
 
-func noPreUpgradeSteps(_ *state.State, _ agent.Config, isController, isMaster bool) error {
+func noPreUpgradeSteps(_ *state.StatePool, _ agent.Config, isController, isMaster bool) error {
 	return nil
 }
 

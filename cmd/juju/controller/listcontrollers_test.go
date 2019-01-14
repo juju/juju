@@ -47,7 +47,7 @@ func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	c.Assert(store.Models["mallards"], gc.DeepEquals, originallyInStore)
 
 	s.expectedOutput = `
-Use --refresh flag with this command to see the latest information.
+Use --refresh option with this command to see the latest information.
 
 Controller           Model             User   Access     Cloud/Region        Models  Machines  HA  Version
 aws-test             admin/controller  -      -          aws/us-east-1            1         5   -  2.0.1      
@@ -140,6 +140,7 @@ controllers:
     user: admin
     recent-server: this-is-aws-test-of-many-api-endpoints
     uuid: this-is-the-aws-test-uuid
+    controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
@@ -156,6 +157,7 @@ controllers:
     access: superuser
     recent-server: this-is-another-of-many-api-endpoints
     uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
@@ -169,6 +171,7 @@ controllers:
     user: admin
     recent-server: this-is-one-of-many-api-endpoints
     uuid: this-is-a-uuid
+    controller-uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
     cloud: prodstack
@@ -249,13 +252,13 @@ func (s *ListControllersSuite) TestListControllersUnrecognizedArg(c *gc.C) {
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedFlag(c *gc.C) {
 	s.createTestClientStore(c)
-	s.expectedErr = `flag provided but not defined: -m`
+	s.expectedErr = `option provided but not defined: -m`
 	s.assertListControllersFailed(c, "-m", "my.world")
 }
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C) {
 	s.createTestClientStore(c)
-	s.expectedErr = `flag provided but not defined: --model`
+	s.expectedErr = `option provided but not defined: --model`
 	s.assertListControllersFailed(c, "--model", "still.my.world")
 }
 

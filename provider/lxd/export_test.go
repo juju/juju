@@ -4,16 +4,65 @@
 package lxd
 
 import (
+	"errors"
+
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/juju/environs"
 )
 
 var (
-	NewInstance = newInstance
+	NewInstance           = newInstance
+	GetCertificates       = getCertificates
+	IsSupportedAPIVersion = isSupportedAPIVersion
 )
 
-func ExposeInstRaw(inst *environInstance) *lxdclient.Instance {
-	return inst.raw
+func NewProviderWithMocks(
+	creds environs.ProviderCredentials,
+	credsRegister environs.ProviderCredentialsRegister,
+	serverFactory ServerFactory,
+	configReader LXCConfigReader,
+) environs.EnvironProvider {
+	return &environProvider{
+		ProviderCredentials:         creds,
+		ProviderCredentialsRegister: credsRegister,
+		serverFactory:               serverFactory,
+		lxcConfigReader:             configReader,
+	}
+}
+
+func NewProviderCredentials(
+	certReadWriter CertificateReadWriter,
+	certGenerator CertificateGenerator,
+	lookup NetLookup,
+	serverFactory ServerFactory,
+	configReader LXCConfigReader,
+) environs.ProviderCredentials {
+	return environProviderCredentials{
+		certReadWriter:  certReadWriter,
+		certGenerator:   certGenerator,
+		lookup:          lookup,
+		serverFactory:   serverFactory,
+		lxcConfigReader: configReader,
+	}
+}
+
+func NewServerFactoryWithMocks(localServerFunc func() (Server, error),
+	remoteServerFunc func(lxd.ServerSpec) (Server, error),
+	interfaceAddress InterfaceAddress,
+	clock clock.Clock,
+) ServerFactory {
+	return &serverFactory{
+		newLocalServerFunc:  localServerFunc,
+		newRemoteServerFunc: remoteServerFunc,
+		interfaceAddress:    interfaceAddress,
+		clock:               clock,
+	}
+}
+
+func ExposeInstContainer(inst *environInstance) *lxd.Container {
+	return inst.container
 }
 
 func ExposeInstEnv(inst *environInstance) *environ {
@@ -24,10 +73,14 @@ func ExposeEnvConfig(env *environ) *environConfig {
 	return env.ecfg
 }
 
-func ExposeEnvClient(env *environ) lxdInstances {
-	return env.raw.lxdInstances
+func ExposeEnvServer(env *environ) Server {
+	return env.server
 }
 
-func GetImageSources(env *environ) ([]lxd.RemoteServer, error) {
-	return env.getImageSources()
+func GetImageSources(env environs.Environ) ([]lxd.ServerSpec, error) {
+	lxdEnv, ok := env.(*environ)
+	if !ok {
+		return nil, errors.New("not a LXD environ")
+	}
+	return lxdEnv.getImageSources()
 }

@@ -66,8 +66,12 @@ func NewPublicFacade(st *state.State, _ facade.Resources, authorizer facade.Auth
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	newClient := func() (CharmStore, error) {
-		return charmstore.NewCachingClient(state.MacaroonCache{st}, nil)
+		return charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
 	}
 	facade, err := NewFacade(rst, newClient)
 	if err != nil {

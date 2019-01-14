@@ -9,6 +9,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // leaderGetCommand implements the leader-get command.
@@ -30,12 +32,12 @@ func (c *leaderGetCommand) Info() *cmd.Info {
 leader-get prints the value of a leadership setting specified by key. If no key
 is given, or if the key is "-", all keys and values will be printed.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "leader-get",
 		Args:    "[<key>]",
 		Purpose: "print application leadership settings",
 		Doc:     doc,
-	}
+	})
 }
 
 // SetFlags is part of the cmd.Command interface.

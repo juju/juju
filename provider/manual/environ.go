@@ -124,9 +124,9 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context
 	}
 
 	result := &environs.BootstrapResult{
-		Arch:     *hw.Arch,
-		Series:   series,
-		Finalize: finalize,
+		Arch:                    *hw.Arch,
+		Series:                  series,
+		CloudBootstrapFinalizer: finalize,
 	}
 	return result, nil
 }
@@ -327,7 +327,7 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (e *manualEnviron) ConstraintsValidator() (constraints.Validator, error) {
+func (e *manualEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	if isRunningController() {

@@ -4,10 +4,12 @@
 package charms_test
 
 import (
+	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	charm "gopkg.in/juju/charm.v6"
 
-	basetesting "github.com/juju/juju/api/base/testing"
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
@@ -18,31 +20,84 @@ type charmsMockSuite struct {
 	charmsClient *charms.Client
 }
 
-//TODO (mattyw) There are just mock tests in here. We need real tests for each api call.
-
 var _ = gc.Suite(&charmsMockSuite{})
 
 func (s *charmsMockSuite) TestIsMeteredFalse(c *gc.C) {
-	var called bool
-	curl := "local:quantal/dummy-1"
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			c.Check(objType, gc.Equals, "Charms")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "IsMetered")
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-			args, ok := a.(params.CharmURL)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.URL, gc.DeepEquals, curl)
-			return nil
-		})
-	charmsClient := charms.NewClient(apiCaller)
-	_, err := charmsClient.IsMetered(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+
+	url := "local:quantal/dummy-1"
+	args := params.CharmURL{URL: url}
+	metered := new(params.IsMeteredResult)
+	params := params.IsMeteredResult{Metered: true}
+
+	mockFacadeCaller.EXPECT().FacadeCall("IsMetered", args, metered).SetArg(2, params).Return(nil)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+	got, err := client.IsMetered(url)
+	c.Assert(err, gc.IsNil)
+	c.Assert(got, jc.IsTrue)
+}
+
+func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+
+	url := "local:quantal/dummy-1"
+	args := params.CharmURL{URL: url}
+	info := new(params.CharmInfo)
+
+	params := params.CharmInfo{
+		Revision: 1,
+		URL:      url,
+		Config: map[string]params.CharmOption{
+			"config": {
+				Type:        "type",
+				Description: "config-type option",
+			},
+		},
+		LXDProfile: &params.CharmLXDProfile{
+			Description: "LXDProfile",
+			Devices: map[string]map[string]string{
+				"tun": {
+					"path": "/dev/net/tun",
+					"type": "unix-char",
+				},
+			},
+		},
+	}
+
+	mockFacadeCaller.EXPECT().FacadeCall("CharmInfo", args, info).SetArg(2, params).Return(nil)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+	got, err := client.CharmInfo(url)
+	c.Assert(err, gc.IsNil)
+
+	want := &charms.CharmInfo{
+		Revision: 1,
+		URL:      url,
+		Config: &charm.Config{
+			Options: map[string]charm.Option{
+				"config": {
+					Type:        "type",
+					Description: "config-type option",
+				},
+			},
+		},
+		LXDProfile: &charm.LXDProfile{
+			Description: "LXDProfile",
+			Config:      map[string]string{},
+			Devices: map[string]map[string]string{
+				"tun": {
+					"path": "/dev/net/tun",
+					"type": "unix-char",
+				},
+			},
+		},
+	}
+	c.Assert(got, gc.DeepEquals, want)
 }

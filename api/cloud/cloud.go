@@ -5,13 +5,17 @@ package cloud
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/permission"
 )
+
+var logger = loggo.GetLogger("juju.api.cloud")
 
 // Client provides methods that the Juju client command uses to interact
 // with models stored in the Juju Server.
@@ -104,10 +108,11 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 	return tags, nil
 }
 
-// UpdateCredential updates a cloud credentials.
-func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujucloud.Credential) error {
-	var results params.ErrorResults
-	args := params.TaggedCredentials{
+// UpdateCredentialsCheckModels updates a cloud credential content
+// stored on the controller. This call validates that the new content works
+// for all models that are using this credential.
+func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error) {
+	in := params.UpdateCredentialArgs{
 		Credentials: []params.TaggedCredential{{
 			Tag: tag.String(),
 			Credential: params.CloudCredential{
@@ -116,21 +121,57 @@ func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujuc
 			},
 		}},
 	}
-	if err := c.facade.FacadeCall("UpdateCredentials", args, &results); err != nil {
-		return errors.Trace(err)
+
+	if c.facade.BestAPIVersion() < 3 {
+		var out params.ErrorResults
+		if err := c.facade.FacadeCall("UpdateCredentials", in, &out); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(out.Results) != 1 {
+			return nil, errors.Errorf("expected 1 result for when updating credential %q, got %d", tag.Name(), len(out.Results))
+		}
+		if out.Results[0].Error != nil {
+			return nil, errors.Trace(out.Results[0].Error)
+		}
+		return nil, nil
 	}
-	return results.OneError()
+
+	var out params.UpdateCredentialResults
+	if err := c.facade.FacadeCall("UpdateCredentialsCheckModels", in, &out); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(out.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result for when updating credential %q, got %d", tag.Name(), len(out.Results))
+	}
+	if out.Results[0].Error != nil {
+		// Unlike many other places, we want to return something valid here to provide more details.
+		return out.Results[0].Models, errors.Trace(out.Results[0].Error)
+	}
+	return out.Results[0].Models, nil
 }
 
 // RevokeCredential revokes/deletes a cloud credential.
 func (c *Client) RevokeCredential(tag names.CloudCredentialTag) error {
 	var results params.ErrorResults
-	args := params.Entities{
-		Entities: []params.Entity{{
-			Tag: tag.String(),
-		}},
+
+	if c.facade.BestAPIVersion() < 3 {
+		args := params.Entities{
+			Entities: []params.Entity{{
+				Tag: tag.String(),
+			}},
+		}
+		if err := c.facade.FacadeCall("RevokeCredentials", args, &results); err != nil {
+			return errors.Trace(err)
+		}
+		return results.OneError()
 	}
-	if err := c.facade.FacadeCall("RevokeCredentials", args, &results); err != nil {
+
+	args := params.RevokeCredentialArgs{
+		Credentials: []params.RevokeCredentialArg{
+			{Tag: tag.String()},
+		},
+	}
+	if err := c.facade.FacadeCall("RevokeCredentialsCheckModels", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()
@@ -237,4 +278,63 @@ func (c *Client) CredentialContents(cloud, credential string, withSecrets bool) 
 		return nil, errors.Errorf("expected 1 result for credential %q on cloud %q, got %d", cloud, credential, len(out.Results))
 	}
 	return out.Results, nil
+}
+
+// GrantCloud grants a user access to a cloud.
+func (c *Client) GrantCloud(user, access string, clouds ...string) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 3 {
+		return errors.NotImplementedf("GrantCloud() (need v3+, have v%d)", bestVer)
+	}
+	return c.modifyCloudUser(params.GrantCloudAccess, user, access, clouds)
+}
+
+// RevokeCloud revokes a user's access to a cloud.
+func (c *Client) RevokeCloud(user, access string, clouds ...string) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 3 {
+		return errors.NotImplementedf("RevokeCloud() (need v3+, have v%d)", bestVer)
+	}
+	return c.modifyCloudUser(params.RevokeCloudAccess, user, access, clouds)
+}
+
+func (c *Client) modifyCloudUser(action params.CloudAction, user, access string, clouds []string) error {
+	var args params.ModifyCloudAccessRequest
+
+	if !names.IsValidUser(user) {
+		return errors.Errorf("invalid username: %q", user)
+	}
+	userTag := names.NewUserTag(user)
+
+	cloudAccess := permission.Access(access)
+	if err := permission.ValidateCloudAccess(cloudAccess); err != nil {
+		return errors.Trace(err)
+	}
+	for _, cloud := range clouds {
+		if !names.IsValidCloud(cloud) {
+			return errors.NotValidf("cloud %q", cloud)
+		}
+		cloudTag := names.NewCloudTag(cloud)
+		args.Changes = append(args.Changes, params.ModifyCloudAccess{
+			UserTag:  userTag.String(),
+			Action:   action,
+			Access:   access,
+			CloudTag: cloudTag.String(),
+		})
+	}
+
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("ModifyCloudAccess", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(result.Results) != len(args.Changes) {
+		return errors.Errorf("expected %d results, got %d", len(args.Changes), len(result.Results))
+	}
+
+	for i, r := range result.Results {
+		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
+			logger.Warningf("cloud %q is already shared with %q", clouds[i], userTag.Id())
+			result.Results[i].Error = nil
+		}
+	}
+	return result.Combine()
 }

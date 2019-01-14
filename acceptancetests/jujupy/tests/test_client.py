@@ -958,13 +958,21 @@ class TestModelClient(ClientTest):
             env.deploy('local:mondogb', force=True)
         mock_juju.assert_called_with('deploy', ('local:mondogb', '--force',))
 
-    def test_deploy_series(self):
+    def test_deploy_xenial_series(self):
         env = ModelClient(
             JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('local:blah', series='xenial')
         mock_juju.assert_called_with(
             'deploy', ('local:blah', '--series', 'xenial'))
+
+    def test_deploy_bionic_series(self):
+        env = ModelClient(
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
+        with patch_juju_call(env) as mock_juju:
+            env.deploy('local:blah', series='bionic')
+        mock_juju.assert_called_with(
+            'deploy', ('local:blah', '--series', 'bionic'))
 
     def test_deploy_multiple(self):
         env = ModelClient(
@@ -3332,7 +3340,7 @@ class TestModelClient(ClientTest):
         output = """\
         machines:
           "0":
-            series: xenial
+            series: bionic
         """
         env = JujuData('foo')
         client = ModelClient(env, None, None)
@@ -3340,7 +3348,7 @@ class TestModelClient(ClientTest):
                           return_value=output) as mock:
             data = client.show_machine('0')
         mock.assert_called_once_with('show-machine', '0', '--format', 'yaml')
-        self.assertEqual({'machines': {'0': {'series': 'xenial'}}}, data)
+        self.assertEqual({'machines': {'0': {'series': 'bionic'}}}, data)
 
     def test_ssh_keys(self):
         client = ModelClient(JujuData('foo'), None, None)

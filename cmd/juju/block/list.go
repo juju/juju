@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
@@ -58,12 +59,12 @@ func (c *listCommand) Init(args []string) (err error) {
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "disabled-commands",
 		Purpose: "List disabled commands.",
 		Doc:     listCommandDoc,
 		Aliases: []string{"list-disabled-commands"},
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

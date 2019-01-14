@@ -286,7 +286,7 @@ def reset_firewall():
 
 
 def assess_proxy(client, scenario):
-    client.deploy('cs:xenial/ubuntu')
+    client.deploy('cs:bionic/ubuntu')
     client.wait_for_started()
     client.wait_for_workloads()
     log.info("SUCCESS")

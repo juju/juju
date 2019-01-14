@@ -53,7 +53,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	cache := jujuclient.NewMemStore()
 	controllerCfg := testing.FakeControllerConfig()
-	env, err := bootstrap.Prepare(ctx, cache, bootstrap.PrepareParams{
+	bootstrapEnviron, err := bootstrap.PrepareController(false, ctx, cache, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
 		ModelConfig:      cfg.AllAttrs(),
@@ -61,13 +61,14 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	env := bootstrapEnviron.(environs.Environ)
 
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
-	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(ctx, env, context.NewCloudCallContext(), bootstrap.BootstrapParams{
 		ControllerConfig: controllerCfg,
 		AdminSecret:      "admin-secret",
 		CAPrivateKey:     testing.CAKey,
@@ -91,7 +92,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
-	_, err = bootstrap.Prepare(ctx, store, bootstrap.PrepareParams{
+	_, err = bootstrap.PrepareController(false, ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",
 		ModelConfig:      cfg.AllAttrs(),
@@ -152,7 +153,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	// the config storage info has been made.
 	controllerCfg := testing.FakeControllerConfig()
 	ctx := envtesting.BootstrapContext(c)
-	e, err := bootstrap.Prepare(ctx, store, bootstrap.PrepareParams{
+	bootstrapEnviron, err := bootstrap.PrepareController(false, ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",
 		ModelConfig:      cfg.AllAttrs(),
@@ -160,6 +161,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	e := bootstrapEnviron.(environs.Environ)
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 

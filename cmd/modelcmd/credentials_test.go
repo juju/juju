@@ -8,7 +8,9 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -46,7 +48,7 @@ func (mockProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchem
 	}
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
-		"interactive": cloud.CredentialSchema{
+		"interactive": {
 			{"username", cloud.CredentialAttr{}},
 		},
 	}
@@ -157,4 +159,76 @@ func (s *credentialsSuite) TestGetCredentials(c *gc.C) {
 
 func (s *credentialsSuite) TestGetCredentialsProviderFinalizeCredential(c *gc.C) {
 	s.assertGetCredentials(c, "interactive", "")
+}
+
+func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockProvider := modelcmd.NewMockTestCloudProvider(ctrl)
+
+	credential := map[string]*cloud.CloudCredential{
+		"fake": {
+			AuthCredentials: map[string]cloud.Credential{
+				"admin": cloud.NewCredential("certificate", map[string]string{
+					"cert": "certificate",
+				}),
+			},
+		},
+	}
+
+	exp := mockProvider.EXPECT()
+	exp.RegisterCredentials(cloud.Cloud{
+		Name: "fake",
+	}).Return(credential, nil)
+
+	credentials, err := modelcmd.RegisterCredentials(mockProvider, modelcmd.RegisterCredentialsParams{
+		Cloud: cloud.Cloud{
+			Name: "fake",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentials, gc.DeepEquals, credential)
+}
+
+func (s *credentialsSuite) TestRegisterCredentialsWithNoCredentials(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockProvider := modelcmd.NewMockTestCloudProvider(ctrl)
+
+	credential := map[string]*cloud.CloudCredential{}
+
+	exp := mockProvider.EXPECT()
+	exp.RegisterCredentials(cloud.Cloud{
+		Name: "fake",
+	}).Return(credential, nil)
+
+	credentials, err := modelcmd.RegisterCredentials(mockProvider, modelcmd.RegisterCredentialsParams{
+		Cloud: cloud.Cloud{
+			Name: "fake",
+		},
+	})
+	c.Assert(errors.Cause(err).Error(), gc.Matches, `credentials for provider not found`)
+	c.Assert(credentials, gc.IsNil)
+}
+
+func (s *credentialsSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockProvider := modelcmd.NewMockTestCloudProvider(ctrl)
+
+	exp := mockProvider.EXPECT()
+	exp.RegisterCredentials(cloud.Cloud{
+		Name: "fake",
+	}).Return(nil, errors.New("bad"))
+
+	credentials, err := modelcmd.RegisterCredentials(mockProvider, modelcmd.RegisterCredentialsParams{
+		Cloud: cloud.Cloud{
+			Name: "fake",
+		},
+	})
+	c.Assert(err.Error(), gc.Matches, `registering credentials for provider: bad`)
+	c.Assert(credentials, gc.IsNil)
 }

@@ -62,6 +62,7 @@ func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *gc.C) {
 mallards:
   details:
     uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
@@ -69,10 +70,12 @@ mallards:
   models:
     controller:
       uuid: abc
+      model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
       uuid: def
+      model-uuid: def
       machine-count: 2
       core-count: 4
   current-model: admin/my-model
@@ -99,6 +102,7 @@ func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *gc.C) {
 mallards:
   details:
     uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
@@ -106,10 +110,12 @@ mallards:
   models:
     controller:
       uuid: abc
+      model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
       uuid: def
+      model-uuid: def
       machine-count: 2
       core-count: 4
   current-model: admin/my-model
@@ -150,6 +156,7 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
 mallards:
   details:
     uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
@@ -158,10 +165,12 @@ mallards:
   models:
     controller:
       uuid: abc
+      model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
       uuid: def
+      model-uuid: def
       machine-count: 2
       core-count: 4
   current-model: admin/my-model
@@ -180,6 +189,7 @@ func (s *ShowControllerSuite) TestShowOneControllerManyInStore(c *gc.C) {
 aws-test:
   details:
     uuid: this-is-the-aws-test-uuid
+    controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
@@ -198,6 +208,7 @@ aws-test:
   models:
     controller:
       uuid: ghi
+      model-uuid: ghi
       machine-count: 2
       core-count: 4
   current-model: admin/controller
@@ -214,6 +225,7 @@ func (s *ShowControllerSuite) TestShowSomeControllerMoreInStore(c *gc.C) {
 aws-test:
   details:
     uuid: this-is-the-aws-test-uuid
+    controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
@@ -232,6 +244,7 @@ aws-test:
   models:
     controller:
       uuid: ghi
+      model-uuid: ghi
       machine-count: 2
       core-count: 4
   current-model: admin/controller
@@ -241,6 +254,7 @@ aws-test:
 mark-test-prodstack:
   details:
     uuid: this-is-a-uuid
+    controller-uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
     cloud: prodstack
@@ -309,12 +323,12 @@ func (s *ShowControllerSuite) TestShowControllerNotFound(c *gc.C) {
 }
 
 func (s *ShowControllerSuite) TestShowControllerUnrecognizedFlag(c *gc.C) {
-	s.expectedErr = `flag provided but not defined: -m`
+	s.expectedErr = `option provided but not defined: -m`
 	s.assertShowControllerFailed(c, "-m", "my.world")
 }
 
 func (s *ShowControllerSuite) TestShowControllerUnrecognizedOptionFlag(c *gc.C) {
-	s.expectedErr = `flag provided but not defined: --model`
+	s.expectedErr = `option provided but not defined: --model`
 	s.assertShowControllerFailed(c, "--model", "still.my.world")
 }
 

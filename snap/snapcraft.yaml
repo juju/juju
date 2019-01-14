@@ -1,5 +1,5 @@
 name: juju
-version: 2.4.8
+version: 2.5-rc2
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
 confinement: classic
@@ -14,38 +14,39 @@ parts:
     plugin: dump
     source: snap/
   juju:
-    plugin: godeps
+    plugin: dep
     go-importpath: github.com/juju/juju
-    #The source can be your local tree or github
-    #source: https://github.com/juju/juju.git
-    #If you pull a remote, set source-depth to 1 to make the fetch shorter
-    #source-depth: 1
-    #source: file:///full/file/path
-    #By default, reuse existing tree
+    # The source can be your local tree or github
+    # source: https://github.com/juju/juju.git
+    # If you pull a remote, set source-depth to 1 to make the fetch shorter
+    # source-depth: 1
+    # source: file:///full/file/path
+    # By default, reuse existing tree
     source: .
     source-type: git
-    #this is for building in a docker container
+    # this is for building in a docker container
     build-packages: [gcc, libc6-dev]
     build-attributes: [no-patchelf]
-    #You can grab a specific tag, commit, or branch
-    #source-tag: juju-2.0.2
-    #source-commit: a83896d913d7e43c960e441c1e41612116d92d46
-    #source-branch: develop
-    #apply patches before building
-    prepare: |
-      cat patches/*.diff | patch -f -u -p1 -r- -d ../go/src
+    # You can grab a specific tag, commit, or branch
+    # source-tag: juju-2.0.2
+    # source-commit: a83896d913d7e43c960e441c1e41612116d92d46
+    # source-branch: develop
+    # apply patches before building
     go-packages:
       - github.com/juju/juju/cmd/juju
-      #If you are releasing a build with public streams, you don't need to build the agent
-      #Instead, you should use the released agent
+      # If you are releasing a build with public streams, you don't need to build the agent
+      # Instead, you should use the released agent
       - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
-    install: |
+    override-build: |
+      cat patches/*.diff patches/*.patch | patch -f -u -p1 -r- -d ../go/src/github.com/juju/juju/vendor
+      snapcraftctl build
+
       mkdir -p $SNAPCRAFT_PART_INSTALL/bash_completions
       cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.
-      #If you are releasing a build with public streams, copy in the agent directly
-      #If needed, grab the agent from streams
-      #curl http://streams.canonical.com/juju/tools/agent/$SNAPCRAFT_PROJECT_VERSION/juju-$SNAPCRAFT_PROJECT_VERSION-ubuntu-amd64.tgz | tar xz -C $SNAPCRAFT_PART_INSTALL/bin/
+      # If you are releasing a build with public streams, copy in the agent directly
+      # If needed, grab the agent from streams
+      # curl http://streams.canonical.com/juju/tools/agent/$SNAPCRAFT_PROJECT_VERSION/juju-$SNAPCRAFT_PROJECT_VERSION-ubuntu-amd64.tgz | tar xz -C $SNAPCRAFT_PART_INSTALL/bin/
       jujud=$SNAPCRAFT_PART_INSTALL/bin/jujud
       version=$(jujud version)
       hash=$(sha256sum $jujud | cut -d " " -f 1)

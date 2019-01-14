@@ -13,8 +13,8 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 )
 
 type ProxyUpdaterSuite struct {
@@ -56,7 +56,7 @@ func (s *ProxyUpdaterSuite) TestNilTagFails(c *gc.C) {
 
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
 	res := params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{params.NotifyWatchResult{
+		Results: []params.NotifyWatchResult{{
 			NotifyWatcherId: "4242",
 		}},
 	}

@@ -9,9 +9,9 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -397,6 +397,7 @@ type InstanceInfo struct {
 	VolumeAttachments map[string]VolumeAttachmentInfo `json:"volume-attachments"`
 
 	NetworkConfig []NetworkConfig `json:"network-config"`
+	CharmProfiles []string        `json:"charm-profiles"`
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo
@@ -688,6 +689,7 @@ type ProvisioningInfo struct {
 	EndpointBindings  map[string]string         `json:"endpoint-bindings,omitempty"`
 	ControllerConfig  map[string]interface{}    `json:"controller-config,omitempty"`
 	CloudInitUserData map[string]interface{}    `json:"cloudinit-userdata,omitempty"`
+	CharmLXDProfiles  []string                  `json:"charm-lxd-profiles,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -814,7 +816,6 @@ type ResourceUploadResult struct {
 type UnitRefreshResult struct {
 	Life     Life
 	Resolved ResolvedMode
-	Series   string
 	Error    *Error
 }
 

@@ -25,10 +25,10 @@ func (s *ApplicationConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 		err  string
 	}{{
 		args: []string{"--application", "mysql", "mem=4G"},
-		err:  `flag provided but not defined: --application`,
+		err:  `option provided but not defined: --application`,
 	}, {
 		args: []string{"-s", "mysql", "mem=4G"},
-		err:  `flag provided but not defined: -s`,
+		err:  `option provided but not defined: -s`,
 	}, {
 		args: []string{},
 		err:  `no application name specified`,
@@ -59,10 +59,10 @@ func (s *ApplicationConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 	}{
 		{
 			args: []string{"-s", "mysql"},
-			err:  `flag provided but not defined: -s`,
+			err:  `option provided but not defined: -s`,
 		}, {
 			args: []string{"--application", "mysql"},
-			err:  `flag provided but not defined: --application`,
+			err:  `option provided but not defined: --application`,
 		}, {
 			args: []string{},
 			err:  `no application name specified`,

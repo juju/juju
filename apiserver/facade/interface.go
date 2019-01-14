@@ -6,6 +6,8 @@ package facade
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -76,6 +78,22 @@ type Context interface {
 	// into Resources to get the watcher in play. This is not really
 	// a good idea; see Resources.
 	ID() string
+
+	// LeadershipClaimer returns a leadership.Claimer tied to a
+	// specific model.
+	LeadershipClaimer(modelUUID string) (leadership.Claimer, error)
+
+	// LeadershipChecker returns a leadership.Checker for this
+	// context's model.
+	LeadershipChecker() (leadership.Checker, error)
+
+	// LeadershipPinner returns a leadership.Pinner for this
+	// context's model.
+	LeadershipPinner(modelUUID string) (leadership.Pinner, error)
+
+	// SingularClaimer returns a lease.Claimer for singular leases for
+	// this context's model.
+	SingularClaimer() (lease.Claimer, error)
 }
 
 // Authorizer represents the authenticated entity using the API server.

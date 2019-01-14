@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -175,7 +176,7 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 
 func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(validVolumeJson)
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
@@ -233,7 +234,7 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 
 func (s *volumeSuite) TestInstanceVolumesOldMass(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		// status, substatus or status info.
 		return "provisioning", "substatus"
 	}

@@ -9,10 +9,11 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 type MachineStatusSuite struct {
@@ -24,11 +25,12 @@ type MachineStatusSuite struct {
 var _ = gc.Suite(&MachineStatusSuite{})
 
 func (s *MachineStatusSuite) SetUpTest(c *gc.C) {
-	s.ctx = common.ModelPresenceContext{
-		Presence: allAlive(),
-	}
 	s.machine = &mockMachine{
+		id:     "666",
 		status: status.Started,
+	}
+	s.ctx = common.ModelPresenceContext{
+		Presence: agentAlive(names.NewMachineTag(s.machine.id).String()),
 	}
 }
 
@@ -61,7 +63,7 @@ func (s *MachineStatusSuite) TestDownLegacy(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestDown(c *gc.C) {
-	s.ctx.Presence = agentsDown()
+	s.ctx.Presence = agentDown(names.NewMachineTag(s.machine.Id()).String())
 	agent, err := s.ctx.MachineStatus(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agent, jc.DeepEquals, status.StatusInfo{
@@ -79,7 +81,7 @@ func (s *MachineStatusSuite) TestDownAndDeadLegacy(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestDownAndDead(c *gc.C) {
-	s.ctx.Presence = agentsDown()
+	s.ctx.Presence = agentDown(names.NewMachineTag(s.machine.Id()).String())
 	s.machine.life = state.Dead
 	// Status is untouched if unit is Dead.
 	s.checkUntouched(c)
@@ -94,7 +96,7 @@ func (s *MachineStatusSuite) TestPresenceErrorLegacy(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestPresenceError(c *gc.C) {
-	s.ctx.Presence = presenceError()
+	s.ctx.Presence = presenceError(names.NewMachineTag(s.machine.Id()).String())
 	// Presence error gets ignored, so no output is unchanged.
 	s.checkUntouched(c)
 }
@@ -107,7 +109,7 @@ func (s *MachineStatusSuite) TestNotDownIfPendingLegacy(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestNotDownIfPending(c *gc.C) {
-	s.ctx.Presence = agentsDown()
+	s.ctx.Presence = agentDown(names.NewMachineTag(s.machine.Id()).String())
 	s.machine.status = status.Pending
 	s.checkUntouched(c)
 }

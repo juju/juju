@@ -270,11 +270,11 @@ func assertRegisterFlag(c *gc.C, registry *facade.Registry, name string, version
 	c.Assert(err, gc.IsNil)
 }
 
-func testFacade(facade.Context) (facade.Facade, error) {
+func testFacade(_ facade.Context) (facade.Facade, error) {
 	return "myobject", nil
 }
 
-func validIdFactory(facade.Context) (facade.Facade, error) {
+func validIdFactory(_ facade.Context) (facade.Facade, error) {
 	var i = 100
 	return &i, nil
 }
@@ -288,12 +288,12 @@ type myResult struct {
 func noArgs() {
 }
 
-func validFactory(*state.State, facade.Resources, facade.Authorizer) (*int, error) {
+func validFactory(_ *state.State, _ facade.Resources, _ facade.Authorizer) (*int, error) {
 	var i = 100
 	return &i, nil
 }
 
-func validContextFactory(facade.Context) (*int, error) {
+func validContextFactory(_ facade.Context) (*int, error) {
 	var i = 100
 	return &i, nil
 }

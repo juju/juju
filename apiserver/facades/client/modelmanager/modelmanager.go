@@ -12,6 +12,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
@@ -38,7 +40,21 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
-// ModelManagerV4 defines the methods on the version 2 facade for the
+// ModelManagerV5 defines the methods on the version 5 facade for the
+// modelmanager API endpoint.
+type ModelManagerV5 interface {
+	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
+	DumpModels(args params.DumpModelRequest) params.StringResults
+	DumpModelsDB(args params.Entities) params.MapResults
+	ListModelSummaries(request params.ModelSummariesRequest) (params.ModelSummaryResults, error)
+	ListModels(user params.Entity) (params.UserModelList, error)
+	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
+	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
+	ChangeModelCredential(args params.ChangeModelCredentialsParams) (params.ErrorResults, error)
+}
+
+// ModelManagerV4 defines the methods on the version 4 facade for the
 // modelmanager API endpoint.
 type ModelManagerV4 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
@@ -51,7 +67,7 @@ type ModelManagerV4 interface {
 	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
-// ModelManagerV3 defines the methods on the version 2 facade for the
+// ModelManagerV3 defines the methods on the version 3 facade for the
 // modelmanager API endpoint.
 type ModelManagerV3 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
@@ -74,6 +90,8 @@ type ModelManagerV2 interface {
 	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
+type newCaasBrokerFunc func(args environs.OpenParams) (caas.Broker, error)
+
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
@@ -86,13 +104,20 @@ type ModelManagerAPI struct {
 	apiUser     names.UserTag
 	isAdmin     bool
 	model       common.Model
+	getBroker   newCaasBrokerFunc
 	callContext context.ProviderCallContext
 }
 
-// ModelManagerAPIV2 provides a way to wrap the different calls between
+// ModelManagerAPIV4 provides a way to wrap the different calls between
+// version 4 and version 5 of the model manager API
+type ModelManagerAPIV4 struct {
+	*ModelManagerAPI
+}
+
+// ModelManagerAPIV3 provides a way to wrap the different calls between
 // version 3 and version 4 of the model manager API
 type ModelManagerAPIV3 struct {
-	*ModelManagerAPI
+	*ModelManagerAPIV4
 }
 
 // ModelManagerAPIV2 provides a way to wrap the different calls between
@@ -102,13 +127,14 @@ type ModelManagerAPIV2 struct {
 }
 
 var (
-	_ ModelManagerV4 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV5 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV4 = (*ModelManagerAPIV4)(nil)
 	_ ModelManagerV3 = (*ModelManagerAPIV3)(nil)
 	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
 )
 
-// NewFacadeV4 is used for API registration.
-func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
+// NewFacadeV5 is used for API registration.
+func NewFacadeV5(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 	ctlrSt := pool.SystemState()
@@ -131,10 +157,20 @@ func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 		common.NewModelManagerBackend(model, pool),
 		common.NewModelManagerBackend(ctrlModel, pool),
 		configGetter,
+		caas.New,
 		auth,
 		model,
 		state.CallContext(st),
 	)
+}
+
+// NewFacadeV4 is used for API registration.
+func NewFacadeV4(ctx facade.Context) (*ModelManagerAPIV4, error) {
+	v5, err := NewFacadeV5(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelManagerAPIV4{v5}, nil
 }
 
 // NewFacadeV3 is used for API registration.
@@ -161,6 +197,7 @@ func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
 	configGetter environs.EnvironConfigGetter,
+	getBroker newCaasBrokerFunc,
 	authorizer facade.Authorizer,
 	m common.Model,
 	callCtx context.ProviderCallContext,
@@ -182,6 +219,7 @@ func NewModelManagerAPI(
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:          st,
 		ctlrState:      ctlrSt,
+		getBroker:      getBroker,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
 		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
@@ -298,28 +336,21 @@ func (m *ModelManagerAPI) newCAASModelConfig(
 	return cfg, nil
 }
 
+func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.UserTag) (bool, error) {
+	perm, err := m.ctlrState.GetCloudAccess(cloud, userTag)
+	if err != nil && !errors.IsNotFound(err) {
+		return false, errors.Trace(err)
+	}
+	if !perm.EqualOrGreaterCloudAccessThan(permission.AddModelAccess) {
+		return false, nil
+	}
+	return true, nil
+}
+
 // CreateModel creates a new model using the account and
 // model config specified in the args.
 func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
-	canAddModel, err := m.authorizer.HasPermission(permission.AddModelAccess, m.state.ControllerTag())
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !canAddModel {
-		return result, common.ErrPerm
-	}
-
-	ownerTag, err := names.ParseUserTag(args.OwnerTag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	// a special case of ErrPerm will happen if the user has add-model permission but is trying to
-	// create a model for another person, which is not yet supported.
-	if !m.isAdmin && ownerTag != m.apiUser {
-		return result, errors.Annotatef(common.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
-	}
 
 	// Get the controller model first. We need it both for the state
 	// server owner and the ability to get the config.
@@ -341,6 +372,31 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	}
 	if cloudRegionName == "" && cloudTag.Id() == controllerModel.Cloud() {
 		cloudRegionName = controllerModel.CloudRegion()
+	}
+
+	isAdmin, err := m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isAdmin {
+		canAddModel, err := m.checkAddModelPermission(cloudTag.Id(), m.apiUser)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		if !canAddModel {
+			return result, common.ErrPerm
+		}
+	}
+
+	ownerTag, err := names.ParseUserTag(args.OwnerTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	// a special case of ErrPerm will happen if the user has add-model permission but is trying to
+	// create a model for another person, which is not yet supported.
+	if !m.isAdmin && ownerTag != m.apiUser {
+		return result, errors.Annotatef(common.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
 	}
 
 	cloud, err := m.state.Cloud(cloudTag.Id())
@@ -424,7 +480,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 			cloudCredentialTag,
 			ownerTag)
 	} else {
-		model, err = m.newIAASModel(
+		model, err = m.newModel(
 			cloudSpec,
 			args,
 			controllerModel,
@@ -450,12 +506,33 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 		return nil, errors.Annotate(err, "failed to create config")
 	}
 
+	broker, err := m.getBroker(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: newConfig,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to open kubernetes client")
+	}
+
+	// CAAS models exist in a namespace which must be unique.
+	namespaces, err := broker.Namespaces()
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to list namespaces")
+	}
+	nsSet := set.NewStrings(namespaces...)
+	if nsSet.Contains(createArgs.Name) {
+		return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("namespace called %q already exists, would clash with model name", createArgs.Name))
+	}
+
+	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
+
 	model, st, err := m.state.NewModel(state.ModelArgs{
-		Type:            state.ModelTypeCAAS,
-		CloudName:       cloudTag.Id(),
-		CloudCredential: cloudCredentialTag,
-		Config:          newConfig,
-		Owner:           ownerTag,
+		Type:                    state.ModelTypeCAAS,
+		CloudName:               cloudTag.Id(),
+		CloudCredential:         cloudCredentialTag,
+		Config:                  newConfig,
+		Owner:                   ownerTag,
+		StorageProviderRegistry: storageProviderRegistry,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create new model")
@@ -465,7 +542,7 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 	return model, nil
 }
 
-func (m *ModelManagerAPI) newIAASModel(
+func (m *ModelManagerAPI) newModel(
 	cloudSpec environs.CloudSpec,
 	createArgs params.ModelCreateArgs,
 	controllerModel common.Model,
@@ -1338,3 +1415,73 @@ func (s *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatu
 	}
 	return results, nil
 }
+
+// ChangeModelCredentials changes cloud credential reference for models.
+// These new cloud credentials must already exist on the controller.
+func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentialsParams) (params.ErrorResults, error) {
+	if err := m.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	controllerAdmin, err := m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	// Only controller or model admin can change cloud credential on a model.
+	checkModelAccess := func(tag names.ModelTag) error {
+		if controllerAdmin {
+			return nil
+		}
+		modelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if modelAdmin {
+			return nil
+		}
+		return common.ErrPerm
+	}
+
+	replaceModelCredential := func(arg params.ChangeModelCredentialParams) error {
+		modelTag, err := names.ParseModelTag(arg.ModelTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := checkModelAccess(modelTag); err != nil {
+			return errors.Trace(err)
+		}
+		credentialTag, err := names.ParseCloudCredentialTag(arg.CloudCredentialTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		model, releaser, err := m.state.GetModel(modelTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer releaser()
+
+		updated, err := model.SetCloudCredential(credentialTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !updated {
+			return errors.Errorf("model %v already uses credential %v", modelTag.Id(), credentialTag.Id())
+		}
+		return nil
+	}
+
+	results := make([]params.ErrorResult, len(args.Models))
+	for i, arg := range args.Models {
+		if err := replaceModelCredential(arg); err != nil {
+			results[i].Error = common.ServerError(err)
+		}
+	}
+	return params.ErrorResults{results}, nil
+}
+
+// Mask out new methods from the old API versions. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is concerned.
+//
+// ChangeModelCredential did not exist prior to v5.
+func (*ModelManagerAPIV4) ChangeModelCredential(_, _ struct{}) {}

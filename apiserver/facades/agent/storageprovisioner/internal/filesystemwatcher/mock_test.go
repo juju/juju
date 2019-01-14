@@ -13,7 +13,9 @@ import (
 
 type mockBackend struct {
 	machineFilesystemsW           *watchertest.StringsWatcher
+	unitFilesystemsW              *watchertest.StringsWatcher
 	machineFilesystemAttachmentsW *watchertest.StringsWatcher
+	unitFilesystemAttachmentsW    *watchertest.StringsWatcher
 	modelFilesystemsW             *watchertest.StringsWatcher
 	modelFilesystemAttachmentsW   *watchertest.StringsWatcher
 	modelVolumeAttachmentsW       *watchertest.StringsWatcher
@@ -30,12 +32,12 @@ func (b *mockBackend) Filesystem(tag names.FilesystemTag) (state.Filesystem, err
 	return nil, errors.NotFoundf("filesystem %s", tag.Id())
 }
 
-func (b *mockBackend) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (state.VolumeAttachment, error) {
-	if m.Id() != "0" {
-		// The tests all operate on machine "0", and the watchers
+func (b *mockBackend) VolumeAttachment(host names.Tag, v names.VolumeTag) (state.VolumeAttachment, error) {
+	if host.Id() != "0" && host.Id() != "mariadb/0" {
+		// The tests all operate on host "0" or "mariadb/0", and the watchers
 		// should ignore attachments for other machines, so we should
 		// never get here.
-		return nil, errors.New("should not get here")
+		return nil, errors.Errorf("should not get here, unexpected host %v", host)
 	}
 	// Inform the test code that the volume attachment has been requested.
 	// This gives the test a way of knowing when events have been handled,
@@ -49,15 +51,23 @@ func (b *mockBackend) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (s
 	if a, ok := b.volumeAttachments[v.Id()]; ok {
 		return a, nil
 	}
-	return nil, errors.NotFoundf("attachment for volume %s to machine %s", v.Id(), m.Id())
+	return nil, errors.NotFoundf("attachment for volume %s to host %s", v.Id(), host.Id())
 }
 
 func (b *mockBackend) WatchMachineFilesystems(tag names.MachineTag) state.StringsWatcher {
 	return b.machineFilesystemsW
 }
 
+func (b *mockBackend) WatchUnitFilesystems(tag names.ApplicationTag) state.StringsWatcher {
+	return b.unitFilesystemsW
+}
+
 func (b *mockBackend) WatchMachineFilesystemAttachments(tag names.MachineTag) state.StringsWatcher {
 	return b.machineFilesystemAttachmentsW
+}
+
+func (b *mockBackend) WatchUnitFilesystemAttachments(tag names.ApplicationTag) state.StringsWatcher {
+	return b.unitFilesystemAttachmentsW
 }
 
 func (b *mockBackend) WatchModelFilesystems() state.StringsWatcher {

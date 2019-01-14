@@ -8,9 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
@@ -33,49 +31,51 @@ func controllerKey(controllerUUID string) string {
 // Controller encapsulates state for the Juju controller as a whole,
 // as opposed to model specific functionality.
 //
-// TODO(menn0) - this is currently unused, pending further refactoring
-// of State.
+// This type is primarily used in the state.Initialize function, and
+// in the yet to be hooked up controller worker.
 type Controller struct {
-	clock                  clock.Clock
-	controllerModelTag     names.ModelTag
-	controllerTag          names.ControllerTag
-	session                *mgo.Session
-	policy                 Policy
-	newPolicy              NewPolicyFunc
-	runTransactionObserver RunTransactionObserverFunc
+	pool     *StatePool
+	ownsPool bool
+}
+
+// NewController returns a controller object that doesn't own
+// the state pool it has been given. This is for convenience
+// at this time to get access to controller methods.
+func NewController(pool *StatePool) *Controller {
+	return &Controller{pool: pool}
+}
+
+// StatePool provides access to the state pool of the controller.
+func (ctlr *Controller) StatePool() *StatePool {
+	return ctlr.pool
+}
+
+// SystemState returns the State object for the controller model.
+func (ctlr *Controller) SystemState() *State {
+	return ctlr.pool.SystemState()
 }
 
 // Close the connection to the database.
 func (ctlr *Controller) Close() error {
-	ctlr.session.Close()
+	if ctlr.ownsPool {
+		ctlr.pool.Close()
+	}
 	return nil
 }
 
-// NewState returns a new State instance for the specified model. The
+// GetState returns a new State instance for the specified model. The
 // connection uses the same credentials and policy as the Controller.
-func (ctlr *Controller) NewState(modelTag names.ModelTag) (*State, error) {
-	session := ctlr.session.Copy()
-	st, err := newState(
-		modelTag,
-		ctlr.controllerModelTag,
-		session,
-		ctlr.newPolicy,
-		ctlr.clock,
-		ctlr.runTransactionObserver,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := st.start(ctlr.controllerTag, nil); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st, nil
+func (ctlr *Controller) GetState(modelTag names.ModelTag) (*PooledState, error) {
+	return ctlr.pool.Get(modelTag.Id())
 }
 
 // Ping probes the Controllers's database connection to ensure that it
 // is still alive.
 func (ctlr *Controller) Ping() error {
-	return ctlr.session.Ping()
+	if ctlr.pool.SystemState() == nil {
+		return errors.New("pool is closed")
+	}
+	return ctlr.pool.SystemState().Ping()
 }
 
 // ControllerConfig returns the config values for the controller.

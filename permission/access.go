@@ -69,11 +69,21 @@ func ValidateOfferAccess(access Access) error {
 	return errors.NotValidf("%q offer access", access)
 }
 
+// ValidateCloudAccess returns error if the passed access is not a valid
+// cloud access level.
+func ValidateCloudAccess(access Access) error {
+	switch access {
+	case AddModelAccess, AdminAccess:
+		return nil
+	}
+	return errors.NotValidf("%q cloud access", access)
+}
+
 //ValidateControllerAccess returns error if the passed access is not a valid
 // controller access level.
 func ValidateControllerAccess(access Access) error {
 	switch access {
-	case LoginAccess, AddModelAccess, SuperuserAccess:
+	case LoginAccess, SuperuserAccess:
 		return nil
 	}
 	return errors.NotValidf("%q controller access", access)
@@ -85,10 +95,19 @@ func (a Access) controllerValue() int {
 		return 0
 	case LoginAccess:
 		return 1
-	case AddModelAccess:
-		return 2
 	case SuperuserAccess:
-		return 3
+		return 2
+	default:
+		return -1
+	}
+}
+
+func (a Access) cloudValue() int {
+	switch a {
+	case AddModelAccess:
+		return 0
+	case AdminAccess:
+		return 1
 	default:
 		return -1
 	}
@@ -147,6 +166,16 @@ func (a Access) GreaterControllerAccessThan(access Access) bool {
 		return false
 	}
 	return v1 > v2
+}
+
+// EqualOrGreaterCloudAccessThan returns true if the current access is
+// equal or greater than the passed in access level.
+func (a Access) EqualOrGreaterCloudAccessThan(access Access) bool {
+	v1, v2 := a.cloudValue(), access.cloudValue()
+	if v1 < 0 || v2 < 0 {
+		return false
+	}
+	return v1 >= v2
 }
 
 func (a Access) offerValue() int {

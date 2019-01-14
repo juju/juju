@@ -6,7 +6,7 @@ package model
 import (
 	"time"
 
-	"github.com/juju/utils/clock"
+	"github.com/juju/clock"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -342,12 +342,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewProvisionerFunc:           provisioner.NewEnvironProvisioner,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
-		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-			APICallerName: apiCallerName,
-			ClockName:     clockName,
-			EnvironName:   environTrackerName,
-			Scope:         modelTag,
-		})),
+		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+			APICallerName:                apiCallerName,
+			ClockName:                    clockName,
+			StorageRegistryName:          environTrackerName,
+			Model:                        modelTag,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			NewWorker:                    storageprovisioner.NewStorageProvisioner,
+		}))),
 		firewallerName: ifNotMigrating(ifCredentialValid(firewaller.Manifold(firewaller.ManifoldConfig{
 			AgentName:               agentName,
 			APICallerName:           apiCallerName,
@@ -423,8 +425,10 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
-				APICallerName: apiCallerName,
-				BrokerName:    caasBrokerTrackerName,
+				APICallerName:  apiCallerName,
+				BrokerName:     caasBrokerTrackerName,
+				ControllerUUID: agentConfig.Controller().Id(),
+				ModelUUID:      agentConfig.Model().Id(),
 				NewClient: func(caller base.APICaller) caasfirewaller.Client {
 					return caasfirewallerapi.NewClient(caller)
 				},
@@ -456,6 +460,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     caasmodelupgrader.NewFacade,
 			NewWorker:     caasmodelupgrader.NewWorker,
 		}),
+		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+			APICallerName:                apiCallerName,
+			ClockName:                    clockName,
+			StorageRegistryName:          caasBrokerTrackerName,
+			Model:                        modelTag,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			NewWorker:                    storageprovisioner.NewCaasWorker,
+		}))),
 	}
 	result := commonManifolds(config)
 	for name, manifold := range manifolds {
@@ -579,6 +591,7 @@ const (
 	caasFirewallerName          = "caas-firewaller"
 	caasOperatorProvisionerName = "caas-operator-provisioner"
 	caasUnitProvisionerName     = "caas-unit-provisioner"
+	caasStorageProvisionerName  = "caas-storage-provisioner"
 	caasBrokerTrackerName       = "caas-broker-tracker"
 
 	validCredentialFlagName = "valid-credential-flag"

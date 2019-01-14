@@ -13,13 +13,13 @@ import (
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 )
 
-type clientSuite struct {
+type serverSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = gc.Suite(&clientSuite{})
+var _ = gc.Suite(&serverSuite{})
 
-func (s *connectionSuite) TestUpdateServerConfig(c *gc.C) {
+func (s *serverSuite) TestUpdateServerConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
@@ -37,7 +37,7 @@ func (s *connectionSuite) TestUpdateServerConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *connectionSuite) TestUpdateContainerConfig(c *gc.C) {
+func (s *serverSuite) TestUpdateContainerConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
@@ -52,10 +52,122 @@ func (s *connectionSuite) TestUpdateContainerConfig(c *gc.C) {
 		cSvr.EXPECT().UpdateContainer(cName, updateReq, lxdtesting.ETag).Return(op, nil),
 		op.EXPECT().Wait().Return(nil),
 	)
-
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = jujuSvr.UpdateContainerConfig("juju-lxd-1", newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestHasProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	cSvr.EXPECT().GetProfileNames().Return([]string{"default", "custom"}, nil).Times(2)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	has, err := jujuSvr.HasProfile("default")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(has, jc.IsTrue)
+
+	has, err = jujuSvr.HasProfile("unknown")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(has, jc.IsFalse)
+}
+
+func (s *serverSuite) TestCreateProfileWithConfig(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	req := api.ProfilesPost{
+		Name: "custom",
+		ProfilePut: api.ProfilePut{
+			Config: map[string]string{
+				"boot.autostart": "false",
+			},
+		},
+	}
+	cSvr.EXPECT().CreateProfile(req).Return(nil)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+	err = jujuSvr.CreateProfileWithConfig("custom", map[string]string{"boot.autostart": "false"})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestGetServerName(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	serverName := "nuc8"
+	mutate := func(s *api.Server) {
+		s.Environment.ServerClustered = false
+		s.Environment.ServerName = serverName
+	}
+
+	cSvr := s.NewMockServer(ctrl, mutate)
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(jujuSvr.Name(), gc.Equals, serverName)
+}
+
+func (s *serverSuite) TestGetServerNameReturnsNoneIfServerNameIsEmpty(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mutate := func(s *api.Server) {
+		s.Environment.ServerClustered = false
+		s.Environment.ServerName = ""
+	}
+
+	cSvr := s.NewMockServer(ctrl, mutate)
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(jujuSvr.Name(), gc.Equals, "none")
+}
+
+func (s *serverSuite) TestGetServerNameReturnsEmptyIfServerNameIsEmptyAndClustered(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mutate := func(s *api.Server) {
+		s.Environment.ServerClustered = true
+		s.Environment.ServerName = ""
+	}
+
+	cSvr := s.NewMockServer(ctrl, mutate)
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(jujuSvr.Name(), gc.Equals, "")
+}
+
+func (s *serverSuite) TestReplaceOrAddContainerProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	updateOp := lxdtesting.NewMockOperation(ctrl)
+	updateOp.EXPECT().Wait().Return(nil)
+	updateOp.EXPECT().Get().Return(api.Operation{Description: "Updating ontainer"})
+
+	instId := "testme"
+	old := "old-profile"
+	oldProfiles := []string{"default", "juju-default", old}
+	new := "new-profile"
+	cSvr.EXPECT().GetContainer(instId).Return(
+		&api.Container{
+			ContainerPut: api.ContainerPut{
+				Profiles: oldProfiles,
+			},
+		}, "", nil)
+	cSvr.EXPECT().UpdateContainer(instId, gomock.Any(), gomock.Any()).Return(updateOp, nil)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+	err = jujuSvr.ReplaceOrAddContainerProfile(instId, old, new)
 	c.Assert(err, jc.ErrorIsNil)
 }

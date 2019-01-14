@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -19,6 +20,24 @@ type CAASOperatorProvisionerState interface {
 	FindEntity(tag names.Tag) (state.Entity, error)
 	Addresses() ([]string, error)
 	ModelUUID() string
+	Model() (Model, error)
 	APIHostPortsForAgents() ([][]network.HostPort, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
+}
+
+type Model interface {
+	UUID() string
+	ModelConfig() (*config.Config, error)
+}
+
+type stateShim struct {
+	*state.State
+}
+
+func (s stateShim) Model() (Model, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return nil, err
+	}
+	return model.CAASModel()
 }

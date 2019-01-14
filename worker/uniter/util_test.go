@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mutex"
 	"github.com/juju/proxy"
@@ -23,7 +24,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6"
@@ -34,15 +34,15 @@ import (
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/leadership"
-	coreleadership "github.com/juju/juju/core/leadership"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
@@ -86,10 +86,9 @@ type context struct {
 	dataDir                string
 	s                      *UniterSuite
 	st                     *state.State
-	im                     *state.IAASModel
 	api                    *apiuniter.State
 	apiConn                api.Connection
-	leaderClaimer          coreleadership.Claimer
+	leaseManager           corelease.Manager
 	leaderTracker          *mockLeaderTracker
 	charmDirGuard          *mockCharmDirGuard
 	charms                 map[string][]byte
@@ -172,7 +171,6 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(api, gc.NotNil)
 	ctx.api = api
 	ctx.apiConn = apiConn
-	ctx.leaderClaimer = ctx.st.LeadershipClaimer()
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
 }
@@ -240,7 +238,7 @@ action-reboot:
 func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	c.Logf("  actual hooks: %#v", ctx.hooksCompleted)
+	c.Logf("actual hooks: %#v", ctx.hooksCompleted)
 	c.Logf("expected hooks: %#v", ctx.hooks)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
@@ -587,7 +585,8 @@ func (s verifyRunning) step(c *gc.C, ctx *context) {
 	if s.minion {
 		hooks = append(hooks, "leader-settings-changed")
 	}
-	hooks = append(hooks, "config-changed")
+	// We don't expect config-changed to always run on agent restart
+	// anymore.
 	step(c, ctx, waitHooks(hooks))
 }
 
@@ -988,9 +987,12 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 		Charm:      sch,
 		ForceUnits: s.forced,
 	}
+	// Make sure we upload the charm before changing it in the DB.
+	serveCharm{}.step(c, ctx)
+	err = ctx.application.SetCharmProfile(sch.URL().String())
+	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	serveCharm{}.step(c, ctx)
 }
 
 type verifyCharm struct {
@@ -1595,7 +1597,9 @@ func (mock *mockLeaderTracker) setLeader(c *gc.C, isLeader bool) {
 		return
 	}
 	if isLeader {
-		err := mock.ctx.leaderClaimer.ClaimLeadership(
+		claimer, err := mock.ctx.leaseManager.Claimer("application-leadership", mock.ctx.st.ModelUUID())
+		c.Assert(err, jc.ErrorIsNil)
+		err = claimer.Claim(
 			mock.ctx.application.Name(), mock.ctx.unit.Name(), time.Minute,
 		)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1719,18 +1723,20 @@ func (*mockCharmDirGuard) Lockdown(_ fortress.Abort) error { return nil }
 type provisionStorage struct{}
 
 func (s provisionStorage) step(c *gc.C, ctx *context) {
-	storageAttachments, err := ctx.im.UnitStorageAttachments(ctx.unit.UnitTag())
+	sb, err := state.NewStorageBackend(ctx.st)
+	c.Assert(err, jc.ErrorIsNil)
+	storageAttachments, err := sb.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 
-	filesystem, err := ctx.im.StorageInstanceFilesystem(storageAttachments[0].StorageInstance())
+	filesystem, err := sb.StorageInstanceFilesystem(storageAttachments[0].StorageInstance())
 	c.Assert(err, jc.ErrorIsNil)
 
 	filesystemInfo := state.FilesystemInfo{
 		Size:         1024,
 		FilesystemId: "fs-id",
 	}
-	err = ctx.im.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfo)
+	err = sb.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := ctx.unit.AssignedMachineId()
@@ -1739,7 +1745,7 @@ func (s provisionStorage) step(c *gc.C, ctx *context) {
 	filesystemAttachmentInfo := state.FilesystemAttachmentInfo{
 		MountPoint: "/srv/wordpress/content",
 	}
-	err = ctx.im.SetFilesystemAttachmentInfo(
+	err = sb.SetFilesystemAttachmentInfo(
 		names.NewMachineTag(machineId),
 		filesystem.FilesystemTag(),
 		filesystemAttachmentInfo,
@@ -1750,10 +1756,12 @@ func (s provisionStorage) step(c *gc.C, ctx *context) {
 type destroyStorageAttachment struct{}
 
 func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
-	storageAttachments, err := ctx.im.UnitStorageAttachments(ctx.unit.UnitTag())
+	sb, err := state.NewStorageBackend(ctx.st)
+	c.Assert(err, jc.ErrorIsNil)
+	storageAttachments, err := sb.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
-	err = ctx.im.DetachStorage(
+	err = sb.DetachStorage(
 		storageAttachments[0].StorageInstance(),
 		ctx.unit.UnitTag(),
 	)
@@ -1763,7 +1771,9 @@ func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
 type verifyStorageDetached struct{}
 
 func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
-	storageAttachments, err := ctx.im.UnitStorageAttachments(ctx.unit.UnitTag())
+	sb, err := state.NewStorageBackend(ctx.st)
+	c.Assert(err, jc.ErrorIsNil)
+	storageAttachments, err := sb.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 0)
 }

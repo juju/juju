@@ -4,10 +4,12 @@
 package migrationtarget_test
 
 import (
+	"io/ioutil"
 	"time"
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -21,6 +23,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
@@ -35,9 +40,10 @@ import (
 type Suite struct {
 	statetesting.StateSuite
 	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
+	authorizer *apiservertesting.FakeAuthorizer
 
-	callContext context.ProviderCallContext
+	facadeContext facadetest.Context
+	callContext   context.ProviderCallContext
 }
 
 var _ = gc.Suite(&Suite{})
@@ -54,11 +60,17 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 
-	s.authorizer = apiservertesting.FakeAuthorizer{
+	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
 	s.callContext = context.NewCloudCallContext()
+	s.facadeContext = facadetest.Context{
+		State_:     s.State,
+		StatePool_: s.StatePool,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	}
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
@@ -76,13 +88,13 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 
 func (s *Suite) TestNotUser(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
-	_, err := s.newAPI(nil)
+	_, err := s.newAPI(nil, nil)
 	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
 
 func (s *Suite) TestNotControllerAdmin(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("jrandomuser")
-	_, err := s.newAPI(nil)
+	_, err := s.newAPI(nil, nil)
 	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
 
@@ -137,6 +149,33 @@ func (s *Suite) TestImport(c *gc.C) {
 	defer ph.Release()
 	c.Assert(model.Name(), gc.Equals, "some-model")
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeImporting)
+}
+
+func (s *Suite) TestImportLeadership(c *gc.C) {
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	for i := 0; i < 3; i++ {
+		s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+	}
+	target := s.State.LeaseNotifyTarget(
+		ioutil.Discard,
+		loggo.GetLogger("migrationtarget_test"),
+	)
+	target.Claimed(
+		lease.Key{"application-leadership", s.State.ModelUUID(), "wordpress"},
+		"wordpress/2",
+	)
+
+	var claimer fakeClaimer
+	s.facadeContext.LeadershipClaimer_ = &claimer
+	api := s.mustNewAPI(c)
+	s.importModel(c, api)
+
+	c.Assert(claimer.stub.Calls(), gc.HasLen, 1)
+	claimer.stub.CheckCall(c, 0, "ClaimLeadership", "wordpress", "wordpress/2", time.Minute)
 }
 
 func (s *Suite) TestAbort(c *gc.C) {
@@ -243,14 +282,16 @@ func (s *Suite) TestLatestLogTimeNeverSet(c *gc.C) {
 	c.Assert(latest, gc.Equals, time.Time{})
 }
 
-func (s *Suite) TestAdoptResources(c *gc.C) {
+func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	model := mockModel{Stub: &testing.Stub{}}
+	env := mockEnv{Stub: &testing.Stub{}}
 	api, err := s.newAPI(func(modelSt *state.State) (environs.Environ, error) {
 		c.Assert(modelSt.ModelUUID(), gc.Equals, st.ModelUUID())
-		return &model, nil
+		return &env, nil
+	}, func(modelSt *state.State) (caas.Broker, error) {
+		return nil, errors.New("should not be called")
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -263,86 +304,41 @@ func (s *Suite) TestAdoptResources(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(model.Stub.Calls(), gc.HasLen, 1)
-	model.Stub.CheckCall(c, 0, "AdoptResources", s.callContext, st.ControllerUUID(), version.MustParse("3.2.1"))
+	c.Assert(env.Stub.Calls(), gc.HasLen, 1)
+	env.Stub.CheckCall(c, 0, "AdoptResources", s.callContext, st.ControllerUUID(), version.MustParse("3.2.1"))
 }
 
-func (s *Suite) TestCheckMachinesInstancesMissing(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
+func (s *Suite) TestAdoptCAASResources(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st)
-	fact.MakeMachine(c, &factory.MachineParams{
-		InstanceId: "wind-up",
+	broker := mockBroker{Stub: &testing.Stub{}}
+	api, err := s.newAPI(func(modelSt *state.State) (environs.Environ, error) {
+		return nil, errors.New("should not be called")
+	}, func(modelSt *state.State) (caas.Broker, error) {
+		c.Assert(modelSt.ModelUUID(), gc.Equals, st.ModelUUID())
+		return &broker, nil
 	})
-	m := fact.MakeMachine(c, &factory.MachineParams{
-		InstanceId: "birds",
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = api.AdoptResources(params.AdoptResourcesArgs{
+		ModelTag:                m.ModelTag().String(),
+		SourceControllerVersion: version.MustParse("3.2.1"),
 	})
-	c.Assert(m.Id(), gc.Equals, "1")
-
-	mockModel := mockModel{
-		Stub:      &testing.Stub{},
-		instances: []*mockInstance{{id: "wind-up"}},
-	}
-	api := s.mustNewAPIWithModel(c, &mockModel)
-
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.CheckMachines(
-		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, `couldn't find instance "birds" for machine 1`)
-}
-
-func (s *Suite) TestCheckMachinesExtraInstances(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	fact := factory.NewFactory(st)
-	fact.MakeMachine(c, &factory.MachineParams{
-		InstanceId: "judith",
-	})
-	mockModel := mockModel{
-		Stub: &testing.Stub{},
-		instances: []*mockInstance{
-			{id: "judith"},
-			{id: "analyse"},
-		},
-	}
-	api := s.mustNewAPIWithModel(c, &mockModel)
-
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.CheckMachines(
-		params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, `no machine with instance "analyse"`)
-}
-
-func (s *Suite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	mockModel := mockModel{Stub: &testing.Stub{}}
-	mockModel.SetErrors(errors.Errorf("kablooie"))
-	api := s.mustNewAPIWithModel(c, &mockModel)
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.CheckMachines(
-		params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, gc.ErrorMatches, "kablooie")
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	c.Assert(broker.Stub.Calls(), gc.HasLen, 1)
+	broker.Stub.CheckCall(c, 0, "AdoptResources", s.callContext, st.ControllerUUID(), version.MustParse("3.2.1"))
 }
 
 func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(st, s.StatePool)
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "eriatarka",
 	})
@@ -351,14 +347,14 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 	})
 	c.Assert(m.Id(), gc.Equals, "1")
 
-	mockModel := mockModel{
+	mockEnv := mockEnv{
 		Stub: &testing.Stub{},
 		instances: []*mockInstance{
 			{id: "volta"},
 			{id: "eriatarka"},
 		},
 	}
-	api := s.mustNewAPIWithModel(c, &mockModel)
+	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
@@ -371,17 +367,17 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(st, s.StatePool)
 	m := fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "birds",
 	})
 	fact.MakeMachineNested(c, m.Id(), nil)
 
-	mockModel := mockModel{
+	mockEnv := mockEnv{
 		Stub:      &testing.Stub{},
 		instances: []*mockInstance{{id: "birds"}},
 	}
-	api := s.mustNewAPIWithModel(c, &mockModel)
+	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
@@ -394,7 +390,7 @@ func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(st, s.StatePool)
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "birds",
 	})
@@ -402,11 +398,11 @@ func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
 		Nonce: "manual:flibbertigibbert",
 	})
 
-	mockModel := mockModel{
+	mockEnv := mockEnv{
 		Stub:      &testing.Stub{},
 		instances: []*mockInstance{{id: "birds"}},
 	}
-	api := s.mustNewAPIWithModel(c, &mockModel)
+	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -416,26 +412,22 @@ func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc) (*migrationtarget.API, error) {
-	ctx := facadetest.Context{
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-	}
-	api, err := migrationtarget.NewAPI(ctx, environFunc, s.callContext)
+func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc) (*migrationtarget.API, error) {
+	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc, s.callContext)
 	return api, err
 }
 
 func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
-	api, err := s.newAPI(nil)
+	api, err := s.newAPI(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
 
-func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ) *migrationtarget.API {
+func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.Broker) *migrationtarget.API {
 	api, err := s.newAPI(func(*state.State) (environs.Environ, error) {
 		return env, nil
+	}, func(*state.State) (caas.Broker, error) {
+		return broker, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return api
@@ -457,32 +449,42 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 }
 
 func (s *Suite) controllerVersion(c *gc.C) version.Number {
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	return vers
 }
 
-type mockModel struct {
+type mockEnv struct {
 	environs.Environ
 	*testing.Stub
 
 	instances []*mockInstance
 }
 
-func (e *mockModel) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
+func (e *mockEnv) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
 	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
 	return e.NextErr()
 }
 
-func (e *mockModel) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *mockEnv) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	e.MethodCall(e, "AllInstances", ctx)
 	results := make([]instance.Instance, len(e.instances))
 	for i, instance := range e.instances {
 		results[i] = instance
 	}
 	return results, e.NextErr()
+}
+
+type mockBroker struct {
+	caas.Broker
+	*testing.Stub
+}
+
+func (e *mockBroker) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
+	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
+	return e.NextErr()
 }
 
 type mockInstance struct {
@@ -492,4 +494,14 @@ type mockInstance struct {
 
 func (i *mockInstance) Id() instance.Id {
 	return instance.Id(i.id)
+}
+
+type fakeClaimer struct {
+	leadership.Claimer
+	stub testing.Stub
+}
+
+func (c *fakeClaimer) ClaimLeadership(application, unit string, duration time.Duration) error {
+	c.stub.AddCall("ClaimLeadership", application, unit, duration)
+	return c.stub.NextErr()
 }

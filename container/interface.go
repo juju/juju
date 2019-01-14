@@ -4,6 +4,8 @@
 package container
 
 import (
+	"gopkg.in/juju/charm.v6"
+
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -15,6 +17,8 @@ const (
 	ConfigLogDir           = "log-dir"
 	ConfigAvailabilityZone = "availability-zone"
 )
+
+//go:generate mockgen -package testing -destination testing/package_mock.go github.com/juju/juju/container Manager,Initialiser
 
 // ManagerConfig contains the initialization parameters for the ContainerManager.
 // The name of the manager is used to namespace the containers on the machine.
@@ -72,4 +76,27 @@ func (m ManagerConfig) WarnAboutUnused() {
 	for key, value := range m {
 		logger.Infof("unused config option: %q -> %q", key, value)
 	}
+}
+
+// LXDProfileManager defines an interface for dealing with lxd profiles used to
+// deploy juju containers.
+type LXDProfileManager interface {
+	// MaybeWriteLXDProfile, write given LXDProfile to machine if not already
+	// there.
+	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
+
+	// ReplaceOrAddInstanceProfile replaces, adds, a charm profile to
+	// the given instance and returns a slice of LXD profiles applied
+	// to the instance. Replace happens inplace in the current order of
+	// applied profiles. If the LXDProfile ptr is nil, replace becomes
+	// remove.
+	ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error)
+}
+
+// LXDProfileNameRetriever defines an interface for dealing with lxd profile
+// names used to deploy juju containers.
+type LXDProfileNameRetriever interface {
+	// LXDProfileNames returns the list of available LXDProfile names from the
+	// manager.
+	LXDProfileNames(string) ([]string, error)
 }

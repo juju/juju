@@ -6,16 +6,18 @@ package globalclockupdater_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/globalclockupdater"
@@ -27,6 +29,7 @@ type ManifoldSuite struct {
 	config       globalclockupdater.ManifoldConfig
 	stateTracker stubStateTracker
 	worker       worker.Worker
+	logger       loggo.Logger
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -34,12 +37,14 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.stub.ResetCalls()
+	s.logger = loggo.GetLogger("globalclockupdater_test")
 	s.config = globalclockupdater.ManifoldConfig{
 		ClockName:      "clock",
 		StateName:      "state",
 		NewWorker:      s.newWorker,
 		UpdateInterval: time.Second,
 		BackoffDelay:   time.Second,
+		Logger:         s.logger,
 	}
 	s.stateTracker = stubStateTracker{
 		done: make(chan struct{}),
@@ -59,7 +64,24 @@ func (s *ManifoldSuite) newWorker(config globalclockupdater.Config) (worker.Work
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	manifold := globalclockupdater.Manifold(s.config)
 	expectInputs := []string{"clock", "state"}
-	c.Check(manifold.Inputs, jc.DeepEquals, expectInputs)
+	c.Check(manifold.Inputs, jc.SameContents, expectInputs)
+}
+
+func (s *ManifoldSuite) TestLeaseManagerInputs(c *gc.C) {
+	s.config.StateName = ""
+	s.config.LeaseManagerName = "lease-manager"
+	manifold := globalclockupdater.Manifold(s.config)
+	expectInputs := []string{"clock", "lease-manager"}
+	c.Check(manifold.Inputs, jc.SameContents, expectInputs)
+}
+
+func (s *ManifoldSuite) TestLeaseManagerAndRaftInputs(c *gc.C) {
+	s.config.StateName = ""
+	s.config.LeaseManagerName = "lease-manager"
+	s.config.RaftName = "raft"
+	manifold := globalclockupdater.Manifold(s.config)
+	expectInputs := []string{"clock", "lease-manager", "raft"}
+	c.Check(manifold.Inputs, jc.SameContents, expectInputs)
 }
 
 func (s *ManifoldSuite) TestStartValidateClockName(c *gc.C) {
@@ -69,7 +91,17 @@ func (s *ManifoldSuite) TestStartValidateClockName(c *gc.C) {
 
 func (s *ManifoldSuite) TestStartValidateStateName(c *gc.C) {
 	s.config.StateName = ""
-	s.testStartValidateConfig(c, "empty StateName not valid")
+	s.testStartValidateConfig(c, "both StateName and LeaseManagerName empty not valid")
+}
+
+func (s *ManifoldSuite) TestStartValidateNotBoth(c *gc.C) {
+	s.config.LeaseManagerName = "lease-manager"
+	s.testStartValidateConfig(c, "only one of StateName and LeaseManagerName can be set")
+}
+
+func (s *ManifoldSuite) TestStartValidateNotRaftAndState(c *gc.C) {
+	s.config.RaftName = "raft"
+	s.testStartValidateConfig(c, "RaftName only valid with LeaseManagerName")
 }
 
 func (s *ManifoldSuite) TestStartValidateUpdateInterval(c *gc.C) {
@@ -97,6 +129,37 @@ func (s *ManifoldSuite) TestStartMissingClock(c *gc.C) {
 	manifold := globalclockupdater.Manifold(s.config)
 	context := dt.StubContext(nil, map[string]interface{}{
 		"clock": dependency.ErrMissing,
+	})
+
+	worker, err := manifold.Start(context)
+	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, gc.IsNil)
+}
+
+func (s *ManifoldSuite) TestStartMissingLeaseManager(c *gc.C) {
+	s.config.StateName = ""
+	s.config.LeaseManagerName = "lease-manager"
+	manifold := globalclockupdater.Manifold(s.config)
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock":         fakeClock{},
+		"lease-manager": dependency.ErrMissing,
+	})
+
+	worker, err := manifold.Start(context)
+	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, gc.IsNil)
+}
+
+func (s *ManifoldSuite) TestStartMissingRaft(c *gc.C) {
+	updater := fakeUpdater{}
+	s.config.StateName = ""
+	s.config.LeaseManagerName = "lease-manager"
+	s.config.RaftName = "raft"
+	manifold := globalclockupdater.Manifold(s.config)
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock":         fakeClock{},
+		"lease-manager": &updater,
+		"raft":          dependency.ErrMissing,
 	})
 
 	worker, err := manifold.Start(context)
@@ -144,6 +207,35 @@ func (s *ManifoldSuite) TestStartNewWorkerSuccess(c *gc.C) {
 		LocalClock:     fakeClock{},
 		UpdateInterval: s.config.UpdateInterval,
 		BackoffDelay:   s.config.BackoffDelay,
+		Logger:         s.logger,
+	})
+}
+
+func (s *ManifoldSuite) TestStartNewWorkerSuccessWithLeaseManager(c *gc.C) {
+	updater := fakeUpdater{}
+	s.config.StateName = ""
+	s.config.LeaseManagerName = "lease-manager"
+	s.config.RaftName = "raft"
+	worker, err := s.startManifoldWithContext(c, map[string]interface{}{
+		"clock":         fakeClock{},
+		"lease-manager": &updater,
+		"raft":          nil,
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(worker, gc.Equals, s.worker)
+
+	s.stub.CheckCallNames(c, "NewWorker")
+	config := s.stub.Calls()[0].Args[0].(globalclockupdater.Config)
+	c.Assert(config.NewUpdater, gc.NotNil)
+	actualUpdater, err := config.NewUpdater()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actualUpdater, gc.Equals, &updater)
+	config.NewUpdater = nil
+	c.Assert(config, jc.DeepEquals, globalclockupdater.Config{
+		LocalClock:     fakeClock{},
+		UpdateInterval: s.config.UpdateInterval,
+		BackoffDelay:   s.config.BackoffDelay,
+		Logger:         s.logger,
 	})
 }
 
@@ -168,12 +260,10 @@ func (s *ManifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {
 }
 
 func (s *ManifoldSuite) startManifold(c *gc.C) (worker.Worker, error) {
-	manifold := globalclockupdater.Manifold(s.config)
-	context := dt.StubContext(nil, map[string]interface{}{
+	worker, err := s.startManifoldWithContext(c, map[string]interface{}{
 		"clock": fakeClock{},
 		"state": &s.stateTracker,
 	})
-	worker, err := manifold.Start(context)
 	if err != nil {
 		return nil, err
 	}
@@ -183,11 +273,25 @@ func (s *ManifoldSuite) startManifold(c *gc.C) (worker.Worker, error) {
 		workertest.DirtyKill(c, worker)
 		s.stateTracker.waitDone(c)
 	})
+	return worker, err
+}
+
+func (s *ManifoldSuite) startManifoldWithContext(c *gc.C, data map[string]interface{}) (worker.Worker, error) {
+	manifold := globalclockupdater.Manifold(s.config)
+	context := dt.StubContext(nil, data)
+	worker, err := manifold.Start(context)
+	if err != nil {
+		return nil, err
+	}
 	return worker, nil
 }
 
 type fakeClock struct {
 	clock.Clock
+}
+
+type fakeUpdater struct {
+	globalclock.Updater
 }
 
 type stubStateTracker struct {

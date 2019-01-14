@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -21,11 +20,11 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -52,6 +51,12 @@ options:
 
 type allWatcherBaseSuite struct {
 	internalStateSuite
+	currentTime time.Time
+}
+
+func (s *allWatcherBaseSuite) SetUpTest(c *gc.C) {
+	s.internalStateSuite.SetUpTest(c)
+	s.currentTime = s.state.clock().Now()
 }
 
 // setUpScenario adds some entities to the state so that
@@ -64,6 +69,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	add := func(e multiwatcher.EntityInfo) {
 		entities = append(entities, e)
 	}
+	now := s.currentTime
 	m, err := st.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
@@ -93,10 +99,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		AgentStatus: multiwatcher.StatusInfo{
 			Current: status.Pending,
 			Data:    map[string]interface{}{},
+			Since:   &now,
 		},
 		InstanceStatus: multiwatcher.StatusInfo{
 			Current: status.Pending,
 			Data:    map[string]interface{}{},
+			Since:   &now,
 		},
 		Life:                    multiwatcher.Life("alive"),
 		Series:                  "quantal",
@@ -129,6 +137,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Current: "waiting",
 			Message: "waiting for machine",
 			Data:    map[string]interface{}{},
+			Since:   &now,
 		},
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
@@ -152,6 +161,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Current: "waiting",
 			Message: "waiting for machine",
 			Data:    map[string]interface{}{},
+			Since:   &now,
 		},
 	})
 
@@ -189,11 +199,13 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 				Current: "waiting",
 				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: "allocating",
 				Message: "",
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
@@ -207,7 +219,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 
 		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
-		now := testing.ZeroTime()
 		sInfo := status.StatusInfo{
 			Status:  status.Error,
 			Message: m.Tag().String(),
@@ -225,10 +236,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 				Current: status.Error,
 				Message: m.Tag().String(),
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
@@ -270,11 +283,13 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 				Current: "waiting",
 				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: "allocating",
 				Message: "",
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 		})
 	}
@@ -296,6 +311,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Current: "waiting",
 			Message: "waiting for machine",
 			Data:    map[string]interface{}{},
+			Since:   &now,
 		},
 	})
 
@@ -373,16 +389,24 @@ func addTestingRemoteApplication(
 		IsConsumerProxy: isProxy,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	var appStatus multiwatcher.StatusInfo
+	if !isProxy {
+		status, err := rs.Status()
+		c.Assert(err, jc.ErrorIsNil)
+		appStatus = multiwatcher.StatusInfo{
+			Current: status.Status,
+			Message: status.Message,
+			Data:    status.Data,
+			Since:   status.Since,
+		}
+	}
 	return rs, multiwatcher.RemoteApplicationInfo{
 		ModelUUID: st.ModelUUID(),
 		Name:      name,
 		OfferUUID: offerUUID,
 		OfferURL:  url,
 		Life:      multiwatcher.Life(rs.Life().String()),
-		Status: multiwatcher.StatusInfo{
-			Current: "unknown",
-			Data:    map[string]interface{}{},
-		},
+		Status:    appStatus,
 	}
 }
 
@@ -477,7 +501,6 @@ func (s *allWatcherStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSli
 	var gotEntities entityInfoSlice = all.All()
 	sort.Sort(gotEntities)
 	sort.Sort(expectEntities)
-	substNilSinceTimeForEntities(c, gotEntities)
 	assertEntitiesEqual(c, gotEntities, expectEntities)
 }
 
@@ -517,69 +540,6 @@ type changeTestCase struct {
 	expectContents []multiwatcher.EntityInfo
 }
 
-func substNilSinceTimeForStatus(c *gc.C, sInfo *multiwatcher.StatusInfo) {
-	if sInfo.Current != "" {
-		c.Assert(sInfo.Since, gc.NotNil) // TODO(dfc) WTF does this check do ? separation of concerns much
-	}
-	sInfo.Since = nil
-}
-
-// substNilSinceTimeForEntities zeros out any updated timestamps for unit
-// or application status values so we can easily check the results.
-func substNilSinceTimeForEntities(c *gc.C, entities []multiwatcher.EntityInfo) {
-	// Zero out any updated timestamps for unit or application status values
-	// so we can easily check the results.
-	for i := range entities {
-		switch e := entities[i].(type) {
-		case *multiwatcher.UnitInfo:
-			unitInfo := *e // must copy because this entity came out of the multiwatcher cache.
-			substNilSinceTimeForStatus(c, &unitInfo.WorkloadStatus)
-			substNilSinceTimeForStatus(c, &unitInfo.AgentStatus)
-			entities[i] = &unitInfo
-		case *multiwatcher.ApplicationInfo:
-			applicationInfo := *e // must copy because this entity came out of the multiwatcher cache.
-			substNilSinceTimeForStatus(c, &applicationInfo.Status)
-			entities[i] = &applicationInfo
-		case *multiwatcher.RemoteApplicationInfo:
-			remoteApplicationInfo := *e // must copy because this entity came out of the multiwatcher cache.
-			substNilSinceTimeForStatus(c, &remoteApplicationInfo.Status)
-			entities[i] = &remoteApplicationInfo
-		case *multiwatcher.MachineInfo:
-			machineInfo := *e // must copy because this entity came out of the multiwatcher cache.
-			substNilSinceTimeForStatus(c, &machineInfo.AgentStatus)
-			substNilSinceTimeForStatus(c, &machineInfo.InstanceStatus)
-			entities[i] = &machineInfo
-		}
-	}
-}
-
-func substNilSinceTimeForEntityNoCheck(entity multiwatcher.EntityInfo) multiwatcher.EntityInfo {
-	// Zero out any updated timestamps for unit or application status values
-	// so we can easily check the results.
-	switch e := entity.(type) {
-	case *multiwatcher.UnitInfo:
-		unitInfo := *e // must copy because this entity came out of the multiwatcher cache.
-		unitInfo.WorkloadStatus.Since = nil
-		unitInfo.AgentStatus.Since = nil
-		return &unitInfo
-	case *multiwatcher.ApplicationInfo:
-		applicationInfo := *e // must copy because this entity came out of the multiwatcher cache.
-		applicationInfo.Status.Since = nil
-		return &applicationInfo
-	case *multiwatcher.RemoteApplicationInfo:
-		remoteApplicationInfo := *e // must copy because this entity came out of the multiwatcher cache.
-		remoteApplicationInfo.Status.Since = nil
-		return &remoteApplicationInfo
-	case *multiwatcher.MachineInfo:
-		machineInfo := *e // must copy because we this entity came out of the multiwatcher cache.
-		machineInfo.AgentStatus.Since = nil
-		machineInfo.InstanceStatus.Since = nil
-		return &machineInfo
-	default:
-		return entity
-	}
-}
-
 // changeTestFunc is a function for the preparation of a test and
 // the creation of the according case.
 type changeTestFunc func(c *gc.C, st *State) changeTestCase
@@ -598,7 +558,6 @@ func (s *allWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs [
 		err := b.Changed(all, test.change)
 		c.Assert(err, jc.ErrorIsNil)
 		entities := all.All()
-		substNilSinceTimeForEntities(c, entities)
 		assertEntitiesEqual(c, entities, test.expectContents)
 		s.reset(c)
 	}
@@ -777,7 +736,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities := all.All()
-	substNilSinceTimeForEntities(c, entities)
+	now := s.currentTime
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
 		&multiwatcher.UnitInfo{
 			ModelUUID:      s.state.ModelUUID(),
@@ -793,10 +752,12 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 				Current: "waiting",
 				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: "allocating",
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 		},
 		&multiwatcher.MachineInfo{
@@ -813,7 +774,6 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities = all.All()
-	substNilSinceTimeForEntities(c, entities)
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
 		&multiwatcher.UnitInfo{
 			ModelUUID:      s.state.ModelUUID(),
@@ -829,10 +789,12 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 				Current: "waiting",
 				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: "allocating",
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 		},
 		&multiwatcher.MachineInfo{
@@ -861,7 +823,6 @@ func (s *allWatcherStateSuite) TestApplicationSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities := all.All()
-	substNilSinceTimeForEntities(c, entities)
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
 		&multiwatcher.ApplicationInfo{
 			ModelUUID: s.state.ModelUUID(),
@@ -905,7 +866,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 	// Expect to see events for the already created machines first.
 	deltas := tw.All(2)
-	now := testing.ZeroTime()
+	now := s.currentTime
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			ModelUUID: s.state.ModelUUID(),
@@ -955,7 +916,6 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	deltas = tw.All(1)
-	zeroOutTimestampsForDeltas(c, deltas)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			ModelUUID: s.state.ModelUUID(),
@@ -983,7 +943,6 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	deltas = tw.All(1)
-	zeroOutTimestampsForDeltas(c, deltas)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			ModelUUID: s.state.ModelUUID(),
@@ -1029,11 +988,10 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = wu.AssignToMachine(m2)
 	c.Assert(err, jc.ErrorIsNil)
+	wpTime := s.state.clock().Now()
 
 	// Look for the state changes from the allwatcher.
 	deltas = tw.All(5)
-
-	zeroOutTimestampsForDeltas(c, deltas)
 
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
@@ -1071,12 +1029,12 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
-				Since:   &now,
+				Since:   &wpTime,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
-				Since:   &now,
+				Since:   &wpTime,
 			},
 			Life:      multiwatcher.Life("alive"),
 			Series:    "quantal",
@@ -1096,6 +1054,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Current: "waiting",
 				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
+				Since:   &wpTime,
 			},
 		},
 	}, {
@@ -1109,18 +1068,19 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Current: "waiting",
 				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
+				Since:   &wpTime,
 			},
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: "allocating",
 				Message: "",
 				Data:    map[string]interface{}{},
+				Since:   &wpTime,
 			},
 		},
 	}})
 }
 
 func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
-	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 	// The return values for the setup and trigger functions are the
 	// number of changes to expect.
 	for i, test := range []struct {
@@ -1287,7 +1247,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 					w.AssertChanges(c, expected)
 					otherW.AssertNoChange(c)
 				}
-
+				c.Logf("triggering event")
 				expected := test.triggerEvent(st)
 				// Check event was isolated to the correct watcher.
 				w.AssertChanges(c, expected)
@@ -1328,13 +1288,7 @@ func (s *allModelWatcherStateSuite) Reset(c *gc.C) {
 }
 
 func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking() Backing {
-	return s.NewAllModelWatcherStateBackingForState(s.state)
-}
-
-func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBackingForState(st *State) Backing {
-	pool := NewStatePool(st)
-	s.AddCleanup(func(*gc.C) { pool.Close() })
-	return NewAllModelWatcherStateBacking(st, pool)
+	return NewAllModelWatcherStateBacking(s.state, s.pool)
 }
 
 // performChangeTestCases runs a passed number of test cases for changes.
@@ -1357,7 +1311,6 @@ func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFu
 			err := b.Changed(all, test0.change)
 			c.Assert(err, jc.ErrorIsNil)
 			var entities entityInfoSlice = all.All()
-			substNilSinceTimeForEntities(c, entities)
 			assertEntitiesEqual(c, entities, test0.expectContents)
 
 			// Now do the same updates for a second model.
@@ -1377,12 +1330,6 @@ func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFu
 			sort.Sort(entities)
 			sort.Sort(expectedEntities)
 
-			// for some reason substNilSinceTimeForStatus cares if the Current is not blank
-			// and will abort if it is. Apparently this happens and it's totally fine. So we
-			// must use the NoCheck variant, rather than substNilSinceTimeForEntities(c, entities)
-			for i := range entities {
-				entities[i] = substNilSinceTimeForEntityNoCheck(entities[i])
-			}
 			assertEntitiesEqual(c, entities, expectedEntities)
 		}()
 	}
@@ -1648,7 +1595,6 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 	var gotEntities entityInfoSlice = all.All()
 	sort.Sort(gotEntities)
 	sort.Sort(expectedEntities)
-	substNilSinceTimeForEntities(c, gotEntities)
 	assertEntitiesEqual(c, gotEntities, expectedEntities)
 }
 
@@ -1754,7 +1700,9 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m10.Id(), gc.Equals, "0")
 
-	backing := s.NewAllModelWatcherStateBackingForState(st0)
+	now := st0.clock().Now()
+
+	backing := s.NewAllModelWatcherStateBacking()
 	tw := newTestWatcher(backing, st0, c)
 	defer tw.Stop()
 
@@ -1804,10 +1752,12 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			Life:      multiwatcher.Life("alive"),
 			Series:    "trusty",
@@ -1823,10 +1773,12 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			Life:      multiwatcher.Life("alive"),
 			Series:    "saucy",
@@ -1842,7 +1794,6 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	deltas = tw.All(1)
-	zeroOutTimestampsForDeltas(c, deltas)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			ModelUUID: st1.ModelUUID(),
@@ -1850,10 +1801,12 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			Life:      multiwatcher.Life("dying"),
 			Series:    "saucy",
@@ -1868,7 +1821,6 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	deltas = tw.All(1)
-	zeroOutTimestampsForDeltas(c, deltas)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			ModelUUID: st1.ModelUUID(),
@@ -1876,10 +1828,12 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			Life:      multiwatcher.Life("dead"),
 			Series:    "saucy",
@@ -1918,8 +1872,8 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(m20.Id(), gc.Equals, "0")
 
 	// Look for the state changes from the allwatcher.
+	later := st2.clock().Now()
 	deltas = tw.All(7)
-	zeroOutTimestampsForDeltas(c, deltas)
 
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
@@ -1929,10 +1883,12 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &now,
 			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "trusty",
@@ -1955,10 +1911,12 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &later,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &later,
 			},
 			Life:      multiwatcher.Life("alive"),
 			Series:    "quantal",
@@ -1978,6 +1936,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Current: "waiting",
 				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
+				Since:   &later,
 			},
 		},
 	}, {
@@ -1991,11 +1950,13 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Current: "waiting",
 				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
+				Since:   &later,
 			},
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: "allocating",
 				Message: "",
 				Data:    map[string]interface{}{},
+				Since:   &later,
 			},
 		},
 	}, {
@@ -2010,6 +1971,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Current: "available",
 				Message: "",
 				Data:    map[string]interface{}{},
+				Since:   &later,
 			},
 			SLA: multiwatcher.ModelSLAInfo{
 				Level: "unsupported",
@@ -2022,10 +1984,12 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			AgentStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &later,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
 				Current: status.Pending,
 				Data:    map[string]interface{}{},
+				Since:   &later,
 			},
 			Life:      multiwatcher.Life("alive"),
 			Series:    "trusty",
@@ -2035,31 +1999,6 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			WantsVote: false,
 		},
 	}})
-}
-
-func zeroOutTimestampsForDeltas(c *gc.C, deltas []multiwatcher.Delta) {
-	for i, delta := range deltas {
-		switch e := delta.Entity.(type) {
-		case *multiwatcher.UnitInfo:
-			unitInfo := *e // must copy, we may not own this reference
-			substNilSinceTimeForStatus(c, &unitInfo.WorkloadStatus)
-			substNilSinceTimeForStatus(c, &unitInfo.AgentStatus)
-			delta.Entity = &unitInfo
-		case *multiwatcher.ModelInfo:
-			modelInfo := *e // must copy, we may not own this reference
-			substNilSinceTimeForStatus(c, &modelInfo.Status)
-			delta.Entity = &modelInfo
-		case *multiwatcher.ApplicationInfo:
-			applicationInfo := *e // must copy, we may not own this reference
-			substNilSinceTimeForStatus(c, &applicationInfo.Status)
-			delta.Entity = &applicationInfo
-		case *multiwatcher.RemoteApplicationInfo:
-			remoteApplicationInfo := *e // must copy, we may not own this reference
-			substNilSinceTimeForStatus(c, &remoteApplicationInfo.Status)
-			delta.Entity = &remoteApplicationInfo
-		}
-		deltas[i] = delta
-	}
 }
 
 // The testChange* funcs are extracted so the test cases can be used
@@ -2149,7 +2088,6 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 }
 
 func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
-	now := testing.ZeroTime()
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
@@ -2182,7 +2120,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			now := testing.ZeroTime()
+			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
 				Message: "failure",
@@ -2205,10 +2143,12 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 							Current: status.Error,
 							Message: "failure",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						InstanceStatus: multiwatcher.StatusInfo{
 							Current: status.Pending,
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						Life:      multiwatcher.Life("alive"),
 						Series:    "quantal",
@@ -2228,7 +2168,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 
 			err = m.SetAgentVersion(version.MustParseBinary("2.4.1-bionic-amd64"))
 			c.Assert(err, jc.ErrorIsNil)
-
+			now := st.clock().Now()
 			return changeTestCase{
 				about: "machine is updated if it's in backing and in Store",
 				initialContents: []multiwatcher.EntityInfo{
@@ -2262,10 +2202,12 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 							Message: "another failure",
 							Data:    map[string]interface{}{},
 							Version: "2.4.1",
+							Since:   &now,
 						},
 						InstanceStatus: multiwatcher.StatusInfo{
 							Current: status.Pending,
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						Life:                     multiwatcher.Life("alive"),
 						Series:                   "trusty",
@@ -2277,6 +2219,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
+			now := st.clock().Now()
 			return changeTestCase{
 				about: "no change if status is not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
@@ -2301,13 +2244,14 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 							Current: status.Error,
 							Message: "failure",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			now := testing.ZeroTime()
+			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Started,
 				Message: "",
@@ -2339,6 +2283,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: status.Started,
 							Data:    make(map[string]interface{}),
+							Since:   &now,
 						},
 					}}}
 		},
@@ -2427,7 +2372,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 			c.Assert(err, jc.ErrorIsNil)
 			err = wordpress.SetMinUnits(42)
 			c.Assert(err, jc.ErrorIsNil)
-
+			now := st.clock().Now()
 			return changeTestCase{
 				about: "application is added if it's in backing but not in Store",
 				change: watcher.Change{
@@ -2447,6 +2392,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 							Current: "waiting",
 							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
@@ -2485,7 +2431,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.SetWorkloadVersion("42.47")
 			c.Assert(err, jc.ErrorIsNil)
-
+			now := st.clock().Now()
 			return changeTestCase{
 				about: "workload version is updated when set on a unit",
 				initialContents: []multiwatcher.EntityInfo{
@@ -2511,6 +2457,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 							Current: "waiting",
 							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					},
 					&multiwatcher.ApplicationInfo{
@@ -2522,6 +2469,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 							Current: "waiting",
 							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					},
 				},
@@ -2533,7 +2481,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.SetWorkloadVersion("")
 			c.Assert(err, jc.ErrorIsNil)
-
+			now := st.clock().Now()
 			return changeTestCase{
 				about: "workload version is not updated when empty",
 				initialContents: []multiwatcher.EntityInfo{
@@ -2560,6 +2508,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 							Current: "waiting",
 							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					},
 					&multiwatcher.ApplicationInfo{
@@ -2571,6 +2520,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 							Current: "waiting",
 							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					},
 				},
@@ -2808,7 +2758,6 @@ func testChangeApplicationsConstraints(c *gc.C, owner names.UserTag, runChangeTe
 }
 
 func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
-	now := testing.ZeroTime()
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
@@ -2846,7 +2795,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPorts("tcp", 5555, 5558)
 			c.Assert(err, jc.ErrorIsNil)
-			now := testing.ZeroTime()
+			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
 				Message: "failure",
@@ -2885,11 +2834,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Current: "idle",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "error",
 							Message: "failure",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
@@ -2905,6 +2856,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetAgentVersion(version.MustParseBinary("2.4.1-bionic-amd64"))
 			c.Assert(err, jc.ErrorIsNil)
+			now := st.clock().Now()
 
 			return changeTestCase{
 				about: "unit is updated if it's in backing and in multiwatcher.Store",
@@ -2944,11 +2896,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Message: "",
 							Data:    map[string]interface{}{},
 							Version: "2.4.1",
+							Since:   &now,
 						},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "error",
 							Message: "another failure",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
@@ -3002,7 +2956,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPorts("tcp", 21, 22)
 			c.Assert(err, jc.ErrorIsNil)
-
+			now := st.clock().Now()
 			return changeTestCase{
 				about: "unit is created if a port is opened on the machine it is placed in",
 				initialContents: []multiwatcher.EntityInfo{
@@ -3026,10 +2980,12 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Current: "waiting",
 							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "allocating",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						Ports:      []multiwatcher.Port{{"tcp", 21}, {"tcp", 22}},
 						PortRanges: []multiwatcher.PortRange{{21, 22, "tcp"}},
@@ -3054,7 +3010,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			privateAddress := network.NewScopedAddress("private", network.ScopeCloudLocal)
 			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
-			now := testing.ZeroTime()
+			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
 				Message: "failure",
@@ -3084,11 +3040,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Current: "idle",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "error",
 							Message: "failure",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
@@ -3101,6 +3059,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
+			now := st.clock().Now()
 			return changeTestCase{
 				about: "no change if status is not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
@@ -3133,11 +3092,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Current: "idle",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "error",
 							Message: "failure",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
@@ -3147,7 +3108,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToNewMachine()
 			c.Assert(err, jc.ErrorIsNil)
-			now := testing.ZeroTime()
+			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Idle,
 				Message: "",
@@ -3188,11 +3149,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Current: "maintenance",
 							Message: "working",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "idle",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
@@ -3200,7 +3163,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			now := testing.ZeroTime()
+			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Idle,
 				Message: "",
@@ -3250,11 +3213,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Current: "maintenance",
 							Message: "doing work",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "idle",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
@@ -3262,7 +3227,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			now := testing.ZeroTime()
+			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
 				Message: "hook error",
@@ -3310,11 +3275,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 								"2nd-key": 2,
 								"3rd-key": true,
 							},
+							Since: &now,
 						},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "idle",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
@@ -3324,7 +3291,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToNewMachine()
 			c.Assert(err, jc.ErrorIsNil)
-			now := testing.ZeroTime()
+			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Active,
 				Message: "",
@@ -3377,11 +3344,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Current: "active",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "idle",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					},
 					&multiwatcher.ApplicationInfo{
@@ -3391,6 +3360,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Current: "active",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					},
 				}}
@@ -3444,7 +3414,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			initModel(c, st, assignUnit)
-
+			now := st.clock().Now()
 			return changeTestCase{
 				about: "don't open ports on unit",
 				change: watcher.Change{
@@ -3464,16 +3434,19 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 							Current: "waiting",
 							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "allocating",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			initModel(c, st, assignUnit|openPorts)
+			now := st.clock().Now()
 
 			return changeTestCase{
 				about: "open a port on unit",
@@ -3496,16 +3469,19 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 							Current: "waiting",
 							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "allocating",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			initModel(c, st, assignUnit|openPorts|closePorts)
+			now := st.clock().Now()
 
 			return changeTestCase{
 				about: "open a port on unit and close it again",
@@ -3528,16 +3504,19 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 							Current: "waiting",
 							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "allocating",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			initModel(c, st, openPorts)
+			now := st.clock().Now()
 
 			return changeTestCase{
 				about: "open ports on an unassigned unit",
@@ -3557,11 +3536,13 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 							Current: "waiting",
 							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "allocating",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Since:   &now,
 						},
 					}}}
 		},
@@ -3632,11 +3613,21 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 			err = wru.EnterScope(nil)
 			c.Assert(err, jc.ErrorIsNil)
 
+			status, err := mysql.Status()
+			c.Assert(err, jc.ErrorIsNil)
+
 			err = mysql.Destroy()
 			c.Assert(err, jc.ErrorIsNil)
+
+			now := st.clock().Now()
 			initialRemoteApplicationInfo := remoteApplicationInfo
 			remoteApplicationInfo.Life = "dying"
-			remoteApplicationInfo.Status = multiwatcher.StatusInfo{}
+			remoteApplicationInfo.Status = multiwatcher.StatusInfo{
+				Current: status.Status,
+				Message: status.Message,
+				Data:    status.Data,
+				Since:   &now,
+			}
 			return changeTestCase{
 				about:           "remote application is updated if it's in backing and in multiwatcher.Store",
 				initialContents: []multiwatcher.EntityInfo{&initialRemoteApplicationInfo},
@@ -3651,7 +3642,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 			mysql, remoteApplicationInfo := addTestingRemoteApplication(
 				c, st, "remote-mysql2", "me/model.mysql", "remote-mysql2-uuid", mysqlRelations, false,
 			)
-			now := time.Now()
+			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Active,
 				Message: "running",
@@ -3665,6 +3656,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 				Current: "active",
 				Message: "running",
 				Data:    map[string]interface{}{"foo": "bar"},
+				Since:   &now,
 			}
 			return changeTestCase{
 				about:           "remote application status is updated if it's in backing and in multiwatcher.Store",
@@ -3861,7 +3853,7 @@ done:
 					break done
 				}
 			}
-		case <-tw.st.clock().After(maxDuration):
+		case <-time.After(maxDuration):
 			// timed out
 			break done
 		}
@@ -3882,7 +3874,7 @@ func (tw *testWatcher) AssertNoChange(c *gc.C) {
 		if len(d) > 0 {
 			c.Error("change detected")
 		}
-	case <-tw.st.clock().After(testing.ShortWait):
+	case <-time.After(testing.ShortWait):
 		// expected
 	}
 }
@@ -3936,7 +3928,7 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 		if d.Removed {
 			m[id] = nil
 		} else {
-			m[id] = substNilSinceTimeForEntityNoCheck(d.Entity)
+			m[id] = d.Entity
 		}
 	}
 	return m

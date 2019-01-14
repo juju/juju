@@ -10,12 +10,12 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environInstSuite struct {
@@ -26,13 +26,13 @@ var _ = gc.Suite(&environInstSuite{})
 
 func (s *environInstSuite) TestInstancesOkay(c *gc.C) {
 	ids := []instance.Id{"spam", "eggs", "ham"}
-	var raw []lxdclient.Instance
+	var containers []containerlxd.Container
 	var expected []instance.Instance
 	for _, id := range ids {
-		raw = append(raw, *s.NewRawInstance(c, string(id)))
+		containers = append(containers, *s.NewContainer(c, string(id)))
 		expected = append(expected, s.NewInstance(c, string(id)))
 	}
-	s.Client.Insts = raw
+	s.Client.Containers = containers
 
 	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
 	c.Assert(err, jc.ErrorIsNil)
@@ -45,10 +45,9 @@ func (s *environInstSuite) TestInstancesAPI(c *gc.C) {
 	s.Env.Instances(context.NewCloudCallContext(), ids)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "Instances",
+		FuncName: "AliveContainers",
 		Args: []interface{}{
 			s.Prefix(),
-			lxdclient.AliveStatuses,
 		},
 	}})
 }
@@ -72,9 +71,9 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
-	raw := s.NewRawInstance(c, "spam")
+	container := s.NewContainer(c, "spam")
 	expected := s.NewInstance(c, "spam")
-	s.Client.Insts = []lxdclient.Instance{*raw}
+	s.Client.Containers = []containerlxd.Container{*container}
 
 	ids := []instance.Id{"spam", "eggs"}
 	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
@@ -84,8 +83,8 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
-	raw := s.NewRawInstance(c, "spam")
-	s.Client.Insts = []lxdclient.Instance{*raw}
+	container := s.NewContainer(c, "spam")
+	s.Client.Containers = []containerlxd.Container{*container}
 
 	ids := []instance.Id{"eggs"}
 	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
@@ -94,18 +93,33 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 }
 
+func (s *environInstSuite) TestInstancesInvalidCredentials(c *gc.C) {
+	var invalidCred = false
+	// allInstances will ultimately return the error.
+	s.Client.Stub.SetErrors(errTestUnAuth)
+
+	ids := []instance.Id{"eggs"}
+	_, err := s.Env.Instances(&context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			invalidCred = true
+			return nil
+		},
+	}, ids)
+
+	c.Check(err, gc.ErrorMatches, "not authorized")
+	c.Assert(invalidCred, jc.IsTrue)
+}
+
 func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
-	s.Client.Insts = []lxdclient.Instance{*s.RawInstance}
+	s.Client.Containers = []containerlxd.Container{*s.Container}
 
 	ids, err := s.Env.ControllerInstances(context.NewCloudCallContext(), coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
-	s.BaseSuite.Client.CheckCallNames(c, "Instances")
+	s.BaseSuite.Client.CheckCallNames(c, "AliveContainers")
 	s.BaseSuite.Client.CheckCall(
-		c, 0, "Instances",
-		"juju-",
-		[]string{"Starting", "Started", "Running", "Stopping", "Stopped"},
+		c, 0, "AliveContainers", "juju-",
 	)
 }
 
@@ -116,8 +130,9 @@ func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
 }
 
 func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
-	other := lxdclient.NewInstance(lxdclient.InstanceSummary{}, nil)
-	s.Client.Insts = []lxdclient.Instance{*s.RawInstance, *other}
+	other := containerlxd.Container{}
+	s.Client.Containers = []containerlxd.Container{*s.Container}
+	s.Client.Containers = []containerlxd.Container{*s.Container, other}
 
 	ids, err := s.Env.ControllerInstances(context.NewCloudCallContext(), coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,16 +140,32 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
 }
 
+func (s *environInstSuite) TestControllerInvalidCredentials(c *gc.C) {
+	var invalidCred = false
+	// AliveContainers will return an error.
+	s.Client.Stub.SetErrors(errTestUnAuth)
+
+	_, err := s.Env.ControllerInstances(
+		&context.CloudCallContext{
+			InvalidateCredentialFunc: func(string) error {
+				invalidCred = true
+				return nil
+			},
+		}, coretesting.ControllerTag.Id())
+	c.Check(err, gc.ErrorMatches, "not authorized")
+	c.Assert(invalidCred, jc.IsTrue)
+}
+
 func (s *environInstSuite) TestAdoptResources(c *gc.C) {
-	one := s.NewRawInstance(c, "smoosh")
-	two := s.NewRawInstance(c, "guild-league")
-	three := s.NewRawInstance(c, "tall-dwarfs")
-	s.Client.Insts = []lxdclient.Instance{*one, *two, *three}
+	one := s.NewContainer(c, "smoosh")
+	two := s.NewContainer(c, "guild-league")
+	three := s.NewContainer(c, "tall-dwarfs")
+	s.Client.Containers = []containerlxd.Container{*one, *two, *three}
 
 	err := s.Env.AdoptResources(context.NewCloudCallContext(), "target-uuid", version.MustParse("3.4.5"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
-	s.BaseSuite.Client.CheckCall(c, 0, "Instances", "juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"})
+	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
 	s.BaseSuite.Client.CheckCall(
 		c, 1, "UpdateContainerConfig", "smoosh", map[string]string{"user.juju-controller-uuid": "target-uuid"})
 	s.BaseSuite.Client.CheckCall(
@@ -144,20 +175,37 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 }
 
 func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
-	one := s.NewRawInstance(c, "smoosh")
-	two := s.NewRawInstance(c, "guild-league")
-	three := s.NewRawInstance(c, "tall-dwarfs")
-	s.Client.Insts = []lxdclient.Instance{*one, *two, *three}
+	one := s.NewContainer(c, "smoosh")
+	two := s.NewContainer(c, "guild-league")
+	three := s.NewContainer(c, "tall-dwarfs")
+	s.Client.Containers = []containerlxd.Container{*one, *two, *three}
 	s.Client.SetErrors(nil, nil, errors.New("blammo"))
 
 	err := s.Env.AdoptResources(context.NewCloudCallContext(), "target-uuid", version.MustParse("5.3.3"))
 	c.Assert(err, gc.ErrorMatches, `failed to update controller for some instances: \[guild-league\]`)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
-	s.BaseSuite.Client.CheckCall(c, 0, "Instances", "juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"})
+	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
 	s.BaseSuite.Client.CheckCall(
 		c, 1, "UpdateContainerConfig", "smoosh", map[string]string{"user.juju-controller-uuid": "target-uuid"})
 	s.BaseSuite.Client.CheckCall(
 		c, 2, "UpdateContainerConfig", "guild-league", map[string]string{"user.juju-controller-uuid": "target-uuid"})
 	s.BaseSuite.Client.CheckCall(
 		c, 3, "UpdateContainerConfig", "tall-dwarfs", map[string]string{"user.juju-controller-uuid": "target-uuid"})
+}
+
+func (s *environInstSuite) TestAdoptResourcesInvalidResources(c *gc.C) {
+	var invalidCred = false
+	// allInstances will ultimately return the error.
+	s.Client.Stub.SetErrors(errTestUnAuth)
+
+	err := s.Env.AdoptResources(&context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			invalidCred = true
+			return nil
+		},
+	}, "target-uuid", version.MustParse("3.4.5"))
+
+	c.Check(err, gc.ErrorMatches, ".*not authorized")
+	c.Assert(invalidCred, jc.IsTrue)
+	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
 }

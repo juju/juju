@@ -357,13 +357,17 @@ func refreshImageCache(cli common.OCIComputeClient, compartmentID *string) (*Ima
 		}
 		img, err := NewInstanceImage(val, compartmentID)
 		if err != nil {
-			logger.Warningf("error parsing image %v: %q", val.Id, err)
+			if val.Id != nil {
+				logger.Debugf("error parsing image %q: %q", *val.Id, err)
+			} else {
+				logger.Debugf("error parsing image %q", err)
+			}
 			continue
 		}
 		img.SetInstanceTypes(instTypes)
 		images[img.Series] = append(images[img.Series], img)
 	}
-	for v, _ := range images {
+	for v := range images {
 		sort.Sort(byVersion(images[v]))
 	}
 	globalImageCache = &ImageCache{

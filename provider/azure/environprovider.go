@@ -5,15 +5,16 @@ package azure
 
 import (
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
 const (
@@ -171,7 +172,7 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 // verify the configured credentials. If verification fails, a user-friendly
 // error will be returned, and the original error will be logged at debug
 // level.
-var verifyCredentials = func(e *azureEnviron) error {
+var verifyCredentials = func(e *azureEnviron, ctx context.ProviderCallContext) error {
 	// TODO(axw) user-friendly error message
-	return e.authorizer.refresh()
+	return errorutils.HandleCredentialError(e.authorizer.refresh(), ctx)
 }

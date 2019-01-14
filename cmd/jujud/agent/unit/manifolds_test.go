@@ -119,9 +119,9 @@ type fakeAgent struct {
 
 var expectedUnitManifoldsWithDependencies = map[string][]string{
 
-	"agent": []string{},
+	"agent": {},
 
-	"api-address-updater": []string{
+	"api-address-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -132,11 +132,11 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"api-caller": []string{"agent", "api-config-watcher"},
+	"api-caller": {"agent", "api-config-watcher"},
 
-	"api-config-watcher": []string{"agent"},
+	"api-config-watcher": {"agent"},
 
-	"charm-dir": []string{
+	"charm-dir": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -147,7 +147,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"hook-retry-strategy": []string{
+	"hook-retry-strategy": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -158,7 +158,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"leadership-tracker": []string{
+	"leadership-tracker": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -169,9 +169,9 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"log-sender": []string{"agent", "api-caller", "api-config-watcher"},
+	"log-sender": {"agent", "api-caller", "api-config-watcher"},
 
-	"logging-config-updater": []string{
+	"logging-config-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -182,7 +182,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"meter-status": []string{
+	"meter-status": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -193,7 +193,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"metric-collect": []string{
+	"metric-collect": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -206,7 +206,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"metric-sender": []string{
+	"metric-sender": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -218,7 +218,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"metric-spool": []string{
+	"metric-spool": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -229,18 +229,18 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"migration-fortress": []string{
+	"migration-fortress": {
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"migration-inactive-flag": []string{
+	"migration-inactive-flag": {
 		"agent",
 		"api-caller",
 		"api-config-watcher"},
 
-	"migration-minion": []string{
+	"migration-minion": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -250,7 +250,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"proxy-config-updater": []string{
+	"proxy-config-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -261,7 +261,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"uniter": []string{
+	"uniter": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -275,21 +275,21 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"upgrade-check-flag": []string{"upgrade-check-gate"},
+	"upgrade-check-flag": {"upgrade-check-gate"},
 
-	"upgrade-check-gate": []string{},
+	"upgrade-check-gate": {},
 
-	"upgrade-steps-flag": []string{"upgrade-steps-gate"},
+	"upgrade-steps-flag": {"upgrade-steps-gate"},
 
-	"upgrade-steps-gate": []string{},
+	"upgrade-steps-gate": {},
 
-	"upgrade-steps-runner": []string{
+	"upgrade-steps-runner": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
 		"upgrade-steps-gate"},
 
-	"upgrader": []string{
+	"upgrader": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

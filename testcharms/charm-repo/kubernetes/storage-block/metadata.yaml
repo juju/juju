@@ -1,0 +1,12 @@
+name: storage-block
+summary: A charm needing block storage
+description: See above
+storage:
+    data:
+        type: block
+    allecto:
+        type: block
+        multiple:
+                range: 0+
+series:
+  - kubernetes

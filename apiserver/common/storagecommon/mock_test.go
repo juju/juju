@@ -16,14 +16,15 @@ import (
 
 type fakeStorage struct {
 	testing.Stub
-	storagecommon.StorageInterface
-	storageInstance        func(names.StorageTag) (state.StorageInstance, error)
-	storageInstanceVolume  func(names.StorageTag) (state.Volume, error)
-	volumeAttachment       func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
-	blockDevices           func(names.MachineTag) ([]state.BlockDeviceInfo, error)
-	watchVolumeAttachment  func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
-	watchBlockDevices      func(names.MachineTag) state.NotifyWatcher
-	watchStorageAttachment func(names.StorageTag, names.UnitTag) state.NotifyWatcher
+	storagecommon.StorageAccess
+	storagecommon.FilesystemAccess
+	storageInstance           func(names.StorageTag) (state.StorageInstance, error)
+	storageInstanceVolume     func(names.StorageTag) (state.Volume, error)
+	storageInstanceFilesystem func(names.StorageTag) (state.Filesystem, error)
+	volumeAttachment          func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
+	volumeAttachmentPlan      func(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error)
+	filesystemAttachment      func(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)
+	blockDevices              func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
 
 func (s *fakeStorage) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
@@ -36,9 +37,14 @@ func (s *fakeStorage) StorageInstanceVolume(tag names.StorageTag) (state.Volume,
 	return s.storageInstanceVolume(tag)
 }
 
-func (s *fakeStorage) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (state.VolumeAttachment, error) {
+func (s *fakeStorage) VolumeAttachment(m names.Tag, v names.VolumeTag) (state.VolumeAttachment, error) {
 	s.MethodCall(s, "VolumeAttachment", m, v)
 	return s.volumeAttachment(m, v)
+}
+
+func (s *fakeStorage) VolumeAttachmentPlan(host names.Tag, volume names.VolumeTag) (state.VolumeAttachmentPlan, error) {
+	s.MethodCall(s, "VolumeAttachmentPlan", host, volume)
+	return s.volumeAttachmentPlan(host, volume)
 }
 
 func (s *fakeStorage) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, error) {
@@ -46,19 +52,14 @@ func (s *fakeStorage) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo,
 	return s.blockDevices(m)
 }
 
-func (s *fakeStorage) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
-	s.MethodCall(s, "WatchVolumeAttachment", m, v)
-	return s.watchVolumeAttachment(m, v)
+func (s *fakeStorage) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
+	s.MethodCall(s, "StorageInstanceFilesystem", tag)
+	return s.storageInstanceFilesystem(tag)
 }
 
-func (s *fakeStorage) WatchBlockDevices(m names.MachineTag) state.NotifyWatcher {
-	s.MethodCall(s, "WatchBlockDevices", m)
-	return s.watchBlockDevices(m)
-}
-
-func (s *fakeStorage) WatchStorageAttachment(st names.StorageTag, u names.UnitTag) state.NotifyWatcher {
-	s.MethodCall(s, "WatchStorageAttachment", st, u)
-	return s.watchStorageAttachment(st, u)
+func (s *fakeStorage) FilesystemAttachment(m names.Tag, fs names.FilesystemTag) (state.FilesystemAttachment, error) {
+	s.MethodCall(s, "FilesystemAttachment", m, fs)
+	return s.filesystemAttachment(m, fs)
 }
 
 type fakeStorageInstance struct {
@@ -134,6 +135,19 @@ func (v *fakeVolumeAttachment) Info() (state.VolumeAttachmentInfo, error) {
 	return *v.info, nil
 }
 
+type fakeVolumeAttachmentPlan struct {
+	state.VolumeAttachmentPlan
+	blockInfo *state.BlockDeviceInfo
+	err       error
+}
+
+func (p *fakeVolumeAttachmentPlan) BlockDeviceInfo() (state.BlockDeviceInfo, error) {
+	if p.blockInfo == nil {
+		return state.BlockDeviceInfo{}, p.err
+	}
+	return *p.blockInfo, p.err
+}
+
 type fakePoolManager struct {
 	poolmanager.PoolManager
 }
@@ -142,6 +156,43 @@ func (pm *fakePoolManager) Get(name string) (*storage.Config, error) {
 	return nil, errors.NotFoundf("pool")
 }
 
-type nopSyncStarter struct{}
+type fakeFilesystem struct {
+	state.Filesystem
+	tag    names.FilesystemTag
+	params *state.FilesystemParams
+	info   *state.FilesystemInfo
+}
 
-func (nopSyncStarter) StartSync() {}
+func (v *fakeFilesystem) FilesystemTag() names.FilesystemTag {
+	return v.tag
+}
+
+func (v *fakeFilesystem) Tag() names.Tag {
+	return v.tag
+}
+
+func (v *fakeFilesystem) Params() (state.FilesystemParams, bool) {
+	if v.params == nil {
+		return state.FilesystemParams{}, false
+	}
+	return *v.params, true
+}
+
+func (v *fakeFilesystem) Info() (state.FilesystemInfo, error) {
+	if v.info == nil {
+		return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem %v", v.tag.Id())
+	}
+	return *v.info, nil
+}
+
+type fakeFilesystemAttachment struct {
+	state.FilesystemAttachment
+	info *state.FilesystemAttachmentInfo
+}
+
+func (v *fakeFilesystemAttachment) Info() (state.FilesystemAttachmentInfo, error) {
+	if v.info == nil {
+		return state.FilesystemAttachmentInfo{}, errors.NotProvisionedf("filesystem attachment")
+	}
+	return *v.info, nil
+}

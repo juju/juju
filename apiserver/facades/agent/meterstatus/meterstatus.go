@@ -21,17 +21,36 @@ type MeterStatus interface {
 	WatchMeterStatus(args params.Entities) (params.NotifyWatchResults, error)
 }
 
+// MeterStatusState represents the state of an model required by the MeterStatus.
+//go:generate mockgen -package mocks -destination mocks/meterstatus_mock.go github.com/juju/juju/apiserver/facades/agent/meterstatus MeterStatusState
+type MeterStatusState interface {
+
+	// Application returns a application state by name.
+	Application(name string) (*state.Application, error)
+
+	// Unit returns a unit by name.
+	Unit(id string) (*state.Unit, error)
+}
+
 // MeterStatusAPI implements the MeterStatus interface and is the concrete implementation
 // of the API endpoint.
 type MeterStatusAPI struct {
-	state      *state.State
+	state      MeterStatusState
 	accessUnit common.GetAuthFunc
 	resources  facade.Resources
 }
 
+// NewMeterStatusFacade provides the signature required for facade registration.
+func NewMeterStatusFacade(ctx facade.Context) (*MeterStatusAPI, error) {
+	authorizer := ctx.Auth()
+	resources := ctx.Resources()
+	return NewMeterStatusAPI(ctx.State(), resources, authorizer)
+}
+
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
+//go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
 func NewMeterStatusAPI(
-	st *state.State,
+	st MeterStatusState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*MeterStatusAPI, error) {
@@ -90,7 +109,7 @@ func (m *MeterStatusAPI) WatchMeterStatus(args params.Entities) (params.NotifyWa
 			continue
 		}
 		err = common.ErrPerm
-		watcherId := ""
+		var watcherId string
 		if canAccess(tag) {
 			watcherId, err = m.watchOneUnitMeterStatus(tag)
 		}

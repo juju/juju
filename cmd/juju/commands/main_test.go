@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
+	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -40,15 +42,25 @@ type MainSuite struct {
 
 var _ = gc.Suite(&MainSuite{})
 
+func helpText(command cmd.Command, name string) string {
+	buff := &bytes.Buffer{}
+	info := command.Info()
+	info.Name = name
+	f := gnuflag.NewFlagSetWithFlagKnownAs(info.Name, gnuflag.ContinueOnError, cmd.FlagAlias(command, "option"))
+	command.SetFlags(f)
+	buff.Write(info.Help(f))
+	return buff.String()
+}
+
 func deployHelpText() string {
-	return cmdtesting.HelpText(application.NewDeployCommand(), "juju deploy")
+	return helpText(application.NewDeployCommand(), "juju deploy")
 }
 func configHelpText() string {
-	return cmdtesting.HelpText(application.NewConfigCommand(), "juju config")
+	return helpText(application.NewConfigCommand(), "juju config")
 }
 
 func syncToolsHelpText() string {
-	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-agent-binaries")
+	return helpText(newSyncToolsCommand(), "juju sync-agent-binaries")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -104,17 +116,17 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "unknown option before command",
 		args:    []string{"--cheese", "bootstrap"},
 		code:    2,
-		out:     "ERROR flag provided but not defined: --cheese\n",
+		out:     "ERROR option provided but not defined: --cheese\n",
 	}, {
 		summary: "unknown option after command",
 		args:    []string{"bootstrap", "--cheese"},
 		code:    2,
-		out:     "ERROR flag provided but not defined: --cheese\n",
+		out:     "ERROR option provided but not defined: --cheese\n",
 	}, {
 		summary: "known option, but specified before command",
 		args:    []string{"--model", "blah", "bootstrap"},
 		code:    2,
-		out:     "ERROR flag provided but not defined: --model\n",
+		out:     "ERROR option provided but not defined: --model\n",
 	}, {
 		summary: "juju sync-agent-binaries registered properly",
 		args:    []string{"sync-agent-binaries", "--help"},
@@ -143,6 +155,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: cannot read env file on windows because of suite problems")
 	}
+	s.PatchEnvironment(osenv.JujuControllerEnvKey, "current-controller")
 	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
@@ -432,6 +445,7 @@ var commandNames = []string{
 	"destroy-controller",
 	"destroy-model",
 	"detach-storage",
+	"diff-bundle",
 	"disable-command",
 	"disable-user",
 	"disabled-commands",
@@ -447,6 +461,7 @@ var commandNames = []string{
 	"get-constraints",
 	"get-model-constraints",
 	"grant",
+	"grant-cloud",
 	"gui",
 	"help",
 	"help-tool",
@@ -518,9 +533,12 @@ var commandNames = []string{
 	"resume-relation",
 	"retry-provisioning",
 	"revoke",
+	"revoke-cloud",
 	"run",
 	"run-action",
+	"scale-application",
 	"scp",
+	"set-credential",
 	"set-constraints",
 	"set-default-credential",
 	"set-default-region",
@@ -528,6 +546,7 @@ var commandNames = []string{
 	"set-meter-status",
 	"set-model-constraints",
 	"set-plan",
+	"set-series",
 	"set-wallet",
 	"show-action-output",
 	"show-action-status",
@@ -561,11 +580,11 @@ var commandNames = []string{
 	"unregister",
 	"update-clouds",
 	"update-credential",
-	"update-series",
 	"upgrade-charm",
 	"upgrade-gui",
 	"upgrade-juju",
 	"upgrade-model",
+	"upgrade-series",
 	"upload-backup",
 	"users",
 	"version",

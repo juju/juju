@@ -6,7 +6,6 @@ package httpserver
 import (
 	"crypto/tls"
 	"net"
-	"net/http"
 	"strings"
 
 	"github.com/juju/errors"
@@ -19,25 +18,24 @@ import (
 
 // NewTLSConfig returns the TLS configuration for the HTTP server to use
 // based on controller configuration stored in the state database.
-func NewTLSConfig(st *state.State, getCertificate func() *tls.Certificate) (*tls.Config, http.Handler, error) {
+func NewTLSConfig(st *state.State, getCertificate func() *tls.Certificate) (*tls.Config, error) {
 	controllerConfig, err := st.ControllerConfig()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	tlsConfig, handler := newTLSConfig(
+	return newTLSConfig(
 		controllerConfig.AutocertDNSName(),
 		controllerConfig.AutocertURL(),
 		st.AutocertCache(),
 		getCertificate,
-	)
-	return tlsConfig, handler, nil
+	), nil
 }
 
 func newTLSConfig(
 	autocertDNSName, autocertURL string,
 	autocertCache autocert.Cache,
 	getLocalCertificate func() *tls.Certificate,
-) (*tls.Config, http.Handler) {
+) *tls.Config {
 	// localCertificate calls getLocalCertificate, returning the result
 	// and reporting whether it should be used to serve a connection
 	// addressed to the given server name.
@@ -70,7 +68,7 @@ func newTLSConfig(
 			cert, _ := localCertificate(clientHello.ServerName)
 			return cert, nil
 		}
-		return tlsConfig, nil
+		return tlsConfig
 	}
 	m := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
@@ -98,5 +96,9 @@ func newTLSConfig(
 		logger.Errorf("cannot get autocert certificate for %q: %v", clientHello.ServerName, err)
 		return cert, nil
 	}
-	return tlsConfig, m.HTTPHandler(nil)
+	tlsConfig.NextProtos = []string{
+		"h2", "http/1.1", // Enable HTTP/2.
+		acme.ALPNProto, // Enable TLS-ALPN ACME challenges.
+	}
+	return tlsConfig
 }

@@ -14,13 +14,13 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 // MaintainInstance is specified in the InstanceBroker interface.
@@ -29,9 +29,9 @@ func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	// Start a new instance.
-
+func (env *environ) StartInstance(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) (*environs.StartInstanceResult, error) {
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, series)
 
@@ -40,15 +40,16 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 		return nil, errors.Trace(err)
 	}
 
-	raw, err := env.newRawInstance(args, arch)
+	container, err := env.newContainer(ctx, args, arch)
 	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		if args.StatusCallback != nil {
 			args.StatusCallback(status.ProvisioningError, err.Error(), nil)
 		}
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("started instance %q", raw.Name)
-	inst := newInstance(raw, env)
+	logger.Infof("started instance %q", container.Name)
+	inst := newInstance(container, env)
 
 	// Build the result.
 	hwc := env.getHardwareCharacteristics(args, inst)
@@ -60,10 +61,7 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 }
 
 func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (string, error) {
-	// TODO(natefinch): This is only correct so long as the lxd is running on
-	// the local machine.  If/when we support a remote lxd environment, we'll
-	// need to change this to match the arch of the remote machine.
-	arch := arch.HostArch()
+	arch := env.server.HostArch()
 	tools, err := args.Tools.Match(tools.Filter{Arch: arch})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -77,55 +75,14 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 	return arch, nil
 }
 
-func (env *environ) getImageSources() ([]lxd.RemoteServer, error) {
-	metadataSources, err := environs.ImageMetadataSources(env)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	remotes := make([]lxd.RemoteServer, 0)
-	for _, source := range metadataSources {
-		url, err := source.URL("")
-		if err != nil {
-			logger.Debugf("failed to get the URL for metadataSource: %s", err)
-			continue
-		}
-		// NOTE(jam) LXD only allows you to pass HTTPS URLs. So strip
-		// off http:// and replace it with https://
-		// Arguably we could give the user a direct error if
-		// env.ImageMetadataURL is http instead of https, but we also
-		// get http from the DefaultImageSources, which is why we
-		// replace it.
-		// TODO(jam) Maybe we could add a Validate step that ensures
-		// image-metadata-url is an "https://" URL, so that Users get a
-		// "your configuration is wrong" error, rather than silently
-		// changing it and having them get confused.
-		// https://github.com/lxc/lxd/issues/1763
-		if strings.HasPrefix(url, "http://") {
-			url = strings.TrimPrefix(url, "http://")
-			url = "https://" + url
-			logger.Debugf("LXD requires https://, using: %s", url)
-		}
-		remotes = append(remotes, lxd.RemoteServer{
-			Name:     source.Description(),
-			Host:     url,
-			Protocol: lxd.SimpleStreamsProtocol,
-		})
-	}
-	return remotes, nil
-}
-
-// newRawInstance is where the new physical instance is actually
+// newContainer is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(
+func (env *environ) newContainer(
+	ctx context.ProviderCallContext,
 	args environs.StartInstanceParams,
 	arch string,
-) (*lxdclient.Instance, error) {
-	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+) (*lxd.Container, error) {
 	// Note: other providers have the ImageMetadata already read for them
 	// and passed in as args.ImageMetadata. However, lxd provider doesn't
 	// use datatype: image-ids, it uses datatype: image-download, and we
@@ -157,106 +114,180 @@ func (env *environ) newRawInstance(
 	}
 	defer cleanupCallback()
 
-	statusCallback(status.Allocating, "acquiring LXD image", nil)
-	series := args.InstanceConfig.Series
-	image, err := env.raw.FindImage(series, arch, imageSources, true, statusCallback)
+	target, err := env.getTargetServer(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	image, err := target.FindImage(args.InstanceConfig.Series, arch, imageSources, true, statusCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cleanupCallback() // Clean out any long line of completed download status
 
-	cloudcfg, err := cloudinit.New(series)
+	cSpec, err := env.getContainerSpec(image, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	metadata, err := getMetadata(cloudcfg, args)
+	statusCallback(status.Allocating, "Creating container", nil)
+	container, err := target.CreateContainerFromSpec(cSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	// TODO(ericsnow) Use the env ID for the network name (instead of default)?
-	// TODO(ericsnow) Make the network name configurable?
-	// TODO(ericsnow) Support multiple networks?
-	// TODO(ericsnow) Use a different net interface name? Configurable?
-	instSpec := lxdclient.InstanceSpec{
-		Name: hostname,
-		//Type:              spec.InstanceType.Name,
-		//Disks:             getDisks(spec, args.Constraints),
-		//NetworkInterfaces: []string{"ExternalNAT"},
-		Metadata: metadata,
-		Profiles: []string{
-			//TODO(wwitzel3) allow the user to specify lxc profiles to apply. This allows the
-			// user to setup any custom devices order config settings for their environment.
-			// Also we must ensure that a device with the parent: lxcbr0 exists in at least
-			// one of the profiles.
-			"default",
-			env.profileName(),
-		},
-		ImageData: image,
-		// Network is omitted (left empty).
-	}
-
-	if args.Constraints.HasInstanceType() {
-		instSpec.InstanceType = *args.Constraints.InstanceType
-	}
-
-	logger.Infof("starting instance %q (image %q)...", instSpec.Name, instSpec.Image)
-
-	statusCallback(status.Allocating, "preparing image", nil)
-	inst, err := env.raw.AddInstance(instSpec)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	statusCallback(status.Running, "container started", nil)
-	return inst, nil
+	statusCallback(status.Running, "Container started", nil)
+	return container, nil
 }
 
-// getMetadata builds the raw "user-defined" metadata for the new
-// instance (relative to the provided args) and returns it.
-func getMetadata(cloudcfg cloudinit.CloudConfig, args environs.StartInstanceParams) (map[string]string, error) {
-	renderer := lxdRenderer{}
-	uncompressed, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, renderer)
+func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
+	metadataSources, err := environs.ImageMetadataSources(env)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot make user data")
+		return nil, errors.Trace(err)
 	}
-	logger.Debugf("LXD user data; %d bytes", len(uncompressed))
+	remotes := make([]lxd.ServerSpec, 0)
+	for _, source := range metadataSources {
+		url, err := source.URL("")
+		if err != nil {
+			logger.Debugf("failed to get the URL for metadataSource: %s", err)
+			continue
+		}
+		// NOTE(jam) LXD only allows you to pass HTTPS URLs. So strip
+		// off http:// and replace it with https://
+		// Arguably we could give the user a direct error if
+		// env.ImageMetadataURL is http instead of https, but we also
+		// get http from the DefaultImageSources, which is why we
+		// replace it.
+		// TODO(jam) Maybe we could add a Validate step that ensures
+		// image-metadata-url is an "https://" URL, so that Users get a
+		// "your configuration is wrong" error, rather than silently
+		// changing it and having them get confused.
+		// https://github.com/lxc/lxd/issues/1763
+		remotes = append(remotes, lxd.MakeSimpleStreamsServerSpec(source.Description(), url))
+	}
+	return remotes, nil
+}
+
+// getContainerSpec builds a container spec from the input container image and
+// start-up parameters.
+// Cloud-init config is generated based on the network devices in the default
+// profile and included in the spec config.
+func (env *environ) getContainerSpec(
+	image lxd.SourcedImage, args environs.StartInstanceParams,
+) (lxd.ContainerSpec, error) {
+	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
+	if err != nil {
+		return lxd.ContainerSpec{}, errors.Trace(err)
+	}
+	cSpec := lxd.ContainerSpec{
+		Name:     hostname,
+		Profiles: append([]string{"default", env.profileName()}, args.CharmLXDProfiles...),
+		Image:    image,
+		Config:   make(map[string]string),
+	}
+	cSpec.ApplyConstraints(args.Constraints)
+
+	cloudCfg, err := cloudinit.New(args.InstanceConfig.Series)
+	if err != nil {
+		return cSpec, errors.Trace(err)
+	}
+
+	// Check to see if there are any non-eth0 devices in the default profile.
+	// If there are, we need cloud-init to configure them, and we need to
+	// explicitly add them to the container spec.
+	nics, err := env.server.GetNICsFromProfile("default")
+	if err != nil {
+		return cSpec, errors.Trace(err)
+	}
+	if !(len(nics) == 1 && nics["eth0"] != nil) {
+		logger.Debugf("generating custom cloud-init networking")
+
+		cSpec.Config[lxd.NetworkConfigKey] = cloudinit.CloudInitNetworkConfigDisabled
+
+		info, err := lxd.InterfaceInfoFromDevices(nics)
+		if err != nil {
+			return cSpec, errors.Trace(err)
+		}
+		if err := cloudCfg.AddNetworkConfig(info); err != nil {
+			return cSpec, errors.Trace(err)
+		}
+
+		cSpec.Devices = nics
+	}
+
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudCfg, lxdRenderer{})
+	if err != nil {
+		return cSpec, errors.Annotate(err, "composing user data")
+	}
+	logger.Debugf("LXD user data; %d bytes", len(userData))
 
 	// TODO(ericsnow) Looks like LXD does not handle gzipped userdata
 	// correctly.  It likely has to do with the HTTP transport, much
 	// as we have to b64encode the userdata for GCE.  Until that is
 	// resolved we simply pass the plain text.
-	//compressed := utils.Gzip(compressed)
-	userdata := string(uncompressed)
+	//cfg[lxd.UserDataKey] = utils.Gzip(userData)
+	cSpec.Config[lxd.UserDataKey] = string(userData)
 
-	metadata := map[string]string{
-		// store the cloud-config userdata for cloud-init.
-		metadataKeyCloudInit: userdata,
-	}
 	for k, v := range args.InstanceConfig.Tags {
 		if !strings.HasPrefix(k, tags.JujuTagPrefix) {
-			// Since some metadata is interpreted by LXD,
-			// we cannot allow arbitrary tags to be passed
-			// in by the user. We currently only pass through
-			// Juju-defined tags.
-			//
-			// TODO(axw) 2016-04-11 #1568666
-			// We should reject non-juju tags in config validation.
+			// Since some metadata is interpreted by LXD, we cannot allow
+			// arbitrary tags to be passed in by the user.
+			// We currently only pass through Juju-defined tags.
 			logger.Debugf("ignoring non-juju tag: %s=%s", k, v)
 			continue
 		}
-		metadata[k] = v
+		cSpec.Config[lxd.UserNamespacePrefix+k] = v
 	}
 
-	cons := args.Constraints
-	if cons.HasCpuCores() {
-		metadata["limits.cpu"] = fmt.Sprintf("%d", *cons.CpuCores)
-	}
-	if cons.HasMem() {
-		metadata["limits.memory"] = fmt.Sprintf("%dMB", *cons.Mem)
+	return cSpec, nil
+}
+
+// getTargetServer checks to see if a valid zone was passed as a placement
+// directive in the start-up start-up arguments. If so, a server for the
+// specific node is returned.
+func (env *environ) getTargetServer(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) (Server, error) {
+	p, err := env.parsePlacement(ctx, args.Placement)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	return metadata, nil
+	if p.nodeName == "" {
+		return env.server, nil
+	}
+	return env.server.UseTargetServer(p.nodeName)
+}
+
+type lxdPlacement struct {
+	nodeName string
+}
+
+func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*lxdPlacement, error) {
+	if placement == "" {
+		return &lxdPlacement{}, nil
+	}
+
+	var node string
+	pos := strings.IndexRune(placement, '=')
+	// Assume that a plain string is a node name.
+	if pos == -1 {
+		node = placement
+	} else {
+		if placement[:pos] != "zone" {
+			return nil, fmt.Errorf("unknown placement directive: %v", placement)
+		}
+		node = placement[pos+1:]
+	}
+
+	if node == "" {
+		return &lxdPlacement{}, nil
+	}
+
+	if err := common.ValidateAvailabilityZone(env, ctx, node); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &lxdPlacement{nodeName: node}, nil
 }
 
 // getHardwareCharacteristics compiles hardware-related details about
@@ -264,15 +295,14 @@ func getMetadata(cloudcfg cloudinit.CloudConfig, args environs.StartInstancePara
 func (env *environ) getHardwareCharacteristics(
 	args environs.StartInstanceParams, inst *environInstance,
 ) *instance.HardwareCharacteristics {
-	raw := inst.raw.Hardware
+	container := inst.container
 
-	archStr := raw.Architecture
+	archStr := container.Arch()
 	if archStr == "unknown" || !arch.IsSupportedArch(archStr) {
-		// TODO(ericsnow) This special-case should be improved.
-		archStr = arch.HostArch()
+		archStr = env.server.HostArch()
 	}
-	cores := uint64(raw.NumCores)
-	mem := uint64(raw.MemoryMB)
+	cores := uint64(container.CPUs())
+	mem := uint64(container.Mem())
 	return &instance.HardwareCharacteristics{
 		Arch:     &archStr,
 		CpuCores: &cores,
@@ -295,11 +325,20 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.In
 
 // StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.Id) error {
-	var ids []string
-	for _, id := range instances {
-		ids = append(ids, string(id))
-	}
 	prefix := env.namespace.Prefix()
-	err := env.raw.RemoveInstances(prefix, ids...)
+	var names []string
+	for _, id := range instances {
+		name := string(id)
+		if strings.HasPrefix(name, prefix) {
+			names = append(names, name)
+		} else {
+			logger.Warningf("ignoring request to stop container %q - not in namespace %q", name, prefix)
+		}
+	}
+
+	err := env.server.RemoveContainers(names)
+	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+	}
 	return errors.Trace(err)
 }

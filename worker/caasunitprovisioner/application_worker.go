@@ -7,16 +7,14 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 )
 
 type applicationWorker struct {
@@ -25,38 +23,32 @@ type applicationWorker struct {
 	serviceBroker   ServiceBroker
 	containerBroker ContainerBroker
 
-	provisioningInfoGetter ProvisioningInfoGetter
-	lifeGetter             LifeGetter
-	applicationGetter      ApplicationGetter
-	applicationUpdater     ApplicationUpdater
-	unitGetter             UnitGetter
-	unitUpdater            UnitUpdater
-
-	aliveUnitsChan chan []string
+	provisioningStatusSetter ProvisioningStatusSetter
+	provisioningInfoGetter   ProvisioningInfoGetter
+	applicationGetter        ApplicationGetter
+	applicationUpdater       ApplicationUpdater
+	unitUpdater              UnitUpdater
 }
 
 func newApplicationWorker(
 	application string,
 	serviceBroker ServiceBroker,
 	containerBroker ContainerBroker,
+	provisioningStatusSetter ProvisioningStatusSetter,
 	provisioningInfoGetter ProvisioningInfoGetter,
-	lifeGetter LifeGetter,
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
-	unitGetter UnitGetter,
 	unitUpdater UnitUpdater,
 ) (*applicationWorker, error) {
 	w := &applicationWorker{
-		application:            application,
-		serviceBroker:          serviceBroker,
-		containerBroker:        containerBroker,
-		provisioningInfoGetter: provisioningInfoGetter,
-		lifeGetter:             lifeGetter,
-		applicationGetter:      applicationGetter,
-		applicationUpdater:     applicationUpdater,
-		unitGetter:             unitGetter,
-		unitUpdater:            unitUpdater,
-		aliveUnitsChan:         make(chan []string),
+		application:              application,
+		serviceBroker:            serviceBroker,
+		containerBroker:          containerBroker,
+		provisioningStatusSetter: provisioningStatusSetter,
+		provisioningInfoGetter:   provisioningInfoGetter,
+		applicationGetter:        applicationGetter,
+		applicationUpdater:       applicationUpdater,
+		unitUpdater:              unitUpdater,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -78,34 +70,32 @@ func (aw *applicationWorker) Wait() error {
 }
 
 func (aw *applicationWorker) loop() error {
-	jujuUnitsWatcher, err := aw.unitGetter.WatchUnits(aw.application)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	aw.catacomb.Add(jujuUnitsWatcher)
-
 	deploymentWorker, err := newDeploymentWorker(
 		aw.application,
+		aw.provisioningStatusSetter,
 		aw.serviceBroker,
 		aw.provisioningInfoGetter,
 		aw.applicationGetter,
 		aw.applicationUpdater,
-		aw.aliveUnitsChan)
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	aw.catacomb.Add(deploymentWorker)
-	aliveUnits := set.NewStrings()
+
 	var (
-		aliveUnitsChan     chan []string
 		brokerUnitsWatcher watcher.NotifyWatcher
+		appOperatorWatcher watcher.NotifyWatcher
 	)
-	// The caas watcher can just die from underneath us hence it needs to be
+	// The caas watcher can just die from underneath hence it needs to be
 	// restarted all the time. So we don't abuse the catacomb by adding new
-	// workers unbounded, use use a defer to stop the running worker.
+	// workers unbounded, use a defer to stop the running worker.
 	defer func() {
 		if brokerUnitsWatcher != nil {
 			worker.Stop(brokerUnitsWatcher)
+		}
+		if appOperatorWatcher != nil {
+			worker.Stop(appOperatorWatcher)
 		}
 	}()
 
@@ -114,7 +104,7 @@ func (aw *applicationWorker) loop() error {
 	lastReportedStatus := make(map[string]status.StatusInfo)
 
 	for {
-		// The caas watcher can just die from underneath us so recreate if needed.
+		// The caas watcher can just die from underneath so recreate if needed.
 		if brokerUnitsWatcher == nil {
 			brokerUnitsWatcher, err = aw.containerBroker.WatchUnits(aw.application)
 			if err != nil {
@@ -125,17 +115,26 @@ func (aw *applicationWorker) loop() error {
 				return errors.Annotatef(err, "failed to start unit watcher for %q", aw.application)
 			}
 		}
+		if appOperatorWatcher == nil {
+			appOperatorWatcher, err = aw.containerBroker.WatchOperator(aw.application)
+			if err != nil {
+				if strings.Contains(err.Error(), "unexpected EOF") {
+					logger.Warningf("k8s cloud hosting %q has disappeared", aw.application)
+					return nil
+				}
+				return errors.Annotatef(err, "failed to start operator watcher for %q", aw.application)
+			}
+		}
+
 		select {
 		// We must handle any processing due to application being removed prior
 		// to shutdown so that we don't leave stuff running in the cloud.
 		case <-aw.catacomb.Dying():
 			return aw.catacomb.ErrDying()
-		case aliveUnitsChan <- aliveUnits.Values():
-			aliveUnitsChan = nil
 		case _, ok := <-brokerUnitsWatcher.Changes():
 			logger.Debugf("units changed: %#v", ok)
 			if !ok {
-				logger.Warningf("%v", brokerUnitsWatcher.Wait())
+				logger.Debugf("%v", brokerUnitsWatcher.Wait())
 				worker.Stop(brokerUnitsWatcher)
 				brokerUnitsWatcher = nil
 				continue
@@ -166,15 +165,40 @@ func (aw *applicationWorker) loop() error {
 						}
 					}
 				}
-				args.Units = append(args.Units, params.ApplicationUnitParams{
+				unitParams := params.ApplicationUnitParams{
 					ProviderId: u.Id,
-					UnitTag:    u.UnitTag,
 					Address:    u.Address,
 					Ports:      u.Ports,
 					Status:     unitStatus.Status.String(),
 					Info:       unitStatus.Message,
 					Data:       unitStatus.Data,
-				})
+				}
+				// Fill in any filesystem info for volumes attached to the unit.
+				// A unit will not become active until all required volumes are
+				// provisioned, so it makes sense to send this information along
+				// with the units to which they are attached.
+				for _, info := range u.FilesystemInfo {
+					unitParams.FilesystemInfo = append(unitParams.FilesystemInfo, params.KubernetesFilesystemInfo{
+						StorageName:  info.StorageName,
+						FilesystemId: info.FilesystemId,
+						Size:         info.Size,
+						MountPoint:   info.MountPoint,
+						ReadOnly:     info.ReadOnly,
+						Status:       info.Status.Status.String(),
+						Info:         info.Status.Message,
+						Data:         info.Status.Data,
+						Volume: params.KubernetesVolumeInfo{
+							VolumeId:   info.Volume.VolumeId,
+							Size:       info.Volume.Size,
+							Persistent: info.Volume.Persistent,
+							Status:     info.Volume.Status.Status.String(),
+							Info:       info.Volume.Status.Message,
+							Data:       info.Volume.Status.Data,
+						},
+					})
+
+				}
+				args.Units = append(args.Units, unitParams)
 			}
 			if err := aw.unitUpdater.UpdateUnits(args); err != nil {
 				// We can ignore not found errors as the worker will get stopped anyway.
@@ -182,22 +206,28 @@ func (aw *applicationWorker) loop() error {
 					return errors.Trace(err)
 				}
 			}
-		case units, ok := <-jujuUnitsWatcher.Changes():
+		case _, ok := <-appOperatorWatcher.Changes():
 			if !ok {
-				return errors.New("watcher closed channel")
+				logger.Debugf("%v", appOperatorWatcher.Wait())
+				worker.Stop(appOperatorWatcher)
+				appOperatorWatcher = nil
+				continue
 			}
-			aliveUnitsChan = aw.aliveUnitsChan
-			for _, unitId := range units {
-				unitLife, err := aw.lifeGetter.Life(unitId)
-				if err != nil && !errors.IsNotFound(err) {
+			logger.Debugf("operator update for %v", aw.application)
+			operator, err := aw.containerBroker.Operator(aw.application)
+			if errors.IsNotFound(err) {
+				logger.Debugf("pod not found for application %q", aw.application)
+				if err := aw.provisioningStatusSetter.SetOperatorStatus(aw.application, status.Terminated, "", nil); err != nil {
 					return errors.Trace(err)
 				}
-				if errors.IsNotFound(err) || unitLife == life.Dead {
-					aliveUnits.Remove(unitId)
-				} else {
-					aliveUnits.Add(unitId)
+			} else if err != nil {
+				return errors.Trace(err)
+			} else {
+				if err := aw.provisioningStatusSetter.SetOperatorStatus(aw.application, operator.Status.Status, operator.Status.Message, operator.Status.Data); err != nil {
+					return errors.Trace(err)
 				}
 			}
 		}
+
 	}
 }

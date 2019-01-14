@@ -7,9 +7,16 @@ package internal
 //  (e.g. top-level resource pkg, charm/resource)
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
+	"io/ioutil"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/resources"
+	"gopkg.in/httprequest.v1"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/resource"
 )
@@ -33,6 +40,29 @@ func OpenResource(name string, client OpenedResourceClient) (*OpenedResource, er
 	info, reader, err := client.GetResource(name)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if info.Type == charmresource.TypeContainerImage {
+		info.Path = "content.yaml"
+		// Image data is stored as json but we need to convert to YAMl
+		// as that's what the charm expects.
+		data, err := ioutil.ReadAll(reader)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := reader.Close(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		var yamlBody resources.DockerImageDetails
+		err = json.Unmarshal(data, &yamlBody)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		yamlOut, err := yaml.Marshal(yamlBody)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		reader = httprequest.BytesReaderCloser{bytes.NewReader(yamlOut)}
+		info.Size = int64(len(yamlOut))
 	}
 	or := &OpenedResource{
 		Resource:   info,

@@ -11,8 +11,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/core/actions"

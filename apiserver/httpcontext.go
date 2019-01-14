@@ -130,7 +130,7 @@ func (ctxt *httpContext) stateAndEntityForRequestAuthenticatedUser(r *http.Reque
 func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (
 	*state.PooledState, state.Entity, error,
 ) {
-	return ctxt.stateForRequestAuthenticatedTag(r, names.MachineTagKind, names.UnitTagKind)
+	return ctxt.stateForRequestAuthenticatedTag(r, names.MachineTagKind, names.UnitTagKind, names.ApplicationTagKind)
 }
 
 // stateForRequestAuthenticatedTag checks that the request is

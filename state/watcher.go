@@ -4,10 +4,13 @@
 package state
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -19,6 +22,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
@@ -218,19 +222,21 @@ func (st *State) WatchModelLives() StringsWatcher {
 
 // WatchModelVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all model-scoped volumes.
-func (im *IAASModel) WatchModelVolumes() StringsWatcher {
-	return im.watchModelMachinestorage(volumesC)
+func (sb *storageBackend) WatchModelVolumes() StringsWatcher {
+	return sb.watchModelHostStorage(volumesC)
 }
 
 // WatchModelFilesystems returns a StringsWatcher that notifies of changes
 // to the lifecycles of all model-scoped filesystems.
-func (im *IAASModel) WatchModelFilesystems() StringsWatcher {
-	return im.watchModelMachinestorage(filesystemsC)
+func (sb *storageBackend) WatchModelFilesystems() StringsWatcher {
+	return sb.watchModelHostStorage(filesystemsC)
 }
 
-func (im *IAASModel) watchModelMachinestorage(collection string) StringsWatcher {
-	mb := im.mb
-	pattern := fmt.Sprintf("^%s$", mb.docID(names.NumberSnippet))
+var machineOrUnitSnippet = "(" + names.NumberSnippet + "|" + names.UnitSnippet + ")"
+
+func (sb *storageBackend) watchModelHostStorage(collection string) StringsWatcher {
+	mb := sb.mb
+	pattern := fmt.Sprintf("^%s$", mb.docID(machineOrUnitSnippet))
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
 		k, err := mb.strictLocalID(id.(string))
@@ -244,21 +250,55 @@ func (im *IAASModel) watchModelMachinestorage(collection string) StringsWatcher 
 
 // WatchMachineVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all volumes scoped to the specified machine.
-func (im *IAASModel) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
-	return im.watchMachineStorage(m, volumesC)
+func (sb *storageBackend) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
+	return sb.watchHostStorage(m, volumesC)
 }
 
 // WatchMachineFilesystems returns a StringsWatcher that notifies of changes
 // to the lifecycles of all filesystems scoped to the specified machine.
-func (im *IAASModel) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
-	return im.watchMachineStorage(m, filesystemsC)
+func (sb *storageBackend) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
+	return sb.watchHostStorage(m, filesystemsC)
 }
 
-func (im *IAASModel) watchMachineStorage(m names.MachineTag, collection string) StringsWatcher {
-	mb := im.mb
-	pattern := fmt.Sprintf("^%s/%s$", mb.docID(m.Id()), names.NumberSnippet)
+// WatchUnitFilesystems returns a StringsWatcher that notifies of changes
+// to the lifecycles of all filesystems scoped to units of the specified application.
+func (sb *storageBackend) WatchUnitFilesystems(app names.ApplicationTag) StringsWatcher {
+	return sb.watchHostStorage(app, filesystemsC)
+}
+
+func (sb *storageBackend) watchHostStorage(host names.Tag, collection string) StringsWatcher {
+	mb := sb.mb
+	// The regexp patterns below represent either machine or unit attached storage, <hostid>/<number>.
+	// For machines, it can be something like 4/6.
+	// For units the pattern becomes something like mariadb/0/6.
+	// The host parameter passed into this method is the application name, any of whose units we are interested in.
+	pattern := fmt.Sprintf("^%s(/%s)?/%s$", mb.docID(host.Id()), names.NumberSnippet, names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
-	prefix := m.Id() + "/"
+	prefix := fmt.Sprintf("%s(/%s)?/.*", host.Id(), names.NumberSnippet)
+	matchExp := regexp.MustCompile(prefix)
+	filter := func(id interface{}) bool {
+		k, err := mb.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return matchExp.MatchString(k)
+	}
+	return newLifecycleWatcher(mb, collection, members, filter, nil)
+}
+
+// WatchMachineAttachmentsPlans returns a StringsWatcher that notifies machine agents
+// that a volume has been attached to their instance by the environment provider.
+// This allows machine agents to do extra initialization to the volume, in cases
+// such as iSCSI disks, or other disks that have similar requirements
+func (sb *storageBackend) WatchMachineAttachmentsPlans(m names.MachineTag) StringsWatcher {
+	return sb.watchMachineVolumeAttachmentPlans(m)
+}
+
+func (sb *storageBackend) watchMachineVolumeAttachmentPlans(m names.MachineTag) StringsWatcher {
+	mb := sb.mb
+	pattern := fmt.Sprintf("^%s:%s$", mb.docID(m.Id()), names.NumberSnippet)
+	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	prefix := fmt.Sprintf("%s:", m.Id())
 	filter := func(id interface{}) bool {
 		k, err := mb.strictLocalID(id.(string))
 		if err != nil {
@@ -266,26 +306,26 @@ func (im *IAASModel) watchMachineStorage(m names.MachineTag, collection string) 
 		}
 		return strings.HasPrefix(k, prefix)
 	}
-	return newLifecycleWatcher(mb, collection, members, filter, nil)
+	return newLifecycleWatcher(mb, volumeAttachmentPlanC, members, filter, nil)
 }
 
 // WatchModelVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to environ-
 // scoped volumes.
-func (im *IAASModel) WatchModelVolumeAttachments() StringsWatcher {
-	return im.watchModelMachinestorageAttachments(volumeAttachmentsC)
+func (sb *storageBackend) WatchModelVolumeAttachments() StringsWatcher {
+	return sb.watchModelHostStorageAttachments(volumeAttachmentsC)
 }
 
 // WatchModelFilesystemAttachments returns a StringsWatcher that notifies
 // of changes to the lifecycles of all filesystem attachments related to
 // environ-scoped filesystems.
-func (im *IAASModel) WatchModelFilesystemAttachments() StringsWatcher {
-	return im.watchModelMachinestorageAttachments(filesystemAttachmentsC)
+func (sb *storageBackend) WatchModelFilesystemAttachments() StringsWatcher {
+	return sb.watchModelHostStorageAttachments(filesystemAttachmentsC)
 }
 
-func (im *IAASModel) watchModelMachinestorageAttachments(collection string) StringsWatcher {
-	mb := im.mb
-	pattern := fmt.Sprintf("^%s.*:%s$", mb.docID(""), names.NumberSnippet)
+func (sb *storageBackend) watchModelHostStorageAttachments(collection string) StringsWatcher {
+	mb := sb.mb
+	pattern := fmt.Sprintf("^%s.*:%s$", mb.docID(""), machineOrUnitSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
 		k, err := mb.strictLocalID(id.(string))
@@ -304,28 +344,49 @@ func (im *IAASModel) watchModelMachinestorageAttachments(collection string) Stri
 // WatchMachineVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to the specified
 // machine, for volumes scoped to the machine.
-func (im *IAASModel) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
-	return im.watchMachineStorageAttachments(m, volumeAttachmentsC)
+func (sb *storageBackend) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
+	return sb.watchHostStorageAttachments(m, volumeAttachmentsC)
 }
 
 // WatchMachineFilesystemAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all filesystem attachments related to the specified
 // machine, for filesystems scoped to the machine.
-func (im *IAASModel) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
-	return im.watchMachineStorageAttachments(m, filesystemAttachmentsC)
+func (sb *storageBackend) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
+	return sb.watchHostStorageAttachments(m, filesystemAttachmentsC)
 }
 
-func (im *IAASModel) watchMachineStorageAttachments(m names.MachineTag, collection string) StringsWatcher {
-	mb := im.mb
-	pattern := fmt.Sprintf("^%s:%s/.*", mb.docID(m.Id()), m.Id())
+// WatchUnitVolumeAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all volume attachments related to the specified
+// application's units, for volumes scoped to the application's units.
+// TODO(caas) - currently untested since units don't directly support attached volumes
+func (sb *storageBackend) WatchUnitVolumeAttachments(app names.ApplicationTag) StringsWatcher {
+	return sb.watchHostStorageAttachments(app, volumeAttachmentsC)
+}
+
+// WatchUnitFilesystemAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all filesystem attachments related to the specified
+// application's units, for filesystems scoped to the application's units.
+func (sb *storageBackend) WatchUnitFilesystemAttachments(app names.ApplicationTag) StringsWatcher {
+	return sb.watchHostStorageAttachments(app, filesystemAttachmentsC)
+}
+
+func (sb *storageBackend) watchHostStorageAttachments(host names.Tag, collection string) StringsWatcher {
+	mb := sb.mb
+	// Go's regex doesn't support lookbacks so the pattern match is a bit clumsy.
+	// We look for either a machine attachment id, eg 0:0/42
+	// or a unit attachment id, eg mariadb/0:mariadb/0/42
+	// The host parameter passed into this method is the application name, any of whose units we are interested in.
+	pattern := fmt.Sprintf("^%s(/%s)?:%s(/%s)?/.*", mb.docID(host.Id()), names.NumberSnippet, host.Id(), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
-	prefix := m.Id() + fmt.Sprintf(":%s/", m.Id())
+	prefix := fmt.Sprintf("%s(/%s)?:%s(/%s)?/.*", host.Id(), names.NumberSnippet, host.Id(), names.NumberSnippet)
+	matchExp := regexp.MustCompile(prefix)
 	filter := func(id interface{}) bool {
 		k, err := mb.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
-		return strings.HasPrefix(k, prefix)
+		matches := matchExp.FindStringSubmatch(k)
+		return len(matches) == 3 && matches[1] == matches[2]
 	}
 	return newLifecycleWatcher(mb, collection, members, filter, nil)
 }
@@ -345,11 +406,11 @@ func (st *State) WatchRemoteApplications() StringsWatcher {
 // WatchStorageAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all storage instances attached to the
 // specified unit.
-func (im *IAASModel) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
+func (sb *storageBackend) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
 	members := bson.D{{"unitid", unit.Id()}}
 	prefix := unitGlobalKey(unit.Id()) + "#"
 	filter := func(id interface{}) bool {
-		k, err := im.mb.strictLocalID(id.(string))
+		k, err := sb.mb.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
@@ -359,7 +420,7 @@ func (im *IAASModel) WatchStorageAttachments(unit names.UnitTag) StringsWatcher 
 		// Transform storage attachment document ID to storage ID.
 		return id[len(prefix):]
 	}
-	return newLifecycleWatcher(im.mb, storageAttachmentsC, members, filter, tr)
+	return newLifecycleWatcher(sb.mb, storageAttachmentsC, members, filter, tr)
 }
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
@@ -375,6 +436,33 @@ func (a *Application) WatchUnits() StringsWatcher {
 		return strings.HasPrefix(unitName, prefix)
 	}
 	return newLifecycleWatcher(a.st, unitsC, members, filter, nil)
+}
+
+// WatchScale returns a new NotifyWatcher watching for
+// changes to the specified application's scale value.
+func (a *Application) WatchScale() NotifyWatcher {
+	currentScale := -1
+	filter := func(id interface{}) bool {
+		k, err := a.st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		if k != a.doc.Name {
+			return false
+		}
+		applications, closer := a.st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var scaleField = bson.D{{"scale", 1}}
+		var doc *applicationDoc
+		if err := applications.FindId(k).Select(scaleField).One(&doc); err != nil {
+			return false
+		}
+		match := doc.DesiredScale != currentScale
+		currentScale = doc.DesiredScale
+		return match
+	}
+	return newNotifyCollWatcher(a.st, applicationsC, filter)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
@@ -709,6 +797,190 @@ func (w *minUnitsWatcher) loop() (err error) {
 }
 
 func (w *minUnitsWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+// WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies of
+// changes to the upgrade charm profile charm url for a machine.
+func (st *State) WatchModelMachinesCharmProfiles() (StringsWatcher, error) {
+	isMachineRegexp := fmt.Sprintf("^%s:%s$", st.ModelUUID(), names.NumberSnippet)
+	return st.watchCharmProfiles(isMachineRegexp)
+}
+
+// WatchContainersCharmProfiles starts a StringsWatcher to notify when
+// the provisioner should update the charm profiles used by any container on
+// the machine.
+func (m *Machine) WatchContainersCharmProfiles(ctype instance.ContainerType) (StringsWatcher, error) {
+	isChildRegexp := fmt.Sprintf("^%s/%s/%s$", m.doc.DocID, ctype, names.NumberSnippet)
+	return m.st.watchCharmProfiles(isChildRegexp)
+}
+
+func (st *State) watchCharmProfiles(regExp string) (StringsWatcher, error) {
+	members := bson.D{{"_id", bson.D{{"$regex", regExp}}}}
+	compiled, err := regexp.Compile(regExp)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	filter := func(key interface{}) bool {
+		k, ok := key.(string)
+		if !ok {
+			return false
+		}
+		_, err := st.strictLocalID(k)
+		if err != nil {
+			return false
+		}
+		return compiled.MatchString(k)
+	}
+	accessor := func(doc instanceCharmProfileData) string {
+		return doc.UpgradeCharmProfileCharmURL
+	}
+	completed := func(doc instanceCharmProfileData) bool {
+		return lxdprofile.UpgradeStatusTerminal(doc.UpgradeCharmProfileComplete)
+	}
+	return newModelFieldChangeWatcher(st, members, filter, accessor, completed), nil
+}
+
+// modelFieldChangeWatcher notifies about charm changes where a
+// machine or container's field may need to be changed. At startup, the
+// watcher gathers current values for a machine's field, no events are returned.
+// Events are generated when there are changes to a machine or container's
+// field.
+type modelFieldChangeWatcher struct {
+	commonWatcher
+	// members is used to select the initial set of interesting entities.
+	members bson.D
+	// filter returns true, if the entity should be watched
+	filter func(key interface{}) bool
+	// accessor is used to extract the field from the instance charm profile
+	// data doc in a generic way.
+	accessor func(instanceCharmProfileData) string
+	// completed is used to determine if the state watched for has
+	// occurred
+	completed func(instanceCharmProfileData) bool
+	known     map[string]string
+	out       chan []string
+}
+
+var _ Watcher = (*modelFieldChangeWatcher)(nil)
+
+func newModelFieldChangeWatcher(
+	backend modelBackend,
+	members bson.D,
+	filter func(key interface{}) bool,
+	accessor func(instanceCharmProfileData) string,
+	completed func(instanceCharmProfileData) bool,
+) StringsWatcher {
+	w := &modelFieldChangeWatcher{
+		commonWatcher: newCommonWatcher(backend),
+		members:       members,
+		filter:        filter,
+		accessor:      accessor,
+		completed:     completed,
+		known:         make(map[string]string),
+		out:           make(chan []string),
+	}
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop()
+	})
+	return w
+}
+
+func (w *modelFieldChangeWatcher) initial() (set.Strings, error) {
+	collection, closer := w.db.GetCollection(instanceCharmProfileDataC)
+	defer closer()
+
+	var doc instanceCharmProfileData
+	machineIds := make(set.Strings)
+	iter := collection.Find(w.members).Iter()
+	for iter.Next(&doc) {
+		// If no members criteria is specified, use the filter
+		// to reject any unsuitable initial elements.
+		if w.members == nil && w.filter != nil && !w.filter(doc.MachineId) {
+			continue
+		}
+
+		if w.completed(doc) {
+			logger.Tracef("field change NOT watching machine %s", doc.MachineId)
+			continue
+		}
+
+		docField := w.accessor(doc)
+		w.known[doc.MachineId] = docField
+		machineIds.Add(doc.MachineId)
+	}
+	if machineIds.Size() > 0 {
+		logger.Debugf("started field change watching of machines %s", machineIds.Values())
+	}
+	return machineIds, iter.Close()
+}
+
+func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.Change) error {
+	machineId := w.backend.localID(change.Id.(string))
+	if change.Revno == -1 {
+		if _, ok := w.known[machineId]; ok {
+			logger.Tracef("stopped field change watching for machine %q", machineId)
+		}
+		delete(w.known, machineId)
+		machineIds.Remove(machineId)
+		return nil
+	}
+
+	collection, closer := w.db.GetCollection(instanceCharmProfileDataC)
+	defer closer()
+
+	var doc instanceCharmProfileData
+	if err := collection.FindId(change.Id).One(&doc); err != nil {
+		return err
+	}
+
+	// get the document field from the accessor
+	docField := w.accessor(doc)
+
+	// check the field before adding to the machineId
+	field, isKnown := w.known[machineId]
+	w.known[machineId] = docField
+	if !w.completed(doc) && (!isKnown || docField != field) {
+		logger.Debugf("added field change watching for machine %q", machineId)
+		machineIds.Add(machineId)
+	}
+	return nil
+}
+
+func (w *modelFieldChangeWatcher) loop() error {
+	ch := make(chan watcher.Change)
+	w.watcher.WatchCollectionWithFilter(instanceCharmProfileDataC, ch, w.filter)
+	defer w.watcher.UnwatchCollection(instanceCharmProfileDataC, ch)
+
+	machineIds, err := w.initial()
+	if err != nil {
+		return err
+	}
+
+	out := w.out
+	for {
+		select {
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case change := <-ch:
+			if err = w.merge(machineIds, change); err != nil {
+				return err
+			}
+			if !machineIds.IsEmpty() {
+				out = w.out
+			}
+		case out <- machineIds.Values():
+			out = nil
+			machineIds = set.NewStrings()
+		}
+	}
+}
+
+func (w *modelFieldChangeWatcher) Changes() <-chan []string {
 	return w.out
 }
 
@@ -1530,6 +1802,11 @@ func (m *Model) Watch() NotifyWatcher {
 	return newEntityWatcher(m.st, modelsC, m.doc.UUID)
 }
 
+// WatchInstanceData returns a watcher for observing changes to a model.
+func (m *Machine) WatchInstanceData() NotifyWatcher {
+	return newEntityWatcher(m.st, instanceDataC, m.doc.Id)
+}
+
 // WatchUpgradeInfo returns a watcher for observing changes to upgrade
 // synchronisation state.
 func (st *State) WatchUpgradeInfo() NotifyWatcher {
@@ -1574,23 +1851,23 @@ func (st *State) WatchAPIHostPortsForAgents() NotifyWatcher {
 
 // WatchStorageAttachment returns a watcher for observing changes
 // to a storage attachment.
-func (im *IAASModel) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
+func (sb *storageBackend) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
 	id := storageAttachmentId(u.Id(), s.Id())
-	return newEntityWatcher(im.mb, storageAttachmentsC, im.mb.docID(id))
+	return newEntityWatcher(sb.mb, storageAttachmentsC, sb.mb.docID(id))
 }
 
 // WatchVolumeAttachment returns a watcher for observing changes
 // to a volume attachment.
-func (im *IAASModel) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
-	id := volumeAttachmentId(m.Id(), v.Id())
-	return newEntityWatcher(im.mb, volumeAttachmentsC, im.mb.docID(id))
+func (sb *storageBackend) WatchVolumeAttachment(host names.Tag, v names.VolumeTag) NotifyWatcher {
+	id := volumeAttachmentId(host.Id(), v.Id())
+	return newEntityWatcher(sb.mb, volumeAttachmentsC, sb.mb.docID(id))
 }
 
 // WatchFilesystemAttachment returns a watcher for observing changes
 // to a filesystem attachment.
-func (im *IAASModel) WatchFilesystemAttachment(m names.MachineTag, f names.FilesystemTag) NotifyWatcher {
-	id := filesystemAttachmentId(m.Id(), f.Id())
-	return newEntityWatcher(im.mb, filesystemAttachmentsC, im.mb.docID(id))
+func (sb *storageBackend) WatchFilesystemAttachment(host names.Tag, f names.FilesystemTag) NotifyWatcher {
+	id := filesystemAttachmentId(host.Id(), f.Id())
+	return newEntityWatcher(sb.mb, filesystemAttachmentsC, sb.mb.docID(id))
 }
 
 // WatchCharmConfig returns a watcher for observing changes to the
@@ -1622,6 +1899,27 @@ func (u *Unit) WatchApplicationConfigSettings() (NotifyWatcher, error) {
 	return newEntityWatcher(u.st, settingsC, u.st.docID(applicationConfigKey)), nil
 }
 
+// WatchConfigSettingsHash returns a watcher that yields a hash of the
+// unit's charm config settings whenever they are changed. The
+// returned watcher will be valid only while the application's charm
+// URL is not changed.
+func (u *Unit) WatchConfigSettingsHash() (StringsWatcher, error) {
+	if u.doc.CharmURL == nil {
+		return nil, fmt.Errorf("unit charm not set")
+	}
+	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
+	return newSettingsHashWatcher(u.st, charmConfigKey), nil
+}
+
+// WatchApplicationConfigSettingsHash is the same as
+// WatchConfigSettingsHash but watches the application's config rather
+// than charm configuration. Yields a hash of the application config
+// with each change.
+func (u *Unit) WatchApplicationConfigSettingsHash() (StringsWatcher, error) {
+	applicationConfigKey := applicationConfigKey(u.ApplicationName())
+	return newSettingsHashWatcher(u.st, applicationConfigKey), nil
+}
+
 // WatchMeterStatus returns a watcher observing changes that affect the meter status
 // of a unit.
 func (u *Unit) WatchMeterStatus() NotifyWatcher {
@@ -1634,6 +1932,166 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 			metricsManagerKey,
 		},
 	})
+}
+
+// WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
+// of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
+// upgrade completed field that is specific to an application name.
+func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (StringsWatcher, error) {
+	filter := func(id interface{}) bool {
+		machineId, err := m.st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return machineId == m.doc.Id
+	}
+	return newInstanceCharmProfileDataWatcher(m.st, applicationName, m.doc.DocID, filter), nil
+}
+
+// WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
+// of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
+// upgrade completed field.
+func (u *Unit) WatchLXDProfileUpgradeNotifications(applicationName string) (StringsWatcher, error) {
+	m, err := u.machine()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return m.WatchLXDProfileUpgradeNotifications(applicationName)
+}
+
+// instanceCharmProfileDataWatcher notifies about any changes to the
+// instanceCharmProfileData document. The watcher looks for changes to the
+// upgrading of a charm lxd profile, that belongs to an application, which the
+// provisioner updates the document field. At start up the watcher gathers the
+// current values of the instance charm profile data, if the document doesn't
+// exist, then the status is set to not known. The document are transient and
+// not expected to there all the time, so the code deals with that with the
+// usage of the not know status.
+// Events are generated when there are changes to a instance charm profile
+// data document.
+type instanceCharmProfileDataWatcher struct {
+	commonWatcher
+	// members is used to select the initial set of interesting entities.
+	memberId        string
+	known           string
+	applicationName string
+	filter          func(interface{}) bool
+	out             chan []string
+}
+
+var _ Watcher = (*instanceCharmProfileDataWatcher)(nil)
+
+func newInstanceCharmProfileDataWatcher(backend modelBackend, applicationName, memberId string, filter func(interface{}) bool) StringsWatcher {
+	w := &instanceCharmProfileDataWatcher{
+		commonWatcher:   newCommonWatcher(backend),
+		memberId:        memberId,
+		applicationName: applicationName,
+		filter:          filter,
+		out:             make(chan []string),
+	}
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop()
+	})
+	return w
+}
+
+func (w *instanceCharmProfileDataWatcher) initial() error {
+	instanceDataCol, instanceDataCloser := w.db.GetCollection(instanceCharmProfileDataC)
+	defer instanceDataCloser()
+
+	statusField := lxdprofile.NotKnownStatus
+
+	var instanceData instanceCharmProfileData
+	if err := instanceDataCol.Find(bson.D{
+		{"_id", w.memberId},
+		{"upgradecharmprofileapplication", w.applicationName},
+	}).One(&instanceData); err == nil {
+		statusField = instanceData.UpgradeCharmProfileComplete
+	}
+	w.known = statusField
+
+	logger.Tracef("Started watching instanceCharmProfileData for machine %s and application %q: %q", w.memberId, w.applicationName, statusField)
+	return nil
+}
+
+func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, error) {
+	machineId := change.Id.(string)
+	if change.Revno == -1 {
+		return false, nil
+	}
+	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
+	defer instanceCloser()
+
+	var instanceData instanceCharmProfileData
+	if err := instanceDataCol.Find(bson.D{
+		{"_id", machineId},
+		{"upgradecharmprofileapplication", w.applicationName},
+	}).One(&instanceData); err != nil {
+		if err != mgo.ErrNotFound {
+			logger.Debugf("instanceCharmProfileData NOT mgo err not found")
+			return false, err
+		}
+		logger.Tracef("instanceCharmProfileData for %s on machine %s: mgo err not found", w.applicationName, machineId)
+		return false, nil
+	}
+
+	// check the field before adding to the machineId
+	currentField := instanceData.UpgradeCharmProfileComplete
+	if w.known != currentField {
+		w.known = currentField
+
+		logger.Tracef("Changes in watching instanceCharmProfileData for machine %s and application %q: %q", w.memberId, w.applicationName, currentField)
+		return true, nil
+	}
+	return false, nil
+}
+
+func (w *instanceCharmProfileDataWatcher) loop() error {
+	err := w.initial()
+	if err != nil {
+		return err
+	}
+
+	ch := make(chan watcher.Change)
+	w.watcher.WatchCollectionWithFilter(instanceCharmProfileDataC, ch, w.filter)
+	defer w.watcher.UnwatchCollection(instanceCharmProfileDataC, ch)
+
+	out := w.out
+	for {
+		select {
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case change := <-ch:
+			isChanged, err := w.merge(change)
+			if err != nil {
+				return err
+			}
+			if isChanged {
+				out = w.out
+			}
+		case out <- []string{w.known}:
+			out = nil
+		}
+	}
+}
+
+func (w *instanceCharmProfileDataWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+// WatchUpgradeSeriesNotifications returns a watcher that observes the status of
+// a series upgrade by monitoring changes to its parent machine's upgrade series
+// lock.
+func (m *Machine) WatchUpgradeSeriesNotifications() (NotifyWatcher, error) {
+	watch := newEntityWatcher(m.st, machineUpgradeSeriesLocksC, m.doc.DocID)
+	if _, ok := <-watch.Changes(); ok {
+		return watch, nil
+	}
+
+	return nil, watcher.EnsureErr(watch)
 }
 
 func newEntityWatcher(backend modelBackend, collName string, key interface{}) NotifyWatcher {
@@ -2417,32 +2875,58 @@ func (st *State) WatchControllerStatusChanges() StringsWatcher {
 func makeControllerIdFilter(st *State) func(interface{}) bool {
 	initialInfo, err := st.ControllerInfo()
 	if err != nil {
+		logger.Debugf("unable to get controller info: %v", err)
 		return nil
 	}
-	machines := initialInfo.MachineIds
-	return func(key interface{}) bool {
-		switch key.(type) {
-		case string:
-			info, err := st.ControllerInfo()
-			if err != nil {
-				// Most likely, things will be killed and
-				// restarted if we hit this error.  Just use
-				// the machine list we knew about last time.
-				logger.Debugf("unable to get controller info: %v", err)
-			} else {
-				machines = info.MachineIds
-			}
-			for _, machine := range machines {
-				if strings.HasSuffix(key.(string), fmt.Sprintf("m#%s", machine)) {
-					return true
-				}
-			}
-		default:
-			watchLogger.Errorf("key is not type string, got %T", key)
-		}
-		return false
-	}
 
+	filter := controllerIdFilter{
+		st:           st,
+		lastMachines: initialInfo.MachineIds,
+	}
+	return filter.match
+}
+
+// controllerIdFilter is a stateful watcher filter function - if it
+// can't get the current machines from controller info it uses the
+// last machines retrieved. Since this is called from multiple
+// goroutines getting/updating lastMachines is protected by a mutex.
+type controllerIdFilter struct {
+	mu           sync.Mutex
+	st           *State
+	lastMachines []string
+}
+
+func (f *controllerIdFilter) machines() []string {
+	var result []string
+	info, err := f.st.ControllerInfo()
+	f.mu.Lock()
+	if err != nil {
+		// Most likely, things will be killed and
+		// restarted if we hit this error.  Just use
+		// the machine list we knew about last time.
+		logger.Debugf("unable to get controller info: %v", err)
+		result = f.lastMachines
+	} else {
+		f.lastMachines = info.MachineIds
+		result = info.MachineIds
+	}
+	f.mu.Unlock()
+	return result
+}
+
+func (f *controllerIdFilter) match(key interface{}) bool {
+	switch key.(type) {
+	case string:
+		machines := f.machines()
+		for _, machine := range machines {
+			if strings.HasSuffix(key.(string), fmt.Sprintf("m#%s", machine)) {
+				return true
+			}
+		}
+	default:
+		watchLogger.Errorf("key is not type string, got %T", key)
+	}
+	return false
 }
 
 // WatchActionResults starts and returns a StringsWatcher that
@@ -3024,7 +3508,6 @@ func (w *relationNetworksWatcher) loop() error {
 		err         error
 	)
 	if _, err = w.loadCIDRs(); err != nil {
-		logger.Criticalf(err.Error())
 		return errors.Trace(err)
 	}
 	for {
@@ -3191,8 +3674,8 @@ func (w *containerAddressesWatcher) Changes() <-chan struct{} {
 
 func (w *containerAddressesWatcher) loop() error {
 	id := w.backend.docID(w.unit.globalKey())
-	continers, closer := w.db.GetCollection(cloudContainersC)
-	revno, err := getTxnRevno(continers, id)
+	containers, closer := w.db.GetCollection(cloudContainersC)
+	revno, err := getTxnRevno(containers, id)
 	closer()
 	if err != nil {
 		return err
@@ -3235,4 +3718,201 @@ func (w *containerAddressesWatcher) loop() error {
 			out = nil
 		}
 	}
+}
+
+func newSettingsHashWatcher(st *State, localID string) StringsWatcher {
+	docID := st.docID(localID)
+	w := &hashWatcher{
+		commonWatcher: newCommonWatcher(st),
+		out:           make(chan []string),
+		collection:    settingsC,
+		id:            docID,
+		hash: func() (string, error) {
+			return hashSettings(st.db(), docID, localID)
+		},
+	}
+	w.start()
+	return w
+}
+
+func hashSettings(db Database, id string, name string) (string, error) {
+	settings, closer := db.GetCollection(settingsC)
+	defer closer()
+	var doc settingsDoc
+	if err := settings.FindId(id).One(&doc); err == mgo.ErrNotFound {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	// Ensure elements are in a consistent order. If any are maps,
+	// replace them with the equivalent sorted bson.Ds.
+	items := toSortedBsonD(doc.Settings)
+	data, err := bson.Marshal(items)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	hash := sha256.New()
+	hash.Write([]byte(name))
+	hash.Write(data)
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+// WatchAddressesHash returns a StringsWatcher that emits the hash of
+// the machine's (sorted) addresses whenever they change.
+func (m *Machine) WatchAddressesHash() StringsWatcher {
+	mCopy := &Machine{
+		st:  m.st,
+		doc: m.doc,
+	}
+	w := &hashWatcher{
+		commonWatcher: newCommonWatcher(m.st),
+		out:           make(chan []string),
+		collection:    machinesC,
+		id:            m.doc.DocID,
+		hash: func() (string, error) {
+			return hashMachineAddresses(mCopy)
+		},
+	}
+	w.start()
+	return w
+}
+
+func hashMachineAddresses(m *Machine) (string, error) {
+	if err := m.Refresh(); err != nil {
+		return "", errors.Trace(err)
+	}
+	addresses := m.Addresses()
+	sort.Slice(addresses, func(i, j int) bool {
+		// Addresses guarantees that each value will only be
+		// returned once - addresses from provider take
+		// precedence over those from the machine.
+		return addresses[i].Value < addresses[j].Value
+	})
+	hash := sha256.New()
+	for _, address := range addresses {
+		hash.Write([]byte(address.Value))
+		hash.Write([]byte(address.Type))
+		hash.Write([]byte(address.Scope))
+		hash.Write([]byte(address.SpaceName))
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+// WatchContainerAddressesHash returns a StringsWatcher that emits a
+// hash of the unit's container address whenever it changes.
+func (u *Unit) WatchContainerAddressesHash() StringsWatcher {
+	firstCall := true
+	w := &hashWatcher{
+		commonWatcher: newCommonWatcher(u.st),
+		out:           make(chan []string),
+		collection:    cloudContainersC,
+		id:            u.st.docID(u.globalKey()),
+		hash: func() (string, error) {
+			result, err := hashContainerAddresses(u, firstCall)
+			firstCall = false
+			return result, err
+		},
+	}
+	w.start()
+	return w
+}
+
+func hashContainerAddresses(u *Unit, firstCall bool) (string, error) {
+	container, err := u.cloudContainer()
+	if errors.IsNotFound(err) && firstCall {
+		// To keep behaviour the same as
+		// WatchContainerAddresses, we need to ignore NotFound
+		// errors on the first call but propagate them after
+		// that.
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	address := container.Address
+	if address == nil {
+		return "", nil
+	}
+	hash := sha256.New()
+	hash.Write([]byte(address.Value))
+	hash.Write([]byte(address.AddressType))
+	hash.Write([]byte(address.Scope))
+	hash.Write([]byte(address.Origin))
+	hash.Write([]byte(address.SpaceName))
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+type hashWatcher struct {
+	commonWatcher
+	collection string
+	id         string
+	hash       func() (string, error)
+	out        chan []string
+}
+
+func (w *hashWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *hashWatcher) start() {
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop()
+	})
+}
+
+func (w *hashWatcher) loop() error {
+	coll, closer := w.db.GetCollection(w.collection)
+	revno, err := getTxnRevno(coll, w.id)
+	closer()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	changesCh := make(chan watcher.Change)
+	w.watcher.Watch(w.collection, w.id, revno, changesCh)
+	defer w.watcher.Unwatch(w.collection, w.id, changesCh)
+
+	lastHash, err := w.hash()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case change := <-changesCh:
+			if _, ok := collect(change, changesCh, w.tomb.Dying()); !ok {
+				return tomb.ErrDying
+			}
+			newHash, err := w.hash()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if lastHash != newHash {
+				lastHash = newHash
+				out = w.out
+			}
+		case out <- []string{lastHash}:
+			out = nil
+		}
+	}
+}
+
+func toSortedBsonD(values map[string]interface{}) bson.D {
+	var items bson.D
+	for name, value := range values {
+		if mapValue, ok := value.(map[string]interface{}); ok {
+			value = toSortedBsonD(mapValue)
+		}
+		items = append(items, bson.DocElem{Name: name, Value: value})
+	}
+	// We know that there aren't any equal names because the source is
+	// a map.
+	sort.Slice(items, func(i int, j int) bool {
+		return items[i].Name < items[j].Name
+	})
+	return items
 }

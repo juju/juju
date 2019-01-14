@@ -6,8 +6,8 @@ package state
 import (
 	"runtime/pprof"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
@@ -71,25 +71,14 @@ func (p OpenParams) Validate() error {
 //
 // OpenController returns unauthorizedError if access is unauthorized.
 func OpenController(args OpenParams) (*Controller, error) {
-	if err := args.Validate(); err != nil {
-		return nil, errors.Annotate(err, "validating args")
-	}
-
-	session := args.MongoSession.Copy()
-	if args.InitDatabaseFunc != nil {
-		if err := args.InitDatabaseFunc(session, args.ControllerModelTag.Id(), nil); err != nil {
-			return nil, errors.Trace(err)
-		}
-		logger.Debugf("mongodb initialised")
+	pool, err := OpenStatePool(args)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return &Controller{
-		clock:                  args.Clock,
-		controllerTag:          args.ControllerTag,
-		controllerModelTag:     args.ControllerModelTag,
-		session:                session,
-		newPolicy:              args.NewPolicy,
-		runTransactionObserver: args.RunTransactionObserver,
+		pool:     pool,
+		ownsPool: true,
 	}, nil
 }
 
@@ -205,15 +194,21 @@ func newState(
 // Close the connection to the database.
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
-
-	if st.workers != nil {
-		if err := worker.Stop(st.workers); err != nil {
-			return errors.Annotatef(err, "failed to stop workers")
-		}
+	if err := st.stopWorkers(); err != nil {
+		return errors.Trace(err)
 	}
 	st.session.Close()
 	logger.Debugf("closed state without error")
 	// Remove the reference.
 	profileTracker.Remove(st)
+	return nil
+}
+
+func (st *State) stopWorkers() (err error) {
+	if st.workers != nil {
+		if err := worker.Stop(st.workers); err != nil {
+			return errors.Annotatef(err, "failed to stop workers")
+		}
+	}
 	return nil
 }

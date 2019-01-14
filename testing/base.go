@@ -49,6 +49,7 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	s.oldEnvironment = make(map[string]string)
 	for _, name := range []string{
 		osenv.JujuXDGDataHomeEnvKey,
+		osenv.JujuControllerEnvKey,
 		osenv.JujuModelEnvKey,
 		osenv.JujuLoggingConfigEnvKey,
 		osenv.JujuFeatureFlagEnvKey,
@@ -174,6 +175,7 @@ type BaseSuite struct {
 	testing.CleanupSuite
 	testing.LoggingSuite
 	JujuOSEnvSuite
+	InitialLoggingConfig string
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
@@ -198,6 +200,9 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
 	c.Assert(utils.OutgoingAccessAllowed, gc.Equals, false)
+	if s.InitialLoggingConfig != "" {
+		loggo.ConfigureLoggers(s.InitialLoggingConfig)
+	}
 
 	// We do this to isolate invocations of bash from pulling in the
 	// ambient user environment, and potentially affecting the tests.

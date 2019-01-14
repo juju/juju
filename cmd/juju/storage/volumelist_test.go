@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 )
 
 func (s *ListSuite) TestVolumeListEmpty(c *gc.C) {
@@ -90,14 +90,13 @@ func (s *ListSuite) TestVolumeListWithErrorResults(c *gc.C) {
 }
 
 var expectedVolumeListTabular = `
-[Volumes]
-Machine  Unit         Storage      Id   Provider Id                   Device  Size    State      Message
-0        abc/0        db-dir/1001  0/0  provider-supplied-volume-0-0  loop0   512MiB  attached   
-0        transcode/0  shared-fs/0  4    provider-supplied-volume-4    xvdf2   1.0GiB  attached   
-0                                  1    provider-supplied-volume-1            2.0GiB  attaching  failed to attach, will retry
-1        transcode/1  shared-fs/0  4    provider-supplied-volume-4    xvdf3   1.0GiB  attached   
-1                                  2    provider-supplied-volume-2    xvdf1   3.0MiB  attached   
-1                                  3                                          42MiB   pending    
+Machine  Unit         Storage id   Volume id  Provider Id                   Device  Size    State      Message
+0        abc/0        db-dir/1001  0/0        provider-supplied-volume-0-0  loop0   512MiB  attached   
+0        transcode/0  shared-fs/0  4          provider-supplied-volume-4    xvdf2   1.0GiB  attached   
+0                                  1          provider-supplied-volume-1            2.0GiB  attaching  failed to attach, will retry
+1        transcode/1  shared-fs/0  4          provider-supplied-volume-4    xvdf3   1.0GiB  attached   
+1                                  2          provider-supplied-volume-2    xvdf1   3.0MiB  attached   
+1                                  3                                                42MiB   pending    
 
 `[1:]
 
@@ -116,6 +115,57 @@ func (s *ListSuite) TestVolumeListTabular(c *gc.C) {
 		return results, nil
 	}
 	s.assertValidVolumeList(c, []string{}, expectedVolumeListTabular)
+}
+
+var expectedCAASVolumeListTabular = `
+Unit     Storage id   Volume id  Provider Id                 Size    State     Message
+mysql/0  db-dir/1001  0          provider-supplied-volume-0  512MiB  attached  
+
+`[1:]
+
+func (s *ListSuite) TestCAASVolumeListTabular(c *gc.C) {
+	s.assertValidFilesystemList(c, []string{}, expectedFilesystemListTabular)
+
+	// Do it again, reversing the results returned by the API.
+	// We should get everything sorted in the appropriate order.
+	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
+		results := []params.VolumeDetailsListResult{{Result: []params.VolumeDetails{
+			{
+				VolumeTag: "volume-0",
+				Info: params.VolumeInfo{
+					VolumeId: "provider-supplied-volume-0",
+					Size:     512,
+				},
+				Life:   "alive",
+				Status: createTestStatus(status.Attached, "", s.mockAPI.time),
+				UnitAttachments: map[string]params.VolumeAttachmentDetails{
+					"unit-mysql-0": {
+						Life: "alive",
+						VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+							ReadOnly: true,
+						},
+					},
+				},
+				Storage: &params.StorageDetails{
+					StorageTag: "storage-db-dir-1001",
+					OwnerTag:   "unit-abc-0",
+					Kind:       params.StorageKindBlock,
+					Life:       "alive",
+					Status:     createTestStatus(status.Attached, "", s.mockAPI.time),
+					Attachments: map[string]params.StorageAttachmentDetails{
+						"unit-mysql-0": {
+							StorageTag: "storage-db-dir-1001",
+							UnitTag:    "unit-abc-0",
+							MachineTag: "machine-0",
+							Location:   "/mnt/fuji",
+						},
+					},
+				},
+			},
+		}}}
+		return results, nil
+	}
+	s.assertValidVolumeList(c, []string{}, expectedCAASVolumeListTabular)
 }
 
 func (s *ListSuite) assertUnmarshalledVolumeOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
@@ -203,7 +253,7 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 				Life:       "alive",
 				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
-					"unit-abc-0": params.StorageAttachmentDetails{
+					"unit-abc-0": {
 						StorageTag: "storage-db-dir-1001",
 						UnitTag:    "unit-abc-0",
 						MachineTag: "machine-0",
@@ -286,13 +336,13 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 				Kind:       params.StorageKindBlock,
 				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
-					"unit-transcode-0": params.StorageAttachmentDetails{
+					"unit-transcode-0": {
 						StorageTag: "storage-shared-fs-0",
 						UnitTag:    "unit-transcode-0",
 						MachineTag: "machine-0",
 						Location:   "/mnt/bits",
 					},
-					"unit-transcode-1": params.StorageAttachmentDetails{
+					"unit-transcode-1": {
 						StorageTag: "storage-shared-fs-0",
 						UnitTag:    "unit-transcode-1",
 						MachineTag: "machine-1",

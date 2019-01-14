@@ -9,8 +9,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -18,13 +18,13 @@ import (
 	"github.com/juju/juju/api"
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 

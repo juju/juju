@@ -1,15 +1,23 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package testing
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/utils/arch"
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/status"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/utils/arch"
 )
 
 const ETag = "eTag"
+
+// NoOpCallback can be passed to methods that receive a callback for setting
+// status messages.
+var NoOpCallback = func(st status.Status, info string, data map[string]interface{}) error { return nil }
 
 // BaseSuite facilitates LXD testing.
 // Do not instantiate this suite directly.

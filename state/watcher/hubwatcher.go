@@ -6,10 +6,21 @@ package watcher
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
+)
+
+var (
+	// HubWatcherIdleFunc allows tets to be able to get callbacks
+	// when the hub watcher hasn't notified any watchers for a specified time.
+	HubWatcherIdleFunc func(string)
+
+	// HubWatcherIdleTime relates to how long the hub needs to wait
+	// having notified no watchers to be considered idle.
+	HubWatcherIdleTime = 50 * time.Millisecond
 )
 
 // HubSource represents the listening aspects of the pubsub hub.
@@ -25,8 +36,11 @@ const filterFactor = 0.01
 // HubWatcher listens to events from the hub and passes them on to the registered
 // watchers.
 type HubWatcher struct {
-	hub    HubSource
-	logger Logger
+	hub       HubSource
+	clock     Clock
+	modelUUID string
+	idleFunc  func(string)
+	logger    Logger
 
 	tomb tomb.Tomb
 
@@ -78,25 +92,59 @@ type HubWatcher struct {
 	revnoMapBytes uintptr
 }
 
-// NewHubWatcher returns a new watcher observing Change events published to the
-// hub.
-func NewHubWatcher(hub HubSource, logger Logger) *HubWatcher {
-	watcher, _ := newHubWatcher(hub, logger)
-	return watcher
+// HubWatcherConfig contains the configuration parameters required
+// for a NewHubWatcher.
+type HubWatcherConfig struct {
+	// Hub is the source of the events for the hub watcher.
+	Hub HubSource
+	// Clock allows tests to control the advancing of time.
+	Clock Clock
+	// ModelUUID refers to the model that this hub watcher is being
+	// started for.
+	ModelUUID string
+	// Logger is used to control where the log messages for this watcher go.
+	Logger Logger
 }
 
-func newHubWatcher(hub HubSource, logger Logger) (*HubWatcher, <-chan struct{}) {
+// Validate ensures that all the values that have to be set are set.
+func (config HubWatcherConfig) Validate() error {
+	if config.Hub == nil {
+		return errors.NotValidf("missing Hub")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("missing Clock")
+	}
+	if config.ModelUUID == "" {
+		return errors.NotValidf("missing Model UUID")
+	}
+	return nil
+}
+
+// NewHubWatcher returns a new watcher observing Change events published to the
+// hub.
+func NewHubWatcher(config HubWatcherConfig) (*HubWatcher, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Annotate(err, "new HubWatcher invalid config")
+	}
+	watcher, _ := newHubWatcher(config.Hub, config.Clock, config.ModelUUID, config.Logger)
+	return watcher, nil
+}
+
+func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) (*HubWatcher, <-chan struct{}) {
 	if logger == nil {
 		logger = noOpLogger{}
 	}
 	started := make(chan struct{})
 	w := &HubWatcher{
-		hub:     hub,
-		logger:  logger,
-		watches: make(map[watchKey][]watchInfo),
-		current: make(map[watchKey]int64),
-		request: make(chan interface{}),
-		changes: make(chan Change),
+		hub:       hub,
+		clock:     clock,
+		modelUUID: modelUUID,
+		idleFunc:  HubWatcherIdleFunc,
+		logger:    logger,
+		watches:   make(map[watchKey][]watchInfo),
+		current:   make(map[watchKey]int64),
+		request:   make(chan interface{}),
+		changes:   make(chan Change),
 	}
 	w.tomb.Go(func() error {
 		unsub := hub.SubscribeMatch(
@@ -120,12 +168,9 @@ func newHubWatcher(hub HubSource, logger Logger) (*HubWatcher, <-chan struct{}) 
 func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 	switch topic {
 	case txnWatcherStarting:
-		// This message is published when the main txns.log watcher starts. If
-		// this message is received here it means that the main watcher has
-		// restarted. It is highly likely that it restarted because it lost
-		// track of where it was, or the connection shut down. Either way, we
-		// need to stop this worker to release all the watchers.
-		w.tomb.Kill(errors.New("txn watcher restarted"))
+		// We don't do anything on a start.
+	case txnWatcherSyncErr:
+		w.tomb.Kill(errors.New("txn watcher sync error"))
 	case txnWatcherCollection:
 		change, ok := data.(Change)
 		if !ok {
@@ -294,6 +339,15 @@ func (w *HubWatcher) Report() map[string]interface{} {
 // loop implements the main watcher loop.
 // period is the delay between each sync.
 func (w *HubWatcher) loop() error {
+	w.logger.Tracef("loop started")
+	defer w.logger.Tracef("loop finished")
+	// idle is initially nil, and is only ever set if idleFunc
+	// has a value.
+	var idle <-chan time.Time
+	if w.idleFunc != nil {
+		w.logger.Tracef("set idle timeout to %s", HubWatcherIdleTime)
+		idle = w.clock.After(HubWatcherIdleTime)
+	}
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -302,19 +356,29 @@ func (w *HubWatcher) loop() error {
 			w.queueChange(change)
 		case req := <-w.request:
 			w.handle(req)
+		case <-idle:
+			w.logger.Tracef("notify %s idle", w.modelUUID)
+			w.idleFunc(w.modelUUID)
+			idle = w.clock.After(HubWatcherIdleTime)
 		}
 		for (len(w.syncEvents) + len(w.requestEvents)) > 0 {
 			select {
 			case <-w.tomb.Dying():
 				return errors.Trace(tomb.ErrDying)
 			default:
-				w.flush()
+				if w.flush() {
+					if w.idleFunc != nil {
+						w.logger.Tracef("set idle timeout to %s", HubWatcherIdleTime)
+						idle = w.clock.After(HubWatcherIdleTime)
+					}
+				}
 			}
 		}
 	}
 }
 
-func (w *HubWatcher) flush() {
+func (w *HubWatcher) flush() bool {
+	watchersNotified := false
 	// syncEvents are stored first in first out.
 	// syncEvents may grow during the looping here if new
 	// watch events come in while we are notifying other watchers.
@@ -325,7 +389,7 @@ func (w *HubWatcher) flush() {
 			w.logger.Tracef("syncEvents: e.ch=%v len(%d), cap(%d)", e.ch, len(w.syncEvents), cap(w.syncEvents))
 			select {
 			case <-w.tomb.Dying():
-				return
+				return watchersNotified
 			case req := <-w.request:
 				w.handle(req)
 				continue
@@ -333,7 +397,8 @@ func (w *HubWatcher) flush() {
 				w.queueChange(change)
 				continue
 			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
-				w.logger.Tracef("e.ch=%v has been notified", e.ch)
+				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, Change{e.key.c, e.key.id, e.revno})
+				watchersNotified = true
 			}
 			break
 		}
@@ -360,7 +425,7 @@ func (w *HubWatcher) flush() {
 		for e := &w.requestEvents[i]; e.ch != nil; e = &w.requestEvents[i] {
 			select {
 			case <-w.tomb.Dying():
-				return
+				return watchersNotified
 			case req := <-w.request:
 				w.handle(req)
 				continue
@@ -368,11 +433,14 @@ func (w *HubWatcher) flush() {
 				w.queueChange(change)
 				continue
 			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
+				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, Change{e.key.c, e.key.id, e.revno})
+				watchersNotified = true
 			}
 			break
 		}
 	}
 	w.requestEvents = w.requestEvents[:0]
+	return watchersNotified
 }
 
 // handle deals with requests delivered by the public API

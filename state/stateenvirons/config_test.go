@@ -4,6 +4,7 @@
 package stateenvirons_test
 
 import (
+	"github.com/juju/juju/caas"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -32,7 +33,7 @@ func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
 	stateenvirons.GetNewEnvironFunc(newEnviron)(s.State)
 	c.Assert(calls, gc.Equals, 1)
 
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(callArgs.Config, jc.DeepEquals, cfg)
 }
@@ -67,4 +68,20 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 		StorageEndpoint:  "dummy-storage-endpoint",
 		Credential:       &emptyCredential,
 	})
+}
+
+func (s *environSuite) TestGetNewCAASBrokerFunc(c *gc.C) {
+	var calls int
+	var callArgs environs.OpenParams
+	newBroker := func(args environs.OpenParams) (caas.Broker, error) {
+		calls++
+		callArgs = args
+		return nil, nil
+	}
+	stateenvirons.GetNewCAASBrokerFunc(newBroker)(s.State)
+	c.Assert(calls, gc.Equals, 1)
+
+	cfg, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(callArgs.Config, jc.DeepEquals, cfg)
 }

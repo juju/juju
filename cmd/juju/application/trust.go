@@ -1,5 +1,6 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package application
 
 import (
@@ -10,6 +11,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -36,12 +38,12 @@ func NewTrustCommand() cmd.Command {
 
 // Info is part of the cmd.Command interface.
 func (c *trustCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "trust",
 		Args:    "<application name>",
 		Purpose: trustSummary,
 		Doc:     trustDetails,
-	}
+	})
 }
 
 // SetFlags is part of the cmd.Command interface.

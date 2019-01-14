@@ -45,7 +45,7 @@ func (s *connectionSuite) TestLxdSocketPathNoSnapSocket(c *gc.C) {
 }
 
 func (s *connectionSuite) TestConnectRemoteBadProtocol(c *gc.C) {
-	svr, err := lxd.ConnectImageRemote(lxd.RemoteServer{Host: "wrong-protocol-server", Protocol: "FOOBAR"})
+	svr, err := lxd.ConnectImageRemote(lxd.ServerSpec{Host: "wrong-protocol-server", Protocol: "FOOBAR"})
 	c.Check(svr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "bad protocol supplied for connection: FOOBAR")
 }
@@ -55,10 +55,53 @@ func (s *connectionSuite) TestEnsureHTTPSUnchangedWhenCorrect(c *gc.C) {
 	c.Check(lxd.EnsureHTTPS(addr), gc.Equals, addr)
 }
 
-func (s *connectionSuite) TestEnsureHTTPSForHTTP(c *gc.C) {
-	c.Check(lxd.EnsureHTTPS("http://somewhere"), gc.Equals, "https://somewhere")
+func (s *connectionSuite) TestEnsureHTTPS(c *gc.C) {
+	for _, t := range []struct {
+		Input  string
+		Output string
+	}{
+		{
+			Input:  "http://somewhere",
+			Output: "https://somewhere",
+		},
+		{
+			Input:  "https://somewhere",
+			Output: "https://somewhere",
+		},
+		{
+			Input:  "somewhere",
+			Output: "https://somewhere",
+		},
+	} {
+		got := lxd.EnsureHTTPS(t.Input)
+		c.Assert(got, gc.Equals, t.Output)
+	}
 }
 
-func (s *connectionSuite) TestEnsureHTTPSForNoProtocol(c *gc.C) {
-	c.Check(lxd.EnsureHTTPS("somewhere"), gc.Equals, "https://somewhere")
+func (s *connectionSuite) TestEnsureHostPort(c *gc.C) {
+	for _, t := range []struct {
+		Input  string
+		Output string
+	}{
+		{
+			Input:  "https://somewhere",
+			Output: "https://somewhere:8443",
+		},
+		{
+			Input:  "somewhere",
+			Output: "https://somewhere:8443",
+		},
+		{
+			Input:  "http://somewhere:0",
+			Output: "https://somewhere:0",
+		},
+		{
+			Input:  "https://somewhere:123",
+			Output: "https://somewhere:123",
+		},
+	} {
+		got, err := lxd.EnsureHostPort(t.Input)
+		c.Assert(err, gc.IsNil)
+		c.Assert(got, gc.Equals, t.Output)
+	}
 }

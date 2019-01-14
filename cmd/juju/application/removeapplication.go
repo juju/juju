@@ -5,13 +5,16 @@ package application
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -45,12 +48,12 @@ Examples:
     juju remove-application -m test-model mariadb`[1:]
 
 func (c *removeApplicationCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-application",
 		Args:    "<application> [<application>...]",
 		Purpose: helpSummaryRmApp,
 		Doc:     helpDetailsRmApp,
-	}
+	})
 }
 
 func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -73,12 +76,19 @@ func (c *removeApplicationCommand) Init(args []string) error {
 
 type removeApplicationAPI interface {
 	Close() error
+	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
 	DestroyApplications(application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error)
 	DestroyDeprecated(appName string) error
 	DestroyUnits(application.DestroyUnitsParams) ([]params.DestroyUnitResult, error)
 	DestroyUnitsDeprecated(unitNames ...string) error
 	GetCharmURL(appName string) (*charm.URL, error)
 	ModelUUID() string
+	BestAPIVersion() int
+}
+
+type storageAPI interface {
+	Close() error
+	ListStorageDetails() ([]params.StorageDetails, error)
 }
 
 func (c *removeApplicationCommand) getAPI() (removeApplicationAPI, int, error) {
@@ -88,6 +98,48 @@ func (c *removeApplicationCommand) getAPI() (removeApplicationAPI, int, error) {
 	}
 	version := root.BestFacadeVersion("Application")
 	return application.NewClient(root), version, nil
+}
+
+func (c *removeApplicationCommand) getStorageAPI() (storageAPI, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return storage.NewClient(root), nil
+}
+
+func (c *removeApplicationCommand) applicationsHaveStorage(appNames []string) (bool, error) {
+	client, err := c.getStorageAPI()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	defer client.Close()
+
+	storage, err := client.ListStorageDetails()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	namesSet := set.NewStrings(appNames...)
+	for _, s := range storage {
+		if s.OwnerTag == "" {
+			continue
+		}
+		owner, err := names.ParseTag(s.OwnerTag)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if owner.Kind() != names.UnitTagKind {
+			continue
+		}
+		appName, err := names.UnitApplication(owner.Id())
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if namesSet.Contains(appName) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {

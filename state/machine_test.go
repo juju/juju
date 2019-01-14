@@ -6,12 +6,13 @@ package state_test
 import (
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -21,6 +22,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -28,7 +31,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -128,6 +130,134 @@ func (s *MachineSuite) TestSetKeepInstance(c *gc.C) {
 	keep, err := m.KeepInstance()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(keep, jc.IsTrue)
+}
+
+func (s *MachineSuite) TestSetCharmProfile(c *gc.C) {
+	err := s.machine.SetProvisioned("1234", "nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedProfiles := []string{"juju-default-lxd-profile-0", "juju-default-lxd-sub-0"}
+	err = s.machine.SetCharmProfiles(expectedProfiles)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedProfiles, err := m.CharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(expectedProfiles, jc.SameContents, obtainedProfiles)
+}
+
+func (s *MachineSuite) TestSetUpgradeCharmProfileWithoutLXDProfileHasExisting(c *gc.C) {
+	s.testSetUpgradeCharmProfileWithoutLXDProfile(c, []string{"juju-default-appname-0"})
+	assertUpgradeCharmProfileNotRequired(c, s.machine, "lxd-profile")
+}
+
+func (s *MachineSuite) TestSetUpgradeCharmProfileWithoutLXDProfile(c *gc.C) {
+	s.testSetUpgradeCharmProfileWithoutLXDProfile(c, []string{""})
+	assertUpgradeCharmProfileNotRequired(c, s.machine, "lxd-profile")
+}
+
+func (s *MachineSuite) TestSetUpgradeCharmProfileWithoutLXDProfileForRemoval(c *gc.C) {
+	s.testSetUpgradeCharmProfileWithoutLXDProfile(c, []string{"juju-default-lxd-profile-0"})
+	assertUpgradeCharmProfileRequired(c, s.machine, "lxd-profile", "local:quantal/quantal-riak-7")
+}
+
+func (s *MachineSuite) testSetUpgradeCharmProfileWithoutLXDProfile(c *gc.C, profiles []string) {
+	m := s.machine
+	err := m.SetProvisioned("1", "fake-nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetCharmProfiles(profiles)
+
+	ch := s.AddTestingCharm(c, "riak")
+	s.AddTestingApplication(c, "riak", ch)
+
+	err = m.SetUpgradeCharmProfile("lxd-profile", ch.URL().String())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) TestSetUpgradeCharmProfileWithInstanceCharmProfileData(c *gc.C) {
+	m := s.machine
+
+	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.SetUpgradeCharmProfile("lxd-profile", "local:quantal/quantal-lxd-profile-0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertUpgradeCharmProfileRequired(c, m, "lxd-profile", "local:quantal/quantal-lxd-profile-0")
+
+	err = m.SetUpgradeCharmProfile("lxd-profile", "local:quantal/quantal-lxd-profile-0")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) TestSetUpgradeCharmProfileWithLXDProfile(c *gc.C) {
+	m := s.machine
+
+	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.SetUpgradeCharmProfile("lxd-profile", "local:quantal/quantal-lxd-profile-0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertUpgradeCharmProfileRequired(c, m, "lxd-profile", "local:quantal/quantal-lxd-profile-0")
+}
+
+func (s *MachineSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
+	m := s.machine
+
+	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.SetUpgradeCharmProfile("app-name", "local:quantal/quantal-lxd-profile-0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := m.UpgradeCharmProfileComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, lxdprofile.SuccessStatus)
+}
+
+func assertUpgradeCharmProfileNotRequired(c *gc.C, m *state.Machine, expectedAppName string) {
+	err := m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedAppName, err := m.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedAppName, gc.Equals, expectedAppName)
+	charmURL, err := m.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charmURL, gc.Equals, "")
+	status, err := m.UpgradeCharmProfileComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, lxdprofile.NotRequiredStatus)
+}
+
+func assertUpgradeCharmProfileRequired(c *gc.C, m *state.Machine, expectedAppName, expectedCharmURL string) {
+	err := m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedAppName, err := m.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedAppName, gc.Equals, expectedAppName)
+	obtainedCharmURL, err := m.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedCharmURL, gc.Equals, expectedCharmURL)
+	status, err := m.UpgradeCharmProfileComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, lxdprofile.EmptyStatus)
 }
 
 func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
@@ -231,7 +361,7 @@ func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Type(), gc.Not(gc.Equals), "null")
 	c.Assert(s.machine.Id(), gc.Equals, "1")
@@ -239,7 +369,7 @@ func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(manual, jc.IsFalse)
 	attrs := map[string]interface{}{"type": "null"}
-	err = s.IAASModel.UpdateModelConfig(attrs, nil)
+	err = s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	manual, err = s.machine0.IsManual()
 	c.Assert(err, jc.ErrorIsNil)
@@ -608,18 +738,19 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
 		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	st := pool.SystemState()
 	defer func() {
 		// Remove the admin password so that the test harness can reset the state.
 		err := st.SetAdminMongoPassword("")
 		c.Check(err, jc.ErrorIsNil)
-		err = st.Close()
+		err = pool.Close()
 		c.Check(err, jc.ErrorIsNil)
 	}()
 
@@ -648,18 +779,20 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
-	st1, err := state.Open(state.OpenParams{
+
+	pool1, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
 		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	defer st1.Close()
+	defer pool1.Close()
+	st1 := pool1.SystemState()
 
 	// Change the password with an entity derived from the newly
 	// opened and authenticated state.
-	ent, err = st.Machine("0")
+	ent, err = st1.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	err = ent.SetMongoPassword("bar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -972,16 +1105,16 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	assertNotProvisioned()
 
 	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{
-		names.NewVolumeTag("1065"): state.VolumeInfo{VolumeId: "vol-ume"},
+		names.NewVolumeTag("1065"): {VolumeId: "vol-ume"},
 	}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume \"1065\" not found`)
 	assertNotProvisioned()
 
 	invalidVolumes = map[names.VolumeTag]state.VolumeInfo{
-		names.NewVolumeTag("1065"): state.VolumeInfo{},
+		names.NewVolumeTag("1065"): {},
 	}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume ID not set`)
 	assertNotProvisioned()
 
@@ -1014,11 +1147,13 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 		Size:     1234,
 	}
 	volumes := map[names.VolumeTag]state.VolumeInfo{volumeTag: volumeInfo}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, volumes, nil)
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, volumes, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 
-	volume, err := s.IAASModel.Volume(volumeTag)
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := sb.Volume(volumeTag)
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1486,6 +1621,31 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("mysql/1", "logging/0")
 	wc.AssertNoChange()
+}
+
+func (s *MachineSuite) TestApplicationNames(c *gc.C) {
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	mysql1, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	worpress0, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysql0.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysql1.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	err = worpress0.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	apps, err := machine.ApplicationNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(apps, jc.DeepEquals, []string{"mysql", "wordpress"})
 }
 
 func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
@@ -2434,13 +2594,6 @@ func (s *MachineSuite) setupTestUpdateMachineSeries(c *gc.C) *state.Machine {
 	err = ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ch2 := state.AddTestingCharmMultiSeries(c, s.State, "wordpress")
-	app2 := state.AddTestingApplicationForSeries(c, s.State, "precise", "wordpress", ch2)
-	unit2, err := app2.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit2.AssignToMachine(mach)
-	c.Assert(err, jc.ErrorIsNil)
-
 	return mach
 }
 
@@ -2537,19 +2690,21 @@ func (s *MachineSuite) TestUpdateMachineSeriesCharmURLChangedSeriesFail(c *gc.C)
 
 	// Trusty is listed in only version 1 of the charm.
 	err := mach.UpdateMachineSeries("trusty", false)
-	c.Assert(err, gc.ErrorMatches, "cannot update series for \"2\" to trusty: series \"trusty\" not supported by charm, supported series are: precise,xenial")
+	c.Assert(err, gc.ErrorMatches,
+		"updating series for machine \"2\": series \"trusty\" not supported by charm \"cs:multi-series-2\", "+
+			"supported series are: precise, xenial")
 }
 
 func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
 	err := mach.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(mach.Principals()), gc.Equals, 2)
+	c.Assert(len(mach.Principals()), gc.Equals, 1)
 
 	defer state.SetTestHooks(c, s.State,
 		jujutxn.TestHook{
 			Before: func() {
-				app, err := s.State.Application("wordpress")
+				app, err := s.State.Application("multi-series")
 				c.Assert(err, jc.ErrorIsNil)
 				unit, err := app.AddUnit(state.AddUnitParams{})
 				c.Assert(err, jc.ErrorIsNil)
@@ -2562,7 +2717,7 @@ func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
 	err = mach.UpdateMachineSeries("trusty", false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertMachineAndUnitSeriesChanged(c, mach, "trusty")
-	c.Assert(len(mach.Principals()), gc.Equals, 3)
+	c.Assert(len(mach.Principals()), gc.Equals, 2)
 }
 
 func (s *MachineSuite) TestUpdateMachineSeriesSubordinateListChangeIncompatibleSeries(c *gc.C) {
@@ -2598,4 +2753,181 @@ func (s *MachineSuite) TestUpdateMachineSeriesSubordinateListChangeIncompatibleS
 	err = mach.UpdateMachineSeries("yakkety", false)
 	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
 	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
+}
+
+func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit {
+	units, err := mach.Units()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var app *state.Application
+	if len(units) == 0 {
+		ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+		app = state.AddTestingApplicationForSeries(c, s.State, mach.Series(), "multi-series", ch)
+		subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
+		_ = state.AddTestingApplicationForSeries(c, s.State, mach.Series(), "multi-series-subordinate", subCh)
+	} else {
+		app, err = units[0].Application()
+	}
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(mach)
+	c.Assert(err, jc.ErrorIsNil)
+	return unit
+}
+
+// VerifyUnitsSeries is also tested via TestUpdateMachineSeries*
+func (s *MachineSuite) TestVerifyUnitsSeries(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedUnits, err := mach.Units()
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedUnits, err := mach.VerifyUnitsSeries([]string{"multi-series/0"}, "trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitNames(obtainedUnits), jc.SameContents, unitNames(expectedUnits))
+}
+
+func unitNames(units []*state.Unit) []string {
+	names := make([]string, len(units))
+	for i := range units {
+		names[i] = units[i].Name()
+	}
+	return names
+}
+
+func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
+	// Add a machine: reported.
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := machine.WatchAddresses()
+	defer w.Stop()
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	// Change the machine: not reported.
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set machine addresses: reported.
+	err = machine.SetMachineAddresses(network.NewAddress("abc"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Set provider addresses eclipsing machine addresses: reported.
+	err = machine.SetProviderAddresses(network.NewScopedAddress("abc", network.ScopePublic))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Set same machine eclipsed by provider addresses: not reported.
+	err = machine.SetMachineAddresses(network.NewScopedAddress("abc", network.ScopeCloudLocal))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set different machine addresses: reported.
+	err = machine.SetMachineAddresses(network.NewAddress("def"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Set different provider addresses: reported.
+	err = machine.SetMachineAddresses(network.NewScopedAddress("def", network.ScopePublic))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Make it Dying: not reported.
+	err = machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Make it Dead: not reported.
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Remove it: watcher eventually closed and Err
+	// returns an IsNotFound error.
+	err = machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher not closed")
+	}
+	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *MachineSuite) TestWatchAddressesHash(c *gc.C) {
+	// Add a machine: reported.
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := machine.WatchAddressesHash()
+	defer w.Stop()
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	// This is the sha256 hash of no addresses.
+	wc.AssertChange("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+
+	// Change the machine: not reported.
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set machine addresses: reported.
+	err = machine.SetMachineAddresses(network.NewAddress("abc"))
+	c.Assert(err, jc.ErrorIsNil)
+	// This is the sha256 of "abc".
+	wc.AssertChange("1525afafd93a69bba3fd8002b5c9222348aeb30892e41b31dc7151ecd8e13110")
+
+	// Set provider addresses eclipsing machine addresses: reported.
+	err = machine.SetProviderAddresses(network.NewScopedAddress("abc", network.ScopePublic))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("014cc321ca5ae6fea47f2055d52d32d35f29b6d46847e5d33c63f9affef3d056")
+
+	// Set same machine eclipsed by provider addresses: not reported.
+	err = machine.SetMachineAddresses(network.NewScopedAddress("abc", network.ScopeCloudLocal))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set different machine addresses: reported.
+	err = machine.SetMachineAddresses(network.NewAddress("def"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("536a6b25395628489c093224810711f207e4c7f11e643cdb1122d9047273e619")
+
+	// Set different provider addresses: reported.
+	err = machine.SetProviderAddresses(network.NewScopedAddress("def", network.ScopePublic))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("469fafe505383d20062a358c21dfd20e5568ebbab5f4e628fba0289a2f31c80d")
+
+	// Ensure that addresses are sorted - the addresses are now def
+	// from the provider and aaa locally.
+	err = machine.SetMachineAddresses(network.NewAddress("aaa"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("755a4b25150ccb8613f870d3d718925d86bda8f717dc07e068376aaf9936179d")
+
+	// Make it Dying: not reported.
+	err = machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Make it Dead: not reported.
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Remove it: watcher eventually closed and Err
+	// returns an IsNotFound error.
+	err = machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher not closed")
+	}
+	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
 }

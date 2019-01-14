@@ -103,7 +103,7 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 	jujuversion.Current = s.origCurrentVersion
 	dummy.Reset(c)
 	attrs = dummy.SampleConfig().Merge(attrs)
-	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
@@ -114,7 +114,7 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.env = env
+	s.env = env.(environs.Environ)
 	s.removeTools(c)
 }
 

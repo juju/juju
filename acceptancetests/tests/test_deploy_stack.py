@@ -229,7 +229,7 @@ class DeployStackTestCase(FakeHomeTestCase):
                       message: Token is token
 
             """)
-        remote = SSHRemote(client, 'unit', None, series='xenial')
+        remote = SSHRemote(client, 'unit', None, series='bionic')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
             with patch.object(remote, 'cat', autospec=True,
@@ -258,7 +258,7 @@ class DeployStackTestCase(FakeHomeTestCase):
                       message: Waiting for token
 
             """)
-        remote = SSHRemote(client, 'unit', None, series='xenial')
+        remote = SSHRemote(client, 'unit', None, series='bionic')
         error = subprocess.CalledProcessError(1, 'ssh', '')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
@@ -292,7 +292,7 @@ class DeployStackTestCase(FakeHomeTestCase):
                       message: Token is token
 
             """)
-        remote = SSHRemote(client, 'unit', None, series='xenial')
+        remote = SSHRemote(client, 'unit', None, series='bionic')
         error = subprocess.CalledProcessError(1, 'ssh', '')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
@@ -835,10 +835,10 @@ class TestDeployDummyStack(FakeHomeTestCase):
         client = fake_juju_client()
         client.bootstrap()
         with patch.object(client, 'deploy', autospec=True) as dp_mock:
-            deploy_dummy_stack(client, 'xenial', use_charmstore=True)
+            deploy_dummy_stack(client, 'bionic', use_charmstore=True)
         calls = [
-            call('cs:~juju-qa/dummy-source', series='xenial'),
-            call('cs:~juju-qa/dummy-sink', series='xenial')]
+            call('cs:~juju-qa/dummy-source', series='bionic'),
+            call('cs:~juju-qa/dummy-sink', series='bionic')]
         self.assertEqual(dp_mock.mock_calls, calls)
 
     def test_deploy_dummy_stack(self):

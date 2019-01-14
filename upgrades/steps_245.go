@@ -7,7 +7,6 @@ import (
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/systemd"
 )
 
 // stepsFor245 returns upgrade steps for Juju 2.4.5
@@ -36,8 +35,8 @@ func correctServiceFileLogPath(context Context) error {
 		return nil
 	}
 	// rewrite files to correct errors in previous upgrade step
-	sysdManager := service.NewSystemdServiceManager(systemd.IsRunning)
-	err = sysdManager.WriteServiceFile()
+	sysdManager := service.NewServiceManagerWithDefaults()
+	err = sysdManager.WriteServiceFiles()
 	if err != nil {
 		logger.Errorf("rewriting service file: %e", err)
 		return err

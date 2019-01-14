@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/environs"
 	_ "github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -30,14 +31,14 @@ import (
 type KillSuite struct {
 	baseDestroySuite
 
-	clock *testing.Clock
+	clock *testclock.Clock
 }
 
 var _ = gc.Suite(&KillSuite{})
 
 func (s *KillSuite) SetUpTest(c *gc.C) {
 	s.baseDestroySuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -47,10 +48,12 @@ func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error
 func (s *KillSuite) newKillCommand() cmd.Command {
 	clock := s.clock
 	if clock == nil {
-		clock = testing.NewClock(time.Now())
+		clock = testclock.NewClock(time.Now())
 	}
 	return controller.NewKillCommandForTest(
 		s.api, s.clientapi, s.store, s.apierror, clock, nil,
+		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
+		environs.Destroy,
 	)
 }
 
@@ -61,7 +64,7 @@ func (s *KillSuite) TestKillNoControllerNameError(c *gc.C) {
 
 func (s *KillSuite) TestKillBadFlags(c *gc.C) {
 	_, err := s.runKillCommand(c, "-n")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -n")
+	c.Assert(err, gc.ErrorMatches, "option provided but not defined: -n")
 }
 
 func (s *KillSuite) TestKillDurationFlags(c *gc.C) {
@@ -438,7 +441,10 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 	testDialer := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, common.ErrPerm
 	}
-	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, testDialer)
+	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, testDialer,
+		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
+		environs.Destroy,
+	)
 	_, err := cmdtesting.RunCommand(c, cmd, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	checkControllerExistsInStore(c, "test1", s.store)
@@ -454,7 +460,10 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 		return nil, errors.New("kill command waited too long")
 	}
 
-	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock, testDialer)
+	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock, testDialer,
+		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
+		environs.Destroy,
+	)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "test1", "-y")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")

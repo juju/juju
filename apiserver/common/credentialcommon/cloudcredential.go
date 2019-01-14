@@ -4,56 +4,29 @@
 package credentialcommon
 
 import (
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/state"
 )
 
-// Backend is an interface for manipulating cloud credential.
-type Backend interface {
-
-	// CloudCredential returns the cloud credential for the given tag.
-	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
-
-	// UpdateCloudCredential adds or updates a cloud credential with the given tag.
-	UpdateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error
+// StateBackend exposes State methods needed by credential manager.
+type StateBackend interface {
+	InvalidateModelCredential(reason string) error
 }
 
-// ChangeCloudCredentialsValidity marks given cloud credentials as valid/invalid according
-// to supplied validity indicators using given persistence interface.
-func ChangeCloudCredentialsValidity(b Backend, creds params.ValidateCredentialArgs) ([]params.ErrorResult, error) {
-	if len(creds.All) == 0 {
-		return nil, nil
-	}
-	all := make([]params.ErrorResult, len(creds.All))
-	for i, one := range creds.All {
-		tag, err := names.ParseCloudCredentialTag(one.CredentialTag)
-		if err != nil {
-			all[i].Error = common.ServerError(err)
-			continue
-		}
-		storedCredential, err := b.CloudCredential(tag)
-		if err != nil {
-			all[i].Error = common.ServerError(err)
-			continue
-		}
-		cloudCredential := cloud.NewNamedCredential(
-			storedCredential.Name,
-			cloud.AuthType(storedCredential.AuthType),
-			storedCredential.Attributes,
-			storedCredential.Revoked,
-		)
+type CredentialManagerAPI struct {
+	backend StateBackend
+}
 
-		cloudCredential.Invalid = !one.Valid
-		cloudCredential.InvalidReason = one.Reason
+// NewCredentialManagerAPI creates new model credential manager api endpoint.
+func NewCredentialManagerAPI(backend StateBackend) *CredentialManagerAPI {
+	return &CredentialManagerAPI{backend: backend}
+}
 
-		err = b.UpdateCloudCredential(tag, cloudCredential)
-		if err != nil {
-			all[i].Error = common.ServerError(err)
-		}
+// InvalidateModelCredential marks the cloud credential for this model as invalid.
+func (api *CredentialManagerAPI) InvalidateModelCredential(args params.InvalidateCredentialArg) (params.ErrorResult, error) {
+	err := api.backend.InvalidateModelCredential(args.Reason)
+	if err != nil {
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
-	return all, nil
+	return params.ErrorResult{}, nil
 }

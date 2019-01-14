@@ -7,11 +7,12 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -68,14 +69,13 @@ func (s *suite) setupState(c *gc.C, maxLogAge, maxCollectionMB string) {
 		"max-logs-size": maxCollectionMB,
 	}
 
-	var ctlr *state.Controller
-	ctlr, s.state = statetesting.InitializeWithArgs(c, statetesting.InitializeArgs{
+	ctlr := statetesting.InitializeWithArgs(c, statetesting.InitializeArgs{
 		Owner:            names.NewLocalUserTag("test-admin"),
-		Clock:            jujutesting.NewClock(testing.NonZeroTime()),
+		Clock:            testclock.NewClock(testing.NonZeroTime()),
 		ControllerConfig: controllerConfig,
 	})
-	ctlr.Close()
-	s.AddCleanup(func(*gc.C) { s.state.Close() })
+	s.AddCleanup(func(*gc.C) { ctlr.Close() })
+	s.state = ctlr.SystemState()
 	s.logsColl = s.state.MongoSession().DB("logs").C("logs." + s.state.ModelUUID())
 }
 

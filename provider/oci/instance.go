@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/oci/common"
 
 	ociCore "github.com/oracle/oci-go-sdk/core"
 )
@@ -44,6 +45,8 @@ type vnicWithIndex struct {
 }
 
 var _ instance.Instance = (*ociInstance)(nil)
+var maxPollIterations = 30
+var pollTime time.Duration = 10 * time.Second
 
 var statusMap map[ociCore.InstanceLifecycleStateEnum]status.Status = map[ociCore.InstanceLifecycleStateEnum]status.Status{
 	ociCore.InstanceLifecycleStateProvisioning:  status.Provisioning,
@@ -89,9 +92,8 @@ func (o *ociInstance) Id() instance.Id {
 
 // Status implements instance.Instance
 func (o *ociInstance) Status(ctx envcontext.ProviderCallContext) instance.InstanceStatus {
-	// This should not happen, unless someone bypassed newInstance()
-	// and created the ociInstance{} object manually.
 	if err := o.refresh(); err != nil {
+		common.HandleCredentialError(err, ctx)
 		return instance.InstanceStatus{}
 	}
 	state, ok := statusMap[o.raw.LifecycleState]
@@ -159,6 +161,7 @@ func (o *ociInstance) getAddresses() ([]network.Address, error) {
 // Addresses implements instance.Instance
 func (o *ociInstance) Addresses(ctx envcontext.ProviderCallContext) ([]network.Address, error) {
 	addresses, err := o.getAddresses()
+	common.HandleCredentialError(err, ctx)
 	return addresses, err
 }
 
@@ -173,13 +176,15 @@ func (o *ociInstance) isTerminating() bool {
 
 func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error {
 	iteration := 0
+	startTime := time.Now()
 	for {
 		addresses, err := o.Addresses(ctx)
 		if err != nil {
-			return err
+			common.HandleCredentialError(err, ctx)
+			return errors.Trace(err)
 		}
-		if iteration >= 30 {
-			logger.Warningf("Instance still in running state after %v checks. breaking loop", iteration)
+		if iteration >= maxPollIterations {
+			logger.Debugf("could not find a public IP after %s. breaking loop", time.Since(startTime))
 			break
 		}
 
@@ -189,14 +194,14 @@ func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error 
 				return nil
 			}
 		}
-		<-o.env.clock.After(1 * time.Second)
+		<-o.env.clock.After(pollTime)
 		iteration++
 		continue
 	}
 	return errors.NotFoundf("failed to find public IP for instance: %s", *o.raw.Id)
 }
 
-func (o *ociInstance) deleteInstance() error {
+func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 	err := o.refresh()
 	if errors.IsNotFound(err) {
 		return nil
@@ -212,6 +217,7 @@ func (o *ociInstance) deleteInstance() error {
 	}
 	response, err := o.env.Compute.TerminateInstance(context.Background(), request)
 	if err != nil && !o.env.isNotFound(response.RawResponse) {
+		common.HandleCredentialError(err, ctx)
 		return err
 	}
 	iteration := 0
@@ -220,17 +226,17 @@ func (o *ociInstance) deleteInstance() error {
 			if errors.IsNotFound(err) {
 				break
 			}
+			common.HandleCredentialError(err, ctx)
 			return err
 		}
 		logger.Infof("Waiting for machine to transition to Terminating: %s", o.raw.LifecycleState)
 		if o.isTerminating() {
 			break
 		}
-		if iteration >= 30 && o.raw.LifecycleState == ociCore.InstanceLifecycleStateRunning {
-			logger.Warningf("Instance still in running state after %v checks. breaking loop", iteration)
-			break
+		if iteration >= maxPollIterations && o.raw.LifecycleState == ociCore.InstanceLifecycleStateRunning {
+			return errors.Errorf("Instance still in running state after %v checks", iteration)
 		}
-		<-o.env.clock.After(1 * time.Second)
+		<-o.env.clock.After(pollTime)
 		iteration++
 		continue
 	}
@@ -267,7 +273,7 @@ func (o *ociInstance) waitForMachineStatus(state ociCore.InstanceLifecycleStateE
 				"Timed out waiting for instance to transition from %v to %v",
 				o.raw.LifecycleState, state,
 			)
-		case <-o.env.clock.After(10 * time.Second):
+		case <-o.env.clock.After(pollTime):
 			err := o.refresh()
 			if err != nil {
 				return err

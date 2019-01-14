@@ -4,9 +4,12 @@
 package lxd
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/lxc/lxd/shared/api"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -30,10 +33,10 @@ type environ struct {
 	cloud    environs.CloudSpec
 	provider *environProvider
 
-	name string
-	uuid string
-	raw  *rawProvider
-	base baseProvider
+	name   string
+	uuid   string
+	server Server
+	base   baseProvider
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
@@ -42,14 +45,11 @@ type environ struct {
 	ecfg *environConfig
 }
 
-type newRawProviderFunc func(environs.CloudSpec, bool) (*rawProvider, error)
-
 func newEnviron(
 	_ *environProvider,
-	local bool,
 	spec environs.CloudSpec,
 	cfg *config.Config,
-	newRawProvider newRawProviderFunc,
+	serverFactory ServerFactory,
 ) (*environ, error) {
 	ecfg, err := newValidConfig(cfg)
 	if err != nil {
@@ -61,7 +61,7 @@ func newEnviron(
 		return nil, errors.Trace(err)
 	}
 
-	raw, err := newRawProvider(spec, local)
+	server, err := serverFactory.RemoteServer(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -70,13 +70,12 @@ func newEnviron(
 		cloud:     spec,
 		name:      ecfg.Name(),
 		uuid:      ecfg.UUID(),
-		raw:       raw,
+		server:    server,
 		namespace: namespace,
 		ecfg:      ecfg,
 	}
 	env.base = common.DefaultProvider{Env: env}
 
-	//TODO(wwitzel3) make sure we are also cleaning up profiles during destroy
 	if err := env.initProfile(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -84,39 +83,39 @@ func newEnviron(
 	return env, nil
 }
 
-var defaultProfileConfig = map[string]string{
-	"boot.autostart":   "true",
-	"security.nesting": "true",
-}
-
 func (env *environ) initProfile() error {
-	hasProfile, err := env.raw.HasProfile(env.profileName())
+	pName := env.profileName()
+
+	hasProfile, err := env.server.HasProfile(pName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if hasProfile {
 		return nil
 	}
 
-	return env.raw.CreateProfile(env.profileName(), defaultProfileConfig)
+	cfg := map[string]string{
+		"boot.autostart":   "true",
+		"security.nesting": "true",
+	}
+	return env.server.CreateProfileWithConfig(pName, cfg)
 }
 
 func (env *environ) profileName() string {
-	return "juju-" + env.ecfg.Name()
+	return "juju-" + env.Name()
 }
 
-// Name returns the name of the environment.
+// Name returns the name of the environ.
 func (env *environ) Name() string {
 	return env.name
 }
 
-// Provider returns the environment provider that created this env.
+// Provider returns the provider that created this environ.
 func (env *environ) Provider() environs.EnvironProvider {
 	return env.provider
 }
 
-// SetConfig updates the env's configuration.
+// SetConfig updates the environ's configuration.
 func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
@@ -156,10 +155,12 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Pro
 // known environment.
 func (env *environ) Destroy(ctx context.ProviderCallContext) error {
 	if err := env.base.DestroyEnv(ctx); err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)
 	}
 	if env.storageSupported() {
 		if err := destroyModelFilesystems(env); err != nil {
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			return errors.Annotate(err, "destroying LXD filesystems for model")
 		}
 	}
@@ -172,10 +173,12 @@ func (env *environ) DestroyController(ctx context.ProviderCallContext, controlle
 		return errors.Trace(err)
 	}
 	if err := env.destroyHostedModelResources(controllerUUID); err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)
 	}
 	if env.storageSupported() {
 		if err := destroyControllerFilesystems(env, controllerUUID); err != nil {
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			return errors.Annotate(err, "destroying LXD filesystems for controller")
 		}
 	}
@@ -190,22 +193,153 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
 	}
-	logger.Debugf("instances: %v", instances)
+
 	var names []string
 	for _, inst := range instances {
-		metadata := inst.raw.Metadata()
-		if metadata[tags.JujuModel] == env.uuid {
+		if inst.container.Metadata(tags.JujuModel) == env.uuid {
 			continue
 		}
-		if metadata[tags.JujuController] != controllerUUID {
+		if inst.container.Metadata(tags.JujuController) != controllerUUID {
 			continue
 		}
 		names = append(names, string(inst.Id()))
 	}
-	if len(names) > 0 {
-		if err := env.raw.RemoveInstances(prefix, names...); err != nil {
-			return errors.Annotate(err, "removing hosted model instances")
+	logger.Debugf("removing instances: %v", names)
+
+	return errors.Trace(env.server.RemoveContainers(names))
+}
+
+// lxdAvailabilityZone wraps a LXD cluster member as an availability zone.
+type lxdAvailabilityZone struct {
+	api.ClusterMember
+}
+
+// Name implements AvailabilityZone.
+func (z *lxdAvailabilityZone) Name() string {
+	return z.ServerName
+}
+
+// Available implements AvailabilityZone.
+func (z *lxdAvailabilityZone) Available() bool {
+	return strings.ToLower(z.Status) == "online"
+}
+
+// AvailabilityZones (ZonedEnviron) returns all availability zones in the
+// environment. For LXD, this means the cluster node names.
+func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+	// If we are not using a clustered server (which includes those not
+	// supporting the clustering API) just represent the single server as the
+	// only availability zone.
+	if !env.server.IsClustered() {
+		return []common.AvailabilityZone{
+			&lxdAvailabilityZone{
+				ClusterMember: api.ClusterMember{
+					ServerName: env.server.Name(),
+					Status:     "ONLINE",
+				},
+			},
+		}, nil
+	}
+
+	nodes, err := env.server.GetClusterMembers()
+	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Annotate(err, "listing cluster members")
+	}
+	aZones := make([]common.AvailabilityZone, len(nodes))
+	for i, n := range nodes {
+		aZones[i] = &lxdAvailabilityZone{n}
+	}
+	return aZones, nil
+}
+
+// InstanceAvailabilityZoneNames (ZonedEnviron) returns the names of the
+// availability zones for the specified instances.
+// For containers, this means the LXD server node names where they reside.
+func (env *environ) InstanceAvailabilityZoneNames(
+	ctx context.ProviderCallContext, ids []instance.Id,
+) ([]string, error) {
+	instances, err := env.Instances(ctx, ids)
+	if err != nil && err != environs.ErrPartialInstances {
+		return nil, err
+	}
+
+	// If not clustered, just report all input IDs as being in the zone
+	// represented by the single server.
+	if !env.server.IsClustered() {
+		zones := make([]string, len(ids))
+		n := env.server.Name()
+		for i := range zones {
+			zones[i] = n
+		}
+		return zones, nil
+	}
+
+	zones := make([]string, len(instances))
+	for i, ins := range instances {
+		if ei, ok := ins.(*environInstance); ok {
+			zones[i] = ei.container.Location
 		}
 	}
+	return zones, nil
+}
+
+// DeriveAvailabilityZones (ZonedEnviron) attempts to derive availability zones
+// from the specified StartInstanceParams.
+func (env *environ) DeriveAvailabilityZones(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) ([]string, error) {
+	p, err := env.parsePlacement(ctx, args.Placement)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if p.nodeName == "" {
+		return nil, nil
+	}
+	return []string{p.nodeName}, nil
+}
+
+// MaybeWriteLXDProfile implements environs.LXDProfiler.
+func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	hasProfile, err := env.server.HasProfile(pName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if hasProfile {
+		logger.Debugf("lxd profile %q already exists, not written again", pName)
+		return nil
+	}
+	post := api.ProfilesPost{
+		Name:       pName,
+		ProfilePut: api.ProfilePut(*put),
+	}
+	if err = env.server.CreateProfile(post); err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("wrote lxd profile %q", pName)
 	return nil
+}
+
+// LXDProfileNames implements environs.LXDProfiler.
+func (env *environ) LXDProfileNames(containerName string) ([]string, error) {
+	return env.server.GetContainerProfiles(containerName)
+}
+
+// ReplaceLXDProfile implements environs.LXDProfiler.
+func (env *environ) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
+	if put != nil {
+		if err := env.MaybeWriteLXDProfile(newProfile, put); err != nil {
+			return []string{}, errors.Trace(err)
+		}
+	}
+	if err := env.server.ReplaceOrAddContainerProfile(instId, oldProfile, newProfile); err != nil {
+		return []string{}, errors.Trace(err)
+	}
+	if oldProfile != "" {
+		if err := env.server.DeleteProfile(oldProfile); err != nil {
+			// most likely the failure is because the profile is already in use
+			logger.Debugf("failed to delete profile %q: %s", oldProfile, err)
+		}
+	}
+	return env.LXDProfileNames(instId)
 }

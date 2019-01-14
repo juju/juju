@@ -29,8 +29,8 @@ import (
 	macapitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/watcher"
 )
 
 type ClientSuite struct {
@@ -261,7 +261,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 					Username:    "xena",
 				},
 				UnitRevisions: map[string]params.SerializedModelResourceRevision{
-					"fooapp/0": params.SerializedModelResourceRevision{
+					"fooapp/0": {
 						Revision:       1,
 						Type:           "file",
 						Path:           "blink.tar.gz",
@@ -323,7 +323,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 				Username:      "xena",
 			},
 			UnitRevisions: map[string]resource.Resource{
-				"fooapp/0": resource.Resource{
+				"fooapp/0": {
 					Resource: charmresource.Resource{
 						Meta: charmresource.Meta{
 							Name:        "bin",
@@ -449,11 +449,13 @@ func (s *ClientSuite) TestMinionReports(c *gc.C) {
 				names.NewMachineTag("3").String(),
 				names.NewMachineTag("4").String(),
 				names.NewUnitTag("foo/0").String(),
+				names.NewApplicationTag("bar").String(),
 			},
 			Failed: []string{
 				names.NewMachineTag("5").String(),
 				names.NewUnitTag("foo/1").String(),
 				names.NewUnitTag("foo/2").String(),
+				names.NewApplicationTag("foobar").String(),
 			},
 		}
 		return nil
@@ -465,14 +467,16 @@ func (s *ClientSuite) TestMinionReports(c *gc.C) {
 		{"MigrationMaster.MinionReports", []interface{}{"", nil}},
 	})
 	c.Assert(out, gc.DeepEquals, migration.MinionReports{
-		MigrationId:         "id",
-		Phase:               migration.IMPORT,
-		SuccessCount:        4,
-		UnknownCount:        3,
-		SomeUnknownMachines: []string{"3", "4"},
-		SomeUnknownUnits:    []string{"foo/0"},
-		FailedMachines:      []string{"5"},
-		FailedUnits:         []string{"foo/1", "foo/2"},
+		MigrationId:             "id",
+		Phase:                   migration.IMPORT,
+		SuccessCount:            4,
+		UnknownCount:            3,
+		SomeUnknownMachines:     []string{"3", "4"},
+		SomeUnknownUnits:        []string{"foo/0"},
+		SomeUnknownApplications: []string{"bar"},
+		FailedMachines:          []string{"5"},
+		FailedUnits:             []string{"foo/1", "foo/2"},
+		FailedApplications:      []string{"foobar"},
 	})
 }
 

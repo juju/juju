@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -51,6 +52,9 @@ type baseDestroySuite struct {
 	storageAPI *mockStorageAPI
 	store      *jujuclient.MemStore
 	apierror   error
+
+	controllerCredentialAPI *mockCredentialAPI
+	environsDestroy         func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error
 }
 
 // fakeDestroyAPI mocks out the controller API
@@ -167,6 +171,8 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.apierror = nil
 
 	s.storageAPI = &mockStorageAPI{}
+	s.controllerCredentialAPI = &mockCredentialAPI{}
+	s.environsDestroy = environs.Destroy
 
 	s.store = jujuclient.NewMemStore()
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{
@@ -245,6 +251,8 @@ func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context,
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
 	return controller.NewDestroyCommandForTest(
 		s.api, s.clientapi, s.storageAPI, s.store, s.apierror,
+		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
+		s.environsDestroy,
 	)
 }
 
@@ -265,7 +273,7 @@ func (s *DestroySuite) TestDestroyNoControllerNameError(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyBadFlags(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "-n")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -n")
+	c.Assert(err, gc.ErrorMatches, "option provided but not defined: -n")
 }
 
 func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
@@ -363,11 +371,11 @@ The controller has persistent storage remaining:
 	3 volumes and 1 filesystem across 3 models
 
 To destroy the storage, run the destroy-controller
-command again with the "--destroy-storage" flag.
+command again with the "--destroy-storage" option.
 
 To release the storage from Juju's management
 without destroying it, use the "--release-storage"
-flag instead. The storage can then be imported
+option instead. The storage can then be imported
 into another Juju model.
 
 `)
@@ -429,7 +437,7 @@ func (s *DestroySuite) TestDestroyControllerAliveModels(c *gc.C) {
 The controller has live hosted models. If you want
 to destroy all hosted models in the controller,
 run this command again with the --destroy-all-models
-flag.
+option.
 
 Models:
 	owner/test2:test2 (alive)
@@ -546,7 +554,7 @@ func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
 func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked})
 	s.api.blocks = []params.ModelBlockInfo{
-		params.ModelBlockInfo{
+		{
 			Name:     "test1",
 			UUID:     test1UUID,
 			OwnerTag: "user-cheryl",
@@ -554,7 +562,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 				"BlockDestroy",
 			},
 		},
-		params.ModelBlockInfo{
+		{
 			Name:     "test2",
 			UUID:     test2UUID,
 			OwnerTag: "user-bob",
@@ -572,6 +580,56 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
+func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackExecutingSuccessfully(c *gc.C) {
+	s.destroyAndInvalidateCredential(c)
+}
+
+func (s *DestroySuite) destroyAndInvalidateCredential(c *gc.C) {
+	s.destroyAndInvalidateCredentialWithError(c, "")
+}
+
+func (s *DestroySuite) destroyAndInvalidateCredentialWithError(c *gc.C, expectedErr string) {
+	called := false
+	// Make sure that the invalidate credential callback in the cloud context
+	// is called.
+	s.environsDestroy = func(controllerName string,
+		env environs.ControllerDestroyer,
+		ctx context.ProviderCallContext,
+		store jujuclient.ControllerStore,
+	) error {
+		called = true
+		err := ctx.InvalidateCredential("testing now")
+		if expectedErr == "" {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, expectedErr)
+		}
+		return environs.Destroy(controllerName, env, ctx, store)
+	}
+	_, err := s.runDestroyCommand(c, "test1", "-y")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	s.controllerCredentialAPI.CheckCallNames(c, "InvalidateModelCredential", "Close")
+}
+
+func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackFailing(c *gc.C) {
+	msg := "unexpected creds callback error"
+	s.controllerCredentialAPI.SetErrors(errors.New(msg))
+	// As we are throwing the error on within the callback,
+	// the actual call to destroy should succeed.
+	s.destroyAndInvalidateCredentialWithError(c, msg)
+}
+
+func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackFailingToCloseAPI(c *gc.C) {
+	s.controllerCredentialAPI.SetErrors(
+		nil, // call to invalidate credential succeeds
+		errors.New("unexpected creds callback error"), // call to close api client fails
+	)
+	// As we are throwing the error on api.Close for callback,
+	// the actual call to destroy should succeed.
+	s.destroyAndInvalidateCredential(c)
+}
+
 type mockStorageAPI struct {
 	gitjujutesting.Stub
 	storage []params.StorageDetails
@@ -585,4 +643,18 @@ func (m *mockStorageAPI) Close() error {
 func (m *mockStorageAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 	m.MethodCall(m, "ListStorageDetails")
 	return m.storage, m.NextErr()
+}
+
+type mockCredentialAPI struct {
+	gitjujutesting.Stub
+}
+
+func (m *mockCredentialAPI) InvalidateModelCredential(reason string) error {
+	m.MethodCall(m, "InvalidateModelCredential", reason)
+	return m.NextErr()
+}
+
+func (m *mockCredentialAPI) Close() error {
+	m.MethodCall(m, "Close")
+	return m.NextErr()
 }

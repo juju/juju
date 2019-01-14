@@ -123,7 +123,7 @@ def parse_args(argv):
 def get_bootstrap_managers(args):
     """Create 2 bootstrap managers from the provided args.
 
-    Need to make a couple of elements uniqe (e.g. environment name) so we can
+    Need to make a couple of elements unique (e.g. environment name) so we can
     have 2 bootstrapped at the same time.
     """
     bs_1 = BootstrapManager.from_args(args)
@@ -312,7 +312,7 @@ def ensure_superuser_can_migrate_other_user_models(
         source_client, dest_client, tmp_dir):
 
     norm_source_client, norm_dest_client = create_user_on_controllers(
-        source_client, dest_client, tmp_dir, 'normaluser', 'addmodel')
+        source_client, dest_client, tmp_dir, 'normaluser', 'add-model')
 
     attempt_client = deploy_dummy_source_to_new_model(
         norm_source_client, 'supernormal-test')
@@ -551,7 +551,7 @@ def ensure_migrating_with_insufficient_user_permissions_fails(
     controllers.
     """
     user_source_client, user_dest_client = create_user_on_controllers(
-        source_client, dest_client, tmp_dir, 'failuser', 'addmodel')
+        source_client, dest_client, tmp_dir, 'failuser', 'add-model')
     user_new_model = deploy_dummy_source_to_new_model(
         user_source_client, 'user-fail')
     log.info('Attempting migration process')

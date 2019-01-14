@@ -70,7 +70,8 @@ func (cfo cacheForOperations) set(chRes charmresource.Resource, reader io.ReadCl
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
-	_, reader, err = cfo.OpenResource(res.Name)
+	// Make sure to use the potentially updated resource details.
+	res, reader, err = cfo.OpenResource(res.Name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}

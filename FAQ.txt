@@ -21,12 +21,9 @@ Q: How do I find out what's going on currently?  How does the juju-core
    team communicate regularly?
 A: IRC.  Mailing Lists.  Code Reviews.
 
-     1. IRC: most day-to-day discussion happens in #juju-dev on freenode.
+     1. IRC: most day-to-day discussion happens in #juju on freenode.
      2. Mailing Lists: [juju-dev](https://lists.ubuntu.com/mailman/listinfo/juju-dev)
-     3. Code Reviews.  These are likely to change very soon, but
-        historically these have happened in codereview.appspot.com, and
-        they're initiated using the lbox tool referred to in the CONTRIBUTING
-        doc.
+     3. Code Reviews: using github [Pull Requests](https://github.com/juju/juju/pulls)
 
 
 

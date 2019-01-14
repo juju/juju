@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -462,26 +463,32 @@ func (shim presenceShim) Start() (presence.Pinger, error) {
 }
 
 func startPingerIfAgent(clock clock.Clock, root *apiHandler, entity state.Entity) error {
-	// worker runs presence.Pingers -- absence of which will cause
-	// embarrassing "agent is lost" messages to show up in status --
-	// until it's stopped. It's stored in resources purely for the
-	// side effects: we don't record its id, and nobody else
-	// retrieves it -- we just expect it to be stopped when the
-	// connection is shut down.
-	agent, ok := entity.(statepresence.Agent)
-	if !ok {
+	tag := entity.Tag()
+	if tag.Kind() == names.UserTagKind {
 		return nil
 	}
-	worker, err := presence.New(presence.Config{
-		Identity:   entity.Tag(),
-		Start:      presenceShim{agent}.Start,
-		Clock:      clock,
-		RetryDelay: 3 * time.Second,
-	})
-	if err != nil {
-		return err
+	if root.shared.featureEnabled(feature.OldPresence) {
+		// worker runs presence.Pingers -- absence of which will cause
+		// embarrassing "agent is lost" messages to show up in status --
+		// until it's stopped. It's stored in resources purely for the
+		// side effects: we don't record its id, and nobody else
+		// retrieves it -- we just expect it to be stopped when the
+		// connection is shut down.
+		agent, ok := entity.(statepresence.Agent)
+		if !ok {
+			return nil
+		}
+		worker, err := presence.New(presence.Config{
+			Identity:   tag,
+			Start:      presenceShim{agent}.Start,
+			Clock:      clock,
+			RetryDelay: 3 * time.Second,
+		})
+		if err != nil {
+			return err
+		}
+		root.getResources().Register(worker)
 	}
-	root.getResources().Register(worker)
 
 	// pingTimeout, by contrast, *is* used by the Pinger facade to
 	// stave off the call to action() that will shut down the agent

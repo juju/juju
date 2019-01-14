@@ -176,7 +176,7 @@ func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
 	size := uint64(1)
 	ctx.AddUnitStorage(
 		map[string]params.StorageConstraints{
-			"allecto": params.StorageConstraints{Size: &size},
+			"allecto": {Size: &size},
 		})
 
 	// Flush the context with an error.
@@ -184,7 +184,9 @@ func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
 	err := ctx.Flush("test fail run hook", errors.New(msg))
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 
-	all, err := s.IAASModel.AllStorageInstances()
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	all, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 0)
 }
@@ -196,14 +198,16 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 	size := uint64(1)
 	ctx.AddUnitStorage(
 		map[string]params.StorageConstraints{
-			"allecto": params.StorageConstraints{Size: &size},
+			"allecto": {Size: &size},
 		})
 
 	// Flush the context with a success.
 	err := ctx.Flush("success", nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, `.*storage "allecto" not found.*`)
 
-	all, err := s.IAASModel.AllStorageInstances()
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	all, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 0)
 }

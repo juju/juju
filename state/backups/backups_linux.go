@@ -178,6 +178,13 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		return nil, errors.Annotate(err, "cannot produce dial information")
 	}
 
+	// For the unresponsive controller case the oldAgentConfig and agentConfig
+	// have different certificates. MongoDB has been already started with a
+	// new certificate. Therefore all clients that would like to communicate
+	// with mongo should use the new certificate otherwise the
+	// "TLS handshake error" occurs. To avoid this error the old certificate
+	// should be replaced by the new one.
+	oldAgentConfig.SetCACert(agentConfig.CACert())
 	oldDialInfo, err := newDialInfo(args.PrivateAddress, oldAgentConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot produce dial information for existing mongo")
@@ -230,11 +237,12 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		return nil, errors.Errorf("cannot retrieve info to connect to mongo")
 	}
 
-	st, err := newStateConnection(agentConfig.Controller(), agentConfig.Model(), mgoInfo)
+	pool, err := connectToDB(agentConfig.Controller(), agentConfig.Model(), mgoInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer st.Close()
+	defer pool.Close()
+	st := pool.SystemState()
 
 	machine, err := st.Machine(backupMachine.Id())
 	if err != nil {
@@ -266,8 +274,6 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	// TODO(perrito666): We should never stop process because of this.
 	// updateAllMachines will not return errors for individual
 	// agent update failures
-	pool := state.NewStatePool(st)
-	defer pool.Close()
 
 	modelUUIDs, err := st.AllModelUUIDs()
 	if err != nil {
@@ -281,7 +287,6 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		}
 		defer func() {
 			st.Release()
-			pool.Remove(modelUUID)
 		}()
 
 		model, err := st.Model()

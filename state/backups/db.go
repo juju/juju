@@ -427,7 +427,7 @@ func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error 
 	roles := bson.D{
 		{"createRole", "oploger"},
 		{"privileges", []bson.D{
-			bson.D{
+			{
 				{"resource", bson.M{"anyResource": true}},
 				{"actions", []string{"anyAction"}},
 			},

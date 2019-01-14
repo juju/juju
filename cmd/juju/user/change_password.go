@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/authentication"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
@@ -82,12 +83,12 @@ func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Info implements Command.Info.
 func (c *changePasswordCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "change-user-password",
 		Args:    "[username]",
 		Purpose: "Changes the password for the current or specified Juju user.",
 		Doc:     userChangePasswordDoc,
-	}
+	})
 }
 
 // Init implements Command.Init.

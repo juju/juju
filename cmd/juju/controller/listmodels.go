@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -57,12 +58,12 @@ type modelsCommand struct {
 
 // Info implements Command.Info
 func (c *modelsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "models",
 		Purpose: "Lists models a user can access on a controller.",
 		Doc:     listModelsDoc,
 		Aliases: []string{"list-models"},
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

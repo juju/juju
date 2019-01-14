@@ -1,111 +1,193 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application
+package application_test
 
 import (
-	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
+	apiapplication "github.com/juju/juju/api/application"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type RemoveUnitSuite struct {
-	jujutesting.RepoSuite
-	testing.CmdBlockHelper
-}
+	testing.FakeJujuXDGDataHomeSuite
+	fake *fakeApplicationRemoveUnitAPI
 
-func (s *RemoveUnitSuite) SetUpTest(c *gc.C) {
-	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
-	c.Assert(s.CmdBlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&RemoveUnitSuite{})
 
-func runRemoveUnit(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, NewRemoveUnitCommand(), args...)
+type fakeApplicationRemoveUnitAPI struct {
+	application.RemoveApplicationAPI
+
+	units          []string
+	scale          int
+	destroyStorage bool
+	bestAPIVersion int
+	err            error
 }
 
-func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Application {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, "-n", "2", ch, "multi-series", "--series", "precise")
-	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:precise/multi-series-1")
-	svc, _ := s.AssertApplication(c, "multi-series", curl, 2, 0)
-	return svc
+func (f *fakeApplicationRemoveUnitAPI) BestAPIVersion() int {
+	return f.bestAPIVersion
+}
+
+func (f *fakeApplicationRemoveUnitAPI) Close() error {
+	return nil
+}
+
+func (f *fakeApplicationRemoveUnitAPI) ModelUUID() string {
+	return "fake-uuid"
+}
+
+func (f *fakeApplicationRemoveUnitAPI) DestroyUnits(args apiapplication.DestroyUnitsParams) ([]params.DestroyUnitResult, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	f.units = args.Units
+	f.destroyStorage = args.DestroyStorage
+	var result []params.DestroyUnitResult
+	for _, u := range args.Units {
+		var info *params.DestroyUnitInfo
+		var err *params.Error
+		switch u {
+		case "unit/0":
+			st := []params.Entity{{Tag: "storage-data-0"}}
+			info = &params.DestroyUnitInfo{}
+			if f.destroyStorage {
+				info.DestroyedStorage = st
+			} else {
+				info.DetachedStorage = st
+			}
+		case "unit/1":
+			st := []params.Entity{{Tag: "storage-data-1"}}
+			info = &params.DestroyUnitInfo{}
+			if f.destroyStorage {
+				info.DestroyedStorage = st
+			} else {
+				info.DetachedStorage = st
+			}
+		case "unit/2":
+			err = &params.Error{Code: params.CodeNotFound, Message: `unit "unit/2" does not exist`}
+		}
+		result = append(result, params.DestroyUnitResult{
+			Info:  info,
+			Error: err,
+		})
+	}
+	return result, nil
+}
+
+func (f *fakeApplicationRemoveUnitAPI) ScaleApplication(args apiapplication.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+	if f.err != nil {
+		return params.ScaleApplicationResult{}, f.err
+	}
+	f.scale += args.ScaleChange
+	return params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{
+			Scale: f.scale,
+		},
+	}, nil
+}
+
+func (s *RemoveUnitSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.fake = &fakeApplicationRemoveUnitAPI{
+		bestAPIVersion: 5,
+		scale:          5,
+	}
+	s.store = jujuclienttesting.MinimalStore()
+}
+
+func (s *RemoveUnitSuite) runRemoveUnit(c *gc.C, args ...string) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, application.NewRemoveUnitCommandForTest(s.fake, s.store), args...)
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
-	app := s.setupUnitForRemove(c)
-
-	ctx, err := runRemoveUnit(c, "multi-series/0", "multi-series/1", "multi-series/2", "sillybilly/17")
+	ctx, err := s.runRemoveUnit(c, "unit/0", "unit/1", "unit/2")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(s.fake.units, jc.DeepEquals, []string{"unit/0", "unit/1", "unit/2"})
+	c.Assert(s.fake.destroyStorage, jc.IsFalse)
+
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-removing unit multi-series/0
-removing unit multi-series/1
-removing unit multi-series/2 failed: unit "multi-series/2" does not exist
-removing unit sillybilly/17 failed: unit "sillybilly/17" does not exist
+removing unit unit/0
+- will detach storage data/0
+removing unit unit/1
+- will detach storage data/1
+removing unit unit/2 failed: unit "unit/2" does not exist
 `[1:])
-
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, u := range units {
-		c.Assert(u.Life(), gc.Equals, state.Dying)
-	}
-}
-
-func (s *RemoveUnitSuite) TestRemoveUnitDetachesStorage(c *gc.C) {
-	s.testRemoveUnitRemoveStorage(c, false)
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnitDestroyStorage(c *gc.C) {
-	s.testRemoveUnitRemoveStorage(c, true)
-}
+	ctx, err := s.runRemoveUnit(c, "unit/0", "unit/1", "unit/2", "--destroy-storage")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(s.fake.units, jc.DeepEquals, []string{"unit/0", "unit/1", "unit/2"})
+	c.Assert(s.fake.destroyStorage, jc.IsTrue)
 
-func (s *RemoveUnitSuite) testRemoveUnitRemoveStorage(c *gc.C, destroy bool) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
-	err := runDeploy(c, ch, "storage-filesystem", "--storage", "data=modelscoped,2")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Materialise the storage by assigning the unit to a machine.
-	u, err := s.State.Unit("storage-filesystem/0")
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(u, state.AssignCleanEmpty)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := []string{"storage-filesystem/0"}
-	action := "detach"
-	if destroy {
-		args = append(args, "--destroy-storage")
-		action = "remove"
-	}
-	ctx, err := runRemoveUnit(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
 	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, fmt.Sprintf(`
-removing unit storage-filesystem/0
-- will %[1]s storage data/0
-- will %[1]s storage data/1
-`[1:], action))
+	c.Assert(stderr, gc.Equals, `
+removing unit unit/0
+- will remove storage data/0
+removing unit unit/1
+- will remove storage data/1
+removing unit unit/2 failed: unit "unit/2" does not exist
+`[1:])
 }
 
 func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
-	app := s.setupUnitForRemove(c)
+	// Block operation
+	s.fake.err = common.OperationBlockedError("TestBlockRemoveUnit")
+	s.runRemoveUnit(c, "some-unit-name/0")
 
-	// block operation
-	s.BlockRemoveObject(c, "TestBlockRemoveUnit")
-	_, err := runRemoveUnit(c, "dummy/0", "dummy/1")
-	s.AssertBlocked(c, err, ".*TestBlockRemoveUnit.*")
-	c.Assert(app.Life(), gc.Equals, state.Alive)
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*TestBlockRemoveUnit.*")
+}
+
+func (s *RemoveUnitSuite) TestCAASRemoveUnit(c *gc.C) {
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+
+	ctx, err := s.runRemoveUnit(c, "some-application-name", "--num-units", "2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+scaling down to 3 units
+`[1:])
+}
+
+func (s *RemoveUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+
+	_, err := s.runRemoveUnit(c, "some-application-name")
+	c.Assert(err, gc.ErrorMatches, "removing 0 units not valid")
+
+	_, err = s.runRemoveUnit(c, "some-application-name", "--destroy-storage")
+	c.Assert(err, gc.ErrorMatches, "Kubernetes models only support --num-units")
+
+	_, err = s.runRemoveUnit(c, "some-application-name/0", "--num-units", "2")
+	c.Assert(err, gc.ErrorMatches, "application name \"some-application-name/0\" not valid")
+
+	_, err = s.runRemoveUnit(c, "some-application-name", "another-application", "--num-units", "2")
+	c.Assert(err, gc.ErrorMatches, "only single application supported")
+
+	_, err = s.runRemoveUnit(c, "some-application-name", "--num-units", "2")
+	c.Assert(err, jc.ErrorIsNil)
 }

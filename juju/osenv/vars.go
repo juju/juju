@@ -17,6 +17,7 @@ const (
 	// setup so they are cleared before running the suites using
 	// it.
 
+	JujuControllerEnvKey    = "JUJU_CONTROLLER"
 	JujuModelEnvKey         = "JUJU_MODEL"
 	JujuXDGDataHomeEnvKey   = "JUJU_DATA"
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"

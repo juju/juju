@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -106,7 +106,7 @@ func newProvider(c *gc.C, config azure.ProviderConfig) environs.EnvironProvider 
 		config.NewStorageClient = storage.NewClient
 	}
 	if config.RetryClock == nil {
-		config.RetryClock = jujutesting.NewClock(time.Time{})
+		config.RetryClock = testclock.NewClock(time.Time{})
 	}
 	if config.ServicePrincipalCreator == nil {
 		config.ServicePrincipalCreator = &azureauth.ServicePrincipalCreator{}

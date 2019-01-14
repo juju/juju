@@ -329,6 +329,12 @@ type CredentialAttr struct {
 	// of the file when the credential is "finalized".
 	FilePath bool
 
+	// ExpandFilePath reads in the FilePath, validating the file path correctly.
+	// If the file path is correct, it will then read and replace the path,
+	// with the associated content. The contents of the file in "finalized" will
+	// be the file contents, not the filepath.
+	ExpandFilePath bool
+
 	// Optional controls whether the attribute is required to have a non-empty
 	// value or not. Attributes default to mandatory.
 	Optional bool

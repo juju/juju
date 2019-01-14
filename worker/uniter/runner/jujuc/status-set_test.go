@@ -48,7 +48,7 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "status-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := "" +
 		"Usage: status-set [options] <maintenance | blocked | waiting | active> [message]\n" +
@@ -71,15 +71,15 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 
 func (s *statusSetSuite) TestStatus(c *gc.C) {
 	for i, args := range [][]string{
-		[]string{"maintenance", "doing some work"},
-		[]string{"active", ""},
+		{"maintenance", "doing some work"},
+		{"active", ""},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
 		com, err := jujuc.NewCommand(hctx, "status-set")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, args)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
@@ -92,15 +92,15 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 
 func (s *statusSetSuite) TestApplicationStatus(c *gc.C) {
 	for i, args := range [][]string{
-		[]string{"--application", "maintenance", "doing some work"},
-		[]string{"--application", "active", ""},
+		{"--application", "maintenance", "doing some work"},
+		{"--application", "active", ""},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
 		com, err := jujuc.NewCommand(hctx, "status-set")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, args)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")

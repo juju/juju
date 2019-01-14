@@ -25,11 +25,11 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.uniter, s.BackingState)
-	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.uniter, s.BackingState, s.IAASModel.Model)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.uniter, s.BackingState, s.Model)
 }
 
 func (s *stateSuite) TestProviderType(c *gc.C) {
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	providerType, err := s.uniter.ProviderType()
@@ -65,9 +65,9 @@ func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
 	portsMap, err := s.uniter.AllMachinePorts(s.wordpressMachine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(portsMap, jc.DeepEquals, map[network.PortRange]params.RelationUnit{
-		network.PortRange{100, 200, "tcp"}: {Unit: s.wordpressUnit.Tag().String()},
-		network.PortRange{10, 20, "udp"}:   {Unit: s.wordpressUnit.Tag().String()},
-		network.PortRange{201, 250, "tcp"}: {Unit: wordpressUnit1.Tag().String()},
-		network.PortRange{1, 8, "udp"}:     {Unit: wordpressUnit1.Tag().String()},
+		{100, 200, "tcp"}: {Unit: s.wordpressUnit.Tag().String()},
+		{10, 20, "udp"}:   {Unit: s.wordpressUnit.Tag().String()},
+		{201, 250, "tcp"}: {Unit: wordpressUnit1.Tag().String()},
+		{1, 8, "udp"}:     {Unit: wordpressUnit1.Tag().String()},
 	})
 }

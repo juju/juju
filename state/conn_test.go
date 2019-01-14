@@ -50,7 +50,7 @@ func (s *ConnSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.SetUpTest(c)
 
-	s.modelTag = s.IAASModel.ModelTag()
+	s.modelTag = s.Model.ModelTag()
 
 	jujuDB := s.MgoSuite.Session.DB("juju")
 	s.annotations = jujuDB.C("annotations")
@@ -75,6 +75,10 @@ func (s *ConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *s
 	return state.AddTestingApplicationWithStorage(c, s.State, name, ch, storage)
 }
 
+func (s *ConnSuite) AddTestingApplicationWithDevices(c *gc.C, name string, ch *state.Charm, devs map[string]state.DeviceConstraints) *state.Application {
+	return state.AddTestingApplicationWithDevices(c, s.State, name, ch, devs)
+}
+
 func (s *ConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
 	return state.AddTestingApplicationWithBindings(c, s.State, name, ch, bindings)
 }
@@ -94,6 +98,12 @@ func (s *ConnSuite) AddConfigCharm(c *gc.C, name, configYaml string, revision in
 // the given YAML, and adds it to the state, using the given revision.
 func (s *ConnSuite) AddActionsCharm(c *gc.C, name, actionsYaml string, revision int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "actions.yaml", actionsYaml, "quantal", revision)
+}
+
+// AddLXDProfileCharm clones a testing charm, replaces its lxd profile config with
+// the given YAML, and adds it to the state, using the given revision.
+func (s *ConnSuite) AddLXDProfileCharm(c *gc.C, name, lxdProfileYaml string, revision int) *state.Charm {
+	return state.AddCustomCharm(c, s.State, name, "lxd-profile.yaml", lxdProfileYaml, "quantal", revision)
 }
 
 // AddMetaCharm clones a testing charm, replaces its metadata with the
@@ -116,7 +126,7 @@ func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.Stat
 		"uuid": utils.MustNewUUID().String(),
 	})
 	otherOwner := names.NewLocalUserTag("test-admin")
-	_, otherState, err := s.State.NewModel(state.ModelArgs{
+	_, otherState, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",

@@ -5,6 +5,7 @@ package openstack_test
 
 import (
 	"bytes"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
@@ -41,6 +43,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -63,7 +66,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -154,6 +156,18 @@ func (s *localServer) stop() {
 		s.Nova.Stop()
 	}
 	s.restoreTimeouts()
+}
+
+func (s *localServer) openstackCertificate(c *gc.C) ([]string, error) {
+	certificate, err := s.Openstack.Certificate(openstackservice.Identity)
+	if err != nil {
+		return []string{}, err
+	}
+	if certificate == nil {
+		return []string{}, errors.New("No certificate returned from openstack test double")
+	}
+	buf := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw})
+	return []string{string(buf)}, nil
 }
 
 // localLiveSuite runs tests from LiveTests using an Openstack service double.
@@ -277,7 +291,6 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.Credential = makeCredential(s.cred)
 	s.CloudEndpoint = s.cred.URL
 	s.CloudRegion = s.cred.Region
-
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -692,8 +705,8 @@ func (s *localServerSuite) TestStartInstanceWaitForActiveDetails(c *gc.C) {
 	defer s.srv.Nova.SetServerStatus("")
 
 	// Make time advance in zero time
-	clk := gitjujutesting.NewClock(time.Time{})
-	clock := gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+	clk := testclock.NewClock(time.Time{})
+	clock := testclock.AutoAdvancingClock{clk, clk.Advance}
 	env.(*openstack.Environ).SetClock(&clock)
 
 	inst, _, _, err := testing.StartInstance(env, s.callCtx, s.ControllerUUID, "100")
@@ -788,8 +801,8 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	assertSecurityGroups(c, env, allSecurityGroups)
 
 	// Make time advance in zero time
-	clk := gitjujutesting.NewClock(time.Time{})
-	clock := gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+	clk := testclock.NewClock(time.Time{})
+	clock := testclock.AutoAdvancingClock{clk, clk.Advance}
 	env.(*openstack.Environ).SetClock(&clock)
 
 	err := env.StopInstances(s.callCtx, inst.Id())
@@ -1291,7 +1304,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Open(c, s.env.Config())
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=lxd")
 	unsupported, err := validator.Validate(cons)
@@ -1301,7 +1314,7 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Open(c, s.env.Config())
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=foo")
@@ -1315,7 +1328,7 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := s.Open(c, s.env.Config())
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
 	consB := constraints.MustParse("instance-type=m1.small")
@@ -1693,7 +1706,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 		},
 	}
 
-	group, err := openstack.EnsureGroup(s.env, "test group", rule)
+	group, err := openstack.EnsureGroup(s.env, s.callCtx, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group.Name, gc.Equals, "test group")
 
@@ -1729,7 +1742,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 			EthernetType: "IPv6",
 		},
 	}
-	group, err = openstack.EnsureGroup(s.env, "test group", rules)
+	group, err = openstack.EnsureGroup(s.env, s.callCtx, "test group", rules)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
@@ -1739,7 +1752,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 	c.Check(obtainedRulesSecondTime, jc.SameContents, expectedRules)
 
 	// 3rd time with same name, should be back to the original now
-	group, err = openstack.EnsureGroup(s.env, "test group", rule)
+	group, err = openstack.EnsureGroup(s.env, s.callCtx, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
@@ -1763,24 +1776,24 @@ func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
 	}
 
 	err := bootstrapEnv(c, s.env)
-	group1, err := openstack.EnsureGroup(s.env,
+	group1, err := openstack.EnsureGroup(s.env, s.callCtx,
 		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), rule)
 	c.Assert(err, jc.ErrorIsNil)
-	group2, err := openstack.EnsureGroup(s.env,
+	group2, err := openstack.EnsureGroup(s.env, s.callCtx,
 		openstack.MachineGroupName(s.env, s.ControllerUUID, "2"), rule)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = openstack.EnsureGroup(s.env, openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), rule)
+	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), rule)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = openstack.EnsureGroup(s.env, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), rule)
+	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), rule)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineNameRegexp := openstack.MachineGroupRegexp(s.env, "1")
-	groupMatched, err := openstack.MatchingGroup(s.env, machineNameRegexp)
+	groupMatched, err := openstack.MatchingGroup(s.env, s.callCtx, machineNameRegexp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group1.Id, gc.Equals, groupMatched.Id)
 
 	machineNameRegexp = openstack.MachineGroupRegexp(s.env, "2")
-	groupMatched, err = openstack.MatchingGroup(s.env, machineNameRegexp)
+	groupMatched, err = openstack.MatchingGroup(s.env, s.callCtx, machineNameRegexp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group2.Id, gc.Equals, groupMatched.Id)
 }
@@ -1844,13 +1857,14 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.cred = cred
 	attrs := s.createConfigAttrs(c)
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
-	var err error
-	s.env, err = bootstrap.Prepare(
+	env, err := bootstrap.PrepareController(
+		false,
 		envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	s.env = env.(environs.Environ)
 	s.attrs = s.env.Config().AllAttrs()
 	s.callCtx = context.NewCloudCallContext()
 }
@@ -1863,6 +1877,31 @@ func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 	}
 	s.srv.stop()
 	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *localHTTPSServerSuite) TestSSLVerify(c *gc.C) {
+	// If you don't have ssl-hostname-verification set to false, and do have
+	// a CA Certificate, then we can connect to the environment. Copy the attrs
+	// used by SetUp and force hostname verification.
+	newattrs := make(map[string]interface{}, len(s.attrs))
+	for k, v := range s.attrs {
+		newattrs[k] = v
+	}
+	newattrs["ssl-hostname-verification"] = true
+	cfg, err := config.New(config.NoDefaults, newattrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cloudSpec := makeCloudSpec(s.cred)
+	cloudSpec.CACertificates, err = s.srv.openstackCertificate(c)
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = env.AllInstances(s.callCtx)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
@@ -1892,14 +1931,17 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	defer restoreFinishBootstrap()
 
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
-	metadataStorage := openstack.MetadataStorage(s.env)
-	url, err := metadataStorage.URL("")
+	toolsMetadataStorage := openstack.MetadataStorage(s.env)
+	url, err := toolsMetadataStorage.URL("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("Generating fake tools for: %v", url)
-	envtesting.UploadFakeTools(c, metadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
-	defer envtesting.RemoveFakeTools(c, metadataStorage, s.env.Config().AgentStream())
-	openstack.UseTestImageData(metadataStorage, s.cred)
-	defer openstack.RemoveTestImageData(metadataStorage)
+	envtesting.UploadFakeTools(c, toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
+	defer envtesting.RemoveFakeTools(c, toolsMetadataStorage, s.env.Config().AgentStream())
+
+	imageMetadataStorage := openstack.ImageMetadataStorage(s.env)
+	c.Logf("Generating fake images")
+	openstack.UseTestImageData(imageMetadataStorage, s.cred)
+	defer openstack.RemoveTestImageData(imageMetadataStorage)
 
 	err = bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2424,8 +2466,8 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	_, _, _, err = testing.StartInstance(env, s.callCtx, originalController, "0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	addVolume(c, s.env, originalController, "99/9")
-	addVolume(c, env, originalController, "23/9")
+	addVolume(c, s.env, s.callCtx, originalController, "99/9")
+	addVolume(c, env, s.callCtx, originalController, "23/9")
 
 	s.checkInstanceTags(c, s.env, originalController)
 	s.checkInstanceTags(c, env, originalController)
@@ -2487,12 +2529,12 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
 	s.checkGroupController(c, env, newController)
 }
 
-func addVolume(c *gc.C, env environs.Environ, controllerUUID, name string) *storage.Volume {
+func addVolume(c *gc.C, env environs.Environ, callCtx context.ProviderCallContext, controllerUUID, name string) *storage.Volume {
 	storageAdapter, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
 	modelUUID := env.Config().UUID()
 	source := openstack.NewCinderVolumeSourceForModel(storageAdapter, modelUUID)
-	result, err := source.CreateVolumes([]storage.VolumeParams{{
+	result, err := source.CreateVolumes(callCtx, []storage.VolumeParams{{
 		Tag: names.NewVolumeTag(name),
 		ResourceTags: tags.ResourceTags(
 			names.NewModelTag(modelUUID),
@@ -2520,7 +2562,7 @@ func (s *localServerSuite) checkVolumeTags(c *gc.C, env environs.Environ, expect
 	storage, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
 	source := openstack.NewCinderVolumeSourceForModel(storage, env.Config().UUID())
-	volumeIds, err := source.ListVolumes()
+	volumeIds, err := source.ListVolumes(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeIds, gc.Not(gc.HasLen), 0)
 	for _, volumeId := range volumeIds {
@@ -2627,13 +2669,14 @@ func (s *noNeutronSuite) SetUpTest(c *gc.C) {
 	})
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
-	env, err := bootstrap.Prepare(
+	env, err := bootstrap.PrepareController(
+		false,
 		envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.env = env
+	s.env = env.(environs.Environ)
 	s.toolsMetadataStorage = openstack.MetadataStorage(s.env)
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
@@ -2807,13 +2850,14 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	openstack.UseTestImageData(imageStorage, s.cred)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, storageDir)
 
-	env, err := bootstrap.Prepare(
+	env, err := bootstrap.PrepareController(
+		false,
 		envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.env = env
+	s.env = env.(environs.Environ)
 }
 
 func (s *noSwiftSuite) TearDownTest(c *gc.C) {
@@ -2855,9 +2899,11 @@ func newNovaNetworkingOpenstackService(cred *identity.Credentials, auth identity
 }
 
 func bootstrapEnv(c *gc.C, env environs.Environ) error {
-	return bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	return bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		context.NewCloudCallContext(),
+		bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      testing.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 }

@@ -12,11 +12,17 @@ type ProviderCallContext interface {
 	// InvalidateCredential provides means to invalidate a credential
 	// that is used to make a call.
 	InvalidateCredential(string) error
+
+	// Dying returns the dying chan.
+	Dying() <-chan struct{}
 }
+
+// Dying returns the dying chan.
+type Dying func() <-chan struct{}
 
 func NewCloudCallContext() *CloudCallContext {
 	return &CloudCallContext{
-		InvalidateCredentialF: func(string) error {
+		InvalidateCredentialFunc: func(string) error {
 			return errors.NotImplementedf("InvalidateCredentialCallback")
 		},
 	}
@@ -35,10 +41,23 @@ func NewCloudCallContext() *CloudCallContext {
 // as this knowledge is specific to where the call was made *from* not on what object
 // it was made.
 type CloudCallContext struct {
-	InvalidateCredentialF func(string) error
+	// InvalidateCredentialFunc is the actual callback function
+	// that invalidates the credential used in the context of this call.
+	InvalidateCredentialFunc func(string) error
+
+	// DyingFunc returns the dying chan.
+	DyingFunc Dying
 }
 
-// InvalidateCredentialCallback implements context.InvalidateCredentialCallback.
+// InvalidateCredential implements context.InvalidateCredentialCallback.
 func (c *CloudCallContext) InvalidateCredential(reason string) error {
-	return c.InvalidateCredentialF(reason)
+	return c.InvalidateCredentialFunc(reason)
+}
+
+// Dying returns the dying chan.
+func (c *CloudCallContext) Dying() <-chan struct{} {
+	if c.DyingFunc == nil {
+		return nil
+	}
+	return c.DyingFunc()
 }

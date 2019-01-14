@@ -6,16 +6,17 @@ package remotestate_test
 import (
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
@@ -26,7 +27,7 @@ type WatcherSuite struct {
 	st         *mockState
 	leadership *mockLeadershipTracker
 	watcher    *remotestate.RemoteStateWatcher
-	clock      *testing.Clock
+	clock      *testclock.Clock
 
 	applicationWatcher *mockNotifyWatcher
 }
@@ -57,12 +58,13 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 				leaderSettingsWatcher: newMockNotifyWatcher(),
 			},
 			unitWatcher:                      newMockNotifyWatcher(),
-			addressesWatcher:                 newMockNotifyWatcher(),
-			configSettingsWatcher:            newMockNotifyWatcher(),
-			applicationConfigSettingsWatcher: newMockNotifyWatcher(),
+			addressesWatcher:                 newMockStringsWatcher(),
+			configSettingsWatcher:            newMockStringsWatcher(),
+			applicationConfigSettingsWatcher: newMockStringsWatcher(),
 			storageWatcher:                   newMockStringsWatcher(),
 			actionWatcher:                    newMockStringsWatcher(),
 			relationsWatcher:                 newMockStringsWatcher(),
+			upgradeLXDProfileUpgradeWatcher:  newMockStringsWatcher(),
 		},
 		relations:                   make(map[names.RelationTag]*mockRelation),
 		storageAttachment:           make(map[params.StorageAttachmentId]params.StorageAttachment),
@@ -78,7 +80,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 		minionTicket: mockTicket{make(chan struct{}, 1), true},
 	}
 
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
@@ -89,6 +91,8 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 
 	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
 	s.applicationWatcher = s.st.unit.application.applicationWatcher
+	s.st.unit.upgradeSeriesWatcher = newMockNotifyWatcher()
+	s.st.unit.upgradeLXDProfileUpgradeWatcher = newMockStringsWatcher()
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
 		State:               s.st,
 		ModelType:           s.modelType,
@@ -148,9 +152,15 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	// we've seen all of the top-level notifications.
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
-	s.st.unit.addressesWatcher.changes <- struct{}{}
-	s.st.unit.configSettingsWatcher.changes <- struct{}{}
-	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
+	s.st.unit.addressesWatcher.changes <- []string{"addresseshash"}
+	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
+	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
+	if s.st.unit.upgradeSeriesWatcher != nil {
+		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+	}
+	if s.st.unit.upgradeLXDProfileUpgradeWatcher != nil {
+		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- []string{lxdprofile.SuccessStatus}
+	}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.st.unit.actionWatcher.changes <- []string{}
 	if s.st.unit.application.applicationWatcher != nil {
@@ -165,17 +175,19 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 
 func (s *WatcherSuite) signalAll() {
 	s.st.unit.unitWatcher.changes <- struct{}{}
-	s.st.unit.configSettingsWatcher.changes <- struct{}{}
-	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
+	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
+	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
 	s.st.unit.actionWatcher.changes <- []string{}
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	s.st.unit.relationsWatcher.changes <- []string{}
-	s.st.unit.addressesWatcher.changes <- struct{}{}
+	s.st.unit.addressesWatcher.changes <- []string{"addresseshash"}
 	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
+	s.st.unit.storageWatcher.changes <- []string{}
 	if s.st.modelType == model.IAAS {
 		s.applicationWatcher.changes <- struct{}{}
-		s.st.unit.storageWatcher.changes <- []string{}
+		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- []string{lxdprofile.NotRequiredStatus}
 	}
 }
 
@@ -183,22 +195,22 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	// Note that the configuration change is updated on both application and
-	// charm config which increments it twice.
-	expectedVersion := 3
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                  s.st.unit.life,
-		Relations:             map[int]remotestate.RelationSnapshot{},
-		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:  s.st.unit.application.charmModifiedVersion,
-		CharmURL:              s.st.unit.application.curl,
-		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
-		ResolvedMode:          s.st.unit.resolved,
-		ConfigVersion:         expectedVersion,
-		LeaderSettingsVersion: 1,
-		Leader:                true,
-		Series:                "",
+		Life:                      s.st.unit.life,
+		Relations:                 map[int]remotestate.RelationSnapshot{},
+		Storage:                   map[names.StorageTag]remotestate.StorageSnapshot{},
+		CharmModifiedVersion:      s.st.unit.application.charmModifiedVersion,
+		CharmURL:                  s.st.unit.application.curl,
+		ForceCharmUpgrade:         s.st.unit.application.forceUpgrade,
+		ResolvedMode:              s.st.unit.resolved,
+		ConfigHash:                "confighash",
+		TrustHash:                 "trusthash",
+		AddressesHash:             "addresseshash",
+		LeaderSettingsVersion:     1,
+		Leader:                    true,
+		UpgradeSeriesStatus:       model.UpgradeSeriesPrepareStarted,
+		UpgradeCharmProfileStatus: lxdprofile.NotRequiredStatus,
 	})
 }
 
@@ -206,22 +218,22 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	// Note that the configuration change is updated on both application and
-	// charm config which increments it twice.
-	expectedVersion := 3
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Life:                  s.st.unit.life,
-		Relations:             map[int]remotestate.RelationSnapshot{},
-		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
-		CharmModifiedVersion:  0,
-		CharmURL:              nil,
-		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
-		ResolvedMode:          s.st.unit.resolved,
-		ConfigVersion:         expectedVersion,
-		LeaderSettingsVersion: 1,
-		Leader:                true,
-		Series:                "",
+		Life:                      s.st.unit.life,
+		Relations:                 map[int]remotestate.RelationSnapshot{},
+		Storage:                   map[names.StorageTag]remotestate.StorageSnapshot{},
+		CharmModifiedVersion:      0,
+		CharmURL:                  nil,
+		ForceCharmUpgrade:         s.st.unit.application.forceUpgrade,
+		ResolvedMode:              s.st.unit.resolved,
+		ConfigHash:                "confighash",
+		TrustHash:                 "trusthash",
+		AddressesHash:             "addresseshash",
+		LeaderSettingsVersion:     1,
+		Leader:                    true,
+		UpgradeSeriesStatus:       "",
+		UpgradeCharmProfileStatus: "",
 	})
 }
 
@@ -240,34 +252,25 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().Life, gc.Equals, params.Dying)
 
-	s.st.unit.series = "trusty"
-	s.st.unit.unitWatcher.changes <- struct{}{}
-	assertOneChange()
-	c.Assert(s.watcher.Snapshot().Series, gc.Equals, "trusty")
-
 	s.st.unit.resolved = params.ResolvedRetryHooks
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ResolvedMode, gc.Equals, params.ResolvedRetryHooks)
 
-	s.st.unit.addressesWatcher.changes <- struct{}{}
+	s.st.unit.addressesWatcher.changes <- []string{"addresseshash2"}
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, initial.ConfigVersion+1)
+	c.Assert(s.watcher.Snapshot().AddressesHash, gc.Equals, "addresseshash2")
 
-	s.st.unit.application.forceUpgrade = true
-	s.applicationWatcher.changes <- struct{}{}
+	s.st.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
 
-	if s.modelType == model.IAAS {
-		s.st.unit.storageWatcher.changes <- []string{}
-		assertOneChange()
-	}
-
-	s.st.unit.configSettingsWatcher.changes <- struct{}{}
+	s.st.unit.configSettingsWatcher.changes <- []string{"confighash2"}
 	assertOneChange()
-	expectVersion := initial.ConfigVersion + 2
-	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, expectVersion)
+	c.Assert(s.watcher.Snapshot().ConfigHash, gc.Equals, "confighash2")
+
+	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().TrustHash, gc.Equals, "trusthash2")
 
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	assertOneChange()
@@ -275,6 +278,18 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 
 	s.st.unit.relationsWatcher.changes <- []string{}
 	assertOneChange()
+
+	if s.modelType == model.IAAS {
+		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+		assertOneChange()
+		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- []string{lxdprofile.SuccessStatus}
+		assertOneChange()
+
+		s.st.unit.application.forceUpgrade = true
+		s.applicationWatcher.changes <- struct{}{}
+		assertOneChange()
+		c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
+	}
 
 	s.clock.Advance(5 * time.Minute)
 	assertOneChange()
@@ -336,7 +351,7 @@ func (s *WatcherSuite) TestLeadershipLeaderUnchanged(c *gc.C) {
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 }
 
-func (s *WatcherSuiteIAAS) TestStorageChanged(c *gc.C) {
+func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -412,7 +427,7 @@ func (s *WatcherSuiteIAAS) TestStorageChanged(c *gc.C) {
 	})
 }
 
-func (s *WatcherSuiteIAAS) TestStorageUnattachedChanged(c *gc.C) {
+func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -458,7 +473,7 @@ func (s *WatcherSuiteIAAS) TestStorageUnattachedChanged(c *gc.C) {
 	})
 }
 
-func (s *WatcherSuiteIAAS) TestStorageAttachmentRemoved(c *gc.C) {
+func (s *WatcherSuite) TestStorageAttachmentRemoved(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -499,7 +514,7 @@ func (s *WatcherSuiteIAAS) TestStorageAttachmentRemoved(c *gc.C) {
 	c.Assert(s.watcher.Snapshot().Storage, gc.HasLen, 0)
 }
 
-func (s *WatcherSuiteIAAS) TestStorageChangedNotFoundInitially(c *gc.C) {
+func (s *WatcherSuite) TestStorageChangedNotFoundInitially(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 

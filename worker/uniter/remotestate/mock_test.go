@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
@@ -198,15 +198,16 @@ type mockUnit struct {
 	tag                              names.UnitTag
 	life                             params.Life
 	resolved                         params.ResolvedMode
-	series                           string
 	application                      mockApplication
 	unitWatcher                      *mockNotifyWatcher
-	addressesWatcher                 *mockNotifyWatcher
-	configSettingsWatcher            *mockNotifyWatcher
-	applicationConfigSettingsWatcher *mockNotifyWatcher
+	addressesWatcher                 *mockStringsWatcher
+	configSettingsWatcher            *mockStringsWatcher
+	applicationConfigSettingsWatcher *mockStringsWatcher
+	upgradeSeriesWatcher             *mockNotifyWatcher
 	storageWatcher                   *mockStringsWatcher
 	actionWatcher                    *mockStringsWatcher
 	relationsWatcher                 *mockStringsWatcher
+	upgradeLXDProfileUpgradeWatcher  *mockStringsWatcher
 }
 
 func (u *mockUnit) Life() params.Life {
@@ -225,10 +226,6 @@ func (u *mockUnit) Application() (remotestate.Application, error) {
 	return &u.application, nil
 }
 
-func (u *mockUnit) Series() string {
-	return u.series
-}
-
 func (u *mockUnit) Tag() names.UnitTag {
 	return u.tag
 }
@@ -237,15 +234,15 @@ func (u *mockUnit) Watch() (watcher.NotifyWatcher, error) {
 	return u.unitWatcher, nil
 }
 
-func (u *mockUnit) WatchAddresses() (watcher.NotifyWatcher, error) {
+func (u *mockUnit) WatchAddressesHash() (watcher.StringsWatcher, error) {
 	return u.addressesWatcher, nil
 }
 
-func (u *mockUnit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
+func (u *mockUnit) WatchConfigSettingsHash() (watcher.StringsWatcher, error) {
 	return u.configSettingsWatcher, nil
 }
 
-func (u *mockUnit) WatchTrustConfigSettings() (watcher.NotifyWatcher, error) {
+func (u *mockUnit) WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error) {
 	return u.applicationConfigSettingsWatcher, nil
 }
 
@@ -259,6 +256,22 @@ func (u *mockUnit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 
 func (u *mockUnit) WatchRelations() (watcher.StringsWatcher, error) {
 	return u.relationsWatcher, nil
+}
+
+func (u *mockUnit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) {
+	return u.upgradeSeriesWatcher, nil
+}
+
+func (u *mockUnit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+	return model.UpgradeSeriesPrepareStarted, nil
+}
+
+func (u *mockUnit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
+	return nil
+}
+
+func (u *mockUnit) WatchLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error) {
+	return u.upgradeLXDProfileUpgradeWatcher, nil
 }
 
 type mockApplication struct {

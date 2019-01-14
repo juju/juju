@@ -11,16 +11,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/api/credentialmanager"
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -31,13 +33,16 @@ import (
 
 // NewDestroyCommand returns a command to destroy a controller.
 func NewDestroyCommand() cmd.Command {
+	cmd := destroyCommand{}
+	cmd.controllerCredentialAPIFunc = cmd.credentialAPIForControllerModel
+	cmd.environsDestroy = environs.Destroy
 	// Even though this command is all about destroying a controller we end up
 	// needing environment endpoints so we can fall back to the client destroy
 	// environment method. This shouldn't really matter in practice as the
 	// user trying to take down the controller will need to have access to the
 	// controller environment anyway.
 	return modelcmd.WrapController(
-		&destroyCommand{},
+		&cmd,
 		modelcmd.WrapControllerSkipControllerFlags,
 		modelcmd.WrapControllerSkipDefaultController,
 	)
@@ -79,7 +84,7 @@ Examples:
     # any remaining persistent storage from Juju's control.
     juju destroy-controller --destroy-all-models --release-storage
 
-See also: 
+See also:
     kill-controller
     unregister`
 
@@ -121,12 +126,12 @@ type destroyClientAPI interface {
 
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "destroy-controller",
 		Args:    "<controller name>",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.
@@ -214,7 +219,7 @@ upgrade the controller to version 2.3 or greater.
 		return errors.Annotate(err, "getting controller environ")
 	}
 
-	cloudCallCtx := context.NewCloudCallContext()
+	cloudCallCtx := cloudCallContext(c.controllerCredentialAPIFunc)
 
 	for {
 		// Attempt to destroy the controller.
@@ -246,12 +251,13 @@ upgrade the controller to version 2.3 or greater.
 		}
 
 		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
-		envStatus := updateStatus(0)
+		// wait for 2 seconds to let empty hosted models changed from alive to dying.
+		modelStatus := updateStatus(0)
 		if !c.destroyModels {
-			if err := c.checkNoAliveHostedModels(ctx, envStatus.models); err != nil {
+			if err := c.checkNoAliveHostedModels(ctx, modelStatus.models); err != nil {
 				return errors.Trace(err)
 			}
-			if hasHostedModels && !hasUnDeadModels(envStatus.models) {
+			if hasHostedModels && !hasUnDeadModels(modelStatus.models) {
 				// When we called DestroyController before, we were
 				// informed that there were hosted models remaining.
 				// When we checked just now, there were none. We should
@@ -260,7 +266,7 @@ upgrade the controller to version 2.3 or greater.
 			}
 		}
 		if !c.destroyStorage && !c.releaseStorage && hasPersistentStorage {
-			if err := c.checkNoPersistentStorage(ctx, envStatus); err != nil {
+			if err := c.checkNoPersistentStorage(ctx, modelStatus); err != nil {
 				return errors.Trace(err)
 			}
 			// When we called DestroyController before, we were
@@ -275,14 +281,14 @@ upgrade the controller to version 2.3 or greater.
 		// Check for both undead models and live machines, as machines may be
 		// in the controller model.
 		ctx.Infof("Waiting for hosted model resources to be reclaimed")
-		for ; hasUnreclaimedResources(envStatus); envStatus = updateStatus(2 * time.Second) {
-			ctx.Infof(fmtCtrStatus(envStatus.controller))
-			for _, model := range envStatus.models {
+		for ; hasUnreclaimedResources(modelStatus); modelStatus = updateStatus(2 * time.Second) {
+			ctx.Infof(fmtCtrStatus(modelStatus.controller))
+			for _, model := range modelStatus.models {
 				ctx.Verbosef(fmtModelStatus(model))
 			}
 		}
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
-		return environs.Destroy(controllerName, controllerEnviron, cloudCallCtx, store)
+		return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
 	}
 }
 
@@ -326,7 +332,7 @@ func (c *destroyCommand) checkNoAliveHostedModels(ctx *cmd.Context, models []mod
 The controller has live hosted models. If you want
 to destroy all hosted models in the controller,
 run this command again with the --destroy-all-models
-flag.
+option.
 
 Models:
 %s`, controllerName, buf.String())
@@ -385,11 +391,11 @@ The controller has persistent storage remaining:
 	%s
 
 To destroy the storage, run the destroy-controller
-command again with the "--destroy-storage" flag.
+command again with the "--destroy-storage" option.
 
 To release the storage from Juju's management
 without destroying it, use the "--release-storage"
-flag instead. The storage can then be imported
+option instead. The storage can then be imported
 into another Juju model.
 
 `, controllerName, buf.String())
@@ -463,6 +469,10 @@ type destroyCommandBase struct {
 	api       destroyControllerAPI
 	apierr    error
 	clientapi destroyClientAPI
+
+	controllerCredentialAPIFunc newCredentialAPIFunc
+
+	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error
 }
 
 func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
@@ -522,6 +532,9 @@ func (c *destroyCommandBase) getControllerEnviron(
 	controllerName string,
 	sysAPI destroyControllerAPI,
 ) (environs.Environ, error) {
+	// TODO: (hml) 2018-08-01
+	// We should try to destroy via the API first, from store is a
+	// fall back position.
 	env, err := c.getControllerEnvironFromStore(ctx, store, controllerName)
 	if errors.IsNotFound(err) {
 		return c.getControllerEnvironFromAPI(sysAPI, controllerName)
@@ -599,4 +612,36 @@ func confirmDestruction(ctx *cmd.Context, controllerName string) error {
 	}
 
 	return nil
+}
+
+// CredentialAPI defines the methods on the credential API endpoint that the
+// destroy command might call.
+type CredentialAPI interface {
+	InvalidateModelCredential(string) error
+	Close() error
+}
+
+func (c *destroyCommandBase) credentialAPIForControllerModel() (CredentialAPI, error) {
+	// Note that the api here needs to operate on a controller model itself,
+	// as the controller model's cloud credential is the controller cloud credential.
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return credentialmanager.NewClient(root), nil
+}
+
+type newCredentialAPIFunc func() (CredentialAPI, error)
+
+func cloudCallContext(newAPIFunc newCredentialAPIFunc) context.ProviderCallContext {
+	callCtx := context.NewCloudCallContext()
+	callCtx.InvalidateCredentialFunc = func(reason string) error {
+		api, err := newAPIFunc()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer api.Close()
+		return api.InvalidateModelCredential(reason)
+	}
+	return callCtx
 }

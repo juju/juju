@@ -6,20 +6,20 @@ package instancepoller_test
 import (
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -55,7 +55,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	instancepoller.PatchState(s, s.st)
 
 	var err error
-	s.clock = jujutesting.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 

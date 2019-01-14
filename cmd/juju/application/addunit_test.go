@@ -15,8 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
@@ -24,6 +26,8 @@ import (
 type AddUnitSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	fake *fakeApplicationAddUnitAPI
+
+	store *jujuclient.MemStore
 }
 
 type fakeApplicationAddUnitAPI struct {
@@ -62,6 +66,17 @@ func (f *fakeApplicationAddUnitAPI) AddUnits(args apiapplication.AddUnitsParams)
 	return nil, nil
 }
 
+func (f *fakeApplicationAddUnitAPI) ScaleApplication(args apiapplication.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+	if f.err != nil {
+		return params.ScaleApplicationResult{}, f.err
+	}
+	if args.ApplicationName != f.application {
+		return params.ScaleApplicationResult{}, errors.NotFoundf("application %q", args.ApplicationName)
+	}
+	f.numUnits += args.ScaleChange
+	return params.ScaleApplicationResult{}, nil
+}
+
 func (f *fakeApplicationAddUnitAPI) ModelGet() (map[string]interface{}, error) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": f.envType,
@@ -82,6 +97,7 @@ func (s *AddUnitSuite) SetUpTest(c *gc.C) {
 		envType:        "dummy",
 		bestAPIVersion: 5,
 	}
+	s.store = jujuclienttesting.MinimalStore()
 }
 
 var _ = gc.Suite(&AddUnitSuite{})
@@ -108,13 +124,22 @@ var initAddUnitErrorTests = []struct {
 func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 	for i, t := range initAddUnitErrorTests {
 		c.Logf("test %d", i)
-		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, jujuclienttesting.MinimalStore()), t.args)
+		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
+// Must error at init when the model type is known (and args are invalid)
+func (s *AddUnitSuite) TestInitErrorsForCAAS(c *gc.C) {
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+	err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), []string{"some-application-name", "--to", "lxd:1"})
+	c.Check(err, gc.ErrorMatches, "Kubernetes models only support --num-units")
+}
+
 func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
-	_, err := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake, jujuclienttesting.MinimalStore()), args...)
+	_, err := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake, s.store), args...)
 	return err
 }
 
@@ -223,4 +248,41 @@ func (s *AddUnitSuite) TestNameChecks(c *gc.C) {
 	assertMachineOrNewContainer("0/lxd/01", false)
 	assertMachineOrNewContainer("0/lxd/10", true)
 	assertMachineOrNewContainer("0/kvm/4", true)
+}
+
+func (s *AddUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
+	expectedError := "Kubernetes models only support --num-units"
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+
+	err := s.runAddUnit(c, "some-application-name", "--to", "lxd:1")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--to", "lxd:1", "-n", "2")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0", "-n", "2")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0", "-n", "2", "--to", "lxd:1")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--num-units", "2")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *AddUnitSuite) TestUnknownModelCallsRefresh(c *gc.C) {
+	called := false
+	refresh := func(jujuclient.ClientStore, string) error {
+		called = true
+		return nil
+	}
+	cmd := application.NewAddUnitCommandForTestWithRefresh(s.fake, s.store, refresh)
+	_, err := cmdtesting.RunCommand(c, cmd, "-m", "nope", "no-app")
+	c.Check(called, jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "model arthur:king/nope not found")
 }

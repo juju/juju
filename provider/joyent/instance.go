@@ -6,10 +6,10 @@ package joyent
 import (
 	"github.com/joyent/gosdc/cloudapi"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 )
 
 type joyentInstance struct {

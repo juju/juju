@@ -9,12 +9,22 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
 
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 )
+
+// SharedHub represents the methods of the pubsub.StructuredHub
+// that are used. The context uses an interface to allow mocking
+// of the hub.
+type SharedHub interface {
+	Publish(topic string, data interface{}) (<-chan struct{}, error)
+	Subscribe(topic string, handler interface{}) (func(), error)
+}
 
 // sharedServerContext contains a number of components that are unchangeable in the API server.
 // These components need to be exposed through the facade.Context. Instead of having the methods
@@ -24,10 +34,11 @@ import (
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
-	statePool  *state.StatePool
-	centralHub *pubsub.StructuredHub
-	presence   presence.Recorder
-	logger     loggo.Logger
+	statePool    *state.StatePool
+	centralHub   SharedHub
+	presence     presence.Recorder
+	leaseManager lease.Manager
+	logger       loggo.Logger
 
 	featuresMutex sync.RWMutex
 	features      set.Strings
@@ -36,10 +47,11 @@ type sharedServerContext struct {
 }
 
 type sharedServerConfig struct {
-	statePool  *state.StatePool
-	centralHub *pubsub.StructuredHub
-	presence   presence.Recorder
-	logger     loggo.Logger
+	statePool    *state.StatePool
+	centralHub   SharedHub
+	presence     presence.Recorder
+	leaseManager lease.Manager
+	logger       loggo.Logger
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -52,6 +64,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.presence == nil {
 		return errors.NotValidf("nil presence")
 	}
+	if c.leaseManager == nil {
+		return errors.NotValidf("nil leaseManager")
+	}
 	return nil
 }
 
@@ -60,10 +75,11 @@ func newSharedServerContex(config sharedServerConfig) (*sharedServerContext, err
 		return nil, errors.Trace(err)
 	}
 	ctx := &sharedServerContext{
-		statePool:  config.statePool,
-		centralHub: config.centralHub,
-		presence:   config.presence,
-		logger:     config.logger,
+		statePool:    config.statePool,
+		centralHub:   config.centralHub,
+		presence:     config.presence,
+		leaseManager: config.leaseManager,
+		logger:       config.logger,
 	}
 	controllerConfig, err := ctx.statePool.SystemState().ControllerConfig()
 	if err != nil {
@@ -103,6 +119,17 @@ func (c *sharedServerContext) onConfigChanged(topic string, data controller.Conf
 
 	if removed.Size() != 0 || added.Size() != 0 {
 		c.logger.Infof("updating features to %v", values)
+	}
+	// If the presence implementation changes we need to restart
+	// the apiserver. So if the old presence feature flag is in either
+	// added or removed, we need to publish the restart message.
+	if removed.Contains(feature.OldPresence) || added.Contains(feature.OldPresence) {
+		_, err := c.centralHub.Publish(apiserver.RestartTopic, apiserver.Restart{
+			LocalOnly: true,
+		})
+		if err != nil {
+			c.logger.Errorf("unable to publish restart message: %v", err)
+		}
 	}
 }
 

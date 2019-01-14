@@ -12,9 +12,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 )
 
 var _ = gc.Suite(&updaterSuite{})

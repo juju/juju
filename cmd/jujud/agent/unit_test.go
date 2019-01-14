@@ -24,10 +24,10 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/core/status"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
@@ -415,7 +415,6 @@ func (s *UnitSuite) TestChangeConfig(c *gc.C) {
 }
 
 func (s *UnitSuite) TestWorkers(c *gc.C) {
-	coretesting.SkipIfWindowsBug(c, "lp:1610993")
 	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackUnits(c, tracker, unitManifolds)
 	s.PatchValue(&unitManifolds, instrumented)

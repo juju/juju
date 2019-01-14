@@ -21,9 +21,8 @@ func formatVolumeListTabular(writer io.Writer, infos map[string]VolumeInfo) erro
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	print("[Volumes]")
-	print("Machine", "Unit", "Storage", "Id", "Provider Id", "Device", "Size", "State", "Message")
 
+	haveMachines := false
 	volumeAttachmentInfos := make(volumeAttachmentInfos, 0, len(infos))
 	for volumeId, info := range infos {
 		volumeAttachmentInfo := volumeAttachmentInfo{
@@ -42,9 +41,23 @@ func formatVolumeListTabular(writer io.Writer, infos map[string]VolumeInfo) erro
 		for machineId, machineInfo := range info.Attachments.Machines {
 			volumeAttachmentInfo := volumeAttachmentInfo
 			volumeAttachmentInfo.MachineId = machineId
-			volumeAttachmentInfo.MachineVolumeAttachment = machineInfo
+			volumeAttachmentInfo.VolumeAttachment = machineInfo
 			for unitId, unitInfo := range info.Attachments.Units {
 				if unitInfo.MachineId == machineId {
+					volumeAttachmentInfo.UnitId = unitId
+					volumeAttachmentInfo.UnitStorageAttachment = unitInfo
+					break
+				}
+			}
+			haveMachines = true
+			volumeAttachmentInfos = append(volumeAttachmentInfos, volumeAttachmentInfo)
+		}
+
+		for hostId, containerInfo := range info.Attachments.Containers {
+			volumeAttachmentInfo := volumeAttachmentInfo
+			volumeAttachmentInfo.VolumeAttachment = containerInfo
+			for unitId, unitInfo := range info.Attachments.Units {
+				if hostId == unitId {
 					volumeAttachmentInfo.UnitId = unitId
 					volumeAttachmentInfo.UnitStorageAttachment = unitInfo
 					break
@@ -55,17 +68,31 @@ func formatVolumeListTabular(writer io.Writer, infos map[string]VolumeInfo) erro
 	}
 	sort.Sort(volumeAttachmentInfos)
 
+	if haveMachines {
+		print("Machine", "Unit", "Storage id", "Volume id", "Provider Id", "Device", "Size", "State", "Message")
+	} else {
+		print("Unit", "Storage id", "Volume id", "Provider Id", "Size", "State", "Message")
+	}
+
 	for _, info := range volumeAttachmentInfos {
 		var size string
 		if info.Size > 0 {
 			size = humanize.IBytes(info.Size * humanize.MiByte)
 		}
-		print(
-			info.MachineId, info.UnitId, info.Storage,
-			info.VolumeId, info.ProviderVolumeId,
-			info.DeviceName, size,
-			string(info.Status.Current), info.Status.Message,
-		)
+		if haveMachines {
+			print(
+				info.MachineId, info.UnitId, info.Storage,
+				info.VolumeId, info.ProviderVolumeId,
+				info.DeviceName, size,
+				string(info.Status.Current), info.Status.Message,
+			)
+		} else {
+			print(
+				info.UnitId, info.Storage,
+				info.VolumeId, info.ProviderVolumeId, size,
+				string(info.Status.Current), info.Status.Message,
+			)
+		}
 	}
 
 	return tw.Flush()
@@ -76,7 +103,7 @@ type volumeAttachmentInfo struct {
 	VolumeInfo
 
 	MachineId string
-	MachineVolumeAttachment
+	VolumeAttachment
 
 	UnitId string
 	UnitStorageAttachment

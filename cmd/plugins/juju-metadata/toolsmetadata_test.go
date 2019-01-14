@@ -54,7 +54,8 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		"conroller":       true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := bootstrap.Prepare(
+	e, err := bootstrap.PrepareController(
+		false,
 		modelcmd.BootstrapContextNoVerify(cmdtesting.Context(c)),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
@@ -66,7 +67,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.env = env
+	s.env = e.(environs.Environ)
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 
 	// Switch the default tools location.

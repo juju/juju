@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/status"
 )
 
 // StateJobs translates a slice of multiwatcher jobs to their equivalents in state.
@@ -120,6 +120,7 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 			HasVote:   m.HasVote(),
 			WantsVote: m.WantsVote(),
 			Status:    status,
+			Message:   statusInfo.Message,
 		}
 		instId, err := m.InstanceId()
 		switch {

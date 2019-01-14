@@ -17,25 +17,25 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 )
 
 const JujuPluginPrefix = "juju-"
 const JujuPluginPattern = "^juju-[a-zA-Z]"
 
+var jujuArgNames = set.NewStrings("-m", "--model", "-c", "--controller")
+
 // This is a very rudimentary method used to extract common Juju
-// arguments from the full list passed to the plugin. Currently,
-// there is only one such argument: -m env
-// If more than just -e is required, the method can be improved then.
+// arguments from the full list passed to the plugin.
 func extractJujuArgs(args []string) []string {
 	var jujuArgs []string
 	nrArgs := len(args)
 	for nextArg := 0; nextArg < nrArgs; {
 		arg := args[nextArg]
 		nextArg++
-		if arg != "-m" {
+		if !jujuArgNames.Contains(arg) {
 			continue
 		}
 		jujuArgs = append(jujuArgs, arg)
@@ -49,12 +49,12 @@ func extractJujuArgs(args []string) []string {
 
 func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	cmdName := JujuPluginPrefix + subcommand
-	plugin := modelcmd.Wrap(&PluginCommand{name: cmdName})
+	plugin := &PluginCommand{name: cmdName}
 
 	// We process common flags supported by Juju commands.
 	// To do this, we extract only those supported flags from the
 	// argument list to avoid confusing flags.Parse().
-	flags := gnuflag.NewFlagSet(cmdName, gnuflag.ContinueOnError)
+	flags := gnuflag.NewFlagSetWithFlagKnownAs(cmdName, gnuflag.ContinueOnError, "option")
 	flags.SetOutput(ioutil.Discard)
 	plugin.SetFlags(flags)
 	jujuArgs := extractJujuArgs(args)
@@ -75,8 +75,12 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 }
 
 type PluginCommand struct {
-	modelcmd.ModelCommandBase
+	cmd.CommandBase
 	name string
+
+	controllerName string
+	modelName      string
+
 	args []string
 }
 
@@ -91,13 +95,25 @@ func (c *PluginCommand) Init(args []string) error {
 	return nil
 }
 
+func (c *PluginCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.modelName, "m", "", "Model to operate in. Accepts [<controller name>:]<model name>")
+	f.StringVar(&c.modelName, "model", "", "")
+	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
+	f.StringVar(&c.controllerName, "controller", "", "")
+	c.CommandBase.SetFlags(f)
+}
+
 func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command := exec.Command(c.name, c.args...)
 
-	// Ignore the error from ModelName - if we can't find the model
-	// we'll run the plugin anyway.
-	modelName, _ := c.ModelName()
-	command.Env = utils.Setenv(os.Environ(), osenv.JujuModelEnvKey+"="+modelName)
+	env := os.Environ()
+	if c.controllerName != "" {
+		env = utils.Setenv(env, osenv.JujuControllerEnvKey+"="+c.controllerName)
+	}
+	if c.modelName != "" {
+		env = utils.Setenv(env, osenv.JujuModelEnvKey+"="+c.modelName)
+	}
+	command.Env = env
 
 	// Now hook up stdin, stdout, stderr
 	command.Stdin = ctx.Stdin
@@ -153,7 +169,7 @@ func GetPluginDescriptions() []PluginDescription {
 	}
 	resultMap := map[string]PluginDescription{}
 	// gather the results at the end
-	for _ = range plugins {
+	for range plugins {
 		result := <-description
 		resultMap[result.name] = result
 	}

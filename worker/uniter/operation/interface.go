@@ -9,10 +9,13 @@ import (
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 )
+
+//go:generate mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/uniter/operation Operation,Factory
 
 var logger = loggo.GetLogger("juju.worker.uniter.operation")
 
@@ -77,6 +80,14 @@ type Factory interface {
 	// For a caas uniter, the operator is the thing that does the charm upgrade,
 	// so we just plug in a no op into the uniter state machine.
 	NewNoOpUpgrade(charmURL *corecharm.URL) (Operation, error)
+
+	// NewNoOpFinishUpgradeSeries creates a noop which simply resets the
+	// status of a units upgrade series.
+	NewNoOpFinishUpgradeSeries() (Operation, error)
+
+	// NewFinishUpgradeCharmProfile simply cleans up the state of the unit
+	// of a upgrade charm profile.
+	NewFinishUpgradeCharmProfile(charmURL *corecharm.URL) (Operation, error)
 
 	// NewRevertUpgrade creates an operation to clear the unit's resolved flag,
 	// and execute an upgrade to the supplied charm that is careful to excise
@@ -165,6 +176,16 @@ type Callbacks interface {
 	// no path by which the controller can legitimately garbage collect that
 	// charm or the application's settings for it. It's only used by Deploy operations.
 	SetCurrentCharm(charmURL *corecharm.URL) error
+
+	// SetSeriesStatusUpgrade is intended to give the uniter a chance to
+	// upgrade the status of a running series upgrade before or after
+	// upgrade series hook code completes and, for display purposes, to
+	// supply a reason as to why it is making the change.
+	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
+
+	// RemoveUpgradeCharmProfileData is intended to clean up the LXDProfile status
+	// to ensure that we start from a clean slate.
+	RemoveUpgradeCharmProfileData() error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage

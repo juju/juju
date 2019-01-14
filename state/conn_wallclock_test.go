@@ -51,7 +51,7 @@ func (cs *ConnWithWallClockSuite) SetUpTest(c *gc.C) {
 
 	cs.StateWithWallClockSuite.SetUpTest(c)
 
-	cs.modelTag = cs.IAASModel.ModelTag()
+	cs.modelTag = cs.Model.ModelTag()
 
 	jujuDB := cs.MgoSuite.Session.DB("juju")
 	cs.annotations = jujuDB.C("annotations")
@@ -117,7 +117,7 @@ func (s *ConnWithWallClockSuite) NewStateForModelNamed(c *gc.C, modelName string
 		"uuid": utils.MustNewUUID().String(),
 	})
 	otherOwner := names.NewLocalUserTag("test-admin")
-	_, otherState, err := s.State.NewModel(state.ModelArgs{
+	_, otherState, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",

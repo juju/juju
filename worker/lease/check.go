@@ -5,11 +5,13 @@ package lease
 
 import (
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/lease"
 )
 
 // token implements lease.Token.
 type token struct {
-	leaseName  string
+	leaseKey   lease.Key
 	holderName string
 	secretary  Secretary
 	checks     chan<- check
@@ -27,14 +29,14 @@ func (t token) Check(trapdoorKey interface{}) error {
 	// factory.
 	//
 	// Fixing that would be great but seems out of scope.
-	if err := t.secretary.CheckLease(t.leaseName); err != nil {
-		return errors.Annotatef(err, "cannot check lease %q", t.leaseName)
+	if err := t.secretary.CheckLease(t.leaseKey); err != nil {
+		return errors.Annotatef(err, "cannot check lease %q", t.leaseKey.Lease)
 	}
 	if err := t.secretary.CheckHolder(t.holderName); err != nil {
 		return errors.Annotatef(err, "cannot check holder %q", t.holderName)
 	}
 	return check{
-		leaseName:   t.leaseName,
+		leaseKey:    t.leaseKey,
 		holderName:  t.holderName,
 		trapdoorKey: trapdoorKey,
 		response:    make(chan error),
@@ -45,7 +47,7 @@ func (t token) Check(trapdoorKey interface{}) error {
 // check is used to deliver lease-check requests to a manager's loop
 // goroutine on behalf of a token (as returned by LeadershipCheck).
 type check struct {
-	leaseName   string
+	leaseKey    lease.Key
 	holderName  string
 	trapdoorKey interface{}
 	response    chan error

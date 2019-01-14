@@ -26,11 +26,11 @@ type patcher interface {
 // PatchConnectRemote ensures that the ConnectImageRemote function always returns
 // the supplied (mock) image server.
 func PatchConnectRemote(patcher patcher, remotes map[string]lxdclient.ImageServer) {
-	patcher.PatchValue(&ConnectImageRemote, func(remote RemoteServer) (lxdclient.ImageServer, error) {
-		if svr, ok := remotes[remote.Name]; ok {
+	patcher.PatchValue(&ConnectImageRemote, func(spec ServerSpec) (lxdclient.ImageServer, error) {
+		if svr, ok := remotes[spec.Name]; ok {
 			return svr, nil
 		}
-		return nil, errors.New("unrecognised remote server")
+		return nil, errors.New("unrecognized remote server")
 	})
 }
 
@@ -44,7 +44,11 @@ func PatchLXDViaSnap(patcher patcher, isSnap bool) {
 	patcher.PatchValue(&lxdViaSnap, func() bool { return isSnap })
 }
 
-func GetImageSources(mgr container.Manager) ([]RemoteServer, error) {
+func PatchHostSeries(patcher patcher, series string) {
+	patcher.PatchValue(&hostSeries, func() (string, error) { return series, nil })
+}
+
+func GetImageSources(mgr container.Manager) ([]ServerSpec, error) {
 	return mgr.(*containerManager).getImageSources()
 }
 

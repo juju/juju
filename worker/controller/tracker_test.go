@@ -97,5 +97,5 @@ func assertControllerNotClosed(c *gc.C, ctlr *state.Controller) {
 }
 
 func assertControllerClosed(c *gc.C, ctlr *state.Controller) {
-	c.Assert(ctlr.Ping, gc.PanicMatches, "Session already closed")
+	c.Assert(ctlr.Ping(), gc.ErrorMatches, "pool is closed")
 }

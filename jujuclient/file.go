@@ -13,11 +13,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
 	"github.com/juju/persistent-cookiejar"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/model"
@@ -84,7 +84,9 @@ func (s *store) acquireLock() (mutex.Releaser, error) {
 func (s *store) AllControllers() (map[string]ControllerDetails, error) {
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot read all controllers")
+		return nil, errors.Annotate(err,
+			"cannot acquire lock file to read all the controllers",
+		)
 	}
 	defer releaser.Release()
 	controllers, err := ReadControllersFile(JujuControllersPath())
@@ -98,7 +100,9 @@ func (s *store) AllControllers() (map[string]ControllerDetails, error) {
 func (s *store) CurrentController() (string, error) {
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return "", errors.Annotate(err, "cannot get current controller name")
+		return "", errors.Annotate(err,
+			"cannot acquire lock file to get the current controller name",
+		)
 	}
 	defer releaser.Release()
 	controllers, err := ReadControllersFile(JujuControllersPath())
@@ -119,7 +123,9 @@ func (s *store) ControllerByName(name string) (*ControllerDetails, error) {
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot read controller %v", name)
+		return nil, errors.Annotatef(err,
+			"cannot acquire lock file to read controller %s", name,
+		)
 	}
 	defer releaser.Release()
 
@@ -144,7 +150,9 @@ func (s *store) AddController(name string, details ControllerDetails) error {
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Annotatef(err, "cannot add controller %v", name)
+		return errors.Annotatef(err,
+			"cannot acquire lock file to add controller %s", name,
+		)
 	}
 	defer releaser.Release()
 
@@ -183,7 +191,9 @@ func (s *store) UpdateController(name string, details ControllerDetails) error {
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Annotatef(err, "cannot update controller %v", name)
+		return errors.Annotatef(err,
+			"cannot acquire lock file to update controller %s", name,
+		)
 	}
 	defer releaser.Release()
 
@@ -219,7 +229,9 @@ func (s *store) SetCurrentController(name string) error {
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Annotate(err, "cannot set current controller name")
+		return errors.Annotate(err,
+			"cannot acquire lock file to set the current controller name",
+		)
 	}
 	defer releaser.Release()
 
@@ -245,7 +257,9 @@ func (s *store) RemoveController(name string) error {
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Annotatef(err, "cannot remove controller %v", name)
+		return errors.Annotatef(err,
+			"cannot acquire lock file to remove controller %s", name,
+		)
 	}
 	defer releaser.Release()
 
@@ -336,7 +350,9 @@ func (s *store) UpdateModel(controllerName, modelName string, details ModelDetai
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err,
+			"cannot acquire lock file for updating model %s on controller %s", modelName, controllerName,
+		)
 	}
 	defer releaser.Release()
 
@@ -370,7 +386,9 @@ func (s *store) SetCurrentModel(controllerName, modelName string) error {
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err,
+			"cannot acquire lock file for setting current model %s on controller %s", modelName, controllerName,
+		)
 	}
 	defer releaser.Release()
 
@@ -386,7 +404,6 @@ func (s *store) SetCurrentModel(controllerName, modelName string) error {
 				// We just want to reset
 				models.CurrentModel = ""
 				return true, nil
-
 			}
 			if _, ok := models.Models[modelName]; !ok {
 				return false, errors.NotFoundf(
@@ -409,7 +426,9 @@ func (s *store) AllModels(controllerName string) (map[string]ModelDetails, error
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err,
+			"cannot acquire lock file for getting all models for controller %s", controllerName,
+		)
 	}
 	defer releaser.Release()
 
@@ -435,7 +454,9 @@ func (s *store) CurrentModel(controllerName string) (string, error) {
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotatef(err,
+			"cannot acquire lock file for getting current model for controller %s", controllerName,
+		)
 	}
 	defer releaser.Release()
 
@@ -470,7 +491,9 @@ func (s *store) ModelByName(controllerName, modelName string) (*ModelDetails, er
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err,
+			"cannot acquire lock file for getting model %s for controller %s", modelName, controllerName,
+		)
 	}
 	defer releaser.Release()
 
@@ -508,7 +531,9 @@ func (s *store) RemoveModel(controllerName, modelName string) error {
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err,
+			"cannot acquire lock file for removing model %s on controller %s", modelName, controllerName,
+		)
 	}
 	defer releaser.Release()
 
@@ -570,7 +595,9 @@ func (s *store) SetModels(controllerName string, models map[string]ModelDetails)
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err,
+			"cannot acquire lock file for setting models on controller %s", controllerName,
+		)
 	}
 	defer releaser.Release()
 
@@ -586,7 +613,7 @@ func (s *store) SetModels(controllerName string, models map[string]ModelDetails)
 			changed = true
 		}
 		// Delete models that are not in the new collection.
-		for modelName, _ := range storedModels.Models {
+		for modelName := range storedModels.Models {
 			if _, ok := models[modelName]; !ok {
 				delete(storedModels.Models, modelName)
 			}
@@ -610,7 +637,9 @@ func (s *store) UpdateAccount(controllerName string, details AccountDetails) err
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err,
+			"cannot acquire lock file for updating an account on controller %s", controllerName,
+		)
 	}
 	defer releaser.Release()
 
@@ -642,7 +671,9 @@ func (s *store) AccountDetails(controllerName string) (*AccountDetails, error) {
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err,
+			"cannot acquire lock file for getting an account details on controller %s", controllerName,
+		)
 	}
 	defer releaser.Release()
 
@@ -665,7 +696,9 @@ func (s *store) RemoveAccount(controllerName string) error {
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err,
+			"cannot acquire lock file for removing an account on controller %s", controllerName,
+		)
 	}
 	defer releaser.Release()
 
@@ -685,7 +718,9 @@ func (s *store) RemoveAccount(controllerName string) error {
 func (s *store) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Annotatef(err, "cannot update credentials for %v", cloudName)
+		return errors.Annotatef(err,
+			"cannot acquire lock file for updating credentials for %s", cloudName,
+		)
 	}
 	defer releaser.Release()
 
@@ -753,7 +788,9 @@ func (s *store) UpdateBootstrapConfig(controllerName string, cfg BootstrapConfig
 
 	releaser, err := s.acquireLock()
 	if err != nil {
-		return errors.Annotatef(err, "cannot update bootstrap config for controller %s", controllerName)
+		return errors.Annotatef(err,
+			"cannot acquire lock file for updating the bootstrap config for controller %s", controllerName,
+		)
 	}
 	defer releaser.Release()
 

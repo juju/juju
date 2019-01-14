@@ -7,10 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -68,7 +69,7 @@ func run(c *gc.C, stub *testing.Stub, test FixtureTest) {
 	context := &context{
 		c:       c,
 		stub:    stub,
-		clock:   testing.NewClock(time.Now()),
+		clock:   testclock.NewClock(time.Now()),
 		timeout: time.After(time.Second),
 		starts:  make(chan worker.Worker, 1000),
 	}
@@ -90,7 +91,7 @@ func run(c *gc.C, stub *testing.Stub, test FixtureTest) {
 type context struct {
 	c       *gc.C
 	stub    *testing.Stub
-	clock   *testing.Clock
+	clock   *testclock.Clock
 	timeout <-chan time.Time
 
 	starts  chan worker.Worker

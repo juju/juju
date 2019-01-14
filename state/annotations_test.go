@@ -160,7 +160,7 @@ func (s *AnnotationsModelSuite) TestSetAnnotationsDestroyedModel(c *gc.C) {
 
 	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.RemoveAllModelDocs()
+	err = st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -180,7 +180,7 @@ func (s *AnnotationsModelSuite) createTestModel(c *gc.C) (*state.Model, *state.S
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	model, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",

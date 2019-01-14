@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
@@ -51,12 +52,12 @@ func (c *showCommand) Init(args []string) (err error) {
 
 // Info implements Command.Info.
 func (c *showCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-storage",
 		Args:    "<storage ID> [...]",
 		Purpose: "Shows storage instance information.",
 		Doc:     showCommandDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

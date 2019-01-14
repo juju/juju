@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
 
@@ -22,9 +23,11 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -40,24 +43,31 @@ func NewUpgradeCharmCommand() cmd.Command {
 		DeployResources: resourceadapters.DeployResources,
 		ResolveCharm:    resolveCharm,
 		NewCharmAdder:   newCharmAdder,
-		NewCharmClient: func(conn api.Connection) CharmClient {
+		NewCharmClient: func(conn base.APICallCloser) CharmClient {
 			return charms.NewClient(conn)
 		},
-		NewCharmUpgradeClient: func(conn api.Connection) CharmUpgradeClient {
+		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmAPIClient {
 			return application.NewClient(conn)
 		},
-		NewModelConfigGetter: func(conn api.Connection) ModelConfigGetter {
+		NewModelConfigGetter: func(conn base.APICallCloser) ModelConfigGetter {
 			return modelconfig.NewClient(conn)
 		},
-		NewResourceLister: func(conn api.Connection) (ResourceLister, error) {
+		NewResourceLister: func(conn base.APICallCloser) (ResourceLister, error) {
 			resclient, err := resourceadapters.NewAPIClient(conn)
 			if err != nil {
 				return nil, err
 			}
 			return resclient, nil
 		},
+		CharmStoreURLGetter: getCharmStoreAPIURL,
 	}
 	return modelcmd.Wrap(cmd)
+}
+
+// CharmAPIClient defines a subset of the application facade that deals with
+// charm related upgrades.
+type CharmAPIClient interface {
+	CharmUpgradeClient
 }
 
 // CharmUpgradeClient defines a subset of the application facade, as required
@@ -85,6 +95,7 @@ type ResourceLister interface {
 type NewCharmAdderFunc func(
 	api.Connection,
 	*httpbakery.Client,
+	string, // Charmstore API URL
 	csclientparams.Channel,
 ) CharmAdder
 
@@ -95,17 +106,21 @@ type upgradeCharmCommand struct {
 	DeployResources       resourceadapters.DeployResourcesFunc
 	ResolveCharm          ResolveCharmFunc
 	NewCharmAdder         NewCharmAdderFunc
-	NewCharmClient        func(api.Connection) CharmClient
-	NewCharmUpgradeClient func(api.Connection) CharmUpgradeClient
-	NewModelConfigGetter  func(api.Connection) ModelConfigGetter
-	NewResourceLister     func(api.Connection) (ResourceLister, error)
+	NewCharmClient        func(base.APICallCloser) CharmClient
+	NewCharmUpgradeClient func(base.APICallCloser) CharmAPIClient
+	NewModelConfigGetter  func(base.APICallCloser) ModelConfigGetter
+	NewResourceLister     func(base.APICallCloser) (ResourceLister, error)
+	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
 
 	ApplicationName string
-	ForceUnits      bool
-	ForceSeries     bool
-	SwitchURL       string
-	CharmPath       string
-	Revision        int // defaults to -1 (latest)
+	// Force should be ubiquitous and we should eventually deprecate both
+	// ForceUnits and ForceSeries; instead just using "force"
+	Force       bool
+	ForceUnits  bool
+	ForceSeries bool
+	SwitchURL   string
+	CharmPath   string
+	Revision    int // defaults to -1 (latest)
 
 	// Resources is a map of resource name to filename to be uploaded on upgrade.
 	Resources map[string]string
@@ -121,12 +136,15 @@ type upgradeCharmCommand struct {
 	// Storage is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata, to add or update during upgrade.
 	Storage map[string]storage.Constraints
+
+	catacomb catacomb.Catacomb
+	plan     catacomb.Plan
 }
 
 const upgradeCharmDoc = `
-When no flags are set, the application's charm will be upgraded to the latest
+When no options are set, the application's charm will be upgraded to the latest
 revision available in the repository from which it was originally deployed. An
-explicit revision can be chosen with the --revision flag.
+explicit revision can be chosen with the --revision option.
 
 A path will need to be supplied to allow an updated copy of the charm
 to be located.
@@ -137,13 +155,13 @@ is not supported and may lead to confusing behaviour. Each local charm gets
 uploaded with the revision specified in the charm, if possible, otherwise it
 gets a unique revision (highest in state + 1).
 
-When deploying from a path, the --path flag is used to specify the location from
+When deploying from a path, the --path option is used to specify the location from
 which to load the updated charm. Note that the directory containing the charm must
 match what was originally used to deploy the charm as a superficial check that the
 updated charm is compatible.
 
-Resources may be uploaded at upgrade time by specifying the --resource flag.
-Following the resource flag should be name=filepath pair.  This flag may be
+Resources may be uploaded at upgrade time by specifying the --resource option.
+Following the resource option should be name=filepath pair.  This option may be
 repeated more than once to upload more than one resource.
 
   juju upgrade-charm foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
@@ -151,23 +169,23 @@ repeated more than once to upload more than one resource.
 Where bar and baz are resources named in the metadata for the foo charm.
 
 Storage constraints may be added or updated at upgrade time by specifying
-the --storage flag, with the same format as specified in "juju deploy".
+the --storage option, with the same format as specified in "juju deploy".
 If new required storage is added by the new charm revision, then you must
 specify constraints or the defaults will be applied.
 
   juju upgrade-charm foo --storage cache=ssd,10G
 
 Charm settings may be added or updated at upgrade time by specifying the
---config flag, pointing to a YAML-encoded application config file.
+--config option, pointing to a YAML-encoded application config file.
 
   juju upgrade-charm foo --config config.yaml
 
 If the new version of a charm does not explicitly support the application's series, the
-upgrade is disallowed unless the --force-series flag is used. This option should be
+upgrade is disallowed unless the --force-series option is used. This option should be
 used with caution since using a charm on a machine running an unsupported series may
 cause unexpected behavior.
 
-The --switch flag allows you to replace the charm with an entirely different one.
+The --switch option allows you to replace the charm with an entirely different one.
 The new charm's URL and revision are inferred as they would be when running a
 deploy command.
 
@@ -191,22 +209,27 @@ is determined by the contents of the charm at the specified path.
 number with --switch, give it in the charm URL, for instance "cs:wordpress-5"
 would specify revision number 5 of the wordpress charm.
 
-Use of the --force-units flag is not generally recommended; units upgraded while in an
+Use of the --force-units option is not generally recommended; units upgraded while in an
 error state will not have upgrade-charm hooks executed, and may cause unexpected
 behavior.
+
+--force option for LXD Profiles is not generally recommended when upgrading an 
+application; overriding profiles on the container may cause unexpected 
+behavior. 
 `
 
 func (c *upgradeCharmCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "upgrade-charm",
 		Args:    "<application>",
 		Purpose: "Upgrade an application's charm.",
 		Doc:     upgradeCharmDoc,
-	}
+	})
 }
 
 func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.Force, "force", false, "Allow a charm to be upgraded which bypasses LXD profile allow list")
 	f.BoolVar(&c.ForceUnits, "force-units", false, "Upgrade all units immediately, even if in error state")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
 	f.BoolVar(&c.ForceSeries, "force-series", false, "Upgrade even if series of deployed applications are not supported by the new charm")
@@ -297,16 +320,27 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, c.Channel)
-	charmRepo := c.getCharmStore(bakeryClient, modelConfig)
-
+	conAPIRoot, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	csURL, err := c.CharmStoreURLGetter(conAPIRoot)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	applicationInfo, err := charmUpgradeClient.Get(c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if c.Channel == "" {
+		c.Channel = csclientparams.Channel(applicationInfo.Channel)
+	}
+	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, csURL, c.Channel)
+	charmRepo := c.getCharmStore(bakeryClient, csURL, modelConfig)
+
 	deployedSeries := applicationInfo.Series
 
-	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef, deployedSeries)
+	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef, deployedSeries, c.Force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
@@ -338,6 +372,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		ApplicationName:    c.ApplicationName,
 		CharmID:            chID,
 		ConfigSettingsYAML: string(configYAML),
+		Force:              c.Force,
 		ForceSeries:        c.ForceSeries,
 		ForceUnits:         c.ForceUnits,
 		ResourceIDs:        ids,
@@ -465,9 +500,10 @@ func shouldUpgradeResource(res charmresource.Meta, uploads map[string]string, cu
 func newCharmAdder(
 	api api.Connection,
 	bakeryClient *httpbakery.Client,
+	csURL string,
 	channel csclientparams.Channel,
 ) CharmAdder {
-	csClient := newCharmStoreClient(bakeryClient).WithChannel(channel)
+	csClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
 
 	// TODO(katco): This anonymous adapter should go away in favor of
 	// a comprehensive API passed into the upgrade-charm command.
@@ -483,13 +519,24 @@ func newCharmAdder(
 
 func (c *upgradeCharmCommand) getCharmStore(
 	bakeryClient *httpbakery.Client,
+	csURL string,
 	modelConfig *config.Config,
 ) *charmrepo.CharmStore {
-	csClient := newCharmStoreClient(bakeryClient).WithChannel(c.Channel)
+	csClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(c.Channel)
 	return config.SpecializeCharmRepo(
 		charmrepo.NewCharmStoreFromClient(csClient),
 		modelConfig,
 	).(*charmrepo.CharmStore)
+}
+
+// getCharmStoreAPIURL consults the controller config for the charmstore api url to use.
+var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
+	controllerAPI := controller.NewClient(conAPIRoot)
+	controllerCfg, err := controllerAPI.ControllerConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return controllerCfg.CharmStoreURL(), nil
 }
 
 // addCharm interprets the new charmRef and adds the specified charm if
@@ -502,6 +549,7 @@ func (c *upgradeCharmCommand) addCharm(
 	oldURL *charm.URL,
 	charmRef string,
 	deployedSeries string,
+	force bool,
 ) (charmstore.CharmID, *macaroon.Macaroon, error) {
 	var id charmstore.CharmID
 	// Charm may have been supplied via a path reference. If so, build a
@@ -512,7 +560,7 @@ func (c *upgradeCharmCommand) addCharm(
 		if newName != oldURL.Name {
 			return id, nil, errors.Errorf("cannot upgrade %q to %q", oldURL.Name, newName)
 		}
-		addedURL, err := charmAdder.AddLocalCharm(newURL, ch)
+		addedURL, err := charmAdder.AddLocalCharm(newURL, ch, force)
 		id.URL = addedURL
 		return id, nil, err
 	}
@@ -531,7 +579,7 @@ func (c *upgradeCharmCommand) addCharm(
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, channel, supportedSeries, err := c.ResolveCharm(charmRepo.ResolveWithChannel, config, refURL)
+	newURL, channel, supportedSeries, err := c.ResolveCharm(charmRepo.ResolveWithChannel, refURL)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
@@ -559,7 +607,7 @@ func (c *upgradeCharmCommand) addCharm(
 		return id, nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, err := addCharmFromURL(charmAdder, newURL, channel)
+	curl, csMac, err := addCharmFromURL(charmAdder, newURL, channel, force)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}

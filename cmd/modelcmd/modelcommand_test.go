@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/osenv"
@@ -172,7 +173,7 @@ func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	args := []string{"-m", "testmodel"}
 	err := cmdtesting.InitCommand(wrapped, args)
 	// 1st position is always the flag
-	msg := fmt.Sprintf("flag provided but not defined: %v", args[0])
+	msg := fmt.Sprintf("option provided but not defined: %v", args[0])
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -252,6 +253,22 @@ func (s *ModelCommandSuite) TestIAASOnlyCommandCAASModel(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `Juju command "test-command" not supported on kubernetes models`)
 }
 
+func (s *ModelCommandSuite) TestCAASOnlyCommandIAASModel(c *gc.C) {
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	s.store.CurrentControllerName = "foo"
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar", Password: "hunter2",
+	}
+	err := s.store.UpdateModel("foo", "bar/currentfoo",
+		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = runCaasCommand(c, s.store)
+	c.Assert(err, gc.ErrorMatches, `Juju command "caas-command" not supported on non-container models`)
+}
+
 func (s *ModelCommandSuite) TestAllowedCommandCAASModel(c *gc.C) {
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.CurrentControllerName = "foo"
@@ -290,12 +307,36 @@ type testCommand struct {
 }
 
 func (c *testCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name: "test-command",
-	}
+	})
 }
 
 func (c *testCommand) Run(ctx *cmd.Context) error {
+	return nil
+}
+
+func runCaasCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ModelCommand, error) {
+	modelCmd := new(caasCommand)
+	modelcmd.SetModelRefresh(noOpRefresh, modelCmd)
+	cmd := modelcmd.Wrap(modelCmd)
+	cmd.SetClientStore(store)
+	_, err := cmdtesting.RunCommand(c, cmd, args...)
+	return cmd, errors.Trace(err)
+}
+
+type caasCommand struct {
+	modelcmd.ModelCommandBase
+	modelcmd.CAASOnlyCommand
+}
+
+func (c *caasCommand) Info() *cmd.Info {
+	return jujucmd.Info(&cmd.Info{
+		Name: "caas-command",
+	})
+}
+
+func (c *caasCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
@@ -313,9 +354,9 @@ type allowedCAASCommand struct {
 }
 
 func (c *allowedCAASCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name: "allowed-caas-command",
-	}
+	})
 }
 
 func (c *allowedCAASCommand) Run(ctx *cmd.Context) error {

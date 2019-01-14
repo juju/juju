@@ -72,21 +72,6 @@ func (st *State) usersPermissions(objectGlobalKey string) ([]*userPermission, er
 	return result, nil
 }
 
-// controllerUserPermission returns a Permission for the given Subject and User.
-func (st *State) controllerUserPermission(objectGlobalKey, subjectGlobalKey string) (*userPermission, error) {
-	result := &userPermission{}
-
-	permissions, closer := st.db().GetCollection(permissionsC)
-	defer closer()
-
-	id := permissionID(objectGlobalKey, subjectGlobalKey)
-	err := permissions.FindId(id).One(&result.doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("user permission for %q on %q", subjectGlobalKey, objectGlobalKey)
-	}
-	return result, nil
-}
-
 func (p *userPermission) access() permission.Access {
 	return stringToAccess(p.doc.Access)
 }

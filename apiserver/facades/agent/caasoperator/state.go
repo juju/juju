@@ -7,9 +7,10 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 // CAASOperatorState provides the subset of global state
@@ -17,7 +18,11 @@ import (
 type CAASOperatorState interface {
 	Application(string) (Application, error)
 	Model() (Model, error)
+	ModelUUID() string
 	FindEntity(names.Tag) (state.Entity, error)
+	APIHostPortsForAgents() ([][]network.HostPort, error)
+	Addresses() ([]string, error)
+	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
 // Model provides the subset of CAAS model state required
@@ -35,7 +40,7 @@ type Model interface {
 type Application interface {
 	Charm() (Charm, bool, error)
 	CharmModifiedVersion() int
-	SetStatus(status.StatusInfo) error
+	SetOperatorStatus(status.StatusInfo) error
 	WatchUnits() state.StringsWatcher
 	AllUnits() ([]Unit, error)
 }

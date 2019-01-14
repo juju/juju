@@ -290,8 +290,21 @@ clouds:
       zrh:
         endpoint: https://zrh.cloudsigma.com/api/2.0/
   oracle:
+    type: oci
+    description: Oracle Cloud Infrastructure
+    auth-types: [ httpsig ]
+    regions:
+      us-phoenix-1:
+        endpoint: https://iaas.us-phoenix-1.oraclecloud.com
+      us-ashburn-1:
+        endpoint: https://iaas.us-ashburn-1.oraclecloud.com
+      eu-frankfurt-1:
+        endpoint: https://iaas.eu-frankfurt-1.oraclecloud.com
+      uk-london-1:
+        endpoint: https://iaas.uk-london-1.oraclecloud.com
+  oracle-classic:
     type: oracle
-    description: Oracle Cloud
+    description: Oracle Cloud Infrastructure Classic
     auth-types: [ userpass ]
     regions:
       uscom-central-1:
@@ -304,4 +317,5 @@ clouds:
         endpoint: https://compute.em2.oraclecloud.com
       em3:
         endpoint: https://compute.em3.oraclecloud.com
+
 `

@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/retry"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/deque"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"

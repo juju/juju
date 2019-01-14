@@ -16,8 +16,8 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/remoterelations"
 )
 

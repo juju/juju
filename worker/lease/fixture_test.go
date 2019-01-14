@@ -6,8 +6,10 @@ package lease_test
 import (
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
@@ -62,14 +64,14 @@ func justAfterSeconds(seconds int) time.Duration {
 }
 
 // Fixture allows us to test a *lease.Manager with a usefully-mocked
-// clock.Clock and corelease.Client.
+// clock.Clock and corelease.Store.
 type Fixture struct {
 
-	// leases contains the leases the corelease.Client should report when the
+	// leases contains the leases the corelease.Store should report when the
 	// test starts up.
-	leases map[string]corelease.Info
+	leases map[corelease.Key]corelease.Info
 
-	// expectCalls contains the calls that should be made to the corelease.Client
+	// expectCalls contains the calls that should be made to the corelease.Store
 	// in the course of a test. By specifying a callback you can cause the
 	// reported leases to change.
 	expectCalls []call
@@ -82,14 +84,18 @@ type Fixture struct {
 
 // RunTest sets up a Manager and a Clock and passes them into the supplied
 // test function. The manager will be cleaned up afterwards.
-func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) {
-	clock := testing.NewClock(defaultClockStart)
-	client := NewClient(fix.leases, fix.expectCalls)
+func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)) {
+	clock := testclock.NewClock(defaultClockStart)
+	store := NewStore(fix.leases, fix.expectCalls)
 	manager, err := lease.NewManager(lease.ManagerConfig{
-		Clock:     clock,
-		Client:    client,
-		Secretary: Secretary{},
-		MaxSleep:  defaultMaxSleep,
+		Clock: clock,
+		Store: store,
+		Secretary: func(string) (lease.Secretary, error) {
+			return Secretary{}, nil
+		},
+		MaxSleep:             defaultMaxSleep,
+		Logger:               loggo.GetLogger("lease_test"),
+		PrometheusRegisterer: noopRegisterer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
@@ -101,12 +107,12 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) 
 			c.Check(err, jc.ErrorIsNil)
 		}
 	}()
-	defer client.Wait(c)
+	defer store.Wait(c)
 	waitAlarms(c, clock, 1)
 	test(manager, clock)
 }
 
-func waitAlarms(c *gc.C, clock *testing.Clock, count int) {
+func waitAlarms(c *gc.C, clock *testclock.Clock, count int) {
 	timeout := time.After(coretesting.LongWait)
 	for i := 0; i < count; i++ {
 		select {
@@ -115,4 +121,16 @@ func waitAlarms(c *gc.C, clock *testing.Clock, count int) {
 			c.Fatalf("timed out waiting for %dth alarm set", i)
 		}
 	}
+}
+
+type noopRegisterer struct {
+	prometheus.Registerer
+}
+
+func (noopRegisterer) Register(prometheus.Collector) error {
+	return nil
+}
+
+func (noopRegisterer) Unregister(prometheus.Collector) bool {
+	return false
 }

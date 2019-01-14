@@ -20,6 +20,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -99,11 +100,11 @@ See also:
     ssh`
 
 func (c *debugLogCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "debug-log",
 		Purpose: usageDebugLogSummary,
 		Doc:     usageDebugLogDetails,
-	}
+	})
 }
 
 func newDebugLogCommand(store jujuclient.ClientStore) cmd.Command {
@@ -281,7 +282,7 @@ var SeverityColor = map[string]*ansiterm.Context{
 	"INFO":    ansiterm.Foreground(ansiterm.BrightBlue),
 	"WARNING": ansiterm.Foreground(ansiterm.Yellow),
 	"ERROR":   ansiterm.Foreground(ansiterm.BrightRed),
-	"CRITICAL": &ansiterm.Context{
+	"CRITICAL": {
 		Foreground: ansiterm.White,
 		Background: ansiterm.Red,
 	},

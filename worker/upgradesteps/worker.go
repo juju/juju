@@ -18,11 +18,11 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
@@ -95,8 +95,8 @@ func NewWorker(
 	agent agent.Agent,
 	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
-	openState func() (*state.State, error),
-	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMasterServer bool) error,
+	openState func() (*state.StatePool, error),
+	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMasterServer bool) error,
 	machine StatusSetter,
 	newEnvironFunc environs.NewEnvironFunc,
 ) (worker.Worker, error) {
@@ -120,8 +120,8 @@ type upgradesteps struct {
 	agent           agent.Agent
 	apiConn         api.Connection
 	jobs            []multiwatcher.MachineJob
-	openState       func() (*state.State, error)
-	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMaster bool) error
+	openState       func() (*state.StatePool, error)
+	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMaster bool) error
 	machine         StatusSetter
 
 	fromVersion  version.Number
@@ -129,7 +129,7 @@ type upgradesteps struct {
 	tag          names.Tag
 	isMaster     bool
 	isController bool
-	st           *state.State
+	pool         *state.StatePool
 }
 
 // Kill is part of the worker.Worker interface.
@@ -195,12 +195,12 @@ func (w *upgradesteps) run() error {
 	// and how often StateWorker might run.
 	if w.isController {
 		var err error
-		if w.st, err = w.openState(); err != nil {
+		if w.pool, err = w.openState(); err != nil {
 			return err
 		}
-		defer w.st.Close()
+		defer w.pool.Close()
 
-		if w.isMaster, err = IsMachineMaster(w.st, w.tag.Id()); err != nil {
+		if w.isMaster, err = IsMachineMaster(w.pool, w.tag.Id()); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -252,7 +252,7 @@ func (w *upgradesteps) runUpgrades() error {
 
 func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	logger.Infof("checking that upgrade can proceed")
-	if err := w.preUpgradeSteps(w.st, w.agent.CurrentConfig(), w.st != nil, w.isMaster); err != nil {
+	if err := w.preUpgradeSteps(w.pool, w.agent.CurrentConfig(), w.pool != nil, w.isMaster); err != nil {
 		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
 	}
 
@@ -264,7 +264,8 @@ func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 
 func (w *upgradesteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error) {
 	logger.Infof("signalling that this controller is ready for upgrade")
-	info, err := w.st.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
+	st := w.pool.SystemState()
+	info, err := st.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -282,7 +283,7 @@ func (w *upgradesteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error)
 		if w.isMaster {
 			logger.Errorf("downgrading model agent version to %v due to aborted upgrade",
 				w.fromVersion)
-			if rollbackErr := w.st.SetModelAgentVersion(w.fromVersion, true); rollbackErr != nil {
+			if rollbackErr := st.SetModelAgentVersion(w.fromVersion, true); rollbackErr != nil {
 				logger.Errorf("rollback failed: %v", rollbackErr)
 				return nil, errors.Annotate(rollbackErr, "failed to roll back desired agent version")
 			}
@@ -347,7 +348,7 @@ func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
 	w.machine.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
 
-	stBackend := upgrades.NewStateBackend(w.st)
+	stBackend := upgrades.NewStateBackend(w.pool)
 	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
@@ -419,14 +420,15 @@ func (w *upgradesteps) getUpgradeStartTimeout() time.Duration {
 	return UpgradeStartTimeoutSecondary
 }
 
-var IsMachineMaster = func(st *state.State, machineId string) (bool, error) {
-	if st == nil {
-		// If there is no state, we aren't a master.
+var IsMachineMaster = func(pool *state.StatePool, machineId string) (bool, error) {
+	if pool == nil {
+		// If there is no state pool, we aren't a master.
 		return false, nil
 	}
 	// Not calling the agent openState method as it does other checks
 	// we really don't care about here.  All we need here is the machine
 	// so we can determine if we are the master or not.
+	st := pool.SystemState()
 	machine, err := st.Machine(machineId)
 	if err != nil {
 		// This shouldn't happen, and if it does, the state worker will have

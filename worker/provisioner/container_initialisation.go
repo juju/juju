@@ -23,11 +23,11 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher"
 	workercommon "github.com/juju/juju/worker/common"
 )
 
@@ -45,7 +45,7 @@ type ContainerSetup struct {
 	runner              *worker.Runner
 	supportedContainers []instance.ContainerType
 	provisioner         *apiprovisioner.State
-	machine             *apiprovisioner.Machine
+	machine             apiprovisioner.MachineProvisioner
 	config              agent.Config
 	machineLock         machinelock.Lock
 
@@ -66,7 +66,7 @@ type ContainerSetupParams struct {
 	Runner              *worker.Runner
 	WorkerName          string
 	SupportedContainers []instance.ContainerType
-	Machine             *apiprovisioner.Machine
+	Machine             apiprovisioner.MachineProvisioner
 	Provisioner         *apiprovisioner.State
 	Config              agent.Config
 	MachineLock         machinelock.Lock
@@ -131,7 +131,7 @@ func (cs *ContainerSetup) Handle(abort <-chan struct{}, containerIds []string) (
 			}
 		}
 	}
-	return resultError
+	return errors.Trace(resultError)
 }
 
 func (cs *ContainerSetup) initialiseAndStartProvisioner(
@@ -211,11 +211,7 @@ func (cs *ContainerSetup) getManagerConfig(containerType instance.ContainerType)
 // initContainerDependencies ensures that the host machine is set-up to manage
 // containers of the input type.
 func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, containerType instance.ContainerType) error {
-	series, err := cs.machine.Series()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	initialiser := getContainerInitialiser(containerType, series)
+	initialiser := getContainerInitialiser(containerType)
 
 	releaser, err := cs.acquireLock(fmt.Sprintf("%s container initialisation", containerType), abort)
 	if err != nil {
@@ -310,9 +306,9 @@ func (cs *ContainerSetup) TearDown() error {
 }
 
 // getContainerInitialiser exists to patch out in tests.
-var getContainerInitialiser = func(ct instance.ContainerType, series string) container.Initialiser {
+var getContainerInitialiser = func(ct instance.ContainerType) container.Initialiser {
 	if ct == instance.LXD {
-		return lxd.NewContainerInitialiser(series)
+		return lxd.NewContainerInitialiser()
 	}
 	return kvm.NewContainerInitialiser()
 }

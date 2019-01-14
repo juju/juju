@@ -8,8 +8,8 @@ import (
 	"path"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/status"
 	jujuarch "github.com/juju/utils/arch"
 	jujuos "github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
@@ -36,7 +36,7 @@ type SourcedImage struct {
 // The callback argument is used to report copy progress.
 func (s *Server) FindImage(
 	series, arch string,
-	sources []RemoteServer,
+	sources []ServerSpec,
 	copyLocal bool,
 	callback environs.StatusCallbackFunc,
 ) (SourcedImage, error) {

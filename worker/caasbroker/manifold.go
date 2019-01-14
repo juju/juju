@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/caasagent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/storage"
 )
 
 // ManifoldConfig describes the resources used by a Tracker.
@@ -61,8 +62,10 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 		*result = inTracker.Broker()
 	case *environs.CloudDestroyer:
 		*result = inTracker.Broker()
+	case *storage.ProviderRegistry:
+		*result = inTracker.Broker()
 	default:
-		return errors.Errorf("expected *caas.Broker or *environs.CloudDestroyer, got %T", out)
+		return errors.Errorf("expected *caas.Broker, *storage.ProviderRegistry or *environs.CloudDestroyer, got %T", out)
 	}
 	return nil
 }

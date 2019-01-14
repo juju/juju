@@ -94,7 +94,7 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("juju-reboot"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.args)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
 		c.Check(hctx.rebootPriority, gc.Equals, t.priority)
 	}
@@ -105,7 +105,7 @@ func (s *JujuRebootSuite) TestRebootInActions(c *gc.C) {
 	com, err := jujuc.NewCommand(jujucCtx, cmdString("juju-reboot"))
 	c.Assert(err, jc.ErrorIsNil)
 	cmdCtx := cmdtesting.Context(c)
-	code := cmd.Main(com, cmdCtx, nil)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), cmdCtx, nil)
 	c.Check(code, gc.Equals, 1)
 	c.Assert(cmdtesting.Stderr(cmdCtx), gc.Equals, "ERROR juju-reboot is not supported when running an action.\n")
 }

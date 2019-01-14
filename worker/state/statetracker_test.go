@@ -25,48 +25,23 @@ var _ = gc.Suite(&StateTrackerSuite{})
 
 func (s *StateTrackerSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-
-	// Close the state pool, as it's not needed, and it
-	// refers to the state object's mongo session. If we
-	// do not close the pool, its embedded watcher may
-	// attempt to access mongo after it has been closed
-	// by the state tracker.
-	err := s.StatePool.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stateTracker = workerstate.NewStateTracker(s.State)
-}
-
-func (s *StateTrackerSuite) TearDownTest(c *gc.C) {
-	// Even though we no longer have to worry about the StateSuite's
-	// StatePool, we do have to make sure the one in the stateTracker
-	// is closed.
-
-	for {
-		err := s.stateTracker.Done()
-		if err == workerstate.ErrStateClosed {
-			break
-		}
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	s.StateSuite.TearDownTest(c)
+	s.stateTracker = workerstate.NewStateTracker(s.StatePool)
 }
 
 func (s *StateTrackerSuite) TestDoneWithNoUse(c *gc.C) {
 	err := s.stateTracker.Done()
 	c.Assert(err, jc.ErrorIsNil)
-	assertStateClosed(c, s.State)
+	assertStatePoolClosed(c, s.StatePool)
 }
 
 func (s *StateTrackerSuite) TestTooManyDones(c *gc.C) {
 	err := s.stateTracker.Done()
 	c.Assert(err, jc.ErrorIsNil)
-	assertStateClosed(c, s.State)
+	assertStatePoolClosed(c, s.StatePool)
 
 	err = s.stateTracker.Done()
 	c.Assert(err, gc.Equals, workerstate.ErrStateClosed)
-	assertStateClosed(c, s.State)
+	assertStatePoolClosed(c, s.StatePool)
 }
 
 func (s *StateTrackerSuite) TestUse(c *gc.C) {
@@ -92,7 +67,7 @@ func (s *StateTrackerSuite) TestUseAndDone(c *gc.C) {
 
 	c.Check(s.stateTracker.Done(), jc.ErrorIsNil)
 	// 2
-	assertStateNotClosed(c, s.State)
+	assertStatePoolNotClosed(c, s.StatePool)
 
 	_, err = s.stateTracker.Use()
 	// 3
@@ -100,15 +75,15 @@ func (s *StateTrackerSuite) TestUseAndDone(c *gc.C) {
 
 	c.Check(s.stateTracker.Done(), jc.ErrorIsNil)
 	// 2
-	assertStateNotClosed(c, s.State)
+	assertStatePoolNotClosed(c, s.StatePool)
 
 	c.Check(s.stateTracker.Done(), jc.ErrorIsNil)
 	// 1
-	assertStateNotClosed(c, s.State)
+	assertStatePoolNotClosed(c, s.StatePool)
 
 	c.Check(s.stateTracker.Done(), jc.ErrorIsNil)
 	// 0
-	assertStateClosed(c, s.State)
+	assertStatePoolClosed(c, s.StatePool)
 }
 
 func (s *StateTrackerSuite) TestUseWhenClosed(c *gc.C) {
@@ -119,13 +94,14 @@ func (s *StateTrackerSuite) TestUseWhenClosed(c *gc.C) {
 	c.Check(err, gc.Equals, workerstate.ErrStateClosed)
 }
 
-func assertStateNotClosed(c *gc.C, st *state.State) {
-	err := st.Ping()
+func assertStatePoolNotClosed(c *gc.C, pool *state.StatePool) {
+	c.Assert(pool.SystemState(), gc.NotNil)
+	err := pool.SystemState().Ping()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func assertStateClosed(c *gc.C, st *state.State) {
-	c.Assert(st.Ping, gc.PanicMatches, "Session already closed")
+func assertStatePoolClosed(c *gc.C, pool *state.StatePool) {
+	c.Assert(pool.SystemState(), gc.IsNil)
 }
 
 func isTxnLogStarted(report map[string]interface{}) bool {
@@ -156,10 +132,27 @@ func (s *StateTrackerSuite) TestReport(c *gc.C) {
 		report = pool.Report()
 	}
 	c.Check(report, gc.NotNil)
-	// We don't have any State models in the pool, but we do have the txn-watcher report.
+	// We don't have any State models in the pool, but we do have the
+	// txn-watcher report and the system state.
 	c.Check(report, gc.HasLen, 3)
 	c.Check(report["pool-size"], gc.Equals, 0)
-	c.Check(s.stateTracker.Report(), gc.DeepEquals, report)
-	c.Check(s.stateTracker.Report(), gc.DeepEquals, report)
-	c.Check(s.stateTracker.Report(), gc.DeepEquals, report)
+
+	// Calling Report increments the request count in the system
+	// state's hubwatcher stats, so zero that out before comparing.
+	removeRequestCount := func(report map[string]interface{}) map[string]interface{} {
+		next := report
+		for _, p := range []string{"system", "workers", "txnlog", "report"} {
+			child, ok := next[p]
+			if !ok {
+				c.Fatalf("couldn't find system.workers.txnlog.report")
+			}
+			next = child.(map[string]interface{})
+		}
+		delete(next, "request-count")
+		return report
+	}
+	report = removeRequestCount(report)
+	c.Check(removeRequestCount(s.stateTracker.Report()), gc.DeepEquals, report)
+	c.Check(removeRequestCount(s.stateTracker.Report()), gc.DeepEquals, report)
+	c.Check(removeRequestCount(s.stateTracker.Report()), gc.DeepEquals, report)
 }

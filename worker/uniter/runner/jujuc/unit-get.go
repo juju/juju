@@ -9,6 +9,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // UnitGetCommand implements the unit-get command.
@@ -24,11 +26,11 @@ func NewUnitGetCommand(ctx Context) (cmd.Command, error) {
 }
 
 func (c *UnitGetCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "unit-get",
 		Args:    "<setting>",
 		Purpose: "print public-address or private-address",
-	}
+	})
 }
 
 func (c *UnitGetCommand) SetFlags(f *gnuflag.FlagSet) {

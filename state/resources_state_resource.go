@@ -4,18 +4,21 @@
 package state
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"path"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/resource"
 )
 
@@ -75,10 +78,11 @@ type resourceStorage interface {
 }
 
 type resourceState struct {
-	persist resourcePersistence
-	raw     rawState
-	storage resourceStorage
-	clock   clock.Clock
+	persist               resourcePersistence
+	raw                   rawState
+	dockerMetadataStorage DockerMetadataStorage
+	storage               resourceStorage
+	clock                 clock.Clock
 }
 
 // ListResources returns the resource data for the given application ID.
@@ -276,7 +280,24 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	}
 
 	hash := res.Fingerprint.String()
-	if err := st.storage.PutAndCheckHash(storagePath, r, res.Size, hash); err != nil {
+	switch res.Type {
+	case charmresource.TypeFile:
+		err = st.storage.PutAndCheckHash(storagePath, r, res.Size, hash)
+	case charmresource.TypeContainerImage:
+		var dockerDetails resources.DockerImageDetails
+		respBuf := new(bytes.Buffer)
+		_, err := respBuf.ReadFrom(r)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = json.Unmarshal(respBuf.Bytes(), &dockerDetails)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = st.dockerMetadataStorage.Save(res.ID, dockerDetails)
+	}
+
+	if err != nil {
 		if err := staged.Unstage(); err != nil {
 			logger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, err)
 		}
@@ -312,13 +333,32 @@ func (st resourceState) OpenResource(applicationID, name string) (resource.Resou
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
-	resourceReader, resSize, err := st.storage.Get(storagePath)
+	var resourceReader io.ReadCloser
+	var resSize int64
+	switch resourceInfo.Type {
+	case charmresource.TypeContainerImage:
+		resourceReader, resSize, err = st.dockerMetadataStorage.Get(resourceInfo.ID)
+	case charmresource.TypeFile:
+		resourceReader, resSize, err = st.storage.Get(storagePath)
+	default:
+		return resource.Resource{}, nil, errors.New("unknown resource type")
+	}
 	if err != nil {
 		return resource.Resource{}, nil, errors.Annotate(err, "while retrieving resource data")
 	}
-	if resSize != resourceInfo.Size {
-		msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"
-		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
+	switch resourceInfo.Type {
+	case charmresource.TypeContainerImage:
+		// Resource size only found at this stage in time as it's a response from the charmstore, not a stored file.
+		// Store it as it's used later for verification (in a separate call than this one)
+		resourceInfo.Size = resSize
+		if err := st.persist.SetResource(resourceInfo); err != nil {
+			return resource.Resource{}, nil, errors.Annotate(err, "failed to update resource details with docker detail size")
+		}
+	case charmresource.TypeFile:
+		if resSize != resourceInfo.Size {
+			msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"
+			return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
+		}
 	}
 
 	return resourceInfo, resourceReader, nil

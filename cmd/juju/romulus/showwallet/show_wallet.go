@@ -16,6 +16,8 @@ import (
 	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
+	jujucmd "github.com/juju/juju/cmd"
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -44,12 +46,12 @@ Examples:
 
 // Info implements cmd.Command.Info.
 func (c *showWalletCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-wallet",
 		Args:    "<wallet>",
 		Purpose: "Show details about a wallet.",
 		Doc:     showWalletDoc,
-	}
+	})
 }
 
 // Init implements cmd.Command.Init.
@@ -76,7 +78,11 @@ func (c *showWalletCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to create an http client")
 	}
-	api, err := newWalletAPIClient(client)
+	apiRoot, err := rcmd.GetMeteringURLForControllerCmd(&c.ControllerCommandBase)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	api, err := newWalletAPIClient(apiRoot, client)
 	if err != nil {
 		return errors.Annotate(err, "failed to create an api client")
 	}
@@ -144,9 +150,8 @@ func (c *showWalletCommand) modelNameMap() (map[string]string, error) {
 
 var newWalletAPIClient = newWalletAPIClientImpl
 
-func newWalletAPIClientImpl(c *httpbakery.Client) (walletAPIClient, error) {
-	client := api.NewClient(c)
-	return client, nil
+func newWalletAPIClientImpl(apiRoot string, c *httpbakery.Client) (walletAPIClient, error) {
+	return api.NewClient(api.APIRoot(apiRoot), api.HTTPClient(c))
 }
 
 type walletAPIClient interface {

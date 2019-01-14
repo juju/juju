@@ -47,8 +47,12 @@ func (s *containerSuite) TestContainerCPUs(c *gc.C) {
 
 func (s *containerSuite) TestContainerMem(c *gc.C) {
 	container := lxd.Container{}
+
 	container.Config = map[string]string{"limits.memory": "1MB"}
 	c.Check(container.Mem(), gc.Equals, uint(1))
+
+	container.Config = map[string]string{"limits.memory": "2GB"}
+	c.Check(container.Mem(), gc.Equals, uint(2048))
 }
 
 func (s *containerSuite) TestContainerAddDiskNoDevices(c *gc.C) {

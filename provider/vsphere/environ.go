@@ -58,9 +58,10 @@ func newEnviron(
 	return env, nil
 }
 
-func (env *environ) withClient(ctx context.Context, f func(Client) error) error {
+func (env *environ) withClient(ctx context.Context, callCtx callcontext.ProviderCallContext, f func(Client) error) error {
 	client, err := env.dialClient(ctx)
 	if err != nil {
+		HandleCredentialError(err, callCtx)
 		return errors.Annotate(err, "dialing client")
 	}
 	defer client.Close(ctx)
@@ -111,14 +112,14 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 
 // Create implements environs.Environ.
 func (env *environ) Create(ctx callcontext.ProviderCallContext, args environs.CreateParams) error {
-	return env.withSession(func(env *sessionEnviron) error {
+	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.Create(ctx, args)
 	})
 }
 
 // Create implements environs.Environ.
 func (env *sessionEnviron) Create(ctx callcontext.ProviderCallContext, args environs.CreateParams) error {
-	return env.ensureVMFolder(args.ControllerUUID)
+	return env.ensureVMFolder(args.ControllerUUID, ctx)
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests
@@ -133,8 +134,8 @@ func (env *environ) Bootstrap(
 	// NOTE(axw) we must not pass a sessionEnviron to common.Bootstrap,
 	// as the Environ will be used during instance finalization after
 	// the Bootstrap method returns, and the session will be invalid.
-	if err := env.withSession(func(env *sessionEnviron) error {
-		return env.ensureVMFolder(args.ControllerConfig.ControllerUUID())
+	if err := env.withSession(callCtx, func(env *sessionEnviron) error {
+		return env.ensureVMFolder(args.ControllerConfig.ControllerUUID(), callCtx)
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -149,11 +150,12 @@ func (env *sessionEnviron) Bootstrap(
 	return nil, errors.Errorf("sessionEnviron.Bootstrap should never be called")
 }
 
-func (env *sessionEnviron) ensureVMFolder(controllerUUID string) error {
+func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext.ProviderCallContext) error {
 	_, err := env.client.EnsureVMFolder(env.ctx, path.Join(
 		controllerFolderName(controllerUUID),
 		env.modelFolderName(),
 	))
+	HandleCredentialError(err, ctx)
 	return errors.Trace(err)
 }
 
@@ -163,25 +165,27 @@ var DestroyEnv = common.Destroy
 // AdoptResources is part of the Environ interface.
 func (env *environ) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// Move model folder into the controller's folder.
-	return env.withSession(func(env *sessionEnviron) error {
+	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.AdoptResources(ctx, controllerUUID, fromVersion)
 	})
 }
 
 // AdoptResources is part of the Environ interface.
 func (env *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
-	return env.client.MoveVMFolderInto(env.ctx,
+	err := env.client.MoveVMFolderInto(env.ctx,
 		controllerFolderName(controllerUUID),
 		path.Join(
 			controllerFolderName("*"),
 			env.modelFolderName(),
 		),
 	)
+	HandleCredentialError(err, ctx)
+	return err
 }
 
 // Destroy is part of the environs.Environ interface.
 func (env *environ) Destroy(ctx callcontext.ProviderCallContext) error {
-	return env.withSession(func(env *sessionEnviron) error {
+	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.Destroy(ctx)
 	})
 }
@@ -189,17 +193,23 @@ func (env *environ) Destroy(ctx callcontext.ProviderCallContext) error {
 // Destroy is part of the environs.Environ interface.
 func (env *sessionEnviron) Destroy(ctx callcontext.ProviderCallContext) error {
 	if err := DestroyEnv(env, ctx); err != nil {
+		// We don't need to worry about handling credential errors
+		// here - this is implemented in terms of common operations
+		// that call back into this provider, so we'll handle them
+		// further down the stack.
 		return errors.Trace(err)
 	}
-	return env.client.DestroyVMFolder(env.ctx, path.Join(
+	err := env.client.DestroyVMFolder(env.ctx, path.Join(
 		controllerFolderName("*"),
 		env.modelFolderName(),
 	))
+	HandleCredentialError(err, ctx)
+	return err
 }
 
 // DestroyController implements the Environ interface.
 func (env *environ) DestroyController(ctx callcontext.ProviderCallContext, controllerUUID string) error {
-	return env.withSession(func(env *sessionEnviron) error {
+	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.DestroyController(ctx, controllerUUID)
 	})
 }
@@ -215,9 +225,11 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 		modelFolderName("*", "*"),
 		"*",
 	)); err != nil {
+		HandleCredentialError(err, ctx)
 		return errors.Annotate(err, "removing VMs")
 	}
 	if err := env.client.DestroyVMFolder(env.ctx, controllerFolderName); err != nil {
+		HandleCredentialError(err, ctx)
 		return errors.Annotate(err, "destroying VM folder")
 	}
 
@@ -226,6 +238,7 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 	// will be used. We must check them all.
 	datastores, err := env.client.Datastores(env.ctx)
 	if err != nil {
+		HandleCredentialError(err, ctx)
 		return errors.Annotate(err, "listing datastores")
 	}
 	for _, ds := range datastores {
@@ -235,6 +248,7 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 		datastorePath := fmt.Sprintf("[%s] %s", ds.Name, vmdkDirectoryName(controllerUUID))
 		logger.Debugf("deleting: %s", datastorePath)
 		if err := env.client.DeleteDatastoreFile(env.ctx, datastorePath); err != nil {
+			HandleCredentialError(err, ctx)
 			return errors.Annotatef(err, "deleting VMDK cache from datastore %q", ds.Name)
 		}
 	}

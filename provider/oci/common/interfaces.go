@@ -13,6 +13,7 @@ import (
 //go:generate mockgen -package testing -destination ../testing/mocks_identity.go github.com/juju/juju/provider/oci/common OCIIdentityClient
 type OCIIdentityClient interface {
 	ListAvailabilityDomains(ctx context.Context, request ociIdentity.ListAvailabilityDomainsRequest) (response ociIdentity.ListAvailabilityDomainsResponse, err error)
+	ListCompartments(ctx context.Context, request ociIdentity.ListCompartmentsRequest) (response ociIdentity.ListCompartmentsResponse, err error)
 }
 
 //go:generate mockgen -package testing -destination ../testing/mocks_compute.go github.com/juju/juju/provider/oci/common OCIComputeClient

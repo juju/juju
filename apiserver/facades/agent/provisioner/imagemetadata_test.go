@@ -60,7 +60,7 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := make([][]params.CloudImageMetadata, len(s.machines))
-	for i, _ := range result.Results {
+	for i := range result.Results {
 		expected[i] = nil
 	}
 	s.assertImageMetadataResults(c, result, expected...)
@@ -153,7 +153,7 @@ func (s *ImageMetadataSuite) convertCloudImageMetadata(all []params.CloudImageMe
 
 func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudImageMetadata {
 	expected := make([][]params.CloudImageMetadata, len(s.machines))
-	for i, _ := range s.machines {
+	for i := range s.machines {
 		expected[i] = []params.CloudImageMetadata{
 			{ImageId: "ami-1126745463",
 				Region:          "another_dummy_region",

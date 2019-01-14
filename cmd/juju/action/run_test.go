@@ -5,11 +5,11 @@ package action_test
 
 import (
 	"bytes"
-	"errors"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -59,7 +59,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
-		expectUnits          []names.UnitTag
+		expectUnits          []string
 		expectAction         string
 		expectParamsYamlPath string
 		expectParseStrings   bool
@@ -75,21 +75,21 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		args:        []string{validUnitId},
 		expectError: "no action specified",
 	}, {
-		should:      "fail with invalid unit tag",
+		should:      "fail with invalid unit ID",
 		args:        []string{invalidUnitId, "valid-action-name"},
 		expectError: "invalid unit or action name \"something-strange-\"",
 	}, {
-		should:      "fail with invalid unit tag first",
+		should:      "fail with invalid unit ID first",
 		args:        []string{validUnitId, invalidUnitId, "valid-action-name"},
 		expectError: "invalid unit or action name \"something-strange-\"",
 	}, {
-		should:      "fail with invalid unit tag second",
+		should:      "fail with invalid unit ID second",
 		args:        []string{invalidUnitId, validUnitId, "valid-action-name"},
 		expectError: "invalid unit or action name \"something-strange-\"",
 	}, {
 		should:       "work with multiple valid units",
 		args:         []string{validUnitId, validUnitId2, "valid-action-name"},
-		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId), names.NewUnitTag(validUnitId2)},
+		expectUnits:  []string{validUnitId, validUnitId2},
 		expectAction: "valid-action-name",
 		expectKVArgs: [][]string{},
 	}, {}, {
@@ -115,46 +115,46 @@ func (s *RunSuite) TestInit(c *gc.C) {
 	}, {
 		should:       "work with action name ending in numeric values",
 		args:         []string{validUnitId, "action-01"},
-		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectUnits:  []string{validUnitId},
 		expectAction: "action-01",
 	}, {
 		should:       "work with numeric values within action name",
 		args:         []string{validUnitId, "action-00-foo"},
-		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectUnits:  []string{validUnitId},
 		expectAction: "action-00-foo",
 	}, {
 		should:       "work with action name starting with numeric values",
 		args:         []string{validUnitId, "00-action"},
-		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectUnits:  []string{validUnitId},
 		expectAction: "00-action",
 	}, {
 		should:       "work with empty values",
 		args:         []string{validUnitId, "valid-action-name", "ok="},
-		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectUnits:  []string{validUnitId},
 		expectAction: "valid-action-name",
 		expectKVArgs: [][]string{{"ok", ""}},
 	}, {
 		should:             "handle --parse-strings",
 		args:               []string{validUnitId, "valid-action-name", "--string-args"},
-		expectUnits:        []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectUnits:        []string{validUnitId},
 		expectAction:       "valid-action-name",
 		expectParseStrings: true,
 	}, {
 		// cf. worker/uniter/runner/jujuc/action-set_test.go per @fwereade
 		should:       "work with multiple '=' signs",
 		args:         []string{validUnitId, "valid-action-name", "ok=this=is=weird="},
-		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectUnits:  []string{validUnitId},
 		expectAction: "valid-action-name",
 		expectKVArgs: [][]string{{"ok", "this=is=weird="}},
 	}, {
 		should:       "init properly with no params",
 		args:         []string{validUnitId, "valid-action-name"},
-		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectUnits:  []string{validUnitId},
 		expectAction: "valid-action-name",
 	}, {
 		should:               "handle --params properly",
 		args:                 []string{validUnitId, "valid-action-name", "--params=foo.yml"},
-		expectUnits:          []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectUnits:          []string{validUnitId},
 		expectAction:         "valid-action-name",
 		expectParamsYamlPath: "foo.yml",
 	}, {
@@ -167,7 +167,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 			"foo.baz.bo=3",
 			"bar.foo=hello",
 		},
-		expectUnits:          []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectUnits:          []string{validUnitId},
 		expectAction:         "valid-action-name",
 		expectParamsYamlPath: "foo.yml",
 		expectKVArgs: [][]string{
@@ -184,13 +184,19 @@ func (s *RunSuite) TestInit(c *gc.C) {
 			"foo.baz.bo=y",
 			"bar.foo=hello",
 		},
-		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectUnits:  []string{validUnitId},
 		expectAction: "valid-action-name",
 		expectKVArgs: [][]string{
 			{"foo", "bar", "2"},
 			{"foo", "baz", "bo", "y"},
 			{"bar", "foo", "hello"},
 		},
+	}, {
+		should:       "work with leader identifier",
+		args:         []string{"mysql/leader", "valid-action-name"},
+		expectUnits:  []string{"mysql/leader"},
+		expectAction: "valid-action-name",
+		expectKVArgs: [][]string{},
 	}}
 
 	for i, t := range tests {
@@ -201,7 +207,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(wrappedCommand, args)
 			if t.expectError == "" {
-				c.Check(command.UnitTags(), gc.DeepEquals, t.expectUnits)
+				c.Check(command.UnitNames(), gc.DeepEquals, t.expectUnits)
 				c.Check(command.ActionName(), gc.Equals, t.expectAction)
 				c.Check(command.ParamsYAML().Path, gc.Equals, t.expectParamsYamlPath)
 				c.Check(command.Args(), jc.DeepEquals, t.expectKVArgs)
@@ -216,8 +222,9 @@ func (s *RunSuite) TestInit(c *gc.C) {
 func (s *RunSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should                 string
+		clientSetup            func(client *fakeAPIClient)
 		withArgs               []string
-		withAPIErr             string
+		withAPIErr             error
 		withActionResults      []params.ActionResult
 		expectedActionEnqueued params.Action
 		expectedErr            string
@@ -235,7 +242,7 @@ func (s *RunSuite) TestRun(c *gc.C) {
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{Tag: validActionTagString}},
 		},
-		withAPIErr:  "something wrong in API",
+		withAPIErr:  errors.New("something wrong in API"),
 		expectedErr: "something wrong in API",
 	}, {
 		should:   "fail with error in result",
@@ -263,7 +270,7 @@ func (s *RunSuite) TestRun(c *gc.C) {
 		withArgs: []string{validUnitId, "some-action",
 			"--params", s.dir + "/" + "invalidParams.yml",
 		},
-		expectedErr: "yaml: line 3: mapping values are not allowed in this context",
+		expectedErr: "yaml: line 4: mapping values are not allowed in this context",
 	}, {
 		should: "fail with invalid UTF in file",
 		withArgs: []string{validUnitId, "some-action",
@@ -382,19 +389,43 @@ func (s *RunSuite) TestRun(c *gc.C) {
 				},
 			},
 		},
+	}, {
+		should:   "fail with not implemented Leaders method",
+		withArgs: []string{"mysql/leader", "some-action"},
+		withActionResults: []params.ActionResult{{
+			Action: &params.Action{Tag: validActionTagString}},
+		},
+		expectedErr: "unable to determine leader for application \"mysql\"" +
+			"\nleader determination is unsupported by this API" +
+			"\neither upgrade your controller, or explicitly specify a unit",
+	}, {
+		should:      "enqueue a basic action on the leader",
+		clientSetup: func(api *fakeAPIClient) { api.apiVersion = 3 },
+		withArgs:    []string{"mysql/leader", "some-action"},
+		withActionResults: []params.ActionResult{{
+			Action: &params.Action{Tag: validActionTagString},
+		}},
+		expectedActionEnqueued: params.Action{
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   "mysql/leader",
+		},
 	}}
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
 			func() {
-				c.Logf("test %d: should %s:\n$ juju actions do %s\n", i,
-					t.should, strings.Join(t.withArgs, " "))
+				c.Logf("test %d: should %s:\n$ juju actions do %s\n", i, t.should, strings.Join(t.withArgs, " "))
+
 				fakeClient := &fakeAPIClient{
 					actionResults: t.withActionResults,
+					apiVersion:    2,
 				}
-				if t.withAPIErr != "" {
-					fakeClient.apiErr = errors.New(t.withAPIErr)
+				if t.clientSetup != nil {
+					t.clientSetup(fakeClient)
 				}
+
+				fakeClient.apiErr = t.withAPIErr
 				restore := s.patchAPIClient(fakeClient)
 				defer restore()
 
@@ -402,7 +433,7 @@ func (s *RunSuite) TestRun(c *gc.C) {
 				args := append([]string{modelFlag, "admin"}, t.withArgs...)
 				ctx, err := cmdtesting.RunCommand(c, wrappedCommand, args...)
 
-				if t.expectedErr != "" || t.withAPIErr != "" {
+				if t.expectedErr != "" || t.withAPIErr != nil {
 					c.Check(err, gc.ErrorMatches, t.expectedErr)
 				} else {
 					c.Assert(err, gc.IsNil)
@@ -414,14 +445,14 @@ func (s *RunSuite) TestRun(c *gc.C) {
 					c.Assert(t.withActionResults[0].Action, gc.NotNil)
 					expectedTag, err := names.ParseActionTag(t.withActionResults[0].Action.Tag)
 					c.Assert(err, gc.IsNil)
+
 					// Make sure the CLI responded with the expected tag
-					keyToCheck := "Action queued with id"
-					expectedMap := map[string]string{keyToCheck: expectedTag.Id()}
 					outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
 					resultMap := make(map[string]string)
 					err = yaml.Unmarshal(outputResult, &resultMap)
 					c.Assert(err, gc.IsNil)
-					c.Check(resultMap, jc.DeepEquals, expectedMap)
+					c.Check(resultMap["Action queued with id"], jc.DeepEquals, expectedTag.Id())
+
 					// Make sure the Action sent to the API to be
 					// enqueued was indeed the expected map
 					enqueued := fakeClient.EnqueuedActions()

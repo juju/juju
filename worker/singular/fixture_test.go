@@ -7,10 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
@@ -30,11 +31,11 @@ func newFixture(c *gc.C, errs ...error) *fixture {
 	return fix
 }
 
-type testFunc func(*singular.FlagWorker, *testing.Clock, func())
+type testFunc func(*singular.FlagWorker, *testclock.Clock, func())
 
 func (fix *fixture) Run(c *gc.C, test testFunc) {
 	facade := newStubFacade(&fix.Stub)
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	flagWorker, err := singular.NewFlagWorker(singular.FlagConfig{
 		Facade:   facade,
 		Clock:    clock,

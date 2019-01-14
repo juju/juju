@@ -24,14 +24,14 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/status"
+	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	corewatcher "github.com/juju/juju/watcher"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 type watcherSuite struct {
@@ -183,9 +183,8 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 
 // TODO(fwereade): 2015-11-18 lp:1517391
 func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
-	f := factory.NewFactory(s.BackingState)
-	f.MakeMachine(c, &factory.MachineParams{
-		Volumes: []state.MachineVolumeParams{{
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped",
 				Size: 1024,
@@ -195,7 +194,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 
 	var results params.MachineStorageIdsWatchResults
 	args := params.Entities{Entities: []params.Entity{{
-		Tag: s.IAASModel.ModelTag().String(),
+		Tag: s.Model.ModelTag().String(),
 	}}}
 	err := s.stateAPI.APICall(
 		"StorageProvisioner",
@@ -313,9 +312,9 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 	stop := func() {
 		workertest.CleanKill(c, w)
 	}
-
+	modelUUID := s.BackingState.ModelUUID()
 	assertNoChange := func() {
-		s.BackingState.StartSync()
+		s.WaitForModelWatchersIdle(c, modelUUID)
 		select {
 		case _, ok := <-w.Changes():
 			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -324,7 +323,7 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 	}
 
 	assertChange := func(life life.Value, suspended bool, reason string) {
-		s.BackingState.StartSync()
+		s.WaitForModelWatchersIdle(c, modelUUID)
 		select {
 		case changes, ok := <-w.Changes():
 			c.Check(ok, jc.IsTrue)
@@ -365,11 +364,6 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	assertChange, stop := s.assertSetupRelationStatusWatch(c, rel)
 	defer stop()
 
-	// We only want the most recent change.
-	err = rel.SetSuspended(true, "reason")
-	c.Assert(err, jc.ErrorIsNil)
-	err = rel.SetSuspended(false, "")
-	c.Assert(err, jc.ErrorIsNil)
 	err = rel.SetSuspended(true, "another reason")
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(life.Alive, true, "another reason")
@@ -487,10 +481,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 	assertChange, stop := s.setupOfferStatusWatch(c)
 	defer stop()
 
-	// We only want the most recent change.
-	err := mysql.SetStatus(status.StatusInfo{Status: status.Blocked, Message: "message"})
-	c.Assert(err, jc.ErrorIsNil)
-	err = mysql.SetStatus(status.StatusInfo{Status: status.Waiting, Message: "another message"})
+	err := mysql.SetStatus(status.StatusInfo{Status: status.Waiting, Message: "another message"})
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(status.Waiting, "another message")
 
@@ -522,7 +513,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	// Create a model to migrate.
 	hostedState := s.Factory.MakeModel(c, &factory.ModelParams{})
 	defer hostedState.Close()
-	hostedFactory := factory.NewFactory(hostedState)
+	hostedFactory := factory.NewFactory(hostedState, s.StatePool)
 
 	// Create a machine in the hosted model to connect as.
 	m, password := hostedFactory.MakeMachineReturningPassword(c, &factory.MachineParams{

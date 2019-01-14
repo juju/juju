@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -46,7 +46,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
@@ -76,7 +75,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	attrs := map[string]interface{}{
 		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
 	}
-	err := s.IAASModel.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState.StartSync()
@@ -144,7 +143,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	dummy.Listen(op)
 	s.op = op
 
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
 
@@ -485,7 +484,7 @@ func (s *CommonProvisionerSuite) addMachineWithConstraints(cons constraints.Valu
 
 func (s *CommonProvisionerSuite) addMachines(number int) ([]*state.Machine, error) {
 	templates := make([]state.MachineTemplate, number)
-	for i, _ := range templates {
+	for i := range templates {
 		templates[i] = state.MachineTemplate{
 			Series:      supportedversion.SupportedLTS(),
 			Jobs:        []state.MachineJob{state.JobHostUnits},
@@ -555,7 +554,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	attrs := map[string]interface{}{
 		config.AgentVersionKey: currentVersion.Number.String(),
 	}
-	err = s.IAASModel.UpdateModelConfig(attrs, nil)
+	err = s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
@@ -1032,8 +1031,8 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	)
 	// The dummy provider simulates 2 subnets per included space.
 	expectedSubnetsToZones := map[network.Id][]string{
-		"subnet-0": []string{"zone0"},
-		"subnet-1": []string{"zone1"},
+		"subnet-0": {"zone0"},
+		"subnet-1": {"zone1"},
 	}
 	m, err := s.addMachineWithConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1110,7 +1109,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C)
 	s.testProvisioningFailsAndSetsErrorStatusForConstraints(c, cons, expectedErrorStatus)
 }
 
-func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.MachineVolumeParams, cons constraints.Value) (*state.Machine, error) {
+func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.HostVolumeParams, cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      supportedversion.SupportedLTS(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
@@ -1129,7 +1128,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	defer workertest.CleanKill(c, p)
 
 	// Add a machine with volumes to state.
-	requestedVolumes := []state.MachineVolumeParams{{
+	requestedVolumes := []state.HostVolumeParams{{
 		Volume:     state.VolumeParams{Pool: "static", Size: 1024},
 		Attachment: state.VolumeAttachmentParams{},
 	}, {
@@ -1143,7 +1142,9 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision volume-2, so that it is attached rather than created.
-	err = s.IAASModel.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
 		Pool:     "persistent-pool",
 		VolumeId: "vol-ume",
 		Size:     4096,
@@ -1345,6 +1346,8 @@ func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
 	c.Assert(err, jc.ErrorIsNil)
 	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
 	c.Assert(err, jc.ErrorIsNil)
+	machineProfileWatcher, err := s.provisioner.WatchModelMachinesCharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
 	auth, err := authentication.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1357,6 +1360,7 @@ func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
 		toolsFinder,
 		machineWatcher,
 		retryWatcher,
+		machineProfileWatcher,
 		broker,
 		auth,
 		imagemetadata.ReleasedStream,
@@ -1464,108 +1468,6 @@ func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 	// Everything must die!
 	s.checkStopSomeInstances(c, []instance.Instance{i0, i1}, []instance.Instance{})
 	s.waitForRemovalMark(c, m0)
-}
-
-func (s *ProvisionerSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
-
-	task := s.newProvisionerTask(c,
-		config.HarvestAll,
-		s.Environ,
-		s.provisioner,
-		&mockDistributionGroupFinder{},
-		mockToolsFinder{},
-	)
-	defer workertest.CleanKill(c, task)
-
-	// Create two machines, one with keep-instance=true.
-	m0, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	i0 := s.checkStartInstance(c, m0)
-	m1, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	i1 := s.checkStartInstance(c, m1)
-	err = m1.SetKeepInstance(true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Mark them both as dead.
-	c.Assert(m0.EnsureDead(), gc.IsNil)
-	c.Assert(m1.EnsureDead(), gc.IsNil)
-
-	// Only one of the machines is stopped.
-	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
-	s.waitForRemovalMark(c, m0)
-	s.waitForRemovalMark(c, m1)
-}
-
-func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
-	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
-	e := &mockBroker{
-		Environ:    s.Environ,
-		retryCount: make(map[string]int),
-		startInstanceFailureInfo: map[string]mockBrokerFailures{
-			"3": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
-			"4": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
-		},
-	}
-	task := s.newProvisionerTask(c, config.HarvestAll, e, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
-	defer workertest.CleanKill(c, task)
-
-	logger := loggo.GetLogger("juju.provisioner")
-	logger.SetLogLevel(loggo.TRACE)
-
-	// Provision some machines, some will be started first time,
-	// another will require retries.
-	m1, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m1)
-	m2, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m2)
-	m3, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	m4, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// mockBroker will fail to start machine-3 several times;
-	// keep setting the transient flag to retry until the
-	// instance has started.
-	runSetStatusGoroutine := make(chan struct{})
-	setStatusGoroutineDone := make(chan struct{})
-	go func() {
-		defer close(setStatusGoroutineDone)
-		for {
-			select {
-			case <-runSetStatusGoroutine:
-				return
-			case <-time.After(coretesting.ShortWait):
-				now := time.Now()
-				sInfo := status.StatusInfo{
-					Status:  status.ProvisioningError,
-					Message: "info",
-					Data:    map[string]interface{}{"transient": true},
-					Since:   &now,
-				}
-				logger.Infof("setting instance status provisioning error as transient for m3")
-				err := m3.SetInstanceStatus(sInfo)
-				c.Check(err, jc.ErrorIsNil)
-			}
-		}
-	}()
-	s.checkStartInstance(c, m3)
-	close(runSetStatusGoroutine)
-
-	select {
-	case <-setStatusGoroutineDone:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("status setting goroutine didn't stop")
-	}
-
-	// Machine 4 is never provisioned.
-	statusInfo, err := m4.InstanceStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.ProvisioningError)
-	_, err = m4.InstanceId()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }
 
 func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {

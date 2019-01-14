@@ -44,7 +44,7 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.server = httptest.NewServer(s.handler)
 	s.register = &RegisterMeteredCharm{
 		Plan:           "someplan",
-		RegisterURL:    s.server.URL,
+		PlanURL:        s.server.URL,
 		IncreaseBudget: 100,
 	}
 	s.ctx = cmdtesting.Context(c)
@@ -215,7 +215,7 @@ func (s *registrationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	}
 	s.register = &RegisterMeteredCharm{
 		Plan:           "someplan",
-		RegisterURL:    s.server.URL,
+		PlanURL:        s.server.URL,
 		IncreaseBudget: -1000,
 	}
 
@@ -240,7 +240,7 @@ func (s *registrationSuite) TestMeteredCharmDefaultBudgetAllocation(c *gc.C) {
 	}
 	s.register = &RegisterMeteredCharm{
 		Plan:           "someplan",
-		RegisterURL:    s.server.URL,
+		PlanURL:        s.server.URL,
 		IncreaseBudget: 20,
 	}
 
@@ -338,8 +338,7 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 
 func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 	s.register = &RegisterMeteredCharm{
-		RegisterURL:    s.server.URL,
-		QueryURL:       s.server.URL,
+		PlanURL:        s.server.URL,
 		IncreaseBudget: 100,
 	}
 	client := httpbakery.NewClient()
@@ -382,8 +381,7 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	s.register = &RegisterMeteredCharm{
 		IncreaseBudget: 100,
-		RegisterURL:    s.server.URL,
-		QueryURL:       s.server.URL}
+		PlanURL:        s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmID: charmstore.CharmID{
@@ -428,8 +426,7 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 	s.stub.SetErrors(nil, errors.NotFoundf("default plan"))
 	s.register = &RegisterMeteredCharm{
 		IncreaseBudget: 100,
-		RegisterURL:    s.server.URL,
-		QueryURL:       s.server.URL}
+		PlanURL:        s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmID: charmstore.CharmID{
@@ -459,8 +456,7 @@ func (s *registrationSuite) TestMeteredCharmNoAvailablePlan(c *gc.C) {
 	s.handler.availablePlans = []availablePlanURL{}
 	s.register = &RegisterMeteredCharm{
 		IncreaseBudget: 100,
-		RegisterURL:    s.server.URL,
-		QueryURL:       s.server.URL}
+		PlanURL:        s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmID: charmstore.CharmID{
@@ -489,8 +485,7 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 	s.stub.SetErrors(nil, errors.New("something failed"))
 	s.register = &RegisterMeteredCharm{
 		IncreaseBudget: 100,
-		RegisterURL:    s.server.URL,
-		QueryURL:       s.server.URL}
+		PlanURL:        s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmID: charmstore.CharmID{
@@ -626,8 +621,7 @@ func (s *registrationSuite) TestPlanArgumentPlanRequiredInteraction(c *gc.C) {
 		s.register = &RegisterMeteredCharm{
 			Plan:           test.planArgument,
 			IncreaseBudget: 100,
-			RegisterURL:    s.server.URL,
-			QueryURL:       s.server.URL,
+			PlanURL:        s.server.URL,
 		}
 		client := httpbakery.NewClient()
 		d := DeploymentInfo{
@@ -748,7 +742,7 @@ func (s *noPlanRegistrationSuite) SetUpTest(c *gc.C) {
 	s.server = httptest.NewServer(s.handler)
 	s.register = &RegisterMeteredCharm{
 		Plan:           "",
-		RegisterURL:    s.server.URL,
+		PlanURL:        s.server.URL,
 		IncreaseBudget: 100,
 	}
 	s.ctx = cmdtesting.Context(c)

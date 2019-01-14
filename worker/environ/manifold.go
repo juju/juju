@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/storage"
 )
 
 // ManifoldConfig describes the resources used by a Tracker.
@@ -60,8 +61,10 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 		*result = inTracker.Environ()
 	case *environs.CloudDestroyer:
 		*result = inTracker.Environ()
+	case *storage.ProviderRegistry:
+		*result = inTracker.Environ()
 	default:
-		return errors.Errorf("expected *environs.Environ or *environs.CloudDestroyer, got %T", out)
+		return errors.Errorf("expected *environs.Environ, *storage.ProviderRegistry, or *environs.CloudDestroyer, got %T", out)
 	}
 	return nil
 }

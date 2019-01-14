@@ -84,8 +84,8 @@ func (s *ValidFieldSuite) TestCheckStorableBadDeepNested(c *gc.C) {
 
 	c.Check(utils.CheckStorable(Doc{
 		A: map[string]map[string]SubDoc{
-			"foo": map[string]SubDoc{
-				"foo": SubDoc{
+			"foo": {
+				"foo": {
 					A: 99,
 					B: map[string]string{
 						"some":    "thing",

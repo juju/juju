@@ -7,15 +7,16 @@ import (
 	"io"
 
 	"github.com/juju/ansiterm"
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -83,12 +84,12 @@ func (c *listCommand) getModelAPI() (modelUsersAPI, error) {
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "users",
 		Purpose: usageListUsersSummary,
 		Doc:     usageListUsersDetails,
 		Aliases: []string{"list-users"},
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

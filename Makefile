@@ -7,9 +7,10 @@ endif
 
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
+PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/)
 
 # Allow the tests to take longer on arm platforms.
-ifeq ($(shell uname -p | sed -r 's/.*(armel|armhf|aarch64).*/golang/'), golang)
+ifeq ($(shell uname -p | sed -E 's/.*(armel|armhf|aarch64).*/golang/'), golang)
 	TEST_TIMEOUT := 2400s
 else
 	TEST_TIMEOUT := 1500s
@@ -36,52 +37,42 @@ default: build
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
-JUJU_MAKE_GODEPS ?= $(JUJU_MAKE_DEP)
-
-remove-vendor:
-	rm -rf ./vendor
-
-ifeq ($(JUJU_MAKE_GODEPS),true)
-$(GOPATH)/bin/godeps:
-	go get github.com/rogpeppe/godeps
-
-godeps: $(GOPATH)/bin/godeps remove-vendor
-	$(GOPATH)/bin/godeps -u dependencies.tsv
+ifeq ($(JUJU_SKIP_DEP),true)
+dep:
+	@echo "skipping dep"
 else
-godeps:
-	@echo "skipping godeps"
+$(GOPATH)/bin/dep:
+	go get -u github.com/golang/dep/cmd/dep
+
+# populate vendor/ from Gopkg.lock without updating it first (lock file is the single source of truth for machine).
+dep: $(GOPATH)/bin/dep
+	$(GOPATH)/bin/dep ensure -vendor-only $(verbose)
 endif
 
-build: godeps go-build
+build: dep go-build
 
-add-patches:
-	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/../../../
+release-build: dep go-build
 
-#this is useful to run after release-build, or as needed
-remove-patches:
-	cat $(PWD)/patches/*.diff | patch -f -R -u -p1 -r- -d $(PWD)/../../../
-
-release-build: godeps add-patches go-build
-
-release-install: godeps add-patches go-install remove-patches
+release-install: dep go-install
 
 pre-check:
 	@echo running pre-test checks
 	@$(PROJECT_DIR)/scripts/verify.bash
 
-check: godeps pre-check
-	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
+check: dep pre-check
+	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
 
-install: godeps go-install
+install: dep go-install
 
 clean:
-	go clean $(PROJECT)/...
+	go clean -n -r --cache --testcache $(PROJECT_PACKAGES)
 
 go-install:
-	go install -ldflags "-s -w" -v $(PROJECT)/...
+	@echo 'go install -ldflags "-s -w" -v $$PROJECT_PACKAGES'
+	@go install -ldflags "-s -w" -v $(PROJECT_PACKAGES)
 
 go-build:
-	go build $(PROJECT)/...
+	@go build $(PROJECT_PACKAGES)
 
 else # --------------------------------
 
@@ -108,11 +99,9 @@ format:
 simplify:
 	gofmt -w -l -s .
 
-rebuild-dependencies.tsv: godeps
-	# godeps invoked this way includes 'github.com/juju/juju' as part of
-	# the content, which we want to filter out.
-	# '-t' is not needed on newer versions of godeps, but is still supported.
-	godeps -t ./... | grep -v "^github.com/juju/juju\s" > dependencies.tsv
+# update Gopkg.lock (if needed), but do not update `vendor/`.
+rebuild-dependencies:
+	dep ensure -v -no-vendor $(dep-update)
 
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
@@ -178,6 +167,5 @@ local-operator-update: check-k8s-model operator-image
 .PHONY: build check install release-install release-build go-build go-install
 .PHONY: clean format simplify
 .PHONY: install-dependencies
-.PHONY: rebuild-dependencies.tsv
-.PHONY: check-deps
-.PHONY: add-patches remove-patches
+.PHONY: rebuild-dependencies
+.PHONY: dep check-deps

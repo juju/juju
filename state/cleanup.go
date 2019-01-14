@@ -11,8 +11,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/status"
 )
 
 type cleanupKind string
@@ -35,8 +35,8 @@ const (
 	// IAAS models require machines to be cleaned up.
 	cleanupMachinesForDyingModel cleanupKind = "modelMachines"
 
-	// CAAS models require units to be cleaned up (there are no machines).
-	cleanupUnitsForDyingModel cleanupKind = "modelUnits"
+	// CAAS models require storage to be cleaned up.
+	cleanupDyingUnitResources cleanupKind = "dyingUnitResources"
 
 	cleanupResourceBlob         cleanupKind = "resourceBlob"
 	cleanupStorageForDyingModel cleanupKind = "modelStorage"
@@ -130,6 +130,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupUnitsForDyingApplication(doc.Prefix, args)
 		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix, args)
+		case cleanupDyingUnitResources:
+			err = st.cleanupDyingUnitResources(doc.Prefix)
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix)
 		case cleanupApplicationsForDyingModel:
@@ -148,8 +150,6 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupModelsForDyingController(args)
 		case cleanupMachinesForDyingModel: // IAAS models only
 			err = st.cleanupMachinesForDyingModel()
-		case cleanupUnitsForDyingModel: // CAAS models only
-			err = st.cleanupUnitsForDyingModel()
 		case cleanupResourceBlob:
 			err = st.cleanupResourceBlob(doc.Prefix)
 		case cleanupStorageForDyingModel:
@@ -158,7 +158,7 @@ func (st *State) Cleanup() (err error) {
 			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
 		if err != nil {
-			logger.Errorf(
+			logger.Warningf(
 				"cleanup failed in model %v for %v(%q): %v",
 				modelUUID, doc.Kind, doc.Prefix, err,
 			)
@@ -217,19 +217,13 @@ func (st *State) cleanupModelsForDyingController(cleanupArgs []bson.Raw) (err er
 		return errors.Errorf("expected 0-1 arguments, got %d", n)
 	}
 
-	// We need access State instances for all hosted models and it's
-	// too hard to thread an external StatePool to here, so create a
-	// fresh one. Creating new States is relatively slow but this is
-	// ok because this is an infrequently used code path.
-	pool := NewStatePool(st)
-	defer pool.Close()
-
 	modelUUIDs, err := st.AllModelUUIDs()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, modelUUID := range modelUUIDs {
-		st, err := pool.Get(modelUUID)
+		newSt, err := st.newStateNoWorkers(modelUUID)
+		// We explicitly don't start the workers.
 		if err != nil {
 			// This model could have been removed.
 			if errors.IsNotFound(err) {
@@ -237,12 +231,9 @@ func (st *State) cleanupModelsForDyingController(cleanupArgs []bson.Raw) (err er
 			}
 			return errors.Trace(err)
 		}
-		defer func() {
-			st.Release()
-			pool.Remove(modelUUID)
-		}()
+		defer newSt.Close()
 
-		model, err := st.Model()
+		model, err := newSt.Model()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -293,38 +284,14 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 	return nil
 }
 
-// cleanupUnitsForDyingModel obliterates all units.
-// It's expected to be used when a CAAS model is destroyed.
-func (st *State) cleanupUnitsForDyingModel() (err error) {
-	// This won't miss units, because a Dying model cannot have
-	// units added to it. But we do have to remove the units themselves
-	// via individual transactions, because they could be in any state at all.
-	apps, err := st.AllApplications()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, app := range apps {
-		units, err := app.AllUnits()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		for _, unit := range units {
-			if err := st.obliterateUnit(unit.Name()); err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
-	return nil
-}
-
 // cleanupStorageForDyingModel sets all storage to Dying, if they are not
 // already Dying or Dead. It's expected to be used when a model is destroyed.
 func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error) {
-	im, err := st.IAASModel()
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	destroyStorage := im.DestroyStorageInstance
+	destroyStorage := sb.DestroyStorageInstance
 	switch n := len(cleanupArgs); n {
 	case 0:
 		// Old cleanups have no args, so follow the old
@@ -335,13 +302,12 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 			return errors.Annotate(err, "unmarshalling cleanup args")
 		}
 		if !destroyStorageFlag {
-			destroyStorage = im.ReleaseStorageInstance
+			destroyStorage = sb.ReleaseStorageInstance
 		}
 	default:
 		return errors.Errorf("expected 0-1 arguments, got %d", n)
 	}
-
-	storage, err := im.AllStorageInstances()
+	storage, err := sb.AllStorageInstances()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -527,22 +493,36 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	}
 }
 
-func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) error {
-	// Only IAAS models support storage at the moment.
-	im, err := st.IAASModel()
-	if errors.IsNotSupported(err) {
-		return nil
-	}
+func (st *State) cleanupDyingUnitResources(unitId string) error {
+	unitTag := names.NewUnitTag(unitId)
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return err
 	}
-	storageAttachments, err := im.UnitStorageAttachments(unitTag)
+	filesystemAttachments, err := sb.UnitFilesystemAttachments(unitTag)
+	if err != nil {
+		return errors.Annotate(err, "getting unit filesystem attachments")
+	}
+	volumeAttachments, err := sb.UnitVolumeAttachments(unitTag)
+	if err != nil {
+		return errors.Annotate(err, "getting unit volume attachments")
+	}
+
+	return cleanupDyingEntityStorage(sb, unitTag, false, filesystemAttachments, volumeAttachments)
+}
+
+func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) error {
+	sb, err := NewStorageBackend(st)
+	if err != nil {
+		return err
+	}
+	storageAttachments, err := sb.UnitStorageAttachments(unitTag)
 	if err != nil {
 		return err
 	}
 	for _, storageAttachment := range storageAttachments {
 		storageTag := storageAttachment.StorageInstance()
-		err := im.DetachStorage(storageTag, unitTag)
+		err := sb.DetachStorage(storageTag, unitTag)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -551,7 +531,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 		if !remove {
 			continue
 		}
-		err = im.RemoveStorageAttachment(storageTag, unitTag)
+		err = sb.RemoveStorageAttachment(storageTag, unitTag)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -562,21 +542,17 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 }
 
 func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag) error {
-	// Only IAAS models support storage at the moment.
-	im, err := st.IAASModel()
-	if errors.IsNotSupported(err) {
-		return nil
-	}
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return err
 	}
-	storageAttachments, err := im.UnitStorageAttachments(unitTag)
+	storageAttachments, err := sb.UnitStorageAttachments(unitTag)
 	if err != nil {
 		return err
 	}
 	for _, storageAttachment := range storageAttachments {
 		storageTag := storageAttachment.StorageInstance()
-		err := im.DestroyStorageInstance(storageTag, true)
+		err := sb.DestroyStorageInstance(storageTag, true)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -639,6 +615,13 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	} else if err != nil {
 		return errors.Trace(err)
 	}
+
+	// The first thing we want to do is remove any series upgrade machine
+	// locks that might prevent other resources from being removed.
+	if err := cleanupUpgradeSeriesLock(machine); err != nil {
+		return errors.Trace(err)
+	}
+
 	// In an ideal world, we'd call machine.Destroy() here, and thus prevent
 	// new dependencies being added while we clean up the ones we know about.
 	// But machine destruction is unsophisticated, and doesn't allow for
@@ -741,20 +724,18 @@ func (st *State) cleanupContainers(machine *Machine) error {
 }
 
 func cleanupDyingMachineResources(m *Machine) error {
-	im, err := m.st.IAASModel()
+	sb, err := NewStorageBackend(m.st)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Destroy non-detachable machine filesystems first.
-	filesystems, err := im.filesystems(bson.D{{"machineid", m.Id()}})
+	filesystemAttachments, err := sb.MachineFilesystemAttachments(m.MachineTag())
 	if err != nil {
-		return errors.Annotate(err, "getting machine filesystems")
+		return errors.Annotate(err, "getting machine filesystem attachments")
 	}
-	for _, f := range filesystems {
-		if err := im.DestroyFilesystem(f.FilesystemTag()); err != nil {
-			return errors.Trace(err)
-		}
+	volumeAttachments, err := sb.MachineVolumeAttachments(m.MachineTag())
+	if err != nil {
+		return errors.Annotate(err, "getting machine volume attachments")
 	}
 
 	// Check if the machine is manual, to decide whether or not to
@@ -763,19 +744,29 @@ func cleanupDyingMachineResources(m *Machine) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	return cleanupDyingEntityStorage(sb, m.Tag(), manual, filesystemAttachments, volumeAttachments)
+}
 
-	// Detach all filesystems from the machine.
-	filesystemAttachments, err := im.MachineFilesystemAttachments(m.MachineTag())
+func cleanupDyingEntityStorage(sb *storageBackend, hostTag names.Tag, manual bool, filesystemAttachments []FilesystemAttachment, volumeAttachments []VolumeAttachment) error {
+	// Destroy non-detachable machine/unit filesystems first.
+	filesystems, err := sb.filesystems(bson.D{{"hostid", hostTag.Id()}})
 	if err != nil {
-		return errors.Annotate(err, "getting machine filesystem attachments")
+		return errors.Annotate(err, "getting host filesystems")
 	}
+	for _, f := range filesystems {
+		if err := sb.DestroyFilesystem(f.FilesystemTag()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Detach all filesystems from the machine/unit.
 	for _, fsa := range filesystemAttachments {
-		detachable, err := isDetachableFilesystemTag(im.mb.db(), fsa.Filesystem())
+		detachable, err := isDetachableFilesystemTag(sb.mb.db(), fsa.Filesystem())
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if detachable {
-			if err := im.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
+			if err := sb.DetachFilesystem(fsa.Host(), fsa.Filesystem()); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -784,18 +775,21 @@ func cleanupDyingMachineResources(m *Machine) error {
 			// for non-detachable or volume-backed filesystems, which should
 			// have been set to Dying by the destruction of the machine
 			// filesystems, or filesystem detachment, above.
+			machineTag := fsa.Host()
 			var remove bool
+			var volumeTag names.VolumeTag
 			var updateStatus func() error
 			if !detachable {
 				remove = true
 				updateStatus = func() error { return nil }
 			} else {
-				f, err := im.Filesystem(fsa.Filesystem())
+				f, err := sb.Filesystem(fsa.Filesystem())
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if _, err := f.Volume(); err == nil {
+				if v, err := f.Volume(); err == nil {
 					// Filesystem is volume-backed.
+					volumeTag = v
 					remove = true
 				}
 				updateStatus = func() error {
@@ -805,12 +799,19 @@ func cleanupDyingMachineResources(m *Machine) error {
 				}
 			}
 			if remove {
-				if err := im.RemoveFilesystemAttachment(
-					fsa.Machine(), fsa.Filesystem(),
+				if err := sb.RemoveFilesystemAttachment(
+					fsa.Host(), fsa.Filesystem(),
 				); err != nil {
 					return errors.Trace(err)
 				}
-				if err := updateStatus(); err != nil {
+				if volumeTag != (names.VolumeTag{}) {
+					if err := sb.RemoveVolumeAttachmentPlan(
+						machineTag, volumeTag,
+					); err != nil {
+						return errors.Trace(err)
+					}
+				}
+				if err := updateStatus(); err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
 			}
@@ -826,25 +827,21 @@ func cleanupDyingMachineResources(m *Machine) error {
 	// filesystems will have to be fixed manually.
 	if !manual {
 		for _, f := range filesystems {
-			if err := im.RemoveFilesystem(f.FilesystemTag()); err != nil {
+			if err := sb.RemoveFilesystem(f.FilesystemTag()); err != nil {
 				return errors.Trace(err)
 			}
 		}
 	}
 
 	// Detach all remaining volumes from the machine.
-	volumeAttachments, err := im.MachineVolumeAttachments(m.MachineTag())
-	if err != nil {
-		return errors.Annotate(err, "getting machine volume attachments")
-	}
 	for _, va := range volumeAttachments {
-		if detachable, err := isDetachableVolumeTag(im.mb.db(), va.Volume()); err != nil {
+		if detachable, err := isDetachableVolumeTag(sb.mb.db(), va.Volume()); err != nil {
 			return errors.Trace(err)
 		} else if !detachable {
 			// Non-detachable volumes will be removed along with the machine.
 			continue
 		}
-		if err := im.DetachVolume(va.Machine(), va.Volume()); err != nil {
+		if err := sb.DetachVolume(va.Host(), va.Volume()); err != nil {
 			if IsContainsFilesystem(err) {
 				// The volume will be destroyed when the
 				// contained filesystem is removed, whose
@@ -898,7 +895,7 @@ func (st *State) obliterateUnit(unitName string) error {
 // to the specified storage instance to Dying, if they are not already Dying
 // or Dead. It's expected to be used when a storage instance is destroyed.
 func (st *State) cleanupAttachmentsForDyingStorage(storageId string) (err error) {
-	im, err := st.IAASModel()
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -917,7 +914,7 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string) (err error)
 	defer closeIter(iter, &err, "reading storage attachment document")
 	for iter.Next(&doc) {
 		unitTag := names.NewUnitTag(doc.Unit)
-		if err := im.DetachStorage(storageTag, unitTag); err != nil {
+		if err := sb.DetachStorage(storageTag, unitTag); err != nil {
 			return errors.Annotate(err, "destroying storage attachment")
 		}
 	}
@@ -937,18 +934,18 @@ func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) (err error) {
 	coll, closer := st.db().GetCollection(volumeAttachmentsC)
 	defer closer()
 
-	im, err := st.IAASModel()
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	var doc volumeAttachmentDoc
-	fields := bson.D{{"machineid", 1}}
+	fields := bson.D{{"hostid", 1}}
 	iter := coll.Find(bson.D{{"volumeid", volumeId}}).Select(fields).Iter()
 	defer closeIter(iter, &err, "reading volume attachment document")
 	for iter.Next(&doc) {
-		machineTag := names.NewMachineTag(doc.Machine)
-		if err := im.DetachVolume(machineTag, volumeTag); err != nil {
+		hostTag := storageAttachmentHost(doc.Host)
+		if err := sb.DetachVolume(hostTag, volumeTag); err != nil {
 			return errors.Annotate(err, "destroying volume attachment")
 		}
 	}
@@ -959,7 +956,7 @@ func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) (err error) {
 // to the specified filesystem to Dying, if they are not already Dying or
 // Dead. It's expected to be used when a filesystem is destroyed.
 func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err error) {
-	im, err := st.IAASModel()
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -970,16 +967,16 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 	// attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
-	coll, closer := im.mb.db().GetCollection(filesystemAttachmentsC)
+	coll, closer := sb.mb.db().GetCollection(filesystemAttachmentsC)
 	defer closer()
 
 	var doc filesystemAttachmentDoc
-	fields := bson.D{{"machineid", 1}}
+	fields := bson.D{{"hostid", 1}}
 	iter := coll.Find(bson.D{{"filesystemid", filesystemId}}).Select(fields).Iter()
 	defer closeIter(iter, &err, "reading filesystem attachment document")
 	for iter.Next(&doc) {
-		machineTag := names.NewMachineTag(doc.Machine)
-		if err := im.DetachFilesystem(machineTag, filesystemTag); err != nil {
+		hostTag := storageAttachmentHost(doc.Host)
+		if err := sb.DetachFilesystem(hostTag, filesystemTag); err != nil {
 			return errors.Annotate(err, "destroying filesystem attachment")
 		}
 	}
@@ -997,4 +994,14 @@ func closeIter(iter mongo.Iterator, errOut *error, message string) {
 		return
 	}
 	logger.Errorf("%v", err)
+}
+
+func cleanupUpgradeSeriesLock(machine *Machine) error {
+	logger.Infof("removing any upgrade series locks for machine, %s", machine)
+	err := machine.RemoveUpgradeSeriesLock()
+	// Do not return an error
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	return err
 }

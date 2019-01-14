@@ -5,10 +5,12 @@ package stateenvirons
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -19,16 +21,16 @@ import (
 // terms of environs.Environ and related types.
 type environStatePolicy struct {
 	st         *state.State
-	getEnviron func(*state.State) (environs.Environ, error)
+	getEnviron NewEnvironFunc
+	getBroker  NewCAASBrokerFunc
 }
 
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
-// a state.Policy implemented in terms of environs.Environ and
-// related types. The provided function will be used to construct
-// environs.Environs given a state.State.
-func GetNewPolicyFunc(getEnviron func(*state.State) (environs.Environ, error)) state.NewPolicyFunc {
+// a state.Policy implemented in terms of either environs.Environ
+// or caas.Broker and related types.
+func GetNewPolicyFunc() state.NewPolicyFunc {
 	return func(st *state.State) state.Policy {
-		return environStatePolicy{st, getEnviron}
+		return environStatePolicy{st, GetNewEnvironFunc(environs.New), GetNewCAASBrokerFunc(caas.New)}
 	}
 }
 
@@ -38,12 +40,10 @@ func (p environStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() != state.ModelTypeIAAS {
-		// Only IAAS models support machines, hence prechecking.
-		return nil, errors.NotImplementedf("Prechecker")
+	if model.Type() == state.ModelTypeIAAS {
+		return p.getEnviron(p.st)
 	}
-	// Environ implements environs.InstancePrechecker.
-	return p.getEnviron(p.st)
+	return p.getBroker(p.st)
 }
 
 // ConfigValidator implements state.Policy.
@@ -82,21 +82,24 @@ func (p environStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSou
 }
 
 // ConstraintsValidator implements state.Policy.
-func (p environStatePolicy) ConstraintsValidator() (constraints.Validator, error) {
+func (p environStatePolicy) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	model, err := p.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() != state.ModelTypeIAAS {
-		// TODO(caas) CAAS providers should also provide
-		// constraints validation.
-		return nil, errors.NotImplementedf("ConstraintsValidator")
+
+	if model.Type() == state.ModelTypeIAAS {
+		env, err := p.getEnviron(p.st)
+		if err != nil {
+			return nil, err
+		}
+		return env.ConstraintsValidator(ctx)
 	}
-	env, err := p.getEnviron(p.st)
+	broker, err := p.getBroker(p.st)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return env.ConstraintsValidator()
+	return broker.ConstraintsValidator(ctx)
 }
 
 // InstanceDistributor implements state.Policy.
@@ -125,21 +128,33 @@ func (p environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() != state.ModelTypeIAAS {
-		// Only IAAS models support storage.
-		return nil, errors.NotImplementedf("StorageProviderRegistry")
+	return NewStorageProviderRegistryForModel(model, p.getEnviron, p.getBroker)
+}
+
+// NewStorageProviderRegistryForModel returns a storage provider registry
+// for the specified model.
+func NewStorageProviderRegistryForModel(
+	model *state.Model,
+	newEnv NewEnvironFunc,
+	newBroker NewCAASBrokerFunc,
+) (_ storage.ProviderRegistry, err error) {
+	var reg storage.ProviderRegistry
+	if model.Type() == state.ModelTypeIAAS {
+		if reg, err = newEnv(model.State()); err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		if reg, err = newBroker(model.State()); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	env, err := p.getEnviron(p.st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewStorageProviderRegistry(env), nil
+	return NewStorageProviderRegistry(reg), nil
 }
 
 // NewStorageProviderRegistry returns a storage.ProviderRegistry that chains
-// the provided Environ with the common storage providers.
-func NewStorageProviderRegistry(env environs.Environ) storage.ProviderRegistry {
-	return storage.ChainedProviderRegistry{env, provider.CommonStorageProviders()}
+// the provided registry with the common storage providers.
+func NewStorageProviderRegistry(reg storage.ProviderRegistry) storage.ProviderRegistry {
+	return storage.ChainedProviderRegistry{reg, provider.CommonStorageProviders()}
 }
 
 func environProvider(st *state.State) (environs.EnvironProvider, error) {

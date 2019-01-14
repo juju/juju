@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
@@ -73,12 +74,12 @@ func NewBootstrapCommand() *BootstrapCommand {
 	}
 }
 
-// Info returns a decription of the command.
+// Info returns a description of the command.
 func (c *BootstrapCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "bootstrap-state",
 		Purpose: "initialize juju state",
-	}
+	})
 }
 
 // SetFlags adds the flags for this command to the passed gnuflag.FlagSet.
@@ -98,6 +99,9 @@ func (c *BootstrapCommand) Init(args []string) error {
 	c.BootstrapParamsFile = args[0]
 	return c.AgentConf.CheckArgs(args[1:])
 }
+
+// EnvironsNew defines function used to get reference to an underlying cloud provider.
+var EnvironsNew = environs.New
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
@@ -136,7 +140,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	env, err := environs.New(environs.OpenParams{
+	env, err := EnvironsNew(environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: args.ControllerModelConfig,
 	})
@@ -178,6 +182,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	callCtx := context.NewCloudCallContext()
+	// At this stage, cloud credential has not yet been stored server-side
+	// as there is no server-side. If these cloud calls will fail with
+	// invalid credential, just log it.
+	callCtx.InvalidateCredentialFunc = func(reason string) error {
+		logger.Errorf("Cloud credential %q is not accepted by cloud provider: %v", args.ControllerCloudCredentialName, reason)
+		return nil
+	}
+
 	instances, err := env.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
 	if err != nil {
 		return errors.Annotate(err, "getting bootstrap instance")
@@ -247,7 +259,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	args.ControllerModelConfig = controllerModelCfg
 
 	// Initialise state, and store any agent config (e.g. password) changes.
-	var st *state.State
+	var controller *state.Controller
 	var m *state.Machine
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		var stateErr error
@@ -265,7 +277,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		dialOpts.Direct = true
 
 		adminTag := names.NewLocalUserTag(adminUserName)
-		st, m, stateErr = agentInitializeState(
+		controller, m, stateErr = agentInitializeState(
 			adminTag,
 			agentConfig,
 			agentbootstrap.InitializeStateParams{
@@ -277,16 +289,15 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
 			},
 			dialOpts,
-			stateenvirons.GetNewPolicyFunc(
-				stateenvirons.GetNewEnvironFunc(environs.New),
-			),
+			stateenvirons.GetNewPolicyFunc(),
 		)
 		return stateErr
 	})
 	if err != nil {
 		return err
 	}
-	defer st.Close()
+	defer controller.Close()
+	st := controller.SystemState()
 
 	// Set up default container networking mode
 	model, err := st.Model()

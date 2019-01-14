@@ -11,11 +11,19 @@ import (
 	"strings"
 
 	"github.com/coreos/go-systemd/dbus"
+	"github.com/coreos/go-systemd/util"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
+)
+
+const (
+	LibSystemdDir          = "/lib/systemd/system"
+	EtcSystemdDir          = "/etc/systemd/system"
+	EtcSystemdMultiUserDir = EtcSystemdDir + "/multi-user.target.wants"
 )
 
 var (
@@ -26,14 +34,8 @@ var (
 )
 
 // IsRunning returns whether or not systemd is the local init system.
-func IsRunning() (bool, error) {
-	if _, err := os.Stat("/run/systemd/system"); err == nil {
-		return true, nil
-	} else if os.IsNotExist(err) {
-		return false, nil
-	} else {
-		return false, errors.Trace(err)
-	}
+func IsRunning() bool {
+	return util.IsRunningSystemd()
 }
 
 // ListServices returns the list of installed service names.
@@ -71,8 +73,18 @@ type Service struct {
 	newDBus DBusAPIFactory
 }
 
-// NewService returns a new value that implements Service for systemd.
-func NewService(name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory, fallBackDirName string) (*Service, error) {
+// NewServiceWithDefaults returns a new systemd service reference populated
+// with sensible defaults.
+func NewServiceWithDefaults(name string, conf common.Conf) (*Service, error) {
+	svc, err := NewService(name, conf, LibSystemdDir, NewDBusAPI, renderer.Join(paths.NixDataDir, "init"))
+	return svc, errors.Trace(err)
+}
+
+// NewService returns a new reference to an object that implements the Service
+// interface for systemd.
+func NewService(
+	name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory, fallBackDirName string,
+) (*Service, error) {
 	confName := name + ".service"
 	var volName string
 	if conf.ExecStart != "" {
@@ -565,9 +577,9 @@ func (s *Service) WriteService() error {
 		return errors.Trace(err)
 	}
 
-	if running, err := IsRunning(); err != nil {
-		return errors.Trace(err)
-	} else if !running {
+	// If systemd is not the running init system,
+	// then do not attempt to use it for linking unit files.
+	if !IsRunning() {
 		return nil
 	}
 

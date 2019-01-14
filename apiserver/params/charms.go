@@ -79,6 +79,15 @@ type CharmStorage struct {
 	Properties  []string `json:"properties,omitempty"`
 }
 
+// CharmDevice mirrors charm.Device.
+type CharmDevice struct {
+	Name        string `bson:"name"`
+	Description string `bson:"description"`
+	Type        string `bson:"type"`
+	CountMin    int64  `bson:"count-min"`
+	CountMax    int64  `bson:"count-max"`
+}
+
 // CharmPayloadClass mirrors charm.PayloadClass.
 type CharmPayloadClass struct {
 	Name string `json:"name"`
@@ -107,6 +116,7 @@ type CharmMeta struct {
 	Tags           []string                     `json:"tags,omitempty"`
 	Series         []string                     `json:"series,omitempty"`
 	Storage        map[string]CharmStorage      `json:"storage,omitempty"`
+	Devices        map[string]CharmDevice       `json:"devices,omitempty"`
 	PayloadClasses map[string]CharmPayloadClass `json:"payload-classes,omitempty"`
 	Resources      map[string]CharmResourceMeta `json:"resources,omitempty"`
 	Terms          []string                     `json:"terms,omitempty"`
@@ -116,12 +126,13 @@ type CharmMeta struct {
 // CharmInfo holds all the charm data that the client needs.
 // To be honest, it probably returns way more than what is actually needed.
 type CharmInfo struct {
-	Revision int                    `json:"revision"`
-	URL      string                 `json:"url"`
-	Config   map[string]CharmOption `json:"config"`
-	Meta     *CharmMeta             `json:"meta,omitempty"`
-	Actions  *CharmActions          `json:"actions,omitempty"`
-	Metrics  *CharmMetrics          `json:"metrics,omitempty"`
+	Revision   int                    `json:"revision"`
+	URL        string                 `json:"url"`
+	Config     map[string]CharmOption `json:"config"`
+	Meta       *CharmMeta             `json:"meta,omitempty"`
+	Actions    *CharmActions          `json:"actions,omitempty"`
+	Metrics    *CharmMetrics          `json:"metrics,omitempty"`
+	LXDProfile *CharmLXDProfile       `json:"lxd-profile,omitempty"`
 }
 
 // CharmActions mirrors charm.Actions.
@@ -150,4 +161,36 @@ type CharmPlan struct {
 type CharmMetrics struct {
 	Metrics map[string]CharmMetric `json:"metrics"`
 	Plan    CharmPlan              `json:"plan"`
+}
+
+// CharmLXDProfile mirrors charm.LXDProfile
+type CharmLXDProfile struct {
+	Config      map[string]string            `json:"config"`
+	Description string                       `json:"description"`
+	Devices     map[string]map[string]string `json:"devices"`
+}
+
+// CharmLXDProfileResult returns the result of finding the CharmLXDProfile
+type CharmLXDProfileResult struct {
+	LXDProfile *CharmLXDProfile `json:"lxd-profile"`
+}
+
+// ContainerLXDProfile contains the charm.LXDProfile information in addition to
+// the name of the profile.
+type ContainerLXDProfile struct {
+	Profile CharmLXDProfile `json:"profile" yaml:"profile"`
+	Name    string          `json:"name" yaml:"name"`
+}
+
+// ContainerProfileResult returns the result of finding the CharmLXDProfile and name of
+// the lxd profile to be used for 1 unit on the container
+type ContainerProfileResult struct {
+	Error       *Error                 `json:"error,omitempty"`
+	LXDProfiles []*ContainerLXDProfile `json:"lxd-profiles,omitempty"`
+}
+
+// ContainerProfileResults returns the ContainerProfileResult for each unit to be placed
+// on the container.
+type ContainerProfileResults struct {
+	Results []ContainerProfileResult `json:"results"`
 }

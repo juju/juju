@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -42,7 +43,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -150,10 +150,10 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 		return
 	}
 	args := t.prepareForBootstrapParams(c)
-	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
-	t.Env = e
+	t.Env = e.(environs.Environ)
 	t.prepared = true
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 }
@@ -222,7 +222,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	args := t.bootstrapParams()
 	args.BootstrapConstraints = cons
 	args.ModelConstraints = cons
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, args)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }
@@ -679,7 +679,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("deploying application")
 	repoDir := c.MkDir()
 	url := testcharms.Repo.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
-	sch, err := jujutesting.PutCharm(st, url, &charmrepo.LocalRepository{Path: repoDir}, false)
+	sch, err := jujutesting.PutCharm(st, url, &charmrepo.LocalRepository{Path: repoDir}, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)
@@ -787,7 +787,7 @@ func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
 		tooler:  m,
 	}
 	go func() {
-		for _ = range w.Changes() {
+		for range w.Changes() {
 			waiter.changes <- struct{}{}
 		}
 		close(waiter.changes)
@@ -803,7 +803,7 @@ func newUnitToolWaiter(u *state.Unit) *toolsWaiter {
 		tooler:  u,
 	}
 	go func() {
-		for _ = range w.Changes() {
+		for range w.Changes() {
 			waiter.changes <- struct{}{}
 		}
 		close(waiter.changes)
@@ -818,7 +818,7 @@ func (w *toolsWaiter) Stop() error {
 // NextTools returns the next changed tools, waiting
 // until the tools are actually set.
 func (w *toolsWaiter) NextTools(c *gc.C) (*coretools.Tools, error) {
-	for _ = range w.changes {
+	for range w.changes {
 		err := w.tooler.Refresh()
 		if err != nil {
 			return nil, fmt.Errorf("cannot refresh: %v", err)
@@ -958,12 +958,12 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	})
 	args := t.prepareForBootstrapParams(c)
 	args.ModelConfig = dummyCfg
-	dummyenv, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
+	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		args,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	defer dummyenv.Destroy(t.ProviderCallContext)
+	defer e.(environs.Environ).Destroy(t.ProviderCallContext)
 
 	t.Destroy(c)
 
@@ -972,13 +972,13 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"default-series": other.Series,
 	})
 	args.ModelConfig = attrs
-	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
 		t.ControllerStore,
 		args)
 	c.Assert(err, jc.ErrorIsNil)
 	defer environs.Destroy("livetests", env, t.ProviderCallContext, t.ControllerStore)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, t.bootstrapParams())
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, t.ProviderCallContext, t.bootstrapParams())
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()

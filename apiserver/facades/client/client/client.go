@@ -666,9 +666,11 @@ func (c *Client) AddCharm(args params.AddCharm) error {
 		return err
 	}
 
-	return application.AddCharmWithAuthorization(c.api.state(), params.AddCharmWithAuthorization{
+	shim := application.NewStateShim(c.api.state())
+	return application.AddCharmWithAuthorization(shim, params.AddCharmWithAuthorization{
 		URL:     args.URL,
 		Channel: args.Channel,
+		Force:   args.Force,
 	})
 }
 
@@ -683,7 +685,8 @@ func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization
 		return err
 	}
 
-	return application.AddCharmWithAuthorization(c.api.state(), args)
+	shim := application.NewStateShim(c.api.state())
+	return application.AddCharmWithAuthorization(shim, args)
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
@@ -693,7 +696,8 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 		return params.ResolveCharmResults{}, err
 	}
 
-	return application.ResolveCharms(c.api.state(), args)
+	shim := application.NewStateShim(c.api.state())
+	return application.ResolveCharms(shim, args)
 }
 
 // RetryProvisioning marks a provisioning error as transient on the machines.

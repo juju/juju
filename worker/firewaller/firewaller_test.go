@@ -9,11 +9,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -28,6 +29,7 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -37,7 +39,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/firewaller"
@@ -123,9 +124,9 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machi
 	fwInst, ok := inst.(instance.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	s.BackingState.StartSync()
 	start := time.Now()
 	for {
+		s.BackingState.StartSync()
 		got, err := fwInst.IngressRules(s.callCtx, machineId)
 		if err != nil {
 			c.Fatal(err)
@@ -151,9 +152,9 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Ing
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	s.BackingState.StartSync()
 	start := time.Now()
 	for {
+		s.BackingState.StartSync()
 		got, err := fwEnv.IngressRules(s.callCtx)
 		if err != nil {
 			c.Fatal(err)
@@ -802,22 +803,36 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 			Changes: []params.IngressNetworksChangeEvent{{
 				RelationToken:    relToken,
 				ApplicationToken: appToken,
-				Networks:         []string{"10.0.0.4/32"},
-				IngressRequired:  *ingressRequired,
 			}},
 		}
-		expected.Changes[0].IngressRequired = *ingressRequired
-		if !*ingressRequired {
-			expected.Changes[0].Networks = []string{}
-		}
+
 		// Extract macaroons so we can compare them separately
 		// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
 		expectedMacs := arg.(params.IngressNetworksChanges).Changes[0].Macaroons
 		arg.(params.IngressNetworksChanges).Changes[0].Macaroons = nil
 		c.Assert(len(expectedMacs), gc.Equals, 1)
 		apitesting.MacaroonEquals(c, expectedMacs[0], mac)
+
+		// Networks may be empty or not, depending on coalescing of watcher events.
+		// We may get an initial empty event followed by an event with a network.
+		// Or we may get just the event with a network.
+		// Set the arg networks to empty and compare below.
+		changes := arg.(params.IngressNetworksChanges)
+		argNetworks := changes.Changes[0].Networks
+		argIngressRequired := changes.Changes[0].IngressRequired
+
+		changes.Changes[0].Networks = nil
+		expected.Changes[0].IngressRequired = argIngressRequired
 		c.Check(arg, gc.DeepEquals, expected)
-		arg.(params.IngressNetworksChanges).Changes[0].Macaroons = expectedMacs
+
+		if !*ingressRequired {
+			c.Assert(changes.Changes[0].Networks, gc.HasLen, 0)
+		}
+		if *ingressRequired && len(argNetworks) > 0 {
+			c.Assert(argIngressRequired, jc.IsTrue)
+			c.Assert(argNetworks, jc.DeepEquals, []string{"10.0.0.4/32"})
+		}
+		changes.Changes[0].Macaroons = expectedMacs
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
@@ -825,7 +840,9 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 		if *apiErr {
 			return errors.New("fail")
 		}
-		published <- true
+		if !*ingressRequired || len(argNetworks) > 0 {
+			published <- true
+		}
 		return nil
 	})
 
@@ -906,7 +923,7 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 	published := make(chan bool)
 	ingressRequired := true
 	apiErr := true
-	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, testing.NewClock(time.Time{}))
+	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, testclock.NewClock(time.Time{}))
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	// Add a unit on the consuming app and have it enter the relation scope.
@@ -924,7 +941,7 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 
 	// Give the worker time to restart and try again.
 	apiErr = false
-	s.clock.(*testing.Clock).WaitAdvance(60*time.Second, coretesting.LongWait, 1)
+	s.clock.(*testclock.Clock).WaitAdvance(60*time.Second, coretesting.LongWait, 1)
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on enter scope")
@@ -1024,6 +1041,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	// Set up the consuming model - create the remote app.
 	offeringModelTag := names.NewModelTag(utils.MustNewUUID().String())
 	appToken := utils.MustNewUUID().String()
+
 	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "mysql", SourceModel: offeringModelTag,
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
@@ -1039,13 +1057,20 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 
 	mac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
+
 	published := make(chan bool)
+	done := false
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Code: params.CodeForbidden, Message: "error"}}},
 		}
-		published <- true
+		// We can get more than one api call depending on the
+		// granularity of watcher events.
+		if !done {
+			done = true
+			published <- true
+		}
 		return nil
 	})
 
@@ -1093,23 +1118,17 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	}
 
 	// Check that the relation status is set to error.
-	attempt := time.After(0)
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case <-attempt:
-			relStatus, err := rel.Status()
-			c.Check(err, jc.ErrorIsNil)
-			if relStatus.Status != status.Error {
-				attempt = time.After(coretesting.ShortWait)
-				continue
-			}
-			c.Check(relStatus.Message, gc.Equals, "error")
-		case <-timeout:
-			c.Fatal("time out waiting for relation status to be updated")
+	s.BackingState.StartSync()
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		relStatus, err := rel.Status()
+		c.Check(err, jc.ErrorIsNil)
+		if relStatus.Status != status.Error {
+			continue
 		}
-		break
+		c.Check(relStatus.Message, gc.Equals, "error")
+		return
 	}
+	c.Fatal("time out waiting for relation status to be updated")
 }
 
 func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expected []string) {

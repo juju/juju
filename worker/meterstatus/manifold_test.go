@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -20,8 +21,8 @@ import (
 	"github.com/juju/juju/api/base"
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/meterstatus"
 	"github.com/juju/juju/worker/uniter/runner"
 )
@@ -48,7 +49,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:               "agent-name",
 		APICallerName:           "apicaller-name",
 		MachineLock:             &fakemachinelock{},
-		Clock:                   testing.NewClock(time.Now()),
+		Clock:                   testclock.NewClock(time.Now()),
 		NewHookRunner:           meterstatus.NewHookRunner,
 		NewMeterStatusAPIClient: msapi.NewClient,
 

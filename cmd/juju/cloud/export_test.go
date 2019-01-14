@@ -12,6 +12,10 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+var (
+	ShouldFinalizeCredential = shouldFinalizeCredential
+)
+
 func NewUpdateCloudsCommandForTest(publicCloudURL string) *updateCloudsCommand {
 	return &updateCloudsCommand{
 		// TODO(wallyworld) - move testing key elsewhere

@@ -6,56 +6,65 @@ package migrationtarget
 import (
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/status"
 )
 
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state       *state.State
-	pool        *state.StatePool
-	authorizer  facade.Authorizer
-	resources   facade.Resources
-	presence    facade.Presence
-	getEnviron  stateenvirons.NewEnvironFunc
-	callContext context.ProviderCallContext
+	state         *state.State
+	pool          *state.StatePool
+	authorizer    facade.Authorizer
+	resources     facade.Resources
+	presence      facade.Presence
+	getClaimer    migration.ClaimerFunc
+	getEnviron    stateenvirons.NewEnvironFunc
+	getCAASBroker stateenvirons.NewCAASBrokerFunc
+	callContext   context.ProviderCallContext
 }
 
 // NewFacade is used for API registration.
 func NewFacade(ctx facade.Context) (*API, error) {
-	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New), state.CallContext(ctx.State()))
+	return NewAPI(
+		ctx,
+		stateenvirons.GetNewEnvironFunc(environs.New),
+		stateenvirons.GetNewCAASBrokerFunc(caas.New),
+		state.CallContext(ctx.State()))
 }
 
 // NewAPI returns a new API. Accepts a NewEnvironFunc and context.ProviderCallContext
 // for testing purposes.
-func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, callCtx context.ProviderCallContext) (*API, error) {
+func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAASBroker stateenvirons.NewCAASBrokerFunc, callCtx context.ProviderCallContext) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
 	if err := checkAuth(auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &API{
-		state:       st,
-		pool:        ctx.StatePool(),
-		authorizer:  auth,
-		resources:   ctx.Resources(),
-		presence:    ctx.Presence(),
-		getEnviron:  getEnviron,
-		callContext: callCtx,
+		state:         st,
+		pool:          ctx.StatePool(),
+		authorizer:    auth,
+		resources:     ctx.Resources(),
+		presence:      ctx.Presence(),
+		getClaimer:    ctx.LeadershipClaimer,
+		getEnviron:    getEnviron,
+		getCAASBroker: getCAASBroker,
+		callContext:   callCtx,
 	}, nil
 }
 
@@ -106,7 +115,8 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 // Import takes a serialized Juju model, deserializes it, and
 // recreates it in the receiving controller.
 func (api *API) Import(serialized params.SerializedModel) error {
-	_, st, err := migration.ImportModel(api.state, serialized.Bytes)
+	controller := state.NewController(api.pool)
+	_, st, err := migration.ImportModel(controller, api.getClaimer, serialized.Bytes)
 	if err != nil {
 		return err
 	}
@@ -225,84 +235,42 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 		return errors.Trace(err)
 	}
 	defer st.Release()
-	env, err := api.getEnviron(st.State)
+
+	m, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(env.AdoptResources(api.callContext, st.ControllerUUID(), args.SourceControllerVersion))
+
+	var ra environs.ResourceAdopter
+	if m.Type() == state.ModelTypeCAAS {
+		ra, err = api.getCAASBroker(st.State)
+	} else {
+		ra, err = api.getEnviron(st.State)
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(ra.AdoptResources(api.callContext, st.ControllerUUID(), args.SourceControllerVersion))
 }
 
 // CheckMachines compares the machines in state with the ones reported
 // by the provider and reports any discrepancies.
 func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error) {
-	var empty params.ErrorResults
 	tag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
-		return empty, errors.Trace(err)
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	st, err := api.pool.Get(tag.Id())
 	if err != nil {
-		return empty, errors.Trace(err)
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	defer st.Release()
 
-	machines, err := st.AllMachines()
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	machinesByInstance := make(map[string]string)
-	for _, machine := range machines {
-		if machine.IsContainer() {
-			// Containers don't correspond to instances at the
-			// provider level.
-			continue
-		}
-		if manual, err := machine.IsManual(); err != nil {
-			return empty, errors.Trace(err)
-		} else if manual {
-			continue
-		}
-		instanceId, err := machine.InstanceId()
-		if err != nil {
-			return empty, errors.Annotatef(
-				err, "getting instance id for machine %s", machine.Id())
-		}
-		machinesByInstance[string(instanceId)] = machine.Id()
-	}
-
-	env, err := api.getEnviron(st.State)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-
-	instances, err := env.AllInstances(api.callContext)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-
-	var results []params.ErrorResult
-
-	instanceIds := set.NewStrings()
-	for _, instance := range instances {
-		id := string(instance.Id())
-		instanceIds.Add(id)
-		if _, found := machinesByInstance[id]; !found {
-			results = append(results, errorResult("no machine with instance %q", id))
-		}
-	}
-
-	for instanceId, name := range machinesByInstance {
-		if !instanceIds.Contains(instanceId) {
-			results = append(results, errorResult(
-				"couldn't find instance %q for machine %s", instanceId, name))
-		}
-	}
-
-	return params.ErrorResults{Results: results}, nil
-}
-
-func errorResult(format string, args ...interface{}) params.ErrorResult {
-	return params.ErrorResult{Error: common.ServerError(errors.Errorf(format, args...))}
+	return credentialcommon.ValidateExistingModelCredential(
+		credentialcommon.NewPersistentBackend(st.State),
+		api.callContext,
+	)
 }
 
 // CACert returns the certificate used to validate the state connection.

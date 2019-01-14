@@ -10,7 +10,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 )
 
@@ -56,7 +57,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 		if len(filesystemParams) == 0 {
 			continue
 		}
-		results, err := filesystemSource.CreateFilesystems(filesystemParams)
+		results, err := filesystemSource.CreateFilesystems(ctx.config.CloudCallContext, filesystemParams)
 		if err != nil {
 			return errors.Annotatef(err, "creating filesystems from source %q", sourceName)
 		}
@@ -140,7 +141,7 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
 		logger.Debugf("attaching filesystems: %+v", filesystemAttachmentParams)
 		filesystemSource := filesystemSources[sourceName]
-		results, err := filesystemSource.AttachFilesystems(filesystemAttachmentParams)
+		results, err := filesystemSource.AttachFilesystems(ctx.config.CloudCallContext, filesystemAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "attaching filesystems from source %q", sourceName)
 		}
@@ -215,11 +216,11 @@ func removeFilesystems(ctx *context, ops map[names.FilesystemTag]*removeFilesyst
 	var remove []names.Tag
 	var reschedule []scheduleOp
 	var statuses []params.EntityStatusArgs
-	removeFilesystems := func(tags []names.FilesystemTag, ids []string, f func([]string) ([]error, error)) error {
+	removeFilesystems := func(tags []names.FilesystemTag, ids []string, f func(environscontext.ProviderCallContext, []string) ([]error, error)) error {
 		if len(ids) == 0 {
 			return nil
 		}
-		errs, err := f(ids)
+		errs, err := f(ctx.config.CloudCallContext, ids)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -233,8 +234,8 @@ func removeFilesystems(ctx *context, ops map[names.FilesystemTag]*removeFilesyst
 			reschedule = append(reschedule, ops[tag])
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
-				Status: status.Destroying.String(),
-				Info:   err.Error(),
+				Status: status.Error.String(),
+				Info:   errors.Annotate(err, "removing filesystem").Error(),
 			})
 		}
 		return nil
@@ -310,8 +311,11 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 	var remove []params.MachineStorageId
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
 		logger.Debugf("detaching filesystems: %+v", filesystemAttachmentParams)
-		filesystemSource := filesystemSources[sourceName]
-		errs, err := filesystemSource.DetachFilesystems(filesystemAttachmentParams)
+		filesystemSource, ok := filesystemSources[sourceName]
+		if !ok && ctx.isApplicationKind() {
+			continue
+		}
+		errs, err := filesystemSource.DetachFilesystems(ctx.config.CloudCallContext, filesystemAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "detaching filesystems from source %q", sourceName)
 		}
@@ -388,15 +392,15 @@ func filesystemParamsBySource(
 		filesystemSources[sourceName] = filesystemSource
 	}
 	paramsBySource := make(map[string][]storage.FilesystemParams)
-	for _, params := range params {
-		sourceName := string(params.Provider)
+	for _, param := range params {
+		sourceName := string(param.Provider)
 		filesystemSource := filesystemSources[sourceName]
 		if filesystemSource == nil {
 			// Ignore nil filesystem sources; this means that the
 			// filesystem should be created by the machine-provisioner.
 			continue
 		}
-		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
+		paramsBySource[sourceName] = append(paramsBySource[sourceName], param)
 	}
 	return paramsBySource, filesystemSources, nil
 }
@@ -421,7 +425,7 @@ func validateFilesystemParams(
 // filesystemAttachmentParamsBySource separates the filesystem attachment parameters by filesystem source.
 func filesystemAttachmentParamsBySource(
 	baseStorageDir string,
-	params []storage.FilesystemAttachmentParams,
+	filesystemAttachmentParams []storage.FilesystemAttachmentParams,
 	filesystems map[names.FilesystemTag]storage.Filesystem,
 	managedFilesystemSource storage.FilesystemSource,
 	registry storage.ProviderRegistry,
@@ -432,14 +436,14 @@ func filesystemAttachmentParamsBySource(
 	// configuration.
 	filesystemSources := make(map[string]storage.FilesystemSource)
 	paramsBySource := make(map[string][]storage.FilesystemAttachmentParams)
-	for _, params := range params {
+	for _, params := range filesystemAttachmentParams {
 		sourceName := string(params.Provider)
 		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
 		if _, ok := filesystemSources[sourceName]; ok {
 			continue
 		}
-		filesystem := filesystems[params.Filesystem]
-		if filesystem.Volume != (names.VolumeTag{}) {
+		filesystem, ok := filesystems[params.Filesystem]
+		if !ok || filesystem.Volume != (names.VolumeTag{}) {
 			filesystemSources[sourceName] = managedFilesystemSource
 			continue
 		}

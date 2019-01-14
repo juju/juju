@@ -11,9 +11,10 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/juju/network/debinterfaces"
 	"github.com/juju/testing"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 )
 
@@ -49,7 +50,7 @@ func (s *BridgeSuite) TestActivateEth0(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		Clock:            testing.NewClock(time.Now()),
+		Clock:            testclock.NewClock(time.Now()),
 		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,
@@ -76,7 +77,7 @@ func (s *BridgeSuite) TestActivateEth0WithoutBackup(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		Clock:            testing.NewClock(time.Now()),
+		Clock:            testclock.NewClock(time.Now()),
 		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,
@@ -104,7 +105,7 @@ func (s *BridgeSuite) TestActivateWithNegativeReconfigureDelay(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		Clock:            testing.NewClock(time.Now()),
+		Clock:            testclock.NewClock(time.Now()),
 		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,

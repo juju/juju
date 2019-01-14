@@ -6,6 +6,7 @@ package storage
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 )
 
@@ -93,23 +94,23 @@ type VolumeSource interface {
 	// CreateVolumes creates volumes with the specified parameters. If the
 	// volumes are initially attached, then CreateVolumes returns
 	// information about those attachments too.
-	CreateVolumes(params []VolumeParams) ([]CreateVolumesResult, error)
+	CreateVolumes(ctx context.ProviderCallContext, params []VolumeParams) ([]CreateVolumesResult, error)
 
 	// ListVolumes lists the provider volume IDs for every volume
 	// created by this volume source.
-	ListVolumes() ([]string, error)
+	ListVolumes(ctx context.ProviderCallContext) ([]string, error)
 
 	// DescribeVolumes returns the properties of the volumes with the
 	// specified provider volume IDs.
-	DescribeVolumes(volIds []string) ([]DescribeVolumesResult, error)
+	DescribeVolumes(ctx context.ProviderCallContext, volIds []string) ([]DescribeVolumesResult, error)
 
 	// DestroyVolumes destroys the volumes with the specified provider
 	// volume IDs.
-	DestroyVolumes(volIds []string) ([]error, error)
+	DestroyVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error)
 
 	// ReleaseVolumes releases the volumes with the specified provider
 	// volume IDs from the model/controller.
-	ReleaseVolumes(volIds []string) ([]error, error)
+	ReleaseVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error)
 
 	// ValidateVolumeParams validates the provided volume creation
 	// parameters, returning an error if they are invalid.
@@ -125,7 +126,7 @@ type VolumeSource interface {
 	// recording in state. For example, the ec2 provider must reject
 	// an attempt to attach a volume to an instance if they are in
 	// different availability zones.
-	AttachVolumes(params []VolumeAttachmentParams) ([]AttachVolumesResult, error)
+	AttachVolumes(ctx context.ProviderCallContext, params []VolumeAttachmentParams) ([]AttachVolumesResult, error)
 
 	// DetachVolumes detaches the volumes with the specified provider
 	// volume IDs from the instances with the corresponding index.
@@ -133,7 +134,7 @@ type VolumeSource interface {
 	// TODO(axw) we need to record in state whether or not volumes
 	// are detachable, and reject attempts to attach/detach on
 	// that basis.
-	DetachVolumes(params []VolumeAttachmentParams) ([]error, error)
+	DetachVolumes(ctx context.ProviderCallContext, params []VolumeAttachmentParams) ([]error, error)
 }
 
 // FilesystemSource provides an interface for creating, destroying and
@@ -145,15 +146,15 @@ type FilesystemSource interface {
 	ValidateFilesystemParams(params FilesystemParams) error
 
 	// CreateFilesystems creates filesystems with the specified size, in MiB.
-	CreateFilesystems(params []FilesystemParams) ([]CreateFilesystemsResult, error)
+	CreateFilesystems(ctx context.ProviderCallContext, params []FilesystemParams) ([]CreateFilesystemsResult, error)
 
 	// DestroyFilesystems destroys the filesystems with the specified
 	// providerd filesystem IDs.
-	DestroyFilesystems(fsIds []string) ([]error, error)
+	DestroyFilesystems(ctx context.ProviderCallContext, fsIds []string) ([]error, error)
 
 	// ReleaseFilesystems releases the filesystems with the specified provider
 	// filesystem IDs from the model/controller.
-	ReleaseFilesystems(volIds []string) ([]error, error)
+	ReleaseFilesystems(ctx context.ProviderCallContext, volIds []string) ([]error, error)
 
 	// AttachFilesystems attaches filesystems to machines.
 	//
@@ -165,12 +166,12 @@ type FilesystemSource interface {
 	// recording in state. For example, the ec2 provider must reject
 	// an attempt to attach a volume to an instance if they are in
 	// different availability zones.
-	AttachFilesystems(params []FilesystemAttachmentParams) ([]AttachFilesystemsResult, error)
+	AttachFilesystems(ctx context.ProviderCallContext, params []FilesystemAttachmentParams) ([]AttachFilesystemsResult, error)
 
 	// DetachFilesystems detaches the filesystems with the specified
 	// provider filesystem IDs from the instances with the corresponding
 	// index.
-	DetachFilesystems(params []FilesystemAttachmentParams) ([]error, error)
+	DetachFilesystems(ctx context.ProviderCallContext, params []FilesystemAttachmentParams) ([]error, error)
 }
 
 // FilesystemImporter provides an interface for importing filesystems
@@ -188,6 +189,7 @@ type FilesystemImporter interface {
 	// filesystem is not in use before allowing the import to proceed.
 	// Once it is imported, it is assumed to be in a detached state.
 	ImportFilesystem(
+		ctx context.ProviderCallContext,
 		filesystemId string,
 		resourceTags map[string]string,
 	) (FilesystemInfo, error)
@@ -208,6 +210,7 @@ type VolumeImporter interface {
 	// volume is not in use before allowing the import to proceed.
 	// Once it is imported, it is assumed to be in a detached state.
 	ImportVolume(
+		ctx context.ProviderCallContext,
 		volumeId string,
 		resourceTags map[string]string,
 	) (VolumeInfo, error)
@@ -274,7 +277,9 @@ type AttachmentParams struct {
 	// attached to. Storage providers may use this to perform machine-
 	// specific operations, such as configuring access controls for the
 	// machine.
-	Machine names.MachineTag
+	// This is a generic tag as it's also used to hold a unit for caas storage.
+	// TODO(caas)-rename to Host
+	Machine names.Tag
 
 	// InstanceId is the ID of the cloud instance that the storage should
 	// be attached to. This will only be of interest to storage providers
@@ -309,6 +314,11 @@ type FilesystemParams struct {
 	// ResourceTags is a set of tags to set on the created filesystem, if the
 	// storage provider supports tags.
 	ResourceTags map[string]string
+
+	// Attachment identifies the machine that the filesystem should be attached
+	// to initially, or nil if the filesystem should not be attached to any
+	// machine.
+	Attachment *FilesystemAttachmentParams
 }
 
 // FilesystemAttachmentParams is a set of parameters for filesystem attachment

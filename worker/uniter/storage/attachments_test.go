@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -25,9 +26,30 @@ import (
 
 type attachmentsSuite struct {
 	testing.BaseSuite
+
+	modelType model.ModelType
 }
 
-var _ = gc.Suite(&attachmentsSuite{})
+type caasAttachmentsSuite struct {
+	attachmentsSuite
+}
+
+type iaasAttachmentsSuite struct {
+	attachmentsSuite
+}
+
+var _ = gc.Suite(&caasAttachmentsSuite{})
+var _ = gc.Suite(&iaasAttachmentsSuite{})
+
+func (s *caasAttachmentsSuite) SetUpTest(c *gc.C) {
+	s.modelType = model.CAAS
+	s.attachmentsSuite.SetUpTest(c)
+}
+
+func (s *iaasAttachmentsSuite) SetUpTest(c *gc.C) {
+	s.modelType = model.IAAS
+	s.attachmentsSuite.SetUpTest(c)
+}
 
 func assertStorageTags(c *gc.C, a *storage.Attachments, tags ...names.StorageTag) {
 	sTags, err := a.StorageTags()
@@ -166,7 +188,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(att)
+	r := storage.NewResolver(att, s.modelType)
 
 	// First make sure we create a storage-attached hook operation for
 	// data/0. We do this to show that until the hook is *committed*,
@@ -214,7 +236,7 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(att)
+	r := storage.NewResolver(att, s.modelType)
 
 	storageTag := names.NewStorageTag("data/0")
 	_, err = att.Storage(storageTag)
@@ -268,7 +290,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(att)
+	r := storage.NewResolver(att, s.modelType)
 
 	// Inform the resolver of an attachment.
 	localState := resolver.LocalState{State: operation.State{
@@ -352,7 +374,7 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(att.Pending(), gc.Equals, 1)
-	r := storage.NewResolver(att)
+	r := storage.NewResolver(att, s.modelType)
 
 	// Inform the resolver that the unit is Dying. The storage is still
 	// Alive, and is now provisioned, but will be destroyed and removed
@@ -391,7 +413,7 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(att)
+	r := storage.NewResolver(att, s.modelType)
 
 	nextOp := func(installed bool) error {
 		localState := resolver.LocalState{State: operation.State{
@@ -411,11 +433,16 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *gc.C) {
 	}
 
 	// Inform the resolver of a new, unprovisioned storage attachment.
-	// Before install, we should wait for its completion; after install,
-	// we should not.
+	// For IAAS models, before install, we should wait for its completion;
+	// after install, we should not.
 	err = nextOp(false /* workload not installed */)
 	c.Assert(att.Pending(), gc.Equals, 1)
-	c.Assert(err, gc.Equals, resolver.ErrWaiting)
+
+	if s.modelType == model.IAAS {
+		c.Assert(err, gc.Equals, resolver.ErrWaiting)
+	} else {
+		c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	}
 
 	err = nextOp(true /* workload installed */)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)

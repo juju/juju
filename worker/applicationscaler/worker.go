@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Facade defines the capabilities required by the worker.

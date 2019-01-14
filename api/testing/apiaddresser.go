@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 type APIAddresserTests struct {

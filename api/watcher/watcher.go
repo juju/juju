@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -235,7 +235,7 @@ func (w *stringsWatcher) loop(initialChanges []string) error {
 }
 
 // Changes returns a channel that receives a list of strings of watched
-// entites with changes.
+// entities with changes.
 func (w *stringsWatcher) Changes() watcher.StringsChannel {
 	return w.out
 }
@@ -506,6 +506,13 @@ type machineAttachmentsWatcher struct {
 // volume attachments.
 func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher {
 	return newMachineStorageIdsWatcher("VolumeAttachmentsWatcher", caller, result)
+}
+
+// NewVolumeAttachmentPlansWatcher returns a MachineStorageIdsWatcher which
+// communicates with the VolumeAttachmentPlansWatcher API facade to watch
+// volume attachments.
+func NewVolumeAttachmentPlansWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher {
+	return newMachineStorageIdsWatcher("VolumeAttachmentPlansWatcher", caller, result)
 }
 
 // NewFilesystemAttachmentsWatcher returns a MachineStorageIdsWatcher which

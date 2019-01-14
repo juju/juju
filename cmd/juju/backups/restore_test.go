@@ -19,10 +19,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -263,5 +263,5 @@ func (s *restoreSuite) TestRestoreFromBackupHAFail(c *gc.C) {
 		modelStatusClient.EXPECT().Close(),
 	)
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "restore", "--id", "an_id")
-	c.Assert(err, gc.ErrorMatches, "unable to restore backup in HA configuration.  For help see https://docs.jujucharms.com/devel/en/controllers-backup")
+	c.Assert(err, gc.ErrorMatches, "unable to restore backup in HA configuration.  For help see https://docs.jujucharms.com/stable/controllers-backup")
 }

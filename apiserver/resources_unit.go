@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ResourcesHandler is the HTTP handler for unit agent downloads of
+// UnitResourcesHandler is the HTTP handler for unit agent downloads of
 // resources.
 type UnitResourcesHandler struct {
 	NewOpener func(*http.Request, ...string) (resource.Opener, state.PoolHelper, error)
@@ -27,7 +27,7 @@ type UnitResourcesHandler struct {
 func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case "GET":
-		opener, ph, err := h.NewOpener(req, names.UnitTagKind)
+		opener, ph, err := h.NewOpener(req, names.UnitTagKind, names.ApplicationTagKind)
 		if err != nil {
 			api.SendHTTPError(resp, err)
 			return
@@ -37,7 +37,12 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 		name := req.URL.Query().Get(":resource")
 		opened, err := opener.OpenResource(name)
 		if err != nil {
-			logger.Errorf("cannot fetch resource reader: %v", err)
+			if errors.IsNotFound(err) {
+				// non internal errors is not real errors.
+				logger.Warningf("cannot fetch resource reader: %v", err)
+			} else {
+				logger.Errorf("cannot fetch resource reader: %v", err)
+			}
 			api.SendHTTPError(resp, err)
 			return
 		}

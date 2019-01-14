@@ -24,6 +24,10 @@ type ManifoldsSuite struct {
 
 var _ = gc.Suite(&ManifoldsSuite{})
 
+func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+}
+
 func (*ManifoldsSuite) TestStartFuncs(c *gc.C) {
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
@@ -64,6 +68,8 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"http-server-args",
 		"is-controller-flag",
 		"is-primary-controller-flag",
+		"lease-clock-updater",
+		"lease-manager",
 		"log-pruner",
 		"log-sender",
 		"logging-config-updater",
@@ -81,7 +87,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"raft",
 		"raft-backstop",
 		"raft-clusterer",
-		"raft-enabled-flag",
+		"raft-forwarder",
 		"raft-leader-flag",
 		"raft-transport",
 		"reboot-executor",
@@ -99,10 +105,12 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"unit-agent-deployer",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
+		"upgrade-series",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
 		"upgrader",
+		"valid-credential-flag",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
@@ -135,6 +143,8 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"http-server-args",
 		"is-controller-flag",
 		"is-primary-controller-flag",
+		"lease-clock-updater",
+		"lease-manager",
 		"log-forwarder",
 		"model-worker-manager",
 		"peer-grouper",
@@ -149,6 +159,8 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"migration-minion",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
+		"upgrade-series",
+		"upgrade-series-enabled",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
@@ -156,9 +168,10 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"raft",
 		"raft-backstop",
 		"raft-clusterer",
-		"raft-enabled-flag",
+		"raft-forwarder",
 		"raft-leader-flag",
 		"raft-transport",
+		"valid-credential-flag",
 	)
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
@@ -180,7 +193,8 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"certificate-watcher",
 		"audit-config-updater",
 		"is-primary-controller-flag",
-		"raft-enabled-flag",
+		"lease-manager",
+		"raft-transport",
 	)
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",
@@ -293,6 +307,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
+		"lease-manager",
 		"restore-watcher",
 		"state",
 		"state-config-watcher",
@@ -394,7 +409,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
-		"raft-enabled-flag",
+		"lease-manager",
 		"raft-transport",
 		"restore-watcher",
 		"state",
@@ -420,6 +435,35 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"is-controller-flag",
 		"state",
 		"state-config-watcher"},
+
+	"lease-clock-updater": {
+		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
+		"lease-manager",
+		"raft",
+		"raft-forwarder",
+		"raft-leader-flag",
+		"raft-transport",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"lease-manager": {
+		"agent",
+		"central-hub",
+		"clock",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+	},
 
 	"log-pruner": {
 		"agent",
@@ -560,7 +604,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
-		"raft-enabled-flag",
 		"raft-transport",
 		"state",
 		"state-config-watcher",
@@ -578,7 +621,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"raft",
-		"raft-enabled-flag",
 		"raft-transport",
 		"state",
 		"state-config-watcher",
@@ -596,7 +638,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"raft",
-		"raft-enabled-flag",
 		"raft-leader-flag",
 		"raft-transport",
 		"state",
@@ -607,11 +648,23 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"raft-enabled-flag": {
+	"raft-forwarder": {
 		"agent",
+		"central-hub",
+		"clock",
+		"controller-port",
+		"http-server-args",
 		"is-controller-flag",
+		"raft",
+		"raft-leader-flag",
+		"raft-transport",
 		"state",
-		"state-config-watcher"},
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"raft-leader-flag": {
 		"agent",
@@ -621,7 +674,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"raft",
-		"raft-enabled-flag",
 		"raft-transport",
 		"state",
 		"state-config-watcher",
@@ -638,7 +690,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
-		"raft-enabled-flag",
 		"state",
 		"state-config-watcher",
 	},
@@ -702,7 +753,9 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
+		"upgrade-steps-gate",
+		"valid-credential-flag",
+	},
 
 	"termination-signal-handler": {},
 
@@ -759,6 +812,18 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"upgrade-check-gate": {},
 
+	"upgrade-series": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
 	"upgrade-steps-flag": {"upgrade-steps-gate"},
 
 	"upgrade-steps-gate": {},
@@ -775,4 +840,10 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"upgrade-check-gate",
 		"upgrade-steps-gate"},
+
+	"valid-credential-flag": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+	},
 }

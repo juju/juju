@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -31,7 +32,9 @@ type mockInstanceDistributor struct {
 	err               error
 }
 
-func (p *mockInstanceDistributor) DistributeInstances(ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
+func (p *mockInstanceDistributor) DistributeInstances(
+	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
+) ([]instance.Id, error) {
 	p.candidates = candidates
 	p.distributionGroup = distributionGroup
 	result := p.result
@@ -43,15 +46,14 @@ func (p *mockInstanceDistributor) DistributeInstances(ctx context.ProviderCallCo
 
 func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
+
 	s.distributor = mockInstanceDistributor{}
 	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
 		return &s.distributor, nil
 	}
-	s.wordpress = s.AddTestingApplication(
-		c,
-		"wordpress",
-		s.AddTestingCharm(c, "wordpress"),
-	)
+
+	s.wordpress = s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
 	s.machines = make([]*state.Machine, 3)
 	for i := range s.machines {
 		var err error
@@ -180,6 +182,43 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *InstanceDistributorSuite) TestDistributeInstancesWithZoneConstraints(c *gc.C) {
+	err := s.wordpress.SetConstraints(constraints.MustParse("zones=az1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Initial unit, assigned to machine 0, to get a distribution group.
+	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machines[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	az := "az1"
+	for i, m := range s.machines {
+		instId := instance.Id(fmt.Sprintf("i-blah-%d", i))
+
+		// Only machines 0 and 1 are in the desired availability zone.
+		hc := &instance.HardwareCharacteristics{AvailabilityZone: &az}
+		if i > 1 {
+			hc = nil
+		}
+
+		err = m.SetProvisioned(instId, "fake-nonce", hc)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	unit, err = s.wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Only machine 1 is empty, and in the desired AZ.
+	s.distributor.result = []instance.Id{"i-blah-1"}
+	_, err = unit.AssignToCleanMachine()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Machine 2 filtered by zone constraint.
+	c.Check(s.distributor.candidates, jc.SameContents, []instance.Id{"i-blah-1"})
+	c.Check(s.distributor.distributionGroup, jc.SameContents, []instance.Id{"i-blah-0"})
 }
 
 type ApplicationMachinesSuite struct {

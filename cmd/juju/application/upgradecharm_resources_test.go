@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -20,10 +21,13 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmstore.v5"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
@@ -46,11 +50,11 @@ func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	chPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
 	_, err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
-	riak, err := s.State.Application("riak")
+	curl := charm.MustParseURL("local:quantal/riak-7")
+	riak, _ := s.RepoSuite.AssertApplication(c, "riak", curl, 1, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	ch, forced, err := riak.Charm()
+	_, forced, err := riak.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Revision(), gc.Equals, 7)
 	c.Assert(forced, jc.IsFalse)
 }
 
@@ -124,16 +128,19 @@ resources:
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
 	jujutesting.JujuConnSuite
-	handler charmstore.HTTPCloseHandler
-	srv     *httptest.Server
-	client  *csclient.Client
+	handler    charmstore.HTTPCloseHandler
+	srv        *httptest.Server
+	srvSession *mgo.Session
+	client     *csclient.Client
 }
 
 func (s *charmStoreSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	srvSession, err := gitjujutesting.MgoServer.Dial()
+	c.Assert(err, gc.IsNil)
+	s.srvSession = srvSession
 
 	// Set up the charm store testing server.
-	db := s.Session.DB("juju-testing")
+	db := s.srvSession.DB("juju-testing")
 	params := charmstore.ServerParams{
 		AuthUsername: "test-user",
 		AuthPassword: "test-password",
@@ -148,20 +155,22 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		Password: params.AuthPassword,
 	})
 
-	application.PatchNewCharmStoreClient(s, s.srv.URL)
+	// Set charmstore URL config so the config is set during bootstrap
+	if s.ControllerConfigAttrs == nil {
+		s.ControllerConfigAttrs = make(map[string]interface{})
+	}
+	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
+
+	s.JujuConnSuite.SetUpTest(c)
 
 	// Initialize the charm cache dir.
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-
-	// Point the CLI to the charm store testing server.
-
-	// Point the Juju API server to the charm store testing server.
-	s.PatchValue(&csclient.ServerURL, s.srv.URL)
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {
 	s.handler.Close()
 	s.srv.Close()
+	s.srvSession.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -202,8 +211,13 @@ Deploying charm "cs:trusty/starsay-1".`
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"starsay": {charm: "cs:trusty/starsay-1"},
 	})
-	_, err = s.State.Unit("starsay/0")
+
+	unit, err := s.State.Unit("starsay/0")
 	c.Assert(err, jc.ErrorIsNil)
+	tags := []names.UnitTag{unit.UnitTag()}
+	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, []error{nil})
 
 	res, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)

@@ -90,7 +90,11 @@ func (c *rackspaceFirewaller) InstanceIngressRules(ctx context.ProviderCallConte
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return configurator.FindIngressRules()
+	rules, err := configurator.FindIngressRules()
+	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+	}
+	return rules, err
 }
 
 func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext, inst instance.Instance, insert bool, rules []network.IngressRule) error {
@@ -103,6 +107,7 @@ func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext
 		if addr.Scope == network.ScopePublic {
 			err = sshClient.ChangeIngressRules(addr.Value, insert, rules)
 			if err != nil {
+				common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 				return errors.Trace(err)
 			}
 		}
@@ -113,6 +118,7 @@ func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext
 func (c *rackspaceFirewaller) getInstanceConfigurator(ctx context.ProviderCallContext, inst instance.Instance) ([]network.Address, common.InstanceConfigurator, error) {
 	addresses, err := inst.Addresses(ctx)
 	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, nil, errors.Trace(err)
 	}
 	if len(addresses) == 0 {

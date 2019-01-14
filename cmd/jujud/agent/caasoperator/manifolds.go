@@ -6,7 +6,8 @@ package caasoperator
 import (
 	"time"
 
-	"github.com/juju/utils/clock"
+	"github.com/juju/clock"
+	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -18,10 +19,13 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/worker/agent"
+	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
@@ -36,11 +40,19 @@ type ManifoldsConfig struct {
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
 
+	// AgentConfigChanged is set whenever the unit agent's config
+	// is updated.
+	AgentConfigChanged *voyeur.Value
+
 	// Clock contains the clock that will be made available to manifolds.
 	Clock clock.Clock
 
 	// LogSource will be read from by the logsender component.
 	LogSource logsender.LogRecordCh
+
+	// UpdateLoggerConfig is a function that will save the specified
+	// config value as the logging config in the agent.conf file.
+	UpdateLoggerConfig func(string) error
 
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
@@ -79,13 +91,30 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
 
+		// The api-config-watcher manifold monitors the API server
+		// addresses in the agent config and bounces when they
+		// change. It's required as part of model migrations.
+		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		}),
+
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName:     agentName,
-			APIOpen:       api.Open,
-			NewConnection: apicaller.OnlyConnect,
+			AgentName:            agentName,
+			APIOpen:              api.Open,
+			APIConfigWatcherName: apiConfigWatcherName,
+			NewConnection:        apicaller.OnlyConnect,
 		}),
 
 		clockName: clockManifold(config.Clock),
+
+		// The log sender is a leaf worker that sends log messages to some
+		// API server, when configured so to do. We should only need one of
+		// these in a consolidated agent.
+		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
+			APICallerName: apiCallerName,
+			LogSource:     config.LogSource,
+		}),
 
 		// The upgrade steps gate is used to coordinate workers which
 		// shouldn't do anything until the upgrade-steps worker has
@@ -123,6 +152,24 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
 		}),
+
+		// The logging config updater is a leaf worker that indirectly
+		// controls the messages sent via the log sender according to
+		// changes in environment config. We should only need one of
+		// these in a consolidated agent.
+		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			UpdateAgentFunc: config.UpdateLoggerConfig,
+		})),
+
+		// The api address updater is a leaf worker that rewrites agent config
+		// as the controller addresses change. We should only need one of
+		// these in a consolidated agent.
+		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+		})),
 
 		// The charmdir resource coordinates whether the charm directory is
 		// available or not; after 'start' hook and before 'stop' hook
@@ -187,10 +234,12 @@ var ifNotMigrating = engine.Housing{
 }.Decorate
 
 const (
-	agentName     = "agent"
-	apiCallerName = "api-caller"
-	clockName     = "clock"
-	operatorName  = "operator"
+	agentName            = "agent"
+	apiConfigWatcherName = "api-config-watcher"
+	apiCallerName        = "api-caller"
+	clockName            = "clock"
+	operatorName         = "operator"
+	logSenderName        = "log-sender"
 
 	charmDirName          = "charm-dir"
 	hookRetryStrategyName = "hook-retry-strategy"
@@ -201,4 +250,7 @@ const (
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
+
+	loggingConfigUpdaterName = "logging-config-updater"
+	apiAddressUpdaterName    = "api-address-updater"
 )

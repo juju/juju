@@ -13,6 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/backups"
 )
@@ -30,10 +31,10 @@ backup's unique ID.  You may provide a note to associate with the backup.
 By default, the backup archive and associated metadata are downloaded 
 without keeping a copy remotely on the controller.
 
-Use --no-download to avoid getting a local copy of the backup downloaded
-at the end of the backup process. 
+Use --no-download to avoid getting a local copy of the backup downloaded 
+at the end of the backup process.
 
-Use --keep-copy option to store a copy of backup remotely on the controller. 
+Use --keep-copy option to store a copy of backup remotely on the controller.
 
 Use --verbose to see extra information about backup.
 
@@ -72,12 +73,12 @@ type createCommand struct {
 
 // Info implements Command.Info.
 func (c *createCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "create-backup",
 		Args:    "[<notes>]",
 		Purpose: "Create a backup.",
 		Doc:     createDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

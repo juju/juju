@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	test "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
@@ -597,6 +597,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	fa2, err := unit1.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// set up watcher on first unit
 	w := unit1.WatchActionNotifications()
@@ -604,33 +605,23 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	// make sure the previously pending actions are sent on the watcher
 	expect := expectActionIds(fa1, fa2)
-	// Fixes lp#1589641: some time, under race & stress testing,
-	// reads of changes from watcher chan seem to get out of order.
-	// This additional Sync, ensures that the changes are processed correctly.
-	wc.State.StartSync()
 	wc.AssertChange(expect...)
-	wc.State.StartSync()
 	wc.AssertNoChange()
 
 	// add watcher on unit2
 	w2 := unit2.WatchActionNotifications()
 	defer statetesting.AssertStop(c, w2)
 	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
-	wc2.State.StartSync()
 	wc2.AssertChange()
-	wc2.State.StartSync()
 	wc2.AssertNoChange()
 
 	// add action on unit2 and makes sure unit1 watcher doesn't trigger
 	// and unit2 watcher does
 	fa3, err := unit2.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.State.StartSync()
 	wc.AssertNoChange()
 	expect2 := expectActionIds(fa3)
-	wc2.State.StartSync()
 	wc2.AssertChange(expect2...)
-	wc2.State.StartSync()
 	wc2.AssertNoChange()
 
 	// add a couple actions on unit1 and make sure watcher sees events
@@ -640,9 +631,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect = expectActionIds(fa4, fa5)
-	wc.State.StartSync()
 	wc.AssertChange(expect...)
-	wc.State.StartSync()
 	wc.AssertNoChange()
 }
 
@@ -985,7 +974,7 @@ type ActionPruningSuite struct {
 var _ = gc.Suite(&ActionPruningSuite{})
 
 func (s *ActionPruningSuite) TestPruneActionsBySize(c *gc.C) {
-	clock := test.NewClock(coretesting.NonZeroTime())
+	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
@@ -1016,7 +1005,7 @@ func (s *ActionPruningSuite) TestPruneActionsBySize(c *gc.C) {
 }
 
 func (s *ActionPruningSuite) TestPruneActionsBySizeOldestFirst(c *gc.C) {
-	clock := test.NewClock(coretesting.NonZeroTime())
+	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
@@ -1057,7 +1046,7 @@ func (s *ActionPruningSuite) TestPruneActionsBySizeOldestFirst(c *gc.C) {
 }
 
 func (s *ActionPruningSuite) TestPruneActionByAge(c *gc.C) {
-	clock := test.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
@@ -1088,7 +1077,7 @@ func (s *ActionPruningSuite) TestPruneActionByAge(c *gc.C) {
 // Pruner should not prune actions with age of epoch time since the epoch is a
 // special value denoting an incomplete action.
 func (s *ActionPruningSuite) TestDoNotPruneIncompleteActions(c *gc.C) {
-	clock := test.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)

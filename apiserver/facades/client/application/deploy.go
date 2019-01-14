@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -36,6 +37,7 @@ type DeployApplicationParams struct {
 	// instead of a machine spec.
 	Placement        []*instance.Placement
 	Storage          map[string]storage.Constraints
+	Devices          map[string]devices.Constraints
 	AttachStorage    []names.StorageTag
 	EndpointBindings map[string]string
 	// Resources is a map of resource name to IDs of pending resources.
@@ -78,6 +80,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 		Charm:             args.Charm,
 		Channel:           args.Channel,
 		Storage:           stateStorageConstraints(args.Storage),
+		Devices:           stateDeviceConstraints(args.Devices),
 		AttachStorage:     args.AttachStorage,
 		ApplicationConfig: args.ApplicationConfig,
 		CharmConfig:       charmConfig,
@@ -103,7 +106,7 @@ func quoteStrings(vals []string) string {
 
 func validateGivenBindings(givenBindings map[string]string, defaultBindings map[string]string) error {
 	invalidBindings := make([]string, 0)
-	for name, _ := range givenBindings {
+	for name := range givenBindings {
 		if name == "" {
 			continue
 		}
@@ -115,7 +118,7 @@ func validateGivenBindings(givenBindings map[string]string, defaultBindings map[
 		return nil
 	}
 	possibleBindings := make([]string, 0)
-	for name, _ := range defaultBindings {
+	for name := range defaultBindings {
 		if name == "" {
 			continue
 		}
@@ -147,7 +150,7 @@ func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[s
 	}
 
 	effectiveBindings := make(map[string]string, len(defaultBindings))
-	for endpoint, _ := range defaultBindings {
+	for endpoint := range defaultBindings {
 		if givenSpace, isGiven := givenBindings[endpoint]; isGiven {
 			effectiveBindings[endpoint] = givenSpace
 		} else {
@@ -191,7 +194,7 @@ func addUnits(
 			continue
 		}
 		if err := unit.AssignWithPlacement(placement[i]); err != nil {
-			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.UnitTag().Id())
+			return nil, errors.Annotatef(err, "acquiring machine to host unit %q", unit.UnitTag().Id())
 		}
 	}
 	return units, nil
@@ -204,6 +207,18 @@ func stateStorageConstraints(cons map[string]storage.Constraints) map[string]sta
 			Pool:  cons.Pool,
 			Size:  cons.Size,
 			Count: cons.Count,
+		}
+	}
+	return result
+}
+
+func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]state.DeviceConstraints {
+	result := make(map[string]state.DeviceConstraints)
+	for name, cons := range cons {
+		result[name] = state.DeviceConstraints{
+			Type:       state.DeviceType(cons.Type),
+			Count:      cons.Count,
+			Attributes: cons.Attributes,
 		}
 	}
 	return result

@@ -1,3 +1,6 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package netplan_test
 
 import (
@@ -14,6 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/network/netplan"
 	coretesting "github.com/juju/juju/testing"
@@ -42,7 +46,7 @@ func checkNetplanRoundTrips(c *gc.C, input string) {
 	var np netplan.Netplan
 	err := netplan.Unmarshal([]byte(input), &np)
 	c.Assert(err, jc.ErrorIsNil)
-	out, err := netplan.Marshal(np)
+	out, err := netplan.Marshal(&np)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(out), gc.Equals, input)
 }
@@ -888,7 +892,7 @@ network:
     id0:
       match:
         macaddress: "00:11:22:33:44:55"
-    id0:
+    id1:
       match:
         macaddress: "00:11:22:33:44:66"
   vlans:
@@ -1301,7 +1305,7 @@ network:
 	np, err := netplan.ReadDirectory("testdata/TestReadDirectory")
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := netplan.Marshal(np)
+	out, err := netplan.Marshal(&np)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(out), gc.Equals, expected)
 }
@@ -1340,7 +1344,7 @@ network:
 	np, err := netplan.ReadDirectory("testdata/TestReadDirectory")
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := netplan.Marshal(np)
+	out, err := netplan.Marshal(&np)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(out), gc.Equals, expected)
 }
@@ -1588,7 +1592,7 @@ func (s *NetplanSuite) TestNetplanExamples(c *gc.C) {
 	for _, example := range examples {
 		c.Logf("example: %s", example.filename)
 		var orig map[interface{}]interface{}
-		err := netplan.Unmarshal([]byte(example.content), &orig)
+		err := yaml.UnmarshalStrict([]byte(example.content), &orig)
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf("failed to unmarshal as map %s", example.filename))
 		var np netplan.Netplan
 		err = netplan.Unmarshal([]byte(example.content), &np)
@@ -1596,10 +1600,10 @@ func (s *NetplanSuite) TestNetplanExamples(c *gc.C) {
 		// We don't assert that we exactly match the serialized form (we may output fields in a different order),
 		// but we do check that if we Marshal and then Unmarshal again, we get the same map contents.
 		// (We might also change boolean 'no' to 'false', etc.
-		out, err := netplan.Marshal(np)
+		out, err := netplan.Marshal(&np)
 		c.Check(err, jc.ErrorIsNil, gc.Commentf("failed to marshal %s", example.filename))
 		var roundtripped map[interface{}]interface{}
-		err = netplan.Unmarshal(out, &roundtripped)
+		err = yaml.UnmarshalStrict(out, &roundtripped)
 		if !reflect.DeepEqual(orig, roundtripped) {
 			pretty.Ldiff(c, orig, roundtripped)
 			c.Errorf("marshalling and unmarshalling %s did not contain the same content", example.filename)

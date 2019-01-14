@@ -8,9 +8,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/storage/plans"
 )
 
 // volumesChanged is called when the lifecycle states of the volumes
@@ -52,6 +53,121 @@ func volumesChanged(ctx *context, changes []string) error {
 		return errors.Annotate(err, "provisioning volumes")
 	}
 	return nil
+}
+
+func sortVolumeAttachmentPlans(ctx *context, ids []params.MachineStorageId) (
+	alive, dying, dead []params.VolumeAttachmentPlanResult, err error) {
+	plans, err := ctx.config.Volumes.VolumeAttachmentPlans(ids)
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+	logger.Debugf("Found plans: %v", plans)
+	for _, plan := range plans {
+		switch plan.Result.Life {
+		case params.Alive:
+			alive = append(alive, plan)
+		case params.Dying:
+			dying = append(dying, plan)
+		case params.Dead:
+			dead = append(dead, plan)
+		}
+	}
+	return
+}
+
+func volumeAttachmentPlansChanged(ctx *context, watcherIds []watcher.MachineStorageId) error {
+	logger.Debugf("Got machine storage ids: %v", watcherIds)
+	ids := copyMachineStorageIds(watcherIds)
+	alive, dying, dead, err := sortVolumeAttachmentPlans(ctx, ids)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("volume attachment plans alive: %v, dying: %v, dead: %v", alive, dying, dead)
+
+	if err := processAliveVolumePlans(ctx, alive); err != nil {
+		return err
+	}
+
+	if err := processDyingVolumePlans(ctx, dying); err != nil {
+		return err
+	}
+	return nil
+}
+
+func processAliveVolumePlans(ctx *context, volumePlans []params.VolumeAttachmentPlanResult) error {
+	volumeAttachmentPlans := make([]params.VolumeAttachmentPlan, len(volumePlans))
+	volumeTags := make([]names.VolumeTag, len(volumePlans))
+	for i, val := range volumePlans {
+		volumeAttachmentPlans[i] = val.Result
+		tag, err := names.ParseVolumeTag(val.Result.VolumeTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		volumeTags[i] = tag
+	}
+
+	for idx, val := range volumeAttachmentPlans {
+		volPlan, err := plans.PlanByType(val.PlanInfo.DeviceType)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			continue
+		}
+		if blockDeviceInfo, err := volPlan.AttachVolume(val.PlanInfo.DeviceAttributes); err != nil {
+			return errors.Trace(err)
+		} else {
+			volumeAttachmentPlans[idx].BlockDevice = blockDeviceInfo
+		}
+	}
+
+	results, err := ctx.config.Volumes.SetVolumeAttachmentPlanBlockInfo(volumeAttachmentPlans)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, result := range results {
+		if result.Error != nil {
+			return errors.Errorf("failed to publish block info to state: %s", result.Error)
+		}
+	}
+	return refreshVolumeBlockDevices(ctx, volumeTags)
+}
+
+func processDyingVolumePlans(ctx *context, volumePlans []params.VolumeAttachmentPlanResult) error {
+	ids := volumePlansToMachineIds(volumePlans)
+	for _, val := range volumePlans {
+		volPlan, err := plans.PlanByType(val.Result.PlanInfo.DeviceType)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			continue
+		}
+		if err := volPlan.DetachVolume(val.Result.PlanInfo.DeviceAttributes); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	results, err := ctx.config.Volumes.RemoveVolumeAttachmentPlan(ids)
+	if err != nil {
+		return err
+	}
+	for _, result := range results {
+		if result.Error != nil {
+			return errors.Annotate(result.Error, "removing volume plan")
+		}
+	}
+	return nil
+}
+
+func volumePlansToMachineIds(plans []params.VolumeAttachmentPlanResult) []params.MachineStorageId {
+	storageIds := make([]params.MachineStorageId, len(plans))
+	for i, plan := range plans {
+		storageIds[i] = params.MachineStorageId{
+			MachineTag:    plan.Result.MachineTag,
+			AttachmentTag: plan.Result.VolumeTag,
+		}
+	}
+	return storageIds
 }
 
 // volumeAttachmentsChanged is called when the lifecycle states of the volume
@@ -98,6 +214,10 @@ func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageI
 // processDyingVolumes processes the VolumeResults for Dying volumes,
 // removing them from provisioning-pending as necessary.
 func processDyingVolumes(ctx *context, tags []names.Tag) error {
+	if ctx.isApplicationKind() {
+		// only care dead for application.
+		return nil
+	}
 	for _, tag := range tags {
 		removePendingVolume(ctx, tag.(names.VolumeTag))
 	}
@@ -131,7 +251,7 @@ func updatePendingVolume(ctx *context, params storage.VolumeParams) {
 		return
 	}
 	if params.Attachment.InstanceId == "" {
-		watchMachine(ctx, params.Attachment.Machine)
+		watchMachine(ctx, params.Attachment.Machine.(names.MachineTag))
 		ctx.incompleteVolumeParams[params.Tag] = params
 	} else {
 		delete(ctx.incompleteVolumeParams, params.Tag)
@@ -156,7 +276,7 @@ func updatePendingVolumeAttachment(
 	params storage.VolumeAttachmentParams,
 ) {
 	if params.InstanceId == "" {
-		watchMachine(ctx, params.Machine)
+		watchMachine(ctx, params.Machine.(names.MachineTag))
 	} else if params.VolumeId != "" {
 		delete(ctx.incompleteVolumeAttachmentParams, id)
 		scheduleOperations(ctx, &attachVolumeOp{args: params})
@@ -260,6 +380,11 @@ func processDyingVolumeAttachments(
 // processAliveVolumes processes the VolumeResults for Alive volumes,
 // provisioning volumes and setting the info in state as necessary.
 func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.VolumeResult) error {
+	if ctx.isApplicationKind() {
+		// only care dead for application kind.
+		return nil
+	}
+
 	// Filter out the already-provisioned volumes.
 	pending := make([]names.VolumeTag, 0, len(tags))
 	for i, result := range volumeResults {
@@ -292,6 +417,10 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 		return errors.Annotate(err, "getting volume params")
 	}
 	for _, params := range volumeParams {
+		if params.Attachment != nil && params.Attachment.Machine.Kind() != names.MachineTagKind {
+			logger.Debugf("not queuing volume for non-machine %v", params.Attachment.Machine)
+			continue
+		}
 		updatePendingVolume(ctx, params)
 	}
 	return nil
@@ -342,6 +471,10 @@ func processAliveVolumeAttachments(
 		return errors.Trace(err)
 	}
 	for i, params := range params {
+		if params.Machine.Kind() != names.MachineTagKind {
+			logger.Debugf("not queuing volume attachment for non-machine %v", params.Machine)
+			continue
+		}
 		if volume, ok := ctx.volumes[params.Volume]; ok {
 			params.VolumeId = volume.VolumeId
 		}
@@ -429,6 +562,13 @@ func volumesFromStorage(in []storage.Volume) []params.Volume {
 func volumeAttachmentsFromStorage(in []storage.VolumeAttachment) []params.VolumeAttachment {
 	out := make([]params.VolumeAttachment, len(in))
 	for i, v := range in {
+		planInfo := &params.VolumeAttachmentPlanInfo{}
+		if v.PlanInfo != nil {
+			planInfo.DeviceType = v.PlanInfo.DeviceType
+			planInfo.DeviceAttributes = v.PlanInfo.DeviceAttributes
+		} else {
+			planInfo = nil
+		}
 		out[i] = params.VolumeAttachment{
 			v.Volume.String(),
 			v.Machine.String(),
@@ -437,6 +577,7 @@ func volumeAttachmentsFromStorage(in []storage.VolumeAttachment) []params.Volume
 				v.DeviceLink,
 				v.BusAddress,
 				v.ReadOnly,
+				planInfo,
 			},
 		}
 	}
@@ -481,7 +622,7 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 				in.VolumeTag, in.Attachment.VolumeTag,
 			)
 		}
-		machineTag, err := names.ParseMachineTag(in.Attachment.MachineTag)
+		hostTag, err := names.ParseTag(in.Attachment.MachineTag)
 		if err != nil {
 			return storage.VolumeParams{}, errors.Annotate(
 				err, "parsing attachment machine tag",
@@ -490,7 +631,7 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 		attachment = &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   providerType,
-				Machine:    machineTag,
+				Machine:    hostTag,
 				InstanceId: instance.Id(in.Attachment.InstanceId),
 				ReadOnly:   in.Attachment.ReadOnly,
 			},
@@ -508,7 +649,7 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 }
 
 func volumeAttachmentParamsFromParams(in params.VolumeAttachmentParams) (storage.VolumeAttachmentParams, error) {
-	machineTag, err := names.ParseMachineTag(in.MachineTag)
+	hostTag, err := names.ParseTag(in.MachineTag)
 	if err != nil {
 		return storage.VolumeAttachmentParams{}, errors.Trace(err)
 	}
@@ -519,7 +660,7 @@ func volumeAttachmentParamsFromParams(in params.VolumeAttachmentParams) (storage
 	return storage.VolumeAttachmentParams{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   storage.ProviderType(in.Provider),
-			Machine:    machineTag,
+			Machine:    hostTag,
 			InstanceId: instance.Id(in.InstanceId),
 			ReadOnly:   in.ReadOnly,
 		},

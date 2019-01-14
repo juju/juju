@@ -62,7 +62,7 @@ func (s *actionsSuite) TestNextAction(c *gc.C) {
 		State: operation.State{
 			Kind: operation.Continue,
 		},
-		CompletedActions: map[string]struct{}{"actionA": struct{}{}},
+		CompletedActions: map[string]struct{}{"actionA": {}},
 	}
 	remoteState := remotestate.Snapshot{
 		Actions: []string{"actionA", "actionB"},

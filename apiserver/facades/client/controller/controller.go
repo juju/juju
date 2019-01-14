@@ -509,8 +509,12 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 
 		controllerAccess := permission.Access(arg.Access)
 		if err := permission.ValidateControllerAccess(controllerAccess); err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
+			// TODO(wallyworld) - remove in Juju 3.0
+			// Backwards compatibility requires us to accept add-model.
+			if controllerAccess != permission.AddModelAccess {
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
 		}
 
 		targetUserTag, err := names.ParseUserTag(arg.UserTag)
@@ -643,7 +647,48 @@ func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
 	}
 }
 
+// grantControllerCloudAccess exists for backwards compatibility since older clients
+// still set add-model on the controller rather than the controller cloud.
+func grantControllerCloudAccess(accessor *state.State, targetUserTag names.UserTag, access permission.Access) error {
+	controllerInfo, err := accessor.ControllerInfo()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cloud := controllerInfo.CloudName
+	err = accessor.CreateCloudAccess(cloud, targetUserTag, access)
+	if errors.IsAlreadyExists(err) {
+		cloudAccess, err := accessor.GetCloudAccess(cloud, targetUserTag)
+		if errors.IsNotFound(err) {
+			// Conflicts with prior check, must be inconsistent state.
+			err = txn.ErrExcessiveContention
+		}
+		if err != nil {
+			return errors.Annotate(err, "could not look up cloud access for user")
+		}
+
+		// Only set access if greater access is being granted.
+		if cloudAccess.EqualOrGreaterCloudAccessThan(access) {
+			return errors.Errorf("user already has %q access or greater", access)
+		}
+		if _, err = accessor.SetUserAccess(targetUserTag, names.NewCloudTag(cloud), access); err != nil {
+			return errors.Annotate(err, "could not set cloud access for user")
+		}
+		return nil
+
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
+	// TODO(wallyworld) - remove in Juju 3.0
+	// Older clients still use the controller facade to manage add-model access.
+	if access == permission.AddModelAccess {
+		return grantControllerCloudAccess(accessor, targetUserTag, access)
+	}
+
 	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
 	if errors.IsAlreadyExists(err) {
 		controllerTag := accessor.ControllerTag()
@@ -673,33 +718,34 @@ func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.U
 }
 
 func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
+	// TODO(wallyworld) - remove in Juju 3.0
+	// Older clients still use the controller facade to manage add-model access.
+	if access == permission.AddModelAccess {
+		controllerInfo, err := accessor.ControllerInfo()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return accessor.RemoveCloudAccess(controllerInfo.CloudName, targetUserTag)
+	}
+
 	controllerTag := accessor.ControllerTag()
 	switch access {
 	case permission.LoginAccess:
 		// Revoking login access removes all access.
 		err := accessor.RemoveUserAccess(targetUserTag, controllerTag)
 		return errors.Annotate(err, "could not revoke controller access")
-	case permission.AddModelAccess:
-		// Revoking add-model access sets login.
+	case permission.SuperuserAccess:
+		// Revoking superuser sets login.
 		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
 		if err != nil {
 			return errors.Annotate(err, "could not look up controller access for user")
 		}
 		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.LoginAccess)
-		return errors.Annotate(err, "could not set controller access to read-only")
-	case permission.SuperuserAccess:
-		// Revoking superuser sets add-model.
-		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
-		if err != nil {
-			return errors.Annotate(err, "could not look up controller access for user")
-		}
-		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.AddModelAccess)
-		return errors.Annotate(err, "could not set controller access to add-model")
+		return errors.Annotate(err, "could not set controller access to login")
 
 	default:
 		return errors.Errorf("don't know how to revoke %q access", access)
 	}
-
 }
 
 // ChangeControllerAccess performs the requested access grant or revoke action for the

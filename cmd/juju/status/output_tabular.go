@@ -17,11 +17,12 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
 )
 
 const (
@@ -94,6 +95,10 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		printRelations(tw, fs.Relations)
 	}
 
+	if fs.Storage != nil {
+		storage.FormatStorageListForStatusTabular(tw, *fs.Storage)
+	}
+
 	endSection(tw)
 	return nil
 }
@@ -147,6 +152,12 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		if app.Exposed {
 			notes = "exposed"
 		}
+		// Expose any operator messages.
+		if fs.Model.Type == caasModelType {
+			if app.StatusInfo.Message != "" {
+				notes = app.StatusInfo.Message
+			}
+		}
 		w.Print(appName, version)
 		w.PrintStatus(app.StatusInfo.Current)
 		scale, warn := fs.applicationScale(appName)
@@ -155,6 +166,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		} else {
 			w.Print(scale)
 		}
+
 		w.Print(app.CharmName,
 			app.CharmOrigin,
 			app.CharmRev,
@@ -162,6 +174,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		if fs.Model.Type == caasModelType {
 			w.Print(app.Address)
 		}
+
 		w.Println(notes)
 		for un, u := range app.Units {
 			units[un] = u
@@ -174,6 +187,10 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 
 	pUnit := func(name string, u unitStatus, level int) {
 		message := u.WorkloadStatusInfo.Message
+		// If we're still allocating and there's a message, show that.
+		if u.JujuStatusInfo.Current == status.Allocating && message == "" {
+			message = u.JujuStatusInfo.Message
+		}
 		agentDoing := agentDoing(u.JujuStatusInfo)
 		if agentDoing != "" {
 			message = fmt.Sprintf("(%s) %s", agentDoing, message)

@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/watcher"
 )
 
 // State provides access to the Machiner API facade.
@@ -29,14 +29,14 @@ type State struct {
 // MachineResult provides a found Machine and any Error related to
 // finding it.
 type MachineResult struct {
-	Machine *Machine
+	Machine MachineProvisioner
 	Err     *params.Error
 }
 
 // MachineStatusResult provides a found Machine and Status Results
 // for it.
 type MachineStatusResult struct {
-	Machine *Machine
+	Machine MachineProvisioner
 	Status  params.StatusResult
 }
 
@@ -47,11 +47,25 @@ type DistributionGroupResult struct {
 	Err        *params.Error
 }
 
+// LXDProfileResult provides a charm.LXDProfile, adding the name.
+type LXDProfileResult struct {
+	Config      map[string]string            `json:"config" yaml:"config"`
+	Description string                       `json:"description" yaml:"description"`
+	Devices     map[string]map[string]string `json:"devices" yaml:"devices"`
+	Name        string                       `json:"name" yaml:"name"`
+}
+
 const provisionerFacade = "Provisioner"
 
-// NewState creates a new client-side Machiner facade.
+// NewState creates a new provisioner facade using the input caller.
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade)
+	return NewStateFromFacade(facadeCaller)
+}
+
+// NewStateFromFacade creates a new provisioner facade using the input
+// facade caller.
+func NewStateFromFacade(facadeCaller base.FacadeCaller) *State {
 	return &State{
 		ModelWatcher:        common.NewModelWatcher(facadeCaller),
 		APIAddresser:        common.NewAPIAddresser(facadeCaller),
@@ -118,6 +132,22 @@ func (st *State) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
 		return nil, result.Error
 	}
 	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies of
+// changes to the upgrade charm profile charm url for all non container machines
+// in the current model.
+func (st *State) WatchModelMachinesCharmProfiles() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	err := st.facade.FacadeCall("WatchModelMachinesCharmProfiles", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -373,4 +403,36 @@ func (a *State) CACert() (string, error) {
 		return "", err
 	}
 	return string(result.Result), nil
+}
+
+// GetContainerProfileInfo returns a slice of ContainerLXDProfile, 1 for each unit's charm
+// which contains an lxd-profile.yaml.
+func (st *State) GetContainerProfileInfo(containerTag names.MachineTag) ([]*LXDProfileResult, error) {
+	var result params.ContainerProfileResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: containerTag.String()}},
+	}
+	if err := st.facade.FacadeCall("GetContainerProfileInfo", args, &result); err != nil {
+		return nil, err
+	}
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	if err := result.Results[0].Error; err != nil {
+		return nil, err
+	}
+	profiles := result.Results[0].LXDProfiles
+	var res []*LXDProfileResult
+	for _, p := range profiles {
+		if p == nil {
+			continue
+		}
+		res = append(res, &LXDProfileResult{
+			Config:      p.Profile.Config,
+			Description: p.Profile.Description,
+			Devices:     p.Profile.Devices,
+			Name:        p.Name,
+		})
+	}
+	return res, nil
 }

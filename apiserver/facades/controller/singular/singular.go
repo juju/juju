@@ -27,8 +27,13 @@ func NewExternalFacade(context facade.Context) (*Facade, error) {
 		return nil, err
 	}
 
+	claimer, err := context.SingularClaimer()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	backend := getBackend(st, m.ModelTag())
-	return NewFacade(backend, auth)
+	return NewFacade(backend, claimer, auth)
 }
 
 var getBackend = func(st *state.State, modelTag names.ModelTag) Backend {
@@ -53,32 +58,29 @@ type Backend interface {
 
 	// ModelTag tells the Facade what models it should consider requests for.
 	ModelTag() names.ModelTag
-
-	// SingularClaimer allows the Facade to make claims.
-	SingularClaimer() lease.Claimer
 }
 
 // NewFacade returns a singular-controller API facade, backed by the supplied
 // state, so long as the authorizer represents a controller machine.
-func NewFacade(backend Backend, auth facade.Authorizer) (*Facade, error) {
+func NewFacade(backend Backend, claimer lease.Claimer, auth facade.Authorizer) (*Facade, error) {
 	if !auth.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &Facade{
-		auth:          auth,
-		modelTag:      backend.ModelTag(),
-		controllerTag: backend.ControllerTag(),
-		claimer:       backend.SingularClaimer(),
+		auth:            auth,
+		modelTag:        backend.ModelTag(),
+		controllerTag:   backend.ControllerTag(),
+		singularClaimer: claimer,
 	}, nil
 }
 
 // Facade allows controller machines to request exclusive rights to administer
 // some specific model or controller for a limited time.
 type Facade struct {
-	auth          facade.Authorizer
-	controllerTag names.ControllerTag
-	modelTag      names.ModelTag
-	claimer       lease.Claimer
+	auth            facade.Authorizer
+	controllerTag   names.ControllerTag
+	modelTag        names.ModelTag
+	singularClaimer lease.Claimer
 }
 
 // Wait waits for the singular-controller lease to expire for all supplied
@@ -95,7 +97,7 @@ func (facade *Facade) Wait(ctx context.Context, args params.Entities) (result pa
 		// TODO(axw) 2017-10-30 #1728594
 		// We should be waiting for the leases in parallel,
 		// so the waits do not affect one another.
-		err = facade.claimer.WaitUntilExpired(leaseId, ctx.Done())
+		err = facade.singularClaimer.WaitUntilExpired(leaseId, ctx.Done())
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result
@@ -125,7 +127,7 @@ func (facade *Facade) claim(claim params.SingularClaim) error {
 	if claim.ClaimantTag != holder {
 		return common.ErrPerm
 	}
-	return facade.claimer.Claim(leaseId, holder, claim.Duration)
+	return facade.singularClaimer.Claim(leaseId, holder, claim.Duration)
 }
 
 func (facade *Facade) tagLeaseId(tagString string) (string, error) {

@@ -11,13 +11,16 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/romulus"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
+	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/core/resources"
 )
 
 const (
@@ -81,6 +84,9 @@ const (
 
 	// CACertKey is the key for the controller's CA certificate attribute.
 	CACertKey = "ca-cert"
+
+	// CharmStoreURL is the key for the url to use for charmstore API calls
+	CharmStoreURL = "charmstore-url"
 
 	// ControllerUUIDKey is the key for the controller UUID attribute.
 	ControllerUUIDKey = "controller-uuid"
@@ -225,6 +231,9 @@ const (
 
 	// Features allows a list of runtime changeable features to be updated.
 	Features = "features"
+
+	// MeteringURL is the key for the url to use for metrics
+	MeteringURL = "metering-url"
 )
 
 var (
@@ -237,6 +246,7 @@ var (
 		AutocertDNSNameKey,
 		AutocertURLKey,
 		CACertKey,
+		CharmStoreURL,
 		ControllerAPIPort,
 		ControllerUUIDKey,
 		IdentityPublicKey,
@@ -260,6 +270,7 @@ var (
 		AuditLogExcludeMethods,
 		CAASOperatorImagePath,
 		Features,
+		MeteringURL,
 	}
 
 	// AllowedUpdateConfigAttributes contains all of the controller
@@ -466,6 +477,15 @@ func (c Config) Features() set.Strings {
 	return features
 }
 
+// CharmStoreURL returns the URL to use for charmstore api calls.
+func (c Config) CharmStoreURL() string {
+	url := c.asString(CharmStoreURL)
+	if url == "" {
+		return csclient.ServerURL
+	}
+	return url
+}
+
 // ControllerUUID returns the uuid for the model's controller.
 func (c Config) ControllerUUID() string {
 	return c.mustString(ControllerUUIDKey)
@@ -602,6 +622,15 @@ func (c Config) CAASOperatorImagePath() string {
 	return c.asString(CAASOperatorImagePath)
 }
 
+// MeteringURL returns the URL to use for metering api calls.
+func (c Config) MeteringURL() string {
+	url := c.asString(MeteringURL)
+	if url == "" {
+		return romulus.DefaultAPIRoot
+	}
+	return url
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -676,7 +705,7 @@ func Validate(c Config) error {
 	}
 
 	if v, ok := c[CAASOperatorImagePath].(string); ok {
-		if err := c.validateCAASOperatorImagePath(v); err != nil {
+		if err := resources.ValidateDockerRegistryPath(v); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -783,15 +812,6 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 	return &ns
 }
 
-var validDockerImageRegExp = regexp.MustCompile(`^([A-Za-z\.]+/)?(([A-Za-z-_\.])+/?)+(:[A-Za-z0-9-_\.]+)?$`)
-
-func (c Config) validateCAASOperatorImagePath(path string) error {
-	if ok := validDockerImageRegExp.MatchString(path); !ok {
-		return errors.NotValidf("docker image path %q", path)
-	}
-	return nil
-}
-
 // GenerateControllerCertAndKey makes sure that the config has a CACert and
 // CAPrivateKey, generates and returns new certificate and key.
 func GenerateControllerCertAndKey(caCert, caKey string, hostAddresses []string) (string, string, error) {
@@ -826,6 +846,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	JujuManagementSpace:     schema.String(),
 	CAASOperatorImagePath:   schema.String(),
 	Features:                schema.List(schema.String()),
+	CharmStoreURL:           schema.String(),
+	MeteringURL:             schema.String(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	APIPortOpenDelay:        DefaultAPIPortOpenDelay,
@@ -854,4 +876,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	JujuManagementSpace:     schema.Omit,
 	CAASOperatorImagePath:   schema.Omit,
 	Features:                schema.Omit,
+	CharmStoreURL:           csclient.ServerURL,
+	MeteringURL:             romulus.DefaultAPIRoot,
 })

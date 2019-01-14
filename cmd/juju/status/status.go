@@ -8,15 +8,20 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
+	storageapi "github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -32,7 +37,7 @@ type statusAPI interface {
 // runtime state of various system entities.
 func NewStatusCommand() cmd.Command {
 	return modelcmd.Wrap(&statusCommand{
-		relationsFlagProvidedF: func() bool { return false },
+		checkProvidedIgnoredFlagF: func() set.Strings { return set.NewStrings() },
 	})
 }
 
@@ -43,11 +48,12 @@ type Clock interface {
 
 type statusCommand struct {
 	modelcmd.ModelCommandBase
-	out      cmd.Output
-	patterns []string
-	isoTime  bool
-	api      statusAPI
-	clock    Clock
+	out        cmd.Output
+	patterns   []string
+	isoTime    bool
+	statusAPI  statusAPI
+	storageAPI storage.StorageListAPI
+	clock      Clock
 
 	retryCount int
 	retryDelay time.Duration
@@ -57,8 +63,11 @@ type statusCommand struct {
 	// relations indicates if 'relations' section is displayed
 	relations bool
 
-	// relationsFlagProvidedF indicates whether 'relations' option was provided by the user.
-	relationsFlagProvidedF func() bool
+	// checkProvidedIgnoredFlagF indicates whether ignored options were provided by the user.
+	checkProvidedIgnoredFlagF func() set.Strings
+
+	// storage indicates if 'storage' section is displayed
+	storage bool
 }
 
 var usageSummary = `
@@ -81,7 +90,8 @@ section will only contain the applications that have units on these machines, et
 The available output formats are:
 
 - tabular (default): Displays status in a tabular format with a separate table
-      for the model, machines, applications, relations (if any) and units.
+	  for the model, machines, applications, relations (if any), storage (if any) 
+	  and units.
       Note: in this format, the AZ column refers to the cloud region's
       availability zone.
 - {short|line|oneline}: List units and their subordinates. For each unit, the IP
@@ -105,6 +115,7 @@ Examples:
     juju show-status mysql
     juju show-status nova-*
     juju show-status --relations
+    juju show-status --storage
 
 See also:
     machines
@@ -114,13 +125,13 @@ See also:
 `
 
 func (c *statusCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-status",
 		Args:    "[filter pattern ...]",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
 		Aliases: []string{"status"},
-	}
+	})
 }
 
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -129,16 +140,22 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
 
 	f.BoolVar(&c.relations, "relations", false, "Show 'relations' section")
+	f.BoolVar(&c.storage, "storage", false, "Show 'storage' section")
 
 	f.IntVar(&c.retryCount, "retry-count", 3, "Number of times to retry API failures")
 	f.DurationVar(&c.retryDelay, "retry-delay", 100*time.Millisecond, "Time to wait between retry attempts")
 
-	c.relationsFlagProvidedF = func() bool {
-		provided := false
+	c.checkProvidedIgnoredFlagF = func() set.Strings {
+		ignoredFlagForNonTabularFormat := set.NewStrings(
+			"relations",
+			"storage",
+		)
+		provided := set.NewStrings()
 		f.Visit(func(flag *gnuflag.Flag) {
-			if flag.Name == "relations" {
-				provided = true
+			if ignoredFlagForNonTabularFormat.Contains(flag.Name) {
+				provided.Add(flag.Name)
 			}
+
 		})
 		return provided
 	}
@@ -176,10 +193,39 @@ func (c *statusCommand) Init(args []string) error {
 }
 
 var newAPIClientForStatus = func(c *statusCommand) (statusAPI, error) {
-	if c.api != nil {
-		return c.api, nil
+	if c.statusAPI == nil {
+		api, err := c.NewAPIClient()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		c.statusAPI = api
 	}
-	return c.NewAPIClient()
+	return c.statusAPI, nil
+}
+
+var newAPIClientForStorage = func(c *statusCommand) (storage.StorageListAPI, error) {
+	if c.storageAPI == nil {
+		root, err := c.NewAPIRoot()
+		if err != nil {
+			return nil, err
+		}
+		c.storageAPI = storageapi.NewClient(root)
+	}
+	return c.storageAPI, nil
+}
+
+func (c *statusCommand) close() (err error) {
+	if c.statusAPI != nil {
+		if e := c.statusAPI.Close(); e != nil {
+			err = errors.Wrapf(err, e, "closing statusAPI")
+		}
+	}
+	if c.storageAPI != nil {
+		if e := c.storageAPI.Close(); e != nil {
+			err = errors.Wrapf(err, e, "closing storageAPI")
+		}
+	}
+	return
 }
 
 func (c *statusCommand) getStatus() (*params.FullStatus, error) {
@@ -187,12 +233,32 @@ func (c *statusCommand) getStatus() (*params.FullStatus, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer apiclient.Close()
-
 	return apiclient.Status(c.patterns)
 }
 
+func (c *statusCommand) getStorageInfo(ctx *cmd.Context) (*storage.CombinedStorage, error) {
+	apiclient, err := newAPIClientForStorage(c)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return storage.GetCombinedStorageInfo(
+		storage.GetCombinedStorageInfoParams{
+			Context:         ctx,
+			APIClient:       apiclient,
+			Ids:             []string{},
+			WantStorage:     true,
+			WantVolumes:     true,
+			WantFilesystems: true,
+		})
+}
+
 func (c *statusCommand) Run(ctx *cmd.Context) error {
+	defer func() {
+		if err := c.close(); err != nil {
+			logger.Warningf("closing api sessions failed %v", err)
+		}
+	}()
+
 	// Always attempt to get the status at least once, and retry if it fails.
 	status, err := c.getStatus()
 	if err != nil {
@@ -224,22 +290,43 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	showRelations := true
+	showRelations := c.relations
+	showStorage := c.storage
 	if c.out.Name() != "tabular" {
-		if c.relationsFlagProvidedF() {
+		showRelations = true
+		showStorage = true
+		providedIgnoredFlags := c.checkProvidedIgnoredFlagF()
+		if !providedIgnoredFlags.IsEmpty() {
 			// For non-tabular formats this is redundant and needs to be mentioned to the user.
-			ctx.Infof("provided --relations option is ignored")
+			joinedMsg := strings.Join(providedIgnoredFlags.SortedValues(), ", ")
+			if providedIgnoredFlags.Size() > 1 {
+				joinedMsg += " options are"
+			} else {
+				joinedMsg += " option is"
+			}
+			ctx.Infof("provided %s always enabled in non tabular formats", joinedMsg)
 		}
-	} else {
-		showRelations = c.relations
 	}
-	formatter := newStatusFormatter(status, controllerName, c.isoTime, showRelations)
-	formatted, err := formatter.format()
+	formatterParams := newStatusFormatterParams{
+		status:         status,
+		controllerName: controllerName,
+		isoTime:        c.isoTime,
+		showRelations:  showRelations,
+	}
+	if showStorage {
+		storageInfo, err := c.getStorageInfo(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		formatterParams.storage = storageInfo
+	}
+
+	formatted, err := newStatusFormatter(formatterParams).format()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = c.out.Write(ctx, formatted)
-	if err != nil {
+
+	if err = c.out.Write(ctx, formatted); err != nil {
 		return err
 	}
 

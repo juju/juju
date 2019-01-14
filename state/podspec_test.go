@@ -30,10 +30,10 @@ var _ = gc.Suite(&PodSpecSuite{})
 func (s *PodSpecSuite) SetUpTest(c *gc.C) {
 	s.CAASFixture.SetUpTest(c)
 	s.Model, s.State = s.newCAASModel(c)
-	s.Factory = factory.NewFactory(s.State)
+	s.Factory = factory.NewFactory(s.State, s.StatePool)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
-	ch := s.Factory.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	ch := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	s.application = s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
 }
@@ -62,7 +62,7 @@ func (s *PodSpecSuite) TestSetPodSpecApplicationDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.Model.SetPodSpec(s.application.ApplicationTag(), "foo")
-	c.Assert(err, gc.ErrorMatches, "application mysql not alive")
+	c.Assert(err, gc.ErrorMatches, "application gitlab not alive")
 	s.assertPodSpecNotFound(c, s.application.ApplicationTag())
 }
 

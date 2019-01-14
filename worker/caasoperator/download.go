@@ -4,14 +4,12 @@
 package caasoperator
 
 import (
-	"net/url"
-	"os"
-
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/downloader"
+	jujucharm "github.com/juju/juju/worker/uniter/charm"
 )
 
 // Downloader provides an interface for downloading files to disk.
@@ -21,76 +19,44 @@ type Downloader interface {
 	Download(downloader.Request) (string, error)
 }
 
-func downloadCharm(
-	dl Downloader,
-	curl *charm.URL,
-	sha256 string,
-	charmDir string,
-	abort <-chan struct{},
-) error {
-	curlURL, err := url.Parse(curl.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	charmDirDownload := charmDir + ".dl"
-	if err := os.RemoveAll(charmDirDownload); err != nil {
-		return errors.Trace(err)
-	}
-	if err := os.MkdirAll(charmDirDownload, 0755); err != nil {
-		return errors.Trace(err)
-	}
-	defer os.RemoveAll(charmDirDownload)
-
-	verify := func(f *os.File) error {
-		digest, _, err := utils.ReadSHA256(f)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if digest == sha256 {
-			return nil
-		}
-		return errors.New("SHA256 hash mismatch")
-	}
-
-	logger.Debugf("downloading %q to %s...", curlURL, charmDirDownload)
-	charmArchivePath, err := dl.Download(downloader.Request{
-		URL:       curlURL,
-		TargetDir: charmDirDownload,
-		Verify:    verify,
-		Abort:     abort,
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Unpack the archive to a temporary directory,
-	// and then atomically rename that to the target
-	// directory.
-	charmDirUnpack := charmDir + ".tmp"
-	logger.Debugf("unpacking charm into %s...", charmDirUnpack)
-	if err := os.RemoveAll(charmDirUnpack); err != nil {
-		return errors.Trace(err)
-	}
-	if err := os.MkdirAll(charmDirUnpack, 0755); err != nil {
-		return errors.Trace(err)
-	}
-	if err := unpackCharm(charmArchivePath, charmDirUnpack); err != nil {
-		os.RemoveAll(charmDirUnpack)
-		return errors.Trace(err)
-	}
-	if err := os.Rename(charmDirUnpack, charmDir); err != nil {
-		os.RemoveAll(charmDirUnpack)
-		return errors.Trace(err)
-	}
-	logger.Debugf("charm is ready at %s", charmDir)
-	return nil
+type charmInfo struct {
+	curl   *charm.URL
+	sha256 string
 }
 
-func unpackCharm(charmArchivePath, dir string) error {
-	charmArchive, err := charm.ReadCharmArchive(charmArchivePath)
+func (c *charmInfo) URL() *charm.URL {
+	return c.curl
+}
+
+func (c *charmInfo) ArchiveSha256() (string, error) {
+	return c.sha256, nil
+}
+
+func (op *caasOperator) ensureCharm(localState *LocalState) error {
+	curl, _, sha256, vers, err := op.config.CharmGetter.Charm(op.config.Application)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return charmArchive.ExpandTo(dir)
+	localState.CharmModifiedVersion = vers
+	if localState.CharmURL == curl {
+		logger.Debugf("charm %s already downloaded", curl)
+		return nil
+	}
+	if err := op.setStatus(status.Maintenance, "downloading charm (%s)", curl); err != nil {
+		return errors.Trace(err)
+	}
+
+	info := &charmInfo{curl: curl, sha256: sha256}
+	if err := op.deployer.Stage(info, op.catacomb.Dying()); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := op.deployer.Deploy(); err != nil {
+		if err == jujucharm.ErrConflict {
+			err = op.setStatus(status.Error, "upgrade failed")
+		}
+		return errors.Trace(err)
+	}
+	localState.CharmURL = curl
+	return op.stateFile.Write(localState)
 }

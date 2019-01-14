@@ -46,8 +46,8 @@ func (s *senderSuite) SetUpTest(c *gc.C) {
 	}
 
 	declaredMetrics := map[string]corecharm.Metric{
-		"pings": corecharm.Metric{Description: "test pings", Type: corecharm.MetricTypeAbsolute},
-		"pongs": corecharm.Metric{Description: "test pongs", Type: corecharm.MetricTypeGauge},
+		"pings": {Description: "test pings", Type: corecharm.MetricTypeAbsolute},
+		"pongs": {Description: "test pongs", Type: corecharm.MetricTypeGauge},
 	}
 	recorder, err := s.metricfactory.Recorder(declaredMetrics, "local:trusty/testcharm", "testcharm/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,8 +81,8 @@ func (s *senderSuite) TestHandler(c *gc.C) {
 	}
 
 	declaredMetrics := map[string]corecharm.Metric{
-		"pings": corecharm.Metric{Description: "test pings", Type: corecharm.MetricTypeAbsolute},
-		"pongs": corecharm.Metric{Description: "test pongs", Type: corecharm.MetricTypeGauge},
+		"pings": {Description: "test pings", Type: corecharm.MetricTypeAbsolute},
+		"pongs": {Description: "test pongs", Type: corecharm.MetricTypeGauge},
 	}
 	recorder, err := metricFactory.Recorder(declaredMetrics, "local:trusty/testcharm", "testcharm/0")
 	c.Assert(err, jc.ErrorIsNil)

@@ -15,11 +15,12 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/status"
 )
 
 var usageShowControllerSummary = `
@@ -64,12 +65,12 @@ func (c *showControllerCommand) Init(args []string) (err error) {
 
 // Info implements Command.Info
 func (c *showControllerCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-controller",
 		Args:    "[<controller name> ...]",
 		Purpose: usageShowControllerSummary,
 		Doc:     usageShowControllerDetails,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.
@@ -240,8 +241,12 @@ type ShowControllerDetails struct {
 
 // ControllerDetails holds details of a controller to show.
 type ControllerDetails struct {
+	// TODO(anastasiamac 2018-08-10) This is a deprecated property, see lp#1596607.
+	// It was added for backward compatibility, lp#1786061, to be removed for Juju 3.
+	OldControllerUUID string `yaml:"uuid" json:"-"`
+
 	// ControllerUUID is the unique ID for the controller.
-	ControllerUUID string `yaml:"uuid" json:"uuid"`
+	ControllerUUID string `yaml:"controller-uuid" json:"uuid"`
 
 	// APIEndpoints is the collection of API endpoints running in this controller.
 	APIEndpoints []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
@@ -276,8 +281,12 @@ type MachineDetails struct {
 
 // ModelDetails holds details of a model to show.
 type ModelDetails struct {
+	// TODO(anastasiamac 2018-08-10) This is a deprecated property, see lp#1596607.
+	// It was added for backward compatibility, lp#1786061, to be removed for Juju 3.
+	OldModelUUID string `yaml:"uuid" json:"-"`
+
 	// ModelUUID holds the details of a model.
-	ModelUUID string `yaml:"uuid" json:"uuid"`
+	ModelUUID string `yaml:"model-uuid" json:"uuid"`
 
 	// MachineCount holds the number of machines in the model.
 	MachineCount *int `yaml:"machine-count,omitempty" json:"machine-count,omitempty"`
@@ -308,12 +317,13 @@ func (c *showControllerCommand) convertControllerForShow(
 ) {
 
 	controller.Details = ControllerDetails{
-		ControllerUUID: details.ControllerUUID,
-		APIEndpoints:   details.APIEndpoints,
-		CACert:         details.CACert,
-		Cloud:          details.Cloud,
-		CloudRegion:    details.CloudRegion,
-		AgentVersion:   details.AgentVersion,
+		ControllerUUID:    details.ControllerUUID,
+		OldControllerUUID: details.ControllerUUID,
+		APIEndpoints:      details.APIEndpoints,
+		CACert:            details.CACert,
+		Cloud:             details.Cloud,
+		CloudRegion:       details.CloudRegion,
+		AgentVersion:      details.AgentVersion,
 	}
 	c.convertModelsForShow(controllerName, controller, allModels, modelStatusResults)
 	c.convertAccountsForShow(controllerName, controller, access)
@@ -371,7 +381,7 @@ func (c *showControllerCommand) convertModelsForShow(
 ) {
 	controller.Models = make(map[string]ModelDetails)
 	for i, model := range models {
-		modelDetails := ModelDetails{ModelUUID: model.UUID}
+		modelDetails := ModelDetails{ModelUUID: model.UUID, OldModelUUID: model.UUID}
 		result := modelStatus[i]
 		if result.Error != nil {
 			if !errors.IsNotFound(result.Error) {

@@ -149,7 +149,7 @@ func (s *MachinemanagerSuite) testDestroyMachines(
 		})
 		c.Assert(response, gc.FitsTypeOf, &params.DestroyMachineResults{})
 		out := response.(*params.DestroyMachineResults)
-		*out = params.DestroyMachineResults{expectedResults}
+		*out = params.DestroyMachineResults{Results: expectedResults}
 		return nil
 	})
 	results, err := method(client, "0", "0/lxd/1")
@@ -173,7 +173,7 @@ func (s *MachinemanagerSuite) TestDestroyMachinesInvalidIds(c *gc.C) {
 	}}
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		out := response.(*params.DestroyMachineResults)
-		*out = params.DestroyMachineResults{expectedResults[1:]}
+		*out = params.DestroyMachineResults{Results: expectedResults[1:]}
 		return nil
 	})
 	results, err := client.DestroyMachines("!", "0")
@@ -203,7 +203,7 @@ func (s *MachinemanagerSuite) TestDestroyMachinesWithParams(c *gc.C) {
 		})
 		c.Assert(response, gc.FitsTypeOf, &params.DestroyMachineResults{})
 		out := response.(*params.DestroyMachineResults)
-		*out = params.DestroyMachineResults{expectedResults}
+		*out = params.DestroyMachineResults{Results: expectedResults}
 		return nil
 	})
 	results, err := client.DestroyMachinesWithParams(true, true, "0", "0/lxd/1")

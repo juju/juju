@@ -10,6 +10,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -40,10 +41,19 @@ func (mock *MockSetCurrentCharm) Call(charmURL *corecharm.URL) error {
 	return mock.err
 }
 
+type MockRemoveUpgradeCharmProfileData struct {
+	err error
+}
+
+func (mock *MockRemoveUpgradeCharmProfileData) Call() error {
+	return mock.err
+}
+
 type DeployCallbacks struct {
 	operation.Callbacks
 	*MockGetArchiveInfo
 	*MockSetCurrentCharm
+	*MockRemoveUpgradeCharmProfileData
 	MockInitializeMetricsTimers *MockNoArgs
 }
 
@@ -53,6 +63,10 @@ func (cb *DeployCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bundle
 
 func (cb *DeployCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 	return cb.MockSetCurrentCharm.Call(charmURL)
+}
+
+func (cb *DeployCallbacks) RemoveUpgradeCharmProfileData() error {
+	return cb.MockRemoveUpgradeCharmProfileData.Call()
 }
 
 func (cb *DeployCallbacks) InitializeMetricsTimers() error {
@@ -161,6 +175,10 @@ func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) 
 
 func (cb *PrepareHookCallbacks) SetExecutingStatus(message string) error {
 	cb.executingMessage = message
+	return nil
+}
+
+func (cb *PrepareHookCallbacks) SetUpgradeSeriesStatus(model.UpgradeSeriesStatus, string) error {
 	return nil
 }
 
@@ -383,8 +401,9 @@ func (r *MockRunner) RunHook(hookName string) error {
 
 func NewDeployCallbacks() *DeployCallbacks {
 	return &DeployCallbacks{
-		MockGetArchiveInfo:  &MockGetArchiveInfo{info: &MockBundleInfo{}},
-		MockSetCurrentCharm: &MockSetCurrentCharm{},
+		MockGetArchiveInfo:                &MockGetArchiveInfo{info: &MockBundleInfo{}},
+		MockSetCurrentCharm:               &MockSetCurrentCharm{},
+		MockRemoveUpgradeCharmProfileData: &MockRemoveUpgradeCharmProfileData{},
 	}
 }
 

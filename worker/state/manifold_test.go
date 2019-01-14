@@ -39,14 +39,6 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
-	// Close the state pool, as it's not needed, and it
-	// refers to the state object's mongo session. If we
-	// do not close the pool, its embedded watcher may
-	// attempt to access mongo after it has been closed
-	// by the state tracker.
-	err := s.StatePool.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.openStateCalled = false
 	s.openStateErr = nil
 	s.setStatePoolCalls = nil
@@ -54,7 +46,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = workerstate.ManifoldConfig{
 		AgentName:              "agent",
 		StateConfigWatcherName: "state-config-watcher",
-		OpenState:              s.fakeOpenState,
+		OpenStatePool:          s.fakeOpenState,
 		PingInterval:           10 * time.Millisecond,
 		PrometheusRegisterer:   prometheus.NewRegistry(),
 		SetStatePool: func(pool *state.StatePool) {
@@ -68,13 +60,13 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) fakeOpenState(coreagent.Config) (*state.State, error) {
+func (s *ManifoldSuite) fakeOpenState(coreagent.Config) (*state.StatePool, error) {
 	s.openStateCalled = true
 	if s.openStateErr != nil {
 		return nil, s.openStateErr
 	}
 	// Here's one we prepared earlier...
-	return s.State, nil
+	return s.StatePool, nil
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -99,8 +91,8 @@ func (s *ManifoldSuite) TestStateConfigWatcherMissing(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartOpenStateNil(c *gc.C) {
-	s.config.OpenState = nil
-	s.startManifoldInvalidConfig(c, s.config, "nil OpenState not valid")
+	s.config.OpenStatePool = nil
+	s.startManifoldInvalidConfig(c, s.config, "nil OpenStatePool not valid")
 }
 
 func (s *ManifoldSuite) TestStartPrometheusRegistererNil(c *gc.C) {
@@ -181,7 +173,7 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 
 	// Ensure State is closed when the worker is done.
 	workertest.CleanKill(c, w)
-	assertStateClosed(c, s.State)
+	assertStatePoolClosed(c, s.StatePool)
 }
 
 func (s *ManifoldSuite) TestStateStillInUse(c *gc.C) {
@@ -196,11 +188,11 @@ func (s *ManifoldSuite) TestStateStillInUse(c *gc.C) {
 
 	// Close the worker while the State is still in use.
 	workertest.CleanKill(c, w)
-	assertStateNotClosed(c, pool.SystemState())
+	assertStatePoolNotClosed(c, pool)
 
 	// Now signal that the State is no longer needed.
 	c.Assert(stTracker.Done(), jc.ErrorIsNil)
-	assertStateClosed(c, pool.SystemState())
+	assertStatePoolClosed(c, pool)
 }
 
 func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
@@ -230,11 +222,11 @@ func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
 	defer st.Release()
 
 	// Progress the model to Dead.
-	err = model.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dead)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
+	c.Assert(newSt.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
 	s.State.StartSync()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {

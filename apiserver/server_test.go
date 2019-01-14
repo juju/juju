@@ -8,15 +8,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
@@ -27,8 +24,8 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testserver"
+	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -45,6 +42,15 @@ type serverSuite struct {
 
 var _ = gc.Suite(&serverSuite{})
 
+func (s *serverSuite) SetUpTest(c *gc.C) {
+	// Tests here check that pingers are started. We need to inject
+	// the feature flags into the controller very early.
+	s.ControllerConfigAttrs = map[string]interface{}{
+		"features": []string{feature.OldPresence},
+	}
+	s.JujuConnSuite.SetUpTest(c)
+}
+
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
@@ -59,7 +65,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,7 +108,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 
 	ipv4State, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -173,40 +179,6 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	st, err = api.Open(info, fastDialOpts)
 	assertNotProvisioned(err)
 	c.Assert(st, gc.IsNil)
-}
-
-func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
-	mongoInfo := s.MongoInfo(c)
-
-	proxy := testing.NewTCPProxy(c, mongoInfo.Addrs[0])
-	mongoInfo.Addrs = []string{proxy.Addr()}
-
-	dialOpts := mongo.DialOpts{
-		Timeout:       5 * time.Second,
-		SocketTimeout: 5 * time.Second,
-	}
-	session, err := mongo.DialWithInfo(*mongoInfo, dialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer session.Close()
-
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.IAASModel.ModelTag(),
-		MongoSession:       session,
-	})
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	// Now close the proxy so that any attempts to use the
-	// controller will fail.
-	proxy.Close()
-
-	// Creating the server should succeed because it doesn't
-	// access the state (note that newServer does not log in,
-	// which *would* access the state).
-	srv := testserver.NewServer(c, s.StatePool)
-	srv.Stop()
 }
 
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
@@ -336,23 +308,6 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
-	apiserver.AssertHasPermission(c, handler, permission.AddModelAccess, ctag, false)
-	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, false)
-}
-
-func (s *serverSuite) TestAPIHandlerHasPermissionAddmodel(c *gc.C) {
-	u, ctag := s.bootstrapHasPermissionTest(c)
-	user := u.UserTag()
-
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool, s.State, u)
-	defer handler.Kill()
-
-	ua, err := s.State.SetUserAccess(user, ctag, permission.AddModelAccess)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ua.Access, gc.Equals, permission.AddModelAccess)
-
-	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
-	apiserver.AssertHasPermission(c, handler, permission.AddModelAccess, ctag, true)
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, false)
 }
 
@@ -368,7 +323,6 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	c.Assert(ua.Access, gc.Equals, permission.SuperuserAccess)
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
-	apiserver.AssertHasPermission(c, handler, permission.AddModelAccess, ctag, true)
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, true)
 }
 

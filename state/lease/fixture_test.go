@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	defaultClient     = "default-client"
+	defaultStore      = "default-store"
 	defaultNamespace  = "default-namespace"
 	defaultCollection = "default-collection"
 	defaultClockStart time.Time
@@ -45,10 +45,10 @@ type FixtureParams struct {
 	GlobalClockOffset time.Duration
 }
 
-// Fixture collects together a running client and a bunch of useful data.
+// Fixture collects together a running store and a bunch of useful data.
 type Fixture struct {
-	Client      corelease.Client
-	Config      lease.ClientConfig
+	Store       corelease.Store
+	Config      lease.StoreConfig
 	Runner      jujutxn.Runner
 	LocalClock  *Clock
 	GlobalClock GlobalClock
@@ -63,18 +63,19 @@ func NewFixture(c *gc.C, database *mgo.Database, params FixtureParams) *Fixture 
 	}
 	localClock := NewClock(localClockStart)
 	globalClock := GlobalClock{NewClock(time.Unix(0, 0).Add(params.GlobalClockOffset))}
-	config := lease.ClientConfig{
-		Id:          or(params.Id, "default-client"),
+	config := lease.StoreConfig{
+		Id:          or(params.Id, "default-store"),
 		Namespace:   or(params.Namespace, "default-namespace"),
 		Collection:  or(params.Collection, "default-collection"),
+		ModelUUID:   "model-uuid",
 		Mongo:       mongo,
 		LocalClock:  localClock,
 		GlobalClock: globalClock,
 	}
-	client, err := lease.NewClient(config)
+	store, err := lease.NewStore(config)
 	c.Assert(err, jc.ErrorIsNil)
 	return &Fixture{
-		Client:      client,
+		Store:       store,
 		Config:      config,
 		Runner:      mongo.runner,
 		LocalClock:  localClock,
@@ -123,8 +124,8 @@ func (fix *Fixture) infoChecker(checkInfo checkInfoFunc) checkFunc {
 				error = fmt.Sprint(v)
 			}
 		}()
-		name := params[0].(string)
-		info := fix.Client.Leases()[name]
+		key := params[0].(corelease.Key)
+		info := fix.Store.Leases()[key]
 		return checkInfo(info, params[1])
 	}
 }

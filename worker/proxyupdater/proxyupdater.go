@@ -19,7 +19,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/proxyupdater"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 type Config struct {

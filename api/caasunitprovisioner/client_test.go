@@ -13,8 +13,12 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/storage"
 )
 
 type unitprovisionerSuite struct {
@@ -42,7 +46,29 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 		*(result.(*params.KubernetesProvisioningInfoResults)) = params.KubernetesProvisioningInfoResults{
 			Results: []params.KubernetesProvisioningInfoResult{{
 				Result: &params.KubernetesProvisioningInfo{
-					PodSpec: "foo",
+					PodSpec:     "foo",
+					Tags:        map[string]string{"foo": "bar"},
+					Placement:   "a=b,c=d",
+					Constraints: constraints.MustParse("mem=4G"),
+					Filesystems: []params.KubernetesFilesystemParams{{
+						StorageName: "database",
+						Size:        uint64(100),
+						Provider:    "k8s",
+						Tags:        map[string]string{"tag": "resource"},
+						Attributes:  map[string]interface{}{"key": "value"},
+						Attachment: &params.KubernetesFilesystemAttachmentParams{
+							Provider:   "k8s",
+							MountPoint: "/path/to/here",
+							ReadOnly:   true,
+						}},
+					},
+					Devices: []params.KubernetesDeviceParams{
+						{
+							Type:       "nvidia.com/gpu",
+							Count:      3,
+							Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
+						},
+					},
 				},
 			}},
 		}
@@ -52,7 +78,31 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 	client := caasunitprovisioner.NewClient(apiCaller)
 	info, err := client.ProvisioningInfo("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.PodSpec, gc.Equals, "foo")
+	c.Assert(info, jc.DeepEquals, &caasunitprovisioner.ProvisioningInfo{
+		PodSpec:     "foo",
+		Tags:        map[string]string{"foo": "bar"},
+		Placement:   "a=b,c=d",
+		Constraints: constraints.MustParse("mem=4G"),
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName:  "database",
+			Size:         uint64(100),
+			Provider:     storage.ProviderType("k8s"),
+			ResourceTags: map[string]string{"tag": "resource"},
+			Attributes:   map[string]interface{}{"key": "value"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "/path/to/here",
+				AttachmentParams: storage.AttachmentParams{
+					Provider: storage.ProviderType("k8s"),
+					ReadOnly: true,
+				},
+			},
+		}},
+		Devices: []devices.KubernetesDeviceParams{{
+			Type:       devices.DeviceType("nvidia.com/gpu"),
+			Count:      3,
+			Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
+		}},
+	})
 }
 
 func (s *unitprovisionerSuite) TestProvisioningInfoError(c *gc.C) {
@@ -155,20 +205,20 @@ func (s *unitprovisionerSuite) TestWatchApplications(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *unitprovisionerSuite) TestWatchUnits(c *gc.C) {
+func (s *unitprovisionerSuite) TestWatchApplicationScale(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchUnits")
+		c.Check(request, gc.Equals, "WatchApplicationsScale")
 		c.Assert(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
-		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
-			Results: []params.StringsWatchResult{{
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
 			}},
 		}
@@ -176,9 +226,35 @@ func (s *unitprovisionerSuite) TestWatchUnits(c *gc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	watcher, err := client.WatchUnits("gitlab")
+	watcher, err := client.WatchApplicationScale("gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *unitprovisionerSuite) TestApplicationScale(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ApplicationsScale")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.IntResults{})
+		*(result.(*params.IntResults)) = params.IntResults{
+			Results: []params.IntResult{{
+				Result: 5,
+			}},
+		}
+		return nil
+	})
+
+	client := caasunitprovisioner.NewClient(apiCaller)
+	scale, err := client.ApplicationScale("gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(scale, gc.Equals, 5)
 }
 
 func (s *unitprovisionerSuite) TestWatchPodSpec(c *gc.C) {
@@ -334,4 +410,32 @@ func (s *unitprovisionerSuite) TestUpdateApplicationServiceCount(c *gc.C) {
 		Addresses:      []params.Address{{Value: "10.0.0.1"}},
 	})
 	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
+}
+
+func (s *unitprovisionerSuite) TestSetOperatorStatus(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SetOperatorStatus")
+		c.Assert(arg, jc.DeepEquals, params.SetStatus{
+			Entities: []params.EntityStatusArgs{{
+				Tag:    "application-gitlab",
+				Status: "error",
+				Info:   "broken",
+				Data:   map[string]interface{}{"foo": "bar"},
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+
+	client := caasunitprovisioner.NewClient(apiCaller)
+	err := client.SetOperatorStatus("gitlab", status.Error, "broken", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

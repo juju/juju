@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -38,6 +40,11 @@ func (ctx *charmsSuiteContext) StatePool() *state.StatePool { return nil }
 func (ctx *charmsSuiteContext) ID() string                  { return "" }
 func (ctx *charmsSuiteContext) Presence() facade.Presence   { return nil }
 func (ctx *charmsSuiteContext) Hub() facade.Hub             { return nil }
+
+func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error) { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)       { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, error)   { return nil, nil }
+func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)              { return nil, nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -68,17 +75,17 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				Revision: 1,
 				URL:      "local:quantal/dummy-1",
 				Config: map[string]params.CharmOption{
-					"skill-level": params.CharmOption{
+					"skill-level": {
 						Type:        "int",
 						Description: "A number indicating skill."},
-					"title": params.CharmOption{
+					"title": {
 						Type:        "string",
 						Description: "A descriptive title used for the application.",
 						Default:     "My Title"},
-					"outlook": params.CharmOption{
+					"outlook": {
 						Type:        "string",
 						Description: "No default outlook."},
-					"username": params.CharmOption{
+					"username": {
 						Type:        "string",
 						Description: "The name of the initial account (given admin permissions).",
 						Default:     "admin001"},
@@ -92,7 +99,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				},
 				Actions: &params.CharmActions{
 					ActionSpecs: map[string]params.CharmActionSpec{
-						"snapshot": params.CharmActionSpec{
+						"snapshot": {
 							Description: "Take a snapshot of the database.",
 							Params: map[string]interface{}{
 								"title":       "snapshot",
@@ -112,6 +119,71 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 			},
 		},
 		{
+			about: "dummy charm which contains lxd profile spec",
+			charm: "lxd-profile",
+			url:   "local:quantal/lxd-profile-0",
+			expected: params.CharmInfo{
+				Revision: 0,
+				URL:      "local:quantal/lxd-profile-0",
+				Config:   map[string]params.CharmOption{},
+				Meta: &params.CharmMeta{
+					Name:           "lxd-profile",
+					Summary:        "start a juju machine with a lxd profile",
+					Description:    "Run an Ubuntu system, with the given lxd-profile\n",
+					Subordinate:    false,
+					MinJujuVersion: "0.0.0",
+					Provides: map[string]params.CharmRelation{
+						"ubuntu": {
+							Name:      "ubuntu",
+							Interface: "ubuntu",
+							Role:      "provider",
+							Scope:     "global",
+						},
+					},
+					ExtraBindings: map[string]string{
+						"another": "another",
+					},
+					Tags: []string{
+						"misc",
+						"application_development",
+					},
+					Series: []string{
+						"bionic",
+						"xenial",
+						"quantal",
+					},
+				},
+				Actions: &params.CharmActions{},
+				LXDProfile: &params.CharmLXDProfile{
+					Description: "lxd profile for testing, will pass validation",
+					Config: map[string]string{
+						"security.nesting":       "true",
+						"security.privileged":    "true",
+						"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+						"environment.http_proxy": "",
+					},
+					Devices: map[string]map[string]string{
+						"tun": {
+							"path": "/dev/net/tun",
+							"type": "unix-char",
+						},
+						"sony": {
+							"type":      "usb",
+							"vendorid":  "0fce",
+							"productid": "51da",
+						},
+						"bdisk": {
+							"source": "/dev/loop0",
+							"type":   "unix-block",
+						},
+						"gpu": {
+							"type": "gpu",
+						},
+					},
+				},
+			},
+		},
+		{
 			about: "retrieves charm info",
 			// Use wordpress for tests so that we can compare Provides and Requires.
 			charm: "wordpress",
@@ -120,26 +192,26 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				Revision: 3,
 				URL:      "local:quantal/wordpress-3",
 				Config: map[string]params.CharmOption{
-					"blog-title": params.CharmOption{Type: "string", Description: "A descriptive title used for the blog.", Default: "My Title"}},
+					"blog-title": {Type: "string", Description: "A descriptive title used for the blog.", Default: "My Title"}},
 				Meta: &params.CharmMeta{
 					Name:        "wordpress",
 					Summary:     "Blog engine",
 					Description: "A pretty popular blog engine",
 					Subordinate: false,
 					Provides: map[string]params.CharmRelation{
-						"logging-dir": params.CharmRelation{
+						"logging-dir": {
 							Name:      "logging-dir",
 							Role:      "provider",
 							Interface: "logging",
 							Scope:     "container",
 						},
-						"monitoring-port": params.CharmRelation{
+						"monitoring-port": {
 							Name:      "monitoring-port",
 							Role:      "provider",
 							Interface: "monitoring",
 							Scope:     "container",
 						},
-						"url": params.CharmRelation{
+						"url": {
 							Name:      "url",
 							Role:      "provider",
 							Interface: "http",
@@ -147,7 +219,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 						},
 					},
 					Requires: map[string]params.CharmRelation{
-						"cache": params.CharmRelation{
+						"cache": {
 							Name:      "cache",
 							Role:      "requirer",
 							Interface: "varnish",
@@ -155,7 +227,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 							Limit:     2,
 							Scope:     "global",
 						},
-						"db": params.CharmRelation{
+						"db": {
 							Name:      "db",
 							Role:      "requirer",
 							Interface: "mysql",
@@ -172,7 +244,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				},
 				Actions: &params.CharmActions{
 					ActionSpecs: map[string]params.CharmActionSpec{
-						"fakeaction": params.CharmActionSpec{
+						"fakeaction": {
 							Description: "No description",
 							Params: map[string]interface{}{
 								"properties":  map[string]interface{}{},
@@ -207,7 +279,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 	for i, t := range clientCharmInfoTests {
 		c.Logf("test %d. %s", i, t.about)
 		s.AddTestingCharm(c, t.charm)
-		info, err := s.api.CharmInfo(params.CharmURL{t.url})
+		info, err := s.api.CharmInfo(params.CharmURL{URL: t.url})
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
@@ -231,13 +303,13 @@ func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
 			Required: true,
 		},
 		Metrics: map[string]params.CharmMetric{
-			"pings": params.CharmMetric{
+			"pings": {
 				Type:        "gauge",
 				Description: "Description of the metric."},
-			"pongs": params.CharmMetric{
+			"pongs": {
 				Type:        "gauge",
 				Description: "Description of the metric."},
-			"juju-units": params.CharmMetric{
+			"juju-units": {
 				Type:        "",
 				Description: ""}}}
 	c.Assert(info.Metrics, jc.DeepEquals, expected)

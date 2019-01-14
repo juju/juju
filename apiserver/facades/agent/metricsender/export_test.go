@@ -5,7 +5,9 @@ package metricsender
 import "github.com/juju/testing"
 
 func PatchHost(host string) func() {
-	restoreHost := testing.PatchValue(&metricsHost, host)
+	restoreHost := testing.PatchValue(&defaultSenderFactory, func(url string) MetricSender {
+		return &HTTPSender{url: host}
+	})
 	return func() {
 		restoreHost()
 	}

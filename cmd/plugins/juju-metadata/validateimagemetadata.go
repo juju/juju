@@ -15,6 +15,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs"
@@ -24,12 +25,13 @@ import (
 )
 
 func newValidateImageMetadataCommand() cmd.Command {
-	return modelcmd.Wrap(&validateImageMetadataCommand{})
+	return modelcmd.WrapController(&validateImageMetadataCommand{})
 }
 
 // validateImageMetadataCommand
 type validateImageMetadataCommand struct {
-	imageMetadataCommandBase
+	modelcmd.ControllerCommandBase
+
 	out          cmd.Output
 	providerType string
 	metadataDir  string
@@ -79,11 +81,11 @@ RETVAL=$?
 `
 
 func (c *validateImageMetadataCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "validate-images",
 		Purpose: "validate image metadata and ensure image(s) exist for a model",
 		Doc:     validateImagesMetadataDoc,
-	}
+	})
 }
 
 func (c *validateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -177,10 +179,14 @@ func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
 }
 
 func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) (*simplestreams.MetadataLookupParams, error) {
-	params := &simplestreams.MetadataLookupParams{Stream: c.stream}
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
+	params := &simplestreams.MetadataLookupParams{Stream: c.stream}
 	if c.providerType == "" {
-		environ, err := c.prepare(context)
+		environ, err := prepare(context, controllerName, c.ClientStore())
 		if err != nil {
 			return nil, err
 		}

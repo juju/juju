@@ -53,9 +53,9 @@ type fakeWrapper struct {
 	ReturnResourceMeta params.Resource
 }
 
-func (f *fakeWrapper) makeWrapper(bakeryClient *httpbakery.Client, server *url.URL) csWrapper {
+func (f *fakeWrapper) makeWrapper(bakeryClient *httpbakery.Client, server string) (csWrapper, error) {
 	f.stub.AddCall("makeWrapper", bakeryClient, server)
-	return f
+	return f, nil
 }
 
 func (f *fakeWrapper) ServerURL() string {

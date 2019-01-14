@@ -7,10 +7,10 @@ import (
 	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 )
 
 var _ instance.Instance = (*sigmaInstance)(nil)

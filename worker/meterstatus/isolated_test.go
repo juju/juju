@@ -8,9 +8,10 @@ import (
 	"path"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
@@ -52,13 +53,13 @@ func (s *IsolatedWorkerConfigSuite) TestConfigValidation(c *gc.C) {
 		expected: "clock not provided",
 	}, {
 		cfg: meterstatus.IsolatedConfig{
-			Clock:     testing.NewClock(time.Now()),
+			Clock:     testclock.NewClock(time.Now()),
 			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
 		},
 		expected: "hook runner not provided",
 	}, {
 		cfg: meterstatus.IsolatedConfig{
-			Clock:  testing.NewClock(time.Now()),
+			Clock:  testclock.NewClock(time.Now()),
 			Runner: &stubRunner{stub: s.stub},
 		},
 		expected: "state file not provided",
@@ -76,7 +77,7 @@ type IsolatedWorkerSuite struct {
 	stub *testing.Stub
 
 	dataDir string
-	clk     *testing.Clock
+	clk     *testclock.Clock
 
 	hookRan         chan struct{}
 	triggersCreated chan struct{}
@@ -104,7 +105,7 @@ func (s *IsolatedWorkerSuite) SetUpTest(c *gc.C) {
 		return meterstatus.GetTriggers(state, status, disconectedAt, clk, amber, red)
 	}
 
-	s.clk = testing.NewClock(time.Now())
+	s.clk = testclock.NewClock(time.Now())
 	wrk, err := meterstatus.NewIsolatedStatusWorker(
 		meterstatus.IsolatedConfig{
 			Runner:           &stubRunner{stub: s.stub, ran: s.hookRan},

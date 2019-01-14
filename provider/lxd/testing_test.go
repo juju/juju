@@ -6,7 +6,10 @@ package lxd
 import (
 	"net"
 	"os"
+	"strconv"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +24,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container/lxd"
+	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -29,7 +33,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jujulxdclient "github.com/juju/juju/tools/lxdclient"
 )
 
 // Ensure LXD provider supports the expected interfaces.
@@ -101,13 +104,11 @@ type BaseSuiteUnpatched struct {
 
 	Addresses     []network.Address
 	Instance      *environInstance
-	RawInstance   *jujulxdclient.Instance
+	Container     *lxd.Container
 	InstName      string
-	Hardware      *jujulxdclient.InstanceHardware
 	HWC           *instance.HardwareCharacteristics
 	Metadata      map[string]string
 	StartInstArgs environs.StartInstanceParams
-	//InstanceType  instances.InstanceType
 
 	Rules          []network.IngressRule
 	EndpointAddrs  []string
@@ -182,9 +183,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		},
 	}
 
-	cons := constraints.Value{
-		// nothing
-	}
+	cons := constraints.Value{}
 
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -198,12 +197,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	userData, err := providerinit.ComposeUserData(instanceConfig, nil, lxdRenderer{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Hardware = &jujulxdclient.InstanceHardware{
-		Architecture: arch.ARM64,
-		NumCores:     1,
-		MemoryMB:     3750,
-	}
-	var archName string = arch.ARM64
+	var archName = arch.ARM64
 	var numCores uint64 = 1
 	var memoryMB uint64 = 3750
 	s.HWC = &instance.HardwareCharacteristics{
@@ -212,11 +206,13 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Mem:      &memoryMB,
 	}
 
-	s.Metadata = map[string]string{ // userdata
-		tags.JujuIsController: "true",
-		tags.JujuController:   testing.ControllerTag.Id(),
-		tags.JujuModel:        s.Config.UUID(),
-		metadataKeyCloudInit:  string(userData),
+	s.Metadata = map[string]string{
+		containerlxd.UserNamespacePrefix + tags.JujuIsController: "true",
+		containerlxd.UserNamespacePrefix + tags.JujuController:   testing.ControllerTag.Id(),
+		containerlxd.JujuModelKey:                                s.Config.UUID(),
+		containerlxd.UserDataKey:                                 string(userData),
+		"limits.cpu":                                             "1",
+		"limits.memory":                                          strconv.Itoa(3750 * 1024 * 1024),
 	}
 	s.Addresses = []network.Address{{
 		Value: "10.0.0.1",
@@ -227,7 +223,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	// representative of what they would normally be. They would normally
 	// determined by the instance namespace and the machine id.
 	s.Instance = s.NewInstance(c, "spam")
-	s.RawInstance = s.Instance.raw
+	s.Container = s.Instance.container
 	s.InstName, err = s.Env.namespace.Hostname("42")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -275,29 +271,27 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 	s.setConfig(c, cfg)
 }
 
-func (s *BaseSuiteUnpatched) NewRawInstance(c *gc.C, name string) *jujulxdclient.Instance {
+func (s *BaseSuiteUnpatched) NewContainer(c *gc.C, name string) *containerlxd.Container {
 	metadata := make(map[string]string)
 	for k, v := range s.Metadata {
 		metadata[k] = v
 	}
-	summary := jujulxdclient.InstanceSummary{
-		Name:     name,
-		Status:   jujulxdclient.StatusRunning,
-		Hardware: *s.Hardware,
-		Metadata: metadata,
+
+	return &containerlxd.Container{
+		Container: api.Container{
+			Name:       name,
+			StatusCode: api.Running,
+			Status:     api.Running.String(),
+			ContainerPut: api.ContainerPut{
+				Config: metadata,
+			},
+		},
 	}
-	instanceSpec := jujulxdclient.InstanceSpec{
-		Name:      name,
-		Profiles:  []string{},
-		Ephemeral: false,
-		Metadata:  metadata,
-	}
-	return jujulxdclient.NewInstance(summary, &instanceSpec)
 }
 
 func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, name string) *environInstance {
-	raw := s.NewRawInstance(c, name)
-	return newInstance(raw, s.Env)
+	container := s.NewContainer(c, name)
+	return newInstance(container, s.Env)
 }
 
 func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
@@ -337,45 +331,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 				Certificate: "server-cert",
 			},
 		},
+		Profile: &api.Profile{},
 	}
 	s.Common = &stubCommon{stub: s.Stub}
 
 	// Patch out all expensive external deps.
-	raw := &rawProvider{
-		newServer:    s.Client,
-		lxdInstances: s.Client,
-		lxdProfiles:  s.Client,
-		lxdStorage:   s.Client,
-		remote: jujulxdclient.Remote{
-			Cert: &lxd.Certificate{
-				Name:    "juju",
-				CertPEM: []byte(testing.CACert),
-				KeyPEM:  []byte(testing.CAKey),
-			},
-		},
-	}
-	s.Env.raw = raw
-	s.Provider.generateMemCert = func(client bool) (cert, key []byte, _ error) {
-		s.Stub.AddCall("GenerateMemCert", client)
-		cert = []byte(testing.CACert + "generated")
-		key = []byte(testing.CAKey + "generated")
-		return cert, key, s.Stub.NextErr()
-	}
-	s.Provider.newLocalRawProvider = func() (*rawProvider, error) {
-		return raw, nil
-	}
-	s.Provider.lookupHost = func(host string) ([]string, error) {
-		s.Stub.AddCall("LookupHost", host)
-		return s.EndpointAddrs, s.Stub.NextErr()
-	}
-	s.Provider.interfaceAddress = func(iface string) (string, error) {
-		s.Stub.AddCall("InterfaceAddress", iface)
-		return s.InterfaceAddr, s.Stub.NextErr()
-	}
-	s.Provider.interfaceAddrs = func() ([]net.Addr, error) {
-		s.Stub.AddCall("InterfaceAddrs")
-		return s.InterfaceAddrs, s.Stub.NextErr()
-	}
+	s.Env.server = s.Client
 	s.Env.base = s.Common
 }
 
@@ -466,42 +427,36 @@ func (sc *stubCommon) DestroyEnv(callCtx context.ProviderCallContext) error {
 type StubClient struct {
 	*gitjujutesting.Stub
 
-	Insts              []jujulxdclient.Instance
-	Inst               *jujulxdclient.Instance
+	Containers         []lxd.Container
+	Container          *lxd.Container
 	Server             *api.Server
+	Profile            *api.Profile
 	StorageIsSupported bool
 	Volumes            map[string][]api.StorageVolume
+	ServerCert         string
+	ServerHostArch     string
 }
 
-func (conn *StubClient) Instances(prefix string, statuses ...string) ([]jujulxdclient.Instance, error) {
-	conn.AddCall("Instances", prefix, statuses)
+func (conn *StubClient) FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error) {
+	conn.AddCall("FilterContainers", prefix, statuses)
 	if err := conn.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return conn.Insts, nil
+	return conn.Containers, nil
 }
 
-func (conn *StubClient) AddInstance(spec jujulxdclient.InstanceSpec) (*jujulxdclient.Instance, error) {
-	conn.AddCall("AddInstance", spec)
+func (conn *StubClient) CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Container, error) {
+	conn.AddCall("CreateContainerFromSpec", spec)
 	if err := conn.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return conn.Inst, nil
-}
-
-func (conn *StubClient) RemoveInstances(prefix string, ids ...string) error {
-	conn.AddCall("RemoveInstances", prefix, ids)
-	if err := conn.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	return conn.Container, nil
 }
 
 func (conn *StubClient) FindImage(
-	series, arch string, sources []lxd.RemoteServer, copyLocal bool, callback environs.StatusCallbackFunc,
+	series, arch string, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
 ) (lxd.SourcedImage, error) {
 	conn.AddCall("FindImage", series, arch)
 	if err := conn.NextErr(); err != nil {
@@ -511,17 +466,9 @@ func (conn *StubClient) FindImage(
 	return lxd.SourcedImage{}, nil
 }
 
-func (conn *StubClient) Addresses(name string) ([]network.Address, error) {
-	conn.AddCall("Addresses", name)
-	if err := conn.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return []network.Address{{
-		Value: "10.0.0.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
-	}}, nil
+func (conn *StubClient) CreateCertificate(cert api.CertificatesPost) error {
+	conn.AddCall("CreateCertificate", cert)
+	return conn.NextErr()
 }
 
 func (conn *StubClient) CreateClientCertificate(cert *lxd.Certificate) error {
@@ -573,8 +520,21 @@ func (conn *StubClient) LocalBridgeName() string {
 	return "test-bridge"
 }
 
-func (conn *StubClient) CreateProfile(name string, attrs map[string]string) error {
-	conn.AddCall("CreateProfile", name, attrs)
+func (conn *StubClient) GetProfile(name string) (*api.Profile, string, error) {
+	conn.AddCall("GetProfile", name)
+	return conn.Profile, "etag", conn.NextErr()
+}
+
+func (conn *StubClient) GetContainerProfiles(name string) ([]string, error) {
+	conn.AddCall("GetContainerProfiles", name)
+	return []string{
+		"default",
+		"juju-model-name",
+	}, conn.NextErr()
+}
+
+func (conn *StubClient) DeleteProfile(name string) error {
+	conn.AddCall("DeleteProfile", name)
 	return conn.NextErr()
 }
 
@@ -583,13 +543,13 @@ func (conn *StubClient) HasProfile(name string) (bool, error) {
 	return false, conn.NextErr()
 }
 
-func (conn *StubClient) AttachDisk(container, device string, disk jujulxdclient.DiskDevice) error {
-	conn.AddCall("AttachDisk", container, device, disk)
+func (conn *StubClient) ReplaceOrAddContainerProfile(name, oldProfile, newProfile string) error {
+	conn.AddCall("ReplaceOrAddContainerProfile", name, oldProfile, newProfile)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) RemoveDevice(container, device string) error {
-	conn.AddCall("RemoveDevice", container, device)
+func (conn *StubClient) VerifyNetworkDevice(profile *api.Profile, ETag string) error {
+	conn.AddCall("VerifyNetworkDevice", profile, ETag)
 	return conn.NextErr()
 }
 
@@ -598,16 +558,21 @@ func (conn *StubClient) StorageSupported() bool {
 	return conn.StorageIsSupported
 }
 
-func (conn *StubClient) StoragePool(name string) (api.StoragePool, error) {
-	conn.AddCall("StoragePool", name)
-	return api.StoragePool{
-		Name:   name,
-		Driver: "dir",
-	}, conn.NextErr()
+func (conn *StubClient) EnsureDefaultStorage(profile *api.Profile, ETag string) error {
+	conn.AddCall("EnsureDefaultStorage", profile, ETag)
+	return conn.NextErr()
 }
 
-func (conn *StubClient) StoragePools() ([]api.StoragePool, error) {
-	conn.AddCall("StoragePools")
+func (conn *StubClient) GetStoragePool(name string) (pool *api.StoragePool, ETag string, err error) {
+	conn.AddCall("GetStoragePool", name)
+	return &api.StoragePool{
+		Name:   name,
+		Driver: "dir",
+	}, "", conn.NextErr()
+}
+
+func (conn *StubClient) GetStoragePools() ([]api.StoragePool, error) {
+	conn.AddCall("GetStoragePools")
 	return []api.StoragePool{{
 		Name:   "juju",
 		Driver: "dir",
@@ -617,43 +582,204 @@ func (conn *StubClient) StoragePools() ([]api.StoragePool, error) {
 	}}, conn.NextErr()
 }
 
-func (conn *StubClient) CreateStoragePool(name, driver string, attrs map[string]string) error {
-	conn.AddCall("CreateStoragePool", name, driver, attrs)
+func (conn *StubClient) CreatePool(name, driver string, attrs map[string]string) error {
+	conn.AddCall("CreatePool", name, driver, attrs)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) VolumeCreate(pool, volume string, config map[string]string) error {
-	conn.AddCall("VolumeCreate", pool, volume, config)
+func (conn *StubClient) CreateVolume(pool, volume string, config map[string]string) error {
+	conn.AddCall("CreateVolume", pool, volume, config)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) VolumeDelete(pool, volume string) error {
-	conn.AddCall("VolumeDelete", pool, volume)
+func (conn *StubClient) DeleteStoragePoolVolume(pool, volType, volume string) error {
+	conn.AddCall("DeleteStoragePoolVolume", pool, volType, volume)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) Volume(pool, volume string) (api.StorageVolume, error) {
-	conn.AddCall("Volume", pool, volume)
+func (conn *StubClient) GetStoragePoolVolume(
+	pool string, volType string, name string,
+) (*api.StorageVolume, string, error) {
+	conn.AddCall("GetStoragePoolVolume", pool, volType, name)
 	if err := conn.NextErr(); err != nil {
-		return api.StorageVolume{}, err
+		return nil, "", err
 	}
 	for _, v := range conn.Volumes[pool] {
-		if v.Name == volume {
-			return v, nil
+		if v.Name == name {
+			return &v, "eTag", nil
 		}
 	}
-	return api.StorageVolume{}, errors.NotFoundf("volume %q in pool %q", volume, pool)
+	return nil, "", errors.NotFoundf("volume %q in pool %q", name, pool)
 }
 
-func (conn *StubClient) VolumeList(pool string) ([]api.StorageVolume, error) {
-	conn.AddCall("VolumeList", pool)
+func (conn *StubClient) GetStoragePoolVolumes(pool string) ([]api.StorageVolume, error) {
+	conn.AddCall("GetStoragePoolVolumes", pool)
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
 	return conn.Volumes[pool], nil
 }
 
-func (conn *StubClient) VolumeUpdate(pool, volume string, update api.StorageVolume) error {
-	conn.AddCall("VolumeUpdate", pool, volume, update)
+func (conn *StubClient) UpdateStoragePoolVolume(
+	pool string, volType string, name string, volume api.StorageVolumePut, ETag string,
+) error {
+	conn.AddCall("UpdateStoragePoolVolume", pool, volType, name, volume, ETag)
 	return conn.NextErr()
+}
+
+func (conn *StubClient) AliveContainers(prefix string) ([]lxd.Container, error) {
+	conn.AddCall("AliveContainers", prefix)
+	if err := conn.NextErr(); err != nil {
+		return nil, err
+	}
+	return conn.Containers, nil
+}
+
+func (conn *StubClient) ContainerAddresses(name string) ([]network.Address, error) {
+	conn.AddCall("ContainerAddresses", name)
+	if err := conn.NextErr(); err != nil {
+		return nil, err
+	}
+
+	return []network.Address{{
+		Value: "10.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}}, nil
+}
+
+func (conn *StubClient) RemoveContainer(name string) error {
+	conn.AddCall("RemoveContainer", name)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) RemoveContainers(names []string) error {
+	conn.AddCall("RemoveContainers", names)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) WriteContainer(container *lxd.Container) error {
+	conn.AddCall("WriteContainer", container)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) CreateProfileWithConfig(name string, cfg map[string]string) error {
+	conn.AddCall("CreateProfileWithConfig", name, cfg)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) CreateProfile(post api.ProfilesPost) error {
+	conn.AddCall("CreateProfile", post)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) ServerCertificate() string {
+	conn.AddCall("ServerCertificate")
+	return conn.ServerCert
+}
+
+func (conn *StubClient) HostArch() string {
+	conn.AddCall("HostArch")
+	return conn.ServerHostArch
+}
+
+func (conn *StubClient) EnableHTTPSListener() error {
+	conn.AddCall("EnableHTTPSListener")
+	return conn.NextErr()
+}
+
+func (conn *StubClient) GetNICsFromProfile(profName string) (map[string]map[string]string, error) {
+	conn.AddCall("GetNICsFromProfile", profName)
+	return conn.Profile.Devices, conn.NextErr()
+}
+
+func (conn *StubClient) IsClustered() bool {
+	conn.AddCall("IsClustered")
+	return true
+}
+
+func (conn *StubClient) Name() string {
+	conn.AddCall("Name")
+	return "server"
+}
+
+// TODO (manadart 2018-07-20): This exists to satisfy the testing stub
+// interface. It is temporary, pending replacement with mocks and
+// should not be called in tests.
+func (conn *StubClient) UseTargetServer(name string) (*lxd.Server, error) {
+	conn.AddCall("UseTargetServer", name)
+	return nil, conn.NextErr()
+}
+
+func (conn *StubClient) GetClusterMembers() (members []api.ClusterMember, err error) {
+	conn.AddCall("GetClusterMembers")
+	return nil, conn.NextErr()
+}
+
+type MockClock struct {
+	clock.Clock
+	now time.Time
+}
+
+func (m *MockClock) Now() time.Time {
+	return m.now
+}
+
+func (m *MockClock) After(delay time.Duration) <-chan time.Time {
+	return time.After(time.Millisecond)
+}
+
+// TODO (manadart 2018-07-20): All of the above logic should ultimately be
+// replaced by what follows (in some form). The stub usage will be abandoned
+// and replaced by mocks.
+
+type EnvironSuite struct {
+	testing.BaseSuite
+}
+
+func (s *EnvironSuite) NewEnviron(c *gc.C, svr Server, cfgEdit map[string]interface{}) environs.Environ {
+	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	if cfgEdit != nil {
+		var err error
+		cfg, err = cfg.Apply(cfgEdit)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	eCfg, err := newValidConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	namespace, err := instance.NewNamespace(cfg.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	return &environ{
+		server:    svr,
+		ecfg:      eCfg,
+		namespace: namespace,
+	}
+}
+
+func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C, series string) environs.StartInstanceParams {
+	tools := []*coretools.Tools{
+		{
+			Version: version.Binary{Arch: arch.AMD64, Series: series},
+			URL:     "https://example.org/amd",
+		},
+		{
+			Version: version.Binary{Arch: arch.ARM64, Series: series},
+			URL:     "https://example.org/arm",
+		},
+	}
+
+	cons := constraints.Value{}
+	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, series, "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	return environs.StartInstanceParams{
+		ControllerUUID: iConfig.Controller.Config.ControllerUUID(),
+		InstanceConfig: iConfig,
+		Tools:          tools,
+		Constraints:    cons,
+	}
 }

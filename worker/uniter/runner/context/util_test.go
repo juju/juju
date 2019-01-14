@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/proxy"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -44,7 +44,7 @@ type HookContextSuite struct {
 	relch       *state.Charm
 	relunits    map[int]*state.RelationUnit
 	storage     *runnertesting.StorageContextAccessor
-	clock       *jujutesting.Clock
+	clock       *testclock.Clock
 
 	st             api.Connection
 	uniter         *uniter.State
@@ -106,7 +106,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	storageData0 := names.NewStorageTag("data/0")
 	s.storage = &runnertesting.StorageContextAccessor{
 		map[names.StorageTag]*runnertesting.ContextStorage{
-			storageData0: &runnertesting.ContextStorage{
+			storageData0: {
 				storageData0,
 				storage.StorageKindBlock,
 				"/dev/sdb",
@@ -114,7 +114,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.clock = jujutesting.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 }
 
 func (s *HookContextSuite) GetContext(

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,6 +19,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -27,7 +30,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
@@ -157,6 +159,11 @@ type ProvisionerAPIV5 struct {
 
 // ProvisionerAPIV6 provides v6 of the provisioner facade.
 type ProvisionerAPIV6 struct {
+	*ProvisionerAPIV7
+}
+
+// ProvisionerAPIV7 provides v7 of the provisioner facade.
+type ProvisionerAPIV7 struct {
 	*ProvisionerAPI
 }
 
@@ -180,11 +187,20 @@ func NewProvisionerAPIV5(st *state.State, resources facade.Resources, authorizer
 
 // NewProvisionerAPIV6 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV6(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV6, error) {
-	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	provisionerAPI, err := NewProvisionerAPIV7(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ProvisionerAPIV6{provisionerAPI}, nil
+}
+
+// NewProvisionerAPIV7 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV7(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV7, error) {
+	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV7{provisionerAPI}, nil
 }
 
 func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
@@ -251,6 +267,57 @@ func (p *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.St
 // any machine passed in args.
 func (p *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
 	return p.WatchContainers(args)
+}
+
+func (p *ProvisionerAPI) watchOneMachineContainersCharmProfiles(arg params.WatchContainer) (params.StringsWatchResult, error) {
+	nothing := params.StringsWatchResult{}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return nothing, common.ErrPerm
+	}
+	tag, err := names.ParseMachineTag(arg.MachineTag)
+	if err != nil {
+		return nothing, common.ErrPerm
+	}
+	if !canAccess(tag) {
+		return nothing, common.ErrPerm
+	}
+	machine, err := p.st.Machine(tag.Id())
+	if err != nil {
+		return nothing, err
+	}
+	var watch state.StringsWatcher
+	if arg.ContainerType != "" {
+		watch, err = machine.WatchContainersCharmProfiles(instance.ContainerType(arg.ContainerType))
+		if err != nil {
+			return nothing, common.ErrPerm
+		}
+	} else {
+		return nothing, errors.BadRequestf("ContainerType not specified")
+	}
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: p.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return nothing, watcher.EnsureErr(watch)
+}
+
+// WatchContainersCharmProfiles starts a StringsWatcher to  notifies when
+// the provisioner should update the charm profiles used by a container on
+// the given machine.
+func (p *ProvisionerAPI) WatchContainersCharmProfiles(args params.WatchContainers) (params.StringsWatchResults, error) {
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Params)),
+	}
+	for i, arg := range args.Params {
+		watcherResult, err := p.watchOneMachineContainersCharmProfiles(arg)
+		result.Results[i] = watcherResult
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
 }
 
 // SetSupportedContainers updates the list of containers supported by the machines passed in args.
@@ -698,7 +765,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		err = machine.SetInstanceInfo(
 			arg.InstanceId, arg.Nonce, arg.Characteristics,
 			devicesArgs, devicesAddrs,
-			volumes, volumeAttachments,
+			volumes, volumeAttachments, arg.CharmProfiles,
 		)
 		if err != nil {
 			return errors.Annotatef(err, "cannot record provisioning info for %q", arg.InstanceId)
@@ -723,6 +790,27 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	// Consume any initial event and forward it to the result.
 	if _, ok := <-watch.Changes(); ok {
 		result.NotifyWatcherId = p.resources.Register(watch)
+	} else {
+		return result, watcher.EnsureErr(watch)
+	}
+	return result, nil
+}
+
+// WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies when
+// the provisioner should update the charm profiles used by a machine.
+func (p *ProvisionerAPI) WatchModelMachinesCharmProfiles() (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	if !p.authorizer.AuthController() {
+		return result, common.ErrPerm
+	}
+	watch, err := p.st.WatchModelMachinesCharmProfiles()
+	if err != nil {
+		return result, common.ErrPerm
+	}
+	// Consume any initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		result.StringsWatcherId = p.resources.Register(watch)
+		result.Changes = changes
 	} else {
 		return result, watcher.EnsureErr(watch)
 	}
@@ -797,13 +885,14 @@ func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 }
 
 // Machine is an indirection for use in container provisioning.
-//go:generate mockgen -package provisioner_test -destination machine_mock_test.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine
-//go:generate mockgen -package provisioner_test -destination linklayerdevice_mock_test.go github.com/juju/juju/network/containerizer LinkLayerDevice
+//go:generate mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine
+//go:generate mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/network/containerizer LinkLayerDevice,Unit,Application,Charm
 type Machine interface {
 	containerizer.Container
 	InstanceId() (instance.Id, error)
 	IsManual() (bool, error)
 	MachineTag() names.MachineTag
+	Units() ([]containerizer.Unit, error)
 }
 
 // perContainerHandler is the interface we need to trigger processing on
@@ -821,7 +910,10 @@ type perContainerHandler interface {
 	// SetError will be called whenever there is a problem with the a given
 	// request. Generally this just does result.Results[i].Error = error
 	// but the Result type is opaque so we can't do it ourselves.
-	SetError(resultIndex int, err *params.Error)
+	SetError(resultIndex int, err error)
+	// ConfigType indicates the type of config the handler is getting for
+	// for error messaging.
+	ConfigType() string
 }
 
 func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perContainerHandler) error {
@@ -832,7 +924,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 	}
 	_, err = hostMachine.InstanceId()
 	if errors.IsNotProvisioned(err) {
-		err = errors.NotProvisionedf("cannot prepare container network config: host machine %q", hostMachine)
+		err = errors.NotProvisionedf("cannot prepare container %s config: host machine %q", handler.ConfigType(), hostMachine)
 		return err
 	} else if err != nil {
 		return errors.Trace(err)
@@ -841,7 +933,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 	for i, entity := range args.Entities {
 		machineTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			handler.SetError(i, common.ServerError(err))
+			handler.SetError(i, err)
 			continue
 		}
 		// The auth function (canAccess) checks that the machine is a
@@ -849,11 +941,11 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 		// machine has the host as a parent.
 		guest, err := p.getMachine(canAccess, machineTag)
 		if err != nil {
-			handler.SetError(i, common.ServerError(err))
+			handler.SetError(i, err)
 			continue
 		} else if !guest.IsContainer() {
-			err = errors.Errorf("cannot prepare network config for %q: not a container", machineTag)
-			handler.SetError(i, common.ServerError(err))
+			err = errors.Errorf("cannot prepare %s config for %q: not a container", handler.ConfigType(), machineTag)
+			handler.SetError(i, err)
 			continue
 		}
 
@@ -862,7 +954,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 			&containerizer.MachineShim{Machine: hostMachine},
 			&containerizer.MachineShim{Machine: guest},
 		); err != nil {
-			handler.SetError(i, common.ServerError(err))
+			handler.SetError(i, err)
 			continue
 		}
 	}
@@ -874,10 +966,17 @@ type prepareOrGetContext struct {
 	maintain bool
 }
 
-func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
-	ctx.result.Results[idx].Error = err
+// Implements perContainerHandler.SetError
+func (ctx *prepareOrGetContext) SetError(idx int, err error) {
+	ctx.result.Results[idx].Error = common.ServerError(err)
 }
 
+// Implements perContainerHandler.ConfigType
+func (ctx *prepareOrGetContext) ConfigType() string {
+	return "network"
+}
+
+// Implements perContainerHandler.ProcessOneContainer
 func (ctx *prepareOrGetContext) ProcessOneContainer(
 	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
 ) error {
@@ -1059,6 +1158,7 @@ type hostChangesContext struct {
 	result params.HostNetworkChangeResults
 }
 
+// Implements perContainerHandler.ProcessOneContainer
 func (ctx *hostChangesContext) ProcessOneContainer(
 	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
 ) error {
@@ -1084,8 +1184,14 @@ func (ctx *hostChangesContext) ProcessOneContainer(
 	return nil
 }
 
-func (ctx *hostChangesContext) SetError(idx int, err *params.Error) {
-	ctx.result.Results[idx].Error = err
+// Implements perContainerHandler.SetError
+func (ctx *hostChangesContext) SetError(idx int, err error) {
+	ctx.result.Results[idx].Error = common.ServerError(err)
+}
+
+// Implements perContainerHandler.ConfigType
+func (ctx *hostChangesContext) ConfigType() string {
+	return "network"
 }
 
 // HostChangesForContainers returns the set of changes that need to be done
@@ -1096,6 +1202,78 @@ func (p *ProvisionerAPI) HostChangesForContainers(args params.Entities) (params.
 		result: params.HostNetworkChangeResults{
 			Results: make([]params.HostNetworkChange, len(args.Entities)),
 		},
+	}
+	if err := p.processEachContainer(args, ctx); err != nil {
+		return ctx.result, errors.Trace(err)
+	}
+	return ctx.result, nil
+}
+
+type containerProfileContext struct {
+	result    params.ContainerProfileResults
+	modelName string
+}
+
+// Implements perContainerHandler.ProcessOneContainer
+func (ctx *containerProfileContext) ProcessOneContainer(
+	_ environs.Environ, _ context.ProviderCallContext, idx int, _, guest Machine,
+) error {
+	units, err := guest.Units()
+	if err != nil {
+		ctx.result.Results[idx].Error = common.ServerError(err)
+		return errors.Trace(err)
+	}
+	var resPro []*params.ContainerLXDProfile
+	for _, unit := range units {
+		app, err := unit.Application()
+		if err != nil {
+			ctx.SetError(idx, err)
+			return errors.Trace(err)
+		}
+		ch, _, err := app.Charm()
+		if err != nil {
+			ctx.SetError(idx, err)
+			return errors.Trace(err)
+		}
+		profile := ch.LXDProfile()
+		if profile == nil || (profile != nil && profile.Empty()) {
+			logger.Tracef("no profile to return for %q", unit.Name())
+			continue
+		}
+		resPro = append(resPro, &params.ContainerLXDProfile{
+			Profile: params.CharmLXDProfile{
+				Config:      profile.Config,
+				Description: profile.Description,
+				Devices:     profile.Devices,
+			},
+			Name: lxdprofile.Name(ctx.modelName, app.Name(), ch.Revision()),
+		})
+	}
+
+	ctx.result.Results[idx].LXDProfiles = resPro
+	return nil
+}
+
+// Implements perContainerHandler.SetError
+func (ctx *containerProfileContext) SetError(idx int, err error) {
+	ctx.result.Results[idx].Error = common.ServerError(err)
+}
+
+// Implements perContainerHandler.ConfigType
+func (ctx *containerProfileContext) ConfigType() string {
+	return "LXD profile"
+}
+
+// GetContainerProfileInfo returns information to configure a lxd profile(s) for a
+// container based on the charms deployed to the container. It accepts container
+// tags as arguments. Unlike machineLXDProfileNames which has the environ
+// write the lxd profiles and returns the names of profiles already written.
+func (p *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params.ContainerProfileResults, error) {
+	ctx := &containerProfileContext{
+		result: params.ContainerProfileResults{
+			Results: make([]params.ContainerProfileResult, len(args.Entities)),
+		},
+		modelName: p.m.Name(),
 	}
 	if err := p.processEachContainer(args, ctx); err != nil {
 		return ctx.result, errors.Trace(err)
@@ -1163,7 +1341,8 @@ func (p *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg par
 		logger.Debugf("failed to SetInstanceStatus for %q: %v", mTag, err)
 		return err
 	}
-	if status.Status(arg.Status) == status.ProvisioningError {
+	if status.Status(arg.Status) == status.ProvisioningError ||
+		status.Status(arg.Status) == status.Error {
 		s.Status = status.Error
 		logger.Debugf("SetInstanceStatus triggering SetStatus for %#v", s)
 		if err = machine.SetStatus(s); err != nil {
@@ -1231,4 +1410,193 @@ func (a *ProvisionerAPI) CACert() (params.BytesResult, error) {
 	}
 	caCert, _ := cfg.CACert()
 	return params.BytesResult{Result: []byte(caCert)}, nil
+}
+
+// CharmProfileChangeInfo retrieves the info necessary to change a charm
+// profile used by a machine.
+func (p *ProvisionerAPI) CharmProfileChangeInfo(machines params.Entities) (params.ProfileChangeResults, error) {
+	results := make([]params.ProfileChangeResult, len(machines.Entities))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ProfileChangeResults{}, errors.Trace(err)
+	}
+	for i, machine := range machines.Entities {
+		mTag, err := names.ParseMachineTag(machine.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, mTag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		result, err := machineChangeProfileChangeInfo(&profileMachineShim{Machine: machine}, &profileBackendShim{p.st})
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i] = result
+	}
+	return params.ProfileChangeResults{Results: results}, nil
+}
+
+func machineChangeProfileChangeInfo(machine ProfileMachine, st ProfileBackend) (params.ProfileChangeResult, error) {
+	nothing := params.ProfileChangeResult{}
+
+	appName, err := machine.UpgradeCharmProfileApplication()
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+	if appName == "" {
+		return nothing, errors.Trace(errors.New("no appname for profile charm upgrade"))
+	}
+	profileNames, err := machine.CharmProfiles()
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+	// If oldProfileName ends up as an empty string,
+	// the charm has added an lxd-profile where it didn't have one before.
+	oldProfileName, err := lxdprofile.MatchProfileNameByAppName(profileNames, appName)
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+
+	url, err := machine.UpgradeCharmProfileCharmURL()
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+	switch {
+	case url == "" && oldProfileName != "":
+		// Remove the old profile from the machine,
+		// the unit is being removed.
+		return params.ProfileChangeResult{
+			OldProfileName: oldProfileName,
+		}, nil
+	case url == "":
+		return nothing, errors.Trace(errors.New("no url for profile charm upgrade, no profile to remove"))
+	}
+
+	chURL, err := charm.ParseURL(url)
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+
+	ch, err := st.Charm(chURL)
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+	var profile *params.CharmLXDProfile
+	chProfile := ch.LXDProfile()
+	if chProfile != nil && !chProfile.Empty() {
+		p := params.CharmLXDProfile(*chProfile)
+		profile = &p
+	}
+	chRev := ch.Revision()
+
+	var newProfileName string
+	switch {
+	case oldProfileName == "":
+		newProfileName = lxdprofile.Name(machine.ModelName(), appName, chRev)
+		logger.Tracef("new profile %s is being added to machine-%s", machine.Id(), newProfileName)
+	case profile == nil:
+		logger.Tracef("profile %s is being removed from machine-%s, no replacement", machine.Id(), oldProfileName)
+		newProfileName = ""
+	default:
+		newProfileName, err = lxdprofile.ProfileReplaceRevision(oldProfileName, chRev)
+		if err != nil {
+			return nothing, errors.Trace(err)
+		}
+		logger.Tracef("profile %s is being replaced with %s on machine-%s", oldProfileName, newProfileName, machine.Id())
+	}
+
+	meta := ch.Meta()
+
+	return params.ProfileChangeResult{
+		OldProfileName: oldProfileName,
+		NewProfileName: newProfileName,
+		Profile:        profile,
+		Subordinate:    meta.Subordinate,
+	}, nil
+}
+
+// SetCharmProfiles records the given slice of charm profile names.
+func (p *ProvisionerAPI) SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Args))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Args {
+		results[i].Error = common.ServerError(p.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess))
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+func (p *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profiles []string, canAccess common.AuthFunc) error {
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.SetCharmProfiles(profiles)
+}
+
+// SetUpgradeCharmProfileComplete recorded that the result of updating
+// the machine's charm profile(s)
+func (p *ProvisionerAPI) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Args))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Args {
+		results[i].Error = common.ServerError(p.oneUpgradeCharmProfileComplete(a.Entity.Tag, a.Message, canAccess))
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+func (p *ProvisionerAPI) oneUpgradeCharmProfileComplete(machineTag string, msg string, canAccess common.AuthFunc) error {
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.SetUpgradeCharmProfileComplete(msg)
+}
+
+// RemoveUpgradeCharmProfileData completely removes the instance charm profile
+// data for a machine, even if the machine is dead.
+func (p *ProvisionerAPI) RemoveUpgradeCharmProfileData(args params.Entities) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Entities))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Entities {
+		results[i].Error = common.ServerError(p.oneRemoveUpgradeCharmProfileData(a.Tag, canAccess))
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+func (p *ProvisionerAPI) oneRemoveUpgradeCharmProfileData(machineTag string, canAccess common.AuthFunc) error {
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.RemoveUpgradeCharmProfileData()
 }

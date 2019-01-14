@@ -6,6 +6,8 @@ package watcher_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -28,7 +30,7 @@ type TxnWatcherSuite struct {
 	w            *watcher.TxnWatcher
 	ch           chan watcher.Change
 	iteratorFunc func() mongo.Iterator
-	clock        *gitjujutesting.Clock
+	clock        *testclock.Clock
 }
 
 var _ = gc.Suite(&TxnWatcherSuite{})
@@ -56,7 +58,7 @@ func (s *TxnWatcherSuite) SetUpTest(c *gc.C) {
 	s.stash = db.C("txn.stash")
 	s.runner = txn.NewRunner(db.C("txn"))
 	s.runner.ChangeLog(s.log)
-	s.clock = gitjujutesting.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *TxnWatcherSuite) TearDownTest(c *gc.C) {
@@ -64,19 +66,22 @@ func (s *TxnWatcherSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 }
 
-func (s *TxnWatcherSuite) advanceTime(c *gc.C, d time.Duration) {
+func (s *TxnWatcherSuite) advanceTime(c *gc.C, d time.Duration, waiters int) {
 	// Here we are assuming that there is one and only one thing
 	// using the After function on the testing clock, that being our
 	// watcher.
-	s.clock.WaitAdvance(d, testing.ShortWait, 1)
+	c.Assert(s.clock.WaitAdvance(d, testing.ShortWait, waiters), jc.ErrorIsNil)
 }
 
 func (s *TxnWatcherSuite) newWatcher(c *gc.C, expect int) (*watcher.TxnWatcher, *fakeHub) {
 	hub := newFakeHub(c, expect)
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.TRACE)
 	w, err := watcher.NewTxnWatcher(watcher.TxnWatcherConfig{
 		ChangeLog: s.log,
 		Hub:       hub,
 		Clock:     s.clock,
+		Logger:    logger,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Wait for the main loop to have started.
@@ -162,7 +167,7 @@ func (s *TxnWatcherSuite) TestInsert(c *gc.C) {
 
 	revno := s.insert(c, "test", "a")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -176,7 +181,7 @@ func (s *TxnWatcherSuite) TestUpdate(c *gc.C) {
 	_, hub := s.newWatcher(c, 1)
 	revno := s.update(c, "test", "a")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -190,7 +195,7 @@ func (s *TxnWatcherSuite) TestRemove(c *gc.C) {
 	_, hub := s.newWatcher(c, 1)
 	revno := s.remove(c, "test", "a")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -205,7 +210,7 @@ func (s *TxnWatcherSuite) TestWatchOrder(c *gc.C) {
 	revno2 := s.insert(c, "test", "b")
 	revno3 := s.insert(c, "test", "c")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -220,7 +225,7 @@ func (s *TxnWatcherSuite) TestTransactionWithMultiple(c *gc.C) {
 
 	revnos := s.insertAll(c, "test", "a", "b", "c")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -252,7 +257,7 @@ func (s *TxnWatcherSuite) TestScale(c *gc.C) {
 	c.Logf("Got %d documents in the collection...", count)
 	c.Assert(count, gc.Equals, N)
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	for i := 0; i < N; i++ {
@@ -264,9 +269,9 @@ func (s *TxnWatcherSuite) TestInsertThenRemove(c *gc.C) {
 	_, hub := s.newWatcher(c, 2)
 
 	revno1 := s.insert(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	revno2 := s.remove(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 2)
 
 	hub.waitForExpected(c)
 
@@ -280,10 +285,10 @@ func (s *TxnWatcherSuite) TestDoubleUpdate(c *gc.C) {
 	_, hub := s.newWatcher(c, 2)
 
 	revno1 := s.insert(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	s.update(c, "test", "a")
 	revno3 := s.update(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 2)
 
 	hub.waitForExpected(c)
 

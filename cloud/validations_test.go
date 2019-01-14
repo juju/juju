@@ -24,7 +24,11 @@ func (s *cloudSuite) TestValidateValidCloud(c *gc.C) {
                 http-proxy: http://10.245.200.27:8000/
               regions:
                 dev1:
-                  endpoint: https://openstack.example.com:35574/v3.0/`
+                  endpoint: https://openstack.example.com:35574/v3.0/
+              ca-certificates:
+              - |-
+                -----BEGIN CERTIFICATE-----
+                -----END CERTIFICATE-----`
 
 	yaml := []byte(validCloud)
 	err := cloud.ValidateCloudSet(yaml)

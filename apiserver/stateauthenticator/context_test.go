@@ -6,8 +6,8 @@ package stateauthenticator_test
 import (
 	"net/http"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"

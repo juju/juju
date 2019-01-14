@@ -15,6 +15,7 @@ type ModelAccessor interface {
 	CloudCredential() (names.CloudCredentialTag, bool)
 	ModelTag() names.ModelTag
 	Cloud() string
+	WatchModelCredential() state.NotifyWatcher
 }
 
 // StateAccessor exposes State methods needed by credential validator.

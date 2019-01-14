@@ -10,18 +10,22 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	_ "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
 
 type mockState struct {
 	testing.Stub
+	common.AddressAndCertGetter
 	entities map[string]state.Entity
 	app      mockApplication
 	unit     mockUnit
@@ -51,6 +55,16 @@ func newMockState() *mockState {
 	st.entities[st.app.Tag().String()] = &st.app
 	st.entities[st.unit.Tag().String()] = &st.unit
 	return st
+}
+
+func (st *mockState) APIHostPortsForAgents() ([][]network.HostPort, error) {
+	st.MethodCall(st, "APIHostPortsForAgents")
+	return nil, nil
+}
+
+func (st *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
+	st.MethodCall(st, "WatchAPIHostPortsForAgents")
+	return apiservertesting.NewFakeNotifyWatcher()
 }
 
 func (st *mockState) Application(id string) (caasoperator.Application, error) {
@@ -128,8 +142,8 @@ func (a *mockApplication) Life() state.Life {
 	return a.life
 }
 
-func (a *mockApplication) SetStatus(info status.StatusInfo) error {
-	a.MethodCall(a, "SetStatus", info)
+func (a *mockApplication) SetOperatorStatus(info status.StatusInfo) error {
+	a.MethodCall(a, "SetOperatorStatus", info)
 	return a.NextErr()
 }
 

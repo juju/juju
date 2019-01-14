@@ -14,34 +14,48 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/status"
 )
 
 type statusFormatter struct {
-	status         *params.FullStatus
-	controllerName string
-	relations      map[int]params.RelationStatus
-	isoTime        bool
-	showRelations  bool
+	status                 *params.FullStatus
+	controllerName         string
+	relations              map[int]params.RelationStatus
+	storage                *storage.CombinedStorage
+	isoTime, showRelations bool
 }
 
 // NewStatusFormatter takes stored model information (params.FullStatus) and populates
 // the statusFormatter struct used in various status formatting methods
 func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
-	return newStatusFormatter(status, "", isoTime, true)
+	return newStatusFormatter(
+		newStatusFormatterParams{
+			status:        status,
+			isoTime:       isoTime,
+			showRelations: true,
+		})
 }
 
-func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime, showRelations bool) *statusFormatter {
+type newStatusFormatterParams struct {
+	storage                *storage.CombinedStorage
+	status                 *params.FullStatus
+	controllerName         string
+	isoTime, showRelations bool
+}
+
+func newStatusFormatter(p newStatusFormatterParams) *statusFormatter {
 	sf := statusFormatter{
-		status:         status,
-		controllerName: controllerName,
+		storage:        p.storage,
+		status:         p.status,
+		controllerName: p.controllerName,
 		relations:      make(map[int]params.RelationStatus),
-		isoTime:        isoTime,
-		showRelations:  showRelations,
+		isoTime:        p.isoTime,
+		showRelations:  p.showRelations,
 	}
-	if showRelations {
-		for _, relation := range status.Relations {
+	if p.showRelations {
+		for _, relation := range p.status.Relations {
 			sf.relations[relation.Id] = relation
 		}
 	}
@@ -102,6 +116,9 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 		out.Relations[i] = sf.formatRelation(rel)
 		i++
 	}
+	if sf.storage != nil {
+		out.Storage = sf.storage
+	}
 	return out, nil
 }
 
@@ -143,6 +160,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		Containers:        make(map[string]machineStatus),
 		Constraints:       machine.Constraints,
 		Hardware:          machine.Hardware,
+		LXDProfiles:       make(map[string]lxdProfileContents),
 	}
 
 	for k, d := range machine.NetworkInterfaces {
@@ -155,6 +173,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 			IsUp:           d.IsUp,
 		}
 	}
+
 	for k, m := range machine.Containers {
 		out.Containers[k] = sf.formatMachine(m)
 	}
@@ -165,6 +184,15 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 			break
 		}
 	}
+
+	for k, v := range machine.LXDProfiles {
+		out.LXDProfiles[k] = lxdProfileContents{
+			Config:      v.Config,
+			Description: v.Description,
+			Devices:     v.Devices,
+		}
+	}
+
 	return out
 }
 
@@ -207,8 +235,11 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		CharmOrigin:      charmOrigin,
 		CharmName:        charmName,
 		CharmRev:         charmRev,
+		CharmVersion:     application.CharmVersion,
 		Exposed:          application.Exposed,
 		Life:             application.Life,
+		Scale:            application.Scale,
+		Placement:        application.Placement,
 		ProviderId:       application.ProviderId,
 		Address:          application.PublicAddress,
 		Relations:        application.Relations,

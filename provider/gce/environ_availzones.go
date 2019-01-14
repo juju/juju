@@ -18,7 +18,7 @@ import (
 func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 
 	var result []common.AvailabilityZone
@@ -57,17 +57,17 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
 func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
-	zone, err := env.deriveAvailabilityZones(args.Placement, args.VolumeAttachments)
+	zone, err := env.deriveAvailabilityZones(ctx, args.Placement, args.VolumeAttachments)
 	if zone != "" {
 		return []string{zone}, errors.Trace(err)
 	}
 	return nil, errors.Trace(err)
 }
 
-func (env *environ) availZone(name string) (*google.AvailabilityZone, error) {
+func (env *environ) availZone(ctx context.ProviderCallContext, name string) (*google.AvailabilityZone, error) {
 	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	for _, z := range zones {
 		if z.Name() == name {
@@ -77,8 +77,8 @@ func (env *environ) availZone(name string) (*google.AvailabilityZone, error) {
 	return nil, errors.NotFoundf("invalid availability zone %q", name)
 }
 
-func (env *environ) availZoneUp(name string) (*google.AvailabilityZone, error) {
-	zone, err := env.availZone(name)
+func (env *environ) availZoneUp(ctx context.ProviderCallContext, name string) (*google.AvailabilityZone, error) {
+	zone, err := env.availZone(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,12 +112,12 @@ func volumeAttachmentsZone(volumeAttachments []storage.VolumeAttachmentParams) (
 	return zone, nil
 }
 
-func (env *environ) instancePlacementZone(placement string, volumeAttachmentsZone string) (string, error) {
+func (env *environ) instancePlacementZone(ctx context.ProviderCallContext, placement string, volumeAttachmentsZone string) (string, error) {
 	if placement == "" {
 		return volumeAttachmentsZone, nil
 	}
 	// placement will always be a zone name or empty.
-	instPlacement, err := env.parsePlacement(placement)
+	instPlacement, err := env.parsePlacement(ctx, placement)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -131,6 +131,7 @@ func (env *environ) instancePlacementZone(placement string, volumeAttachmentsZon
 }
 
 func (e *environ) deriveAvailabilityZones(
+	ctx context.ProviderCallContext,
 	placement string,
 	volumeAttachments []storage.VolumeAttachmentParams,
 ) (string, error) {
@@ -141,7 +142,7 @@ func (e *environ) deriveAvailabilityZones(
 	if placement == "" {
 		return volumeAttachmentsZone, nil
 	}
-	instPlacement, err := e.parsePlacement(placement)
+	instPlacement, err := e.parsePlacement(ctx, placement)
 	if err != nil {
 		return "", err
 	}

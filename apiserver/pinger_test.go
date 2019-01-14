@@ -6,9 +6,9 @@ package apiserver_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -28,8 +28,8 @@ type pingerSuite struct {
 
 var _ = gc.Suite(&pingerSuite{})
 
-func (s *pingerSuite) newServerWithTestClock(c *gc.C) (*apiserver.Server, *testing.Clock) {
-	clock := testing.NewClock(time.Now())
+func (s *pingerSuite) newServerWithTestClock(c *gc.C) (*apiserver.Server, *testclock.Clock) {
+	clock := testclock.NewClock(time.Now())
 	config := s.config
 	config.PingClock = clock
 	server := s.newServer(c, config)
@@ -89,6 +89,7 @@ func (s *pingerSuite) TestClientNoNeedToPing(c *gc.C) {
 	time.Sleep(coretesting.ShortWait)
 
 	clock.Advance(apiserver.MaxClientPingInterval * 2)
+	time.Sleep(coretesting.ShortWait)
 	c.Assert(pingConn(conn), jc.ErrorIsNil)
 }
 
@@ -129,12 +130,12 @@ func (s *pingerSuite) TestAgentConnectionsShutDownWhenAPIServerDies(c *gc.C) {
 	checkConnectionDies(c, conn)
 }
 
-func waitAndAdvance(c *gc.C, clock *testing.Clock, delta time.Duration) {
+func waitAndAdvance(c *gc.C, clock *testclock.Clock, delta time.Duration) {
 	waitForClock(c, clock)
 	clock.Advance(delta)
 }
 
-func waitForClock(c *gc.C, clock *testing.Clock) {
+func waitForClock(c *gc.C, clock *testclock.Clock) {
 	select {
 	case <-clock.Alarms():
 	case <-time.After(coretesting.LongWait):

@@ -23,6 +23,8 @@ type ResolverConfig struct {
 	ShouldRetryHooks    bool
 	StartRetryHookTimer func()
 	StopRetryHookTimer  func()
+	UpgradeSeries       resolver.Resolver
+	UpgradeCharmProfile resolver.Resolver
 	Leadership          resolver.Resolver
 	Actions             resolver.Resolver
 	Relations           resolver.Resolver
@@ -52,10 +54,30 @@ func (s *uniterResolver) NextOp(
 		return nil, resolver.ErrTerminate
 	}
 
+	// Operations for series-upgrade need to be resolved early,
+	// in particular because no other operations should be run when the unit
+	// has completed preparation and is waiting for upgrade completion.
+	op, err := s.config.UpgradeSeries.NextOp(localState, remoteState, opFactory)
+	if errors.Cause(err) != resolver.ErrNoOperation {
+		if errors.Cause(err) == resolver.ErrDoNotProceed {
+			return nil, resolver.ErrNoOperation
+		}
+		return op, err
+	}
+
 	if localState.Kind == operation.Upgrade {
 		if localState.Conflicted {
 			return s.nextOpConflicted(localState, remoteState, opFactory)
 		}
+		op, err = s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
+		if errors.Cause(err) != resolver.ErrNoOperation {
+			if errors.Cause(err) == resolver.ErrDoNotProceed {
+				logger.Tracef("waiting for profile to be applied")
+				return nil, resolver.ErrNoOperation
+			}
+			return op, err
+		}
+		// continue upgrading the charm
 		logger.Infof("resuming charm upgrade")
 		return opFactory.NewUpgrade(localState.CharmURL)
 	}
@@ -75,7 +97,7 @@ func (s *uniterResolver) NextOp(
 		s.retryHookTimerStarted = false
 	}
 
-	op, err := s.config.Leadership.NextOp(localState, remoteState, opFactory)
+	op, err = s.config.Leadership.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
@@ -227,7 +249,6 @@ func (s *uniterResolver) nextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
-
 	switch remoteState.Life {
 	case params.Alive:
 	case params.Dying:
@@ -268,13 +289,14 @@ func (s *uniterResolver) nextOp(
 	if charmModified(localState, remoteState) {
 		if s.config.ModelType == model.IAAS {
 			return opFactory.NewUpgrade(remoteState.CharmURL)
-		} else {
-			return opFactory.NewNoOpUpgrade(remoteState.CharmURL)
 		}
+		return opFactory.NewNoOpUpgrade(remoteState.CharmURL)
 	}
 
-	if localState.ConfigVersion != remoteState.ConfigVersion ||
-		localState.Series != remoteState.Series {
+	configHashChanged := localState.ConfigHash != remoteState.ConfigHash
+	trustHashChanged := localState.TrustHash != remoteState.TrustHash
+	addressesHashChanged := localState.AddressesHash != remoteState.AddressesHash
+	if configHashChanged || trustHashChanged || addressesHashChanged {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
@@ -294,6 +316,7 @@ func (s *uniterResolver) nextOp(
 // NopResolver is a resolver that does nothing.
 type NopResolver struct{}
 
+// The NopResolver's NextOp operation should always return the no operation error.
 func (NopResolver) NextOp(resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {
 	return nil, resolver.ErrNoOperation
 }

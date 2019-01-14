@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"

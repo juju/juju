@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -84,8 +84,8 @@ func (s *CAASOperatorSuite) TestSetStatus(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "SetStatus")
-	s.st.app.CheckCall(c, 0, "SetStatus", status.StatusInfo{
+	s.st.app.CheckCallNames(c, "SetOperatorStatus")
+	s.st.app.CheckCall(c, 0, "SetOperatorStatus", status.StatusInfo{
 		Status:  "bar",
 		Message: "baz",
 		Data: map[string]interface{}{
@@ -319,4 +319,16 @@ func (s *CAASOperatorSuite) TestSetTools(c *gc.C) {
 			}},
 	})
 	s.st.app.CheckCall(c, 0, "SetAgentVersion", vers)
+}
+
+func (s *CAASOperatorSuite) TestAddresses(c *gc.C) {
+	_, err := s.facade.APIAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCallNames(c, "Model", "APIHostPortsForAgents")
+}
+
+func (s *CAASOperatorSuite) TestWatchAPIHostPorts(c *gc.C) {
+	_, err := s.facade.WatchAPIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCallNames(c, "Model", "WatchAPIHostPortsForAgents")
 }

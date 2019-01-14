@@ -38,16 +38,15 @@ const DeveloperMode = "developer-mode"
 // values for annotations, status, status history, or settings.
 const StrictMigration = "strict-migration"
 
-// NewPresence indicates that the new in-memory presence implementation
+// OldPresence indicates that the old database presence implementation
 // should be used by the API server to determine agent presence.
 // This value is only checked using the controller config "features" attrubite.
-const NewPresence = "new-presence"
+const OldPresence = "old-presence"
 
-// DisableRaft will prevent the raft workers from running. At the
-// moment the raft cluster isn't managing leadership, so we want the
-// ability to stop the workers from running if they cause any issues
-// (or just unwanted noise).
-const DisableRaft = "disable-raft"
+// LegacyLeases will switch all lease management to be handled by the
+// Mongo-based lease store, rather than by the Raft FSM.
+const LegacyLeases = "legacy-leases"
 
-// UpgradeSeries is a development feature flag.
-const UpgradeSeries = "upgrade-series"
+// LXDProfile will allow for lxd-profile.yaml files in a charm to be used
+// in container creation.
+const LXDProfile = "lxd-profile"

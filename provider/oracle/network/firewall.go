@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -214,7 +214,7 @@ func (f Firewall) CreateDefaultACLAndRules(machineId string) (response.Acl, erro
 		return response.Acl{}, err
 	}
 	rules := []api.SecurityRuleParams{
-		api.SecurityRuleParams{
+		{
 			Name:                   fmt.Sprintf("%s-allow-ingress", resourceName),
 			Description:            "Allow all ingress",
 			FlowDirection:          common.Ingress,
@@ -223,7 +223,7 @@ func (f Firewall) CreateDefaultACLAndRules(machineId string) (response.Acl, erro
 			SecProtocols:           []string{},
 			SrcIpAddressPrefixSets: []string{},
 		},
-		api.SecurityRuleParams{
+		{
 			Name:                   fmt.Sprintf("%s-allow-egress", resourceName),
 			Description:            "Allow all egress",
 			FlowDirection:          common.Egress,
@@ -309,7 +309,7 @@ func (f Firewall) GlobalIngressRules(ctx context.ProviderCallContext) ([]network
 // getDefaultIngressRules will create the default ingressRules given an api port
 func (f Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 	return []network.IngressRule{
-		network.IngressRule{
+		{
 			PortRange: network.PortRange{
 				FromPort: 22,
 				ToPort:   22,
@@ -319,7 +319,7 @@ func (f Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 				"0.0.0.0/0",
 			},
 		},
-		network.IngressRule{
+		{
 			PortRange: network.PortRange{
 				FromPort: 3389,
 				ToPort:   3389,
@@ -329,7 +329,7 @@ func (f Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 				"0.0.0.0/0",
 			},
 		},
-		network.IngressRule{
+		{
 			PortRange: network.PortRange{
 				FromPort: apiPort,
 				ToPort:   apiPort,
@@ -339,7 +339,7 @@ func (f Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 				"0.0.0.0/0",
 			},
 		},
-		network.IngressRule{
+		{
 			PortRange: network.PortRange{
 				FromPort: controller.DefaultStatePort,
 				ToPort:   controller.DefaultStatePort,
@@ -444,7 +444,7 @@ func (f Firewall) deleteAllSecRulesOnList(list string) error {
 // list as well
 func (f *Firewall) maybeDeleteList(list string) error {
 	filter := []api.Filter{
-		api.Filter{
+		{
 			Arg:   "seclist",
 			Value: list,
 		},
@@ -688,7 +688,7 @@ func (f Firewall) convertFromSecRules(rules ...response.SecRule) (map[string][]n
 		portRange := f.convertApplicationToPortRange(applications[app])
 		if _, ok := ret[dstList]; !ok {
 			ret[dstList] = []network.IngressRule{
-				network.IngressRule{
+				{
 					PortRange:   portRange,
 					SourceCIDRs: iplists[srcList].Secipentries,
 				},
@@ -798,7 +798,7 @@ func (f Firewall) getSecRules(seclist string) ([]response.SecRule, error) {
 	// we only care about ingress rules
 	name := fmt.Sprintf("seclist:%s", seclist)
 	rulesFilter := []api.Filter{
-		api.Filter{
+		{
 			Arg:   "dst_list",
 			Value: name,
 		},

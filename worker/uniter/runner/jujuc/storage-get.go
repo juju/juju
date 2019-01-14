@@ -8,6 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // StorageGetCommand implements the storage-get command.
@@ -34,12 +36,12 @@ func (c *StorageGetCommand) Info() *cmd.Info {
 	doc := `
 When no <key> is supplied, all keys values are printed.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "storage-get",
 		Args:    "[<key>]",
 		Purpose: "print information for storage instance with specified id",
 		Doc:     doc,
-	}
+	})
 }
 
 func (c *StorageGetCommand) SetFlags(f *gnuflag.FlagSet) {

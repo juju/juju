@@ -45,11 +45,6 @@ func (mock *mockBackend) ModelTag() names.ModelTag {
 	return coretesting.ModelTag
 }
 
-// SingularClaimer is part of the singular.Backend interface.
-func (mock *mockBackend) SingularClaimer() lease.Claimer {
-	return mock
-}
-
 // Claim is part of the lease.Claimer interface.
 func (mock *mockBackend) Claim(lease, holder string, duration time.Duration) error {
 	mock.stub.AddCall("Claim", lease, holder, duration)

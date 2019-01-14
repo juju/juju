@@ -64,7 +64,7 @@ func (s *goalStateSuite) TestGoalStateTwoRelatedUnits(c *gc.C) {
 					"mysql/0": paramsBaseGoalStateStatus,
 				},
 				Relations: map[string]params.UnitsGoalState{
-					"db": params.UnitsGoalState{
+					"db": {
 						"wordpress/0": paramsBaseGoalStateStatus,
 					},
 				},
@@ -77,7 +77,7 @@ func (s *goalStateSuite) TestGoalStateTwoRelatedUnits(c *gc.C) {
 			"mysql/0": apiBaseGoalStateStatus,
 		},
 		Relations: map[string]application.UnitsGoalState{
-			"db": application.UnitsGoalState{
+			"db": {
 				"wordpress/0": apiBaseGoalStateStatus,
 			},
 		},

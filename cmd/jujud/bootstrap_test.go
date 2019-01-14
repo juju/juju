@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
@@ -23,7 +24,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -238,6 +238,16 @@ func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
 	}})
 }
 
+func (s *BootstrapSuite) getSystemState(c *gc.C) (*state.State, func()) {
+	pool, err := state.OpenStatePool(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoSession:       s.Session,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return pool.SystemState(), func() { pool.Close() }
+}
 func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -255,15 +265,8 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 	}})
 
 	// Retrieve the state so that it is possible to access the GUI storage.
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoSession:       s.Session,
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	st, closer := s.getSystemState(c)
+	defer closer()
 
 	// The GUI archive has been uploaded to the GUI storage.
 	storage, err := st.GUIStorage()
@@ -368,15 +371,8 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.InitiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.InitiateParams.Password, gc.Equals, "")
 
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoSession:       s.Session,
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	st, closer := s.getSystemState(c)
+	defer closer()
 	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
@@ -424,15 +420,8 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoSession:       s.Session,
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	st, closer := s.getSystemState(c)
+	defer closer()
 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -454,15 +443,8 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoSession:       s.Session,
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	st, closer := s.getSystemState(c)
+	defer closer()
 
 	cons, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -490,15 +472,8 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoSession:       s.Session,
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	st, closer := s.getSystemState(c)
+	defer closer()
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Jobs(), gc.DeepEquals, expectedJobs)
@@ -511,14 +486,8 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoSession:       s.Session,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	st, closer := s.getSystemState(c)
+	defer closer()
 
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -556,14 +525,8 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the admin user has been given an appropriate password
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoSession:       session,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	st, closer := s.getSystemState(c)
+	defer closer()
 	u, err := st.User(names.NewLocalUserTag("admin"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.PasswordValid(testPassword), jc.IsTrue)
@@ -579,14 +542,9 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	session, err = mongo.DialWithInfo(*machineMongoInfo, mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
-	st, err = state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoSession:       session,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+
+	st, closer = s.getSystemState(c)
+	defer closer()
 
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -625,7 +583,7 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.Controller, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
@@ -646,7 +604,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.Controller, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
@@ -659,6 +617,27 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
 	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *BootstrapSuite) TestBootstrapWithInvalidCredentialLogs(c *gc.C) {
+	called := false
+	newEnviron := func(ps environs.OpenParams) (environs.Environ, error) {
+		called = true
+		env, _ := environs.New(ps)
+		return &mockDummyEnviron{env}, nil
+	}
+	s.PatchValue(&EnvironsNew, newEnviron)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	// Note that the credential is not needed for dummy provider
+	// which is what the test here uses. This test only checks that
+	// the message related to the credential is logged.
+	c.Assert(c.GetTestLog(), jc.Contains,
+		`ERROR juju.cmd.jujud Cloud credential "" is not accepted by cloud provider: considered invalid for the sake of testing`)
 }
 
 func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
@@ -710,15 +689,8 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	// The tools should have been added to tools storage, and
 	// exploded into each of the supported series of
 	// the same operating system if the tools were uploaded.
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoSession:       s.Session,
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	st, closer := s.getSystemState(c)
+	defer closer()
 	expectedSeries := make(set.Strings)
 	if exploded {
 		for _, ser := range series.SupportedSeries() {
@@ -758,15 +730,9 @@ func createImageMetadata() []*imagemetadata.ImageMetadata {
 	}}
 }
 
-func assertWrittenToState(c *gc.C, session *mgo.Session, metadata cloudimagemetadata.Metadata) {
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoSession:       session,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+func (s *BootstrapSuite) assertWrittenToState(c *gc.C, session *mgo.Session, metadata cloudimagemetadata.Metadata) {
+	st, closer := s.getSystemState(c)
+	defer closer()
 
 	// find all image metadata in state
 	all, err := st.CloudImageMetadataStorage.FindMetadata(cloudimagemetadata.MetadataFilter{})
@@ -779,7 +745,7 @@ func assertWrittenToState(c *gc.C, session *mgo.Session, metadata cloudimagemeta
 		metadata.DateCreated = all[metadata.Source][0].DateCreated
 	}
 	c.Assert(all, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
-		metadata.Source: []cloudimagemetadata.Metadata{metadata},
+		metadata.Source: {metadata},
 	})
 }
 
@@ -805,7 +771,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 		Priority: simplestreams.CUSTOM_CLOUD_DATA,
 		ImageId:  "imageId",
 	}
-	assertWrittenToState(c, s.Session, expect)
+	s.assertWrittenToState(c, s.Session, expect)
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
@@ -891,4 +857,14 @@ func nullContext() environs.BootstrapContext {
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard
 	return modelcmd.BootstrapContext(ctx)
+}
+
+type mockDummyEnviron struct {
+	environs.Environ
+}
+
+func (m *mockDummyEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+	// ensure that callback is used...
+	ctx.InvalidateCredential("considered invalid for the sake of testing")
+	return m.Environ.Instances(ctx, ids)
 }

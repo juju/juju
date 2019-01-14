@@ -23,12 +23,14 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -122,7 +124,7 @@ func (u *Unit) ContainerInfo() (CloudContainer, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &cloudContainer{*doc}, nil
+	return &cloudContainer{doc: *doc, unitName: u.Name()}, nil
 }
 
 // ShouldBeAssigned returns whether the unit should be assigned to a machine.
@@ -201,6 +203,12 @@ func (u *Unit) globalKey() string {
 // workload version info.
 func (u *Unit) globalWorkloadVersionKey() string {
 	return globalWorkloadVersionKey(u.doc.Name)
+}
+
+// globalCloudContainerKey returns the global database key for the unit's
+// Cloud Container info.
+func (u *Unit) globalCloudContainerKey() string {
+	return globalCloudContainerKey(u.doc.Name)
 }
 
 // Life returns whether the unit is Alive, Dying or Dead.
@@ -319,7 +327,7 @@ func (u *Unit) UpdateOperation(props UnitUpdateProperties) *UpdateUnitOperation 
 	}
 }
 
-// UpdateUnitsOperation is a model operation for updating a unit.
+// UpdateUnitOperation is a model operation for updating a unit.
 type UpdateUnitOperation struct {
 	unit  *Unit
 	props UnitUpdateProperties
@@ -374,7 +382,7 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		ops = append(ops, containerOps...)
 	}
 
-	updateStatus := func(key string, status *status.StatusInfo) error {
+	updateStatus := func(key, badge string, status *status.StatusInfo) error {
 		now := op.unit.st.clock().Now()
 		doc := statusDoc{
 			Status:     status.Status,
@@ -383,22 +391,56 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 			Updated:    now.UnixNano(),
 		}
 		op.setStatusDocs[key] = doc
-		statusOps, err := statusSetOps(op.unit.st.db(), doc, key)
+		// It's possible we're getting a first status update (i.e. cloud container)
+		_, err = getStatus(op.unit.st.db(), key, badge)
 		if err != nil {
-			return errors.Trace(err)
+			if !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			statusOps := createStatusOp(op.unit.st, key, doc)
+			ops = append(ops, statusOps)
+		} else {
+			statusOps, err := statusSetOps(op.unit.st.db(), doc, key)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ops = append(ops, statusOps...)
 		}
-		ops = append(ops, statusOps...)
 		return nil
 	}
 	if op.props.AgentStatus != nil {
-		if err := updateStatus(op.unit.globalAgentKey(), op.props.AgentStatus); err != nil {
+		if err := updateStatus(op.unit.globalAgentKey(), "agent", op.props.AgentStatus); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	if op.props.UnitStatus != nil {
-		if err := updateStatus(op.unit.globalKey(), op.props.UnitStatus); err != nil {
+
+	var cloudContainerStatus status.StatusInfo
+	if op.props.CloudContainerStatus != nil {
+		if err := updateStatus(op.unit.globalCloudContainerKey(), "cloud container", op.props.CloudContainerStatus); err != nil {
 			return nil, errors.Trace(err)
 		}
+		cloudContainerStatus = *op.props.CloudContainerStatus
+	}
+	if cloudContainerStatus.Status != "" {
+		// Since we have updated cloud container, that may impact on
+		// the perceived unit status. we'll update status history if the
+		// unit status is different due to having a cloud container status.
+		// This correctly ensures the status history goes from "waiting for
+		// container" to <something else>.
+		unitStatus, err := getStatus(op.unit.st.db(), op.unit.globalKey(), "unit")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		modifiedStatus := caasUnitDisplayStatus(unitStatus, cloudContainerStatus)
+		now := op.unit.st.clock().Now()
+		doc := statusDoc{
+			Status:     modifiedStatus.Status,
+			StatusInfo: modifiedStatus.Message,
+			StatusData: mgoutils.EscapeKeys(modifiedStatus.Data),
+			Updated:    now.UnixNano(),
+		}
+		op.setStatusDocs[op.unit.globalKey()] = doc
 	}
 	return ops, nil
 }
@@ -650,12 +692,41 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
+		// Clean up any instanceCharmProfileData docs for this machine before
+		// it is destroyed.
+		_, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+		if err == nil {
+			logger.Tracef("Remove instance charm profile data for machine %s", m.Id())
+			ops = append(ops, txn.Op{
+				C:      instanceCharmProfileDataC,
+				Id:     m.doc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+		} else if !errors.IsNotFound(err) {
+			logger.Errorf("Error getting instance charm profile data for machine %s, %s", m.Id(), err.Error())
+		}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
 			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
+		// Remove any charm profile applied to the machine for this unit,
+		// if this is a unit removal from a machine which will not be
+		// destroyed.
+		machineProfiles, err := m.CharmProfiles()
+		if err != nil {
+			return nil, err
+		}
+		profile, err := lxdprofile.MatchProfileNameByAppName(machineProfiles, u.ApplicationName())
+		if err != nil {
+			return nil, err
+		}
+		if profile != "" {
+			logger.Tracef("Setup to remove charm profile %q, removing unit from machine %s", profile, m.Id())
+			ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
+		}
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can
@@ -1127,10 +1198,6 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 	if info.Status != status.Error {
 		info, err = getStatus(u.st.db(), u.globalKey(), "unit")
 		if err != nil {
-			// CAAS units don't have any unit status.
-			if errors.IsNotFound(err) {
-				return status.StatusInfo{}, nil
-			}
 			return status.StatusInfo{}, err
 		}
 	}
@@ -1146,13 +1213,33 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(unitStatus.Status) {
 		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
 	}
+
+	var newHistory *statusDoc
+	if u.modelType == ModelTypeCAAS {
+		// Caas Charms currently have no way to query workload status;
+		// Cloud container status might contradict what the charm is
+		// attempting to set, make sure the right history is set.
+		cloudContainerStatus, err := getStatus(u.st.db(), globalCloudContainerKey(u.Name()), "cloud container")
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+		}
+
+		newHistory, err = caasHistoryRewriteDoc(unitStatus, cloudContainerStatus, caasUnitDisplayStatus, u.st.clock())
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return setStatus(u.st.db(), setStatusParams{
-		badge:     "unit",
-		globalKey: u.globalKey(),
-		status:    unitStatus.Status,
-		message:   unitStatus.Message,
-		rawData:   unitStatus.Data,
-		updated:   timeOrNow(unitStatus.Since, u.st.clock()),
+		badge:            "unit",
+		globalKey:        u.globalKey(),
+		status:           unitStatus.Status,
+		message:          unitStatus.Message,
+		rawData:          unitStatus.Data,
+		updated:          timeOrNow(unitStatus.Since, u.st.clock()),
+		historyOverwrite: newHistory,
 	})
 }
 
@@ -1594,15 +1681,15 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if unused && !m.doc.Clean {
 		return nil, inUseErr
 	}
-	storageParams, err := u.machineStorageParams()
+	storageParams, err := u.storageParams()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	im, err := u.st.IAASModel()
+	sb, err := NewStorageBackend(u.st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storagePools, err := machineStoragePools(im, storageParams)
+	storagePools, err := storagePools(sb, storageParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1611,9 +1698,7 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageOps, volumesAttached, filesystemsAttached, err := u.st.machineStorageOps(
-		&m.doc, storageParams,
-	)
+	storageOps, volumesAttached, filesystemsAttached, err := sb.hostStorageOps(m.doc.Id, storageParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1687,7 +1772,11 @@ func validateUnitMachineAssignment(
 	if !canHost {
 		return fmt.Errorf("machine %q cannot host units", m)
 	}
-	if err := validateDynamicMachineStoragePools(m, storagePools); err != nil {
+	sb, err := NewStorageBackend(m.st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := validateDynamicMachineStoragePools(sb, m, storagePools); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -1695,66 +1784,67 @@ func validateUnitMachineAssignment(
 
 // validateDynamicMachineStorageParams validates that the provided machine
 // storage parameters are compatible with the specified machine.
-func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParams) error {
-	im, err := m.st.IAASModel()
+func validateDynamicMachineStorageParams(m *Machine, params *storageParams) error {
+	sb, err := NewStorageBackend(m.st)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	pools, err := machineStoragePools(im, params)
+	pools, err := storagePools(sb, params)
 	if err != nil {
 		return err
 	}
-	if err := validateDynamicMachineStoragePools(m, pools); err != nil {
+	if err := validateDynamicMachineStoragePools(sb, m, pools); err != nil {
 		return err
 	}
 	// Validate the volume/filesystem attachments for the machine.
 	for volumeTag := range params.volumeAttachments {
-		volume, err := im.volumeByTag(volumeTag)
+		volume, err := getVolumeByTag(sb.mb, volumeTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if !volume.Detachable() && volume.doc.MachineId != m.Id() {
+		if !volume.Detachable() && volume.doc.HostId != m.Id() {
 			return errors.Errorf(
 				"storage is non-detachable (bound to machine %s)",
-				volume.doc.MachineId,
+				volume.doc.HostId,
 			)
 		}
 	}
 	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := im.filesystemByTag(filesystemTag)
+		filesystem, err := getFilesystemByTag(sb.mb, filesystemTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if !filesystem.Detachable() && filesystem.doc.MachineId != m.Id() {
+		if !filesystem.Detachable() && filesystem.doc.HostId != m.Id() {
+			host := storageAttachmentHost(filesystem.doc.HostId)
 			return errors.Errorf(
-				"storage is non-detachable (bound to machine %s)",
-				filesystem.doc.MachineId,
+				"storage is non-detachable (bound to %s)",
+				names.ReadableString(host),
 			)
 		}
 	}
 	return nil
 }
 
-// machineStoragePools returns the names of storage pools in each of the
+// storagePools returns the names of storage pools in each of the
 // volume, filesystem and attachments in the machine storage parameters.
-func machineStoragePools(im *IAASModel, params *machineStorageParams) (set.Strings, error) {
+func storagePools(sb *storageBackend, params *storageParams) (set.Strings, error) {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
-		v, err := im.volumeParamsWithDefaults(v.Volume, "")
+		v, err := sb.volumeParamsWithDefaults(v.Volume)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pools.Add(v.Pool)
 	}
 	for _, f := range params.filesystems {
-		f, err := im.filesystemParamsWithDefaults(f.Filesystem, "")
+		f, err := sb.filesystemParamsWithDefaults(f.Filesystem)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pools.Add(f.Pool)
 	}
 	for volumeTag := range params.volumeAttachments {
-		volume, err := im.Volume(volumeTag)
+		volume, err := sb.Volume(volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1769,7 +1859,7 @@ func machineStoragePools(im *IAASModel, params *machineStorageParams) (set.Strin
 		}
 	}
 	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := im.Filesystem(filesystemTag)
+		filesystem, err := sb.Filesystem(filesystemTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1789,7 +1879,7 @@ func machineStoragePools(im *IAASModel, params *machineStorageParams) (set.Strin
 // validateDynamicMachineStoragePools validates that all of the specified
 // storage pools support dynamic storage provisioning. If any provider doesn't
 // support dynamic storage, then an IsNotSupported error is returned.
-func validateDynamicMachineStoragePools(m *Machine, pools set.Strings) error {
+func validateDynamicMachineStoragePools(sb *storageBackend, m *Machine, pools set.Strings) error {
 	if pools.IsEmpty() {
 		return nil
 	}
@@ -1804,19 +1894,15 @@ func validateDynamicMachineStoragePools(m *Machine, pools set.Strings) error {
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
 	}
-	im, err := m.st.IAASModel()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return validateDynamicStoragePools(im, pools)
+	return validateDynamicStoragePools(sb, pools)
 }
 
 // validateDynamicStoragePools validates that all of the specified storage
 // providers support dynamic storage provisioning. If any provider doesn't
 // support dynamic storage, then an IsNotSupported error is returned.
-func validateDynamicStoragePools(im *IAASModel, pools set.Strings) error {
+func validateDynamicStoragePools(sb *storageBackend, pools set.Strings) error {
 	for pool := range pools {
-		providerType, provider, err := poolStorageProvider(im, pool)
+		providerType, provider, err := poolStorageProvider(sb, pool)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -2042,7 +2128,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		if cons.HasContainer() {
 			containerType = *cons.Container
 		}
-		storageParams, err := u.machineStorageParams()
+		storageParams, err := u.storageParams()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2078,11 +2164,10 @@ func (b byStorageInstance) Less(i, j int) bool {
 	return b[i].StorageInstance().String() < b[j].StorageInstance().String()
 }
 
-// machineStorageParams returns parameters for creating volumes/filesystems
-// and volume/filesystem attachments for a machine that the unit will be
-// assigned to.
-func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
-	params, err := unitMachineStorageParams(u)
+// storageParams returns parameters for creating volumes/filesystems
+// and volume/filesystem attachments when a unit is instantiated.
+func (u *Unit) storageParams() (*storageParams, error) {
+	params, err := unitStorageParams(u)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2091,21 +2176,21 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		subParams, err := unitMachineStorageParams(sub)
+		subParams, err := unitStorageParams(sub)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		params = combineMachineStorageParams(params, subParams)
+		params = combineStorageParams(params, subParams)
 	}
 	return params, nil
 }
 
-func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
-	im, err := u.st.IAASModel()
+func unitStorageParams(u *Unit) (*storageParams, error) {
+	sb, err := NewStorageBackend(u.st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageAttachments, err := im.UnitStorageAttachments(u.UnitTag())
+	storageAttachments, err := sb.UnitStorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}
@@ -2117,35 +2202,44 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	// Sort storage attachments so the volume ids are consistent (for testing).
 	sort.Sort(byStorageInstance(storageAttachments))
 
-	chMeta := ch.Meta()
-
-	var volumes []MachineVolumeParams
-	var filesystems []MachineFilesystemParams
-	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
-	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
+	var storageInstances []*storageInstance
 	for _, storageAttachment := range storageAttachments {
-		storage, err := im.storageInstance(storageAttachment.StorageInstance())
+		storage, err := sb.storageInstance(storageAttachment.StorageInstance())
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
-		machineParams, err := machineStorageParamsForStorageInstance(
-			u.st, chMeta, u.UnitTag(), u.Series(), storage,
+		storageInstances = append(storageInstances, storage)
+	}
+	return storageParamsForUnit(sb, storageInstances, u.UnitTag(), u.Series(), ch.Meta())
+}
+
+func storageParamsForUnit(
+	sb *storageBackend, storageInstances []*storageInstance, tag names.UnitTag, series string, chMeta *charm.Meta,
+) (*storageParams, error) {
+
+	var volumes []HostVolumeParams
+	var filesystems []HostFilesystemParams
+	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
+	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
+	for _, storage := range storageInstances {
+		storageParams, err := storageParamsForStorageInstance(
+			sb, chMeta, tag, series, storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		volumes = append(volumes, machineParams.volumes...)
-		for k, v := range machineParams.volumeAttachments {
+		volumes = append(volumes, storageParams.volumes...)
+		for k, v := range storageParams.volumeAttachments {
 			volumeAttachments[k] = v
 		}
 
-		filesystems = append(filesystems, machineParams.filesystems...)
-		for k, v := range machineParams.filesystemAttachments {
+		filesystems = append(filesystems, storageParams.filesystems...)
+		for k, v := range storageParams.filesystemAttachments {
 			filesystemAttachments[k] = v
 		}
 	}
-	result := &machineStorageParams{
+	result := &storageParams{
 		volumes,
 		volumeAttachments,
 		filesystems,
@@ -2154,29 +2248,24 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	return result, nil
 }
 
-// machineStorageParamsForStorageInstance returns parameters for creating
-// volumes/filesystems and volume/filesystem attachments for a machine that
+// storageParamsForStorageInstance returns parameters for creating
+// volumes/filesystems and volume/filesystem attachments for a host that
 // the unit will be assigned to. These parameters are based on a given storage
 // instance.
-func machineStorageParamsForStorageInstance(
-	st *State,
+func storageParamsForStorageInstance(
+	sb *storageBackend,
 	charmMeta *charm.Meta,
 	unit names.UnitTag,
 	series string,
 	storage *storageInstance,
-) (*machineStorageParams, error) {
+) (*storageParams, error) {
 
 	charmStorage := charmMeta.Storage[storage.StorageName()]
 
-	var volumes []MachineVolumeParams
-	var filesystems []MachineFilesystemParams
+	var volumes []HostVolumeParams
+	var filesystems []HostFilesystemParams
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
-
-	im, err := st.IAASModel()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	switch storage.Kind() {
 	case StorageKindFilesystem:
@@ -2193,7 +2282,7 @@ func machineStorageParamsForStorageInstance(
 			charmStorage.ReadOnly,
 		}
 		var volumeBacked bool
-		if filesystem, err := im.StorageInstanceFilesystem(storage.StorageTag()); err == nil {
+		if filesystem, err := sb.StorageInstanceFilesystem(storage.StorageTag()); err == nil {
 			// The filesystem already exists, so just attach it.
 			// When creating ops to attach the storage to the
 			// machine, we will check if the attachment already
@@ -2203,7 +2292,7 @@ func machineStorageParamsForStorageInstance(
 				// The storage is not shared, so make sure that it is
 				// not currently attached to any other machine. If it
 				// is, it should be in the process of being detached.
-				existing, err := im.FilesystemAttachments(filesystem.FilesystemTag())
+				existing, err := sb.FilesystemAttachments(filesystem.FilesystemTag())
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -2211,7 +2300,7 @@ func machineStorageParamsForStorageInstance(
 					return nil, errors.Errorf(
 						"%s is attached to %s",
 						names.ReadableString(filesystem.FilesystemTag()),
-						names.ReadableString(existing[0].Machine()),
+						names.ReadableString(existing[0].Host()),
 					)
 				}
 			}
@@ -2226,7 +2315,7 @@ func machineStorageParamsForStorageInstance(
 				Pool:    storage.doc.Constraints.Pool,
 				Size:    storage.doc.Constraints.Size,
 			}
-			filesystems = append(filesystems, MachineFilesystemParams{
+			filesystems = append(filesystems, HostFilesystemParams{
 				filesystemParams, filesystemAttachmentParams,
 			})
 		} else {
@@ -2243,7 +2332,7 @@ func machineStorageParamsForStorageInstance(
 		volumeAttachmentParams := VolumeAttachmentParams{
 			charmStorage.ReadOnly,
 		}
-		if volume, err := im.StorageInstanceVolume(storage.StorageTag()); err == nil {
+		if volume, err := sb.StorageInstanceVolume(storage.StorageTag()); err == nil {
 			// The volume already exists, so just attach it. When
 			// creating ops to attach the storage to the machine,
 			// we will check if the attachment already exists, and
@@ -2252,7 +2341,7 @@ func machineStorageParamsForStorageInstance(
 				// The storage is not shared, so make sure that it is
 				// not currently attached to any other machine. If it
 				// is, it should be in the process of being detached.
-				existing, err := im.VolumeAttachments(volume.VolumeTag())
+				existing, err := sb.VolumeAttachments(volume.VolumeTag())
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -2260,7 +2349,7 @@ func machineStorageParamsForStorageInstance(
 					return nil, errors.Errorf(
 						"%s is attached to %s",
 						names.ReadableString(volume.VolumeTag()),
-						names.ReadableString(existing[0].Machine()),
+						names.ReadableString(existing[0].Host()),
 					)
 				}
 			}
@@ -2271,7 +2360,7 @@ func machineStorageParamsForStorageInstance(
 				Pool:    storage.doc.Constraints.Pool,
 				Size:    storage.doc.Constraints.Size,
 			}
-			volumes = append(volumes, MachineVolumeParams{
+			volumes = append(volumes, HostVolumeParams{
 				volumeParams, volumeAttachmentParams,
 			})
 		} else {
@@ -2280,7 +2369,7 @@ func machineStorageParamsForStorageInstance(
 	default:
 		return nil, errors.Errorf("invalid storage kind %v", storage.Kind())
 	}
-	result := &machineStorageParams{
+	result := &storageParams{
 		volumes,
 		volumeAttachments,
 		filesystems,
@@ -2323,34 +2412,56 @@ var hasNoContainersTerm = bson.DocElem{
 		{{"children", bson.D{{"$exists", false}}}},
 	}}
 
-// findCleanMachineQuery returns a Mongo query to find clean (and possibly empty) machines with
-// characteristics matching the specified constraints.
+// findCleanMachineQuery returns a Mongo query to find clean (and maybe empty)
+// machines with characteristics matching the specified constraints.
 func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (bson.D, error) {
 	db, closer := u.st.newDB()
-	defer closer()
-	containerRefsCollection, closer := db.GetCollection(containerRefsC)
 	defer closer()
 
 	// Select all machines that can accept principal units and are clean.
 	var containerRefs []machineContainers
-	// If we need empty machines, first build up a list of machine ids which have containers
-	// so we can exclude those.
+	// If we need empty machines, first build up a list of machine ids which
+	// have containers so we can exclude those.
 	if requireEmpty {
+		containerRefsCollection, closer := db.GetCollection(containerRefsC)
+		defer closer()
+
 		err := containerRefsCollection.Find(bson.D{hasContainerTerm}).All(&containerRefs)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
-	var machinesWithContainers = make([]string, len(containerRefs))
+	omitMachineIds := make([]string, len(containerRefs))
 	for i, cref := range containerRefs {
-		machinesWithContainers[i] = cref.Id
+		omitMachineIds[i] = cref.Id
 	}
+
+	// Exclude machines that are locked for series upgrade.
+	locked, err := u.st.upgradeSeriesMachineIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	omitMachineIds = append(omitMachineIds, locked...)
+
+	// Also exclude containers on machines locked for series upgrade.
+	for _, id := range locked {
+		m, err := u.st.Machine(id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cIds, err := m.Containers()
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		omitMachineIds = append(omitMachineIds, cIds...)
+	}
+
 	terms := bson.D{
 		{"life", Alive},
 		{"series", u.doc.Series},
 		{"jobs", []MachineJob{JobHostUnits}},
 		{"clean", true},
-		{"machineid", bson.D{{"$nin", machinesWithContainers}}},
+		{"machineid", bson.D{{"$nin", omitMachineIds}}},
 	}
 	// Add the container filter term if necessary.
 	var containerType instance.ContainerType
@@ -2372,23 +2483,26 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	// to err on the side of caution and exclude such machines.
 	var suitableInstanceData []instanceData
 	var suitableTerms bson.D
-	if cons.Arch != nil && *cons.Arch != "" {
+	if cons.HasArch() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"arch", *cons.Arch})
 	}
-	if cons.Mem != nil && *cons.Mem > 0 {
+	if cons.HasMem() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"mem", bson.D{{"$gte", *cons.Mem}}})
 	}
 	if cons.RootDisk != nil && *cons.RootDisk > 0 {
 		suitableTerms = append(suitableTerms, bson.DocElem{"rootdisk", bson.D{{"$gte", *cons.RootDisk}}})
 	}
-	if cons.CpuCores != nil && *cons.CpuCores > 0 {
+	if cons.HasCpuCores() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"cpucores", bson.D{{"$gte", *cons.CpuCores}}})
 	}
-	if cons.CpuPower != nil && *cons.CpuPower > 0 {
+	if cons.HasCpuPower() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"cpupower", bson.D{{"$gte", *cons.CpuPower}}})
 	}
 	if cons.Tags != nil && len(*cons.Tags) > 0 {
 		suitableTerms = append(suitableTerms, bson.DocElem{"tags", bson.D{{"$all", *cons.Tags}}})
+	}
+	if cons.HasZones() {
+		suitableTerms = append(suitableTerms, bson.DocElem{"availzone", bson.D{{"$in", *cons.Zones}}})
 	}
 	if len(suitableTerms) > 0 {
 		instanceDataCollection, closer := db.GetCollection(instanceDataC)
@@ -2448,7 +2562,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		return failure(err)
 	}
 
-	im, err := u.st.IAASModel()
+	sb, err := NewStorageBackend(u.st)
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
@@ -2456,17 +2570,17 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 
 	// If required storage is not all dynamic, then assigning
 	// to a new machine is required.
-	storageParams, err := u.machineStorageParams()
+	storageParams, err := u.storageParams()
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
-	storagePools, err := machineStoragePools(im, storageParams)
+	storagePools, err := storagePools(sb, storageParams)
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
-	if err := validateDynamicStoragePools(im, storagePools); err != nil {
+	if err := validateDynamicStoragePools(sb, storagePools); err != nil {
 		if errors.IsNotSupported(err) {
 			return failure(noCleanMachines)
 		}
@@ -2502,15 +2616,15 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	instanceMachines := make(map[instance.Id]*Machine)
 	for _, mdoc := range mdocs {
 		m := newMachine(u.st, mdoc)
-		instance, err := m.InstanceId()
+		inst, err := m.InstanceId()
 		if errors.IsNotProvisioned(err) {
 			unprovisioned = append(unprovisioned, m)
 		} else if err != nil {
 			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		} else {
-			instances = append(instances, instance)
-			instanceMachines[instance] = m
+			instances = append(instances, inst)
+			instanceMachines[inst] = m
 		}
 	}
 
@@ -2521,15 +2635,19 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	// Shuffle machines to reduce likelihood of collisions.
 	// The partition of provisioned/unprovisioned machines
 	// must be maintained.
-	if instances, err = distributeUnit(u, instances); err != nil {
+	var limitZones []string
+	if cons.HasZones() {
+		limitZones = *cons.Zones
+	}
+	if instances, err = distributeUnit(u, instances, limitZones); err != nil {
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	machines := make([]*Machine, len(instances), len(instances)+len(unprovisioned))
-	for i, instance := range instances {
-		m, ok := instanceMachines[instance]
+	for i, inst := range instances {
+		m, ok := instanceMachines[inst]
 		if !ok {
-			err := fmt.Errorf("invalid instance returned: %v", instance)
+			err := fmt.Errorf("invalid instance returned: %v", inst)
 			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		}
@@ -2628,12 +2746,11 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (Action, e
 		return nil, err
 	}
 
-	model, err := u.st.Model()
+	m, err := u.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	return model.EnqueueAction(u.Tag(), name, payloadWithDefaults)
+	return m.EnqueueAction(u.Tag(), name, payloadWithDefaults)
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.
@@ -2869,4 +2986,32 @@ func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
 		return "", errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", bindingName))
 	}
 	return boundSpace, nil
+}
+
+// UpgradeSeriesStatus returns the upgrade status of the units assigned machine.
+func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+	machine, err := u.machine()
+	if err != nil {
+		return "", err
+	}
+	return machine.UpgradeSeriesUnitStatus(u.Name())
+}
+
+// SetUpgradeSeriesStatus sets the upgrade status of the units assigned machine.
+func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, message string) error {
+	machine, err := u.machine()
+	if err != nil {
+		return err
+	}
+	return machine.SetUpgradeSeriesUnitStatus(u.Name(), status, message)
+}
+
+// RemoveUpgradeCharmProfileData removes the upgrade charm profile instance data
+// for a machine
+func (u *Unit) RemoveUpgradeCharmProfileData() error {
+	machine, err := u.machine()
+	if err != nil {
+		return err
+	}
+	return machine.RemoveUpgradeCharmProfileData()
 }

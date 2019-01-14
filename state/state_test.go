@@ -5,11 +5,14 @@ package state_test
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
@@ -18,7 +21,6 @@ import (
 	"github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -31,6 +33,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -40,7 +43,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -282,7 +284,7 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 	deltasC := makeMultiwatcherOutput(w)
 
 	m := s.Factory.MakeMachine(c, nil)
-
+	s.State.StartSync()
 	modelSeen := false
 	machineSeen := false
 	timeout := time.After(testing.LongWait)
@@ -355,7 +357,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchModelMachines()
 			},
 			triggerEvent: func(st *state.State) {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
 			},
@@ -363,7 +365,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		{
 			about: "containers",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
 				return m.WatchAllContainers()
@@ -383,7 +385,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "lxd only containers",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
 				return m.WatchContainers(instance.LXD)
@@ -404,7 +406,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "units",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
 				return m.WatchUnits()
@@ -412,7 +414,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			triggerEvent: func(st *state.State) {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				f.MakeUnit(c, &factory.UnitParams{Machine: m})
 			},
 		}, {
@@ -421,7 +423,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchApplications()
 			},
 			triggerEvent: func(st *state.State) {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				f.MakeApplication(c, nil)
 			},
 		}, {
@@ -431,19 +433,19 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			triggerEvent: func(st *state.State) {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "db2", SourceModel: s.IAASModel.ModelTag()})
+					Name: "db2", SourceModel: s.Model.ModelTag()})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
 			about: "relations",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				wordpress := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wordpressCharm})
 				return wordpress.WatchRelations()
 			},
 			setUpState: func(st *state.State) bool {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				mysqlCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlCharm})
 				return false
@@ -465,7 +467,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
 				return false
@@ -484,7 +486,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
 				eps, err := st.InferEndpoints("wordpress", "mysql")
@@ -506,7 +508,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
 				eps, err := st.InferEndpoints("wordpress", "mysql")
@@ -526,7 +528,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchOpenedPorts()
 			},
 			setUpState: func(st *state.State) bool {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				mysql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
 				f.MakeUnit(c, &factory.UnitParams{Application: mysql})
 				return false
@@ -543,7 +545,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchCleanups()
 			},
 			setUpState: func(st *state.State) bool {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wordpressCharm})
 				mysqlCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
@@ -553,19 +555,23 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				eps, err := st.InferEndpoints("wordpress", "mysql")
 				c.Assert(err, jc.ErrorIsNil)
 				r := f.MakeRelation(c, &factory.RelationParams{Endpoints: eps})
+				loggo.GetLogger("juju.state").SetLogLevel(loggo.TRACE)
 				err = r.Destroy()
 				c.Assert(err, jc.ErrorIsNil)
+				loggo.GetLogger("juju.state").SetLogLevel(loggo.DEBUG)
 
 				return false
 			},
 			triggerEvent: func(st *state.State) {
+				loggo.GetLogger("juju.state").SetLogLevel(loggo.TRACE)
 				err := st.Cleanup()
 				c.Assert(err, jc.ErrorIsNil)
+				loggo.GetLogger("juju.state").SetLogLevel(loggo.DEBUG)
 			},
 		}, {
 			about: "reboots",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				m := f.MakeMachine(c, &factory.MachineParams{})
 				c.Assert(m.Id(), gc.Equals, "0")
 				w := m.WatchForRebootEvent()
@@ -580,12 +586,12 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "block devices",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				m := f.MakeMachine(c, &factory.MachineParams{})
 				c.Assert(m.Id(), gc.Equals, "0")
-				im, err := st.IAASModel()
+				sb, err := state.NewStorageBackend(st)
 				c.Assert(err, jc.ErrorIsNil)
-				return im.WatchBlockDevices(m.MachineTag())
+				return sb.WatchBlockDevices(m.MachineTag())
 			},
 			setUpState: func(st *state.State) bool {
 				m, err := st.Machine("0")
@@ -635,7 +641,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchApplications()
 			},
 			setUpState: func(st *state.State) bool {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wordpressCharm})
 				return false
@@ -650,7 +656,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "action status",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				dummyCharm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
 				application := f.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
 
@@ -670,7 +676,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchMinUnits()
 			},
 			setUpState: func(st *state.State) bool {
-				f := factory.NewFactory(st)
+				f := factory.NewFactory(st, s.StatePool)
 				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 				_ = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wordpressCharm})
 				return false
@@ -734,6 +740,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 						w2.AssertNoChange()
 					}
 				}
+				c.Logf("triggering event")
 				test.triggerEvent(w1.State)
 				w1.AssertChanges()
 				w1.AssertNoChange()
@@ -1057,7 +1064,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 		InstanceId:              "inst-id",
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			volume0, volumeAttachment0,
 		}, {
 			volume1, volumeAttachment1,
@@ -1073,7 +1080,9 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 	// have been set on the volume params.
 	machineTemplate.Volumes[1].Volume.Pool = "loop"
 
-	volumeAttachments, err := s.IAASModel.MachineVolumeAttachments(m.MachineTag())
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeAttachments, err := sb.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 2)
 	if volumeAttachments[0].Volume() == names.NewVolumeTag(m.Id()+"/1") {
@@ -1086,7 +1095,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 		attachmentParams, ok := att.Params()
 		c.Assert(ok, jc.IsTrue)
 		c.Check(attachmentParams, gc.Equals, machineTemplate.Volumes[i].Attachment)
-		volume, err := s.IAASModel.Volume(att.Volume())
+		volume, err := sb.Volume(att.Volume())
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = volume.Info()
 		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
@@ -1218,6 +1227,21 @@ func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, "0", instance.LXD)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxd containers")
+	s.assertMachineContainers(c, host, nil)
+}
+
+func (s *StateSuite) TestAddContainerToMachineLockedForSeriesUpgrade(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	host, err := s.State.AddMachine("xenial", oneJob...)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.CreateUpgradeSeriesLock(nil, "bionic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "xenial",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, "0", instance.LXD)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 is locked for series upgrade")
 	s.assertMachineContainers(c, host, nil)
 }
 
@@ -1535,44 +1559,69 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
-	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 
 	insettings := charm.Settings{"tuning": "optimized"}
 	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress, err := st.AddApplication(
-		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
+	placement := []*instance.Placement{instance.MustParsePlacement(st.ModelUUID() + ":a=b")}
+	gitlab, err := st.AddApplication(
+		state.AddApplicationArgs{Name: "gitlab", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig, Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	outsettings, err := wordpress.CharmConfig()
+	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
+	c.Assert(gitlab.GetScale(), gc.Equals, 0)
+	c.Assert(gitlab.GetPlacement(), gc.Equals, "a=b")
+	outsettings, err := gitlab.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {
 		expected[name] = value
 	}
 	c.Assert(outsettings, gc.DeepEquals, expected)
-	outconfig, err := wordpress.ApplicationConfig()
+	outconfig, err := gitlab.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outconfig, gc.DeepEquals, inconfig.Attributes())
 
-	sInfo, err := wordpress.Status()
+	sInfo, err := gitlab.Status()
 	c.Assert(sInfo.Status, gc.Equals, status.Waiting)
 	c.Assert(sInfo.Message, gc.Equals, "waiting for container")
 
 	// Check that retrieving the newly created application works correctly.
-	wordpress, err = st.Application("wordpress")
+	gitlab, err = st.Application("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	ch, _, err = wordpress.Charm()
+	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
+	ch, _, err = gitlab.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
+}
+
+func (s *StateSuite) TestAddCAASApplicationBadPlacement(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+
+	placement := []*instance.Placement{instance.MustParsePlacement("#:2")}
+	_, err := st.AddApplication(
+		state.AddApplicationArgs{Name: "gitlab", Charm: ch, Placement: placement})
+	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`machine placement directive "#:2" not valid`))
+}
+
+func (s *StateSuite) TestAddCAASApplicationTooManyPlacement(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+
+	placement := []*instance.Placement{
+		instance.MustParsePlacement("model-uuid:a=b"), instance.MustParsePlacement("model-uuid:c=d")}
+	_, err := st.AddApplication(
+		state.AddApplicationArgs{Name: "gitlab", Charm: ch, Placement: placement})
+	c.Assert(err, gc.ErrorMatches, ".*only 1 placement directive is supported, got 2")
 }
 
 func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {
@@ -1619,7 +1668,7 @@ func (s *StateSuite) TestAddApplicationModelMigrating(c *gc.C) {
 func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
+		Name: "s1", SourceModel: s.Model.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
@@ -1632,7 +1681,7 @@ func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-			Name: "s1", SourceModel: s.IAASModel.ModelTag()})
+			Name: "s1", SourceModel: s.Model.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
@@ -1780,6 +1829,34 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 		c.Check(err, gc.ErrorMatches, `cannot add application "yoursql": `+test.expectedError)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	}
+}
+
+func (s *StateSuite) TestAssignUnitWithPlacementAddCharmProfile(c *gc.C) {
+	machine, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	name := "lxd-profile"
+	charm := state.AddTestingCharmForSeries(c, s.State, "xenial", name)
+	application := s.AddTestingApplication(c, name, charm)
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.AssignUnitWithPlacement(unit,
+		&instance.Placement{
+			instance.MachineScope, machine.Id(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	chAppName, err := machine.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, name)
+	chCharmURL, err := machine.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chCharmURL, gc.Equals, charm.URL().String())
 }
 
 func (s *StateSuite) TestAddApplicationMachinePlacementInvalidSeries(c *gc.C) {
@@ -2131,7 +2208,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
 	// Add a application so Destroy doesn't advance to Dead.
-	app := factory.NewFactory(st1).MakeApplication(c, nil)
+	app := factory.NewFactory(st1, s.StatePool).MakeApplication(c, nil)
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.Destroy(state.DestroyModelParams{})
@@ -2144,7 +2221,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	err = st2.RemoveAllModelDocs()
+	err = st2.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All except the removed model are reported in initial event.
@@ -2156,11 +2233,13 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Progress dying to dead, alive to dying; and see changes reported.
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st1.ProcessDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
-	err = alive.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
+	c.Assert(st1.ProcessDyingModel(), jc.ErrorIsNil)
+	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(alive.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(alive.Refresh(), jc.ErrorIsNil)
+	c.Assert(alive.Life(), gc.Equals, state.Dying)
+	c.Assert(dying.Refresh(), jc.Satisfies, errors.IsNotFound)
+	wc.AssertChangeInSingleEvent(alive.UUID())
 }
 
 func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
@@ -2174,7 +2253,7 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	// Add a non-empty model: reported.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	app := factory.NewFactory(st1).MakeApplication(c, nil)
+	app := factory.NewFactory(st1, s.StatePool).MakeApplication(c, nil)
 	model, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(model.UUID())
@@ -2187,16 +2266,12 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the model: reported.
-	err = app.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st1.ProcessDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Destroy(), jc.ErrorIsNil)
+	c.Assert(st1.ProcessDyingModel(), jc.ErrorIsNil)
+	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
 	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
-
-	err = st1.RemoveAllModelDocs()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
@@ -2685,7 +2760,7 @@ func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
 	c.Check(permCount, gc.Equals, 0)
 }
 
-func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
+func (s *StateSuite) TestRemoveModel(c *gc.C) {
 	st := s.State
 
 	userModelKey := s.insertFakeModelDocs(c, st)
@@ -2702,7 +2777,7 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(refCount, gc.Equals, 1)
 
-	err = st.RemoveAllModelDocs()
+	err = st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloud, err = s.State.Cloud(model.Cloud())
@@ -2715,12 +2790,63 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	s.AssertModelDeleted(c, st)
 }
 
-func (s *StateSuite) TestRemoveAllModelDocsAliveModelFails(c *gc.C) {
+func (s *StateSuite) TestRemoveDyingModelAliveModelFails(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	err := st.RemoveDyingModel()
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "can't remove model: model still alive")
+}
+
+func (s *StateSuite) TestRemoveDyingModelForDyingModel(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	err := st.RemoveAllModelDocs()
-	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(st.SetDyingModelToDead(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dead)
+
+	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *StateSuite) TestRemoveDyingModelForDeadModel(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dying)
+
+	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *StateSuite) TestSetDyingModelToDeadRequiresDyingModel(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.SetDyingModelToDead()
+	c.Assert(errors.Cause(err), gc.Equals, state.ErrModelNotDying)
+
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dying)
+	c.Assert(st.SetDyingModelToDead(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dead)
+
+	err = st.SetDyingModelToDead()
+	c.Assert(errors.Cause(err), gc.Equals, state.ErrModelNotDying)
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
@@ -2860,7 +2986,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsRemovesLogs(c *gc.C) {
 	assertLogCount(c, st, 0)
 }
 
-func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
+func (s *StateSuite) TestRemoveModelRemovesLogs(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -2872,7 +2998,7 @@ func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
 	writeLogs(c, st, 5)
 	writeLogs(c, s.State, 5)
 
-	err = st.RemoveAllModelDocs()
+	err = st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertLogCount(c, s.State, 5)
@@ -3020,14 +3146,14 @@ func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, in
 		return err
 	}
 	defer session.Close()
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
 		MongoSession:       session,
 	})
 	if err == nil {
-		err = st.Close()
+		err = pool.Close()
 	}
 	return err
 }
@@ -3449,7 +3575,7 @@ func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsW
 	wc.AssertNoChange()
 
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", SourceModel: s.IAASModel.ModelTag(),
+		Name: "mysql", SourceModel: s.Model.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3580,7 +3706,7 @@ func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
 
 func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	// Get the agent-version set in the model.
-	modelConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -3681,7 +3807,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 func (s *StateSuite) changeEnviron(c *gc.C, modelConfig *config.Config, name string, value interface{}) {
 	attrs := modelConfig.AllAttrs()
 	attrs[name] = value
-	c.Assert(s.IAASModel.UpdateModelConfig(attrs, nil), gc.IsNil)
+	c.Assert(s.Model.UpdateModelConfig(attrs, nil), gc.IsNil)
 }
 
 func assertAgentVersion(c *gc.C, st *state.State, vers string) {
@@ -3794,7 +3920,7 @@ func (s *StateSuite) TestSetModelAgentVersionMixedVersions(c *gc.C) {
 
 func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	// Get the agent-version set in the model.
-	modelConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -3823,7 +3949,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {
 	// SetModelAgentVersion call failing.
 
 	// Get the agent-version set in the model.
-	modelConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -4294,70 +4420,6 @@ func (s *StateSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
-	// Add a machine: reported.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	w := machine.WatchAddresses()
-	defer w.Stop()
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-	wc.AssertOneChange()
-
-	// Change the machine: not reported.
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Set machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("abc"))
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Set provider addresses eclipsing machine addresses: reported.
-	err = machine.SetProviderAddresses(network.NewScopedAddress("abc", network.ScopePublic))
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Set same machine eclipsed by provider addresses: not reported.
-	err = machine.SetMachineAddresses(network.NewScopedAddress("abc", network.ScopeCloudLocal))
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Set different machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("def"))
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Set different provider addresses: reported.
-	err = machine.SetMachineAddresses(network.NewScopedAddress("def", network.ScopePublic))
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Make it Dying: not reported.
-	err = machine.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Make it Dead: not reported.
-	err = machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Remove it: watcher eventually closed and Err
-	// returns an IsNotFound error.
-	err = machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsFalse)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("watcher not closed")
-	}
-	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
-}
-
 func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
 	t := state.NowToTheSecond(s.State)
 	rounded := t.Round(time.Second)
@@ -4473,7 +4535,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 
 	cfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -4492,7 +4554,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		AdminPassword: password,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	st := ctlr.SystemState()
 	defer ctlr.Close()
 
 	// Check that we can SetAdminMongoPassword to nothing when there's
@@ -4527,13 +4589,12 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 
 func (s *StateSuite) setUpWatchRelationNetworkScenario(c *gc.C) *state.Relation {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", SourceModel: s.IAASModel.ModelTag(),
+		Name: "mysql", SourceModel: s.Model.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	f := factory.NewFactory(s.State)
-	wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
+	wpCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -4678,7 +4739,7 @@ func (s *StateSuite) testOpenParams() state.OpenParams {
 
 func (s *StateSuite) TestControllerTimestamp(c *gc.C) {
 	now := testing.NonZeroTime()
-	clock := gitjujutesting.NewClock(now)
+	clock := testclock.NewClock(now)
 
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)

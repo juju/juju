@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
@@ -29,6 +30,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/lease"
 )
 
 type ManifoldSuite struct {
@@ -38,13 +40,14 @@ type ManifoldSuite struct {
 	context              dependency.Context
 	agent                *mockAgent
 	authenticator        *mockAuthenticator
-	clock                *testing.Clock
+	clock                *testclock.Clock
 	mux                  *apiserverhttp.Mux
 	state                stubStateTracker
 	prometheusRegisterer stubPrometheusRegisterer
 	hub                  pubsub.StructuredHub
 	upgradeGate          stubGateWaiter
 	auditConfig          stubAuditConfig
+	leaseManager         *lease.Manager
 
 	stub testing.Stub
 }
@@ -56,12 +59,13 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.agent = &mockAgent{}
 	s.authenticator = &mockAuthenticator{}
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.mux = apiserverhttp.NewMux()
 	s.state = stubStateTracker{}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.upgradeGate = stubGateWaiter{}
 	s.auditConfig = stubAuditConfig{}
+	s.leaseManager = &lease.Manager{}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -74,6 +78,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		StateName:                         "state",
 		UpgradeGateName:                   "upgrade",
 		AuditConfigUpdaterName:            "auditconfig-updater",
+		LeaseManagerName:                  "lease-manager",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -92,6 +97,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"state":               &s.state,
 		"upgrade":             &s.upgradeGate,
 		"auditconfig-updater": s.auditConfig.get,
+		"lease-manager":       s.leaseManager,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -113,7 +119,7 @@ func (s *ManifoldSuite) newWorker(config apiserver.Config) (worker.Worker, error
 }
 
 var expectedInputs = []string{
-	"agent", "authenticator", "clock", "mux", "restore-status", "state", "upgrade", "auditconfig-updater",
+	"agent", "authenticator", "clock", "mux", "restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -176,6 +182,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Clock:                s.clock,
 		Mux:                  s.mux,
 		StatePool:            &s.state.pool,
+		LeaseManager:         s.leaseManager,
 		PrometheusRegisterer: &s.prometheusRegisterer,
 		Hub:                  &s.hub,
 	})

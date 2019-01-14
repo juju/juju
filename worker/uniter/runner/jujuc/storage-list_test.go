@@ -79,7 +79,7 @@ func (s *storageListSuite) testOutputFormat(c *gc.C, args []string, format int, 
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-list"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, args)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 
@@ -103,7 +103,7 @@ func (s *storageListSuite) TestHelp(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-list"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: storage-list [options] [<storage-name>]
 

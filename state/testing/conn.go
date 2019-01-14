@@ -4,9 +4,9 @@
 package testing
 
 import (
+	"github.com/juju/clock"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -35,7 +35,7 @@ type InitializeArgs struct {
 // configuration will be used.
 // This provides for tests still using a real clock from utils as tests are
 // migrated to use the testing clock
-func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, newPolicy state.NewPolicyFunc) (*state.Controller, *state.State) {
+func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, newPolicy state.NewPolicyFunc) *state.Controller {
 	return InitializeWithArgs(c, InitializeArgs{
 		Owner:                     owner,
 		InitialConfig:             cfg,
@@ -49,7 +49,7 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 // InitializeWithArgs initializes the state and returns it. If state was not
 // already initialized, and args.Config is nil, the minimal default model
 // configuration will be used.
-func InitializeWithArgs(c *gc.C, args InitializeArgs) (*state.Controller, *state.State) {
+func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 	if args.InitialConfig == nil {
 		args.InitialConfig = testing.ModelConfig(c)
 	}
@@ -62,7 +62,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) (*state.Controller, *state
 	for k, v := range args.ControllerConfig {
 		controllerCfg[k] = v
 	}
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock:            args.Clock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -114,7 +114,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) (*state.Controller, *state
 		AdminPassword: "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return ctlr, st
+	return ctlr
 }
 
 // NewMongoInfo returns information suitable for
@@ -127,15 +127,4 @@ func NewMongoInfo() *mongo.MongoInfo {
 			DisableTLS: !jujutesting.MgoServer.SSLEnabled(),
 		},
 	}
-}
-
-// NewState initializes a new state with default values for testing and
-// returns it.
-func NewState(c *gc.C) *state.State {
-	owner := names.NewLocalUserTag("test-admin")
-	cfg := testing.ModelConfig(c)
-	newPolicy := func(*state.State) state.Policy { return &MockPolicy{} }
-	ctlr, st := Initialize(c, owner, cfg, nil, nil, newPolicy)
-	c.Assert(ctlr.Close(), jc.ErrorIsNil)
-	return st
 }

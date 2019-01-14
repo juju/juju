@@ -45,7 +45,7 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 	count := uint64(1)
 	s.assertUnitStorageAdded(c,
 		map[string]params.StorageConstraints{
-			"allecto": params.StorageConstraints{Count: &count}})
+			"allecto": {Count: &count}})
 }
 
 func (s *unitStorageSuite) TestAddUnitStorageIgnoresBlocks(c *gc.C) {
@@ -56,13 +56,13 @@ func (s *unitStorageSuite) TestAddUnitStorageIgnoresBlocks(c *gc.C) {
 	s.BlockAllChanges(c, "TestAddUnitStorageIgnoresBlocks")
 	s.assertUnitStorageAdded(c,
 		map[string]params.StorageConstraints{
-			"allecto": params.StorageConstraints{Count: &count}})
+			"allecto": {Count: &count}})
 }
 
 func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 	s.createStorageBlockUnit(c)
 	cons := map[string]params.StorageConstraints{
-		"allecto": params.StorageConstraints{}}
+		"allecto": {}}
 
 	ctx := s.addUnitStorage(c, cons)
 
@@ -71,7 +71,9 @@ func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*count must be specified.*`)
 
 	// Make sure no storage instances was added
-	after, err := s.IAASModel.AllStorageInstances()
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	after, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
 	s.assertExistingStorage(c, after)
@@ -81,7 +83,7 @@ func (s *unitStorageSuite) TestAddUnitStorageWithSize(c *gc.C) {
 	s.createStorageBlockUnit(c)
 	size := uint64(1)
 	cons := map[string]params.StorageConstraints{
-		"allecto": params.StorageConstraints{Size: &size}}
+		"allecto": {Size: &size}}
 
 	ctx := s.addUnitStorage(c, cons)
 
@@ -90,7 +92,9 @@ func (s *unitStorageSuite) TestAddUnitStorageWithSize(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
 
 	// Make sure no storage instances was added
-	after, err := s.IAASModel.AllStorageInstances()
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	after, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
 	s.assertExistingStorage(c, after)
@@ -99,7 +103,7 @@ func (s *unitStorageSuite) TestAddUnitStorageWithSize(c *gc.C) {
 func (s *unitStorageSuite) TestAddUnitStorageWithPool(c *gc.C) {
 	s.createStorageBlockUnit(c)
 	cons := map[string]params.StorageConstraints{
-		"allecto": params.StorageConstraints{Pool: "loop"}}
+		"allecto": {Pool: "loop"}}
 
 	ctx := s.addUnitStorage(c, cons)
 
@@ -108,7 +112,9 @@ func (s *unitStorageSuite) TestAddUnitStorageWithPool(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
 
 	// Make sure no storage instances was added
-	after, err := s.IAASModel.AllStorageInstances()
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	after, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
 	s.assertExistingStorage(c, after)
@@ -119,9 +125,9 @@ func (s *unitStorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
 	count := uint64(1)
 	s.assertUnitStorageAdded(c,
 		map[string]params.StorageConstraints{
-			"multi2up": params.StorageConstraints{Count: &count}},
+			"multi2up": {Count: &count}},
 		map[string]params.StorageConstraints{
-			"multi1to10": params.StorageConstraints{Count: &count}})
+			"multi1to10": {Count: &count}})
 }
 
 func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
@@ -129,9 +135,9 @@ func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
 	count := uint64(1)
 	s.assertUnitStorageAdded(c,
 		map[string]params.StorageConstraints{
-			"multi2up": params.StorageConstraints{Count: &count}},
+			"multi2up": {Count: &count}},
 		map[string]params.StorageConstraints{
-			"multi2up": params.StorageConstraints{Count: &count}})
+			"multi2up": {Count: &count}})
 }
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
@@ -176,7 +182,9 @@ func (s *unitStorageSuite) createStorageBlock2Unit(c *gc.C) {
 }
 
 func (s *unitStorageSuite) assertStorageCreated(c *gc.C) {
-	all, err := s.IAASModel.AllStorageInstances()
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	all, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	s.initialStorageInstancesCount = len(all)
 	s.expectedStorageNames = set.NewStrings()
@@ -210,7 +218,7 @@ func (s *unitStorageSuite) addUnitStorage(c *gc.C, cons ...map[string]params.Sto
 	c.Assert(ctx.UnitName(), gc.Equals, s.unit.Name())
 
 	for _, one := range cons {
-		for storage, _ := range one {
+		for storage := range one {
 			s.expectedStorageNames.Add(storage)
 		}
 		ctx.AddUnitStorage(one)
@@ -225,7 +233,9 @@ func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons ...map[string]pa
 	err := ctx.Flush("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	after, err := s.IAASModel.AllStorageInstances()
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	after, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, len(cons))
 	s.assertExistingStorage(c, after)

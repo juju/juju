@@ -22,13 +22,13 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -75,7 +75,7 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
 	expectedOutput := `
-Use --refresh flag with this command to see the latest information.
+Use --refresh option with this command to see the latest information.
 
 Controller  Model       User   Access     Cloud/Region        Models  Machines  HA  Version
 kontroll*   controller  admin  superuser  dummy/dummy-region       1         -   -  (unknown)  
@@ -223,12 +223,12 @@ func (s *cmdControllerSuite) TestControllerDestroyUsingAPI(c *gc.C) {
 
 func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name:        "just-a-controller",
+		Name:        "just-a-hosted-model",
 		ConfigAttrs: testing.Attrs{"controller": true},
 		CloudRegion: "dummy-region",
 	})
 	defer st.Close()
-	factory.NewFactory(st).MakeApplication(c, nil)
+	factory.NewFactory(st, s.StatePool).MakeApplication(c, nil)
 
 	stop := make(chan struct{})
 	done := make(chan struct{})
@@ -245,9 +245,11 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 			err = st.Cleanup()
 			c.Check(err, jc.ErrorIsNil)
 			err = st.ProcessDyingModel()
-			if errors.Cause(err) != state.ErrModelNotDying {
+			if errors.Cause(err) != state.ErrModelNotDying && !state.IsModelNotEmptyError(err) {
 				c.Check(err, jc.ErrorIsNil)
-				if err == nil {
+				err2 := st.RemoveDyingModel()
+				c.Check(err2, jc.ErrorIsNil)
+				if err == nil && err2 == nil {
 					// success!
 					return
 				}

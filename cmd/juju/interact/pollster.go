@@ -21,14 +21,18 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+// Non standard json Format
+const FormatCertFilename jsonschema.Format = "cert-filename"
+
 // Pollster is used to ask multiple questions of the user using a standard
 // formatting.
 type Pollster struct {
-	VerifyURLs VerifyFunc
-	scanner    *bufio.Scanner
-	out        io.Writer
-	errOut     io.Writer
-	in         io.Reader
+	VerifyURLs     VerifyFunc
+	VerifyCertFile VerifyFunc
+	scanner        *bufio.Scanner
+	out            io.Writer
+	errOut         io.Writer
+	in             io.Reader
 }
 
 // New returns a Pollster that wraps the given reader and writer.
@@ -113,6 +117,13 @@ func (p *Pollster) MultiSelect(l MultiList) ([]string, error) {
 	}
 	if err := listTmpl.Execute(p.out, l); err != nil {
 		return nil, err
+	}
+
+	// If there is only ever one option and that option also equals the default
+	// option, then just echo out what that option is (above), then return that
+	// option back.
+	if len(l.Default) == 1 && len(l.Options) == 1 && l.Options[0] == l.Default[0] {
+		return l.Default, nil
 	}
 
 	question, err := sprint(multiSelectTmpl, l)
@@ -392,6 +403,15 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 		return true, "", nil
 	}
 
+	localEnvVars := func(envVars []string) string {
+		for _, envVar := range envVars {
+			if value, ok := os.LookupEnv(envVar); ok && value != "" {
+				return value
+			}
+		}
+		return ""
+	}
+
 	// Currently we assume we always prompt for at least one value for
 	// additional properties, but we may want to change this to ask if they want
 	// to enter any at all.
@@ -399,16 +419,47 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 		// We assume that the name of the schema is the name of the object the
 		// schema describes, and for additional properties the property name
 		// (i.e. map key) is the "name" of the thing.
-		name, err := p.EnterVerify(schema.Singular+" name", verifyName)
-		if err != nil {
-			return errors.Trace(err)
+		var name string
+		var err error
+
+		// Note: here we check that schema.Default is empty as well.
+		defFromEnvVar := localEnvVars(schema.EnvVars)
+		if (schema.Default == nil || schema.Default == "") && defFromEnvVar == "" {
+			name, err = p.EnterVerify(schema.Singular+" name", verifyName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			// If we set a prompt default, that'll get returned as the value,
+			// but it's not the actual value that is the default, so fix that,
+			// if an environment variable wasn't used.
+			var def string
+			if schema.PromptDefault != nil {
+				def = fmt.Sprintf("%v", schema.PromptDefault)
+			}
+			if defFromEnvVar != "" {
+				def = defFromEnvVar
+			}
+			if def == "" {
+				def = fmt.Sprintf("%v", schema.Default)
+			}
+
+			name, err = p.EnterVerifyDefault(schema.Singular, verifyName, def)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			if name == def && schema.PromptDefault != nil && name != defFromEnvVar {
+				name = fmt.Sprintf("%v", schema.Default)
+			}
 		}
+
 		v, err := p.queryObjectSchema(schema.AdditionalProperties)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		vals[name] = v
-		more, err := p.YN("Enter another "+schema.Singular, true)
+		more, err := p.YN("Enter another "+schema.Singular, false)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -448,6 +499,10 @@ func (p *Pollster) queryOneSchema(schema *jsonschema.Schema) (interface{}, error
 		} else {
 			verify = uriVerify
 		}
+	case FormatCertFilename:
+		if p.VerifyCertFile != nil {
+			verify = p.VerifyCertFile
+		}
 	default:
 		// TODO(natefinch): support more formats
 		return nil, errors.Errorf("unsupported format type: %q", schema.Format)
@@ -464,20 +519,34 @@ func (p *Pollster) queryOneSchema(schema *jsonschema.Schema) (interface{}, error
 	var def string
 	if schema.PromptDefault != nil {
 		def = fmt.Sprintf("%v", schema.PromptDefault)
-	} else {
+	}
+	var defFromEnvVar string
+	if len(schema.EnvVars) > 0 {
+		for _, envVar := range schema.EnvVars {
+			value := os.Getenv(envVar)
+			if value != "" {
+				defFromEnvVar = value
+				def = defFromEnvVar
+				break
+			}
+		}
+	}
+	if def == "" {
 		def = fmt.Sprintf("%v", schema.Default)
 	}
+
 	a, err := p.EnterVerifyDefault(schema.Singular, verify, def)
-
-	// If we set a prompt default, that'll get returned as the value,
-	// but it's not the actual value that is the default, so fix that.
-	if err == nil && a == def && schema.PromptDefault != nil {
-		a = fmt.Sprintf("%v", schema.Default)
-	}
-
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// If we set a prompt default, that'll get returned as the value,
+	// but it's not the actual value that is the default, so fix that,
+	// if an environment variable wasn't used.
+	if a == def && schema.PromptDefault != nil && a != defFromEnvVar {
+		a = fmt.Sprintf("%v", schema.Default)
+	}
+
 	return convert(a, schema.Type[0])
 }
 
@@ -490,10 +559,22 @@ func (p *Pollster) queryArray(schema *jsonschema.Schema) (interface{}, error) {
 		}
 		return nil, errors.Errorf("unsupported schema for an array: %s", b)
 	}
+	var def string
+	if schema.Default != nil {
+		def = schema.Default.(string)
+	}
+	if schema.PromptDefault != nil {
+		def = schema.PromptDefault.(string)
+	}
+	var array []string
+	if def != "" {
+		array = []string{def}
+	}
 	return p.MultiSelect(MultiList{
 		Singular: schema.Singular,
 		Plural:   schema.Plural,
 		Options:  optFromEnum(schema.Items.Schemas[0]),
+		Default:  array,
 	})
 }
 

@@ -14,62 +14,80 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 )
 
-var usageAddUnitSummary = `
-Adds one or more units to a deployed application.`[1:]
+var usageAddUnitSummary = `Adds one or more units to a deployed application.`
 
 var usageAddUnitDetails = `
-The add-unit command adds units to an existing application. It is used
-to scale out an application for improved performance or availability.
+The add-unit is used to scale out an application for improved performance or
+availability.
 
-Many charms will seamlessly support horizontal scaling while others
-may need an additional application support (e.g. a separate load
-balancer). See the documentation for specific charms to check how
-scale-out is supported.
+The usage of this command differs depending on whether it is being used on a
+Kubernetes or cloud model.
 
-By default, units are deployed to newly provisioned machines in
-accordance with any application or model constraints. This command
-also supports the placement directive ("--to") for targeting specific
-machines or containers, which will bypass application and model
+Many charms will seamlessly support horizontal scaling while others may need
+an additional application support (e.g. a separate load balancer). See the
+documentation for specific charms to check how scale-out is supported.
+
+For Kubernetes models the only valid argument is -n, --num-units.
+Anything additional will result in an error.
+
+Example:
+
+Add five units of mysql:
+    juju add-unit mysql --num-units 5
+
+
+For cloud models, by default, units are deployed to newly provisioned machines
+in accordance with any application or model constraints.
+This command also supports the placement directive ("--to") for targeting
+specific machines or containers, which will bypass application and model
 constraints.
 
 Examples:
 
-Add five units of wordpress on five new machines:
-    juju add-unit wordpress -n 5
+Add five units of mysql on five new machines:
+
+    juju add-unit mysql -n 5
 
 Add a unit of mysql to machine 23 (which already exists):
+
     juju add-unit mysql --to 23
 
-Add two units of mysql to machines 3 and 4:
+Add two units of mysql to existing machines 3 and 4:
+
    juju add-unit mysql -n 2 --to 3,4
 
-Add three units of mysql to machine 7:
-    juju add-unit mysql -n 3 --to 7,7,7
-
-Add three units of mysql, one to machine 7 and the others to new
+Add three units of mysql, one to machine 3 and the others to new
 machines:
-    juju add-unit mysql -n 3 --to 7
 
-Add a unit into a new LXD container on machine 7:
+    juju add-unit mysql -n 3 --to 3
+
+Add a unit of mysql into a new LXD container on machine 7:
+
     juju add-unit mysql --to lxd:7
 
-Add two units into two new LXD containers on machine 7:
+Add two units of mysql into two new LXD containers on machine 7:
+
     juju add-unit mysql -n 2 --to lxd:7,lxd:7
 
-Add a unit of mariadb to LXD container number 3 on machine 24:
-    juju add-unit mariadb --to 24/lxd/3
+Add a unit of mysql to LXD container number 3 on machine 24:
 
-Add a unit of mariadb to LXD container on a new machine:
-    juju add-unit mariadb --to lxd
+    juju add-unit mysql --to 24/lxd/3
 
-See also: 
-    remove-unit`[1:]
+Add a unit of mysql to LXD container on a new machine:
+
+    juju add-unit mysql --to lxd
+
+See also:
+    remove-unit
+`[1:]
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
 // and validation of --to and --num-units arguments.
@@ -87,7 +105,7 @@ type UnitCommandBase struct {
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	f.StringVar(&c.PlacementSpec, "to", "", "The machine and/or container to deploy the unit in (bypasses constraints)")
-	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit")
+	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit (not available on kubernetes models)")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
@@ -140,15 +158,31 @@ type addUnitCommand struct {
 	UnitCommandBase
 	ApplicationName string
 	api             applicationAddUnitAPI
+
+	unknownModel bool
 }
 
 func (c *addUnitCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-unit",
 		Args:    "<application name>",
 		Purpose: usageAddUnitSummary,
 		Doc:     usageAddUnitDetails,
+	})
+}
+
+// IncompatibleModel returns an error if the command is being run against
+// a model with which it is not compatible.
+func (c *addUnitCommand) IncompatibleModel(err error) error {
+	if err == nil {
+		return nil
 	}
+	msg := `
+add-unit is not allowed on Kubernetes models.
+Instead, use juju scale-application.
+See juju help scale-application.
+`[1:]
+	return errors.New(msg)
 }
 
 func (c *addUnitCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -166,7 +200,27 @@ func (c *addUnitCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return err
 	}
+	if err := c.validateArgsByModelType(); err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		c.unknownModel = true
+	}
+
 	return c.UnitCommandBase.Init(args)
+}
+
+func (c *addUnitCommand) validateArgsByModelType() error {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+	if modelType == model.CAAS {
+		if c.PlacementSpec != "" || len(c.AttachStorage) != 0 {
+			return errors.New("Kubernetes models only support --num-units")
+		}
+	}
+	return nil
 }
 
 // applicationAddUnitAPI defines the methods on the client API
@@ -176,6 +230,7 @@ type applicationAddUnitAPI interface {
 	Close() error
 	ModelUUID() string
 	AddUnits(application.AddUnitsParams) ([]string, error)
+	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
 }
 
 func (c *addUnitCommand) getAPI() (applicationAddUnitAPI, error) {
@@ -197,6 +252,28 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer apiclient.Close()
+
+	if c.unknownModel {
+		if err := c.validateArgsByModelType(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+
+	if modelType == model.CAAS {
+		_, err = apiclient.ScaleApplication(application.ScaleApplicationParams{
+			ApplicationName: c.ApplicationName,
+			ScaleChange:     c.NumUnits,
+		})
+		if params.IsCodeUnauthorized(err) {
+			common.PermissionsMessage(ctx.Stderr, "scale an application")
+		}
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
 
 	if len(c.AttachStorage) > 0 && apiclient.BestAPIVersion() < 5 {
 		// AddUnitsPArams.AttachStorage is only supported from

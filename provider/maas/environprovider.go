@@ -5,7 +5,6 @@ package maas
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 
 	"github.com/juju/errors"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/provider/common"
 )
 
 var cloudSchema = &jsonschema.Schema{
@@ -25,12 +25,12 @@ var cloudSchema = &jsonschema.Schema{
 	// Order doesn't matter since there's only one thing to ask about.  Add
 	// order if this changes.
 	Properties: map[string]*jsonschema.Schema{
-		cloud.AuthTypesKey: &jsonschema.Schema{
+		cloud.AuthTypesKey: {
 			// don't need a prompt, since there's only one choice.
 			Type: []jsonschema.Type{jsonschema.ArrayType},
 			Enum: []interface{}{[]string{string(cloud.OAuth1AuthType)}},
 		},
-		cloud.EndpointKey: &jsonschema.Schema{
+		cloud.EndpointKey: {
 			Singular: "the API endpoint url",
 			Type:     []jsonschema.Type{jsonschema.StringType},
 			Format:   jsonschema.FormatURI,
@@ -128,14 +128,14 @@ func (p MaasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*
 	return args.Config.Apply(attrs)
 }
 
-func verifyCredentials(env *maasEnviron) error {
+func verifyCredentials(env *maasEnviron, ctx context.ProviderCallContext) error {
 	// Verify we can connect to the server and authenticate.
 	if env.usingMAAS2() {
 		// The maas2 controller verifies credentials at creation time.
 		return nil
 	}
 	_, err := env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
-	if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusUnauthorized {
+	if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 		logger.Debugf("authentication failed: %v", err)
 		return errors.New(`authentication failed.
 

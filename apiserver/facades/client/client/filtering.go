@@ -13,9 +13,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 var InvalidFormatErr = errors.Errorf("the given filter did not match any known patterns.")

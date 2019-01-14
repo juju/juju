@@ -11,3 +11,14 @@ import (
 func HandleSettingsFile(c *RelationSetCommand, ctx *cmd.Context) error {
 	return c.handleSettingsFile(ctx)
 }
+
+func NewJujuLogCommandWithMocks(ctx JujuLogContext, loggerFactory JujuLogCommandLoggerFactory) cmd.Command {
+	return &JujuLogCommand{
+		ctx:           ctx,
+		loggerFactory: loggerFactory,
+	}
+}
+
+func NewJujucCommandWrappedForTest(c cmd.Command) cmd.Command {
+	return &cmdWrapper{c, nil}
+}

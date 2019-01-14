@@ -29,13 +29,14 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.application")
@@ -52,6 +53,16 @@ type APIv5 struct {
 
 // APIv6 provides the Application API facade for version 6.
 type APIv6 struct {
+	*APIv7
+}
+
+// APIv7 provides the Application API facade for version 7.
+type APIv7 struct {
+	*APIv8
+}
+
+// APIv8 provides the Application API facade for version 8.
+type APIv8 struct {
 	*APIBase
 }
 
@@ -60,9 +71,16 @@ type APIv6 struct {
 //
 // API provides the Application API facade for version 5.
 type APIBase struct {
-	backend    Backend
+	backend       Backend
+	storageAccess storageInterface
+
 	authorizer facade.Authorizer
 	check      BlockChecker
+
+	modelTag  names.ModelTag
+	modelType state.ModelType
+
+	resources facade.Resources
 
 	// TODO(axw) stateCharm only exists because I ran out
 	// of time unwinding all of the tendrils of state. We
@@ -70,8 +88,8 @@ type APIBase struct {
 	// state wherever we pass in a state.Charm currently.
 	stateCharm func(Charm) *state.Charm
 
+	storagePoolManager    poolmanager.PoolManager
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
-	getEnviron            stateenvirons.NewEnvironFunc
 }
 
 // NewFacadeV4 provides the signature required for facade registration
@@ -84,7 +102,8 @@ func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
 	return &APIv4{api}, nil
 }
 
-// NewFacade provides the signature required for facade registration.
+// NewFacadeV5 provides the signature required for facade registration
+// for version 5.
 func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
 	api, err := NewFacadeV6(ctx)
 	if err != nil {
@@ -94,48 +113,98 @@ func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
 }
 
 // NewFacadeV6 provides the signature required for facade registration
-// for versions 6.
+// for version 6.
 func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := NewFacadeV7(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv6{api}, nil
 }
 
+// NewFacadeV7 provides the signature required for facade registration
+// for version 7.
+func NewFacadeV7(ctx facade.Context) (*APIv7, error) {
+	api, err := NewFacadeV8(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv7{api}, nil
+}
+
+func NewFacadeV8(ctx facade.Context) (*APIv8, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv8{api}, nil
+}
+
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
-	backend, err := NewStateBackend(ctx.State())
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model")
+	}
+	storageAccess, err := getStorageState(ctx.State())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state")
 	}
 	blockChecker := common.NewBlockChecker(ctx.State())
 	stateCharm := CharmToStateCharm
+
+	var storagePoolManager poolmanager.PoolManager
+	if model.Type() == state.ModelTypeCAAS {
+		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
+		if err != nil {
+			return nil, errors.Annotate(err, "getting caas client")
+		}
+		storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
+		storagePoolManager = poolmanager.New(state.NewStateSettings(ctx.State()), storageProviderRegistry)
+	}
+
+	resources := ctx.Resources()
+
 	return NewAPIBase(
-		backend,
+		&stateShim{ctx.State()},
+		storageAccess,
 		ctx.Auth(),
 		blockChecker,
+		model.ModelTag(),
+		model.Type(),
 		stateCharm,
 		DeployApplication,
+		storagePoolManager,
+		resources,
 	)
 }
 
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
 	backend Backend,
+	storageAccess storageInterface,
 	authorizer facade.Authorizer,
 	blockChecker BlockChecker,
+	modelTag names.ModelTag,
+	modelType state.ModelType,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
+	storagePoolManager poolmanager.PoolManager,
+	resources facade.Resources,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	return &APIBase{
 		backend:               backend,
+		storageAccess:         storageAccess,
 		authorizer:            authorizer,
 		check:                 blockChecker,
+		modelTag:              modelTag,
+		modelType:             modelType,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
+		storagePoolManager:    storagePoolManager,
+		resources:             resources,
 	}, nil
 }
 
@@ -151,11 +220,11 @@ func (api *APIBase) checkPermission(tag names.Tag, perm permission.Access) error
 }
 
 func (api *APIBase) checkCanRead() error {
-	return api.checkPermission(api.backend.ModelTag(), permission.ReadAccess)
+	return api.checkPermission(api.modelTag, permission.ReadAccess)
 }
 
 func (api *APIBase) checkCanWrite() error {
-	return api.checkPermission(api.backend.ModelTag(), permission.WriteAccess)
+	return api.checkPermission(api.modelTag, permission.WriteAccess)
 }
 
 // SetMetricCredentials sets credentials on the application.
@@ -212,6 +281,33 @@ func (api *APIv5) Deploy(args params.ApplicationsDeployV5) (params.ErrorResults,
 
 // Deploy fetches the charms from the charm store and deploys them
 // using the specified placement directives.
+// V6 deploy did not support devices, so pass through an empty map.
+func (api *APIv6) Deploy(args params.ApplicationsDeployV6) (params.ErrorResults, error) {
+	var newArgs params.ApplicationsDeploy
+	for _, value := range args.Applications {
+		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
+			ApplicationName:  value.ApplicationName,
+			Series:           value.Series,
+			CharmURL:         value.CharmURL,
+			Channel:          value.Channel,
+			NumUnits:         value.NumUnits,
+			Config:           value.Config,
+			ConfigYAML:       value.ConfigYAML,
+			Constraints:      value.Constraints,
+			Placement:        value.Placement,
+			Policy:           value.Policy,
+			Devices:          nil, // set Devices to nil because v6 and lower versions do not support it
+			Storage:          value.Storage,
+			AttachStorage:    value.AttachStorage,
+			EndpointBindings: value.EndpointBindings,
+			Resources:        value.Resources,
+		})
+	}
+	return api.APIBase.Deploy(newArgs)
+}
+
+// Deploy fetches the charms from the charm store and deploys them
+// using the specified placement directives.
 func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -222,8 +318,23 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 	if err := api.check.ChangeAllowed(); err != nil {
 		return result, errors.Trace(err)
 	}
+
+	// CAAS models require that a "operator-storage" storage pool exist.
+	if api.modelType == state.ModelTypeCAAS {
+		sp, err := api.storagePoolManager.Get(caas.OperatorStoragePoolName)
+		if err != nil {
+			return params.ErrorResults{}, errors.Annotatef(
+				err,
+				"deploying a Kubernetes application requires a storage pool called %q", caas.OperatorStoragePoolName)
+		}
+		if sp.Provider() != k8s.K8s_ProviderType {
+			return params.ErrorResults{}, errors.Errorf(
+				"the %q storage pool requires a provider type of %q, not %q", caas.OperatorStoragePoolName, k8s.K8s_ProviderType, sp.Provider())
+		}
+	}
+
 	for i, arg := range args.Applications {
-		err := deployApplication(api.backend, api.stateCharm, arg, api.deployApplicationFunc)
+		err := deployApplication(api.backend, api.modelType, api.stateCharm, arg, api.deployApplicationFunc, api.storagePoolManager)
 		result.Results[i].Error = common.ServerError(err)
 
 		if err != nil && len(arg.Resources) != 0 {
@@ -290,9 +401,11 @@ func splitApplicationAndCharmConfig(modelType state.ModelType, inConfig map[stri
 // both the legacy API on the client facade, as well as the new application facade.
 func deployApplication(
 	backend Backend,
+	modelType state.ModelType,
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error),
+	storagePoolManager poolmanager.PoolManager,
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
@@ -302,30 +415,38 @@ func deployApplication(
 		return errors.Errorf("charm url must include revision")
 	}
 
-	if backend.ModelType() != state.ModelTypeIAAS {
+	if modelType != state.ModelTypeIAAS {
 		if len(args.AttachStorage) > 0 {
 			return errors.Errorf(
 				"AttachStorage may not be specified for %s models",
-				backend.ModelType(),
+				modelType,
 			)
 		}
-		if len(args.Placement) > 0 {
+		if len(args.Placement) > 1 {
 			return errors.Errorf(
-				"Placement may not be specified for %s models",
-				backend.ModelType(),
+				"only 1 placement directive is supported for %s models, got %d",
+				modelType,
+				len(args.Placement),
 			)
+		}
+		for storageName, cons := range args.Storage {
+			if cons.Pool == "" {
+				return errors.Errorf("storage pool for %q must be specified", storageName)
+			}
+			sp, err := storagePoolManager.Get(cons.Pool)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if sp.Provider() != k8s.K8s_ProviderType {
+				return errors.Errorf("invalid storage provider type %q for %q", sp.Provider(), storageName)
+			}
 		}
 	}
 
-	// Do a quick but not complete validation check before going any further.
-	for _, p := range args.Placement {
-		if p.Scope != instance.MachineScope {
-			continue
-		}
-		_, err = backend.Machine(p.Directive)
-		if err != nil {
-			return errors.Annotatef(err, `cannot deploy "%v" to machine %v`, args.ApplicationName, p.Directive)
-		}
+	// This check is done early so that errors deeper in the call-stack do not
+	// leave an application deployment in an unrecoverable error state.
+	if err := checkMachinePlacement(backend, args); err != nil {
+		return errors.Trace(err)
 	}
 
 	// Try to find the charm URL in state first.
@@ -338,13 +459,13 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(backend.ModelType(), args.Config)
+	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(modelType, args.Config)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	var applicationConfig *application.Config
-	schema, defaults, err := applicationConfigSchema(backend.ModelType())
+	schema, defaults, err := applicationConfigSchema(modelType)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -396,11 +517,57 @@ func deployApplication(
 		Constraints:       args.Constraints,
 		Placement:         args.Placement,
 		Storage:           args.Storage,
+		Devices:           args.Devices,
 		AttachStorage:     attachStorage,
 		EndpointBindings:  args.EndpointBindings,
 		Resources:         args.Resources,
 	})
 	return errors.Trace(err)
+}
+
+// checkMachinePlacement does a non-exhaustive validation of any supplied
+// placement directives.
+// If the placement scope is for a machine, ensure that the machine exists.
+// If the placement is for a machine or a container on an existing machine,
+// check that the machine is not locked for series upgrade.
+func checkMachinePlacement(backend Backend, args params.ApplicationDeploy) error {
+	errTemplate := "cannot deploy %q to machine %s"
+	app := args.ApplicationName
+
+	for _, p := range args.Placement {
+		dir := p.Directive
+
+		toProvisionedMachine := p.Scope == instance.MachineScope
+		if !toProvisionedMachine && dir == "" {
+			continue
+		}
+
+		m, err := backend.Machine(dir)
+		if err != nil {
+			if errors.IsNotFound(err) && !toProvisionedMachine {
+				continue
+			}
+			return errors.Annotatef(err, errTemplate, app, dir)
+		}
+
+		locked, err := m.IsLockedForSeriesUpgrade()
+		if locked {
+			err = errors.New("machine is locked for series upgrade")
+		}
+		if err != nil {
+			return errors.Annotatef(err, errTemplate, app, dir)
+		}
+
+		locked, err = m.IsParentLockedForSeriesUpgrade()
+		if locked {
+			err = errors.New("parent machine is locked for series upgrade")
+		}
+		if err != nil {
+			return errors.Annotatef(err, errTemplate, app, dir)
+		}
+	}
+
+	return nil
 }
 
 // ApplicationSetSettingsStrings updates the settings for the given application,
@@ -481,6 +648,7 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 			"",  // charm settings (YAML)
 			args.ForceSeries,
 			args.ForceCharmURL,
+			args.Force,
 			nil, // resource IDs
 			nil, // storage constraints
 		); err != nil {
@@ -571,6 +739,10 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if err := application.SetCharmProfile(args.CharmURL); err != nil {
+		return errors.Annotatef(err, "unable to set charm profile")
+	}
+
 	channel := csparams.Channel(args.Channel)
 	return api.applicationSetCharm(
 		args.ApplicationName,
@@ -581,6 +753,7 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 		args.ConfigSettingsYAML,
 		args.ForceSeries,
 		args.ForceUnits,
+		args.Force,
 		args.ResourceIDs,
 		args.StorageConstraints,
 	)
@@ -637,7 +810,8 @@ func (api *APIBase) applicationSetCharm(
 	configSettingsStrings map[string]string,
 	configSettingsYAML string,
 	forceSeries,
-	forceUnits bool,
+	forceUnits,
+	force bool,
 	resourceIDs map[string]string,
 	storageConstraints map[string]params.StorageConstraints,
 ) error {
@@ -678,6 +852,7 @@ func (api *APIBase) applicationSetCharm(
 		ConfigSettings:     settings,
 		ForceSeries:        forceSeries,
 		ForceUnits:         forceUnits,
+		Force:              force,
 		ResourceIDs:        resourceIDs,
 		StorageConstraints: stateStorageConstraints,
 	}
@@ -837,7 +1012,7 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if api.backend.ModelType() == state.ModelTypeCAAS {
+	if api.modelType == state.ModelTypeCAAS {
 		appConfig, err := app.ApplicationConfig()
 		if err != nil {
 			return errors.Trace(err)
@@ -881,13 +1056,16 @@ func (api *APIv5) AddUnits(args params.AddApplicationUnitsV5) (params.AddApplica
 
 // AddUnits adds a given number of units to an application.
 func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
+	if api.modelType == state.ModelTypeCAAS {
+		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units on a non-container model")
+	}
 	if err := api.checkCanWrite(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	units, err := addApplicationUnits(api.backend, args)
+	units, err := addApplicationUnits(api.backend, api.modelType, args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -899,26 +1077,27 @@ func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplica
 }
 
 // addApplicationUnits adds a given number of units to an application.
-func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]Unit, error) {
+func addApplicationUnits(backend Backend, modelType state.ModelType, args params.AddApplicationUnits) ([]Unit, error) {
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
 
 	assignUnits := true
-	if backend.ModelType() != state.ModelTypeIAAS {
+	if modelType != state.ModelTypeIAAS {
 		// In a CAAS model, there are no machines for
 		// units to be assigned to.
 		assignUnits = false
 		if len(args.AttachStorage) > 0 {
 			return nil, errors.Errorf(
 				"AttachStorage may not be specified for %s models",
-				backend.ModelType(),
+				modelType,
 			)
 		}
-		if len(args.Placement) > 0 {
+		if len(args.Placement) > 1 {
 			return nil, errors.Errorf(
-				"Placement may not be specified for %s models",
-				backend.ModelType(),
+				"only 1 placement directive is supported for %s models, got %d",
+				modelType,
+				len(args.Placement),
 			)
 		}
 	}
@@ -1000,6 +1179,9 @@ func (api *APIv4) DestroyUnit(args params.Entities) (params.DestroyUnitResults, 
 
 // DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
+	if api.modelType == state.ModelTypeCAAS {
+		return params.DestroyUnitResults{}, errors.NotSupportedf("removing units on a non-container model")
+	}
 	if err := api.checkCanWrite(); err != nil {
 		return params.DestroyUnitResults{}, errors.Trace(err)
 	}
@@ -1022,25 +1204,24 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			return nil, errors.Errorf("unit %q is a subordinate", name)
 		}
 		var info params.DestroyUnitInfo
-		if api.backend.ModelType() == state.ModelTypeIAAS {
-			storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
+		storage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if arg.DestroyStorage {
+			for _, s := range storage {
+				info.DestroyedStorage = append(
+					info.DestroyedStorage,
+					params.Entity{s.StorageTag().String()},
+				)
+			}
+		} else {
+			info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
+				api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), storage,
+			)
 			if err != nil {
 				return nil, errors.Trace(err)
-			}
-			if arg.DestroyStorage {
-				for _, s := range storage {
-					info.DestroyedStorage = append(
-						info.DestroyedStorage,
-						params.Entity{s.StorageTag().String()},
-					)
-				}
-			} else {
-				info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
-					api.backend, storage,
-				)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
 			}
 		}
 		op := unit.DestroyOperation()
@@ -1132,12 +1313,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				info.DestroyedUnits,
 				params.Entity{unit.UnitTag().String()},
 			)
-			if api.backend.ModelType() != state.ModelTypeIAAS {
-				// Non-IAAS model; no need to deal with storage below.
-				arg.DestroyStorage = false
-				continue
-			}
-			storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
+			storage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
 			if err != nil {
 				return nil, err
 			}
@@ -1164,7 +1340,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				}
 			} else {
 				destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
-					api.backend, storage,
+					api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), storage,
 				)
 				if err != nil {
 					return nil, err
@@ -1219,6 +1395,64 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 		}
 	}
 	return params.ErrorResults{results}, nil
+}
+
+// ScaleApplications isn't on the V7 API.
+func (u *APIv7) ScaleApplications(_, _ struct{}) {}
+
+// ScaleApplications scales the specified application to the requested number of units.
+func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
+	if api.modelType != state.ModelTypeCAAS {
+		return params.ScaleApplicationResults{}, errors.NotSupportedf("scaling applications on a non-container model")
+	}
+	if err := api.checkCanWrite(); err != nil {
+		return params.ScaleApplicationResults{}, errors.Trace(err)
+	}
+	scaleApplication := func(arg params.ScaleApplicationParams) (*params.ScaleApplicationInfo, error) {
+		if arg.Scale == 0 && arg.ScaleChange == 0 {
+			return nil, errors.NotValidf("scale of 0")
+		} else if arg.Scale < 0 && arg.ScaleChange == 0 {
+			return nil, errors.NotValidf("scale < 0")
+		} else if arg.Scale != 0 && arg.ScaleChange != 0 {
+			return nil, errors.NotValidf("requesting both scale and scale-change")
+		}
+
+		appTag, err := names.ParseApplicationTag(arg.ApplicationTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		name := appTag.Id()
+		app, err := api.backend.Application(name)
+		if errors.IsNotFound(err) {
+			return nil, errors.Errorf("application %q does not exist", name)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var info params.ScaleApplicationInfo
+		if arg.ScaleChange != 0 {
+			newScale, err := app.ChangeScale(arg.ScaleChange)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			info.Scale = newScale
+		} else {
+			if err := app.Scale(arg.Scale); err != nil {
+				return nil, errors.Trace(err)
+			}
+			info.Scale = arg.Scale
+		}
+		return &info, nil
+	}
+	results := make([]params.ScaleApplicationResult, len(args.Applications))
+	for i, entity := range args.Applications {
+		info, err := scaleApplication(entity)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Info = info
+	}
+	return params.ScaleApplicationResults{results}, nil
 }
 
 // GetConstraints returns the constraints for a given application.
@@ -1648,11 +1882,11 @@ func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error 
 		return errors.Trace(err)
 	}
 
-	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(api.backend.ModelType(), arg.Config)
+	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(api.modelType, arg.Config)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	schema, defaults, err := applicationConfigSchema(api.backend.ModelType())
+	schema, defaults, err := applicationConfigSchema(api.modelType)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1705,7 +1939,7 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 		return errors.Trace(err)
 	}
 
-	schema, defaults, err := applicationConfigSchema(api.backend.ModelType())
+	schema, defaults, err := applicationConfigSchema(api.modelType)
 	if err != nil {
 		return errors.Trace(err)
 	}

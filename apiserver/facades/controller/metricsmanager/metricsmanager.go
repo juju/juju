@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -28,8 +28,7 @@ import (
 var (
 	logger            = loggo.GetLogger("juju.apiserver.metricsmanager")
 	maxBatchesPerSend = metricsender.DefaultMaxBatchesPerSend()
-
-	sender = metricsender.DefaultMetricSender()
+	senderFactory     = metricsender.DefaultSenderFactory()
 )
 
 // MetricsManager defines the methods on the metricsmanager API end point.
@@ -46,6 +45,7 @@ type MetricsManagerAPI struct {
 	model       *state.Model
 	accessModel common.GetAuthFunc
 	clock       clock.Clock
+	sender      metricsender.MetricSender
 }
 
 var _ MetricsManager = (*MetricsManagerAPI)(nil)
@@ -93,12 +93,21 @@ func NewMetricsManagerAPI(
 		}, nil
 	}
 
+	config, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	sender := senderFactory(config.MeteringURL() + "/metrics")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &MetricsManagerAPI{
 		state:       st,
 		pool:        pool,
 		model:       m,
 		accessModel: accessModel,
 		clock:       clock,
+		sender:      sender,
 	}, nil
 }
 
@@ -239,7 +248,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		err = metricsender.SendMetrics(modelBackend{modelState, model}, sender, api.clock, maxBatchesPerSend, txVendorMetrics)
+		err = metricsender.SendMetrics(modelBackend{modelState, model}, api.sender, api.clock, maxBatchesPerSend, txVendorMetrics)
 		if err != nil {
 			err = errors.Annotatef(err, "failed to send metrics for %s", tag)
 			logger.Warningf("%v", err)

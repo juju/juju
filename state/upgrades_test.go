@@ -8,10 +8,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/kr/pretty"
@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
@@ -249,7 +250,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainPermissions(c *gc.C) {
 	var initialPermissions []bson.M
 	err := coll.Find(nil).Sort("_id").All(&initialPermissions)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(initialPermissions, gc.HasLen, 2)
+	c.Assert(initialPermissions, gc.HasLen, 3)
 
 	err = coll.Insert(
 		permissionDoc{
@@ -274,7 +275,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainPermissions(c *gc.C) {
 		initialPermissions[i] = perm
 	}
 
-	expected := []bson.M{initialPermissions[0], initialPermissions[1], {
+	expected := []bson.M{initialPermissions[0], initialPermissions[1], initialPermissions[2], {
 		"_id":                "uuid#fred",
 		"object-global-key":  "c#uuid",
 		"subject-global-key": "fred",
@@ -333,11 +334,11 @@ type expectUpgradedData struct {
 	expected []bson.M
 }
 
-func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*State) error, expect ...expectUpgradedData) {
+func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*StatePool) error, expect ...expectUpgradedData) {
 	// Two rounds to check idempotency.
 	for i := 0; i < 2; i++ {
 		c.Logf("Run: %d", i)
-		err := upgrade(s.state)
+		err := upgrade(s.pool)
 		c.Assert(err, jc.ErrorIsNil)
 
 		for _, expect := range expect {
@@ -364,7 +365,7 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 	var initialPermissions []bson.M
 	err := coll.Find(nil).Sort("_id").All(&initialPermissions)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(initialPermissions, gc.HasLen, 2)
+	c.Assert(initialPermissions, gc.HasLen, 3)
 
 	err = coll.Insert(
 		permissionDoc{
@@ -389,7 +390,7 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 		initialPermissions[i] = perm
 	}
 
-	expected := []bson.M{initialPermissions[0], initialPermissions[1], {
+	expected := []bson.M{initialPermissions[0], initialPermissions[1], initialPermissions[2], {
 		"_id":                "uuid#fred",
 		"object-global-key":  "c#uuid",
 		"subject-global-key": "fred",
@@ -418,15 +419,15 @@ func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []bson.M{
-		bson.M{
+		{
 			"_id":     "uuid:1",
 			"attempt": 1,
 		},
-		bson.M{
+		{
 			"_id":     "uuid:11",
 			"attempt": 11,
 		},
-		bson.M{
+		{
 			"_id":     "uuid:2",
 			"attempt": 2,
 		},
@@ -573,7 +574,8 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {
 		"foo": "bar",
 		"baz": "qux",
 	})
-	f := func(st *State) error {
+	f := func(pool *StatePool) error {
+		st := pool.SystemState()
 		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
 	}
 	s.assertUpgradedData(c, f,
@@ -675,7 +677,8 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
 		"foo": "bar",
 		"baz": "qux",
 	})
-	f := func(st *State) error {
+	f := func(pool *StatePool) error {
+		st := pool.SystemState()
 		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
 	}
 	s.assertUpgradedData(c, f,
@@ -758,6 +761,11 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 		"params": bson.M{
 			"pool": "static",
 		},
+	}, bson.M{
+		"_id":        uuid + ":3",
+		"name":       "3",
+		"model-uuid": uuid,
+		"hostid":     "666",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -788,6 +796,11 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 		"params": bson.M{
 			"pool": "static",
 		},
+	}, bson.M{
+		"_id":          uuid + ":3",
+		"filesystemid": "3",
+		"model-uuid":   uuid,
+		"hostid":       "666",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -827,6 +840,11 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 			"pool": "static",
 		},
 		"machineid": "123",
+	}, {
+		"_id":        uuid + ":3",
+		"name":       "3",
+		"model-uuid": uuid,
+		"hostid":     "666",
 	}}
 	expectedFilesystems := []bson.M{{
 		"_id":          uuid + ":0",
@@ -848,6 +866,11 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 			"pool": "static",
 		},
 		"machineid": "123",
+	}, {
+		"_id":          uuid + ":3",
+		"filesystemid": "3",
+		"model-uuid":   uuid,
+		"hostid":       "666",
 	}}
 
 	s.assertUpgradedData(c, AddNonDetachableStorageMachineId,
@@ -996,7 +1019,7 @@ func (s *upgradesSuite) makeModel(c *gc.C, name string, attr coretesting.Attrs) 
 	}.Merge(attr))
 	m, err := s.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, st, err := s.state.NewModel(ModelArgs{
+	_, st, err := s.controller.NewModel(ModelArgs{
 		Type:                    ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",
@@ -1343,7 +1366,7 @@ func (s *upgradesSuite) TestSplitLogCollection(c *gc.C) {
 		expected[modelUUID] = append(vals, logRow)
 	}
 
-	err := SplitLogCollections(s.state)
+	err := SplitLogCollections(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check the logs.
@@ -1366,7 +1389,7 @@ func (s *upgradesSuite) TestSplitLogCollection(c *gc.C) {
 	c.Assert(numDocs, gc.Equals, 0)
 
 	// Run again, should be fine.
-	err = SplitLogCollections(s.state)
+	err = SplitLogCollections(s.pool)
 	c.Logf("%#v", errors.Cause(err))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1422,7 +1445,7 @@ func (s *upgradesSuite) TestSplitLogsIgnoresDupeRecordsAlreadyThere(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	err := SplitLogCollections(s.state)
+	err := SplitLogCollections(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check the logs - the duplicates were ignored.
@@ -1451,7 +1474,7 @@ func (s *upgradesSuite) TestSplitLogsHandlesNoLogsCollection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(set.NewStrings(names...).Contains("logs"), jc.IsFalse)
 
-	err = SplitLogCollections(s.state)
+	err = SplitLogCollections(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1808,7 +1831,7 @@ func (s *upgradesSuite) TestAddModelType(c *gc.C) {
 		expectUpgradedData{models, expectedModels})
 }
 
-func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaultAge, defaultSize string, updateFunc func(st *State) error) {
+func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaultAge, defaultSize string, updateFunc func(pool *StatePool) error) {
 	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
@@ -1903,7 +1926,7 @@ func (s *upgradesSuite) TestMigrateLeasesToGlobalTime(c *gc.C) {
 	expectedLeases := []bson.M{{
 		"_id":        uuid + ":some-garbage",
 		"model-uuid": uuid,
-	}, bson.M{
+	}, {
 		"_id":        uuid + ":some-namespace#some-name#",
 		"model-uuid": uuid,
 		"namespace":  "some-namespace",
@@ -1930,7 +1953,7 @@ func (s *upgradesSuite) TestMoveOldAuditLogNoRecords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(count, gc.Equals, 0)
 
-	err = MoveOldAuditLog(s.state)
+	err = MoveOldAuditLog(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.state.MongoSession().DB("juju")
@@ -1938,7 +1961,7 @@ func (s *upgradesSuite) TestMoveOldAuditLogNoRecords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
 
-	err = MoveOldAuditLog(s.state)
+	err = MoveOldAuditLog(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2051,7 +2074,7 @@ func (s *upgradesSuite) TestMigrateLeasesToGlobalTimeWithNewTarget(c *gc.C) {
 func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 	// Set a test clock so we can dictate the
 	// time set in the new status doc.
-	clock := testing.NewClock(time.Unix(0, 123))
+	clock := testclock.NewClock(time.Unix(0, 123))
 	s.state.SetClockForTesting(clock)
 
 	relations, closer := s.state.db().GetRawCollection(relationsC)
@@ -2176,7 +2199,7 @@ func (s *upgradesSuite) TestCopyMongoSpaceToHASpaceConfigWhenValid(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = MoveMongoSpaceToHASpaceConfig(s.state)
+	err = MoveMongoSpaceToHASpaceConfig(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(getHASpaceConfig(s.state, c), gc.Equals, sn)
@@ -2194,7 +2217,7 @@ func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenNotValid(c *gc.C)
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = MoveMongoSpaceToHASpaceConfig(s.state)
+	err = MoveMongoSpaceToHASpaceConfig(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "")
@@ -2215,7 +2238,7 @@ func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenAlreadySet(c *gc.
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = MoveMongoSpaceToHASpaceConfig(s.state)
+	err = MoveMongoSpaceToHASpaceConfig(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "already-set")
@@ -2230,7 +2253,7 @@ func (s *upgradesSuite) TestMoveMongoSpaceToHASpaceConfigDeletesOldKeys(c *gc.C)
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = MoveMongoSpaceToHASpaceConfig(s.state)
+	err = MoveMongoSpaceToHASpaceConfig(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Holds Mongo space fields removed from controllersDoc.
@@ -2388,10 +2411,10 @@ func (s *upgradesSuite) TestUpgradeContainerImageStreamDefault(c *gc.C) {
 	expectedSettings := []bson.M{}
 
 	expectedChanges := map[string]bson.M{
-		m1.ModelUUID() + ":e": bson.M{"container-image-stream": "released", "other-setting": "val"},
-		m2.ModelUUID() + ":e": bson.M{"container-image-stream": "released", "other-setting": "val"},
-		m3.ModelUUID() + ":e": bson.M{"container-image-stream": "daily"},
-		"not-a-model":         bson.M{"other-setting": "val"},
+		m1.ModelUUID() + ":e": {"container-image-stream": "released", "other-setting": "val"},
+		m2.ModelUUID() + ":e": {"container-image-stream": "released", "other-setting": "val"},
+		m3.ModelUUID() + ":e": {"container-image-stream": "daily"},
+		"not-a-model":         {"other-setting": "val"},
 	}
 	for iter.Next(&rawSettings) {
 		expSettings := copyMap(rawSettings, nil)
@@ -2559,3 +2582,326 @@ func (s *upgradesSuite) TestAddCloudModelCounts(c *gc.C) {
 	}}
 	s.assertUpgradedData(c, AddCloudModelCounts, expectUpgradedData{refCountColl, expected})
 }
+
+func (s *upgradesSuite) TestMigrateStorageMachineIdFields(c *gc.C) {
+	volumesColl, volumesCloser := s.state.db().GetRawCollection(volumesC)
+	defer volumesCloser()
+	volumeAttachmentsColl, volumeAttachmentsCloser := s.state.db().GetRawCollection(volumeAttachmentsC)
+	defer volumeAttachmentsCloser()
+
+	filesystemsColl, filesystemsCloser := s.state.db().GetRawCollection(filesystemsC)
+	defer filesystemsCloser()
+	filesystemAttachmentsColl, filesystemAttachmentsCloser := s.state.db().GetRawCollection(filesystemAttachmentsC)
+	defer filesystemAttachmentsCloser()
+
+	uuid := s.state.ModelUUID()
+
+	err := volumesColl.Insert(bson.M{
+		"_id":        uuid + ":0",
+		"name":       "0",
+		"model-uuid": uuid,
+		"machineid":  "42",
+	}, bson.M{
+		"_id":        uuid + ":1",
+		"name":       "1",
+		"model-uuid": uuid,
+		"hostid":     "666",
+	}, bson.M{
+		"_id":        uuid + ":2",
+		"name":       "2",
+		"model-uuid": uuid,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = volumeAttachmentsColl.Insert(bson.M{
+		"_id":        uuid + ":123:0",
+		"model-uuid": uuid,
+		"machineid":  "123",
+		"volumeid":   "0",
+	}, bson.M{
+		"_id":        uuid + ":123:1",
+		"model-uuid": uuid,
+		"hostid":     "123",
+		"volumeid":   "1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = filesystemsColl.Insert(bson.M{
+		"_id":          uuid + ":0",
+		"filesystemid": "0",
+		"model-uuid":   uuid,
+		"machineid":    "42",
+	}, bson.M{
+		"_id":          uuid + ":1",
+		"filesystemid": "1",
+		"model-uuid":   uuid,
+		"hostid":       "666",
+	}, bson.M{
+		"_id":          uuid + ":2",
+		"filesystemid": "2",
+		"model-uuid":   uuid,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = filesystemAttachmentsColl.Insert(bson.M{
+		"_id":          uuid + ":123:3",
+		"model-uuid":   uuid,
+		"machineid":    "123",
+		"filesystemid": "0",
+	}, bson.M{
+		"_id":          uuid + ":123:4",
+		"model-uuid":   uuid,
+		"hostid":       "123",
+		"filesystemid": "1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedVolumes := []bson.M{{
+		"_id":        uuid + ":0",
+		"name":       "0",
+		"model-uuid": uuid,
+		"hostid":     "42",
+	}, {
+		"_id":        uuid + ":1",
+		"name":       "1",
+		"model-uuid": uuid,
+		"hostid":     "666",
+	}, {
+		"_id":        uuid + ":2",
+		"name":       "2",
+		"model-uuid": uuid,
+	}}
+	expectedFilesystems := []bson.M{{
+		"_id":          uuid + ":0",
+		"filesystemid": "0",
+		"model-uuid":   uuid,
+		"hostid":       "42",
+	}, {
+		"_id":          uuid + ":1",
+		"filesystemid": "1",
+		"model-uuid":   uuid,
+		"hostid":       "666",
+	}, {
+		"_id":          uuid + ":2",
+		"filesystemid": "2",
+		"model-uuid":   uuid,
+	}}
+	expectedVolumeAttachments := []bson.M{{
+		"_id":        uuid + ":123:0",
+		"model-uuid": uuid,
+		"hostid":     "123",
+		"volumeid":   "0",
+	}, {
+		"_id":        uuid + ":123:1",
+		"model-uuid": uuid,
+		"hostid":     "123",
+		"volumeid":   "1",
+	}}
+	expectedFilesystemAttachments := []bson.M{{
+		"_id":          uuid + ":123:3",
+		"model-uuid":   uuid,
+		"hostid":       "123",
+		"filesystemid": "0",
+	}, {
+		"_id":          uuid + ":123:4",
+		"model-uuid":   uuid,
+		"hostid":       "123",
+		"filesystemid": "1",
+	}}
+
+	s.assertUpgradedData(c, MigrateStorageMachineIdFields,
+		expectUpgradedData{volumesColl, expectedVolumes},
+		expectUpgradedData{filesystemsColl, expectedFilesystems},
+		expectUpgradedData{volumeAttachmentsColl, expectedVolumeAttachments},
+		expectUpgradedData{filesystemAttachmentsColl, expectedFilesystemAttachments},
+	)
+}
+
+func (s *upgradesSuite) TestLegacyLeases(c *gc.C) {
+	clockColl, clockCloser := s.state.db().GetCollection(globalClockC)
+	defer clockCloser()
+	c.Assert(clockColl.Writeable().Insert(bson.M{
+		"_id":  "g",
+		"time": int64(5000000000),
+	}), jc.ErrorIsNil)
+
+	coll, closer := s.state.db().GetRawCollection(leasesC)
+	defer closer()
+	err := coll.Insert(bson.M{
+		"namespace":  "buke",
+		"model-uuid": "m1",
+		"name":       "seam-esteem",
+		"holder":     "gase",
+		"start":      int64(4000000000),
+		"duration":   5 * time.Second,
+	}, bson.M{
+		"namespace":  "reyne",
+		"model-uuid": "m2",
+		"name":       "scorned",
+		"holder":     "jordan",
+		"start":      int64(4500000000),
+		"duration":   10 * time.Second,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	now, err := time.Parse(time.RFC3339Nano, "2018-09-13T10:51:00.300000000Z")
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := LegacyLeases(s.pool, now)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, map[lease.Key]lease.Info{
+		{"buke", "m1", "seam-esteem"}: {
+			Holder:   "gase",
+			Expiry:   now.Add(4 * time.Second),
+			Trapdoor: nil,
+		},
+		{"reyne", "m2", "scorned"}: {
+			Holder:   "jordan",
+			Expiry:   now.Add(9500 * time.Millisecond),
+			Trapdoor: nil,
+		},
+	})
+}
+
+func (s *upgradesSuite) TestMigrateAddModelPermissions(c *gc.C) {
+	permissionsColl, closer := s.state.db().GetRawCollection(permissionsC)
+	defer closer()
+
+	controllerKey := controllerKey(s.state.ControllerUUID())
+	modelKey := modelKey(s.state.ModelUUID())
+	err := permissionsColl.Insert(
+		permissionDoc{
+			ID:               permissionID(controllerKey, "us#bob"),
+			SubjectGlobalKey: "us#bob",
+			ObjectGlobalKey:  controllerKey,
+			Access:           "add-model",
+		},
+		permissionDoc{
+			ID:               permissionID("somemodel", "us#bob"),
+			SubjectGlobalKey: "us#bob",
+			ObjectGlobalKey:  "somemodel",
+			Access:           "read",
+		},
+		permissionDoc{
+			ID:               permissionID(controllerKey, "us#mary"),
+			SubjectGlobalKey: "us#mary",
+			ObjectGlobalKey:  controllerKey,
+			Access:           "login",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := docById{{
+		"_id":                permissionID(controllerKey, "us#test-admin"),
+		"object-global-key":  controllerKey,
+		"subject-global-key": "us#test-admin",
+		"access":             "superuser",
+	}, {
+		"_id":                permissionID(modelKey, "us#test-admin"),
+		"object-global-key":  modelKey,
+		"subject-global-key": "us#test-admin",
+		"access":             "admin",
+	}, {
+		"_id":                permissionID("cloud#dummy", "us#test-admin"),
+		"subject-global-key": "us#test-admin",
+		"object-global-key":  "cloud#dummy",
+		"access":             "admin",
+	}, {
+		"_id":                permissionID(controllerKey, "us#bob"),
+		"subject-global-key": "us#bob",
+		"object-global-key":  controllerKey,
+		"access":             "login",
+	}, {
+		"_id":                permissionID("somemodel", "us#bob"),
+		"subject-global-key": "us#bob",
+		"object-global-key":  "somemodel",
+		"access":             "read",
+	}, {
+		"_id":                permissionID("cloud#dummy", "us#bob"),
+		"subject-global-key": "us#bob",
+		"object-global-key":  "cloud#dummy",
+		"access":             "add-model",
+	}, {
+		"_id":                permissionID(controllerKey, "us#mary"),
+		"subject-global-key": "us#mary",
+		"object-global-key":  controllerKey,
+		"access":             "login",
+	}}
+	sort.Sort(expected)
+	s.assertUpgradedData(c, MigrateAddModelPermissions, expectUpgradedData{permissionsColl, expected})
+}
+
+func (s *upgradesSuite) TestSetEnableDiskUUIDOnVsphere(c *gc.C) {
+	coll, closer := s.state.db().GetRawCollection(settingsC)
+	defer closer()
+
+	_, err := coll.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m1 := s.makeModel(c, "m1", coretesting.Attrs{
+		"type": "someprovider",
+	})
+	defer m1.Close()
+	m2 := s.makeModel(c, "m2", coretesting.Attrs{
+		"type": "vsphere",
+	})
+	defer m2.Close()
+	m3 := s.makeModel(c, "m3", coretesting.Attrs{
+		"type":             "vsphere",
+		"enable-disk-uuid": true,
+	})
+	defer m3.Close()
+
+	err = coll.Insert(bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-model setting: should not be touched
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	getAttrs := func(st *State) map[string]interface{} {
+		model, err := st.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		cfg, err := model.ModelConfig()
+		c.Assert(err, jc.ErrorIsNil)
+		attrs := cfg.AllAttrs()
+		attrs["resource-tags"] = ""
+		return attrs
+	}
+
+	expected1 := getAttrs(m1)
+	expected2 := getAttrs(m2)
+	expected2["enable-disk-uuid"] = false
+
+	expected3 := getAttrs(m3)
+
+	expectedSettings := bsonMById{
+		{
+			"_id":        m1.ModelUUID() + ":e",
+			"settings":   bson.M(expected1),
+			"model-uuid": m1.ModelUUID(),
+		}, {
+			"_id":        m2.ModelUUID() + ":e",
+			"settings":   bson.M(expected2),
+			"model-uuid": m2.ModelUUID(),
+		}, {
+			"_id":        m3.ModelUUID() + ":e",
+			"settings":   bson.M(expected3),
+			"model-uuid": m3.ModelUUID(),
+		}, {
+			"_id":      "someothersettingshouldnotbetouched",
+			"settings": bson.M{"key": "value"},
+		},
+	}
+	sort.Sort(expectedSettings)
+
+	c.Logf(pretty.Sprint(expectedSettings))
+	s.assertUpgradedData(c, SetEnableDiskUUIDOnVsphere,
+		expectUpgradedData{coll, expectedSettings},
+	)
+}
+
+type docById []bson.M
+
+func (d docById) Len() int           { return len(d) }
+func (d docById) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
+func (d docById) Less(i, j int) bool { return d[i]["_id"].(string) < d[j]["_id"].(string) }

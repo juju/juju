@@ -9,10 +9,12 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
+	"github.com/juju/romulus"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	utilscert "github.com/juju/utils/cert"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charmrepo.v3/csclient"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/controller"
@@ -516,4 +518,50 @@ func (s *ConfigSuite) TestCAASOperatorImagePath(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(cfg.CAASOperatorImagePath(), gc.Equals, imagePath)
 	}
+}
+
+func (s *ConfigSuite) TestCharmstoreURLDefault(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.CharmStoreURL(), gc.Equals, csclient.ServerURL)
+}
+
+func (s *ConfigSuite) TestCharmstoreURLSettingValue(c *gc.C) {
+	csURL := "http://homestarrunner.com/charmstore"
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.CharmStoreURL: csURL,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.CharmStoreURL(), gc.Equals, csURL)
+}
+
+func (s *ConfigSuite) TestMeteringURLDefault(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.MeteringURL(), gc.Equals, romulus.DefaultAPIRoot)
+}
+
+func (s *ConfigSuite) TestMeteringURLSettingValue(c *gc.C) {
+	mURL := "http://homestarrunner.com/metering"
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.MeteringURL: mURL,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MeteringURL(), gc.Equals, mURL)
 }

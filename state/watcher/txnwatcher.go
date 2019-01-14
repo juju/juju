@@ -30,22 +30,30 @@ type Clock interface {
 
 const (
 	txnWatcherStarting   = "starting"
+	txnWatcherSyncErr    = "sync err"
 	txnWatcherCollection = "collection"
 
 	txnWatcherShortWait = 10 * time.Millisecond
 )
 
-// PollStrategy is used to determine how long
-// to delay between poll intervals. A new timer
-// is created each time some watcher event is
-// fired or if the old timer completes.
-//
-// It must not be changed when any watchers are active.
-var PollStrategy retry.Strategy = retry.Exponential{
-	Initial:  10 * time.Millisecond,
-	Factor:   1.5,
-	MaxDelay: 5 * time.Second,
-}
+var (
+
+	// PollStrategy is used to determine how long
+	// to delay between poll intervals. A new timer
+	// is created each time some watcher event is
+	// fired or if the old timer completes.
+	//
+	// It must not be changed when any watchers are active.
+	PollStrategy retry.Strategy = retry.Exponential{
+		Initial:  txnWatcherShortWait,
+		Factor:   1.5,
+		MaxDelay: 5 * time.Second,
+	}
+
+	// TxnPollNotifyFunc allows tests to be able to specify
+	// callbacks each time the database has been polled and processed.
+	TxnPollNotifyFunc func()
+)
 
 type txnChange struct {
 	collection string
@@ -63,6 +71,10 @@ type TxnWatcher struct {
 	tomb         tomb.Tomb
 	iteratorFunc func() mongo.Iterator
 	log          *mgo.Collection
+
+	// notifySync is copied from the package variable when the watcher
+	// is created.
+	notifySync func()
 
 	reportRequest chan chan map[string]interface{}
 
@@ -89,7 +101,7 @@ type TxnWatcher struct {
 	lastId interface{}
 }
 
-// TxnWatcherConfig container the configuration parameters required
+// TxnWatcherConfig contains the configuration parameters required
 // for a NewTxnWatcher.
 type TxnWatcherConfig struct {
 	// ChangeLog is usually the tnxs.log collection.
@@ -132,6 +144,7 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 		logger:        config.Logger,
 		log:           config.ChangeLog,
 		iteratorFunc:  config.IteratorFunc,
+		notifySync:    TxnPollNotifyFunc,
 		reportRequest: make(chan chan map[string]interface{}),
 	}
 	if w.iteratorFunc == nil {
@@ -203,14 +216,20 @@ func (w *TxnWatcher) Report() map[string]interface{} {
 // loop implements the main watcher loop.
 // period is the delay between each sync.
 func (w *TxnWatcher) loop() error {
+	w.logger.Tracef("loop started")
+	defer w.logger.Tracef("loop finished")
+	// Make sure we have read the last ID before telling people
+	// we have started.
 	if err := w.initLastId(); err != nil {
 		return errors.Trace(err)
 	}
-	// Make sure we have read the last ID before telling people
-	// we have started.
+	// Also make sure we have prepared the timer before
+	// we tell people we've started.
+	now := w.clock.Now()
+	backoff := PollStrategy.NewTimer(now)
+	d, _ := backoff.NextSleep(now)
+	next := w.clock.After(d)
 	w.hub.Publish(txnWatcherStarting, nil)
-	backoff := PollStrategy.NewTimer(w.clock.Now())
-	next := w.clock.After(txnWatcherShortWait)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -249,6 +268,7 @@ func (w *TxnWatcher) loop() error {
 
 		added, err := w.sync()
 		if err != nil {
+			w.hub.Publish(txnWatcherSyncErr, nil)
 			return errors.Trace(err)
 		}
 		w.flush()
@@ -257,6 +277,8 @@ func (w *TxnWatcher) loop() error {
 			// so we'll retry again quickly.
 			backoff = PollStrategy.NewTimer(w.clock.Now())
 			next = w.clock.After(txnWatcherShortWait)
+		} else if w.notifySync != nil {
+			w.notifySync()
 		}
 	}
 }

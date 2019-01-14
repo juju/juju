@@ -7,10 +7,10 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2"

@@ -46,3 +46,16 @@ func (m *MockOCIIdentityClient) ListAvailabilityDomains(arg0 context.Context, ar
 func (mr *MockOCIIdentityClientMockRecorder) ListAvailabilityDomains(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAvailabilityDomains", reflect.TypeOf((*MockOCIIdentityClient)(nil).ListAvailabilityDomains), arg0, arg1)
 }
+
+// ListCompartments mocks base method
+func (m *MockOCIIdentityClient) ListCompartments(arg0 context.Context, arg1 identity.ListCompartmentsRequest) (identity.ListCompartmentsResponse, error) {
+	ret := m.ctrl.Call(m, "ListCompartments", arg0, arg1)
+	ret0, _ := ret[0].(identity.ListCompartmentsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCompartments indicates an expected call of ListCompartments
+func (mr *MockOCIIdentityClientMockRecorder) ListCompartments(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCompartments", reflect.TypeOf((*MockOCIIdentityClient)(nil).ListCompartments), arg0, arg1)
+}

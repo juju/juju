@@ -11,7 +11,8 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher"
 )
 
 type Waiter interface {
@@ -36,17 +37,19 @@ type Unit interface {
 	Refresh() error
 	Resolved() params.ResolvedMode
 	Application() (Application, error)
-	Series() string
 	Tag() names.UnitTag
 	Watch() (watcher.NotifyWatcher, error)
-	WatchAddresses() (watcher.NotifyWatcher, error)
-	WatchConfigSettings() (watcher.NotifyWatcher, error)
-	WatchTrustConfigSettings() (watcher.NotifyWatcher, error)
+	WatchAddressesHash() (watcher.StringsWatcher, error)
+	WatchConfigSettingsHash() (watcher.StringsWatcher, error)
+	WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error)
+	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
+	WatchLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
 	// WatchRelation returns a watcher that fires when relations
 	// relevant for this unit change.
 	WatchRelations() (watcher.StringsWatcher, error)
+	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
 }
 
 type Application interface {

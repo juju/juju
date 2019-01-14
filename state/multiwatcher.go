@@ -304,7 +304,10 @@ func (sm *storeManager) respond() {
 
 		req.changes = changes
 		w.revno = sm.all.latestRevno
-		req.reply <- true
+		select {
+		case req.reply <- true:
+		case <-sm.tomb.Dying():
+		}
 		sm.removeWaitingReq(w, req)
 		sm.seen(revno)
 	}

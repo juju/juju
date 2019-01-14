@@ -2,7 +2,6 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package uniter implements the API interface used by the uniter worker.
-
 package uniter
 
 import (
@@ -26,16 +25,18 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/status"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v8) of the Uniter API.
+// UniterAPI implements the latest version (v9) of the Uniter API,
+// which adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash
+// and WatchUnitAddressesHash.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -44,12 +45,15 @@ type UniterAPI struct {
 	*common.APIAddresser
 	*common.ModelWatcher
 	*common.RebootRequester
+	*common.UpgradeSeriesAPI
+	*LXDProfileAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
 	meterstatus.MeterStatus
 	m                 *state.Model
 	st                *state.State
 	auth              facade.Authorizer
 	resources         facade.Resources
+	leadershipChecker leadership.Checker
 	accessUnit        common.GetAuthFunc
 	accessApplication common.GetAuthFunc
 	accessMachine     common.GetAuthFunc
@@ -62,9 +66,16 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
+// UniterAPIV8 adds SetContainerSpec, GoalStates, CloudSpec,
+// WatchTrustConfigSettings, WatchActionNotifications,
+// UpgradeSeriesStatus, SetUpgradeSeriesStatus.
+type UniterAPIV8 struct {
+	UniterAPI
+}
+
 // UniterAPIV7 adds CMR support to NetworkInfo.
 type UniterAPIV7 struct {
-	UniterAPI
+	UniterAPIV8
 }
 
 // UniterAPIV6 adds NetworkInfo as a preferred method to calling NetworkConfig.
@@ -87,9 +98,16 @@ type UniterAPIV4 struct {
 }
 
 // NewUniterAPI creates a new instance of the core Uniter API.
-func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPI, error) {
+func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
+	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, common.ErrPerm
+	}
+	st := context.State()
+	resources := context.Resources()
+	leadershipChecker, err := context.LeadershipChecker()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	accessUnit := func() (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
@@ -199,17 +217,11 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		return nil, errors.Trace(err)
 	}
 
-	// // Only IAAS models support storage (for now).
-	var storageAPI *StorageAPI
-	if m.Type() == state.ModelTypeIAAS {
-		ss, err := getStorageState(st)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting storage state")
-		}
-		storageAPI, err = newStorageAPI(ss, resources, accessUnit)
-		if err != nil {
-			return nil, err
-		}
+	storageAccessor, err := getStorageState(st)
+	storageAPI, err := newStorageAPI(
+		stateShim{st}, storageAccessor, resources, accessUnit)
+	if err != nil {
+		return nil, err
 	}
 	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
 	if err != nil {
@@ -229,7 +241,9 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		APIAddresser:               common.NewAPIAddresser(st, resources),
 		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
-		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, resources, authorizer),
+		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		LXDProfileAPI:              NewExternalLXDProfileAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		MeterStatus:                msAPI,
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
@@ -239,6 +253,7 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		m:                 m,
 		auth:              authorizer,
 		resources:         resources,
+		leadershipChecker: leadershipChecker,
 		accessUnit:        accessUnit,
 		accessApplication: accessApplication,
 		accessMachine:     accessMachine,
@@ -248,20 +263,31 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 	}, nil
 }
 
-// NewUniterAPIV7 creates an instance of the V7 uniter API.
-func NewUniterAPIV7(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV7, error) {
-	uniterAPI, err := NewUniterAPI(st, resources, authorizer)
+// NewUniterAPIV8 creates an instance of the V8 uniter API.
+func NewUniterAPIV8(context facade.Context) (*UniterAPIV8, error) {
+	uniterAPI, err := NewUniterAPI(context)
 	if err != nil {
 		return nil, err
 	}
-	return &UniterAPIV7{
+	return &UniterAPIV8{
 		UniterAPI: *uniterAPI,
 	}, nil
 }
 
+// NewUniterAPIV7 creates an instance of the V7 uniter API.
+func NewUniterAPIV7(context facade.Context) (*UniterAPIV7, error) {
+	uniterAPI, err := NewUniterAPIV8(context)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV7{
+		UniterAPIV8: *uniterAPI,
+	}, nil
+}
+
 // NewUniterAPIV6 creates an instance of the V6 uniter API.
-func NewUniterAPIV6(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV6, error) {
-	uniterAPI, err := NewUniterAPIV7(st, resources, authorizer)
+func NewUniterAPIV6(context facade.Context) (*UniterAPIV6, error) {
+	uniterAPI, err := NewUniterAPIV7(context)
 	if err != nil {
 		return nil, err
 	}
@@ -271,8 +297,8 @@ func NewUniterAPIV6(st *state.State, resources facade.Resources, authorizer faca
 }
 
 // NewUniterAPIV5 creates an instance of the V5 uniter API.
-func NewUniterAPIV5(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV5, error) {
-	uniterAPI, err := NewUniterAPIV6(st, resources, authorizer)
+func NewUniterAPIV5(context facade.Context) (*UniterAPIV5, error) {
+	uniterAPI, err := NewUniterAPIV6(context)
 	if err != nil {
 		return nil, err
 	}
@@ -282,8 +308,8 @@ func NewUniterAPIV5(st *state.State, resources facade.Resources, authorizer faca
 }
 
 // NewUniterAPIV4 creates an instance of the V4 uniter API.
-func NewUniterAPIV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV4, error) {
-	uniterAPI, err := NewUniterAPIV5(st, resources, authorizer)
+func NewUniterAPIV4(context facade.Context) (*UniterAPIV4, error) {
+	uniterAPI, err := NewUniterAPIV5(context)
 	if err != nil {
 		return nil, err
 	}
@@ -927,7 +953,7 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 // WatchConfigSettings returns a NotifyWatcher for observing changes
 // to each unit's application configuration settings. See also
 // state/watcher.go:Unit.WatchConfigSettings().
-func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UniterAPIV8) WatchConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
 	watcherFn := func(u *state.Unit) (state.NotifyWatcher, error) {
 		return u.WatchConfigSettings()
 	}
@@ -939,7 +965,7 @@ func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatc
 	return result, nil
 }
 
-func (u *UniterAPI) WatchTrustConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UniterAPIV8) WatchTrustConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
 	watcherFn := func(u *state.Unit) (state.NotifyWatcher, error) {
 		return u.WatchApplicationConfigSettings()
 	}
@@ -951,7 +977,7 @@ func (u *UniterAPI) WatchTrustConfigSettings(args params.Entities) (params.Notif
 	return result, nil
 }
 
-func (u *UniterAPI) WatchSettings(args params.Entities, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (params.NotifyWatchResults, error) {
+func (u *UniterAPIV8) WatchSettings(args params.Entities, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -1255,7 +1281,6 @@ func (u *UniterAPI) Refresh(args params.Entities) (params.UnitRefreshResults, er
 		if canRead(tag) {
 			var unit *state.Unit
 			if unit, err = u.getUnit(tag); err == nil {
-				result.Results[i].Series = unit.Series()
 				result.Results[i].Life = params.Life(unit.Life().String())
 				result.Results[i].Resolved = params.ResolvedMode(unit.Resolved())
 			}
@@ -1542,7 +1567,7 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 		return unit, nil
 	}
 
-	checker := u.st.LeadershipChecker()
+	checker := u.leadershipChecker
 	changeOne := func(arg params.RelationStatusArg) error {
 		// TODO(wallyworld) - the token should be passed to SetStatus() but the
 		// interface method doesn't allow for that yet.
@@ -1601,7 +1626,7 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 
 // WatchUnitAddresses returns a NotifyWatcher for observing changes
 // to each unit's addresses.
-func (u *UniterAPI) WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UniterAPIV8) WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -1750,7 +1775,7 @@ func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
 	return nil
 }
 
-func (u *UniterAPI) watchOneUnitConfigSettings(tag names.UnitTag, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (string, error) {
+func (u *UniterAPIV8) watchOneUnitConfigSettings(tag names.UnitTag, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (string, error) {
 	unit, err := u.getUnit(tag)
 	if err != nil {
 		return "", err
@@ -1769,7 +1794,7 @@ func (u *UniterAPI) watchOneUnitConfigSettings(tag names.UnitTag, configWatcherF
 	return "", watcher.EnsureErr(configWatcher)
 }
 
-func (u *UniterAPI) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
+func (u *UniterAPIV8) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
 	unit, err := u.getUnit(tag)
 	if err != nil {
 		return "", err
@@ -1883,6 +1908,7 @@ func relationsInScopeTags(unit *state.Unit) ([]string, error) {
 
 func leadershipSettingsAccessorFactory(
 	st *state.State,
+	checker leadership.Checker,
 	resources facade.Resources,
 	auth facade.Authorizer,
 ) *leadershipapiserver.LeadershipSettingsAccessor {
@@ -1915,7 +1941,7 @@ func leadershipSettingsAccessorFactory(
 		auth,
 		registerWatcher,
 		getSettings,
-		st.LeadershipChecker().LeadershipCheck,
+		checker.LeadershipCheck,
 		writeSettings,
 	)
 }
@@ -2667,4 +2693,118 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 	}
 
 	return unitsGoalState, nil
+}
+
+// WatchConfigSettingsHash returns a StringsWatcher that yields a hash
+// of the config values every time the config changes. The uniter can
+// save this hash and use it to decide whether the config-changed hook
+// needs to be run (or whether this was just an agent restart with no
+// substantive config change).
+func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.StringsWatchResults, error) {
+	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
+		return unit.WatchConfigSettingsHash()
+	}
+	result, err := u.watchHashes(args, getWatcher)
+	if err != nil {
+		return params.StringsWatchResults{}, errors.Trace(err)
+	}
+	return result, nil
+}
+
+// WatchTrustConfigSettingsHash returns a StringsWatcher that yields a
+// hash of the application config values whenever they change. The
+// uniter can use the hash to determine whether the actual values have
+// changed since it last saw the config.
+func (u *UniterAPI) WatchTrustConfigSettingsHash(args params.Entities) (params.StringsWatchResults, error) {
+	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
+		return unit.WatchApplicationConfigSettingsHash()
+	}
+	result, err := u.watchHashes(args, getWatcher)
+	if err != nil {
+		return params.StringsWatchResults{}, errors.Trace(err)
+	}
+	return result, nil
+}
+
+// WatchUnitAddressesHash returns a StringsWatcher that yields the
+// hashes of the addresses for the unit whenever the addresses
+// change. The uniter can use the hash to determine whether the actual
+// address values have changed since it last saw the config.
+func (u *UniterAPI) WatchUnitAddressesHash(args params.Entities) (params.StringsWatchResults, error) {
+	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
+		if !unit.ShouldBeAssigned() {
+			return unit.WatchContainerAddressesHash(), nil
+		}
+		machineId, err := unit.AssignedMachineId()
+		if err != nil {
+			return nil, err
+		}
+		machine, err := u.st.Machine(machineId)
+		if err != nil {
+			return nil, err
+		}
+		return machine.WatchAddressesHash(), nil
+	}
+	result, err := u.watchHashes(args, getWatcher)
+	if err != nil {
+		return params.StringsWatchResults{}, errors.Trace(err)
+	}
+	return result, nil
+}
+
+// Mask WatchConfigSettingsHash from the v8 API. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is
+// concerned.
+
+// WatchConfigSettingsHash isn't on the v8 API.
+func (u *UniterAPIV8) WatchConfigSettingsHash(_, _ struct{}) {}
+
+// WatchTrustConfigSettingsHash isn't on the v8 API.
+func (u *UniterAPIV8) WatchTrustConfigSettingsHash(_, _ struct{}) {}
+
+// WatchUnitAddressesHash isn't on the v8 API.
+func (u *UniterAPIV8) WatchUnitAddressesHash(_, _ struct{}) {}
+
+func (u *UniterAPI) watchHashes(args params.Entities, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (params.StringsWatchResults, error) {
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.StringsWatchResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		watcherId := ""
+		var changes []string
+		if canAccess(tag) {
+			watcherId, changes, err = u.watchOneUnitHashes(tag, getWatcher)
+		}
+		result.Results[i].StringsWatcherId = watcherId
+		result.Results[i].Changes = changes
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (u *UniterAPI) watchOneUnitHashes(tag names.UnitTag, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (string, []string, error) {
+	unit, err := u.getUnit(tag)
+	if err != nil {
+		return "", nil, err
+	}
+	w, err := getWatcher(unit)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	// Consume the initial event.
+	if changes, ok := <-w.Changes(); ok {
+		return u.resources.Register(w), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(w)
 }

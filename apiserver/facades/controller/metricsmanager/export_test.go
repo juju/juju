@@ -7,6 +7,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 )
 
-func PatchSender(s metricsender.MetricSender) {
-	sender = s
+func (api *MetricsManagerAPI) PatchSender(s metricsender.MetricSender) func() {
+	prior := api.sender
+	api.sender = s
+	return func() {
+		api.sender = prior
+	}
 }

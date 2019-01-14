@@ -7,18 +7,19 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
+	apimocks "github.com/juju/juju/api/base/mocks"
 	apibasetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/provisioner"
 	apitesting "github.com/juju/juju/api/testing"
@@ -26,18 +27,18 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 type provisionerSuite struct {
@@ -63,7 +64,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetInstanceInfo("i-manager", "fake_nonce", nil, nil, nil, nil, nil)
+	err = s.machine.SetInstanceInfo("i-manager", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
@@ -74,11 +75,11 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.provisioner = provisioner.NewState(s.st)
 	c.Assert(s.provisioner, gc.NotNil)
 
-	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, s.IAASModel.Model)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, s.Model)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
-func (s *provisionerSuite) assertGetOneMachine(c *gc.C, tag names.MachineTag) *provisioner.Machine {
+func (s *provisionerSuite) assertGetOneMachine(c *gc.C, tag names.MachineTag) provisioner.MachineProvisioner {
 	result, err := s.provisioner.Machines(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result), gc.Equals, 1)
@@ -263,7 +264,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "loop-pool",
 				Size: 123,
@@ -296,7 +297,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	}
 
 	err = apiMachine.SetInstanceInfo(
-		"i-will", "fake_nonce", &hwChars, nil, volumes, volumeAttachments,
+		"i-will", "fake_nonce", &hwChars, nil, volumes, volumeAttachments, nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -305,7 +306,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(instanceId, gc.Equals, instance.Id("i-will"))
 
 	// Try it again - should fail.
-	err = apiMachine.SetInstanceInfo("i-wont", "fake", nil, nil, nil, nil)
+	err = apiMachine.SetInstanceInfo("i-wont", "fake", nil, nil, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot record provisioning info for "i-wont": cannot set instance data for machine "1": already set`)
 
 	// Now try to get machine 0's instance id.
@@ -315,7 +316,9 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(instanceId, gc.Equals, instance.Id("i-manager"))
 
 	// Now check volumes and volume attachments.
-	volume, err := s.IAASModel.Volume(names.NewVolumeTag("1/0"))
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := sb.Volume(names.NewVolumeTag("1/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
@@ -324,7 +327,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		Pool:     "loop-pool",
 		Size:     124,
 	})
-	stateVolumeAttachments, err := s.IAASModel.MachineVolumeAttachments(names.NewMachineTag("1"))
+	stateVolumeAttachments, err := sb.MachineVolumeAttachments(names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateVolumeAttachments, gc.HasLen, 1)
 	volumeAttachmentInfo, err := stateVolumeAttachments[0].Info()
@@ -332,23 +335,6 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(volumeAttachmentInfo, gc.Equals, state.VolumeAttachmentInfo{
 		DeviceName: "xvdf1",
 	})
-}
-
-func (s *provisionerSuite) TestSeries(c *gc.C) {
-	// Create a fresh machine with different series.
-	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	apiMachine := s.assertGetOneMachine(c, foobarMachine.MachineTag())
-	series, err := apiMachine.Series()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "foobar")
-
-	// Now try machine 0.
-	apiMachine = s.assertGetOneMachine(c, s.machine.MachineTag())
-	series, err = apiMachine.Series()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "quantal")
 }
 
 func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
@@ -371,13 +357,165 @@ func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
 	hwChars := instance.MustParseHardware(fmt.Sprintf("availability-zone=%s", availabilityZone))
 
 	err = apiMachine.SetInstanceInfo(
-		"azinst", "nonce", &hwChars, nil, nil, nil,
+		"azinst", "nonce", &hwChars, nil, nil, nil, nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	retAvailabilityZone, err := apiMachine.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(availabilityZone, gc.Equals, retAvailabilityZone)
+}
+
+func (s *provisionerSuite) TestSetInstanceInfoProfiles(c *gc.C) {
+	// Create a fresh machine, since machine 0 is already provisioned.
+	template := state.MachineTemplate{
+		Series: "xenial",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	notProvisionedMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiMachine := s.assertGetOneMachine(c, notProvisionedMachine.MachineTag())
+
+	instanceId, err := apiMachine.InstanceId()
+	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
+	c.Assert(err, gc.ErrorMatches, "machine 1 not provisioned")
+	c.Assert(instanceId, gc.Equals, instance.Id(""))
+
+	hwChars := instance.MustParseHardware("cores=123", "mem=4G")
+
+	profiles := []string{"juju-default-profile-0", "juju-default-lxd-2"}
+	err = apiMachine.SetInstanceInfo(
+		"profileinst", "nonce", &hwChars, nil, nil, nil, profiles,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mach, err := s.State.Machine(apiMachine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedProfiles, err := mach.CharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(profiles, jc.SameContents, obtainedProfiles)
+}
+
+func (s *provisionerSuite) TestSetCharmProfiles(c *gc.C) {
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	profiles := []string{"juju-default-profile-0", "juju-default-lxd-2"}
+	err := apiMachine.SetCharmProfiles(profiles)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mach, err := s.State.Machine(apiMachine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedProfiles, err := mach.CharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(profiles, jc.SameContents, obtainedProfiles)
+}
+
+func (s *provisionerSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
+	application := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	curl, _ := application.CharmURL()
+	s.machine.SetUpgradeCharmProfile(application.Name(), curl.String())
+
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	profiles := []string{"juju-default-profile-0", "juju-default-lxd-2"}
+	err := apiMachine.SetCharmProfiles(profiles)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = apiMachine.SetUpgradeCharmProfileComplete("testme")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mach, err := s.State.Machine(apiMachine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	status, err := mach.UpgradeCharmProfileComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, "testme")
+}
+
+func (s *provisionerSuite) TestCharmProfileChangeInfo(c *gc.C) {
+	application := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	curl, _ := application.CharmURL()
+	s.machine.SetUpgradeCharmProfile(application.Name(), curl.String())
+
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	info, err := apiMachine.CharmProfileChangeInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, provisioner.CharmProfileChangeInfo{
+		OldProfileName: "",
+		NewProfileName: "juju-controller-lxd-profile-0",
+		LXDProfile: &charm.LXDProfile{
+			Config: map[string]string{
+				"security.nesting":       "true",
+				"security.privileged":    "true",
+				"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+				"environment.http_proxy": "",
+			},
+			Description: "lxd profile for testing, will pass validation",
+			Devices: map[string]map[string]string{
+				"tun": {
+					"path": "/dev/net/tun",
+					"type": "unix-char",
+				},
+				"sony": {
+					"type":      "usb",
+					"vendorid":  "0fce",
+					"productid": "51da",
+				},
+				"bdisk": {
+					"source": "/dev/loop0",
+					"type":   "unix-block",
+				},
+				"gpu": {
+					"type": "gpu",
+				},
+			},
+		},
+		Subordinate: false,
+	})
+}
+
+func (s *provisionerSuite) TestCharmProfileChangeInfoSubordinate(c *gc.C) {
+	application := s.AddTestingApplication(c, "lxd-profile-subordinate", s.AddTestingCharm(c, "lxd-profile-subordinate"))
+	curl, _ := application.CharmURL()
+	s.machine.SetUpgradeCharmProfile(application.Name(), curl.String())
+
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	info, err := apiMachine.CharmProfileChangeInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, provisioner.CharmProfileChangeInfo{
+		OldProfileName: "",
+		NewProfileName: "juju-controller-lxd-profile-subordinate-0",
+		LXDProfile: &charm.LXDProfile{
+			Config: map[string]string{
+				"security.nesting":       "false",
+				"security.privileged":    "true",
+				"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables,iptable_nat",
+				"environment.http_proxy": "",
+			},
+			Description: "lxd profile subordinate for testing",
+			Devices: map[string]map[string]string{
+				"sandisk": {
+					"type":      "usb",
+					"vendorid":  "0781",
+					"productid": "8181",
+				},
+			},
+		},
+		Subordinate: true,
+	})
+}
+
+func (s *provisionerSuite) TestRemoveUpgradeCharmProfileData(c *gc.C) {
+	application := s.AddTestingApplication(c, "lxd-profile-subordinate", s.AddTestingCharm(c, "lxd-profile-subordinate"))
+	curl, _ := application.CharmURL()
+	s.machine.SetUpgradeCharmProfile(application.Name(), curl.String())
+
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	err := apiMachine.RemoveUpgradeCharmProfileData()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestKeepInstance(c *gc.C) {
@@ -400,7 +538,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	apiMachine = s.assertGetOneMachine(c, machine1.MachineTag())
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	err = apiMachine.SetInstanceInfo("i-d", "fake", nil, nil, nil, nil)
+	err = apiMachine.SetInstanceInfo("i-d", "fake", nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	instances, err = apiMachine.DistributionGroup()
 	c.Assert(err, jc.ErrorIsNil)
@@ -437,7 +575,7 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
-		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+		{MachineIds: nil, Err: nil},
 	})
 
 	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -455,8 +593,8 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results), gc.Equals, 2)
 	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
-		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
-		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+		{MachineIds: nil, Err: nil},
+		{MachineIds: nil, Err: nil},
 	})
 
 	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -474,9 +612,9 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results), gc.Equals, 3)
 	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
-		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
-		provisioner.DistributionGroupResult{MachineIds: []string{"2"}, Err: nil},
-		provisioner.DistributionGroupResult{MachineIds: []string{"1"}, Err: nil},
+		{MachineIds: nil, Err: nil},
+		{MachineIds: []string{"2"}, Err: nil},
+		{MachineIds: []string{"1"}, Err: nil},
 	})
 }
 
@@ -527,8 +665,8 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
 	c.Assert(provisioningInfo.Constraints, jc.DeepEquals, template.Constraints)
 	c.Assert(provisioningInfo.SubnetsToZones, jc.DeepEquals, map[string][]string{
-		"subnet-2": []string{"zone2"},
-		"subnet-3": []string{"zone3"},
+		"subnet-2": {"zone2"},
+		"subnet-3": {"zone3"},
 	})
 }
 
@@ -578,6 +716,32 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	// Add another LXD container and make sure it's detected.
 	container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(container.Id())
+}
+
+func (s *provisionerSuite) TestWatchContainersCharmProfiles(c *gc.C) {
+	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	_, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	// Add one LXD container.
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := apiMachine.WatchContainersCharmProfiles(instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Update the upgrade-charm charm profile to trigger watcher.
+	container.SetUpgradeCharmProfile("app-name", "local:quantal/lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(container.Id())
 }
@@ -826,106 +990,101 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
-var _ = gc.Suite(&prepareContainerSuite{})
+func (s *provisionerSuite) TestWatchModelMachinesCharmProfiles(c *gc.C) {
+	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	_, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
-type prepareContainerSuite struct {
-	coretesting.BaseSuite
+	w, err := s.provisioner.WatchModelMachinesCharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
-	*gitjujutesting.Stub
+	// Trigger the watcher.
+	err = s.machine.SetUpgradeCharmProfile("lxd-profile", "local:quantal/lxd-profile-0")
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(s.machine.Id())
 }
 
-type prepareFacade struct {
-	*gitjujutesting.Stub
+var _ = gc.Suite(&provisionerContainerSuite{})
 
-	prepareResult []params.NetworkConfig
-	prepareError  error
+type provisionerContainerSuite struct {
+	containerTag names.MachineTag
 }
 
-func (f *prepareFacade) FacadeCall(objType string, version int, id, request string, requestParams, response interface{}) error {
-	// We only support PrepareContainerInterfaceInfo
-	if objType != "Provisioner" {
-		return errors.Errorf("bad facade name: %q", objType)
-	}
-	if version != 0 {
-		return errors.Errorf("bad version: %d", version)
-	}
-	if request != "PrepareContainerInterfaceInfo" {
-		return errors.Errorf("bad method name: %q", request)
-	}
-	entities, ok := requestParams.(params.Entities)
-	if !ok {
-		return errors.Errorf("unknown request type: %t", requestParams)
-	}
-	f.Stub.AddCall("api.PrepareContainerInterfaceInfo", entities.Entities)
-	if len(entities.Entities) != 1 {
-		return errors.Errorf("only support a single entity not: %v", entities.Entities)
-	}
-	result, ok := response.(*params.MachineNetworkConfigResults)
-	if !ok {
-		return errors.Errorf("invalid return type: %t", response)
-	}
-	result.Results = make([]params.MachineNetworkConfigResult, len(entities.Entities))
-	if f.prepareError != nil {
-		result.Results[0].Error = common.ServerError(f.prepareError)
-	} else {
-		result.Results[0].Config = f.prepareResult
-	}
-	return nil
+func (s *provisionerContainerSuite) SetUpTest(c *gc.C) {
+	s.containerTag = names.NewMachineTag("0/lxd/0")
 }
 
-func (s *prepareContainerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	s.Stub = &gitjujutesting.Stub{}
-}
-
-func (s *prepareContainerSuite) apiForPrepareContainer(config []params.NetworkConfig, err error) base.APICaller {
-	facade := &prepareFacade{
-		Stub:          s.Stub,
-		prepareResult: config,
-		prepareError:  err,
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.containerTag.String()}},
 	}
-	return apibasetesting.APICallerFunc(facade.FacadeCall)
-}
+	results := params.MachineNetworkConfigResults{Results: []params.MachineNetworkConfigResult{{
+		Config: nil,
+		Error:  nil,
+	}}}
 
-func (s *prepareContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c *gc.C) {
-	apicaller := s.apiForPrepareContainer(nil, nil)
-	st := provisioner.NewState(apicaller)
-	networkInfo, err := st.PrepareContainerInterfaceInfo(names.NewMachineTag("machine-0/lxd/0"))
+	facadeCaller := apimocks.NewMockFacadeCaller(ctrl)
+	fExp := facadeCaller.EXPECT()
+	fExp.FacadeCall("PrepareContainerInterfaceInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
+
+	provisionerApi := provisioner.NewStateFromFacade(facadeCaller)
+
+	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(s.containerTag)
 	c.Assert(err, gc.IsNil)
 	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{})
 }
 
-func (s *prepareContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *gc.C) {
-	apicaller := s.apiForPrepareContainer([]params.NetworkConfig{{
-		DeviceIndex:         1,
-		MACAddress:          "de:ad:be:ff:11:22",
-		CIDR:                "192.168.0.5/24",
-		MTU:                 9000,
-		ProviderId:          "prov-id",
-		ProviderSubnetId:    "prov-sub-id",
-		ProviderSpaceId:     "prov-space-id",
-		ProviderAddressId:   "prov-address-id",
-		ProviderVLANId:      "prov-vlan-id",
-		VLANTag:             25,
-		InterfaceName:       "eth5",
-		ParentInterfaceName: "parent#br-eth5",
-		InterfaceType:       "ethernet",
-		Disabled:            false,
-		NoAutoStart:         false,
-		ConfigType:          "static",
-		Address:             "192.168.0.6",
-		DNSServers:          []string{"8.8.8.8"},
-		DNSSearchDomains:    []string{"mydomain"},
-		GatewayAddress:      "192.168.0.1",
-		Routes: []params.NetworkRoute{{
-			DestinationCIDR: "10.0.0.0/16",
-			GatewayIP:       "192.168.0.1",
-			Metric:          55,
+func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.containerTag.String()}},
+	}
+	results := params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{{
+			Config: []params.NetworkConfig{{
+				DeviceIndex:         1,
+				MACAddress:          "de:ad:be:ff:11:22",
+				CIDR:                "192.168.0.5/24",
+				MTU:                 9000,
+				ProviderId:          "prov-id",
+				ProviderSubnetId:    "prov-sub-id",
+				ProviderSpaceId:     "prov-space-id",
+				ProviderAddressId:   "prov-address-id",
+				ProviderVLANId:      "prov-vlan-id",
+				VLANTag:             25,
+				InterfaceName:       "eth5",
+				ParentInterfaceName: "parent#br-eth5",
+				InterfaceType:       "ethernet",
+				Disabled:            false,
+				NoAutoStart:         false,
+				ConfigType:          "static",
+				Address:             "192.168.0.6",
+				DNSServers:          []string{"8.8.8.8"},
+				DNSSearchDomains:    []string{"mydomain"},
+				GatewayAddress:      "192.168.0.1",
+				Routes: []params.NetworkRoute{{
+					DestinationCIDR: "10.0.0.0/16",
+					GatewayIP:       "192.168.0.1",
+					Metric:          55,
+				}},
+			}},
+			Error: nil,
 		}},
-	}}, nil)
-	st := provisioner.NewState(apicaller)
-	networkInfo, err := st.PrepareContainerInterfaceInfo(names.NewMachineTag("machine-0/lxd/0"))
+	}
+
+	facadeCaller := apimocks.NewMockFacadeCaller(ctrl)
+	fExp := facadeCaller.EXPECT()
+	fExp.FacadeCall("PrepareContainerInterfaceInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
+
+	provisionerApi := provisioner.NewStateFromFacade(facadeCaller)
+	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(s.containerTag)
 	c.Assert(err, gc.IsNil)
 	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:         1,
@@ -954,4 +1113,67 @@ func (s *prepareContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *gc
 			Metric:          55,
 		}},
 	}})
+}
+
+func (s *provisionerContainerSuite) TestGetContainerProfileInfo(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.containerTag.String()}},
+	}
+	results := params.ContainerProfileResults{
+		Results: []params.ContainerProfileResult{
+			{
+				LXDProfiles: []*params.ContainerLXDProfile{
+					{
+						Profile: params.CharmLXDProfile{
+							Config: map[string]string{
+								"security.nesting":    "true",
+								"security.privileged": "true",
+							},
+						},
+						Name: "one",
+					},
+					{
+						Profile: params.CharmLXDProfile{
+							Devices: map[string]map[string]string{
+								"bdisk": {
+									"source": "/dev/loop0",
+									"type":   "unix-block",
+								},
+							},
+						},
+						Name: "two",
+					}},
+				Error: nil,
+			}},
+	}
+
+	facadeCaller := apimocks.NewMockFacadeCaller(ctrl)
+	fExp := facadeCaller.EXPECT()
+	fExp.FacadeCall("GetContainerProfileInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
+
+	provisionerApi := provisioner.NewStateFromFacade(facadeCaller)
+
+	obtainedResults, err := provisionerApi.GetContainerProfileInfo(s.containerTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedResults, gc.DeepEquals, []*provisioner.LXDProfileResult{
+		{
+			Config: map[string]string{
+				"security.nesting":    "true",
+				"security.privileged": "true",
+			},
+			Name: "one",
+		},
+		{
+			Devices: map[string]map[string]string{
+				"bdisk": {
+					"source": "/dev/loop0",
+					"type":   "unix-block",
+				},
+			},
+			Name: "two",
+		}})
+
 }

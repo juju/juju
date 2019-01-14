@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 const storageProvisionerFacade = "StorageProvisioner"
@@ -18,19 +18,26 @@ const storageProvisionerFacade = "StorageProvisioner"
 // State provides access to a storageprovisioner's view of the state.
 type State struct {
 	facade base.FacadeCaller
-	scope  names.Tag
 }
 
 // NewState creates a new client-side StorageProvisioner facade.
-func NewState(caller base.APICaller, scope names.Tag) (*State, error) {
-	switch scope.(type) {
-	case names.ModelTag:
-	case names.MachineTag:
-	default:
-		return nil, errors.Errorf("expected ModelTag or MachineTag, got %T", scope)
-	}
+func NewState(caller base.APICaller) (*State, error) {
 	facadeCaller := base.NewFacadeCaller(caller, storageProvisionerFacade)
-	return &State{facadeCaller, scope}, nil
+	return &State{facadeCaller}, nil
+}
+
+// WatchApplications returns a StringsWatcher that notifies of
+// changes to the lifecycles of CAAS applications in the current model.
+func (st *State) WatchApplications() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	if err := st.facade.FacadeCall("WatchApplications", nil, &result); err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	return w, nil
 }
 
 // WatchBlockDevices watches for changes to the specified machine's block devices.
@@ -76,21 +83,21 @@ func (st *State) WatchMachine(m names.MachineTag) (watcher.NotifyWatcher, error)
 }
 
 // WatchVolumes watches for lifecycle changes to volumes scoped to the
-// entity with the tag passed to NewState.
-func (st *State) WatchVolumes() (watcher.StringsWatcher, error) {
-	return st.watchStorageEntities("WatchVolumes")
+// entity with the specified tag.
+func (st *State) WatchVolumes(scope names.Tag) (watcher.StringsWatcher, error) {
+	return st.watchStorageEntities("WatchVolumes", scope)
 }
 
 // WatchVolumes watches for lifecycle changes to volumes scoped to the
-// entity with the tag passed to NewState.
-func (st *State) WatchFilesystems() (watcher.StringsWatcher, error) {
-	return st.watchStorageEntities("WatchFilesystems")
+// entity with the specified tag.
+func (st *State) WatchFilesystems(scope names.Tag) (watcher.StringsWatcher, error) {
+	return st.watchStorageEntities("WatchFilesystems", scope)
 }
 
-func (st *State) watchStorageEntities(method string) (watcher.StringsWatcher, error) {
+func (st *State) watchStorageEntities(method string, scope names.Tag) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: st.scope.String()}},
+		Entities: []params.Entity{{Tag: scope.String()}},
 	}
 	err := st.facade.FacadeCall(method, args, &results)
 	if err != nil {
@@ -108,24 +115,31 @@ func (st *State) watchStorageEntities(method string) (watcher.StringsWatcher, er
 }
 
 // WatchVolumeAttachments watches for changes to volume attachments
+// scoped to the entity with the specified tag.
+func (st *State) WatchVolumeAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+	return st.watchAttachments("WatchVolumeAttachments", scope, apiwatcher.NewVolumeAttachmentsWatcher)
+}
+
+// WatchVolumeAttachmentPlans watches for changes to volume attachments
 // scoped to the entity with the tag passed to NewState.
-func (st *State) WatchVolumeAttachments() (watcher.MachineStorageIdsWatcher, error) {
-	return st.watchAttachments("WatchVolumeAttachments", apiwatcher.NewVolumeAttachmentsWatcher)
+func (st *State) WatchVolumeAttachmentPlans(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+	return st.watchAttachments("WatchVolumeAttachmentPlans", scope, apiwatcher.NewVolumeAttachmentPlansWatcher)
 }
 
 // WatchFilesystemAttachments watches for changes to filesystem attachments
-// scoped to the entity with the tag passed to NewState.
-func (st *State) WatchFilesystemAttachments() (watcher.MachineStorageIdsWatcher, error) {
-	return st.watchAttachments("WatchFilesystemAttachments", apiwatcher.NewFilesystemAttachmentsWatcher)
+// scoped to the entity with the specified tag.
+func (st *State) WatchFilesystemAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+	return st.watchAttachments("WatchFilesystemAttachments", scope, apiwatcher.NewFilesystemAttachmentsWatcher)
 }
 
 func (st *State) watchAttachments(
 	method string,
+	scope names.Tag,
 	newWatcher func(base.APICaller, params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher,
 ) (watcher.MachineStorageIdsWatcher, error) {
 	var results params.MachineStorageIdsWatchResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: st.scope.String()}},
+		Entities: []params.Entity{{Tag: scope.String()}},
 	}
 	err := st.facade.FacadeCall(method, args, &results)
 	if err != nil {
@@ -176,6 +190,30 @@ func (st *State) Filesystems(tags []names.FilesystemTag) ([]params.FilesystemRes
 	}
 	if len(results.Results) != len(tags) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
+	}
+	return results.Results, nil
+}
+
+func (st *State) VolumeAttachmentPlans(ids []params.MachineStorageId) ([]params.VolumeAttachmentPlanResult, error) {
+	args := params.MachineStorageIds{ids}
+	var results params.VolumeAttachmentPlanResults
+	err := st.facade.FacadeCall("VolumeAttachmentPlans", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(ids) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results))
+	}
+	return results.Results, nil
+}
+
+func (st *State) RemoveVolumeAttachmentPlan(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+	var results params.ErrorResults
+	args := params.MachineStorageIds{
+		Ids: ids,
+	}
+	if err := st.facade.FacadeCall("RemoveVolumeAttachmentPlan", args, &results); err != nil {
+		return nil, err
 	}
 	return results.Results, nil
 }
@@ -357,6 +395,32 @@ func (st *State) SetFilesystemInfo(filesystems []params.Filesystem) ([]params.Er
 	}
 	if len(results.Results) != len(filesystems) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(filesystems), len(results.Results))
+	}
+	return results.Results, nil
+}
+
+func (st *State) CreateVolumeAttachmentPlans(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
+	args := params.VolumeAttachmentPlans{VolumeAttachmentPlans: volumeAttachmentPlans}
+	var results params.ErrorResults
+	err := st.facade.FacadeCall("CreateVolumeAttachmentPlans", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(volumeAttachmentPlans) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(volumeAttachmentPlans), len(results.Results))
+	}
+	return results.Results, nil
+}
+
+func (st *State) SetVolumeAttachmentPlanBlockInfo(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
+	args := params.VolumeAttachmentPlans{VolumeAttachmentPlans: volumeAttachmentPlans}
+	var results params.ErrorResults
+	err := st.facade.FacadeCall("SetVolumeAttachmentPlanBlockInfo", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(volumeAttachmentPlans) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(volumeAttachmentPlans), len(results.Results))
 	}
 	return results.Results, nil
 }

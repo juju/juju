@@ -5,6 +5,8 @@ package facadetest
 
 import (
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state"
 )
 
@@ -17,6 +19,11 @@ type Context struct {
 	State_     *state.State
 	StatePool_ *state.StatePool
 	ID_        string
+
+	LeadershipClaimer_ leadership.Claimer
+	LeadershipChecker_ leadership.Checker
+	LeadershipPinner_  leadership.Pinner
+	SingularClaimer_   lease.Claimer
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
 	Identity string
@@ -66,4 +73,24 @@ func (context Context) Presence() facade.Presence {
 func (context Context) ModelPresence(modelUUID string) facade.ModelPresence {
 	// Potentially may need to add stuff here at some stage.
 	return nil
+}
+
+// LeadershipClaimer implements facade.Context.
+func (context Context) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
+	return context.LeadershipClaimer_, nil
+}
+
+// LeadershipChecker implements facade.Context.
+func (context Context) LeadershipChecker() (leadership.Checker, error) {
+	return context.LeadershipChecker_, nil
+}
+
+// LeadershipPinner implements facade.Context.
+func (context Context) LeadershipPinner(modelUUID string) (leadership.Pinner, error) {
+	return context.LeadershipPinner_, nil
+}
+
+// SingularClaimer implements facade.Context.
+func (context Context) SingularClaimer() (lease.Claimer, error) {
+	return context.SingularClaimer_, nil
 }

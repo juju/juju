@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 )
 
 func (s *ListSuite) TestFilesystemListEmpty(c *gc.C) {
@@ -89,8 +89,7 @@ func (s *ListSuite) TestFilesystemListWithErrorResults(c *gc.C) {
 }
 
 var expectedFilesystemListTabular = `
-[Filesystems]
-Machine  Unit         Storage      Id   Volume  Provider id                       Mountpoint  Size    State      Message
+Machine  Unit         Storage id   Id   Volume  Provider id                       Mountpoint  Size    State      Message
 0        abc/0        db-dir/1001  0/0  0/1     provider-supplied-filesystem-0-0  /mnt/fuji   512MiB  attached   
 0        transcode/0  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/doom   1.0GiB  attached   
 0                                  1            provider-supplied-filesystem-1                2.0GiB  attaching  failed to attach, will retry
@@ -114,6 +113,57 @@ func (s *ListSuite) TestFilesystemListTabular(c *gc.C) {
 		return results, nil
 	}
 	s.assertValidFilesystemList(c, []string{}, expectedFilesystemListTabular)
+}
+
+var expectedCAASFilesystemListTabular = `
+Unit     Storage id   Id   Provider id                       Mountpoint  Size    State     Message
+mysql/0  db-dir/1001  0/0  provider-supplied-filesystem-0-0  /mnt/fuji   512MiB  attached  
+
+`[1:]
+
+func (s *ListSuite) TestCAASFilesystemListTabular(c *gc.C) {
+	s.assertValidFilesystemList(c, []string{}, expectedFilesystemListTabular)
+
+	// Do it again, reversing the results returned by the API.
+	// We should get everything sorted in the appropriate order.
+	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
+		results := []params.FilesystemDetailsListResult{{Result: []params.FilesystemDetails{
+			{
+				FilesystemTag: "filesystem-0-0",
+				Info: params.FilesystemInfo{
+					FilesystemId: "provider-supplied-filesystem-0-0",
+					Size:         512,
+				},
+				Life:   "alive",
+				Status: createTestStatus(status.Attached, "", s.mockAPI.time),
+				UnitAttachments: map[string]params.FilesystemAttachmentDetails{
+					"unit-mysql-0": {
+						Life: "alive",
+						FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+							MountPoint: "/mnt/fuji",
+						},
+					},
+				},
+				Storage: &params.StorageDetails{
+					StorageTag: "storage-db-dir-1001",
+					OwnerTag:   "unit-abc-0",
+					Kind:       params.StorageKindBlock,
+					Life:       "alive",
+					Status:     createTestStatus(status.Attached, "", s.mockAPI.time),
+					Attachments: map[string]params.StorageAttachmentDetails{
+						"unit-mysql-0": {
+							StorageTag: "storage-db-dir-1001",
+							UnitTag:    "unit-abc-0",
+							MachineTag: "machine-0",
+							Location:   "/mnt/fuji",
+						},
+					},
+				},
+			},
+		}}}
+		return results, nil
+	}
+	s.assertValidFilesystemList(c, []string{}, expectedCAASFilesystemListTabular)
 }
 
 func (s *ListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
@@ -201,7 +251,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				Life:       "alive",
 				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
-					"unit-abc-0": params.StorageAttachmentDetails{
+					"unit-abc-0": {
 						StorageTag: "storage-db-dir-1001",
 						UnitTag:    "unit-abc-0",
 						MachineTag: "machine-0",
@@ -282,13 +332,13 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				Kind:       params.StorageKindBlock,
 				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
-					"unit-transcode-0": params.StorageAttachmentDetails{
+					"unit-transcode-0": {
 						StorageTag: "storage-shared-fs-0",
 						UnitTag:    "unit-transcode-0",
 						MachineTag: "machine-0",
 						Location:   "/mnt/bits",
 					},
-					"unit-transcode-1": params.StorageAttachmentDetails{
+					"unit-transcode-1": {
 						StorageTag: "storage-shared-fs-0",
 						UnitTag:    "unit-transcode-1",
 						MachineTag: "machine-1",
@@ -312,7 +362,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				Life:       "alive",
 				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
-					"unit-abc-0": params.StorageAttachmentDetails{
+					"unit-abc-0": {
 						StorageTag: "storage-db-dir-1100",
 						UnitTag:    "unit-abc-0",
 						Location:   "/mnt/fuji",

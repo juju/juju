@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/api/machineactions"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 var actionNotFoundErr = errors.New("action not found")
@@ -113,6 +113,6 @@ var (
 		thirdActionTag:  thirdAction,
 	}
 	fakeRunningActions = []params.ActionResult{
-		params.ActionResult{Action: &params.Action{Tag: thirdActionTag.String()}},
+		{Action: &params.Action{Tag: thirdActionTag.String()}},
 	}
 )

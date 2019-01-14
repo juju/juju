@@ -7,13 +7,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -28,7 +31,10 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/migration"
+	corepresence "github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
@@ -38,7 +44,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -97,26 +102,35 @@ type stepper interface {
 // context
 //
 
-func newContext(st *state.State, env environs.Environ, adminUserTag string) *context {
+func newContext(st *state.State, pool *state.StatePool, env environs.Environ, adminUserTag string) *context {
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
 	return &context{
 		st:           st,
+		pool:         pool,
 		env:          env,
+		statusSetter: env.(agentStatusSetter),
 		charms:       make(map[string]*state.Charm),
 		pingers:      make(map[string]*presence.Pinger),
 		adminUserTag: adminUserTag,
 	}
 }
 
+type agentStatusSetter interface {
+	SetAgentStatus(agent string, status corepresence.Status)
+}
+
 type context struct {
 	st            *state.State
+	pool          *state.StatePool
 	env           environs.Environ
+	statusSetter  agentStatusSetter
 	charms        map[string]*state.Charm
 	pingers       map[string]*presence.Pinger
 	adminUserTag  string // A string repr of the tag.
 	expectIsoTime bool
+	skipTest      bool
 }
 
 func (ctx *context) reset(c *gc.C) {
@@ -128,6 +142,10 @@ func (ctx *context) reset(c *gc.C) {
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	for i, s := range steps {
+		if ctx.skipTest {
+			c.Logf("skipping test %d", i)
+			return
+		}
 		c.Logf("step %d", i)
 		c.Logf("%#v", s)
 		s.step(c, ctx)
@@ -152,7 +170,7 @@ func (s *StatusSuite) newContext(c *gc.C) *context {
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
-	return newContext(st, s.Environ, s.AdminUserTag(c).String())
+	return newContext(st, s.StatePool, s.Environ, s.AdminUserTag(c).String())
 }
 
 func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
@@ -220,6 +238,57 @@ var (
 			},
 		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+	}
+	machine1WithLXDProfile = M{
+		"juju-status": M{
+			"current": "started",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"dns-name":     "10.0.1.1",
+		"ip-addresses": []string{"10.0.1.1"},
+		"instance-id":  "controller-1",
+		"machine-status": M{
+			"current": "pending",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.1.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
+		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+		"lxd-profiles": M{
+			"juju-controller-lxd-profile-1": M{
+				"config": M{
+					"environment.http_proxy": "",
+					"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+					"security.nesting":       "true",
+					"security.privileged":    "true",
+				},
+				"description": "lxd profile for testing, will pass validation",
+				"devices": M{
+					"bdisk": M{
+						"source": "/dev/loop0",
+						"type":   "unix-block",
+					},
+					"gpu": M{
+						"type": "gpu",
+					},
+					"sony": M{
+						"productid": "51da",
+						"type":      "usb",
+						"vendorid":  "0fce",
+					},
+					"tun": M{
+						"path": "/dev/net/tun",
+						"type": "unix-char",
+					},
+				},
+			},
+		},
 	}
 	machine2 = M{
 		"juju-status": M{
@@ -450,6 +519,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -496,6 +566,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -538,6 +609,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -581,6 +653,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -632,6 +705,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -665,6 +739,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -694,6 +769,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -723,6 +799,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -750,6 +827,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedApplication,
 					"exposed-application": unexposedApplication,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -769,6 +847,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedApplication,
 					"exposed-application": exposedApplication,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -797,6 +876,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedApplication,
 					"exposed-application": exposedApplication,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -876,6 +956,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1011,6 +1092,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1048,6 +1130,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1089,6 +1172,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1124,6 +1208,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1165,6 +1250,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1227,6 +1313,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1334,6 +1421,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1441,6 +1529,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1497,6 +1586,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1556,6 +1646,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1763,6 +1854,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1876,6 +1968,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2040,6 +2133,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2154,6 +2248,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2221,6 +2316,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2311,6 +2407,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2400,6 +2497,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2461,6 +2559,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2524,6 +2623,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2589,6 +2689,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2653,6 +2754,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2805,6 +2907,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2833,6 +2936,7 @@ var statusTests = []testCase{
 				},
 				"machines":     M{},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2895,6 +2999,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2977,6 +3082,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3004,6 +3110,7 @@ var statusTests = []testCase{
 					"0": machine0,
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3053,6 +3160,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3141,6 +3249,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3149,6 +3258,7 @@ var statusTests = []testCase{
 	),
 	test( // 24
 		"set meter status on the model",
+		setSLA{"advanced"},
 		setModelMeterStatus{"RED", "status message"},
 		expect{
 			what: "simulate just the two applications and a bootstrap node",
@@ -3168,10 +3278,11 @@ var statusTests = []testCase{
 						"color":   "red",
 						"message": "status message",
 					},
-					"sla": "unsupported",
+					"sla": "advanced",
 				},
 				"machines":     M{},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3200,6 +3311,7 @@ var statusTests = []testCase{
 				},
 				"machines":     M{},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3327,6 +3439,71 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"storage": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
+			},
+		},
+	),
+	test( // 27
+		"application with lxd profiles",
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.Started, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", status.Started, ""},
+		setCharmProfiles{"1", []string{"juju-controller-lxd-profile-1"}},
+		addCharm{"lxd-profile"},
+		addApplication{name: "lxd-profile", charm: "lxd-profile"},
+		setApplicationExposed{"lxd-profile", true},
+		addAliveUnit{"lxd-profile", "1"},
+		setUnitCharmURL{"lxd-profile/0", "cs:quantal/lxd-profile-0"},
+		addCharmWithRevision{addCharm{"lxd-profile"}, "local", 1},
+		setApplicationCharm{"lxd-profile", "local:quantal/lxd-profile-1"},
+		addCharmPlaceholder{"lxd-profile", 23},
+		expect{
+			what: "applications and units with correct lxd profile charm status",
+			output: M{
+				"model": model,
+				"machines": M{
+					"0": machine0,
+					"1": machine1WithLXDProfile,
+				},
+				"applications": M{
+					"lxd-profile": lxdProfileCharm(M{
+						"charm":        "local:quantal/lxd-profile-1",
+						"charm-origin": "local",
+						"exposed":      true,
+						"application-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"lxd-profile/0": M{
+								"machine": "1",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"upgrading-from": "cs:quantal/lxd-profile-0",
+								"public-address": "10.0.1.1",
+							},
+						},
+						"endpoint-bindings": M{
+							"another": "",
+							"ubuntu":  "",
+						},
+					}),
+				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3340,6 +3517,22 @@ func mysqlCharm(extras M) M {
 		"charm":        "cs:quantal/mysql-1",
 		"charm-origin": "jujucharms",
 		"charm-name":   "mysql",
+		"charm-rev":    1,
+		"series":       "quantal",
+		"os":           "ubuntu",
+		"exposed":      false,
+	}
+	for key, value := range extras {
+		charm[key] = value
+	}
+	return charm
+}
+
+func lxdProfileCharm(extras M) M {
+	charm := M{
+		"charm":        "cs:quantal/lxd-profile-0",
+		"charm-origin": "jujucharms",
+		"charm-name":   "lxd-profile",
 		"charm-rev":    1,
 		"series":       "quantal",
 		"os":           "ubuntu",
@@ -3400,6 +3593,15 @@ func wordpressCharm(extras M) M {
 }
 
 // TODO(dfc) test failing components by destructively mutating the state under the hood
+
+// sometimes you just need to skip the tests for windows (environment variables etc)
+type skipTestOnWindows struct{}
+
+func (skipTestOnWindows) step(c *gc.C, ctx *context) {
+	if runtime.GOOS == "windows" {
+		ctx.skipTest = true
+	}
+}
 
 type setSLA struct {
 	level string
@@ -3544,7 +3746,7 @@ type addSpace struct {
 }
 
 func (sp addSpace) step(c *gc.C, ctx *context) {
-	f := factory.NewFactory(ctx.st)
+	f := factory.NewFactory(ctx.st, ctx.pool)
 	f.MakeSpace(c, &factory.SpaceParams{
 		Name: sp.spaceName, ProviderID: network.Id("provider"), IsPublic: true})
 }
@@ -3768,6 +3970,7 @@ type setApplicationCharm struct {
 }
 
 func (ssc setApplicationCharm) step(c *gc.C, ctx *context) {
+	fmt.Println("HERE")
 	ch, err := ctx.st.Charm(charm.MustParseURL(ssc.charm))
 	c.Assert(err, jc.ErrorIsNil)
 	s, err := ctx.st.Application(ssc.name)
@@ -3804,6 +4007,7 @@ func (au addUnit) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
+	ctx.statusSetter.SetAgentStatus(u.Tag().String(), corepresence.Missing)
 }
 
 type addAliveUnit struct {
@@ -3870,8 +4074,14 @@ type setUnitAsLeader struct {
 func (s setUnitAsLeader) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.st.LeadershipClaimer().ClaimLeadership(u.ApplicationName(), u.Name(), time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	target := ctx.st.LeaseNotifyTarget(
+		ioutil.Discard,
+		loggo.GetLogger("status_internal_test"),
+	)
+	target.Claimed(
+		lease.Key{"application-leadership", ctx.st.ModelUUID(), u.ApplicationName()},
+		u.Name(),
+	)
 }
 
 type setUnitStatus struct {
@@ -4067,6 +4277,18 @@ func (as addSubordinate) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+type setCharmProfiles struct {
+	machineId string
+	profiles  []string
+}
+
+func (s setCharmProfiles) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Machine(s.machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetCharmProfiles(s.profiles)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type scopedExpect struct {
 	what   string
 	scope  []string
@@ -4238,6 +4460,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 		},
 		"machines":     M{},
 		"applications": M{},
+		"storage":      M{},
 		"controller": M{
 			"timestamp": "15:04:05+07:00",
 		},
@@ -4310,7 +4533,7 @@ func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
 	const hostedModelName = "hosted"
 	const statusText = "foo bar"
 
-	f := factory.NewFactory(s.BackingState)
+	f := factory.NewFactory(s.BackingState, s.StatePool)
 	hostedSt := f.MakeModel(c, &factory.ModelParams{
 		Name: hostedModelName,
 	})
@@ -4662,6 +4885,7 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 		},
 		Applications: map[string]applicationStatus{
 			"foo": {
+				Scale:   2,
 				Address: "54.32.1.2",
 				Units: map[string]unitStatus{
 					"foo/0": {
@@ -4699,6 +4923,86 @@ foo                     1/2                  0      54.32.1.2
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  active    allocating                    
 foo/1  active    running     10.0.0.1  80/TCP  
+`[1:])
+}
+
+func (s *StatusSuite) TestFormatTabularStatusNotes(c *gc.C) {
+	fStatus := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Scale:   1,
+				Address: "54.32.1.2",
+				StatusInfo: statusInfoContents{
+					Message: "Error: ImagePullBackOff",
+				},
+				Units: map[string]unitStatus{
+					"foo/0": {
+						Address:     "10.0.0.1",
+						OpenedPorts: []string{"80/TCP"},
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Allocating,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Waiting,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, fStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Notes
+foo                     0/1                  0      54.32.1.2  Error: ImagePullBackOff
+
+Unit   Workload  Agent       Address   Ports   Message
+foo/0  waiting   allocating  10.0.0.1  80/TCP  
+`[1:])
+}
+
+func (s *StatusSuite) TestFormatTabularStatusNotesIAAS(c *gc.C) {
+	status := formattedStatus{
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Address: "54.32.1.2",
+				StatusInfo: statusInfoContents{
+					Message: "Error: ImagePullBackOff",
+				},
+				Units: map[string]unitStatus{
+					"foo/0": {
+						Address:     "10.0.0.1",
+						OpenedPorts: []string{"80/TCP"},
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Idle,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Waiting,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
+foo                       1                  0      
+
+Unit   Workload  Agent  Machine  Public address  Ports   Message
+foo/0  waiting   idle                            80/TCP  
 `[1:])
 }
 
@@ -4956,6 +5260,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
 		"    controller-member-status: adding-vote\n" +
 		"applications: {}\n" +
+		"storage: {}\n" +
 		"controller:\n" +
 		"  timestamp: 15:04:05+07:00\n"
 
@@ -5264,6 +5569,7 @@ var statusTimeTest = test(
 					},
 				}),
 			},
+			"storage": M{},
 			"controller": M{
 				"timestamp": "15:04:05",
 			},
@@ -5319,6 +5625,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
+				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},
@@ -5366,6 +5673,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
+				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},
@@ -5412,6 +5720,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
+				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},
@@ -5446,8 +5755,30 @@ func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations")
-	c.Assert(string(stderr), gc.Equals, "provided --relations option is ignored\n")
+	c.Assert(string(stderr), gc.Equals, "provided relations option is always enabled in non tabular formats\n")
+	logger.Criticalf("stdout -> \n%q", stdout)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
+}
+
+func (s *StatusSuite) TestNonTabularDisplayStorage(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format=yaml", "--storage")
+	c.Assert(string(stderr), gc.Equals, "provided storage option is always enabled in non tabular formats\n")
+	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
+}
+
+func (s *StatusSuite) TestNonTabularDisplayRelationsAndStorage(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations", "--storage")
+	c.Assert(string(stderr), gc.Equals, "provided relations, storage options are always enabled in non tabular formats\n")
+	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
 }
 
 func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
@@ -5457,6 +5788,7 @@ func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
 	_, stdout, stderr := runStatus(c, "--format=yaml")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
 }
 
 func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {

@@ -4,13 +4,14 @@
 package storageprovisioner_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -37,7 +38,7 @@ func (s *ConfigSuite) TestNilScope(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestInvalidScope(c *gc.C) {
-	s.config.Scope = names.NewApplicationTag("boo")
+	s.config.Scope = names.NewUnitTag("boo/0")
 	s.checkNotValid(c, ".* Scope not valid")
 }
 
@@ -50,6 +51,18 @@ func (s *ConfigSuite) TestMachineScopeStorageDir(c *gc.C) {
 	s.config = validMachineConfig()
 	s.config.StorageDir = ""
 	s.checkNotValid(c, "machine Scope with empty StorageDir not valid")
+}
+
+func (s *ConfigSuite) TestApplicationScopeStorageDir(c *gc.C) {
+	s.config = validApplicationConfig()
+	s.config.StorageDir = "surprise!"
+	s.checkNotValid(c, "application Scope with StorageDir not valid")
+}
+
+func (s *ConfigSuite) TestNilApplications(c *gc.C) {
+	s.config.Scope = names.NewApplicationTag("mariadb")
+	s.config.Applications = nil
+	s.checkNotValid(c, "nil Applications not valid")
 }
 
 func (s *ConfigSuite) TestNilVolumes(c *gc.C) {
@@ -73,7 +86,9 @@ func (s *ConfigSuite) TestNilRegistry(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestNilMachines(c *gc.C) {
+	s.config.Scope = names.NewMachineTag("123")
 	s.config.Machines = nil
+	s.config.StorageDir = "surprise!"
 	s.checkNotValid(c, "nil Machines not valid")
 }
 
@@ -106,10 +121,17 @@ func validMachineConfig() storageprovisioner.Config {
 	return config
 }
 
+func validApplicationConfig() storageprovisioner.Config {
+	config := almostValidConfig()
+	config.Scope = names.NewApplicationTag("mariadb")
+	return config
+}
+
 func almostValidConfig() storageprovisioner.Config {
 	// gofmt doesn't seem to want to let me one-line any of these
 	// except the last one, so I'm standardising on multi-line.
 	return storageprovisioner.Config{
+		CloudCallContext: context.NewCloudCallContext(),
 		Volumes: struct {
 			storageprovisioner.VolumeAccessor
 		}{},

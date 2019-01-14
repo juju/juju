@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"gopkg.in/juju/charm.v6"
@@ -17,15 +18,18 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
 
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -67,16 +71,18 @@ type mockApplication struct {
 	jtesting.Stub
 	application.Application
 
-	bindings    map[string]string
-	charm       *mockCharm
-	curl        *charm.URL
-	endpoints   []state.Endpoint
-	name        string
-	subordinate bool
-	series      string
-	units       []*mockUnit
-	addedUnit   mockUnit
-	config      coreapplication.ConfigAttributes
+	bindings                 map[string]string
+	charm                    *mockCharm
+	curl                     *charm.URL
+	endpoints                []state.Endpoint
+	name                     string
+	scale                    int
+	subordinate              bool
+	series                   string
+	units                    []*mockUnit
+	addedUnit                mockUnit
+	config                   coreapplication.ConfigAttributes
+	lxdProfileUpgradeChanges chan struct{}
 }
 
 func (m *mockApplication) Name() string {
@@ -111,6 +117,11 @@ func (a *mockApplication) AllUnits() ([]application.Unit, error) {
 	return units, nil
 }
 
+func (a *mockApplication) SetCharmProfile(charmURL string) error {
+	a.MethodCall(a, "SetCharmProfile", charmURL)
+	return a.NextErr()
+}
+
 func (a *mockApplication) SetCharm(cfg state.SetCharmConfig) error {
 	a.MethodCall(a, "SetCharm", cfg)
 	return a.NextErr()
@@ -127,6 +138,27 @@ func (a *mockApplication) AddUnit(args state.AddUnitParams) (application.Unit, e
 		return nil, err
 	}
 	return &a.addedUnit, nil
+}
+
+func (a *mockApplication) GetScale() int {
+	a.MethodCall(a, "GetScale")
+	return a.scale
+}
+
+func (a *mockApplication) ChangeScale(scaleChange int) (int, error) {
+	a.MethodCall(a, "ChangeScale", scaleChange)
+	if err := a.NextErr(); err != nil {
+		return a.scale, err
+	}
+	return a.scale + scaleChange, nil
+}
+
+func (a *mockApplication) Scale(scale int) error {
+	a.MethodCall(a, "Scale", scale)
+	if err := a.NextErr(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (a *mockApplication) IsPrincipal() bool {
@@ -169,6 +201,26 @@ func (a *mockApplication) UpdateCharmConfig(settings charm.Settings) error {
 func (a *mockApplication) SetExposed() error {
 	a.MethodCall(a, "SetExposed")
 	return a.NextErr()
+}
+
+func (a *mockApplication) WatchLXDProfileUpgradeNotifications() (state.NotifyWatcher, error) {
+	a.MethodCall(a, "WatchLXDProfileUpgradeNotifications")
+	return &mockNotifyWatcher{ch: a.lxdProfileUpgradeChanges}, a.NextErr()
+}
+
+type mockNotifyWatcher struct {
+	state.NotifyWatcher
+	jtesting.Stub
+	ch chan struct{}
+}
+
+func (m *mockNotifyWatcher) Changes() <-chan struct{} {
+	m.MethodCall(m, "Changes")
+	return m.ch
+}
+
+func (m *mockNotifyWatcher) Err() error {
+	return m.NextErr()
 }
 
 type mockRemoteApplication struct {
@@ -222,56 +274,15 @@ func (m *mockRemoteApplication) Destroy() error {
 	return nil
 }
 
-type mockSpace struct {
-	name       string
-	providerId network.Id
-	subnets    []application.Subnet
-}
-
-func (m *mockSpace) Name() string {
-	return m.name
-}
-
-func (m *mockSpace) ProviderId() network.Id {
-	return m.providerId
-}
-
-type mockSubnet struct {
-	cidr              string
-	vlantag           int
-	providerId        network.Id
-	providerNetworkId network.Id
-	zones             []string
-}
-
-func (m *mockSubnet) CIDR() string {
-	return m.cidr
-}
-
-func (m *mockSubnet) VLANTag() int {
-	return m.vlantag
-}
-
-func (m *mockSubnet) ProviderId() network.Id {
-	return m.providerId
-}
-
-func (m *mockSubnet) ProviderNetworkId() network.Id {
-	return m.providerNetworkId
-}
-
 type mockBackend struct {
 	jtesting.Stub
 	application.Backend
 
-	modelUUID                  string
-	modelType                  state.ModelType
 	charm                      *mockCharm
 	allmodels                  []application.Model
 	users                      set.Strings
 	applications               map[string]*mockApplication
 	remoteApplications         map[string]application.RemoteApplication
-	spaces                     map[string]application.Space
 	endpoints                  *[]state.Endpoint
 	relations                  map[int]*mockRelation
 	offerConnections           map[string]application.OfferConnection
@@ -279,6 +290,20 @@ type mockBackend struct {
 	storageInstances           map[string]*mockStorage
 	storageInstanceFilesystems map[string]*mockFilesystem
 	controllers                map[string]crossmodel.ControllerInfo
+	machines                   map[string]*mockMachine
+}
+
+type mockFilesystemAccess struct {
+	storagecommon.FilesystemAccess
+	*mockBackend
+}
+
+func (m *mockBackend) VolumeAccess() storagecommon.VolumeAccess {
+	return nil
+}
+
+func (m *mockBackend) FilesystemAccess() storagecommon.FilesystemAccess {
+	return &mockFilesystemAccess{mockBackend: m}
 }
 
 func (m *mockBackend) ControllerTag() names.ControllerTag {
@@ -326,6 +351,48 @@ func (m *mockBackend) UnitsInError() ([]application.Unit, error) {
 	return []application.Unit{
 		m.applications["postgresql"].units[0],
 	}, nil
+}
+
+func (m *mockBackend) Machine(id string) (application.Machine, error) {
+	m.MethodCall(m, "Machine", id)
+	for machineId, machine := range m.machines {
+		if id == machineId {
+			return machine, nil
+		}
+	}
+	return nil, errors.NotFoundf("machine %q", id)
+}
+
+type mockMachine struct {
+	jtesting.Stub
+
+	id                          string
+	upgradeCharmProfileComplete string
+}
+
+func (m *mockMachine) IsLockedForSeriesUpgrade() (bool, error) {
+	m.MethodCall(m, "IsLockedForSeriesUpgrade")
+	return false, m.NextErr()
+}
+
+func (m *mockMachine) IsParentLockedForSeriesUpgrade() (bool, error) {
+	m.MethodCall(m, "IsParentLockedForSeriesUpgrade")
+	return false, m.NextErr()
+}
+
+func (m *mockMachine) Id() string {
+	m.MethodCall(m, "Id")
+	return m.id
+}
+
+func (m *mockMachine) UpgradeCharmProfileComplete() (string, error) {
+	m.MethodCall(m, "UpgradeCharmProfileComplete")
+	return m.upgradeCharmProfileComplete, m.NextErr()
+}
+
+func (m *mockMachine) RemoveUpgradeCharmProfileData() error {
+	m.MethodCall(m, "RemoveUpgradeCharmProfileData")
+	return m.NextErr()
 }
 
 func (m *mockBackend) InferEndpoints(endpoints ...string) ([]state.Endpoint, error) {
@@ -396,7 +463,7 @@ func (m *mockBackend) StorageInstance(tag names.StorageTag) (state.StorageInstan
 	return s, nil
 }
 
-func (m *mockBackend) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
+func (m *mockFilesystemAccess) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
 	m.MethodCall(m, "StorageInstanceFilesystem", tag)
 	if err := m.NextErr(); err != nil {
 		return nil, err
@@ -500,26 +567,6 @@ func (m *mockBackend) SaveController(controllerInfo crossmodel.ControllerInfo, m
 	return &mockExternalController{controllerInfo.ControllerTag.Id(), controllerInfo}, nil
 }
 
-func (m *mockBackend) Space(name string) (application.Space, error) {
-	space, ok := m.spaces[name]
-	if !ok {
-		return nil, errors.NotFoundf("space %q", name)
-	}
-	return space, nil
-}
-
-func (m *mockBackend) ModelUUID() string {
-	return m.modelUUID
-}
-
-func (m *mockBackend) ModelTag() names.ModelTag {
-	return names.NewModelTag(m.modelUUID)
-}
-
-func (m *mockBackend) ModelType() state.ModelType {
-	return m.modelType
-}
-
 type mockBlockChecker struct {
 	jtesting.Stub
 }
@@ -581,7 +628,13 @@ func (r *mockRelation) Destroy() error {
 type mockUnit struct {
 	application.Unit
 	jtesting.Stub
-	tag names.UnitTag
+	tag       names.UnitTag
+	machineId string
+	name      string
+}
+
+func (u *mockUnit) Tag() names.Tag {
+	return u.tag
 }
 
 func (u *mockUnit) UnitTag() names.UnitTag {
@@ -612,6 +665,16 @@ func (u *mockUnit) AssignWithPlacement(placement *instance.Placement) error {
 func (u *mockUnit) Resolve(retryHooks bool) error {
 	u.MethodCall(u, "Resolve", retryHooks)
 	return u.NextErr()
+}
+
+func (u *mockUnit) AssignedMachineId() (string, error) {
+	u.MethodCall(u, "AssignedMachineId")
+	return u.machineId, u.NextErr()
+}
+
+func (u *mockUnit) Name() string {
+	u.MethodCall(u, "Name")
+	return u.name
 }
 
 type mockStorageAttachment struct {
@@ -710,4 +773,22 @@ func (s *recordingStorage) Remove(path string) error {
 	}
 	s.blobs.Remove(path)
 	return nil
+}
+
+type mockStoragePoolManager struct {
+	jtesting.Stub
+	poolmanager.PoolManager
+	storageType storage.ProviderType
+}
+
+func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
+	m.MethodCall(m, "Get", name)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	storageType := m.storageType
+	if name == "db" {
+		storageType = provider.RootfsProviderType
+	}
+	return storage.NewConfig(name, storageType, map[string]interface{}{"foo": "bar"})
 }

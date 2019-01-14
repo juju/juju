@@ -17,6 +17,9 @@ type ManifoldConfig struct {
 	APICallerName string
 	BrokerName    string
 
+	ControllerUUID string
+	ModelUUID      string
+
 	NewClient func(base.APICaller) Client
 	NewWorker func(Config) (worker.Worker, error)
 }
@@ -34,6 +37,12 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 
 // Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
+	if config.ControllerUUID == "" {
+		return errors.NotValidf("empty ControllerUUID")
+	}
+	if config.ModelUUID == "" {
+		return errors.NotValidf("empty ModelUUID")
+	}
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
@@ -67,6 +76,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	client := config.NewClient(apiCaller)
 	w, err := config.NewWorker(Config{
+		ControllerUUID:    config.ControllerUUID,
+		ModelUUID:         config.ModelUUID,
 		ApplicationGetter: client,
 		LifeGetter:        client,
 		ServiceExposer:    broker,

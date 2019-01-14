@@ -5,7 +5,10 @@ package cloud
 
 import "github.com/juju/juju/apiserver/facade"
 
-var InstanceTypes = instanceTypes
+var (
+	InstanceTypes                     = instanceTypes
+	ValidateNewCredentialForModelFunc = &validateNewCredentialForModelFunc
+)
 
 func NewCloudTestingAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) *CloudAPI {
 	return &CloudAPI{

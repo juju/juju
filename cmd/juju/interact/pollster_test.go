@@ -6,6 +6,7 @@ package interact
 import (
 	"bytes"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/juju/errors"
@@ -20,6 +21,12 @@ type PollsterSuite struct {
 }
 
 var _ = gc.Suite(PollsterSuite{})
+
+func (p PollsterSuite) TearDownTest(c *gc.C) {
+	p.IsolationSuite.TearDownTest(c)
+	os.Unsetenv("SCHEMA_VAR")
+	os.Unsetenv("SCHEMA_VAR_TWO")
+}
 
 func (PollsterSuite) TestSelect(c *gc.C) {
 	r := strings.NewReader("macintosh")
@@ -52,6 +59,21 @@ func (PollsterSuite) TestSelectDefault(c *gc.C) {
 		Singular: "apple",
 		Plural:   "apples",
 		Options:  []string{"macintosh", "granny smith"},
+		Default:  "macintosh",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s, gc.Equals, "macintosh")
+	c.Assert(w.String(), jc.Contains, `Select apple [macintosh]: `)
+}
+
+func (PollsterSuite) TestSelectDefaultIfOnlyOption(c *gc.C) {
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	s, err := p.Select(List{
+		Singular: "apple",
+		Plural:   "apples",
+		Options:  []string{"macintosh"},
 		Default:  "macintosh",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -133,6 +155,36 @@ func (PollsterSuite) TestMultiSelectDefault(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vals, jc.SameContents, []string{"gala", "granny smith"})
+}
+
+func (PollsterSuite) TestMultiSelectDefaultIfOnlyOne(c *gc.C) {
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	vals, err := p.MultiSelect(MultiList{
+		Singular: "apple",
+		Plural:   "apples",
+		Options:  []string{"macintosh"},
+		Default:  []string{"macintosh"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vals, jc.SameContents, []string{"macintosh"})
+	c.Assert(w.String(), gc.Equals, "Apples\n  macintosh\n\n")
+}
+
+func (PollsterSuite) TestMultiSelectWithMultipleDefaults(c *gc.C) {
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	vals, err := p.MultiSelect(MultiList{
+		Singular: "apple",
+		Plural:   "apples",
+		Options:  []string{"macintosh", "gala"},
+		Default:  []string{"macintosh", "gala"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vals, jc.SameContents, []string{"macintosh", "gala"})
+	c.Assert(w.String(), jc.Contains, "Select one or more apples separated by commas [macintosh, gala]: \n")
 }
 
 func (PollsterSuite) TestMultiSelectOneError(c *gc.C) {
@@ -387,6 +439,63 @@ func (PollsterSuite) TestQueryStringSchemaWithPromptDefault(c *gc.C) {
 	c.Check(w.String(), jc.Contains, "Enter region [not foo]:")
 }
 
+func (PollsterSuite) TestQueryStringSchemaWithDefaultEnvVar(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "region",
+		Type:     []jsonschema.Type{jsonschema.StringType},
+		Default:  "",
+		EnvVars:  []string{"SCHEMA_VAR"},
+	}
+	os.Setenv("SCHEMA_VAR", "value from env var")
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	s, ok := v.(string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, gc.Equals, "value from env var")
+	c.Assert(w.String(), jc.Contains, "Enter region [value from env var]:")
+}
+
+func (PollsterSuite) TestQueryStringSchemaWithDefaultEnvVarOverride(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "region",
+		Type:     []jsonschema.Type{jsonschema.StringType},
+		Default:  "",
+		EnvVars:  []string{"SCHEMA_VAR"},
+	}
+	os.Setenv("SCHEMA_VAR", "value from env var")
+	r := strings.NewReader("use me\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	s, ok := v.(string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, gc.Equals, "use me")
+	c.Assert(w.String(), jc.Contains, "Enter region [value from env var]:")
+}
+
+func (PollsterSuite) TestQueryStringSchemaWithDefaultTwoEnvVar(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "region",
+		Type:     []jsonschema.Type{jsonschema.StringType},
+		Default:  "",
+		EnvVars:  []string{"SCHEMA_VAR", "SCHEMA_VAR_TWO"},
+	}
+	os.Setenv("SCHEMA_VAR_TWO", "value from second")
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	s, ok := v.(string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, gc.Equals, "value from second")
+	c.Assert(w.String(), jc.Contains, "Enter region [value from second]:")
+}
+
 func (PollsterSuite) TestQueryURISchema(c *gc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "region",
@@ -440,6 +549,76 @@ Select one or more numbers separated by commas:
 	c.Check(s, jc.SameContents, []string{"one", "three"})
 }
 
+func (PollsterSuite) TestQueryArraySchemaDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "number",
+		Plural:   "numbers",
+		Type:     []jsonschema.Type{jsonschema.ArrayType},
+		Default:  "two",
+		Items: &jsonschema.ItemSpec{
+			Schemas: []*jsonschema.Schema{{
+				Type: []jsonschema.Type{jsonschema.StringType},
+				Enum: []interface{}{
+					"one",
+					"two",
+					"three",
+				},
+			}},
+		},
+	}
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(w.String(), gc.Equals, `
+Numbers
+  one
+  two
+  three
+
+Select one or more numbers separated by commas [two]: 
+`[1:])
+	s, ok := v.([]string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, jc.SameContents, []string{"two"})
+}
+
+func (PollsterSuite) TestQueryArraySchemaNotDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "number",
+		Plural:   "numbers",
+		Type:     []jsonschema.Type{jsonschema.ArrayType},
+		Default:  "two",
+		Items: &jsonschema.ItemSpec{
+			Schemas: []*jsonschema.Schema{{
+				Type: []jsonschema.Type{jsonschema.StringType},
+				Enum: []interface{}{
+					"one",
+					"two",
+					"three",
+				},
+			}},
+		},
+	}
+	r := strings.NewReader("three")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(w.String(), gc.Equals, `
+Numbers
+  one
+  two
+  three
+
+Select one or more numbers separated by commas [two]: 
+`[1:])
+	s, ok := v.([]string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, jc.SameContents, []string{"three"})
+}
+
 func (PollsterSuite) TestQueryEnum(c *gc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "number",
@@ -473,7 +652,7 @@ func (PollsterSuite) TestQueryObjectSchema(c *gc.C) {
 	schema := &jsonschema.Schema{
 		Type: []jsonschema.Type{jsonschema.ObjectType},
 		Properties: map[string]*jsonschema.Schema{
-			"numbers": &jsonschema.Schema{
+			"numbers": {
 				Singular: "number",
 				Plural:   "numbers",
 				Type:     []jsonschema.Type{jsonschema.ArrayType},
@@ -488,7 +667,7 @@ func (PollsterSuite) TestQueryObjectSchema(c *gc.C) {
 					}},
 				},
 			},
-			"name": &jsonschema.Schema{
+			"name": {
 				Type:     []jsonschema.Type{jsonschema.StringType},
 				Singular: "the name",
 			},
@@ -513,7 +692,7 @@ func (PollsterSuite) TestQueryObjectSchemaOrder(c *gc.C) {
 		// Order should match up with order of input in strings.NewReader below.
 		Order: []string{"numbers", "name"},
 		Properties: map[string]*jsonschema.Schema{
-			"numbers": &jsonschema.Schema{
+			"numbers": {
 				Singular: "number",
 				Plural:   "numbers",
 				Type:     []jsonschema.Type{jsonschema.ArrayType},
@@ -528,7 +707,7 @@ func (PollsterSuite) TestQueryObjectSchemaOrder(c *gc.C) {
 					}},
 				},
 			},
-			"name": &jsonschema.Schema{
+			"name": {
 				Type:     []jsonschema.Type{jsonschema.StringType},
 				Singular: "the name",
 			},
@@ -580,10 +759,10 @@ n
 	c.Check(w.String(), gc.Equals, `
 Enter region name: 
 Enter location: 
-Enter another region? (Y/n): 
+Enter another region? (y/N): 
 Enter region name: 
 Enter location: 
-Enter another region? (Y/n): 
+Enter another region? (y/N): 
 `[1:])
 }
 
@@ -612,8 +791,222 @@ n
 	})
 	c.Check(w.String(), gc.Equals, `
 Enter region name: 
-Enter another region? (Y/n): 
+Enter another region? (y/N): 
 Enter region name: 
-Enter another region? (Y/n): 
+Enter another region? (y/N): 
 `[1:])
+}
+
+func (PollsterSuite) TestQueryObjectSchemaWithOutDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Type:  []jsonschema.Type{jsonschema.ObjectType},
+		Order: []string{"name", "nested", "bar"},
+		Properties: map[string]*jsonschema.Schema{
+			"nested": {
+				Singular: "nested",
+				Type:     []jsonschema.Type{jsonschema.ObjectType},
+				AdditionalProperties: &jsonschema.Schema{
+					Type:          []jsonschema.Type{jsonschema.ObjectType},
+					Required:      []string{"name"},
+					MaxProperties: jsonschema.Int(1),
+					Properties: map[string]*jsonschema.Schema{
+						"name": {
+							Singular:      "the name",
+							Type:          []jsonschema.Type{jsonschema.StringType},
+							Default:       "",
+							PromptDefault: "use name",
+						},
+					},
+				},
+			},
+			"bar": {
+				Singular: "nested",
+				Type:     []jsonschema.Type{jsonschema.ObjectType},
+				Default:  "",
+				AdditionalProperties: &jsonschema.Schema{
+					Type:          []jsonschema.Type{jsonschema.ObjectType},
+					Required:      []string{"name"},
+					MaxProperties: jsonschema.Int(1),
+					Properties: map[string]*jsonschema.Schema{
+						"name": {
+							Singular:      "the name",
+							Type:          []jsonschema.Type{jsonschema.StringType},
+							Default:       "",
+							PromptDefault: "use name",
+						},
+					},
+				},
+			},
+			"name": {
+				Type:     []jsonschema.Type{jsonschema.StringType},
+				Singular: "the name",
+			},
+		},
+	}
+	// queries should be alphabetical without an order specified, so name then
+	// number.
+	r := strings.NewReader("Bill\n\nnamespace\n\n\nfoo\nbaz\n\n\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(v, jc.DeepEquals, map[string]interface{}{
+		"name": "Bill",
+		"nested": map[string]interface{}{
+			"namespace": map[string]interface{}{
+				"name": "",
+			},
+		},
+		"bar": map[string]interface{}{
+			"foo": map[string]interface{}{
+				"name": "baz",
+			},
+		},
+	})
+}
+
+func (PollsterSuite) TestQueryObjectSchemaWithDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Type:  []jsonschema.Type{jsonschema.ObjectType},
+		Order: []string{"name", "nested"},
+		Properties: map[string]*jsonschema.Schema{
+			"nested": {
+				Singular: "nested",
+				Default:  "default",
+				Type:     []jsonschema.Type{jsonschema.ObjectType},
+				AdditionalProperties: &jsonschema.Schema{
+					Type:          []jsonschema.Type{jsonschema.ObjectType},
+					Required:      []string{"name"},
+					MaxProperties: jsonschema.Int(1),
+					Properties: map[string]*jsonschema.Schema{
+						"name": {
+							Singular:      "the name",
+							Type:          []jsonschema.Type{jsonschema.StringType},
+							Default:       "",
+							PromptDefault: "use name",
+						},
+					},
+				},
+			},
+			"name": {
+				Type:     []jsonschema.Type{jsonschema.StringType},
+				Singular: "the name",
+			},
+		},
+	}
+	// queries should be alphabetical without an order specified, so name then
+	// number.
+	r := strings.NewReader("Bill\n\n\n\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(v, jc.DeepEquals, map[string]interface{}{
+		"name": "Bill",
+		"nested": map[string]interface{}{
+			"default": map[string]interface{}{
+				"name": "",
+			},
+		},
+	})
+}
+
+func (PollsterSuite) TestQueryObjectSchemaWithDefaultEnvVars(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Type:  []jsonschema.Type{jsonschema.ObjectType},
+		Order: []string{"name", "nested"},
+		Properties: map[string]*jsonschema.Schema{
+			"nested": {
+				Singular:      "nested",
+				Default:       "default",
+				PromptDefault: "use default value",
+				EnvVars:       []string{"TEST_ENV_VAR_NESTED"},
+				Type:          []jsonschema.Type{jsonschema.ObjectType},
+				AdditionalProperties: &jsonschema.Schema{
+					Type:          []jsonschema.Type{jsonschema.ObjectType},
+					Required:      []string{"name"},
+					MaxProperties: jsonschema.Int(1),
+					Properties: map[string]*jsonschema.Schema{
+						"name": {
+							Singular:      "the name",
+							Type:          []jsonschema.Type{jsonschema.StringType},
+							Default:       "",
+							PromptDefault: "use name",
+						},
+					},
+				},
+			},
+			"name": {
+				Type:     []jsonschema.Type{jsonschema.StringType},
+				Singular: "the name",
+			},
+		},
+	}
+	// queries should be alphabetical without an order specified, so name then
+	// number.
+	os.Setenv("TEST_ENV_VAR_NESTED", "baz")
+	defer os.Unsetenv("TEST_ENV_VAR_NESTED")
+
+	r := strings.NewReader("Bill\n\n\n\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(v, jc.DeepEquals, map[string]interface{}{
+		"name": "Bill",
+		"nested": map[string]interface{}{
+			"baz": map[string]interface{}{
+				"name": "",
+			},
+		},
+	})
+}
+
+func (PollsterSuite) TestQueryObjectSchemaEnvVarsWithOutDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Type:  []jsonschema.Type{jsonschema.ObjectType},
+		Order: []string{"name", "nested"},
+		Properties: map[string]*jsonschema.Schema{
+			"nested": {
+				Singular: "nested",
+				EnvVars:  []string{"TEST_ENV_VAR_NESTED"},
+				Type:     []jsonschema.Type{jsonschema.ObjectType},
+				AdditionalProperties: &jsonschema.Schema{
+					Type:          []jsonschema.Type{jsonschema.ObjectType},
+					Required:      []string{"name"},
+					MaxProperties: jsonschema.Int(1),
+					Properties: map[string]*jsonschema.Schema{
+						"name": {
+							Singular:      "the name",
+							Type:          []jsonschema.Type{jsonschema.StringType},
+							Default:       "",
+							PromptDefault: "use name",
+						},
+					},
+				},
+			},
+			"name": {
+				Type:     []jsonschema.Type{jsonschema.StringType},
+				Singular: "the name",
+			},
+		},
+	}
+	// queries should be alphabetical without an order specified, so name then
+	// number.
+	os.Setenv("TEST_ENV_VAR_NESTED", "baz")
+	defer os.Unsetenv("TEST_ENV_VAR_NESTED")
+
+	r := strings.NewReader("Bill\nbaz\n\n\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(v, jc.DeepEquals, map[string]interface{}{
+		"name": "Bill",
+		"nested": map[string]interface{}{
+			"baz": map[string]interface{}{
+				"name": "",
+			},
+		},
+	})
 }

@@ -9,9 +9,9 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 type Backend interface {

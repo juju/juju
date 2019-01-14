@@ -13,13 +13,13 @@ import (
 	ociCommon "github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	oraclenetwork "github.com/juju/juju/provider/oracle/network"
-	"github.com/juju/juju/status"
 )
 
 // oracleInstance implements the instance.Instance interface
@@ -239,11 +239,11 @@ func (o *oracleInstance) deleteInstanceAndResources(cleanup bool) error {
 // unusedPublicIps returns a slice of IpReservation that are currently not used
 func (o *oracleInstance) unusedPublicIps() ([]response.IpReservation, error) {
 	filter := []oci.Filter{
-		oci.Filter{
+		{
 			Arg:   "permanent",
 			Value: "true",
 		},
-		oci.Filter{
+		{
 			Arg:   "used",
 			Value: "false",
 		},
@@ -352,7 +352,7 @@ func (o *oracleInstance) publicAddressesAssociations() ([]response.IpAssociation
 	defer o.mutex.Unlock()
 
 	filter := []oci.Filter{
-		oci.Filter{
+		{
 			Arg:   "vcable",
 			Value: string(o.machine.Vcable_id),
 		},

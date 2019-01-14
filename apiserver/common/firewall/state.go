@@ -6,9 +6,9 @@ package firewall
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 // State provides the subset of global state required by the

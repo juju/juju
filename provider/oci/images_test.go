@@ -1,3 +1,6 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package oci_test
 
 import (
@@ -15,51 +18,6 @@ import (
 
 	"github.com/juju/juju/provider/oci"
 )
-
-func getShapeObject(shapeName string) ociCore.Shape {
-	return ociCore.Shape{
-		Shape: makeStringPointer(shapeName),
-	}
-}
-
-func makeShapesRequestResponse(compartment, id string, shapeNames []string) (ociCore.ListShapesRequest, ociCore.ListShapesResponse) {
-	shapesRequest := ociCore.ListShapesRequest{
-		CompartmentId: &compartment,
-		ImageId:       &id,
-	}
-
-	ociShapes := []ociCore.Shape{}
-	for _, val := range shapeNames {
-		ociShapes = append(ociShapes, getShapeObject(val))
-	}
-
-	shapesResponse := ociCore.ListShapesResponse{
-		Items: ociShapes,
-	}
-
-	return shapesRequest, shapesResponse
-}
-
-func makeListImageRequestResponse(compartment string, imgDetails []map[string]string) (ociCore.ListImagesRequest, ociCore.ListImagesResponse) {
-	ret := ociCore.ListImagesResponse{}
-	for _, val := range imgDetails {
-		id := makeStringPointer(val["id"])
-		name := makeStringPointer(val["name"])
-		os := makeStringPointer(val["os"])
-		version := makeStringPointer(val["version"])
-		ret.Items = append(
-			ret.Items,
-			ociCore.Image{
-				CompartmentId:          &compartment,
-				Id:                     id,
-				OperatingSystem:        os,
-				OperatingSystemVersion: version,
-				DisplayName:            name,
-			})
-	}
-
-	return ociCore.ListImagesRequest{CompartmentId: &compartment}, ret
-}
 
 type imagesSuite struct {
 	jujutesting.BaseSuite
@@ -125,6 +83,10 @@ func makeStringPointer(name string) *string {
 	return &name
 }
 
+func makeIntPointer(name int) *int {
+	return &name
+}
+
 func (i *imagesSuite) TestInstanceTypes(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	compute := ocitesting.NewMockOCIComputeClient(ctrl)
@@ -137,13 +99,13 @@ func (i *imagesSuite) TestInstanceTypes(c *gc.C) {
 
 	response := ociCore.ListShapesResponse{
 		Items: []ociCore.Shape{
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("VM.Standard1.1"),
 			},
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("VM.Standard2.1"),
 			},
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("VM.Standard1.2"),
 			},
 		},
@@ -188,13 +150,13 @@ func (i *imagesSuite) TestInstanceTypesImageWithUnknownShape(c *gc.C) {
 
 	response := ociCore.ListShapesResponse{
 		Items: []ociCore.Shape{
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("IDontExistInTheOCIProviderWasProbablyAddedLaterAndThatsWhyIHopeTheyWillAddResourceDetailsToShapesAPISoWeDontNeedToMaintainAMapping"),
 			},
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("VM.Standard2.1"),
 			},
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("VM.Standard1.2"),
 			},
 		},
@@ -247,27 +209,30 @@ func (i *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	fakeUbuntuIDSecond := "fakeUbuntu2"
 
 	listImageRequest, listImageResponse := makeListImageRequestResponse(
-		i.testCompartment, []map[string]string{
-			map[string]string{
-				"id":      fakeUbuntuID,
-				"os":      "Canonical Ubuntu",
-				"name":    "Canonical-Ubuntu-14.04-2018.01.11-0",
-				"version": "14.04",
+		[]ociCore.Image{
+			{
+				CompartmentId:          &i.testCompartment,
+				Id:                     &fakeUbuntuID,
+				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+				OperatingSystemVersion: makeStringPointer("14.04"),
+				DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.11-0"),
 			},
-			map[string]string{
-				"id":      fakeUbuntuIDSecond,
-				"os":      "Canonical Ubuntu",
-				"name":    "Canonical-Ubuntu-14.04-2018.01.12-0",
-				"version": "14.04",
+			{
+				CompartmentId:          &i.testCompartment,
+				Id:                     &fakeUbuntuIDSecond,
+				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+				OperatingSystemVersion: makeStringPointer("14.04"),
+				DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.12-0"),
 			},
-			map[string]string{
-				"id":      "fakeCentOS",
-				"os":      "CentOS",
-				"name":    "CentOS-7-2017.10.19-0",
-				"version": "7",
+			{
+				CompartmentId:          &i.testCompartment,
+				Id:                     makeStringPointer("fakeCentOS"),
+				OperatingSystem:        makeStringPointer("CentOS"),
+				OperatingSystemVersion: makeStringPointer("7"),
+				DisplayName:            makeStringPointer("CentOS-7-2017.10.19-0"),
 			},
-		})
-
+		},
+	)
 	shapesRequestUbuntu, shapesResponseUbuntu := makeShapesRequestResponse(
 		i.testCompartment, fakeUbuntuID, []string{"VM.Standard2.1", "VM.Standard1.2"})
 
@@ -347,20 +312,23 @@ func (i *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *gc.C) {
 	defer ctrl.Finish()
 
 	listImageRequest, listImageResponse := makeListImageRequestResponse(
-		i.testCompartment, []map[string]string{
-			map[string]string{
-				"id":      "fakeUbuntu1",
-				"os":      "Canonical Ubuntu",
-				"name":    "Canonical-Ubuntu-14.04-2018.01.11-0",
-				"version": "14.04",
+		[]ociCore.Image{
+			{
+				CompartmentId:          &i.testCompartment,
+				Id:                     makeStringPointer("fakeUbuntu1"),
+				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+				OperatingSystemVersion: makeStringPointer("14.04"),
+				DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.11-0"),
 			},
-			map[string]string{
-				"id":      "fake image id for bad image",
-				"os":      "CentOS",
-				"name":    "BadlyFormatedDisplayName_IshouldBeIgnored",
-				"version": "7",
+			{
+				CompartmentId:          &i.testCompartment,
+				Id:                     makeStringPointer("fake image id for bad image"),
+				OperatingSystem:        makeStringPointer("CentOS"),
+				OperatingSystemVersion: makeStringPointer("7"),
+				DisplayName:            makeStringPointer("BadlyFormatedDisplayName_IshouldBeIgnored"),
 			},
-		})
+		},
+	)
 
 	shapesRequestUbuntu, shapesResponseUbuntu := makeShapesRequestResponse(
 		i.testCompartment, "fakeUbuntu1", []string{"VM.Standard2.1", "VM.Standard1.2"})
@@ -407,7 +375,7 @@ func (i *imagesSuite) TestImageMetadataFromCache(c *gc.C) {
 
 	cache := &oci.ImageCache{}
 	images := map[string][]oci.InstanceImage{
-		"trusty": []oci.InstanceImage{
+		"trusty": {
 			imgType,
 		},
 	}
@@ -437,7 +405,7 @@ func (i *imagesSuite) TestImageMetadataSpecificImageType(c *gc.C) {
 
 	cache := &oci.ImageCache{}
 	images := map[string][]oci.InstanceImage{
-		"trusty": []oci.InstanceImage{
+		"trusty": {
 			imgType,
 		},
 	}

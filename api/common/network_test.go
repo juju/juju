@@ -965,7 +965,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigLoopbackInfrerred(c *gc.C) {
 func (s *NetworkSuite) TestGetObservedNetworkConfigVLANInfrerred(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[6:7] // only eth0.100
 	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
-		"eth0.100": []net.Addr{
+		"eth0.100": {
 			fakeAddr("fe80::5054:ff:fedd:eef0:100/64"),
 			fakeAddr("10.100.19.123/24"),
 		},
@@ -1108,7 +1108,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.
 	// Simulate running on Windows, where net.InterfaceAddrs() returns
 	// non-CIDR-formatted addresses.
 	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
-		"eth0": []net.Addr{fakeAddr("10.20.19.42")},
+		"eth0": {fakeAddr("10.20.19.42")},
 	}
 
 	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
@@ -1131,7 +1131,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigEmptyAddressValue(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
 	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
 	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
-		"eth0": []net.Addr{fakeAddr("")},
+		"eth0": {fakeAddr("")},
 	}
 
 	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
@@ -1153,7 +1153,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigInvalidAddressValue(c *gc.C) 
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
 	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
 	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
-		"eth0": []net.Addr{fakeAddr("invalid")},
+		"eth0": {fakeAddr("invalid")},
 	}
 
 	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)

@@ -221,21 +221,21 @@ def create_test_charms():
             "0": {
                 "constraints": "spaces={},^{}".format(
                     space_data, space_public),
-                "series": "xenial",
+                "series": "bionic",
             },
             "1": {
                 "constraints": "spaces={},{}".format(space_data, space_public),
-                "series": "xenial",
+                "series": "bionic",
             },
             "2": {
                 "constraints": "spaces={},{}".format(space_data, space_public),
-                "series": "xenial",
+                "series": "bionic",
             },
         },
         "services": {
             "datastore": {
-                "charm": "./xenial/datastore",
-                "series": "xenial",
+                "charm": "./bionic/datastore",
+                "series": "bionic",
                 "num_units": 1,
                 "to": ["0"],
                 "bindings": {
@@ -243,8 +243,8 @@ def create_test_charms():
                 },
             },
             "frontend": {
-                "charm": "./xenial/frontend",
-                "series": "xenial",
+                "charm": "./bionic/frontend",
+                "series": "bionic",
                 "num_units": 1,
                 "to": ["1"],
                 "bindings": {
@@ -253,8 +253,8 @@ def create_test_charms():
                 },
             },
             "monitor": {
-                "charm": "./xenial/datastore",
-                "series": "xenial",
+                "charm": "./bionic/datastore",
+                "series": "bionic",
                 "num_units": 1,
                 "to": ["2"],
                 "bindings": {

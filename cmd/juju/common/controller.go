@@ -117,7 +117,7 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 }
 
 // BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
-func BootstrapEndpointAddresses(environ environs.Environ, callContext context.ProviderCallContext) ([]network.Address, error) {
+func BootstrapEndpointAddresses(environ environs.InstanceBroker, callContext context.ProviderCallContext) ([]network.Address, error) {
 	instances, err := environ.AllInstances(callContext)
 	if err != nil {
 		return nil, errors.Trace(err)

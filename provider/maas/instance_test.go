@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -65,7 +66,7 @@ func (s *instanceTest) TestId(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	resourceURI, _ := obj.GetField("resource_uri")
 	// TODO(perrito666) make a decent mock status getter
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 	instance := maas1Instance{&obj, nil, statusGetter}
@@ -76,7 +77,7 @@ func (s *instanceTest) TestId(c *gc.C) {
 func (s *instanceTest) TestString(c *gc.C) {
 	jsonValue := `{"hostname": "thethingintheplace", "system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
@@ -91,7 +92,7 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 	// For good measure, test what happens if we don't have a hostname.
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
@@ -130,7 +131,7 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
     "ip_addresses": [ "anything", "foo", "0.1.2.3" ]
 }`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
@@ -173,7 +174,7 @@ func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 		"ip_addresses": "incompatible"
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
@@ -190,7 +191,7 @@ func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
 		"ip_addresses": [42]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
@@ -209,7 +210,7 @@ func (s *instanceTest) TestHardwareCharacteristics(c *gc.C) {
         "memory": 16384
 	}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
@@ -230,7 +231,7 @@ func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
         "tag_names": ["a", "b"]
 	}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
@@ -260,7 +261,7 @@ func (s *instanceTest) TestHardwareCharacteristicsMissing(c *gc.C) {
 
 func (s *instanceTest) testHardwareCharacteristicsMissing(c *gc.C, json, expect string) {
 	obj := s.testMAASObject.TestServer.NewNode(json)
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 

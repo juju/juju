@@ -10,9 +10,9 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 )
 
 // Machine represents a juju machine as seen by an instancepoller

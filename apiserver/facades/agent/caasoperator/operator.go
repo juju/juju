@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/status"
 )
 
 type Facade struct {
@@ -24,6 +24,7 @@ type Facade struct {
 	*common.AgentEntityWatcher
 	*common.Remover
 	*common.ToolsSetter
+	*common.APIAddresser
 
 	model Model
 }
@@ -79,6 +80,7 @@ func NewFacade(
 	}
 	return &Facade{
 		LifeGetter:         common.NewLifeGetter(st, canRead),
+		APIAddresser:       common.NewAPIAddresser(st, resources),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, canRead),
 		Remover:            common.NewRemover(st, true, accessUnit),
 		ToolsSetter:        common.NewToolsSetter(st, common.AuthFuncForTag(authorizer.GetAuthTag())),
@@ -129,7 +131,7 @@ func (f *Facade) setStatus(tag names.ApplicationTag, info status.StatusInfo) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return app.SetStatus(info)
+	return app.SetOperatorStatus(info)
 }
 
 // Charm returns the charm info for all given applications.

@@ -8,14 +8,132 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
 )
+
+//go:generate mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/api/provisioner MachineProvisioner
+
+// MachineProvisioner defines what provisioner needs to provision a machine.
+type MachineProvisioner interface {
+	// Tag returns the machine's tag.
+	Tag() names.Tag
+
+	// ModelAgentVersion returns the agent version the machine's model is currently
+	// running or an error.
+	ModelAgentVersion() (*version.Number, error)
+
+	// MachineTag returns the identifier for the machine as the most specific type.
+	MachineTag() names.MachineTag
+
+	// Id returns the machine id.
+	Id() string
+
+	// String returns the machine as a string.
+	String() string
+
+	// Life returns the machine's lifecycle value.
+	Life() params.Life
+
+	// Refresh updates the cached local copy of the machine's data.
+	Refresh() error
+
+	// ProvisioningInfo returns the information required to provision a machine.
+	ProvisioningInfo() (*params.ProvisioningInfo, error)
+
+	// SetInstanceStatus sets the status for the provider instance.
+	SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error
+
+	// InstanceStatus returns the status of the provider instance.
+	InstanceStatus() (status.Status, string, error)
+
+	// SetStatus sets the status of the machine.
+	SetStatus(status status.Status, info string, data map[string]interface{}) error
+
+	// Status returns the status of the machine.
+	Status() (status.Status, string, error)
+
+	// EnsureDead sets the machine lifecycle to Dead if it is Alive or
+	// Dying. It does nothing otherwise.
+	EnsureDead() error
+
+	// Remove removes the machine from state. It will fail if the machine
+	// is not Dead.
+	Remove() error
+
+	// MarkForRemoval indicates that the machine is ready to have any
+	// provider-level resources cleaned up and be removed.
+	MarkForRemoval() error
+
+	// AvailabilityZone returns an underlying provider's availability zone
+	// for a machine.
+	AvailabilityZone() (string, error)
+
+	// DistributionGroup returns a slice of instance.Ids
+	// that belong to the same distribution group as this
+	// Machine. The provisioner may use this information
+	// to distribute instances for high availability.
+	DistributionGroup() ([]instance.Id, error)
+
+	// SetInstanceInfo sets the provider specific instance id, nonce, metadata,
+	// network config for this machine. Once set, the instance id cannot be changed.
+	SetInstanceInfo(
+		id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+		networkConfig []params.NetworkConfig, volumes []params.Volume,
+		volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
+	) error
+
+	// InstanceId returns the provider specific instance id for the
+	// machine or an CodeNotProvisioned error, if not set.
+	InstanceId() (instance.Id, error)
+
+	// KeepInstance returns the value of the keep-instance
+	// for the machine.
+	KeepInstance() (bool, error)
+
+	// SetPassword sets the machine's password.
+	SetPassword(password string) error
+
+	// WatchContainers returns a StringsWatcher that notifies of changes
+	// to the lifecycles of containers of the specified type on the machine.
+	WatchContainers(ctype instance.ContainerType) (watcher.StringsWatcher, error)
+
+	// WatchAllContainers returns a StringsWatcher that notifies of changes
+	// to the lifecycles of all containers on the machine.
+	WatchAllContainers() (watcher.StringsWatcher, error)
+
+	// SetSupportedContainers updates the list of containers supported by this machine.
+	SetSupportedContainers(containerTypes ...instance.ContainerType) error
+
+	// SupportsNoContainers records the fact that this machine doesn't support any containers.
+	SupportsNoContainers() error
+
+	// WatchContainers returns a StringsWatcher that notifies of
+	// changes to the upgrade charm profile charm url for all
+	// containers of the specified type  on the machine.
+	WatchContainersCharmProfiles(ctype instance.ContainerType) (watcher.StringsWatcher, error)
+
+	// CharmProfileChangeInfo retrieves the info necessary to change a charm
+	// profile used by a machine.
+	CharmProfileChangeInfo() (CharmProfileChangeInfo, error)
+
+	// SetCharmProfiles records the given slice of charm profile names.
+	SetCharmProfiles([]string) error
+
+	// SetUpgradeCharmProfileComplete recorded that the result of updating
+	// the machine's charm profile(s)
+	SetUpgradeCharmProfileComplete(string) error
+
+	// RemoveUpgradeCharmProfileData completely removes the instance charm profile
+	// data for a machine, even if the machine is dead.
+	RemoveUpgradeCharmProfileData() error
+}
 
 // Machine represents a juju machine as seen by the provisioner worker.
 type Machine struct {
@@ -24,13 +142,12 @@ type Machine struct {
 	st   *State
 }
 
-// Tag returns the machine's tag.
+// Tag implements MachineProvisioner.Tag.
 func (m *Machine) Tag() names.Tag {
 	return m.tag
 }
 
-// ModelAgentVersion returns the agent version the machine's model is currently
-// running or an error.
+// ModelAgentVersion implements MachineProvisioner.ModelAgentVersion.
 func (m *Machine) ModelAgentVersion() (*version.Number, error) {
 	mc, err := m.st.ModelConfig()
 	if err != nil {
@@ -44,27 +161,27 @@ func (m *Machine) ModelAgentVersion() (*version.Number, error) {
 	return nil, errors.New("failed to get model's agent version.")
 }
 
-// MachineTag returns the identifier for the machine as the most specific type
+// MachineTag implements MachineProvisioner.MachineTag.
 func (m *Machine) MachineTag() names.MachineTag {
 	return m.tag
 }
 
-// Id returns the machine id.
+// Id implements MachineProvisioner.Id.
 func (m *Machine) Id() string {
 	return m.tag.Id()
 }
 
-// String returns the machine as a string.
+// String implements MachineProvisioner.String.
 func (m *Machine) String() string {
 	return m.Id()
 }
 
-// Life returns the machine's lifecycle value.
+// Life implements MachineProvisioner..
 func (m *Machine) Life() params.Life {
 	return m.life
 }
 
-// Refresh updates the cached local copy of the machine's data.
+// Refresh implements MachineProvisioner.Refresh.
 func (m *Machine) Refresh() error {
 	life, err := m.st.machineLife(m.tag)
 	if err != nil {
@@ -74,7 +191,7 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// ProvisioningInfo returns the information required to provision a machine.
+// ProvisioningInfo implements MachineProvisioner.ProvisioningInfo.
 func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	var results params.ProvisioningInfoResults
 	args := params.Entities{Entities: []params.Entity{{m.tag.String()}}}
@@ -92,7 +209,7 @@ func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	return result.Result, nil
 }
 
-// SetInstanceStatus sets the status for the provider instance.
+// SetInstanceStatus implements MachineProvisioner.SetInstanceStatus.
 func (m *Machine) SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{Entities: []params.EntityStatusArgs{
@@ -105,7 +222,7 @@ func (m *Machine) SetInstanceStatus(status status.Status, message string, data m
 	return result.OneError()
 }
 
-// InstanceStatus returns the status of the provider instance.
+// InstanceStatus implements MachineProvisioner.InstanceStatus.
 func (m *Machine) InstanceStatus() (status.Status, string, error) {
 	var results params.StatusResults
 	args := params.Entities{Entities: []params.Entity{
@@ -126,7 +243,7 @@ func (m *Machine) InstanceStatus() (status.Status, string, error) {
 	return status.Status(result.Status), result.Info, nil
 }
 
-// SetStatus sets the status of the machine.
+// SetStatus implements MachineProvisioner.SetStatus.
 func (m *Machine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
@@ -141,7 +258,7 @@ func (m *Machine) SetStatus(status status.Status, info string, data map[string]i
 	return result.OneError()
 }
 
-// Status returns the status of the machine.
+// Status implements MachineProvisioner.Status.
 func (m *Machine) Status() (status.Status, string, error) {
 	var results params.StatusResults
 	args := params.Entities{
@@ -162,8 +279,7 @@ func (m *Machine) Status() (status.Status, string, error) {
 	return status.Status(result.Status), result.Info, nil
 }
 
-// EnsureDead sets the machine lifecycle to Dead if it is Alive or
-// Dying. It does nothing otherwise.
+// EnsureDead implements MachineProvisioner.EnsureDead.
 func (m *Machine) EnsureDead() error {
 	var result params.ErrorResults
 	args := params.Entities{
@@ -176,8 +292,7 @@ func (m *Machine) EnsureDead() error {
 	return result.OneError()
 }
 
-// Remove removes the machine from state. It will fail if the machine
-// is not Dead.
+// Remove implements MachineProvisioner.Remove.
 func (m *Machine) Remove() error {
 	var result params.ErrorResults
 	args := params.Entities{
@@ -190,8 +305,7 @@ func (m *Machine) Remove() error {
 	return result.OneError()
 }
 
-// MarkForRemoval indicates that the machine is ready to have any
-// provider-level resources cleaned up and be removed.
+// MarkForRemoval implements MachineProvisioner.MarkForRemoval.
 func (m *Machine) MarkForRemoval() error {
 	var result params.ErrorResults
 	args := params.Entities{
@@ -204,31 +318,7 @@ func (m *Machine) MarkForRemoval() error {
 	return result.OneError()
 }
 
-// Series returns the operating system series running on the machine.
-//
-// NOTE: Unlike state.Machine.Series(), this method returns an error
-// as well, because it needs to do an API call.
-func (m *Machine) Series() (string, error) {
-	var results params.StringResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag.String()}},
-	}
-	err := m.st.facade.FacadeCall("Series", args, &results)
-	if err != nil {
-		return "", err
-	}
-	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return "", result.Error
-	}
-	return result.Result, nil
-}
-
-// AvailabilityZone returns an underlying provider's availability zone
-// for a machine
+// AvailabilityZone implements MachineProvisioner.AvailabilityZone.
 func (m *Machine) AvailabilityZone() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
@@ -248,10 +338,7 @@ func (m *Machine) AvailabilityZone() (string, error) {
 	return result.Result, nil
 }
 
-// DistributionGroup returns a slice of instance.Ids
-// that belong to the same distribution group as this
-// Machine. The provisioner may use this information
-// to distribute instances for high availability.
+// DistributionGroup implements MachineProvisioner.DistributionGroup.
 func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	var results params.DistributionGroupResults
 	args := params.Entities{
@@ -271,12 +358,11 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	return result.Result, nil
 }
 
-// SetInstanceInfo sets the provider specific instance id, nonce, metadata,
-// network config for this machine. Once set, the instance id cannot be changed.
+// SetInstanceInfo implements MachineProvisioner.SetInstanceInfo.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
-	volumeAttachments map[string]params.VolumeAttachmentInfo,
+	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 ) error {
 	var result params.ErrorResults
 	args := params.InstancesInfo{
@@ -288,6 +374,7 @@ func (m *Machine) SetInstanceInfo(
 			Volumes:           volumes,
 			VolumeAttachments: volumeAttachments,
 			NetworkConfig:     networkConfig,
+			CharmProfiles:     charmProfiles,
 		}},
 	}
 	err := m.st.facade.FacadeCall("SetInstanceInfo", args, &result)
@@ -297,8 +384,7 @@ func (m *Machine) SetInstanceInfo(
 	return result.OneError()
 }
 
-// InstanceId returns the provider specific instance id for the
-// machine or an CodeNotProvisioned error, if not set.
+// InstanceId implements MachineProvisioner.InstanceId.
 func (m *Machine) InstanceId() (instance.Id, error) {
 	var results params.StringResults
 	args := params.Entities{
@@ -318,8 +404,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	return instance.Id(result.Result), nil
 }
 
-// KeepInstance returns the value of the keep-instance
-// for the machine.
+// KeepInstance implements MachineProvisioner.KeepInstance.
 func (m *Machine) KeepInstance() (bool, error) {
 	var results params.BoolResults
 	args := params.Entities{
@@ -342,7 +427,7 @@ func (m *Machine) KeepInstance() (bool, error) {
 	return result.Result, nil
 }
 
-// SetPassword sets the machine's password.
+// SetPassword implements MachineProvisioner.SetPassword.
 func (m *Machine) SetPassword(password string) error {
 	var result params.ErrorResults
 	args := params.EntityPasswords{
@@ -357,8 +442,7 @@ func (m *Machine) SetPassword(password string) error {
 	return result.OneError()
 }
 
-// WatchContainers returns a StringsWatcher that notifies of changes
-// to the lifecycles of containers of the specified type on the machine.
+// WatchContainers implements MachineProvisioner.WatchContainers.
 func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.StringsWatcher, error) {
 	if string(ctype) == "" {
 		return nil, fmt.Errorf("container type must be specified")
@@ -394,8 +478,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 	return w, nil
 }
 
-// WatchAllContainers returns a StringsWatcher that notifies of changes
-// to the lifecycles of all containers on the machine.
+// WatchAllContainers implements MachineProvisioner.WatchAllContainers.
 func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.WatchContainers{
@@ -418,7 +501,43 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// SetSupportedContainers updates the list of containers supported by this machine.
+// WatchContainers implements MachineProvisioner.WatchContainersCharmProfiles.
+func (m *Machine) WatchContainersCharmProfiles(ctype instance.ContainerType) (watcher.StringsWatcher, error) {
+	if string(ctype) == "" {
+		return nil, fmt.Errorf("container type must be specified")
+	}
+	supported := false
+	for _, c := range instance.ContainerTypes {
+		if ctype == c {
+			supported = true
+			break
+		}
+	}
+	if !supported {
+		return nil, fmt.Errorf("unsupported container type %q", ctype)
+	}
+	var results params.StringsWatchResults
+	args := params.WatchContainers{
+		Params: []params.WatchContainer{
+			{MachineTag: m.tag.String(), ContainerType: string(ctype)},
+		},
+	}
+	err := m.st.facade.FacadeCall("WatchContainersCharmProfiles", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(m.st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// SetSupportedContainers implements MachineProvisioner.SetSupportedContainers.
 func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerType) error {
 	var results params.ErrorResults
 	args := params.MachineContainersParams{
@@ -440,7 +559,118 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 	return nil
 }
 
-// SupportsNoContainers records the fact that this machine doesn't support any containers.
+// SupportsNoContainers implements MachineProvisioner.SupportsNoContainers.
 func (m *Machine) SupportsNoContainers() error {
 	return m.SetSupportedContainers([]instance.ContainerType{}...)
+}
+
+type CharmProfileChangeInfo struct {
+	OldProfileName string
+	NewProfileName string
+	LXDProfile     *charm.LXDProfile
+	Subordinate    bool
+}
+
+// CharmProfileChangeInfo implements MachineProvisioner.CharmProfileChangeInfo.
+func (m *Machine) CharmProfileChangeInfo() (CharmProfileChangeInfo, error) {
+	var results params.ProfileChangeResults
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: m.tag.String()},
+	}}
+	err := m.st.facade.FacadeCall("CharmProfileChangeInfo", args, &results)
+	if err != nil {
+		return CharmProfileChangeInfo{}, err
+	}
+	if len(results.Results) != 1 {
+		return CharmProfileChangeInfo{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return CharmProfileChangeInfo{}, result.Error
+	}
+	var profile *charm.LXDProfile
+	if result.Profile != nil {
+		p := charm.LXDProfile(*result.Profile)
+		profile = &p
+	}
+	return CharmProfileChangeInfo{
+		OldProfileName: result.OldProfileName,
+		NewProfileName: result.NewProfileName,
+		LXDProfile:     profile,
+		Subordinate:    result.Subordinate,
+	}, nil
+}
+
+// SetCharmProfiles implements MachineProvisioner.SetCharmProfiles.
+func (m *Machine) SetCharmProfiles(profiles []string) error {
+	var results params.ErrorResults
+	args := params.SetProfileArgs{
+		Args: []params.SetProfileArg{
+			{
+				Entity:   params.Entity{Tag: m.tag.String()},
+				Profiles: profiles,
+			},
+		},
+	}
+	err := m.st.facade.FacadeCall("SetCharmProfiles", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
+// SetUpgradeCharmProfileComplete implements MachineProvisioner.SetUpgradeCharmProfileComplete.
+func (m *Machine) SetUpgradeCharmProfileComplete(message string) error {
+	var results params.ErrorResults
+	args := params.SetProfileUpgradeCompleteArgs{
+		Args: []params.SetProfileUpgradeCompleteArg{
+			{
+				Entity:  params.Entity{Tag: m.tag.String()},
+				Message: message,
+			},
+		},
+	}
+	err := m.st.facade.FacadeCall("SetUpgradeCharmProfileComplete", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
+// RemoveUpgradeCharmProfileData implements MachineProvisioner.RemoveUpgradeCharmProfileData.
+func (m *Machine) RemoveUpgradeCharmProfileData() error {
+	var results params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: m.tag.String(),
+			},
+		},
+	}
+	err := m.st.facade.FacadeCall("RemoveUpgradeCharmProfileData", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }

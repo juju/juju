@@ -26,8 +26,8 @@ from utility import (
 )
 
 __metaclass__ = type
-model = "mymodel"
-newmodel = "newmodel"
+export_one = "bundleone.yaml"
+export_two = "bundletwo.yaml"
 
 log = logging.getLogger("assess_bundle_export")
 
@@ -35,26 +35,30 @@ def assess_bundle_export(client, args):
     bundle_source = local_charm_path('mediawiki-simple.yaml',
                                      repository=os.environ['JUJU_REPOSITORY'],
                                      juju_ver='2')
+    log.info("Deploying {}".format("mediawiki-simple bundle..."))
     client.deploy(bundle_source)
     client.wait_for_started()
-    client.juju('export-bundle', ('--filename', model))
-    log.info("Deploying {}".format("mediawiki-simple bundle..."))
 
-    if not os.path.exists(model+".yaml"):
+    log.info("Exporting bundle to {}".format(export_one))
+    client.juju('export-bundle', ('--filename', export_one))
+
+    if not os.path.exists(export_one):
         raise JujuAssertionError('export bundle command failed to create bundle file.')
 
     new_client = add_model(client)
-    new_client.deploy(model+".yaml")
+    log.info("Deploying bundle {} to new model".format(export_one))
+    new_client.deploy(export_one)
     new_client.wait_for_started()
-    new_client.juju('export-bundle', ('--filename', newmodel))
-    log.info("Deploying bundle in new model model.yaml")
+    log.info("Exporting bundle to {}".format(export_two))
+    new_client.juju('export-bundle', ('--filename', export_two))
 
     #compare the contents of the file.
-    if not filecmp.cmp(model+".yaml", newmodel+".yaml"):
+    log.info("Comparing {} to {}".format(export_one, export_two))
+    if not filecmp.cmp(export_one, export_two):
         raise JujuAssertionError('bundle files created mismatch error.')
 
-    os.remove(model+".yaml")
-    os.remove(newmodel+".yaml")
+    os.remove(export_one)
+    os.remove(export_two)
 
 def parse_args(argv):
     """Parse all arguments."""

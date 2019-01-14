@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -105,12 +106,12 @@ Examples:
 `
 
 func (c *addModelCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-model",
 		Args:    "<model name> [cloud|region|(cloud/region)]",
 		Purpose: "Adds a hosted model.",
 		Doc:     strings.TrimSpace(addModelHelpDoc),
-	}
+	})
 }
 
 func (c *addModelCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -155,7 +156,7 @@ type CloudAPI interface {
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	Cloud(names.CloudTag) (jujucloud.Cloud, error)
 	UserCredentials(names.UserTag, names.CloudTag) ([]names.CloudCredentialTag, error)
-	UpdateCredential(names.CloudCredentialTag, jujucloud.Credential) error
+	AddCredential(tag string, credential jujucloud.Credential) error
 }
 
 func (c *addModelCommand) newAPIRoot() (api.Connection, error) {
@@ -170,11 +171,11 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	api, err := c.newAPIRoot()
+	root, err := c.newAPIRoot()
 	if err != nil {
 		return errors.Annotate(err, "opening API connection")
 	}
-	defer api.Close()
+	defer root.Close()
 
 	store := c.ClientStore()
 	accountDetails, err := store.AccountDetails(controllerName)
@@ -196,7 +197,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	cloudClient := c.newCloudAPI(api)
+	cloudClient := c.newCloudAPI(root)
 	var cloudTag names.CloudTag
 	var cloud jujucloud.Cloud
 	var cloudRegion string
@@ -212,6 +213,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Find a credential to use with the new model.
+	// If credential was found on the controller, it will be nil in return.
 	credential, credentialTag, cloudRegion, err := c.findCredential(ctx, cloudClient, &findCredentialParams{
 		cloudTag:    cloudTag,
 		cloudRegion: cloudRegion,
@@ -222,15 +224,16 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Upload the credential if it was found locally.
-	if credential != nil {
+	// Upload the credential if it was explicitly set and we have found it locally.
+	if c.CredentialName != "" && credential != nil {
 		ctx.Infof("Uploading credential '%s' to controller", credentialTag.Id())
-		if err := cloudClient.UpdateCredential(credentialTag, *credential); err != nil {
-			return errors.Trace(err)
+		if err := cloudClient.AddCredential(credentialTag.String(), *credential); err != nil {
+			ctx.Infof("Failed to upload credential: %v", err)
+			return cmd.ErrSilent
 		}
 	}
 
-	addModelClient := c.newAddModelAPI(api)
+	addModelClient := c.newAddModelAPI(root)
 	model, err := addModelClient.CreateModel(c.Name, modelOwner, cloudTag.Id(), cloudRegion, credentialTag, attrs)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
@@ -401,7 +404,7 @@ func defaultCloud(cloudClient CloudAPI) (names.CloudTag, jujucloud.Cloud, error)
 			return names.CloudTag{}, jujucloud.Cloud{}, errors.NewNotFound(nil, `
 there is no default cloud defined, please specify one using:
 
-    juju add-model [flags] <model-name> cloud[/region]`[1:])
+    juju add-model [options] <model-name> cloud[/region]`[1:])
 		}
 		return names.CloudTag{}, jujucloud.Cloud{}, errors.Trace(err)
 	}
@@ -418,7 +421,7 @@ to the client with:
 
     juju autoload-credentials
 
-and then run the add-model command again with the --credential flag.`[1:],
+and then run the add-model command again with the --credential option.`[1:],
 )
 
 var ambiguousCredentialError = errors.New(`
@@ -426,7 +429,7 @@ more than one credential is available. List credentials with:
 
     juju credentials
 
-and then run the add-model command again with the --credential flag.`[1:],
+and then run the add-model command again with the --credential option.`[1:],
 )
 
 type findCredentialParams struct {

@@ -10,12 +10,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
 	ociResponse "github.com/juju/go-oracle-cloud/response"
-	"github.com/juju/utils/clock"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
@@ -156,7 +157,7 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 }
 
 // CreateVolumes is specified on the storage.VolumeSource interface
-func (s *oracleVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+func (s *oracleVolumeSource) CreateVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
 	if params == nil {
 		return []storage.CreateVolumesResult{}, nil
 	}
@@ -231,7 +232,7 @@ func (o *oracleVolumeSource) waitForResourceStatus(
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
-func (s *oracleVolumeSource) ListVolumes() ([]string, error) {
+func (s *oracleVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
 	tag := fmt.Sprintf("%s=%s", tags.JujuModel, s.modelUUID)
 	filter := []oci.Filter{{
 		Arg:   "tags",
@@ -251,7 +252,7 @@ func (s *oracleVolumeSource) ListVolumes() ([]string, error) {
 }
 
 // DescribeVolumes is specified on the storage.VolumeSource interface.
-func (s *oracleVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVolumesResult, error) {
+func (s *oracleVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, volIds []string) ([]storage.DescribeVolumesResult, error) {
 	if volIds == nil || len(volIds) == 0 {
 		return []storage.DescribeVolumesResult{}, nil
 	}
@@ -293,12 +294,12 @@ func makeVolumeInfo(vol ociResponse.StorageVolume) storage.VolumeInfo {
 }
 
 // DestroyVolumes is specified on the storage.VolumeSource interface.
-func (s *oracleVolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
+func (s *oracleVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
 	return foreachVolume(volIds, s.api.DeleteStorageVolume), nil
 }
 
 // ReleaseVolumes is specified on the storage.VolumeSource interface.
-func (s *oracleVolumeSource) ReleaseVolumes(volIds []string) ([]error, error) {
+func (s *oracleVolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
 	releaseStorageVolume := func(volumeId string) error {
 		details, err := s.api.StorageVolumeDetails(volumeId)
 		if err != nil {
@@ -341,7 +342,7 @@ func foreachVolume(volIds []string, f func(string) error) []error {
 }
 
 // ImportVolume is specified on the storage.VolumeImporter interface.
-func (s *oracleVolumeSource) ImportVolume(volumeId string, tags map[string]string) (storage.VolumeInfo, error) {
+func (s *oracleVolumeSource) ImportVolume(ctx context.ProviderCallContext, volumeId string, tags map[string]string) (storage.VolumeInfo, error) {
 	details, err := s.api.StorageVolumeDetails(volumeId)
 	if err != nil {
 		return storage.VolumeInfo{}, errors.Trace(err)
@@ -431,7 +432,7 @@ func (s *oracleVolumeSource) getStorageAttachments() (map[string][]ociResponse.S
 }
 
 // AttachVolumes is specified on the storage.VolumeSource interface.
-func (s *oracleVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (s *oracleVolumeSource) AttachVolumes(ctx context.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	instanceIds := []instance.Id{}
 	for _, val := range params {
 		instanceIds = append(instanceIds, val.InstanceId)
@@ -593,7 +594,7 @@ func (s *oracleVolumeSource) attachVolume(
 }
 
 // DetachVolumes is specified on the storage.VolumeSource interface.
-func (s *oracleVolumeSource) DetachVolumes(params []storage.VolumeAttachmentParams) ([]error, error) {
+func (s *oracleVolumeSource) DetachVolumes(ctx context.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]error, error) {
 	attachAsMap, err := s.getStorageAttachments()
 	if err != nil {
 		return nil, errors.Trace(err)

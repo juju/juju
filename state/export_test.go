@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"time" // Only used for time types.
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
@@ -26,12 +26,12 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/version"
 )
@@ -71,6 +71,8 @@ type (
 	ApplicationDoc  applicationDoc
 	UnitDoc         unitDoc
 	BlockDevicesDoc blockDevicesDoc
+	StorageBackend  = storageBackend
+	DeviceBackend   = deviceBackend
 )
 
 // EnsureWorkersStarted ensures that all the automatically
@@ -164,7 +166,7 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
-	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
+	return addCharm(c, st, series, testcharms.RepoForSeries(series).CharmDir(name))
 }
 
 func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
@@ -183,36 +185,74 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Application {
-	return addTestingApplication(c, st, "", name, ch, nil, nil)
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:   st,
+		name: name,
+		ch:   ch,
+	})
 }
 
 func AddTestingApplicationForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
-	return addTestingApplication(c, st, series, name, ch, nil, nil)
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:     st,
+		series: series,
+		name:   name,
+		ch:     ch,
+	})
 }
 
 func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
-	return addTestingApplication(c, st, "", name, ch, nil, storage)
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:      st,
+		name:    name,
+		ch:      ch,
+		storage: storage,
+	})
+}
+
+func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:      st,
+		name:    name,
+		ch:      ch,
+		devices: devices,
+	})
 }
 
 func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
-	return addTestingApplication(c, st, "", name, ch, bindings, nil)
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:       st,
+		name:     name,
+		ch:       ch,
+		bindings: bindings,
+	})
 }
 
-func addTestingApplication(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
-	c.Assert(ch, gc.NotNil)
-	app, err := st.AddApplication(AddApplicationArgs{
-		Name:             name,
-		Series:           series,
-		Charm:            ch,
-		EndpointBindings: bindings,
-		Storage:          storage,
+type addTestingApplicationParams struct {
+	st           *State
+	series, name string
+	ch           *Charm
+	bindings     map[string]string
+	storage      map[string]StorageConstraints
+	devices      map[string]DeviceConstraints
+}
+
+func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
+	c.Assert(params.ch, gc.NotNil)
+	app, err := params.st.AddApplication(AddApplicationArgs{
+		Name:             params.name,
+		Series:           params.series,
+		Charm:            params.ch,
+		EndpointBindings: params.bindings,
+		Storage:          params.storage,
+		Devices:          params.devices,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
-	path := testcharms.Repo.ClonedDirPath(c.MkDir(), name)
+	path := testcharms.RepoForSeries(series).ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		config := filepath.Join(path, filename)
 		err := ioutil.WriteFile(config, []byte(content), 0644)
@@ -410,6 +450,10 @@ func (m *Model) SetDead() error {
 	return m.st.db().RunTransaction(ops)
 }
 
+func (st *State) SetDyingModelToDead() error {
+	return st.setDyingModelToDead()
+}
+
 func HostedModelCount(c *gc.C, st *State) int {
 	count, err := hostedModelCount(st)
 	c.Assert(err, jc.ErrorIsNil)
@@ -558,12 +602,12 @@ func AssertEndpointBindingsNotFoundForApplication(c *gc.C, app *Application) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func LeadershipLeases(st *State) (map[string]lease.Info, error) {
-	client, err := st.getLeadershipLeaseClient()
+func LeadershipLeases(st *State) (map[lease.Key]lease.Info, error) {
+	store, err := st.getLeadershipLeaseStore()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return client.Leases(), nil
+	return store.Leases(), nil
 }
 
 func StorageAttachmentCount(instance StorageInstance) int {
@@ -597,7 +641,7 @@ func RemoveRelationStatus(c *gc.C, rel *Relation) {
 // PrimeUnitStatusHistory will add count history elements, advancing the test clock by
 // one second for each entry.
 func PrimeUnitStatusHistory(
-	c *gc.C, clock *testing.Clock,
+	c *gc.C, clock *testclock.Clock,
 	unit *Unit, statusVal status.Status,
 	count, batchSize int,
 	nextData func(int) map[string]interface{},
@@ -758,6 +802,10 @@ func AppStorageConstraints(app *Application) (map[string]StorageConstraints, err
 	return readStorageConstraints(app.st, app.storageConstraintsKey())
 }
 
+func AppDeviceConstraints(app *Application) (map[string]DeviceConstraints, error) {
+	return readDeviceConstraints(app.st, app.deviceConstraintsKey())
+}
+
 func RemoveRelation(c *gc.C, rel *Relation) {
 	ops, err := rel.removeOps("", "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -766,15 +814,15 @@ func RemoveRelation(c *gc.C, rel *Relation) {
 }
 
 func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
-	im, err := st.IAASModel()
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return nil, names.VolumeTag{}, err
 	}
-	return im.addVolumeOps(params, machineId)
+	return sb.addVolumeOps(params, machineId)
 }
 
-func ModelBackendFromIAASModel(im *IAASModel) modelBackend {
-	return im.mb
+func ModelBackendFromStorageBackend(sb *StorageBackend) modelBackend {
+	return sb.mb
 }
 
 func (st *State) IsUserSuperuser(user names.UserTag) (bool, error) {
@@ -783,4 +831,33 @@ func (st *State) IsUserSuperuser(user names.UserTag) (bool, error) {
 
 func (st *State) ModelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.Query, SessionCloser, error) {
 	return st.modelQueryForUser(user, isSuperuser)
+}
+
+func UnitsHaveChanged(m *Machine, unitNames []string) (bool, error) {
+	return m.unitsHaveChanged(unitNames)
+}
+
+func GetCloudContainerStatus(st *State, name string) (status.StatusInfo, error) {
+	return getStatus(st.db(), globalCloudContainerKey(name), "unit")
+}
+
+func GetCloudContainerStatusHistory(st *State, name string, filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		db:        st.db(),
+		globalKey: globalCloudContainerKey(name),
+		filter:    filter,
+	}
+	return statusHistory(args)
+}
+
+func CaasUnitDisplayStatus(unitStatus status.StatusInfo, cloudContainerStatus status.StatusInfo) status.StatusInfo {
+	return caasUnitDisplayStatus(unitStatus, cloudContainerStatus)
+}
+
+func CaasApplicationDisplayStatus(appStatus status.StatusInfo, operatorStatus status.StatusInfo) status.StatusInfo {
+	return caasApplicationDisplayStatus(appStatus, operatorStatus)
+}
+
+func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, error) {
+	return getStatus(st.db(), applicationGlobalOperatorKey(appName), "operator")
 }

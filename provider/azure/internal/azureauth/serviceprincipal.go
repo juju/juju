@@ -16,11 +16,11 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/provider/azure/internal/ad"
 	"github.com/juju/juju/provider/azure/internal/errorutils"

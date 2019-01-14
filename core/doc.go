@@ -30,8 +30,6 @@ are good candidates for near-term corification:
   * instance (only dependency is network)
   * network (already core-safe)
   * watcher-excluding-legacy (only depends on worker[/catacomb])
-  * worker/catacomb
-  * worker/dependency
   * worker-excluding-other-subpackages
 
 ...and these have significant core-worthy content, but will be harder to extract:

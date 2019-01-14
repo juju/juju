@@ -10,8 +10,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 type volumeSuite struct {
@@ -28,10 +28,11 @@ func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 			Status: "attached",
 		},
 		MachineAttachments: map[string]params.VolumeAttachmentDetails{
-			s.machineTag.String(): params.VolumeAttachmentDetails{
+			s.machineTag.String(): {
 				Life: "alive",
 			},
 		},
+		UnitAttachments: map[string]params.VolumeAttachmentDetails{},
 		Storage: &params.StorageDetails{
 			StorageTag: "storage-data-0",
 			OwnerTag:   "unit-mysql-0",
@@ -41,7 +42,7 @@ func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 				Status: "attached",
 			},
 			Attachments: map[string]params.StorageAttachmentDetails{
-				"unit-mysql-0": params.StorageAttachmentDetails{
+				"unit-mysql-0": {
 					StorageTag: "storage-data-0",
 					UnitTag:    "unit-mysql-0",
 					MachineTag: "machine-66",
@@ -69,7 +70,7 @@ func (s *volumeSuite) TestListVolumesEmptyFilter(c *gc.C) {
 
 func (s *volumeSuite) TestListVolumesError(c *gc.C) {
 	msg := "inventing error"
-	s.state.allVolumes = func() ([]state.Volume, error) {
+	s.storageAccessor.allVolumes = func() ([]state.Volume, error) {
 		return nil, errors.New(msg)
 	}
 	results, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
@@ -79,7 +80,7 @@ func (s *volumeSuite) TestListVolumesError(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesNoVolumes(c *gc.C) {
-	s.state.allVolumes = func() ([]state.Volume, error) {
+	s.storageAccessor.allVolumes = func() ([]state.Volume, error) {
 		return nil, nil
 	}
 	results, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
@@ -134,6 +135,7 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
 		DeviceName: "xvdf1",
 		ReadOnly:   true,
 	}
+	s.state.assignedMachine = s.machineTag.Id()
 	expected := s.expectedVolumeDetails()
 	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentDetails{
 		VolumeAttachmentInfo: params.VolumeAttachmentInfo{
@@ -172,7 +174,7 @@ func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
-	s.state.blockDevices = func(names.MachineTag) ([]state.BlockDeviceInfo, error) {
+	s.storageAccessor.blockDevices = func(names.MachineTag) ([]state.BlockDeviceInfo, error) {
 		return []state.BlockDeviceInfo{{
 			BusAddress: "bus-addr",
 			DeviceName: "sdd",

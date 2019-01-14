@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
@@ -38,7 +39,7 @@ type ManifoldSuite struct {
 	mux      *apiserverhttp.Mux
 	worker   worker.Worker
 	stub     testing.Stub
-	clock    *testing.Clock
+	clock    *testclock.Clock
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -63,7 +64,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.worker = &mockTransportWorker{
 		Transport: &raft.InmemTransport{},
 	}
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 
 	s.context = s.newContext(nil)
 	s.manifold = rafttransport.Manifold(rafttransport.ManifoldConfig{
@@ -149,6 +150,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Path:          "raft/path",
 		LocalID:       "123",
 		Clock:         s.clock,
+		Timeout:       30 * time.Second,
 	})
 }
 

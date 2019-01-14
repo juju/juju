@@ -137,10 +137,10 @@ func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *gc.C) {
 	volumeSource := &dummy.VolumeSource{
-		ListVolumesFunc: func() ([]string, error) {
+		ListVolumesFunc: func(ctx context.ProviderCallContext) ([]string, error) {
 			return []string{"vol-0", "vol-1", "vol-2"}, nil
 		},
-		DestroyVolumesFunc: func(ids []string) ([]error, error) {
+		DestroyVolumesFunc: func(ctx context.ProviderCallContext, ids []string) ([]error, error) {
 			return make([]error, len(ids)), nil
 		},
 	}
@@ -169,17 +169,17 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *gc.C) {
 	// common.Destroy will ignore machine-scoped storage providers.
 	storageProvider.CheckCallNames(c, "Dynamic", "Scope", "Supports", "VolumeSource")
 	volumeSource.CheckCalls(c, []gitjujutesting.StubCall{
-		{"ListVolumes", nil},
-		{"DestroyVolumes", []interface{}{[]string{"vol-0", "vol-1", "vol-2"}}},
+		{"ListVolumes", []interface{}{s.callCtx}},
+		{"DestroyVolumes", []interface{}{s.callCtx, []string{"vol-0", "vol-1", "vol-2"}}},
 	})
 }
 
 func (s *DestroySuite) TestDestroyVolumeErrors(c *gc.C) {
 	volumeSource := &dummy.VolumeSource{
-		ListVolumesFunc: func() ([]string, error) {
+		ListVolumesFunc: func(ctx context.ProviderCallContext) ([]string, error) {
 			return []string{"vol-0", "vol-1", "vol-2"}, nil
 		},
-		DestroyVolumesFunc: func(ids []string) ([]error, error) {
+		DestroyVolumesFunc: func(ctx context.ProviderCallContext, ids []string) ([]error, error) {
 			return []error{
 				nil,
 				errors.New("cannot destroy vol-1"),

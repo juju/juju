@@ -4,10 +4,12 @@
 package caasunitprovisioner
 
 import (
+	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Client provides an interface for interacting with the
@@ -18,8 +20,8 @@ type Client interface {
 	ApplicationUpdater
 	ProvisioningInfoGetter
 	LifeGetter
-	UnitGetter
 	UnitUpdater
+	ProvisioningStatusSetter
 }
 
 // ApplicationGetter provides an interface for
@@ -29,6 +31,8 @@ type Client interface {
 type ApplicationGetter interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	ApplicationConfig(string) (application.ConfigAttributes, error)
+	WatchApplicationScale(string) (watcher.NotifyWatcher, error)
+	ApplicationScale(string) (int, error)
 }
 
 // ApplicationUpdater provides an interface for updating
@@ -41,7 +45,7 @@ type ApplicationUpdater interface {
 // watching and getting the pod spec and other info
 // needed to provision an application.
 type ProvisioningInfoGetter interface {
-	ProvisioningInfo(appName string) (params.KubernetesProvisioningInfo, error)
+	ProvisioningInfo(appName string) (*apicaasunitprovisioner.ProvisioningInfo, error)
 	WatchPodSpec(appName string) (watcher.NotifyWatcher, error)
 }
 
@@ -51,16 +55,15 @@ type LifeGetter interface {
 	Life(string) (life.Value, error)
 }
 
-// UnitGetter provides an interface for watching for
-// the lifecycle state changes (including addition)
-// of a specified application's units, and fetching
-// their details.
-type UnitGetter interface {
-	WatchUnits(string) (watcher.StringsWatcher, error)
-}
-
 // UnitUpdater provides an interface for updating
 // Juju units from changes in the cloud.
 type UnitUpdater interface {
 	UpdateUnits(arg params.UpdateApplicationUnits) error
+}
+
+// ProvisioningStatusSetter provides an interface for
+// setting status information.
+type ProvisioningStatusSetter interface {
+	// SetOperatorStatus sets the status for the application operator.
+	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
 }

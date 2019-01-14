@@ -6,18 +6,20 @@ package apiserver
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/controller"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/lease"
 )
 
 type sharedServerContextSuite struct {
@@ -34,10 +36,11 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.config = sharedServerConfig{
-		statePool:  s.StatePool,
-		centralHub: s.hub,
-		presence:   presence.New(clock.WallClock),
-		logger:     loggo.GetLogger("test"),
+		statePool:    s.StatePool,
+		centralHub:   s.hub,
+		presence:     presence.New(clock.WallClock),
+		leaseManager: &lease.Manager{},
+		logger:       loggo.GetLogger("test"),
 	}
 }
 
@@ -60,6 +63,13 @@ func (s *sharedServerContextSuite) TestConfigNoPresence(c *gc.C) {
 	err := s.config.validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "nil presence not valid")
+}
+
+func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *gc.C) {
+	s.config.leaseManager = nil
+	err := s.config.validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "nil leaseManager not valid")
 }
 
 func (s *sharedServerContextSuite) TestNewCallsConfigValidate(c *gc.C) {
@@ -85,7 +95,20 @@ func (s *sharedServerContextSuite) newContext(c *gc.C) *sharedServerContext {
 	return ctx
 }
 
+type stubHub struct {
+	*pubsub.StructuredHub
+
+	published []string
+}
+
+func (s *stubHub) Publish(topic string, data interface{}) (<-chan struct{}, error) {
+	s.published = append(s.published, topic)
+	return nil, nil
+}
+
 func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
+	stub := &stubHub{StructuredHub: s.hub}
+	s.config.centralHub = stub
 	ctx := s.newContext(c)
 
 	msg := controller.ConfigChangedMessage{
@@ -106,4 +129,57 @@ func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
 	c.Check(ctx.featureEnabled("foo"), jc.IsTrue)
 	c.Check(ctx.featureEnabled("bar"), jc.IsTrue)
 	c.Check(ctx.featureEnabled("baz"), jc.IsFalse)
+	c.Check(stub.published, gc.HasLen, 0)
+}
+
+func (s *sharedServerContextSuite) TestAddingOldPresenceFeature(c *gc.C) {
+	// Adding the feature.OldPresence to the feature list will cause
+	// a message to be published on the hub to request an apiserver restart.
+	stub := &stubHub{StructuredHub: s.hub}
+	s.config.centralHub = stub
+	s.newContext(c)
+
+	msg := controller.ConfigChangedMessage{
+		corecontroller.Config{
+			corecontroller.Features: []string{"foo", "bar", feature.OldPresence},
+		},
+	}
+	done, err := s.hub.Publish(controller.ConfigChanged, msg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("handler didn't")
+	}
+
+	c.Check(stub.published, jc.DeepEquals, []string{"apiserver.restart"})
+}
+
+func (s *sharedServerContextSuite) TestRemovingOldPresenceFeature(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		"features": []string{feature.OldPresence},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// Removing the feature.OldPresence to the feature list will cause
+	// a message to be published on the hub to request an apiserver restart.
+	stub := &stubHub{StructuredHub: s.hub}
+	s.config.centralHub = stub
+	s.newContext(c)
+
+	msg := controller.ConfigChangedMessage{
+		corecontroller.Config{
+			corecontroller.Features: []string{"foo", "bar"},
+		},
+	}
+	done, err := s.hub.Publish(controller.ConfigChanged, msg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("handler didn't")
+	}
+
+	c.Check(stub.published, jc.DeepEquals, []string{"apiserver.restart"})
 }

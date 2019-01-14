@@ -146,7 +146,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *gc.C) 
 }
 
 func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -156,7 +156,7 @@ func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -166,7 +166,7 @@ func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
@@ -177,7 +177,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=foo")
@@ -187,7 +187,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabContainer(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("container=lxd")
@@ -197,7 +197,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabContainer(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-1")

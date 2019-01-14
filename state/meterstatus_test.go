@@ -11,14 +11,13 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type MeterStateSuite struct {
 	ConnSuite
 	unit           *state.Unit
-	factory        *factory.Factory
 	metricsManager *state.MetricsManager
 }
 
@@ -26,8 +25,7 @@ var _ = gc.Suite(&MeterStateSuite{})
 
 func (s *MeterStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.factory = factory.NewFactory(s.State)
-	s.unit = s.factory.MakeUnit(c, nil)
+	s.unit = s.Factory.MakeUnit(c, nil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
 	var err error
 	s.metricsManager, err = s.State.MetricsManager()
@@ -97,17 +95,19 @@ func (s *MeterStateSuite) TestMeterStatusRemovedWithUnit(c *gc.C) {
 
 func (s *MeterStateSuite) TestMeterStatusWatcherRespondstoMeterStatus(c *gc.C) {
 	watcher := s.unit.WatchMeterStatus()
-	assertMeterStatusChanged(c, watcher)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher)
+	wc.AssertOneChange()
 	err := s.unit.SetMeterStatus("GREEN", "Information.")
 	c.Assert(err, jc.ErrorIsNil)
-	assertMeterStatusChanged(c, watcher)
+	wc.AssertOneChange()
 }
 
 func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManager(c *gc.C) {
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := s.unit.WatchMeterStatus()
-	assertMeterStatusChanged(c, watcher)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher)
+	wc.AssertOneChange()
 	err = mm.SetLastSuccessfulSend(testing.NonZeroTime())
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
@@ -116,14 +116,15 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManager(c *gc.C
 	}
 	status := mm.MeterStatus()
 	c.Assert(status.Code, gc.Equals, state.MeterAmber)
-	assertMeterStatusChanged(c, watcher)
+	wc.AssertOneChange()
 }
 
 func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManagerAndStatus(c *gc.C) {
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := s.unit.WatchMeterStatus()
-	assertMeterStatusChanged(c, watcher)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher)
+	wc.AssertOneChange()
 	err = mm.SetLastSuccessfulSend(testing.NonZeroTime())
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
@@ -134,24 +135,7 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManagerAndStatu
 	c.Assert(status.Code, gc.Equals, state.MeterAmber)
 	err = s.unit.SetMeterStatus("GREEN", "Information.")
 	c.Assert(err, jc.ErrorIsNil)
-	assertMeterStatusChanged(c, watcher)
-	assertMeterStatusNotChanged(c, watcher)
-}
-
-func assertMeterStatusChanged(c *gc.C, w state.NotifyWatcher) {
-	select {
-	case <-w.Changes():
-	case <-time.After(testing.LongWait):
-		c.Fatalf("expected event from watcher by now")
-	}
-}
-
-func assertMeterStatusNotChanged(c *gc.C, w state.NotifyWatcher) {
-	select {
-	case <-w.Changes():
-		c.Fatalf("unexpected event from watcher")
-	case <-time.After(testing.ShortWait):
-	}
+	wc.AssertOneChange()
 }
 
 func assertMetricsManagerAmberState(c *gc.C, metricsManager *state.MetricsManager) {

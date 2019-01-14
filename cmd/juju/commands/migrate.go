@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -24,7 +25,6 @@ func newMigrateCommand() modelcmd.ModelCommand {
 // migrateCommand initiates a model migration.
 type migrateCommand struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
 	newAPIRoot       func(jujuclient.ClientStore, string, string) (api.Connection, error)
 	api              migrateAPI
 	targetController string
@@ -65,12 +65,12 @@ See also:
 
 // Info implements cmd.Command.
 func (c *migrateCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "migrate",
 		Args:    "<model-name> <target-controller-name>",
 		Purpose: "Migrate a hosted model to another controller.",
 		Doc:     migrateDoc,
-	}
+	})
 }
 
 // Init implements cmd.Command.

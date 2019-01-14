@@ -14,8 +14,8 @@ var (
 
 // WalletAPIClientFnc returns a function that returns the provided walletAPIClient
 // and can be used to patch the NewWalletAPIClient variable for tests.
-func WalletAPIClientFnc(api walletAPIClient) func(*httpbakery.Client) (walletAPIClient, error) {
-	return func(*httpbakery.Client) (walletAPIClient, error) {
+func WalletAPIClientFnc(api walletAPIClient) func(string, *httpbakery.Client) (walletAPIClient, error) {
+	return func(string, *httpbakery.Client) (walletAPIClient, error) {
 		return api, nil
 	}
 }

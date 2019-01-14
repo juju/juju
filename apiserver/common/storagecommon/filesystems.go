@@ -39,7 +39,7 @@ func FilesystemParams(
 		size = filesystemInfo.Size
 	}
 
-	filesystemTags, err := storageTags(storageInstance, modelUUID, controllerUUID, environConfig)
+	filesystemTags, err := StorageTags(storageInstance, modelUUID, controllerUUID, environConfig)
 	if err != nil {
 		return params.FilesystemParams{}, errors.Annotate(err, "computing storage tags")
 	}
@@ -137,7 +137,7 @@ func FilesystemAttachmentFromState(v state.FilesystemAttachment) (params.Filesys
 	}
 	return params.FilesystemAttachment{
 		v.Filesystem().String(),
-		v.Machine().String(),
+		v.Host().String(),
 		FilesystemAttachmentInfoFromState(info),
 	}, nil
 }

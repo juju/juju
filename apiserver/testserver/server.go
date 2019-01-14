@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/lease"
 )
 
 // DefaultServerConfig returns the default configuration for starting a test server.
@@ -38,6 +39,7 @@ func DefaultServerConfig(c *gc.C) apiserver.ServerConfig {
 		LogDir:          c.MkDir(),
 		Hub:             hub,
 		Presence:        presence.New(clock.WallClock),
+		LeaseManager:    &lease.Manager{},
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{Enabled: false} },

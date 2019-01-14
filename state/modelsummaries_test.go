@@ -13,10 +13,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -183,7 +183,7 @@ func (s *ModelSummariesSuite) TestModelsForIgnoresImportingModels(c *gc.C) {
 		"uuid": utils.MustNewUUID().String(),
 		"type": state.ModelTypeIAAS,
 	})
-	_, stImporting, err := s.State.NewModel(state.ModelArgs{
+	_, stImporting, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",
@@ -333,19 +333,19 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	c.Assert(m0.Life(), gc.Equals, state.Alive)
 	err = m0.SetInstanceInfo("i-12345", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &onecore,
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	m1, err := shared.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m1.SetInstanceInfo("i-45678", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &twocores,
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	m2, err := shared.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m2.SetInstanceInfo("i-78901", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &threecores,
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// No instance
 	_, err = shared.AddMachine("quantal", state.JobHostUnits)
@@ -355,7 +355,7 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mDying.SetInstanceInfo("i-78901", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &threecores,
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = mDying.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -365,7 +365,7 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	arch := "amd64"
 	err = m4.SetInstanceInfo("i-78901", "nonce", &instance.HardwareCharacteristics{
 		Arch: &arch,
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)

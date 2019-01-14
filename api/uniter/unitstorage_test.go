@@ -21,7 +21,7 @@ type unitStorageSuite struct {
 
 var _ = gc.Suite(&unitStorageSuite{})
 
-const expectedAPIVersion = 8
+const expectedAPIVersion = 9
 
 func (s *unitStorageSuite) createTestUnit(c *gc.C, t string, apiCaller basetesting.APICallerFunc) *uniter.Unit {
 	tag := names.NewUnitTag(t)
@@ -32,8 +32,8 @@ func (s *unitStorageSuite) createTestUnit(c *gc.C, t string, apiCaller basetesti
 func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 	count := uint64(1)
 	args := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{
-			params.StorageConstraints{Count: &count}},
+		"data": {
+			{Count: &count}},
 	}
 
 	expected := params.StoragesAddParams{
@@ -64,7 +64,7 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
 	count := uint64(1)
 	args := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{params.StorageConstraints{Count: &count}},
+		"data": {{Count: &count}},
 	}
 
 	expected := params.StoragesAddParams{

@@ -311,6 +311,9 @@ func (s *AssignSuite) TestPrincipals(c *gc.C) {
 func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
@@ -1030,7 +1033,9 @@ func (s *assignCleanSuite) TestAssignToMachine(c *gc.C) {
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	filesystemAttachments, err := s.IAASModel.MachineFilesystemAttachments(machine.MachineTag())
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemAttachments, err := sb.MachineFilesystemAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystemAttachments, gc.HasLen, 1)
 }
@@ -1056,7 +1061,9 @@ func (s *assignCleanSuite) TestAssignToMachineErrors(c *gc.C) {
 
 func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageCleanAvailable(c *gc.C) {
 	_, unit, _ := s.setupSingleStorage(c, "filesystem", "static")
-	storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	storageAttachments, err := sb.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 
@@ -1079,7 +1086,9 @@ func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageCleanAvailable(c *
 
 func (s *assignCleanSuite) TestAssignUnitWithDynamicStorageCleanAvailable(c *gc.C) {
 	_, unit, _ := s.setupSingleStorage(c, "filesystem", "loop-pool")
-	storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	storageAttachments, err := sb.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 
@@ -1100,11 +1109,11 @@ func (s *assignCleanSuite) TestAssignUnitWithDynamicStorageCleanAvailable(c *gc.
 	// Check that a volume attachments were added to the machine.
 	machine, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeAttachments, err := s.IAASModel.MachineVolumeAttachments(machine.MachineTag())
+	volumeAttachments, err := sb.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 
-	volume, err := s.IAASModel.Volume(volumeAttachments[0].Volume())
+	volume, err := sb.Volume(volumeAttachments[0].Volume())
 	c.Assert(err, jc.ErrorIsNil)
 	volumeStorageInstance, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1177,7 +1186,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 
 	// Assign units to all the expectedMachines machines.
 	var got []string
-	for _ = range expectedMachines {
+	for range expectedMachines {
 		unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(unit, s.policy)
@@ -1289,7 +1298,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyConcurrently(c *gc.C) {
 		}()
 	}
 	assignments := make(map[string][]*state.Unit)
-	for _ = range us {
+	for range us {
 		r := <-done
 		if !c.Check(r.err, gc.IsNil) {
 			continue

@@ -17,10 +17,10 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
 
@@ -28,7 +28,7 @@ import (
 // settings and constraints.
 const modelGlobalKey = "e"
 
-// modelKey will create the kei for a given model using the modelGlobalKey.
+// modelKey will create the key for a given model using the modelGlobalKey.
 func modelKey(modelUUID string) string {
 	return fmt.Sprintf("%s#%s", modelGlobalKey, modelUUID)
 }
@@ -291,11 +291,8 @@ func (m ModelArgs) Validate() error {
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
 	}
-	if m.StorageProviderRegistry == nil && m.Type == ModelTypeIAAS {
+	if m.StorageProviderRegistry == nil {
 		return errors.NotValidf("nil StorageProviderRegistry")
-	}
-	if m.StorageProviderRegistry != nil && m.Type == ModelTypeCAAS {
-		return errors.NotValidf("CAAS model with StorageProviderRegistry")
 	}
 	switch m.MigrationMode {
 	case MigrationModeNone, MigrationModeImporting:
@@ -314,7 +311,9 @@ func (m ModelArgs) Validate() error {
 // model document means that we have a way to represent external
 // models, perhaps for future use around cross model
 // relations.
-func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
+func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
+	st := ctlr.pool.SystemState()
+
 	if err := args.Validate(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -419,16 +418,24 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		// the same "owner" and "name" in the collection. If the txn is
 		// aborted, check if it is due to the unique key restriction.
 		name := args.Config.Name()
+		qualifierTerm := bson.DocElem{"owner", owner.Id()}
+		if args.Type == ModelTypeCAAS {
+			qualifierTerm = bson.DocElem{"cloud", args.CloudName}
+		}
 		models, closer := st.db().GetCollection(modelsC)
 		defer closer()
 		modelCount, countErr := models.Find(bson.D{
-			{"owner", owner.Id()},
+			qualifierTerm,
 			{"name", name}},
 		).Count()
 		if countErr != nil {
 			err = errors.Trace(countErr)
 		} else if modelCount > 0 {
-			err = errors.AlreadyExistsf("model %q for %s", name, owner.Id())
+			qualifierMessage := qualifierTerm.Value
+			if args.Type == ModelTypeCAAS {
+				qualifierMessage = fmt.Sprintf("cloud %v", qualifierMessage)
+			}
+			err = errors.AlreadyExistsf("model %q for %s", name, qualifierMessage)
 		} else {
 			err = errors.Annotate(err, "failed to create new model")
 		}
@@ -437,7 +444,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newSt.start(st.controllerTag, nil)
+	err = newSt.start(st.controllerTag, ctlr.pool.hub)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}
@@ -576,7 +583,7 @@ func (m *Model) Name() string {
 	return m.doc.Name
 }
 
-// Type returns the human friendly name of the model.
+// Type returns the type of the model.
 func (m *Model) Type() ModelType {
 	return m.doc.Type
 }
@@ -939,7 +946,9 @@ func (m *Model) Users() ([]permission.UserAccess, error) {
 	return modelUsers, nil
 }
 
-func (m *Model) isControllerModel() bool {
+// IsControllerModel returns a boolean indicating whether
+// this model is responsible for running a controller.
+func (m *Model) IsControllerModel() bool {
 	return m.st.controllerModelTag.Id() == m.doc.UUID
 }
 
@@ -968,7 +977,11 @@ type DestroyModelParams struct {
 }
 
 func (m *Model) uniqueIndexID() string {
-	return userModelNameIndex(m.doc.Owner, m.doc.Name)
+	qualifier := m.doc.Owner
+	if m.Type() == ModelTypeCAAS {
+		qualifier = m.Cloud()
+	}
+	return userModelNameIndex(qualifier, m.doc.Name)
 }
 
 // Destroy sets the models's lifecycle to Dying, preventing
@@ -1000,7 +1013,6 @@ func (m *Model) Destroy(args DestroyModelParams) (err error) {
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-
 		return ops, nil
 	}
 	return m.st.db().Run(buildTxn)
@@ -1136,27 +1148,21 @@ func (m *Model) destroyOps(
 			// The model is non-empty, and the user has specified that
 			// storage should be released. Make sure the storage is
 			// all releasable.
-			im, err := m.IAASModel()
+			sb, err := NewStorageBackend(m.st)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			storageOps, err := checkModelEntityRefsAllReleasableStorage(
-				im, modelEntityRefs,
+				sb, modelEntityRefs,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			prereqOps = storageOps
 		}
-	} else {
-		if !m.isControllerModel() {
-			// The model is empty, and is not the controller
-			// model, so we can move it straight to Dead.
-			nextLife = Dead
-		}
 	}
 
-	if m.isControllerModel() && (!args.DestroyHostedModels || args.DestroyStorage == nil || !*args.DestroyStorage) {
+	if m.IsControllerModel() && (!args.DestroyHostedModels || args.DestroyStorage == nil || !*args.DestroyStorage) {
 		// This is the controller model, and we've not been instructed
 		// to destroy hosted models, or we've not been instructed to
 		// destroy storage.
@@ -1164,13 +1170,6 @@ func (m *Model) destroyOps(
 		// Check for any Dying or alive but non-empty models. If there
 		// are any and we have not been instructed to destroy them, we
 		// return an error indicating that there are hosted models.
-
-		// We need access State instances for hosted models and it's
-		// too hard to thread an external StatePool to here, so create
-		// a fresh one. Creating new States is relatively slow but
-		// this is ok because this is an infrequently used code path.
-		pool := NewStatePool(m.st)
-		defer pool.Close()
 
 		modelUUIDs, err := m.st.AllModelUUIDsIncludingDead()
 		if err != nil {
@@ -1182,8 +1181,7 @@ func (m *Model) destroyOps(
 				// Ignore the controller model.
 				continue
 			}
-
-			st, err := pool.Get(aModelUUID)
+			newSt, err := m.st.newStateNoWorkers(aModelUUID)
 			if err != nil {
 				// This model could have been removed.
 				if errors.IsNotFound(err) {
@@ -1191,9 +1189,9 @@ func (m *Model) destroyOps(
 				}
 				return nil, errors.Trace(err)
 			}
-			defer st.Release()
+			defer newSt.Close()
 
-			model, err := st.Model()
+			model, err := newSt.Model()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1214,6 +1212,7 @@ func (m *Model) destroyOps(
 			ops, err := model.destroyOps(args, !args.DestroyHostedModels, true)
 			switch err {
 			case errModelNotAlive:
+				// this empty hosted model is still dying.
 				dying++
 			case nil:
 				prereqOps = append(prereqOps, ops...)
@@ -1246,31 +1245,22 @@ func (m *Model) destroyOps(
 		)
 	}
 
-	timeOfDying := m.st.nowToTheSecond()
-	modelUpdateValues := bson.D{
-		{"life", nextLife},
-		{"time-of-dying", timeOfDying},
-	}
 	var ops []txn.Op
-	if nextLife == Dead {
-		modelUpdateValues = append(modelUpdateValues, bson.DocElem{
-			"time-of-death", timeOfDying,
-		})
-		ops = append(ops, txn.Op{
-			// Cleanup the owner:modelName unique key.
-			C:      usermodelnameC,
-			Id:     m.uniqueIndexID(),
-			Remove: true,
-		})
-	}
-
 	modelOp := txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
 		Assert: isAliveDoc,
 	}
-	if !destroyingController || nextLife == Dead {
-		modelOp.Update = bson.D{{"$set", modelUpdateValues}}
+	if !destroyingController {
+		modelOp.Update = bson.D{
+			{
+				"$set",
+				bson.D{
+					{"life", nextLife},
+					{"time-of-dying", m.st.nowToTheSecond()},
+				},
+			},
+		}
 	}
 	ops = append(ops, modelOp)
 	if destroyingController {
@@ -1286,7 +1276,7 @@ func (m *Model) destroyOps(
 	// arbitrarily long delays, we need to make sure every op
 	// causes a state change that's still consistent; so we make
 	// sure the cleanup ops are the last thing that will execute.
-	if m.isControllerModel() {
+	if m.IsControllerModel() {
 		ops = append(ops, newCleanupOp(
 			cleanupModelsForDyingController, modelUUID,
 			// pass through the DestroyModelArgs to the cleanup,
@@ -1305,24 +1295,21 @@ func (m *Model) destroyOps(
 		ops = append(ops,
 			newCleanupOp(cleanupApplicationsForDyingModel, modelUUID),
 		)
-		switch m.Type() {
-		case ModelTypeIAAS:
+		if m.Type() == ModelTypeIAAS {
 			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
-			if args.DestroyStorage != nil {
-				// The user has specified that the storage should be destroyed
-				// or released, which we can do in a cleanup. If the user did
-				// not specify either, then we have already added prereq ops
-				// to assert that there is no storage in the model.
-				ops = append(ops, newCleanupOp(
-					cleanupStorageForDyingModel, modelUUID,
-					// pass through DestroyModelArgs.DestroyStorage to the
-					// cleanup, so the storage can be destroyed/released
-					// according to the parameters.
-					*args.DestroyStorage,
-				))
-			}
-		case ModelTypeCAAS:
-			ops = append(ops, newCleanupOp(cleanupUnitsForDyingModel, modelUUID))
+		}
+		if args.DestroyStorage != nil {
+			// The user has specified that the storage should be destroyed
+			// or released, which we can do in a cleanup. If the user did
+			// not specify either, then we have already added prereq ops
+			// to assert that there is no storage in the model.
+			ops = append(ops, newCleanupOp(
+				cleanupStorageForDyingModel, modelUUID,
+				// pass through DestroyModelArgs.DestroyStorage to the
+				// cleanup, so the storage can be destroyed/released
+				// according to the parameters.
+				*args.DestroyStorage,
+			))
 		}
 	}
 	return append(prereqOps, ops...), nil
@@ -1412,17 +1399,17 @@ func checkModelEntityRefsNoPersistentStorage(
 // persistent storage in the model is releasable. If it is, then
 // txn.Ops are returned to assert the same; if it is not, then an
 // error is returned.
-func checkModelEntityRefsAllReleasableStorage(im *IAASModel, doc *modelEntityRefsDoc) ([]txn.Op, error) {
+func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEntityRefsDoc) ([]txn.Op, error) {
 	for _, volumeId := range doc.Volumes {
 		volumeTag := names.NewVolumeTag(volumeId)
-		volume, err := im.volumeByTag(volumeTag)
+		volume, err := getVolumeByTag(sb.mb, volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if !volume.Detachable() {
 			continue
 		}
-		if err := checkStoragePoolReleasable(im, volume.pool()); err != nil {
+		if err := checkStoragePoolReleasable(sb, volume.pool()); err != nil {
 			return nil, errors.Annotatef(err,
 				"cannot release %s", names.ReadableString(volumeTag),
 			)
@@ -1430,14 +1417,14 @@ func checkModelEntityRefsAllReleasableStorage(im *IAASModel, doc *modelEntityRef
 	}
 	for _, filesystemId := range doc.Filesystems {
 		filesystemTag := names.NewFilesystemTag(filesystemId)
-		filesystem, err := im.filesystemByTag(filesystemTag)
+		filesystem, err := getFilesystemByTag(sb.mb, filesystemTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if !filesystem.Detachable() {
 			continue
 		}
-		if err := checkStoragePoolReleasable(im, filesystem.pool()); err != nil {
+		if err := checkStoragePoolReleasable(sb, filesystem.pool()); err != nil {
 			return nil, errors.Annotatef(err,
 				"cannot release %s", names.ReadableString(filesystemTag),
 			)
@@ -1615,11 +1602,11 @@ func hostedModelCount(st *State) (int, error) {
 }
 
 // createUniqueOwnerModelNameOp returns the operation needed to create
-// an usermodelnameC document with the given owner and model name.
-func createUniqueOwnerModelNameOp(owner names.UserTag, modelName string) txn.Op {
+// an usermodelnameC document with the given qualifier and model name.
+func createUniqueOwnerModelNameOp(qualifier string, modelName string) txn.Op {
 	return txn.Op{
 		C:      usermodelnameC,
-		Id:     userModelNameIndex(owner.Id(), modelName),
+		Id:     userModelNameIndex(qualifier, modelName),
 		Assert: txn.DocMissing,
 		Insert: bson.M{},
 	}

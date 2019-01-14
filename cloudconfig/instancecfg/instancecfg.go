@@ -164,6 +164,9 @@ type InstanceConfig struct {
 	// ifup when bridging bonded interfaces. See bugs #1594855 and
 	// #1269921.
 	NetBondReconfigureDelay int
+
+	// Profiles is a slice of (lxd) profile names to be used by a container
+	Profiles []string
 }
 
 // ControllerConfig represents controller-specific initialization information
@@ -790,6 +793,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	enableOSRefreshUpdates bool,
 	enableOSUpgrade bool,
 	cloudInitUserData map[string]interface{},
+	profiles []string,
 ) error {
 	icfg.AuthorizedKeys = authorizedKeys
 	if icfg.AgentEnvironment == nil {
@@ -807,6 +811,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates
 	icfg.EnableOSUpgrade = enableOSUpgrade
 	icfg.CloudInitUserData = cloudInitUserData
+	icfg.Profiles = profiles
 	return nil
 }
 
@@ -834,6 +839,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		cfg.EnableOSRefreshUpdate(),
 		cfg.EnableOSUpgrade(),
 		cfg.CloudInitUserData(),
+		nil,
 	); err != nil {
 		return errors.Trace(err)
 	}

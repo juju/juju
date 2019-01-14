@@ -194,7 +194,8 @@ func (s *AvailabilityZoneSuite) TestDistributeInstancesGroup(c *gc.C) {
 		called = true
 		return nil, nil
 	})
-	common.DistributeInstances(&s.env, s.callCtx, nil, expectedGroup)
+	_, err := common.DistributeInstances(&s.env, s.callCtx, nil, expectedGroup, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -203,7 +204,7 @@ func (s *AvailabilityZoneSuite) TestDistributeInstancesGroupErrors(c *gc.C) {
 	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 		return nil, resultErr
 	})
-	_, err := common.DistributeInstances(&s.env, s.callCtx, nil, nil)
+	_, err := common.DistributeInstances(&s.env, s.callCtx, nil, nil, nil)
 	c.Assert(err, gc.Equals, resultErr)
 }
 
@@ -216,71 +217,89 @@ func (s *AvailabilityZoneSuite) TestDistributeInstances(c *gc.C) {
 	type distributeInstancesTest struct {
 		zoneInstances []common.AvailabilityZoneInstances
 		candidates    []instance.Id
+		limitZones    []string
 		eligible      []instance.Id
 	}
 
+	defaultZoneInstances := []common.AvailabilityZoneInstances{{
+		ZoneName:  "az0",
+		Instances: []instance.Id{"i0"},
+	}, {
+		ZoneName:  "az1",
+		Instances: []instance.Id{"i1"},
+	}, {
+		ZoneName:  "az2",
+		Instances: []instance.Id{"i2"},
+	}}
+
 	tests := []distributeInstancesTest{{
-		zoneInstances: []common.AvailabilityZoneInstances{{
-			ZoneName:  "az0",
-			Instances: []instance.Id{"i0"},
-		}, {
-			ZoneName:  "az1",
-			Instances: []instance.Id{"i1"},
-		}, {
-			ZoneName:  "az2",
-			Instances: []instance.Id{"i2"},
-		}},
-		candidates: []instance.Id{"i2", "i3", "i4"},
-		eligible:   []instance.Id{"i2"},
+		zoneInstances: defaultZoneInstances,
+		candidates:    []instance.Id{"i2", "i3", "i4"},
+		eligible:      []instance.Id{"i2"},
 	}, {
-		zoneInstances: []common.AvailabilityZoneInstances{{
-			ZoneName:  "az0",
-			Instances: []instance.Id{"i0"},
-		}, {
-			ZoneName:  "az1",
-			Instances: []instance.Id{"i1"},
-		}, {
-			ZoneName:  "az2",
-			Instances: []instance.Id{"i2"},
-		}},
-		candidates: []instance.Id{"i0", "i1", "i2"},
-		eligible:   []instance.Id{"i0", "i1", "i2"},
+		zoneInstances: defaultZoneInstances,
+		candidates:    []instance.Id{"i0", "i1", "i2"},
+		eligible:      []instance.Id{"i0", "i1", "i2"},
 	}, {
-		zoneInstances: []common.AvailabilityZoneInstances{{
-			ZoneName:  "az0",
-			Instances: []instance.Id{"i0"},
-		}, {
-			ZoneName:  "az1",
-			Instances: []instance.Id{"i1"},
-		}, {
-			ZoneName:  "az2",
-			Instances: []instance.Id{"i2"},
-		}},
-		candidates: []instance.Id{"i3", "i4", "i5"},
-		eligible:   []instance.Id{},
+		zoneInstances: defaultZoneInstances,
+		candidates:    []instance.Id{"i3", "i4", "i5"},
+		eligible:      []instance.Id{},
 	}, {
-		zoneInstances: []common.AvailabilityZoneInstances{{
-			ZoneName:  "az0",
-			Instances: []instance.Id{"i0"},
-		}, {
-			ZoneName:  "az1",
-			Instances: []instance.Id{"i1"},
-		}, {
-			ZoneName:  "az2",
-			Instances: []instance.Id{"i2"},
-		}},
-		candidates: []instance.Id{},
-		eligible:   []instance.Id{},
+		zoneInstances: defaultZoneInstances,
+		candidates:    []instance.Id{},
+		eligible:      []instance.Id{},
 	}, {
 		zoneInstances: []common.AvailabilityZoneInstances{},
 		candidates:    []instance.Id{"i0"},
 		eligible:      []instance.Id{},
+	}, {
+		// Limit to all zones; essentially the same as no limit.
+		zoneInstances: defaultZoneInstances,
+		candidates:    []instance.Id{"i0", "i1", "i2"},
+		limitZones:    []string{"az0", "az1", "az2"},
+		eligible:      []instance.Id{"i0", "i1", "i2"},
+	}, {
+		// Simple limit to a subset of zones.
+		zoneInstances: defaultZoneInstances,
+		candidates:    []instance.Id{"i0", "i1", "i2"},
+		limitZones:    []string{"az0", "az1"},
+		eligible:      []instance.Id{"i0", "i1"},
+	}, {
+		// Intersecting zone limit with equal distribution.
+		zoneInstances: defaultZoneInstances,
+		candidates:    []instance.Id{"i0", "i1"},
+		limitZones:    []string{"az1", "az2", "az4"},
+		eligible:      []instance.Id{"i0", "i1"},
+	}, {
+		// Intersecting zone limit with unequal distribution.
+		zoneInstances: []common.AvailabilityZoneInstances{{
+			ZoneName:  "az0",
+			Instances: []instance.Id{"i0"},
+		}, {
+			ZoneName:  "az1",
+			Instances: []instance.Id{"i1", "i2"},
+		}},
+		candidates: []instance.Id{"i0", "i1", "i2"},
+		limitZones: []string{"az0", "az1", "az666"},
+		eligible:   []instance.Id{"i0"},
+	}, {
+		// Limit filters out all zones - no eligible instances.
+		zoneInstances: []common.AvailabilityZoneInstances{{
+			ZoneName:  "az0",
+			Instances: []instance.Id{"i0"},
+		}, {
+			ZoneName:  "az1",
+			Instances: []instance.Id{"i1"},
+		}},
+		candidates: []instance.Id{"i0", "i1"},
+		limitZones: []string{"az2", "az3"},
+		eligible:   []instance.Id{},
 	}}
 
 	for i, test := range tests {
 		c.Logf("test %d", i)
 		zoneInstances = test.zoneInstances
-		eligible, err := common.DistributeInstances(&s.env, s.callCtx, test.candidates, nil)
+		eligible, err := common.DistributeInstances(&s.env, s.callCtx, test.candidates, nil, test.limitZones)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(eligible, jc.SameContents, test.eligible)
 	}

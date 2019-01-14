@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/payload"
 )
@@ -58,13 +59,13 @@ will be checked against the following info in Juju:
 `
 
 func (c *ListCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "payloads",
 		Args:    "[pattern ...]",
 		Purpose: "Display status information about known payloads.",
 		Doc:     listDoc,
 		Aliases: []string{"list-payloads"},
-	}
+	})
 }
 
 func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {

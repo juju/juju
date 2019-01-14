@@ -24,6 +24,9 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
+// TODO (hml) lxd-profile
+// Go back and add additional tests here
+
 type CharmSuite struct {
 	ConnSuite
 	charm *state.Charm
@@ -141,6 +144,7 @@ func (s *CharmSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
 		Charm:       testcharms.Repo.CharmDir("dummy"),
 		StoragePath: "dummy-1",
 		SHA256:      "dummy-1-sha256",
+		Version:     "dummy-146-g725cfd3-dirty",
 	}
 	if curlOverride != "" {
 		info.ID = charm.MustParseURL(curlOverride)
@@ -280,6 +284,9 @@ func (s *CharmSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("%#v", doc)
 	c.Assert(doc.URL, gc.DeepEquals, info.ID)
+
+	expVersion := "dummy-146-g725cfd3-dirty"
+	c.Assert(doc.CharmVersion, gc.Equals, expVersion)
 }
 
 func (s *CharmSuite) TestAddCharmWithAuth(c *gc.C) {
@@ -359,13 +366,13 @@ func (s *CharmSuite) TestAddCharmWithInvalidMetaData(c *gc.C) {
 	}
 
 	check(func(meta *charm.Meta) {
-		meta.Provides = map[string]charm.Relation{"$foo": charm.Relation{}}
+		meta.Provides = map[string]charm.Relation{"$foo": {}}
 	})
 	check(func(meta *charm.Meta) {
-		meta.Requires = map[string]charm.Relation{"$foo": charm.Relation{}}
+		meta.Requires = map[string]charm.Relation{"$foo": {}}
 	})
 	check(func(meta *charm.Meta) {
-		meta.Peers = map[string]charm.Relation{"$foo": charm.Relation{}}
+		meta.Peers = map[string]charm.Relation{"$foo": {}}
 	})
 }
 
@@ -562,7 +569,7 @@ func (s *CharmSuite) TestUpdateUploadedCharmRejectsInvalidMetadata(c *gc.C) {
 
 	meta := info.Charm.Meta()
 	meta.Provides = map[string]charm.Relation{
-		"foo.bar": charm.Relation{},
+		"foo.bar": {},
 	}
 	_, err = s.State.UpdateUploadedCharm(info)
 	c.Assert(err, gc.ErrorMatches, `invalid charm data: "foo.bar" is not a valid field name`)
@@ -691,7 +698,15 @@ type CharmTestHelperSuite struct {
 
 var _ = gc.Suite(&CharmTestHelperSuite{})
 
-func assertCustomCharm(c *gc.C, ch *state.Charm, series string, meta *charm.Meta, config *charm.Config, metrics *charm.Metrics, revision int) {
+func assertCustomCharm(
+	c *gc.C,
+	ch *state.Charm,
+	series string,
+	meta *charm.Meta,
+	config *charm.Config,
+	metrics *charm.Metrics,
+	revision int,
+) {
 	// Check Charm interface method results.
 	c.Assert(ch.Meta(), gc.DeepEquals, meta)
 	c.Assert(ch.Config(), gc.DeepEquals, config)
@@ -747,7 +762,6 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 		chd := testcharms.Repo.CharmDir(name)
 		meta := chd.Meta()
 		metrics := chd.Metrics()
-
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
 		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
 	})
@@ -810,6 +824,37 @@ func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 
 		ch := s.AddMetaCharm(c, name, metaYaml, 123)
 		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
+	})
+}
+
+func (s *CharmTestHelperSuite) TestLXDProfileCharm(c *gc.C) {
+	chd := testcharms.Repo.CharmDir("lxd-profile")
+	c.Assert(chd.LXDProfile(), jc.DeepEquals, &charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting":       "true",
+			"security.privileged":    "true",
+			"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+			"environment.http_proxy": "",
+		},
+		Description: "lxd profile for testing, will pass validation",
+		Devices: map[string]map[string]string{
+			"tun": {
+				"path": "/dev/net/tun",
+				"type": "unix-char",
+			},
+			"sony": {
+				"type":      "usb",
+				"vendorid":  "0fce",
+				"productid": "51da",
+			},
+			"bdisk": {
+				"source": "/dev/loop0",
+				"type":   "unix-block",
+			},
+			"gpu": {
+				"type": "gpu",
+			},
+		},
 	})
 }
 

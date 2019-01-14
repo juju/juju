@@ -60,6 +60,7 @@ var (
 		"environ-tracker",
 		"firewaller",
 		"instance-poller",
+		"log-forwarder",
 		"machine-undertaker",
 		"metric-worker",
 		"migration-fortress",
@@ -70,7 +71,6 @@ var (
 		"status-history-pruner",
 		"storage-provisioner",
 		"unit-assigner",
-		"log-forwarder",
 	}
 	migratingModelWorkers = []string{
 		"environ-tracker",
@@ -131,6 +131,7 @@ var (
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"upgrader",
+		"valid-credential-flag",
 	}
 	notMigratingMachineWorkers = []string{
 		"api-address-updater",
@@ -145,6 +146,7 @@ var (
 		"reboot-executor",
 		"ssh-authkeys-updater",
 		"storage-provisioner",
+		"upgrade-series",
 		"unconverted-api-workers",
 		"unit-agent-deployer",
 	}

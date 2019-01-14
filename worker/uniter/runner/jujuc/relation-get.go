@@ -11,6 +11,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // RelationGetCommand implements the relation-get command.
@@ -51,12 +52,12 @@ If no key is given, or if the key is "-", all keys and values will be printed.
 	} else if !errors.IsNotFound(err) {
 		logger.Errorf("Failed to retrieve remote unit name: %v", err)
 	}
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "relation-get",
 		Args:    args,
 		Purpose: "get relation settings",
 		Doc:     doc,
-	}
+	})
 }
 
 // SetFlags is part of the cmd.Command interface.

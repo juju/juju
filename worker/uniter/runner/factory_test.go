@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -130,24 +130,26 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	s.machine = nil // allocate a new machine
 	unit := s.AddUnit(c, application)
 
-	storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	storageAttachments, err := sb.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 	storageTag := storageAttachments[0].StorageInstance()
 
-	volume, err := s.IAASModel.StorageInstanceVolume(storageTag)
+	volume, err := sb.StorageInstanceVolume(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeTag := volume.VolumeTag()
 	machineTag := s.machine.MachineTag()
 
-	err = s.IAASModel.SetVolumeInfo(
+	err = sb.SetVolumeInfo(
 		volumeTag, state.VolumeInfo{
 			VolumeId: "vol-123",
 			Size:     456,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.IAASModel.SetVolumeAttachmentInfo(
+	err = sb.SetVolumeAttachmentInfo(
 		machineTag, volumeTag, state.VolumeAttachmentInfo{
 			DeviceName: "sdb",
 		},
@@ -168,7 +170,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,
-		Clock:            testing.NewClock(time.Time{}),
+		Clock:            testclock.NewClock(time.Time{}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	factory, err := runner.NewFactory(

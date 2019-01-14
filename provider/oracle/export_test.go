@@ -12,7 +12,6 @@ var (
 	DefaultStorageProviderType = oracleStorageProviderType
 	OracleVolumeType           = oracleVolumeType
 	OracleLatencyPool          = latencyPool
-	OracleCloudSchema          = cloudSchema
 	OracleCredentials          = credentials
 	NewOracleVolumeSource      = newOracleVolumeSource
 	NewOracleInstance          = newInstance

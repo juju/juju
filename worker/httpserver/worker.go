@@ -14,10 +14,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -32,8 +32,6 @@ type Config struct {
 	AgentName            string
 	Clock                clock.Clock
 	TLSConfig            *tls.Config
-	AutocertHandler      http.Handler
-	AutocertListener     net.Listener
 	Mux                  *apiserverhttp.Mux
 	PrometheusRegisterer prometheus.Registerer
 	Hub                  *pubsub.StructuredHub
@@ -55,9 +53,6 @@ func (config Config) Validate() error {
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
-	}
-	if config.AutocertHandler != nil && config.AutocertListener == nil {
-		return errors.NewNotValid(nil, "AutocertListener must not be nil if AutocertHandler is not nil")
 	}
 	return nil
 }
@@ -177,20 +172,6 @@ func (w *Worker) loop() error {
 	w.mu.Lock()
 	w.status = "running"
 	w.mu.Unlock()
-
-	if w.config.AutocertHandler != nil {
-		autocertServer := &http.Server{
-			Handler:  w.config.AutocertHandler,
-			ErrorLog: serverLog,
-		}
-		go autocertServer.Serve(w.config.AutocertListener)
-		defer func() {
-			logger.Infof("shutting down autocert HTTP server")
-			// This will also close the autocert listener.
-			err := autocertServer.Shutdown(context.Background())
-			w.catacomb.Kill(err)
-		}()
-	}
 
 	for {
 		select {

@@ -41,7 +41,7 @@ type removeCommand struct {
 const destroyOfferDoc = `
 Remove one or more application offers.
 
-If the --force flag is specified, any existing relations to the
+If the --force option is specified, any existing relations to the
 offer will also be removed.
 
 Offers to remove are normally specified by their URL.
@@ -61,12 +61,12 @@ See also:
 
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-offer",
 		Args:    "<offer-url> ...",
 		Purpose: "Removes one or more offers specified by their URL.",
 		Doc:     destroyOfferDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

@@ -4,14 +4,19 @@
 package common
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/state"
 )
 
 var sendMetrics = func(st metricsender.ModelBackend) error {
+	ccfg, err := st.ControllerConfig()
+	if err != nil {
+		return errors.Annotate(err, "failed to get controller config")
+	}
+	meteringURL := ccfg.MeteringURL()
 	cfg, err := st.ModelConfig()
 	if err != nil {
 		return errors.Annotatef(err, "failed to get model config for %s", st.ModelTag())
@@ -19,7 +24,7 @@ var sendMetrics = func(st metricsender.ModelBackend) error {
 
 	err = metricsender.SendMetrics(
 		st,
-		metricsender.DefaultMetricSender(),
+		metricsender.DefaultSenderFactory()(meteringURL),
 		clock.WallClock,
 		metricsender.DefaultMaxBatchesPerSend(),
 		cfg.TransmitVendorMetrics(),

@@ -14,12 +14,13 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 const (
@@ -36,10 +37,12 @@ const (
 	// If this is not provided, the LXD storage pool name
 	// will be set to "juju".
 	attrLXDStoragePool = "lxd-pool"
+
+	storagePoolVolumeType = "custom"
 )
 
 func (env *environ) storageSupported() bool {
-	return env.raw.StorageSupported()
+	return env.server.StorageSupported()
 }
 
 // StorageProviderTypes implements storage.ProviderRegistry.
@@ -189,7 +192,7 @@ func (e *lxdStorageProvider) FilesystemSource(cfg *storage.Config) (storage.File
 }
 
 func ensureLXDStoragePool(env *environ, cfg *lxdStorageConfig) error {
-	createErr := env.raw.CreateStoragePool(cfg.lxdPool, cfg.driver, cfg.attrs)
+	createErr := env.server.CreatePool(cfg.lxdPool, cfg.driver, cfg.attrs)
 	if createErr == nil {
 		return nil
 	}
@@ -198,8 +201,8 @@ func ensureLXDStoragePool(env *environ, cfg *lxdStorageConfig) error {
 	// verify that. If it doesn't exist, return the original
 	// CreateStoragePool error.
 
-	pool, err := env.raw.StoragePool(cfg.lxdPool)
-	if errors.IsNotFound(err) {
+	pool, _, err := env.server.GetStoragePool(cfg.lxdPool)
+	if lxd.IsLXDNotFound(err) {
 		return errors.Annotatef(createErr, "creating LXD storage pool %q", cfg.lxdPool)
 	} else if err != nil {
 		return errors.Annotatef(createErr, "getting storage pool %q", cfg.lxdPool)
@@ -228,7 +231,7 @@ type lxdFilesystemSource struct {
 }
 
 // CreateFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) (_ []storage.CreateFilesystemsResult, err error) {
+func (s *lxdFilesystemSource) CreateFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemParams) (_ []storage.CreateFilesystemsResult, err error) {
 	results := make([]storage.CreateFilesystemsResult, len(args))
 	for i, arg := range args {
 		if err := s.ValidateFilesystemParams(arg); err != nil {
@@ -238,6 +241,7 @@ func (s *lxdFilesystemSource) CreateFilesystems(args []storage.FilesystemParams)
 		filesystem, err := s.createFilesystem(arg)
 		if err != nil {
 			results[i].Error = err
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			continue
 		}
 		results[i].Filesystem = filesystem
@@ -276,7 +280,7 @@ func (s *lxdFilesystemSource) createFilesystem(
 		config["size"] = fmt.Sprintf("%dMB", arg.Size)
 	}
 
-	if err := s.env.raw.VolumeCreate(cfg.lxdPool, volumeName, config); err != nil {
+	if err := s.env.server.CreateVolume(cfg.lxdPool, volumeName, config); err != nil {
 		return nil, errors.Annotate(err, "creating volume")
 	}
 
@@ -309,9 +313,11 @@ func parseFilesystemId(id string) (lxdPool, volumeName string, _ error) {
 	return fields[0], fields[1], nil
 }
 
+// TODO (manadart 2018-06-28) Add a test for DestroyController that properly
+// verifies this behaviour.
 func destroyControllerFilesystems(env *environ, controllerUUID string) error {
 	return errors.Trace(destroyFilesystems(env, func(v api.StorageVolume) bool {
-		return v.Config["user."+tags.JujuController] == env.Config().UUID()
+		return v.Config["user."+tags.JujuController] == controllerUUID
 	}))
 }
 
@@ -322,12 +328,12 @@ func destroyModelFilesystems(env *environ) error {
 }
 
 func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error {
-	pools, err := env.raw.StoragePools()
+	pools, err := env.server.GetStoragePools()
 	if err != nil {
 		return errors.Annotate(err, "listing LXD storage pools")
 	}
 	for _, pool := range pools {
-		volumes, err := env.raw.VolumeList(pool.Name)
+		volumes, err := env.server.GetStoragePoolVolumes(pool.Name)
 		if err != nil {
 			return errors.Annotatef(err, "listing volumes in LXD storage pool %q", pool)
 		}
@@ -335,12 +341,8 @@ func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error 
 			if !match(volume) {
 				continue
 			}
-			if err := env.raw.VolumeDelete(pool.Name, volume.Name); err != nil {
-				return errors.Annotatef(
-					err,
-					"deleting volume %q in LXD storage pool %q",
-					volume.Name, pool,
-				)
+			if err := env.server.DeleteStoragePoolVolume(pool.Name, storagePoolVolumeType, volume.Name); err != nil {
+				return errors.Annotatef(err, "deleting volume %q in LXD storage pool %q", volume.Name, pool)
 			}
 		}
 	}
@@ -348,10 +350,11 @@ func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error 
 }
 
 // DestroyFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]error, error) {
+func (s *lxdFilesystemSource) DestroyFilesystems(ctx context.ProviderCallContext, filesystemIds []string) ([]error, error) {
 	results := make([]error, len(filesystemIds))
 	for i, filesystemId := range filesystemIds {
 		results[i] = s.destroyFilesystem(filesystemId)
+		common.HandleCredentialError(IsAuthorisationFailure, results[i], ctx)
 	}
 	return results, nil
 }
@@ -361,18 +364,19 @@ func (s *lxdFilesystemSource) destroyFilesystem(filesystemId string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = s.env.raw.VolumeDelete(poolName, volumeName)
-	if err != nil && !errors.IsNotFound(err) {
+	err = s.env.server.DeleteStoragePoolVolume(poolName, storagePoolVolumeType, volumeName)
+	if err != nil && !lxd.IsLXDNotFound(err) {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
 // ReleaseFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]error, error) {
+func (s *lxdFilesystemSource) ReleaseFilesystems(ctx context.ProviderCallContext, filesystemIds []string) ([]error, error) {
 	results := make([]error, len(filesystemIds))
 	for i, filesystemId := range filesystemIds {
 		results[i] = s.releaseFilesystem(filesystemId)
+		common.HandleCredentialError(IsAuthorisationFailure, results[i], ctx)
 	}
 	return results, nil
 }
@@ -382,14 +386,15 @@ func (s *lxdFilesystemSource) releaseFilesystem(filesystemId string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	volume, err := s.env.raw.Volume(poolName, volumeName)
+	volume, eTag, err := s.env.server.GetStoragePoolVolume(poolName, storagePoolVolumeType, volumeName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if volume.Config != nil {
 		delete(volume.Config, "user."+tags.JujuModel)
 		delete(volume.Config, "user."+tags.JujuController)
-		if err := s.env.raw.VolumeUpdate(poolName, volumeName, volume); err != nil {
+		if err := s.env.server.UpdateStoragePoolVolume(
+			poolName, storagePoolVolumeType, volumeName, volume.Writable(), eTag); err != nil {
 			return errors.Annotatef(
 				err, "removing tags from volume %q in pool %q",
 				volumeName, poolName,
@@ -406,7 +411,7 @@ func (s *lxdFilesystemSource) ValidateFilesystemParams(params storage.Filesystem
 }
 
 // AttachFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+func (s *lxdFilesystemSource) AttachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	var instanceIds []instance.Id
 	instanceIdsSeen := make(set.Strings)
 	for _, arg := range args {
@@ -416,10 +421,11 @@ func (s *lxdFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachm
 		instanceIdsSeen.Add(string(arg.InstanceId))
 		instanceIds = append(instanceIds, arg.InstanceId)
 	}
-	instances, err := s.env.Instances(context.NewCloudCallContext(), instanceIds)
+	instances, err := s.env.Instances(ctx, instanceIds)
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
 
@@ -442,6 +448,7 @@ func (s *lxdFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachm
 				names.ReadableString(arg.Filesystem),
 				names.ReadableString(arg.Machine),
 			)
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			continue
 		}
 		results[i].FilesystemAttachment = attachment
@@ -453,7 +460,6 @@ func (s *lxdFilesystemSource) attachFilesystem(
 	arg storage.FilesystemAttachmentParams,
 	inst *environInstance,
 ) (*storage.FilesystemAttachment, error) {
-
 	if inst == nil {
 		return nil, errors.NotFoundf("instance %q", arg.InstanceId)
 	}
@@ -463,24 +469,19 @@ func (s *lxdFilesystemSource) attachFilesystem(
 		return nil, errors.Trace(err)
 	}
 
-	disks := inst.raw.Disks()
 	deviceName := arg.Filesystem.String()
-	if _, ok := disks[deviceName]; !ok {
-		disk := lxdclient.DiskDevice{
-			Path:     arg.Path,
-			Source:   volumeName,
-			Pool:     poolName,
-			ReadOnly: arg.ReadOnly,
-		}
-		if err := s.env.raw.AttachDisk(inst.raw.Name, deviceName, disk); err != nil {
-			return nil, errors.Trace(err)
-		}
+	if err = inst.container.AddDisk(deviceName, arg.Path, volumeName, poolName, arg.ReadOnly); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := s.env.server.WriteContainer(inst.container); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	filesystemAttachment := storage.FilesystemAttachment{
-		arg.Filesystem,
-		arg.Machine,
-		storage.FilesystemAttachmentInfo{
+		Filesystem: arg.Filesystem,
+		Machine:    arg.Machine,
+		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
 			Path:     arg.Path,
 			ReadOnly: arg.ReadOnly,
 		},
@@ -489,7 +490,7 @@ func (s *lxdFilesystemSource) attachFilesystem(
 }
 
 // DetachFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) ([]error, error) {
+func (s *lxdFilesystemSource) DetachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]error, error) {
 	var instanceIds []instance.Id
 	instanceIdsSeen := make(set.Strings)
 	for _, arg := range args {
@@ -499,10 +500,11 @@ func (s *lxdFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachm
 		instanceIdsSeen.Add(string(arg.InstanceId))
 		instanceIds = append(instanceIds, arg.InstanceId)
 	}
-	instances, err := s.env.Instances(context.NewCloudCallContext(), instanceIds)
+	instances, err := s.env.Instances(ctx, instanceIds)
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
 
@@ -520,6 +522,7 @@ func (s *lxdFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachm
 		}
 		if inst != nil {
 			err := s.detachFilesystem(arg, inst)
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			results[i] = errors.Annotatef(
 				err, "detaching %s",
 				names.ReadableString(arg.Filesystem),
@@ -533,16 +536,14 @@ func (s *lxdFilesystemSource) detachFilesystem(
 	arg storage.FilesystemAttachmentParams,
 	inst *environInstance,
 ) error {
-	devices := inst.raw.Disks()
 	deviceName := arg.Filesystem.String()
-	if _, ok := devices[deviceName]; !ok {
-		return nil
-	}
-	return s.env.raw.RemoveDevice(inst.raw.Name, deviceName)
+	delete(inst.container.Devices, deviceName)
+	return errors.Trace(s.env.server.WriteContainer(inst.container))
 }
 
 // ImportFilesystem is part of the storage.FilesystemImporter interface.
 func (s *lxdFilesystemSource) ImportFilesystem(
+	callCtx context.ProviderCallContext,
 	filesystemId string,
 	tags map[string]string,
 ) (storage.FilesystemInfo, error) {
@@ -550,8 +551,9 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 	if err != nil {
 		return storage.FilesystemInfo{}, errors.Trace(err)
 	}
-	volume, err := s.env.raw.Volume(lxdPool, volumeName)
+	volume, eTag, err := s.env.server.GetStoragePoolVolume(lxdPool, storagePoolVolumeType, volumeName)
 	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, callCtx)
 		return storage.FilesystemInfo{}, errors.Trace(err)
 	}
 	if len(volume.UsedBy) > 0 {
@@ -585,7 +587,9 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 		for k, v := range tags {
 			volume.Config["user."+k] = v
 		}
-		if err := s.env.raw.VolumeUpdate(lxdPool, volumeName, volume); err != nil {
+		if err := s.env.server.UpdateStoragePoolVolume(
+			lxdPool, storagePoolVolumeType, volumeName, volume.Writable(), eTag); err != nil {
+			common.HandleCredentialError(IsAuthorisationFailure, err, callCtx)
 			return storage.FilesystemInfo{}, errors.Annotate(err, "tagging volume")
 		}
 	}

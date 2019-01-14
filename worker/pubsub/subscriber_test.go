@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -46,20 +47,20 @@ func (*WorkerConfigSuite) TestValidate(c *gc.C) {
 		}, {
 			cfg: psworker.WorkerConfig{
 				Origin: "origin",
-				Clock:  testing.NewClock(time.Now()),
+				Clock:  testclock.NewClock(time.Now()),
 			},
 			errMatch: "missing hub not valid",
 		}, {
 			cfg: psworker.WorkerConfig{
 				Origin: "origin",
-				Clock:  testing.NewClock(time.Now()),
+				Clock:  testclock.NewClock(time.Now()),
 				Hub:    pubsub.NewStructuredHub(nil),
 			},
 			errMatch: "missing logger not valid",
 		}, {
 			cfg: psworker.WorkerConfig{
 				Origin: "origin",
-				Clock:  testing.NewClock(time.Now()),
+				Clock:  testclock.NewClock(time.Now()),
 				Hub:    pubsub.NewStructuredHub(nil),
 				Logger: logger,
 			},
@@ -67,7 +68,7 @@ func (*WorkerConfigSuite) TestValidate(c *gc.C) {
 		}, {
 			cfg: psworker.WorkerConfig{
 				Origin: "origin",
-				Clock:  testing.NewClock(time.Now()),
+				Clock:  testclock.NewClock(time.Now()),
 				Hub:    pubsub.NewStructuredHub(nil),
 				Logger: logger,
 				APIInfo: &api.Info{
@@ -78,7 +79,7 @@ func (*WorkerConfigSuite) TestValidate(c *gc.C) {
 		}, {
 			cfg: psworker.WorkerConfig{
 				Origin: "origin",
-				Clock:  testing.NewClock(time.Now()),
+				Clock:  testclock.NewClock(time.Now()),
 				Hub:    pubsub.NewStructuredHub(nil),
 				Logger: logger,
 				APIInfo: &api.Info{
@@ -92,7 +93,7 @@ func (*WorkerConfigSuite) TestValidate(c *gc.C) {
 		}, {
 			cfg: psworker.WorkerConfig{
 				Origin: "origin",
-				Clock:  testing.NewClock(time.Now()),
+				Clock:  testclock.NewClock(time.Now()),
 				Hub:    pubsub.NewStructuredHub(nil),
 				Logger: logger,
 				APIInfo: &api.Info{
@@ -121,7 +122,7 @@ func (*WorkerConfigSuite) TestValidate(c *gc.C) {
 type SubscriberSuite struct {
 	testing.IsolationSuite
 	config  psworker.WorkerConfig
-	clock   *testing.Clock
+	clock   *testclock.Clock
 	hub     *pubsub.StructuredHub
 	origin  string
 	remotes *fakeRemoteTracker
@@ -135,7 +136,7 @@ func (s *SubscriberSuite) SetUpTest(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 	// loggo.GetLogger("pubsub").SetLogLevel(loggo.TRACE)
 	tag := names.NewMachineTag("42")
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.hub = centralhub.New(tag)
 	s.origin = tag.String()
 	s.remotes = &fakeRemoteTracker{

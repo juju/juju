@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/context"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -36,7 +37,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	arch := arch.PPC64EL
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, &arch, nil, validator)
 	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "ppc64el" using a machine running on "amd64"`)
@@ -47,7 +48,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostOS(c *gc.C) {
 	s.PatchValue(&os.HostOS, func() os.OSType { return os.Ubuntu })
 	env := newEnviron("foo", useDefaultKeys, nil)
 	series := "win2012"
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, nil, &series, validator)
 	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "win2012" using a machine running "Ubuntu"`)
@@ -63,7 +64,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	devVersion.Build = 1234
 	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, nil, nil, validator)
 	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "ppc64el"`)
@@ -76,7 +77,7 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 	centos7 := "centos7"
 	s.PatchValue(&arch.HostArch, func() string { return arm64 })
 	s.PatchValue(&os.HostOS, func() os.OSType { return os.CentOS })
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, &arm64, &centos7, validator)
 	c.Assert(err, jc.ErrorIsNil)
@@ -86,7 +87,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	var called int
 	var filter tools.Filter
 	var findStreams []string
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		called++
 		c.Check(major, gc.Equals, jujuversion.Current.Major)
 		c.Check(minor, gc.Equals, jujuversion.Current.Minor)
@@ -166,7 +167,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return nil, errors.New("splat")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -175,7 +176,7 @@ func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -195,14 +196,14 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	currentVersion.Minor = 3
 	s.PatchValue(&jujuversion.Current, currentVersion.Number)
 	var findToolsCalled int
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		c.Assert(f.Number.Major, gc.Equals, 10)
 		c.Assert(f.Number.Minor, gc.Equals, 11)
 		c.Assert(f.Number.Patch, gc.Equals, 12)
 		c.Assert(streams, gc.DeepEquals, []string{"released"})
 		findToolsCalled++
 		return []*tools.Tools{
-			&tools.Tools{
+			{
 				Version: currentVersion,
 				URL:     "http://testing.invalid/tools.tar.gz",
 			},
@@ -237,7 +238,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 		})
 	}
 
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return allTools, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)

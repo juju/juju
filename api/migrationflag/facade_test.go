@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api/migrationflag"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 type FacadeSuite struct {

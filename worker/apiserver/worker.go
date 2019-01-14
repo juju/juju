@@ -6,10 +6,10 @@ package apiserver
 import (
 	"net/http"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 
@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 )
@@ -33,6 +34,7 @@ type Config struct {
 	Mux                               *apiserverhttp.Mux
 	Authenticator                     httpcontext.LocalMacaroonAuthenticator
 	StatePool                         *state.StatePool
+	LeaseManager                      lease.Manager
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	RestoreStatus                     func() state.RestoreStatus
@@ -67,6 +69,9 @@ func (config Config) Validate() error {
 	}
 	if config.Authenticator == nil {
 		return errors.NotValidf("nil Authenticator")
+	}
+	if config.LeaseManager == nil {
+		return errors.NotValidf("nil LeaseManager")
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -138,6 +143,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          config.PrometheusRegisterer,
 		GetAuditConfig:                config.GetAuditConfig,
+		LeaseManager:                  config.LeaseManager,
 	}
 	return config.NewServer(serverConfig)
 }

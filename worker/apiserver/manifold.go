@@ -6,9 +6,9 @@ package apiserver
 import (
 	"net/http"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
@@ -35,6 +36,7 @@ type ManifoldConfig struct {
 	StateName              string
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
+	LeaseManagerName       string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -70,6 +72,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.AuditConfigUpdaterName == "" {
 		return errors.NotValidf("empty AuditConfigUpdaterName")
 	}
+	if config.LeaseManagerName == "" {
+		return errors.NotValidf("empty LeaseManagerName")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -102,6 +107,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
+			config.LeaseManagerName,
 		},
 		Start: config.start,
 	}
@@ -152,6 +158,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var leaseManager lease.Manager
+	if err := context.Get(config.LeaseManagerName, &leaseManager); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Get the state pool after grabbing dependencies so we don't need
 	// to remember to call Done on it if they're not running yet.
 	statePool, err := stTracker.Use()
@@ -164,6 +175,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Clock:                             clock,
 		Mux:                               mux,
 		StatePool:                         statePool,
+		LeaseManager:                      leaseManager,
 		PrometheusRegisterer:              config.PrometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 		RestoreStatus:                     restoreStatus,

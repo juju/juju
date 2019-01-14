@@ -5,23 +5,27 @@ package cloud_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	cloudfile "github.com/juju/juju/cloud"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v2"
 
-	cloudfile "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/testing"
 )
 
 type addSuite struct {
@@ -61,6 +65,10 @@ func (f *fakeCloudMetadataStore) WritePersonalCloudMetadata(cloudsMap map[string
 
 func (f *fakeCloudMetadataStore) ParseOneCloud(data []byte) (cloudfile.Cloud, error) {
 	results := f.MethodCall(f, "ParseOneCloud", data)
+	if len(results) != 2 {
+		fmt.Printf("ParseOneCloud()\n(%s)\n", string(data))
+		return cloudfile.Cloud{}, errors.New("ParseOneCloud failed, not enough results")
+	}
 	return results[0].(cloudfile.Cloud), jujutesting.TypeAssertError(results[1])
 }
 
@@ -312,69 +320,14 @@ func (*addSuite) TestInteractive(c *gc.C) {
 
 	c.Assert(out.String(), gc.Equals, ""+
 		"Cloud Types\n"+
+		"  lxd\n"+
 		"  maas\n"+
 		"  manual\n"+
 		"  openstack\n"+
-		"  oracle\n"+
 		"  vsphere\n"+
 		"\n"+
 		"Select cloud type: \n",
 	)
-}
-
-func (*addSuite) TestInteractiveOpenstack(c *gc.C) {
-	fake := newFakeCloudMetadataStore()
-	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
-	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
-	myOpenstack := cloudfile.Cloud{
-		Name:      "os1",
-		Type:      "openstack",
-		AuthTypes: []cloudfile.AuthType{"userpass", "access-key"},
-		Endpoint:  "http://myopenstack",
-		Regions: []cloudfile.Region{
-			{
-				Name:     "regionone",
-				Endpoint: "http://boston/1.0",
-			},
-		},
-	}
-	const expectedYAMLarg = "" +
-		"auth-types:\n" +
-		"- userpass\n" +
-		"- access-key\n" +
-		"endpoint: http://myopenstack\n" +
-		"regions:\n" +
-		"  regionone:\n" +
-		"    endpoint: http://boston/1.0\n"
-	fake.Call("ParseOneCloud", []byte(expectedYAMLarg)).Returns(myOpenstack, nil)
-	m1Metadata := map[string]cloudfile.Cloud{"os1": myOpenstack}
-	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", m1Metadata).Returns(nil)
-
-	command := cloud.NewAddCloudCommand(fake)
-	command.Ping = func(environs.EnvironProvider, string) error {
-		return nil
-	}
-	err := cmdtesting.InitCommand(command, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := &cmd.Context{
-		Stdout: ioutil.Discard,
-		Stderr: ioutil.Discard,
-		Stdin: strings.NewReader("" +
-			"openstack\n" +
-			"os1\n" +
-			"http://myopenstack\n" +
-			"userpass,access-key\n" +
-			"regionone\n" +
-			"http://boston/1.0\n" +
-			"n\n",
-		),
-	}
-
-	err = command.Run(ctx)
-	c.Check(err, jc.ErrorIsNil)
-
-	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
 func (*addSuite) TestInteractiveMaas(c *gc.C) {
@@ -494,9 +447,9 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 			/* Enter a name for the cloud: */ "mvs\n" +
 			/* Enter the vCenter address or URL: */ "192.168.1.6\n" +
 			/* Enter datacenter name: */ "foo\n" +
-			/* Enter another datacenter? (Y/n): */ "y\n" +
+			/* Enter another datacenter? (y/N): */ "y\n" +
 			/* Enter datacenter name: */ "bar\n" +
-			/* Enter another datacenter? (Y/n): */ "n\n",
+			/* Enter another datacenter? (y/N): */ "n\n",
 		),
 	}
 
@@ -509,9 +462,9 @@ Select cloud type:
 Enter a name for your vsphere cloud: 
 Enter the vCenter address or URL: 
 Enter datacenter name: 
-Enter another datacenter\? \(Y/n\): 
+Enter another datacenter\? \(y/N\): 
 Enter datacenter name: 
-Enter another datacenter\? \(Y/n\): 
+Enter another datacenter\? \(y/N\): 
 `[1:]+"(.|\n)*")
 }
 
@@ -629,7 +582,7 @@ func (*addSuite) TestSpecifyingCloudFileThroughFlag_CorrectlySetsMemberVar(c *gc
 func (*addSuite) TestSpecifyingCloudFileThroughFlagAndArgument_Errors(c *gc.C) {
 	command := cloud.NewAddCloudCommand(nil)
 	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", "fake.yaml", "foo.yaml")
-	c.Check(err, gc.ErrorMatches, "cannot specify cloud file with flag and argument")
+	c.Check(err, gc.ErrorMatches, "cannot specify cloud file with option and argument")
 }
 
 func (*addSuite) TestValidateGoodCloudFile(c *gc.C) {
@@ -723,4 +676,246 @@ func prepareTestCloudYaml(c *gc.C, data string) *os.File {
 	}
 
 	return cloudFile
+}
+
+func (s *addSuite) TestInvalidCredentialMessage(c *gc.C) {
+	fake := newFakeCloudMetadataStore()
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
+	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
+	const expectedYAMLarg = "" +
+		"auth-types:\n" +
+		"- oauth1\n" +
+		"endpoint: http://mymaas\n"
+	fake.Call("ParseOneCloud", []byte(expectedYAMLarg)).Returns(garageMAASCloud, nil)
+	m1Cloud := garageMAASCloud
+	m1Cloud.Name = "m1"
+	m1Metadata := map[string]cloudfile.Cloud{"m1": m1Cloud}
+	fake.Call("WritePersonalCloudMetadata", m1Metadata).Returns(nil)
+
+	command := cloud.NewAddCloudCommand(fake)
+	command.Ping = func(environs.EnvironProvider, string) error {
+		return command.CloudCallCtx.InvalidateCredential("running test")
+	}
+
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = strings.NewReader("" +
+		/* Select cloud type: */ "maas\n" +
+		/* Enter a name for the cloud: */ "m1\n" +
+		/* Enter the controller's hostname or IP address: */ "http://mymaas\n",
+	)
+
+	err := command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Cloud credential is not accepted by cloud provider: running test")
+}
+
+func (*addSuite) TestInteractiveOpenstackNoCloudCert(c *gc.C) {
+	myOpenstack := cloudfile.Cloud{
+		Name:      "os1",
+		Type:      "openstack",
+		AuthTypes: []cloudfile.AuthType{"userpass", "access-key"},
+		Endpoint:  "http://myopenstack",
+		Regions: []cloudfile.Region{
+			{
+				Name:     "regionone",
+				Endpoint: "http://boston/1.0",
+			},
+		},
+	}
+
+	var expectedYAMLarg = "" +
+		"auth-types:\n" +
+		"- userpass\n" +
+		"- access-key\n" +
+		"certfilename: \"\"\n" +
+		"endpoint: http://myopenstack\n" +
+		"regions:\n" +
+		"  regionone:\n" +
+		"    endpoint: http://boston/1.0\n"
+
+	var input = "" +
+		/* Select cloud type: */ "openstack\n" +
+		/* Enter a name for your openstack cloud: */ "os1\n" +
+		/* Enter the API endpoint url for the cloud []: */ "http://myopenstack\n" +
+		/* Enter ta path to the CA certificate for your cloud if one is required to access it. (optional) [none] */ "\n" +
+		/* Select one or more auth types separated by commas: */ "userpass,access-key\n" +
+		/* Enter region name: */ "regionone\n" +
+		/* Enter the API endpoint url for the region [use cloud api url]: */ "http://boston/1.0\n" +
+		/* Enter another region? (Y/n): */ "n\n"
+
+	testInteractiveOpenstack(c, myOpenstack, expectedYAMLarg, input, "", "")
+}
+
+// Note: The first %s is filled with a string containing a newline
+var expectedCloudYAMLarg = `
+auth-types:
+- userpass
+- access-key
+%scertfilename: %s
+endpoint: http://myopenstack
+regions:
+  regionone:
+    endpoint: ""
+`[1:]
+
+func (*addSuite) TestInteractiveOpenstackCloudCertFail(c *gc.C) {
+	fakeCertDir := c.MkDir()
+	fakeCertFilename := path.Join(fakeCertDir, "cloudcert.crt")
+
+	invalidCertFilename := path.Join(fakeCertDir, "invalid.crt")
+	ioutil.WriteFile(invalidCertFilename, []byte("testing certification validation"), 0666)
+
+	input := fmt.Sprintf(""+
+		/* Select cloud type: */ "openstack\n"+
+		/* Enter a name for your openstack cloud: */ "os1\n"+
+		/* Enter the API endpoint url for the cloud []: */ "http://myopenstack\n"+
+		/* Enter a path to the CA certificate for your cloud if one is required to access it. (optional) [none] */ "%s\n"+
+		/* Enter a path to the CA certificate for your cloud if one is required to access it. (optional) [none] */ "%s\n"+
+		/* Select one or more auth types separated by commas: */ "userpass,access-key\n"+
+		/* Enter region name: */ "regionone\n"+
+		/* Enter the API endpoint url for the region [use cloud api url]: */ "\n"+
+		/* Enter another region? (Y/n): */ "n\n", invalidCertFilename, fakeCertFilename)
+
+	testInteractiveOpenstackCloudCert(c, fakeCertFilename, input,
+		fmt.Sprintf("Successfully read CA Certificate from %s\n", fakeCertFilename),
+		fmt.Sprintf("Can't validate CA Certificate %s: no certificates found", invalidCertFilename))
+}
+
+func (*addSuite) TestInteractiveOpenstackCloudCertReadFailRetry(c *gc.C) {
+	var invalidCertFilename = "/tmp/no-such-file"
+	fakeCertDir := c.MkDir()
+	fakeCertFilename := path.Join(fakeCertDir, "cloudcert.crt")
+
+	input := fmt.Sprintf(""+
+		/* Select cloud type: */ "openstack\n"+
+		/* Enter a name for your openstack cloud: */ "os1\n"+
+		/* Enter the API endpoint url for the cloud []: */ "http://myopenstack\n"+
+		/* Enter a path to the CA certificate for your cloud if one is required to access it. (optional) [none] */ "%s\n"+
+		/* Enter a path to the CA certificate for your cloud if one is required to access it. (optional) [none] */ "%s\n"+
+		/* Select one or more auth types separated by commas: */ "userpass,access-key\n"+
+		/* Enter region name: */ "regionone\n"+
+		/* Enter the API endpoint url for the region [use cloud api url]: */ "\n"+
+		/* Enter another region? (Y/n): */ "n\n", invalidCertFilename, fakeCertFilename)
+
+	testInteractiveOpenstackCloudCert(c,
+		fakeCertFilename,
+		input,
+		fmt.Sprintf("Successfully read CA Certificate from %s\n", fakeCertFilename),
+		fmt.Sprintf("Can't validate CA Certificate file: open %s:", invalidCertFilename),
+	)
+}
+
+func (*addSuite) TestInteractiveOpenstackCloudCert(c *gc.C) {
+	fakeCertFilename := path.Join(c.MkDir(), "cloudcert.crt")
+
+	input := fmt.Sprintf(""+
+		/* Select cloud type: */ "openstack\n"+
+		/* Enter a name for your openstack cloud: */ "os1\n"+
+		/* Enter the API endpoint url for the cloud []: */ "http://myopenstack\n"+
+		/* Enter a path to the CA certificate for your cloud if one is required to access it. (optional) [none] */ "%s\n"+
+		/* Select one or more auth types separated by commas: */ "userpass,access-key\n"+
+		/* Enter region name: */ "regionone\n"+
+		/* Enter the API endpoint url for the region [use cloud api url]: */ "\n"+
+		/* Enter another region? (Y/n): */ "n\n", fakeCertFilename)
+
+	testInteractiveOpenstackCloudCert(c, fakeCertFilename, input,
+		fmt.Sprintf("Successfully read CA Certificate from %s\n", fakeCertFilename), "")
+}
+
+type addOpenStackSuite struct {
+	jujutesting.IsolationSuite
+}
+
+var _ = gc.Suite(&addOpenStackSuite{})
+
+func (s *addOpenStackSuite) TearDownTest(c *gc.C) {
+	s.IsolationSuite.TearDownTest(c)
+	os.Unsetenv("OS_CACERT")
+	os.Unsetenv("OS_AUTH_URL")
+}
+
+func (*addOpenStackSuite) TestInteractiveOpenstackCloudCertEnvVar(c *gc.C) {
+	fakeCertFilename := path.Join(c.MkDir(), "cloudcert.crt")
+
+	input := "" +
+		/* Select cloud type: */ "openstack\n" +
+		/* Enter a name for your openstack cloud: */ "os1\n" +
+		/* Enter the API endpoint url for the cloud [$OS_AUTH_URL]: */ "\n" +
+		/* Enter a path to the CA certificate for your cloud if one is required to access it. (optional) [$OS_CACERT] */ "\n" +
+		/* Select one or more auth types separated by commas: */ "userpass,access-key\n" +
+		/* Enter region name: */ "regionone\n" +
+		/* Enter the API endpoint url for the region [use cloud api url]: */ "\n" +
+		/* Enter another region? (Y/n): */ "n\n"
+
+	os.Setenv("OS_CACERT", fakeCertFilename)
+	os.Setenv("OS_AUTH_URL", "http://myopenstack")
+
+	testInteractiveOpenstackCloudCert(c, fakeCertFilename, input,
+		fmt.Sprintf("Successfully read CA Certificate from %s\n", fakeCertFilename), "")
+}
+
+func testInteractiveOpenstackCloudCert(c *gc.C, fakeCertFilename, input, addStdErrMsg, stdOutMsg string) {
+	fakeCert := testing.CACert
+	ioutil.WriteFile(fakeCertFilename, []byte(fakeCert), 0666)
+
+	myOpenstack := cloudfile.Cloud{
+		Name:      "os1",
+		Type:      "openstack",
+		AuthTypes: []cloudfile.AuthType{"userpass", "access-key"},
+		Endpoint:  "http://myopenstack",
+		Regions: []cloudfile.Region{
+			{
+				Name:     "regionone",
+				Endpoint: "http://myopenstack",
+			},
+		},
+		CACertificates: []string{fakeCert},
+	}
+
+	fakeCertMap := map[string]interface{}{
+		"ca-certificates": []string{fakeCert},
+	}
+	fakeCertYaml, err := yaml.Marshal(fakeCertMap)
+	c.Assert(err, gc.IsNil)
+
+	expectedYAMLarg := fmt.Sprintf(expectedCloudYAMLarg, fakeCertYaml, fakeCertFilename)
+
+	testInteractiveOpenstack(c, myOpenstack, expectedYAMLarg, input, addStdErrMsg, stdOutMsg)
+}
+
+func testInteractiveOpenstack(c *gc.C, myOpenstack cloudfile.Cloud, expectedYAMLarg, input, addStdErrMsg, stdOutMsg string) {
+	fake := newFakeCloudMetadataStore()
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
+	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
+
+	fake.Call("ParseOneCloud", []byte(expectedYAMLarg)).Returns(myOpenstack, nil)
+	m1Metadata := map[string]cloudfile.Cloud{"os1": myOpenstack}
+	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", m1Metadata).Returns(nil)
+
+	command := cloud.NewAddCloudCommand(fake)
+	command.Ping = func(environs.EnvironProvider, string) error {
+		return nil
+	}
+	err := cmdtesting.InitCommand(command, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = strings.NewReader(input)
+
+	err = command.Run(ctx)
+
+	if err != nil {
+		fmt.Printf("expectedYAML\n(%s)\n", expectedYAMLarg)
+	}
+
+	c.Check(err, jc.ErrorIsNil)
+	var output = addStdErrMsg +
+		"Cloud \"os1\" successfully added\n" +
+		"\n" +
+		"You will need to add credentials for this cloud (`juju add-credential os1`)\n" +
+		"before creating a controller (`juju bootstrap os1`).\n"
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, output)
+	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, stdOutMsg)
+
+	c.Check(numCallsToWrite(), gc.Equals, 1)
 }

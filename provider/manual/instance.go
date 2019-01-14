@@ -4,11 +4,11 @@
 package manual
 
 import (
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 )
 
 type manualBootstrapInstance struct {

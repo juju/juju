@@ -68,7 +68,7 @@ func (api *APIBase) getConfig(
 		return params.ApplicationGetResults{}, err
 	}
 
-	providerSchema, providerDefaults, err := applicationConfigSchema(api.backend.ModelType())
+	providerSchema, providerDefaults, err := applicationConfigSchema(api.modelType)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
@@ -87,6 +87,7 @@ func (api *APIBase) getConfig(
 		ApplicationConfig: appConfigInfo,
 		Constraints:       constraints,
 		Series:            app.Series(),
+		Channel:           string(app.Channel()),
 	}, nil
 }
 

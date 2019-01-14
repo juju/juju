@@ -14,7 +14,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/romulus"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -27,14 +29,17 @@ import (
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	apicharms "github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -42,12 +47,10 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-var planURL = "https://api.jujucharms.com/omnibus/v2"
-
 type CharmAdder interface {
-	AddLocalCharm(*charm.URL, charm.Charm) (*charm.URL, error)
-	AddCharm(*charm.URL, params.Channel) error
-	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon) error
+	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error)
+	AddCharm(*charm.URL, params.Channel, bool) error
+	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon, bool) error
 	AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error)
 }
 
@@ -64,6 +67,7 @@ type ApplicationAPI interface {
 	SetCharm(application.SetCharmConfig) error
 	SetConstraints(application string, constraints constraints.Value) error
 	Update(apiparams.ApplicationUpdate) error
+	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
 }
 
 type ModelAPI interface {
@@ -79,6 +83,12 @@ type MeteredDeployAPI interface {
 	SetMetricCredentials(application string, credentials []byte) error
 }
 
+// CharmDeployAPI represents the methods of the API the deploy
+// command needs for charms.
+type CharmDeployAPI interface {
+	CharmInfo(string) (*apicharms.CharmInfo, error)
+}
+
 // DeployAPI represents the methods of the API the deploy
 // command needs.
 type DeployAPI interface {
@@ -87,19 +97,22 @@ type DeployAPI interface {
 	api.Connection
 	CharmAdder
 	MeteredDeployAPI
+	CharmDeployAPI
 	ApplicationAPI
 	ModelAPI
 
 	// ApplicationClient
-	CharmInfo(string) (*apicharms.CharmInfo, error)
 	Deploy(application.DeployArgs) error
 	Status(patterns []string) (*apiparams.FullStatus, error)
 
-	Resolve(*config.Config, *charm.URL) (*charm.URL, params.Channel, []string, error)
+	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
 
 	GetBundle(*charm.URL) (charm.Bundle, error)
 
 	WatchAll() (*api.AllWatcher, error)
+
+	// PlanURL returns the configured URL prefix for the metering plan API.
+	PlanURL() string
 }
 
 // The following structs exist purely because Go cannot create a
@@ -137,8 +150,16 @@ type annotationsClient struct {
 	*annotations.Client
 }
 
+type plansClient struct {
+	planURL string
+}
+
 func (a *charmstoreClient) AuthorizeCharmstoreEntity(url *charm.URL) (*macaroon.Macaroon, error) {
 	return authorizeCharmStoreEntity(a.Client, url)
+}
+
+func (c *plansClient) PlanURL() string {
+	return c.planURL
 }
 
 type deployAPIAdapter struct {
@@ -150,6 +171,7 @@ type deployAPIAdapter struct {
 	*charmRepoClient
 	*charmstoreClient
 	*annotationsClient
+	*plansClient
 }
 
 func (a *deployAPIAdapter) Client() *api.Client {
@@ -177,7 +199,7 @@ func (a *deployAPIAdapter) Resolve(cfg *config.Config, url *charm.URL) (
 	[]string,
 	error,
 ) {
-	return resolveCharm(a.charmRepoClient.ResolveWithChannel, cfg, url)
+	return resolveCharm(a.charmRepoClient.ResolveWithChannel, url)
 }
 
 func (a *deployAPIAdapter) Get(url *charm.URL) (charm.Charm, error) {
@@ -208,7 +230,19 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
+			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
 
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
@@ -219,6 +253,7 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 				charmstoreClient:  &charmstoreClient{Client: cstoreClient},
 				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 				charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
+				plansClient:       &plansClient{planURL: mURL},
 			}, nil
 		}
 	}
@@ -229,9 +264,11 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 func NewDeployCommand() modelcmd.ModelCommand {
 	steps := []DeployStep{
 		&RegisterMeteredCharm{
-			RegisterURL: planURL + "/plan/authorize",
-			QueryURL:    planURL + "/charm",
+			PlanURL:      romulus.DefaultAPIRoot,
+			RegisterPath: "/plan/authorize",
+			QueryPath:    "/charm",
 		},
+		&ValidateLXDProfileCharm{},
 	}
 	deployCmd := &DeployCommand{
 		Steps: steps,
@@ -241,11 +278,24 @@ func NewDeployCommand() modelcmd.ModelCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
+		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		bakeryClient, err := deployCmd.BakeryClient()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
+		cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
 
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
@@ -256,6 +306,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			charmstoreClient:  &charmstoreClient{Client: cstoreClient},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 			charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
+			plansClient:       &plansClient{planURL: mURL},
 		}, nil
 	}
 
@@ -306,6 +357,14 @@ type DeployCommand struct {
 	// the storage name defined in that application's charm storage metadata.
 	BundleStorage map[string]map[string]storage.Constraints
 
+	// Devices is a mapping of device constraints, keyed on the device name
+	// defined in charm devices metadata.
+	Devices map[string]devices.Constraints
+
+	// BundleDevices maps application names to maps of device constraints keyed on
+	// the device name defined in that application's charm devices metadata.
+	BundleDevices map[string]map[string]devices.Constraints
+
 	// Resources is a map of resource name to filename to be uploaded on deploy.
 	Resources map[string]string
 
@@ -328,69 +387,96 @@ type DeployCommand struct {
 
 	machineMap string
 	flagSet    *gnuflag.FlagSet
+
+	unknownModel bool
 }
 
 const deployDoc = `
-<charm or bundle> can be a charm/bundle URL, or an unambiguously condensed
-form of it; assuming a current series of "trusty", the following forms will be
-accepted:
+A charm can be referred to by its simple name and a series can optionally be
+specified:
 
-For cs:trusty/mysql
-  mysql
-  trusty/mysql
+  juju deploy postgresql
+  juju deploy xenial/postgresql
+  juju deploy cs:postgresql
+  juju deploy cs:xenial/postgresql
+  juju deploy postgresql --series xenial
 
-For cs:~user/trusty/mysql
-  ~user/mysql
+All the above deployments use remote charms found in the Charm Store (denoted
+by 'cs') and therefore also make use of "charm URLs".
 
-For cs:bundle/mediawiki-single
-  mediawiki-single
-  bundle/mediawiki-single
+A versioned charm URL will be expanded as expected. For example, 'mysql-56'
+becomes 'cs:xenial/mysql-56'.
 
-The current series for charms is determined first by the 'default-series' model
-setting, followed by the preferred series for the charm in the charm store.
+A local charm may be deployed by giving the path to its directory:
 
-In these cases, a versioned charm URL will be expanded as expected (for
-example, mysql-33 becomes cs:precise/mysql-33).
+  juju deploy /path/to/charm
+  juju deploy /path/to/charm --series xenial
 
-Charms may also be deployed from a user specified path. In this case, the path
-to the charm is specified along with an optional series.
+You will need to be explicit if there is an ambiguity between a local and a
+remote charm:
 
-  juju deploy /path/to/charm --series trusty
+  juju deploy ./pig
+  juju deploy cs:pig
 
-If '--series' is not specified, the charm's default series is used. The default
-series for a charm is the first one specified in the charm metadata. If the
-specified series is not supported by the charm, this results in an error,
-unless '--force' is used.
+An error is emitted if the determined series is not supported by the charm. Use
+the '--force' option to override this check:
 
-  juju deploy /path/to/charm --series wily --force
+  juju deploy charm --series xenial --force
 
-Local bundles are specified with a direct path to a bundle.yaml file.
-For example:
+A bundle can be expressed similarly to a charm, but not by series:
 
-  juju deploy /path/to/bundle/openstack/bundle.yaml
+  juju deploy mediawiki-single
+  juju deploy bundle/mediawiki-single
+  juju deploy cs:bundle/mediawiki-single
 
-If an 'application name' is not provided, the application name used is the
-'charm or bundle' name.  A user-supplied 'application name' must consist only of
-lower-case letters (a-z), numbers (0-9), and single hyphens (-).  The name must
-begin with a letter and not have a group of all numbers follow a hyphen.
-Examples:
+A local bundle may be deployed by specifying the path to its YAML file:
+
+  juju deploy /path/to/bundle.yaml
+
+The final charm/machine series is determined using an order of precedence (most
+preferred to least):
+
+ - the '--series' command option
+ - the series stated in the charm URL
+ - for a bundle, the series stated in each charm URL (in the bundle file)
+ - for a bundle, the series given at the top level (in the bundle file)
+ - the 'default-series' model key
+ - the top-most series specified in the charm's metadata file
+   (this sets the charm's 'preferred series' in the Charm Store)
+
+An 'application name' provides an alternate name for the application. It works
+only for charms; it is silently ignored for bundles (although the same can be
+done at the bundle file level). Such a name must consist only of lower-case
+letters (a-z), numbers (0-9), and single hyphens (-). The name must begin with
+a letter and not have a group of all numbers follow a hyphen:
+
   Valid:   myappname, custom-app, app2-scat-23skidoo
   Invalid: myAppName, custom--app, app2-scat-23, areacode-555-info
 
-Constraints can be specified by specifying the '--constraints' option. If the
-application is later scaled out with ` + "`juju add-unit`" + `, provisioned machines
-will use the same constraints (unless changed by ` + "`juju set-constraints`" + `).
+Use the '--constraints' option to specify hardware requirements for new machines.
+These become the application's default constraints (i.e. they are used if the
+application is later scaled out with the ` + "`add-unit`" + ` command). To overcome this
+behaviour use the ` + "`set-constraints`" + ` command to change the application's default
+constraints or add a machine (` + "`add-machine`" + `) with a certain constraint and then
+target that machine with ` + "`add-unit`" + ` by using the '--to' option.
 
-Application configuration values can be specified using '--config' option. This
-option accepts either a path to a yaml-formatted file or a key=value pair. 
-Configuration file provided should be in format
-<charm name>:
+Use the '--device' option to specify GPU device requirements (with Kubernetes).
+The below format is used for this option's value, where the 'label' is named in
+the charm metadata file:
+
+  <label>=[<count>,]<device-class>|<vendor/type>[,<attributes>]
+
+Use the '--config' option to specify application configuration values. This
+option accepts either a path to a YAML-formatted file or a key=value pair. A
+file should be of this format:
+
+  <charm name>:
 	<option name>: <option value>
 	...
-For example, to deploying 'mediawiki' with the configuration file 'mycfg.yaml'
-that contains:
 
-mediawiki:
+For example, to deploy 'mediawiki' with file 'mycfg.yaml' that contains:
+
+  mediawiki:
 	name: my media wiki
 	admins: me:pwdOne
 	debug: true
@@ -399,117 +485,164 @@ use
 
   juju deploy mediawiki --config mycfg.yaml
 
-To specify key=value pair to set an application option value, use:
- 
+Key=value pairs can also be passed directly in the command. For example, to
+declare the 'name' key:
+
   juju deploy mediawiki --config name='my media wiki'
-   
-When specifying more than one option value, use:
+
+To define multiple keys:
 
   juju deploy mediawiki --config name='my media wiki' --config debug=true
 
-Care must be taken when specifying more than one configuration via 
-'--config' option - any later values will override those specified earlier.
-For example, when calling
+If a key gets defined multiple times the last value will override any earlier
+values. For example,
 
   juju deploy mediawiki --config name='my media wiki' --config mycfg.yaml
-  
-if mycfg.yaml contained a value for 'name', it will be used in preference 
-to the earlier 'my media wiki' value.
-The same applies to single value options. For example, when calling
+
+if mycfg.yaml contains a value for 'name', it will override the earlier 'my
+media wiki' value. The same applies to single value options. For example,
 
   juju deploy mediawiki --config name='a media wiki' --config name='my wiki'
 
-the value 'my wiki' will be used for the option 'name'.
+the value of 'my wiki' will be used.
 
-Resources may be uploaded by specifying the '--resource' option followed by a
-name=filepath pair. This option may be repeated more than once to upload more
-than one resource.
+Use the '--resource' option to upload resources needed by the charm. This
+option may be repeated if multiple resources are needed:
 
   juju deploy foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
 
-Where 'bar' and 'baz' are resources named in the metadata for the 'foo' charm.
+Where 'bar' and 'baz' are named in the metadata file for charm 'foo'.
 
-When using a placement directive to deploy to an existing machine or container
-('--to' option), the ` + "`juju status`" + ` command should be used for guidance. A few
-placement directives are provider-dependent (e.g.: 'zone').
+Use the '--to' option to deploy to an existing machine or container by
+specifying a "placement directive". The ` + "`status`" + ` command should be used for
+guidance on how to refer to machines. A few placement directives are
+provider-dependent (e.g.: 'zone').
 
-In more complex scenarios, Juju's network spaces are used to partition the
-cloud networking layer into sets of subnets. Instances hosting units inside the
-same space can communicate with each other without any firewalls. Traffic
-crossing space boundaries could be subject to firewall and access restrictions.
-Using spaces as deployment targets, rather than their individual subnets,
-allows Juju to perform automatic distribution of units across availability zones
-to support high availability for applications. Spaces help isolate applications
-and their units, both for security purposes and to manage both traffic
-segregation and congestion.
+In more complex scenarios, "network spaces" are used to partition the cloud
+networking layer into sets of subnets. Instances hosting units inside the same
+space can communicate with each other without any firewalls. Traffic crossing
+space boundaries could be subject to firewall and access restrictions. Using
+spaces as deployment targets, rather than their individual subnets, allows Juju
+to perform automatic distribution of units across availability zones to support
+high availability for applications. Spaces help isolate applications and their
+units, both for security purposes and to manage both traffic segregation and
+congestion.
 
 When deploying an application or adding machines, the 'spaces' constraint can
 be used to define a comma-delimited list of required and forbidden spaces (the
-latter prefixed with "^", similar to the 'tags' constraint).
+latter prefixed with '^', similar to the 'tags' constraint).
 
-When deploying bundles, machines specified in the bundle are added to the
-model as new machines. In order to use the existing machines in the model
-rather than create new machines, the option --map-machines=existing can be
-used. To specify particular machines for the mapping, multiple comma separated
-values of the form "bundle-id=existing-id" can be passed where the bundle-id
-and the existing-id refer to top level machine IDs. For example, if there was
-a bundle that specified machines 1, 2, and 3, and the model had machines 1, 2,
-3 and 4, the following deployment of the bundle would use machines 1 and 2 in
-the model for machines 1 and 2 in the bundle and use machine 4 in the model
-for the bundle machine 3.
+When deploying bundles, machines specified in the bundle are added to the model
+as new machines. Use the '--map-machines=existing' option to make use of any
+existing machines. To map particular existing machines to machines defined in
+the bundle, multiple comma separated values of the form 'bundle-id=existing-id'
+can be passed. For example, for a bundle that specifies machines 1, 2, and 3;
+and a model that has existing machines 1, 2, 3, and 4, the below deployment
+would have existing machines 1 and 2 assigned to machines 1 and 2 defined in
+the bundle and have existing machine 4 assigned to machine 3 defined in the
+bundle.
 
-  juju deploy some-bundle --map-machines existing,3=4
+  juju deploy mybundle --map-machines=existing,3=4
 
 Only top level machines can be mapped in this way, just as only top level
 machines can be defined in the machines section of the bundle.
 
+When charms that include LXD profiles are deployed the profiles are validated
+for security purposes by allowing only certain configurations and devices. Use
+the '--force' option to bypass this check. Doing so is not recommended as it
+can lead to unexpected behaviour.
+
+Further reading: https://docs.jujucharms.com/stable/charms-deploying
 
 Examples:
-    juju deploy mysql               (deploy to a new machine)
-    juju deploy mysql --to 23       (deploy to preexisting machine 23)
-    juju deploy mysql --to lxd      (deploy to a new LXD container on a new machine)
-    juju deploy mysql --to lxd:25   (deploy to a new LXD container on machine 25)
-    juju deploy mysql --to 24/lxd/3 (deploy to LXD container 3 on machine 24)
+
+Deploy to a new machine:
+
+    juju deploy apache2
+
+Deploy to machine 23:
+
+    juju deploy mysql --to 23
+
+Deploy to a new LXD container on a new machine:
+
+    juju deploy mysql --to lxd
+
+Deploy to a new LXD container on machine 25:
+
+    juju deploy mysql --to lxd:25
+
+Deploy to LXD container 3 on machine 24:
+
+    juju deploy mysql --to 24/lxd/3
+
+Deploy 2 units, one on machine 3 and one to a new LXD container on machine 5:
 
     juju deploy mysql -n 2 --to 3,lxd:5
-    (deploy 2 units, one on machine 3 & one to a new LXD container on machine 5)
+
+Deploy 3 units, one on machine 3 and the remaining two on new machines:
 
     juju deploy mysql -n 3 --to 3
-    (deploy 3 units, one on machine 3 & the remaining two on new machines)
 
-    juju deploy mysql -n 5 --constraints mem=8G
-    (deploy 5 units to machines with at least 8 GB of memory)
+Deploy to a machine with at least 8 GiB of memory:
+
+    juju deploy postgresql --constraints mem=8G
+
+Deploy to a specific availability zone (provider-dependent):
 
     juju deploy mysql --to zone=us-east-1a
-    (provider-dependent; deploy to a specific AZ)
+
+Deploy to a specific MAAS node:
 
     juju deploy mysql --to host.maas
-    (deploy to a specific MAAS node)
+
+Deploy to a machine that is in the 'dmz' network space but not in either the
+'cms' nor the 'database' spaces:
 
     juju deploy haproxy -n 2 --constraints spaces=dmz,^cms,^database
-    (deploy 2 units to machines that are in the 'dmz' space but not of
-    the 'cmd' or the 'database' spaces)
+
+Deploy a Kubernetes charm that requires a single Nvidia GPU:
+
+    juju deploy mycharm --device miner=1,nvidia.com/gpu
+
+Deploy a Kubernetes charm that requires two Nvidia GPUs that have an
+attribute of 'gpu=nvidia-tesla-p100':
+
+    juju deploy mycharm --device \
+       twingpu=2,nvidia.com/gpu,gpu=nvidia-tesla-p100
 
 See also:
+    add-relation
     add-unit
     config
-    set-constraints
+    expose
     get-constraints
+    set-constraints
     spaces
 `
 
+//go:generate mockgen -package mocks -destination mocks/deploystepapi_mock.go github.com/juju/juju/cmd/juju/application DeployStepAPI
+
+// DeployStepAPI represents a API required for deploying using the step
+// deployment code.
+type DeployStepAPI interface {
+	MeteredDeployAPI
+}
+
 // DeployStep is an action that needs to be taken during charm deployment.
 type DeployStep interface {
-
-	// Set flags necessary for the deploy step.
+	// SetFlags sets flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
 
+	// SetPlanURL sets the plan URL prefix.
+	SetPlanURL(planURL string)
+
 	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
+	RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
 
 	// RunPost runs after the call is made to add the charm to the environment.
 	// The error parameter is used to notify the step of a previously occurred error.
-	RunPost(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
+	RunPost(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
 }
 
 // DeploymentInfo is used to maintain all deployment information for
@@ -520,15 +653,16 @@ type DeploymentInfo struct {
 	ModelUUID       string
 	CharmInfo       *apicharms.CharmInfo
 	ApplicationPlan string
+	Force           bool
 }
 
 func (c *DeployCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "deploy",
 		Args:    "<charm or bundle> [<application name>]",
-		Purpose: "Deploy a new application or bundle.",
+		Purpose: "Deploys a new application or bundle.",
 		Doc:     deployDoc,
-	}
+	})
 }
 
 var (
@@ -567,8 +701,9 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
-	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
+	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed which bypasses checks such as supported series or LXD profile allow list")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
+	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 	f.StringVar(&c.machineMap, "map-machines", "", "Specify the existing machines to use for bundle deployments")
@@ -580,8 +715,17 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
-	if c.Force && c.Series == "" && c.PlacementSpec == "" {
-		return errors.New("--force is only used with --series")
+	if err := c.validateStorageByModelType(); err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		// It is possible that we will not be able to get model type to validate with.
+		// For example, if current client does not know about a model, we
+		// would have queried the controller about the model. However,
+		// at Init() we do not yet have an API connection.
+		// So we do not want to fail here if we encountered NotFoundErr, we want to
+		// do a late validation at Run().
+		c.unknownModel = true
 	}
 	switch len(args) {
 	case 2:
@@ -609,7 +753,56 @@ func (c *DeployCommand) Init(args []string) error {
 	c.UseExisting = useExisting
 	c.BundleMachines = mapping
 
-	return c.UnitCommandBase.Init(args)
+	if err := c.UnitCommandBase.Init(args); err != nil {
+		return err
+	}
+	if err := c.validatePlacementByModelType(); err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		// It is possible that we will not be able to get model type to validate with.
+		// For example, if current client does not know about a model, we
+		// would have queried the controller about the model. However,
+		// at Init() we do not yet have an API connection.
+		// So we do not want to fail here if we encountered NotFoundErr, we want to
+		// do a late validation at Run().
+		c.unknownModel = true
+	}
+	return nil
+}
+
+func (c *DeployCommand) validateStorageByModelType() error {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+	if modelType == model.IAAS {
+		return nil
+	}
+	if len(c.AttachStorage) > 0 {
+		return errors.New("--attach-storage cannot be used on kubernetes models")
+	}
+	return nil
+}
+
+func (c *DeployCommand) validatePlacementByModelType() error {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+	if modelType == model.IAAS {
+		return nil
+	}
+	if len(c.Placement) > 1 {
+		return errors.Errorf("only 1 placement directive is supported, got %d", len(c.Placement))
+	}
+	if len(c.Placement) == 0 {
+		return nil
+	}
+	if c.Placement[0].Scope == instance.MachineScope || c.Placement[0].Directive == "" {
+		return errors.NotSupportedf("placement directive %q", c.PlacementSpec)
+	}
+	return nil
 }
 
 func parseMachineMap(value string) (bool, map[string]string, error) {
@@ -660,9 +853,11 @@ func (c *DeployCommand) deployBundle(
 	ctx *cmd.Context,
 	filePath string,
 	data *charm.BundleData,
+	bundleURL *charm.URL,
 	channel params.Channel,
 	apiRoot DeployAPI,
 	bundleStorage map[string]map[string]storage.Constraints,
+	bundleDevices map[string]map[string]devices.Constraints,
 ) (rErr error) {
 	bakeryClient, err := c.BakeryClient()
 	if err != nil {
@@ -687,6 +882,7 @@ func (c *DeployCommand) deployBundle(
 					ApplicationName: application,
 					ApplicationPlan: applicationSpec.Plan,
 					ModelUUID:       modelUUID,
+					Force:           c.Force,
 				}
 
 				err = s.RunPre(apiRoot, bakeryClient, ctx, deployInfo)
@@ -705,14 +901,18 @@ func (c *DeployCommand) deployBundle(
 	}
 
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
+	// Deploying bundles does not allow the use force, it's expected that the
+	// bundle is correct and therefore the charms are also.
 	if _, err := deployBundle(
 		filePath,
 		data,
+		bundleURL,
 		c.BundleOverlayFile,
 		channel,
 		apiRoot,
 		ctx,
 		bundleStorage,
+		bundleDevices,
 		c.DryRun,
 		c.UseExisting,
 		c.BundleMachines,
@@ -842,6 +1042,7 @@ func (c *DeployCommand) deployCharm(
 		ApplicationName: applicationName,
 		ModelUUID:       uuid,
 		CharmInfo:       charmInfo,
+		Force:           c.Force,
 	}
 
 	for _, step := range c.Steps {
@@ -891,6 +1092,7 @@ func (c *DeployCommand) deployCharm(
 		Config:           appConfig,
 		Placement:        c.Placement,
 		Storage:          c.Storage,
+		Devices:          c.Devices,
 		AttachStorage:    c.AttachStorage,
 		Resources:        ids,
 		EndpointBindings: c.Bindings,
@@ -944,6 +1146,14 @@ func (c *DeployCommand) parseBind() error {
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
+	if c.unknownModel {
+		if err := c.validateStorageByModelType(); err != nil {
+			return errors.Trace(err)
+		}
+		if err := c.validatePlacementByModelType(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	var err error
 	c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr)
 	if err != nil {
@@ -955,8 +1165,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiRoot.Close()
 
+	for _, step := range c.Steps {
+		step.SetPlanURL(apiRoot.PlanURL())
+	}
+
 	deploy, err := findDeployerFIFO(
-		c.maybeReadLocalBundle,
+		func() (deployFn, error) { return c.maybeReadLocalBundle(ctx) },
 		func() (deployFn, error) { return c.maybeReadLocalCharm(apiRoot) },
 		c.maybePredeployedLocalCharm,
 		c.maybeReadCharmstoreBundleFn(apiRoot),
@@ -984,14 +1198,14 @@ type deployFn func(*cmd.Context, DeployAPI) error
 
 func (c *DeployCommand) validateBundleFlags() error {
 	if flags := getFlags(c.flagSet, charmOnlyFlags()); len(flags) > 0 {
-		return errors.Errorf("flags provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
+		return errors.Errorf("options provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
 	}
 	return nil
 }
 
 func (c *DeployCommand) validateCharmFlags() error {
 	if flags := getFlags(c.flagSet, bundleOnlyFlags); len(flags) > 0 {
-		return errors.Errorf("flags provided but not supported when deploying a charm: %s", strings.Join(flags, ", "))
+		return errors.Errorf("options provided but not supported when deploying a charm: %s", strings.Join(flags, ", "))
 	}
 	return nil
 }
@@ -1002,6 +1216,28 @@ func (c *DeployCommand) validateCharmSeries(series string) error {
 		return errors.Trace(err)
 	}
 	return model.ValidateSeries(modelType, series)
+}
+
+func (c *DeployCommand) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) error {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if modelType != model.CAAS {
+		return nil
+	}
+	var missingImages []string
+	for resName, resMeta := range charmMeta.Resources {
+		if resMeta.Type == resource.TypeContainerImage {
+			if _, ok := c.Resources[resName]; !ok {
+				missingImages = append(missingImages, resName)
+			}
+		}
+	}
+	if len(missingImages) > 0 {
+		return errors.Errorf("local charm missing OCI images for: %v", strings.Join(missingImages, ", "))
+	}
+	return nil
 }
 
 func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
@@ -1025,6 +1261,13 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 		if err := c.validateCharmFlags(); err != nil {
 			return errors.Trace(err)
 		}
+		charmInfo, err := api.CharmInfo(userCharmURL.String())
+		if err != nil {
+			return err
+		}
+		if err := c.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
+			return errors.Trace(err)
+		}
 		formattedCharmURL := userCharmURL.String()
 		ctx.Infof("Located charm %q.", formattedCharmURL)
 		ctx.Infof("Deploying charm %q.", formattedCharmURL)
@@ -1038,73 +1281,84 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	}, nil
 }
 
-func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
-	bundleFile := c.CharmOrBundle
-	var bundleDir string
-	isDir := false
-	resolveDir := false
-
+// readLocalBundle returns the bundle data and bundle dir (for
+// resolving includes) for the bundleFile passed in. If the bundle
+// file doesn't exist we return nil.
+func readLocalBundle(ctx *cmd.Context, bundleFile string) (*charm.BundleData, string, error) {
 	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
-	if err != nil {
-		// We may have been given a local bundle archive or exploded directory.
-		bundle, _, pathErr := charmrepo.NewBundleAtPath(bundleFile)
-		if charmrepo.IsInvalidPathError(pathErr) {
-			return nil, errors.Errorf(""+
-				"The charm or bundle %q is ambiguous.\n"+
-				"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
-				"To deploy a charm or bundle from the store, run `juju deploy cs:%[1]s`.",
-				bundleFile,
-			)
-		}
-		if pathErr != nil {
-			// If the bundle files existed but we couldn't read them,
-			// then return that error rather than trying to interpret
-			// as a charm.
-			if info, statErr := os.Stat(bundleFile); statErr == nil {
-				if info.IsDir() {
-					if _, ok := pathErr.(*charmrepo.NotFoundError); !ok {
-						return nil, errors.Annotate(pathErr, "cannot deploy bundle")
-					}
-				}
-			}
-
-			logger.Debugf("cannot interpret as local bundle: %v", err)
-			return nil, nil
-		}
-
-		bundleData = bundle.Data()
-		if info, err := os.Stat(bundleFile); err == nil && info.IsDir() {
-			resolveDir = true
-			isDir = true
-		}
-	} else {
-		resolveDir = true
+	if err == nil {
+		// If the bundle is defined with just a yaml file, the bundle
+		// path is the directory that holds the file.
+		return bundleData, filepath.Dir(ctx.AbsPath(bundleFile)), nil
 	}
 
+	// We may have been given a local bundle archive or exploded directory.
+	bundle, _, pathErr := charmrepo.NewBundleAtPath(bundleFile)
+	if charmrepo.IsInvalidPathError(pathErr) {
+		return nil, "", pathErr
+	}
+	if pathErr != nil {
+		// If the bundle files existed but we couldn't read them,
+		// then return that error rather than trying to interpret
+		// as a charm.
+		if info, statErr := os.Stat(bundleFile); statErr == nil {
+			if info.IsDir() {
+				if _, ok := pathErr.(*charmrepo.NotFoundError); !ok {
+					return nil, "", errors.Trace(pathErr)
+				}
+			}
+		}
+
+		logger.Debugf("cannot interpret as local bundle: %v", err)
+		return nil, "", errors.NotValidf("local bundle %q", bundleFile)
+	}
+	bundleData = bundle.Data()
+
+	// If we get to here bundleFile is a directory, in which case
+	// we should use the absolute path as the bundFilePath, or it is
+	// an archive, in which case we should pass the empty string.
+	var bundleDir string
+	if info, err := os.Stat(bundleFile); err == nil && info.IsDir() {
+		bundleDir = ctx.AbsPath(bundleFile)
+	}
+
+	return bundleData, bundleDir, nil
+}
+
+func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error) {
+	bundleFile := c.CharmOrBundle
+	bundleData, bundleDir, err := readLocalBundle(ctx, bundleFile)
+	if charmrepo.IsInvalidPathError(err) {
+		return nil, errors.Errorf(""+
+			"The charm or bundle %q is ambiguous.\n"+
+			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
+			"To deploy a charm or bundle from the store, run `juju deploy cs:%[1]s`.",
+			bundleFile,
+		)
+	}
+	if errors.IsNotValid(err) {
+		// No problem reading it, but it's not a local bundle. Return
+		// nil, nil to indicate the fallback pipeline should try the
+		// next possibility.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot deploy bundle")
+	}
 	if err := c.validateBundleFlags(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
-		if resolveDir {
-			if isDir {
-				// If we get to here bundleFile is a directory, in which case
-				// we should use the absolute path as the bundFilePath, or it is
-				// an archive, in which case we should pass the empty string.
-				bundleDir = ctx.AbsPath(bundleFile)
-			} else {
-				// If the bundle is defined with just a yaml file, the bundle
-				// path is the directory that holds the file.
-				bundleDir = filepath.Dir(ctx.AbsPath(bundleFile))
-			}
-		}
 		return errors.Trace(c.deployBundle(
 			ctx,
 			bundleDir,
 			bundleData,
+			nil,
 			c.Channel,
 			apiRoot,
 			c.BundleStorage,
+			c.BundleDevices,
 		))
 	}, nil
 }
@@ -1172,13 +1426,16 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	if err := c.validateCharmSeries(series); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := c.validateResourcesNeededForLocalDeploy(ch.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
 		if err := c.validateCharmFlags(); err != nil {
 			return errors.Trace(err)
 		}
 
-		if curl, err = apiRoot.AddLocalCharm(curl, ch); err != nil {
+		if curl, err = apiRoot.AddLocalCharm(curl, ch, c.Force); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -1198,55 +1455,84 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	}, nil
 }
 
+// URLResolver is the part of charmrepo.Charmstore that we need to
+// resolve a charm url.
+type URLResolver interface {
+	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
+}
+
+// resolveBundleURL tries to interpret maybeBundle as a charmstore
+// bundle. If it turns out to be a bundle, the resolved URL and
+// channel are returned. If it isn't but there wasn't a problem
+// checking it, it returns a nil charm URL.
+func resolveBundleURL(store URLResolver, maybeBundle string) (*charm.URL, params.Channel, error) {
+	userRequestedURL, err := charm.ParseURL(maybeBundle)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+
+	// Charm or bundle has been supplied as a URL so we resolve and
+	// deploy using the store.
+	storeCharmOrBundleURL, channel, _, err := resolveCharm(store.ResolveWithChannel, userRequestedURL)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	if storeCharmOrBundleURL.Series != "bundle" {
+		logger.Debugf(
+			`cannot interpret as charmstore bundle: %v (series) != "bundle"`,
+			storeCharmOrBundleURL.Series,
+		)
+		return nil, "", errors.NotValidf("charmstore bundle %q", maybeBundle)
+	}
+	return storeCharmOrBundleURL, channel, nil
+}
+
 func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (deployFn, error) {
 	return func() (deployFn, error) {
-		userRequestedURL, err := charm.ParseURL(c.CharmOrBundle)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		modelCfg, err := getModelConfig(apiRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		// Charm or bundle has been supplied as a URL so we resolve and
-		// deploy using the store.
-		storeCharmOrBundleURL, channel, _, err := apiRoot.Resolve(modelCfg, userRequestedURL)
-		if charm.IsUnsupportedSeriesError(err) {
+		bundleURL, channel, err := resolveBundleURL(apiRoot, c.CharmOrBundle)
+		if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 			return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		} else if storeCharmOrBundleURL.Series != "bundle" {
-			logger.Debugf(
-				`cannot interpret as charmstore bundle: %v (series) != "bundle"`,
-				storeCharmOrBundleURL.Series,
-			)
+		}
+		if errors.IsNotValid(err) {
+			// The URL resolved alright, but not to a bundle.
 			return nil, nil
 		}
-
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		if err := c.validateBundleFlags(); err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		return func(ctx *cmd.Context, apiRoot DeployAPI) error {
-			bundle, err := apiRoot.GetBundle(storeCharmOrBundleURL)
+			bundle, err := apiRoot.GetBundle(bundleURL)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			ctx.Infof("Located bundle %q", storeCharmOrBundleURL)
+			ctx.Infof("Located bundle %q", bundleURL)
 			data := bundle.Data()
 
 			return errors.Trace(c.deployBundle(
 				ctx,
 				"", // filepath
 				data,
+				bundleURL,
 				channel,
 				apiRoot,
 				c.BundleStorage,
+				c.BundleDevices,
 			))
 		}, nil
 	}
+}
+
+func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (string, error) {
+	controllerAPI := controller.NewClient(controllerAPIRoot)
+	controllerCfg, err := controllerAPI.ControllerConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return controllerCfg.MeteringURL(), nil
 }
 
 func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
@@ -1266,7 +1552,9 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		}
 
 		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
-		storeCharmOrBundleURL, channel, supportedSeries, err := apiRoot.Resolve(modelCfg, userRequestedURL)
+		storeCharmOrBundleURL, channel, supportedSeries, err := resolveCharm(
+			apiRoot.ResolveWithChannel, userRequestedURL,
+		)
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		} else if err != nil {
@@ -1293,7 +1581,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// We check this first before possibly suggesting --force.
 		if err == nil {
 			if err2 := c.validateCharmSeries(series); err2 != nil {
-				return errors.Trace(err)
+				return errors.Trace(err2)
 			}
 		}
 
@@ -1302,7 +1590,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		}
 
 		// Store the charm in the controller
-		curl, csMac, err := addCharmFromURL(apiRoot, storeCharmOrBundleURL, channel)
+		curl, csMac, err := addCharmFromURL(apiRoot, storeCharmOrBundleURL, channel, c.Force)
 		if err != nil {
 			if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 				return errors.Trace(termErr.UserErr())

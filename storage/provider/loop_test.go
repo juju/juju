@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
@@ -26,11 +27,14 @@ type loopSuite struct {
 	testing.BaseSuite
 	storageDir string
 	commands   *mockRunCommand
+
+	callCtx context.ProviderCallContext
 }
 
 func (s *loopSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *loopSuite) TearDownTest(c *gc.C) {
@@ -90,7 +94,7 @@ func (s *loopSuite) TestCreateVolumes(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
 	s.commands.expect("fallocate", "-l", "2MiB", filepath.Join(s.storageDir, "volume-0"))
 
-	results, err := source.CreateVolumes([]storage.VolumeParams{{
+	results, err := source.CreateVolumes(s.callCtx, []storage.VolumeParams{{
 		Tag:  names.NewVolumeTag("0"),
 		Size: 2,
 		Attachment: &storage.VolumeAttachmentParams{
@@ -117,7 +121,7 @@ func (s *loopSuite) TestCreateVolumes(c *gc.C) {
 func (s *loopSuite) TestCreateVolumesNoAttachment(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
 	s.commands.expect("fallocate", "-l", "2MiB", filepath.Join(s.storageDir, "volume-0"))
-	_, err := source.CreateVolumes([]storage.VolumeParams{{
+	_, err := source.CreateVolumes(s.callCtx, []storage.VolumeParams{{
 		Tag:  names.NewVolumeTag("0"),
 		Size: 2,
 	}})
@@ -132,7 +136,7 @@ func (s *loopSuite) TestDestroyVolumes(c *gc.C) {
 	err := ioutil.WriteFile(fileName, nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	errs, err := source.DestroyVolumes([]string{"volume-0"})
+	errs, err := source.DestroyVolumes(s.callCtx, []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.HasLen, 1)
 	c.Assert(errs[0], jc.ErrorIsNil)
@@ -143,7 +147,7 @@ func (s *loopSuite) TestDestroyVolumes(c *gc.C) {
 
 func (s *loopSuite) TestDestroyVolumesInvalidVolumeId(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
-	errs, err := source.DestroyVolumes([]string{"../super/important/stuff"})
+	errs, err := source.DestroyVolumes(s.callCtx, []string{"../super/important/stuff"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.HasLen, 1)
 	c.Assert(errs[0], gc.ErrorMatches, `.* invalid loop volume ID "\.\./super/important/stuff"`)
@@ -151,7 +155,7 @@ func (s *loopSuite) TestDestroyVolumesInvalidVolumeId(c *gc.C) {
 
 func (s *loopSuite) TestDescribeVolumes(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
-	_, err := source.DescribeVolumes([]string{"a", "b"})
+	_, err := source.DescribeVolumes(s.callCtx, []string{"a", "b"})
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
@@ -168,7 +172,7 @@ func (s *loopSuite) TestAttachVolumes(c *gc.C) {
 	cmd = s.commands.expect("losetup", "-j", filepath.Join(s.storageDir, "volume-2"))
 	cmd.respond("/dev/loop42: foo\n/dev/loop1: foo\n", nil) // existing attachments
 
-	results, err := source.AttachVolumes([]storage.VolumeAttachmentParams{{
+	results, err := source.AttachVolumes(s.callCtx, []storage.VolumeAttachmentParams{{
 		Volume:   names.NewVolumeTag("0"),
 		VolumeId: "vol-ume0",
 		AttachmentParams: storage.AttachmentParams{
@@ -228,7 +232,7 @@ func (s *loopSuite) TestDetachVolumes(c *gc.C) {
 	err := ioutil.WriteFile(fileName, nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	errs, err := source.DetachVolumes([]storage.VolumeAttachmentParams{{
+	errs, err := source.DetachVolumes(s.callCtx, []storage.VolumeAttachmentParams{{
 		Volume:   names.NewVolumeTag("0"),
 		VolumeId: "vol-ume0",
 		AttachmentParams: storage.AttachmentParams{
@@ -256,7 +260,7 @@ func (s *loopSuite) TestDetachVolumesDetachFails(c *gc.C) {
 	err := ioutil.WriteFile(fileName, nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	errs, err := source.DetachVolumes([]storage.VolumeAttachmentParams{{
+	errs, err := source.DetachVolumes(s.callCtx, []storage.VolumeAttachmentParams{{
 		Volume:   names.NewVolumeTag("0"),
 		VolumeId: "vol-ume0",
 		AttachmentParams: storage.AttachmentParams{

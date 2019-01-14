@@ -6,8 +6,8 @@ package storageprovisioner
 import (
 	"path/filepath"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -17,13 +17,15 @@ import (
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/worker/common"
 )
 
 // MachineManifoldConfig defines a storage provisioner's configuration and dependencies.
 type MachineManifoldConfig struct {
-	AgentName     string
-	APICallerName string
-	Clock         clock.Clock
+	AgentName                    string
+	APICallerName                string
+	Clock                        clock.Clock
+	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
 func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
@@ -32,7 +34,7 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 	}
 
 	cfg := a.CurrentConfig()
-	api, err := storageprovisioner.NewState(apiCaller, cfg.Tag())
+	api, err := storageprovisioner.NewState(apiCaller)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -42,17 +44,23 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 		return nil, errors.Errorf("this manifold may only be used inside a machine agent")
 	}
 
+	credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	storageDir := filepath.Join(cfg.DataDir(), "storage")
 	w, err := NewStorageProvisioner(Config{
-		Scope:       tag,
-		StorageDir:  storageDir,
-		Volumes:     api,
-		Filesystems: api,
-		Life:        api,
-		Registry:    provider.CommonStorageProviders(),
-		Machines:    api,
-		Status:      api,
-		Clock:       config.Clock,
+		Scope:            tag,
+		StorageDir:       storageDir,
+		Volumes:          api,
+		Filesystems:      api,
+		Life:             api,
+		Registry:         provider.CommonStorageProviders(),
+		Machines:         api,
+		Status:           api,
+		Clock:            config.Clock,
+		CloudCallContext: common.NewCloudCallContext(credentialAPI, nil),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 )
 
@@ -67,12 +68,12 @@ func (c *showCloudCommand) Init(args []string) error {
 }
 
 func (c *showCloudCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-cloud",
 		Args:    "<cloud name>",
 		Purpose: "Shows detailed information on a cloud.",
 		Doc:     showCloudDoc,
-	}
+	})
 }
 
 func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
@@ -115,9 +116,10 @@ type cloudDetails struct {
 	// Regions is for when we want to print regions in order for yaml output.
 	Regions yaml.MapSlice `yaml:"regions,omitempty" json:"-"`
 	// Regions map is for json marshalling where format is important but not order.
-	RegionsMap   map[string]regionDetails `yaml:"-" json:"regions,omitempty"`
-	Config       map[string]interface{}   `yaml:"config,omitempty" json:"config,omitempty"`
-	RegionConfig jujucloud.RegionConfig   `yaml:"region-config,omitempty" json:"region-config,omitempty"`
+	RegionsMap    map[string]regionDetails `yaml:"-" json:"regions,omitempty"`
+	Config        map[string]interface{}   `yaml:"config,omitempty" json:"config,omitempty"`
+	RegionConfig  jujucloud.RegionConfig   `yaml:"region-config,omitempty" json:"region-config,omitempty"`
+	CACredentials []string                 `yaml:"ca-credentials,omitempty" json:"ca-credentials,omitempty"`
 }
 
 func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
@@ -130,6 +132,7 @@ func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 		Config:           cloud.Config,
 		RegionConfig:     cloud.RegionConfig,
 		CloudDescription: cloud.Description,
+		CACredentials:    cloud.CACertificates,
 	}
 	result.AuthTypes = make([]string, len(cloud.AuthTypes))
 	for i, at := range cloud.AuthTypes {

@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api/metricsdebug"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -41,12 +42,12 @@ func New() cmd.Command {
 
 // Info implements Command.Info.
 func (c *MetricsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "metrics",
 		Args:    "[tag1[...tagN]]",
 		Purpose: "Retrieve metrics collected by specified entities.",
 		Doc:     metricsDoc,
-	}
+	})
 }
 
 // Init reads and verifies the cli arguments for the MetricsCommand

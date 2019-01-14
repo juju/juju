@@ -18,6 +18,7 @@ import (
 
 	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -84,20 +85,20 @@ targets.
 Since juju run creates actions, you can query for the status of commands
 started with juju run by calling "juju show-action-status --name juju-run".
 
-If you need to pass flags to the command being run, you must precede the
+If you need to pass options to the command being run, you must precede the
 command and its arguments with "--", to tell "juju run" to stop processing
 those arguments. For example:
 
-    juju run --all --hostname -f
+    juju run --all -- hostname -f
 `
 
 func (c *runCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "run",
 		Args:    "<commands>",
 		Purpose: "Run the commands on the remote targets specified.",
 		Doc:     runDoc,
-	}
+	})
 }
 
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {

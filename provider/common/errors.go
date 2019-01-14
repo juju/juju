@@ -3,7 +3,14 @@
 
 package common
 
-import "github.com/juju/errors"
+import (
+	"net/http"
+
+	"github.com/juju/collections/set"
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/environs/context"
+)
 
 // ZoneIndependentError wraps the given error such that it
 // satisfies environs.IsAvailabilityZoneIndependent.
@@ -66,4 +73,30 @@ func IsCredentialNotValid(err error) bool {
 	err = errors.Cause(err)
 	_, ok := err.(*credentialNotValid)
 	return ok
+}
+
+// AuthorisationFailureStatusCodes contains http status code that signify authorisation difficulties.
+var AuthorisationFailureStatusCodes = set.NewInts(
+	http.StatusUnauthorized,
+	http.StatusPaymentRequired,
+	http.StatusForbidden,
+	http.StatusProxyAuthRequired,
+)
+
+// MaybeHandleCredentialError determines if a given error relates to an invalid credential.
+// If it is, the credential is invalidated and the return bool is true.
+func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx context.ProviderCallContext) bool {
+	denied := isAuthError(errors.Cause(err))
+	if ctx != nil && denied {
+		invalidateErr := ctx.InvalidateCredential("cloud denied access")
+		if invalidateErr != nil {
+			logger.Warningf("could not invalidate stored cloud credential on the controller: %v", invalidateErr)
+		}
+	}
+	return denied
+}
+
+// HandleCredentialError determines if a given error relates to an invalid credential.
+func HandleCredentialError(isAuthError func(error) bool, err error, ctx context.ProviderCallContext) {
+	MaybeHandleCredentialError(isAuthError, err, ctx)
 }

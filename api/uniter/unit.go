@@ -11,8 +11,9 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Unit represents a juju unit as seen by a uniter worker.
@@ -21,7 +22,6 @@ type Unit struct {
 	tag          names.UnitTag
 	life         params.Life
 	resolvedMode params.ResolvedMode
-	series       string
 }
 
 // Tag returns the unit's tag.
@@ -42,11 +42,6 @@ func (u *Unit) String() string {
 // Life returns the unit's lifecycle value.
 func (u *Unit) Life() params.Life {
 	return u.life
-}
-
-// Series returns the unit's series value.
-func (u *Unit) Series() string {
-	return u.series
 }
 
 // Resolved returns the unit's resolved mode value.
@@ -76,7 +71,6 @@ func (u *Unit) Refresh() error {
 
 	u.life = result.Life
 	u.resolvedMode = result.Resolved
-	u.series = result.Series
 	return nil
 }
 
@@ -556,28 +550,30 @@ func (u *Unit) ClearResolved() error {
 	return result.OneError()
 }
 
-// WatchConfigSettings returns a watcher for observing changes to the
-// unit's application configuration settings. The unit must have a charm URL
-// set before this method is called, and the returned watcher will be
+// WatchConfigSettingsHash returns a watcher for observing changes to
+// the unit's charm configuration settings (with a hash of the
+// settings content so we can determine whether it has changed since
+// it was last seen by the uniter). The unit must have a charm URL set
+// before this method is called, and the returned watcher will be
 // valid only while the unit's charm URL is not changed.
-func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
-	return getSettingsWatcher(u, "WatchConfigSettings")
+func (u *Unit) WatchConfigSettingsHash() (watcher.StringsWatcher, error) {
+	return getHashWatcher(u, "WatchConfigSettingsHash")
 }
 
-// WatchTrustConfigSettings will return a watcher to monitor at least the trust
-// application configuration settings. This is in contrast to Charm
-// configuration settings watchers which are created with WatchConfigSettings
-// and do not monitor for application configuration settings such as "trust".
-func (u *Unit) WatchTrustConfigSettings() (watcher.NotifyWatcher, error) {
-	return getSettingsWatcher(u, "WatchTrustConfigSettings")
+// WatchTrustConfigSettingsHash returns a watcher for observing changes to
+// the unit's application configuration settings (with a hash of the
+// settings content so we can determine whether it has changed since
+// it was last seen by the uniter).
+func (u *Unit) WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error) {
+	return getHashWatcher(u, "WatchTrustConfigSettingsHash")
 }
 
-func getSettingsWatcher(u *Unit, facadeName string) (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
+func getHashWatcher(u *Unit, methodName string) (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall(facadeName, args, &results)
+	err := u.st.facade.FacadeCall(methodName, args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -588,35 +584,19 @@ func getSettingsWatcher(u *Unit, facadeName string) (watcher.NotifyWatcher, erro
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
-// WatchAddresses returns a watcher for observing changes to the
-// unit's addresses.
+// WatchAddressesHash returns a watcher for observing changes to the
+// hash of the unit's addresses.
 // For IAAS models, the unit must be assigned to a machine before
 // this method is called, and the returned watcher will be valid
 // only while the unit's assigned machine is not changed.
 // For CAAS models, the watcher observes changes to the address
 // of the pod associated with the unit.
-func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.st.facade.FacadeCall("WatchUnitAddresses", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
-	return w, nil
+func (u *Unit) WatchAddressesHash() (watcher.StringsWatcher, error) {
+	return getHashWatcher(u, "WatchUnitAddressesHash")
 }
 
 // WatchActionNotifications returns a StringsWatcher for observing the
@@ -640,6 +620,40 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	}
 	w := apiwatcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing the
+// state of a series upgrade.
+func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) {
+	return u.st.WatchUpgradeSeriesNotifications()
+}
+
+// UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
+func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+	res, err := u.st.UpgradeSeriesUnitStatus()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(res) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(res))
+	}
+	return res[0], nil
+}
+
+// SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
+func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error {
+	return u.st.SetUpgradeSeriesUnitStatus(status, reason)
+}
+
+// WatchLXDProfileUpgradeNotifications returns a StringsWatcher for observing the
+// state of a lxd profile upgrade
+func (u *Unit) WatchLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error) {
+	return u.st.WatchLXDProfileUpgradeNotifications(u.ApplicationName())
+}
+
+// RemoveUpgradeCharmProfileData removes the upgrade charm profile data
+func (u *Unit) RemoveUpgradeCharmProfileData() error {
+	return u.st.RemoveUpgradeCharmProfileData()
 }
 
 // RequestReboot sets the reboot flag for its machine agent
@@ -761,7 +775,11 @@ func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) er
 	all := make([]params.StorageAddParams, 0, len(constraints))
 	for storage, cons := range constraints {
 		for _, one := range cons {
-			all = append(all, params.StorageAddParams{u.Tag().String(), storage, one})
+			all = append(all, params.StorageAddParams{
+				UnitTag:     u.Tag().String(),
+				StorageName: storage,
+				Constraints: one,
+			})
 		}
 	}
 

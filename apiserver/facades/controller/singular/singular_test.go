@@ -31,14 +31,14 @@ var _ = gc.Suite(&SingularSuite{})
 
 func (s *SingularSuite) TestRequiresController(c *gc.C) {
 	auth := mockAuth{nonController: true}
-	facade, err := singular.NewFacade(nil, auth)
+	facade, err := singular.NewFacade(nil, nil, auth)
 	c.Check(facade, gc.IsNil)
 	c.Check(err, gc.Equals, common.ErrPerm)
 }
 
 func (s *SingularSuite) TestAcceptsController(c *gc.C) {
 	backend := &mockBackend{}
-	facade, err := singular.NewFacade(backend, mockAuth{})
+	facade, err := singular.NewFacade(backend, backend, mockAuth{})
 	c.Check(facade, gc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
@@ -69,7 +69,7 @@ func (s *SingularSuite) TestInvalidClaims(c *gc.C) {
 	}
 
 	backend := &mockBackend{}
-	facade, err := singular.NewFacade(backend, mockAuth{})
+	facade, err := singular.NewFacade(backend, backend, mockAuth{})
 	c.Assert(err, jc.ErrorIsNil)
 	result := facade.Claim(claims)
 	c.Assert(result.Results, gc.HasLen, count)
@@ -124,7 +124,7 @@ func (s *SingularSuite) TestValidClaims(c *gc.C) {
 
 	backend := &mockBackend{}
 	backend.stub.SetErrors(errors...)
-	facade, err := singular.NewFacade(backend, mockAuth{})
+	facade, err := singular.NewFacade(backend, backend, mockAuth{})
 	c.Assert(err, jc.ErrorIsNil)
 	result := facade.Claim(claims)
 	c.Assert(result.Results, gc.HasLen, count)
@@ -160,7 +160,7 @@ func (s *SingularSuite) TestWait(c *gc.C) {
 
 	backend := &mockBackend{}
 	backend.stub.SetErrors(errors.New("zap!"), nil)
-	facade, err := singular.NewFacade(backend, mockAuth{})
+	facade, err := singular.NewFacade(backend, backend, mockAuth{})
 	c.Assert(err, jc.ErrorIsNil)
 	result := facade.Wait(context.TODO(), waits)
 	c.Assert(result.Results, gc.HasLen, count)
@@ -192,7 +192,7 @@ func (s *SingularSuite) TestWaitCancelled(c *gc.C) {
 	count := len(waits.Entities)
 
 	backend := &mockBackend{}
-	facade, err := singular.NewFacade(backend, mockAuth{})
+	facade, err := singular.NewFacade(backend, backend, mockAuth{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx, cancel := context.WithCancel(context.Background())

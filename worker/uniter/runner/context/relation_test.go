@@ -15,9 +15,9 @@ import (
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -196,7 +196,9 @@ func (s *ContextRelationSuite) TestSuspended(c *gc.C) {
 func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
 	_, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.LeadershipClaimer().ClaimLeadership("u", "u/0", time.Minute)
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim("u", "u/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := context.NewContextRelation(s.apiRelUnit, nil)

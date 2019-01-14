@@ -129,6 +129,32 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
 	c.Assert(params.Cloud.Credential.Label, gc.Equals, "finalized")
 }
 
+func (NewGetBootstrapConfigParamsFuncSuite) TestCloudCACert(c *gc.C) {
+	fakeCert := coretesting.CACert
+	clientStore := jujuclient.NewMemStore()
+	clientStore.Controllers["foo"] = jujuclient.ControllerDetails{}
+	clientStore.BootstrapConfig["foo"] = jujuclient.BootstrapConfig{
+		Cloud:               "cloud",
+		CloudType:           "cloud-type",
+		ControllerModelUUID: coretesting.ModelTag.Id(),
+		Config: map[string]interface{}{
+			"name": "foo",
+			"type": "cloud-type",
+		},
+		CloudCACertificates: []string{fakeCert},
+	}
+	var registry mockProviderRegistry
+
+	f := modelcmd.NewGetBootstrapConfigParamsFunc(
+		cmdtesting.Context(c),
+		clientStore,
+		&registry,
+	)
+	_, params, err := f("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(params.Cloud.CACertificates, jc.SameContents, []string{fakeCert})
+}
+
 type mockProviderRegistry struct {
 	environs.ProviderRegistry
 }
@@ -155,5 +181,5 @@ func (p *mockEnvironProvider) FinalizeCredential(
 }
 
 func (p *mockEnvironProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: cloud.CredentialSchema{}}
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }

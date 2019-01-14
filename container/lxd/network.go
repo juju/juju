@@ -85,6 +85,23 @@ func (s *Server) EnsureIPv4(netName string) (bool, error) {
 	return modified, nil
 }
 
+// GetNICsFromProfile returns all NIC devices in the profile with the input
+// name. All returned devices have a MAC address; generated if required.
+func (s *Server) GetNICsFromProfile(profName string) (map[string]device, error) {
+	profile, _, err := s.GetProfile(lxdDefaultProfileName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	nics := getProfileNICs(profile)
+	for name := range nics {
+		if nics[name]["hwaddr"] == "" {
+			nics[name]["hwaddr"] = network.GenerateVirtualMACAddress()
+		}
+	}
+	return nics, nil
+}
+
 // VerifyNetworkDevice attempts to ensure that there is a network usable by LXD
 // and that there is a NIC device with said network as its parent.
 // If there are no NIC devices, and this server is *not* in cluster mode,
@@ -163,10 +180,9 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 
 	if err := s.UpdateProfile(profile.Name, profile.Writable(), eTag); err != nil {
 		return errors.Trace(err)
-	} else {
-		logger.Debugf("created new nic device %q in profile %q", nicName, profile.Name)
-		return nil
 	}
+	logger.Debugf("created new nic device %q in profile %q", nicName, profile.Name)
+	return nil
 }
 
 // verifyNICsWithAPI uses the LXD network API to check if one of the input NIC
@@ -234,7 +250,7 @@ func (s *Server) verifyNICsWithConfigFile(nics map[string]device, reader func(st
 			continue
 		}
 
-		logger.Infof("found usable network device %q with parent %q", name, netName)
+		logger.Tracef("found usable network device %q with parent %q", name, netName)
 		s.localBridgeName = netName
 		return nil
 	}

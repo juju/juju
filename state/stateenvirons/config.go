@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
@@ -73,5 +74,33 @@ func GetNewEnvironFunc(newEnviron environs.NewEnvironFunc) NewEnvironFunc {
 		}
 		g := EnvironConfigGetter{st, m}
 		return environs.GetEnviron(g, newEnviron)
+	}
+}
+
+// NewCAASBrokerFunc defines the type of a function that, given a state.State,
+// returns a new CAAS broker.
+type NewCAASBrokerFunc func(*state.State) (caas.Broker, error)
+
+// GetNewCAASBrokerFunc returns a NewCAASBrokerFunc, that constructs CAAS brokers
+// using the given caas.NewContainerBrokerFunc.
+func GetNewCAASBrokerFunc(newBroker caas.NewContainerBrokerFunc) NewCAASBrokerFunc {
+	return func(st *state.State) (caas.Broker, error) {
+		m, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		g := EnvironConfigGetter{st, m}
+		cloudSpec, err := g.CloudSpec()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cfg, err := g.ModelConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newBroker(environs.OpenParams{
+			Cloud:  cloudSpec,
+			Config: cfg,
+		})
 	}
 }

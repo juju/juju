@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -105,7 +105,7 @@ func (s *undertakerSuite) TestRemoveAliveModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = hostedAPI.RemoveModel()
-	c.Assert(err, gc.ErrorMatches, "model not dead")
+	c.Assert(err, gc.ErrorMatches, "model not dying or dead")
 }
 
 func (s *undertakerSuite) TestRemoveDyingModel(c *gc.C) {
@@ -114,8 +114,7 @@ func (s *undertakerSuite) TestRemoveDyingModel(c *gc.C) {
 	// Set model to dying
 	otherSt.model.life = state.Dying
 
-	err := hostedAPI.RemoveModel()
-	c.Assert(err, gc.ErrorMatches, "model not dead")
+	c.Assert(hostedAPI.RemoveModel(), jc.ErrorIsNil)
 }
 
 func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {

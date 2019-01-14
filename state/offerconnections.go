@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"

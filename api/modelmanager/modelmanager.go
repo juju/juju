@@ -434,11 +434,11 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 	if err := permission.ValidateModelAccess(modelAccess); err != nil {
 		return errors.Trace(err)
 	}
-	for _, model := range modelUUIDs {
-		if !names.IsValidModel(model) {
-			return errors.Errorf("invalid model: %q", model)
+	for _, m := range modelUUIDs {
+		if !names.IsValidModel(m) {
+			return errors.Errorf("invalid model: %q", m)
 		}
-		modelTag := names.NewModelTag(model)
+		modelTag := names.NewModelTag(m)
 		args.Changes = append(args.Changes, params.ModifyModelAccess{
 			UserTag:  userTag.String(),
 			Action:   action,
@@ -529,4 +529,24 @@ func (c *Client) UnsetModelDefaults(cloud, region string, keys ...string) error 
 		return err
 	}
 	return result.OneError()
+}
+
+// ChangeModelCredential replaces cloud credential for a given model with the provided one.
+func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.CloudCredentialTag) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 5 {
+		return errors.NotImplementedf("ChangeModelCredential in version %v", bestVer)
+	}
+
+	var out params.ErrorResults
+	in := params.ChangeModelCredentialsParams{
+		[]params.ChangeModelCredentialParams{
+			{ModelTag: model.String(), CloudCredentialTag: credential.String()},
+		},
+	}
+
+	err := c.facade.FacadeCall("ChangeModelCredential", in, &out)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return out.OneError()
 }

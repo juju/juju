@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -81,7 +82,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 			Auth_:      anAuthoriser,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	controllerModelTag := s.IAASModel.ModelTag().String()
+	controllerModelTag := s.Model.ModelTag().String()
 
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}},
@@ -133,7 +134,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Jobs:            []state.MachineJob{state.JobManageModel},
 		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
 		InstanceId:      "id-4",
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped",
 				Size: 123,
@@ -143,7 +144,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "id-5",
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{
 				Pool: "modelscoped",
 				Size: 123,
@@ -159,7 +160,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
 
-	otherFactory := factory.NewFactory(otherSt)
+	otherFactory := factory.NewFactory(otherSt, s.StatePool)
 	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-8"})
 	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-9"})
 	otherFactory.MakeApplication(c, &factory.ApplicationParams{
@@ -169,7 +170,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerModelTag := s.IAASModel.ModelTag().String()
+	controllerModelTag := s.Model.ModelTag().String()
 	hostedModelTag := otherModel.ModelTag().String()
 
 	req := params.Entities{
@@ -185,7 +186,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Mem:  &mem,
 	}
 	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
-		params.ModelStatus{
+		{
 			ModelTag:           controllerModelTag,
 			HostedMachineCount: 1,
 			ApplicationCount:   1,
@@ -204,7 +205,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 				Id: "1/1", Status: "pending", Detachable: false,
 			}},
 		},
-		params.ModelStatus{
+		{
 			ModelTag:           hostedModelTag,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
@@ -220,25 +221,23 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 
 func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	otherModelOwner := s.Factory.MakeModelUser(c, nil)
-	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+	otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
 		Owner: otherModelOwner.UserTag,
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	})
 	defer otherSt.Close()
 
-	otherFactory := factory.NewFactory(otherSt)
+	otherFactory := factory.NewFactory(otherSt, s.StatePool)
 	otherFactory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: otherFactory.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"}),
+		Charm: otherFactory.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"}),
 	})
 
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerModelTag := s.IAASModel.ModelTag().String()
+	controllerModelTag := s.Model.ModelTag().String()
 	hostedModelTag := otherModel.ModelTag().String()
 
 	req := params.Entities{
@@ -248,14 +247,14 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
-		params.ModelStatus{
+		{
 			ModelTag:           controllerModelTag,
 			HostedMachineCount: 0,
 			ApplicationCount:   0,
 			OwnerTag:           s.Owner.String(),
 			Life:               params.Alive,
 		},
-		params.ModelStatus{
+		{
 			ModelTag:           hostedModelTag,
 			HostedMachineCount: 0,
 			ApplicationCount:   1,
@@ -269,17 +268,17 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "fail.me"},
-			{Tag: s.IAASModel.ModelTag().String()},
+			{Tag: s.Model.ModelTag().String()},
 		},
 	}
 	expected := params.ModelStatusResults{
 		Results: []params.ModelStatus{
-			params.ModelStatus{
+			{
 				Error: common.ServerError(errors.New(`"fail.me" is not a valid tag`))},
-			params.ModelStatus{
-				ModelTag: s.IAASModel.ModelTag().String(),
-				Life:     params.Life(s.IAASModel.Life().String()),
-				OwnerTag: s.IAASModel.Owner().String(),
+			{
+				ModelTag: s.Model.ModelTag().String(),
+				Life:     params.Life(s.Model.Life().String()),
+				OwnerTag: s.Model.Owner().String(),
 			},
 		},
 	}
@@ -298,7 +297,7 @@ func (statePolicy) ConfigValidator() (config.Validator, error) {
 	return nil, errors.NotImplementedf("ConfigValidator")
 }
 
-func (statePolicy) ConstraintsValidator() (constraints.Validator, error) {
+func (statePolicy) ConstraintsValidator(context.ProviderCallContext) (constraints.Validator, error) {
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 

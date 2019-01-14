@@ -6,6 +6,7 @@ package peergrouper_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,7 +28,7 @@ type ManifoldSuite struct {
 
 	manifold     dependency.Manifold
 	context      dependency.Context
-	clock        *testing.Clock
+	clock        *testclock.Clock
 	agent        *mockAgent
 	hub          *mockHub
 	stateTracker stubStateTracker
@@ -40,7 +41,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.agent = &mockAgent{conf: mockAgentConfig{
 		info: &params.StateServingInfo{
 			StatePort: 1234,

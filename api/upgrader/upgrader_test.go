@@ -14,12 +14,12 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 type machineUpgraderSuite struct {

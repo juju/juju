@@ -5,14 +5,15 @@ package application
 
 import (
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/resource/resourceadapters"
 )
+
+type RemoveApplicationAPI removeApplicationAPI
 
 func NewUpgradeCharmCommandForTest(
 	store jujuclient.ClientStore,
@@ -20,10 +21,11 @@ func NewUpgradeCharmCommandForTest(
 	deployResources resourceadapters.DeployResourcesFunc,
 	resolveCharm ResolveCharmFunc,
 	newCharmAdder NewCharmAdderFunc,
-	newCharmClient func(api.Connection) CharmClient,
-	newCharmUpgradeClient func(api.Connection) CharmUpgradeClient,
-	newModelConfigGetter func(api.Connection) ModelConfigGetter,
-	newResourceLister func(api.Connection) (ResourceLister, error),
+	newCharmClient func(base.APICallCloser) CharmClient,
+	newCharmUpgradeClient func(base.APICallCloser) CharmAPIClient,
+	newModelConfigGetter func(base.APICallCloser) ModelConfigGetter,
+	newResourceLister func(base.APICallCloser) (ResourceLister, error),
+	charmStoreURLGetter func(base.APICallCloser) (string, error),
 ) cmd.Command {
 	cmd := &upgradeCharmCommand{
 		DeployResources:       deployResources,
@@ -33,6 +35,7 @@ func NewUpgradeCharmCommandForTest(
 		NewCharmUpgradeClient: newCharmUpgradeClient,
 		NewModelConfigGetter:  newModelConfigGetter,
 		NewResourceLister:     newResourceLister,
+		CharmStoreURLGetter:   charmStoreURLGetter,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)
@@ -49,6 +52,21 @@ func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, clie
 // NewAddUnitCommandForTest returns an AddUnitCommand with the api provided as specified.
 func NewAddUnitCommandForTest(api applicationAddUnitAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &addUnitCommand{api: api}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
+
+// NewAddUnitCommandForTest returns an AddUnitCommand with the api provided as specified as well as overrides the refresh function.
+func NewAddUnitCommandForTestWithRefresh(api applicationAddUnitAPI, store jujuclient.ClientStore, refreshFunc func(jujuclient.ClientStore, string) error) modelcmd.ModelCommand {
+	cmd := &addUnitCommand{api: api}
+	cmd.SetClientStore(store)
+	cmd.SetModelRefresh(refreshFunc)
+	return modelcmd.Wrap(cmd)
+}
+
+// NewRemoveUnitCommandForTest returns a RemoveUnitCommand with the api provided as specified.
+func NewRemoveUnitCommandForTest(api removeApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &removeUnitCommand{api: api}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
@@ -79,14 +97,13 @@ func NewConsumeCommandForTest(
 	return modelcmd.Wrap(c)
 }
 
-func NewUpdateSeriesCommandForTest(
-	appAPI updateApplicationSeriesAPI,
-	machAPI updateMachineSeriesAPI,
+// NewSetSeriesCommandForTest returns a SetSeriesCommand with the specified api.
+func NewSetSeriesCommandForTest(
+	seriesAPI setSeriesAPI,
 	store jujuclient.ClientStore,
 ) modelcmd.ModelCommand {
-	cmd := &updateSeriesCommand{
-		updateApplicationSeriesClient: appAPI,
-		updateMachineSeriesClient:     machAPI,
+	cmd := &setSeriesCommand{
+		setSeriesClient: seriesAPI,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
@@ -119,15 +136,20 @@ func NewRemoveSaasCommandForTest(api RemoveSaasAPI, store jujuclient.ClientStore
 	return modelcmd.Wrap(cmd)
 }
 
-type Patcher interface {
-	PatchValue(dest, value interface{})
+// NewScaleCommandForTest returns a ScaleCommand with the api provided as specified.
+func NewScaleCommandForTest(api scaleApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &scaleApplicationCommand{newAPIFunc: func() (scaleApplicationAPI, error) {
+		return api, nil
+	}}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
 }
 
-func PatchNewCharmStoreClient(s Patcher, url string) {
-	s.PatchValue(&newCharmStoreClient, func(bakeryClient *httpbakery.Client) *csclient.Client {
-		return csclient.New(csclient.Params{
-			URL:          url,
-			BakeryClient: bakeryClient,
-		})
-	})
+func NewBundleDiffCommandForTest(api base.APICallCloser, charmStore BundleResolver, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &bundleDiffCommand{
+		_apiRoot:    api,
+		_charmStore: charmStore,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
 }

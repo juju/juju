@@ -9,9 +9,12 @@ import (
 	"io"
 	"io/ioutil"
 	"net/url"
+	"time"
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -19,14 +22,19 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/component/all"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 )
 
@@ -44,25 +52,27 @@ type ImportSuite struct {
 var _ = gc.Suite(&ImportSuite{})
 
 func (s *ImportSuite) SetUpTest(c *gc.C) {
-	// Specify the config to use for the controller model before calling
-	// SetUpTest of the StateSuite, otherwise we get testing.ModelConfig(c).
-	// The default provider type specified in the testing.ModelConfig function
-	// is one that isn't registered as a valid provider. For our tests here we
+	// Specify the config to use for the controller model before
+	// calling SetUpTest of the StateSuite, otherwise we get
+	// coretesting.ModelConfig(c). The default provider type
+	// specified in the coretesting.ModelConfig function is one that
+	// isn't registered as a valid provider. For our tests here we
 	// need a real registered provider, so we use the dummy provider.
 	// NOTE: make a better test provider.
-	s.InitialConfig = testing.CustomModelConfig(c, dummy.SampleConfig())
+	s.InitialConfig = coretesting.CustomModelConfig(c, dummy.SampleConfig())
 	s.StateSuite.SetUpTest(c)
 }
 
 func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
-	model, st, err := migration.ImportModel(s.State, bytes)
+	controller := state.NewController(s.StatePool)
+	model, st, err := migration.ImportModel(controller, fakeGetClaimer, bytes)
 	c.Check(st, gc.IsNil)
 	c.Check(model, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 
-func (s *ImportSuite) TestImportModel(c *gc.C) {
+func (s *ImportSuite) exportImport(c *gc.C, getClaimer migration.ClaimerFunc) *state.State {
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -78,14 +88,88 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 	bytes, err := description.Serialize(model)
 	c.Check(err, jc.ErrorIsNil)
 
-	dbModel, dbState, err := migration.ImportModel(s.State, bytes)
+	controller := state.NewController(s.StatePool)
+	dbModel, dbState, err := migration.ImportModel(controller, getClaimer, bytes)
 	c.Assert(err, jc.ErrorIsNil)
-	defer dbState.Close()
+	s.AddCleanup(func(*gc.C) { dbState.Close() })
 
 	dbConfig, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dbConfig.UUID(), gc.Equals, uuid)
 	c.Assert(dbConfig.Name(), gc.Equals, "new-model")
+	return dbState
+}
+
+func (s *ImportSuite) TestImportModel(c *gc.C) {
+	s.exportImport(c, fakeGetClaimer)
+}
+
+func (s *ImportSuite) TestImportsLeadership(c *gc.C) {
+	s.makeApplicationWithUnits(c, "wordpress", 3)
+	s.makeUnitApplicationLeader(c, "wordpress/1", "wordpress")
+	s.makeApplicationWithUnits(c, "mysql", 2)
+
+	var (
+		claimer   fakeClaimer
+		modelUUID string
+	)
+	dbState := s.exportImport(c, func(uuid string) (leadership.Claimer, error) {
+		modelUUID = uuid
+		return &claimer, nil
+	})
+	c.Assert(modelUUID, gc.Equals, dbState.ModelUUID())
+	c.Assert(claimer.stub.Calls(), gc.HasLen, 1)
+	claimer.stub.CheckCall(c, 0, "ClaimLeadership", "wordpress", "wordpress/1", time.Minute)
+}
+
+func (s *ImportSuite) TestImportsLeadershipLegacy(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		"features": []interface{}{feature.LegacyLeases},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.makeApplicationWithUnits(c, "wordpress", 3)
+	s.makeUnitApplicationLeaderLegacy(c, "wordpress/1", "wordpress")
+	s.makeApplicationWithUnits(c, "mysql", 2)
+
+	dbState := s.exportImport(c, nil)
+
+	leaders, err := dbState.ApplicationLeaders()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leaders, gc.DeepEquals, map[string]string{"wordpress": "wordpress/1"})
+}
+
+func (s *ImportSuite) makeApplicationWithUnits(c *gc.C, applicationname string, count int) {
+	units := make([]*state.Unit, count)
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: applicationname,
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: applicationname,
+		}),
+	})
+	for i := 0; i < count; i++ {
+		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{
+			Application: application,
+		})
+	}
+}
+
+func (s *ImportSuite) makeUnitApplicationLeader(c *gc.C, unitName, applicationName string) {
+	target := s.State.LeaseNotifyTarget(
+		ioutil.Discard,
+		loggo.GetLogger("migration_import_test"),
+	)
+	target.Claimed(
+		lease.Key{"application-leadership", s.State.ModelUUID(), applicationName},
+		unitName,
+	)
+}
+
+func (s *ImportSuite) makeUnitApplicationLeaderLegacy(c *gc.C, unitName, applicationName string) {
+	err := s.State.LeadershipClaimer().ClaimLeadership(
+		applicationName,
+		unitName,
+		time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
@@ -298,4 +382,18 @@ func (s *ExportSuite) TestExportModel(c *gc.C) {
 	modelDesc, err := description.Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelDesc.Validate(), jc.ErrorIsNil)
+}
+
+func fakeGetClaimer(string) (leadership.Claimer, error) {
+	return &fakeClaimer{}, nil
+}
+
+type fakeClaimer struct {
+	leadership.Claimer
+	stub testing.Stub
+}
+
+func (c *fakeClaimer) ClaimLeadership(application, unit string, duration time.Duration) error {
+	c.stub.AddCall("ClaimLeadership", application, unit, duration)
+	return c.stub.NextErr()
 }

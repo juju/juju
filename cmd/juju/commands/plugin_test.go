@@ -164,9 +164,9 @@ func (suite *PluginSuite) TestDebugAsArg(c *gc.C) {
 	c.Assert(output, gc.Matches, expectedDebug)
 }
 
-func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
-	// Plugins are run as model commands, and so require a current
-	// account and model.
+func (suite *PluginSuite) setupClientStore(c *gc.C) {
+	// Plugins are run as either controller or model commands,
+	// and so require a current controller or account and model.
 	store := jujuclient.NewFileClientStore()
 	err := store.AddController("myctrl", jujuclient.ControllerDetails{
 		ControllerUUID: testing.ControllerTag.Id(),
@@ -180,10 +180,21 @@ func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 		Password: "hunter2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
 
+func (suite *PluginSuite) TestJujuModelEnvVars(c *gc.C) {
+	suite.setupClientStore(c)
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
 	output := badrun(c, 0, "foo", "-m", "mymodel", "-p", "pluginarg")
 	expectedDebug := "foo -m mymodel -p pluginarg\nmodel is:  mymodel\n"
+	c.Assert(output, gc.Matches, expectedDebug)
+}
+
+func (suite *PluginSuite) TestJujuControllerEnvVars(c *gc.C) {
+	suite.setupClientStore(c)
+	suite.makeFullPlugin(PluginParams{Name: "foo"})
+	output := badrun(c, 0, "foo", "-c", "myctrl", "-p", "pluginarg")
+	expectedDebug := "foo -c myctrl -p pluginarg\ncontroller is:  myctrl\n"
 	c.Assert(output, gc.Matches, expectedDebug)
 }
 
@@ -237,7 +248,12 @@ if [ "$1" = "--debug" ]; then
 fi
 
 echo {{.Name}} $*
-echo "model is: " $JUJU_MODEL
+if [ -n "$JUJU_MODEL" ]; then
+  echo "model is: " $JUJU_MODEL
+fi
+if [ -n "$JUJU_CONTROLLER" ]; then
+  echo "controller is: " $JUJU_CONTROLLER
+fi
 exit {{.ExitStatus}}
 `
 

@@ -1,3 +1,6 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package netplan
 
 import (
@@ -5,9 +8,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/utils/scriptrunner"
 )

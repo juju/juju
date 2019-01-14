@@ -4,14 +4,16 @@
 package environs
 
 import (
+	"gopkg.in/juju/charm.v6"
+
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
@@ -92,6 +94,11 @@ type StartInstanceParams struct {
 	// Abort is a channel that will be closed to indicate that the command
 	// should be aborted.
 	Abort <-chan struct{}
+
+	// CharmLXDProfiles is a slice of names of lxd profiles to be used creating
+	// the LXD container, if specified and an LXD container.  The profiles
+	// come from charms deployed on the machine.
+	CharmLXDProfiles []string
 }
 
 // StartInstanceResult holds the result of an
@@ -153,4 +160,21 @@ type InstanceBroker interface {
 	// instances. It is currently only used to ensure that LXC hosts have the
 	// correct network configuration.
 	MaintainInstance(ctx context.ProviderCallContext, args StartInstanceParams) error
+}
+
+// LXDProfiler defines an interface for dealing with lxd profiles used to
+// deploy juju machines and containers.
+type LXDProfiler interface {
+	// MaybeWriteLXDProfile, write given LXDProfile to if not already there.
+	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
+
+	// LXDProfileNames returns all the profiles associated to a container name
+	LXDProfileNames(containerName string) ([]string, error)
+
+	// ReplaceOrAddInstanceProfile replaces, adds, a charm profile to
+	// the given instance and returns a slice of LXD profiles applied
+	// to the instance. Replace happens inplace in the current order of
+	// applied profiles. If the LXDProfile ptr is nil, replace becomes
+	// remove.
+	ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error)
 }

@@ -26,10 +26,10 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
@@ -37,6 +37,7 @@ import (
 
 type ApplicationSuite struct {
 	ConnSuite
+
 	charm *state.Charm
 	mysql *state.Application
 }
@@ -94,18 +95,113 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
+func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
+	charm := s.AddTestingCharm(c, "lxd-profile")
+	app := s.AddTestingApplication(c, "lxd-profile", charm)
+
+	c.Assert(charm.LXDProfile(), gc.NotNil)
+
+	ch, force, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
+
+	url, force := app.CharmURL()
+	c.Assert(url, gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+
+	sch := s.AddMetaCharm(c, "lxd-profile", lxdProfileMetaBase, 2)
+
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+	}
+	err = app.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	ch, force, err = app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
+	c.Assert(force, jc.IsTrue)
+	url, force = app.CharmURL()
+	c.Assert(url, gc.DeepEquals, sch.URL())
+	c.Assert(force, jc.IsTrue)
+	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
+}
+
+func (s *ApplicationSuite) TestLXDProfileFailSetCharm(c *gc.C) {
+	charm := s.AddTestingCharm(c, "lxd-profile-fail")
+	app := s.AddTestingApplication(c, "lxd-profile-fail", charm)
+
+	c.Assert(charm.LXDProfile(), gc.NotNil)
+
+	ch, force, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
+
+	url, force := app.CharmURL()
+	c.Assert(url, gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+
+	sch := s.AddMetaCharm(c, "lxd-profile-fail", lxdProfileMetaBase, 2)
+
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+	}
+	err = app.SetCharm(cfg)
+	c.Assert(err, gc.ErrorMatches, ".*validating lxd profile: invalid lxd-profile\\.yaml.*")
+}
+
+func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
+	charm := s.AddTestingCharm(c, "lxd-profile-fail")
+	app := s.AddTestingApplication(c, "lxd-profile-fail", charm)
+
+	c.Assert(charm.LXDProfile(), gc.NotNil)
+
+	ch, force, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
+
+	url, force := app.CharmURL()
+	c.Assert(url, gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+
+	sch := s.AddMetaCharm(c, "lxd-profile-fail", lxdProfileMetaBase, 2)
+
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		Force:      true,
+		ForceUnits: true,
+	}
+	err = app.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	ch, force, err = app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
+	c.Assert(force, jc.IsTrue)
+	url, force = app.CharmURL()
+	c.Assert(url, gc.DeepEquals, sch.URL())
+	c.Assert(force, jc.IsTrue)
+	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
+}
+
 func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	})
 	defer st.Close()
-	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
 	// Add a compatible charm and force it.
-	sch := state.AddCustomCharm(c, st, "wordpress", "metadata.yaml", metaBase, "kubernetes", 2)
+	sch := state.AddCustomCharm(c, st, "gitlab", "metadata.yaml", metaBase, "kubernetes", 2)
 
 	cfg := state.SetCharmConfig{
 		Charm:      sch,
@@ -323,6 +419,11 @@ peers:
   cluster: mysql
   just: me
 `
+var lxdProfileMetaBase = `
+name: lxd-profile
+summary: "Fake LXDProfile"
+description: "Fake description"
+`
 
 var setCharmEndpointsTests = []struct {
 	summary string
@@ -416,6 +517,22 @@ var newStringConfig = `
 options:
   key: {default: My Key, description: Desc, type: string}
   other: {default: None, description: My Other, type: string}
+`
+
+var sortableConfig = `
+options:
+  blog-title: {default: My Title, description: A descriptive title used for the blog., type: string}
+  alphabetic:
+    type: int
+    description: Something early in the alphabet.
+  zygomatic:
+    type: int
+    description: Something late in the alphabet.
+`
+
+var wordpressConfig = `
+options:
+  blog-title: {default: My Title, description: A descriptive title used for the blog., type: string}
 `
 
 var setCharmConfigTests = []struct {
@@ -1025,7 +1142,9 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 
 	// Trusty is listed in only version 1 of the charm.
 	err := app.UpdateApplicationSeries("trusty", false)
-	c.Assert(err, gc.ErrorMatches, "cannot update series for \"multi-series\" to trusty: series \"trusty\" not supported by charm, supported series are: precise,xenial")
+	c.Assert(err, gc.ErrorMatches,
+		"updating application series: series \"trusty\" not supported by charm \"cs:multi-series-2\", "+
+			"supported series are: precise, xenial")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(c *gc.C) {
@@ -1898,15 +2017,15 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	})
 	defer st.Close()
-	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
 	unitZero, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitZero.Name(), gc.Equals, "wordpress/0")
+	c.Assert(unitZero.Name(), gc.Equals, "gitlab/0")
 	c.Assert(unitZero.IsPrincipal(), jc.IsTrue)
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
 	c.Assert(state.GetUnitModelUUID(unitZero), gc.Equals, st.ModelUUID())
@@ -1943,14 +2062,79 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	})
 }
 
+func (s *ApplicationSuite) TestAddSubordinateUnitCharmProfile(c *gc.C) {
+	m, _, subApp := s.assertCharmProfileSubordinate(c)
+
+	subCharm, _, err := subApp.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	assertUpgradeCharmProfile(c, m, subApp.Name(), subCharm.URL().String())
+}
+
+func (s *ApplicationSuite) TestSetCharmProfile(c *gc.C) {
+	machine, profileApp, subApp := s.assertCharmProfileSubordinate(c)
+
+	err := machine.RemoveUpgradeCharmProfileData()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = profileApp.SetCharmProfile("local:quantal/quantal-lxd-profile-0")
+	c.Assert(err, jc.ErrorIsNil)
+	assertUpgradeCharmProfile(c, machine, profileApp.Name(), "local:quantal/quantal-lxd-profile-0")
+
+	err = machine.RemoveUpgradeCharmProfileData()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = subApp.SetCharmProfile("local:quantal/quantal-lxd-profile-subordinate-0")
+	c.Assert(err, jc.ErrorIsNil)
+	assertUpgradeCharmProfile(c, machine, subApp.Name(), "local:quantal/quantal-lxd-profile-subordinate-0")
+}
+
+func (s *ApplicationSuite) assertCharmProfileSubordinate(c *gc.C) (*state.Machine, *state.Application, *state.Application) {
+	profileCharm := s.AddTestingCharm(c, "lxd-profile")
+	profileApp := s.AddTestingApplication(c, "lxd-profile", profileCharm)
+
+	unitZero, err := profileApp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = unitZero.AssignToMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subCharm := s.AddTestingCharm(c, "lxd-profile-subordinate")
+	subApp := s.AddTestingApplication(c, "lxd-profile-subordinate", subCharm)
+
+	eps, err := s.State.InferEndpoints("lxd-profile", "lxd-profile-subordinate")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(unitZero)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return m, profileApp, subApp
+}
+
+func assertUpgradeCharmProfile(c *gc.C, m *state.Machine, appName, charmURL string) {
+	err := m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	chAppName, err := m.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, appName)
+	chCharmURL, err := m.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chCharmURL, gc.Equals, charmURL)
+}
+
 func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	})
 	defer st.Close()
-	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	agentTools := version.Binary{
 		Number: jujuversion.Current,
@@ -1964,13 +2148,10 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetAgentVersion(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
-	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
 	agentVersion := version.MustParseBinary("2.0.1-quantal-and64")
@@ -2943,7 +3124,9 @@ func (s *ApplicationSuite) TestSetCharmRequiredStorageAddedDefaultConstraints(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the new required storage was added for the unit.
-	attachments, err := s.IAASModel.UnitStorageAttachments(u.UnitTag())
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	attachments, err := sb.UnitStorageAttachments(u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 2)
 }
@@ -2966,7 +3149,9 @@ func (s *ApplicationSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *g
 
 	// Check that new storage was added for the unit, based on the
 	// constraints specified in SetCharmConfig.
-	attachments, err := s.IAASModel.UnitStorageAttachments(u.UnitTag())
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	attachments, err := sb.UnitStorageAttachments(u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 4)
 }
@@ -3075,7 +3260,7 @@ func (s *ApplicationSuite) assertApplicationHasOnlyDefaultEndpointBindings(c *gc
 
 	knownEndpoints := set.NewStrings()
 	allBindings := state.DefaultEndpointBindingsForCharm(charm.Meta())
-	for endpoint, _ := range allBindings {
+	for endpoint := range allBindings {
 		knownEndpoints.Add(endpoint)
 	}
 
@@ -3410,15 +3595,14 @@ var _ = gc.Suite(&CAASApplicationSuite{})
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.caasSt = s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	s.caasSt = s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { s.caasSt.Close() })
 
-	f := factory.NewFactory(s.caasSt)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
-	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	f := factory.NewFactory(s.caasSt, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	// Consume the initial construction events from the watchers.
+	s.State.StartSync()
 }
 
 func strPtr(s string) *string {
@@ -3438,6 +3622,8 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	removedUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("removed-unit-uuid")})
 	c.Assert(err, jc.ErrorIsNil)
+	noContainerUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("never-cloud-container")})
+	c.Assert(err, jc.ErrorIsNil)
 	if !aliveApp {
 		err := s.app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -3445,32 +3631,56 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 
 	var updateUnits state.UpdateUnitsOperation
 	updateUnits.Deletes = []*state.DestroyUnitOperation{removedUnit.DestroyOperation()}
-	updateUnits.Adds = []*state.AddUnitOperation{s.app.AddOperation(state.UnitUpdateProperties{
-		ProviderId: strPtr("new-unit-uuid"),
-		Address:    strPtr("192.168.1.1"),
-		Ports:      &[]string{"80"},
-		AgentStatus: &status.StatusInfo{
-			Status:  status.Running,
-			Message: "new running",
-		},
-		UnitStatus: &status.StatusInfo{
-			Status:  status.Active,
-			Message: "new active",
-		},
-	})}
-	updateUnits.Updates = []*state.UpdateUnitOperation{existingUnit.UpdateOperation(state.UnitUpdateProperties{
-		ProviderId: strPtr("unit-uuid"),
-		Address:    strPtr("192.168.1.2"),
-		Ports:      &[]string{"443"},
-		AgentStatus: &status.StatusInfo{
-			Status:  status.Running,
-			Message: "existing running",
-		},
-		UnitStatus: &status.StatusInfo{
-			Status:  status.Active,
-			Message: "existing active",
-		},
-	})}
+	updateUnits.Adds = []*state.AddUnitOperation{
+		s.app.AddOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("new-unit-uuid"),
+			Address:    strPtr("192.168.1.1"),
+			Ports:      &[]string{"80"},
+			AgentStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "new running",
+			},
+			CloudContainerStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "new container running",
+			},
+		}),
+		s.app.AddOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("add-never-cloud-container"),
+			AgentStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "new running",
+			},
+			// Status history should not show this as active.
+			UnitStatus: &status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit active",
+			},
+		}),
+	}
+	updateUnits.Updates = []*state.UpdateUnitOperation{
+		noContainerUnit.UpdateOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("never-cloud-container"),
+			Address:    strPtr("192.168.1.2"),
+			Ports:      &[]string{"443"},
+			UnitStatus: &status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit active",
+			},
+		}),
+		existingUnit.UpdateOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("unit-uuid"),
+			Address:    strPtr("192.168.1.2"),
+			Ports:      &[]string{"443"},
+			AgentStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "existing running",
+			},
+			CloudContainerStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "existing container running",
+			},
+		})}
 	err = s.app.UpdateUnits(&updateUnits)
 	if !aliveApp {
 		c.Assert(err, jc.Satisfies, state.IsNotAlive)
@@ -3480,7 +3690,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 
 	units, err := s.app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 2)
+	c.Assert(units, gc.HasLen, 4)
 
 	unitsById := make(map[string]*state.Unit)
 	containerInfoById := make(map[string]state.CloudContainer)
@@ -3488,6 +3698,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 		c.Assert(u.ShouldBeAssigned(), jc.IsFalse)
 		containerInfo, err := u.ContainerInfo()
 		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(containerInfo.Unit(), gc.Equals, u.Name())
 		c.Assert(containerInfo.ProviderId(), gc.Not(gc.Equals), "")
 		unitsById[containerInfo.ProviderId()] = u
 		containerInfoById[containerInfo.ProviderId()] = containerInfo
@@ -3519,13 +3730,39 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	}
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Active)
-	c.Assert(statusInfo.Message, gc.Equals, "existing active")
+	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(statusInfo.Message, gc.Equals, "waiting for container")
+	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, status.Running)
+	c.Assert(statusInfo.Message, gc.Equals, "existing container running")
+	unitHistory, err := u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Running)
+	c.Assert(unitHistory[0].Message, gc.Equals, "existing container running")
+
+	u, ok = unitsById["never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	info, ok = containerInfoById["never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
+	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageWaitForContainer)
+
+	u, ok = unitsById["add-never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	info, ok = containerInfoById["add-never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
+	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageWaitForContainer)
 
 	u, ok = unitsById["new-unit-uuid"]
 	info, ok = containerInfoById["new-unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(u.Name(), gc.Equals, "wordpress/2")
+	c.Assert(u.Name(), gc.Equals, "gitlab/3")
 	c.Check(info.Address(), gc.NotNil)
 	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal))
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
@@ -3538,8 +3775,12 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	})
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Active)
-	c.Assert(statusInfo.Message, gc.Equals, "new active")
+	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(statusInfo.Message, gc.Equals, status.MessageWaitForContainer)
+	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, status.Running)
+	c.Assert(statusInfo.Message, gc.Equals, "new container running")
 	statusInfo, err = u.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)
@@ -3557,6 +3798,18 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 		c.Assert(history[0].Status, gc.Equals, status.Allocating)
 		c.Assert(history[0].Since.Unix(), gc.Equals, history[1].Since.Unix())
 	}
+	// container status history must have overridden the unit status.
+	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Running)
+	c.Assert(unitHistory[0].Message, gc.Equals, "new container running")
+
+	// check cloud container status history is stored.
+	containerStatusHistory, err := state.GetCloudContainerStatusHistory(s.caasSt, u.Name(), status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerStatusHistory, gc.HasLen, 1)
+	c.Assert(containerStatusHistory[0].Status, gc.Equals, status.Running)
+	c.Assert(containerStatusHistory[0].Message, gc.Equals, "new container running")
 
 	err = removedUnit.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -3567,6 +3820,7 @@ func (s *CAASApplicationSuite) TestAddUnitWithProviderId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := u.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Unit(), gc.Equals, u.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "provider-id")
 }
 
@@ -3603,6 +3857,123 @@ func (s *CAASApplicationSuite) TestRemoveUnitDeletesServiceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.app.ServiceInfo()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CAASApplicationSuite) TestInvalidScale(c *gc.C) {
+	err := s.app.Scale(-1)
+	c.Assert(err, gc.ErrorMatches, "application scale -1 not valid")
+}
+
+func (s *CAASApplicationSuite) TestScale(c *gc.C) {
+	err := s.app.Scale(5)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.GetScale(), gc.Equals, 5)
+}
+
+func (s *CAASApplicationSuite) TestInvalidChangeScale(c *gc.C) {
+	newScale, err := s.app.ChangeScale(-1)
+	c.Assert(err, gc.ErrorMatches, "cannot remove more units than currently exist not valid")
+	c.Assert(newScale, gc.Equals, 0)
+}
+
+func (s *CAASApplicationSuite) TestChangeScale(c *gc.C) {
+	newScale, err := s.app.ChangeScale(5)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newScale, gc.Equals, 5)
+	err = s.app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.GetScale(), gc.Equals, 5)
+
+	newScale, err = s.app.ChangeScale(-4)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newScale, gc.Equals, 1)
+	err = s.app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.GetScale(), gc.Equals, 1)
+}
+
+func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
+	// Empty initial event.
+	w := s.app.WatchScale()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err := s.app.Scale(5)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Set to same value, no change.
+	err = s.app.Scale(5)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	err = s.app.Scale(6)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// An unrelated update, no change.
+	err = s.app.SetMinUnits(2)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	err = s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
+func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+
+	history, err := app.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 1)
+	c.Assert(history[0].Status, gc.Equals, status.Waiting)
+	c.Assert(history[0].Message, gc.Equals, "waiting for container")
+
+	// Must overwrite the history
+	err = app.SetOperatorStatus(status.StatusInfo{
+		Status:  status.Allocating,
+		Message: "operator message",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	history, err = app.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 2)
+	c.Assert(history[0].Status, gc.Equals, status.Allocating)
+	c.Assert(history[0].Message, gc.Equals, "operator message")
+	c.Assert(history[1].Status, gc.Equals, status.Waiting)
+	c.Assert(history[1].Message, gc.Equals, "waiting for container")
+
+	err = app.SetOperatorStatus(status.StatusInfo{
+		Status:  status.Running,
+		Message: "operator running",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.SetStatus(status.StatusInfo{
+		Status:  status.Active,
+		Message: "app active",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	history, err = app.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Log(history)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 3)
+	c.Assert(history[0].Status, gc.Equals, status.Active)
+	c.Assert(history[0].Message, gc.Equals, "app active")
+	c.Assert(history[1].Status, gc.Equals, status.Allocating)
+	c.Assert(history[1].Message, gc.Equals, "operator message")
+	c.Assert(history[2].Status, gc.Equals, status.Waiting)
+	c.Assert(history[2].Message, gc.Equals, "waiting for container")
 }
 
 func (s *ApplicationSuite) TestApplicationSetAgentPresence(c *gc.C) {
@@ -3649,4 +4020,77 @@ func (s *ApplicationSuite) TestApplicationWaitAgentPresence(c *gc.C) {
 	alive, err = s.mysql.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alive, jc.IsFalse)
+}
+
+func (s *ApplicationSuite) TestSetOperatorStatusNonCAAS(c *gc.C) {
+	_, err := state.ApplicationOperatorStatus(s.State, s.mysql.Name())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+
+	// Initial status.
+	appStatus, err := state.ApplicationOperatorStatus(st, app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appStatus.Status, gc.DeepEquals, status.Waiting)
+	c.Assert(appStatus.Message, gc.DeepEquals, "waiting for container")
+
+	now := coretesting.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Error,
+		Message: "broken",
+		Since:   &now,
+	}
+	err = app.SetOperatorStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	appStatus, err = state.ApplicationOperatorStatus(st, app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appStatus.Status, gc.DeepEquals, status.Error)
+	c.Assert(appStatus.Message, gc.DeepEquals, "broken")
+}
+
+func (s *ApplicationSuite) TestCharmLegacyOnlySupportsOneSeries(c *gc.C) {
+	ch := state.AddTestingCharmForSeries(c, s.State, "precise", "mysql")
+	app := s.AddTestingApplication(c, "legacy-charm", ch)
+	err := app.VerifySupportedSeries("precise", false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.VerifySupportedSeries("xenial", false)
+	c.Assert(err, gc.ErrorMatches, "series \"xenial\" not supported by charm \"local:precise/precise-mysql-1\", supported series are: precise")
+}
+
+func (s *ApplicationSuite) TestDeployedMachines(c *gc.C) {
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "riak"})
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: app})
+	machines, err := app.DeployedMachines()
+
+	c.Assert(err, jc.ErrorIsNil)
+	var ids []string
+	for _, m := range machines {
+		ids = append(ids, m.Id())
+	}
+	c.Assert(ids, jc.SameContents, []string{"0"})
+}
+
+func (s *ApplicationSuite) TestDeployedMachinesNotAssignedUnit(c *gc.C) {
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "riak"})
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = unit.AssignedMachineId()
+	c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
+
+	machines, err := app.DeployedMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 0)
 }

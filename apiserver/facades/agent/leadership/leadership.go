@@ -34,7 +34,11 @@ const (
 // NewLeadershipServiceFacade constructs a new LeadershipService and presents
 // a signature that can be used for facade registration.
 func NewLeadershipServiceFacade(context facade.Context) (LeadershipService, error) {
-	return NewLeadershipService(context.State().LeadershipClaimer(), context.Auth())
+	claimer, err := context.LeadershipClaimer(context.State().ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewLeadershipService(claimer, context.Auth())
 }
 
 // NewLeadershipService constructs a new LeadershipService.

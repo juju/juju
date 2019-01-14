@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -37,6 +38,8 @@ var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, er
 	switch apiTag := tag.(type) {
 	case names.UnitTag:
 		facade = uniter.NewState(apiCaller, apiTag)
+	case names.ApplicationTag:
+		facade = caasoperator.NewClient(apiCaller)
 	case names.MachineTag:
 		facade = machiner.NewState(apiCaller)
 	default:

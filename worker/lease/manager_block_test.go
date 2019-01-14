@@ -6,6 +6,7 @@ package lease_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -22,8 +23,8 @@ var _ = gc.Suite(&WaitUntilExpiredSuite{})
 
 func (s *WaitUntilExpiredSuite) TestLeadershipNotHeld(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
-		blockTest := newBlockTest(manager, "redis")
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
+		blockTest := newBlockTest(manager, key("redis"))
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -31,8 +32,8 @@ func (s *WaitUntilExpiredSuite) TestLeadershipNotHeld(c *gc.C) {
 
 func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -41,14 +42,14 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 			method: "Refresh",
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{"redis"},
-			callback: func(leases map[string]corelease.Info) {
-				delete(leases, "redis")
+			args:   []interface{}{key("redis")},
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				delete(leases, key("redis"))
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
-		blockTest := newBlockTest(manager, "redis")
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		blockTest := newBlockTest(manager, key("redis"))
 		blockTest.assertBlocked(c)
 
 		// Trigger expiry.
@@ -60,8 +61,8 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 
 func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -70,18 +71,18 @@ func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 			method: "Refresh",
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{"redis"},
+			args:   []interface{}{key("redis")},
 			err:    corelease.ErrInvalid,
-			callback: func(leases map[string]corelease.Info) {
-				leases["redis"] = corelease.Info{
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				leases[key("redis")] = corelease.Info{
 					Holder: "redis/99",
 					Expiry: offset(time.Minute),
 				}
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
-		blockTest := newBlockTest(manager, "redis")
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		blockTest := newBlockTest(manager, key("redis"))
 		blockTest.assertBlocked(c)
 
 		// Trigger abortive expiry.
@@ -92,39 +93,41 @@ func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 
 func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
 		},
 		expectCalls: []call{{
 			method: "Refresh",
-			callback: func(leases map[string]corelease.Info) {
-				delete(leases, "redis")
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				delete(leases, key("redis"))
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
-		blockTest := newBlockTest(manager, "redis")
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		blockTest := newBlockTest(manager, key("redis"))
 		blockTest.assertBlocked(c)
 
 		// Induce a refresh by making an unexpected check; it turns out the
 		// lease had already been expired by someone else.
-		manager.Token("redis", "redis/99").Check(nil)
-		err := blockTest.assertUnblocked(c)
+		checker, err := manager.Checker("namespace", "model")
+		c.Assert(err, jc.ErrorIsNil)
+		checker.Token("redis", "redis/99").Check(nil)
+		err = blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
 }
 
 func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
-			"store": corelease.Info{
+			key("store"): {
 				Holder: "store/0",
 				Expiry: offset(time.Second),
 			},
@@ -133,29 +136,29 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 			method: "Refresh",
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{"redis"},
+			args:   []interface{}{key("redis")},
 			err:    corelease.ErrInvalid,
-			callback: func(leases map[string]corelease.Info) {
-				delete(leases, "redis")
-				leases["store"] = corelease.Info{
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				delete(leases, key("redis"))
+				leases[key("store")] = corelease.Info{
 					Holder: "store/9",
 					Expiry: offset(time.Minute),
 				}
 			},
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{"store"},
+			args:   []interface{}{key("store")},
 			err:    corelease.ErrInvalid,
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
-		redisTest1 := newBlockTest(manager, "redis")
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		redisTest1 := newBlockTest(manager, key("redis"))
 		redisTest1.assertBlocked(c)
-		redisTest2 := newBlockTest(manager, "redis")
+		redisTest2 := newBlockTest(manager, key("redis"))
 		redisTest2.assertBlocked(c)
-		storeTest1 := newBlockTest(manager, "store")
+		storeTest1 := newBlockTest(manager, key("store"))
 		storeTest1.assertBlocked(c)
-		storeTest2 := newBlockTest(manager, "store")
+		storeTest2 := newBlockTest(manager, key("store"))
 		storeTest2.assertBlocked(c)
 
 		// Induce attempted expiry; redis was expired already, store was
@@ -172,15 +175,15 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 
 func (s *WaitUntilExpiredSuite) TestKillManager(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
 		},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
-		blockTest := newBlockTest(manager, "redis")
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
+		blockTest := newBlockTest(manager, key("redis"))
 		blockTest.assertBlocked(c)
 
 		manager.Kill()
@@ -191,15 +194,15 @@ func (s *WaitUntilExpiredSuite) TestKillManager(c *gc.C) {
 
 func (s *WaitUntilExpiredSuite) TestCancelWait(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
 		},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
-		blockTest := newBlockTest(manager, "redis")
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
+		blockTest := newBlockTest(manager, key("redis"))
 		blockTest.assertBlocked(c)
 		blockTest.cancelWait()
 
@@ -212,27 +215,29 @@ func (s *WaitUntilExpiredSuite) TestCancelWait(c *gc.C) {
 // blockTest wraps a goroutine running WaitUntilExpired, and fails if it's used
 // more than a second after creation (which should be *plenty* of time).
 type blockTest struct {
-	manager   *lease.Manager
-	leaseName string
-	done      chan error
-	abort     <-chan time.Time
-	cancel    chan struct{}
+	manager *lease.Manager
+	done    chan error
+	abort   <-chan time.Time
+	cancel  chan struct{}
 }
 
 // newBlockTest starts a test goroutine blocking until the manager confirms
 // expiry of the named lease.
-func newBlockTest(manager *lease.Manager, leaseName string) *blockTest {
+func newBlockTest(manager *lease.Manager, key corelease.Key) *blockTest {
 	bt := &blockTest{
-		manager:   manager,
-		leaseName: leaseName,
-		done:      make(chan error),
-		abort:     time.After(time.Second),
-		cancel:    make(chan struct{}),
+		manager: manager,
+		done:    make(chan error),
+		abort:   time.After(time.Second),
+		cancel:  make(chan struct{}),
+	}
+	claimer, err := bt.manager.Claimer(key.Namespace, key.ModelUUID)
+	if err != nil {
+		panic("couldn't get claimer")
 	}
 	go func() {
 		select {
 		case <-bt.abort:
-		case bt.done <- bt.manager.WaitUntilExpired(bt.leaseName, bt.cancel):
+		case bt.done <- claimer.WaitUntilExpired(key.Lease, bt.cancel):
 		}
 	}()
 	return bt

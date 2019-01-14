@@ -27,7 +27,9 @@ func (s *WatchersSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.backend = &mockBackend{
 		machineFilesystemsW:           newStringsWatcher(),
+		unitFilesystemsW:              newStringsWatcher(),
 		machineFilesystemAttachmentsW: newStringsWatcher(),
+		unitFilesystemAttachmentsW:    newStringsWatcher(),
 		modelFilesystemsW:             newStringsWatcher(),
 		modelFilesystemAttachmentsW:   newStringsWatcher(),
 		modelVolumeAttachmentsW:       newStringsWatcher(),
@@ -243,4 +245,40 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
 	wc.AssertChangeInSingleEvent()
 	wc.AssertNoChange()
+}
+
+func (s *WatchersSuite) TestWatchUnitManagedFilesystems(c *gc.C) {
+	w := s.watchers.WatchUnitManagedFilesystems(names.NewApplicationTag("mariadb"))
+	defer statetesting.AssertKillAndWait(c, w)
+	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
+	s.backend.unitFilesystemsW.C <- []string{"mariadb/0/2", "mariadb/0/3"}
+	s.backend.modelVolumeAttachmentsW.C <- []string{"mariadb/0:1", "mariadb/0:2", "mysql/1:3"}
+
+	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc.AssertChangeInSingleEvent("1", "mariadb/0/2", "mariadb/0/3")
+	wc.AssertNoChange()
+}
+
+func (s *WatchersSuite) TestWatchUnitManagedFilesystemsErrorsPropagate(c *gc.C) {
+	w := s.watchers.WatchUnitManagedFilesystems(names.NewApplicationTag("mariadb"))
+	s.backend.modelFilesystemsW.T.Kill(errors.New("rah"))
+	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
+}
+
+func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachments(c *gc.C) {
+	w := s.watchers.WatchUnitManagedFilesystemAttachments(names.NewApplicationTag("mariadb"))
+	defer statetesting.AssertKillAndWait(c, w)
+	s.backend.modelFilesystemAttachmentsW.C <- []string{"mariadb/0:0", "mariadb/0:1"}
+	s.backend.unitFilesystemAttachmentsW.C <- []string{"mariadb/0:mariadb/0/2", "mariadb/0:mariadb/0/3"}
+	s.backend.modelVolumeAttachmentsW.C <- []string{"mariadb/0:1", "mariadb/0:2", "mysql/0:3"}
+
+	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc.AssertChangeInSingleEvent("mariadb/0:mariadb/0/2", "mariadb/0:mariadb/0/3", "mariadb/0:1")
+	wc.AssertNoChange()
+}
+
+func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachmentsErrorsPropagate(c *gc.C) {
+	w := s.watchers.WatchUnitManagedFilesystemAttachments(names.NewApplicationTag("mariadb"))
+	s.backend.modelFilesystemAttachmentsW.T.Kill(errors.New("rah"))
+	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
 }

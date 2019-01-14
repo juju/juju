@@ -14,6 +14,13 @@ $ sudo apt-get install make
 $ make install-deps
 ```
 
+It may also be necessary to install simplestreams to run tests like assess_upgrade.py.
+```bash
+$ sudo apt update
+$ sudo apt install python3-simplestreams
+$ sudo apt install python-simplestreams
+```
+
 ### Required Environment Variables
 
   * **JUJU_HOME**: The directory the test will use to:
@@ -24,7 +31,7 @@ $ make install-deps
 
 
 ### Quick run using LXD
-To run a test locally with lxd:
+To run a test locally with lxd and locally complied juju:
 
   * ```$ mkdir /tmp/test-run```
   * ```$ export JUJU_HOME=/tmp/test-run```
@@ -34,9 +41,14 @@ To run a test locally with lxd:
         lxd:
             type: lxd
             test-mode: true
-            default-series: xenial
+            default-series: bionic
     ```
   * ```export JUJU_REPOSITORY=./path/to/acceptancetests/repository```
+  * ```mkdir /tmp/artifacts```
+  * Now you can run the test with:
+     * ```$ ./assess_model_migration.py lxd $GOPATH/bin/juju /tmp/artifacts```
+
+  Old method, stopped working before 1-DEC-2018:
   * Now you can run the test with:
      * ```$ ./assess_model_migration.py lxd . . .```
 
@@ -44,7 +56,7 @@ To run a test locally with lxd:
 
 See [(Use of environments.yaml below)](#envs) and [(Use of credentials.yaml below)](#envs-creds) for a full explanation of the files used here.
 
-To run a test using AWS:
+To run a test using AWS and locally complied juju:
 
   * ```$ mkdir /tmp/test-run```
   * ```$ export JUJU_HOME=/tmp/test-run```
@@ -54,7 +66,7 @@ To run a test using AWS:
         myaws:
             type: ec2
             test-mode: true
-            default-series: xenial
+            default-series: bionic
             region: us-east-1
     ```
   * ```$ vim $JUJU_HOME/credentials.yaml```
@@ -67,10 +79,28 @@ To run a test using AWS:
           secret-key: <secret key>
     ```
   * ```export JUJU_REPOSITORY=/path/to/acceptancetests/repository```
+  * ```mkdir /tmp/artifacts```
+  * Now you can run the test with:
+       * ```$ ./assess_model_migration.py aws $GOPATH/bin/juju /tmp/artifacts```
+
+  Old method, stopped working before 1-DEC-2018:
   * Now you can run the test with:
      * ```$ ./assess_model_migration.py myaws . . .```
 
+### Typical command line required options for tests
+
+<test> <cloud> <path-to-juju> <path-to-artifacts-dir> <controller-name>
+    * <cloud> specified in your $JUJU_HOME/environments.yaml
+    * <path-to-juju> specify full path to juju you wish to test.
+    * <path-to-artifacts-dir>, test will complain if the directory has contents, but still run.
+    * <controller-name> will be used to bootstrap if the controller does not currently exist, if not specified a controller name is generated.
+
+example:
+```./assess_bundle_export.py lxd /snap/bin/juju /tmp/artifacts nw-export-bundle-lxd```
+
 ### Which juju binary is used?
+
+NOTE: As of 3-dec-2018, juju is not found in your path, please specify directly
 
 If no *juju_bin* argument is passed to an *assess* script it will default to using the juju in your **$PATH**.
 
@@ -88,6 +118,8 @@ Adding this feature to a new test is as easy as passing ```existing=True``` to `
 
 ### Running a test on an existing controller
 
+TODO 3-DEC-2018, this section needs to be updated for current working methods
+
 To iterate quickly on a test it can be useful to bootstrap a controller and run the test against that multiple times.
 This example isolates the juju interactions so your system configuration is not touched.
 
@@ -100,7 +132,7 @@ export JUJU_DATA=/tmp/testing-controller
 export JUJU_HOME=~/tmp/test-run
 mkdir -p $JUJU_DATA
 
-juju bootstrap lxd/localhost testing-feature-x
+juju bootstrap lxd testing-feature-x
 
 ./assess_feature-x.py lxd --existing testing-feature-x
 ```
@@ -116,6 +148,11 @@ juju bootstrap lxd/localhost testing-feature-x
 Normally a test script will teardown any bootstrapped controllers, if you wish to investigate the environment after a run use ```--keep-env```.  
 Using the ```--keep-env``` option will skip any teardown of an environment at the end of a test.
 
+To view juju status output of the current model, if JUJU_DATA not set
+```bash
+JUJU_DATA=$JUJU_HOME/juju-homes/<controller_name> juju status
+```
+
 ### Use of environments.yaml<a name="envs"></a>
 
 Jujupy test framework uses the *environments.yaml* file found in **JUJU_HOME** to define configuration for a bootstrap-able environment.
@@ -130,7 +167,7 @@ environments:
     testing123:
         type: lxd
         test-mode: true
-        default-series: xenial
+        default-series: bionic
         # You can use config like this too:
         # agent-metadata-url: https://custom.streams.bucket.com
 ```

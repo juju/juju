@@ -16,8 +16,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/status"
 )
 
 // relationKey returns a string describing the relation defined by

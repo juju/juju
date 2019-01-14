@@ -5,56 +5,57 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	"github.com/lxc/lxd/shared/api"
 
+	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environInstance struct {
-	raw *lxdclient.Instance
-	env *environ
+	container *lxd.Container
+	env       *environ
 }
 
 var _ instance.Instance = (*environInstance)(nil)
 
-func newInstance(raw *lxdclient.Instance, env *environ) *environInstance {
+func newInstance(container *lxd.Container, env *environ) *environInstance {
 	return &environInstance{
-		raw: raw,
-		env: env,
+		container: container,
+		env:       env,
 	}
 }
 
 // Id implements instance.Instance.
-func (inst *environInstance) Id() instance.Id {
-	return instance.Id(inst.raw.Name)
+func (i *environInstance) Id() instance.Id {
+	return instance.Id(i.container.Name)
 }
 
 // Status implements instance.Instance.
-func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+func (i *environInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	jujuStatus := status.Pending
-	instStatus := inst.raw.Status()
-	switch instStatus {
-	case lxdclient.StatusStarting, lxdclient.StatusStarted:
+	code := i.container.StatusCode
+	switch code {
+	case api.Starting, api.Started:
 		jujuStatus = status.Allocating
-	case lxdclient.StatusRunning:
+	case api.Running:
 		jujuStatus = status.Running
-	case lxdclient.StatusFreezing, lxdclient.StatusFrozen, lxdclient.StatusThawed, lxdclient.StatusStopping, lxdclient.StatusStopped:
+	case api.Freezing, api.Frozen, api.Thawed, api.Stopping, api.Stopped:
 		jujuStatus = status.Empty
 	default:
 		jujuStatus = status.Empty
 	}
 	return instance.InstanceStatus{
 		Status:  jujuStatus,
-		Message: instStatus,
+		Message: code.String(),
 	}
 
 }
 
 // Addresses implements instance.Instance.
-func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
-	addrs, err := inst.env.raw.Addresses(inst.raw.Name)
+func (i *environInstance) Addresses(_ context.ProviderCallContext) ([]network.Address, error) {
+	addrs, err := i.env.server.ContainerAddresses(i.container.Name)
 	return addrs, errors.Trace(err)
 }

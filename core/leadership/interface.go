@@ -16,6 +16,10 @@ import (
 	"github.com/juju/errors"
 )
 
+// TODO (manadart 2010-10-05) Add interfaces to the end of this line,
+// separated by commas, as they become required for mocking in tests.
+//go:generate mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership Pinner
+
 // ErrClaimDenied is the error which will be returned when a
 // leadership claim has been denied.
 var ErrClaimDenied = errors.New("leadership claim denied")
@@ -36,6 +40,25 @@ type Claimer interface {
 	// to have no leader, in which case it returns no error; or until the
 	// manager is stopped, in which case it will fail.
 	BlockUntilLeadershipReleased(applicationId string, cancel <-chan struct{}) (err error)
+}
+
+// Pinner describes methods used to manage suspension of application leadership
+// expiry. All methods should be idempotent.
+type Pinner interface {
+
+	// PinLeadership ensures that the leadership of the input application will
+	// not expire. The input entity records the party responsible for the
+	// pinning operation.
+	PinLeadership(applicationId string, entity string) error
+
+	// UnpinLeadership reverses a PinLeadership operation for the same
+	// application and entity. Normal expiry behaviour is restored when no
+	// entities remain with pins for the application.
+	UnpinLeadership(applicationId string, entity string) error
+
+	// PinnedLeadership returns a map keyed on pinned application names,
+	// with entities that require the application's pinned behaviour.
+	PinnedLeadership() map[string][]string
 }
 
 // Token represents a unit's leadership of its application.

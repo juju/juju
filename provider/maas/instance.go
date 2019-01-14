@@ -11,10 +11,11 @@ import (
 	"github.com/juju/gomaasapi"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )
 
@@ -29,7 +30,7 @@ type maasInstance interface {
 type maas1Instance struct {
 	maasObject   *gomaasapi.MAASObject
 	environ      *maasEnviron
-	statusGetter func(instance.Id) (string, string)
+	statusGetter func(context.ProviderCallContext, instance.Id) (string, string)
 }
 
 var _ maasInstance = (*maas1Instance)(nil)
@@ -87,7 +88,7 @@ func convertInstanceStatus(statusMsg, substatus string, id instance.Id) instance
 // Status returns a juju status based on the maas instance returned
 // status message.
 func (mi *maas1Instance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
-	statusMsg, substatus := mi.statusGetter(mi.Id())
+	statusMsg, substatus := mi.statusGetter(ctx, mi.Id())
 	return convertInstanceStatus(statusMsg, substatus, mi.Id())
 }
 
@@ -115,6 +116,7 @@ func (mi *maas1Instance) interfaceAddresses(ctx context.ProviderCallContext) ([]
 	// Fetch a fresh copy of the instance JSON first.
 	obj, err := refreshMAASObject(mi.maasObject)
 	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Annotate(err, "getting instance details")
 	}
 

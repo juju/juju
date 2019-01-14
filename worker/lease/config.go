@@ -6,8 +6,9 @@ package lease
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/lease"
 )
@@ -17,7 +18,7 @@ import (
 type Secretary interface {
 
 	// CheckLease returns an error if the supplied lease name is not valid.
-	CheckLease(name string) error
+	CheckLease(key lease.Key) error
 
 	// CheckHolder returns an error if the supplied holder name is not valid.
 	CheckHolder(name string) error
@@ -26,26 +27,42 @@ type Secretary interface {
 	CheckDuration(duration time.Duration) error
 }
 
+// Logger represents the logging methods we use from a loggo.Logger.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
 // ManagerConfig contains the resources and information required to create a
 // Manager.
 type ManagerConfig struct {
 
-	// Secretary is responsible for validating lease names and holder names.
-	Secretary Secretary
+	// Secretary determines validation given a namespace. The
+	// secretary returned is responsible for validating lease names
+	// and holder names for that namespace.
+	Secretary func(namespace string) (Secretary, error)
 
-	// Client is responsible for recording, retrieving, and expiring leases.
-	Client lease.Client
+	// Store is responsible for recording, retrieving, and expiring leases.
+	Store lease.Store
+
+	// Logger is used to report debugging/status information as the
+	// manager runs.
+	Logger Logger
 
 	// Clock is responsible for reporting the passage of time.
 	Clock clock.Clock
 
 	// MaxSleep is the longest time the Manager should sleep before
-	// refreshing its client's leases and checking for expiries.
+	// refreshing its store's leases and checking for expiries.
 	MaxSleep time.Duration
 
 	// EntityUUID is the entity that we are running this Manager for. Used for
 	// logging purposes.
 	EntityUUID string
+
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Validate returns an error if the configuration contains invalid information
@@ -54,8 +71,11 @@ func (config ManagerConfig) Validate() error {
 	if config.Secretary == nil {
 		return errors.NotValidf("nil Secretary")
 	}
-	if config.Client == nil {
-		return errors.NotValidf("nil Client")
+	if config.Store == nil {
+		return errors.NotValidf("nil Store")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -63,5 +83,7 @@ func (config ManagerConfig) Validate() error {
 	if config.MaxSleep <= 0 {
 		return errors.NotValidf("non-positive MaxSleep")
 	}
+	// TODO: make the PrometheusRegisterer required when we no longer
+	// have state workers managing leases.
 	return nil
 }

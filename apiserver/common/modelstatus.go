@@ -102,19 +102,17 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		Machines:           modelMachines,
 	}
 
-	if model.Type() == state.ModelTypeIAAS {
-		volumes, err := st.AllVolumes()
-		if err != nil {
-			return status, errors.Trace(err)
-		}
-		result.Volumes = ModelVolumeInfo(volumes)
-
-		filesystems, err := st.AllFilesystems()
-		if err != nil {
-			return status, errors.Trace(err)
-		}
-		result.Filesystems = ModelFilesystemInfo(filesystems)
+	volumes, err := st.AllVolumes()
+	if err != nil {
+		return status, errors.Trace(err)
 	}
+	result.Volumes = ModelVolumeInfo(volumes)
+
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	result.Filesystems = ModelFilesystemInfo(filesystems)
 	return result, nil
 }
 
@@ -137,6 +135,7 @@ func ModelFilesystemInfo(in []state.Filesystem) []params.ModelFilesystemInfo {
 			Id:         in.Tag().Id(),
 			ProviderId: providerId,
 			Status:     statusString,
+			Message:    status.Message,
 			Detachable: in.Detachable(),
 		}
 	}
@@ -162,6 +161,7 @@ func ModelVolumeInfo(in []state.Volume) []params.ModelVolumeInfo {
 			Id:         in.Tag().Id(),
 			ProviderId: providerId,
 			Status:     statusString,
+			Message:    status.Message,
 			Detachable: in.Detachable(),
 		}
 	}

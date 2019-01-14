@@ -10,7 +10,6 @@ import (
 )
 
 // None of the tests in this package require mongo.
-// Full command integration tests are found in cmd/juju/machine_test.go
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

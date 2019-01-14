@@ -6,9 +6,12 @@ package resource
 import (
 	"bytes"
 	"io"
+	"io/ioutil"
 	"os"
+	"path"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -57,7 +60,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 		ApplicationID:      "mysql",
 		CharmID:            chID,
 		CharmStoreMacaroon: csMac,
-		Filenames:          nil,
+		ResourceValues:     nil,
 		Client:             deps,
 		ResourcesMeta:      resources,
 	})
@@ -81,7 +84,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 }
 
 func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
-	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
+	deps := uploadDeps{s.stub, rsc{bytes.NewBufferString("file contents")}}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
 	chID := charmstore.CharmID{
 		URL: cURL,
@@ -134,7 +137,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 		Meta:   du.resources["upload"],
 		Origin: charmresource.OriginUpload,
 	}
-	s.stub.CheckCall(c, 3, "UploadPendingResource", "mysql", expectedUpload, "foobar.txt", deps.ReadSeekCloser)
+	s.stub.CheckCall(c, 3, "UploadPendingResource", "mysql", expectedUpload, "foobar.txt", "file contents")
 }
 
 func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
@@ -190,7 +193,7 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 }
 
 func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
-	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
+	deps := uploadDeps{s.stub, rsc{bytes.NewBufferString("file contents")}}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
 	chID := charmstore.CharmID{
 		URL: cURL,
@@ -245,7 +248,7 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 		Meta:   du.resources["upload"],
 		Origin: charmresource.OriginUpload,
 	}
-	s.stub.CheckCall(c, 3, "UploadPendingResource", "mysql", expectedUpload, "foobar.txt", deps.ReadSeekCloser)
+	s.stub.CheckCall(c, 3, "UploadPendingResource", "mysql", expectedUpload, "foobar.txt", "file contents")
 }
 
 func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
@@ -322,6 +325,222 @@ func (s DeploySuite) TestMissingResource(c *gc.C) {
 	c.Check(errors.Cause(err), jc.Satisfies, os.IsNotExist)
 }
 
+func (s DeploySuite) TestDeployDockerResourceRegistryPathString(c *gc.C) {
+	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
+	cURL := charm.MustParseURL("cs:~a-user/mysql-k8s-5")
+	chID := charmstore.CharmID{
+		URL: cURL,
+	}
+	csMac := &macaroon.Macaroon{}
+	resourceMeta := map[string]charmresource.Meta{
+		"mysql_image": {
+			Name: "mysql_image",
+			Type: charmresource.TypeContainerImage,
+		},
+	}
+
+	passedResourceValues := map[string]string{
+		"mysql_image": "mariadb:10.3.8",
+	}
+
+	du := deployUploader{
+		applicationID: "mysql",
+		chID:          chID,
+		csMac:         csMac,
+		client:        deps,
+		resources:     resourceMeta,
+		osOpen:        deps.Open,
+		osStat:        deps.Stat,
+	}
+	ids, err := du.upload(passedResourceValues, map[string]int{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ids, gc.DeepEquals, map[string]string{
+		"mysql_image": "id-mysql_image",
+	})
+
+	expectedUpload := charmresource.Resource{
+		Meta:   resourceMeta["mysql_image"],
+		Origin: charmresource.OriginUpload,
+	}
+
+	expectedUploadData := "{\"ImageName\":\"mariadb:10.3.8\",\"Username\":\"\"}"
+	s.stub.CheckCallNames(c, "UploadPendingResource")
+	s.stub.CheckCall(c, 0, "UploadPendingResource", "mysql", expectedUpload, "mariadb:10.3.8", expectedUploadData)
+}
+
+func (s DeploySuite) TestDeployDockerResourceJSONFile(c *gc.C) {
+	fileContents := `
+{
+  "ImageName": "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
+  "Username": "docker-registry",
+  "Password": "hunter2"
+}
+`
+	dir := c.MkDir()
+	jsonFile := path.Join(dir, "details.json")
+	err := ioutil.WriteFile(jsonFile, []byte(fileContents), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
+	cURL := charm.MustParseURL("cs:~a-user/mysql-k8s-5")
+	chID := charmstore.CharmID{
+		URL: cURL,
+	}
+	csMac := &macaroon.Macaroon{}
+	resourceMeta := map[string]charmresource.Meta{
+		"mysql_image": {
+			Name: "mysql_image",
+			Type: charmresource.TypeContainerImage,
+		},
+	}
+
+	passedResourceValues := map[string]string{
+		"mysql_image": jsonFile,
+	}
+	du := deployUploader{
+		applicationID: "mysql",
+		chID:          chID,
+		csMac:         csMac,
+		client:        deps,
+		resources:     resourceMeta,
+		osOpen:        deps.Open,
+		osStat:        deps.Stat,
+	}
+	ids, err := du.upload(passedResourceValues, map[string]int{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ids, gc.DeepEquals, map[string]string{
+		"mysql_image": "id-mysql_image",
+	})
+
+	expectedUpload := charmresource.Resource{
+		Meta:   resourceMeta["mysql_image"],
+		Origin: charmresource.OriginUpload,
+	}
+
+	expectedUploadData := "{\"ImageName\":\"registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image\",\"Username\":\"docker-registry\",\"Password\":\"hunter2\"}"
+	s.stub.CheckCallNames(c, "UploadPendingResource")
+	s.stub.CheckCall(c, 0, "UploadPendingResource", "mysql", expectedUpload, jsonFile, expectedUploadData)
+}
+
+func (s DeploySuite) TestDeployDockerResourceYAMLFile(c *gc.C) {
+	fileContents := `
+registrypath: registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image
+username: docker-registry
+password: hunter2
+`
+	dir := c.MkDir()
+	jsonFile := path.Join(dir, "details.yaml")
+	err := ioutil.WriteFile(jsonFile, []byte(fileContents), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
+	cURL := charm.MustParseURL("cs:~a-user/mysql-k8s-5")
+	chID := charmstore.CharmID{
+		URL: cURL,
+	}
+	csMac := &macaroon.Macaroon{}
+	resourceMeta := map[string]charmresource.Meta{
+		"mysql_image": {
+			Name: "mysql_image",
+			Type: charmresource.TypeContainerImage,
+		},
+	}
+
+	passedResourceValues := map[string]string{
+		"mysql_image": jsonFile,
+	}
+	du := deployUploader{
+		applicationID: "mysql",
+		chID:          chID,
+		csMac:         csMac,
+		client:        deps,
+		resources:     resourceMeta,
+		osOpen:        deps.Open,
+		osStat:        deps.Stat,
+	}
+	ids, err := du.upload(passedResourceValues, map[string]int{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ids, gc.DeepEquals, map[string]string{
+		"mysql_image": "id-mysql_image",
+	})
+
+	expectedUpload := charmresource.Resource{
+		Meta:   resourceMeta["mysql_image"],
+		Origin: charmresource.OriginUpload,
+	}
+
+	expectedUploadData := "{\"ImageName\":\"registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image\",\"Username\":\"docker-registry\",\"Password\":\"hunter2\"}"
+	s.stub.CheckCallNames(c, "UploadPendingResource")
+	s.stub.CheckCall(c, 0, "UploadPendingResource", "mysql", expectedUpload, jsonFile, expectedUploadData)
+}
+
+func (s DeploySuite) TestUnMarshallingDockerDetails(c *gc.C) {
+	content := `
+registrypath: registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image
+username: docker-registry
+password: hunter2
+`
+	data := bytes.NewBufferString(content)
+	dets, err := unMarshalDockerDetails(data)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dets, gc.DeepEquals, resources.DockerImageDetails{
+		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
+		Username:     "docker-registry",
+		Password:     "hunter2",
+	})
+
+	content = `
+{
+"ImageName": "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
+"Username": "docker-registry",
+"Password": "hunter2"
+}
+`
+	data = bytes.NewBufferString(content)
+	dets, err = unMarshalDockerDetails(data)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dets, gc.DeepEquals, resources.DockerImageDetails{
+		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
+		Username:     "docker-registry",
+		Password:     "hunter2",
+	})
+
+	content = `
+path: registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image@sha256:516f74
+username: docker-registry
+password: hunter2
+`
+	data = bytes.NewBufferString(content)
+	dets, err = unMarshalDockerDetails(data)
+	c.Assert(err, gc.ErrorMatches, "docker image path \"\" not valid")
+}
+
+func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
+	result, err := getDockerDetailsData("registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
+		Username:     "",
+		Password:     "",
+	})
+
+	result, err = getDockerDetailsData("/path/doesnt/exist.yaml")
+	c.Assert(err, gc.ErrorMatches, "filepath or registry path: /path/doesnt/exist.yaml not valid")
+
+	result, err = getDockerDetailsData(".invalid-reg-path")
+	c.Assert(err, gc.ErrorMatches, "filepath or registry path: .invalid-reg-path not valid")
+
+	dir := c.MkDir()
+	yamlFile := path.Join(dir, "actually-yaml-file")
+	err = ioutil.WriteFile(yamlFile, []byte("registrypath: mariadb/mariadb:10.2"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err = getDockerDetailsData(yamlFile)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+		RegistryPath: "mariadb/mariadb:10.2",
+		Username:     "",
+		Password:     "",
+	})
+}
+
 type uploadDeps struct {
 	stub           *testing.Stub
 	ReadSeekCloser ReadSeekCloser
@@ -341,7 +560,14 @@ func (s uploadDeps) AddPendingResources(applicationID string, charmID charmstore
 }
 
 func (s uploadDeps) UploadPendingResource(applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error) {
-	s.stub.AddCall("UploadPendingResource", applicationID, resource, filename, r)
+	data := new(bytes.Buffer)
+
+	// we care the right data has been passed, not the right io.ReaderSeeker pointer.
+	_, err = data.ReadFrom(r)
+	if err != nil {
+		return "", err
+	}
+	s.stub.AddCall("UploadPendingResource", applicationID, resource, filename, data.String())
 	if err := s.stub.NextErr(); err != nil {
 		return "", err
 	}

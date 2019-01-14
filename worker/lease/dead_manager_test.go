@@ -6,8 +6,8 @@ package lease_test
 import (
 	"reflect"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/worker/lease"
 )
@@ -24,19 +24,52 @@ func (*deadManagerError) Error() string {
 	return DeadManagerErrorMessage
 }
 
-// This creates a new DeadManager and calls all of its exported methods with zero
-// values. All methods should return the specified DeadManagerError.
-func (s *deadManagerSuite) TestDeadManager(c *gc.C) {
+func (s *deadManagerSuite) TestWait(c *gc.C) {
 	deadManagerErr := deadManagerError{}
 	deadManager := lease.NewDeadManager(&deadManagerErr)
-	deadManagerType := reflect.TypeOf(deadManager)
-	deadManagerValue := reflect.ValueOf(deadManager)
-	errorIface := reflect.TypeOf((*error)(nil)).Elem()
-	workerIface := reflect.TypeOf((*worker.Worker)(nil)).Elem()
+	c.Assert(deadManager.Wait(), gc.ErrorMatches, DeadManagerErrorMessage)
+}
 
-	for i := 0; i < deadManagerType.NumMethod(); i++ {
-		method := deadManagerType.Method(i)
-		methodV := deadManagerValue.MethodByName(method.Name)
+// This creates a new DeadManager, gets a Claimer, and calls all of
+// its exported methods with zero values. All methods should return
+// the error indicating that the manager is stopped.
+func (s *deadManagerSuite) TestClaimer(c *gc.C) {
+	deadManagerErr := deadManagerError{}
+	deadManager := lease.NewDeadManager(&deadManagerErr)
+
+	claimer, err := deadManager.Claimer("namespace", "model")
+	c.Assert(err, jc.ErrorIsNil)
+	checkMethods(c, claimer)
+}
+
+// And the same for Checker.
+func (s *deadManagerSuite) TestChecker(c *gc.C) {
+	deadManagerErr := deadManagerError{}
+	deadManager := lease.NewDeadManager(&deadManagerErr)
+
+	checker, err := deadManager.Checker("namespace", "model")
+	c.Assert(err, jc.ErrorIsNil)
+	checkMethods(c, checker)
+}
+
+// And Pinner.
+func (s *deadManagerSuite) TestPinner(c *gc.C) {
+	deadManagerErr := deadManagerError{}
+	deadManager := lease.NewDeadManager(&deadManagerErr)
+
+	checker, err := deadManager.Pinner("namespace", "model")
+	c.Assert(err, jc.ErrorIsNil)
+	checkMethods(c, checker)
+}
+
+func checkMethods(c *gc.C, manager interface{}) {
+	managerType := reflect.TypeOf(manager)
+	managerValue := reflect.ValueOf(manager)
+	errorIface := reflect.TypeOf((*error)(nil)).Elem()
+
+	for i := 0; i < managerType.NumMethod(); i++ {
+		method := managerType.Method(i)
+		methodV := managerValue.MethodByName(method.Name)
 
 		var args []reflect.Value
 		for n := 0; n < methodV.Type().NumIn(); n++ {
@@ -47,11 +80,8 @@ func (s *deadManagerSuite) TestDeadManager(c *gc.C) {
 		for j := 0; j < method.Type.NumOut(); j++ {
 			if returnType := method.Type.Out(j); returnType.Implements(errorIface) {
 				errorValue := methodV.Call(args)[j]
-				if _, ok := workerIface.MethodByName(method.Name); ok {
-					c.Check(errorValue.Interface(), gc.ErrorMatches, DeadManagerErrorMessage)
-				} else {
-					c.Check(errorValue.Interface(), gc.ErrorMatches, "lease manager stopped")
-				}
+				c.Logf(method.Name)
+				c.Check(errorValue.Interface(), gc.ErrorMatches, "lease manager stopped")
 
 			}
 		}

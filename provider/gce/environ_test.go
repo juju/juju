@@ -82,7 +82,18 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Check(result.Arch, gc.Equals, "amd64")
 	c.Check(result.Series, gc.Equals, "trusty")
 	// We don't check bsFinalizer because functions cannot be compared.
-	c.Check(result.Finalize, gc.NotNil)
+	c.Check(result.CloudBootstrapFinalizer, gc.NotNil)
+}
+
+func (s *environSuite) TestBootstrapInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	params := environs.BootstrapParams{
+		ControllerConfig: testing.FakeControllerConfig(),
+	}
+	_, err := s.Env.Bootstrap(envtesting.BootstrapContext(c), s.CallCtx, params)
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environSuite) TestBootstrapOpensAPIPort(c *gc.C) {
@@ -138,6 +149,22 @@ func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 			"params": params,
 		},
 	}})
+}
+
+func (s *environSuite) TestCreateInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	err := s.Env.Create(s.CallCtx, environs.CreateParams{})
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+}
+
+func (s *environSuite) TestDestroyInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	err := s.Env.Destroy(s.CallCtx)
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environSuite) TestDestroy(c *gc.C) {

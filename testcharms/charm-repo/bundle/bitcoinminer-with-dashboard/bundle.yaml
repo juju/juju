@@ -1,0 +1,11 @@
+services:
+    dashboard:
+        charm: dashboard4miner
+        num_units: 1
+    miner:
+        charm: bitcoin-miner
+        num_units: 1
+        devices:
+            bitcoinminer: 1,nvidia.com/gpu
+relations:
+    - ["dashboard:miner", "miner:miner"]

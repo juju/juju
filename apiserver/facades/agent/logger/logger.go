@@ -39,7 +39,7 @@ func NewLoggerAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*LoggerAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, common.ErrPerm
 	}
 	m, err := st.Model()

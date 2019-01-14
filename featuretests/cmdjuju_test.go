@@ -151,7 +151,7 @@ settings:
 // ALL application configuration rather than just CAAS configuration. It should
 // be renamed.
 func (s *cmdJujuSuite) TestApplicationGetCAASModel(c *gc.C) {
-	expected := `application: dummy-application
+	expected := `application: gitlab-application
 application-config:
   juju-application-path:
     default: /
@@ -224,7 +224,7 @@ application-config:
     source: default
     type: bool
     value: false
-charm: dummy
+charm: gitlab
 settings:
   outlook:
     description: No default outlook.
@@ -247,47 +247,48 @@ settings:
     type: string
     value: admin001
 `
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{Name: "caas-model"})
 	defer st.Close()
-	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dummy", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "dummy-application", Charm: ch})
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab-application", Charm: ch})
 	schema, err := caas.ConfigSchema(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, schema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "-m", "caas-model", "dummy-application")
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "-m", "caas-model", "gitlab-application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }
 
 func (s *cmdJujuSuite) TestApplicationGetWeirdYAML(c *gc.C) {
-	// This test has been confirmed to pass with the patch/goyaml-pr-241.diff
-	// applied to the current gopkg.in/yaml.v2 revision, however since our standard
-	// local test tooling doesn't apply patches, this test would fail without it.
-	// When the goyaml has merged pr #241 and the dependencies updated, we can
-	// remove the skip.
-	c.Skip("Remove skip when goyaml has PR #241.")
 	expected := `application: yaml-config
+application-config:
+  trust:
+    default: false
+    description: Does this application have access to trusted credentials
+    source: default
+    type: bool
+    value: false
 charm: yaml-config
 settings:
   hexstring:
-    default: true
+    default: "0xD06F00D"
     description: A hex string that should be a string, not a number.
+    source: default
     type: string
     value: "0xD06F00D"
   nonoctal:
-    default: true
+    default: 01182252
     description: Number that isn't valid octal, so should be a string.
+    source: default
     type: string
     value: 01182252
   numberstring:
-    default: true
+    default: "123456"
     description: A string that happens to contain a number.
+    source: default
     type: string
     value: "123456"
 `

@@ -17,8 +17,10 @@ import (
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("juju.workers.caasprovisioner")
@@ -29,8 +31,6 @@ type CAASProvisionerFacade interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
 	Life(string) (life.Value, error)
-	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
-	APIAddresses() ([]string, error)
 }
 
 // Config defines the operation of a Worker.
@@ -48,7 +48,6 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 		broker:            config.Broker,
 		modelTag:          config.ModelTag,
 		agentConfig:       config.AgentConfig,
-		appPasswords:      make(map[string]string),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
@@ -64,8 +63,6 @@ type provisioner struct {
 
 	modelTag    names.ModelTag
 	agentConfig agent.Config
-
-	appPasswords map[string]string
 }
 
 // Kill is part of the worker.Worker interface.
@@ -92,38 +89,17 @@ func (p *provisioner) loop() error {
 		return errors.Trace(err)
 	}
 
-	apiAddressWatcher, err := p.provisionerFacade.WatchAPIHostPorts()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := p.catacomb.Add(apiAddressWatcher); err != nil {
-		return errors.Trace(err)
-	}
-
-	var apiAddressChanged watcher.NotifyChannel
 	for {
 		select {
 		case <-p.catacomb.Dying():
 			return p.catacomb.ErrDying()
-
-		// API addresses have changed so we need to update
-		// each operator pod so it has the new addresses.
-		case _, ok := <-apiAddressChanged:
-			if !ok {
-				return errors.New("api watcher closed channel")
-			}
-			for app, password := range p.appPasswords {
-				if err := p.ensureOperator(app, password); err != nil {
-					return errors.Annotatef(err, "updating operator for %q with new api addresses", app)
-				}
-			}
 
 		// CAAS applications changed so either create or remove pods as appropriate.
 		case apps, ok := <-appWatcher.Changes():
 			if !ok {
 				return errors.New("app watcher closed channel")
 			}
-			var newApps []apicaasprovisioner.ApplicationPassword
+			var newApps []string
 			for _, app := range apps {
 				appLife, err := p.provisionerFacade.Life(app)
 				if errors.IsNotFound(err) || appLife == life.Dead {
@@ -131,18 +107,12 @@ func (p *provisioner) loop() error {
 					if err := p.broker.DeleteOperator(app); err != nil {
 						return errors.Annotatef(err, "failed to stop operator for %q", app)
 					}
-					delete(p.appPasswords, app)
 					continue
 				}
 				if appLife != life.Alive {
 					continue
 				}
-
-				password, err := utils.RandomPassword()
-				if err != nil {
-					return errors.Trace(err)
-				}
-				newApps = append(newApps, apicaasprovisioner.ApplicationPassword{Name: app, Password: password})
+				newApps = append(newApps, app)
 			}
 			if len(newApps) == 0 {
 				continue
@@ -150,46 +120,64 @@ func (p *provisioner) loop() error {
 			if err := p.ensureOperators(newApps); err != nil {
 				return errors.Trace(err)
 			}
-			// Store the apps we have just added.
-			for _, ap := range newApps {
-				p.appPasswords[ap.Name] = ap.Password
-			}
-
-			// Now we have been through all the applications at least once, we can
-			// listen for api address changes.
-			apiAddressChanged = apiAddressWatcher.Changes()
 		}
 	}
 }
 
 // ensureOperators creates operator pods for the specified app names -> api passwords.
-func (p *provisioner) ensureOperators(appPasswords []apicaasprovisioner.ApplicationPassword) error {
-	errorResults, err := p.provisionerFacade.SetPasswords(appPasswords)
-	if err != nil {
-		return errors.Annotate(err, "failed to set application api passwords")
-	}
-	var errorStrings []string
-	for i, r := range errorResults.Results {
-		if r.Error != nil {
-			errorStrings = append(errorStrings, r.Error.Error())
-			continue
+func (p *provisioner) ensureOperators(apps []string) error {
+	var appPasswords []apicaasprovisioner.ApplicationPassword
+	operatorConfig := make([]*caas.OperatorConfig, len(apps))
+	for i, app := range apps {
+		exists, err := p.broker.OperatorExists(app)
+		if err != nil {
+			return errors.Annotatef(err, "failed to find operator for %q", app)
 		}
-		if err := p.ensureOperator(appPasswords[i].Name, appPasswords[i].Password); err != nil {
-			return errors.Trace(err)
+		// If the operator does not exist already, we need to create an initial
+		// password for it.
+		var password string
+		if !exists {
+			if password, err = utils.RandomPassword(); err != nil {
+				return errors.Trace(err)
+			}
+			appPasswords = append(appPasswords, apicaasprovisioner.ApplicationPassword{Name: app, Password: password})
+		}
+
+		config, err := p.makeOperatorConfig(app, password)
+		if err != nil {
+			return errors.Annotatef(err, "failed to generate operator config for %q", app)
+		}
+		operatorConfig[i] = config
+	}
+	// If we did create any passwords for new operators, first they need
+	// to be saved so the agent can login when it starts up.
+	if len(appPasswords) > 0 {
+		errorResults, err := p.provisionerFacade.SetPasswords(appPasswords)
+		if err != nil {
+			return errors.Annotate(err, "failed to set application api passwords")
+		}
+		if err := errorResults.Combine(); err != nil {
+			return errors.Annotate(err, "failed to set application api passwords")
+		}
+	}
+
+	// Now that any new config/passwords are done, create or update
+	// the operators themselves.
+	var errorStrings []string
+	for i, app := range apps {
+		if err := p.ensureOperator(app, operatorConfig[i]); err != nil {
+			errorStrings = append(errorStrings, err.Error())
+			continue
 		}
 	}
 	if errorStrings != nil {
 		err := errors.New(strings.Join(errorStrings, "\n"))
-		return errors.Annotate(err, "failed to set application api passwords")
+		return errors.Annotate(err, "failed to provision all operators")
 	}
 	return nil
 }
 
-func (p *provisioner) ensureOperator(app, password string) error {
-	config, err := p.newOperatorConfig(app, password)
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (p *provisioner) ensureOperator(app string, config *caas.OperatorConfig) error {
 	if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), config); err != nil {
 		return errors.Annotatef(err, "failed to start operator for %q", app)
 	}
@@ -197,30 +185,51 @@ func (p *provisioner) ensureOperator(app, password string) error {
 	return nil
 }
 
-func (p *provisioner) newOperatorConfig(appName string, password string) (*caas.OperatorConfig, error) {
+func (p *provisioner) makeOperatorConfig(appName, password string) (*caas.OperatorConfig, error) {
 	appTag := names.NewApplicationTag(appName)
-	apiAddrs, err := p.provisionerFacade.APIAddresses()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	info, err := p.provisionerFacade.OperatorProvisioningInfo()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// All operators must have storage configured because charms
+	// have persistent state which must be preserved between any
+	// operator restarts.
+	if info.CharmStorage.Provider != provider.K8s_ProviderType {
+		if spType := info.CharmStorage.Provider; spType == "" {
+			return nil, errors.NotValidf("missing operator storage provider")
+		} else {
+			return nil, errors.NotSupportedf("operator storage provider %q", spType)
+		}
+	}
+	logger.Debugf("using caas operator info %+v", info)
+
+	cfg := &caas.OperatorConfig{
+		OperatorImagePath: info.ImagePath,
+		Version:           info.Version,
+		ResourceTags:      info.Tags,
+		CharmStorage:      charmStorageParams(info.CharmStorage),
+	}
+	// If no password required, we leave the agent conf empty.
+	if password == "" {
+		return cfg, nil
+	}
+
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
 				DataDir: p.agentConfig.DataDir(),
 				LogDir:  p.agentConfig.LogDir(),
 			},
+			Tag:          appTag,
+			Controller:   p.agentConfig.Controller(),
+			Model:        p.modelTag,
+			APIAddresses: info.APIAddresses,
+			CACert:       p.agentConfig.CACert(),
+			Password:     password,
+
+			// UpgradedToVersion is mandatory but not used by caas operator agents as they
+			// are not upgraded insitu.
 			UpgradedToVersion: info.Version,
-			Tag:               appTag,
-			Password:          password,
-			Controller:        p.agentConfig.Controller(),
-			Model:             p.modelTag,
-			APIAddresses:      apiAddrs,
-			CACert:            p.agentConfig.CACert(),
 		},
 	)
 	if err != nil {
@@ -231,11 +240,15 @@ func (p *provisioner) newOperatorConfig(appName string, password string) (*caas.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	cfg.AgentConf = confBytes
+	return cfg, nil
+}
 
-	logger.Debugf("using caas operator info %+v", info)
-	return &caas.OperatorConfig{
-		AgentConf:         confBytes,
-		OperatorImagePath: info.ImagePath,
-		Version:           info.Version,
-	}, nil
+func charmStorageParams(in storage.KubernetesFilesystemParams) caas.CharmStorageParams {
+	return caas.CharmStorageParams{
+		Provider:     in.Provider,
+		Size:         in.Size,
+		Attributes:   in.Attributes,
+		ResourceTags: in.ResourceTags,
+	}
 }

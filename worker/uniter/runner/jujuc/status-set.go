@@ -8,7 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/status"
+	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/core/status"
 )
 
 // StatusSetCommand implements the status-set command.
@@ -31,12 +32,12 @@ Sets the workload status of the charm. Message is optional.
 The "last updated" attribute of the status is set, even if the
 status and message are the same as what's already set.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "status-set",
 		Args:    "<maintenance | blocked | waiting | active> [message]",
 		Purpose: "set status information",
 		Doc:     doc,
-	}
+	})
 }
 
 var validStatus = []status.Status{

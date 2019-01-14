@@ -17,6 +17,10 @@ import (
 type APIClient interface {
 	io.Closer
 
+	// BestAPIVersion returns the API version that we were able to
+	// determine is supported by both the client and the API Server
+	BestAPIVersion() int
+
 	// Enqueue takes a list of Actions and queues them up to be executed by
 	// the designated ActionReceiver, returning the params.Action for each
 	// queued Action, or an error if there was a problem queueing up the

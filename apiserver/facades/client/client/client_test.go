@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -40,7 +41,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
@@ -94,7 +94,7 @@ func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
 func (s *serverSuite) TestModelInfo(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	conf, _ := s.IAASModel.ModelConfig()
+	conf, _ := s.Model.ModelConfig()
 	// Model info is available to read-only users.
 	client := s.authClientForState(c, s.State, testing.FakeAuthorizer{
 		Tag:        names.NewUserTag("read"),
@@ -125,7 +125,7 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	testAdmin := s.AdminUserTag(c)
-	owner, err := s.State.UserAccess(testAdmin, s.IAASModel.ModelTag())
+	owner, err := s.State.UserAccess(testAdmin, s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
@@ -213,7 +213,7 @@ func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Res
 func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) permission.UserAccess {
 	// factory.MakeUser will create an ModelUser for a local user by defalut
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
-	modelUser, err := s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
+	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUser
 }
@@ -374,7 +374,7 @@ func (s *serverSuite) assertSetModelAgentVersion(c *gc.C) {
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
@@ -1327,7 +1327,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	}
 
 	setUpdateBehavior := func(update, upgrade bool) {
-		s.IAASModel.UpdateModelConfig(
+		s.Model.UpdateModelConfig(
 			map[string]interface{}{
 				"enable-os-upgrade":        upgrade,
 				"enable-os-refresh-update": update,

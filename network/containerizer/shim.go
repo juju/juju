@@ -6,6 +6,7 @@ package containerizer
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	jujucharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -127,3 +128,62 @@ type Container interface {
 }
 
 var _ Container = (*MachineShim)(nil)
+
+func (m *MachineShim) Units() ([]Unit, error) {
+	units, err := m.Machine.Units()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	wrapped := make([]Unit, len(units))
+	for i, u := range units {
+		wrapped[i] = &unitShim{u}
+	}
+	return wrapped, nil
+}
+
+// Unit, Application & Charm are used to facilitate mocks
+// for testing in apiserver/.../agent/provisioner.  This is a
+// by product of bad design.
+
+// unitShim implements Unit.
+// It is required to mock the return of Units from MachineShim.
+type unitShim struct {
+	*state.Unit
+}
+
+var _ Unit = (*unitShim)(nil)
+
+type Unit interface {
+	Application() (Application, error)
+	Name() string
+}
+
+func (u *unitShim) Application() (Application, error) {
+	app, err := u.Unit.Application()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &applicationShim{app}, nil
+}
+
+// applicationShim implements Application.
+// It is required to mock the return an Application from unitShim.
+type applicationShim struct {
+	*state.Application
+}
+
+var _ Application = (*applicationShim)(nil)
+
+type Application interface {
+	Charm() (Charm, bool, error)
+	Name() string
+}
+
+func (a *applicationShim) Charm() (Charm, bool, error) {
+	return a.Application.Charm()
+}
+
+type Charm interface {
+	LXDProfile() *jujucharm.LXDProfile
+	Revision() int
+}

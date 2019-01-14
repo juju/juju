@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/os"
 	jujuseries "github.com/juju/os/series"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -94,7 +94,7 @@ func (o *OracleEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallCo
 		return nil, err
 	}
 	zones := make([]string, len(instances))
-	for idx, _ := range instances {
+	for idx := range instances {
 		zones[idx] = "default"
 	}
 	return zones, nil
@@ -184,7 +184,7 @@ func (e *OracleEnviron) getCloudInitConfig(series string, networks map[string]oc
 	var scripts []string
 	switch operatingSystem {
 	case os.Ubuntu:
-		for key, _ := range networks {
+		for key := range networks {
 			if key == defaultNicName {
 				continue
 			}
@@ -608,7 +608,7 @@ func (o *OracleEnviron) AllInstances(ctx context.ProviderCallContext) ([]instanc
 
 func (o *OracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, error) {
 	filter := []oci.Filter{
-		oci.Filter{
+		{
 			Arg:   "tags",
 			Value: tagFilter.String(),
 		},
@@ -645,7 +645,7 @@ func (o *OracleEnviron) Config() *config.Config {
 }
 
 // ConstraintsValidator is part of the environs.Environ interface.
-func (o *OracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
+func (o *OracleEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	// list of unsupported oracle provider constraints
 	unsupportedConstraints := []string{
 		constraints.Container,

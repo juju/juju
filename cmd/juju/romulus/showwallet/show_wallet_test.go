@@ -14,7 +14,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/juju/romulus/showwallet"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -36,6 +38,9 @@ func (s *showWalletSuite) SetUpTest(c *gc.C) {
 	s.mockAPI = &mockAPI{s.stub}
 	s.PatchValue(showwallet.NewWalletAPIClient, showwallet.WalletAPIClientFnc(s.mockWalletAPI))
 	s.PatchValue(showwallet.NewJujuclientStore, newMockClientStore)
+	s.PatchValue(&rcmd.GetMeteringURLForControllerCmd, func(c *modelcmd.ControllerCommandBase) (string, error) {
+		return "http://example.com", nil
+	})
 }
 
 func (s *showWalletSuite) TestShowWalletCommand(c *gc.C) {
@@ -176,14 +181,14 @@ func newMockClientStore() jujuclient.ClientStore {
 
 func (s *mockClientStore) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
 	return map[string]jujuclient.ControllerDetails{
-		"c": jujuclient.ControllerDetails{},
+		"c": {},
 	}, nil
 }
 
 func (s *mockClientStore) AllModels(controllerName string) (map[string]jujuclient.ModelDetails, error) {
 	return map[string]jujuclient.ModelDetails{
-		"m1": jujuclient.ModelDetails{ModelUUID: "uuid1"},
-		"m2": jujuclient.ModelDetails{ModelUUID: "uuid2"},
-		"m3": jujuclient.ModelDetails{ModelUUID: "uuid3"},
+		"m1": {ModelUUID: "uuid1"},
+		"m2": {ModelUUID: "uuid2"},
+		"m3": {ModelUUID: "uuid3"},
 	}, nil
 }

@@ -20,28 +20,22 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/tools"
 )
 
-// When we import a new model, we need to give the leaders some time to
-// settle. We don't want to have leader switches just because we migrated an
-// model, so this time needs to be long enough to make sure we cover
-// the time taken to migration a reasonable sized model. We don't yet
-// know how long this is going to be, but we need something.
-var initialLeaderClaimTime = time.Minute
-
 // Import the database agnostic model representation into the database.
-func (st *State) Import(model description.Model) (_ *Model, _ *State, err error) {
+func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err error) {
+	st := ctrl.pool.SystemState()
 	modelUUID := model.Tag().Id()
 	logger := loggo.GetLogger("juju.state.import-model")
 	logger.Debugf("import starting for model %s", modelUUID)
@@ -78,16 +72,14 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 	args := ModelArgs{
-		Type:           modelType,
-		CloudName:      model.Cloud(),
-		CloudRegion:    model.CloudRegion(),
-		Config:         cfg,
-		Owner:          model.Owner(),
-		MigrationMode:  MigrationModeImporting,
-		EnvironVersion: model.EnvironVersion(),
-	}
-	if modelType != ModelTypeCAAS {
-		args.StorageProviderRegistry = storage.StaticProviderRegistry{}
+		Type:                    modelType,
+		CloudName:               model.Cloud(),
+		CloudRegion:             model.CloudRegion(),
+		Config:                  cfg,
+		Owner:                   model.Owner(),
+		MigrationMode:           MigrationModeImporting,
+		EnvironVersion:          model.EnvironVersion(),
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	}
 	if creds := model.CloudCredential(); creds != nil {
 		// Need to add credential or make sure an existing credential
@@ -126,7 +118,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 
 		args.CloudCredential = credTag
 	}
-	dbModel, newSt, err := st.NewModel(args)
+	dbModel, newSt, err := ctrl.NewModel(args)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -198,11 +190,8 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err := restore.ipaddresses(); err != nil {
 		return nil, nil, errors.Annotate(err, "ipaddresses")
 	}
-
-	if dbModel.Type() == ModelTypeIAAS {
-		if err := restore.storage(); err != nil {
-			return nil, nil, errors.Annotate(err, "storage")
-		}
+	if err := restore.storage(); err != nil {
+		return nil, nil, errors.Annotate(err, "storage")
 	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
@@ -533,6 +522,9 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudIns
 	if az := inst.AvailabilityZone(); az != "" {
 		doc.AvailZone = &az
 	}
+	if profiles := inst.CharmProfiles(); len(profiles) > 0 {
+		doc.CharmProfiles = profiles
+	}
 
 	return txn.Op{
 		C:      instanceDataC,
@@ -596,7 +588,7 @@ func (i *importer) machineVolumes(tag names.MachineTag) []string {
 	var result []string
 	for _, volume := range i.model.Volumes() {
 		for _, attachment := range volume.Attachments() {
-			if attachment.Machine() == tag {
+			if attachment.Host() == tag {
 				result = append(result, volume.Tag().Id())
 			}
 		}
@@ -608,7 +600,7 @@ func (i *importer) machineFilesystems(tag names.MachineTag) []string {
 	var result []string
 	for _, filesystem := range i.model.Filesystems() {
 		for _, attachment := range filesystem.Attachments() {
-			if attachment.Machine() == tag {
+			if attachment.Host() == tag {
 				result = append(result, filesystem.Tag().Id())
 			}
 		}
@@ -729,6 +721,7 @@ func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 		StatusInfo: statusVal.Message(),
 		StatusData: statusVal.Data(),
 		Updated:    statusVal.Updated().UnixNano(),
+		NeverSet:   statusVal.NeverSet(),
 	}
 }
 
@@ -748,8 +741,7 @@ func (i *importer) application(a description.Application) error {
 	if status == nil {
 		return errors.NotValidf("missing status")
 	}
-	statusDoc := i.makeStatusDoc(status)
-	// TODO: update never set malarky... maybe...
+	appStatusDoc := i.makeStatusDoc(status)
 
 	// When creating the settings, we ignore nils.  In other circumstances, nil
 	// means to delete the value (reset to default), so creating with nil should
@@ -759,14 +751,20 @@ func (i *importer) application(a description.Application) error {
 	removeNils(a.CharmConfig())
 	removeNils(a.ApplicationConfig())
 
+	var operatorStatusDoc *statusDoc
+	if i.dbModel.Type() == ModelTypeCAAS {
+		operatorStatus := i.makeStatusDoc(a.OperatorStatus())
+		operatorStatusDoc = &operatorStatus
+	}
 	ops, err := addApplicationOps(i.st, app, addApplicationOpsArgs{
 		applicationDoc:     appDoc,
-		statusDoc:          statusDoc,
+		statusDoc:          appStatusDoc,
 		constraints:        i.constraints(a.Constraints()),
 		storage:            i.storageConstraints(a.StorageConstraints()),
 		charmConfig:        a.CharmConfig(),
 		applicationConfig:  a.ApplicationConfig(),
 		leadershipSettings: a.LeadershipSettings(),
+		operatorStatus:     operatorStatusDoc,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -819,15 +817,6 @@ func (i *importer) application(a description.Application) error {
 
 	for _, unit := range a.Units() {
 		if err := i.unit(a, unit); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	if a.Leader() != "" {
-		if err := i.st.LeadershipClaimer().ClaimLeadership(
-			a.Name(),
-			a.Leader(),
-			initialLeaderClaimTime); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1061,6 +1050,8 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		MinUnits:             a.MinUnits(),
 		Tools:                i.makeTools(a.Tools()),
 		MetricCredentials:    a.MetricsCredentials(),
+		DesiredScale:         a.DesiredScale(),
+		Placement:            a.Placement(),
 	}, nil
 }
 
@@ -1594,6 +1585,9 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 	if virt := cons.VirtType(); virt != "" {
 		result.VirtType = &virt
 	}
+	if zones := cons.Zones(); len(zones) > 0 {
+		result.Zones = &zones
+	}
 	return result
 }
 
@@ -1742,12 +1736,12 @@ func (i *importer) storageInstanceConstraints(storage description.Storage) stora
 
 func (i *importer) volumes() error {
 	i.logger.Debugf("importing volumes")
-	im, err := i.dbModel.IAASModel()
+	sb, err := NewStorageBackend(i.st)
 	if err != nil {
-		return errors.NewNotSupported(err, "adding volumes to CAAS model")
+		return errors.Trace(err)
 	}
 	for _, volume := range i.model.Volumes() {
-		err := i.addVolume(volume, im)
+		err := i.addVolume(volume, sb)
 		if err != nil {
 			i.logger.Errorf("error importing volume %s: %s", volume.Tag(), err)
 			return errors.Trace(err)
@@ -1757,8 +1751,10 @@ func (i *importer) volumes() error {
 	return nil
 }
 
-func (i *importer) addVolume(volume description.Volume, im *IAASModel) error {
+func (i *importer) addVolume(volume description.Volume, sb *storageBackend) error {
 	attachments := volume.Attachments()
+	attachmentPlans := volume.AttachmentPlans()
+
 	tag := volume.Tag()
 	var params *VolumeParams
 	var info *VolumeInfo
@@ -1785,16 +1781,22 @@ func (i *importer) addVolume(volume description.Volume, im *IAASModel) error {
 		Info:            info,
 		AttachmentCount: len(attachments),
 	}
-	if detachable, err := isDetachableVolumePool(im, volume.Pool()); err != nil {
+	if detachable, err := isDetachableVolumePool(sb, volume.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
-		doc.MachineId = attachments[0].Machine().Id()
+		doc.HostId = attachments[0].Host().Id()
 	}
 	status := i.makeStatusDoc(volume.Status())
-	ops := im.newVolumeOps(doc, status)
+	ops := sb.newVolumeOps(doc, status)
 
 	for _, attachment := range attachments {
-		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment))
+		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment, attachment.VolumePlanInfo()))
+	}
+
+	if attachmentPlans != nil && len(attachmentPlans) > 0 {
+		for _, val := range attachmentPlans {
+			ops = append(ops, i.addVolumeAttachmentPlanOp(tag.Id(), val))
+		}
 	}
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
@@ -1807,15 +1809,68 @@ func (i *importer) addVolume(volume description.Volume, im *IAASModel) error {
 	return nil
 }
 
-func (i *importer) addVolumeAttachmentOp(volID string, attachment description.VolumeAttachment) txn.Op {
+func (i *importer) addVolumeAttachmentPlanOp(volID string, volumePlan description.VolumeAttachmentPlan) txn.Op {
+	descriptionPlanInfo := volumePlan.VolumePlanInfo()
+	planInfo := &VolumeAttachmentPlanInfo{
+		DeviceType:       storage.DeviceType(descriptionPlanInfo.DeviceType()),
+		DeviceAttributes: descriptionPlanInfo.DeviceAttributes(),
+	}
+
+	descriptionBlockInfo := volumePlan.BlockDevice()
+	blockInfo := &BlockDeviceInfo{
+		DeviceName:     descriptionBlockInfo.Name(),
+		DeviceLinks:    descriptionBlockInfo.Links(),
+		Label:          descriptionBlockInfo.Label(),
+		UUID:           descriptionBlockInfo.UUID(),
+		HardwareId:     descriptionBlockInfo.HardwareID(),
+		WWN:            descriptionBlockInfo.WWN(),
+		BusAddress:     descriptionBlockInfo.BusAddress(),
+		Size:           descriptionBlockInfo.Size(),
+		FilesystemType: descriptionBlockInfo.FilesystemType(),
+		InUse:          descriptionBlockInfo.InUse(),
+		MountPoint:     descriptionBlockInfo.MountPoint(),
+	}
+
+	machineId := volumePlan.Machine().Id()
+	return txn.Op{
+		C:      volumeAttachmentPlanC,
+		Id:     volumeAttachmentId(machineId, volID),
+		Assert: txn.DocMissing,
+		Insert: &volumeAttachmentPlanDoc{
+			Volume:      volID,
+			Machine:     machineId,
+			PlanInfo:    planInfo,
+			BlockDevice: blockInfo,
+		},
+	}
+}
+
+func (i *importer) addVolumeAttachmentOp(volID string, attachment description.VolumeAttachment, planInfo description.VolumePlanInfo) txn.Op {
 	var info *VolumeAttachmentInfo
 	var params *VolumeAttachmentParams
+
+	planInf := &VolumeAttachmentPlanInfo{}
+
+	deviceType := planInfo.DeviceType()
+	deviceAttrs := planInfo.DeviceAttributes()
+	if deviceType != "" || deviceAttrs != nil {
+		if deviceType != "" {
+			planInf.DeviceType = storage.DeviceType(deviceType)
+		}
+		if deviceAttrs != nil {
+			planInf.DeviceAttributes = deviceAttrs
+		}
+	} else {
+		planInf = nil
+	}
+
 	if attachment.Provisioned() {
 		info = &VolumeAttachmentInfo{
 			DeviceName: attachment.DeviceName(),
 			DeviceLink: attachment.DeviceLink(),
 			BusAddress: attachment.BusAddress(),
 			ReadOnly:   attachment.ReadOnly(),
+			PlanInfo:   planInf,
 		}
 	} else {
 		params = &VolumeAttachmentParams{
@@ -1823,28 +1878,28 @@ func (i *importer) addVolumeAttachmentOp(volID string, attachment description.Vo
 		}
 	}
 
-	machineId := attachment.Machine().Id()
+	hostId := attachment.Host().Id()
 	return txn.Op{
 		C:      volumeAttachmentsC,
-		Id:     volumeAttachmentId(machineId, volID),
+		Id:     volumeAttachmentId(hostId, volID),
 		Assert: txn.DocMissing,
 		Insert: &volumeAttachmentDoc{
-			Volume:  volID,
-			Machine: machineId,
-			Params:  params,
-			Info:    info,
+			Volume: volID,
+			Host:   hostId,
+			Params: params,
+			Info:   info,
 		},
 	}
 }
 
 func (i *importer) filesystems() error {
 	i.logger.Debugf("importing filesystems")
-	im, err := i.dbModel.IAASModel()
+	sb, err := NewStorageBackend(i.st)
 	if err != nil {
-		return errors.NewNotSupported(err, "adding filesystems to CAAS model")
+		return errors.Trace(err)
 	}
 	for _, fs := range i.model.Filesystems() {
-		err := i.addFilesystem(fs, im)
+		err := i.addFilesystem(fs, sb)
 		if err != nil {
 			i.logger.Errorf("error importing filesystem %s: %s", fs.Tag(), err)
 			return errors.Trace(err)
@@ -1854,7 +1909,7 @@ func (i *importer) filesystems() error {
 	return nil
 }
 
-func (i *importer) addFilesystem(filesystem description.Filesystem, im *IAASModel) error {
+func (i *importer) addFilesystem(filesystem description.Filesystem, sb *storageBackend) error {
 
 	attachments := filesystem.Attachments()
 	tag := filesystem.Tag()
@@ -1881,13 +1936,13 @@ func (i *importer) addFilesystem(filesystem description.Filesystem, im *IAASMode
 		Info:            info,
 		AttachmentCount: len(attachments),
 	}
-	if detachable, err := isDetachableFilesystemPool(im, filesystem.Pool()); err != nil {
+	if detachable, err := isDetachableFilesystemPool(sb, filesystem.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
-		doc.MachineId = attachments[0].Machine().Id()
+		doc.HostId = attachments[0].Host().Id()
 	}
 	status := i.makeStatusDoc(filesystem.Status())
-	ops := im.newFilesystemOps(doc, status)
+	ops := sb.newFilesystemOps(doc, status)
 
 	for _, attachment := range attachments {
 		ops = append(ops, i.addFilesystemAttachmentOp(tag.Id(), attachment))
@@ -1918,14 +1973,14 @@ func (i *importer) addFilesystemAttachmentOp(fsID string, attachment description
 		}
 	}
 
-	machineId := attachment.Machine().Id()
+	hostId := attachment.Host().Id()
 	return txn.Op{
 		C:      filesystemAttachmentsC,
-		Id:     filesystemAttachmentId(machineId, fsID),
+		Id:     filesystemAttachmentId(hostId, fsID),
 		Assert: txn.DocMissing,
 		Insert: &filesystemAttachmentDoc{
 			Filesystem: fsID,
-			Machine:    machineId,
+			Host:       hostId,
 			// Life: ..., // TODO: import life, default is Alive
 			Params: params,
 			Info:   info,

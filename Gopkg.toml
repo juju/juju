@@ -1,0 +1,532 @@
+# Gopkg.toml example
+#
+# Refer to https://golang.github.io/dep/docs/Gopkg.toml.html
+# for detailed Gopkg.toml documentation.
+#
+# required = ["github.com/user/thing/cmd/thing"]
+# ignored = ["github.com/user/project/pkgX", "bitbucket.org/user/project/pkgA/pkgY"]
+#
+# [[constraint]]
+#   name = "github.com/user/project"
+#   version = "1.0.0"
+#
+# [[constraint]]
+#   name = "github.com/user/project2"
+#   branch = "dev"
+#   source = "github.com/myfork/project2"
+#
+# [[override]]
+#   name = "github.com/x/y"
+#   version = "2.4.0"
+#
+# [prune]
+#   non-go = false
+#   go-tests = true
+#   unused-packages = true
+
+[[override]]
+  name = "google.golang.org/cloud"
+  revision = "f20d6dcccb44ed49de45ae3703312cb46e627db1"
+
+[[override]]
+  name = "gopkg.in/macaroon-bakery.v2-unstable"
+  revision = "5a131df02b2333d5d75c501743cbc2948ee9bbf0"
+
+[[constraint]]
+  revision = "4e5a4a63d9b78757b4891b8de60be2606d8972ee"
+  name = "github.com/EvilSuperstars/go-cidrman"
+
+[[constraint]]
+  revision = "a27b59fe2be9d16e2b66f0d7acf5c852f844cc2b"
+  name = "github.com/altoros/gosigma"
+  source = "github.com/juju/gosigma"
+
+[[constraint]]
+  name = "github.com/coreos/go-systemd"
+  revision = "ec90daa870dd15120bd957a3f0ca9f01fede2b27"
+
+[[constraint]]
+  revision = "36ee7e946282a3fb1cfecd476ddc9b35d8847e42"
+  name = "github.com/gosuri/uitable"
+
+[[constraint]]
+  revision = "fa3f63826f7c23912c15263591e65d54d080b458"
+  name = "github.com/hashicorp/go-msgpack"
+
+[[constraint]]
+  revision = "6e5ba93211eaf8d9a2ad7e41ffad8c6f160f9fe3"
+  name = "github.com/hashicorp/raft-boltdb"
+
+[[constraint]]
+  revision = "b8d279cc30ffcc57dab7a51c4bc39be08fb2b569"
+  name = "github.com/juju/bundlechanges"
+
+[[constraint]]
+  revision = "b351832010e628bdc7e8bf630ff7a079f5e3b57b"
+  name = "github.com/juju/description"
+
+[[constraint]]
+  revision = "2ce1bb71843d6d179b3f1c1c9cb4a72cd067fc65"
+  name = "github.com/juju/gnuflag"
+
+[[constraint]]
+  revision = "e1ad140384f254c82f89450d9a7c8dd38a632838"
+  name = "github.com/juju/gojsonschema"
+
+[[constraint]]
+  revision = "8a8cec793ba70659ba95f1b9a491ba807169bfc3"
+  name = "github.com/juju/gomaasapi"
+
+[[constraint]]
+  revision = "a0ef8b74ebcffeeff9fc374854deb4af388f037e"
+  name = "github.com/juju/jsonschema"
+
+[[constraint]]
+  revision = "d21b13acf4bfd8a8b0482a3a78e44d98880b40d3"
+  name = "github.com/juju/mutex"
+
+[[constraint]]
+  revision = "5b81707e882b8293e6cf77854b4cd49f29776e11"
+  name = "github.com/juju/naturalsort"
+
+[[constraint]]
+  revision = "0ffd1641ec10b98d99eabb23729a2156244da119"
+  name = "github.com/juju/os"
+
+[[constraint]]
+  revision = "ba21344fff207f4fa06b0a08bac386b179a2e6a1"
+  name = "github.com/juju/packaging"
+
+[[constraint]]
+  revision = "5f8741c297b47cba29f747c67f2e31e7c2a36ecb"
+  name = "github.com/juju/proxy"
+
+[[constraint]]
+  revision = "86037679224858cd82666e4877a8ac4c42cbda8b"
+  name = "github.com/juju/replicaset"
+
+[[constraint]]
+  revision = "b058ad085c9480f110200bfe2309189aff5780b8"
+  name = "github.com/juju/rfc"
+
+[[constraint]]
+  revision = "958d8b71e5ffa51212133b12a998ddf8362739df"
+  name = "github.com/juju/romulus"
+
+[[constraint]]
+  revision = "472a3e8b2073fb3cd67c12d2bc5f3cd28e5f4116"
+  name = "github.com/juju/testing"
+
+[[constraint]]
+  revision = "bf9cc5bdd62dabc40b7f634b39a5e2dc44d44c45"
+  name = "github.com/juju/utils"
+
+[[constraint]]
+  revision = "54b8c57083b4afb7dc75da7f13e2967b2606a507"
+  name = "github.com/juju/webbrowser"
+
+[[constraint]]
+  name = "github.com/lxc/lxd"
+  revision = "d0d66b4842f459c6c3e039a9e2f25eff02174ab1"
+
+[[constraint]]
+  name = "github.com/oracle/oci-go-sdk"
+  revision = "ad5c34ed0cf8169d6817e2a37ec3e4521f856368"
+
+[[constraint]]
+  revision = "8c3190dff075bf5442c9eedbf8f8ed6144a099e7"
+  name = "gopkg.in/amz.v3"
+
+[[constraint]]
+  name = "gopkg.in/ini.v1"
+  revision = "776aa739ce9373377cd16f526cdf06cb4c89b40f"
+
+[[constraint]]
+  revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
+  name = "gopkg.in/juju/blobstore.v2"
+
+[[constraint]]
+  name = "gopkg.in/juju/charm.v6"
+  revision = "3469d139dfb3c189a92bebb42f7075fac4bba707"
+
+[[constraint]]
+  revision = "7778a447283bd71109671c20818544514e16e9d9"
+  name = "gopkg.in/juju/charmrepo.v3"
+
+[[constraint]]
+  revision = "7359fc7857abe2b11b5b3e23811a9c64cb6b01e0"
+  name = "gopkg.in/juju/environschema.v1"
+
+[[constraint]]
+  revision = "fd59336b4621bc2a70bf96d9e2f49954115ad19b"
+  name = "gopkg.in/juju/names.v2"
+
+[[constraint]]
+  revision = "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6"
+  name = "gopkg.in/natefinch/npipe.v2"
+
+[[constraint]]
+  name = "gopkg.in/retry.v1"
+  revision = "87155f248cf6ea9e38ae7613f9ea1e5bb397ac83"
+
+[[constraint]]
+  revision = "183f3326a9353bd6d41430fc80f96259331d029c"
+  name = "k8s.io/api"
+
+[[constraint]]
+  revision = "cbafd24d5796966031ae904aa88e2436a619ae8a"
+  name = "k8s.io/apimachinery"
+
+[[constraint]]
+  name = "gopkg.in/juju/charmstore.v5"
+  revision = "743b5ab3209d901b82aaa6594c405e017e0761a9"
+
+[[override]]
+  name = "github.com/masterzen/xmlpath"
+  revision = "13f4951698adc0fa9c1dda3e275d489a24201161"
+
+[[override]]
+  name = "cloud.google.com/go"
+  revision = "3b1ae45394a234c385be014e9a488f2bb6eef821"
+
+[[constraint]]
+  name = "github.com/Azure/azure-sdk-for-go"
+  revision = "9699bdefa481d47c5c7638a1cc05d87ce53601fd"
+
+[[override]]
+  name = "github.com/Azure/go-autorest"
+  revision = "528b76fd0ebec0682f3e3da7c808cd472b999615"
+
+[[override]]
+  name = "github.com/ajstarks/svgo"
+  revision = "89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518"
+
+[[override]]
+  name = "github.com/armon/go-metrics"
+  revision = "f0300d1749da6fa982027e449ec0c7a145510c3c"
+
+[[override]]
+  name = "github.com/beorn7/perks"
+  revision = "3ac7bf7a47d159a033b107610db8a1b6575507a4"
+
+[[constraint]]
+  name = "github.com/bmizerany/pat"
+  revision = "c068ca2f0aacee5ac3681d68e4d0a003b7d1fd2c"
+
+[[override]]
+  name = "github.com/boltdb/bolt"
+  revision = "e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd"
+
+[[override]]
+  name = "github.com/dgrijalva/jwt-go"
+  revision = "01aeca54ebda6e0fbfafd0a524d234159c05ec20"
+
+[[constraint]]
+  name = "github.com/docker/distribution"
+  revision = "f0cc927784781fa395c06317c58dea2841ece3a9"
+
+[[constraint]]
+  name = "github.com/dustin/go-humanize"
+  revision = "145fabdb1ab757076a70a886d092a3af27f66f4c"
+
+[[override]]
+  name = "github.com/godbus/dbus"
+  revision = "32c6cc29c14570de4cf6d7e7737d68fb2d01ad15"
+
+[[override]]
+  name = "github.com/golang/glog"
+  revision = "44145f04b68cf362d9c4df2182967c2275eaefed"
+
+[[constraint]]
+  name = "github.com/golang/mock"
+  revision = "600781dde9cca80734169b9e969d9054ccc57937"
+
+[[constraint]]
+  name = "github.com/google/go-querystring"
+  revision = "9235644dd9e52eeae6fa48efd539fdc351a0af53"
+
+[[override]]
+  name = "github.com/google/gofuzz"
+  revision = "44d81051d367757e1c7c6a5a86423ece9afcf63c"
+
+[[constraint]]
+  name = "github.com/gorilla/handlers"
+  revision = "13d73096a474cac93275c679c7b8a2dc17ddba82"
+
+[[constraint]]
+  name = "github.com/gorilla/schema"
+  revision = "08023a0215e7fc27a9aecd8b8c50913c40019478"
+
+[[constraint]]
+  name = "github.com/gorilla/websocket"
+  revision = "5ed622c449da6d44c3c8329331ff47a9e5844f71"
+
+[[constraint]]
+  name = "github.com/hashicorp/raft"
+  revision = "077966dbc90f342107eb723ec52fdb0463ec789b"
+
+[[constraint]]
+  name = "github.com/joyent/gocommon"
+  revision = "ade826b8b54e81a779ccb29d358a45ba24b7809c"
+
+[[constraint]]
+  name = "github.com/joyent/gosdc"
+  revision = "2f11feadd2d9891e92296a1077c3e2e56939547d"
+
+[[constraint]]
+  name = "github.com/joyent/gosign"
+  revision = "0da0d5f1342065321c97812b1f4ac0c2b0bab56c"
+
+[[constraint]]
+  name = "github.com/juju/ansiterm"
+  revision = "b99631de12cf04a906c1d4e4ec54fb86eae5863d"
+
+[[constraint]]
+  name = "github.com/juju/clock"
+  revision = "bab88fc672997ef02d03f85310182d97a93dee21"
+
+[[constraint]]
+  name = "github.com/juju/cmd"
+  revision = "fd568e4a4120f7d5a417252d701daff61a6322b4"
+
+[[constraint]]
+  name = "github.com/juju/collections"
+  revision = "9be91dc79b7c185fa8b08e7ceceee40562055c83"
+
+[[constraint]]
+  name = "github.com/juju/errors"
+  revision = "22422dad46e14561a0854ad42497a75af9b61909"
+
+[[constraint]]
+  name = "github.com/juju/go-oracle-cloud"
+  revision = "932a8cea00a1cd5cba3829a672c823955db674ae"
+
+[[constraint]]
+  name = "github.com/juju/httprequest"
+  revision = "266fd1e9debf09c037a63f074d099a2da4559ece"
+
+[[constraint]]
+  name = "github.com/juju/idmclient"
+  revision = "fb1dc7175251ac8e2dc460897313e05175cbbc0d"
+
+[[constraint]]
+  name = "github.com/juju/loggo"
+  revision = "8232ab8918d91c72af1a9fb94d3edbe31d88b790"
+
+[[constraint]]
+  name = "github.com/juju/persistent-cookiejar"
+  revision = "d67418f14c93a698e37b52468958d5d4dcf8a7dd"
+
+[[constraint]]
+  name = "github.com/juju/pubsub"
+  revision = "ad5dc02599e01a8409f9b1144e4d759baafd01dc"
+
+[[constraint]]
+  name = "github.com/juju/ratelimit"
+  revision = "5b9ff866471762aa2ab2dced63c9fb6f53921342"
+
+[[constraint]]
+  name = "github.com/juju/retry"
+  revision = "9058e192b216b21e4741c2eeb20ac798ba1ea80a"
+
+[[constraint]]
+  name = "github.com/juju/schema"
+  revision = "075de04f9b7d7580d60a1e12a0b3f50bb18e6998"
+
+[[constraint]]
+  name = "github.com/juju/terms-client"
+  revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
+
+[[constraint]]
+  name = "github.com/juju/txn"
+  revision = "f08211fa34f20cae79efd3dde0f54c77238292c3"
+
+[[override]]
+  name = "github.com/juju/usso"
+  revision = "68a59c96c178fbbad65926e7f93db50a2cd14f33"
+
+[[constraint]]
+  name = "github.com/juju/version"
+  revision = "1f41e27e54f21acccf9b2dddae063a782a8a7ceb"
+
+[[override]]
+  name = "github.com/juju/xml"
+  revision = "eb759a627588d35166bc505fceb51b88500e291e"
+
+[[constraint]]
+  name = "github.com/julienschmidt/httprouter"
+  revision = "77a895ad01ebc98a4dc95d8355bc825ce80a56f6"
+
+[[constraint]]
+  name = "github.com/kr/pretty"
+  revision = "cfb55aafdaf3ec08f0db22699ab822c50091b1c4"
+
+[[override]]
+  name = "github.com/kr/text"
+  revision = "7cafcd837844e784b526369c9bce262804aebc60"
+
+[[override]]
+  name = "github.com/lestrrat/go-jspointer"
+  revision = "f4881e611bdbe9fb413a7780721ef8400a1f2341"
+
+[[override]]
+  name = "github.com/lestrrat/go-jsref"
+  revision = "e452c7b5801d1c6494c9e7e0cbc7498c0f88dfd1"
+
+[[override]]
+  name = "github.com/lestrrat/go-jsschema"
+  revision = "b09d7650b822d2ea3dc83d5091a5e2acd8330051"
+
+[[override]]
+  name = "github.com/lestrrat/go-jsval"
+  revision = "b1258a10419fe0693f7b35ad65cd5074bc0ba1e5"
+
+[[override]]
+  name = "github.com/lestrrat/go-pdebug"
+  revision = "2e6eaaa5717f81bda41d27070d3c966f40a1e75f"
+
+[[override]]
+  name = "github.com/lestrrat/go-structinfo"
+  revision = "f74c056fe41f860aa6264478c664a6fff8a64298"
+
+[[override]]
+  name = "github.com/lunixbochs/vtclean"
+  revision = "4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36"
+
+[[override]]
+  name = "github.com/masterzen/azure-sdk-for-go"
+  revision = "ee4f0065d00cd12b542f18f5bc45799e88163b12"
+
+[[override]]
+  name = "github.com/masterzen/winrm"
+  revision = "7a535cd943fccaeed196718896beec3fb51aff41"
+
+[[constraint]]
+  name = "gopkg.in/macaroon.v2-unstable"
+  revision = "66ab28d0d56f39a383f7cf5cf3ac9a4e9ab32865"
+
+[[constraint]]
+  name = "github.com/prometheus/client_golang"
+  revision = "575f371f7862609249a1be4c9145f429fe065e32"
+
+[[constraint]]
+  name = "github.com/prometheus/client_model"
+  revision = "fa8ad6fec33561be4280a8f0514318c79d7f6cb6"
+
+[[override]]
+  name = "github.com/prometheus/common"
+  revision = "dd586c1c5abb0be59e60f942c22af711a2008cb4"
+
+[[override]]
+  name = "github.com/prometheus/procfs"
+  revision = "abf152e5f3e97f2fafac028d2cc06c1feb87ffa5"
+
+[[constraint]]
+  name = "k8s.io/client-go"
+  revision = "3db81bdd128696db1c2fcba8a426ed0a3993824d"
+
+[[override]]
+  name = "github.com/mattn/go-colorable"
+  revision = "ed8eb9e318d7a84ce5915b495b7d35e0cfe7b5a8"
+
+[[constraint]]
+  name = "github.com/mattn/go-isatty"
+  revision = "66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8"
+
+[[override]]
+  name = "github.com/mattn/go-runewidth"
+  revision = "d96d1bd051f2bd9e7e43d602782b37b93b1b5666"
+
+[[constraint]]
+  name = "github.com/pkg/errors"
+  revision = "839d9e913e063e28dfd0e6c7b7512793e0a48be9"
+
+[[override]]
+  name = "github.com/satori/uuid"
+  revision = "5bf94b69c6b68ee1b541973bb8e1144db23a194b"
+
+[[constraint]]
+  name = "github.com/vmware/govmomi"
+  revision = "05504416e95561e1478196d7058721c827a7bb8c"
+
+[[constraint]]
+  name = "golang.org/x/crypto"
+  revision = "f027049dab0ad238e394a753dba2d14753473a04"
+
+[[constraint]]
+  name = "golang.org/x/net"
+  revision = "61147c48b25b599e5b561d2e9c4f3e1ef489ca41"
+
+[[constraint]]
+  name = "golang.org/x/oauth2"
+  revision = "a6bd8cefa1811bd24b86f8902872e4e8225f74c4"
+
+[[constraint]]
+  name = "golang.org/x/sys"
+  revision = "0cf1ed9e522b7dbb416f080a5c8003de9b702bf4"
+
+[[override]]
+  name = "golang.org/x/text"
+  revision = "b19bf474d317b857955b12035d2c5acb57ce8b01"
+
+[[constraint]]
+  name = "google.golang.org/api"
+  revision = "ed10e890a8366167a7ce33fac2b12447987bcb1c"
+
+[[constraint]]
+  name = "gopkg.in/check.v1"
+  revision = "4f90aeace3a26ad7021961c297b22c42160c7b25"
+
+[[constraint]]
+  name = "gopkg.in/errgo.v1"
+  revision = "442357a80af5c6bf9b6d51ae791a39c3421004f3"
+
+[[constraint]]
+  name = "gopkg.in/goose.v2"
+  revision = "cf9b64132d71c47930543f2add6ddab0fc402147"
+
+[[override]]
+  name = "gopkg.in/httprequest.v1"
+  revision = "1a21782420ea13c3c6fb1d03578f446b3248edb1"
+
+[[override]]
+  name = "gopkg.in/juju/charmrepo.v2"
+  revision = "653bbd81990d2d7d48e0fb931a3b0f52c694572f"
+
+[[constraint]]
+  name = "gopkg.in/juju/worker.v1"
+  revision = "9becf9b2c7057a1043a513b4a177fa33046f4535"
+
+[[override]]
+  name = "gopkg.in/macaroon-bakery.v1"
+  revision = "469b44e6f1f9479e115c8ae879ef80695be624d5"
+
+[[override]]
+  name = "gopkg.in/macaroon-bakery.v2"
+  revision = "ec9d2ad6796100720c154f614b6dea8798ec1181"
+
+[[override]]
+  name = "gopkg.in/macaroon.v1"
+  revision = "ab3940c6c16510a850e1c2dd628b919f0f3f1464"
+
+[[constraint]]
+  name = "gopkg.in/mgo.v2"
+  revision = "9ecfba03d10a21015af9bbd42aa0512dc0cf9514"
+  source = "github.com/juju/mgo"
+
+[[constraint]]
+  name = "gopkg.in/natefinch/lumberjack.v2"
+  revision = "df99d62fd42d8b3752c8a42c6723555372c02a03"
+
+[[constraint]]
+  name = "gopkg.in/tomb.v2"
+  revision = "14b3d72120e8d10ea6e6b7f87f7175734b1faab8"
+
+[[constraint]]
+  name = "gopkg.in/yaml.v2"
+  revision = "2025133c382644467541934971b571f7896de32a"
+  source = "github.com/juju/yaml"
+
+[[constraint]]
+  name = "k8s.io/apiextensions-apiserver"
+  revision = "4d05e43ad98c1edcf2f52291685bd9bbc12fd2cd"

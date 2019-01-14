@@ -6,11 +6,11 @@ package state_test
 import (
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -80,14 +80,14 @@ func (s *ModelConfigSuite) TestAdditionalValidation(c *gc.C) {
 		return nil
 	}
 
-	err := s.IAASModel.UpdateModelConfig(updateAttrs, nil, configValidator1)
+	err := s.Model.UpdateModelConfig(updateAttrs, nil, configValidator1)
 	c.Assert(err, gc.ErrorMatches, "cannot change logging-config")
-	err = s.IAASModel.UpdateModelConfig(nil, removeAttrs, configValidator2)
+	err = s.Model.UpdateModelConfig(nil, removeAttrs, configValidator2)
 	c.Assert(err, gc.ErrorMatches, "cannot remove some-attr")
-	err = s.IAASModel.UpdateModelConfig(updateAttrs, nil, configValidator3)
+	err = s.Model.UpdateModelConfig(updateAttrs, nil, configValidator3)
 	c.Assert(err, jc.ErrorIsNil)
 	// First error is returned.
-	err = s.IAASModel.UpdateModelConfig(updateAttrs, nil, configValidator1, configValidator2)
+	err = s.Model.UpdateModelConfig(updateAttrs, nil, configValidator1, configValidator2)
 	c.Assert(err, gc.ErrorMatches, "cannot change logging-config")
 }
 
@@ -96,13 +96,13 @@ func (s *ModelConfigSuite) TestModelConfig(c *gc.C) {
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
 	}
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.IAASModel.UpdateModelConfig(attrs, nil)
+	err = s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err = cfg.Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	oldCfg, err := s.IAASModel.ModelConfig()
+	oldCfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(oldCfg, jc.DeepEquals, cfg)
@@ -186,7 +186,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
 
 func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C) {
 	updateAttrs := map[string]interface{}{"api-port": 1234}
-	err := s.IAASModel.UpdateModelConfig(updateAttrs, nil)
+	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set controller attribute "api-port" on a model`)
 }
 
@@ -197,12 +197,12 @@ func (s *ModelConfigSuite) TestUpdateModelConfigRemoveInherited(c *gc.C) {
 		"providerAttr":  "beef", // provider
 		"whimsy-key":    "eggs", // region
 	}
-	err := s.IAASModel.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.IAASModel.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttr", "whimsy-key"})
+	err = s.Model.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttr", "whimsy-key"})
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://cloud-mirror")
@@ -216,7 +216,7 @@ func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
 	attrs := map[string]interface{}{
 		"resource-tags": map[string]string{"a": "b", "c": "d"},
 	}
-	err := s.IAASModel.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelSettings, err := s.State.ReadSettings(state.SettingsC, state.ModelGlobalKey)
@@ -231,7 +231,7 @@ func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
 	}
 	c.Assert(tagsMap, gc.DeepEquals, expectedTags)
 
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["resource-tags"], gc.DeepEquals, expectedTags)
 }
@@ -242,15 +242,15 @@ func (s *ModelConfigSuite) TestUpdateModelConfigPreferredOverRemove(c *gc.C) {
 		"arbitrary-key": "shazam!",
 		"providerAttr":  "beef", // provider
 	}
-	err := s.IAASModel.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.IAASModel.UpdateModelConfig(map[string]interface{}{
+	err = s.Model.UpdateModelConfig(map[string]interface{}{
 		"apt-mirror":   "http://another-mirror",
 		"providerAttr": "pork",
 	}, []string{"apt-mirror", "arbitrary-key"})
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://another-mirror")
@@ -290,16 +290,16 @@ func (s *ModelConfigSourceSuite) TestModelConfigWhenSetOverridesControllerValue(
 		"authorized-keys": "different-keys",
 		"apt-mirror":      "http://anothermirror",
 	}
-	err := s.IAASModel.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["apt-mirror"], gc.Equals, "http://anothermirror")
 }
 
 func (s *ModelConfigSourceSuite) TestControllerModelConfigForksControllerValue(c *gc.C) {
-	modelCfg, err := s.IAASModel.ModelConfig()
+	modelCfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://cloud-mirror")
 
@@ -310,7 +310,7 @@ func (s *ModelConfigSourceSuite) TestControllerModelConfigForksControllerValue(c
 	_, err = localControllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelCfg, err = s.IAASModel.ModelConfig()
+	modelCfg, err = s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://cloud-mirror")
 }
@@ -323,7 +323,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	_, st, err := s.State.NewModel(state.ModelArgs{
+	_, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		Config:                  cfg,
 		Owner:                   owner,
@@ -374,13 +374,13 @@ func (s *ModelConfigSourceSuite) assertModelConfigValues(c *gc.C, modelCfg *conf
 			Source: source,
 		}
 	}
-	sources, err := s.IAASModel.ModelConfigValues()
+	sources, err := s.Model.ModelConfigValues()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, jc.DeepEquals, expectedValues)
 }
 
 func (s *ModelConfigSourceSuite) TestModelConfigValues(c *gc.C) {
-	modelCfg, err := s.IAASModel.ModelConfig()
+	modelCfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttributes := set.NewStrings("name", "apt-mirror", "logging-config", "authorized-keys", "resource-tags")
 	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("http-proxy"))
@@ -391,9 +391,9 @@ func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
 		"http-proxy": "http://anotherproxy",
 		"apt-mirror": "http://mirror",
 	}
-	err := s.IAASModel.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	modelCfg, err := s.IAASModel.ModelConfig()
+	modelCfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttributes := set.NewStrings("name", "http-proxy", "logging-config", "authorized-keys", "resource-tags")
 	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("apt-mirror"))
@@ -424,7 +424,7 @@ func (s *ModelConfigSourceSuite) TestModelConfigDefaults(c *gc.C) {
 		Value: "dummy-proxy"}}
 	expectedValues["no-proxy"] = ds
 
-	sources, err := s.IAASModel.ModelConfigDefaultValues()
+	sources, err := s.Model.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, jc.DeepEquals, expectedValues)
 }
@@ -435,13 +435,13 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 		"http-proxy":  "http://http-proxy",
 		"https-proxy": "https://https-proxy",
 	}
-	err := s.IAASModel.UpdateModelConfigDefaultValues(attrs, nil, nil)
+	err := s.Model.UpdateModelConfigDefaultValues(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs = map[string]interface{}{
 		"apt-mirror": "http://different-mirror",
 	}
-	err = s.IAASModel.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
+	err = s.Model.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	anotherState, err := state.Open(state.OpenParams{
@@ -494,7 +494,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	rspec, err := environs.NewRegionSpec("dummy", "dummy-region")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.IAASModel.UpdateModelConfigDefaultValues(attrs, nil, rspec)
+	err = s.Model.UpdateModelConfigDefaultValues(attrs, nil, rspec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Then check in another state.
@@ -538,7 +538,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	c.Assert(cfg, jc.DeepEquals, expectedValues)
 
 	// remove the dummy-region setting
-	err = s.IAASModel.UpdateModelConfigDefaultValues(nil, []string{"no-proxy"}, rspec)
+	err = s.Model.UpdateModelConfigDefaultValues(nil, []string{"no-proxy"}, rspec)
 
 	// and check again
 	cfg, err = anotherModel.ModelConfigDefaultValues()
@@ -576,11 +576,11 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultValuesUnknownRegion
 
 	// We add this to the unused-region which has not been created in mongo
 	// yet.
-	err = s.IAASModel.UpdateModelConfigDefaultValues(attrs, nil, rspec)
+	err = s.Model.UpdateModelConfigDefaultValues(attrs, nil, rspec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Then check config.
-	cfg, err := s.IAASModel.ModelConfigDefaultValues()
+	cfg, err := s.Model.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["no-proxy"], jc.DeepEquals, config.AttributeDefaultValues{
 		Default:    "127.0.0.1,localhost,::1",

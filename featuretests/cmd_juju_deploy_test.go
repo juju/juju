@@ -18,7 +18,7 @@ type cmdDeploySuite struct {
 	testing.JujuConnSuite
 }
 
-func (s *cmdUpdateSeriesSuite) TestLocalDeploySuccess(c *gc.C) {
+func (s *cmdDeploySuite) TestLocalDeploySuccess(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks
 	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
@@ -29,7 +29,7 @@ func (s *cmdUpdateSeriesSuite) TestLocalDeploySuccess(c *gc.C) {
 	c.Assert(savedCh, gc.NotNil)
 }
 
-func (s *cmdUpdateSeriesSuite) TestLocalDeployFailNoHook(c *gc.C) {
+func (s *cmdDeploySuite) TestLocalDeployFailNoHook(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("category") // has no hooks
 	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
 	c.Assert(err, gc.NotNil)
@@ -37,4 +37,28 @@ func (s *cmdUpdateSeriesSuite) TestLocalDeployFailNoHook(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	_, err = s.State.Charm(charm.MustParseURL("local:quantal/category"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+// The following LXDProfile feature tests are to ensure that we can deploy a
+// charm (subordinate charm) and that it passes the validation stages of
+// deployment. These tests don't validate that the charm was successfully stood
+// up once deployed.
+
+func (s *cmdDeploySuite) TestLocalDeployLXDProfileSuccess(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("lxd-profile-subordinate") // has hooks
+	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Deploying charm "local:quantal/lxd-profile-subordinate-0"`)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	savedCh, err := s.State.Charm(charm.MustParseURL("local:quantal/lxd-profile-subordinate-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedCh, gc.NotNil)
+}
+
+func (s *cmdDeploySuite) TestLocalDeployLXDProfileWithBadConfigSuccess(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("lxd-profile-subordinate-fail") // has hooks
+	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
+	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `ERROR invalid lxd-profile.yaml: contains device type "unix-disk"`)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }

@@ -4,15 +4,19 @@
 package agent
 
 import (
+	"io"
+	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -21,6 +25,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apicaasoperator "github.com/juju/juju/api/caasoperator"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
@@ -42,14 +47,15 @@ var (
 type CaasOperatorAgent struct {
 	cmd.CommandBase
 	AgentConf
-	ApplicationName string
-	runner          *worker.Runner
-	bufferedLogger  *logsender.BufferedLogWriter
-	setupLogging    func(agent.Config) error
-	ctx             *cmd.Context
-	dead            chan struct{}
-	errReason       error
-	machineLock     machinelock.Lock
+	configChangedVal *voyeur.Value
+	ApplicationName  string
+	runner           *worker.Runner
+	bufferedLogger   *logsender.BufferedLogWriter
+	setupLogging     func(agent.Config) error
+	ctx              *cmd.Context
+	dead             chan struct{}
+	errReason        error
+	machineLock      machinelock.Lock
 
 	upgradeComplete gate.Lock
 
@@ -64,6 +70,7 @@ func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLo
 	}
 	return &CaasOperatorAgent{
 		AgentConf:          NewAgentConf(""),
+		configChangedVal:   voyeur.NewValue(true),
 		ctx:                ctx,
 		dead:               make(chan struct{}),
 		bufferedLogger:     bufferedLogger,
@@ -73,10 +80,10 @@ func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLo
 
 // Info implements Command.
 func (op *CaasOperatorAgent) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "caasoperator",
 		Purpose: "run a juju CAAS Operator",
-	}
+	})
 }
 
 // SetFlags implements Command.
@@ -122,11 +129,47 @@ func (op *CaasOperatorAgent) Done(err error) {
 	close(op.dead)
 }
 
+// maybeCopyAgentConfig copies the read-only agent config template
+// to the writeable agent config file if the file doesn't yet exist.
+func (op *CaasOperatorAgent) maybeCopyAgentConfig() error {
+	err := op.ReadConfig(op.Tag().String())
+	if err == nil {
+		return nil
+	}
+	if !os.IsNotExist(errors.Cause(err)) {
+		logger.Errorf("reading initial agent config file: %v", err)
+		return errors.Trace(err)
+	}
+	templateFile := filepath.Join(agent.Dir(op.DataDir(), op.Tag()), "template-agent.conf")
+	if err := copyFile(agent.ConfigPath(op.DataDir(), op.Tag()), templateFile); err != nil {
+		logger.Errorf("copying agent config file template: %v", err)
+		return errors.Trace(err)
+	}
+	return op.ReadConfig(op.Tag().String())
+}
+
+func copyFile(dest, source string) error {
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer df.Close()
+
+	f, err := os.Open(source)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+
+	_, err = io.Copy(df, f)
+	return errors.Trace(err)
+}
+
 // Run implements Command.
 func (op *CaasOperatorAgent) Run(ctx *cmd.Context) (err error) {
 	defer op.Done(err)
-	if err := op.ReadConfig(op.Tag().String()); err != nil {
-		return err
+	if err := op.maybeCopyAgentConfig(); err != nil {
+		return errors.Annotate(err, "creating agent config from template")
 	}
 	agentConfig := op.CurrentConfig()
 	machineLock, err := machinelock.New(machinelock.Config{
@@ -154,10 +197,19 @@ func (op *CaasOperatorAgent) Run(ctx *cmd.Context) (err error) {
 
 // Workers returns a dependency.Engine running the operator's responsibilities.
 func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
+	updateAgentConfLogging := func(loggingConfig string) error {
+		return op.AgentConf.ChangeConfig(func(setter agent.ConfigSetter) error {
+			setter.SetLoggingConfig(loggingConfig)
+			return nil
+		})
+	}
+
 	manifolds := CaasOperatorManifolds(caasoperator.ManifoldsConfig{
-		Agent:                op,
+		Agent:                agent.APIHostPortsSetter{op},
+		AgentConfigChanged:   op.configChangedVal,
 		Clock:                clock.WallClock,
 		LogSource:            op.bufferedLogger.Logs(),
+		UpdateLoggerConfig:   updateAgentConfLogging,
 		PrometheusRegisterer: op.prometheusRegistry,
 		LeadershipGuarantee:  30 * time.Second,
 		UpgradeStepsLock:     op.upgradeComplete,
@@ -195,6 +247,13 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 // Tag implements Agent.
 func (op *CaasOperatorAgent) Tag() names.Tag {
 	return names.NewApplicationTag(op.ApplicationName)
+}
+
+// ChangeConfig implements Agent.
+func (a *CaasOperatorAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+	err := a.AgentConf.ChangeConfig(mutate)
+	a.configChangedVal.Set(true)
+	return errors.Trace(err)
 }
 
 // validateMigration is called by the migrationminion to help check

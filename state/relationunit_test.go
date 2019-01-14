@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -999,7 +999,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c 
 }
 
 func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationDelayedPublicAddress(c *gc.C) {
-	clk := jujutesting.NewClock(time.Now())
+	clk := testclock.NewClock(time.Now())
 	attemptMade := make(chan struct{}, 10)
 	s.PatchValue(&state.PreferredAddressRetryArgs, func() retry.CallArgs {
 		return retry.CallArgs{
@@ -1068,18 +1068,15 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationDelayedPublicAd
 }
 
 func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
-	f := factory.NewFactory(st)
-	wpch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
+	f := factory.NewFactory(st, s.StatePool)
+	gitlabch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	mysqlch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
-	wp := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpch})
+	gitlab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitlabch})
 	mysql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlch})
 
-	prr := newProReqRelationForApps(c, st, mysql, wp)
+	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
 	// First no address.
 	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil)

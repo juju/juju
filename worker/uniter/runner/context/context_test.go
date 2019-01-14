@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"

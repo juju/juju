@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
@@ -23,8 +22,6 @@ import (
 	"github.com/juju/juju/service/common"
 	jujuversion "github.com/juju/juju/version"
 )
-
-// TODO(ericsnow) Use errors.Trace, etc. in this file.
 
 // APICalls defines the interface to the API that the simple context needs.
 type APICalls interface {
@@ -58,13 +55,13 @@ func recursiveChmod(path string, mode os.FileMode) error {
 		if _, err := os.Stat(p); err == nil {
 			errPerm := os.Chmod(p, mode)
 			if errPerm != nil {
-				return errPerm
+				return errors.Trace(errPerm)
 			}
 		}
 		return nil
 	}
 	if err := filepath.Walk(path, walker); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -158,7 +155,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		return errors.Trace(err)
 	}
 	if err := conf.Write(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer removeOnErr(&err, conf.Dir())
 
@@ -205,49 +202,34 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 		return errors.Errorf("unit %q is not deployed", unitName)
 	}
 	if err := svc.Stop(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := svc.Remove(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	tag := names.NewUnitTag(unitName)
 	dataDir := ctx.agentConfig.DataDir()
 	agentDir := agent.Dir(dataDir, tag)
-	// Recursivley change mode to 777 on windows to avoid
+	// Recursively change mode to 777 on windows to avoid
 	// Operation not permitted errors when deleting the agentDir
 	err = recursiveChmod(agentDir, os.FileMode(0777))
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := os.RemoveAll(agentDir); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// TODO(dfc) should take a Tag
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	return os.Remove(toolsDir)
 }
 
-var deployedRe = regexp.MustCompile("^(jujud-.*unit-([a-z0-9-]+)-([0-9]+))$")
-
 func (ctx *SimpleContext) deployedUnitsInitSystemJobs() (map[string]string, error) {
-	fis, err := ctx.listServices()
+	svcNames, err := ctx.listServices()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	if err != nil {
-		return nil, err
-	}
-	installed := make(map[string]string)
-	for _, fi := range fis {
-		if groups := deployedRe.FindStringSubmatch(fi); len(groups) > 0 {
-			unitName := groups[2] + "/" + groups[3]
-			if !names.IsValidUnit(unitName) {
-				continue
-			}
-			installed[unitName] = groups[1]
-		}
-	}
-	return installed, nil
+	return service.FindUnitServiceNames(svcNames), nil
 }
 
 func (ctx *SimpleContext) DeployedUnits() ([]string, error) {

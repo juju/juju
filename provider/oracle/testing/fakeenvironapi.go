@@ -258,7 +258,7 @@ var (
 			Vnc:           "10.31.5.105:5900",
 			Desired_state: "running",
 			Storage_attachments: []response.Storage{
-				response.Storage{
+				{
 					Index:               0x1,
 					Storage_volume_name: "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
 					Name:                "/Compute-a432100/sgiulitti@cloudbase.com/0/1f90e657-f852-45ad-afbf-9a94f640a7ae",
@@ -305,7 +305,7 @@ var (
 					"nimbula_vcable-eth0": "ea63b8.compute-a432100.oraclecloud.internal.",
 				},
 				Network: map[string]response.Network{
-					"nimbula_vcable-eth0": response.Network{
+					"nimbula_vcable-eth0": {
 						Address: []string{
 							"c6:b0:fd:f1:ef:ac",
 							"10.31.5.106",
@@ -358,7 +358,7 @@ var (
 		FakeShaper: FakeShaper{
 			All: response.AllShapes{
 				Result: []response.Shape{
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0xf000,
 						Is_root_ssd:    false,
@@ -370,7 +370,7 @@ var (
 						Io:             0x3e8,
 						Name:           "ocio3m",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x7800,
 						Is_root_ssd:    false,
@@ -382,7 +382,7 @@ var (
 						Io:             0x190,
 						Name:           "oc2m",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0xf000,
 						Is_root_ssd:    false,
@@ -394,7 +394,7 @@ var (
 						Io:             0x258,
 						Name:           "oc3m",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x3c00,
 						Is_root_ssd:    false,
@@ -406,7 +406,7 @@ var (
 						Io:             0x190,
 						Name:           "oc4",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0xf000,
 						Is_root_ssd:    false,
@@ -418,7 +418,7 @@ var (
 						Io:             0x320,
 						Name:           "oc6",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x3c000,
 						Is_root_ssd:    false,
@@ -430,7 +430,7 @@ var (
 						Io:             0x3e8,
 						Name:           "ocio5m",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x7800,
 						Is_root_ssd:    false,
@@ -442,7 +442,7 @@ var (
 						Io:             0x3e8,
 						Name:           "ocio2m",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x1e00,
 						Is_root_ssd:    false,
@@ -454,7 +454,7 @@ var (
 						Io:             0xc8,
 						Name:           "oc3",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x7800,
 						Is_root_ssd:    false,
@@ -466,7 +466,7 @@ var (
 						Io:             0x258,
 						Name:           "oc5",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x1e000,
 						Is_root_ssd:    false,
@@ -478,7 +478,7 @@ var (
 						Io:             0x3e8,
 						Name:           "oc7",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x2d000,
 						Is_root_ssd:    false,
@@ -490,7 +490,7 @@ var (
 						Io:             0x3e8,
 						Name:           "oc8",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x1e000,
 						Is_root_ssd:    false,
@@ -502,7 +502,7 @@ var (
 						Io:             0x320,
 						Name:           "oc4m",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x3c000,
 						Is_root_ssd:    false,
@@ -514,7 +514,7 @@ var (
 						Io:             0x3e8,
 						Name:           "oc5m",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x3c00,
 						Is_root_ssd:    false,
@@ -526,7 +526,7 @@ var (
 						Io:             0xc8,
 						Name:           "oc1m",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x78000,
 						Is_root_ssd:    false,
@@ -538,7 +538,7 @@ var (
 						Io:             0x3e8,
 						Name:           "oc9m",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x5a000,
 						Is_root_ssd:    false,
@@ -550,7 +550,7 @@ var (
 						Io:             0x3e8,
 						Name:           "oc8m",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x3c000,
 						Is_root_ssd:    false,
@@ -562,7 +562,7 @@ var (
 						Io:             0x3e8,
 						Name:           "oc9",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x3c00,
 						Is_root_ssd:    false,
@@ -574,7 +574,7 @@ var (
 						Io:             0x3e8,
 						Name:           "ocio1m",
 					},
-					response.Shape{
+					{
 						Nds_iops_limit: 0x0,
 						Ram:            0x1e000,
 						Is_root_ssd:    false,
@@ -593,11 +593,11 @@ var (
 		FakeImager: FakeImager{
 			All: response.AllImageLists{
 				Result: []response.ImageList{
-					response.ImageList{
+					{
 						Default:     1,
 						Description: nil,
 						Entries: []response.ImageListEntry{
-							response.ImageListEntry{
+							{
 								Attributes: response.AttributesEntry{
 									Userdata:        map[string]interface{}{"enable_rdp": "true"},
 									MinimumDiskSize: "27",
@@ -612,11 +612,11 @@ var (
 						Uri:  "https://compute.uscom-central-1.oraclecloud.com/imagelist/Compute-a432100/sgiulitti%40cloudbase.com/Microsoft_Windows_Server_2012_R2",
 						Name: "/Compute-a432100/sgiulitti@cloudbase.com/Microsoft_Windows_Server_2012_R2",
 					},
-					response.ImageList{
+					{
 						Default:     1,
 						Description: nil,
 						Entries: []response.ImageListEntry{
-							response.ImageListEntry{
+							{
 								Attributes: response.AttributesEntry{
 									Userdata:        map[string]interface{}{},
 									MinimumDiskSize: "10",
@@ -632,11 +632,11 @@ var (
 						Uri:  "https://compute.uscom-central-1.oraclecloud.com/imagelist/Compute-a432100/sgiulitti%40cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
 						Name: "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
 					},
-					response.ImageList{
+					{
 						Default:     1,
 						Description: nil,
 						Entries: []response.ImageListEntry{
-							response.ImageListEntry{
+							{
 								Attributes: response.AttributesEntry{
 									Userdata:        map[string]interface{}{},
 									MinimumDiskSize: "10",
@@ -654,11 +654,11 @@ var (
 						Uri:  "https://compute.uscom-central-1.oraclecloud.com/imagelist/Compute-a432100/sgiulitti%40cloudbase.com/Ubuntu.14.04-LTS.amd64.20170307",
 						Name: "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.14.04-LTS.amd64.20170307",
 					},
-					response.ImageList{
+					{
 						Default:     1,
 						Description: nil,
 						Entries: []response.ImageListEntry{
-							response.ImageListEntry{
+							{
 								Attributes: response.AttributesEntry{
 									Userdata:        map[string]interface{}{},
 									MinimumDiskSize: "10",
@@ -676,11 +676,11 @@ var (
 						Uri:  "https://compute.uscom-central-1.oraclecloud.com/imagelist/Compute-a432100/sgiulitti%40cloudbase.com/Ubuntu.12.04-LTS.amd64.20170307",
 						Name: "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.12.04-LTS.amd64.20170307",
 					},
-					response.ImageList{
+					{
 						Default:     1,
 						Description: nil,
 						Entries: []response.ImageListEntry{
-							response.ImageListEntry{
+							{
 								Attributes: response.AttributesEntry{
 									Userdata:        map[string]interface{}{"enable_rdp": "true"},
 									MinimumDiskSize: "27",
@@ -705,7 +705,7 @@ var (
 		FakeIpReservation: FakeIpReservation{
 			All: response.AllIpReservations{
 				Result: []response.IpReservation{
-					response.IpReservation{
+					{
 						Account:    "/Compute-a432100/default",
 						Ip:         "129.150.66.1",
 						Name:       "/Compute-a432100/sgiulitti@cloudbase.com/29286b89-8d91-45b7-8a3a-78fffa2109b9",
@@ -748,7 +748,7 @@ var (
 		FakeIpAssociation: FakeIpAssociation{
 			All: response.AllIpAssociations{
 				Result: []response.IpAssociation{
-					response.IpAssociation{
+					{
 						Account:     "/Compute-a432100/default",
 						Ip:          "129.150.66.1",
 						Name:        "/Compute-a432100/sgiulitti@cloudbase.com/f490e701-c68f-415d-a166-b75f1e1116d4",
@@ -775,13 +775,13 @@ var (
 		FakeIpNetworkExchanger: FakeIpNetworkExchanger{
 			All: response.AllIpNetworkExchanges{
 				Result: []response.IpNetworkExchange{
-					response.IpNetworkExchange{
+					{
 						Description: nil,
 						Name:        "/Compute-a432100/sgiulitti@cloudbase.com/dbsql",
 						Tags:        []string{},
 						Uri:         "https://compute.uscom-central-1.oraclecloud.com:443/network/v1/ipnetworkexchange/Compute-a432100/sgiulitti@cloudbase.com/dbsql",
 					},
-					response.IpNetworkExchange{
+					{
 						Description: nil,
 						Name:        "/Compute-a432100/sgiulitti@cloudbase.com/test",
 						Tags:        []string{},
@@ -794,7 +794,7 @@ var (
 		FakeIpNetworker: FakeIpNetworker{
 			All: response.AllIpNetworks{
 				Result: []response.IpNetwork{
-					response.IpNetwork{
+					{
 						Description:           nil,
 						IpAddressPrefix:       "120.120.120.0/24",
 						IpNetworkExchange:     nil,

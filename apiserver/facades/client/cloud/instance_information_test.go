@@ -38,7 +38,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	itCons := constraints.Value{CpuCores: &over9kCPUCores}
 	env := &mockEnviron{
 		results: map[constraints.Value]instances.InstanceTypesWithCostMetadata{
-			itCons: instances.InstanceTypesWithCostMetadata{
+			itCons: {
 				CostUnit:     "USD/h",
 				CostCurrency: "USD",
 				InstanceTypes: []instances.InstanceType{
@@ -73,17 +73,17 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 3)
 	expected := []params.InstanceTypesResult{
-		params.InstanceTypesResult{
+		{
 			InstanceTypes: []params.InstanceType{
-				params.InstanceType{
+				{
 					Name: "instancetype-1"},
-				params.InstanceType{Name: "instancetype-2"}},
+				{Name: "instancetype-2"}},
 			CostUnit:     "USD/h",
 			CostCurrency: "USD",
 		},
-		params.InstanceTypesResult{
+		{
 			Error: &params.Error{Message: "Instances matching constraint  not found", Code: "not found"}},
-		params.InstanceTypesResult{
+		{
 			Error: &params.Error{Message: "asking gce cloud information to aws cloud not valid", Code: ""}}}
 	c.Assert(r.Results, gc.DeepEquals, expected)
 }

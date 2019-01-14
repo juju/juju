@@ -226,31 +226,31 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 	// the host machine during this unit test.
 
 	devicesArgs := []state.LinkLayerDeviceArgs{
-		state.LinkLayerDeviceArgs{
+		{
 			Name: "br-eth10",
 			Type: state.BridgeDevice,
 		},
-		state.LinkLayerDeviceArgs{
+		{
 			Name: "br-eth1",
 			Type: state.BridgeDevice,
 		},
-		state.LinkLayerDeviceArgs{
+		{
 			Name: "br-eth10-100",
 			Type: state.BridgeDevice,
 		},
-		state.LinkLayerDeviceArgs{
+		{
 			Name: "br-eth2",
 			Type: state.BridgeDevice,
 		},
-		state.LinkLayerDeviceArgs{
+		{
 			Name: "br-eth0",
 			Type: state.BridgeDevice,
 		},
-		state.LinkLayerDeviceArgs{
+		{
 			Name: "br-eth4",
 			Type: state.BridgeDevice,
 		},
-		state.LinkLayerDeviceArgs{
+		{
 			Name: "br-eth3",
 			Type: state.BridgeDevice,
 		},

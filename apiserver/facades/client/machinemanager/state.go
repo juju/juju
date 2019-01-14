@@ -4,23 +4,21 @@
 package machinemanager
 
 import (
-	names "gopkg.in/juju/names.v2"
-
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
 
 type Backend interface {
-	storagecommon.StorageInterface
 	state.CloudAccessor
 
 	Machine(string) (Machine, error)
-	ModelConfig() (*config.Config, error)
 	Model() (Model, error)
-	ModelTag() names.ModelTag
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
@@ -46,12 +44,18 @@ type Machine interface {
 	Series() string
 	Units() ([]Unit, error)
 	SetKeepInstance(keepInstance bool) error
-	UpdateMachineSeries(string, bool) error
+	CreateUpgradeSeriesLock([]string, string) error
+	RemoveUpgradeSeriesLock() error
+	CompleteUpgradeSeries() error
+	VerifyUnitsSeries(unitNames []string, series string, force bool) ([]Unit, error)
+	Principals() []string
+	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
+	GetUpgradeSeriesMessages() ([]string, bool, error)
+	IsManager() bool
 }
 
 type stateShim struct {
 	*state.State
-	*state.IAASModel
 }
 
 func (s stateShim) Machine(name string) (Machine, error) {
@@ -96,4 +100,60 @@ func (m machineShim) Units() ([]Unit, error) {
 
 type Unit interface {
 	UnitTag() names.UnitTag
+	Name() string
+	AgentStatus() (status.StatusInfo, error)
+	Status() (status.StatusInfo, error)
+}
+
+func (m machineShim) VerifyUnitsSeries(unitNames []string, series string, force bool) ([]Unit, error) {
+	units, err := m.Machine.VerifyUnitsSeries(unitNames, series, force)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Unit, len(units))
+	for i, u := range units {
+		out[i] = u
+	}
+	return out, nil
+}
+
+type storageInterface interface {
+	storagecommon.StorageAccess
+	VolumeAccess() storagecommon.VolumeAccess
+	FilesystemAccess() storagecommon.FilesystemAccess
+}
+
+var getStorageState = func(st *state.State) (storageInterface, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
+	sb, err := state.NewStorageBackend(st)
+	if err != nil {
+		return nil, err
+	}
+	storageAccess := &storageShim{
+		StorageAccess: sb,
+		va:            sb,
+		fa:            sb,
+	}
+	// CAAS models don't support volume storage yet.
+	if m.Type() == state.ModelTypeCAAS {
+		storageAccess.va = nil
+	}
+	return storageAccess, nil
+}
+
+type storageShim struct {
+	storagecommon.StorageAccess
+	fa storagecommon.FilesystemAccess
+	va storagecommon.VolumeAccess
+}
+
+func (s *storageShim) VolumeAccess() storagecommon.VolumeAccess {
+	return s.va
+}
+
+func (s *storageShim) FilesystemAccess() storagecommon.FilesystemAccess {
+	return s.fa
 }

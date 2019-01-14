@@ -156,20 +156,6 @@ func (s *grantSuite) TestInitOffers(c *gc.C) {
 	c.Assert(grantCmd.ModelNames, gc.HasLen, 0)
 }
 
-// TestInitGrantAddModel checks that both the documented 'add-model' access and
-// the backwards-compatible 'addmodel' work to grant the AddModel permission.
-func (s *grantSuite) TestInitGrantAddModel(c *gc.C) {
-	wrappedCmd, grantCmd := model.NewGrantCommandForTest(nil, nil, s.store)
-	// The documented case, add-model.
-	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model"})
-	c.Check(err, jc.ErrorIsNil)
-
-	// The backwards-compatible case, addmodel.
-	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(grantCmd.Access, gc.Equals, "add-model")
-}
-
 type revokeSuite struct {
 	grantRevokeSuite
 }
@@ -198,20 +184,6 @@ func (s *revokeSuite) TestInit(c *gc.C) {
 	err = cmdtesting.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, `no user specified`)
 
-}
-
-// TestInitRevokeAddModel checks that both the documented 'add-model' access and
-// the backwards-compatible 'addmodel' work to revoke the AddModel permission.
-func (s *grantSuite) TestInitRevokeAddModel(c *gc.C) {
-	wrappedCmd, revokeCmd := model.NewRevokeCommandForTest(nil, nil, s.store)
-	// The documented case, add-model.
-	err := cmdtesting.InitCommand(wrappedCmd, []string{"bob", "add-model"})
-	c.Check(err, jc.ErrorIsNil)
-
-	// The backwards-compatible case, addmodel.
-	err = cmdtesting.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(revokeCmd.Access, gc.Equals, "add-model")
 }
 
 func (s *grantSuite) TestModelAccessForController(c *gc.C) {

@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	jujuFactory "github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/testing/factory"
 )
 
 type restCommonSuite struct {
@@ -140,8 +140,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Set up a charm entry for dummy app with no charm in storage.
-	factory := jujuFactory.NewFactory(s.State)
-	dummyCh := factory.MakeCharm(c, &jujuFactory.CharmParams{
+	dummyCh := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,13 +161,13 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	defer otherModelState.Close()
 	_, err = otherModelState.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-app",
-		SourceModel: s.IAASModel.ModelTag(),
+		SourceModel: s.Model.ModelTag(),
 		OfferUUID:   offer.OfferUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModelState.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "notfound-remote-app",
-		SourceModel: s.IAASModel.ModelTag(),
+		SourceModel: s.Model.ModelTag(),
 		OfferUUID:   offer2.OfferUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)

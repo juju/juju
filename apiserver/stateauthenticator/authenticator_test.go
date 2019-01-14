@@ -4,8 +4,8 @@
 package stateauthenticator_test
 
 import (
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -34,8 +34,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
-	fact := factory.NewFactory(s.State)
-	user := fact.MakeUser(c, &factory.UserParams{Password: "password"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "password"})
 
 	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, user.Tag())
 	c.Assert(err, jc.ErrorIsNil)

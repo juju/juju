@@ -76,31 +76,31 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		taskError:  make(map[types.ManagedObjectReference]*types.LocalizedMethodFault),
 	}
 	s.roundTripper.contents = map[string][]types.ObjectContent{
-		"FakeRootFolder": []types.ObjectContent{{
+		"FakeRootFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Datacenter",
 				Value: "FakeDatacenter",
 			},
 			PropSet: []types.DynamicProperty{
-				types.DynamicProperty{Name: "name", Val: "dc0"},
+				{Name: "name", Val: "dc0"},
 			},
 		}},
-		"FakeDatacenter": []types.ObjectContent{{
+		"FakeDatacenter": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Datacenter",
 				Value: "FakeDatacenter",
 			},
 			PropSet: []types.DynamicProperty{
-				types.DynamicProperty{Name: "name", Val: "dc0"},
-				types.DynamicProperty{Name: "hostFolder", Val: types.ManagedObjectReference{
+				{Name: "name", Val: "dc0"},
+				{Name: "hostFolder", Val: types.ManagedObjectReference{
 					Type:  "Folder",
 					Value: "FakeHostFolder",
 				}},
-				types.DynamicProperty{Name: "vmFolder", Val: types.ManagedObjectReference{
+				{Name: "vmFolder", Val: types.ManagedObjectReference{
 					Type:  "Folder",
 					Value: "FakeVmFolder",
 				}},
-				types.DynamicProperty{Name: "datastoreFolder", Val: types.ManagedObjectReference{
+				{Name: "datastoreFolder", Val: types.ManagedObjectReference{
 					Type:  "Folder",
 					Value: "FakeDatastoreFolder",
 				}},
@@ -118,7 +118,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			},
 			PropSet: []types.DynamicProperty{{Name: "name", Val: "vm"}},
 		}},
-		"FakeHostFolder": []types.ObjectContent{{
+		"FakeHostFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "ComputeResource",
 				Value: "z0",
@@ -151,7 +151,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "z1"},
 			},
 		}},
-		"FakeDatastoreFolder": []types.ObjectContent{{
+		"FakeDatastoreFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Datastore",
 				Value: "FakeDatastore1",
@@ -170,7 +170,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "summary.accessible", Val: true},
 			},
 		}},
-		"FakeVmFolder": []types.ObjectContent{{
+		"FakeVmFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Folder",
 				Value: "FakeControllerVmFolder",
@@ -179,7 +179,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "foo"},
 			},
 		}},
-		"FakeControllerVmFolder": []types.ObjectContent{{
+		"FakeControllerVmFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Folder",
 				Value: "FakeModelVmFolder",
@@ -188,7 +188,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "bar"},
 			},
 		}},
-		"FakeModelVmFolder": []types.ObjectContent{{
+		"FakeModelVmFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "VirtualMachine",
 				Value: "FakeVm0",
@@ -205,7 +205,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "vm-1"},
 			},
 		}},
-		"FakeVm0": []types.ObjectContent{{
+		"FakeVm0": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "VirtualMachine",
 				Value: "FakeVm0",
@@ -236,7 +236,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				},
 			},
 		}},
-		"FakeVm1": []types.ObjectContent{{
+		"FakeVm1": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "VirtualMachine",
 				Value: "FakeVm1",
@@ -268,7 +268,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				},
 			},
 		}},
-		"FakeDatastore1": []types.ObjectContent{{
+		"FakeDatastore1": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Datastore",
 				Value: "FakeDatastore1",
@@ -278,7 +278,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "summary.accessible", Val: false},
 			},
 		}},
-		"FakeDatastore2": []types.ObjectContent{{
+		"FakeDatastore2": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Datastore",
 				Value: "FakeDatastore2",
@@ -288,7 +288,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "summary.accessible", Val: true},
 			},
 		}},
-		"network-0": []types.ObjectContent{{
+		"network-0": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Network",
 				Value: "network-0",
@@ -297,7 +297,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "VM Network"},
 			},
 		}},
-		"network-1": []types.ObjectContent{{
+		"network-1": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Network",
 				Value: "network-1",
@@ -306,7 +306,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "zing"},
 			},
 		}},
-		"onetwork-0": []types.ObjectContent{{
+		"onetwork-0": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "OpaqueNetwork",
 				Value: "onetwork-0",
@@ -315,7 +315,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "arpa"},
 			},
 		}},
-		"dvportgroup-0": []types.ObjectContent{{
+		"dvportgroup-0": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "DistributedVirtualPortgroup",
 				Value: "dvportgroup-0",
@@ -332,7 +332,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				},
 			},
 		}},
-		"dvs-0": []types.ObjectContent{{
+		"dvs-0": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "DistributedVirtualSwitch",
 				Value: "dvs-0",
@@ -451,10 +451,10 @@ func (s *clientSuite) TestDestroyVMFolder(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
-		testing.StubCall{"Destroy_Task", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"Destroy_Task", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 	})
 }
 
@@ -477,8 +477,8 @@ func (s *clientSuite) TestEnsureVMFolder(c *gc.C) {
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
-		testing.StubCall{"CreateFolder", nil},
-		testing.StubCall{"CreateFolder", nil},
+		{"CreateFolder", nil},
+		{"CreateFolder", nil},
 	})
 }
 
@@ -500,10 +500,10 @@ func (s *clientSuite) TestMoveVMFolderInto(c *gc.C) {
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeControllerVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
-		testing.StubCall{"MoveIntoFolder_Task", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"MoveIntoFolder_Task", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 	})
 }
 
@@ -530,10 +530,10 @@ func (s *clientSuite) TestMoveVMsInto(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
-		testing.StubCall{"MoveIntoFolder_Task", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"MoveIntoFolder_Task", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 	})
 }
 
@@ -551,18 +551,18 @@ func (s *clientSuite) TestRemoveVirtualMachines(c *gc.C) {
 		retrievePropertiesStubCall("FakeControllerVmFolder"),
 		retrievePropertiesStubCall("FakeModelVmFolder"),
 		retrievePropertiesStubCall("FakeVm0", "FakeVm1"),
-		testing.StubCall{"Destroy_Task", nil},
-		testing.StubCall{"PowerOffVM_Task", nil},
-		testing.StubCall{"Destroy_Task", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"Destroy_Task", nil},
+		{"PowerOffVM_Task", nil},
+		{"Destroy_Task", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 	})
 }
 
@@ -645,10 +645,10 @@ func (s *clientSuite) TestDeleteDatastoreFile(c *gc.C) {
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
-		testing.StubCall{"DeleteDatastoreFile", []interface{}{"[datastore1] file/path"}},
-		testing.StubCall{"CreatePropertyCollector", nil},
-		testing.StubCall{"CreateFilter", nil},
-		testing.StubCall{"WaitForUpdatesEx", nil},
+		{"DeleteDatastoreFile", []interface{}{"[datastore1] file/path"}},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 	})
 }
 

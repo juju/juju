@@ -4,8 +4,10 @@
 package model_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/cmd/cmdtesting"
 	jujutesting "github.com/juju/testing"
@@ -113,7 +115,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessNoFilename(c *gc.C) {
 }
 
 func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
-	s.fake.filename = "mymodel"
+	s.fake.filename = filepath.Join(c.MkDir(), "mymodel")
 	s.fake.result = "applications:\n" +
 		"  magic:\n" +
 		"    charm: cs:zesty/magic\n" +
@@ -133,8 +135,8 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 	})
 
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, "Bundle successfully exported to mymodel\n")
-	output, err := ioutil.ReadFile("mymodel")
+	c.Assert(out, gc.Equals, fmt.Sprintf("Bundle successfully exported to %s\n", s.fake.filename))
+	output, err := ioutil.ReadFile(s.fake.filename)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "applications:\n"+
 		"  magic:\n"+
@@ -154,11 +156,11 @@ func (s *ExportBundleCommandSuite) TestExportBundleFailNoFilename(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fake, s.store), "--filename")
 	c.Assert(err, gc.NotNil)
 
-	c.Assert(err.Error(), gc.Equals, "flag needs an argument: --filename")
+	c.Assert(err.Error(), gc.Equals, "option needs an argument: --filename")
 }
 
 func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *gc.C) {
-	s.fake.filename = "mymodel"
+	s.fake.filename = filepath.Join(c.MkDir(), "mymodel")
 	s.fake.result = "fake-data"
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fake, s.store), "--filename", s.fake.filename)
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,8 +169,8 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *
 	})
 
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, "Bundle successfully exported to mymodel\n")
-	output, err := ioutil.ReadFile("mymodel")
+	c.Assert(out, gc.Equals, fmt.Sprintf("Bundle successfully exported to %s\n", s.fake.filename))
+	output, err := ioutil.ReadFile(s.fake.filename)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "fake-data")
 }

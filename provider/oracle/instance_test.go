@@ -135,7 +135,7 @@ func (i instanceSuite) TestOpenPorts(c *gc.C) {
 	c.Assert(instance, gc.NotNil)
 
 	err = instance.OpenPorts(i.callCtx, "0", []jujunetwork.IngressRule{
-		jujunetwork.IngressRule{
+		{
 			PortRange: jujunetwork.PortRange{
 				FromPort: 0,
 				ToPort:   0,
@@ -161,7 +161,7 @@ func (i instanceSuite) TestClosePorts(c *gc.C) {
 	c.Assert(instance, gc.NotNil)
 
 	err = instance.ClosePorts(i.callCtx, "0", []jujunetwork.IngressRule{
-		jujunetwork.IngressRule{
+		{
 			PortRange: jujunetwork.PortRange{
 				FromPort: 0,
 				ToPort:   0,

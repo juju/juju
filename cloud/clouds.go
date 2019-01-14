@@ -62,6 +62,12 @@ const (
 	// https://tools.ietf.org/html/draft-cavage-http-signatures-06
 	HTTPSigAuthType AuthType = "httpsig"
 
+	// interactiveAuthType is a credential auth-type provided as an option to
+	// "juju add-credential", which takes the user through the process of
+	// adding credentials.  e.g. for lxd: generating a certificate credential.
+	// This authType should used in a CredentialSchema, not a CloudSchema.
+	InteractiveAuthType = "interactive"
+
 	// EmptyAuthType is the authentication type used for providers
 	// that require no credentials, e.g. "lxd", and "manual".
 	EmptyAuthType AuthType = "empty"
@@ -77,6 +83,11 @@ const (
 	// RegionsKey is the name of the key in a cloud schema that holds the list
 	// of regions a cloud supports.
 	RegionsKey = "regions"
+
+	// CertFilenameKey is the name of the key in a cloud schema that holds
+	// the filename of a CA Certificate to be used to access the cloud, in conjunction
+	// with an auth type.
+	CertFilenameKey = "certfilename"
 )
 
 // Attrs serves as a map to hold regions specific configuration attributes.

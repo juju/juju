@@ -206,6 +206,16 @@ func allCollections() collectionSchema {
 			rawAccess: true,
 		},
 
+		// This collection tracks who holds which lease when the store
+		// is managed by raft - so that transactions can still make
+		// assertions about holding the lease.
+		leaseHoldersC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "namespace"},
+			}},
+		},
+
 		// This collection holds the last time the model user connected
 		// to the model.
 		modelUserLastConnectionC: {
@@ -297,11 +307,15 @@ func allCollections() collectionSchema {
 			}},
 		},
 
+		// Stores Docker image resource details
+		dockerResourcesC: {},
+
 		// -----
 
 		// These collections hold information associated with machines.
-		containerRefsC: {},
-		instanceDataC:  {},
+		containerRefsC:            {},
+		instanceDataC:             {},
+		instanceCharmProfileDataC: {},
 		machinesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "machineid"},
@@ -313,6 +327,14 @@ func allCollections() collectionSchema {
 		// This collection contains information from removed machines
 		// that needs to be cleaned up in the provider.
 		machineRemovalsC: {},
+
+		// this collection contains machine update locks whose existence indicates
+		// that a particular machine in the process of performing a series upgrade.
+		machineUpgradeSeriesLocksC: {
+			indexes: []mgo.Index{{
+				Key: []string{"machineid"},
+			}},
+		},
 
 		// -----
 
@@ -349,7 +371,8 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
-		volumeAttachmentsC: {},
+		volumeAttachmentsC:    {},
+		volumeAttachmentPlanC: {},
 
 		// -----
 
@@ -409,8 +432,17 @@ func allCollections() collectionSchema {
 		// unit relation settings, model config, etc etc etc.
 		settingsC: {},
 
+		// The generations collection holds data about
+		// active and completed "next" model generations.
+		generationsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "completed"},
+			}},
+		},
+
 		constraintsC:        {},
 		storageConstraintsC: {},
+		deviceConstraintsC:  {},
 		statusesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "_id"},
@@ -494,84 +526,92 @@ func allCollections() collectionSchema {
 // it in allCollections, above; and please keep this list sorted for easy
 // inspection.
 const (
-	actionNotificationsC     = "actionnotifications"
-	actionresultsC           = "actionresults"
-	actionsC                 = "actions"
-	annotationsC             = "annotations"
-	autocertCacheC           = "autocertCache"
-	assignUnitC              = "assignUnits"
-	bakeryStorageItemsC      = "bakeryStorageItems"
-	blockDevicesC            = "blockdevices"
-	blocksC                  = "blocks"
-	charmsC                  = "charms"
-	cleanupsC                = "cleanups"
-	cloudimagemetadataC      = "cloudimagemetadata"
-	cloudsC                  = "clouds"
-	cloudContainersC         = "cloudcontainers"
-	cloudServicesC           = "cloudservices"
-	cloudCredentialsC        = "cloudCredentials"
-	constraintsC             = "constraints"
-	containerRefsC           = "containerRefs"
-	controllersC             = "controllers"
-	controllerUsersC         = "controllerusers"
-	filesystemAttachmentsC   = "filesystemAttachments"
-	filesystemsC             = "filesystems"
-	globalClockC             = "globalclock"
-	globalRefcountsC         = "globalRefcounts"
-	globalSettingsC          = "globalSettings"
-	guimetadataC             = "guimetadata"
-	guisettingsC             = "guisettings"
-	instanceDataC            = "instanceData"
-	leasesC                  = "leases"
-	machinesC                = "machines"
-	machineRemovalsC         = "machineremovals"
-	meterStatusC             = "meterStatus"
-	metricsC                 = "metrics"
-	metricsManagerC          = "metricsmanager"
-	minUnitsC                = "minunits"
-	migrationsActiveC        = "migrations.active"
-	migrationsC              = "migrations"
-	migrationsMinionSyncC    = "migrations.minionsync"
-	migrationsStatusC        = "migrations.status"
-	modelUserLastConnectionC = "modelUserLastConnection"
-	modelUsersC              = "modelusers"
-	modelsC                  = "models"
-	modelEntityRefsC         = "modelEntityRefs"
-	openedPortsC             = "openedPorts"
-	payloadsC                = "payloads"
-	permissionsC             = "permissions"
-	podSpecsC                = "podSpecs"
-	providerIDsC             = "providerIDs"
-	rebootC                  = "reboot"
-	relationScopesC          = "relationscopes"
-	relationsC               = "relations"
-	restoreInfoC             = "restoreInfo"
-	sequenceC                = "sequence"
-	applicationsC            = "applications"
-	endpointBindingsC        = "endpointbindings"
-	settingsC                = "settings"
-	refcountsC               = "refcounts"
-	sshHostKeysC             = "sshhostkeys"
-	spacesC                  = "spaces"
-	statusesC                = "statuses"
-	statusesHistoryC         = "statuseshistory"
-	storageAttachmentsC      = "storageattachments"
-	storageConstraintsC      = "storageconstraints"
-	storageInstancesC        = "storageinstances"
-	subnetsC                 = "subnets"
-	linkLayerDevicesC        = "linklayerdevices"
-	linkLayerDevicesRefsC    = "linklayerdevicesrefs"
-	ipAddressesC             = "ip.addresses"
-	toolsmetadataC           = "toolsmetadata"
-	txnLogC                  = "txns.log"
-	txnsC                    = "txns"
-	unitsC                   = "units"
-	upgradeInfoC             = "upgradeInfo"
-	userLastLoginC           = "userLastLogin"
-	usermodelnameC           = "usermodelname"
-	usersC                   = "users"
-	volumeAttachmentsC       = "volumeattachments"
-	volumesC                 = "volumes"
+	actionNotificationsC       = "actionnotifications"
+	actionresultsC             = "actionresults"
+	actionsC                   = "actions"
+	annotationsC               = "annotations"
+	autocertCacheC             = "autocertCache"
+	assignUnitC                = "assignUnits"
+	bakeryStorageItemsC        = "bakeryStorageItems"
+	blockDevicesC              = "blockdevices"
+	blocksC                    = "blocks"
+	charmsC                    = "charms"
+	cleanupsC                  = "cleanups"
+	cloudimagemetadataC        = "cloudimagemetadata"
+	cloudsC                    = "clouds"
+	cloudContainersC           = "cloudcontainers"
+	cloudServicesC             = "cloudservices"
+	cloudCredentialsC          = "cloudCredentials"
+	constraintsC               = "constraints"
+	containerRefsC             = "containerRefs"
+	controllersC               = "controllers"
+	controllerUsersC           = "controllerusers"
+	dockerResourcesC           = "dockerResources"
+	filesystemAttachmentsC     = "filesystemAttachments"
+	filesystemsC               = "filesystems"
+	globalClockC               = "globalclock"
+	globalRefcountsC           = "globalRefcounts"
+	globalSettingsC            = "globalSettings"
+	guimetadataC               = "guimetadata"
+	guisettingsC               = "guisettings"
+	instanceDataC              = "instanceData"
+	instanceCharmProfileDataC  = "instanceCharmProfileData"
+	leasesC                    = "leases"
+	leaseHoldersC              = "leaseholders"
+	machinesC                  = "machines"
+	machineRemovalsC           = "machineremovals"
+	machineUpgradeSeriesLocksC = "machineUpgradeSeriesLocks"
+	meterStatusC               = "meterStatus"
+	metricsC                   = "metrics"
+	metricsManagerC            = "metricsmanager"
+	minUnitsC                  = "minunits"
+	migrationsActiveC          = "migrations.active"
+	migrationsC                = "migrations"
+	migrationsMinionSyncC      = "migrations.minionsync"
+	migrationsStatusC          = "migrations.status"
+	modelUserLastConnectionC   = "modelUserLastConnection"
+	modelUsersC                = "modelusers"
+	modelsC                    = "models"
+	modelEntityRefsC           = "modelEntityRefs"
+	openedPortsC               = "openedPorts"
+	payloadsC                  = "payloads"
+	permissionsC               = "permissions"
+	podSpecsC                  = "podSpecs"
+	providerIDsC               = "providerIDs"
+	rebootC                    = "reboot"
+	relationScopesC            = "relationscopes"
+	relationsC                 = "relations"
+	restoreInfoC               = "restoreInfo"
+	sequenceC                  = "sequence"
+	applicationsC              = "applications"
+	endpointBindingsC          = "endpointbindings"
+	settingsC                  = "settings"
+	generationsC               = "generations"
+	refcountsC                 = "refcounts"
+	sshHostKeysC               = "sshhostkeys"
+	spacesC                    = "spaces"
+	statusesC                  = "statuses"
+	statusesHistoryC           = "statuseshistory"
+	storageAttachmentsC        = "storageattachments"
+	storageConstraintsC        = "storageconstraints"
+	deviceConstraintsC         = "deviceConstraints"
+	storageInstancesC          = "storageinstances"
+	subnetsC                   = "subnets"
+	linkLayerDevicesC          = "linklayerdevices"
+	linkLayerDevicesRefsC      = "linklayerdevicesrefs"
+	ipAddressesC               = "ip.addresses"
+	toolsmetadataC             = "toolsmetadata"
+	txnLogC                    = "txns.log"
+	txnsC                      = "txns"
+	unitsC                     = "units"
+	upgradeInfoC               = "upgradeInfo"
+	userLastLoginC             = "userLastLogin"
+	usermodelnameC             = "usermodelname"
+	usersC                     = "users"
+	volumeAttachmentsC         = "volumeattachments"
+	volumeAttachmentPlanC      = "volumeattachmentplan"
+	volumesC                   = "volumes"
+
 	// "resources" (see resource/persistence/mongo.go)
 
 	// Cross model relations

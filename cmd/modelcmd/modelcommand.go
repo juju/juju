@@ -32,7 +32,7 @@ var ErrNoModelSpecified = errors.New(`No model in focus.
 
 Please use "juju models" to see models available to you.
 You can set current model by running "juju switch"
-or specify any other model on the command line using the "-m" flag.
+or specify any other model on the command line using the "-m" option.
 `)
 
 // ModelCommand extends cmd.Command with a SetModelName method.
@@ -281,7 +281,6 @@ func (c *ModelCommandBase) modelDetails(controllerName, modelName string) (*juju
 	details, err := c.store.ModelByName(controllerName, modelName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			logger.Criticalf(err.Error())
 			return nil, errors.Trace(err)
 		}
 		logger.Debugf("model %q not found, refreshing", modelName)
@@ -418,16 +417,30 @@ func (w *modelCommandWrapper) inner() cmd.Command {
 	return w.ModelCommand
 }
 
+type modelSpecificCommand interface {
+	// IncompatibleModel returns an error if the command is being run against
+	// a model with which it is not compatible.
+	IncompatibleModel(err error) error
+}
+
 // IAASOnlyCommand is used as a marker and is embedded
 // by commands which should only run in IAAS models.
 type IAASOnlyCommand interface {
 	_iaasonly() // not implemented, marker only.
 }
 
+// CAASOnlyCommand is used as a marker and is embedded
+// by commands which should only run in CAAS models.
+type CAASOnlyCommand interface {
+	_caasonly() // not implemented, marker only.
+}
+
 // validateCommandForModelType returns an error if an IAAS-only command
 // is run on a CAAS model.
 func (w *modelCommandWrapper) validateCommandForModelType(runStarted bool) error {
-	if _, ok := w.inner().(IAASOnlyCommand); !ok {
+	_, iaasOnly := w.inner().(IAASOnlyCommand)
+	_, caasOnly := w.inner().(CAASOnlyCommand)
+	if !caasOnly && !iaasOnly {
 		return nil
 	}
 
@@ -442,10 +455,17 @@ func (w *modelCommandWrapper) validateCommandForModelType(runStarted bool) error
 		}
 		return nil
 	}
-	if modelType == model.CAAS {
-		return errors.Errorf("Juju command %q not supported on kubernetes models", w.Info().Name)
+	if modelType == model.CAAS && iaasOnly {
+		err = errors.Errorf("Juju command %q not supported on kubernetes models", w.Info().Name)
 	}
-	return nil
+	if modelType == model.IAAS && caasOnly {
+		err = errors.Errorf("Juju command %q not supported on non-container models", w.Info().Name)
+	}
+
+	if c, ok := w.inner().(modelSpecificCommand); ok {
+		return c.IncompatibleModel(err)
+	}
+	return err
 }
 
 func (w *modelCommandWrapper) Init(args []string) error {

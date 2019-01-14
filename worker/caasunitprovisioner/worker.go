@@ -22,11 +22,11 @@ type Config struct {
 	ApplicationUpdater ApplicationUpdater
 	ServiceBroker      ServiceBroker
 
-	ContainerBroker        ContainerBroker
-	ProvisioningInfoGetter ProvisioningInfoGetter
-	LifeGetter             LifeGetter
-	UnitGetter             UnitGetter
-	UnitUpdater            UnitUpdater
+	ContainerBroker          ContainerBroker
+	ProvisioningInfoGetter   ProvisioningInfoGetter
+	ProvisioningStatusSetter ProvisioningStatusSetter
+	LifeGetter               LifeGetter
+	UnitUpdater              UnitUpdater
 }
 
 // Validate validates the worker configuration.
@@ -49,11 +49,11 @@ func (config Config) Validate() error {
 	if config.LifeGetter == nil {
 		return errors.NotValidf("missing LifeGetter")
 	}
-	if config.UnitGetter == nil {
-		return errors.NotValidf("missing UnitGetter")
-	}
 	if config.UnitUpdater == nil {
 		return errors.NotValidf("missing UnitUpdater")
+	}
+	if config.ProvisioningStatusSetter == nil {
+		return errors.NotValidf("missing ProvisioningStatusSetter")
 	}
 	return nil
 }
@@ -142,10 +142,10 @@ func (p *provisioner) loop() error {
 				appLife, err := p.config.LifeGetter.Life(appId)
 				if errors.IsNotFound(err) {
 					// Once an application is deleted, remove the k8s service and ingress resources.
-					if err := p.config.ContainerBroker.UnexposeService(appId); err != nil {
+					if err := p.config.ServiceBroker.UnexposeService(appId); err != nil {
 						return errors.Trace(err)
 					}
-					if err := p.config.ContainerBroker.DeleteService(appId); err != nil {
+					if err := p.config.ServiceBroker.DeleteService(appId); err != nil {
 						return errors.Trace(err)
 					}
 					w, ok := p.getApplicationWorker(appId)
@@ -173,11 +173,10 @@ func (p *provisioner) loop() error {
 					appId,
 					p.config.ServiceBroker,
 					p.config.ContainerBroker,
+					p.config.ProvisioningStatusSetter,
 					p.config.ProvisioningInfoGetter,
-					p.config.LifeGetter,
 					p.config.ApplicationGetter,
 					p.config.ApplicationUpdater,
-					p.config.UnitGetter,
 					p.config.UnitUpdater,
 				)
 				if err != nil {

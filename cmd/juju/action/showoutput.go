@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	errors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
@@ -32,7 +33,7 @@ type showOutputCommand struct {
 const showOutputDoc = `
 Show the results returned by an action with the given ID.  A partial ID may
 also be used.  To block until the result is known completed or failed, use
-the --wait flag with a duration, as in --wait 5s or --wait 1h.  Use --wait 0
+the --wait option with a duration, as in --wait 5s or --wait 1h.  Use --wait 0
 to wait indefinitely.  If units are left off, seconds are assumed.
 
 The default behavior without --wait is to immediately check and return; if
@@ -48,12 +49,12 @@ func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *showOutputCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-action-output",
 		Args:    "<action ID>",
 		Purpose: "Show results of an action by ID.",
 		Doc:     showOutputDoc,
-	}
+	})
 }
 
 // Init validates the action ID and any other options.

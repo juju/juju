@@ -17,7 +17,7 @@ type environPolSuite struct {
 var _ = gc.Suite(&environPolSuite{})
 
 func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
-	validator, err := s.env.ConstraintsValidator()
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -28,7 +28,7 @@ func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
-	validator, err := s.env.ConstraintsValidator()
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -38,7 +38,7 @@ func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	validator, err := s.env.ConstraintsValidator()
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
@@ -49,7 +49,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *gc.C) {
-	validator, err := s.env.ConstraintsValidator()
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")

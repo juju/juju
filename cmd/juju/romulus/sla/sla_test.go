@@ -21,7 +21,9 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/juju/romulus/sla"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -49,6 +51,9 @@ func (s *supportCommandSuite) SetUpTest(c *gc.C) {
 	s.modelUUID = utils.MustNewUUID().String()
 	s.fakeAPIRoot = &fakeAPIConnection{model: s.modelUUID}
 	s.PatchValue(sla.NewJujuClientStore, s.newMockClientStore)
+	s.PatchValue(&rcmd.GetMeteringURLForModelCmd, func(c *modelcmd.ModelCommandBase) (string, error) {
+		return "http://example.com", nil
+	})
 }
 
 func (s *supportCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -239,14 +244,14 @@ func (s *supportCommandSuite) newMockClientStore() jujuclient.ClientStore {
 
 func (s *mockClientStore) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
 	return map[string]jujuclient.ControllerDetails{
-		"c": jujuclient.ControllerDetails{},
+		"c": {},
 	}, nil
 }
 
 func (s *mockClientStore) AllModels(controllerName string) (map[string]jujuclient.ModelDetails, error) {
 	return map[string]jujuclient.ModelDetails{
-		"m1": jujuclient.ModelDetails{ModelUUID: s.modelUUID},
-		"m2": jujuclient.ModelDetails{ModelUUID: "uuid2"},
-		"m3": jujuclient.ModelDetails{ModelUUID: "uuid3"},
+		"m1": {ModelUUID: s.modelUUID},
+		"m2": {ModelUUID: "uuid2"},
+		"m3": {ModelUUID: "uuid3"},
 	}, nil
 }

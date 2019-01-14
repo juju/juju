@@ -6,6 +6,7 @@ package singular_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -47,7 +48,7 @@ func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 func (s *ManifoldSuite) TestOutputBadResult(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{})
 	fix := newFixture(c)
-	fix.Run(c, func(flag *singular.FlagWorker, _ *testing.Clock, _ func()) {
+	fix.Run(c, func(flag *singular.FlagWorker, _ *testclock.Clock, _ func()) {
 		var out interface{}
 		err := manifold.Output(flag, &out)
 		c.Check(err, gc.ErrorMatches, `expected out to be a \*Flag; got a .*`)
@@ -58,7 +59,7 @@ func (s *ManifoldSuite) TestOutputBadResult(c *gc.C) {
 func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{})
 	fix := newFixture(c)
-	fix.Run(c, func(flag *singular.FlagWorker, _ *testing.Clock, _ func()) {
+	fix.Run(c, func(flag *singular.FlagWorker, _ *testclock.Clock, _ func()) {
 		var out engine.Flag
 		err := manifold.Output(flag, &out)
 		c.Check(err, jc.ErrorIsNil)

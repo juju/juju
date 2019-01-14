@@ -115,6 +115,22 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
 	s.checkResp(c, http.StatusOK, "application/json", string(expected))
 }
 
+func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
+	uploadContent := "<some data>"
+	res := newDockerResource(c, "spam", "a-user", content)
+	stored := newDockerResource(c, "spam", "", "")
+	s.backend.ReturnGetResource = stored
+	s.backend.ReturnSetResource = res
+
+	req, _ := newUploadRequest(c, "spam", "a-application", uploadContent)
+	s.handler.ServeHTTP(s.recorder, req)
+
+	expected := mustMarshalJSON(&params.UploadResult{
+		Resource: api.Resource2API(res),
+	})
+	s.checkResp(c, http.StatusOK, "application/json", string(expected))
+}
+
 func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
 	content := "<some data>"
 
@@ -213,6 +229,16 @@ func (s *fakeBackend) SetResource(applicationID, userID string, res charmresourc
 
 func (s *fakeBackend) UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
 	return s.ReturnUpdatePendingResource, nil
+}
+
+func newDockerResource(c *gc.C, name, username, data string) resource.Resource {
+	opened := resourcetesting.NewDockerResource(c, nil, name, "a-application", data)
+	res := opened.Resource
+	res.Username = username
+	if username == "" {
+		res.Timestamp = time.Time{}
+	}
+	return res
 }
 
 func newResource(c *gc.C, name, username, data string) (resource.Resource, params.Resource) {

@@ -13,16 +13,21 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/state/testing"
+	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
 )
 
 type CleanupSuite struct {
 	ConnSuite
+	storageBackend *state.StorageBackend
 }
 
 var _ = gc.Suite(&CleanupSuite{})
@@ -30,6 +35,10 @@ var _ = gc.Suite(&CleanupSuite{})
 func (s *CleanupSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.assertDoesNotNeedCleanup(c)
+	var err error
+	s.storageBackend, err = state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
 }
 
 func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
@@ -118,7 +127,7 @@ func (s *CleanupSuite) TestCleanupRemoteApplicationWithRelations(c *gc.C) {
 	}
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		SourceModel: s.IAASModel.ModelTag(),
+		SourceModel: s.Model.ModelTag(),
 		Token:       "t0",
 		Endpoints:   mysqlEps,
 	})
@@ -146,7 +155,7 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	// Create a non-empty hosted model.
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
-	factory.NewFactory(otherSt).MakeApplication(c, nil)
+	factory.NewFactory(otherSt, s.StatePool).MakeApplication(c, nil)
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -310,6 +319,8 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	// Create a machine.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
 	pr := newPeerRelation(c, s.State)
@@ -392,6 +403,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
@@ -408,7 +422,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	// this tag matches the storage instance created for the unit above.
 	storageTag := names.NewStorageTag("data/0")
 
-	sa, err := s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	sa, err := s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 
@@ -420,9 +434,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	// After running the cleanups, the storage attachment should
 	// have been removed; the storage instance should be floating,
 	// and will be removed along with the machine.
-	_, err = s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	si, err := s.IAASModel.StorageInstance(storageTag)
+	si, err := s.storageBackend.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasOwner := si.Owner()
 	c.Assert(hasOwner, jc.IsFalse)
@@ -438,10 +452,14 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	// Create a machine with a container.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	err = container.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create active units (in relation scope, with subordinates).
@@ -647,7 +665,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	// this tag matches the storage instance created for the unit above.
 	storageTag := names.NewStorageTag("data/0")
 
-	sa, err := s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	sa, err := s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 
@@ -658,7 +676,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 
 	// After running the cleanup, the attachment should be removed
 	// (short-circuited, because volume was never attached).
-	_, err = s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// check no cleanups
@@ -680,24 +698,24 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	// this tag matches the storage instance created for the unit above.
 	storageTag := names.NewStorageTag("allecto/0")
 
-	si, err := s.IAASModel.StorageInstance(storageTag)
+	si, err := s.storageBackend.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Alive)
 
 	// destroy storage instance and run cleanups
-	err = s.IAASModel.DestroyStorageInstance(storageTag, true)
+	err = s.storageBackend.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
-	si, err = s.IAASModel.StorageInstance(storageTag)
+	si, err = s.storageBackend.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
-	sa, err := s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	sa, err := s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 	s.assertCleanupRuns(c)
 
 	// After running the cleanup, the attachment should be removed
 	// (short-circuited, because volume was never attached).
-	_, err = s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// check no cleanups
@@ -735,7 +753,7 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	vas, err := s.IAASModel.MachineVolumeAttachments(machine.MachineTag())
+	vas, err := s.storageBackend.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vas, gc.HasLen, 1)
 	c.Assert(vas[0].Life(), gc.Equals, state.Dying)
@@ -744,22 +762,91 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 }
 
+func (s *CleanupSuite) TestCleanupCAASApplicationWithStorage(c *gc.C) {
+	s.assertCleanupCAASEntityWithStorage(c, func(st *state.State, app *state.Application) error {
+		op := app.DestroyOperation()
+		op.DestroyStorage = true
+		return st.ApplyOperation(op)
+	})
+}
+
+func (s *CleanupSuite) TestCleanupCAASUnitWithStorage(c *gc.C) {
+	s.assertCleanupCAASEntityWithStorage(c, func(st *state.State, app *state.Application) error {
+		units, err := app.AllUnits()
+		if err != nil {
+			return err
+		}
+		op := units[0].DestroyOperation()
+		op.DestroyStorage = true
+		return st.ApplyOperation(op)
+	})
+}
+
+func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func(*state.State, *state.Application) error) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer st.Close()
+	sb, err := state.NewStorageBackend(st)
+	c.Assert(err, jc.ErrorIsNil)
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
+	c.Assert(err, jc.ErrorIsNil)
+	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	s.policy = testing.MockPolicy{
+		GetStorageProviderRegistry: func() (corestorage.ProviderRegistry, error) {
+			return registry, nil
+		},
+	}
+
+	ch := state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-filesystem")
+	storCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("", 1024, 1),
+	}
+	application := state.AddTestingApplicationWithStorage(c, st, "storage-filesystem", ch, storCons)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	fs, err := sb.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fs, gc.HasLen, 1)
+	fas, err := sb.UnitFilesystemAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fas, gc.HasLen, 1)
+
+	err = deleteOp(st, application)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 4; i++ {
+		err = st.Cleanup()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// check no cleanups
+	state.AssertNoCleanups(c, st)
+
+	fas, err = sb.UnitFilesystemAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fas, gc.HasLen, 0)
+	fs, err = sb.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fs, gc.HasLen, 0)
+}
+
 func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
 	_, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "loop", Size: 1024},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = s.IAASModel.DestroyVolume(names.NewVolumeTag("0/0"))
+	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	attachment, err := s.IAASModel.VolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	attachment, err := s.storageBackend.VolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachment.Life(), gc.Equals, state.Dying)
 }
@@ -768,18 +855,18 @@ func (s *CleanupSuite) TestCleanupFilesystemAttachments(c *gc.C) {
 	_, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "rootfs", Size: 1024},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = s.IAASModel.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	err = s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	attachment, err := s.IAASModel.FilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
+	attachment, err := s.storageBackend.FilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachment.Life(), gc.Equals, state.Dying)
 }

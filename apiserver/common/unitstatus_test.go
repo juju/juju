@@ -9,10 +9,11 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 type UnitStatusSuite struct {
@@ -24,10 +25,8 @@ type UnitStatusSuite struct {
 var _ = gc.Suite(&UnitStatusSuite{})
 
 func (s *UnitStatusSuite) SetUpTest(c *gc.C) {
-	s.ctx = common.ModelPresenceContext{
-		Presence: allAlive(),
-	}
 	s.unit = &fakeStatusUnit{
+		app: "foo",
 		agentStatus: status.StatusInfo{
 			Status:  status.Started,
 			Message: "agent ok",
@@ -36,7 +35,11 @@ func (s *UnitStatusSuite) SetUpTest(c *gc.C) {
 			Status:  status.Idle,
 			Message: "unit ok",
 		},
-		presence: true,
+		presence:         true,
+		shouldBeAssigned: true,
+	}
+	s.ctx = common.ModelPresenceContext{
+		Presence: agentAlive(names.NewUnitTag(s.unit.Name()).String()),
 	}
 }
 
@@ -66,6 +69,12 @@ func (s *UnitStatusSuite) TestNormal(c *gc.C) {
 	s.checkUntouched(c)
 }
 
+func (s *UnitStatusSuite) TestCAASNormal(c *gc.C) {
+	s.unit.shouldBeAssigned = false
+	s.ctx.Presence = agentAlive(names.NewApplicationTag(s.unit.app).String())
+	s.checkUntouched(c)
+}
+
 func (s *UnitStatusSuite) TestErrors(c *gc.C) {
 	s.unit.agentStatusErr = errors.New("agent status error")
 	s.unit.statusErr = errors.New("status error")
@@ -82,7 +91,13 @@ func (s *UnitStatusSuite) TestLostLegacy(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestLost(c *gc.C) {
-	s.ctx.Presence = agentsDown()
+	s.ctx.Presence = agentDown(s.unit.Tag().String())
+	s.checkLost(c)
+}
+
+func (s *UnitStatusSuite) TestCAASLost(c *gc.C) {
+	s.unit.shouldBeAssigned = false
+	s.ctx.Presence = agentDown(names.NewApplicationTag(s.unit.app).String())
 	s.checkLost(c)
 }
 
@@ -95,7 +110,7 @@ func (s *UnitStatusSuite) TestLostAndDeadLegacy(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestLostAndDead(c *gc.C) {
-	s.ctx.Presence = agentsDown()
+	s.ctx.Presence = agentDown(s.unit.Tag().String())
 	s.unit.life = state.Dead
 	// Status is untouched if unit is Dead.
 	s.checkUntouched(c)
@@ -110,7 +125,7 @@ func (s *UnitStatusSuite) TestPresenceErrorLegacy(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestPresenceError(c *gc.C) {
-	s.ctx.Presence = presenceError()
+	s.ctx.Presence = presenceError(s.unit.Tag().String())
 	// Presence error gets ignored, so no output is unchanged.
 	s.checkUntouched(c)
 }
@@ -123,7 +138,7 @@ func (s *UnitStatusSuite) TestNotLostIfAllocatingLegacy(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestNotLostIfAllocating(c *gc.C) {
-	s.ctx.Presence = agentsDown()
+	s.ctx.Presence = agentDown(s.unit.Tag().String())
 	s.unit.agentStatus.Status = status.Allocating
 	s.checkUntouched(c)
 }
@@ -137,7 +152,7 @@ func (s *UnitStatusSuite) TestCantBeLostDuringInstallLegacy(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestCantBeLostDuringInstall(c *gc.C) {
-	s.ctx.Presence = agentsDown()
+	s.ctx.Presence = agentDown(s.unit.Tag().String())
 	s.unit.agentStatus.Status = status.Executing
 	s.unit.agentStatus.Message = "running install hook"
 	s.checkUntouched(c)
@@ -151,24 +166,30 @@ func (s *UnitStatusSuite) TestCantBeLostDuringWorkloadInstallLegacy(c *gc.C) {
 	s.checkUntouched(c)
 }
 func (s *UnitStatusSuite) TestCantBeLostDuringWorkloadInstall(c *gc.C) {
-	s.ctx.Presence = agentsDown()
+	s.ctx.Presence = agentDown(s.unit.Tag().String())
 	s.unit.status.Status = status.Maintenance
 	s.unit.status.Message = "installing charm software"
 	s.checkUntouched(c)
 }
 
 type fakeStatusUnit struct {
-	agentStatus    status.StatusInfo
-	agentStatusErr error
-	status         status.StatusInfo
-	statusErr      error
-	presence       bool
-	presenceErr    error
-	life           state.Life
+	app              string
+	agentStatus      status.StatusInfo
+	agentStatusErr   error
+	status           status.StatusInfo
+	statusErr        error
+	presence         bool
+	presenceErr      error
+	life             state.Life
+	shouldBeAssigned bool
 }
 
 func (u *fakeStatusUnit) Name() string {
-	return "foo/2"
+	return u.app + "/2"
+}
+
+func (u *fakeStatusUnit) Tag() names.Tag {
+	return names.NewUnitTag(u.Name())
 }
 
 func (u *fakeStatusUnit) AgentStatus() (status.StatusInfo, error) {
@@ -185,4 +206,8 @@ func (u *fakeStatusUnit) AgentPresence() (bool, error) {
 
 func (u *fakeStatusUnit) Life() state.Life {
 	return u.life
+}
+
+func (u *fakeStatusUnit) ShouldBeAssigned() bool {
+	return u.shouldBeAssigned
 }

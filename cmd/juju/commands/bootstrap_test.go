@@ -932,17 +932,18 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 // bootstrap will stop immediately. Nothing will be destroyed.
 func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	destroyed := false
-	s.PatchValue(&environsDestroy, func(name string, _ environs.Environ, _ context.ProviderCallContext, _ jujuclient.ControllerStore) error {
+	s.PatchValue(&environsDestroy, func(name string, _ environs.ControllerDestroyer, _ context.ProviderCallContext, _ jujuclient.ControllerStore) error {
 		c.Assert(name, gc.Equals, "decontroller")
 		destroyed = true
 		return nil
 	})
 
-	s.PatchValue(&bootstrapPrepare, func(
+	s.PatchValue(&bootstrapPrepareController, func(
+		bool,
 		environs.BootstrapContext,
 		jujuclient.ClientStore,
 		bootstrap.PrepareParams,
-	) (environs.Environ, error) {
+	) (environs.BootstrapEnviron, error) {
 		return nil, errors.New("mock-prepare")
 	})
 
@@ -953,6 +954,26 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	)
 	c.Check(<-errc, gc.ErrorMatches, ".*mock-prepare$")
 	c.Check(destroyed, jc.IsFalse)
+}
+
+// TestBootstrapInvalidCredentialMessage tests that an informative message is logged
+// when attempting to bootstrap with an invalid credential.
+func (s *BootstrapSuite) TestBootstrapInvalidCredentialMessage(c *gc.C) {
+	bootstrap := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx context.ProviderCallContext, _ bootstrap.BootstrapParams) error {
+			callCtx.InvalidateCredential("considered invalid for the sake of testing")
+			return nil
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrap
+	})
+	ctx, _ := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--auto-upgrade",
+	)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains,
+		`Cloud credential "default" is not accepted by cloud provider: considered invalid for the sake of testing`)
 }
 
 type controllerModelAccountParams struct {
@@ -993,11 +1014,12 @@ func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, context *contr
 
 func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
-	s.PatchValue(&bootstrapPrepare, func(
+	s.PatchValue(&bootstrapPrepareController, func(
+		bool,
 		environs.BootstrapContext,
 		jujuclient.ClientStore,
 		bootstrap.PrepareParams,
-	) (environs.Environ, error) {
+	) (environs.BootstrapEnviron, error) {
 		ctx := controllerModelAccountParams{
 			controller: "foo",
 			model:      "foobar/bar",
@@ -1645,11 +1667,12 @@ func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C
 	s.patchVersionAndSeries(c, "raring")
 
 	var prepareParams bootstrap.PrepareParams
-	s.PatchValue(&bootstrapPrepare, func(
+	s.PatchValue(&bootstrapPrepareController, func(
+		_ bool,
 		ctx environs.BootstrapContext,
 		stor jujuclient.ClientStore,
 		params bootstrap.PrepareParams,
-	) (environs.Environ, error) {
+	) (environs.BootstrapEnviron, error) {
 		prepareParams = params
 		return nil, errors.New("mock-prepare")
 	})
@@ -1794,6 +1817,7 @@ cloudsigma
 google                                        
 joyent                                        
 oracle                                        
+oracle-classic                                
 rackspace                                     
 localhost                                     
 dummy-cloud                      joe          home
@@ -2033,9 +2057,13 @@ type fakeBootstrapFuncs struct {
 	newCloudDetector    func(environs.EnvironProvider) (environs.CloudDetector, bool)
 	cloudRegionDetector environs.CloudRegionDetector
 	cloudFinalizer      environs.CloudFinalizer
+	bootstrapF          func(environs.BootstrapContext, environs.BootstrapEnviron, context.ProviderCallContext, bootstrap.BootstrapParams) error
 }
 
-func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
+func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+	if fake.bootstrapF != nil {
+		return fake.bootstrapF(ctx, env, callCtx, args)
+	}
 	fake.args = args
 	return nil
 }
@@ -2139,7 +2167,7 @@ func (f fileCredentialProvider) DetectCredentials() (*cloud.CloudCredential, err
 }
 
 func (fileCredentialProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return map[cloud.AuthType]cloud.CredentialSchema{cloud.JSONFileAuthType: cloud.CredentialSchema{cloud.NamedCredentialAttr{
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.JSONFileAuthType: {cloud.NamedCredentialAttr{
 		Name: "file",
 		CredentialAttr: cloud.CredentialAttr{
 			FilePath: true,

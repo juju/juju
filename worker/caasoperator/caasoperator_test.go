@@ -8,11 +8,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sync/atomic"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,13 +26,14 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/downloader"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/uniter"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -42,7 +42,7 @@ import (
 type WorkerSuite struct {
 	testing.IsolationSuite
 
-	clock                 *testing.Clock
+	clock                 *testclock.Clock
 	config                caasoperator.Config
 	unitsChanges          chan []string
 	appChanges            chan struct{}
@@ -58,8 +58,8 @@ type WorkerSuite struct {
 
 var _ = gc.Suite(&WorkerSuite{})
 
-func (s *WorkerSuite) SetUpSuite(c *gc.C) {
-	s.IsolationSuite.SetUpSuite(c)
+func (s *WorkerSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 
 	// Create a charm archive, and compute its SHA256 hash
 	// for comparison in the tests.
@@ -73,12 +73,8 @@ func (s *WorkerSuite) SetUpSuite(c *gc.C) {
 	charmSHA256, _, err := utils.ReadFileSHA256(s.charmDownloader.path)
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmSHA256 = charmSHA256
-}
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.appWatched = make(chan struct{}, 1)
 	s.unitRemoved = make(chan struct{}, 1)
 	s.client = fakeClient{
@@ -117,7 +113,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 
 	agentBinaryDir := agenttools.ToolsDir(s.config.DataDir, "application-gitlab")
-	err := os.MkdirAll(agentBinaryDir, 0755)
+	err = os.MkdirAll(agentBinaryDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(s.config.DataDir, "tools", "jujud"), []byte("jujud"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,10 +196,10 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
-	var uniterStarted int32
+	uniterStarted := make(chan struct{})
 	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
 		c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
-		atomic.AddInt32(&uniterStarted, 1)
+		close(uniterStarted)
 		return nil
 	}
 
@@ -226,14 +222,19 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for application to be watched")
 	}
+	select {
+	case <-uniterStarted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for uniter to start")
+	}
 
-	c.Assert(len(s.client.Calls()), jc.GreaterThan, 4)
-	s.client.CheckCall(c, 0, "SetVersion", "gitlab", version.Binary{
+	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch", "Charm", "Life")
+	s.client.CheckCall(c, 0, "Charm", "gitlab")
+	s.client.CheckCall(c, 2, "SetVersion", "gitlab", version.Binary{
 		Number: jujuversion.Current,
 		Series: series.MustHostSeries(),
 		Arch:   arch.HostArch(),
 	})
-	s.client.CheckCall(c, 1, "Charm", "gitlab")
 	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
 	s.client.CheckCall(c, 5, "Watch", "gitlab")
 
@@ -260,7 +261,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	agentDir := filepath.Join(s.config.DataDir, "agents", "application-gitlab")
 	c.Assert(downloadRequest, jc.DeepEquals, downloader.Request{
 		URL:       &url.URL{Scheme: "cs", Opaque: "gitlab-1"},
-		TargetDir: filepath.Join(agentDir, "charm.dl"),
+		TargetDir: filepath.Join(agentDir, "state", "bundles", "downloads"),
 	})
 
 	// The download directory should have been removed.
@@ -272,12 +273,6 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	_, err = os.Stat(filepath.Join(charmDir, "metadata.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if atomic.LoadInt32(&uniterStarted) > 0 {
-			return
-		}
-	}
-	c.Fatalf("timeout while waiting for uniter to start")
 }
 
 func (s *WorkerSuite) assertUniterStarted(c *gc.C) (worker.Worker, watcher.NotifyChannel) {
@@ -343,7 +338,8 @@ func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
-	s.client.CheckCall(c, 2, "SetStatus", "gitlab", status.Maintenance, "downloading charm (cs:gitlab-1)", map[string]interface{}(nil))
+	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch")
+	s.client.CheckCall(c, 1, "SetStatus", "gitlab", status.Maintenance, "downloading charm (cs:gitlab-1)", map[string]interface{}(nil))
 }
 
 func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {

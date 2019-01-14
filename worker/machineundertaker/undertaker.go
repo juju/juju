@@ -9,10 +9,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -50,7 +50,7 @@ func NewWorker(api Facade, env environs.Environ, credentialAPI common.Credential
 		Handler: &Undertaker{
 			API:         api,
 			Releaser:    envNetworking,
-			CallContext: common.NewCloudCallContext(credentialAPI),
+			CallContext: common.NewCloudCallContext(credentialAPI, nil),
 		},
 	})
 	if err != nil {

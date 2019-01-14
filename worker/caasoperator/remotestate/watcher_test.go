@@ -6,7 +6,7 @@ package remotestate_test
 import (
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -21,14 +21,14 @@ type WatcherSuite struct {
 	watcher     *remotestate.RemoteStateWatcher
 	appWatcher  *mockNotifyWatcher
 	charmGetter *mockCharmGetter
-	clock       *testing.Clock
+	clock       *testclock.Clock
 }
 
 var _ = gc.Suite(&WatcherSuite{})
 
 func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.appWatcher = newMockNotifyWatcher()
 	s.charmGetter = &mockCharmGetter{}
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{

@@ -6,22 +6,22 @@ package caasunitprovisioner
 import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 type ContainerBroker interface {
 	Provider() caas.ContainerEnvironProvider
-	EnsureUnit(appName, unitName string, spec *caas.PodSpec) error
-	DeleteUnit(unitName string) error
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)
 	Units(appName string) ([]caas.Unit, error)
-	DeleteService(appName string) error
-	UnexposeService(appName string) error
+	WatchOperator(string) (watcher.NotifyWatcher, error)
+	Operator(string) (*caas.Operator, error)
 }
 
 type ServiceBroker interface {
 	Provider() caas.ContainerEnvironProvider
-	EnsureService(appName string, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error
+	EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error
+	EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error
 	Service(appName string) (*caas.Service, error)
 	DeleteService(appName string) error
+	UnexposeService(appName string) error
 }

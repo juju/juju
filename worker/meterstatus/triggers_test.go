@@ -6,8 +6,8 @@ package meterstatus_test
 import (
 	"time"
 
-	"github.com/juju/testing"
-	"github.com/juju/utils/clock"
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -41,7 +41,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.Uninitialized,
 		"GREEN",
 		now,
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -50,7 +50,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.Uninitialized,
 		"AMBER",
 		now,
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -59,7 +59,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.Uninitialized,
 		"RED",
 		now,
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -68,7 +68,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"GREEN",
 		now,
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -77,7 +77,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"AMBER",
 		now,
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -86,7 +86,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"RED",
 		now,
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -95,7 +95,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"GREEN",
 		now.Add(-(testAmberGracePeriod + fudge)),
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -104,7 +104,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"AMBER",
 		now.Add(-(testAmberGracePeriod + fudge)),
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.NotNil)
 			c.Check(red, gc.NotNil)
@@ -113,7 +113,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingAmber,
 		"RED",
 		now.Add(-(testAmberGracePeriod + fudge)),
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -122,7 +122,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingRed,
 		"AMBER",
 		now.Add(-(testAmberGracePeriod + fudge)),
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -131,7 +131,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingRed,
 		"AMBER",
 		now.Add(-(testRedGracePeriod + fudge)),
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -140,7 +140,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.WaitingRed,
 		"RED",
 		now.Add(-(testRedGracePeriod + fudge)),
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.NotNil)
@@ -149,7 +149,7 @@ func (*TriggersSuite) TestTriggerCreation(c *gc.C) {
 		meterstatus.Done,
 		"RED",
 		now.Add(-(testRedGracePeriod + fudge)),
-		testing.NewClock(now),
+		testclock.NewClock(now),
 		func(c *gc.C, amber, red <-chan time.Time) {
 			c.Check(amber, gc.IsNil)
 			c.Check(red, gc.IsNil)

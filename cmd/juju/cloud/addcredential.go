@@ -14,6 +14,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/environs"
@@ -39,6 +40,10 @@ credentials:
       application-id: <uuid1>
       application-password: <password>
       subscription-id: <uuid2>
+  lxd:
+    <credential name>:
+      auth-type: interactive
+      trust-password: <password>
 
 A "credential name" is arbitrary and is used solely to represent a set of
 credentials, of which there may be multiple per cloud.
@@ -88,12 +93,12 @@ func NewAddCredentialCommand() cmd.Command {
 }
 
 func (c *addCredentialCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-credential",
 		Args:    "<cloud name>",
 		Purpose: usageAddCredentialSummary,
 		Doc:     usageAddCredentialDetails,
-	}
+	})
 }
 
 func (c *addCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -118,17 +123,21 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 			return err
 		}
 	}
+
+	credentialsProvider, err := environs.Provider(c.cloud.Type)
+	if err != nil {
+		return errors.Annotate(err, "getting provider for cloud")
+	}
+
 	if len(c.cloud.AuthTypes) == 0 {
 		return errors.Errorf("cloud %q does not require credentials", c.CloudName)
 	}
 
+	schemas := credentialsProvider.CredentialSchemas()
 	if c.CredentialsFile == "" {
-		credentialsProvider, err := environs.Provider(c.cloud.Type)
-		if err != nil {
-			return errors.Annotate(err, "getting provider for cloud")
-		}
-		return c.interactiveAddCredential(ctxt, credentialsProvider.CredentialSchemas())
+		return c.interactiveAddCredential(ctxt, schemas)
 	}
+
 	data, err := ioutil.ReadFile(c.CredentialsFile)
 	if err != nil {
 		return errors.Annotate(err, "reading credentials file")
@@ -151,8 +160,15 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		return errors.Errorf("local credentials for cloud %q already exist; use --replace to overwrite / merge", c.CloudName)
 	}
 
+	// We could get a duplicate "interactive" entry for the validAuthType() call,
+	// however it doesn't matter for the validation, so just add it.
+	authTypeNames := c.cloud.AuthTypes
+	if _, ok := schemas[jujucloud.InteractiveAuthType]; ok {
+		authTypeNames = append(authTypeNames, jujucloud.InteractiveAuthType)
+	}
+
 	validAuthType := func(authType jujucloud.AuthType) bool {
-		for _, authT := range c.cloud.AuthTypes {
+		for _, authT := range authTypeNames {
 			if authT == authType {
 				return true
 			}
@@ -160,10 +176,28 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		return false
 	}
 
-	names := []string{}
+	var names []string
 	for name, cred := range credentials.AuthCredentials {
 		if !validAuthType(cred.AuthType()) {
 			return errors.Errorf("credential %q contains invalid auth type %q, valid auth types for cloud %q are %v", name, cred.AuthType(), c.CloudName, c.cloud.AuthTypes)
+		}
+
+		provider, err := environs.Provider(c.cloud.Type)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// When in non-interactive mode we still sometimes want to finalize a
+		// cloud, so that we can either validate the credentials work before a
+		// bootstrap happens or improve security models, where by we remove any
+		// shared/secret passwords (lxd remote security).
+		// This is optional and is backwards compatible with other providers.
+		if shouldFinalizeCredential(provider, cred) {
+			newCredential, err := c.finalizeProvider(ctxt, cred.AuthType(), cred.Attributes())
+			if err != nil {
+				return errors.Trace(err)
+			}
+			cred = *newCredential
 		}
 		existingCredentials.AuthCredentials[name] = cred
 		names = append(names, name)
@@ -220,7 +254,21 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		}
 		verb = "updated"
 	}
-	authType, err := c.promptAuthType(pollster, c.cloud.AuthTypes, ctxt.Stdout)
+	authTypeNames := c.cloud.AuthTypes
+	// Check the credential schema for "interactive", add to list of
+	// possible authTypes for add-credential
+	if _, ok := schemas[jujucloud.InteractiveAuthType]; ok {
+		foundIt := false
+		for _, name := range authTypeNames {
+			if name == jujucloud.InteractiveAuthType {
+				foundIt = true
+			}
+		}
+		if !foundIt {
+			authTypeNames = append(authTypeNames, jujucloud.InteractiveAuthType)
+		}
+	}
+	authType, err := c.promptAuthType(pollster, authTypeNames, ctxt.Stdout)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -234,6 +282,21 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		return errors.Trace(err)
 	}
 
+	newCredential, err := c.finalizeProvider(ctxt, authType, attrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	existingCredentials.AuthCredentials[credentialName] = *newCredential
+	err = c.store.UpdateCredential(c.CloudName, *existingCredentials)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fmt.Fprintf(ctxt.Stdout, "Credential %q %v locally for cloud %q.\n\n", credentialName, verb, c.CloudName)
+	return nil
+}
+
+func (c *addCredentialCommand) finalizeProvider(ctxt *cmd.Context, authType jujucloud.AuthType, attrs map[string]string) (*jujucloud.Credential, error) {
 	cloudEndpoint := c.cloud.Endpoint
 	cloudStorageEndpoint := c.cloud.StorageEndpoint
 	cloudIdentityEndpoint := c.cloud.IdentityEndpoint
@@ -254,7 +317,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 
 	credentialsProvider, err := environs.Provider(c.cloud.Type)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	newCredential, err := credentialsProvider.FinalizeCredential(
 		ctxt, environs.FinalizeCredentialParams{
@@ -264,17 +327,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 			CloudIdentityEndpoint: cloudIdentityEndpoint,
 		},
 	)
-	if err != nil {
-		return errors.Annotate(err, "finalizing credential")
-	}
-
-	existingCredentials.AuthCredentials[credentialName] = *newCredential
-	err = c.store.UpdateCredential(c.CloudName, *existingCredentials)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	fmt.Fprintf(ctxt.Stdout, "Credential %q %v locally for cloud %q.\n\n", credentialName, verb, c.CloudName)
-	return nil
+	return newCredential, errors.Annotate(err, "finalizing credential")
 }
 
 func (c *addCredentialCommand) promptAuthType(p *interact.Pollster, authTypes []jujucloud.AuthType, out io.Writer) (jujucloud.AuthType, error) {
@@ -282,16 +335,21 @@ func (c *addCredentialCommand) promptAuthType(p *interact.Pollster, authTypes []
 		fmt.Fprintf(out, "Using auth-type %q.\n\n", authTypes[0])
 		return authTypes[0], nil
 	}
-	authType := ""
 	choices := make([]string, len(authTypes))
 	for i, a := range authTypes {
 		choices[i] = string(a)
+	}
+	// If "interactive" is a valid credential type, choose by default
+	// o.w. take the top of the slice
+	def := string(jujucloud.InteractiveAuthType)
+	if !strings.Contains(strings.Join(choices, " "), def) {
+		def = choices[0]
 	}
 	authType, err := p.Select(interact.List{
 		Singular: "auth type",
 		Plural:   "auth types",
 		Options:  choices,
-		Default:  choices[0],
+		Default:  def,
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -332,9 +390,7 @@ func (c *addCredentialCommand) promptCredentialAttributes(p *interact.Pollster, 
 	return attrs, nil
 }
 
-func (c *addCredentialCommand) promptFieldValue(
-	p *interact.Pollster, attr jujucloud.NamedCredentialAttr,
-) (string, error) {
+func (c *addCredentialCommand) promptFieldValue(p *interact.Pollster, attr jujucloud.NamedCredentialAttr) (string, error) {
 	name := attr.Name
 
 	if len(attr.Options) > 0 {
@@ -350,12 +406,15 @@ func (c *addCredentialCommand) promptFieldValue(
 		})
 	}
 
-	// We assume that Hidden and FilePath are mutually exclusive here.
+	// We assume that Hidden, ExpandFilePath and FilePath are mutually
+	// exclusive here.
 	switch {
 	case attr.Hidden:
 		return p.EnterPassword(name)
+	case attr.ExpandFilePath:
+		return enterFile(name, attr.Description, p, true, attr.Optional)
 	case attr.FilePath:
-		return enterFile(name, p)
+		return enterFile(name, attr.Description, p, false, attr.Optional)
 	case attr.Optional:
 		return p.EnterOptional(name)
 	default:
@@ -363,20 +422,52 @@ func (c *addCredentialCommand) promptFieldValue(
 	}
 }
 
-func enterFile(name string, p *interact.Pollster) (string, error) {
-	input, err := p.EnterVerify(name, func(s string) (ok bool, msg string, err error) {
+func enterFile(name, descr string, p *interact.Pollster, expanded, optional bool) (string, error) {
+	inputSuffix := ""
+	if optional {
+		inputSuffix += " (optional)"
+	}
+	input, err := p.EnterVerify(fmt.Sprintf("%s%s", descr, inputSuffix), func(s string) (ok bool, msg string, err error) {
+		if optional && s == "" {
+			return true, "", nil
+		}
 		_, err = jujucloud.ValidateFileAttrValue(s)
 		if err != nil {
 			return false, err.Error(), nil
 		}
+
 		return true, "", nil
 	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+
+	// If it's optional and the input is empty, then return back out.
+	if optional && input == "" {
+		return "", nil
+	}
+
 	// We have to run this twice, since it has glommed together
 	// validation and normalization, and Pollster doesn't deal with the
 	// verification function modifying the value.
-	return jujucloud.ValidateFileAttrValue(input)
+	abs, err := jujucloud.ValidateFileAttrValue(input)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 
+	// If we don't need to expand the file path, exit out early.
+	if !expanded {
+		return abs, err
+	}
+
+	// Expand the file path to consume the contents
+	contents, err := ioutil.ReadFile(abs)
+	return string(contents), errors.Trace(err)
+}
+
+func shouldFinalizeCredential(provider environs.EnvironProvider, cred jujucloud.Credential) bool {
+	if finalizer, ok := provider.(environs.RequestFinalizeCredential); ok {
+		return finalizer.ShouldFinalizeCredential(cred)
+	}
+	return false
 }

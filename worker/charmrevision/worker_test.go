@@ -6,6 +6,7 @@ package charmrevision_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -86,14 +87,14 @@ func (s *WorkerSuite) TestDelayedUpdateError(c *gc.C) {
 // workerFixture isolates a charmrevision worker for testing.
 type workerFixture struct {
 	revisionUpdater mockRevisionUpdater
-	clock           *testing.Clock
+	clock           *testclock.Clock
 	period          time.Duration
 }
 
 func newFixture(period time.Duration) workerFixture {
 	return workerFixture{
 		revisionUpdater: newMockRevisionUpdater(),
-		clock:           testing.NewClock(coretesting.ZeroTime()),
+		clock:           testclock.NewClock(coretesting.ZeroTime()),
 		period:          period,
 	}
 }

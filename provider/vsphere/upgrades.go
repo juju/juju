@@ -43,9 +43,10 @@ func (step extraConfigUpgradeStep) Run(ctx context.ProviderCallContext) error {
 		legacyControllerTag   = "juju_controller_uuid_key"
 		legacyIsControllerTag = "juju_is_controller_key"
 	)
-	return step.env.withSession(func(env *sessionEnviron) error {
+	return step.env.withSession(ctx, func(env *sessionEnviron) error {
 		vms, err := env.client.VirtualMachines(env.ctx, env.namespace.Prefix()+"*")
 		if err != nil || len(vms) == 0 {
+			HandleCredentialError(err, ctx)
 			return err
 		}
 		for _, vm := range vms {
@@ -73,6 +74,7 @@ func (step extraConfigUpgradeStep) Run(ctx context.ProviderCallContext) error {
 			if err := env.client.UpdateVirtualMachineExtraConfig(
 				env.ctx, vm, metadata,
 			); err != nil {
+				HandleCredentialError(err, ctx)
 				return errors.Annotatef(err, "updating VM %s", vm.Name)
 			}
 		}
@@ -94,13 +96,14 @@ func (modelFoldersUpgradeStep) Description() string {
 
 // Run is part of the environs.UpgradeStep interface.
 func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
-	return step.env.withSession(func(env *sessionEnviron) error {
+	return step.env.withSession(ctx, func(env *sessionEnviron) error {
 		// We must create the folder even if there are no VMs in the model.
 		modelFolderPath := path.Join(
 			controllerFolderName(step.controllerUUID),
 			env.modelFolderName(),
 		)
 		if _, err := env.client.EnsureVMFolder(env.ctx, modelFolderPath); err != nil {
+			HandleCredentialError(err, ctx)
 			return errors.Annotate(err, "creating model folder")
 		}
 
@@ -108,6 +111,7 @@ func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
 		// and move them into the folder.
 		vms, err := env.client.VirtualMachines(env.ctx, env.namespace.Prefix()+"*")
 		if err != nil || len(vms) == 0 {
+			HandleCredentialError(err, ctx)
 			return err
 		}
 		refs := make([]types.ManagedObjectReference, len(vms))
@@ -116,6 +120,7 @@ func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
 			refs[i] = vm.Reference()
 		}
 		if err := env.client.MoveVMsInto(env.ctx, modelFolderPath, refs...); err != nil {
+			HandleCredentialError(err, ctx)
 			return errors.Annotate(err, "moving VMs into model folder")
 		}
 		return nil

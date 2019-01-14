@@ -27,10 +27,11 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -223,7 +224,7 @@ func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 }
 
 // ModelUUID returns the model UUID from the client connection
-// and reports whether it is valud.
+// and reports whether it is valued.
 func (c *Client) ModelUUID() (string, bool) {
 	tag, ok := c.st.ModelTag()
 	if !ok {
@@ -301,13 +302,18 @@ func (c *Client) FindTools(majorVersion, minorVersion int, series, arch, agentSt
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
 // charm URL.
-func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
+func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
 	if curl.Schema != "local" {
 		return nil, errors.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}
 
 	if err := c.validateCharmVersion(ch); err != nil {
 		return nil, errors.Trace(err)
+	}
+	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
+		if !force {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	// Package the charm for uploading.
@@ -335,6 +341,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	default:
 		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
+
 	anyHooks, err := hasHooks(archive.Name())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -437,10 +444,11 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 // If the AddCharm API call fails because of an authorization error
 // when retrieving the charm from the charm store, an error
 // satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel) error {
+func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel, force bool) error {
 	args := params.AddCharm{
 		URL:     curl.String(),
 		Channel: string(channel),
+		Force:   force,
 	}
 	if err := c.facade.FacadeCall("AddCharm", args, nil); err != nil {
 		return errors.Trace(err)
@@ -457,11 +465,14 @@ func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel) error {
 // If the AddCharmWithAuthorization API call fails because of an
 // authorization error when retrieving the charm from the charm store,
 // an error satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon) error {
+// Force is used to overload any validation errors that could occur during
+// a deploy
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, force bool) error {
 	args := params.AddCharmWithAuthorization{
 		URL:                curl.String(),
 		Channel:            string(channel),
 		CharmStoreMacaroon: csMac,
+		Force:              force,
 	}
 	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, nil); err != nil {
 		return errors.Trace(err)

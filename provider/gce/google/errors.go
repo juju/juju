@@ -5,8 +5,13 @@ package google
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/environs/context"
 )
 
 // InvalidConfigValueError indicates that one of the config values failed validation.
@@ -54,4 +59,58 @@ func NewMissingConfigValue(key, field string) error {
 // Error implements error.
 func (err InvalidConfigValueError) Error() string {
 	return fmt.Sprintf("invalid config value (%s) for %q: %v", err.Value, err.Key, &err.Err)
+}
+
+// HandleCredentialError determines if a given error relates to an invalid credential.
+// If it is, the credential is invalidated. Original error is returned untouched.
+func HandleCredentialError(err error, ctx context.ProviderCallContext) error {
+	maybeInvalidateCredential(err, ctx)
+	return err
+}
+
+func maybeInvalidateCredential(err error, ctx context.ProviderCallContext) bool {
+	if ctx == nil {
+		return false
+	}
+	if !HasDenialStatusCode(err) {
+		return false
+	}
+
+	invalidateErr := ctx.InvalidateCredential("google cloud denied access")
+	if invalidateErr != nil {
+		logger.Warningf("could not invalidate stored google cloud credential on the controller: %v", invalidateErr)
+	}
+	return true
+}
+
+// HasDenialStatusCode determines if the given error was caused by an invalid credential, i.e. whether it contains a
+// response status code that indicates an authentication failure.
+func HasDenialStatusCode(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// http/url.Error is constructed with status code in mind and, at the time of writing for go-1.10,
+	// contains response status code and description in error.Error.
+	// We have to examine the error message to determine whether the error is related to authentication failure.
+	if cause, ok := errors.Cause(err).(*url.Error); ok {
+		for code, desc := range AuthorisationFailureStatusCodes {
+			if strings.Contains(cause.Error(), fmt.Sprintf(": %v %v", code, desc)) {
+				return true
+			}
+		}
+	}
+	return false
+
+}
+
+// AuthorisationFailureStatusCodes contains http status code nad description that signify authorisation difficulties.
+var AuthorisationFailureStatusCodes = map[int]string{
+	http.StatusUnauthorized:      "Unauthorized",
+	http.StatusPaymentRequired:   "Payment Required",
+	http.StatusForbidden:         "Forbidden",
+	http.StatusProxyAuthRequired: "Proxy Auth Required",
+	// OAuth 2.0 also implements RFC#6749, so we need to cater for specific BadRequest errors.
+	// https://tools.ietf.org/html/rfc6749#section-5.2
+	http.StatusBadRequest: "Bad Request",
 }

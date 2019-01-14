@@ -54,7 +54,7 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 	var err error
 	e.ec2, err = awsClient(e.cloud)
 	if err != nil {
-		return nil, errors.Trace(maybeConvertCredentialError(err))
+		return nil, errors.Trace(err)
 	}
 
 	if err := e.SetConfig(args.Config); err != nil {
@@ -189,9 +189,9 @@ your details are being verified.`
 // verify the configured credentials. If verification fails, a user-friendly
 // error will be returned, and the original error will be logged at debug
 // level.
-var verifyCredentials = func(e *environ) error {
+var verifyCredentials = func(e *environ, ctx context.ProviderCallContext) error {
 	_, err := e.ec2.AccountAttributes()
-	return maybeConvertCredentialError(err)
+	return maybeConvertCredentialError(err, ctx)
 }
 
 // maybeConvertCredentialError examines the error received from the provider.
@@ -199,28 +199,37 @@ var verifyCredentials = func(e *environ) error {
 // Authorisation related errors are annotated with an additional
 // user-friendly explanation.
 // All other errors are returned un-wrapped and not annotated.
-var maybeConvertCredentialError = func(err error) error {
+var maybeConvertCredentialError = func(err error, ctx context.ProviderCallContext) error {
 	if err == nil {
 		return nil
+	}
+
+	convert := func(converted error) error {
+		callbackErr := ctx.InvalidateCredential(converted.Error())
+		if callbackErr != nil {
+			// We want to proceed with the actual proessing but still keep a log of a problem.
+			logger.Infof("callback to invalidate model credential failed with %v", converted)
+		}
+		return converted
 	}
 
 	if err, ok := err.(*ec2.Error); ok {
 		// EC2 error codes are from https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.
 		switch err.Code {
 		case "AuthFailure":
-			return common.CredentialNotValidf(err, badKeys)
+			return convert(common.CredentialNotValidf(err, badKeys))
 		case "InvalidClientTokenId":
-			return common.CredentialNotValidf(err, badKeys)
+			return convert(common.CredentialNotValidf(err, badKeys))
 		case "MissingAuthenticationToken":
-			return common.CredentialNotValidf(err, badKeys)
+			return convert(common.CredentialNotValidf(err, badKeys))
 		case "Blocked":
-			return common.CredentialNotValidf(err, "\nYour Amazon account is currently blocked.")
+			return convert(common.CredentialNotValidf(err, "\nYour Amazon account is currently blocked."))
 		case "CustomerKeyHasBeenRevoked":
-			return common.CredentialNotValidf(err, "\nYour Amazon keys have been revoked.")
+			return convert(common.CredentialNotValidf(err, "\nYour Amazon keys have been revoked."))
 		case "PendingVerification":
-			return common.CredentialNotValidf(err, "\nYour account is pending verification by Amazon.")
+			return convert(common.CredentialNotValidf(err, "\nYour account is pending verification by Amazon."))
 		case "SignatureDoesNotMatch":
-			return common.CredentialNotValidf(err, badKeys)
+			return convert(common.CredentialNotValidf(err, badKeys))
 		case "OptInRequired":
 			return errors.Annotate(err, unauthorized)
 		case "UnauthorizedOperation":

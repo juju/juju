@@ -15,8 +15,8 @@ import (
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"github.com/kr/pretty"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/ovf"
@@ -100,6 +100,10 @@ type CreateVirtualMachineParams struct {
 
 	// Clock is used for controlling the timing of progress updates.
 	Clock clock.Clock
+
+	// EnableDiskUUID controls whether the VMware disk should expose a
+	// consistent UUID to the guest OS.
+	EnableDiskUUID bool
 }
 
 // CreateVirtualMachine creates and powers on a new VM.
@@ -324,6 +328,10 @@ func (c *Client) createImportSpec(
 			Reservation: &cpuPower,
 		}
 	}
+	if s.Flags == nil {
+		s.Flags = &types.VirtualMachineFlagInfo{}
+	}
+	s.Flags.DiskUuidEnabled = &args.EnableDiskUUID
 	if err := c.addRootDisk(s, args, datastore, vmdkDatastorePath); err != nil {
 		return nil, errors.Trace(err)
 	}

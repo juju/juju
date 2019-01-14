@@ -47,7 +47,7 @@ var cloudSchema = &jsonschema.Schema{
 	Type:     []jsonschema.Type{jsonschema.ObjectType},
 	Required: []string{cloud.EndpointKey},
 	Properties: map[string]*jsonschema.Schema{
-		cloud.EndpointKey: &jsonschema.Schema{
+		cloud.EndpointKey: {
 			Singular: "the controller's hostname or IP address",
 			Type:     []jsonschema.Type{jsonschema.StringType},
 			Format:   jsonschema.FormatURI,

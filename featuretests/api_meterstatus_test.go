@@ -11,10 +11,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/meterstatus"
+	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	factory "github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 type meterStatusIntegrationSuite struct {
@@ -26,8 +25,7 @@ type meterStatusIntegrationSuite struct {
 
 func (s *meterStatusIntegrationSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	f := factory.NewFactory(s.State)
-	s.unit = f.MakeUnit(c, nil)
+	s.unit = s.Factory.MakeUnit(c, nil)
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,10 +57,9 @@ func (s *meterStatusIntegrationSuite) TestWatchMeterStatus(c *gc.C) {
 	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
+	// Initial event.
 	wc.AssertOneChange()
 
-	err = s.unit.SetMeterStatus("GREEN", "ok")
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetMeterStatus("AMBER", "ok")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -76,11 +73,9 @@ func (s *meterStatusIntegrationSuite) TestWatchMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mm.SetLastSuccessfulSend(time.Now())
 	c.Assert(err, jc.ErrorIsNil)
-	for i := 0; i < 3; i++ {
-		err := mm.IncrementConsecutiveErrors()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	status := mm.MeterStatus()
-	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
+	wc.AssertOneChange()
+
+	err = mm.IncrementConsecutiveErrors()
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }

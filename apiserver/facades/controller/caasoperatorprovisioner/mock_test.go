@@ -10,16 +10,21 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {
 	testing.Stub
 	common.AddressAndCertGetter
+	model              *mockModel
 	applicationWatcher *mockStringsWatcher
 	app                *mockApplication
 	operatorImage      string
@@ -28,6 +33,7 @@ type mockState struct {
 func newMockState() *mockState {
 	return &mockState{
 		applicationWatcher: newMockStringsWatcher(),
+		model:              &mockModel{},
 	}
 }
 
@@ -51,12 +57,54 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 
 func (st *mockState) APIHostPortsForAgents() ([][]network.HostPort, error) {
 	st.MethodCall(st, "APIHostPortsForAgents")
-	return nil, nil
+	return [][]network.HostPort{
+		network.NewHostPorts(1, "10.0.0.1"),
+	}, nil
 }
 
-func (st *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
-	st.MethodCall(st, "WatchAPIHostPortsForAgents")
-	return apiservertesting.NewFakeNotifyWatcher()
+func (st *mockState) Model() (caasoperatorprovisioner.Model, error) {
+	st.MethodCall(st, "Model")
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	return st.model, nil
+}
+
+type mockStorageProviderRegistry struct {
+	testing.Stub
+	storage.ProviderRegistry
+}
+
+func (m *mockStorageProviderRegistry) StorageProvider(providerType storage.ProviderType) (storage.Provider, error) {
+	m.MethodCall(m, "StorageProvider", providerType)
+	return nil, errors.NotSupportedf("StorageProvider")
+}
+
+type mockStoragePoolManager struct {
+	testing.Stub
+	poolmanager.PoolManager
+}
+
+func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
+	m.MethodCall(m, "Get", name)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	return storage.NewConfig(name, provider.K8s_ProviderType, map[string]interface{}{"foo": "bar"})
+}
+
+type mockModel struct {
+	testing.Stub
+}
+
+func (m *mockModel) UUID() string {
+	m.MethodCall(m, "UUID")
+	return coretesting.ModelTag.Id()
+}
+
+func (m *mockModel) ModelConfig() (*config.Config, error) {
+	m.MethodCall(m, "ModelConfig")
+	return config.New(config.UseDefaults, coretesting.FakeConfig())
 }
 
 type mockApplication struct {

@@ -4,6 +4,7 @@
 package service
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -11,21 +12,17 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/utils"
-	"github.com/juju/utils/shell"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
 )
 
-var (
-	logger   = loggo.GetLogger("juju.service")
-	renderer = shell.BashRenderer{}
-)
+var logger = loggo.GetLogger("juju.service")
 
-// These are the names of the init systems regognized by juju.
+// These are the names of the init systems recognized by juju.
 const (
 	InitSystemSystemd = "systemd"
 	InitSystemUpstart = "upstart"
@@ -131,17 +128,7 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
-		dataDir, err := paths.DataDir(series)
-		if err != nil {
-			return nil, err
-		}
-		svc, err := systemd.NewService(
-			name,
-			conf,
-			"/lib/systemd/system",
-			systemd.NewDBusAPI,
-			renderer.Join(dataDir, "init"),
-		)
+		svc, err := systemd.NewServiceWithDefaults(name, conf)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}
@@ -294,4 +281,21 @@ func restart(svc Service) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// FindUnitServiceNames accepts a collection of service names as managed by the
+// local init system. Any that are identified as being for unit agents are
+// returned, keyed on the unit name.
+func FindUnitServiceNames(svcNames []string) map[string]string {
+	svcMatcher := regexp.MustCompile("^(jujud-.*unit-([a-z0-9-]+)-([0-9]+))$")
+	unitServices := make(map[string]string)
+	for _, svc := range svcNames {
+		if groups := svcMatcher.FindStringSubmatch(svc); len(groups) > 0 {
+			unitName := groups[2] + "/" + groups[3]
+			if names.IsValidUnit(unitName) {
+				unitServices[unitName] = groups[1]
+			}
+		}
+	}
+	return unitServices
 }

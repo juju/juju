@@ -70,7 +70,7 @@ func (s *RemoveStorageSuite) TestRemoveStorageError(c *gc.C) {
 	c.Assert(stderr, gc.Equals, `failed to remove pgdata/0: foo
 failed to remove pgdata/1: storage is attached
 
-Use the --force flag to remove attached storage, or use
+Use the --force option to remove attached storage, or use
 "juju detach-storage" to explicitly detach the storage
 before removing.
 `)

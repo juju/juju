@@ -7,21 +7,21 @@ import (
 	"errors"
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/cleaner"
 )
 
 type CleanerSuite struct {
 	coretesting.BaseSuite
 	mockState *cleanerMock
-	mockClock *testing.Clock
+	mockClock *testclock.Clock
 }
 
 var _ = gc.Suite(&CleanerSuite{})
@@ -32,7 +32,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 		calls: make(chan string, 1),
 	}
 	s.mockState.watcher = s.newMockNotifyWatcher(nil)
-	s.mockClock = testing.NewClock(time.Time{})
+	s.mockClock = testclock.NewClock(time.Time{})
 }
 
 func (s *CleanerSuite) AssertReceived(c *gc.C, expect string) {

@@ -5,22 +5,54 @@ package common
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
 
-// ErrMultipleCredentialsDetected is the error returned by
+// ErrMultipleDetectedCredentials is the error returned by
 // GetOrDetectCredential when multiple credentials are
 // detected, meaning Juju cannot choose one automatically.
 var ErrMultipleDetectedCredentials = errors.New("multiple detected credentials")
+
+//go:generate mockgen -package common -destination credentialstore_mock_test.go github.com/juju/juju/jujuclient CredentialStore
+
+// RegisterCredentials will attempt to register any credentials that a provider
+// has to offer.
+func RegisterCredentials(
+	ctx *cmd.Context,
+	store jujuclient.CredentialStore,
+	provider environs.EnvironProvider,
+	args modelcmd.RegisterCredentialsParams,
+) error {
+	credentials, err := modelcmd.RegisterCredentials(provider, args)
+	switch {
+	case errors.IsNotFound(err):
+		return nil
+	case err != nil:
+		return errors.Trace(err)
+	case credentials == nil:
+		return nil
+	}
+
+	ctx.Verbosef("updating credential store")
+
+	for name, credential := range credentials {
+		if err := store.UpdateCredential(name, *credential); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
 
 // GetOrDetectCredential returns a credential to use for given cloud. This
 // function first calls modelcmd.GetCredentials, and returns its results if it
@@ -103,4 +135,55 @@ func ResolveCloudCredentialTag(user names.UserTag, cloud names.CloudTag, credent
 		return names.CloudCredentialTag{}, errors.NotValidf("cloud credential name %q", s)
 	}
 	return names.NewCloudCredentialTag(s), nil
+}
+
+// OutputUpdateCredentialModelResult prints detailed results of UpdateCredentialsCheckModels.
+func OutputUpdateCredentialModelResult(ctx *cmd.Context, models []params.UpdateCredentialModelResult, showValid bool) {
+	var valid []string
+	invalid := map[string][]error{}
+	for _, m := range models {
+		if len(m.Errors) == 0 {
+			valid = append(valid, m.ModelName)
+			continue
+		} else {
+			var mError []error
+			for _, anErr := range m.Errors {
+				mError = append(mError, errors.Trace(anErr.Error))
+			}
+			invalid[m.ModelName] = mError
+		}
+	}
+
+	if showValid && len(valid) > 0 {
+		ctx.Infof("Credential valid for:")
+		for _, v := range valid {
+			ctx.Infof("  %v", v)
+		}
+	}
+	if len(invalid) > 0 {
+		// ensure we sort the valid, invalid slices so that the output is consistent
+		i := 0
+		names := make([]string, len(invalid))
+		for k := range invalid {
+			names[i] = k
+			i++
+		}
+		sort.Strings(names)
+
+		ctx.Infof("Credential invalid for:")
+		for _, v := range names {
+			ctx.Infof("  %v:", v)
+			for _, e := range invalid[v] {
+				ctx.Infof("    %v", e)
+			}
+		}
+	}
+}
+
+//go:generate mockgen -package common -destination cloudprovider_mock_test.go github.com/juju/juju/cmd/juju/common TestCloudProvider
+
+// TestCloudProvider is used for testing.
+type TestCloudProvider interface {
+	environs.EnvironProvider
+	environs.ProviderCredentialsRegister
 }

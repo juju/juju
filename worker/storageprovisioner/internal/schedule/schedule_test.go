@@ -6,7 +6,7 @@ package schedule_test
 import (
 	"time"
 
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -21,13 +21,13 @@ type scheduleSuite struct {
 var _ = gc.Suite(&scheduleSuite{})
 
 func (*scheduleSuite) TestNextNoEvents(c *gc.C) {
-	s := schedule.NewSchedule(jujutesting.NewClock(time.Time{}))
+	s := schedule.NewSchedule(testclock.NewClock(time.Time{}))
 	next := s.Next()
 	c.Assert(next, gc.IsNil)
 }
 
 func (*scheduleSuite) TestNext(c *gc.C) {
-	clock := jujutesting.NewClock(time.Time{})
+	clock := testclock.NewClock(time.Time{})
 	now := clock.Now()
 	s := schedule.NewSchedule(clock)
 
@@ -52,13 +52,13 @@ func (*scheduleSuite) TestNext(c *gc.C) {
 }
 
 func (*scheduleSuite) TestReadyNoEvents(c *gc.C) {
-	s := schedule.NewSchedule(jujutesting.NewClock(time.Time{}))
+	s := schedule.NewSchedule(testclock.NewClock(time.Time{}))
 	ready := s.Ready(time.Now())
 	c.Assert(ready, gc.HasLen, 0)
 }
 
 func (*scheduleSuite) TestAdd(c *gc.C) {
-	clock := jujutesting.NewClock(time.Time{})
+	clock := testclock.NewClock(time.Time{})
 	now := clock.Now()
 	s := schedule.NewSchedule(clock)
 
@@ -81,7 +81,7 @@ func (*scheduleSuite) TestAdd(c *gc.C) {
 }
 
 func (*scheduleSuite) TestRemove(c *gc.C) {
-	clock := jujutesting.NewClock(time.Time{})
+	clock := testclock.NewClock(time.Time{})
 	now := clock.Now()
 	s := schedule.NewSchedule(clock)
 
@@ -95,11 +95,11 @@ func (*scheduleSuite) TestRemove(c *gc.C) {
 }
 
 func (*scheduleSuite) TestRemoveKeyNotFound(c *gc.C) {
-	s := schedule.NewSchedule(jujutesting.NewClock(time.Time{}))
+	s := schedule.NewSchedule(testclock.NewClock(time.Time{}))
 	s.Remove("0") // does not explode
 }
 
-func assertNextOp(c *gc.C, s *schedule.Schedule, clock *jujutesting.Clock, d time.Duration) {
+func assertNextOp(c *gc.C, s *schedule.Schedule, clock *testclock.Clock, d time.Duration) {
 	next := s.Next()
 	c.Assert(next, gc.NotNil)
 	if d > 0 {
@@ -123,7 +123,7 @@ func assertNextOp(c *gc.C, s *schedule.Schedule, clock *jujutesting.Clock, d tim
 	}
 }
 
-func assertReady(c *gc.C, s *schedule.Schedule, clock *jujutesting.Clock, expect ...interface{}) {
+func assertReady(c *gc.C, s *schedule.Schedule, clock *testclock.Clock, expect ...interface{}) {
 	ready := s.Ready(clock.Now())
 	c.Assert(ready, jc.DeepEquals, expect)
 }

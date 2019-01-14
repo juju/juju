@@ -8,10 +8,10 @@ import (
 	"os"
 	"sync"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
@@ -25,8 +25,8 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/actions"
@@ -42,6 +42,8 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/storage"
+	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
+	"github.com/juju/juju/worker/uniter/upgradeseries"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
@@ -321,15 +323,14 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			StartRetryHookTimer: retryHookTimer.Start,
 			StopRetryHookTimer:  retryHookTimer.Reset,
 			Actions:             actions.NewResolver(),
+			UpgradeSeries:       upgradeseries.NewResolver(),
+			UpgradeCharmProfile: upgradecharmprofile.NewResolver(),
 			Leadership:          uniterleadership.NewResolver(),
 			Relations:           relation.NewRelationsResolver(u.relations),
-			Storage:             &NopResolver{},
+			Storage:             storage.NewResolver(u.storage, u.modelType),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
-		}
-		if u.modelType == model.IAAS {
-			cfg.Storage = storage.NewResolver(u.storage)
 		}
 		uniterResolver := NewUniterResolver(cfg)
 
@@ -345,6 +346,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		localState := resolver.LocalState{
 			CharmURL:             charmURL,
 			CharmModifiedVersion: charmModifiedVersion,
+			UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
 		}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
@@ -498,19 +500,18 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Trace(err)
 	}
 	u.modelType = m.ModelType
+	storageAttachments, err := storage.NewAttachments(
+		u.st, unitTag, u.paths.State.StorageDir, u.catacomb.Dying(),
+	)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create storage hook source")
+	}
+	u.storage = storageAttachments
 
 	// Only IAAS models require the uniter to install charms.
 	// For CAAS models this is done by the operator.
 	var deployer charm.Deployer
 	if u.modelType == model.IAAS {
-		storageAttachments, err := storage.NewAttachments(
-			u.st, unitTag, u.paths.State.StorageDir, u.catacomb.Dying(),
-		)
-		if err != nil {
-			return errors.Annotatef(err, "cannot create storage hook source")
-		}
-		u.storage = storageAttachments
-
 		if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
 			logger.Warningf(err.Error())
 		}
@@ -563,9 +564,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		}
 	} else {
 		initialState = operation.State{
-			Hook: &hook.Info{Kind: hooks.Install},
-			Kind: operation.RunHook,
-			Step: operation.Queued,
+			Hook:      &hook.Info{Kind: hooks.Start},
+			Kind:      operation.RunHook,
+			Step:      operation.Queued,
+			Installed: true,
 		}
 		if err := u.unit.SetCharmURL(charmURL); err != nil {
 			return errors.Trace(err)

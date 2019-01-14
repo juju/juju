@@ -13,6 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/arch"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -21,23 +22,15 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/juju/version"
+	"github.com/juju/juju/jujuclient"
 )
 
-type imageMetadataCommandBase struct {
-	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
-}
-
-func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Environ, error) {
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func prepare(context *cmd.Context, controllerName string, store jujuclient.ClientStore) (environs.Environ, error) {
 	// NOTE(axw) this is a work-around for the TODO below. This
 	// means that the command will only work if you've bootstrapped
 	// the specified environment.
 	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
-		context, c.ClientStore(), environs.GlobalProviderRegistry(),
+		context, store, environs.GlobalProviderRegistry(),
 	)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -63,12 +56,13 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 }
 
 func newImageMetadataCommand() cmd.Command {
-	return modelcmd.Wrap(&imageMetadataCommand{})
+	return modelcmd.WrapController(&imageMetadataCommand{})
 }
 
 // imageMetadataCommand is used to write out simplestreams image metadata information.
 type imageMetadataCommand struct {
-	imageMetadataCommandBase
+	modelcmd.ControllerCommandBase
+
 	Dir            string
 	Series         string
 	Arch           string
@@ -92,11 +86,11 @@ By default, "amd64" is used for the architecture but this may also be changed.
 `
 
 func (c *imageMetadataCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "generate-image",
 		Purpose: "generate simplestreams image metadata",
 		Doc:     imageMetadataDoc,
-	}
+	})
 }
 
 func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -115,36 +109,45 @@ func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 // for those which have not been explicitly specified.
 func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 	c.privateStorage = "<private storage name>"
+
+	controllerName, err := c.ControllerName()
+	err = errors.Cause(err)
+	if err != nil && err != modelcmd.ErrNoControllersDefined && err != modelcmd.ErrNoCurrentController {
+		return errors.Trace(err)
+	}
+
 	var environ environs.Environ
-	if environ, err := c.prepare(context); err == nil {
-		logger.Infof("creating image metadata for model %q", environ.Config().Name())
-		// If the user has not specified region and endpoint, try and get it from the environment.
-		if c.Region == "" || c.Endpoint == "" {
-			var cloudSpec simplestreams.CloudSpec
-			if inst, ok := environ.(simplestreams.HasRegion); ok {
-				if cloudSpec, err = inst.Region(); err != nil {
-					return err
+	if err == nil {
+		if environ, err := prepare(context, controllerName, c.ClientStore()); err == nil {
+			logger.Infof("creating image metadata for model %q", environ.Config().Name())
+			// If the user has not specified region and endpoint, try and get it from the environment.
+			if c.Region == "" || c.Endpoint == "" {
+				var cloudSpec simplestreams.CloudSpec
+				if inst, ok := environ.(simplestreams.HasRegion); ok {
+					if cloudSpec, err = inst.Region(); err != nil {
+						return err
+					}
+				} else {
+					return errors.Errorf("model %q cannot provide region and endpoint", environ.Config().Name())
 				}
-			} else {
-				return errors.Errorf("model %q cannot provide region and endpoint", environ.Config().Name())
+				// If only one of region or endpoint is provided, that is a problem.
+				if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
+					return errors.Errorf("cannot generate metadata without a complete cloud configuration")
+				}
+				if c.Region == "" {
+					c.Region = cloudSpec.Region
+				}
+				if c.Endpoint == "" {
+					c.Endpoint = cloudSpec.Endpoint
+				}
 			}
-			// If only one of region or endpoint is provided, that is a problem.
-			if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
-				return errors.Errorf("cannot generate metadata without a complete cloud configuration")
+			cfg := environ.Config()
+			if c.Series == "" {
+				c.Series = config.PreferredSeries(cfg)
 			}
-			if c.Region == "" {
-				c.Region = cloudSpec.Region
-			}
-			if c.Endpoint == "" {
-				c.Endpoint = cloudSpec.Endpoint
-			}
+		} else {
+			logger.Warningf("bootstrap parameters could not be opened: %v", err)
 		}
-		cfg := environ.Config()
-		if c.Series == "" {
-			c.Series = config.PreferredSeries(cfg)
-		}
-	} else {
-		logger.Warningf("model could not be opened: %v", err)
 	}
 	if environ == nil {
 		logger.Infof("no model found, creating image metadata using user supplied data")

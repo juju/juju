@@ -4,9 +4,9 @@
 package model_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
@@ -83,6 +83,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"caas-broker-tracker",
 		"caas-firewaller",
 		"caas-operator-provisioner",
+		"caas-storage-provisioner",
 		"caas-unit-provisioner",
 		"charm-revision-updater",
 		"clock",
@@ -230,6 +231,19 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"model-upgrade-gate",
 		"model-upgraded-flag",
 		"not-dead-flag"},
+
+	"caas-storage-provisioner": {
+		"agent",
+		"api-caller",
+		"caas-broker-tracker",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag",
+		"valid-credential-flag"},
 
 	"caas-unit-provisioner": {
 		"agent",

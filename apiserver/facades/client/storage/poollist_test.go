@@ -36,6 +36,12 @@ func (s *poolSuite) createPools(c *gc.C, num int) {
 	}
 }
 
+func (s *poolSuite) TestEnsureStoragePoolFilter(c *gc.C) {
+	filter := params.StoragePoolFilter{}
+	c.Assert(filter.Providers, gc.HasLen, 0)
+	c.Assert(apiserverstorage.EnsureStoragePoolFilter(s.apiCaas, filter).Providers, jc.DeepEquals, []string{"kubernetes"})
+}
+
 func (s *poolSuite) TestList(c *gc.C) {
 	s.createPools(c, 1)
 	results, err := s.api.ListPools(params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})

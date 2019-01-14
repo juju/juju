@@ -8,8 +8,8 @@ import (
 
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -26,6 +26,7 @@ type UnitStatusGetter interface {
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
 	AgentPresence() (bool, error)
+	ShouldBeAssigned() bool
 	Name() string
 	Life() state.Life
 }

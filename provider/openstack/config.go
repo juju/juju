@@ -13,40 +13,49 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
+const (
+	ExternalNetworkKey    = "external-network"
+	NetworkKey            = "network"
+	PolicyTargetGroupKey  = "policy-target-group"
+	UseDefaultSecgroupKey = "use-default-secgroup"
+	UseOpenstackGBPKey    = "use-openstack-gbp"
+	UseFloatingIPKey      = "use-floating-ip"
+)
+
 var configSchema = environschema.Fields{
-	"use-floating-ip": {
+	UseFloatingIPKey: {
 		Description: "Whether a floating IP address is required to give the nodes a public IP address. Some installations assign public IP addresses by default without requiring a floating IP address.",
 		Type:        environschema.Tbool,
 	},
-	"use-default-secgroup": {
+	UseDefaultSecgroupKey: {
 		Description: `Whether new machine instances should have the "default" Openstack security group assigned in addition to juju defined security groups.`,
 		Type:        environschema.Tbool,
 	},
-	"network": {
+	NetworkKey: {
 		Description: "The network label or UUID to bring machines up on when multiple networks exist.",
 		Type:        environschema.Tstring,
 	},
-	"external-network": {
+	ExternalNetworkKey: {
 		Description: "The network label or UUID to create floating IP addresses on when multiple external networks exist.",
 		Type:        environschema.Tstring,
 	},
-	"use-openstack-gbp": {
+	UseOpenstackGBPKey: {
 		Description: "Whether to use Neutrons Group-Based Policy",
 		Type:        environschema.Tbool,
 	},
-	"policy-target-group": {
+	PolicyTargetGroupKey: {
 		Description: "The UUID of Policy Target Group to use for Policy Targets created.",
 		Type:        environschema.Tstring,
 	},
 }
 
 var configDefaults = schema.Defaults{
-	"use-floating-ip":      false,
-	"use-default-secgroup": false,
-	"network":              "",
-	"external-network":     "",
-	"use-openstack-gbp":    false,
-	"policy-target-group":  "",
+	UseFloatingIPKey:      false,
+	UseDefaultSecgroupKey: false,
+	NetworkKey:            "",
+	ExternalNetworkKey:    "",
+	UseOpenstackGBPKey:    false,
+	PolicyTargetGroupKey:  "",
 }
 
 var configFields = func() schema.Fields {
@@ -63,27 +72,27 @@ type environConfig struct {
 }
 
 func (c *environConfig) useFloatingIP() bool {
-	return c.attrs["use-floating-ip"].(bool)
+	return c.attrs[UseFloatingIPKey].(bool)
 }
 
 func (c *environConfig) useDefaultSecurityGroup() bool {
-	return c.attrs["use-default-secgroup"].(bool)
+	return c.attrs[UseDefaultSecgroupKey].(bool)
 }
 
 func (c *environConfig) network() string {
-	return c.attrs["network"].(string)
+	return c.attrs[NetworkKey].(string)
 }
 
 func (c *environConfig) externalNetwork() string {
-	return c.attrs["external-network"].(string)
+	return c.attrs[ExternalNetworkKey].(string)
 }
 
 func (c *environConfig) useOpenstackGBP() bool {
-	return c.attrs["use-openstack-gbp"].(bool)
+	return c.attrs[UseOpenstackGBPKey].(bool)
 }
 
 func (c *environConfig) policyTargetGroup() string {
-	return c.attrs["policy-target-group"].(string)
+	return c.attrs[PolicyTargetGroupKey].(string)
 }
 
 type AuthMode string
@@ -130,18 +139,18 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	cfgAttrs := cfg.AllAttrs()
 	// If we have use-openstack-gbp set to Yes we require a proper UUID for policy-target-group.
 	hasPTG := false
-	if ptg := cfgAttrs["policy-target-group"]; ptg != nil && ptg.(string) != "" {
+	if ptg := cfgAttrs[PolicyTargetGroupKey]; ptg != nil && ptg.(string) != "" {
 		if utils.IsValidUUIDString(ptg.(string)) {
 			hasPTG = true
 		} else {
 			return nil, fmt.Errorf("policy-target-group has invalid UUID: %q", ptg)
 		}
 	}
-	if useGBP := cfgAttrs["use-openstack-gbp"]; useGBP != nil && useGBP.(bool) == true {
+	if useGBP := cfgAttrs[UseOpenstackGBPKey]; useGBP != nil && useGBP.(bool) == true {
 		if hasPTG == false {
 			return nil, fmt.Errorf("policy-target-group must be set when use-openstack-gbp is set")
 		}
-		if network := cfgAttrs["network"]; network != nil && network.(string) != "" {
+		if network := cfgAttrs[NetworkKey]; network != nil && network.(string) != "" {
 			return nil, fmt.Errorf("cannot use 'network' config setting when use-openstack-gbp is set")
 		}
 	}
@@ -167,6 +176,7 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			"default-instance-type", defaultInstanceType)
 		logger.Warningf(msg)
 	}
+
 	// Construct a new config with the deprecated attributes removed.
 	for _, attr := range []string{"default-image-id", "default-instance-type"} {
 		delete(cfgAttrs, attr)

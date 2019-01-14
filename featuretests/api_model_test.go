@@ -64,7 +64,7 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 	mm := modelmanager.NewClient(s.OpenControllerAPI(c))
 	defer mm.Close()
 
-	modelUser, err := s.State.UserAccess(user.UserTag, s.IAASModel.ModelTag())
+	modelUser, err := s.State.UserAccess(user.UserTag, s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser, gc.Not(gc.DeepEquals), permission.UserAccess{})
 
@@ -72,7 +72,7 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 	err = mm.RevokeModel(user.UserName, "read", model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelUser, err = s.State.UserAccess(user.UserTag, s.IAASModel.ModelTag())
+	modelUser, err = s.State.UserAccess(user.UserTag, s.Model.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(modelUser, gc.DeepEquals, permission.UserAccess{})
 }

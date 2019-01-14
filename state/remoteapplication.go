@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -20,8 +19,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/status"
 )
 
 // RemoteApplication represents the state of an application hosted
@@ -753,7 +752,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 			statusDoc := statusDoc{
 				ModelUUID: st.ModelUUID(),
 				Status:    status.Unknown,
-				Updated:   time.Now().UnixNano(),
+				Updated:   st.clock().Now().UnixNano(),
 			}
 			ops = append(ops, createStatusOp(st, app.globalKey(), statusDoc))
 		}

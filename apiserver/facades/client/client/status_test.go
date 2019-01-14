@@ -41,7 +41,8 @@ func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
 
 func (s *statusSuite) TestFullStatus(c *gc.C) {
 	machine := s.addMachine(c)
-	s.State.SetSLA("essential", "test-user", []byte(""))
+	c.Assert(s.State.SetSLA("essential", "test-user", []byte("")), jc.ErrorIsNil)
+	c.Assert(s.State.SetModelMeterStatus("GREEN", "goo"), jc.ErrorIsNil)
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,6 +50,8 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(status.Model.Type, gc.Equals, "iaas")
 	c.Check(status.Model.CloudTag, gc.Equals, "cloud-dummy")
 	c.Check(status.Model.SLA, gc.Equals, "essential")
+	c.Check(status.Model.MeterStatus.Color, gc.Equals, "green")
+	c.Check(status.Model.MeterStatus.Message, gc.Equals, "goo")
 	c.Check(status.Applications, gc.HasLen, 0)
 	c.Check(status.RemoteApplications, gc.HasLen, 0)
 	c.Check(status.Offers, gc.HasLen, 0)
@@ -60,11 +63,27 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	}
 	c.Check(resultMachine.Id, gc.Equals, machine.Id())
 	c.Check(resultMachine.Series, gc.Equals, machine.Series())
+	c.Check(resultMachine.LXDProfiles, gc.HasLen, 0)
+}
+
+func (s *statusSuite) TestUnsupportedNoModelMeterStatus(c *gc.C) {
+	s.addMachine(c)
+	c.Assert(s.State.SetSLA("unsupported", "test-user", []byte("")), jc.ErrorIsNil)
+	c.Assert(s.State.SetModelMeterStatus("RED", "nope"), jc.ErrorIsNil)
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status.Model.SLA, gc.Equals, "unsupported")
+	c.Check(status.Model.MeterStatus.Color, gc.Equals, "")
+	c.Check(status.Model.MeterStatus.Message, gc.Equals, "")
 }
 
 func (s *statusSuite) TestFullStatusUnitLeadership(c *gc.C) {
 	u := s.Factory.MakeUnit(c, nil)
-	s.State.LeadershipClaimer().ClaimLeadership(u.ApplicationName(), u.Name(), time.Minute)
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim(u.ApplicationName(), u.Name(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,7 +158,8 @@ var testUnits = []struct {
 }
 
 func (s *statusUnitTestSuite) TestModelMeterStatus(c *gc.C) {
-	s.State.SetModelMeterStatus("RED", "thing")
+	c.Assert(s.State.SetSLA("advanced", "test-user", nil), jc.ErrorIsNil)
+	c.Assert(s.State.SetModelMeterStatus("RED", "thing"), jc.ErrorIsNil)
 
 	client := s.APIState.Client()
 	status, err := client.Status(nil)

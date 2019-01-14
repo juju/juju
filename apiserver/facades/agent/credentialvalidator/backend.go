@@ -26,6 +26,9 @@ type Backend interface {
 	// InvalidateModelCredential marks the cloud credential that a current model
 	// uses as invalid.
 	InvalidateModelCredential(reason string) error
+
+	// WatchModelCredential returns a watcher that is keeping an eye on what cloud credential a model uses.
+	WatchModelCredential() (state.NotifyWatcher, error)
 }
 
 func NewBackend(st StateAccessor) Backend {
@@ -84,6 +87,15 @@ func (b *backend) ModelCredential() (*ModelCredential, error) {
 	}
 	result.Valid = credential.IsValid()
 	return result, nil
+}
+
+// WatchModelCredential implements Backend.WatchModelCredential.
+func (b *backend) WatchModelCredential() (state.NotifyWatcher, error) {
+	m, err := b.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return m.WatchModelCredential(), nil
 }
 
 func (b *backend) cloudSupportsNoAuth(cloudName string) (bool, error) {

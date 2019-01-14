@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -32,12 +33,12 @@ type uploadCommand struct {
 
 // Info implements Command.Info.
 func (c *uploadCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "upload-backup",
 		Args:    "<filename>",
 		Purpose: "Store a backup archive file remotely in Juju.",
 		Doc:     uploadDoc,
-	}
+	})
 }
 
 // Init implements Command.Init.

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -15,7 +16,6 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -289,17 +288,15 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
 		MongoSession:       session,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(
-			stateenvirons.GetNewEnvironFunc(environs.New),
-		),
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	st.Close()
+	pool.Close()
 }
 
 func (s *AgentSuite) AssertCannotOpenState(c *gc.C, tag names.Tag, dataDir string) {

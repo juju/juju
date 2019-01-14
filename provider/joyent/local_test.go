@@ -170,11 +170,12 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 // allocate a public address.
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+		s.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      testing.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "100")
 	err = env.StopInstances(s.callCtx, inst.Id())
@@ -183,11 +184,12 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+		s.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      testing.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, hwc := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "100")
 	err = env.StopInstances(s.callCtx, inst.Id())
@@ -198,11 +200,12 @@ func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+		s.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      testing.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -312,11 +315,12 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+		s.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      testing.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that ControllerInstances returns the id of the bootstrap machine.
@@ -380,7 +384,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Prepare(c)
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10 virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
@@ -390,7 +394,7 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Prepare(c)
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)

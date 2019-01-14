@@ -14,13 +14,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/tomb.v2"
@@ -35,7 +36,9 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
@@ -160,6 +163,10 @@ type ServerConfig struct {
 	// should be called every time a new login is handled.
 	GetAuditConfig func() auditlog.Config
 
+	// LeaseManager gives access to leadership and singular claimers
+	// and checkers for use in API facades.
+	LeaseManager lease.Manager
+
 	// PrometheusRegisterer registers Prometheus collectors.
 	PrometheusRegisterer prometheus.Registerer
 }
@@ -238,10 +245,11 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		cfg.RateLimitConfig.LoginRateLimit, cfg.RateLimitConfig.LoginMinPause,
 		cfg.RateLimitConfig.LoginMaxPause, clock.WallClock)
 	shared, err := newSharedServerContex(sharedServerConfig{
-		statePool:  cfg.StatePool,
-		centralHub: cfg.Hub,
-		presence:   cfg.Presence,
-		logger:     loggo.GetLogger("juju.apiserver"),
+		statePool:    cfg.StatePool,
+		centralHub:   cfg.Hub,
+		presence:     cfg.Presence,
+		leaseManager: cfg.LeaseManager,
+		logger:       loggo.GetLogger("juju.apiserver"),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -290,11 +298,18 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	srv.logSinkWriter = logSinkWriter
 
 	if cfg.PrometheusRegisterer != nil {
-		apiserverCollectior := NewMetricsCollector(&metricAdaptor{srv})
-		cfg.PrometheusRegisterer.Unregister(apiserverCollectior)
-		if err := cfg.PrometheusRegisterer.Register(apiserverCollectior); err != nil {
+		apiserverCollector := NewMetricsCollector(&metricAdaptor{srv})
+		cfg.PrometheusRegisterer.Unregister(apiserverCollector)
+		if err := cfg.PrometheusRegisterer.Register(apiserverCollector); err != nil {
 			return nil, errors.Annotate(err, "registering apiserver metrics collector")
 		}
+	}
+
+	unsubscribe, err := cfg.Hub.Subscribe(apiserver.RestartTopic, func(string, map[string]interface{}) {
+		srv.tomb.Kill(dependency.ErrBounce)
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to subscribe to restart message")
 	}
 
 	ready := make(chan struct{})
@@ -302,6 +317,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		defer srv.dbloggers.dispose()
 		defer srv.logSinkWriter.Close()
 		defer srv.shared.Close()
+		defer unsubscribe()
 		return srv.loop(ready)
 	})
 
@@ -464,14 +480,14 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt, srv.authenticator,
-		tagKindAuthorizer{names.MachineTagKind, names.UserTagKind})
+		tagKindAuthorizer{names.MachineTagKind, names.UserTagKind, names.ApplicationTagKind})
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
 	)
-	logSinkAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UnitTagKind}
+	logSinkAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UnitTagKind, names.ApplicationTagKind}
 	logTransferHandler := logsink.NewHTTPHandler(
 		// We don't need to save the migrated logs
 		// to a logfile as well as to the DB.
