@@ -12,14 +12,6 @@
   revision = "3b1ae45394a234c385be014e9a488f2bb6eef821"
 
 [[projects]]
-  branch = "master"
-  digest = "1:3dbee55971def1e4aa600dac9e3398ddb1b20ee4ca729aa08c985692b2bd1fc8"
-  name = "code.cloudfoundry.org/systemcerts"
-  packages = ["."]
-  pruneopts = ""
-  revision = "ca00b2f806f2fa1ded784ade357bad1ea3f1fbbe"
-
-[[projects]]
   digest = "1:e1b859e3d9e90007d5fbf25edf57733b224f1857f6592636130afab3af8cfae7"
   name = "contrib.go.opencensus.io/exporter/ocagent"
   packages = ["."]
@@ -190,14 +182,6 @@
   packages = ["."]
   pruneopts = ""
   revision = "145fabdb1ab757076a70a886d092a3af27f66f4c"
-
-[[projects]]
-  digest = "1:9fdd67ccb34e94602b72547c9943981458e76ba8eb6e43a5876a48dc7af1e5cb"
-  name = "github.com/flosch/pongo2"
-  packages = ["."]
-  pruneopts = ""
-  revision = "5e81b817a0c48c1c57cdf1a9056cf76bdee02ca9"
-  version = "v3.0"
 
 [[projects]]
   digest = "1:b13707423743d41665fd23f0c36b2f37bb49c30e94adb813319c44188a51ba22"
@@ -885,7 +869,7 @@
   revision = "4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36"
 
 [[projects]]
-  digest = "1:3d2c2224d419c7b4297378a7cc422dcd775a080e6d838649182c386a0ab6708e"
+  digest = "1:6afa560a3ad5e47aea2d986fd87123bfc74fe89541f197861a071e6454f06f04"
   name = "github.com/lxc/lxd"
   packages = [
     "client",
@@ -898,7 +882,7 @@
     "shared/simplestreams",
   ]
   pruneopts = ""
-  revision = "41a8bcbff8f12cb7861588bf881d6e3502581b43"
+  revision = "d0d66b4842f459c6c3e039a9e2f25eff02174ab1"
 
 [[projects]]
   digest = "1:f95025d583786875a71183888acc9d0987fc96f12d4f5afab3d7558797ea1c5a"
@@ -1621,14 +1605,6 @@
   packages = ["."]
   pruneopts = ""
   revision = "87155f248cf6ea9e38ae7613f9ea1e5bb397ac83"
-
-[[projects]]
-  branch = "v2"
-  digest = "1:92a9d3d81fc5b50d5ccf0c72b9888cd27acf277894f8aa18f4c9c41de8311555"
-  name = "gopkg.in/robfig/cron.v2"
-  packages = ["."]
-  pruneopts = ""
-  revision = "be2e0b0deed5a68ffee390b4583a13aff8321535"
 
 [[projects]]
   branch = "v1"
