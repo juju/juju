@@ -103,6 +103,62 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
+	// Enables juju deploy <charm> --to <container-type>
+	// It creates a new machine with a new container of that type.
+	// https://bugs.launchpad.net/juju-core/+bug/1590960
+	charm := s.AddTestingCharm(c, "dummy")
+	placement := instance.Placement{Scope: s.State.ModelUUID(), Directive: "zone=test"}
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:      "dummy",
+		Charm:     charm,
+		NumUnits:  1,
+		Placement: []*instance.Placement{&placement},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	units, err := app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	unit := units[0]
+
+	err = s.State.AssignUnitWithPlacement(unit, &placement)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Placement(), gc.Equals, "zone=test")
+}
+
+func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementAddCharmProfile(c *gc.C) {
+	machine, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	name := "lxd-profile"
+	charm := state.AddTestingCharmForSeries(c, s.State, "xenial", name)
+	application := s.AddTestingApplication(c, name, charm)
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.AssignUnitWithPlacement(unit,
+		&instance.Placement{
+			instance.MachineScope, machine.Id(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	chAppName, err := machine.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, name)
+	chCharmURL, err := machine.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chCharmURL, gc.Equals, charm.URL().String())
+}
+
 func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c *gc.C) {
 	s.addLockedMachine(c, true)
 

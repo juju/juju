@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
@@ -39,9 +41,13 @@ func (s *providerCommonSuite) TestCommonProvidersExported(c *gc.C) {
 
 // testDetachFilesystems is a test-case for detaching filesystems that use
 // the common "maybeUnmount" method.
-func testDetachFilesystems(c *gc.C, commands *mockRunCommand, source storage.FilesystemSource, callCtx context.ProviderCallContext, mounted bool) {
-	const testMountPoint = "/in/the/place"
-
+func testDetachFilesystems(
+	c *gc.C, commands *mockRunCommand,
+	source storage.FilesystemSource,
+	callCtx context.ProviderCallContext,
+	mounted bool,
+	etcDir, fstab string,
+) {
 	cmd := commands.expect("df", "--output=source", filepath.Dir(testMountPoint))
 	cmd.respond("headers\n/same/as/rootfs", nil)
 	cmd = commands.expect("df", "--output=source", testMountPoint)
@@ -64,4 +70,12 @@ func testDetachFilesystems(c *gc.C, commands *mockRunCommand, source storage.Fil
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0], jc.ErrorIsNil)
+
+	data, err := ioutil.ReadFile(filepath.Join(etcDir, "fstab"))
+	if os.IsNotExist(err) {
+		c.Assert(fstab, gc.Equals, "")
+		return
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), gc.Equals, fstab)
 }

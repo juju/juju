@@ -25,6 +25,7 @@ type rootfsSuite struct {
 	storageDir   string
 	commands     *mockRunCommand
 	mockDirFuncs *provider.MockDirFuncs
+	fakeEtcDir   string
 
 	callCtx context.ProviderCallContext
 }
@@ -35,6 +36,7 @@ func (s *rootfsSuite) SetUpTest(c *gc.C) {
 	}
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
+	s.fakeEtcDir = c.MkDir()
 	s.callCtx = context.NewCloudCallContext()
 }
 
@@ -87,7 +89,7 @@ func (s *rootfsSuite) TestScope(c *gc.C) {
 
 func (s *rootfsSuite) rootfsFilesystemSource(c *gc.C) storage.FilesystemSource {
 	s.commands = &mockRunCommand{c: c}
-	source, d := provider.RootfsFilesystemSource(s.storageDir, s.commands.run)
+	source, d := provider.RootfsFilesystemSource(s.fakeEtcDir, s.storageDir, s.commands.run)
 	s.mockDirFuncs = d
 	return source
 }
@@ -346,7 +348,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirClaimed(c *gc.C)
 
 func (s *rootfsSuite) TestDetachFilesystems(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	testDetachFilesystems(c, s.commands, source, s.callCtx, true)
+	testDetachFilesystems(c, s.commands, source, s.callCtx, true, s.fakeEtcDir, "")
 }
 
 func (s *rootfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
@@ -355,5 +357,5 @@ func (s *rootfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
 	// either case, there is no attachment-specific filesystem
 	// mount.
 	source := s.rootfsFilesystemSource(c)
-	testDetachFilesystems(c, s.commands, source, s.callCtx, false)
+	testDetachFilesystems(c, s.commands, source, s.callCtx, false, s.fakeEtcDir, "")
 }
