@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	environsmocks "github.com/juju/juju/environs/mocks"
 	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/common"
@@ -334,7 +333,7 @@ func (s *ProvisionerTaskSuite) testProcessOneMachineProfileChangeAddProfile(c *g
 	differentProfileName := "juju-default-different-0"
 	mExp.SetCharmProfiles([]string{differentProfileName, newProfileName}).Return(nil)
 
-	mockLXDProfiler := environsmocks.NewMockLXDProfiler(ctrl)
+	mockLXDProfiler := provisionermocks.NewMockLXDProfileInstanceBroker(ctrl)
 	lExp := mockLXDProfiler.EXPECT()
 	machineCharmProfiles := []string{"default", "juju-default", differentProfileName, newProfileName}
 	lExp.ReplaceOrAddInstanceProfile(
@@ -386,7 +385,7 @@ func (s *ProvisionerTaskSuite) TestProcessOneMachineProfileChangeChangeProfile(c
 	c.Assert(remove, gc.Equals, false)
 }
 
-func setUpMocksProcessOneMachineProfileChange(c *gc.C, info apiprovisioner.CharmProfileChangeInfo) (*gomock.Controller, *apiprovisionermock.MockMachineProvisioner, *environsmocks.MockLXDProfiler) {
+func setUpMocksProcessOneMachineProfileChange(c *gc.C, info apiprovisioner.CharmProfileChangeInfo) (*gomock.Controller, *apiprovisionermock.MockMachineProvisioner, *provisionermocks.MockLXDProfileInstanceBroker) {
 	ctrl := gomock.NewController(c)
 
 	mockMachineProvisioner := apiprovisionermock.NewMockMachineProvisioner(ctrl)
@@ -405,7 +404,7 @@ func setUpMocksProcessOneMachineProfileChange(c *gc.C, info apiprovisioner.Charm
 	}
 	machineCharmProfiles = append(machineCharmProfiles, differentProfileName)
 
-	mockLXDProfiler := environsmocks.NewMockLXDProfiler(ctrl)
+	mockLXDProfiler := provisionermocks.NewMockLXDProfileInstanceBroker(ctrl)
 	mockLXDProfiler.EXPECT().ReplaceOrAddInstanceProfile(
 		"0", info.OldProfileName, info.NewProfileName, info.LXDProfile,
 	).Return(machineCharmProfiles, nil)
