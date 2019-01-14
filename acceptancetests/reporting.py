@@ -1,5 +1,4 @@
 """Reporting helper class for communicating with influx db."""
-import abc
 import time
 import datetime
 try:
@@ -18,8 +17,6 @@ POLICYNAME = 'txn_metric'
 class _Reporting:
     """_Reporting represents a class to report metrics upon"""
 
-    __metaclass__ = abc.ABCMeta
-
     def __init__(self, client):
         self.client = client
         self.labels = {
@@ -29,18 +26,16 @@ class _Reporting:
             "test_duration": "txn_metric.test_duration",
         }
 
-    @abc.abstractmethod
+class InfluxClient(_Reporting):
+    """InfluxClient represents a influx db reporting client"""
+
+    def __init__(self, *args, **kwargs):
+        super(InfluxClient, self).__init__(*args, **kwargs)
+
     def report(self, metrics, tags):
         """Report the metrics to the underlying reporting client
         """
 
-class InfluxDB(_Reporting):
-    """InfluxDB represents a influx db reporting client"""
-
-    def __init__(self, *args, **kwargs):
-        super(InfluxDB, self).__init__(*args, **kwargs)
-
-    def report(self, metrics, tags):
         now = datetime.datetime.today()
         series = []
         for key, label in self.labels:
@@ -56,7 +51,7 @@ class InfluxDB(_Reporting):
                 series.append(pointValue)
         self.client.write_points(series, retention_policy=POLICYNAME)
 
-def makeMetrics(total_time, total_num_txns, max_time, test_duration):
+def construct_metrics(total_time, total_num_txns, max_time, test_duration):
     """Make metrics creates a dictionary of items to pass to the 
        reporting client.
     """
@@ -68,7 +63,7 @@ def makeMetrics(total_time, total_num_txns, max_time, test_duration):
         "test_duration": test_duration,
     }
 
-def reportingClient(uri):
+def get_reporting_client(uri):
     """Reporting client returns a client for reporting metrics to.
        It expects that the uri can be parsed and sent to the client constructor.
 
@@ -87,4 +82,4 @@ def reportingClient(uri):
     except InfluxDBClientError:
         client.create_database(DBNAME)
         client.create_retention_policy(POLICYNAME, 'INF', '1', DBNAME)
-    return InfluxDB(client)
+    return InfluxClient(client)

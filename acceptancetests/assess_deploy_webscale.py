@@ -34,8 +34,8 @@ from jujucharm import (
 )
 from jujupy.utility import until_timeout
 from reporting import (
-    reportingClient,
-    makeMetrics,
+    construct_metrics,
+    get_reporting_client,
 )
 
 __metaclass__ = type
@@ -154,7 +154,7 @@ def main(argv=None):
         raw_logs = extract_module_logs(client, module=args.logging_module)
         timings = extract_txn_timings(raw_logs, module=args.logging_module)
         # Calculate the timings to forward to the datastore
-        metrics = makeMetrics(
+        metrics = construct_metrics(
             calculate_total_time(timings),
             len(timings),
             calculate_max_time(timings),
@@ -163,14 +163,16 @@ def main(argv=None):
 
         log.info("Metrics for deployment: {}".format(metrics))
 
-        rclient = reportingClient(args.reporting_uri)
-        rclient.report(metrics, tags={
-            "git-sha": args.git_sha,
-            "charm-bundle": args.charm_bundle,
-        })
+        try:
+            rclient = get_reporting_client(args.reporting_uri)
+            rclient.report(metrics, tags={
+                "git-sha": args.git_sha,
+                "charm-bundle": args.charm_bundle,
+            })
+        except:
+            raise JujuAssertionError("Error reporting metrics")
         log.info("Metrics successfully sent to report storage")
     return 0
 
 if __name__ == '__main__':
     sys.exit(main())
-
