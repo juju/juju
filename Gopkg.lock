@@ -726,7 +726,7 @@
   revision = "472a3e8b2073fb3cd67c12d2bc5f3cd28e5f4116"
 
 [[projects]]
-  digest = "1:1f97e7ff2235380d88fc2d83045b48bc858555137a948254f938b255be572e66"
+  digest = "1:4857e53a05abe24af8487f892dc316449de7f350c462081560d4e223a6616f3d"
   name = "github.com/juju/txn"
   packages = [
     ".",
