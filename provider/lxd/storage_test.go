@@ -128,8 +128,9 @@ func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0].Error, jc.ErrorIsNil)
 	c.Assert(results[0].Filesystem, jc.DeepEquals, &storage.Filesystem{
-		Tag: names.NewFilesystemTag("0"),
-		FilesystemInfo: storage.FilesystemInfo{
+		names.NewFilesystemTag("0"),
+		names.VolumeTag{},
+		storage.FilesystemInfo{
 			FilesystemId: "radiance:juju-f75cba-filesystem-0",
 			Size:         1024,
 		},
@@ -139,7 +140,7 @@ func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 	s.Stub.CheckCall(c, 0, "CreatePool", "radiance", "btrfs", map[string]string(nil))
 	s.Stub.CheckCall(c, 1, "CreateVolume", "radiance", "juju-f75cba-filesystem-0", map[string]string{
 		"user.key": "value",
-		"size":     "1024MiB",
+		"size":     "1024MB",
 	})
 }
 
@@ -565,7 +566,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 			Name: "bar",
 			StorageVolumePut: api.StorageVolumePut{
 				Config: map[string]string{
-					"size": "10GiB",
+					"size": "10GB",
 				},
 			},
 		}},
@@ -583,7 +584,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 
 	update := api.StorageVolumePut{
 		Config: map[string]string{
-			"size":     "10GiB",
+			"size":     "10GB",
 			"user.baz": "qux",
 		},
 	}
@@ -623,7 +624,7 @@ func (s *storageSuite) TestImportFilesystemInvalidCredentialsUpdatePool(c *gc.C)
 			Name: "bar",
 			StorageVolumePut: api.StorageVolumePut{
 				Config: map[string]string{
-					"size": "10GiB",
+					"size": "10GB",
 				},
 			},
 		}},
