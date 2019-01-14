@@ -18,6 +18,7 @@ import (
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
 
 type offerAccessSuite struct {
@@ -78,7 +79,7 @@ func (s *offerAccessSuite) revoke(c *gc.C, user names.UserTag, access params.Off
 }
 
 func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName string) {
-	model := &mockModel{uuid: modelUUID, name: modelName, owner: owner}
+	model := &mockModel{uuid: modelUUID, name: modelName, owner: owner, modelType: state.ModelTypeIAAS}
 	s.mockState.allmodels = []applicationoffers.Model{model}
 	st := &mockState{
 		modelUUID:         modelUUID,
