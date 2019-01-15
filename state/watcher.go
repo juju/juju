@@ -1614,12 +1614,13 @@ func (w *unitsWatcher) Changes() <-chan []string {
 // on a entity's lifecycle.
 type lifeWatchDoc struct {
 	Id       string `bson:"_id"`
+	Name     string `bson:"name"`
 	Life     Life
 	TxnRevno int64 `bson:"txn-revno"`
 }
 
 // lifeWatchFields specifies the fields of a lifeWatchDoc.
-var lifeWatchFields = bson.D{{"_id", 1}, {"life", 1}, {"txn-revno", 1}}
+var lifeWatchFields = bson.D{{"_id", 1}, {"name", 1}, {"life", 1}, {"txn-revno", 1}}
 
 // initial returns every member of the tracked set.
 func (w *unitsWatcher) initial() ([]string, error) {
@@ -1627,23 +1628,23 @@ func (w *unitsWatcher) initial() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	newUnits, closer := w.db.GetCollection(unitsC)
-	defer closer()
-	query := bson.D{{"name", bson.D{{"$in", initialNames}}}}
+	return w.watchUnits(initialNames, nil)
+}
+
+func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 	docs := []lifeWatchDoc{}
-	if err := newUnits.Find(query).Select(lifeWatchFields).All(&docs); err != nil {
-		return nil, err
+	if err := w.watcher.WatchDocsWithFields(unitsC, names, []string{"name", "life"}, &docs, w.in); err != nil {
+		return nil, errors.Trace(err)
 	}
-	changes := []string{}
+
 	for _, doc := range docs {
-		unitName, err := w.backend.strictLocalID(doc.Id)
-		if err != nil {
-			return nil, errors.Trace(err)
+		if !hasString(changes, doc.Name) {
+			changes = append(changes, doc.Name)
 		}
-		changes = append(changes, unitName)
 		if doc.Life != Dead {
-			w.life[unitName] = doc.Life
-			w.watcher.WatchAtRevno(unitsC, doc.Id, doc.TxnRevno, w.in)
+			w.life[doc.Name] = doc.Life
+		} else {
+			w.watcher.Unwatch(unitsC, doc.Id, w.in)
 		}
 	}
 	return changes, nil
@@ -1656,12 +1657,16 @@ func (w *unitsWatcher) update(changes []string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	var unknown []string
 	for _, name := range latest {
-		if _, known := w.life[name]; !known {
-			changes, err = w.merge(changes, name)
-			if err != nil {
-				return nil, err
-			}
+		if _, found := w.life[name]; !found {
+			unknown = append(unknown, name)
+		}
+	}
+	if len(unknown) > 0 {
+		changes, err = w.watchUnits(unknown, changes)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 	for name := range w.life {
@@ -1683,9 +1688,8 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	units, closer := w.db.GetCollection(unitsC)
 	defer closer()
 
-	unitDocID := w.backend.docID(name)
 	doc := lifeWatchDoc{}
-	err := units.FindId(unitDocID).Select(lifeWatchFields).One(&doc)
+	err := units.FindId(name).Select(lifeWatchFields).One(&doc)
 	gone := false
 	if err == mgo.ErrNotFound {
 		gone = true
@@ -1694,15 +1698,12 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	} else if doc.Life == Dead {
 		gone = true
 	}
-	life, known := w.life[name]
+	life := w.life[name]
 	switch {
-	case known && gone:
+	case gone:
 		delete(w.life, name)
-		w.watcher.Unwatch(unitsC, unitDocID, w.in)
-	case !known && !gone:
-		w.watcher.WatchAtRevno(unitsC, unitDocID, doc.TxnRevno, w.in)
-		w.life[name] = doc.Life
-	case known && life != doc.Life:
+		w.watcher.Unwatch(unitsC, doc.Id, w.in)
+	case life != doc.Life:
 		w.life[name] = doc.Life
 	default:
 		return changes, nil

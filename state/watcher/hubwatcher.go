@@ -221,6 +221,14 @@ func (w *HubWatcher) sendReq(req interface{}) {
 	}
 }
 
+// WatchDocsWithFields watches a particular collection for a number
+// of ids. For each of those ids, a query is executed to retrieve the
+// fields specified, and read into the result structure.
+func (w *HubWatcher) WatchDocsWithFields(collection string, ids []interface{}, fields []string, results interface{}, ch chan<- Change) {
+	// XXX
+	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno, nil}})
+}
+
 // WatchAtRevno starts watching the given collection and document id.
 // An event will be sent onto ch whenever a matching document's txn-revno
 // field is observed to change after a transaction is applied. The revno

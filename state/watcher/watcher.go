@@ -30,6 +30,7 @@ type BaseWatcher interface {
 	Dead() <-chan struct{}
 	Err() error
 
+	WatchDocsWithFields(collection string, ids []interface{}, fields []string, results interface{}, ch chan<- Change) error
 	WatchAtRevno(collection string, id interface{}, revno int64, ch chan<- Change)
 	WatchNoRevno(collection string, id interface{}, ch chan<- Change)
 	WatchCollection(collection string, ch chan<- Change)
