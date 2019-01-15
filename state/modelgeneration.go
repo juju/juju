@@ -171,8 +171,9 @@ func assignGenerationUnitTxnOps(id, appName, unitName string) []txn.Op {
 	}
 }
 
-// Complete marks the generation as completed.
-func (g *Generation) Complete() error {
+// MakeCurrent marks the generation as completed, if it is active and
+// meets autocomplete criteria, so it becomes the "current" generation.
+func (g *Generation) MakeCurrent() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := g.Refresh(); err != nil {

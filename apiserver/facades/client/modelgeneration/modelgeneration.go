@@ -72,7 +72,7 @@ func NewModelGenerationAPI(
 
 // AdvanceGeneration, adds the provided unit(s) and/or application(s) to
 // the "next" generation.  If the generation can auto complete, it is
-// completed.
+// made the "current" generation.
 func (m *ModelGenerationAPI) AdvanceGeneration(args params.Entities) (params.ErrorResults, error) {
 	generation, err := m.state.NextGeneration()
 	if err != nil {
@@ -111,7 +111,7 @@ func (m *ModelGenerationAPI) AdvanceGeneration(args params.Entities) (params.Err
 		return results, err
 	}
 	if ok {
-		return results, generation.Complete()
+		return results, generation.MakeCurrent()
 	}
 
 	return results, nil
