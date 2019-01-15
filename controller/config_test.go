@@ -261,6 +261,13 @@ var validateTests = []struct {
 		controller.APIPortOpenDelay: "15",
 	},
 	expectError: `api-port-open-delay value "15" must be a valid duration`,
+}, {
+	about: "txn-prune-sleep-time not a duration",
+	config: controller.Config{
+		controller.CACertKey:         testing.CACert,
+		controller.PruneTxnSleepTime: "15",
+	},
+	expectError: `prune-txn-sleep-time must be a valid duration \(eg "10ms"\): time: missing unit in duration 15`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {
@@ -342,6 +349,20 @@ func (s *ConfigSuite) TestMaxPruneTxnConfigValue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg.MaxPruneTxnBatchSize(), gc.Equals, 12345678)
 	c.Check(cfg.MaxPruneTxnPasses(), gc.Equals, 10)
+}
+
+func (s *ConfigSuite) TestPruneTxnQueryCount(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"prune-txn-query-count": "500",
+			"prune-txn-sleep-time":  "5ms",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.PruneTxnQueryCount(), gc.Equals, 500)
+	c.Check(cfg.PruneTxnSleepTime(), gc.Equals, 5*time.Millisecond)
 }
 
 func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *gc.C) {

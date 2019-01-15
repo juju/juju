@@ -94,14 +94,11 @@ func (e *mockEnviron) ProviderSpaceInfo(ctx context.ProviderCallContext, space *
 	return e.spaceInfo, e.stub.NextErr()
 }
 
-type mockNoNetworkEnviron struct {
-	environs.Environ
-}
-
 type mockModel struct {
-	uuid  string
-	name  string
-	owner string
+	uuid      string
+	name      string
+	owner     string
+	modelType state.ModelType
 }
 
 func (m *mockModel) UUID() string {
@@ -110,6 +107,10 @@ func (m *mockModel) UUID() string {
 
 func (m *mockModel) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.uuid)
+}
+
+func (m *mockModel) Type() state.ModelType {
+	return m.modelType
 }
 
 func (m *mockModel) Name() string {
@@ -159,50 +160,6 @@ func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
 
 func (m *mockApplication) EndpointBindings() (map[string]string, error) {
 	return m.bindings, nil
-}
-
-type mockRemoteApplication struct {
-	name           string
-	sourceModelTag names.ModelTag
-	endpoints      []state.Endpoint
-	bindings       map[string]string
-	spaces         []state.RemoteSpace
-	offerName      string
-	offerURL       string
-}
-
-func (m *mockRemoteApplication) Name() string {
-	return m.name
-}
-
-func (m *mockRemoteApplication) SourceModel() names.ModelTag {
-	return m.sourceModelTag
-}
-
-func (m *mockRemoteApplication) Endpoints() ([]state.Endpoint, error) {
-	return m.endpoints, nil
-}
-
-func (m *mockRemoteApplication) Bindings() map[string]string {
-	return m.bindings
-}
-
-func (m *mockRemoteApplication) Spaces() []state.RemoteSpace {
-	return m.spaces
-}
-
-func (m *mockRemoteApplication) AddEndpoints(eps []charm.Relation) error {
-	for _, ep := range eps {
-		m.endpoints = append(m.endpoints, state.Endpoint{
-			ApplicationName: m.name,
-			Relation: charm.Relation{
-				Name:      ep.Name,
-				Interface: ep.Interface,
-				Role:      ep.Role,
-			},
-		})
-	}
-	return nil
 }
 
 type mockSpace struct {
@@ -327,7 +284,7 @@ type mockState struct {
 	crossmodel.Backend
 	common.AddressAndCertGetter
 	modelUUID         string
-	model             applicationoffers.Model
+	model             *mockModel
 	allmodels         []applicationoffers.Model
 	users             map[string]applicationoffers.User
 	applications      map[string]crossmodel.Application

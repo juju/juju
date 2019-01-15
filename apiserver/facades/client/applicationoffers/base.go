@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
 
 // BaseAPI provides various boilerplate methods used by the facade business logic.
@@ -440,6 +441,12 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 		ApplicationDescription: offer.ApplicationDescription,
 	}
 
+	// CAAS models don't have spaces.
+	model, err := backend.Model()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	spaceNames := set.NewStrings()
 	for alias, ep := range offer.Endpoints {
 		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
@@ -447,6 +454,10 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 			Interface: ep.Interface,
 			Role:      ep.Role,
 		})
+		if model.Type() == state.ModelTypeCAAS {
+			continue
+		}
+
 		spaceName, ok := appBindings[ep.Name]
 		if !ok {
 			// There should always be some binding (even if it's to the default space).
@@ -458,6 +469,10 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 			result.Bindings[ep.Name] = environs.DefaultSpaceName
 		}
 		spaceNames.Add(spaceName)
+	}
+
+	if model.Type() == state.ModelTypeCAAS {
+		return &result, app, nil
 	}
 
 	spaces, err := api.collectRemoteSpaces(backend, spaceNames.SortedValues())

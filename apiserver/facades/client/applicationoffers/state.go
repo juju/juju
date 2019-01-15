@@ -175,6 +175,7 @@ type Model interface {
 	UUID() string
 	ModelTag() names.ModelTag
 	Name() string
+	Type() state.ModelType
 	Owner() names.UserTag
 }
 

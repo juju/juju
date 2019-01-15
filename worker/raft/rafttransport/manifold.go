@@ -4,6 +4,8 @@
 package rafttransport
 
 import (
+	"time"
+
 	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -16,6 +18,10 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 )
+
+// raftNetworkTimeout is how long the transport should wait before
+// failing a network interaction.
+const raftNetworkTimeout = 30 * time.Second
 
 // ManifoldConfig holds the information necessary to run an apiserver-based
 // raft transport worker in a dependency.Engine.
@@ -125,6 +131,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		LocalID:       raft.ServerID(agent.CurrentConfig().Tag().Id()),
 		TLSConfig:     api.NewTLSConfig(certPool),
 		Clock:         clk,
+		Timeout:       raftNetworkTimeout,
 	})
 }
 

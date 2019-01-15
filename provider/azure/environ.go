@@ -1674,7 +1674,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Provi
 	errs := make([]error, len(groupNames))
 	for i, name := range groupNames {
 		groupName := to.String(name)
-		logger.Debugf("  - deleting resource group %q", name)
+		logger.Debugf("  - deleting resource group %q", groupName)
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
