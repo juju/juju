@@ -233,7 +233,7 @@ func (g *Generation) MakeCurrent() error {
 		if !g.Active() {
 			return nil, errors.New("generation is not currently active")
 		}
-		ok, err := g.CanAutoComplete()
+		ok, err := g.CanMakeCurrent()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -266,11 +266,11 @@ func (g *Generation) MakeCurrent() error {
 	return errors.Trace(g.st.db().Run(buildTxn))
 }
 
-// CanAutoComplete returns true if every application that has had configuration
+// CanMakeCurrent returns true if every application that has had configuration
 // changes in this generation also has *all* of its units assigned to the
 // generation.
-func (g *Generation) CanAutoComplete() (bool, error) {
-	can, err := g.canComplete(false)
+func (g *Generation) CanMakeCurrent() (bool, error) {
+	can, err := g.canMakeCurrent(false)
 	return can, errors.Trace(err)
 }
 
@@ -278,12 +278,12 @@ func (g *Generation) CanAutoComplete() (bool, error) {
 // changes in this generation has *all or none* of its units assigned to the
 // generation.
 func (g *Generation) CanCancel() (bool, error) {
-	can, err := g.canComplete(true)
+	can, err := g.canMakeCurrent(true)
 	return can, errors.Trace(err)
 }
 
-func (g *Generation) canComplete(allowEmpty bool) (bool, error) {
-	// This will prevent CanAutoComplete from returning true when no config
+func (g *Generation) canMakeCurrent(allowEmpty bool) (bool, error) {
+	// This will prevent CanMakeCurrent from returning true when no config
 	// changes have been made to the generation.
 	if !allowEmpty && len(g.doc.AssignedUnits) == 0 {
 		return false, nil

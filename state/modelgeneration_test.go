@@ -82,7 +82,7 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsTrue)
 
-	auto, err := gen.CanAutoComplete()
+	auto, err := gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(auto, jc.IsFalse)
 
@@ -108,7 +108,7 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsTrue)
 
-	auto, err = gen.CanAutoComplete()
+	auto, err = gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(auto, jc.IsFalse)
 
@@ -121,7 +121,7 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsFalse)
 
-	auto, err = gen.CanAutoComplete()
+	auto, err = gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(auto, jc.IsFalse)
 
@@ -134,7 +134,7 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsTrue)
 
-	auto, err = gen.CanAutoComplete()
+	auto, err = gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(auto, jc.IsTrue)
 }

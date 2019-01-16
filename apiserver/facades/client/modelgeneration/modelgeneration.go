@@ -32,7 +32,7 @@ type ModelGenerationState interface {
 
 type Generation interface {
 	AssignUnit(string) error
-	CanAutoComplete() (bool, error)
+	CanMakeCurrent() (bool, error)
 	MakeCurrent() error
 }
 
@@ -97,7 +97,7 @@ func (m *ModelGenerationAPI) AdvanceGeneration(args params.Entities) (params.Err
 			results.Results[i].Error = common.ServerError(errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag))
 		}
 	}
-	ok, err := generation.CanAutoComplete()
+	ok, err := generation.CanMakeCurrent()
 	if err != nil {
 		return results, err
 	}
