@@ -10,6 +10,7 @@ import (
 	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus/mocks"
 	meterstatustesting "github.com/juju/juju/apiserver/facades/agent/meterstatus/testing"
@@ -190,16 +191,16 @@ func (s *meterStatusSuite) TestWatchMeterStatusWithApplicationTag(c *gc.C) {
 
 type meterStatusAPIMocks struct {
 	state      *mocks.MockMeterStatusState
-	resources  *mocks.MockResources
-	authorizer *mocks.MockAuthorizer
+	resources  *facademocks.MockResources
+	authorizer *facademocks.MockAuthorizer
 }
 
 func (s *meterStatusSuite) setupMeterStatusAPI(c *gc.C, fn func(meterStatusAPIMocks)) (*meterstatus.MeterStatusAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	mockState := mocks.NewMockMeterStatusState(ctrl)
-	mockResources := mocks.NewMockResources(ctrl)
-	mockAuthorizer := mocks.NewMockAuthorizer(ctrl)
+	mockResources := facademocks.NewMockResources(ctrl)
+	mockAuthorizer := facademocks.NewMockAuthorizer(ctrl)
 
 	mockAuthorizer.EXPECT().AuthUnitAgent().Return(true)
 
