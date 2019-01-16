@@ -4,12 +4,16 @@
 package state_test
 
 import (
+	"time"
+
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
+	jc "github.com/juju/testing/checkers"
 )
 
 type generationSuite struct {
@@ -204,4 +208,120 @@ func (s *generationSuite) TestAssignUnitSuccess(c *gc.C) {
 	c.Assert(gen.AssignUnit("redis/0"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Check(gen.AssignedUnits(), gc.DeepEquals, expected)
+}
+
+func (s *generationSuite) setupAssignAllUnits(c *gc.C) {
+	charm := s.AddTestingCharm(c, "riak")
+	redis := s.AddTestingApplication(c, "riak", charm)
+	for i := 0; i < 4; i++ {
+		_, err := redis.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+}
+
+func (s *generationSuite) TestAssignAllUnitsSuccessAll(c *gc.C) {
+	s.setupAssignAllUnits(c)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(gen.AssignAllUnits("riak"), jc.ErrorIsNil)
+
+	expected := map[string][]string{"riak": {"riak/0", "riak/1", "riak/2", "riak/3"}}
+
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.DeepEquals, expected)
+
+	// Idempotent.
+	c.Assert(gen.AssignAllUnits("riak"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.DeepEquals, expected)
+}
+
+func (s *generationSuite) TestAssignAllUnitsSuccessRemaining(c *gc.C) {
+	s.setupAssignAllUnits(c)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(gen.AssignUnit("riak/2"), jc.ErrorIsNil)
+	c.Assert(gen.AssignAllUnits("riak"), jc.ErrorIsNil)
+
+	expected := map[string][]string{"riak": {"riak/2", "riak/3", "riak/1", "riak/0"}}
+
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.DeepEquals, expected)
+
+	// Idempotent.
+	c.Assert(gen.AssignAllUnits("riak"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.DeepEquals, expected)
+}
+
+func (s *generationSuite) TestAssignAllUnitsNotActiveError(c *gc.C) {
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// If the "next" generation is not active,
+	// a call to AssignAllUnits should fail.
+	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.AssignAllUnits("riak"), gc.ErrorMatches, "generation is not currently active")
+}
+
+func (s *generationSuite) setupClockforMakeCurrent(c *gc.C) {
+	now := testing.NonZeroTime()
+	clock := testclock.NewClock(now)
+	clock.Advance(400000 * time.Hour)
+	c.Logf("\n\tHEATHER: %s\n", now.String())
+	c.Logf("\tHEATHER: %d\n", now.Unix())
+
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *generationSuite) TestMakeCurrentSuccess(c *gc.C) {
+	s.setupAssignAllUnits(c)
+	s.setupClockforMakeCurrent(c)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(gen.AssignAllUnits("riak"), jc.ErrorIsNil)
+
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
+
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.Active(), jc.IsFalse)
+
+	// Idempotent.
+	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
+}
+
+func (s *generationSuite) TestMakeCurrentNotActiveError(c *gc.C) {
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// If the "next" generation is not active,
+	// a call to MakeCurrent should fail.
+	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "generation is not currently active")
+}
+
+func (s *generationSuite) TestMakeCurrentGenerationIncompleteError(c *gc.C) {
+	s.setupAssignAllUnits(c)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "generation can not auto complete")
 }
