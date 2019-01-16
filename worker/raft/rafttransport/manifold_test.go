@@ -150,6 +150,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Path:          "raft/path",
 		LocalID:       "123",
 		Clock:         s.clock,
+		Timeout:       30 * time.Second,
 	})
 }
 

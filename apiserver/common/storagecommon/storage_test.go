@@ -123,6 +123,20 @@ func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoMissingBlock
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
 }
 
+func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceNameIgnoresEmptyLinks(c *gc.C) {
+	s.volumeAttachment.info.DeviceLink = "/dev/disk/by-id/verbatim"
+	s.volumeAttachment.info.DeviceName = "sda"
+	// Clear the machine block device link to force a match on name.
+	s.blockDevices[0].DeviceLinks = nil
+	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
+	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
+		Kind:     storage.StorageKindBlock,
+		Location: "/dev/sda",
+	})
+}
+
 func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceLink(c *gc.C) {
 	s.volumeAttachment.info.DeviceLink = "/dev/disk/by-id/verbatim"
 	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)

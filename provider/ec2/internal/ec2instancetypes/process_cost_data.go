@@ -89,6 +89,7 @@ var (
 	paravirtual = "pv"
 	hvm         = "hvm"
 	amd64       = []string{arch.AMD64}
+	arm64       = []string{arch.ARM64}  // AWS Graviton Processor
 	both        = []string{arch.AMD64, arch.I386}
 )
 
@@ -200,6 +201,10 @@ func process(in io.Reader) (map[string][]instanceType, metadata, error) {
 		arches := "amd64"
 		if productInfo.ProcessorArchitecture == "32-bit or 64-bit" {
 			arches = "both"
+		}
+		if productInfo.PhysicalProcessor == "AWS Graviton Processor" {
+			// a1 instances
+			arches = "arm64"
 		}
 
 		// NOTE(axw) it's not really either/or. Some instance types are
@@ -343,6 +348,7 @@ func locationToRegion(loc string) (string, bool) {
 		"EU (Ireland)":               "eu-west-1",
 		"EU (London)":                "eu-west-2",
 		"EU (Paris)":                 "eu-west-3",
+		"EU (Stockholm)":             "eu-north-1",
 		"Asia Pacific (Tokyo)":       "ap-northeast-1",
 		"Asia Pacific (Seoul)":       "ap-northeast-2",
 		"Asia Pacific (Osaka-Local)": "ap-northeast-3",
@@ -401,6 +407,7 @@ type ProductAttributes struct {
 	OperatingSystem       string `json:"operatingSystem"`       // Windows|RHEL|SUSE|Linux
 	Tenancy               string `json:"tenancy"`               // Dedicated|Host|Shared
 	ProcessorArchitecture string `json:"processorArchitecture"` // (32-bit or )?64-bit
+	PhysicalProcessor     string `json:"physicalProcessor"`     // e.g. AWS Graviton Processor|Intel Xeon Platinum 8175
 	PreInstalledSW        string `json:"preInstalledSw"`        // e.g. NA|SQL Web|SQL Std
 	InstanceSku           string `json:"instancesku"`
 }

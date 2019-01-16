@@ -14,6 +14,7 @@ import logging
 import sys
 import os
 import subprocess
+from time import sleep
 
 import requests
 
@@ -162,11 +163,12 @@ def check_app_healthy(url, timeout=300):
     for _ in until_timeout(timeout):
         try:
             r = requests.get(url)
-            if r.ok and r.status_code < 300:
+            if r.ok and r.status_code < 400:
                 return
             status_code = r.status_code
         except IOError as e:
             log.error(e)
+        sleep(3)
     log.error('HTTP health check failed -> %s, status_code -> %s !', url, status_code)
     raise JujuAssertionError('gitlab is not healthy')
 
@@ -184,6 +186,14 @@ def assess_caas_charm_deployment(client):
 
     if not caas_client.is_cluster_healthy:
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
+
+    # tmp fix kubernetes core ingress issue
+    caas_client.kubectl(
+        'patch', 'daemonset.apps/nginx-ingress-kubernetes-worker-controller', '--patch',
+        '''
+        {"spec": {"template": {"spec": {"containers": [{"name": "nginx-ingress-kubernetes-worker","args": ["/nginx-ingress-controller", "--default-backend-service=$(POD_NAMESPACE)/default-http-backend", "--configmap=$(POD_NAMESPACE)/nginx-load-balancer-conf", "--enable-ssl-chain-completion=False", "--publish-status-address=%s"]}]}}}}
+        ''' % caas_client.get_first_worker_ip()
+    )
 
     # add caas model for deploying caas charms on top of it
     model_name = 'testcaas'
@@ -214,13 +224,11 @@ def assess_caas_charm_deployment(client):
     k8s_model.deploy(
         charm="cs:~juju/gitlab-k8s-0",
         config='juju-external-hostname={}'.format(external_hostname),
-        resource="gitlab_image=gitlab/gitlab-ee:11.5.4-ee.0",
     )
 
     k8s_model.deploy(
         charm="cs:~juju/mariadb-k8s-0",
-        resource="mysql_image=mysql/mysql-server:5.7",
-        storage='database=10M,{pool_name}'.format(pool_name=mariadb_storage_pool_name),
+        storage='database=100M,{pool_name}'.format(pool_name=mariadb_storage_pool_name),
     )
 
     k8s_model.juju('relate', ('mariadb-k8s', 'gitlab-k8s'))
@@ -232,9 +240,6 @@ def assess_caas_charm_deployment(client):
 
     log.info(caas_client.kubectl('get', 'all', '--all-namespaces'))
     k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
-
-    # destroy model to peacefully exit.
-    k8s_model.destroy_model()
 
 
 def parse_args(argv):

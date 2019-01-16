@@ -132,15 +132,29 @@ const (
 	// MaxTxnLogSize is the maximum size the of capped txn log collection, eg "10M"
 	MaxTxnLogSize = "max-txn-log-size"
 
-	// MaxPruneTxnBatchSize is the maximum number of transactions we will evaluate in one go when pruning
-	// Default is 1M transactions. A value <= 0 indicates to do all transactions at once.
+	// MaxPruneTxnBatchSize (deprecated) is the maximum number of transactions
+	// we will evaluate in one go when pruning. Default is 1M transactions.
+	// A value <= 0 indicates to do all transactions at once.
 	MaxPruneTxnBatchSize = "max-prune-txn-batch-size"
 
-	// MaxPruneTxnPasses is the maximum number of batches that we will process. So total number of transactions that can
-	// be processed is MaxPruneTxnBatchSize * MaxPruneTxnPasses.
+	// MaxPruneTxnPasses (deprecated) is the maximum number of batches that we will process.
+	// So total number of transactions that can be processed is MaxPruneTxnBatchSize * MaxPruneTxnPasses.
 	// A value <= 0 implies 'do a single pass'. If both MaxPruneTxnBatchSize and MaxPruneTxnPasses are 0, then the
 	// default value of 1M BatchSize and 100 passes will be used instead.
 	MaxPruneTxnPasses = "max-prune-txn-passes"
+
+	// PruneTxnQueryCount is the number of transactions to read in a single query.
+	// Minimum of 10, a value of 0 will indicate to use the default value (1000)
+	PruneTxnQueryCount = "prune-txn-query-count"
+
+	// PruneTxnSleepTime is the amount of time to sleep between processing each
+	// batch query. This is used to reduce load on the system, allowing other queries
+	// to time to operate. On large controllers, processing 1000 txs seems to take
+	// about 100ms, so a sleep time of 10ms represents a 10% slowdown, but allows
+	// other systems to operate concurrently.
+	// A negative number will indicate to use the default, a value of 0 indicates
+	// to not sleep at all.
+	PruneTxnSleepTime = "prune-txn-sleep-time"
 
 	// Attribute Defaults
 
@@ -187,11 +201,21 @@ const (
 	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
 
-	// DefaultMaxPruneTxnBatchSize is the normal number of transaction we will prune in a given pass (1M)
+	// DefaultMaxPruneTxnBatchSize is the normal number of transaction we will prune in a given pass (1M) (deprecated)
 	DefaultMaxPruneTxnBatchSize = 1 * 1000 * 1000
 
-	// DefaultMaxPruneTxnPasses is the default number of batches we will process
+	// DefaultMaxPruneTxnPasses is the default number of batches we will process (deprecated)
 	DefaultMaxPruneTxnPasses = 100
+
+	// DefaultPruneTxnQueryCount is the number of transactions to read in a single query.
+	DefaultPruneTxnQueryCount = 1000
+
+	// DefaultPruneTxnSleepTime is the amount of time to sleep between processing each
+	// batch query. This is used to reduce load on the system, allowing other queries
+	// to time to operate. On large controllers, processing 1000 txs seems to take
+	// about 100ms, so a sleep time of 10ms represents a 10% slowdown, but allows
+	// other systems to operate concurrently.
+	DefaultPruneTxnSleepTime = "10ms"
 
 	// JujuHASpace is the network space within which the MongoDB replica-set
 	// should communicate.
@@ -235,6 +259,8 @@ var (
 		MaxTxnLogSize,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
+		PruneTxnQueryCount,
+		PruneTxnSleepTime,
 		JujuHASpace,
 		JujuManagementSpace,
 		AuditingEnabled,
@@ -262,6 +288,8 @@ var (
 		MaxPruneTxnPasses,
 		MaxLogsSize,
 		MaxLogsAge,
+		PruneTxnQueryCount,
+		PruneTxnSleepTime,
 		JujuHASpace,
 		JujuManagementSpace,
 		CAASOperatorImagePath,
@@ -565,6 +593,17 @@ func (c Config) MaxPruneTxnPasses() int {
 	return c.intOrDefault(MaxPruneTxnPasses, DefaultMaxPruneTxnPasses)
 }
 
+// PruneTxnQueryCount is the size of small batches for pruning
+func (c Config) PruneTxnQueryCount() int {
+	return c.intOrDefault(PruneTxnQueryCount, DefaultPruneTxnQueryCount)
+}
+
+// PruneTxnSleepTime is the amount of time to sleep between batches.
+func (c Config) PruneTxnSleepTime() time.Duration {
+	val, _ := time.ParseDuration(c.mustString(PruneTxnSleepTime))
+	return val
+}
+
 // JujuHASpace is the network space within which the MongoDB replica-set
 // should communicate.
 func (c Config) JujuHASpace() string {
@@ -648,6 +687,12 @@ func Validate(c Config) error {
 	if v, ok := c[MaxTxnLogSize].(string); ok {
 		if _, err := utils.ParseSize(v); err != nil {
 			return errors.Annotate(err, "invalid max txn log size in configuration")
+		}
+	}
+
+	if v, ok := c[PruneTxnSleepTime].(string); ok {
+		if _, err := time.ParseDuration(v); err != nil {
+			return errors.Annotatef(err, `%s must be a valid duration (eg "10ms")`, PruneTxnSleepTime)
 		}
 	}
 
@@ -795,6 +840,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:           schema.String(),
 	MaxPruneTxnBatchSize:    schema.ForceInt(),
 	MaxPruneTxnPasses:       schema.ForceInt(),
+	PruneTxnQueryCount:      schema.ForceInt(),
+	PruneTxnSleepTime:       schema.String(),
 	JujuHASpace:             schema.String(),
 	JujuManagementSpace:     schema.String(),
 	CAASOperatorImagePath:   schema.String(),
@@ -823,6 +870,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 	MaxPruneTxnBatchSize:    DefaultMaxPruneTxnBatchSize,
 	MaxPruneTxnPasses:       DefaultMaxPruneTxnPasses,
+	PruneTxnQueryCount:      DefaultPruneTxnQueryCount,
+	PruneTxnSleepTime:       DefaultPruneTxnSleepTime,
 	JujuHASpace:             schema.Omit,
 	JujuManagementSpace:     schema.Omit,
 	CAASOperatorImagePath:   schema.Omit,

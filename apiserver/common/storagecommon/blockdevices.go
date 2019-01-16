@@ -42,23 +42,27 @@ func MatchingBlockDevice(
 	for _, dev := range blockDevices {
 		if planBlockInfo.HardwareId != "" {
 			if planBlockInfo.HardwareId == dev.HardwareId {
+				logger.Tracef("plan hwid match on %v", volumeInfo.HardwareId)
 				return &dev, true
 			}
 		}
 		if planBlockInfo.WWN != "" {
 			if planBlockInfo.WWN == dev.WWN {
+				logger.Tracef("plan wwn match on %v", volumeInfo.WWN)
 				return &dev, true
 			}
 			continue
 		}
 		if planBlockInfo.DeviceName != "" {
 			if planBlockInfo.DeviceName == dev.DeviceName {
+				logger.Tracef("plan device name match on %v", attachmentInfo.DeviceName)
 				return &dev, true
 			}
 			continue
 		}
 		if volumeInfo.WWN != "" {
 			if volumeInfo.WWN == dev.WWN {
+				logger.Tracef("wwn match on %v", volumeInfo.WWN)
 				return &dev, true
 			}
 			logger.Tracef("no match for block device WWN: %v", dev.WWN)
@@ -66,6 +70,7 @@ func MatchingBlockDevice(
 		}
 		if volumeInfo.HardwareId != "" {
 			if volumeInfo.HardwareId == dev.HardwareId {
+				logger.Tracef("hwid match on %v", volumeInfo.HardwareId)
 				return &dev, true
 			}
 			logger.Tracef("no match for block device hardware id: %v", dev.HardwareId)
@@ -73,14 +78,18 @@ func MatchingBlockDevice(
 		}
 		if attachmentInfo.BusAddress != "" {
 			if attachmentInfo.BusAddress == dev.BusAddress {
+				logger.Tracef("bus address match on %v", attachmentInfo.BusAddress)
 				return &dev, true
 			}
 			logger.Tracef("no match for block device bus address: %v", dev.BusAddress)
 			continue
 		}
-		if attachmentInfo.DeviceLink != "" {
+		// Only match on block device link if the block device is published
+		// with device link information.
+		if attachmentInfo.DeviceLink != "" && len(dev.DeviceLinks) > 0 {
 			for _, link := range dev.DeviceLinks {
 				if attachmentInfo.DeviceLink == link {
+					logger.Tracef("device link match on %v", attachmentInfo.DeviceLink)
 					return &dev, true
 				}
 			}
@@ -88,6 +97,7 @@ func MatchingBlockDevice(
 			continue
 		}
 		if attachmentInfo.DeviceName == dev.DeviceName {
+			logger.Tracef("device name match on %v", attachmentInfo.DeviceName)
 			return &dev, true
 		}
 		logger.Tracef("no match for block device name: %v", dev.DeviceName)
