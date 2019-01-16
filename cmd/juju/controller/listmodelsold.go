@@ -201,7 +201,7 @@ func (c *modelsCommand) tabularSet(writer io.Writer, modelSet ModelSet) error {
 		if model.Status != nil {
 			status = model.Status.Current.String()
 		}
-		w.Print(cloudRegion, status)
+		w.Print(cloudRegion, model.ProviderType, status)
 		if c.runVars.hasMachinesCount {
 			w.Print(fmt.Sprintf("%d", len(model.Machines)))
 		}

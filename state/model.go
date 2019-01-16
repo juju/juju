@@ -323,15 +323,9 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
-	// For IAAS Models, the model cloud must be the same as the controller cloud.
-	if args.Type == ModelTypeIAAS && controllerInfo.CloudName != args.CloudName {
-		return nil, nil, errors.NewNotValid(
-			nil, fmt.Sprintf("controller cloud %s does not match model cloud %s", controllerInfo.CloudName, args.CloudName))
-	}
-
 	// Ensure that the cloud region is valid, or if one is not specified,
 	// that the cloud does not support regions.
-	controllerCloud, err := st.Cloud(args.CloudName)
+	modelCloud, err := st.Cloud(args.CloudName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -339,7 +333,11 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	var prereqOps []txn.Op
 
 	if args.Type == ModelTypeIAAS {
-		assertCloudRegionOp, err := validateCloudRegion(controllerCloud, args.CloudRegion)
+		// If no region specified and the cloud only has one, default to that.
+		if args.CloudRegion == "" && len(modelCloud.Regions) == 1 {
+			args.CloudRegion = modelCloud.Regions[0].Name
+		}
+		assertCloudRegionOp, err := validateCloudRegion(modelCloud, args.CloudRegion)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -356,7 +354,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	}
 
 	assertCloudCredentialOp, err := validateCloudCredential(
-		controllerCloud, cloudCredentials, args.CloudCredential,
+		modelCloud, cloudCredentials, args.CloudCredential,
 	)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

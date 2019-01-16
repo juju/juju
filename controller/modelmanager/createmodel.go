@@ -60,25 +60,6 @@ func (c ModelConfigCreator) NewModelConfig(
 		return nil, errors.Trace(err)
 	}
 
-	// Before comparing any values, we need to push the config through
-	// the provider validation code. One of the reasons for this is that
-	// numbers being serialized through JSON get turned into float64. The
-	// schema code used in config will convert these back into integers.
-	// However, before we can create a valid config, we need to make sure
-	// we copy across fields from the main config that aren't there.
-	baseAttrs := base.AllAttrs()
-	restrictedFields, err := RestrictedProviderFields(provider)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, field := range restrictedFields {
-		if _, ok := attrs[field]; !ok {
-			if baseValue, ok := baseAttrs[field]; ok {
-				attrs[field] = baseValue
-			}
-		}
-	}
-
 	// Generate a new UUID for the model as necessary,
 	// and finalize the new config.
 	if _, ok := attrs[config.UUIDKey]; !ok {
@@ -88,25 +69,11 @@ func (c ModelConfigCreator) NewModelConfig(
 		}
 		attrs[config.UUIDKey] = uuid.String()
 	}
+	attrs[config.TypeKey] = cloud.Type
 	cfg, err := finalizeConfig(provider, cloud, attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	// Any values that would normally be copied from the controller
-	// config can also be defined, but if they differ from the controller
-	// values, an error is returned.
-	attrs = cfg.AllAttrs()
-	for _, field := range restrictedFields {
-		if value, ok := attrs[field]; ok {
-			if serverValue := baseAttrs[field]; value != serverValue {
-				return nil, errors.Errorf(
-					"specified %s \"%v\" does not match controller \"%v\"",
-					field, value, serverValue)
-			}
-		}
-	}
-
 	return cfg, nil
 }
 
@@ -162,20 +129,6 @@ func (c *ModelConfigCreator) checkVersion(base *config.Config, attrs map[string]
 	}
 	logger.Tracef("found agent binaries: %#v", list)
 	return nil
-}
-
-// RestrictedProviderFields returns the set of config fields that may not be
-// overridden.
-//
-// TODO(axw) restricted config should go away. There should be no provider-
-// specific config, since models should be independent of each other; and
-// anything that should not change across models should be in the controller
-// config.
-func RestrictedProviderFields(provider environs.EnvironProvider) ([]string, error) {
-	var fields []string
-	// For now, all models in a controller must be of the same type.
-	fields = append(fields, config.TypeKey)
-	return fields, nil
 }
 
 // finalizeConfig creates the config object from attributes,
