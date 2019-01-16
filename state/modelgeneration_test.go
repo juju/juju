@@ -313,5 +313,5 @@ func (s *generationSuite) TestMakeCurrentGenerationIncompleteError(c *gc.C) {
 
 	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "generation can not auto complete")
+	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "generation can not be completed")
 }

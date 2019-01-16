@@ -238,7 +238,7 @@ func (g *Generation) MakeCurrent() error {
 			return nil, errors.Trace(err)
 		}
 		if !ok {
-			return nil, errors.New("generation can not auto complete")
+			return nil, errors.New("generation can not be completed")
 		}
 		time, err := g.st.ControllerTimestamp()
 		if err != nil {
@@ -260,7 +260,6 @@ func (g *Generation) MakeCurrent() error {
 				},
 			},
 		}
-		logger.Debugf("%#v", ops)
 		return ops, nil
 	}
 	return errors.Trace(g.st.db().Run(buildTxn))
