@@ -60,7 +60,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/metricsdebug"   // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"    // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/modelmanager"   // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
+	"github.com/juju/juju/apiserver/facades/client/modelmanager" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/facades/client/spaces"    // ModelUser Write
@@ -227,6 +228,7 @@ func AllFacades() *facade.Registry {
 
 	reg("ModelConfig", 1, modelconfig.NewFacadeV1)
 	reg("ModelConfig", 2, modelconfig.NewFacadeV2)
+	reg("ModelGeneration", 1, modelgeneration.NewModelGenerationFacade)
 	reg("ModelManager", 2, modelmanager.NewFacadeV2)
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
 	reg("ModelManager", 4, modelmanager.NewFacadeV4)

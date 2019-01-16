@@ -1433,3 +1433,17 @@ type SetProfileUpgradeCompleteArg struct {
 	Entity  Entity `json:"entity"`
 	Message string `json:"message"`
 }
+
+// GenerationVersionArg contains a Model Entity to act in and the
+// GenerationVersion to switch to.
+type GenerationVersionArg struct {
+	Model   Entity                  `json:"model"`
+	Version model.GenerationVersion `json:"version"`
+}
+
+// AdvanceGenerationArg contains a Model Entity to act in and a slice of
+// Entities to advance into the 'next' generation.
+type AdvanceGenerationArg struct {
+	Model    Entity   `json:"model"`
+	Entities []Entity `json:"entities"`
+}
