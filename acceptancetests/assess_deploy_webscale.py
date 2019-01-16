@@ -64,6 +64,7 @@ def deploy_bundle(client, charm_bundle):
         path=bundle,
         client=client,
         charm=(not not charm_bundle),
+        timeout=43200,
     )
 
     if not caas_client.is_cluster_healthy:
