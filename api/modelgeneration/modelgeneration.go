@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -46,13 +47,23 @@ func (c *Client) CancelGeneration() error {
 }
 
 // SwitchGeneration adds a model generation to the config.
-func (c *Client) SwitchGeneration(arg string) error {
+func (c *Client) SwitchGeneration(version string) error {
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("SwitchGeneration", nil, &result)
+	var arg params.GenerationVersionArg
+	switch version {
+	case "current":
+		arg.Version = model.GenerationCurrent
+	case "next":
+		arg.Version = model.GenerationNext
+	default:
+		return errors.Trace(errors.New("version must be 'next' or 'current'"))
+	}
+	err := c.facade.FacadeCall("SwitchGeneration", arg, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return result.Error
+
 }
 
 // AdvanceGeneration advances a unit and/or applications to the 'next' generation.
