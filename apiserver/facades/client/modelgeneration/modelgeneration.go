@@ -28,16 +28,12 @@ type ModelGenerationState interface {
 	// NextGeneration returns the model's "next" generation
 	// if one exists that is not yet completed.
 	NextGeneration() (*state.Generation, error)
-
-	// AppUnitNames returns a slice of unit names for the given
-	// application.
-	AppUnitNames(string) ([]string, error)
 }
 
 type Generation interface {
 	AssignUnit(string) error
 	CanAutoComplete() (bool, error)
-	Complete() error
+	MakeCurrent() error
 }
 
 // ModelGenerationAPI implements the ModelGeneration interface and is the concrete implementation
@@ -55,6 +51,8 @@ func NewModelGenerationFacade(ctx facade.Context) (*ModelGenerationAPI, error) {
 }
 
 // NewModelGenerationAPI creates a new API endpoint for dealing with model generations.
+// TODO: (hml) 15-01-2019
+// are the following 2 interfaces mocked somewhere else?
 //go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
 func NewModelGenerationAPI(
 	st ModelGenerationState,
@@ -92,14 +90,7 @@ func (m *ModelGenerationAPI) AdvanceGeneration(args params.Entities) (params.Err
 		}
 		switch tag.Kind() {
 		case names.ApplicationTagKind:
-			unitNames, err := m.state.AppUnitNames(tag.String())
-			if err != nil {
-				results.Results[i].Error = common.ServerError(err)
-				continue
-			}
-			for _, name := range unitNames {
-				results.Results[i].Error = common.ServerError(generation.AssignUnit(name))
-			}
+			results.Results[i].Error = common.ServerError(generation.AssignAllUnits(tag.Id()))
 		case names.UnitTagKind:
 			results.Results[i].Error = common.ServerError(generation.AssignUnit(tag.String()))
 		default:
