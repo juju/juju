@@ -174,14 +174,14 @@ def main(argv=None):
         log.info("Metrics for deployment: {}".format(metrics))
 
         # Extract the charm bundle and revision numbers
-        charm_str = ",".join(extract_charm_urls(client))
+        charm_urls = ",".join(extract_charm_urls(client))
 
         try:
             rclient = get_reporting_client(args.reporting_uri)
             rclient.report(metrics, tags={
                 "git-sha": args.git_sha,
                 "charm-bundle": args.charm_bundle,
-                "charms": charm_str,
+                "charm-urls": charm_urls,
             })
         except:
             raise JujuAssertionError("Error reporting metrics")
