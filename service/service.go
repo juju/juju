@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/snap"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
@@ -27,6 +28,7 @@ const (
 	InitSystemSystemd = "systemd"
 	InitSystemUpstart = "upstart"
 	InitSystemWindows = "windows"
+	InitSystemSnap    = "snap"
 )
 
 // linuxInitSystems lists the names of the init systems that juju might
@@ -34,6 +36,8 @@ const (
 var linuxInitSystems = []string{
 	InitSystemSystemd,
 	InitSystemUpstart,
+	// InitSystemSnap is not part of this list, so that
+	// the discovery machinery can't select snap over systemd
 }
 
 // ServiceActions represents the actions that may be requested for
@@ -86,6 +90,17 @@ type Service interface {
 	StartCommands() ([]string, error)
 }
 
+// ConfigureableService performs tasks that need to occur between the software
+// has been installed and when has started
+type ConfigureableService interface {
+	// Configure performs any necessary configuration steps
+	Configure() error
+
+	// ReConfigureDuringRestart indicates whether Configure
+	// should be called during a restart
+	ReConfigureDuringRestart() bool
+}
+
 // RestartableService is a service that directly supports restarting.
 type RestartableService interface {
 	// Restart restarts the service.
@@ -93,9 +108,9 @@ type RestartableService interface {
 }
 
 type UpgradableService interface {
-	// WriteService write the service conf data, if the service is
-	// running add links to allow for manual and automatic start
-	// of the service.
+	// WriteService writes the service conf data. If the service is
+	// running, WriteService adds links to allow for manual and automatic
+	// starting of the service.
 	WriteService() error
 }
 
@@ -118,24 +133,26 @@ var NewService = func(name string, conf common.Conf, series string) (Service, er
 
 // this needs to be stubbed out in some tests
 func newService(name string, conf common.Conf, initSystem, series string) (Service, error) {
+	var svc Service
+	var err error
+
 	switch initSystem {
 	case InitSystemWindows:
-		svc, err := windows.NewService(name, conf)
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
-		}
-		return svc, nil
+		svc, err = windows.NewService(name, conf)
 	case InitSystemUpstart:
-		return upstart.NewService(name, conf), nil
+		svc, err = upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
-		svc, err := systemd.NewServiceWithDefaults(name, conf)
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
-		}
-		return svc, nil
+		svc, err = systemd.NewServiceWithDefaults(name, conf)
+	case InitSystemSnap:
+		svc, err = snap.NewServiceFromName(name, conf)
 	default:
 		return nil, errors.NotFoundf("init system %q", initSystem)
 	}
+
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to wrap service %q", name)
+	}
+	return svc, nil
 }
 
 // ListServices lists all installed services on the running system
@@ -148,29 +165,23 @@ var ListServices = func() ([]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	var services []string
 	switch initName {
 	case InitSystemWindows:
-		services, err := windows.ListServices()
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to list %s services", initName)
-		}
-		return services, nil
+		services, err = windows.ListServices()
+	case InitSystemSnap:
+		services, err = snap.ListServices()
 	case InitSystemUpstart:
-		services, err := upstart.ListServices()
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to list %s services", initName)
-		}
-		return services, nil
+		services, err = upstart.ListServices()
 	case InitSystemSystemd:
-		services, err := systemd.ListServices()
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to list %s services", initName)
-		}
-		return services, nil
+		services, err = systemd.ListServices()
 	default:
 		return nil, errors.NotFoundf("init system %q", initName)
 	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to list %s services", initName)
+	}
+	return services, nil
 }
 
 // ListServicesScript returns the commands that should be run to get
@@ -194,6 +205,8 @@ func listServicesCommand(initSystem string) (string, bool) {
 		return upstart.ListCommand(), true
 	case InitSystemSystemd:
 		return systemd.ListCommand(), true
+	case InitSystemSnap:
+		return snap.ListCommand(), true
 	default:
 		return "", false
 	}
@@ -225,7 +238,8 @@ func InstallAndStart(svc ServiceActions) error {
 		}
 		// we attempt restart if the service is running in case daemon parameters
 		// have changed, if its not running a regular start will happen.
-		if err = restartOrStart(svc); err == nil {
+		if err = ManuallyRestart(svc); err == nil {
+			logger.Debugf("started %v", svc)
 			break
 		}
 	}
@@ -245,42 +259,38 @@ func Restart(name string) error {
 	if err != nil {
 		return errors.Annotatef(err, "failed to find service %q", name)
 	}
-	if err := restart(svc); err != nil {
+	if err := ManuallyRestart(svc); err != nil {
 		return errors.Annotatef(err, "failed to restart service %q", name)
 	}
 	return nil
 }
 
-func restartOrStart(svc ServiceActions) error {
-	// Explicitly omit Restart as it is not properly supported on trusty.
-	// Otherwise explicitly stop and start the service.
+// ManuallyRestart restarts the service by applying
+// its Restart method or by falling back to calling Stop and Start
+func ManuallyRestart(svc ServiceActions) error {
+	// TODO(tsm): fix service.upstart behaviour to match other implementations
+	// if restartableService, ok := svc.(RestartableService); ok {
+	// 	if err := restartableService.Restart(); err != nil {
+	// 		return errors.Trace(err)
+	// 	}
+	// 	return nil
+	// }
+
 	if err := svc.Stop(); err != nil {
 		logger.Errorf("could not stop service: %v", err)
 	}
-	if err := svc.Start(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-
-}
-
-func restart(svc Service) error {
-	// Use the Restart method, if there is one.
-	if svc, ok := svc.(RestartableService); ok {
-		if err := svc.Restart(); err != nil {
+	configureableService, ok := svc.(ConfigureableService)
+	if ok && configureableService.ReConfigureDuringRestart() {
+		if err := configureableService.Configure(); err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	}
-
-	// Otherwise explicitly stop and start the service.
-	if err := svc.Stop(); err != nil {
-		return errors.Trace(err)
-	}
 	if err := svc.Start(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
+
 }
 
 // FindUnitServiceNames accepts a collection of service names as managed by the

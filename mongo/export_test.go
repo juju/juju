@@ -17,7 +17,8 @@ var (
 	SharedSecretPath = sharedSecretPath
 	SSLKeyPath       = sslKeyPath
 
-	NewConf = newConf
+	NewConf      = newConf
+	GenerateConf = generateConfig
 
 	HostWordSize     = &hostWordSize
 	RuntimeGOOS      = &runtimeGOOS

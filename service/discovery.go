@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/snap"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
@@ -33,6 +34,7 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return service, nil
 }
 
@@ -105,6 +107,13 @@ var discoveryFuncs = []discoveryCheck{
 }
 
 func discoverLocalInitSystem() (string, error) {
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		local, err := snap.IsRunning()
+		if err == nil && local {
+			return InitSystemSnap, nil
+		}
+		return "", errors.NotFoundf("snap does not appear to be installed correctly")
+	}
 	for _, check := range discoveryFuncs {
 		local, err := check.isRunning()
 		if err != nil {
@@ -119,32 +128,37 @@ func discoverLocalInitSystem() (string, error) {
 	return "", errors.NotFoundf("init system (based on local host)")
 }
 
-const discoverInitSystemScript = `
-# Use guaranteed discovery mechanisms for known init systems.
-if [ -d /run/systemd/system ]; then
-    echo -n systemd
-    exit 0
-elif [ -f /sbin/initctl ] && /sbin/initctl --system list 2>&1 > /dev/null; then
-    echo -n upstart
-    exit 0
-fi
-
-# uh-oh
-exit 1
-`
+const (
+	discoverSnap    = "if [ -x /usr/bin/snap ] || [ -d /snap ]; then  echo -n snap; exit 0; fi"
+	discoverSystemd = "if [ -d /run/systemd/system ]; then echo -n systemd; exit 0; fi"
+	discoverUpstart = "if [ -f /sbin/initctl ] && /sbin/initctl --system list 2>&1 > /dev/null; then echo -n upstart; exit 0; fi"
+)
 
 // DiscoverInitSystemScript returns the shell script to use when
 // discovering the local init system. The script is quite specific to
 // bash, so it includes an explicit bash shbang.
 func DiscoverInitSystemScript() string {
 	renderer := shell.BashRenderer{}
-	data := renderer.RenderScript([]string{discoverInitSystemScript})
+	tests := []string{
+		discoverSystemd,
+		discoverUpstart,
+		"exit 1",
+	}
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		tests = append([]string{discoverSnap}, tests...)
+	}
+	data := renderer.RenderScript(tests)
 	return string(data)
 }
 
-// shellCase is the template for a bash case statement, for use in
-// newShellSelectCommand.
-const shellCase = `
+// newShellSelectCommand creates a bash case statement with clause for
+// each of the linux init systems. The body of each clause comes from
+// calling the provided handler with the init system name. If the
+// handler does not support the args then it returns a false "ok" value.
+func newShellSelectCommand(envVarName, defaultCase string, handler func(string) (string, bool)) string {
+	var cases []string
+
+	const shellCaseStatement = `
 case "$%s" in
 %s
 *)
@@ -152,12 +166,6 @@ case "$%s" in
     ;;
 esac`
 
-// newShellSelectCommand creates a bash case statement with clause for
-// each of the linux init systems. The body of each clause comes from
-// calling the provided handler with the init system name. If the
-// handler does not support the args then it returns a false "ok" value.
-func newShellSelectCommand(envVarName, dflt string, handler func(string) (string, bool)) string {
-	var cases []string
 	for _, initSystem := range linuxInitSystems {
 		cmd, ok := handler(initSystem)
 		if !ok {
@@ -169,5 +177,5 @@ func newShellSelectCommand(envVarName, dflt string, handler func(string) (string
 		return ""
 	}
 
-	return fmt.Sprintf(shellCase[1:], envVarName, strings.Join(cases, "\n"), dflt)
+	return fmt.Sprintf(shellCaseStatement[1:], envVarName, strings.Join(cases, "\n"), defaultCase)
 }

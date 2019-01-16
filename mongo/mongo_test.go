@@ -117,7 +117,6 @@ func (s *MongoSuite) makeConfigArgs(dataDir string) mongo.ConfigArgs {
 		OplogSizeMB: 1024,
 		WantNUMACtl: false,
 		Version:     s.mongodVersion,
-		Auth:        true,
 		IPv6:        true,
 	}
 }
@@ -256,7 +255,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	s.assertMongoConfigFile(c)
 
 	c.Check(s.data.Installed(), gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
+	s.data.CheckCallNames(c, "Running")
 }
 
 func (s *MongoSuite) TestEnsureServerSetsSysctlValues(c *gc.C) {
@@ -305,7 +304,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	s.assertMongoConfigFile(c)
 
 	c.Check(s.data.Installed(), gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
+	s.data.CheckCallNames(c, "Running", "Install", "Stop", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
@@ -317,13 +316,35 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 
 	s.data.SetStatus(mongo.ServiceName, "installed")
 	failure := errors.New("won't start")
-	s.data.SetErrors(nil, nil, nil, failure) // Installed, Exists, Running, Running, Start
+	s.data.SetErrors(
+		nil,     // Running
+		nil,     // Install
+		nil,     // Stop
+		failure, // Start
+		nil,     // Stop
+		failure, // Start
+		nil,     // Stop
+		failure, // Start
+		nil,     // Stop
+		failure, // Start
+	)
 
 	_, err = mongo.EnsureServer(makeEnsureServerParams(dataDir))
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	c.Check(s.data.Installed(), gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
+	s.data.CheckCallNames(c,
+		"Running",
+		"Install",
+		"Stop",
+		"Start",
+		"Stop",
+		"Start",
+		"Stop",
+		"Start",
+		"Stop",
+		"Start",
+	)
 }
 
 func (s *MongoSuite) TestEnsureServerNUMACtl(c *gc.C) {
@@ -596,7 +617,7 @@ func (s *MongoSuite) assertTestMongoGetFails(c *gc.C, series string, packageMana
 
 	// Verify that EnsureServer continued and started the mongodb service.
 	c.Check(s.data.Installed(), gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
+	s.data.CheckCallNames(c, "Running", "Install", "Stop", "Start")
 }
 
 func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
@@ -617,38 +638,40 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.data.Installed(), gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
+	s.data.CheckCallNames(c, "Running")
 }
 
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
-	conf := mongo.NewConf(s.makeConfigArgs(c.MkDir()))
+	confArgs := s.makeConfigArgs(c.MkDir())
+	conf := mongo.NewConf(&confArgs)
 	c.Assert(strings.Contains(conf.ExecStart, "--replSet"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithNumCtl(c *gc.C) {
 	args := s.makeConfigArgs(c.MkDir())
 	args.WantNUMACtl = true
-	conf := mongo.NewConf(args)
+	conf := mongo.NewConf(&args)
 	c.Assert(conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
 func (s *MongoSuite) TestNewServiceWithIPv6(c *gc.C) {
 	args := s.makeConfigArgs(c.MkDir())
 	args.IPv6 = true
-	conf := mongo.NewConf(args)
+	conf := mongo.NewConf(&args)
 	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithoutIPv6(c *gc.C) {
 	args := s.makeConfigArgs(c.MkDir())
 	args.IPv6 = false
-	conf := mongo.NewConf(args)
+	conf := mongo.NewConf(&args)
 	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsFalse)
 }
 
 func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
 	args := s.makeConfigArgs(c.MkDir())
-	conf := mongo.NewConf(args)
+	args.Journal = true
+	conf := mongo.NewConf(&args)
 	c.Assert(conf.ExecStart, gc.Matches, `.* --journal.*`)
 }
 

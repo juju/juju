@@ -5,21 +5,30 @@ package mongo
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/snap"
 )
 
 const (
 	maxFiles = 65000
 	maxProcs = 20000
 
+	// ServiceName is the name of the service that Juju's mongod instance
+	// will be named.
 	ServiceName    = "juju-db"
 	serviceTimeout = 300 // 5 minutes
 
@@ -37,6 +46,18 @@ const (
 
 	// Mongo34LowCacheSize changed to being a float, and allows you to specify down to 256MB
 	Mongo34LowCacheSize = 0.25
+
+	// defaultStorageEngine is the storage engine used by juju.
+	defaultStorageEngine = WiredTiger
+
+	// flagMarker is an in-line comment for bash. If it somehow makes its way onto
+	// the command line, it will be ignored. See https://stackoverflow.com/a/1456019/395287
+	flagMarker = "`#flag: true` \\"
+
+	dataPathForJujuDbSnap = "/var/snap/juju-db/common"
+
+	// mongoLogPath is used as a fallback location when syslog is not enabled
+	mongoLogPath = "/var/log/mongodb"
 )
 
 var (
@@ -57,14 +78,12 @@ fi
 `
 )
 
+// mongoService is a slimmed-down version of the service.Service interface.
 type mongoService interface {
 	Exists() (bool, error)
 	Installed() (bool, error)
 	Running() (bool, error)
-	Start() error
-	Stop() error
-	Install() error
-	Remove() error
+	service.ServiceActions
 }
 
 var newService = func(name string, conf common.Conf) (mongoService, error) {
@@ -122,16 +141,23 @@ func StartService() error {
 
 // ReStartService will stop and then start mongodb service.
 func ReStartService() error {
+	// TODO(tsm): refactor to make use of service.RestartableService
 	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	return restartService(svc)
+}
+
+func restartService(svc mongoService) error {
+	// TODO(tsm): refactor to make use of service.RestartableService
 	if err := svc.Stop(); err != nil {
 		return errors.Trace(err)
 	}
 	if err := svc.Start(); err != nil {
 		return errors.Trace(err)
 	}
+
 	return nil
 }
 
@@ -143,82 +169,194 @@ func sharedSecretPath(dataDir string) string {
 	return filepath.Join(dataDir, SharedSecretFile)
 }
 
-// ConfigArgs holds the attributes of a service configuration for mongo.
-type ConfigArgs struct {
-	DataDir, DBDir, MongoPath string
-	Port, OplogSizeMB         int
-	WantNUMACtl               bool
-	Version                   Version
-	Auth                      bool
-	IPv6                      bool
-	MemoryProfile             MemoryProfile
+func logPath(dataDir string) string {
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		return filepath.Join(dataDir, "logs", "mongodb.log")
+	}
+	return mongoLogPath
 }
 
-// newConf returns the init system config for the mongo state service.
-func newConf(args ConfigArgs) common.Conf {
-	logger.Debugf("creating mongo service configuration for mongo version: %d.%d.%s at %q",
-		args.Version.Major, args.Version.Minor, args.Version.Patch, args.MongoPath)
-	mongoCmd := args.MongoPath +
+func configPath(dataDir string) string {
+	return filepath.Join(dataDir, "juju-db.config")
+}
 
-		" --dbpath " + utils.ShQuote(args.DBDir) +
-		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(args.DataDir)) +
-		// --sslPEMKeyPassword has to have its argument passed with = thanks to
-		// https://bugs.launchpad.net/juju-core/+bug/1581284.
-		" --sslPEMKeyPassword=ignored" +
-		" --port " + fmt.Sprint(args.Port) +
-		" --syslog" +
-		" --journal" +
+// ConfigArgs holds the attributes of a service configuration for mongo.
+type ConfigArgs struct {
+	DataDir    string
+	DBDir      string
+	MongoPath  string
+	ReplicaSet string
+	Version    Version
 
-		" --replSet " + ReplicaSetName +
-		" --quiet" +
-		" --oplogSize " + strconv.Itoa(args.OplogSizeMB)
+	// connection params
+	BindIP      string
+	BindToAllIP bool
+	Port        int
+	OplogSizeMB int
 
-	if args.IPv6 {
-		mongoCmd = mongoCmd +
-			" --ipv6"
-	}
+	// auth
+	AuthKeyFile    string
+	PEMKeyFile     string
+	PEMKeyPassword string
 
-	if args.Auth {
-		mongoCmd = mongoCmd +
-			" --auth" +
-			" --keyFile " + utils.ShQuote(sharedSecretPath(args.DataDir))
-	} else {
-		mongoCmd = mongoCmd +
-			" --noauth"
-	}
-	if args.Version.Major == 2 {
-		mongoCmd = mongoCmd +
-			" --sslOnNormalPorts"
-	} else {
-		mongoCmd = mongoCmd +
-			" --sslMode requireSSL"
-	}
-	if args.Version.StorageEngine != WiredTiger {
-		mongoCmd = mongoCmd +
-			" --noprealloc" +
-			" --smallfiles"
-	} else {
-		mongoCmd = mongoCmd +
-			" --storageEngine wiredTiger"
-		// TODO(perrito666) make LowCacheSize 0.25 when mongo version goes
-		// to 3.4
-		if args.MemoryProfile == MemoryProfileLow {
-			if args.Version.Major == 3 && args.Version.Minor >= 4 {
-				mongoCmd = mongoCmd + " --wiredTigerCacheSizeGB " + fmt.Sprint(Mongo34LowCacheSize)
-			} else {
-				mongoCmd = mongoCmd + " --wiredTigerCacheSizeGB " + fmt.Sprint(LowCacheSize)
-			}
+	// network params
+	IPv6             bool
+	SSLOnNormalPorts bool
+	SSLMode          string
+
+	// logging
+	Syslog    bool
+	LogAppend bool
+	LogPath   string
+
+	// db kernel
+	WantNUMACtl           bool
+	MemoryProfile         MemoryProfile
+	Journal               bool
+	NoPreAlloc            bool
+	SmallFiles            bool
+	WiredTigerCacheSizeGB float32
+
+	// misc
+	Quiet bool
+}
+
+type configArgsConverter map[string]string
+
+func (conf configArgsConverter) asCommandLineArguments() string {
+	command := make([]string, len(conf)*2)
+	for key, value := range conf {
+		if len(key) >= 2 {
+			key = "--" + key
+		} else if len(key) == 1 {
+			key = "-" + key
+		} else {
+			continue // impossible?
 		}
+		command = append(command, key)
+
+		if value == flagMarker {
+			continue
+		}
+		command = append(command, value)
 	}
-	if args.Version.Major == 3 && args.Version.Minor >= 6 {
-		mongoCmd = mongoCmd +
-			" --bind_ip_all"
+
+	return strings.Join(command, " ")
+}
+
+func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
+	pathArgs := set.NewStrings("dbpath", "logpath", "sslPEMKeyFile", "keyFile")
+	command := make([]string, len(conf))
+	for key, value := range conf {
+		if len(key) == 0 {
+			continue
+		}
+		if pathArgs.Contains(key) {
+			value = strings.Trim(value, " '")
+		}
+		if value == flagMarker {
+			value = "true"
+		}
+		line := fmt.Sprintf("%s = %s", key, value)
+		if strings.HasPrefix(key, "sslPEMKeyPassword") {
+			line = key
+		}
+		command = append(command, line)
 	}
-	extraScript := ""
-	if args.WantNUMACtl {
-		extraScript = fmt.Sprintf(detectMultiNodeScript, multinodeVarName, multinodeVarName)
-		mongoCmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + mongoCmd
+
+	return strings.Join(command, "\n")
+}
+
+func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
+	result := configArgsConverter{}
+	result["replSet"] = mongoArgs.ReplicaSet
+	result["dbpath"] = utils.ShQuote(mongoArgs.DBDir)
+
+	if mongoArgs.LogPath != "" {
+		result["logpath"] = utils.ShQuote(mongoArgs.LogPath)
 	}
+
+	if mongoArgs.BindIP != "" {
+		result["bind_ip"] = mongoArgs.BindIP
+	}
+	if mongoArgs.Port != 0 {
+		result["port"] = strconv.Itoa(mongoArgs.Port)
+	}
+	if mongoArgs.IPv6 {
+		result["ipv6"] = flagMarker
+	}
+	if mongoArgs.BindToAllIP {
+		result["bind_ip_all"] = flagMarker
+	}
+	if mongoArgs.SSLMode != "" {
+		result["sslMode"] = mongoArgs.SSLMode
+	}
+	if mongoArgs.LogAppend {
+		result["logappend"] = flagMarker
+	}
+
+	if mongoArgs.SSLOnNormalPorts {
+		result["sslOnNormalPorts"] = flagMarker
+	}
+
+	// authn
+	if mongoArgs.PEMKeyFile != "" {
+		result["sslPEMKeyFile"] = utils.ShQuote(mongoArgs.PEMKeyFile)
+		//--sslPEMKeyPassword must be concatenated to the equals sign (lp:1581284)
+		pemPassword := mongoArgs.PEMKeyPassword
+		if pemPassword == "" {
+			pemPassword = "ignored"
+		}
+		result["sslPEMKeyPassword="+pemPassword] = flagMarker
+	}
+
+	if mongoArgs.AuthKeyFile != "" {
+		result["auth"] = flagMarker
+		result["keyFile"] = utils.ShQuote(mongoArgs.AuthKeyFile)
+	} else {
+		logger.Warningf("configuring mongod  with --noauth flag enabled")
+		result["noauth"] = flagMarker
+	}
+
+	// ops config
+	if mongoArgs.Syslog {
+		result["syslog"] = flagMarker
+	}
+	if mongoArgs.Journal {
+		result["journal"] = flagMarker
+	}
+	if mongoArgs.OplogSizeMB != 0 {
+		result["oplogSize"] = strconv.Itoa(mongoArgs.OplogSizeMB)
+	}
+	if mongoArgs.NoPreAlloc {
+		result["noprealloc"] = flagMarker
+	}
+	if mongoArgs.SmallFiles {
+		result["smallfiles"] = flagMarker
+	}
+
+	// storageEngine is an unsupported argument for mongo 2.x
+	if mongoArgs.Version.Major >= 3 && mongoArgs.Version.StorageEngine != "" {
+		result["storageEngine"] = string(mongoArgs.Version.StorageEngine)
+	}
+	if mongoArgs.WiredTigerCacheSizeGB > 0.0 {
+		result["wiredTigerCacheSizeGB"] = fmt.Sprint(mongoArgs.WiredTigerCacheSizeGB)
+	}
+
+	// misc
+	if mongoArgs.Quiet {
+		result["quiet"] = flagMarker
+	}
+
+	return result
+}
+
+func (mongoArgs *ConfigArgs) asService() (mongoService, error) {
+	return newService(ServiceName, mongoArgs.asServiceConf())
+}
+
+// asServiceConf returns the init system config for the mongo state service.
+func (mongoArgs *ConfigArgs) asServiceConf() common.Conf {
 	conf := common.Conf{
 		Desc: "juju state database",
 		Limit: map[string]int{
@@ -226,50 +364,183 @@ func newConf(args ConfigArgs) common.Conf {
 			"nproc":  maxProcs,
 		},
 		Timeout:     serviceTimeout,
-		ExtraScript: extraScript,
-		ExecStart:   mongoCmd,
+		ExecStart:   mongoArgs.startCommand(),
+		ExtraScript: mongoArgs.extraScript(),
 	}
 	return conf
 }
 
+func (mongoArgs *ConfigArgs) asMongoDbConfigurationFileFormat() string {
+	return mongoArgs.asMap().asMongoDbConfigurationFileFormat()
+}
+
+func (mongoArgs *ConfigArgs) asCommandLineArguments() string {
+	return mongoArgs.MongoPath + " " + mongoArgs.asMap().asCommandLineArguments()
+}
+
+func (mongoArgs *ConfigArgs) startCommand() string {
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		// TODO(tsm): work out how to bridge mongoService and service.Service
+		// to access the StartCommands method, rather than duplicating code
+		return snap.Command + " start --enable " + ServiceName
+	}
+
+	cmd := ""
+	if mongoArgs.WantNUMACtl {
+		cmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + " "
+	}
+	return cmd + mongoArgs.asCommandLineArguments()
+}
+
+func (mongoArgs *ConfigArgs) extraScript() string {
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		return ""
+	}
+
+	cmd := ""
+	if mongoArgs.WantNUMACtl {
+		cmd = fmt.Sprintf(detectMultiNodeScript, multinodeVarName, multinodeVarName)
+	}
+	return cmd
+}
+
+func (mongoArgs *ConfigArgs) writeConfig(path string) error {
+	generatedAt := time.Now().String()
+	configPrologue := fmt.Sprintf(`
+# WARNING
+# autogenerated by juju on %v
+# manual changes to this file are likely be overwritten
+`[1:], generatedAt)
+	configBody := mongoArgs.asMongoDbConfigurationFileFormat()
+	config := []byte(configPrologue + configBody)
+
+	err := utils.AtomicWriteFile(path, config, 0644)
+	if err != nil {
+		return errors.Annotate(err, fmt.Sprintf("writingconfig to %s", path))
+	}
+
+	return nil
+}
+
+// newMongoDBArgsWithDefaults returns *mongoDbConfigArgs
+// under the assumption that MongoDB 3.4 or later is running.
+func generateConfig(mongoPath string, dataDir string, statePort int, oplogSizeMB int, setNUMAControlPolicy bool, version Version, memProfile MemoryProfile) *ConfigArgs {
+	usingWiredTiger := version.StorageEngine == WiredTiger
+	usingMongo2 := version.Major == 2
+	usingMongo4orAbove := version.Major > 3
+	usingMongo36orAbove := usingMongo4orAbove || (version.Major == 3 && version.Minor >= 6)
+	usingMongo34orAbove := usingMongo36orAbove || (version.Major == 3 && version.Minor >= 4)
+	useLowMemory := memProfile == MemoryProfileLow
+
+	mongoArgs := &ConfigArgs{
+		DataDir:          dataDir,
+		DBDir:            DbDir(dataDir),
+		MongoPath:        mongoPath,
+		Port:             statePort,
+		OplogSizeMB:      oplogSizeMB,
+		WantNUMACtl:      setNUMAControlPolicy,
+		Version:          version,
+		IPv6:             network.SupportsIPv6(),
+		MemoryProfile:    memProfile,
+		Syslog:           true,
+		Journal:          true,
+		Quiet:            true,
+		ReplicaSet:       ReplicaSetName,
+		AuthKeyFile:      sharedSecretPath(dataDir),
+		PEMKeyFile:       sslKeyPath(dataDir),
+		PEMKeyPassword:   "ignored", // used as boilerplate later
+		SSLOnNormalPorts: false,
+		//BindIP:                "127.0.0.1", // TODO(tsm): use machine's actual IP address via dialInfo
+	}
+
+	if usingMongo34orAbove && useLowMemory && usingWiredTiger {
+		mongoArgs.WiredTigerCacheSizeGB = Mongo34LowCacheSize
+	} else if usingWiredTiger {
+		mongoArgs.WiredTigerCacheSizeGB = LowCacheSize
+	} else {
+		mongoArgs.NoPreAlloc = true
+		mongoArgs.SmallFiles = true
+	}
+
+	if usingMongo36orAbove {
+		mongoArgs.BindToAllIP = true
+	}
+
+	if usingMongo2 {
+		mongoArgs.SSLOnNormalPorts = true
+	} else {
+		mongoArgs.SSLMode = "requireSSL"
+	}
+
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		mongoArgs.Syslog = false
+		mongoArgs.LogAppend = true
+		mongoArgs.LogPath = logPath(dataDir)
+		mongoArgs.BindToAllIP = true // TODO(tsm): disable when not needed
+	}
+
+	return mongoArgs
+}
+
+// newConf returns the init system config for the mongo state service.
+func newConf(args *ConfigArgs) common.Conf {
+	return args.asServiceConf()
+}
+
+func ensureDirectoriesMade(dataDir string) error {
+	dbDir := DbDir(dataDir)
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return errors.Annotate(err, "cannot create mongo database directory")
+	}
+	return nil
+}
+
 // EnsureServiceInstalled is a convenience method to [re]create
-// the mongo service.
-func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNUMAControlPolicy bool, version Version, auth bool, memProfile MemoryProfile) error {
+// the mongo service. It assumes that the necessary packages are
+// already installed and that the file system includes secrets at dataDir.
+func EnsureServiceInstalled(dataDir string, statePort int, oplogSizeMB int, setNUMAControlPolicy bool, version Version, auth bool, memProfile MemoryProfile) error {
+	// TODO(tsm): delete EnsureServiceInstalled and use EnsureServer for upgrades
+	//            once upgrade_mongo is removed.
+	err := ensureDirectoriesMade(dataDir)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	mongoPath, err := Path(version)
 	if err != nil {
-		return errors.Annotate(err, "cannot get mongo path")
+		return errors.NewNotFound(err, "unable to find path to mongod")
 	}
 
-	dbDir := filepath.Join(dataDir, "db")
+	mongoArgs := generateConfig(
+		mongoPath,
+		dataDir,
+		statePort,
+		oplogSizeMB,
+		setNUMAControlPolicy,
+		version,
+		memProfile,
+	)
 
-	if oplogSizeMB == 0 {
-		var err error
-		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
-			return err
-		}
+	if !auth {
+		mongoArgs.AuthKeyFile = ""
 	}
 
-	svcConf := newConf(ConfigArgs{
-		DataDir:       dataDir,
-		DBDir:         dbDir,
-		MongoPath:     mongoPath,
-		Port:          statePort,
-		OplogSizeMB:   oplogSizeMB,
-		WantNUMACtl:   setNUMAControlPolicy,
-		Version:       version,
-		Auth:          auth,
-		IPv6:          network.SupportsIPv6(),
-		MemoryProfile: memProfile,
-	})
-	svc, err := newService(ServiceName, svcConf)
+	service, err := mongoArgs.asService()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	logger.Debugf("installing mongo service")
-	if err := svc.Install(); err != nil {
+	alreadyInstalled, err := service.Installed()
+	if err != nil {
 		return errors.Trace(err)
 	}
+	if alreadyInstalled {
+		return nil
+	}
 
+	err = service.Install()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }

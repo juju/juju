@@ -53,7 +53,6 @@ func preallocOplog(dir string, oplogSizeMB int) error {
 // in opLogSize requires mongo restart we are not using the default
 // MongoDB formula but simply using 512MB for small disks and 1GB
 // for larger ones.
-
 func defaultOplogSize(dir string) (int, error) {
 	if hostWordSize == 32 {
 		// "For 32-bit systems, MongoDB allocates about 48 megabytes
