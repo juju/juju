@@ -21,7 +21,8 @@ import (
 
 // generationDoc represents the state of a model generation in MongoDB.
 type generationDoc struct {
-	Id string `bson:"generation-id"`
+	Id       string `bson:"generation-id"`
+	TxnRevno int64  `bson:"txn-revno"`
 
 	// ModelUUID indicates the model to which this generation applies.
 	ModelUUID string `bson:"model-uuid"`
@@ -120,6 +121,54 @@ func assignGenerationAppTxnOps(id, appName string) []txn.Op {
 	}
 }
 
+// AssignAllUnits indicates that all units of the given application,
+// not already added to this generation will be.
+func (g *Generation) AssignAllUnits(appName string) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := g.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if !g.Active() {
+			return nil, errors.New("generation is not currently active")
+		}
+		if g.doc.Completed > 0 {
+			return nil, errors.New("generation has been completed")
+		}
+		unitNames, err := appUnitNames(g.st, appName)
+		if err != nil {
+			return nil, err
+		}
+		app, err := g.st.Application(appName)
+		if err != nil {
+			return nil, err
+		}
+		ops := []txn.Op{
+			{
+				C:  applicationsC,
+				Id: app.doc.DocID,
+				Assert: bson.D{
+					{"life", Alive},
+					{"unitcount", app.doc.UnitCount},
+				},
+			},
+		}
+		assignedUnits := set.NewStrings(g.doc.AssignedUnits[appName]...)
+		for _, name := range unitNames {
+			if !assignedUnits.Contains(name) {
+				ops = append(ops, assignGenerationUnitTxnOps(g.doc.Id, appName, name)...)
+			}
+		}
+		// If there are no units to add to the generation, quit here.
+		if len(ops) < 2 {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return ops, nil
+	}
+	return errors.Trace(g.st.db().Run(buildTxn))
+}
+
 // AssignUnit indicates that the unit with the input name has had been added
 // to this generation and should realise config changes applied to its
 // application made while the generation is active.
@@ -180,42 +229,40 @@ func (g *Generation) MakeCurrent() error {
 				return nil, errors.Trace(err)
 			}
 		}
+		if g.doc.Completed > 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
 		if !g.Active() {
-			return nil, errors.New("next generation is not currently active")
+			return nil, errors.New("generation is not currently active")
 		}
 		ok, err := g.CanAutoComplete()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if !ok {
-			return nil, errors.New("next generation can not auto complete")
-		}
-		assignedUnits := g.AssignedUnits()
-		unitCnt := len(assignedUnits)
-		assertAndCriteria := []bson.D{
-			{{"active", true}},
-			{{"completed", 0}},
-			{{"assigned-units", bson.D{{"$size", unitCnt}}}},
-		}
-		// Ensure the criteria to determine auto complete don't change under us.
-		for app, units := range assignedUnits {
-			appField := fmt.Sprintf("assigned-units.%s", app)
-			assertAndCriteria = append(assertAndCriteria, bson.D{{appField, bson.D{{"$all", units}}}})
+			return nil, errors.New("generation can not auto complete")
 		}
 		time, err := g.st.ControllerTimestamp()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		// The generation doc has only 3 elements that change as part of juju
+		// functionality.  We want to assert than none of those have changed
+		// here, however ensuring that no new applications are added to
+		// AssignedUnits, is non trivial.  Therefore just check the txn-revno
+		// instead.
 		ops := []txn.Op{
 			{
 				C:      generationsC,
 				Id:     g.doc.Id,
-				Assert: bson.D{{"$and", assertAndCriteria}},
+				Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
 				Update: bson.D{
 					{"$set", bson.D{{"completed", time.Unix()}}},
+					{"$set", bson.D{{"active", false}}},
 				},
 			},
 		}
+		logger.Debugf("%#v", ops)
 		return ops, nil
 	}
 	return errors.Trace(g.st.db().Run(buildTxn))
@@ -252,7 +299,7 @@ func (g *Generation) canComplete(allowEmpty bool) (bool, error) {
 			continue
 		}
 
-		allAppUnits, err := g.st.AppUnitNames(app)
+		allAppUnits, err := appUnitNames(g.st, app)
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -273,7 +320,7 @@ func (g *Generation) canComplete(allowEmpty bool) (bool, error) {
 	return true, nil
 }
 
-func (st *State) AppUnitNames(appId string) ([]string, error) {
+func appUnitNames(st *State, appId string) ([]string, error) {
 	unitsCollection, closer := st.db().GetCollection(unitsC)
 	defer closer()
 
