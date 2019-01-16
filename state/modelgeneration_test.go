@@ -153,10 +153,6 @@ func (s *generationSuite) TestAssignApplicationNotActiveError(c *gc.C) {
 	c.Assert(gen.AssignApplication("redis"), gc.ErrorMatches, "generation is not currently active")
 }
 
-func (s *generationSuite) TestAssignApplicationGenerationCompletedError(c *gc.C) {
-	c.Skip("Test to be written once generation completion logic is implemented")
-}
-
 func (s *generationSuite) TestAssignApplicationSuccess(c *gc.C) {
 	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
 
@@ -185,10 +181,6 @@ func (s *generationSuite) TestAssignUnitNotActiveError(c *gc.C) {
 	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.AssignUnit("redis/0"), gc.ErrorMatches, "generation is not currently active")
-}
-
-func (s *generationSuite) TestAssignUnitGenerationCompletedError(c *gc.C) {
-	c.Skip("Test to be written once generation completion logic is implemented")
 }
 
 func (s *generationSuite) TestAssignUnitSuccess(c *gc.C) {
@@ -276,8 +268,6 @@ func (s *generationSuite) setupClockforMakeCurrent(c *gc.C) {
 	now := testing.NonZeroTime()
 	clock := testclock.NewClock(now)
 	clock.Advance(400000 * time.Hour)
-	c.Logf("\n\tHEATHER: %s\n", now.String())
-	c.Logf("\tHEATHER: %d\n", now.Unix())
 
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)

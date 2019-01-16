@@ -88,11 +88,10 @@ func (g *Generation) AssignApplication(appName string) error {
 		if _, ok := g.doc.AssignedUnits[appName]; ok {
 			return nil, jujutxn.ErrNoOperations
 		}
+		// Any 'next' generation that is Active, cannot also be Completed,
+		// see MakeCurrent() and NextGeneration().
 		if !g.Active() {
 			return nil, errors.New("generation is not currently active")
-		}
-		if g.doc.Completed > 0 {
-			return nil, errors.New("generation has been completed")
 		}
 		return assignGenerationAppTxnOps(g.doc.Id, appName), nil
 	}
@@ -130,11 +129,10 @@ func (g *Generation) AssignAllUnits(appName string) error {
 				return nil, errors.Trace(err)
 			}
 		}
+		// Any 'next' generation that is Active, cannot also be Completed,
+		// see MakeCurrent() and NextGeneration().
 		if !g.Active() {
 			return nil, errors.New("generation is not currently active")
-		}
-		if g.doc.Completed > 0 {
-			return nil, errors.New("generation has been completed")
 		}
 		unitNames, err := appUnitNames(g.st, appName)
 		if err != nil {
