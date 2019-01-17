@@ -22,18 +22,11 @@ var disallowedModelConfigAttrs = [...]string{
 
 // ModelConfig returns the complete config for the model
 func (m *Model) ModelConfig() (*config.Config, error) {
-	gen, err := m.ActiveGeneration()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return getModelConfig(m.st.db(), m.UUID(), gen == model.GenerationNext)
+	return getModelConfig(m.st.db(), m.UUID())
 }
 
-func getModelConfig(db Database, uuid string, useNextGenKey bool) (*config.Config, error) {
-	modelSettings, err := readSettings(db, settingsC, modelGlobalKey, useNextGenKey)
-	if errors.IsNotFound(err) && useNextGenKey {
-		modelSettings, err = readSettings(db, settingsC, modelGlobalKey, false)
-	}
+func getModelConfig(db Database, uuid string) (*config.Config, error) {
+	modelSettings, err := readSettings(db, settingsC, modelGlobalKey, false)
 	if err != nil {
 		return nil, errors.Annotatef(err, "model %q", uuid)
 	}

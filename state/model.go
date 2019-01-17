@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/juju/core/model"
-
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/version"
@@ -685,13 +683,11 @@ func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.Statu
 	return statusHistory(args)
 }
 
+// TODO (manadart 2019-01-17) This is duplicated by ModelConfig.
+// We should choose which to use, migrate everything to it, and delete one.
 // Config returns the config for the model.
 func (m *Model) Config() (*config.Config, error) {
-	gen, err := m.ActiveGeneration()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return getModelConfig(m.st.db(), m.UUID(), gen == model.GenerationNext)
+	return getModelConfig(m.st.db(), m.UUID())
 }
 
 // UpdateLatestToolsVersion looks up for the latest available version of
