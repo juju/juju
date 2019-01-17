@@ -32,13 +32,18 @@ var testFields = environschema.Fields{
 		Group:       environschema.EnvironGroup,
 	},
 	"field3": {
-		Description: "field 2 description",
+		Description: "field 3 description",
 		Type:        environschema.Tint,
 		Group:       environschema.EnvironGroup,
 	},
 	"field4": {
-		Description: "field 2 description",
+		Description: "field 4 description",
 		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	"field5": {
+		Description: "field 5 description",
+		Type:        environschema.Tattrs,
 		Group:       environschema.EnvironGroup,
 	},
 }
@@ -50,12 +55,12 @@ var testDefaults = schema.Defaults{
 
 func (s *ApplicationSuite) TestKnownConfigKeys(c *gc.C) {
 	c.Assert(application.KnownConfigKeys(
-		testFields), gc.DeepEquals, set.NewStrings("field1", "field2", "field3", "field4"))
+		testFields), gc.DeepEquals, set.NewStrings("field1", "field2", "field3", "field4", "field5"))
 }
 
 func (s *ApplicationSuite) assertNewConfig(c *gc.C) *application.Config {
 	cfg, err := application.NewConfig(
-		map[string]interface{}{"field2": "field 2 value", "field4": true},
+		map[string]interface{}{"field2": "field 2 value", "field4": true, "field5": map[string]interface{}{"a": "b"}},
 		testFields, testDefaults)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
@@ -68,6 +73,7 @@ func (s *ApplicationSuite) TestAttributes(c *gc.C) {
 		"field2": "field 2 value",
 		"field3": 42,
 		"field4": true,
+		"field5": map[string]string{"a": "b"},
 	})
 }
 
@@ -103,4 +109,21 @@ func (s *ApplicationSuite) TestGetBool(c *gc.C) {
 	cfg := s.assertNewConfig(c)
 	c.Assert(cfg.Attributes().GetBool("field4", false), gc.Equals, true)
 	c.Assert(cfg.Attributes().GetBool("missing", true), gc.Equals, true)
+}
+
+func (s *ApplicationSuite) TestGetStringMap(c *gc.C) {
+	cfg := s.assertNewConfig(c)
+	expected := map[string]string{"a": "b"}
+	val, err := cfg.Attributes().GetStringMap("field5", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val, jc.DeepEquals, expected)
+	val, err = cfg.Attributes().GetStringMap("missing", expected)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val, jc.DeepEquals, expected)
+}
+
+func (s *ApplicationSuite) TestInvalidStringMap(c *gc.C) {
+	cfg := s.assertNewConfig(c)
+	_, err := cfg.Attributes().GetStringMap("field1", nil)
+	c.Assert(err, gc.ErrorMatches, "string map value of type string not valid")
 }

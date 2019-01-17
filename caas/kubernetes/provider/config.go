@@ -22,6 +22,7 @@ const (
 	serviceLoadBalancerIPKey           = "kubernetes-service-loadbalancer-ip"
 	serviceLoadBalancerSourceRangesKey = "kubernetes-service-loadbalancer-sourceranges"
 	serviceExternalNameKey             = "kubernetes-service-externalname"
+	serviceAnnotationsKey              = "kubernetes-service-annotations"
 
 	ingressClassKey          = "kubernetes-ingress-class"
 	ingressSSLRedirectKey    = "kubernetes-ingress-ssl-redirect"
@@ -33,6 +34,11 @@ var configFields = environschema.Fields{
 	serviceTypeConfigKey: {
 		Description: "determines how the Service is exposed",
 		Type:        environschema.Tstring,
+		Group:       environschema.ProviderGroup,
+	},
+	serviceAnnotationsKey: {
+		Description: "a space separated set of annotations to add to the service",
+		Type:        environschema.Tattrs,
 		Group:       environschema.ProviderGroup,
 	},
 	serviceExternalIPsConfigKey: {
@@ -84,6 +90,7 @@ var configFields = environschema.Fields{
 
 var schemaDefaults = schema.Defaults{
 	serviceTypeConfigKey:     defaultServiceType,
+	serviceAnnotationsKey:    schema.Omit,
 	ingressClassKey:          defaultIngressClass,
 	ingressSSLRedirectKey:    defaultIngressSSLRedirect,
 	ingressSSLPassthroughKey: defaultIngressSSLPassthrough,

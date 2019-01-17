@@ -4,13 +4,15 @@
 package application
 
 import (
+	"fmt"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 )
 
-// ConfigAttributes is the config for an application.
+// ConfigAttributes is the config for an applcore/application/config.goication.
 type ConfigAttributes map[string]interface{}
 
 // Config encapsulates config for an application.
@@ -117,4 +119,25 @@ func (c ConfigAttributes) GetString(attrName string, defaultValue string) string
 		return val.(string)
 	}
 	return defaultValue
+}
+
+// GetStringMap gets the specified map attribute as map[string]string.
+func (c ConfigAttributes) GetStringMap(attrName string, defaultValue map[string]string) (map[string]string, error) {
+	if valData, ok := c[attrName]; ok {
+		result := make(map[string]string)
+		switch val := valData.(type) {
+		case map[string]string:
+			for k, v := range val {
+				result[k] = v
+			}
+		case map[string]interface{}:
+			for k, v := range val {
+				result[k] = fmt.Sprintf("%v", v)
+			}
+		default:
+			return nil, errors.NotValidf("string map value of type %T", val)
+		}
+		return result, nil
+	}
+	return defaultValue, nil
 }

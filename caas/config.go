@@ -66,6 +66,9 @@ func ConfigDefaults(providerDefaults schema.Defaults) schema.Defaults {
 		JujuApplicationPath: JujuDefaultApplicationPath,
 	}
 	for key, value := range providerDefaults {
+		if value == schema.Omit {
+			continue
+		}
 		defaults[key] = value
 	}
 	return defaults
