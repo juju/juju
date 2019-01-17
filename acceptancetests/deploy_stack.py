@@ -156,7 +156,7 @@ def deploy_caas_stack(path, client, timeout=3600, charm=False):
     # Wait for the deployment to finish.
     client.wait_for_started(timeout=timeout)
     # wait for cluster to stabilize
-    client.wait_for_workloads()
+    client.wait_for_workloads(timeout=timeout)
     # get current status with tabular format for better debugging
     client.juju(client._show_status, ('--format', 'tabular'))
     return CaasClient(client)
