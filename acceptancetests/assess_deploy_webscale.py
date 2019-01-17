@@ -68,7 +68,7 @@ def deploy_bundle(client, charm_bundle):
     )
 
     if not stack_client.is_cluster_healthy:
-        raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
+        raise JujuAssertionError('cluster is not healthy')
 
 def extract_module_logs(client, module):
     """Extract the logs from destination module.
