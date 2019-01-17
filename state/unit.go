@@ -146,11 +146,27 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	s, err := charmSettingsWithDefaults(u.st, u.doc.CharmURL, applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL))
+
+	nextGen, err := u.IsNextGen()
 	if err != nil {
-		return nil, errors.Annotatef(err, "charm config for unit %q", u.Name())
+		return nil, errors.Trace(err)
 	}
-	return s, nil
+	s, err := charmSettingsWithDefaults(
+		u.st, u.doc.CharmURL, applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL), nextGen)
+	return s, errors.Annotatef(err, "charm config for unit %q", u.Name())
+}
+
+// IsNextGen returns true is there is an incomplete "next" generation,
+// and this unit has been assigned to it.
+func (u *Unit) IsNextGen() (bool, error) {
+	gen, err := u.st.nextGeneration()
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, errors.Trace(err)
+	}
+	return set.NewStrings(gen.AssignedUnits()[u.ApplicationName()]...).Contains(u.Name()), nil
 }
 
 // ApplicationName returns the application name.

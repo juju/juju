@@ -2031,15 +2031,23 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 	return relations, nil
 }
 
-func charmSettingsWithDefaults(st *State, curl *charm.URL, key string) (charm.Settings, error) {
-	gen, err := st.activeGeneration()
+// CharmConfig returns the raw user configuration for the application's charm.
+func (a *Application) CharmConfig() (charm.Settings, error) {
+	if a.doc.CharmURL == nil {
+		return nil, fmt.Errorf("application charm not set")
+	}
+
+	activeGen, err := a.st.activeGeneration()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	nextGenActive := gen == model.GenerationNext
+	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.charmConfigKey(), activeGen == model.GenerationNext)
+	return s, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
+}
 
-	settings, err := readSettings(st.db(), settingsC, key, nextGenActive)
-	if errors.IsNotFound(err) && nextGenActive {
+func charmSettingsWithDefaults(st *State, curl *charm.URL, key string, useNextGenKey bool) (charm.Settings, error) {
+	settings, err := readSettings(st.db(), settingsC, key, useNextGenKey)
+	if errors.IsNotFound(err) && useNextGenKey {
 		settings, err = readSettings(st.db(), settingsC, key, false)
 	}
 	if err != nil {
@@ -2056,18 +2064,6 @@ func charmSettingsWithDefaults(st *State, curl *charm.URL, key string) (charm.Se
 		result[name] = value
 	}
 	return result, nil
-}
-
-// CharmConfig returns the raw user configuration for the application's charm.
-func (a *Application) CharmConfig() (charm.Settings, error) {
-	if a.doc.CharmURL == nil {
-		return nil, fmt.Errorf("application charm not set")
-	}
-	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.charmConfigKey())
-	if err != nil {
-		return nil, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
-	}
-	return s, nil
 }
 
 // UpdateCharmConfig changes a application's charm config settings. Values set
@@ -2119,18 +2115,21 @@ func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
 
 // ApplicationConfig returns the configuration for the application itself.
 func (a *Application) ApplicationConfig() (application.ConfigAttributes, error) {
-	gen, err := a.st.activeGeneration()
+	activeGen, err := a.st.activeGeneration()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	nextGenActive := gen == model.GenerationNext
+	attrs, err := a.applicationConfig(activeGen == model.GenerationNext)
+	return attrs, errors.Trace(err)
+}
 
-	cfg, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey(), nextGenActive)
+func (a *Application) applicationConfig(useNextGenKey bool) (application.ConfigAttributes, error) {
+	cfg, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey(), useNextGenKey)
 
 	// If there is nothing found and we are looking for next generation config,
-	// There might have been no change made yet under the next generation.
+	// there might have been no change made yet under the next generation.
 	// Get the current generation config instead.
-	if errors.IsNotFound(err) && nextGenActive {
+	if errors.IsNotFound(err) && useNextGenKey {
 		cfg, err = readSettings(a.st.db(), settingsC, a.applicationConfigKey(), false)
 	}
 	if errors.IsNotFound(err) || len(cfg.Keys()) == 0 {
