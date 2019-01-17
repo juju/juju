@@ -365,7 +365,7 @@ func (st *State) AddGeneration() error {
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if _, err := st.NextGeneration(); err != nil {
+		if _, err := st.nextGeneration(); err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, errors.Annotatef(err, "checking for next model generation")
 			}
@@ -410,7 +410,7 @@ func (m *Model) ActiveGeneration() (model.GenerationVersion, error) {
 // not active, then the generation to use for config is "current".
 // Otherwise, the model's "next" generation is active.
 func (st *State) activeGeneration() (model.GenerationVersion, error) {
-	gen, err := st.NextGeneration()
+	gen, err := st.nextGeneration()
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return model.GenerationCurrent, nil
@@ -435,7 +435,7 @@ func (m *Model) SwitchGeneration(version model.GenerationVersion) error {
 func (st *State) SwitchGeneration(version model.GenerationVersion) error {
 	active := version == model.GenerationNext
 
-	gen, err := st.NextGeneration()
+	gen, err := st.nextGeneration()
 	if err != nil {
 		if errors.IsNotFound(err) && active {
 			return errors.New("cannot switch to next generation, as none exists")
@@ -472,13 +472,13 @@ func switchGenerationTxnOps(gen *Generation) []txn.Op {
 // NextGeneration returns the model's "next" generation
 // if one exists that is not yet completed.
 func (m *Model) NextGeneration() (*Generation, error) {
-	gen, err := m.st.NextGeneration()
+	gen, err := m.st.nextGeneration()
 	return gen, errors.Trace(err)
 }
 
-// NextGeneration returns the "next" generation
+// nextGeneration returns the "next" generation
 // if one exists for the current model, that is not yet completed.
-func (st *State) NextGeneration() (*Generation, error) {
+func (st *State) nextGeneration() (*Generation, error) {
 	doc, err := st.getNextGenerationDoc()
 	if err != nil {
 		return nil, errors.Trace(err)

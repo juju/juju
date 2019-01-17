@@ -2150,11 +2150,11 @@ func (a *Application) UpdateApplicationConfig(
 	schema environschema.Fields,
 	defaults schema.Defaults,
 ) error {
-	gen, err := a.st.activeGeneration()
+	activeGen, err := a.st.activeGeneration()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	nextGenActive := gen == model.GenerationNext
+	nextGenActive := activeGen == model.GenerationNext
 
 	// If we are updating application config for the next generation,
 	// and no such config exists, attempt to create the document based on the
@@ -2167,12 +2167,12 @@ func (a *Application) UpdateApplicationConfig(
 			node, err = createSettings(db, settingsC, nextGenConfigKey(node.key), node.Map())
 		}
 	}
-
 	if errors.IsNotFound(err) {
 		return errors.Errorf("cannot update application config since no config exists for %q", a.doc.Name)
 	} else if err != nil {
 		return errors.Annotatef(err, "application config for %q", a.doc.Name)
 	}
+
 	resetKeys := set.NewStrings(reset...)
 	for name, value := range changes {
 		if resetKeys.Contains(name) {
@@ -2190,13 +2190,28 @@ func (a *Application) UpdateApplicationConfig(
 	if err := newConfig.Validate(); err != nil {
 		return errors.Trace(err)
 	}
+
 	// Update node so it gets coerced values with correct types.
 	coerced := newConfig.Attributes()
 	for _, key := range node.Keys() {
 		node.Set(key, coerced[key])
 	}
 	_, err = node.Write()
-	return err
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If modifying application config for the next generation,
+	// ensure the application is recorded against it.
+	if nextGenActive {
+		var gen *Generation
+		gen, err = a.st.nextGeneration()
+		if err != nil {
+			return errors.Annotate(err, "retrieving next generation")
+		}
+		err = gen.AssignApplication(a.Name())
+	}
+	return errors.Trace(err)
 }
 
 // LeaderSettings returns a application's leader settings. If nothing has been set
