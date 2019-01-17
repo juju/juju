@@ -66,8 +66,9 @@ will be checked against the following info in Juju:
 - payload tag
 - payload status
 `,
-		Aliases:     []string{"list-payloads"},
-		FlagKnownAs: "option",
+		Aliases:        []string{"list-payloads"},
+		FlagKnownAs:    "option",
+		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},
 	})
 }
 
