@@ -6,6 +6,7 @@ package model_test
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
 )
 
@@ -33,15 +34,15 @@ func (m *MockAdvanceGenerationCommandAPI) EXPECT() *MockAdvanceGenerationCommand
 }
 
 // AdvanceGeneration mocks base method
-func (m *MockAdvanceGenerationCommandAPI) AdvanceGeneration(arg0 []string) error {
-	ret := m.ctrl.Call(m, "AdvanceGeneration", arg0)
+func (m *MockAdvanceGenerationCommandAPI) AdvanceGeneration(arg0 names_v2.ModelTag, arg1 []string) error {
+	ret := m.ctrl.Call(m, "AdvanceGeneration", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AdvanceGeneration indicates an expected call of AdvanceGeneration
-func (mr *MockAdvanceGenerationCommandAPIMockRecorder) AdvanceGeneration(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdvanceGeneration", reflect.TypeOf((*MockAdvanceGenerationCommandAPI)(nil).AdvanceGeneration), arg0)
+func (mr *MockAdvanceGenerationCommandAPIMockRecorder) AdvanceGeneration(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdvanceGeneration", reflect.TypeOf((*MockAdvanceGenerationCommandAPI)(nil).AdvanceGeneration), arg0, arg1)
 }
 
 // Close mocks base method

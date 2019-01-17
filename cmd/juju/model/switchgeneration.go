@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
@@ -49,7 +50,7 @@ type switchGenerationCommand struct {
 //go:generate mockgen -package model_test -destination ./switchgenerationmock_test.go github.com/juju/juju/cmd/juju/model SwitchGenerationCommandAPI
 type SwitchGenerationCommandAPI interface {
 	Close() error
-	SwitchGeneration(string) error
+	SwitchGeneration(names.ModelTag, string) error
 }
 
 // Info implements part of the cmd.Command interface.
@@ -104,12 +105,23 @@ func (c *switchGenerationCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	// TODO (hml) 20-12-2018
-	// update to check err when SwitchGeneration() is implemented in the
-	// apiserver.
-	client.SwitchGeneration(c.generation)
+	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
+	if err != nil {
+		return errors.Annotate(err, "getting model details")
+	}
 
-	msg := fmt.Sprintf("changes dropped and target generation set to %s\n", c.generation)
+	modelTag := names.NewModelTag(modelDetails.ModelUUID)
+	if err = client.SwitchGeneration(modelTag, c.generation); err != nil {
+		return err
+	}
+
+	var msg string
+	switch c.generation {
+	case "next":
+		msg = fmt.Sprintf("target generation set to %s\n", c.generation)
+	case "current":
+		msg = fmt.Sprintf("changes dropped and target generation set to %s\n", c.generation)
+	}
 	ctx.Stdout.Write([]byte(msg))
 	return nil
 }

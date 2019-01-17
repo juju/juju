@@ -6,6 +6,7 @@ package model_test
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
 )
 
@@ -45,13 +46,13 @@ func (mr *MockSwitchGenerationCommandAPIMockRecorder) Close() *gomock.Call {
 }
 
 // SwitchGeneration mocks base method
-func (m *MockSwitchGenerationCommandAPI) SwitchGeneration(arg0 string) error {
-	ret := m.ctrl.Call(m, "SwitchGeneration", arg0)
+func (m *MockSwitchGenerationCommandAPI) SwitchGeneration(arg0 names_v2.ModelTag, arg1 string) error {
+	ret := m.ctrl.Call(m, "SwitchGeneration", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SwitchGeneration indicates an expected call of SwitchGeneration
-func (mr *MockSwitchGenerationCommandAPIMockRecorder) SwitchGeneration(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SwitchGeneration", reflect.TypeOf((*MockSwitchGenerationCommandAPI)(nil).SwitchGeneration), arg0)
+func (mr *MockSwitchGenerationCommandAPIMockRecorder) SwitchGeneration(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SwitchGeneration", reflect.TypeOf((*MockSwitchGenerationCommandAPI)(nil).SwitchGeneration), arg0, arg1)
 }
