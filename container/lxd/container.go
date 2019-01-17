@@ -47,7 +47,7 @@ func (c *ContainerSpec) ApplyConstraints(cons constraints.Value) {
 		c.Config["limits.cpu"] = fmt.Sprintf("%d", *cons.CpuCores)
 	}
 	if cons.HasMem() {
-		c.Config["limits.memory"] = fmt.Sprintf("%dMB", *cons.Mem)
+		c.Config["limits.memory"] = fmt.Sprintf("%dMiB", *cons.Mem)
 	}
 }
 

@@ -478,16 +478,16 @@ func (mr *MockContainerServerMockRecorder) CopyContainer(arg0, arg1, arg2 interf
 }
 
 // CopyContainerSnapshot mocks base method
-func (m *MockContainerServer) CopyContainerSnapshot(arg0 client.ContainerServer, arg1 api.ContainerSnapshot, arg2 *client.ContainerSnapshotCopyArgs) (client.RemoteOperation, error) {
-	ret := m.ctrl.Call(m, "CopyContainerSnapshot", arg0, arg1, arg2)
+func (m *MockContainerServer) CopyContainerSnapshot(arg0 client.ContainerServer, arg1 string, arg2 api.ContainerSnapshot, arg3 *client.ContainerSnapshotCopyArgs) (client.RemoteOperation, error) {
+	ret := m.ctrl.Call(m, "CopyContainerSnapshot", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(client.RemoteOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CopyContainerSnapshot indicates an expected call of CopyContainerSnapshot
-func (mr *MockContainerServerMockRecorder) CopyContainerSnapshot(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyContainerSnapshot", reflect.TypeOf((*MockContainerServer)(nil).CopyContainerSnapshot), arg0, arg1, arg2)
+func (mr *MockContainerServerMockRecorder) CopyContainerSnapshot(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyContainerSnapshot", reflect.TypeOf((*MockContainerServer)(nil).CopyContainerSnapshot), arg0, arg1, arg2, arg3)
 }
 
 // CopyImage mocks base method
@@ -679,6 +679,18 @@ func (mr *MockContainerServerMockRecorder) CreateProfile(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateProfile", reflect.TypeOf((*MockContainerServer)(nil).CreateProfile), arg0)
 }
 
+// CreateProject mocks base method
+func (m *MockContainerServer) CreateProject(arg0 api.ProjectsPost) error {
+	ret := m.ctrl.Call(m, "CreateProject", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateProject indicates an expected call of CreateProject
+func (mr *MockContainerServerMockRecorder) CreateProject(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateProject", reflect.TypeOf((*MockContainerServer)(nil).CreateProject), arg0)
+}
+
 // CreateStoragePool mocks base method
 func (m *MockContainerServer) CreateStoragePool(arg0 api.StoragePoolsPost) error {
 	ret := m.ctrl.Call(m, "CreateStoragePool", arg0)
@@ -701,6 +713,19 @@ func (m *MockContainerServer) CreateStoragePoolVolume(arg0 string, arg1 api.Stor
 // CreateStoragePoolVolume indicates an expected call of CreateStoragePoolVolume
 func (mr *MockContainerServerMockRecorder) CreateStoragePoolVolume(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStoragePoolVolume", reflect.TypeOf((*MockContainerServer)(nil).CreateStoragePoolVolume), arg0, arg1)
+}
+
+// CreateStoragePoolVolumeSnapshot mocks base method
+func (m *MockContainerServer) CreateStoragePoolVolumeSnapshot(arg0, arg1, arg2 string, arg3 api.StorageVolumeSnapshotsPost) (client.Operation, error) {
+	ret := m.ctrl.Call(m, "CreateStoragePoolVolumeSnapshot", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(client.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateStoragePoolVolumeSnapshot indicates an expected call of CreateStoragePoolVolumeSnapshot
+func (mr *MockContainerServerMockRecorder) CreateStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStoragePoolVolumeSnapshot", reflect.TypeOf((*MockContainerServer)(nil).CreateStoragePoolVolumeSnapshot), arg0, arg1, arg2, arg3)
 }
 
 // DeleteCertificate mocks base method
@@ -875,6 +900,18 @@ func (mr *MockContainerServerMockRecorder) DeleteProfile(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteProfile", reflect.TypeOf((*MockContainerServer)(nil).DeleteProfile), arg0)
 }
 
+// DeleteProject mocks base method
+func (m *MockContainerServer) DeleteProject(arg0 string) error {
+	ret := m.ctrl.Call(m, "DeleteProject", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteProject indicates an expected call of DeleteProject
+func (mr *MockContainerServerMockRecorder) DeleteProject(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteProject", reflect.TypeOf((*MockContainerServer)(nil).DeleteProject), arg0)
+}
+
 // DeleteStoragePool mocks base method
 func (m *MockContainerServer) DeleteStoragePool(arg0 string) error {
 	ret := m.ctrl.Call(m, "DeleteStoragePool", arg0)
@@ -897,6 +934,19 @@ func (m *MockContainerServer) DeleteStoragePoolVolume(arg0, arg1, arg2 string) e
 // DeleteStoragePoolVolume indicates an expected call of DeleteStoragePoolVolume
 func (mr *MockContainerServerMockRecorder) DeleteStoragePoolVolume(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteStoragePoolVolume", reflect.TypeOf((*MockContainerServer)(nil).DeleteStoragePoolVolume), arg0, arg1, arg2)
+}
+
+// DeleteStoragePoolVolumeSnapshot mocks base method
+func (m *MockContainerServer) DeleteStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 string) (client.Operation, error) {
+	ret := m.ctrl.Call(m, "DeleteStoragePoolVolumeSnapshot", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(client.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteStoragePoolVolumeSnapshot indicates an expected call of DeleteStoragePoolVolumeSnapshot
+func (mr *MockContainerServerMockRecorder) DeleteStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteStoragePoolVolumeSnapshot", reflect.TypeOf((*MockContainerServer)(nil).DeleteStoragePoolVolumeSnapshot), arg0, arg1, arg2, arg3)
 }
 
 // ExecContainer mocks base method
@@ -1259,6 +1309,19 @@ func (mr *MockContainerServerMockRecorder) GetContainers() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainers", reflect.TypeOf((*MockContainerServer)(nil).GetContainers))
 }
 
+// GetContainersFull mocks base method
+func (m *MockContainerServer) GetContainersFull() ([]api.ContainerFull, error) {
+	ret := m.ctrl.Call(m, "GetContainersFull")
+	ret0, _ := ret[0].([]api.ContainerFull)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetContainersFull indicates an expected call of GetContainersFull
+func (mr *MockContainerServerMockRecorder) GetContainersFull() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainersFull", reflect.TypeOf((*MockContainerServer)(nil).GetContainersFull))
+}
+
 // GetEvents mocks base method
 func (m *MockContainerServer) GetEvents() (*client.EventListener, error) {
 	ret := m.ctrl.Call(m, "GetEvents")
@@ -1431,6 +1494,19 @@ func (mr *MockContainerServerMockRecorder) GetNetworkNames() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkNames", reflect.TypeOf((*MockContainerServer)(nil).GetNetworkNames))
 }
 
+// GetNetworkState mocks base method
+func (m *MockContainerServer) GetNetworkState(arg0 string) (*api.NetworkState, error) {
+	ret := m.ctrl.Call(m, "GetNetworkState", arg0)
+	ret0, _ := ret[0].(*api.NetworkState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkState indicates an expected call of GetNetworkState
+func (mr *MockContainerServerMockRecorder) GetNetworkState(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkState", reflect.TypeOf((*MockContainerServer)(nil).GetNetworkState), arg0)
+}
+
 // GetNetworks mocks base method
 func (m *MockContainerServer) GetNetworks() ([]api.Network, error) {
 	ret := m.ctrl.Call(m, "GetNetworks")
@@ -1469,6 +1545,20 @@ func (m *MockContainerServer) GetOperationUUIDs() ([]string, error) {
 // GetOperationUUIDs indicates an expected call of GetOperationUUIDs
 func (mr *MockContainerServerMockRecorder) GetOperationUUIDs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOperationUUIDs", reflect.TypeOf((*MockContainerServer)(nil).GetOperationUUIDs))
+}
+
+// GetOperationWait mocks base method
+func (m *MockContainerServer) GetOperationWait(arg0 string, arg1 int) (*api.Operation, string, error) {
+	ret := m.ctrl.Call(m, "GetOperationWait", arg0, arg1)
+	ret0, _ := ret[0].(*api.Operation)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetOperationWait indicates an expected call of GetOperationWait
+func (mr *MockContainerServerMockRecorder) GetOperationWait(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOperationWait", reflect.TypeOf((*MockContainerServer)(nil).GetOperationWait), arg0, arg1)
 }
 
 // GetOperationWebsocket mocks base method
@@ -1564,6 +1654,46 @@ func (mr *MockContainerServerMockRecorder) GetProfiles() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfiles", reflect.TypeOf((*MockContainerServer)(nil).GetProfiles))
 }
 
+// GetProject mocks base method
+func (m *MockContainerServer) GetProject(arg0 string) (*api.Project, string, error) {
+	ret := m.ctrl.Call(m, "GetProject", arg0)
+	ret0, _ := ret[0].(*api.Project)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetProject indicates an expected call of GetProject
+func (mr *MockContainerServerMockRecorder) GetProject(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProject", reflect.TypeOf((*MockContainerServer)(nil).GetProject), arg0)
+}
+
+// GetProjectNames mocks base method
+func (m *MockContainerServer) GetProjectNames() ([]string, error) {
+	ret := m.ctrl.Call(m, "GetProjectNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProjectNames indicates an expected call of GetProjectNames
+func (mr *MockContainerServerMockRecorder) GetProjectNames() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProjectNames", reflect.TypeOf((*MockContainerServer)(nil).GetProjectNames))
+}
+
+// GetProjects mocks base method
+func (m *MockContainerServer) GetProjects() ([]api.Project, error) {
+	ret := m.ctrl.Call(m, "GetProjects")
+	ret0, _ := ret[0].([]api.Project)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProjects indicates an expected call of GetProjects
+func (mr *MockContainerServerMockRecorder) GetProjects() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProjects", reflect.TypeOf((*MockContainerServer)(nil).GetProjects))
+}
+
 // GetServer mocks base method
 func (m *MockContainerServer) GetServer() (*api.Server, string, error) {
 	ret := m.ctrl.Call(m, "GetServer")
@@ -1656,6 +1786,46 @@ func (m *MockContainerServer) GetStoragePoolVolumeNames(arg0 string) ([]string, 
 // GetStoragePoolVolumeNames indicates an expected call of GetStoragePoolVolumeNames
 func (mr *MockContainerServerMockRecorder) GetStoragePoolVolumeNames(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolVolumeNames", reflect.TypeOf((*MockContainerServer)(nil).GetStoragePoolVolumeNames), arg0)
+}
+
+// GetStoragePoolVolumeSnapshot mocks base method
+func (m *MockContainerServer) GetStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 string) (*api.StorageVolumeSnapshot, string, error) {
+	ret := m.ctrl.Call(m, "GetStoragePoolVolumeSnapshot", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*api.StorageVolumeSnapshot)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetStoragePoolVolumeSnapshot indicates an expected call of GetStoragePoolVolumeSnapshot
+func (mr *MockContainerServerMockRecorder) GetStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolVolumeSnapshot", reflect.TypeOf((*MockContainerServer)(nil).GetStoragePoolVolumeSnapshot), arg0, arg1, arg2, arg3)
+}
+
+// GetStoragePoolVolumeSnapshotNames mocks base method
+func (m *MockContainerServer) GetStoragePoolVolumeSnapshotNames(arg0, arg1, arg2 string) ([]string, error) {
+	ret := m.ctrl.Call(m, "GetStoragePoolVolumeSnapshotNames", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolVolumeSnapshotNames indicates an expected call of GetStoragePoolVolumeSnapshotNames
+func (mr *MockContainerServerMockRecorder) GetStoragePoolVolumeSnapshotNames(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolVolumeSnapshotNames", reflect.TypeOf((*MockContainerServer)(nil).GetStoragePoolVolumeSnapshotNames), arg0, arg1, arg2)
+}
+
+// GetStoragePoolVolumeSnapshots mocks base method
+func (m *MockContainerServer) GetStoragePoolVolumeSnapshots(arg0, arg1, arg2 string) ([]api.StorageVolumeSnapshot, error) {
+	ret := m.ctrl.Call(m, "GetStoragePoolVolumeSnapshots", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]api.StorageVolumeSnapshot)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolVolumeSnapshots indicates an expected call of GetStoragePoolVolumeSnapshots
+func (mr *MockContainerServerMockRecorder) GetStoragePoolVolumeSnapshots(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolVolumeSnapshots", reflect.TypeOf((*MockContainerServer)(nil).GetStoragePoolVolumeSnapshots), arg0, arg1, arg2)
 }
 
 // GetStoragePoolVolumes mocks base method
@@ -1901,6 +2071,19 @@ func (mr *MockContainerServerMockRecorder) RenameProfile(arg0, arg1 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameProfile", reflect.TypeOf((*MockContainerServer)(nil).RenameProfile), arg0, arg1)
 }
 
+// RenameProject mocks base method
+func (m *MockContainerServer) RenameProject(arg0 string, arg1 api.ProjectPost) (client.Operation, error) {
+	ret := m.ctrl.Call(m, "RenameProject", arg0, arg1)
+	ret0, _ := ret[0].(client.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RenameProject indicates an expected call of RenameProject
+func (mr *MockContainerServerMockRecorder) RenameProject(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameProject", reflect.TypeOf((*MockContainerServer)(nil).RenameProject), arg0, arg1)
+}
+
 // RenameStoragePoolVolume mocks base method
 func (m *MockContainerServer) RenameStoragePoolVolume(arg0, arg1, arg2 string, arg3 api.StorageVolumePost) error {
 	ret := m.ctrl.Call(m, "RenameStoragePoolVolume", arg0, arg1, arg2, arg3)
@@ -1911,6 +2094,19 @@ func (m *MockContainerServer) RenameStoragePoolVolume(arg0, arg1, arg2 string, a
 // RenameStoragePoolVolume indicates an expected call of RenameStoragePoolVolume
 func (mr *MockContainerServerMockRecorder) RenameStoragePoolVolume(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameStoragePoolVolume", reflect.TypeOf((*MockContainerServer)(nil).RenameStoragePoolVolume), arg0, arg1, arg2, arg3)
+}
+
+// RenameStoragePoolVolumeSnapshot mocks base method
+func (m *MockContainerServer) RenameStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 string, arg4 api.StorageVolumeSnapshotPost) (client.Operation, error) {
+	ret := m.ctrl.Call(m, "RenameStoragePoolVolumeSnapshot", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(client.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RenameStoragePoolVolumeSnapshot indicates an expected call of RenameStoragePoolVolumeSnapshot
+func (mr *MockContainerServerMockRecorder) RenameStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameStoragePoolVolumeSnapshot", reflect.TypeOf((*MockContainerServer)(nil).RenameStoragePoolVolumeSnapshot), arg0, arg1, arg2, arg3, arg4)
 }
 
 // RequireAuthenticated mocks base method
@@ -2046,6 +2242,18 @@ func (mr *MockContainerServerMockRecorder) UpdateProfile(arg0, arg1, arg2 interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProfile", reflect.TypeOf((*MockContainerServer)(nil).UpdateProfile), arg0, arg1, arg2)
 }
 
+// UpdateProject mocks base method
+func (m *MockContainerServer) UpdateProject(arg0 string, arg1 api.ProjectPut, arg2 string) error {
+	ret := m.ctrl.Call(m, "UpdateProject", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateProject indicates an expected call of UpdateProject
+func (mr *MockContainerServerMockRecorder) UpdateProject(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProject", reflect.TypeOf((*MockContainerServer)(nil).UpdateProject), arg0, arg1, arg2)
+}
+
 // UpdateServer mocks base method
 func (m *MockContainerServer) UpdateServer(arg0 api.ServerPut, arg1 string) error {
 	ret := m.ctrl.Call(m, "UpdateServer", arg0, arg1)
@@ -2080,6 +2288,30 @@ func (m *MockContainerServer) UpdateStoragePoolVolume(arg0, arg1, arg2 string, a
 // UpdateStoragePoolVolume indicates an expected call of UpdateStoragePoolVolume
 func (mr *MockContainerServerMockRecorder) UpdateStoragePoolVolume(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStoragePoolVolume", reflect.TypeOf((*MockContainerServer)(nil).UpdateStoragePoolVolume), arg0, arg1, arg2, arg3, arg4)
+}
+
+// UpdateStoragePoolVolumeSnapshot mocks base method
+func (m *MockContainerServer) UpdateStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 string, arg4 api.StorageVolumeSnapshotPut, arg5 string) error {
+	ret := m.ctrl.Call(m, "UpdateStoragePoolVolumeSnapshot", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateStoragePoolVolumeSnapshot indicates an expected call of UpdateStoragePoolVolumeSnapshot
+func (mr *MockContainerServerMockRecorder) UpdateStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStoragePoolVolumeSnapshot", reflect.TypeOf((*MockContainerServer)(nil).UpdateStoragePoolVolumeSnapshot), arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
+// UseProject mocks base method
+func (m *MockContainerServer) UseProject(arg0 string) client.ContainerServer {
+	ret := m.ctrl.Call(m, "UseProject", arg0)
+	ret0, _ := ret[0].(client.ContainerServer)
+	return ret0
+}
+
+// UseProject indicates an expected call of UseProject
+func (mr *MockContainerServerMockRecorder) UseProject(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseProject", reflect.TypeOf((*MockContainerServer)(nil).UseProject), arg0)
 }
 
 // UseTarget mocks base method

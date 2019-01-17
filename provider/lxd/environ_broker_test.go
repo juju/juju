@@ -280,7 +280,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 		if cfg["limits.cpu"] != "2" {
 			return false
 		}
-		if cfg["limits.memory"] != "2048MB" {
+		if cfg["limits.memory"] != "2048MiB" {
 			return false
 		}
 		return spec.InstanceType == "t2.micro"
