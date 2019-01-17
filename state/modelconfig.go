@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/controller"
@@ -149,11 +148,7 @@ func (m *Model) UpdateModelConfigDefaultValues(
 		key = controllerInheritedSettingsGlobalKey
 	}
 
-	gen, err := m.ActiveGeneration()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	settings, err := readSettings(m.st.db(), globalSettingsC, key, gen == model.GenerationNext)
+	settings, err := readSettings(m.st.db(), globalSettingsC, key, false)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "model %q", m.UUID())
@@ -283,7 +278,9 @@ type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []s
 // UpdateModelConfig adds, updates or removes attributes in the current
 // configuration of the model with the provided updateAttrs and
 // removeAttrs.
-func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc) error {
+func (m *Model) UpdateModelConfig(
+	updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc,
+) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
 		return nil
 	}
@@ -320,12 +317,7 @@ func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttr
 	// applied as a delta to what's on disk; if there has
 	// been a concurrent update, the change may not be what
 	// the user asked for.
-
-	gen, err := m.ActiveGeneration()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	modelSettings, err := readSettings(st.db(), settingsC, modelGlobalKey, gen == model.GenerationNext)
+	modelSettings, err := readSettings(st.db(), settingsC, modelGlobalKey, false)
 	if err != nil {
 		return errors.Annotatef(err, "model %q", m.UUID())
 	}
