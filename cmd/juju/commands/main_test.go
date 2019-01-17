@@ -25,6 +25,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -48,7 +49,15 @@ func helpText(command cmd.Command, name string) string {
 	info.Name = name
 	f := gnuflag.NewFlagSetWithFlagKnownAs(info.Name, gnuflag.ContinueOnError, cmd.FlagAlias(command, "option"))
 	command.SetFlags(f)
-	buff.Write(info.Help(f))
+
+	superJuju := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:        "juju",
+		FlagKnownAs: "option",
+	})
+	superF := gnuflag.NewFlagSetWithFlagKnownAs("juju", gnuflag.ContinueOnError, "option")
+	superJuju.SetFlags(superF)
+
+	buff.Write(info.HelpWithSuperFlags(superF, f))
 	return buff.String()
 }
 
