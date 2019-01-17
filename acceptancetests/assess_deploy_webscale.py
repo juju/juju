@@ -22,6 +22,7 @@ import time
 from deploy_stack import (
     BootstrapManager,
     deploy_caas_stack,
+    deploy_iaas_stack,
 )
 from utility import (
     add_basic_testing_arguments,
@@ -49,8 +50,6 @@ def deploy_bundle(client, charm_bundle):
     :param client: Jujupy ModelClient object
     :param charm_bundle: Optional charm bundle string
     """
-    model_name = "webscale"
-
     bundle = None
     if not charm_bundle:
         bundle = local_charm_path(
@@ -61,20 +60,15 @@ def deploy_bundle(client, charm_bundle):
     else:
         bundle = charm_bundle
 
-    caas_client = deploy_caas_stack(
+    stack_client = deploy_caas_stack(
         path=bundle,
         client=client,
         charm=(not not charm_bundle),
         timeout=43200,
     )
 
-    if not caas_client.is_cluster_healthy:
+    if not stack_client.is_cluster_healthy:
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
-
-    current_model = caas_client.add_model(model_name)
-    current_model.juju(current_model._show_status, ('--format', 'tabular'))
-
-    current_model.destroy_model()
 
 def extract_module_logs(client, module):
     """Extract the logs from destination module.
@@ -86,7 +80,7 @@ def extract_module_logs(client, module):
         '--no-tail', '--replay', '-l', 'TRACE',
         '--include-module', module,
     )
-    return deploy_logs
+    return deploy_logs.decode('utf-8')
 
 def extract_txn_timings(logs, module):
     """Extract the transaction timings (txn) from the deploy logs.
@@ -165,6 +159,7 @@ def main(argv=None):
         deploy_bundle(client, charm_bundle=args.charm_bundle)
         raw_logs = extract_module_logs(client, module=args.logging_module)
         timings = extract_txn_timings(raw_logs, module=args.logging_module)
+
         # Calculate the timings to forward to the datastore
         metrics = construct_metrics(
             calculate_total_time(timings),

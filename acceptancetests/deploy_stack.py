@@ -104,7 +104,6 @@ config:
   security.nesting: "true"
   security.privileged: "true"
 description: ""
-devices: {}
 """
 
 

@@ -40,6 +40,7 @@ from jujupy.client import (
     Machine,
     ModelClient,
     CaasClient,
+    IaasClient,
     parse_new_state_server_from_error,
     temp_bootstrap_env,
 )
@@ -89,6 +90,7 @@ __all__ = [
     'Machine',
     'ModelClient',
     'CaasClient',
+    'IaasClient',
     'NameNotAccepted',
     'NoProvider',
     'NoSuchEnvironment',

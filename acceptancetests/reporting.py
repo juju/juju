@@ -38,7 +38,7 @@ class InfluxClient(_Reporting):
 
         now = datetime.datetime.today()
         series = []
-        for key, label in self.labels:
+        for key, label in self.labels.items():
             if key in metrics:
                 pointValue = {
                     "measurement": label,
