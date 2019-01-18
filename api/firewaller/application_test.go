@@ -64,18 +64,6 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *applicationSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
-
-	err := s.application.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
-
-	err = s.apiApplication.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Dying)
-}
-
 func (s *applicationSuite) TestIsExposed(c *gc.C) {
 	err := s.application.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)

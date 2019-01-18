@@ -6,6 +6,7 @@ package firewaller
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
@@ -35,22 +36,6 @@ func (s *Application) Watch() (watcher.NotifyWatcher, error) {
 	return common.Watch(s.st.facade, "Watch", s.tag)
 }
 
-// Life returns the application's current life state.
-func (s *Application) Life() params.Life {
-	return s.life
-}
-
-// Refresh refreshes the contents of the application from the underlying
-// state.
-func (s *Application) Refresh() error {
-	life, err := s.st.life(s.tag)
-	if err != nil {
-		return err
-	}
-	s.life = life
-	return nil
-}
-
 // IsExposed returns whether this application is exposed. The explicitly
 // open ports (with open-port) for exposed application may be accessed
 // from machines outside of the local deployment network.
@@ -71,6 +56,9 @@ func (s *Application) IsExposed() (bool, error) {
 	}
 	result := results.Results[0]
 	if result.Error != nil {
+		if params.IsCodeNotFound(result.Error) {
+			return false, errors.NewNotFound(result.Error, "")
+		}
 		return false, result.Error
 	}
 	return result.Result, nil
