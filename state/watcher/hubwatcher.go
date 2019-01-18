@@ -221,12 +221,38 @@ func (w *HubWatcher) sendReq(req interface{}) {
 	}
 }
 
-// WatchDocsWithFields watches a particular collection for a number
-// of ids. For each of those ids, a query is executed to retrieve the
-// fields specified, and read into the result structure.
-func (w *HubWatcher) WatchDocsWithFields(collection string, ids []interface{}, fields []string, results interface{}, ch chan<- Change) {
-	// XXX
-	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno, nil}})
+func (w *HubWatcher) sendAndWaitReq(req waitableRequest) error {
+	select {
+	case w.request <- req:
+	case <-w.tomb.Dying():
+		return errors.Trace(tomb.ErrDying)
+	}
+	completed := req.Completed()
+	select {
+	case err := <-completed:
+		return errors.Trace(err)
+	case <-w.tomb.Dying():
+		return errors.Trace(tomb.ErrDying)
+	}
+}
+
+// WatchMulti watches a particular collection for several ids.
+// The request is synchronous with the worker loop, so by the time the function returns,
+// we guarantee that the watch is in place. If there is a mistake in the arguments (id is nil,
+// channel is already watching a given id), an error will be returned and no watches will be added.
+func (w *HubWatcher) WatchMulti(collection string, ids []interface{}, ch chan<- Change) error {
+	for _, id := range ids {
+		if id == nil {
+			return errors.Errorf("cannot watch a document with nil id")
+		}
+	}
+	req := reqWatchMulti{
+		collection:  collection,
+		ids:         ids,
+		completedCh: make(chan error),
+		watchCh:     ch,
+	}
+	return errors.Trace(w.sendAndWaitReq(req))
 }
 
 // WatchAtRevno starts watching the given collection and document id.
@@ -499,6 +525,33 @@ func (w *HubWatcher) handle(req interface{}) {
 			w.requestEvents = append(w.requestEvents, evt)
 		}
 		w.watches[r.key] = append(w.watches[r.key], r.info)
+	case reqWatchMulti:
+		for _, id := range r.ids {
+			key := watchKey{c: r.collection, id: id}
+			for _, info := range w.watches[key] {
+				if info.ch == r.watchCh {
+					err := errors.Errorf("tried to re-add channel %v for %s", r.watchCh, key)
+					select {
+					case r.completedCh <- err:
+					case <-w.tomb.Dying():
+					}
+					return
+				}
+			}
+		}
+		for _, id := range r.ids {
+			key := watchKey{c: r.collection, id: id}
+			info := watchInfo{
+				ch:     r.watchCh,
+				revno:  -2,
+				filter: nil,
+			}
+			w.watches[key] = append(w.watches[key], info)
+		}
+		select {
+		case r.completedCh <- nil:
+		case <-w.tomb.Dying():
+		}
 	case reqUnwatch:
 		watches := w.watches[r.key]
 		removed := false

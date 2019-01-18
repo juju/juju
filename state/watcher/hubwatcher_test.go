@@ -121,6 +121,48 @@ func (s *HubWatcherSuite) TestWatchIgnoreUnwatched(c *gc.C) {
 	assertNoChange(c, s.ch)
 }
 
+func (s *HubWatcherSuite) TestWatchMultiBeforeKnown(c *gc.C) {
+	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
+	c.Assert(err, jc.ErrorIsNil)
+	assertNoChange(c, s.ch)
+
+	change := watcher.Change{"test", "a", false, 5}
+	s.publish(c, change)
+
+	assertChange(c, s.ch, change)
+	assertNoChange(c, s.ch)
+}
+
+func (s *HubWatcherSuite) TestWatchMultiDuplicateWatch(c *gc.C) {
+	s.w.WatchNoRevno("test", "b", s.ch)
+	assertNoChange(c, s.ch)
+	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
+	c.Assert(err, gc.ErrorMatches, `tried to re-add channel .* for document "b" in collection "test"`)
+	// Changes to "a" should not be watched as we had an error
+	s.publish(c, watcher.Change{"test", "a", false, 5})
+	assertNoChange(c, s.ch)
+}
+
+func (s *HubWatcherSuite) TestWatchMultiInvalidId(c *gc.C) {
+	err := s.w.WatchMulti("test", []interface{}{"a", nil}, s.ch)
+	c.Assert(err, gc.ErrorMatches, `cannot watch a document with nil id`)
+	// Changes to "a" should not be watched as we had an error
+	s.publish(c, watcher.Change{"test", "a", false, 5})
+	assertNoChange(c, s.ch)
+}
+
+func (s *HubWatcherSuite) TestWatchMultiAfterKnown(c *gc.C) {
+	s.publish(c, watcher.Change{"test", "a", false, 5})
+	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
+	c.Assert(err, jc.ErrorIsNil)
+	assertNoChange(c, s.ch)
+	// We don't see the change that occurred before we started watching, but we see any changes after that fact
+	change := watcher.Change{"test", "a", false, 6}
+	s.publish(c, change)
+	assertChange(c, s.ch, change)
+	assertNoChange(c, s.ch)
+}
+
 func (s *HubWatcherSuite) TestWatchOrder(c *gc.C) {
 	first := watcher.Change{"test", "a", false, 3}
 	second := watcher.Change{"test", "b", false, 4}

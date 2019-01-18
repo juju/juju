@@ -30,7 +30,7 @@ type BaseWatcher interface {
 	Dead() <-chan struct{}
 	Err() error
 
-	WatchDocsWithFields(collection string, ids []interface{}, fields []string, results interface{}, ch chan<- Change) error
+	WatchMulti(collection string, ids []interface{}, ch chan<- Change) error
 	WatchAtRevno(collection string, id interface{}, revno int64, ch chan<- Change)
 	WatchNoRevno(collection string, id interface{}, ch chan<- Change)
 	WatchCollection(collection string, ch chan<- Change)
@@ -94,9 +94,12 @@ type watchKey struct {
 }
 
 func (k watchKey) String() string {
-	coll := "collection " + k.c
+	coll := fmt.Sprintf("collection %q", k.c)
 	if k.id == nil {
 		return coll
+	}
+	if s, ok := k.id.(string); ok {
+		return fmt.Sprintf("document %q in %s", s, coll)
 	}
 	return fmt.Sprintf("document %v in %s", k.id, coll)
 }
@@ -205,12 +208,30 @@ type reqWatch struct {
 	info watchInfo
 }
 
+type reqWatchMulti struct {
+	collection  string
+	ids         []interface{}
+	completedCh chan error
+	watchCh     chan<- Change
+}
+
+func (r reqWatchMulti) Completed() chan error {
+	return r.completedCh
+}
+
 type reqUnwatch struct {
 	key watchKey
 	ch  chan<- Change
 }
 
 type reqSync struct{}
+
+// waitableRequest represents a request that is made, and you wait for the core loop to acknowledge the request has been
+// received
+type waitableRequest interface {
+	// Completed returns the channel that the core loop will use to signal completion of the request.
+	Completed() chan error
+}
 
 func (w *Watcher) sendReq(req interface{}) {
 	select {
@@ -239,6 +260,27 @@ func (w *Watcher) WatchNoRevno(collection string, id interface{}, ch chan<- Chan
 		panic("watcher: cannot watch a document with nil id")
 	}
 	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, -2, nil}})
+}
+
+func (w *Watcher) WatchMulti(collection string, ids []interface{}, ch chan<- Change) error {
+	for _, id := range ids {
+		if id == nil {
+			return errors.Errorf("cannot watch a document with nil id")
+		}
+	}
+	req := reqWatchMulti{
+		collection:  collection,
+		ids:         ids,
+		watchCh:     ch,
+		completedCh: make(chan error),
+	}
+	w.sendReq(req)
+	select {
+	case err := <-req.completedCh:
+		return errors.Trace(err)
+	case <-w.tomb.Dying():
+		return errors.Trace(tomb.ErrDying)
+	}
 }
 
 // WatchCollection starts watching the given collection.
@@ -409,6 +451,32 @@ func (w *Watcher) handle(req interface{}) {
 			if r.key.match(e.key) && e.ch == r.ch {
 				e.ch = nil
 			}
+		}
+	case reqWatchMulti:
+		for _, id := range r.ids {
+			key := watchKey{c: r.collection, id: id}
+			for _, info := range w.watches[key] {
+				if info.ch == r.watchCh {
+					err := errors.Errorf("tried to re-add channel %v for %s", info.ch, key)
+					select {
+					case r.completedCh <- err:
+					case <-w.tomb.Dying():
+					}
+					return
+				}
+			}
+		}
+		for _, id := range r.ids {
+			key := watchKey{c: r.collection, id: id}
+			revno, ok := w.current[key]
+			if !ok {
+				revno = -2
+			}
+			w.watches[key] = append(w.watches[key], watchInfo{ch: r.watchCh, revno: revno, filter: nil})
+		}
+		select {
+		case r.completedCh <- nil:
+		case <-w.tomb.Dying():
 		}
 	default:
 		panic(fmt.Errorf("unknown request: %T", req))

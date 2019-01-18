@@ -1633,7 +1633,11 @@ func (w *unitsWatcher) initial() ([]string, error) {
 
 func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 	docs := []lifeWatchDoc{}
-	if err := w.watcher.WatchDocsWithFields(unitsC, names, []string{"name", "life"}, &docs, w.in); err != nil {
+	ids := make([]interface{}, len(names))
+	for i := range names {
+		ids[i] = names[i]
+	}
+	if err := w.watcher.WatchMulti(unitsC, ids, w.in); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1715,7 +1719,8 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 }
 
 func (w *unitsWatcher) loop(coll, id string) error {
-	w.watcher.WatchNoRevno(coll, id, w.in)
+	rootCh := make(chan watcher.Change)
+	w.watcher.WatchNoRevno(coll, id, rootCh)
 	defer func() {
 		w.watcher.Unwatch(coll, id, w.in)
 		for name := range w.life {
@@ -1726,7 +1731,6 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	if err != nil {
 		return err
 	}
-	rootLocalID := w.backend.localID(id)
 	out := w.out
 	for {
 		select {
@@ -1734,13 +1738,11 @@ func (w *unitsWatcher) loop(coll, id string) error {
 			return stateWatcherDeadError(w.watcher.Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
+		case <-rootCh:
+			changes, err = w.update(changes)
 		case c := <-w.in:
 			localID := w.backend.localID(c.Id.(string))
-			if localID == rootLocalID {
-				changes, err = w.update(changes)
-			} else {
-				changes, err = w.merge(changes, localID)
-			}
+			changes, err = w.merge(changes, localID)
 			if err != nil {
 				return err
 			}

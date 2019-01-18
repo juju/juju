@@ -371,6 +371,52 @@ func (s *FastPeriodSuite) TestWatchAlreadyRemoved(c *gc.C) {
 	assertOrder(c, revno2, revno1)
 }
 
+func (s *FastPeriodSuite) TestWatchMultiBeforeKnown(c *gc.C) {
+	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
+	c.Assert(err, jc.ErrorIsNil)
+	s.w.StartSync()
+	assertNoChange(c, s.ch)
+	revno1 := s.insert(c, "test", "a")
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno1})
+	assertNoChange(c, s.ch)
+}
+
+func (s *FastPeriodSuite) TestWatchMultiDuplicateWatch(c *gc.C) {
+	s.w.WatchNoRevno("test", "b", s.ch)
+	assertNoChange(c, s.ch)
+	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
+	c.Assert(err, gc.ErrorMatches, `tried to re-add channel .* for document "b" in collection "test"`)
+	// Changes to "a" should not be watched as we had an error
+	_ = s.insert(c, "test", "a")
+	assertNoChange(c, s.ch)
+}
+
+func (s *FastPeriodSuite) TestWatchMultiInvalidId(c *gc.C) {
+	err := s.w.WatchMulti("test", []interface{}{"a", nil}, s.ch)
+	c.Assert(err, gc.ErrorMatches, `cannot watch a document with nil id`)
+	// Changes to "a" should not be watched as we had an error
+	_ = s.insert(c, "test", "a")
+	assertNoChange(c, s.ch)
+
+}
+
+func (s *FastPeriodSuite) TestWatchMultiAfterKnown(c *gc.C) {
+	s.w.WatchNoRevno("test", "b", s.ch)
+	revno1 := s.insert(c, "test", "a")
+	revnob := s.insert(c, "test", "b")
+	s.w.StartSync()
+	assertChange(c, s.ch, watcher.Change{"test", "b", false, revnob})
+	// Wait to start the watch until we see the change for "b", so that we know the Sync has completed
+	err := s.w.WatchMulti("test", []interface{}{"a", "c"}, s.ch)
+	c.Assert(err, jc.ErrorIsNil)
+	assertNoChange(c, s.ch)
+	// We don't see the change that occurred before we started watching, but we see any changes after that fact
+	revno2 := s.update(c, "test", "a")
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno2})
+	assertNoChange(c, s.ch)
+	assertOrder(c, -1, revno1, revno2)
+}
+
 func (s *FastPeriodSuite) TestScale(c *gc.C) {
 	const N = 500
 	const T = 10
