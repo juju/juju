@@ -527,7 +527,7 @@ func (fw *Firewaller) reconcileGlobal() error {
 }
 
 // reconcileInstances compares the initially started watcher for machines,
-// units and appications with the opened and closed ports of the instances and
+// units and applications with the opened and closed ports of the instances and
 // opens and closes the appropriate ports for each instance.
 func (fw *Firewaller) reconcileInstances() error {
 	for _, machined := range fw.machineds {
@@ -1119,17 +1119,9 @@ func (ad *applicationData) watchLoop(exposed bool) error {
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			if err := ad.application.Refresh(); err != nil {
-				if !params.IsCodeNotFound(err) {
-					logger.Debugf("application(%q).Refresh() returned NotFound: %v", ad.application.Name(), err)
-					return errors.Trace(err)
-				}
-				return nil
-			}
 			change, err := ad.application.IsExposed()
 			if err != nil {
-				if params.IsCodeNotFound(err) {
-					logger.Debugf("application(%q).IsExposed() returned NotFound: %v", ad.application.Name(), err)
+				if errors.IsNotFound(err) {
 					return nil
 				}
 				return errors.Trace(err)
@@ -1617,14 +1609,14 @@ func (p *remoteRelationPoller) pollLoop() error {
 			logger.Debugf("token %v for application id: %v", appToken, p.applicationTag.Id())
 
 			// relation and application are ready.
-			releationInfo := remoteRelationInfo{
+			relationInfo := remoteRelationInfo{
 				relationToken:    relToken,
 				applicationToken: appToken,
 			}
 			select {
 			case <-p.catacomb.Dying():
 				return p.catacomb.ErrDying()
-			case p.relationReady <- releationInfo:
+			case p.relationReady <- relationInfo:
 			}
 			return nil
 		}
