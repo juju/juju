@@ -305,9 +305,10 @@ func (s *clientSuite) TestEnableHAEmptyConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
-	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
+	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings", false)
 	controllerSettings.Set(controller.JujuHASpace, "ha-space")
-	controllerSettings.Write()
+	_, err := controllerSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
 
 	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("spaces=random-space"), defaultSeries, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -414,19 +415,20 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
-	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
+	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings", false)
 	controllerSettings.Set(controller.JujuHASpace, "ha-space")
-	controllerSettings.Write()
+	_, err := controllerSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
 
 	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setAgentPresence(c, "1")
-	m1.SetProviderAddresses(network.NewAddressOnSpace("ha-space", "192.168.6.6"))
+	c.Assert(m1.SetProviderAddresses(network.NewAddressOnSpace("ha-space", "192.168.6.6")), jc.ErrorIsNil)
 
 	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setAgentPresence(c, "2")
-	m2.SetProviderAddresses(network.NewAddressOnSpace("ha-space", "192.168.6.7"))
+	c.Assert(m2.SetProviderAddresses(network.NewAddressOnSpace("ha-space", "192.168.6.7")), jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
 	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, placement)
@@ -434,11 +436,12 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) {
-	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
+	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings", false)
 	controllerSettings.Set(controller.JujuHASpace, "ha-space")
-	controllerSettings.Write()
+	_, err := controllerSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
 
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setAgentPresence(c, "1")
 
@@ -497,7 +500,7 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 5)
 	for _, m := range machines {
-		m.SetHasVote(true)
+		c.Assert(m.SetHasVote(true), jc.ErrorIsNil)
 	}
 
 	s.setMachineAddresses(c, "1")
@@ -585,7 +588,7 @@ func (s *clientSuite) TestEnableHANoSpecs(c *gc.C) {
 
 func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
 	// Testing based on lp:1748275 - Juju HA fails due to demotion of Machine 0
-	s.machine0Pinger.KillForTesting()
+	c.Assert(s.machine0Pinger.KillForTesting(), jc.ErrorIsNil)
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
