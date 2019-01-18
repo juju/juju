@@ -2129,9 +2129,12 @@ class ModelClient:
 # so parse it via env var ->  https://github.com/kubernetes/client-go/blob/master/tools/clientcmd/loader.go#L44
 KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
 
-
 class CaasClient:
-
+    """CaasClient defines a client that can interact with CAAS setup directly.
+       Methods and properties that solely interact with a kubernetes
+       infrastructure can then be added to the following class.
+    """
+ 
     cloud_name = 'k8cloud'
 
     def __init__(self, client):
@@ -2193,6 +2196,21 @@ class CaasClient:
         unit = status.get_unit('kubernetes-worker/{}'.format(0))
         return status.get_machine_dns_name(unit['machine'])
 
+
+class IaasClient:
+    """IaasClient defines a client that can interact with IAAS setup directly.
+    """
+
+    def __init__(self, client):
+        self.client = client
+        self.juju_home = self.client.env.juju_home
+
+    def add_model(self, model_name):
+        return self.client.add_model(env=self.client.env.clone(model_name))
+
+    @property
+    def is_cluster_healthy(self):
+        return True
 
 def register_user_interactively(client, token, controller_name):
     """Register a user with the supplied token and controller name.

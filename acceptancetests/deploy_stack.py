@@ -33,6 +33,7 @@ from jujupy import (
     JujuData,
     temp_bootstrap_env,
     CaasClient,
+    IaasClient,
 )
 from jujupy.configuration import (
     get_juju_data,
@@ -73,7 +74,7 @@ __metaclass__ = type
 log = logging.getLogger(__name__)
 
 
-LXD_PROFILE = """
+CAAS_LXD_PROFILE = """
 name: juju-{model_name}
 config:
   boot.autostart: "true"
@@ -94,6 +95,15 @@ devices:
     path: /sys/module/apparmor/parameters/enabled
     source: /dev/null
     type: disk
+"""
+IAAS_LXD_PROFILE = """
+name: juju-{model_name}
+config:
+  boot.autostart: "true"
+  linux.kernel_modules: ip_tables,ip6_tables,netlink_diag,nf_nat,overlay
+  security.nesting: "true"
+  security.privileged: "true"
+description: ""
 """
 
 
@@ -136,17 +146,17 @@ def deploy_dummy_stack(client, charm_series, use_charmstore=False):
     else:
         client.wait_for_started(3600)
 
-
-def deploy_caas_stack(path, client, timeout=3600, charm=False):
+def _deploy_stack(path, client, timeout=3600, charm=False, lxd_profile=None):
     # workaround to ensure lxd profile
-    model_name = client.model_name
-    profile = LXD_PROFILE.format(model_name=model_name)
-    with subprocess.Popen(('echo', profile), stdout=subprocess.PIPE) as echo:
-        o = subprocess.check_output(
-            ('lxc', 'profile', 'edit', 'juju-%s' % model_name),
-            stdin=echo.stdout
-        ).decode('UTF-8').strip()
-        log.debug(o)
+    if lxd_profile is not None:
+        model_name = client.model_name
+        profile = lxd_profile.format(model_name=model_name)
+        with subprocess.Popen(('echo', profile), stdout=subprocess.PIPE) as echo:
+            o = subprocess.check_output(
+                ('lxc', 'profile', 'edit', 'juju-%s' % model_name),
+                stdin=echo.stdout
+            ).decode('UTF-8').strip()
+            log.debug(o)
 
     # Deploy a charm or a bundle depending on the flag
     if not charm:
@@ -159,6 +169,48 @@ def deploy_caas_stack(path, client, timeout=3600, charm=False):
     client.wait_for_workloads(timeout=timeout)
     # get current status with tabular format for better debugging
     client.juju(client._show_status, ('--format', 'tabular'))
+    return client
+
+def deploy_iaas_stack(path, client, timeout=3600, charm=False):
+    """deploy a IAAS stack, it assumes that the path to a bundle/charm can be
+       reached.
+
+       When deploying the stack, it will use a LXD profile to inject into the
+       lxc client, so that we can take advantage of nested containers, for
+       example.
+
+    :param path: location/path to the bundle/charm
+    :param client: client used to deploy and watch bundle/charm workloads
+    :param timeout: timeout of when the workload should fail deployment
+    :param charm: deploy a charm or bundle
+    """
+
+    client = _deploy_stack(path, client,
+        timeout=timeout,
+        charm=charm,
+        lxd_profile=IAAS_LXD_PROFILE,
+    )
+    return IaasClient(client)
+
+def deploy_caas_stack(path, client, timeout=3600, charm=False):
+    """deploy a CAAS stack, it assumes that the path to a bundle/charm can be
+       reached.
+
+       When deploying the stack, it will use a LXD profile to inject into the
+       lxc client, so that we can take advantage of nested containers, for
+       example.
+
+    :param path: location/path to the bundle/charm
+    :param client: client used to deploy and watch bundle/charm workloads
+    :param timeout: timeout of when the workload should fail deployment
+    :param charm: deploy a charm or bundle
+    """
+
+    client = _deploy_stack(path, client,
+        timeout=timeout,
+        charm=charm,
+        lxd_profile=CAAS_LXD_PROFILE,
+    )
     return CaasClient(client)
 
 def assess_juju_relations(client):
