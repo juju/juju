@@ -44,7 +44,7 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_deploy_webscale")
 
-def deploy_bundle(client, charm_bundle):
+def deploy_bundle(client, charm_bundle, stack_type):
     """Deploy the given charm bundle
 
     :param client: Jujupy ModelClient object
@@ -60,7 +60,7 @@ def deploy_bundle(client, charm_bundle):
     else:
         bundle = charm_bundle
 
-    stack_client = deploy_caas_stack(
+    stack_client = get_stack_client(stack_type,
         path=bundle,
         client=client,
         charm=(not not charm_bundle),
@@ -120,6 +120,17 @@ def extract_charm_urls(client):
         charms.append(charm["charm"])
     return charms
 
+def get_stack_client(stack_type, path, client, timeout=3600, charm=False):
+    """Get the stack client dependant on the type of stack we want to deploy on
+    """
+    if stack_type == "iaas":
+        fn = deploy_iaas_stack
+    elif stack_type == "caas":
+        fn = deploy_caas_stack
+    else:
+        raise JujuAssertionError('invalid stack type {}'.format(stack_type))
+    return fn(path, client, timeout=timeout, charm=charm)
+
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Webscale charm deployment CI test")
@@ -142,6 +153,11 @@ def parse_args(argv):
         help="Reporting uri for sending the metrics to.",
         default="http://root:root@localhost:8086",
     )
+    parser.add_argument(
+        '--stack-type',
+        help="Stack type to use when deploying <iaas|caas>",
+        default="caas",
+    )
     add_basic_testing_arguments(parser, existing=False)
     # Override the default logging_config default value set by adding basic
     # testing arguments. This way we can have a default value for all tests,
@@ -156,7 +172,10 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
-        deploy_bundle(client, charm_bundle=args.charm_bundle)
+        deploy_bundle(client,
+            charm_bundle=args.charm_bundle,
+            stack_type=args.stack_type,
+        )
         raw_logs = extract_module_logs(client, module=args.logging_module)
         timings = extract_txn_timings(raw_logs, module=args.logging_module)
 
