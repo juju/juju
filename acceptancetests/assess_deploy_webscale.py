@@ -116,7 +116,7 @@ def extract_charm_urls(client):
     status = client.get_status()
     application_info = status.get_applications()
     charms = []
-    for charm in application_info:
+    for charm in application_info.values():
         charms.append(charm["charm"])
     return charms
 
