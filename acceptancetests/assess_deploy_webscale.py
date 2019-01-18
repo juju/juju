@@ -4,6 +4,7 @@
     1. deploying kubernetes core and asserting it is `healthy`
     2. inspect the logs to parse timings from trace logs
     3. send timings to the reporting client
+       a. include charm revisions in the tags
 """
 
 from __future__ import print_function
@@ -115,6 +116,16 @@ def calculate_max_time(timings):
     """
     return functools.reduce(lambda x, y: x if x > y else y, timings)
 
+def extract_charm_urls(client):
+    """Extract the bundle with revisions
+    """
+    status = client.get_status()
+    application_info = status.get_applications()
+    charms = []
+    for charm in application_info:
+        charms.append(charm["charm"])
+    return charms
+
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Webscale charm deployment CI test")
@@ -161,14 +172,17 @@ def main(argv=None):
             calculate_max_time(timings),
             (time.time() - begin),
         )
-
         log.info("Metrics for deployment: {}".format(metrics))
+
+        # Extract the charm bundle and revision numbers
+        charm_urls = ",".join(extract_charm_urls(client))
 
         try:
             rclient = get_reporting_client(args.reporting_uri)
             rclient.report(metrics, tags={
                 "git-sha": args.git_sha,
                 "charm-bundle": args.charm_bundle,
+                "charm-urls": charm_urls,
             })
         except:
             raise JujuAssertionError("Error reporting metrics")
