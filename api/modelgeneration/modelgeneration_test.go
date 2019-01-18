@@ -86,6 +86,19 @@ func (s *modelGenerationSuite) TestAdvanceGenerationError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "Must be application or unit")
 }
 
+func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	resultSource := params.ErrorResult{}
+	arg := params.Entity{Tag: s.tag.String()}
+
+	s.fCaller.EXPECT().FacadeCall("CancelGeneration", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	api := modelgeneration.NewStateFromCaller(s.fCaller)
+	err := api.CancelGeneration(s.tag)
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *modelGenerationSuite) TestSwitchGeneration(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 

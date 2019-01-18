@@ -40,17 +40,21 @@ func (c *Client) AddGeneration(model names.ModelTag) error {
 	return nil
 }
 
-// CancelGeneration adds a model generation to the config.
-func (c *Client) CancelGeneration() error {
+// CancelGeneration cancels a model generation to the config.
+func (c *Client) CancelGeneration(model names.ModelTag) error {
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("CancelGeneration", nil, &result)
+	arg := params.Entity{Tag: model.String()}
+	err := c.facade.FacadeCall("CancelGeneration", arg, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return result.Error
+	if result.Error != nil {
+		return errors.Trace(result.Error)
+	}
+	return nil
 }
 
-// SwitchGeneration adds a model generation to the config.
+// SwitchGeneration switches a model generation to the config.
 func (c *Client) SwitchGeneration(model names.ModelTag, version string) error {
 	var result params.ErrorResult
 	arg := params.GenerationVersionArg{Model: params.Entity{Tag: model.String()}}
