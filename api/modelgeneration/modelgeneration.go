@@ -80,17 +80,20 @@ func (c *Client) AdvanceGeneration(model names.ModelTag, entities []string) erro
 		return errors.Trace(errors.New("No units or applications to advance"))
 	}
 	for _, entity := range entities {
-		if names.IsValidApplication(entity) {
+		switch {
+		case names.IsValidApplication(entity):
 			arg.Entities = append(arg.Entities,
 				params.Entity{names.NewApplicationTag(entity).String()})
-		} else if names.IsValidUnit(entity) {
+		case names.IsValidUnit(entity):
 			arg.Entities = append(arg.Entities,
 				params.Entity{names.NewUnitTag(entity).String()})
+		default:
+			return errors.Trace(errors.New("Must be application or unit"))
 		}
 	}
 	err := c.facade.FacadeCall("AdvanceGeneration", arg, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return results.OneError()
+	return results.Combine()
 }
