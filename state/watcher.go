@@ -2266,9 +2266,11 @@ func (w *machineUnitsWatcher) updateMachine(pending []string) (new []string, err
 			unknown = append(unknown, unitName)
 		}
 	}
-	pending, err = w.watchNewUnits(unknown, pending, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if len(unknown) > 0 {
+		pending, err = w.watchNewUnits(unknown, pending, nil)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	return pending, nil
 }
@@ -2280,6 +2282,7 @@ func (w *machineUnitsWatcher) watchNewUnits(unitNames, pending []string, unitCol
 	for i := range unitNames {
 		ids[i] = w.backend.docID(unitNames[i])
 	}
+	logger.Tracef("for machine %q watching new units %q", w.machine.doc.DocID, unitNames)
 	err := w.watcher.WatchMulti(unitsC, ids, w.in)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2296,18 +2299,13 @@ func (w *machineUnitsWatcher) watchNewUnits(unitNames, pending []string, unitCol
 	notfound := set.NewStrings(unitNames...)
 	for iter.Next(&doc) {
 		notfound.Remove(doc.Name)
-		if doc.Life == Dead {
-			// dead docs aren't watched anymore
-			w.watcher.Unwatch(unitsC, w.backend.docID(doc.Name), w.in)
-		} else {
-			w.known[doc.Name] = doc.Life
-			// TODO: Do we need a hasString(pending, doc.Name) check?
-			pending = append(pending, doc.Name)
-			// now load subordinates
-			for _, subunitName := range doc.Subordinates {
-				if _, subknown := w.known[subunitName]; !subknown {
-					unknownSubs.Add(subunitName)
-				}
+		w.known[doc.Name] = doc.Life
+		// TODO: Do we need a hasString(pending, doc.Name) check?
+		pending = append(pending, doc.Name)
+		// now load subordinates
+		for _, subunitName := range doc.Subordinates {
+			if _, subknown := w.known[subunitName]; !subknown {
+				unknownSubs.Add(subunitName)
 			}
 		}
 	}
@@ -2318,15 +2316,18 @@ func (w *machineUnitsWatcher) watchNewUnits(unitNames, pending []string, unitCol
 		logger.Debugf("unit %q referenced but not found", name)
 		w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 	}
-	pending, err = w.watchNewUnits(unknownSubs.Values(), pending, unitColl)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if !unknownSubs.IsEmpty() {
+		pending, err = w.watchNewUnits(unknownSubs.Values(), pending, unitColl)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	return pending, nil
 }
 
 // removeWatchedUnit stops watching the unit, and all subordinates for this unit
 func (w *machineUnitsWatcher) removeWatchedUnit(doc unitDoc, pending []string) ([]string, error) {
+	logger.Tracef("machineUnitsWatcher removing unit %q for life %q", doc.Name, doc.Life)
 	unitName := doc.Name
 	life, known := w.known[unitName]
 	// Unit was removed or unassigned from w.machine
@@ -2372,6 +2373,7 @@ func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []st
 		return nil, errors.Errorf("merge() called with an unknown document: %q", doc.DocID)
 	}
 	if life != doc.Life && !hasString(pending, doc.Name) {
+		logger.Tracef("machineUnitsWatcher found life changed to %q => %q for %q", life, doc.Life, doc.Name)
 		pending = append(pending, doc.Name)
 	}
 	w.known[doc.Name] = doc.Life
@@ -2381,9 +2383,11 @@ func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []st
 			unknownSubordinates.Add(subunitName)
 		}
 	}
-	pending, err = w.watchNewUnits(unknownSubordinates.Values(), pending, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if !unknownSubordinates.IsEmpty() {
+		pending, err = w.watchNewUnits(unknownSubordinates.Values(), pending, nil)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	return pending, nil
 }
@@ -2402,7 +2406,7 @@ func (w *machineUnitsWatcher) loop() error {
 	// or we don't have WatchNoRevno generate an event and it is handled here
 	changes, err := w.updateMachine(nil)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	out := w.out
 	for {

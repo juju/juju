@@ -1533,6 +1533,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Assign a unit (to a separate instance); change detected.
+	c.Logf("assigning mysql to machine %s", s.machine.Id())
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1544,6 +1545,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
+	c.Logf("changing unit mysql/0")
 	now := coretesting.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Idle,
@@ -1555,6 +1557,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Assign another unit and make the first Dying; check both changes detected.
+	c.Logf("assigning mysql/1, destroying mysql/0")
 	mysql1, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql1.AssignToMachine(machine)
@@ -1565,6 +1568,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a subordinate to the Alive unit; change detected.
+	c.Logf("adding subordinate logging/0")
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1580,6 +1584,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
+	c.Logf("changing subordinate")
 	sInfo = status.StatusInfo{
 		Status:  status.Idle,
 		Message: "",
@@ -1590,6 +1595,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Make the Dying unit Dead; change detected.
+	c.Logf("ensuring mysql/0 is Dead")
 	err = mysql0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("mysql/0")
@@ -1600,24 +1606,31 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertClosed()
 
 	// Start a fresh watcher; check all units reported.
+	c.Logf("starting new watcher")
 	w = s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
 	wc = testing.NewStringsWatcherC(c, s.State, w)
+	// XXX: the previous implementation would report mysql/0 even though mysql/0 is flagged Dead, and a future
+	// removal of mysql/0 would then not send another update to let you know it was really dead, is that actually correct?
+	// it seems that a Dead unit should not be returned
 	wc.AssertChange("mysql/0", "mysql/1", "logging/0")
 	wc.AssertNoChange()
 
 	// Remove the Dead unit; no change.
+	c.Logf("removing Dead unit mysql/0")
 	err = mysql0.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Destroy the subordinate; change detected.
+	c.Logf("destroying subordinate logging/0")
 	err = logging0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("logging/0")
 	wc.AssertNoChange()
 
 	// Unassign the principal; check subordinate departure also reported.
+	c.Logf("unassigning mysql/1")
 	err = mysql1.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("mysql/1", "logging/0")
