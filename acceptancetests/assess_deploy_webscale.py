@@ -52,8 +52,17 @@ def deploy_bundle(client, charm_bundle, stack_type):
     """
     bundle = None
     if not charm_bundle:
+        # Depending on the stack type, use a different bundle definition for
+        # one that's not already included.
+        if stack_type == "iaas":
+            default_charm = "basic-openstack-lxd.yaml"
+        elif stack_type == "caas":
+            default_charm = "bundles-kubernetes-core-lxd.yaml"
+        else:
+            raise JujuAssertionError('invalid stack type {}'.format(stack_type))
+
         bundle = local_charm_path(
-            charm='bundles-kubernetes-core-lxd.yaml',
+            charm=default_charm,
             repository=os.environ['JUJU_REPOSITORY'],
             juju_ver=client.version,
         )
