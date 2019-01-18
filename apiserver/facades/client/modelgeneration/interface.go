@@ -37,6 +37,8 @@ type Generation interface {
 	Active() bool
 	AssignAllUnits(string) error
 	AssignUnit(string) error
+	CanCancel() (bool, error)
+	Cancel() error
 	CanMakeCurrent() (bool, error)
 	MakeCurrent() error
 	Refresh() error

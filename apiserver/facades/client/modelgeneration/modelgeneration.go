@@ -143,6 +143,39 @@ func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) 
 	return results, nil
 }
 
+// CancelGeneration cancels the 'next' generation if cancel
+// criteria are met.
+func (m *ModelGenerationAPI) CancelGeneration(arg params.Entity) (params.ErrorResult, error) {
+	result := params.ErrorResult{}
+	modelTag, err := names.ParseModelTag(arg.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	isModelAdmin, err := m.hasAdminAccess(modelTag)
+	if !isModelAdmin && !m.isControllerAdmin {
+		return result, common.ErrPerm
+	}
+
+	generation, err := m.model.NextGeneration()
+	if err != nil {
+		return params.ErrorResult{}, errors.Trace(err)
+	}
+	if !generation.Active() {
+		return params.ErrorResult{}, errors.Errorf("next generation is not active")
+	}
+
+	ok, err := generation.CanCancel()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !ok {
+		return result, errors.Trace(errors.New("cancel not allowed"))
+	}
+
+	result.Error = common.ServerError(generation.Cancel())
+	return result, nil
+}
+
 // SwitchGeneration switches the given model to using the provided
 // 'current' or 'next' generation.
 func (m *ModelGenerationAPI) SwitchGeneration(arg params.GenerationVersionArg) (params.ErrorResult, error) {

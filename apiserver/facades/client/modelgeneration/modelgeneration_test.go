@@ -79,6 +79,39 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 	})
 }
 
+func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+		mockGeneration := mocks.NewMockGeneration(ctrl)
+		gExp := mockGeneration.EXPECT()
+		gExp.Active().Return(true)
+		gExp.CanCancel().Return(true, nil)
+		gExp.Cancel().Return(nil)
+
+		mExp := mockModel.EXPECT()
+		mExp.NextGeneration().Return(mockGeneration, nil)
+	}).Finish()
+
+	result, err := s.api.CancelGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
+}
+
+func (s *modelGenerationSuite) TestCancelGenerationCanNotCancel(c *gc.C) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+		mockGeneration := mocks.NewMockGeneration(ctrl)
+		gExp := mockGeneration.EXPECT()
+		gExp.Active().Return(true)
+		gExp.CanCancel().Return(false, nil)
+
+		mExp := mockModel.EXPECT()
+		mExp.NextGeneration().Return(mockGeneration, nil)
+	}).Finish()
+
+	result, err := s.api.CancelGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
+	c.Assert(err, gc.ErrorMatches, "cancel not allowed")
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
+}
+
 func (s *modelGenerationSuite) TestSwitchGenerationNext(c *gc.C) {
 	arg := params.GenerationVersionArg{
 		Model:   params.Entity{Tag: names.NewModelTag(s.modelUUID).String()},
