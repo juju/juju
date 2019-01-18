@@ -268,7 +268,7 @@ func (s *generationSuite) TestAssignAllUnitsNotActiveError(c *gc.C) {
 	c.Assert(gen.AssignAllUnits("riak"), gc.ErrorMatches, "generation is not currently active")
 }
 
-func (s *generationSuite) setupClockforMakeCurrent(c *gc.C) {
+func (s *generationSuite) setupClockForComplete(c *gc.C) {
 	now := testing.NonZeroTime()
 	clock := testclock.NewClock(now)
 	clock.Advance(400000 * time.Hour)
@@ -279,7 +279,7 @@ func (s *generationSuite) setupClockforMakeCurrent(c *gc.C) {
 
 func (s *generationSuite) TestMakeCurrentSuccess(c *gc.C) {
 	s.setupAssignAllUnits(c)
-	s.setupClockforMakeCurrent(c)
+	s.setupClockForComplete(c)
 
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
@@ -318,4 +318,44 @@ func (s *generationSuite) TestMakeCurrentGenerationIncompleteError(c *gc.C) {
 	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "generation can not be completed")
+}
+
+func (s *generationSuite) TestCancelSuccess(c *gc.C) {
+	s.setupClockForComplete(c)
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(gen.Cancel(), jc.ErrorIsNil)
+
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.Active(), jc.IsFalse)
+
+	// Idempotent.
+	c.Assert(gen.Cancel(), jc.ErrorIsNil)
+}
+
+func (s *generationSuite) TestCancelNotActiveError(c *gc.C) {
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// If the "next" generation is not active,
+	// a call to MakeCurrent should fail.
+	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.Cancel(), gc.ErrorMatches, "generation is not currently active")
+}
+
+func (s *generationSuite) TestCancelCanNotCancelError(c *gc.C) {
+	s.setupAssignAllUnits(c)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "generation can not be canceled")
 }

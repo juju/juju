@@ -221,6 +221,16 @@ func assignGenerationUnitTxnOps(id, appName, unitName string) []txn.Op {
 // MakeCurrent marks the generation as completed, if it is active and
 // meets autocomplete criteria, so it becomes the "current" generation.
 func (g *Generation) MakeCurrent() error {
+	err := g.complete(false)
+	return errors.Trace(err)
+}
+
+func (g *Generation) Cancel() error {
+	err := g.complete(true)
+	return errors.Trace(err)
+}
+
+func (g *Generation) complete(allowEmpty bool) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := g.Refresh(); err != nil {
@@ -233,12 +243,9 @@ func (g *Generation) MakeCurrent() error {
 		if !g.Active() {
 			return nil, errors.New("generation is not currently active")
 		}
-		ok, err := g.CanMakeCurrent()
-		if err != nil {
+		ok, err := g.allowMakeCurrent(allowEmpty)
+		if err != nil || !ok {
 			return nil, errors.Trace(err)
-		}
-		if !ok {
-			return nil, errors.New("generation can not be completed")
 		}
 		time, err := g.st.ControllerTimestamp()
 		if err != nil {
@@ -263,6 +270,21 @@ func (g *Generation) MakeCurrent() error {
 		return ops, nil
 	}
 	return errors.Trace(g.st.db().Run(buildTxn))
+}
+
+func (g *Generation) allowMakeCurrent(allowEmpty bool) (bool, error) {
+	ok, err := g.canMakeCurrent(allowEmpty)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if !ok {
+		if allowEmpty {
+			return false, errors.New("generation can not be canceled")
+		} else {
+			return false, errors.New("generation can not be completed")
+		}
+	}
+	return true, nil
 }
 
 // CanMakeCurrent returns true if every application that has had configuration
