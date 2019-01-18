@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -41,6 +42,7 @@ type ManifoldSuite struct {
 	agent                *mockAgent
 	authenticator        *mockAuthenticator
 	clock                *testclock.Clock
+	controller           *cache.Controller
 	mux                  *apiserverhttp.Mux
 	state                stubStateTracker
 	prometheusRegisterer stubPrometheusRegisterer
@@ -60,6 +62,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.agent = &mockAgent{}
 	s.authenticator = &mockAuthenticator{}
 	s.clock = testclock.NewClock(time.Time{})
+	controller, err := cache.NewController(cache.ControllerConfig{
+		Changes: make(chan interface{}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.controller = controller
 	s.mux = apiserverhttp.NewMux()
 	s.state = stubStateTracker{}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
@@ -74,6 +81,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AuthenticatorName:                 "authenticator",
 		ClockName:                         "clock",
 		MuxName:                           "mux",
+		ModelCacheName:                    "modelcache",
 		RestoreStatusName:                 "restore-status",
 		StateName:                         "state",
 		UpgradeGateName:                   "upgrade",
@@ -93,6 +101,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"authenticator":       s.authenticator,
 		"clock":               s.clock,
 		"mux":                 s.mux,
+		"modelcache":          s.controller,
 		"restore-status":      s.RestoreStatus,
 		"state":               &s.state,
 		"upgrade":             &s.upgradeGate,
@@ -119,7 +128,7 @@ func (s *ManifoldSuite) newWorker(config apiserver.Config) (worker.Worker, error
 }
 
 var expectedInputs = []string{
-	"agent", "authenticator", "clock", "mux", "restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager",
+	"agent", "authenticator", "clock", "modelcache", "mux", "restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -180,6 +189,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		AgentConfig:          &s.agent.conf,
 		Authenticator:        s.authenticator,
 		Clock:                s.clock,
+		Controller:           s.controller,
 		Mux:                  s.mux,
 		StatePool:            &s.state.pool,
 		LeaseManager:         s.leaseManager,

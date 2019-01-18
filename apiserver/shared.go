@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/feature"
@@ -35,6 +36,7 @@ type SharedHub interface {
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
 	statePool    *state.StatePool
+	controller   *cache.Controller
 	centralHub   SharedHub
 	presence     presence.Recorder
 	leaseManager lease.Manager
@@ -48,6 +50,7 @@ type sharedServerContext struct {
 
 type sharedServerConfig struct {
 	statePool    *state.StatePool
+	controller   *cache.Controller
 	centralHub   SharedHub
 	presence     presence.Recorder
 	leaseManager lease.Manager
@@ -57,6 +60,9 @@ type sharedServerConfig struct {
 func (c *sharedServerConfig) validate() error {
 	if c.statePool == nil {
 		return errors.NotValidf("nil statePool")
+	}
+	if c.controller == nil {
+		return errors.NotValidf("nil controller")
 	}
 	if c.centralHub == nil {
 		return errors.NotValidf("nil centralHub")
@@ -76,6 +82,7 @@ func newSharedServerContex(config sharedServerConfig) (*sharedServerContext, err
 	}
 	ctx := &sharedServerContext{
 		statePool:    config.statePool,
+		controller:   config.controller,
 		centralHub:   config.centralHub,
 		presence:     config.presence,
 		leaseManager: config.leaseManager,

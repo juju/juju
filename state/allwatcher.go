@@ -436,11 +436,11 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 func getUnitAddresses(u *Unit) (string, string, error) {
 	publicAddress, err := u.PublicAddress()
 	if err != nil {
-		logger.Errorf("getting a public address for unit %q failed: %q", u.Name(), err)
+		logger.Infof("getting a public address for unit %q failed: %q", u.Name(), err)
 	}
 	privateAddress, err := u.PrivateAddress()
 	if err != nil {
-		logger.Errorf("getting a private address for unit %q failed: %q", u.Name(), err)
+		logger.Infof("getting a private address for unit %q failed: %q", u.Name(), err)
 	}
 	return publicAddress.Value, privateAddress.Value, nil
 }

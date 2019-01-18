@@ -65,6 +65,7 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
+	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/peergrouper"
 	prworker "github.com/juju/juju/worker/presence"
@@ -384,6 +385,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			OpenStatePool:          config.OpenStatePool,
 			PrometheusRegisterer:   config.PrometheusRegisterer,
 			SetStatePool:           config.SetStatePool,
+		}),
+
+		// The modelcache manifold creates a cache.Controller and keeps
+		// it up to date using an all model watcher. The controller is then
+		// used by the apiserver.
+		modelCacheName: modelcache.Manifold(modelcache.ManifoldConfig{
+			StateName:            stateName,
+			Logger:               loggo.GetLogger("juju.worker.modelcache"),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            modelcache.NewWorker,
 		}),
 
 		// The api-config-watcher manifold monitors the API server
@@ -753,6 +764,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuthenticatorName:                 httpServerArgsName,
 			ClockName:                         clockName,
 			StateName:                         stateName,
+			ModelCacheName:                    modelCacheName,
 			MuxName:                           httpServerArgsName,
 			LeaseManagerName:                  leaseManagerName,
 			UpgradeGateName:                   upgradeStepsGateName,
@@ -985,6 +997,7 @@ const (
 	logPrunerName                 = "log-pruner"
 	txnPrunerName                 = "transaction-pruner"
 	certificateWatcherName        = "certificate-watcher"
+	modelCacheName                = "model-cache"
 	modelWorkerManagerName        = "model-worker-manager"
 	peergrouperName               = "peer-grouper"
 	restoreWatcherName            = "restore-watcher"

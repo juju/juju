@@ -36,6 +36,7 @@ func init() {
 	gc.Suite(&annotationsSuite{})
 	gc.Suite(&CloudAPISuite{})
 	gc.Suite(&apiEnvironmentSuite{})
+	gc.Suite(&apiLoggerSuite{})
 	gc.Suite(&BakeryStorageSuite{})
 	gc.Suite(&blockSuite{})
 	gc.Suite(&cmdControllerSuite{})

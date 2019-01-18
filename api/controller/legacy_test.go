@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/api/controller"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -137,10 +136,6 @@ func (s *legacySuite) TestRemoveBlocks(c *gc.C) {
 func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 	// The WatchAllModels infrastructure is comprehensively tested
 	// else. This test just ensure that the API calls work end-to-end.
-	cons := constraints.MustParse("mem=4G")
-	err := s.State.SetModelConstraints(cons)
-	c.Assert(err, jc.ErrorIsNil)
-
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 
@@ -201,7 +196,6 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 		c.Assert(modelInfo.ControllerUUID, gc.Equals, model.ControllerUUID())
 		c.Assert(modelInfo.Config, jc.DeepEquals, cfg.AllAttrs())
 		c.Assert(modelInfo.Status, jc.DeepEquals, expectedStatus)
-		c.Assert(modelInfo.Constraints, jc.DeepEquals, cons)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}

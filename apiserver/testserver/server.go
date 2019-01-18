@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
@@ -38,6 +39,7 @@ func DefaultServerConfig(c *gc.C) apiserver.ServerConfig {
 		Tag:             names.NewMachineTag("0"),
 		LogDir:          c.MkDir(),
 		Hub:             hub,
+		Controller:      &cache.Controller{}, // Not useful for anything except providing a default.
 		Presence:        presence.New(clock.WallClock),
 		LeaseManager:    &lease.Manager{},
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
@@ -57,8 +59,10 @@ func DefaultServerConfig(c *gc.C) apiserver.ServerConfig {
 // It returns information suitable for connecting to the state
 // without any authentication information or model tag, and the server
 // that's been started.
-func NewServer(c *gc.C, statePool *state.StatePool) *Server {
-	return NewServerWithConfig(c, statePool, DefaultServerConfig(c))
+func NewServer(c *gc.C, statePool *state.StatePool, controller *cache.Controller) *Server {
+	config := DefaultServerConfig(c)
+	config.Controller = controller
+	return NewServerWithConfig(c, statePool, config)
 }
 
 // NewServerWithConfig is like NewServer except that the entire

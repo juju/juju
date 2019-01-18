@@ -124,7 +124,11 @@ func (c *cacheWorker) loop() error {
 	wg.Add(1)
 	defer func() {
 		c.mu.Lock()
-		c.watcher.Stop()
+		// If we have been stopped before we have properly been started
+		// there may not be a watcher yet.
+		if c.watcher != nil {
+			c.watcher.Stop()
+		}
 		c.mu.Unlock()
 		wg.Wait()
 	}()

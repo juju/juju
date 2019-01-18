@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -85,13 +86,6 @@ func (aw *SrvAllWatcher) Next() (params.AllWatcherNextResults, error) {
 	}, err
 }
 
-// srvNotifyWatcher defines the API access to methods on a state.NotifyWatcher.
-// Each client has its own current set of watchers, stored in resources.
-type srvNotifyWatcher struct {
-	watcherCommon
-	watcher state.NotifyWatcher
-}
-
 func isAgent(auth facade.Authorizer) bool {
 	return auth.AuthMachineAgent() || auth.AuthUnitAgent() || auth.AuthApplicationAgent()
 }
@@ -111,14 +105,27 @@ func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 		return nil, common.ErrPerm
 	}
 
-	watcher, ok := resources.Get(id).(state.NotifyWatcher)
+	watcher, ok := resources.Get(id).(cache.NotifyWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
+
 	return &srvNotifyWatcher{
 		watcherCommon: newWatcherCommon(context),
 		watcher:       watcher,
 	}, nil
+}
+
+// srvNotifyWatcher defines the API access to methods on a NotifyWatcher.
+// Each client has its own current set of watchers, stored in resources.
+type srvNotifyWatcher struct {
+	watcherCommon
+	watcher cache.NotifyWatcher
+}
+
+// state watchers have an Err method, but cache watchers do not.
+type hasErr interface {
+	Err() error
 }
 
 // Next returns when a change has occurred to the
@@ -128,7 +135,11 @@ func (w *srvNotifyWatcher) Next() error {
 	if _, ok := <-w.watcher.Changes(); ok {
 		return nil
 	}
-	err := w.watcher.Err()
+
+	var err error
+	if e, ok := w.watcher.(hasErr); ok {
+		err = e.Err()
+	}
 	if err == nil {
 		err = common.ErrStoppedWatcher
 	}

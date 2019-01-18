@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
@@ -34,6 +35,7 @@ type Config struct {
 	Mux                               *apiserverhttp.Mux
 	Authenticator                     httpcontext.LocalMacaroonAuthenticator
 	StatePool                         *state.StatePool
+	Controller                        *cache.Controller
 	LeaseManager                      lease.Manager
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -63,6 +65,9 @@ func (config Config) Validate() error {
 	}
 	if config.StatePool == nil {
 		return errors.NotValidf("nil StatePool")
+	}
+	if config.Controller == nil {
+		return errors.NotValidf("nil Controller")
 	}
 	if config.Mux == nil {
 		return errors.NotValidf("nil Mux")
@@ -125,6 +130,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	serverConfig := apiserver.ServerConfig{
 		StatePool:                     config.StatePool,
+		Controller:                    config.Controller,
 		Clock:                         config.Clock,
 		Tag:                           config.AgentConfig.Tag(),
 		DataDir:                       config.AgentConfig.DataDir(),

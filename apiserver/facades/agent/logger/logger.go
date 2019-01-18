@@ -4,13 +4,14 @@
 package logger
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/environs/config"
 )
 
 // Logger defines the methods on the logger API end point.  Unfortunately, the
@@ -25,8 +26,8 @@ type Logger interface {
 // LoggerAPI implements the Logger interface and is the concrete
 // implementation of the api end point.
 type LoggerAPI struct {
-	state      *state.State
-	model      *state.Model
+	controller *cache.Controller
+	model      *cache.Model
 	resources  facade.Resources
 	authorizer facade.Authorizer
 }
@@ -34,21 +35,25 @@ type LoggerAPI struct {
 var _ Logger = (*LoggerAPI)(nil)
 
 // NewLoggerAPI creates a new server-side logger API end point.
-func NewLoggerAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*LoggerAPI, error) {
+func NewLoggerAPI(ctx facade.Context) (*LoggerAPI, error) {
+	st := ctx.State()
+	resources := ctx.Resources()
+	authorizer := ctx.Auth()
+
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, common.ErrPerm
 	}
-	m, err := st.Model()
-
+	m, err := ctx.Controller().Model(st.ModelUUID())
 	if err != nil {
 		return nil, err
 	}
 
-	return &LoggerAPI{state: st, model: m, resources: resources, authorizer: authorizer}, nil
+	return &LoggerAPI{
+		controller: ctx.Controller(),
+		model:      m,
+		resources:  resources,
+		authorizer: authorizer,
+	}, nil
 }
 
 // WatchLoggingConfig starts a watcher to track changes to the logging config
@@ -65,7 +70,7 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 		}
 		err = common.ErrPerm
 		if api.authorizer.AuthOwner(tag) {
-			watch := api.model.WatchForModelConfigChanges()
+			watch := api.model.WatchConfig("logging-config")
 			// Consume the initial event. Technically, API calls to Watch
 			// 'transmit' the initial event in the Watch response. But
 			// NotifyWatchers have no state to transmit.
@@ -73,7 +78,7 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 				result[i].NotifyWatcherId = api.resources.Register(watch)
 				err = nil
 			} else {
-				err = watcher.EnsureErr(watch)
+				err = errors.New("programming error: channel should not be closed")
 			}
 		}
 		result[i].Error = common.ServerError(err)
@@ -87,7 +92,8 @@ func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 		return params.StringResults{}
 	}
 	results := make([]params.StringResult, len(arg.Entities))
-	config, configErr := api.model.ModelConfig()
+	// TODO: ensure that the cache model can return a proper config object.
+	config, configErr := config.New(config.NoDefaults, api.model.Config())
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {

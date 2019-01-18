@@ -63,6 +63,7 @@ func (s *baseLoginSuite) newServer(c *gc.C) (*api.Info, *apiserver.Server) {
 }
 
 func (s *baseLoginSuite) newServerWithConfig(c *gc.C, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
+	cfg.Controller = s.JujuConnSuite.Controller
 	server := testserver.NewServerWithConfig(c, s.StatePool, cfg)
 	s.AddCleanup(func(c *gc.C) { assertStop(c, server) })
 	return server.Info, server.APIServer
@@ -376,6 +377,7 @@ func (s *loginSuite) setupDelayServer(c *gc.C) (*api.Info, *apiserver.Server, ch
 	cfg := testserver.DefaultServerConfig(c)
 	delayChan := make(chan struct{}, 10)
 	cfg.Authenticator = &mockDelayAuthenticator{delay: delayChan}
+	cfg.Controller = s.JujuConnSuite.Controller
 	info, srv := s.newServerWithConfig(c, cfg)
 	info.Tag = machine.Tag()
 	info.Password = password
@@ -642,6 +644,7 @@ func (s *loginSuite) TestMachineLoginDuringMaintenance(c *gc.C) {
 		// upgrade is in progress
 		return false
 	}
+	cfg.Controller = s.JujuConnSuite.Controller
 	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
 
@@ -660,6 +663,7 @@ func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
 		// upgrade is in progress
 		return false
 	}
+	cfg.Controller = s.JujuConnSuite.Controller
 	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
 
@@ -1214,7 +1218,7 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return "test@somewhere"
 	}
-	srv := testserver.NewServer(c, s.StatePool)
+	srv := testserver.NewServer(c, s.StatePool, s.Controller)
 	defer assertStop(c, srv)
 	workingTransport := http.DefaultTransport
 	failingTransport := errorTransport{
@@ -1377,7 +1381,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccessAndAllo
 func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.C, allowModelAccess bool) {
 	cfg := testserver.DefaultServerConfig(c)
 	cfg.AllowModelAccess = allowModelAccess
-
+	cfg.Controller = s.Controller
 	srv := testserver.NewServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
 	srv.Info.ModelTag = s.Model.ModelTag()
