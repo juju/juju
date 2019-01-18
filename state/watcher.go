@@ -1614,13 +1614,12 @@ func (w *unitsWatcher) Changes() <-chan []string {
 // on a entity's lifecycle.
 type lifeWatchDoc struct {
 	Id       string `bson:"_id"`
-	Name     string `bson:"name"`
 	Life     Life
 	TxnRevno int64 `bson:"txn-revno"`
 }
 
 // lifeWatchFields specifies the fields of a lifeWatchDoc.
-var lifeWatchFields = bson.D{{"_id", 1}, {"name", 1}, {"life", 1}, {"txn-revno", 1}}
+var lifeWatchFields = bson.D{{"_id", 1}, {"life", 1}, {"txn-revno", 1}}
 
 // initial returns every member of the tracked set.
 func (w *unitsWatcher) initial() ([]string, error) {
@@ -1635,22 +1634,52 @@ func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 	docs := []lifeWatchDoc{}
 	ids := make([]interface{}, len(names))
 	for i := range names {
-		ids[i] = names[i]
+		ids[i] = w.backend.docID(names[i])
 	}
 	if err := w.watcher.WatchMulti(unitsC, ids, w.in); err != nil {
+		logger.Tracef("error watching %q in %q: %v", ids, unitsC, err)
+		return nil, errors.Trace(err)
+	}
+	logger.Tracef("watching %q ids: %q", unitsC, ids)
+	newUnits, closer := w.db.GetCollection(unitsC)
+	err := newUnits.Find(bson.M{"_id": bson.M{"$in": names}}).Select(lifeWatchFields).All(&docs)
+	closer()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	found := set.NewStrings()
 	for _, doc := range docs {
-		if !hasString(changes, doc.Name) {
-			changes = append(changes, doc.Name)
+		localId := w.backend.localID(doc.Id)
+		found.Add(localId)
+		if !hasString(changes, localId) {
+			logger.Tracef("marking change for %q", localId)
+			changes = append(changes, localId)
 		}
 		if doc.Life != Dead {
-			w.life[doc.Name] = doc.Life
+			logger.Tracef("setting life of %q to %q", localId, doc.Life)
+			w.life[localId] = doc.Life
 		} else {
+			logger.Tracef("unwatching %q id: %q", unitsC, localId)
 			w.watcher.Unwatch(unitsC, doc.Id, w.in)
+			delete(w.life, localId)
 		}
 	}
+	// See if there are any entries that we wanted to watch but are actually gone
+	for _, name := range names {
+		if !found.Contains(name) {
+			logger.Tracef("looking for %q from %q found it gone", name)
+			if _, ok := w.life[name]; ok {
+				// we see this doc, but it doesn't exist
+				if !hasString(changes, name) {
+					changes = append(changes, name)
+				}
+				delete(w.life, name)
+			}
+			w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
+		}
+	}
+	logger.Tracef("changes: %q", changes)
 	return changes, nil
 }
 
@@ -1680,20 +1709,22 @@ func (w *unitsWatcher) update(changes []string) ([]string, error) {
 		if !hasString(changes, name) {
 			changes = append(changes, name)
 		}
+		logger.Tracef("unit %q %q no longer in latest, removing watch", unitsC, name)
 		delete(w.life, name)
 		w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 	}
+	logger.Tracef("update reports changes: %q", changes)
 	return changes, nil
 }
 
 // merge adds to and returns changes, such that it contains the supplied unit
 // name if that unit is unknown and non-Dead, or has changed lifecycle status.
 func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
+	logger.Tracef("merging change for %q %q", unitsC, name)
+	var doc lifeWatchDoc
 	units, closer := w.db.GetCollection(unitsC)
-	defer closer()
-
-	doc := lifeWatchDoc{}
 	err := units.FindId(name).Select(lifeWatchFields).One(&doc)
+	closer()
 	gone := false
 	if err == mgo.ErrNotFound {
 		gone = true
@@ -1706,8 +1737,10 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	switch {
 	case gone:
 		delete(w.life, name)
-		w.watcher.Unwatch(unitsC, doc.Id, w.in)
+		logger.Tracef("document gone, unwatching %q %q", unitsC, name)
+		w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 	case life != doc.Life:
+		logger.Tracef("updating doc life %q %q to %q", unitsC, name, doc.Life)
 		w.life[name] = doc.Life
 	default:
 		return changes, nil
@@ -1715,14 +1748,16 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	if !hasString(changes, name) {
 		changes = append(changes, name)
 	}
+	logger.Tracef("merge reporting changes: %q", changes)
 	return changes, nil
 }
 
 func (w *unitsWatcher) loop(coll, id string) error {
+	logger.Tracef("watching root channel %q %q", coll, id)
 	rootCh := make(chan watcher.Change)
 	w.watcher.WatchNoRevno(coll, id, rootCh)
 	defer func() {
-		w.watcher.Unwatch(coll, id, w.in)
+		w.watcher.Unwatch(coll, id, rootCh)
 		for name := range w.life {
 			w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 		}
@@ -1740,6 +1775,9 @@ func (w *unitsWatcher) loop(coll, id string) error {
 			return tomb.ErrDying
 		case <-rootCh:
 			changes, err = w.update(changes)
+			if len(changes) > 0 {
+				out = w.out
+			}
 		case c := <-w.in:
 			localID := w.backend.localID(c.Id.(string))
 			changes, err = w.merge(changes, localID)
@@ -1750,6 +1788,7 @@ func (w *unitsWatcher) loop(coll, id string) error {
 				out = w.out
 			}
 		case out <- changes:
+			logger.Tracef("watcher reported changes: %q", changes)
 			out = nil
 			changes = nil
 		}

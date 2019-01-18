@@ -1439,6 +1439,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Assign another unit and make the first Dying; check both changes detected.
+	c.Logf("assigning unit and destroying other")
 	mysql1, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql1.AssignToMachine(machine)
