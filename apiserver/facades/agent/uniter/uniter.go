@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
@@ -183,30 +184,29 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		}
 	}
 	accessCloudSpec := func() (func() bool, error) {
-		var appName string
+		var config coreapplication.ConfigAttributes
 		var err error
 
 		switch tag := authorizer.GetAuthTag().(type) {
 		case names.ApplicationTag:
-			appName = tag.String()
-		case names.UnitTag:
-			entity, err := st.Unit(tag.Id())
+			app, err := st.Application(tag.String())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			appName = entity.ApplicationName()
+			config, err = app.ApplicationConfig()
+		case names.UnitTag:
+			unit, err := st.Unit(tag.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			config, err = unit.ApplicationConfig()
 		default:
-			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
+			err = errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 
-		app, err := st.Application(appName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		config, err := app.ApplicationConfig()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		return func() bool {
 			return config.GetBool(application.TrustConfigOptionName, false)
 		}, nil

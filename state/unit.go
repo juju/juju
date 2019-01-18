@@ -22,6 +22,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
@@ -133,9 +134,19 @@ func (u *Unit) ShouldBeAssigned() bool {
 	return u.modelType == ModelTypeIAAS
 }
 
-// Application returns the application.
-func (u *Unit) Application() (*Application, error) {
-	return u.st.Application(u.doc.Application)
+// ApplicationConfig returns configuration for this unit's application,
+// based on whether the unit is in the current, or pending "next" generation.
+func (u *Unit) ApplicationConfig() (application.ConfigAttributes, error) {
+	nextGen, err := u.IsNextGen()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	app, err := u.Application()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	attrs, err := app.applicationConfig(nextGen)
+	return attrs, errors.Trace(err)
 }
 
 // ConfigSettings returns the complete set of application charm config settings
@@ -167,6 +178,11 @@ func (u *Unit) IsNextGen() (bool, error) {
 		return false, errors.Trace(err)
 	}
 	return set.NewStrings(gen.AssignedUnits()[u.ApplicationName()]...).Contains(u.Name()), nil
+}
+
+// Application returns the application.
+func (u *Unit) Application() (*Application, error) {
+	return u.st.Application(u.doc.Application)
 }
 
 // ApplicationName returns the application name.
