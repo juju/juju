@@ -20,7 +20,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/names.v2"
+	names "gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -29,7 +29,7 @@ import (
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -103,17 +103,13 @@ type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clo
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
 func NewK8sBroker(
-	cloudSpec environs.CloudSpec,
+	k8sRestConfig *rest.Config,
 	cfg *config.Config,
 	newClient NewK8sClientFunc,
 	newWatcher NewK8sWatcherFunc,
 	clock jujuclock.Clock,
 ) (caas.Broker, error) {
-	k8sConfig, err := newK8sConfig(cloudSpec)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	k8sClient, apiextensionsClient, err := newClient(k8sConfig)
+	k8sClient, apiextensionsClient, err := newClient(k8sRestConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -129,29 +125,6 @@ func NewK8sBroker(
 		envCfg:              newCfg,
 		modelUUID:           newCfg.UUID(),
 		newWatcher:          newWatcher,
-	}, nil
-}
-
-func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
-	if cloudSpec.Credential == nil {
-		return nil, errors.Errorf("cloud %v has no credential", cloudSpec.Name)
-	}
-
-	var CAData []byte
-	for _, cacert := range cloudSpec.CACertificates {
-		CAData = append(CAData, cacert...)
-	}
-
-	credentialAttrs := cloudSpec.Credential.Attributes()
-	return &rest.Config{
-		Host:     cloudSpec.Endpoint,
-		Username: credentialAttrs[CredAttrUsername],
-		Password: credentialAttrs[CredAttrPassword],
-		TLSClientConfig: rest.TLSClientConfig{
-			CertData: []byte(credentialAttrs[CredAttrClientCertificateData]),
-			KeyData:  []byte(credentialAttrs[CredAttrClientKeyData]),
-			CAData:   CAData,
-		},
 	}, nil
 }
 

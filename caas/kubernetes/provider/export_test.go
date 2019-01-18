@@ -12,14 +12,15 @@ import (
 )
 
 var (
-	MakeUnitSpec            = makeUnitSpec
-	ParseK8sPodSpec         = parseK8sPodSpec
-	OperatorPod             = operatorPod
-	ExtractRegistryURL      = extractRegistryURL
-	CreateDockerConfigJSON  = createDockerConfigJSON
-	NewStorageConfig        = newStorageConfig
-	NewKubernetesWatcher    = newKubernetesWatcher
-	CompileK8sCloudCheckers = compileK8sCloudCheckers
+	MakeUnitSpec             = makeUnitSpec
+	ParseK8sPodSpec          = parseK8sPodSpec
+	OperatorPod              = operatorPod
+	ExtractRegistryURL       = extractRegistryURL
+	CreateDockerConfigJSON   = createDockerConfigJSON
+	NewStorageConfig         = newStorageConfig
+	NewKubernetesWatcher     = newKubernetesWatcher
+	CompileK8sCloudCheckers  = compileK8sCloudCheckers
+	CloudSpecToK8sRestConfig = cloudSpecToK8sRestConfig
 )
 
 type KubernetesWatcher = kubernetesWatcher

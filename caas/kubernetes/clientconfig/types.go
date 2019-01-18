@@ -29,6 +29,10 @@ type Context struct {
 	CredentialName string
 }
 
+func (c Context) isEmpty() bool {
+	return c.CloudName == "" && c.CredentialName == ""
+}
+
 // CloudConfig stores information about how to connect to a Cloud.
 type CloudConfig struct {
 	Endpoint   string
@@ -43,7 +47,7 @@ type CloudConfig struct {
 // Cluster_A, User_B: No new Cloud, new Credential for the cloud.
 
 // ClientConfigFunc is a function that returns a ClientConfig. Functions of this type should be available for each supported CAAS framework, e.g. Kubernetes.
-type ClientConfigFunc func(io.Reader) (*ClientConfig, error)
+type ClientConfigFunc func(io.Reader, string, k8sCredentialResolver) (*ClientConfig, error)
 
 // NewClientConfigReader returns a function of type ClientConfigFunc to read the client config for a given cloud type.
 func NewClientConfigReader(cloudType string) (ClientConfigFunc, error) {

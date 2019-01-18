@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/environs/context"
@@ -27,10 +27,7 @@ func (s *storageSuite) k8sProvider(c *gc.C, ctrl *gomock.Controller) storage.Pro
 }
 
 func (s *storageSuite) TestValidateConfig(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	p := s.k8sProvider(c, ctrl)
+	p := s.k8sProvider(c, s.ctrl)
 	cfg, err := storage.NewConfig("name", provider.K8s_ProviderType, map[string]interface{}{
 		"storage-class":       "my-storage",
 		"storage-provisioner": "aws-storage",
@@ -47,10 +44,7 @@ func (s *storageSuite) TestValidateConfig(c *gc.C) {
 }
 
 func (s *storageSuite) TestValidateConfigError(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	p := s.k8sProvider(c, ctrl)
+	p := s.k8sProvider(c, s.ctrl)
 	cfg, err := storage.NewConfig("name", provider.K8s_ProviderType, map[string]interface{}{
 		"storage-class":       "",
 		"storage-provisioner": "aws-storage",
@@ -61,18 +55,12 @@ func (s *storageSuite) TestValidateConfigError(c *gc.C) {
 }
 
 func (s *storageSuite) TestValidateConfigExistingStorageClass(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
 	cfg, err := provider.NewStorageConfig(map[string]interface{}{}, "juju-unit-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.ExistingStorageClass(cfg), gc.Equals, "juju-unit-storage")
 }
 
 func (s *storageSuite) TestNewStorageConfig(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
 	cfg, err := provider.NewStorageConfig(map[string]interface{}{
 		"storage-class":       "juju-ebs",
 		"storage-provisioner": "ebs",
@@ -86,32 +74,23 @@ func (s *storageSuite) TestNewStorageConfig(c *gc.C) {
 }
 
 func (s *storageSuite) TestSupports(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	p := s.k8sProvider(c, ctrl)
+	p := s.k8sProvider(c, s.ctrl)
 	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsTrue)
 	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
 }
 
 func (s *storageSuite) TestScope(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	p := s.k8sProvider(c, ctrl)
+	p := s.k8sProvider(c, s.ctrl)
 	c.Assert(p.Scope(), gc.Equals, storage.ScopeEnviron)
 }
 
 func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
 	gomock.InOrder(
 		s.mockPersistentVolumes.EXPECT().Delete("vol-1", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(nil),
 	)
 
-	p := s.k8sProvider(c, ctrl)
+	p := s.k8sProvider(c, s.ctrl)
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -121,15 +100,12 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 }
 
 func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
 	gomock.InOrder(
 		s.mockPersistentVolumes.EXPECT().Delete("vol-1", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 	)
 
-	p := s.k8sProvider(c, ctrl)
+	p := s.k8sProvider(c, s.ctrl)
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -139,16 +115,13 @@ func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *gc.C) {
 }
 
 func (s *storageSuite) TestListVolumes(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
 	gomock.InOrder(
 		s.mockPersistentVolumes.EXPECT().List(v1.ListOptions{}).Times(1).
 			Return(&core.PersistentVolumeList{Items: []core.PersistentVolume{
 				{ObjectMeta: v1.ObjectMeta{Name: "vol-1"}}}}, nil),
 	)
 
-	p := s.k8sProvider(c, ctrl)
+	p := s.k8sProvider(c, s.ctrl)
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -158,9 +131,6 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 }
 
 func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
 	gomock.InOrder(
 		s.mockPersistentVolumes.EXPECT().List(v1.ListOptions{}).Times(1).
 			Return(&core.PersistentVolumeList{Items: []core.PersistentVolume{
@@ -171,7 +141,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 				}}}, nil),
 	)
 
-	p := s.k8sProvider(c, ctrl)
+	p := s.k8sProvider(c, s.ctrl)
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 

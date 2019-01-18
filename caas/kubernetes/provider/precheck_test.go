@@ -26,9 +26,6 @@ func (s *PrecheckSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *PrecheckSuite) TestSuccess(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
 	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
 		Series:      "kubernetes",
 		Constraints: constraints.MustParse("mem=4G"),
@@ -38,9 +35,6 @@ func (s *PrecheckSuite) TestSuccess(c *gc.C) {
 }
 
 func (s *PrecheckSuite) TestWrongSeries(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
 	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
 		Series: "quantal",
 	})
@@ -48,9 +42,6 @@ func (s *PrecheckSuite) TestWrongSeries(c *gc.C) {
 }
 
 func (s *PrecheckSuite) TestUnsupportedConstraints(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
 	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
 		Series:      "kubernetes",
 		Constraints: constraints.MustParse("instance-type=foo"),
@@ -59,9 +50,6 @@ func (s *PrecheckSuite) TestUnsupportedConstraints(c *gc.C) {
 }
 
 func (s *PrecheckSuite) TestBadPlacement(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
 	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
 		Series:    "kubernetes",
 		Placement: "a",

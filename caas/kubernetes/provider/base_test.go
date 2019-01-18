@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	watch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
@@ -31,11 +31,11 @@ import (
 type BaseSuite struct {
 	testing.BaseSuite
 
-	clock *testclock.Clock
-
-	broker caas.Broker
-
-	cfg *config.Config
+	ctrl          *gomock.Controller
+	clock         *testclock.Clock
+	broker        caas.Broker
+	cfg           *config.Config
+	k8sRestConfig *rest.Config
 
 	k8sClient                  *mocks.MockInterface
 	mockNamespaces             *mocks.MockNamespaceInterface
@@ -63,7 +63,9 @@ type BaseSuite struct {
 
 const testNamespace = "test"
 
-func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":              "fred",
 		"password":              "secret",
@@ -75,6 +77,22 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		Credential:     &cred,
 		CACertificates: []string{testing.CACert},
 	}
+	var err error
+	s.k8sRestConfig, err = provider.CloudSpecToK8sRestConfig(cloudSpec)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *BaseSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.ctrl = s.setupBroker(c, s.k8sRestConfig)
+}
+
+func (s *BaseSuite) TearDownTest(c *gc.C) {
+	s.ctrl.Finish()
+	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *BaseSuite) setupBroker(c *gc.C, k8sRestConfig *rest.Config) *gomock.Controller {
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
 		config.NameKey: testNamespace,
 	}))
@@ -82,7 +100,6 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	s.cfg = cfg
 
 	ctrl := gomock.NewController(c)
-
 	s.k8sClient = mocks.NewMockInterface(ctrl)
 
 	// Plug in the various k8s client modules we need.
@@ -157,7 +174,7 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		s.watcher = w
 		return s.watcher, err
 	}
-	s.broker, err = provider.NewK8sBroker(cloudSpec, cfg, newClient, newK8sWatcherForTest, s.clock)
+	s.broker, err = provider.NewK8sBroker(k8sRestConfig, cfg, newClient, newK8sWatcherForTest, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }
