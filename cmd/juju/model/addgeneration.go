@@ -46,7 +46,7 @@ type addGenerationCommand struct {
 }
 
 // AddGenerationCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package model_test -destination ./addgenerationmock_test.go github.com/juju/juju/cmd/juju/model AddGenerationCommandAPI
+//go:generate mockgen -package mocks -destination ./mocks/addgeneration_mock.go github.com/juju/juju/cmd/juju/model AddGenerationCommandAPI
 type AddGenerationCommandAPI interface {
 	Close() error
 	AddGeneration(names.ModelTag) error

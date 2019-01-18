@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/cmd/juju/model/mocks"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
@@ -69,9 +70,9 @@ func (s *AddGenerationSuite) runCommand(c *gc.C, api model.AddGenerationCommandA
 	return cmdtesting.RunCommand(c, cmd)
 }
 
-func setUpMocks(c *gc.C) (*gomock.Controller, *MockAddGenerationCommandAPI) {
+func setUpMocks(c *gc.C) (*gomock.Controller, *mocks.MockAddGenerationCommandAPI) {
 	mockController := gomock.NewController(c)
-	mockAddGenerationCommandAPI := NewMockAddGenerationCommandAPI(mockController)
+	mockAddGenerationCommandAPI := mocks.NewMockAddGenerationCommandAPI(mockController)
 	mockAddGenerationCommandAPI.EXPECT().Close().Times(1)
 	return mockController, mockAddGenerationCommandAPI
 }
@@ -80,7 +81,7 @@ func (s *AddGenerationSuite) TestRunCommand(c *gc.C) {
 	mockController, mockAddGenerationCommandAPI := setUpMocks(c)
 	defer mockController.Finish()
 
-	mockAddGenerationCommandAPI.EXPECT().AddGeneration().Return(nil).Times(1)
+	mockAddGenerationCommandAPI.EXPECT().AddGeneration(gomock.Any()).Return(nil).Times(1)
 
 	ctx, err := s.runCommand(c, mockAddGenerationCommandAPI)
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,14 +89,11 @@ func (s *AddGenerationSuite) TestRunCommand(c *gc.C) {
 }
 
 func (s *AddGenerationSuite) TestRunCommandFail(c *gc.C) {
-	c.Skip("Until apiserver ModelGeneration.AddGeneration() implemented")
-
 	mockController, mockAddGenerationCommandAPI := setUpMocks(c)
 	defer mockController.Finish()
 
-	mockAddGenerationCommandAPI.EXPECT().AddGeneration().Return(errors.Errorf("failme")).Times(1)
+	mockAddGenerationCommandAPI.EXPECT().AddGeneration(gomock.Any()).Return(errors.Errorf("failme")).Times(1)
 
-	ctx, err := s.runCommand(c, mockAddGenerationCommandAPI)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "failme")
+	_, err := s.runCommand(c, mockAddGenerationCommandAPI)
+	c.Assert(err, gc.ErrorMatches, "failme")
 }

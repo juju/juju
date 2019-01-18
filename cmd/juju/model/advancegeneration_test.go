@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/cmd/juju/model/mocks"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
@@ -79,9 +80,9 @@ func (s *advanceGenerationSuite) runCommand(c *gc.C, api model.AdvanceGeneration
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
-func setUpAdvanceMocks(c *gc.C) (*gomock.Controller, *MockAdvanceGenerationCommandAPI) {
+func setUpAdvanceMocks(c *gc.C) (*gomock.Controller, *mocks.MockAdvanceGenerationCommandAPI) {
 	mockController := gomock.NewController(c)
-	mockAdvanceGenerationCommandAPI := NewMockAdvanceGenerationCommandAPI(mockController)
+	mockAdvanceGenerationCommandAPI := mocks.NewMockAdvanceGenerationCommandAPI(mockController)
 	mockAdvanceGenerationCommandAPI.EXPECT().Close()
 	return mockController, mockAdvanceGenerationCommandAPI
 }
@@ -90,7 +91,7 @@ func (s *advanceGenerationSuite) TestRunCommand(c *gc.C) {
 	mockController, mockAdvanceGenerationCommandAPI := setUpAdvanceMocks(c)
 	defer mockController.Finish()
 
-	mockAdvanceGenerationCommandAPI.EXPECT().AdvanceGeneration([]string{"ubuntu/0", "redis"}).Return(nil)
+	mockAdvanceGenerationCommandAPI.EXPECT().AdvanceGeneration(gomock.Any(), []string{"ubuntu/0", "redis"}).Return(nil)
 
 	_, err := s.runCommand(c, mockAdvanceGenerationCommandAPI, "ubuntu/0", "redis")
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,7 +101,7 @@ func (s *advanceGenerationSuite) TestRunCommandFail(c *gc.C) {
 	mockController, mockAdvanceGenerationCommandAPI := setUpAdvanceMocks(c)
 	defer mockController.Finish()
 
-	mockAdvanceGenerationCommandAPI.EXPECT().AdvanceGeneration([]string{"ubuntu/0"}).Return(errors.Errorf("failme"))
+	mockAdvanceGenerationCommandAPI.EXPECT().AdvanceGeneration(gomock.Any(), []string{"ubuntu/0"}).Return(errors.Errorf("failme"))
 
 	_, err := s.runCommand(c, mockAdvanceGenerationCommandAPI, "ubuntu/0")
 	c.Assert(err, gc.ErrorMatches, "failme")

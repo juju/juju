@@ -52,7 +52,7 @@ type advanceGenerationCommand struct {
 }
 
 // AdvanceGenerationCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package model_test -destination ./advancegenerationmock_test.go github.com/juju/juju/cmd/juju/model AdvanceGenerationCommandAPI
+//go:generate mockgen -package mocks -destination ./mocks/advancegeneration_mock.go github.com/juju/juju/cmd/juju/model AdvanceGenerationCommandAPI
 type AdvanceGenerationCommandAPI interface {
 	Close() error
 	AdvanceGeneration(names.ModelTag, []string) error

@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/cmd/juju/model/mocks"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
@@ -74,9 +75,9 @@ func (s *switchGenerationSuite) runCommand(c *gc.C, api model.SwitchGenerationCo
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
-func setUpSwitchMocks(c *gc.C) (*gomock.Controller, *MockSwitchGenerationCommandAPI) {
+func setUpSwitchMocks(c *gc.C) (*gomock.Controller, *mocks.MockSwitchGenerationCommandAPI) {
 	mockController := gomock.NewController(c)
-	mockSwitchGenerationCommandAPI := NewMockSwitchGenerationCommandAPI(mockController)
+	mockSwitchGenerationCommandAPI := mocks.NewMockSwitchGenerationCommandAPI(mockController)
 	mockSwitchGenerationCommandAPI.EXPECT().Close()
 	return mockController, mockSwitchGenerationCommandAPI
 }
@@ -85,7 +86,7 @@ func (s *switchGenerationSuite) TestRunCommandCurrent(c *gc.C) {
 	mockController, mockSwitchGenerationCommandAPI := setUpSwitchMocks(c)
 	defer mockController.Finish()
 
-	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration("current").Return(nil).Times(1)
+	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "current").Return(nil).Times(1)
 
 	ctx, err := s.runCommand(c, mockSwitchGenerationCommandAPI, "current")
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,22 +97,19 @@ func (s *switchGenerationSuite) TestRunCommandNext(c *gc.C) {
 	mockController, mockSwitchGenerationCommandAPI := setUpSwitchMocks(c)
 	defer mockController.Finish()
 
-	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration("next").Return(nil).Times(1)
+	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "next").Return(nil).Times(1)
 
 	ctx, err := s.runCommand(c, mockSwitchGenerationCommandAPI, "next")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "changes dropped and target generation set to next\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "target generation set to next\n")
 }
 
 func (s *switchGenerationSuite) TestRunCommandFail(c *gc.C) {
-	c.Skip("Until apiserver ModelGeneration.SwitchGeneration() implemented")
-
 	mockController, mockSwitchGenerationCommandAPI := setUpSwitchMocks(c)
 	defer mockController.Finish()
 
-	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration("").Return(errors.Errorf("failme")).Times(1)
+	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "next").Return(errors.Errorf("failme")).Times(1)
 
-	ctx, err := s.runCommand(c, mockSwitchGenerationCommandAPI)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "failme")
+	_, err := s.runCommand(c, mockSwitchGenerationCommandAPI, "next")
+	c.Assert(err, gc.ErrorMatches, "failme")
 }

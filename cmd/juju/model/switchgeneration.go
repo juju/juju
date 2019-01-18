@@ -47,7 +47,7 @@ type switchGenerationCommand struct {
 }
 
 // SwitchGenerationCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package model_test -destination ./switchgenerationmock_test.go github.com/juju/juju/cmd/juju/model SwitchGenerationCommandAPI
+//go:generate mockgen -package mocks -destination ./mocks/switchgeneration_mock.go github.com/juju/juju/cmd/juju/model SwitchGenerationCommandAPI
 type SwitchGenerationCommandAPI interface {
 	Close() error
 	SwitchGeneration(names.ModelTag, string) error
