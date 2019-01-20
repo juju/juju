@@ -6,6 +6,7 @@ package facade
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
@@ -63,6 +64,10 @@ type Context interface {
 	// StatePool returns the state pool used by the apiserver to minimise the
 	// creation of the expensive *State instances.
 	StatePool() *state.StatePool
+
+	// Controller returns the in-memory representation of the models
+	// in the database.
+	Controller() *cache.Controller
 
 	// Presence returns an instance that is able to be asked for
 	// the current model presence.

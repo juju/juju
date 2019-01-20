@@ -16,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
 	psapiserver "github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
@@ -36,6 +38,7 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/worker/modelcache"
 )
 
 const (
@@ -54,6 +57,8 @@ type apiserverConfigFixture struct {
 	mux           *apiserverhttp.Mux
 	tlsConfig     *tls.Config
 	config        apiserver.ServerConfig
+
+	controller *cache.Controller
 }
 
 func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
@@ -73,9 +78,22 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
 	s.mux = apiserverhttp.NewMux()
 
+	modelCache, err := modelcache.NewWorker(modelcache.Config{
+		Logger:               loggo.GetLogger("test"),
+		StatePool:            s.StatePool,
+		PrometheusRegisterer: noopRegisterer{},
+		Cleanup:              func() {},
+	})
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
+	c.Assert(err, jc.ErrorIsNil)
+	var controller *cache.Controller
+	err = modelcache.ExtractCacheController(modelCache, &controller)
+	c.Assert(err, jc.ErrorIsNil)
+
 	machineTag := names.NewMachineTag("0")
 	s.config = apiserver.ServerConfig{
 		StatePool:       s.StatePool,
+		Controller:      controller,
 		Authenticator:   s.authenticator,
 		Clock:           clock.WallClock,
 		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
@@ -268,4 +286,16 @@ func (s *apiserverSuite) TestRestartMessage(c *gc.C) {
 
 	err = workertest.CheckKilled(c, s.apiServer)
 	c.Assert(err, gc.Equals, dependency.ErrBounce)
+}
+
+type noopRegisterer struct {
+	prometheus.Registerer
+}
+
+func (noopRegisterer) Register(prometheus.Collector) error {
+	return nil
+}
+
+func (noopRegisterer) Unregister(prometheus.Collector) bool {
+	return true
 }

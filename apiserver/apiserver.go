@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -118,6 +119,11 @@ type ServerConfig struct {
 	// after the apiserver has exited.
 	StatePool *state.StatePool
 
+	// Controller is the in-memory representation of the models
+	// in the controller. It is kept up to date with an all model
+	// watcher and the modelcache worker.
+	Controller *cache.Controller
+
 	// UpgradeComplete is a function that reports whether or not
 	// the if the agent running the API server has completed
 	// running upgrade steps. This is used by the API server to
@@ -175,6 +181,9 @@ type ServerConfig struct {
 func (c ServerConfig) Validate() error {
 	if c.StatePool == nil {
 		return errors.NotValidf("missing StatePool")
+	}
+	if c.Controller == nil {
+		return errors.NotValidf("missing Controller")
 	}
 	if c.Hub == nil {
 		return errors.NotValidf("missing Hub")
@@ -244,8 +253,10 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	limiter := utils.NewLimiterWithPause(
 		cfg.RateLimitConfig.LoginRateLimit, cfg.RateLimitConfig.LoginMinPause,
 		cfg.RateLimitConfig.LoginMaxPause, clock.WallClock)
+
 	shared, err := newSharedServerContex(sharedServerConfig{
 		statePool:    cfg.StatePool,
+		controller:   cfg.Controller,
 		centralHub:   cfg.Hub,
 		presence:     cfg.Presence,
 		leaseManager: cfg.LeaseManager,

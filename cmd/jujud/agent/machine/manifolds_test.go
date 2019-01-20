@@ -79,6 +79,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"migration-fortress",
 		"migration-minion",
 		"migration-inactive-flag",
+		"model-cache",
 		"model-worker-manager",
 		"peer-grouper",
 		"presence",
@@ -146,6 +147,7 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"lease-clock-updater",
 		"lease-manager",
 		"log-forwarder",
+		"model-cache",
 		"model-worker-manager",
 		"peer-grouper",
 		"presence",
@@ -308,6 +310,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
+		"model-cache",
 		"restore-watcher",
 		"state",
 		"state-config-watcher",
@@ -410,6 +413,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
+		"model-cache",
 		"raft-transport",
 		"restore-watcher",
 		"state",
@@ -557,6 +561,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
+
+	"model-cache": {
+		"agent",
+		"state",
+		"state-config-watcher",
+	},
 
 	"model-worker-manager": {
 		"agent",

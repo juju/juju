@@ -110,6 +110,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		Authenticator:        s.authenticator,
 		Mux:                  s.mux,
 		Clock:                s.clock,
+		Controller:           s.controller,
 		Tag:                  s.agentConfig.Tag(),
 		DataDir:              s.agentConfig.DataDir(),
 		LogDir:               s.agentConfig.LogDir(),

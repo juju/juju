@@ -11,15 +11,19 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/controller"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/worker/modelcache"
 )
 
 type sharedServerContextSuite struct {
@@ -34,9 +38,22 @@ var _ = gc.Suite(&sharedServerContextSuite{})
 func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
+	modelCache, err := modelcache.NewWorker(modelcache.Config{
+		Logger:               loggo.GetLogger("test"),
+		StatePool:            s.StatePool,
+		PrometheusRegisterer: noopRegisterer{},
+		Cleanup:              func() {},
+	})
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
+	c.Assert(err, jc.ErrorIsNil)
+	var controller *cache.Controller
+	err = modelcache.ExtractCacheController(modelCache, &controller)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.config = sharedServerConfig{
 		statePool:    s.StatePool,
+		controller:   controller,
 		centralHub:   s.hub,
 		presence:     presence.New(clock.WallClock),
 		leaseManager: &lease.Manager{},
@@ -182,4 +199,16 @@ func (s *sharedServerContextSuite) TestRemovingOldPresenceFeature(c *gc.C) {
 	}
 
 	c.Check(stub.published, jc.DeepEquals, []string{"apiserver.restart"})
+}
+
+type noopRegisterer struct {
+	prometheus.Registerer
+}
+
+func (noopRegisterer) Register(prometheus.Collector) error {
+	return nil
+}
+
+func (noopRegisterer) Unregister(prometheus.Collector) bool {
+	return true
 }

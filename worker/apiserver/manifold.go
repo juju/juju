@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
@@ -31,6 +32,7 @@ type ManifoldConfig struct {
 	AgentName              string
 	AuthenticatorName      string
 	ClockName              string
+	ModelCacheName         string
 	MuxName                string
 	RestoreStatusName      string
 	StateName              string
@@ -56,6 +58,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
+	}
+	if config.ModelCacheName == "" {
+		return errors.NotValidf("empty ModelCacheName")
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
@@ -102,6 +107,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.AuthenticatorName,
 			config.ClockName,
+			config.ModelCacheName,
 			config.MuxName,
 			config.RestoreStatusName,
 			config.StateName,
@@ -148,6 +154,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	var controller *cache.Controller
+	if err := context.Get(config.ModelCacheName, &controller); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var upgradeLock gate.Waiter
 	if err := context.Get(config.UpgradeGateName, &upgradeLock); err != nil {
 		return nil, errors.Trace(err)
@@ -175,6 +187,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Clock:                             clock,
 		Mux:                               mux,
 		StatePool:                         statePool,
+		Controller:                        controller,
 		LeaseManager:                      leaseManager,
 		PrometheusRegisterer:              config.PrometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,

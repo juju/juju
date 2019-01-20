@@ -58,6 +58,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corelease "github.com/juju/juju/core/lease"
@@ -80,6 +81,7 @@ import (
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/worker/modelcache"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
@@ -267,6 +269,9 @@ type environState struct {
 	presence       *fakePresence
 	leaseManager   *lease.Manager
 	creator        string
+
+	modelCacheWorker worker.Worker
+	controller       *cache.Controller
 }
 
 // environ represents a client's connection to a given environment's
@@ -363,12 +368,15 @@ func (state *environState) destroyLocked() {
 	apiServer := state.apiServer
 	apiStatePool := state.apiStatePool
 	leaseManager := state.leaseManager
+	modelCacheWorker := state.modelCacheWorker
 	state.apiServer = nil
 	state.apiStatePool = nil
 	state.apiState = nil
+	state.controller = nil
 	state.leaseManager = nil
 	state.bootstrapped = false
 	state.hub = nil
+	state.modelCacheWorker = nil
 
 	// Release the lock while we close resources. In particular,
 	// we must not hold the lock while the API server is being
@@ -377,9 +385,17 @@ func (state *environState) destroyLocked() {
 	state.mu.Unlock()
 	defer state.mu.Lock()
 
+	// The apiServer depends on the modelCache, so stop the apiserver first.
 	if apiServer != nil {
 		logger.Debugf("stopping apiServer")
 		if err := apiServer.Stop(); err != nil && mongoAlive() {
+			panic(err)
+		}
+	}
+
+	if modelCacheWorker != nil {
+		logger.Debugf("stopping modelCache worker")
+		if err := worker.Stop(modelCacheWorker); err != nil {
 			panic(err)
 		}
 	}
@@ -442,14 +458,23 @@ func (e *environ) GetHubInAPIServer() *pubsub.StructuredHub {
 	return st.hub
 }
 
-// GetLeaseManagerInAPIServer returns the lease manager used by the
-// API server.
+// GetLeaseManagerInAPIServer returns the channel used to update the
+// cache.Controller used by the API server
 func (e *environ) GetLeaseManagerInAPIServer() corelease.Manager {
 	st, err := e.state()
 	if err != nil {
 		panic(err)
 	}
 	return st.leaseManager
+}
+
+// GetController returns the cache.Controller used by the API server.
+func (e *environ) GetController() *cache.Controller {
+	st, err := e.state()
+	if err != nil {
+		panic(err)
+	}
+	return st.controller
 }
 
 // newState creates the state for a new environment with the given name.
@@ -895,8 +920,25 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				return errors.Trace(err)
 			}
 
+			modelCache, err := modelcache.NewWorker(modelcache.Config{
+				Logger:               loggo.GetLogger("dummy"),
+				StatePool:            statePool,
+				PrometheusRegisterer: noopRegisterer{},
+				Cleanup:              func() {},
+			})
+			if err != nil {
+				return errors.Trace(err)
+			}
+			estate.modelCacheWorker = modelCache
+			err = modelcache.ExtractCacheController(modelCache, &estate.controller)
+			if err != nil {
+				worker.Stop(modelCache)
+				return errors.Trace(err)
+			}
+
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:      statePool,
+				Controller:     estate.controller,
 				Authenticator:  stateAuthenticator,
 				Clock:          clock.WallClock,
 				GetAuditConfig: func() auditlog.Config { return auditlog.Config{} },
@@ -1930,5 +1972,5 @@ func (noopRegisterer) Register(prometheus.Collector) error {
 }
 
 func (noopRegisterer) Unregister(prometheus.Collector) bool {
-	return false
+	return true
 }

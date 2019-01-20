@@ -5,6 +5,7 @@ package facadetest
 
 import (
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state"
@@ -12,13 +13,14 @@ import (
 
 // Context implements facade.Context in the simplest possible way.
 type Context struct {
-	Auth_      facade.Authorizer
-	Dispose_   func()
-	Hub_       facade.Hub
-	Resources_ facade.Resources
-	State_     *state.State
-	StatePool_ *state.StatePool
-	ID_        string
+	Auth_       facade.Authorizer
+	Dispose_    func()
+	Hub_        facade.Hub
+	Resources_  facade.Resources
+	State_      *state.State
+	StatePool_  *state.StatePool
+	Controller_ *cache.Controller
+	ID_         string
 
 	LeadershipClaimer_ leadership.Claimer
 	LeadershipChecker_ leadership.Checker
@@ -42,6 +44,11 @@ func (context Context) Dispose() {
 // Hub is part of the facade.Context interface.
 func (context Context) Hub() facade.Hub {
 	return context.Hub_
+}
+
+// Controller is part of the facade.Context interface.
+func (context Context) Controller() *cache.Controller {
+	return context.Controller_
 }
 
 // Resources is part of the facade.Context interface.
