@@ -54,7 +54,7 @@ def ensure_removing_primary_succeeds(client):
     test_model.remove_service('dummy-source')
 
     # dummy-source must be removed
-    assert_service_is_removed(test_model, 'dummy-source')
+    assert_service_is_removed(test_model, 'dummy-source', timeout=180)
     # But dummy-sink must remain operational.
     assert_subordinate_unit_operational(
         test_model, primary_app_name='dummy-sink')
@@ -86,7 +86,8 @@ def ensure_removing_relation_removes_sub_unit(client):
 
     test_model.juju('remove-relation', ('ntp', 'dummy-source'))
 
-    assert_subordinate_is_removed(test_model, 'dummy-source', 'ntp')
+    assert_subordinate_is_removed(
+        test_model, 'dummy-source', 'ntp', timeout=180)
 
     # This subordinate must still remain operational, we didn't remove the
     # relation from dummy-sink.
