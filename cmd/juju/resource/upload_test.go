@@ -97,8 +97,9 @@ func (s *UploadSuite) TestInfo(c *gc.C) {
 This command uploads a file from your local disk to the juju controller to be
 used as a resource for an application.
 `,
-		Aliases:     []string{"attach"},
-		FlagKnownAs: "option",
+		Aliases:        []string{"attach"},
+		FlagKnownAs:    "option",
+		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},
 	})
 }
 
