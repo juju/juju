@@ -240,15 +240,15 @@ func (s *generationSuite) TestAssignAllUnitsSuccessRemaining(c *gc.C) {
 	c.Assert(gen.AssignUnit("riak/2"), jc.ErrorIsNil)
 	c.Assert(gen.AssignAllUnits("riak"), jc.ErrorIsNil)
 
-	expected := map[string][]string{"riak": {"riak/2", "riak/3", "riak/1", "riak/0"}}
+	expected := []string{"riak/2", "riak/3", "riak/1", "riak/0"}
 
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Check(gen.AssignedUnits(), gc.DeepEquals, expected)
+	c.Check(gen.AssignedUnits()["riak"], jc.SameContents, expected)
 
 	// Idempotent.
 	c.Assert(gen.AssignAllUnits("riak"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Check(gen.AssignedUnits(), gc.DeepEquals, expected)
+	c.Check(gen.AssignedUnits()["riak"], jc.SameContents, expected)
 }
 
 func (s *generationSuite) TestAssignAllUnitsNotActiveError(c *gc.C) {
