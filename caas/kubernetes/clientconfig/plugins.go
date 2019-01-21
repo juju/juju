@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // load gcp auth plugin.
-	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -23,17 +22,12 @@ const (
 	jujuClusterRoleBindingName = "juju-cluster-role-binding"
 )
 
-func newK8sClientSet(config *clientcmdapi.Config, contextName string) (*kubernetes.Clientset, error) {
-	clientCfg, err := clientcmd.NewNonInteractiveClientConfig(
-		*config, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return kubernetes.NewForConfig(clientCfg)
-}
+// To regenerate the mocks for the kubernetes Client used by this package,
+// mockgen -package mocks -destination mocks/rbacv1_mock.go k8s.io/client-go/kubernetes/typed/rbac/v1 RbacV1Interface,ClusterRoleBindingInterface,ClusterRoleInterface
+// mockgen -package mocks -destination mocks/serviceaccount_mock.go k8s.io/client-go/kubernetes/typed/core/v1 ServiceAccountInterface
 
 func ensureJujuAdminServiceAccount(
-	clientset *kubernetes.Clientset,
+	clientset kubernetes.Interface,
 	config *clientcmdapi.Config,
 	contextName string,
 ) (*clientcmdapi.Config, error) {
@@ -75,7 +69,7 @@ func ensureJujuAdminServiceAccount(
 	return config, nil
 }
 
-func ensureClusterRole(clientset *kubernetes.Clientset, name, namespace string) (*rbacv1.ClusterRole, error) {
+func ensureClusterRole(clientset kubernetes.Interface, name, namespace string) (*rbacv1.ClusterRole, error) {
 	// try get first because it's more usual to reuse cluster role.
 	clusterRole, err := clientset.RbacV1().ClusterRoles().Get(name, metav1.GetOptions{})
 	if err == nil {
@@ -111,7 +105,7 @@ func ensureClusterRole(clientset *kubernetes.Clientset, name, namespace string) 
 	return cr, nil
 }
 
-func ensureServiceAccount(clientset *kubernetes.Clientset, name, namespace string) (*core.ServiceAccount, error) {
+func ensureServiceAccount(clientset kubernetes.Interface, name, namespace string) (*core.ServiceAccount, error) {
 	serviceAccountAPI := clientset.CoreV1().ServiceAccounts(namespace)
 	// create juju admin service account.
 	_, err := serviceAccountAPI.Create(&core.ServiceAccount{
@@ -129,7 +123,7 @@ func ensureServiceAccount(clientset *kubernetes.Clientset, name, namespace strin
 }
 
 func ensureClusterRoleBinding(
-	clientset *kubernetes.Clientset,
+	clientset kubernetes.Interface,
 	name string,
 	sa *core.ServiceAccount,
 	cr *rbacv1.ClusterRole,
@@ -157,7 +151,7 @@ func ensureClusterRoleBinding(
 	return rb, nil
 }
 
-func getServiceAccountSecret(clientset *kubernetes.Clientset, sa *core.ServiceAccount) (*core.Secret, error) {
+func getServiceAccountSecret(clientset kubernetes.Interface, sa *core.ServiceAccount) (*core.Secret, error) {
 	return clientset.CoreV1().Secrets(sa.Namespace).Get(sa.Secrets[0].Name, metav1.GetOptions{})
 }
 

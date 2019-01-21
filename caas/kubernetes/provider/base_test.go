@@ -84,7 +84,7 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.ctrl = s.setupBroker(c, s.k8sRestConfig)
+	s.ctrl = s.setupBroker(c)
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {
@@ -92,7 +92,7 @@ func (s *BaseSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *BaseSuite) setupBroker(c *gc.C, k8sRestConfig *rest.Config) *gomock.Controller {
+func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
 		config.NameKey: testNamespace,
 	}))
@@ -174,7 +174,7 @@ func (s *BaseSuite) setupBroker(c *gc.C, k8sRestConfig *rest.Config) *gomock.Con
 		s.watcher = w
 		return s.watcher, err
 	}
-	s.broker, err = provider.NewK8sBroker(k8sRestConfig, cfg, newClient, newK8sWatcherForTest, s.clock)
+	s.broker, err = provider.NewK8sBroker(s.k8sRestConfig, cfg, newClient, newK8sWatcherForTest, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }
@@ -183,7 +183,7 @@ func (s *BaseSuite) k8sNotFoundError() *k8serrors.StatusError {
 	return k8serrors.NewNotFound(schema.GroupResource{}, "test")
 }
 
-func (s *BaseSuite) k8sAlreadyExists() *k8serrors.StatusError {
+func (s *BaseSuite) k8sAlreadyExistsError() *k8serrors.StatusError {
 	return k8serrors.NewAlreadyExists(schema.GroupResource{}, "test")
 }
 
