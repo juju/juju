@@ -126,8 +126,11 @@ func (c *registerCommand) Init(args []string) error {
 // Run implements Command.Run.
 func (c *registerCommand) Run(ctx *cmd.Context) error {
 	err := c.run(ctx)
-	if err != nil && c.onRunError != nil {
-		c.onRunError()
+	if err != nil {
+		ctx.Warningf("could not register user: %v", err)
+		if c.onRunError != nil {
+			c.onRunError()
+		}
 	}
 	return err
 }
