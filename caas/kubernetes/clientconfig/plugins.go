@@ -106,9 +106,7 @@ func ensureClusterRole(clientset kubernetes.Interface, name, namespace string) (
 }
 
 func ensureServiceAccount(clientset kubernetes.Interface, name, namespace string) (*core.ServiceAccount, error) {
-	serviceAccountAPI := clientset.CoreV1().ServiceAccounts(namespace)
-	// create juju admin service account.
-	_, err := serviceAccountAPI.Create(&core.ServiceAccount{
+	sa, err := clientset.CoreV1().ServiceAccounts(namespace).Create(&core.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -117,9 +115,7 @@ func ensureServiceAccount(clientset kubernetes.Interface, name, namespace string
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, errors.Trace(err)
 	}
-	// service account returned from create method does not include secret names,
-	// so Get again to fetch full account data.
-	return serviceAccountAPI.Get(name, metav1.GetOptions{})
+	return sa, nil
 }
 
 func ensureClusterRoleBinding(
@@ -128,7 +124,6 @@ func ensureClusterRoleBinding(
 	sa *core.ServiceAccount,
 	cr *rbacv1.ClusterRole,
 ) (*rbacv1.ClusterRoleBinding, error) {
-	// create role binding for juju admin service account with admin cluster role.
 	rb, err := clientset.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,

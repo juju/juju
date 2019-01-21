@@ -23,6 +23,9 @@ type ResourcesSuite struct {
 }
 
 func (s *ResourcesSuite) TestAdoptResources(c *gc.C) {
+	s.ctrl = s.setupBroker(c)
+	defer s.ctrl.Finish()
+
 	modelSelector := "juju-model-uuid==" + testing.ModelTag.Id()
 
 	gomock.InOrder(

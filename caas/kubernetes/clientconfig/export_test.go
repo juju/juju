@@ -12,3 +12,10 @@ var (
 	GetServiceAccountSecret                       = getServiceAccountSecret
 	ReplaceAuthProviderWithServiceAccountAuthData = replaceAuthProviderWithServiceAccountAuthData
 )
+
+const (
+	AdminNameSpace             = adminNameSpace
+	ClusterRoleName            = clusterRoleName
+	JujuServiceAccountName     = jujuServiceAccountName
+	JujuClusterRoleBindingName = jujuClusterRoleBindingName
+)

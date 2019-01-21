@@ -82,16 +82,6 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.ctrl = s.setupBroker(c)
-}
-
-func (s *BaseSuite) TearDownTest(c *gc.C) {
-	s.ctrl.Finish()
-	s.BaseSuite.TearDownTest(c)
-}
-
 func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
 		config.NameKey: testNamespace,

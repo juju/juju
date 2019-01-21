@@ -5,11 +5,13 @@ package clientconfig_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
-	"github.com/juju/juju/testing"
 	gc "gopkg.in/check.v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/juju/juju/caas/kubernetes/provider/mocks"
+	"github.com/juju/juju/testing"
 )
 
 type BaseSuite struct {
@@ -23,21 +25,12 @@ type BaseSuite struct {
 	mockClusterRoles       *mocks.MockClusterRoleInterface
 	mockClusterRoleBinding *mocks.MockClusterRoleBindingInterface
 	mockServiceAccounts    *mocks.MockServiceAccountInterface
+	mockSecrets            *mocks.MockSecretInterface
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.namespace = "test"
-}
-
-func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.ctrl = s.setupBroker(c)
-}
-
-func (s *BaseSuite) TearDownTest(c *gc.C) {
-	s.ctrl.Finish()
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
@@ -49,6 +42,9 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 
 	s.mockServiceAccounts = mocks.NewMockServiceAccountInterface(ctrl)
 	mockCoreV1.EXPECT().ServiceAccounts(s.namespace).AnyTimes().Return(s.mockServiceAccounts)
+
+	s.mockSecrets = mocks.NewMockSecretInterface(ctrl)
+	mockCoreV1.EXPECT().Secrets(s.namespace).AnyTimes().Return(s.mockSecrets)
 
 	s.mockRbacV1 = mocks.NewMockRbacV1Interface(ctrl)
 	s.k8sClient.EXPECT().RbacV1().AnyTimes().Return(s.mockRbacV1)
@@ -68,4 +64,50 @@ func (s *BaseSuite) k8sNotFoundError() *k8serrors.StatusError {
 
 func (s *BaseSuite) k8sAlreadyExistsError() *k8serrors.StatusError {
 	return k8serrors.NewAlreadyExists(schema.GroupResource{}, "test")
+}
+
+func newClientConfig() *clientcmdapi.Config {
+	cfg := clientcmdapi.NewConfig()
+	cfg.Preferences.Colors = true
+	cfg.Clusters["alfa"] = &clientcmdapi.Cluster{
+		Server:                "https://alfa.org:8080",
+		InsecureSkipTLSVerify: true,
+		CertificateAuthority:  "path/to/my/cert-ca-filename",
+	}
+	cfg.Clusters["bravo"] = &clientcmdapi.Cluster{
+		Server:                "https://bravo.org:8080",
+		InsecureSkipTLSVerify: false,
+	}
+	cfg.AuthInfos["white-mage-via-cert"] = &clientcmdapi.AuthInfo{
+		ClientCertificate: "path/to/my/client-cert-filename",
+		ClientKey:         "path/to/my/client-key-filename",
+	}
+	cfg.AuthInfos["red-mage-via-token"] = &clientcmdapi.AuthInfo{
+		Token: "my-secret-token",
+	}
+	cfg.AuthInfos["black-mage-via-auth-provider"] = &clientcmdapi.AuthInfo{
+		AuthProvider: &clientcmdapi.AuthProviderConfig{
+			Name: "gcp",
+			Config: map[string]string{
+				"foo":   "bar",
+				"token": "s3cr3t-t0k3n",
+			},
+		},
+	}
+	cfg.Contexts["bravo-as-black-mage"] = &clientcmdapi.Context{
+		Cluster:   "bravo",
+		AuthInfo:  "black-mage-via-auth-provider",
+		Namespace: "yankee",
+	}
+	cfg.Contexts["alfa-as-black-mage"] = &clientcmdapi.Context{
+		Cluster:   "alfa",
+		AuthInfo:  "black-mage-via-auth-provider",
+		Namespace: "zulu",
+	}
+	cfg.Contexts["alfa-as-white-mage"] = &clientcmdapi.Context{
+		Cluster:  "alfa",
+		AuthInfo: "white-mage-via-cert",
+	}
+	cfg.CurrentContext = "alfa-as-white-mage"
+	return cfg
 }
