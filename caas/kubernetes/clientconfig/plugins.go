@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	adminNameSpace                  = "kube-system"
-	clusterAdminRole                = "cluster-admin"
-	jujuAdminAccountName            = "juju-caas"
-	jujuAdminAccountNameRoleBinding = "juju-caas-role-binding"
+	adminNameSpace             = "kube-system"
+	clusterRoleName            = "cluster-admin"
+	jujuServiceAccountName     = "juju-service-account"
+	jujuClusterRoleBindingName = "juju-cluster-role-binding"
 )
 
 func newK8sClientSet(config *clientcmdapi.Config, contextName string) (*kubernetes.Clientset, error) {
@@ -38,60 +38,127 @@ func ensureJujuAdminServiceAccount(
 	contextName string,
 ) (*clientcmdapi.Config, error) {
 
-	serviceAccountAPI := clientset.CoreV1().ServiceAccounts(adminNameSpace)
-
-	// get admin cluster role.
-	clusterRole, err := clientset.RbacV1().ClusterRoles().Get(clusterAdminRole, metav1.GetOptions{})
+	// ensure admin cluster role.
+	clusterRole, err := ensureClusterRole(clientset, clusterRoleName, adminNameSpace)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(
+			err, "ensuring cluster role %q in namespace %q", clusterRoleName, adminNameSpace)
 	}
 
 	// create juju admin service account.
-	jujuAccount, err := serviceAccountAPI.Create(&core.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jujuAdminAccountName,
-			Namespace: adminNameSpace,
-		},
-	})
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	sa, err := ensureServiceAccount(clientset, jujuServiceAccountName, adminNameSpace)
+	if err != nil {
+		return nil, errors.Annotatef(
+			err, "ensuring service account %q in namespace %q", jujuServiceAccountName, adminNameSpace)
+	}
+
+	// ensure role binding for juju admin service account with admin cluster role.
+	_, err = ensureClusterRoleBinding(clientset, jujuClusterRoleBindingName, sa, clusterRole)
+	if err != nil {
+		return nil, errors.Annotatef(err, "ensuring cluster role binding %q", jujuClusterRoleBindingName)
+	}
+
+	// refresh service account to get the secret/token after cluster role binding created.
+	sa, err = ensureServiceAccount(clientset, jujuServiceAccountName, adminNameSpace)
+	if err != nil {
+		return nil, errors.Annotatef(
+			err, "refetching service account %q after cluster role binding created", jujuServiceAccountName)
+	}
+
+	// get bearer token of juju admin service account.
+	secret, err := getServiceAccountSecret(clientset, sa)
+	if err != nil {
+		return nil, errors.Annotatef(err, "fetching bearer token for service account %q", sa.Name)
+	}
+
+	replaceAuthProviderWithServiceAccountAuthData(contextName, config, secret)
+	return config, nil
+}
+
+func ensureClusterRole(clientset *kubernetes.Clientset, name, namespace string) (*rbacv1.ClusterRole, error) {
+	// try get first because it's more usual to reuse cluster role.
+	clusterRole, err := clientset.RbacV1().ClusterRoles().Get(name, metav1.GetOptions{})
+	if err == nil {
+		return clusterRole, nil
+	}
+	if !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 
-	// create role binding for juju admin service account with admin cluster role.
-	_, err = clientset.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
+	// No existing cluster role found, so create one.
+	// This cluster role will be granted extra privileges which requires proper
+	// permissions setup for the credential in kubeconfig file.
+	cr, err := clientset.RbacV1().ClusterRoles().Create(&rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: jujuAdminAccountNameRoleBinding,
+			Name:      name,
+			Namespace: namespace,
 		},
-		RoleRef: rbacv1.RoleRef{
-			Kind: "ClusterRole",
-			Name: clusterRole.Name,
-		},
-		Subjects: []rbacv1.Subject{
+		Rules: []rbacv1.PolicyRule{
 			{
-				Kind:      rbacv1.ServiceAccountKind,
-				Name:      jujuAdminAccountName,
-				Namespace: adminNameSpace,
+				APIGroups: []string{rbacv1.APIGroupAll},
+				Resources: []string{rbacv1.ResourceAll},
+				Verbs:     []string{rbacv1.VerbAll},
+			},
+			{
+				NonResourceURLs: []string{rbacv1.NonResourceAll},
+				Verbs:           []string{rbacv1.VerbAll},
 			},
 		},
 	})
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, errors.Trace(err)
 	}
+	return cr, nil
+}
 
-	// refresh service account after secrets created.
-	jujuAccount, err = serviceAccountAPI.Get(jujuAdminAccountName, metav1.GetOptions{})
-	if err != nil {
+func ensureServiceAccount(clientset *kubernetes.Clientset, name, namespace string) (*core.ServiceAccount, error) {
+	serviceAccountAPI := clientset.CoreV1().ServiceAccounts(namespace)
+	// create juju admin service account.
+	_, err := serviceAccountAPI.Create(&core.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	})
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, errors.Trace(err)
 	}
+	// service account returned from create method does not include secret names,
+	// so Get again to fetch full account data.
+	return serviceAccountAPI.Get(name, metav1.GetOptions{})
+}
 
-	// get bearer token of juju admin service account.
-	secret, err := clientset.CoreV1().Secrets(adminNameSpace).Get(jujuAccount.Secrets[0].Name, metav1.GetOptions{})
-	if err != nil {
+func ensureClusterRoleBinding(
+	clientset *kubernetes.Clientset,
+	name string,
+	sa *core.ServiceAccount,
+	cr *rbacv1.ClusterRole,
+) (*rbacv1.ClusterRoleBinding, error) {
+	// create role binding for juju admin service account with admin cluster role.
+	rb, err := clientset.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: cr.Name,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      sa.Name,
+				Namespace: sa.Namespace,
+			},
+		},
+	})
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, errors.Trace(err)
 	}
+	return rb, nil
+}
 
-	replaceAuthProviderWithServiceAccountAuthData(contextName, config, secret)
-	return config, nil
+func getServiceAccountSecret(clientset *kubernetes.Clientset, sa *core.ServiceAccount) (*core.Secret, error) {
+	return clientset.CoreV1().Secrets(sa.Namespace).Get(sa.Secrets[0].Name, metav1.GetOptions{})
 }
 
 func replaceAuthProviderWithServiceAccountAuthData(

@@ -32,7 +32,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
-	envtesting.AssertProviderAuthTypes(c, s.provider, "userpass", "certificate")
+	envtesting.AssertProviderAuthTypes(c, s.provider, "userpass", "certificate", "oauth2withcert")
 }
 
 func (s *credentialsSuite) TestCredentialsValid(c *gc.C) {
@@ -44,6 +44,8 @@ func (s *credentialsSuite) TestCredentialsValid(c *gc.C) {
 
 func (s *credentialsSuite) TestHiddenAttributes(c *gc.C) {
 	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass", "password")
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "oauth2withcert", "Token")
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "certificate", "ClientKeyData")
 }
 
 var singleConfigYAML = `

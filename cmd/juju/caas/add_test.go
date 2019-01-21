@@ -127,37 +127,53 @@ func (api *fakeK8sBrokerRegionLister) ListHostCloudRegions() (set.Strings, error
 	return *results[0].(*set.Strings), jujutesting.TypeAssertError(results[1])
 }
 
-func fakeNewK8sClientConfig(io.Reader) (*clientconfig.ClientConfig, error) {
-	return &clientconfig.ClientConfig{
-		Contexts: map[string]clientconfig.Context{
-			"key1": {
-				CloudName:      "mrcloud1",
-				CredentialName: "credname1",
-			},
-			"key2": {
-				CloudName:      "mrcloud2",
-				CredentialName: "credname2",
-			},
-		},
+func fakeNewK8sClientConfig(_ io.Reader, clusterName string, _ clientconfig.K8sCredentialResolver) (*clientconfig.ClientConfig, error) {
+	cCfg := &clientconfig.ClientConfig{
 		CurrentContext: "key1",
-		Clouds: map[string]clientconfig.CloudConfig{
-			"mrcloud1": {
-				Endpoint: "fakeendpoint1",
-				Attributes: map[string]interface{}{
-					"CAData": "fakecadata1",
-				},
-			},
-			"mrcloud2": {
-				Endpoint: "fakeendpoint2",
-				Attributes: map[string]interface{}{
-					"CAData": "fakecadata2",
-				},
+	}
+	contexts := map[string]clientconfig.Context{
+		"key1": {
+			CloudName:      "mrcloud1",
+			CredentialName: "credname1",
+		},
+		"key2": {
+			CloudName:      "mrcloud2",
+			CredentialName: "credname2",
+		},
+	}
+	clouds := map[string]clientconfig.CloudConfig{
+		"mrcloud1": {
+			Endpoint: "fakeendpoint1",
+			Attributes: map[string]interface{}{
+				"CAData": "fakecadata1",
 			},
 		},
-	}, nil
+		"mrcloud2": {
+			Endpoint: "fakeendpoint2",
+			Attributes: map[string]interface{}{
+				"CAData": "fakecadata2",
+			},
+		},
+	}
+
+	var context clientconfig.Context
+	var contextName string
+	if clusterName != "" {
+		var err error
+		context, contextName, err = clientconfig.PickContextByClusterName(contexts, clusterName)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		contextName = cCfg.CurrentContext
+		context = contexts[contextName]
+	}
+	cCfg.Contexts = map[string]clientconfig.Context{contextName: context}
+	cCfg.Clouds = map[string]clientconfig.CloudConfig{context.CloudName: clouds[context.CloudName]}
+	return cCfg, nil
 }
 
-func fakeEmptyNewK8sClientConfig(io.Reader) (*clientconfig.ClientConfig, error) {
+func fakeEmptyNewK8sClientConfig(io.Reader, string, clientconfig.K8sCredentialResolver) (*clientconfig.ClientConfig, error) {
 	return &clientconfig.ClientConfig{}, nil
 }
 
@@ -236,7 +252,7 @@ func NewMockClientStore() *jujuclient.MemStore {
 	return store
 }
 
-func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientConfig bool, shouldFakeNewK8sClientConfig bool) cmd.Command {
+func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, shouldFakeNewK8sClientConfig bool) cmd.Command {
 	return caas.NewAddCAASCommandForTest(
 		s.store,
 		&fakeCredentialStore{},
@@ -325,7 +341,7 @@ func (s *addCAASSuite) TestMissingArgs(c *gc.C) {
 func (s *addCAASSuite) TestNonExistClusterName(c *gc.C) {
 	cmd := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "non existing cluster name")
-	c.Assert(err, gc.ErrorMatches, `clusterName \"non existing cluster name\" not found`)
+	c.Assert(err, gc.ErrorMatches, `context for cluster name \"non existing cluster name\" not found`)
 }
 
 type regionTestCase struct {

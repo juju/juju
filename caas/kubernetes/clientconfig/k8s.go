@@ -19,7 +19,8 @@ import (
 
 var logger = loggo.GetLogger("juju.caas.kubernetes.clientconfig")
 
-type k8sCredentialResolver func(config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error)
+// K8sCredentialResolver defines the function for resolving non supported k8s credential.
+type K8sCredentialResolver func(config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error)
 
 // EnsureK8sCredential ensures juju admin service account created with admin cluster role binding setup.
 func EnsureK8sCredential(config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error) {
@@ -31,7 +32,7 @@ func EnsureK8sCredential(config *clientcmdapi.Config, contextName string) (*clie
 }
 
 // NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
-func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver k8sCredentialResolver) (*ClientConfig, error) {
+func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver K8sCredentialResolver) (*ClientConfig, error) {
 	if reader == nil {
 		var err error
 		reader, err = readKubeConfigFile()
@@ -58,7 +59,7 @@ func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver
 	var contextName string
 	var context Context
 	if clusterName != "" {
-		context, contextName, err = pickContextByClusterName(contexts, clusterName)
+		context, contextName, err = PickContextByClusterName(contexts, clusterName)
 		if err != nil {
 			return nil, errors.Annotatef(err, "picking context by cluster name %q", clusterName)
 		}
@@ -67,7 +68,7 @@ func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver
 		context = contexts[contextName]
 		logger.Debugf("No cluster name specified, so use current context %q", config.CurrentContext)
 	}
-	// exclude on related contexts.
+	// exclude not related contexts.
 	contexts = map[string]Context{}
 	if contextName != "" && !context.isEmpty() {
 		contexts[contextName] = context
@@ -103,7 +104,8 @@ func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver
 	}, nil
 }
 
-func pickContextByClusterName(contexts map[string]Context, clusterName string) (Context, string, error) {
+// PickContextByClusterName finds the context for a specific cluster name.
+func PickContextByClusterName(contexts map[string]Context, clusterName string) (Context, string, error) {
 	for contextName, context := range contexts {
 		if clusterName == context.CloudName {
 			return context, contextName, nil
