@@ -67,7 +67,6 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
-	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
@@ -84,6 +83,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeCmd(filepath.Join(testpath, "stop"))
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
 }
 
 func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {

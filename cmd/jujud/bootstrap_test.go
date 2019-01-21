@@ -99,8 +99,6 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	})
 	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
-	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
-	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -120,6 +118,8 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.logDir = c.MkDir()
 	s.bootstrapParamsFile = filepath.Join(s.dataDir, "bootstrap-params")
 	s.mongoOplogSize = "1234"
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
+	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 	s.makeTestModel(c)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
