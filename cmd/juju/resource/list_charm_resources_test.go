@@ -58,8 +58,9 @@ For cs:~user/trusty/mysql
 Where the series is not supplied, the series from your local host is used.
 Thus the above examples imply that the local series is trusty.
 `,
-		Aliases:     []string{"list-resources"},
-		FlagKnownAs: "option",
+		Aliases:        []string{"list-resources"},
+		FlagKnownAs:    "option",
+		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},
 	})
 }
 

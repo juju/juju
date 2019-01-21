@@ -71,7 +71,8 @@ This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any
 updates available for resources from the charmstore.
 `,
-		FlagKnownAs: "option",
+		FlagKnownAs:    "option",
+		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},
 	})
 }
 
