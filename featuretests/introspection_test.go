@@ -30,10 +30,12 @@ type introspectionSuite struct {
 }
 
 func (s *introspectionSuite) SetUpSuite(c *gc.C) {
-	s.AgentSuite.SetUpSuite(c)
 	if runtime.GOOS != "linux" {
 		c.Skip(fmt.Sprintf("the introspection worker does not support %q", runtime.GOOS))
 	}
+	s.AgentSuite.SetUpSuite(c)
+	agenttest.InstallFakeEnsureMongo(s)
+	s.PatchValue(&agentcmd.ProductionMongoWriteConcern, false)
 }
 
 func (s *introspectionSuite) SetUpTest(c *gc.C) {
@@ -46,9 +48,6 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 		err := logsender.UninstallBufferedLogWriter()
 		c.Assert(err, jc.ErrorIsNil)
 	})
-
-	agenttest.InstallFakeEnsureMongo(s)
-	s.PatchValue(&agentcmd.ProductionMongoWriteConcern, false)
 }
 
 // startMachineAgent starts a controller machine agent and returns the path
