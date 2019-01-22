@@ -64,7 +64,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	}
 	s.hub = pubsub.NewStructuredHub(nil)
 
-	controller, err := controller.NewControllerAPIv5(
+	controller, err := controller.NewControllerAPIv6(
 		facadetest.Context{
 			State_:     s.State,
 			StatePool_: s.StatePool,
@@ -976,4 +976,15 @@ func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
 	}
 
 	c.Assert(config.Features().SortedValues(), jc.DeepEquals, []string{"bar", "foo"})
+}
+
+func (s *controllerSuite) TestMongoVersion(c *gc.C) {
+	result, err := s.controller.MongoVersion()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var resErr *params.Error
+	c.Assert(result.Error, gc.Equals, resErr)
+	// We can't guarantee which version of mongo is running, so let's just
+	// attempt to match it to a very basic version (major.minor.patch)
+	c.Assert(result.Result, gc.Matches, "^([0-9]{1,}).([0-9]{1,}).([0-9]{1,})$")
 }

@@ -72,7 +72,7 @@ const (
 	Upgrading StorageEngine = "Upgrading"
 )
 
-// Version represents the major.minor version of the runnig mongo.
+// Version represents the major.minor version of the running mongo.
 type Version struct {
 	Major         int
 	Minor         int
