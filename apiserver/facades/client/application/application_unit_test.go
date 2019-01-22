@@ -44,6 +44,7 @@ type ApplicationSuite struct {
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
 	api          *application.APIv8
+	deployParams application.DeployApplicationParams
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
@@ -61,7 +62,8 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
 		},
-		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
+		func(_ application.ApplicationDeployer, p application.DeployApplicationParams) (application.Application, error) {
+			s.deployParams = p
 			return nil, nil
 		},
 		s.storagePoolManager,
@@ -500,6 +502,7 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
 			NumUnits:        1,
+			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-0",
@@ -518,6 +521,8 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
 	c.Assert(results.Results[2].Error, gc.ErrorMatches, "only 1 placement directive is supported for caas models, got 2")
+	// Check parsing of k8s service annotations.
+	c.Assert(s.deployParams.ApplicationConfig.Attributes()["kubernetes-service-annotations"], jc.DeepEquals, map[string]string{"a": "b", "c": ""})
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {

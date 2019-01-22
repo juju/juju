@@ -1338,10 +1338,16 @@ func (k *kubernetesClient) configureService(
 	}
 
 	serviceType := core.ServiceType(config.GetString(serviceTypeConfigKey, defaultServiceType))
+	annotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
+	if err != nil {
+		return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
+	}
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   deploymentName(appName),
-			Labels: tags},
+			Name:        deploymentName(appName),
+			Labels:      tags,
+			Annotations: annotations,
+		},
 		Spec: core.ServiceSpec{
 			Selector:                 map[string]string{labelApplication: appName},
 			Type:                     serviceType,
