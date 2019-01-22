@@ -115,13 +115,7 @@ func (c *switchGenerationCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	var msg string
-	switch c.generation {
-	case "next":
-		msg = fmt.Sprintf("target generation set to %s\n", c.generation)
-	case "current":
-		msg = fmt.Sprintf("changes dropped and target generation set to %s\n", c.generation)
-	}
+	msg := fmt.Sprintf("target generation set to %s\n", c.generation)
 	ctx.Stdout.Write([]byte(msg))
 	return nil
 }
