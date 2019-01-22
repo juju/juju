@@ -76,6 +76,7 @@ def get_reporting_client(uri):
         port=parsed_uri.port,
         username=parsed_uri.username,
         password=parsed_uri.password,
+        database=DBNAME,
     )
     try:
         client.switch_database(DBNAME)
