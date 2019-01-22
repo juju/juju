@@ -63,11 +63,9 @@ func NewConfigCommand() cmd.Command {
 
 // NewConfigCommandForTest returns a SetCommand with the api provided as specified.
 func NewConfigCommandForTest(api applicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := modelcmd.Wrap(&configCommand{
-		api: api,
-	})
-	cmd.SetClientStore(store)
-	return cmd
+	c := modelcmd.Wrap(&configCommand{api: api})
+	c.SetClientStore(store)
+	return c
 }
 
 type attributes map[string]string
@@ -334,19 +332,23 @@ func (c *configCommand) setConfigFromFile(client applicationAPI, ctx *cmd.Contex
 	)
 	if c.configFile.Path == "-" {
 		buf := bytes.Buffer{}
-		buf.ReadFrom(ctx.Stdin)
+		if _, err := buf.ReadFrom(ctx.Stdin); err != nil {
+			return errors.Trace(err)
+		}
 		b = buf.Bytes()
 	} else {
 		b, err = c.configFile.Read(ctx)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
-	return block.ProcessBlockedError(
+	return errors.Trace(block.ProcessBlockedError(
 		client.Update(
 			params.ApplicationUpdate{
 				ApplicationName: c.applicationName,
-				SettingsYAML:    string(b)}), block.BlockChange)
+				SettingsYAML:    string(b),
+			},
+		), block.BlockChange))
 }
 
 // getConfig is the run action to return one or all configuration values.
@@ -373,8 +375,8 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 		}
 		// TODO (anastasiamac 2018-08-29) We want to have a new line after here (fmt.Fprintln).
 		// However, it will break all existing scripts and should be done as part of Juju 3.x work.
-		fmt.Fprint(ctx.Stdout, v)
-		return nil
+		_, err := fmt.Fprint(ctx.Stdout, v)
+		return errors.Trace(err)
 	}
 
 	resultsMap := map[string]interface{}{
