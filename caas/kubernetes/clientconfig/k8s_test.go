@@ -129,38 +129,50 @@ func (s *k8sConfigSuite) writeTempKubeConfig(c *gc.C, filename string, data stri
 }
 
 func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
-	f, err := s.writeTempKubeConfig(c, "emptyConfig", emptyConfigYAML)
-	defer f.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := clientconfig.NewK8sClientConfig(f)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, jc.DeepEquals,
-		&clientconfig.ClientConfig{
+	s.assertNewK8sClientConfig(c, newK8sClientConfigTestCase{
+		title:              "get empty config",
+		configYamlContent:  emptyConfigYAML,
+		configYamlFileName: "emptyConfig",
+		expected: &clientconfig.ClientConfig{
 			Type:           "kubernetes",
 			Contexts:       map[string]clientconfig.Context{},
 			CurrentContext: "",
 			Clouds:         map[string]clientconfig.CloudConfig{},
 			Credentials:    map[string]cloud.Credential{},
-		})
+		}})
+}
+
+type newK8sClientConfigTestCase struct {
+	title, clusterName, configYamlContent, configYamlFileName string
+	expected                                                  *clientconfig.ClientConfig
+	errMatch                                                  string
+}
+
+func (s *k8sConfigSuite) assertNewK8sClientConfig(c *gc.C, testCase newK8sClientConfigTestCase) {
+	f, err := s.writeTempKubeConfig(c, testCase.configYamlFileName, testCase.configYamlContent)
+	defer f.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Logf("test: %s", testCase.title)
+	cfg, err := clientconfig.NewK8sClientConfig(f, testCase.clusterName, nil)
+	if testCase.errMatch != "" {
+		c.Check(err, gc.ErrorMatches, testCase.errMatch)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(cfg, jc.DeepEquals, testCase.expected)
+	}
 }
 
 func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
-	f, err := s.writeTempKubeConfig(c, "singleConfig", singleConfigYAML)
-	defer f.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertSingleConfig(c, f)
-}
-
-func (s *k8sConfigSuite) assertSingleConfig(c *gc.C, f *os.File) {
-	cfg, err := clientconfig.NewK8sClientConfig(f)
-	c.Assert(err, jc.ErrorIsNil)
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{"username": "theuser", "password": "thepassword"})
 	cred.Label = `kubernetes credential "the-user"`
-	c.Assert(cfg, jc.DeepEquals,
-		&clientconfig.ClientConfig{
-
+	s.assertNewK8sClientConfig(c, newK8sClientConfigTestCase{
+		title:              "assert single config",
+		configYamlContent:  singleConfigYAML,
+		configYamlFileName: "singleConfig",
+		expected: &clientconfig.ClientConfig{
 			Type: "kubernetes",
 			Contexts: map[string]clientconfig.Context{
 				"the-context": {
@@ -174,18 +186,15 @@ func (s *k8sConfigSuite) assertSingleConfig(c *gc.C, f *os.File) {
 			Credentials: map[string]cloud.Credential{
 				"the-user": cred,
 			},
-		})
+		},
+	})
 }
 
 func (s *k8sConfigSuite) TestConfigErrors(c *gc.C) {
-	for i, test := range []struct {
-		title          string
-		userConfigYAML string
-		errMatch       string
-	}{
+	for _, v := range []newK8sClientConfigTestCase{
 		{
 			title: "notSupportedAuthProviderTypeConfig",
-			userConfigYAML: `
+			configYamlContent: `
 - name: the-user
   user:
     auth-provider:
@@ -200,7 +209,7 @@ func (s *k8sConfigSuite) TestConfigErrors(c *gc.C) {
 		},
 		{
 			title: "tokenWithUsernameInvalidConfig",
-			userConfigYAML: `
+			configYamlContent: `
 - name: the-user
   user:
     password: defaultpassword
@@ -211,7 +220,7 @@ func (s *k8sConfigSuite) TestConfigErrors(c *gc.C) {
 		},
 		{
 			title: "emptyClientKeyDataInvalidConfig",
-			userConfigYAML: `
+			configYamlContent: `
 - name: the-user
   user:
     client-certificate-data: QQ==
@@ -220,21 +229,13 @@ func (s *k8sConfigSuite) TestConfigErrors(c *gc.C) {
 			errMatch: `failed to read credentials from kubernetes config: empty ClientKeyData for \"the-user\" with auth type \"certificate\" not valid`,
 		},
 	} {
-		c.Logf("test %d", i)
-		f, err := s.writeTempKubeConfig(c, test.title, prefixConfigYAML+test.userConfigYAML)
-		defer f.Close()
-		c.Assert(err, jc.ErrorIsNil)
-		_, err = clientconfig.NewK8sClientConfig(f)
-		c.Check(err, gc.ErrorMatches, test.errMatch)
+		v.configYamlFileName = v.title
+		v.configYamlContent = prefixConfigYAML + v.configYamlContent
+		s.assertNewK8sClientConfig(c, v)
 	}
 }
 
 func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
-	f, err := s.writeTempKubeConfig(c, "multiConfig", multiConfigYAML)
-	defer f.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := clientconfig.NewK8sClientConfig(f)
-	c.Assert(err, jc.ErrorIsNil)
 	firstCred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{"username": "defaultuser", "password": "defaultpassword"})
@@ -243,45 +244,76 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 		cloud.CertificateAuthType,
 		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B"})
 	secondCred.Label = `kubernetes credential "the-user"`
-	thirdCred := cloud.NewCredential(
-		cloud.OAuth2AuthType,
-		map[string]string{"Token": "atoken"})
-	thirdCred.Label = `kubernetes credential "third-user"`
-	fourthCred := cloud.NewCredential(
-		cloud.OAuth2WithCertAuthType,
-		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "Token": "tokenwithcerttoken"})
-	fourthCred.Label = `kubernetes credential "fourth-user"`
-	fifthCred := cloud.NewCredential(
-		cloud.UserPassWithCertAuthType,
-		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "username": "fifth-user", "password": "userpasscertpass"})
-	fifthCred.Label = `kubernetes credential "fifth-user"`
-	c.Assert(cfg, jc.DeepEquals,
-		&clientconfig.ClientConfig{
-			Type: "kubernetes",
-			Contexts: map[string]clientconfig.Context{
-				"default-context": {
-					CloudName:      "default-cluster",
-					CredentialName: "default-user"},
-				"the-context": {
-					CloudName:      "the-cluster",
-					CredentialName: "the-user"},
+
+	for _, v := range []newK8sClientConfigTestCase{
+		{
+			title:       "no cluster name specified, will select current cluster",
+			clusterName: "", // will use current context.
+			expected: &clientconfig.ClientConfig{
+				Type: "kubernetes",
+				Contexts: map[string]clientconfig.Context{
+					"default-context": {
+						CloudName:      "default-cluster",
+						CredentialName: "default-user"},
+				},
+				CurrentContext: "default-context",
+				Clouds: map[string]clientconfig.CloudConfig{
+					"default-cluster": {
+						Endpoint:   "https://10.10.10.10:1010",
+						Attributes: map[string]interface{}{"CAData": ""},
+					},
+				},
+				Credentials: map[string]cloud.Credential{
+					"default-user": firstCred,
+				},
 			},
-			CurrentContext: "default-context",
-			Clouds: map[string]clientconfig.CloudConfig{
-				"default-cluster": {
-					Endpoint:   "https://10.10.10.10:1010",
-					Attributes: map[string]interface{}{"CAData": ""}},
-				"the-cluster": {
-					Endpoint:   "https://1.1.1.1:8888",
-					Attributes: map[string]interface{}{"CAData": "A"}}},
-			Credentials: map[string]cloud.Credential{
-				"default-user": firstCred,
-				"the-user":     secondCred,
-				"third-user":   thirdCred,
-				"fourth-user":  fourthCred,
-				"fifth-user":   fifthCred,
+		},
+		{
+			title:       "select the-cluster",
+			clusterName: "the-cluster",
+			expected: &clientconfig.ClientConfig{
+				Type: "kubernetes",
+				Contexts: map[string]clientconfig.Context{
+					"the-context": {
+						CloudName:      "the-cluster",
+						CredentialName: "the-user"},
+				},
+				CurrentContext: "default-context",
+				Clouds: map[string]clientconfig.CloudConfig{
+					"the-cluster": {
+						Endpoint:   "https://1.1.1.1:8888",
+						Attributes: map[string]interface{}{"CAData": "A"}}},
+				Credentials: map[string]cloud.Credential{
+					"the-user": secondCred,
+				},
 			},
-		})
+		},
+		{
+			title:       "select default-cluster",
+			clusterName: "default-cluster",
+			expected: &clientconfig.ClientConfig{
+				Type: "kubernetes",
+				Contexts: map[string]clientconfig.Context{
+					"default-context": {
+						CloudName:      "default-cluster",
+						CredentialName: "default-user"},
+				},
+				CurrentContext: "default-context",
+				Clouds: map[string]clientconfig.CloudConfig{
+					"default-cluster": {
+						Endpoint:   "https://10.10.10.10:1010",
+						Attributes: map[string]interface{}{"CAData": ""},
+					}},
+				Credentials: map[string]cloud.Credential{
+					"default-user": firstCred,
+				},
+			},
+		},
+	} {
+		v.configYamlFileName = "multiConfig"
+		v.configYamlContent = multiConfigYAML
+		s.assertNewK8sClientConfig(c, v)
+	}
 }
 
 // TestGetSingleConfigReadsFilePaths checks that we handle config
@@ -323,8 +355,29 @@ func (s *k8sConfigSuite) TestGetSingleConfigReadsFilePaths(c *gc.C) {
 
 	singleConfigWithPathsYAML, err := clientcmd.Write(*singleConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	f, err := s.writeTempKubeConfig(c, "singleConfigWithPaths", string(singleConfigWithPathsYAML))
-	defer f.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertSingleConfig(c, f)
+
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{"username": "theuser", "password": "thepassword"})
+	cred.Label = `kubernetes credential "the-user"`
+	s.assertNewK8sClientConfig(c, newK8sClientConfigTestCase{
+		title:              "assert single config",
+		configYamlContent:  string(singleConfigWithPathsYAML),
+		configYamlFileName: "singleConfigWithPaths",
+		expected: &clientconfig.ClientConfig{
+			Type: "kubernetes",
+			Contexts: map[string]clientconfig.Context{
+				"the-context": {
+					CloudName:      "the-cluster",
+					CredentialName: "the-user"}},
+			CurrentContext: "the-context",
+			Clouds: map[string]clientconfig.CloudConfig{
+				"the-cluster": {
+					Endpoint:   "https://1.1.1.1:8888",
+					Attributes: map[string]interface{}{"CAData": "A"}}},
+			Credentials: map[string]cloud.Credential{
+				"the-user": cred,
+			},
+		},
+	})
 }

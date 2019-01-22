@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -179,62 +180,55 @@ func getStdinPipe(ctx *cmd.Context) (io.Reader, error) {
 	return nil, nil
 }
 
+func (c *AddCAASCommand) newCloudCredentialFromKubeConfig(reader io.Reader) (jujucloud.Cloud, jujucloud.Credential, clientconfig.Context, error) {
+	var credential jujucloud.Credential
+	var context clientconfig.Context
+	newCloud := jujucloud.Cloud{
+		Name:            c.caasName,
+		Type:            c.caasType,
+		HostCloudRegion: c.hostCloudRegion,
+	}
+	clientConfigFunc, err := c.newClientConfigReader(c.caasType)
+	if err != nil {
+		return newCloud, credential, context, errors.Trace(err)
+	}
+	caasConfig, err := clientConfigFunc(reader, c.clusterName, clientconfig.EnsureK8sCredential)
+	if err != nil {
+		return newCloud, credential, context, errors.Trace(err)
+	}
+	logger.Debugf("caasConfig: %+v", caasConfig)
+
+	if len(caasConfig.Contexts) == 0 {
+		return newCloud, credential, context, errors.Errorf("No k8s cluster definitions found in config")
+	}
+
+	context = caasConfig.Contexts[reflect.ValueOf(caasConfig.Contexts).MapKeys()[0].Interface().(string)]
+
+	credential = caasConfig.Credentials[context.CredentialName]
+	newCloud.AuthTypes = []jujucloud.AuthType{credential.AuthType()}
+	currentCloud := caasConfig.Clouds[context.CloudName]
+	newCloud.Endpoint = currentCloud.Endpoint
+
+	cloudCAData, ok := currentCloud.Attributes["CAData"].(string)
+	if !ok {
+		return newCloud, credential, context, errors.Errorf("CAData attribute should be a string")
+	}
+	newCloud.CACertificates = []string{cloudCAData}
+	return newCloud, credential, context, nil
+}
+
 // Run is defined on the Command interface.
 func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	if err := c.verifyName(c.caasName); err != nil {
-		return errors.Trace(err)
-	}
-
-	clientConfigFunc, err := c.newClientConfigReader(c.caasType)
-	if err != nil {
 		return errors.Trace(err)
 	}
 	stdIn, err := getStdinPipe(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	caasConfig, err := clientConfigFunc(stdIn)
-	logger.Debugf("caasConfig: %+v", caasConfig)
+	newCloud, credential, context, err := c.newCloudCredentialFromKubeConfig(stdIn)
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	if len(caasConfig.Contexts) == 0 {
-		return errors.Errorf("No k8s cluster definitions found in config")
-	}
-
-	var context clientconfig.Context
-	clusterName := c.clusterName
-	if clusterName != "" {
-		for _, c := range caasConfig.Contexts {
-			if clusterName == c.CloudName {
-				context = c
-				break
-			}
-		}
-	} else {
-		context, _ = caasConfig.Contexts[caasConfig.CurrentContext]
-		logger.Debugf("No cluster name specified, so use current context %q", caasConfig.CurrentContext)
-	}
-
-	if (clientconfig.Context{}) == context {
-		return errors.NotFoundf("clusterName %q", clusterName)
-	}
-	credential := caasConfig.Credentials[context.CredentialName]
-	currentCloud := caasConfig.Clouds[context.CloudName]
-
-	cloudCAData, ok := currentCloud.Attributes["CAData"].(string)
-	if !ok {
-		return errors.Errorf("CAData attribute should be a string")
-	}
-
-	newCloud := jujucloud.Cloud{
-		Name:            c.caasName,
-		Type:            c.caasType,
-		Endpoint:        currentCloud.Endpoint,
-		AuthTypes:       []jujucloud.AuthType{credential.AuthType()},
-		CACertificates:  []string{cloudCAData},
-		HostCloudRegion: c.hostCloudRegion,
 	}
 
 	cloudClient, err := c.addCloudAPIFunc()
@@ -250,10 +244,10 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 		// try to fetch cloud and region then retry.
 		cloudRegion, err := c.getClusterRegion(ctx, newCloud, credential)
 		errMsg := `
-Jaas requires cloud and region information. But it's
-not possible to fetch cluster region in this case, 
-please use --region to specify the cloud/region manually.
-`[1:]
+	JAAS requires cloud and region information. But it's
+	not possible to fetch cluster region in this case,
+	please use --region to specify the cloud/region manually.
+	`[1:]
 		if err != nil {
 			return errors.Annotate(err, errMsg)
 		}

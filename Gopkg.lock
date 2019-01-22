@@ -1797,8 +1797,10 @@
     "pkg/apis/clientauthentication/v1beta1",
     "pkg/version",
     "plugin/pkg/client/auth/exec",
+    "plugin/pkg/client/auth/gcp",
     "rest",
     "rest/watch",
+    "third_party/forked/golang/template",
     "tools/auth",
     "tools/clientcmd",
     "tools/clientcmd/api",
@@ -1812,6 +1814,7 @@
     "util/flowcontrol",
     "util/homedir",
     "util/integer",
+    "util/jsonpath",
   ]
   pruneopts = ""
   revision = "3db81bdd128696db1c2fcba8a426ed0a3993824d"
@@ -2038,9 +2041,11 @@
     "gopkg.in/tomb.v2",
     "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
+    "k8s.io/api/authentication/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
     "k8s.io/api/policy/v1beta1",
+    "k8s.io/api/rbac/v1",
     "k8s.io/api/storage/v1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
@@ -2089,6 +2094,7 @@
     "k8s.io/client-go/kubernetes/typed/storage/v1",
     "k8s.io/client-go/kubernetes/typed/storage/v1alpha1",
     "k8s.io/client-go/kubernetes/typed/storage/v1beta1",
+    "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",

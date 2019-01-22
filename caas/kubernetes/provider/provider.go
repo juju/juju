@@ -45,13 +45,41 @@ func newK8sClient(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.
 	return k8sClient, apiextensionsclient, nil
 }
 
+func cloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
+	if cloudSpec.Credential == nil {
+		return nil, errors.Errorf("cloud %v has no credential", cloudSpec.Name)
+	}
+
+	var CAData []byte
+	for _, cacert := range cloudSpec.CACertificates {
+		CAData = append(CAData, cacert...)
+	}
+
+	credentialAttrs := cloudSpec.Credential.Attributes()
+	return &rest.Config{
+		Host:        cloudSpec.Endpoint,
+		Username:    credentialAttrs[CredAttrUsername],
+		Password:    credentialAttrs[CredAttrPassword],
+		BearerToken: credentialAttrs[Token],
+		TLSClientConfig: rest.TLSClientConfig{
+			CertData: []byte(credentialAttrs[CredAttrClientCertificateData]),
+			KeyData:  []byte(credentialAttrs[CredAttrClientKeyData]),
+			CAData:   CAData,
+		},
+	}, nil
+}
+
 // Open is part of the ContainerEnvironProvider interface.
-func (kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, error) {
+func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
-	if err := validateCloudSpec(args.Cloud); err != nil {
+	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	broker, err := NewK8sBroker(args.Cloud, args.Config, newK8sClient, newKubernetesWatcher, jujuclock.WallClock)
+	k8sRestConfig, err := cloudSpecToK8sRestConfig(args.Cloud)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	broker, err := NewK8sBroker(k8sRestConfig, args.Config, newK8sClient, newKubernetesWatcher, jujuclock.WallClock)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +107,7 @@ func (p kubernetesEnvironProvider) Ping(ctx context.ProviderCallContext, endpoin
 
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p kubernetesEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
+	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
 	// Set the default storage sources.
@@ -113,13 +141,8 @@ func (p kubernetesEnvironProvider) newConfig(cfg *config.Config) (*config.Config
 	return valid, nil
 }
 
-var supportedAuthTypes = cloud.AuthTypes{
-	cloud.UserPassAuthType,
-	cloud.CertificateAuthType,    // gke
-	cloud.OAuth2WithCertAuthType, // aks
-}
+func (p kubernetesEnvironProvider) validateCloudSpec(spec environs.CloudSpec) error {
 
-func validateCloudSpec(spec environs.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -129,7 +152,7 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := spec.Credential.AuthType(); !supportedAuthTypes.Contains(authType) {
+	if authType := spec.Credential.AuthType(); !p.supportedAuthTypes().Contains(authType) {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil

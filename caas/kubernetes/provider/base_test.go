@@ -31,11 +31,10 @@ import (
 type BaseSuite struct {
 	testing.BaseSuite
 
-	clock *testclock.Clock
-
-	broker caas.Broker
-
-	cfg *config.Config
+	clock         *testclock.Clock
+	broker        caas.Broker
+	cfg           *config.Config
+	k8sRestConfig *rest.Config
 
 	k8sClient                  *mocks.MockInterface
 	mockNamespaces             *mocks.MockNamespaceInterface
@@ -63,7 +62,9 @@ type BaseSuite struct {
 
 const testNamespace = "test"
 
-func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":              "fred",
 		"password":              "secret",
@@ -75,6 +76,12 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		Credential:     &cred,
 		CACertificates: []string{testing.CACert},
 	}
+	var err error
+	s.k8sRestConfig, err = provider.CloudSpecToK8sRestConfig(cloudSpec)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
 		config.NameKey: testNamespace,
 	}))
@@ -82,7 +89,6 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	s.cfg = cfg
 
 	ctrl := gomock.NewController(c)
-
 	s.k8sClient = mocks.NewMockInterface(ctrl)
 
 	// Plug in the various k8s client modules we need.
@@ -157,7 +163,7 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		s.watcher = w
 		return s.watcher, err
 	}
-	s.broker, err = provider.NewK8sBroker(cloudSpec, cfg, newClient, newK8sWatcherForTest, s.clock)
+	s.broker, err = provider.NewK8sBroker(s.k8sRestConfig, cfg, newClient, newK8sWatcherForTest, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }
@@ -166,7 +172,7 @@ func (s *BaseSuite) k8sNotFoundError() *k8serrors.StatusError {
 	return k8serrors.NewNotFound(schema.GroupResource{}, "test")
 }
 
-func (s *BaseSuite) k8sAlreadyExists() *k8serrors.StatusError {
+func (s *BaseSuite) k8sAlreadyExistsError() *k8serrors.StatusError {
 	return k8serrors.NewAlreadyExists(schema.GroupResource{}, "test")
 }
 

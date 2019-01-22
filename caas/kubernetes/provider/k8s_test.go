@@ -234,6 +234,7 @@ var _ = gc.Suite(&K8sBrokerSuite{})
 func (s *K8sBrokerSuite) TestConfig(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
+
 	c.Assert(s.broker.Config(), jc.DeepEquals, s.cfg)
 }
 
@@ -344,6 +345,7 @@ func (s *K8sBrokerSuite) TestListHostCloudRegions(c *gc.C) {
 func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
+
 	err := s.broker.SetConfig(s.cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -627,7 +629,6 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	defer ctrl.Finish()
 
 	statefulSetArg := operatorStatefulSetArg(1, "test-juju-operator-storage")
-
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Update(&core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}).Times(1),
 		s.mockConfigMaps.EXPECT().Get("juju-operator-test-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -1006,7 +1007,7 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 		},
 	}
 	gomock.InOrder(
-		s.mockCustomResourceDefinition.EXPECT().Create(crd).Times(1).Return(crd, s.k8sAlreadyExists()),
+		s.mockCustomResourceDefinition.EXPECT().Create(crd).Times(1).Return(crd, s.k8sAlreadyExistsError()),
 		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
 		s.mockCustomResourceDefinition.EXPECT().Update(crd).Times(1).Return(crd, nil),
 	)
