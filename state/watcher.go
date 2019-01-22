@@ -1275,16 +1275,23 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 // leaving the scope in the supplied RelationScopeChange event, and applies
 // the expressed changes to the supplied RelationUnitsChange event.
 func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c *RelationScopeChange) error {
+	ids := make([]interface{}, len(c.Entered))
+	for i := range ids {
+		docID := w.backend.docID(c.Entered[i])
+		ids[i] = docID
+		w.watching.Add(docID)
+	}
+	err := w.watcher.WatchMulti(settingsC, ids, w.updates)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for _, name := range c.Entered {
 		key := w.sw.prefix + name
-		docID := w.backend.docID(key)
-		revno, err := w.mergeSettings(changes, key)
+		_, err := w.mergeSettings(changes, key)
 		if err != nil {
 			return errors.Annotatef(err, "while merging settings for %q entering relation scope", name)
 		}
 		changes.Departed = remove(changes.Departed, name)
-		w.watcher.WatchAtRevno(settingsC, docID, revno, w.updates)
-		w.watching.Add(docID)
 	}
 	for _, name := range c.Left {
 		key := w.sw.prefix + name
@@ -3754,14 +3761,8 @@ func (w *containerAddressesWatcher) Changes() <-chan struct{} {
 
 func (w *containerAddressesWatcher) loop() error {
 	id := w.backend.docID(w.unit.globalKey())
-	containers, closer := w.db.GetCollection(cloudContainersC)
-	revno, err := getTxnRevno(containers, id)
-	closer()
-	if err != nil {
-		return err
-	}
 	containerCh := make(chan watcher.Change)
-	w.watcher.WatchAtRevno(cloudContainersC, id, revno, containerCh)
+	w.watcher.WatchNoRevno(cloudContainersC, id, containerCh)
 	defer w.watcher.Unwatch(cloudContainersC, id, containerCh)
 
 	var currentAddress *address
