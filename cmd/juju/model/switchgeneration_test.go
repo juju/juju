@@ -86,18 +86,18 @@ func (s *switchGenerationSuite) TestRunCommandCurrent(c *gc.C) {
 	mockController, mockSwitchGenerationCommandAPI := setUpSwitchMocks(c)
 	defer mockController.Finish()
 
-	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "current").Return(nil).Times(1)
+	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "current").Return(nil)
 
 	ctx, err := s.runCommand(c, mockSwitchGenerationCommandAPI, "current")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "changes dropped and target generation set to current\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "target generation set to current\n")
 }
 
 func (s *switchGenerationSuite) TestRunCommandNext(c *gc.C) {
 	mockController, mockSwitchGenerationCommandAPI := setUpSwitchMocks(c)
 	defer mockController.Finish()
 
-	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "next").Return(nil).Times(1)
+	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "next").Return(nil)
 
 	ctx, err := s.runCommand(c, mockSwitchGenerationCommandAPI, "next")
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +108,7 @@ func (s *switchGenerationSuite) TestRunCommandFail(c *gc.C) {
 	mockController, mockSwitchGenerationCommandAPI := setUpSwitchMocks(c)
 	defer mockController.Finish()
 
-	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "next").Return(errors.Errorf("failme")).Times(1)
+	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "next").Return(errors.Errorf("failme"))
 
 	_, err := s.runCommand(c, mockSwitchGenerationCommandAPI, "next")
 	c.Assert(err, gc.ErrorMatches, "failme")
