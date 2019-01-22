@@ -10,6 +10,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/juju/utils/set"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -28,15 +30,19 @@ const maxValueSize = 5242880 // Max size for a config file.
 
 const (
 	configSummary = `Gets, sets, or resets configuration for a deployed application.`
-	configDetails = `By default, all configuration (keys, values, metadata) for the application are
-displayed if a key is not specified.
+	configDetails = `All configuration (keys, values, metadata) for the application are
+displayed if no key is specified.
+
+By default, any configuration changes will be applied to the currently active
+generation. A specific generation can be targeted by using the --generation
+option with a value of "current" or "next".
 
 Output includes the name of the charm used to deploy the application and a
 listing of the application-specific configuration settings.
 See ` + "`juju status`" + ` for application names.
 
 When only one configuration value is desired, the command will ignore --format
-option and will output the value unformatted. This is provided to support 
+option and will output the value as plain text. This is provided to support 
 scripts where the output of "juju config <application name> <setting name>" 
 can be used as an input to an expression or a function.
 
@@ -48,6 +54,7 @@ Examples:
     juju config apache2 --file path/to/config.yaml
     juju config mysql dataset-size=80% backup_dir=/vol1/mysql/backups
     juju config apache2 --model mymodel --file /home/ubuntu/mysql.yaml
+    juju config redis --generation next databases=32
 
 See also:
     deploy
@@ -63,11 +70,9 @@ func NewConfigCommand() cmd.Command {
 
 // NewConfigCommandForTest returns a SetCommand with the api provided as specified.
 func NewConfigCommandForTest(api applicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := modelcmd.Wrap(&configCommand{
-		api: api,
-	})
-	cmd.SetClientStore(store)
-	return cmd
+	c := modelcmd.Wrap(&configCommand{api: api})
+	c.SetClientStore(store)
+	return c
 }
 
 type attributes map[string]string
@@ -80,6 +85,7 @@ type configCommand struct {
 
 	action          func(applicationAPI, *cmd.Context) error // get, set, or reset action set in  Init
 	applicationName string
+	generation      string
 	configFile      cmd.FileVar
 	keys            []string
 	reset           []string // Holds the keys to be reset until parsed.
@@ -98,7 +104,6 @@ type applicationAPI interface {
 	BestAPIVersion() int
 
 	// These methods are on API V6.
-
 	SetApplicationConfig(application string, config map[string]string) error
 	UnsetApplicationConfig(application string, options []string) error
 }
@@ -107,7 +112,7 @@ type applicationAPI interface {
 func (c *configCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "config",
-		Args:    "<application name> [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
+		Args:    "<application name> [--generation current|next] [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
 		Purpose: configSummary,
 		Doc:     configDetails,
 	})
@@ -119,6 +124,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.Var(&c.configFile, "file", "path to yaml-formatted application config")
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
+	f.StringVar(&c.generation, "generation", "", "Specifically target config for the supplied generation")
 }
 
 // getAPI either uses the fake API set at test time or that is nil, gets a real
@@ -141,6 +147,10 @@ func (c *configCommand) Init(args []string) error {
 		return errors.New("no application name specified")
 	}
 
+	if err := c.validateGeneration(); err != nil {
+		return errors.Trace(err)
+	}
+
 	// If there are arguments provided to reset, we turn it into a slice of
 	// strings and verify them. If there is one or more valid keys to reset and
 	// no other errors initializing the command, c.resetDefaults will be called
@@ -160,6 +170,13 @@ func (c *configCommand) Init(args []string) error {
 	default:
 		return c.handleArgs(args)
 	}
+}
+
+func (c *configCommand) validateGeneration() error {
+	if !set.NewStrings("", "current", "next").Contains(c.generation) {
+		return errors.New(`generation option must be "current" or "next"`)
+	}
+	return nil
 }
 
 // handleZeroArgs handles the case where there are no positional args.
@@ -334,19 +351,23 @@ func (c *configCommand) setConfigFromFile(client applicationAPI, ctx *cmd.Contex
 	)
 	if c.configFile.Path == "-" {
 		buf := bytes.Buffer{}
-		buf.ReadFrom(ctx.Stdin)
+		if _, err := buf.ReadFrom(ctx.Stdin); err != nil {
+			return errors.Trace(err)
+		}
 		b = buf.Bytes()
 	} else {
 		b, err = c.configFile.Read(ctx)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
-	return block.ProcessBlockedError(
+	return errors.Trace(block.ProcessBlockedError(
 		client.Update(
 			params.ApplicationUpdate{
 				ApplicationName: c.applicationName,
-				SettingsYAML:    string(b)}), block.BlockChange)
+				SettingsYAML:    string(b),
+			},
+		), block.BlockChange))
 }
 
 // getConfig is the run action to return one or all configuration values.
@@ -373,8 +394,8 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 		}
 		// TODO (anastasiamac 2018-08-29) We want to have a new line after here (fmt.Fprintln).
 		// However, it will break all existing scripts and should be done as part of Juju 3.x work.
-		fmt.Fprint(ctx.Stdout, v)
-		return nil
+		_, err := fmt.Fprint(ctx.Stdout, v)
+		return errors.Trace(err)
 	}
 
 	resultsMap := map[string]interface{}{

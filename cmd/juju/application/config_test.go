@@ -137,13 +137,17 @@ func (s *configCommandSuite) TestGetCommandInit(c *gc.C) {
 
 func (s *configCommandSuite) TestGetCommandInitWithApplication(c *gc.C) {
 	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake, s.store), []string{"app"})
-	// everything ok
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *configCommandSuite) TestGetCommandInitWithKey(c *gc.C) {
 	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake, s.store), []string{"app", "key"})
-	// everything ok
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *configCommandSuite) TestGetCommandInitWithGeneration(c *gc.C) {
+	err := cmdtesting.InitCommand(
+		application.NewConfigCommandForTest(s.fake, s.store), []string{"app", "key", "--generation", "current"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -248,6 +252,14 @@ var setCommandInitErrorTests = []struct {
 	about:       "init too many args fails",
 	args:        []string{"application", "key", "another"},
 	expectError: "can only retrieve a single value, or all values",
+}, {
+	about:       "--generation with no value",
+	args:        []string{"application", "key", "another", "--generation"},
+	expectError: "option needs an argument: --generation",
+}, {
+	about:       "--generation with invalid value",
+	args:        []string{"application", "key", "another", "--generation", "not-there"},
+	expectError: `generation option must be "current" or "next"`,
 }}
 
 func (s *configCommandSuite) TestSetCommandInitError(c *gc.C) {
