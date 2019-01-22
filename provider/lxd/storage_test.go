@@ -388,7 +388,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 			Name: "bar",
 			StorageVolumePut: api.StorageVolumePut{
 				Config: map[string]string{
-					"size": "10GB",
+					"size": "10GiB",
 				},
 			},
 		}},
@@ -407,7 +407,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		Name: "bar",
 		StorageVolumePut: api.StorageVolumePut{
 			Config: map[string]string{
-				"size":     "10GB",
+				"size":     "10GiB",
 				"user.baz": "qux",
 			},
 		},

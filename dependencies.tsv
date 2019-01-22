@@ -1,3 +1,4 @@
+code.cloudfoundry.org/systemcerts	git	ca00b2f806f2fa1ded784ade357bad1ea3f1fbbe	2018-09-17T15:40:49Z
 contrib.go.opencensus.io/exporter/ocagent	git	b8ece14a43f0cda76036504e4a4fd7fa27ce1869	2018-10-24T04:13:55Z
 github.com/Azure/azure-sdk-for-go	git	9699bdefa481d47c5c7638a1cc05d87ce53601fd	2018-11-14T17:11:15Z
 github.com/Azure/go-autorest	git	528b76fd0ebec0682f3e3da7c808cd472b999615	2018-11-12T18:30:27Z
@@ -13,6 +14,7 @@ github.com/cloud-green/monitoring	git	666e3beca3cb4f6b5c8f176ba80daf2b3adbd84e	2
 github.com/coreos/go-systemd	git	7b2428fec40033549c68f54e26e89e7ca9a9ce31	2016-02-02T21:14:25Z
 github.com/dgrijalva/jwt-go	git	01aeca54ebda6e0fbfafd0a524d234159c05ec20	2016-07-05T20:30:06Z
 github.com/dustin/go-humanize	git	145fabdb1ab757076a70a886d092a3af27f66f4c	2014-12-28T07:11:48Z
+github.com/flosch/pongo2	git	79872a7b27692599b259dc751bed8b03581dd0de	2018-12-25T14:00:29Z
 github.com/godbus/dbus	git	32c6cc29c14570de4cf6d7e7737d68fb2d01ad15	2016-05-06T22:25:50Z
 github.com/golang/glog	git	23def4e6c14b4da8ac2ed8007337bc5eb5007998	2016-01-26T23:53:08Z
 github.com/golang/mock	git	69521b3833175dfcfb1cc1fdb0c9be92e66faa81	2018-04-03T23:54:22Z
@@ -82,7 +84,7 @@ github.com/lestrrat/go-jsval	git	b1258a10419fe0693f7b35ad65cd5074bc0ba1e5	2016-1
 github.com/lestrrat/go-pdebug	git	2e6eaaa5717f81bda41d27070d3c966f40a1e75f	2016-08-17T06:33:33Z
 github.com/lestrrat/go-structinfo	git	f74c056fe41f860aa6264478c664a6fff8a64298	2016-03-08T13:11:05Z
 github.com/lunixbochs/vtclean	git	4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36	2016-01-25T03:51:06Z
-github.com/lxc/lxd	git	d0d66b4842f459c6c3e039a9e2f25eff02174ab1	2018-05-15T16:43:15Z
+github.com/lxc/lxd	git	4c2bbb608e7a90a9f175a566b9e638069424f0f7	2019-01-08T20:53:13Z
 github.com/marstr/guid	git	8bdf7d1a087ccc975cf37dd6507da50698fd19ca	2017-04-27T23:51:15Z
 github.com/masterzen/azure-sdk-for-go	git	ee4f0065d00cd12b542f18f5bc45799e88163b12	2016-10-14T13:56:28Z
 github.com/masterzen/simplexml	git	4572e39b1ab9fe03ee513ce6fc7e289e98482190	2016-06-08T18:30:07Z
@@ -138,6 +140,7 @@ gopkg.in/mgo.v2	git	f2b6f6c918c452ad107eec89615f074e3bd80e33	2016-08-18T01:52:18
 gopkg.in/natefinch/lumberjack.v2	git	df99d62fd42d8b3752c8a42c6723555372c02a03	2017-05-31T18:08:50Z
 gopkg.in/natefinch/npipe.v2	git	c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6	2016-06-21T03:49:01Z
 gopkg.in/retry.v1	git	01631078ef2fdce601e38cfe5f527fab24c9a6d2	2017-05-31T09:12:38Z
+gopkg.in/robfig/cron.v2	git	be2e0b0deed5a68ffee390b4583a13aff8321535	2015-01-07T22:02:07Z
 gopkg.in/tomb.v1	git	dd632973f1e7218eb1089048e0798ec9ae7dceb8	2014-10-24T13:56:13Z
 gopkg.in/tomb.v2	git	14b3d72120e8d10ea6e6b7f87f7175734b1faab8	2014-06-26T14:46:23Z
 gopkg.in/yaml.v2	git	1be3d31502d6eabc0dd7ce5b0daab022e14a5538	2017-07-12T05:45:46Z
