@@ -48,7 +48,6 @@ func NewMeterStatusFacade(ctx facade.Context) (*MeterStatusAPI, error) {
 }
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
-//go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
 func NewMeterStatusAPI(
 	st MeterStatusState,
 	resources facade.Resources,
