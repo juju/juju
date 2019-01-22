@@ -19,26 +19,36 @@ import (
 var _ = gc.Suite(&modelGenerationSuite{})
 
 type modelGenerationSuite struct {
+	modelUUID string
+
+	api *modelgeneration.ModelGenerationAPI
+}
+
+func (s *modelGenerationSuite) SetUpSuite(c *gc.C) {
+	s.modelUUID = "deadbeef-abcd-4fd2-967d-db9663db7bea"
+}
+
+func (s *modelGenerationSuite) TearDownTest(c *gc.C) {
+	s.api = nil
 }
 
 // TODO (hml) 17-jan-2019
 // Add more explicit permissions tests once that requirement is ironed out.
 
 func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
-	api, ctrl := s.setupModelGenerationAPI(c, func(_ *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, mockModel *mocks.MockGenerationModel) {
 		mExp := mockModel.EXPECT()
 		mExp.AddGeneration().Return(nil)
-	})
-	defer ctrl.Finish()
+	}).Finish()
 
-	result, err := api.AddGeneration(params.Entity{Tag: names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea").String()})
+	result, err := s.api.AddGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 }
 
 func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 	arg := params.AdvanceGenerationArg{
-		Model: params.Entity{Tag: names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea").String()},
+		Model: params.Entity{Tag: names.NewModelTag(s.modelUUID).String()},
 		Entities: []params.Entity{
 			{Tag: names.NewUnitTag("mysql/0").String()},
 			{Tag: names.NewApplicationTag("ghost").String()},
@@ -46,7 +56,7 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 		},
 	}
 
-	api, ctrl := s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.Active().Return(true)
@@ -58,10 +68,9 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 
 		mExp := mockModel.EXPECT()
 		mExp.NextGeneration().Return(mockGeneration, nil)
-	})
-	defer ctrl.Finish()
+	}).Finish()
 
-	result, err := api.AdvanceGeneration(arg)
+	result, err := s.api.AdvanceGeneration(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
@@ -72,29 +81,28 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 
 func (s *modelGenerationSuite) TestSwitchGenerationNext(c *gc.C) {
 	arg := params.GenerationVersionArg{
-		Model:   params.Entity{Tag: names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea").String()},
+		Model:   params.Entity{Tag: names.NewModelTag(s.modelUUID).String()},
 		Version: model.GenerationNext,
 	}
 
-	api, ctrl := s.setupModelGenerationAPI(c, func(_ *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, mockModel *mocks.MockGenerationModel) {
 		mExp := mockModel.EXPECT()
 		mExp.SwitchGeneration(arg.Version).Return(nil)
-	})
-	defer ctrl.Finish()
+	}).Finish()
 
-	result, err := api.SwitchGeneration(arg)
+	result, err := s.api.SwitchGeneration(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 }
 
 type setupFunc func(*gomock.Controller, *mocks.MockGenerationModel)
 
-func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) (*modelgeneration.ModelGenerationAPI, *gomock.Controller) {
+func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	mockState := mocks.NewMockModelGenerationState(ctrl)
 	sExp := mockState.EXPECT()
-	sExp.ControllerTag().Return(names.NewControllerTag("deadbeef-babe-4fd2-967d-db9663db7bea"))
+	sExp.ControllerTag().Return(names.NewControllerTag(s.modelUUID))
 
 	mockModel := mocks.NewMockGenerationModel(ctrl)
 
@@ -105,8 +113,10 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) (*
 	aExp.AuthClient().Return(true)
 
 	fn(ctrl, mockModel)
-	api, err := modelgeneration.NewModelGenerationAPI(mockState, mockAuthorizer, mockModel)
+
+	var err error
+	s.api, err = modelgeneration.NewModelGenerationAPI(mockState, mockAuthorizer, mockModel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	return api, ctrl
+	return ctrl
 }
