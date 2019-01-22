@@ -15,7 +15,8 @@ import (
 )
 
 type modelGenerationSuite struct {
-	tag names.ModelTag
+	tag     names.ModelTag
+	fCaller *mocks.MockFacadeCaller
 }
 
 var _ = gc.Suite(&modelGenerationSuite{})
@@ -24,30 +25,37 @@ func (s *modelGenerationSuite) SetUpTest(c *gc.C) {
 	s.tag = names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea")
 }
 
-func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
+func (s *modelGenerationSuite) TeadDownTest(c *gc.C) {
+	s.fCaller = nil
+}
+
+func (s *modelGenerationSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+
+	caller := mocks.NewMockAPICallCloser(ctrl)
+	caller.EXPECT().BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
+
+	s.fCaller = mocks.NewMockFacadeCaller(ctrl)
+	s.fCaller.EXPECT().RawAPICaller().Return(caller).AnyTimes()
+
+	return ctrl
+}
+
+func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 
 	resultSource := params.ErrorResult{}
 	arg := params.Entity{Tag: s.tag.String()}
 
-	caller := mocks.NewMockAPICallCloser(ctrl)
-	cExp := caller.EXPECT()
-	cExp.BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
+	s.fCaller.EXPECT().FacadeCall("AddGeneration", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
-	fCaller := mocks.NewMockFacadeCaller(ctrl)
-	fExp := fCaller.EXPECT()
-	fExp.RawAPICaller().Return(caller).AnyTimes()
-	fExp.FacadeCall("AddGeneration", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
-
-	api := modelgeneration.NewStateFromCaller(fCaller)
+	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.AddGeneration(s.tag)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setUpMocks(c).Finish()
 
 	resultsSource := params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -63,40 +71,23 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 		},
 	}
 
-	caller := mocks.NewMockAPICallCloser(ctrl)
-	cExp := caller.EXPECT()
-	cExp.BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
+	s.fCaller.EXPECT().FacadeCall("AdvanceGeneration", arg, gomock.Any()).SetArg(2, resultsSource).Return(nil)
 
-	fCaller := mocks.NewMockFacadeCaller(ctrl)
-	fExp := fCaller.EXPECT()
-	fExp.RawAPICaller().Return(caller).AnyTimes()
-	fExp.FacadeCall("AdvanceGeneration", arg, gomock.Any()).SetArg(2, resultsSource).Return(nil)
-
-	api := modelgeneration.NewStateFromCaller(fCaller)
+	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.AdvanceGeneration(s.tag, []string{"mysql/0", "mysql"})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *modelGenerationSuite) TestAdvanceGenerationError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setUpMocks(c).Finish()
 
-	caller := mocks.NewMockAPICallCloser(ctrl)
-	cExp := caller.EXPECT()
-	cExp.BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
-
-	fCaller := mocks.NewMockFacadeCaller(ctrl)
-	fExp := fCaller.EXPECT()
-	fExp.RawAPICaller().Return(caller).AnyTimes()
-
-	api := modelgeneration.NewStateFromCaller(fCaller)
+	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.AdvanceGeneration(s.tag, []string{"mysql/0", "mysql", "machine-3"})
 	c.Assert(err, gc.ErrorMatches, "Must be application or unit")
 }
 
 func (s *modelGenerationSuite) TestSwitchGeneration(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setUpMocks(c).Finish()
 
 	resultSource := params.ErrorResult{}
 	arg := params.GenerationVersionArg{
@@ -104,33 +95,17 @@ func (s *modelGenerationSuite) TestSwitchGeneration(c *gc.C) {
 		Version: model.GenerationNext,
 	}
 
-	caller := mocks.NewMockAPICallCloser(ctrl)
-	cExp := caller.EXPECT()
-	cExp.BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
+	s.fCaller.EXPECT().FacadeCall("SwitchGeneration", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
-	fCaller := mocks.NewMockFacadeCaller(ctrl)
-	fExp := fCaller.EXPECT()
-	fExp.RawAPICaller().Return(caller).AnyTimes()
-	fExp.FacadeCall("SwitchGeneration", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
-
-	api := modelgeneration.NewStateFromCaller(fCaller)
+	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.SwitchGeneration(s.tag, "next")
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *modelGenerationSuite) TestSwitchGenerationError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setUpMocks(c).Finish()
 
-	caller := mocks.NewMockAPICallCloser(ctrl)
-	cExp := caller.EXPECT()
-	cExp.BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
-
-	fCaller := mocks.NewMockFacadeCaller(ctrl)
-	fExp := fCaller.EXPECT()
-	fExp.RawAPICaller().Return(caller).AnyTimes()
-
-	api := modelgeneration.NewStateFromCaller(fCaller)
+	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.SwitchGeneration(s.tag, "summer")
 	c.Assert(err, gc.ErrorMatches, "version must be 'next' or 'current'")
 }
