@@ -73,7 +73,7 @@ func (s *AddGenerationSuite) runCommand(c *gc.C, api model.AddGenerationCommandA
 func setUpMocks(c *gc.C) (*gomock.Controller, *mocks.MockAddGenerationCommandAPI) {
 	mockController := gomock.NewController(c)
 	mockAddGenerationCommandAPI := mocks.NewMockAddGenerationCommandAPI(mockController)
-	mockAddGenerationCommandAPI.EXPECT().Close().Times(1)
+	mockAddGenerationCommandAPI.EXPECT().Close()
 	return mockController, mockAddGenerationCommandAPI
 }
 
@@ -81,7 +81,7 @@ func (s *AddGenerationSuite) TestRunCommand(c *gc.C) {
 	mockController, mockAddGenerationCommandAPI := setUpMocks(c)
 	defer mockController.Finish()
 
-	mockAddGenerationCommandAPI.EXPECT().AddGeneration(gomock.Any()).Return(nil).Times(1)
+	mockAddGenerationCommandAPI.EXPECT().AddGeneration(gomock.Any()).Return(nil)
 
 	ctx, err := s.runCommand(c, mockAddGenerationCommandAPI)
 	c.Assert(err, jc.ErrorIsNil)
