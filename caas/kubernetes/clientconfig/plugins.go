@@ -5,13 +5,13 @@ package clientconfig
 
 import (
 	"github.com/juju/errors"
-
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // load gcp auth plugin.
+	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -25,6 +25,15 @@ const (
 // To regenerate the mocks for the kubernetes Client used by this package,
 // mockgen -package mocks -destination mocks/rbacv1_mock.go k8s.io/client-go/kubernetes/typed/rbac/v1 RbacV1Interface,ClusterRoleBindingInterface,ClusterRoleInterface
 // mockgen -package mocks -destination mocks/serviceaccount_mock.go k8s.io/client-go/kubernetes/typed/core/v1 ServiceAccountInterface
+
+func newK8sClientSet(config *clientcmdapi.Config, contextName string) (*kubernetes.Clientset, error) {
+	clientCfg, err := clientcmd.NewNonInteractiveClientConfig(
+		*config, contextName, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return kubernetes.NewForConfig(clientCfg)
+}
 
 func ensureJujuAdminServiceAccount(
 	clientset kubernetes.Interface,
@@ -53,7 +62,7 @@ func ensureJujuAdminServiceAccount(
 	}
 
 	// refresh service account to get the secret/token after cluster role binding created.
-	sa, err = ensureServiceAccount(clientset, jujuServiceAccountName, adminNameSpace)
+	sa, err = getServiceAccount(clientset, jujuServiceAccountName, adminNameSpace)
 	if err != nil {
 		return nil, errors.Annotatef(
 			err, "refetching service account %q after cluster role binding created", jujuServiceAccountName)
@@ -106,7 +115,7 @@ func ensureClusterRole(clientset kubernetes.Interface, name, namespace string) (
 }
 
 func ensureServiceAccount(clientset kubernetes.Interface, name, namespace string) (*core.ServiceAccount, error) {
-	sa, err := clientset.CoreV1().ServiceAccounts(namespace).Create(&core.ServiceAccount{
+	_, err := clientset.CoreV1().ServiceAccounts(namespace).Create(&core.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -115,7 +124,11 @@ func ensureServiceAccount(clientset kubernetes.Interface, name, namespace string
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, errors.Trace(err)
 	}
-	return sa, nil
+	return getServiceAccount(clientset, name, namespace)
+}
+
+func getServiceAccount(clientset kubernetes.Interface, name, namespace string) (*core.ServiceAccount, error) {
+	return clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
 }
 
 func ensureClusterRoleBinding(
@@ -147,6 +160,9 @@ func ensureClusterRoleBinding(
 }
 
 func getServiceAccountSecret(clientset kubernetes.Interface, sa *core.ServiceAccount) (*core.Secret, error) {
+	if len(sa.Secrets) == 0 {
+		return nil, errors.NotFoundf("secret for service account %q", sa.Name)
+	}
 	return clientset.CoreV1().Secrets(sa.Namespace).Get(sa.Secrets[0].Name, metav1.GetOptions{})
 }
 

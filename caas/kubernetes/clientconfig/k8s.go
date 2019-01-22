@@ -59,14 +59,14 @@ func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver
 	var contextName string
 	var context Context
 	if clusterName != "" {
-		context, contextName, err = PickContextByClusterName(contexts, clusterName)
+		context, contextName, err = pickContextByClusterName(contexts, clusterName)
 		if err != nil {
 			return nil, errors.Annotatef(err, "picking context by cluster name %q", clusterName)
 		}
 	} else if config.CurrentContext != "" {
 		contextName = config.CurrentContext
 		context = contexts[contextName]
-		logger.Debugf("No cluster name specified, so use current context %q", config.CurrentContext)
+		logger.Debugf("no cluster name specified, so use current context %q", config.CurrentContext)
 	}
 	// exclude not related contexts.
 	contexts = map[string]Context{}
@@ -88,7 +88,7 @@ func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver
 			return nil, errors.Annotatef(
 				err, "ensuring k8s credential because auth info %q is not valid", context.CredentialName)
 		}
-		// try again using the generated auth info.
+		logger.Debugf("try again to get credentials from kubeconfig using the generated auth info")
 		credentials, err = credentialsFromConfig(config, context.CredentialName)
 	}
 	if err != nil {
@@ -104,8 +104,7 @@ func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver
 	}, nil
 }
 
-// PickContextByClusterName finds the context for a specific cluster name.
-func PickContextByClusterName(contexts map[string]Context, clusterName string) (Context, string, error) {
+func pickContextByClusterName(contexts map[string]Context, clusterName string) (Context, string, error) {
 	for contextName, context := range contexts {
 		if clusterName == context.CloudName {
 			return context, contextName, nil

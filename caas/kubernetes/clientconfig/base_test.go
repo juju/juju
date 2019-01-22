@@ -19,7 +19,6 @@ type BaseSuite struct {
 
 	namespace string
 
-	ctrl                   *gomock.Controller
 	k8sClient              *mocks.MockInterface
 	mockRbacV1             *mocks.MockRbacV1Interface
 	mockClusterRoles       *mocks.MockClusterRoleInterface

@@ -19,7 +19,7 @@ const (
 	Token                         = "Token"
 )
 
-var caasCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
+var k8sCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
 	cloud.UserPassAuthType: {
 		{
 			Name:           CredAttrUsername,
@@ -68,12 +68,12 @@ type environProviderCredentials struct{}
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return caasCredentialSchemas
+	return k8sCredentialSchemas
 }
 
 func (environProviderCredentials) supportedAuthTypes() cloud.AuthTypes {
 	var ats cloud.AuthTypes
-	for k := range caasCredentialSchemas {
+	for k := range k8sCredentialSchemas {
 		ats = append(ats, k)
 	}
 	return ats

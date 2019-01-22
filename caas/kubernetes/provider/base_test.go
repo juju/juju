@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	watch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
@@ -31,7 +31,6 @@ import (
 type BaseSuite struct {
 	testing.BaseSuite
 
-	ctrl          *gomock.Controller
 	clock         *testclock.Clock
 	broker        caas.Broker
 	cfg           *config.Config

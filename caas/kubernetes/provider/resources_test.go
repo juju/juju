@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/testing"
@@ -23,8 +23,8 @@ type ResourcesSuite struct {
 }
 
 func (s *ResourcesSuite) TestAdoptResources(c *gc.C) {
-	s.ctrl = s.setupBroker(c)
-	defer s.ctrl.Finish()
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
 
 	modelSelector := "juju-model-uuid==" + testing.ModelTag.Id()
 

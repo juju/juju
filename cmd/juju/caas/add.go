@@ -19,7 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 	"golang.org/x/crypto/ssh/terminal"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	cloudapi "github.com/juju/juju/api/cloud"
@@ -244,7 +244,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 		// try to fetch cloud and region then retry.
 		cloudRegion, err := c.getClusterRegion(ctx, newCloud, credential)
 		errMsg := `
-	Jaas requires cloud and region information. But it's
+	JAAS requires cloud and region information. But it's
 	not possible to fetch cluster region in this case,
 	please use --region to specify the cloud/region manually.
 	`[1:]

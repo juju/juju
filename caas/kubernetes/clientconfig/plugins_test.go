@@ -24,12 +24,12 @@ var _ = gc.Suite(&K8sRawClientSuite{})
 
 func (s *K8sRawClientSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	s.namespace = clientconfig.AdminNameSpace
+	s.namespace = "kube-system"
 }
 
 func (s *K8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
-	s.ctrl = s.setupBroker(c)
-	defer s.ctrl.Finish()
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
 
 	cfg := newClientConfig()
 	contextName := reflect.ValueOf(cfg.Contexts).MapKeys()[0].Interface().(string)
@@ -46,20 +46,13 @@ func (s *K8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 		},
 	}
 
-	saName := clientconfig.JujuServiceAccountName
+	saName := "juju-service-account"
 	newSa := &core.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      saName,
 			Namespace: s.namespace,
 		},
 	}
-	// saWithSecret := newSa
-	// saWithSecret.Secrets = []core.ObjectReference{
-	// 	{
-	// 		Kind: "Secret",
-	// 		Name: secret.Name,
-	// 	},
-	// }
 	saWithSecret := &core.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      saName,
@@ -75,7 +68,7 @@ func (s *K8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 
 	cr := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      clientconfig.ClusterRoleName,
+			Name:      "cluster-admin",
 			Namespace: s.namespace,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -93,7 +86,7 @@ func (s *K8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: clientconfig.JujuClusterRoleBindingName,
+			Name: "juju-cluster-role-binding",
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind: "ClusterRole",
@@ -108,19 +101,122 @@ func (s *K8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 		},
 	}
 
+	// 1st call of ensuring related resources - CREATE.
+	gomock.InOrder(
+		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoles.EXPECT().Create(cr).Times(1).
+			Return(cr, nil),
+		s.mockServiceAccounts.EXPECT().Create(newSa).Times(1).
+			Return(newSa, nil),
+		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).Times(1).
+			Return(newSa, nil),
+		s.mockClusterRoleBinding.EXPECT().Create(clusterRoleBinding).Times(1).
+			Return(clusterRoleBinding, nil),
+		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).Times(1).
+			Return(saWithSecret, nil),
+		s.mockSecrets.EXPECT().Get(saWithSecret.Secrets[0].Name, metav1.GetOptions{}).Times(1).
+			Return(secret, nil),
+	)
+	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, cfg, contextName)
+	c.Assert(err, jc.ErrorIsNil)
+	authName := cfg.Contexts[contextName].AuthInfo
+	updatedAuthInfo := cfgOut.AuthInfos[authName]
+	c.Assert(updatedAuthInfo.AuthProvider, gc.IsNil)
+	c.Assert(updatedAuthInfo.ClientCertificateData, gc.DeepEquals, secret.Data[core.ServiceAccountRootCAKey])
+	c.Assert(updatedAuthInfo.Token, gc.Equals, string(secret.Data[core.ServiceAccountTokenKey]))
+
+}
+
+func (s *K8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	cfg := newClientConfig()
+	contextName := reflect.ValueOf(cfg.Contexts).MapKeys()[0].Interface().(string)
+
+	secret := &core.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "juju-sa-secret",
+			Namespace: s.namespace,
+		},
+		Data: map[string][]byte{
+			"ca.crt":    []byte("a base64 encoded cert"),
+			"namespace": []byte("base64 encoded namespace"),
+			"token":     []byte("a base64 encoded bearer token"),
+		},
+	}
+
+	saName := "juju-service-account"
+	newSa := &core.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      saName,
+			Namespace: s.namespace,
+		},
+	}
+	saWithSecret := &core.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      saName,
+			Namespace: s.namespace,
+		},
+		Secrets: []core.ObjectReference{
+			{
+				Kind: "Secret",
+				Name: secret.Name,
+			},
+		},
+	}
+
+	cr := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cluster-admin",
+			Namespace: s.namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{rbacv1.APIGroupAll},
+				Resources: []string{rbacv1.ResourceAll},
+				Verbs:     []string{rbacv1.VerbAll},
+			},
+			{
+				NonResourceURLs: []string{rbacv1.NonResourceAll},
+				Verbs:           []string{rbacv1.VerbAll},
+			},
+		},
+	}
+
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "juju-cluster-role-binding",
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: cr.Name,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      saName,
+				Namespace: s.namespace,
+			},
+		},
+	}
+
+	// 2nd call of ensuring related resources - GET.
 	gomock.InOrder(
 		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).Times(1).
 			Return(cr, nil),
 		s.mockServiceAccounts.EXPECT().Create(newSa).Times(1).
 			Return(newSa, nil),
+		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).Times(1).
+			Return(newSa, nil),
 		s.mockClusterRoleBinding.EXPECT().Create(clusterRoleBinding).Times(1).
 			Return(clusterRoleBinding, nil),
-		s.mockServiceAccounts.EXPECT().Create(newSa).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).Times(1).
 			Return(saWithSecret, nil),
 		s.mockSecrets.EXPECT().Get(saWithSecret.Secrets[0].Name, metav1.GetOptions{}).Times(1).
 			Return(secret, nil),
 	)
-
 	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, cfg, contextName)
 	c.Assert(err, jc.ErrorIsNil)
 	authName := cfg.Contexts[contextName].AuthInfo
@@ -132,8 +228,8 @@ func (s *K8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 }
 
 func (s *K8sRawClientSuite) TestEnsureClusterRole(c *gc.C) {
-	s.ctrl = s.setupBroker(c)
-	defer s.ctrl.Finish()
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
 
 	cr := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
@@ -174,8 +270,8 @@ func (s *K8sRawClientSuite) TestEnsureClusterRole(c *gc.C) {
 }
 
 func (s *K8sRawClientSuite) TestEnsureServiceAccount(c *gc.C) {
-	s.ctrl = s.setupBroker(c)
-	defer s.ctrl.Finish()
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
 
 	sa := &core.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -187,6 +283,8 @@ func (s *K8sRawClientSuite) TestEnsureServiceAccount(c *gc.C) {
 	gomock.InOrder(
 		s.mockServiceAccounts.EXPECT().Create(sa).Times(1).
 			Return(sa, nil),
+		s.mockServiceAccounts.EXPECT().Get(sa.Name, metav1.GetOptions{}).Times(1).
+			Return(sa, nil),
 	)
 	saOut, err := clientconfig.EnsureServiceAccount(s.k8sClient, sa.Name, s.namespace)
 	c.Assert(err, jc.ErrorIsNil)
@@ -195,6 +293,8 @@ func (s *K8sRawClientSuite) TestEnsureServiceAccount(c *gc.C) {
 	gomock.InOrder(
 		s.mockServiceAccounts.EXPECT().Create(sa).Times(1).
 			Return(sa, s.k8sAlreadyExistsError()),
+		s.mockServiceAccounts.EXPECT().Get(sa.Name, metav1.GetOptions{}).Times(1).
+			Return(sa, nil),
 	)
 	saOut, err = clientconfig.EnsureServiceAccount(s.k8sClient, sa.Name, s.namespace)
 	c.Assert(err, jc.ErrorIsNil)
@@ -202,8 +302,8 @@ func (s *K8sRawClientSuite) TestEnsureServiceAccount(c *gc.C) {
 }
 
 func (s *K8sRawClientSuite) TestEnsureClusterRoleBinding(c *gc.C) {
-	s.ctrl = s.setupBroker(c)
-	defer s.ctrl.Finish()
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
 
 	sa := &core.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -265,8 +365,8 @@ func (s *K8sRawClientSuite) TestEnsureClusterRoleBinding(c *gc.C) {
 }
 
 func (s *K8sRawClientSuite) TestGetServiceAccountSecret(c *gc.C) {
-	s.ctrl = s.setupBroker(c)
-	defer s.ctrl.Finish()
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
 
 	secret := &core.Secret{
 		ObjectMeta: metav1.ObjectMeta{

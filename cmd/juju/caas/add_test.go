@@ -160,7 +160,14 @@ func fakeNewK8sClientConfig(_ io.Reader, clusterName string, _ clientconfig.K8sC
 	var contextName string
 	if clusterName != "" {
 		var err error
-		context, contextName, err = clientconfig.PickContextByClusterName(contexts, clusterName)
+		context, contextName, err = func() (clientconfig.Context, string, error) {
+			for contextName, context := range contexts {
+				if clusterName == context.CloudName {
+					return context, contextName, nil
+				}
+			}
+			return clientconfig.Context{}, "", errors.NotFoundf("context for cluster name %q", clusterName)
+		}()
 		if err != nil {
 			return nil, err
 		}
