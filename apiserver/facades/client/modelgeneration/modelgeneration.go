@@ -40,7 +40,6 @@ func NewModelGenerationFacade(ctx facade.Context) (*ModelGenerationAPI, error) {
 // NewModelGenerationAPI creates a new API endpoint for dealing with model generations.
 func NewModelGenerationAPI(
 	st ModelGenerationState,
-	//resources facade.Resources,
 	authorizer facade.Authorizer,
 	m GenerationModel,
 ) (*ModelGenerationAPI, error) {
@@ -58,32 +57,12 @@ func NewModelGenerationAPI(
 	}
 
 	return &ModelGenerationAPI{
-		//state:     st,
-		//resources: resources,
-		authorizer: authorizer,
-		//check:          common.NewBlockChecker(st),
+		authorizer:        authorizer,
 		isControllerAdmin: isAdmin,
 		apiUser:           apiUser,
 		model:             m,
 	}, nil
 }
-
-// authCheck checks if the user is acting on their own behalf, or if they
-// are an administrator acting on behalf of another user.
-//func (m *ModelGenerationAPI) authCheck(user names.UserTag) error {
-//	if m.isControllerAdmin {
-//		logger.Tracef("%q is a controller admin", m.apiUser.Id())
-//		return nil
-//	}
-//
-//	// We can't just compare the UserTags themselves as the provider part
-//	// may be unset, and gets replaced with 'local'. We must compare against
-//	// the Canonical value of the user tag.
-//	if m.apiUser == user {
-//		return nil
-//	}
-//	return common.ErrPerm
-//}
 
 func (m *ModelGenerationAPI) hasAdminAccess(modelTag names.ModelTag) (bool, error) {
 	canWrite, err := m.authorizer.HasPermission(permission.AdminAccess, modelTag)
@@ -93,7 +72,7 @@ func (m *ModelGenerationAPI) hasAdminAccess(modelTag names.ModelTag) (bool, erro
 	return canWrite, err
 }
 
-// AddGeneration
+// AddGeneration adds a 'next' generation to the given model.
 func (m *ModelGenerationAPI) AddGeneration(arg params.Entity) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
 	modelTag, err := names.ParseModelTag(arg.Tag)
@@ -164,7 +143,8 @@ func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) 
 	return results, nil
 }
 
-// SwitchGeneration
+// SwitchGeneration switches the given model to using the provided
+// 'current' or 'next' generation.
 func (m *ModelGenerationAPI) SwitchGeneration(arg params.GenerationVersionArg) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
 	modelTag, err := names.ParseModelTag(arg.Model.Tag)
