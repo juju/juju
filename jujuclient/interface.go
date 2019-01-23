@@ -72,6 +72,9 @@ type ModelDetails struct {
 
 	// ModelType is the type of model.
 	ModelType model.ModelType `yaml:"type"`
+
+	// ModelGeneration is the generation of the model.
+	ModelGeneration model.GenerationVersion `yaml:"generation"`
 }
 
 // AccountDetails holds details of an account.

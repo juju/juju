@@ -609,6 +609,13 @@ func (s *store) SetModels(controllerName string, models map[string]ModelDetails)
 			if ok && details == oldDetails {
 				continue
 			}
+			if details.ModelGeneration.String() == "" {
+				if oldDetails.ModelGeneration.String() != "" {
+					details.ModelGeneration = oldDetails.ModelGeneration
+				} else {
+					details.ModelGeneration = model.GenerationCurrent
+				}
+			}
 			storedModels.Models[modelName] = details
 			changed = true
 		}
