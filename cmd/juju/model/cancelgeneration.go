@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 const (
@@ -102,6 +103,22 @@ func (c *cancelGenerationCommand) Run(ctx *cmd.Context) error {
 
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
 	if err = client.CancelGeneration(modelTag); err != nil {
+		return err
+	}
+	
+	// Now update the model store with the 'current' generation for this
+	// model.
+	modelName, modelDetails, err := c.ModelDetails()
+	if err != nil {
+		return errors.Annotate(err, "getting model details")
+	}
+	ctrlName, err := c.ControllerName()
+	if err != nil {
+		return err
+	}
+	store := c.ClientStore()
+	modelDetails.ModelGeneration = model.GenerationCurrent
+	if err = store.UpdateModel(ctrlName, modelName, *modelDetails); err != nil {
 		return err
 	}
 

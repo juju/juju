@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 const (
@@ -97,13 +98,25 @@ func (c *addGenerationCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
+	modelName, modelDetails, err := c.ModelCommandBase.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
 
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
 	if err = client.AddGeneration(modelTag); err != nil {
+		return err
+	}
+
+	// Now update the model store with the 'next' generation for this
+	// model.
+	ctrlName, err := c.ControllerName()
+	if err != nil {
+		return err
+	}
+	store := c.ClientStore()
+	modelDetails.ModelGeneration = model.GenerationNext
+	if err = store.UpdateModel(ctrlName, modelName, *modelDetails); err != nil {
 		return err
 	}
 
