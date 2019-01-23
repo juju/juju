@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/juju/core/model"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -36,7 +38,6 @@ import (
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/watcher"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
@@ -921,25 +922,11 @@ func (m *mockCharmAPIClient) SetCharm(cfg application.SetCharmConfig) error {
 	return m.NextErr()
 }
 
-func (m *mockCharmAPIClient) Get(applicationName string) (*params.ApplicationGetResults, error) {
+func (m *mockCharmAPIClient) Get(
+	generation model.GenerationVersion, applicationName string,
+) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", applicationName)
 	return &params.ApplicationGetResults{}, m.NextErr()
-}
-
-type mockNotifyWatcher struct {
-	watcher.NotifyWatcher
-	testing.Stub
-	ch chan struct{}
-}
-
-func (w *mockNotifyWatcher) Changes() watcher.NotifyChannel {
-	return w.ch
-}
-
-func (w *mockNotifyWatcher) Kill() {}
-
-func (w *mockNotifyWatcher) Wait() error {
-	return nil
 }
 
 type mockModelConfigGetter struct {

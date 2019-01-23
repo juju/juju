@@ -9,6 +9,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/utils/featureflag"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -102,6 +106,10 @@ var getTests = []struct {
 
 func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+
+	c.Assert(os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.Generations), jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
 	s.defaultCharmValues = map[string]interface{}{
 		"title":           "Nearly There",
 		"skill-level":     100,
@@ -113,11 +121,14 @@ func (s *configCommandSuite) SetUpTest(c *gc.C) {
 		"juju-external-hostname": "ext-host",
 	}
 
-	s.fake = &fakeApplicationAPI{name: "dummy-application", charmName: "dummy",
+	s.fake = &fakeApplicationAPI{
+		name:        "dummy-application",
+		charmName:   "dummy",
 		charmValues: s.defaultCharmValues,
 		appValues:   s.defaultAppValues,
-		version:     6}
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+		version:     6,
+	}
+
 	s.store = jujuclienttesting.MinimalStore()
 
 	s.dir = c.MkDir()
@@ -254,11 +265,11 @@ var setCommandInitErrorTests = []struct {
 	expectError: "can only retrieve a single value, or all values",
 }, {
 	about:       "--generation with no value",
-	args:        []string{"application", "key", "another", "--generation"},
+	args:        []string{"application", "key", "--generation"},
 	expectError: "option needs an argument: --generation",
 }, {
 	about:       "--generation with invalid value",
-	args:        []string{"application", "key", "another", "--generation", "not-there"},
+	args:        []string{"application", "key", "--generation", "not-there"},
 	expectError: `generation option must be "current" or "next"`,
 }}
 
@@ -297,6 +308,24 @@ func (s *configCommandSuite) TestSetCharmConfigSuccess(c *gc.C) {
 		"username=",
 	}, s.defaultAppValues, map[string]interface{}{
 		"username": "",
+		"outlook":  "hello@world.tld",
+	})
+	s.assertSetSuccess(c, s.dir, []string{
+		"--generation",
+		"current",
+		"username=hello",
+		"outlook=hello@world.tld",
+	}, s.defaultAppValues, map[string]interface{}{
+		"username": "hello",
+		"outlook":  "hello@world.tld",
+	})
+	s.assertSetSuccess(c, s.dir, []string{
+		"username=hello",
+		"outlook=hello@world.tld",
+		"--generation",
+		"next",
+	}, s.defaultAppValues, map[string]interface{}{
+		"username": "hello",
 		"outlook":  "hello@world.tld",
 	})
 }

@@ -2021,9 +2021,13 @@ func (f *fakeDeployAPI) Deploy(args application.DeployArgs) error {
 func (f *fakeDeployAPI) GetAnnotations(tags []string) ([]params.AnnotationsGetResult, error) {
 	return nil, nil
 }
-func (f *fakeDeployAPI) GetConfig(appNames ...string) ([]map[string]interface{}, error) {
+
+func (f *fakeDeployAPI) GetConfig(
+	generation model.GenerationVersion, appNames ...string,
+) ([]map[string]interface{}, error) {
 	return nil, nil
 }
+
 func (f *fakeDeployAPI) GetConstraints(appNames ...string) ([]constraints.Value, error) {
 	return nil, nil
 }

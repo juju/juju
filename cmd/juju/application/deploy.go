@@ -60,7 +60,7 @@ type ApplicationAPI interface {
 	AddUnits(application.AddUnitsParams) ([]string, error)
 	Expose(application string) error
 	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
-	GetConfig(appNames ...string) ([]map[string]interface{}, error)
+	GetConfig(generation model.GenerationVersion, appNames ...string) ([]map[string]interface{}, error)
 	GetConstraints(appNames ...string) ([]constraints.Value, error)
 	GetCharmURL(applicationName string) (*charm.URL, error)
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)

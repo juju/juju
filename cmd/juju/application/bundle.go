@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/multiwatcher"
@@ -1429,7 +1430,7 @@ func removeRelations(data [][]string, appName string) [][]string {
 type ModelExtractor interface {
 	GetAnnotations(tags []string) ([]params.AnnotationsGetResult, error)
 	GetConstraints(applications ...string) ([]constraints.Value, error)
-	GetConfig(applications ...string) ([]map[string]interface{}, error)
+	GetConfig(generation model.GenerationVersion, applications ...string) ([]map[string]interface{}, error)
 	Sequences() (map[string]int, error)
 }
 
@@ -1463,7 +1464,7 @@ func buildModelRepresentation(
 	}
 	applications := make(map[string]*bundlechanges.Application)
 	for name, appStatus := range status.Applications {
-		application := &bundlechanges.Application{
+		app := &bundlechanges.Application{
 			Name:          name,
 			Charm:         appStatus.Charm,
 			Scale:         appStatus.Scale,
@@ -1473,12 +1474,12 @@ func buildModelRepresentation(
 			SubordinateTo: appStatus.SubordinateTo,
 		}
 		for unitName, unit := range appStatus.Units {
-			application.Units = append(application.Units, bundlechanges.Unit{
+			app.Units = append(app.Units, bundlechanges.Unit{
 				Name:    unitName,
 				Machine: unit.Machine,
 			})
 		}
-		applications[name] = application
+		applications[name] = app
 		annotationTags = append(annotationTags, names.NewApplicationTag(name).String())
 		appNames = append(appNames, name)
 		if len(appStatus.Units) > 0 {
@@ -1489,7 +1490,7 @@ func buildModelRepresentation(
 			principalApps = append(principalApps, name)
 		}
 	}
-	model := &bundlechanges.Model{
+	mod := &bundlechanges.Model{
 		Applications: applications,
 		Machines:     machines,
 		MachineMap:   machineMap,
@@ -1499,7 +1500,7 @@ func buildModelRepresentation(
 		if len(relation.Endpoints) != 2 {
 			continue
 		}
-		model.Relations = append(model.Relations, bundlechanges.Relation{
+		mod.Relations = append(mod.Relations, bundlechanges.Relation{
 			App1:      relation.Endpoints[0].ApplicationName,
 			Endpoint1: relation.Endpoints[0].Name,
 			App2:      relation.Endpoints[1].ApplicationName,
@@ -1521,9 +1522,9 @@ func buildModelRepresentation(
 		}
 		switch kind := tag.Kind(); kind {
 		case names.ApplicationTagKind:
-			model.Applications[tag.Id()].Annotations = result.Annotations
+			mod.Applications[tag.Id()].Annotations = result.Annotations
 		case names.MachineTagKind:
-			model.Machines[tag.Id()].Annotations = result.Annotations
+			mod.Machines[tag.Id()].Annotations = result.Annotations
 		default:
 			return nil, errors.Errorf("unexpected tag kind for annotations: %q", kind)
 		}
@@ -1531,12 +1532,17 @@ func buildModelRepresentation(
 	// Add in the model sequences.
 	sequences, err := apiRoot.Sequences()
 	if err == nil {
-		model.Sequence = sequences
+		mod.Sequence = sequences
 	} else if !errors.IsNotSupported(err) {
 		return nil, errors.Annotate(err, "getting model sequences")
 	}
+
 	// Now get all the application config.
-	configValues, err := apiRoot.GetConfig(appNames...)
+	// TODO (manadart 2019-01-23) Retrieve this value from the local store
+	// (generally ~/.local/share/juju).
+	generation := model.GenerationCurrent
+
+	configValues, err := apiRoot.GetConfig(generation, appNames...)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting application options")
 	}
@@ -1559,7 +1565,7 @@ func buildModelRepresentation(
 				options[key] = value
 			}
 		}
-		model.Applications[appNames[i]].Options = options
+		mod.Applications[appNames[i]].Options = options
 	}
 	// Lastly get all the application constraints.
 	constraintValues, err := apiRoot.GetConstraints(principalApps...)
@@ -1567,10 +1573,10 @@ func buildModelRepresentation(
 		return nil, errors.Annotate(err, "getting application constraints")
 	}
 	for i, value := range constraintValues {
-		model.Applications[principalApps[i]].Constraints = value.String()
+		mod.Applications[principalApps[i]].Constraints = value.String()
 	}
 
-	model.ConstraintsEqual = func(a, b string) bool {
+	mod.ConstraintsEqual = func(a, b string) bool {
 		// Since the constraints have already been validated, we don't
 		// even bother checking the error response here.
 		ac, _ := constraints.Parse(a)
@@ -1578,7 +1584,7 @@ func buildModelRepresentation(
 		return reflect.DeepEqual(ac, bc)
 	}
 
-	return model, nil
+	return mod, nil
 }
 
 // applicationConfigValue returns the value if it is not a default value.

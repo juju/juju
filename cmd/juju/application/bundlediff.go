@@ -8,6 +8,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/core/model"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -262,8 +263,10 @@ func (e *extractorImpl) GetConstraints(applications ...string) ([]constraints.Va
 }
 
 // GetConfig is part of ModelExtractor.
-func (e *extractorImpl) GetConfig(applications ...string) ([]map[string]interface{}, error) {
-	return e.application.GetConfig(applications...)
+func (e *extractorImpl) GetConfig(
+	generation model.GenerationVersion, applications ...string,
+) ([]map[string]interface{}, error) {
+	return e.application.GetConfig(generation, applications...)
 }
 
 // Sequences is part of ModelExtractor.

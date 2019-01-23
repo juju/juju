@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -74,7 +75,7 @@ type CharmAPIClient interface {
 // by the upgrade-charm command.
 type CharmUpgradeClient interface {
 	GetCharmURL(string) (*charm.URL, error)
-	Get(string) (*params.ApplicationGetResults, error)
+	Get(model.GenerationVersion, string) (*params.ApplicationGetResults, error)
 	SetCharm(application.SetCharmConfig) error
 }
 
@@ -328,10 +329,13 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	applicationInfo, err := charmUpgradeClient.Get(c.ApplicationName)
+
+	generation := model.GenerationCurrent
+	applicationInfo, err := charmUpgradeClient.Get(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if c.Channel == "" {
 		c.Channel = csclientparams.Channel(applicationInfo.Channel)
 	}

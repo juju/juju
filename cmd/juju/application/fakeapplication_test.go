@@ -6,6 +6,8 @@ package application_test
 import (
 	"fmt"
 
+	"github.com/juju/juju/core/model"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -45,7 +47,9 @@ func (f *fakeApplicationAPI) Close() error {
 	return nil
 }
 
-func (f *fakeApplicationAPI) Get(application string) (*params.ApplicationGetResults, error) {
+func (f *fakeApplicationAPI) Get(
+	generation model.GenerationVersion, application string,
+) (*params.ApplicationGetResults, error) {
 	if application != f.name {
 		return nil, errors.NotFoundf("application %q", application)
 	}
@@ -99,7 +103,9 @@ func (f *fakeApplicationAPI) Set(application string, options map[string]string) 
 	return nil
 }
 
-func (f *fakeApplicationAPI) SetApplicationConfig(application string, config map[string]string) error {
+func (f *fakeApplicationAPI) SetApplicationConfig(
+	generation model.GenerationVersion, application string, config map[string]string,
+) error {
 	return f.Set(application, config)
 }
 
@@ -130,6 +136,8 @@ func (f *fakeApplicationAPI) Unset(application string, options []string) error {
 	return nil
 }
 
-func (f *fakeApplicationAPI) UnsetApplicationConfig(application string, options []string) error {
+func (f *fakeApplicationAPI) UnsetApplicationConfig(
+	generation model.GenerationVersion, application string, options []string,
+) error {
 	return f.Unset(application, options)
 }

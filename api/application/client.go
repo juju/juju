@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/storage"
 )
 
@@ -177,11 +178,11 @@ func (c *Client) GetCharmURL(applicationName string) (*charm.URL, error) {
 // GetConfig returns the charm configuration settings for each of the
 // applications. If any of the applications are not found, an error is
 // returned.
-func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error) {
+func (c *Client) GetConfig(generation model.GenerationVersion, appNames ...string) ([]map[string]interface{}, error) {
 	var allSettings []map[string]interface{}
 	if c.BestAPIVersion() < 5 {
 		for _, appName := range appNames {
-			results, err := c.Get(appName)
+			results, err := c.Get(generation, appName)
 			if err != nil {
 				return nil, errors.Annotatef(err, "unable to get settings for %q", appName)
 			}
@@ -691,7 +692,7 @@ func (c *Client) Unexpose(application string) error {
 }
 
 // Get returns the configuration for the named application.
-func (c *Client) Get(application string) (*params.ApplicationGetResults, error) {
+func (c *Client) Get(generation model.GenerationVersion, application string) (*params.ApplicationGetResults, error) {
 	var results params.ApplicationGetResults
 	args := params.ApplicationGet{ApplicationName: application}
 	err := c.facade.FacadeCall("Get", args, &results)
@@ -800,13 +801,16 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 }
 
 // SetApplicationConfig sets configuration options on an application.
-func (c *Client) SetApplicationConfig(application string, config map[string]string) error {
+func (c *Client) SetApplicationConfig(
+	generation model.GenerationVersion, application string, config map[string]string,
+) error {
 	if c.BestAPIVersion() < 6 {
 		return errors.NotSupportedf("SetApplicationsConfig not supported by this version of Juju")
 	}
 	args := params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: application,
+			Generation:      generation,
 			Config:          config,
 		}},
 	}
@@ -819,13 +823,16 @@ func (c *Client) SetApplicationConfig(application string, config map[string]stri
 }
 
 // UnsetApplicationConfig resets configuration options on an application.
-func (c *Client) UnsetApplicationConfig(application string, options []string) error {
+func (c *Client) UnsetApplicationConfig(
+	generation model.GenerationVersion, application string, options []string,
+) error {
 	if c.BestAPIVersion() < 6 {
 		return errors.NotSupportedf("UnsetApplicationConfig not supported by this version of Juju")
 	}
 	args := params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: application,
+			Generation:      generation,
 			Options:         options,
 		}},
 	}

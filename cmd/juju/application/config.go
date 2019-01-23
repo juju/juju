@@ -10,12 +10,13 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/juju/utils/set"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -98,14 +100,14 @@ type configCommand struct {
 type applicationAPI interface {
 	Close() error
 	Update(args params.ApplicationUpdate) error
-	Get(application string) (*params.ApplicationGetResults, error)
+	Get(generation model.GenerationVersion, application string) (*params.ApplicationGetResults, error)
 	Set(application string, options map[string]string) error
 	Unset(application string, options []string) error
 	BestAPIVersion() int
 
 	// These methods are on API V6.
-	SetApplicationConfig(application string, config map[string]string) error
-	UnsetApplicationConfig(application string, options []string) error
+	SetApplicationConfig(generation model.GenerationVersion, application string, config map[string]string) error
+	UnsetApplicationConfig(generation model.GenerationVersion, application string, options []string) error
 }
 
 // Info is part of the cmd.Command interface.
@@ -124,7 +126,10 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.Var(&c.configFile, "file", "path to yaml-formatted application config")
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
-	f.StringVar(&c.generation, "generation", "", "Specifically target config for the supplied generation")
+
+	if featureflag.Enabled(feature.Generations) {
+		f.StringVar(&c.generation, "generation", "", "Specifically target config for the supplied generation")
+	}
 }
 
 // getAPI either uses the fake API set at test time or that is nil, gets a real
@@ -173,7 +178,13 @@ func (c *configCommand) Init(args []string) error {
 }
 
 func (c *configCommand) validateGeneration() error {
-	if !set.NewStrings("", "current", "next").Contains(c.generation) {
+	if c.generation == "" {
+		// TODO (manadart 2018-01-23) If unspecified via the --generation
+		// option, this value will be retrieved from the local store
+		// (generally ~/.local/share/juju).
+		c.generation = string(model.GenerationCurrent)
+	}
+	if !set.NewStrings(string(model.GenerationCurrent), string(model.GenerationNext)).Contains(c.generation) {
 		return errors.New(`generation option must be "current" or "next"`)
 	}
 	return nil
@@ -277,7 +288,8 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
+
 	if len(c.resetKeys) > 0 {
 		if err := c.resetConfig(client, ctx); err != nil {
 			// We return this error naked as it is almost certainly going to be
@@ -287,7 +299,7 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	if c.action == nil {
-		// If we are reset only we end up here, only we've already done that.
+		// If we are reset only, we end up here; we have already done that.
 		return nil
 	}
 
@@ -300,7 +312,7 @@ func (c *configCommand) resetConfig(client applicationAPI, ctx *cmd.Context) err
 	if client.BestAPIVersion() < 6 {
 		err = client.Unset(c.applicationName, c.resetKeys)
 	} else {
-		err = client.UnsetApplicationConfig(c.applicationName, c.resetKeys)
+		err = client.UnsetApplicationConfig(model.GenerationVersion(c.generation), c.applicationName, c.resetKeys)
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
@@ -317,7 +329,7 @@ func (c *configCommand) setConfig(client applicationAPI, ctx *cmd.Context) error
 		return errors.Trace(err)
 	}
 
-	result, err := client.Get(c.applicationName)
+	result, err := client.Get(model.GenerationVersion(c.generation), c.applicationName)
 	if err != nil {
 		return err
 	}
@@ -337,7 +349,7 @@ func (c *configCommand) setConfig(client applicationAPI, ctx *cmd.Context) error
 	if client.BestAPIVersion() < 6 {
 		err = client.Set(c.applicationName, settings)
 	} else {
-		err = client.SetApplicationConfig(c.applicationName, settings)
+		err = client.SetApplicationConfig(model.GenerationVersion(c.generation), c.applicationName, settings)
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
@@ -366,13 +378,14 @@ func (c *configCommand) setConfigFromFile(client applicationAPI, ctx *cmd.Contex
 			params.ApplicationUpdate{
 				ApplicationName: c.applicationName,
 				SettingsYAML:    string(b),
+				Generation:      model.GenerationVersion(c.generation),
 			},
 		), block.BlockChange))
 }
 
 // getConfig is the run action to return one or all configuration values.
 func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error {
-	results, err := client.Get(c.applicationName)
+	results, err := client.Get(model.GenerationVersion(c.generation), c.applicationName)
 	if err != nil {
 		return err
 	}
