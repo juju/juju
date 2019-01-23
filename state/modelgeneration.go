@@ -230,6 +230,9 @@ func (g *Generation) Cancel() error {
 	return errors.Trace(err)
 }
 
+// TODO (hml) 23-jan-2019
+// When implementing change history, review to see if this is
+// still the best course of action.
 func (g *Generation) complete(allowEmpty bool) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
