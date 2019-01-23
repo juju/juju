@@ -1428,19 +1428,29 @@ var _ = gc.Suite(&ModelCloudValidationSuite{})
 // TODO(axw) concurrency tests when we can modify the cloud definition,
 // and update/remove credentials.
 
-func (s *ModelCloudValidationSuite) TestNewModelCloudNameMismatch(c *gc.C) {
+func (s *ModelCloudValidationSuite) TestNewModelDifferentCloud(c *gc.C) {
 	controller, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
 	defer controller.Close()
 	st := controller.SystemState()
+	err := st.AddCloud(cloud.Cloud{
+		Name:      "another",
+		Type:      "dummy",
+		AuthTypes: cloud.AuthTypes{"empty", "userpass"},
+	}, owner.Name())
+	c.Assert(err, jc.ErrorIsNil)
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
-	_, _, err := controller.NewModel(state.ModelArgs{
+	cfg, err = cfg.Apply(map[string]interface{}{"name": "whatever"})
+	c.Assert(err, jc.ErrorIsNil)
+	m, newSt, err := controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "another",
 		Config:                  cfg,
 		Owner:                   owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
-	c.Assert(err, gc.ErrorMatches, "controller cloud dummy does not match model cloud another")
+	c.Assert(err, jc.ErrorIsNil)
+	defer newSt.Close()
+	c.Assert(m.Cloud(), gc.Equals, "another")
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudRegion(c *gc.C) {
@@ -1459,8 +1469,27 @@ func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudRegion(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `region "dummy-region" not found \(expected one of \["some-region"\]\)`)
 }
 
-func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
+func (s *ModelCloudValidationSuite) TestNewModelDefaultCloudRegion(c *gc.C) {
 	controller, owner := s.initializeState(c, []cloud.Region{{Name: "dummy-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
+	defer controller.Close()
+	st := controller.SystemState()
+	cfg, _ := createTestModelConfig(c, st.ModelUUID())
+	cfg, err := cfg.Apply(map[string]interface{}{"name": "whatever"})
+	c.Assert(err, jc.ErrorIsNil)
+	m, newSt, err := controller.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeIAAS,
+		CloudName:               "dummy",
+		Config:                  cfg,
+		Owner:                   owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer newSt.Close()
+	c.Assert(m.CloudRegion(), gc.Equals, "dummy-region")
+}
+
+func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
+	controller, owner := s.initializeState(c, []cloud.Region{{Name: "dummy-region"}, {Name: "dummy-region2"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
 	defer controller.Close()
 	st := controller.SystemState()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())

@@ -90,9 +90,9 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: kontroll\n"+
 		"\n"+
-		"Model        Cloud/Region        Status     Access  Last connection\n"+
-		"controller*  dummy/dummy-region  available  admin   just now\n"+
-		"new-model    dummy/dummy-region  available  admin   never connected\n"+
+		"Model        Cloud/Region        Type   Status     Access  Last connection\n"+
+		"controller*  dummy/dummy-region  dummy  available  admin   just now\n"+
+		"new-model    dummy/dummy-region  dummy  available  admin   never connected\n"+
 		"\n")
 }
 
@@ -102,9 +102,9 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: kontroll\n"+
 		"\n"+
-		"Model           Cloud/Region        Status     Access  Last connection\n"+
-		"controller*     dummy/dummy-region  available  admin   just now\n"+
-		"test/new-model  dummy/dummy-region  available  -       never connected\n"+
+		"Model           Cloud/Region        Type   Status     Access  Last connection\n"+
+		"controller*     dummy/dummy-region  dummy  available  admin   just now\n"+
+		"test/new-model  dummy/dummy-region  dummy  available  -       never connected\n"+
 		"\n")
 }
 
@@ -166,9 +166,9 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: kontroll\n"+
 		"\n"+
-		"Model        Cloud/Region        Status      Access  Last connection\n"+
-		"controller*  dummy/dummy-region  available   admin   just now\n"+
-		"new-model    dummy/dummy-region  destroying  admin   never connected\n"+
+		"Model        Cloud/Region        Type   Status      Access  Last connection\n"+
+		"controller*  dummy/dummy-region  dummy  available   admin   just now\n"+
+		"new-model    dummy/dummy-region  dummy  destroying  admin   never connected\n"+
 		"\n")
 }
 
