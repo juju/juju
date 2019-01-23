@@ -28,9 +28,6 @@ class StatusTimeout(Exception):
 class ControllersTimeout(Exception):
     """Raised when 'juju show-controller' timed out."""
 
-class BackupTimeout(Exception):
-    """Raised when 'juju create-backup' timed out."""
-
 class SoftDeadlineExceeded(Exception):
     """Raised when an overall client operation takes too long."""
 
