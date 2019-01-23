@@ -84,7 +84,7 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.Active().Return(true)
-		gExp.CanCancel().Return(true, nil)
+		gExp.CanCancel().Return(true, []string{}, nil)
 		gExp.Cancel().Return(nil)
 
 		mExp := mockModel.EXPECT()
@@ -101,15 +101,15 @@ func (s *modelGenerationSuite) TestCancelGenerationCanNotCancel(c *gc.C) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.Active().Return(true)
-		gExp.CanCancel().Return(false, nil)
+		gExp.CanCancel().Return(false, []string{"riak/0"}, nil)
 
 		mExp := mockModel.EXPECT()
 		mExp.NextGeneration().Return(mockGeneration, nil)
 	}).Finish()
 
 	result, err := s.api.CancelGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
-	c.Assert(err, gc.ErrorMatches, "cancel not allowed")
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: &params.Error{Message: "cannot cancel generation, there are units behind a generation: riak/0"}})
 }
 
 func (s *modelGenerationSuite) TestSwitchGenerationNext(c *gc.C) {

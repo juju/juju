@@ -4,6 +4,9 @@
 package modelgeneration
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -158,18 +161,20 @@ func (m *ModelGenerationAPI) CancelGeneration(arg params.Entity) (params.ErrorRe
 
 	generation, err := m.model.NextGeneration()
 	if err != nil {
-		return params.ErrorResult{}, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
 	if !generation.Active() {
-		return params.ErrorResult{}, errors.Errorf("next generation is not active")
+		return result, errors.Errorf("next generation is not active")
 	}
 
-	ok, err := generation.CanCancel()
+	ok, values, err := generation.CanCancel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	if !ok {
-		return result, errors.Trace(errors.New("cancel not allowed"))
+		msg := fmt.Sprintf("cannot cancel generation, there are units behind a generation: %s", strings.Join(values, ", "))
+		result.Error = &params.Error{Message: msg}
+		return result, nil
 	}
 
 	result.Error = common.ServerError(generation.Cancel())

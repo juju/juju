@@ -5,8 +5,8 @@ package state
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -273,13 +273,13 @@ func (g *Generation) complete(allowEmpty bool) error {
 }
 
 func (g *Generation) allowMakeCurrent(allowEmpty bool) (bool, error) {
-	ok, err := g.canMakeCurrent(allowEmpty)
+	ok, values, err := g.canMakeCurrent(allowEmpty)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	if !ok {
 		if allowEmpty {
-			return false, errors.New("generation can not be canceled")
+			return false, errors.New(fmt.Sprintf("cannot cancel generation, there are units behind a generation: %s", strings.Join(values, ", ")))
 		} else {
 			return false, errors.New("generation can not be completed")
 		}
@@ -291,52 +291,48 @@ func (g *Generation) allowMakeCurrent(allowEmpty bool) (bool, error) {
 // changes in this generation also has *all* of its units assigned to the
 // generation.
 func (g *Generation) CanMakeCurrent() (bool, error) {
-	can, err := g.canMakeCurrent(false)
+	can, _, err := g.canMakeCurrent(false)
 	return can, errors.Trace(err)
 }
 
 // CanCancel returns true if every application that has had configuration
 // changes in this generation has *all or none* of its units assigned to the
 // generation.
-func (g *Generation) CanCancel() (bool, error) {
-	can, err := g.canMakeCurrent(true)
-	return can, errors.Trace(err)
+func (g *Generation) CanCancel() (bool, []string, error) {
+	can, units, err := g.canMakeCurrent(true)
+	return can, units, errors.Trace(err)
 }
 
-func (g *Generation) canMakeCurrent(allowEmpty bool) (bool, error) {
+func (g *Generation) canMakeCurrent(allowEmpty bool) (bool, []string, error) {
 	// This will prevent CanMakeCurrent from returning true when no config
 	// changes have been made to the generation.
 	if !allowEmpty && len(g.doc.AssignedUnits) == 0 {
-		return false, nil
+		return false, nil, nil
 	}
 
+	cancel := set.NewStrings()
+	var haveEmpty bool
 	for app, units := range g.doc.AssignedUnits {
 		if len(units) == 0 {
 			if !allowEmpty {
-				return false, nil
+				haveEmpty = true
 			}
 			continue
 		}
 
 		allAppUnits, err := appUnitNames(g.st, app)
 		if err != nil {
-			return false, errors.Trace(err)
+			return false, nil, errors.Trace(err)
 		}
 
-		if len(units) != len(allAppUnits) {
-			return false, nil
-		}
+		unitsSet := set.NewStrings(units...)
+		allAppUnitsSet := set.NewStrings(allAppUnits...)
 
-		sort.Strings(units)
-		sort.Strings(allAppUnits)
-		for i, u := range units {
-			if allAppUnits[i] != u {
-				return false, nil
-			}
-		}
+		diff := allAppUnitsSet.Difference(unitsSet)
+		cancel = cancel.Union(diff)
 	}
 
-	return true, nil
+	return cancel.IsEmpty() && !haveEmpty, cancel.SortedValues(), nil
 }
 
 func appUnitNames(st *State, appId string) ([]string, error) {

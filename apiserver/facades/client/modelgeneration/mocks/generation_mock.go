@@ -69,11 +69,12 @@ func (mr *MockGenerationMockRecorder) AssignUnit(arg0 interface{}) *gomock.Call 
 }
 
 // CanCancel mocks base method
-func (m *MockGeneration) CanCancel() (bool, error) {
+func (m *MockGeneration) CanCancel() (bool, []string, error) {
 	ret := m.ctrl.Call(m, "CanCancel")
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].([]string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // CanCancel indicates an expected call of CanCancel

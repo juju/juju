@@ -78,9 +78,10 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
 
-	comp, err := gen.CanCancel()
+	comp, values, err := gen.CanCancel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsTrue)
+	c.Check(values, gc.DeepEquals, []string{})
 
 	auto, err := gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
@@ -104,9 +105,10 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	c.Assert(gen.AssignApplication("riak"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 
-	comp, err = gen.CanCancel()
+	comp, values, err = gen.CanCancel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsTrue)
+	c.Check(values, gc.DeepEquals, []string{})
 
 	auto, err = gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,9 +119,10 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 
-	comp, err = gen.CanCancel()
+	comp, values, err = gen.CanCancel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsFalse)
+	c.Check(values, gc.DeepEquals, []string{"riak/1"})
 
 	auto, err = gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
@@ -130,9 +133,10 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	c.Assert(gen.AssignUnit("riak/1"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 
-	comp, err = gen.CanCancel()
+	comp, values, err = gen.CanCancel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsTrue)
+	c.Check(values, gc.DeepEquals, []string{})
 
 	auto, err = gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
@@ -357,5 +361,5 @@ func (s *generationSuite) TestCancelCanNotCancelError(c *gc.C) {
 
 	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "generation can not be canceled")
+	c.Assert(gen.Cancel(), gc.ErrorMatches, "cannot cancel generation, there are units behind a generation: riak/1, riak/2, riak/3")
 }
