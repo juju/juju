@@ -1691,7 +1691,8 @@ class ModelClient:
 
     def backup(self):
         try:
-            output = self.get_juju_output('create-backup')
+            # merge_stderr is required for creating a backup
+            output = self.get_juju_output('create-backup', merge_stderr=True)
         except subprocess.CalledProcessError as e:
             log.info(e.output)
             raise
@@ -1710,11 +1711,10 @@ class ModelClient:
     def restore_backup(self, backup_file):
         self.juju(
             'restore-backup',
-            ('-b', '--constraints', 'mem=2G', '--file', backup_file))
+            ('--file', backup_file))
 
     def restore_backup_async(self, backup_file):
-        return self.juju_async('restore-backup', ('-b', '--constraints',
-                                                  'mem=2G', '--file', backup_file))
+        return self.juju_async('restore-backup', ('--file', backup_file))
 
     def enable_ha(self):
         self.juju(
