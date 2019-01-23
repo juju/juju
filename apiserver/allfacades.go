@@ -173,6 +173,7 @@ func AllFacades() *facade.Registry {
 	reg("Controller", 3, controller.NewControllerAPIv3)
 	reg("Controller", 4, controller.NewControllerAPIv4)
 	reg("Controller", 5, controller.NewControllerAPIv5)
+	reg("Controller", 6, controller.NewControllerAPIv6)
 	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
 	reg("CredentialManager", 1, credentialmanager.NewCredentialManagerAPI)
