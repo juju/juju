@@ -44,7 +44,7 @@ type ApplicationSuite struct {
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
 	api          *application.APIv8
-	deployParams application.DeployApplicationParams
+	deployParams map[string]application.DeployApplicationParams
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
@@ -63,7 +63,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			return &state.Charm{}
 		},
 		func(_ application.ApplicationDeployer, p application.DeployApplicationParams) (application.Application, error) {
-			s.deployParams = p
+			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},
 		s.storagePoolManager,
@@ -79,6 +79,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
 	}
+	s.deployParams = make(map[string]application.DeployApplicationParams)
 	s.env = &mockEnviron{}
 	s.endpoints = []state.Endpoint{
 		{ApplicationName: "postgresql"},
@@ -497,12 +498,28 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 
 func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{},
+		config: &charm.Config{
+			Options: map[string]charm.Option{
+				"stringOption": {Type: "string"},
+				"intOption":    {Type: "int", Default: int(123)},
+			},
+		},
+	}
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
+			ConfigYAML:      "foo:\n  stringOption: fred\n  kubernetes-service-type: NodeIP",
+		}, {
+			ApplicationName: "foobar",
+			CharmURL:        "local:foobar-0",
+			NumUnits:        1,
+			Config:          map[string]string{"kubernetes-service-type": "ClusterIP", "intOption": "2"},
+			ConfigYAML:      "foobar:\n  intOption: 1\n  kubernetes-service-type: NodeIP\n  kubernetes-ingress-ssl-redirect: true",
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-0",
@@ -517,12 +534,18 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	}
 	results, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results, gc.HasLen, 4)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, "only 1 placement directive is supported for caas models, got 2")
+	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
+	c.Assert(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for caas models, got 2")
+
+	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "NodeIP")
 	// Check parsing of k8s service annotations.
-	c.Assert(s.deployParams.ApplicationConfig.Attributes()["kubernetes-service-annotations"], jc.DeepEquals, map[string]string{"a": "b", "c": ""})
+	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-annotations"], jc.DeepEquals, map[string]string{"a": "b", "c": ""})
+	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "ClusterIP")
+	c.Assert(s.deployParams["foobar"].ApplicationConfig.Attributes()["kubernetes-ingress-ssl-redirect"], gc.Equals, true)
+	c.Assert(s.deployParams["foobar"].CharmConfig, jc.DeepEquals, charm.Settings{"intOption": int64(2)})
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
