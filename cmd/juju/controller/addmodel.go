@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
@@ -247,8 +248,9 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 
 	if modelOwner == accountDetails.User {
 		if err := store.UpdateModel(controllerName, c.Name, jujuclient.ModelDetails{
-			ModelUUID: model.UUID,
-			ModelType: model.Type,
+			ModelUUID:       model.UUID,
+			ModelType:       model.Type,
+			ModelGeneration: coremodel.GenerationCurrent, // This is the default generation.
 		}); err != nil {
 			return errors.Trace(err)
 		}
