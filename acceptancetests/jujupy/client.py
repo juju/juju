@@ -2129,12 +2129,13 @@ class ModelClient:
 # so parse it via env var ->  https://github.com/kubernetes/client-go/blob/master/tools/clientcmd/loader.go#L44
 KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
 
+
 class CaasClient:
     """CaasClient defines a client that can interact with CAAS setup directly.
        Methods and properties that solely interact with a kubernetes
        infrastructure can then be added to the following class.
     """
- 
+
     cloud_name = 'k8cloud'
 
     def __init__(self, client):

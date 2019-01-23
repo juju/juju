@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from datetime import (
     datetime,
     timedelta,
-    )
+)
 import errno
 import json
 import logging
@@ -14,7 +14,7 @@ import sys
 from time import (
     sleep,
     time,
-    )
+)
 from jujupy.utility import (
     ensure_deleted,
     ensure_dir,
@@ -29,7 +29,7 @@ from jujupy.utility import (
     temp_dir,
     temp_yaml_file,
     until_timeout
-    )
+)
 
 # Imported for other call sites to use.
 __all__ = [
@@ -43,7 +43,7 @@ __all__ = [
     'skip_on_missing_file',
     'temp_dir',
     'temp_yaml_file',
-    ]
+]
 
 
 # Equivalent of socket.EAI_NODATA when using windows sockets
@@ -53,6 +53,7 @@ WSANO_DATA = 11004
 TEST_MODEL = 'test-tmp-env'
 
 log = logging.getLogger("utility")
+
 
 class PortTimeoutError(Exception):
     pass
@@ -64,6 +65,7 @@ class LoggedException(BaseException):
     This is a wrapper to avoid double-printing real Exceptions while still
     unwinding the stack appropriately.
     """
+
     def __init__(self, exception):
         self.exception = exception
 
@@ -223,6 +225,7 @@ def add_arg_juju_bin(parser):
                         help='Full path to the Juju binary. By default, this'
                         ' will use $PATH/juju',
                         default=None)
+
 
 def add_basic_testing_arguments(
         parser, using_jes=False, deadline=True, env=True, existing=True):
@@ -426,6 +429,7 @@ def assert_dict_is_subset(sub_dict, super_dict):
             'Found: {} \nExpected: {}'.format(super_dict, sub_dict))
     return True
 
+
 def add_model(client):
     """Adds a model to the current juju environment then destroys it.
 
@@ -443,6 +447,7 @@ def add_model(client):
         raise JujuAssertionError(error)
     return new_client
 
+
 def get_current_model(client):
     """Gets the current model from Juju's list-models command.
 
@@ -455,6 +460,7 @@ def get_current_model(client):
     except KeyError:
         log.warning('No model is currently selected.')
         return None
+
 
 def list_models(client):
     """List models.
