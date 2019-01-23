@@ -70,11 +70,19 @@ clusters:
 - cluster:
     server: https://10.10.10.10:1010
   name: default-cluster
+- cluster:
+    server: https://100.100.100.100:1010
+    certificate-authority-data: QQ==
+  name: second-cluster
 contexts:
 - context:
     cluster: the-cluster
     user: the-user
   name: the-context
+- context:
+    cluster: second-cluster
+    user: second-user
+  name: second-context
 - context:
     cluster: default-cluster
     user: default-user
@@ -86,10 +94,15 @@ users:
   user:
     client-certificate-data: QQ==
     client-key-data: Qg==
+    token: tokenwithcerttoken
 - name: default-user
   user:
     password: defaultpassword
     username: defaultuser
+- name: second-user
+  user:
+    client-certificate-data: QQ==
+    token: tokenwithcerttoken
 - name: third-user
   user:
     token: "atoken"
@@ -158,8 +171,8 @@ func (s *k8sConfigSuite) assertNewK8sClientConfig(c *gc.C, testCase newK8sClient
 	if testCase.errMatch != "" {
 		c.Check(err, gc.ErrorMatches, testCase.errMatch)
 	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg, jc.DeepEquals, testCase.expected)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(cfg, jc.DeepEquals, testCase.expected)
 	}
 }
 
@@ -219,14 +232,23 @@ func (s *k8sConfigSuite) TestConfigErrors(c *gc.C) {
 			errMatch: `failed to read credentials from kubernetes config: AuthInfo: "the-user" with both Token and User/Pass not valid`,
 		},
 		{
-			title: "emptyClientKeyDataInvalidConfig",
+			title: "emptyTokenInvalidConfig",
 			configYamlContent: `
 - name: the-user
   user:
     client-certificate-data: QQ==
-    client-key-data:
+    client-key-data: CK==
 `,
-			errMatch: `failed to read credentials from kubernetes config: empty ClientKeyData for \"the-user\" with auth type \"certificate\" not valid`,
+			errMatch: `failed to read credentials from kubernetes config: missing token for "the-user" with auth type "oauth2withcert" not valid`,
+		},
+		{
+			title: "emptyClientKeyDataAndEmptyTokenInvalidConfig",
+			configYamlContent: `
+- name: the-user
+  user:
+    client-certificate-data: QQ==
+`,
+			errMatch: `failed to read credentials from kubernetes config: configuration for "the-user" not supported`,
 		},
 	} {
 		v.configYamlFileName = v.title
@@ -240,12 +262,16 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 		cloud.UserPassAuthType,
 		map[string]string{"username": "defaultuser", "password": "defaultpassword"})
 	firstCred.Label = `kubernetes credential "default-user"`
+	theCred := cloud.NewCredential(
+		cloud.OAuth2WithCertAuthType,
+		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "Token": "tokenwithcerttoken"})
+	theCred.Label = `kubernetes credential "the-user"`
 	secondCred := cloud.NewCredential(
 		cloud.CertificateAuthType,
-		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B"})
-	secondCred.Label = `kubernetes credential "the-user"`
+		map[string]string{"ClientCertificateData": "A", "Token": "tokenwithcerttoken"})
+	secondCred.Label = `kubernetes credential "second-user"`
 
-	for _, v := range []newK8sClientConfigTestCase{
+	for i, v := range []newK8sClientConfigTestCase{
 		{
 			title:       "no cluster name specified, will select current cluster",
 			clusterName: "", // will use current context.
@@ -284,7 +310,27 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 						Endpoint:   "https://1.1.1.1:8888",
 						Attributes: map[string]interface{}{"CAData": "A"}}},
 				Credentials: map[string]cloud.Credential{
-					"the-user": secondCred,
+					"the-user": theCred,
+				},
+			},
+		},
+		{
+			title:       "select second-cluster",
+			clusterName: "second-cluster",
+			expected: &clientconfig.ClientConfig{
+				Type: "kubernetes",
+				Contexts: map[string]clientconfig.Context{
+					"second-context": {
+						CloudName:      "second-cluster",
+						CredentialName: "second-user"},
+				},
+				CurrentContext: "default-context",
+				Clouds: map[string]clientconfig.CloudConfig{
+					"second-cluster": {
+						Endpoint:   "https://100.100.100.100:1010",
+						Attributes: map[string]interface{}{"CAData": "A"}}},
+				Credentials: map[string]cloud.Credential{
+					"second-user": secondCred,
 				},
 			},
 		},
@@ -310,6 +356,7 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 			},
 		},
 	} {
+		c.Logf("testcase %v: %s", i, v.title)
 		v.configYamlFileName = "multiConfig"
 		v.configYamlContent = multiConfigYAML
 		s.assertNewK8sClientConfig(c, v)

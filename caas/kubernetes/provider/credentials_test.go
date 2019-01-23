@@ -44,8 +44,8 @@ func (s *credentialsSuite) TestCredentialsValid(c *gc.C) {
 
 func (s *credentialsSuite) TestHiddenAttributes(c *gc.C) {
 	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass", "password")
-	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "oauth2withcert", "Token")
-	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "certificate", "ClientKeyData")
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "oauth2withcert", "Token", "ClientKeyData")
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "certificate", "Token")
 }
 
 var singleConfigYAML = `
