@@ -103,7 +103,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.controllerMachine.SetPassword(s.controllerPassword)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.controllerMachine.SetProvisioned("i-manager", "fake_nonce", nil)
+	err = s.controllerMachine.SetProvisioned("i-manager", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.controllerMachine.Tag(), s.controllerPassword, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
@@ -189,7 +189,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, app *state.Application) (*state.U
 // startInstance starts a new instance for the given machine.
 func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instances.Instance {
 	inst, hc := jujutesting.AssertStartInstance(c, s.Environ, s.callCtx, s.ControllerConfig.ControllerUUID(), m.Id())
-	err := m.SetProvisioned(inst.Id(), "fake_nonce", hc)
+	err := m.SetProvisioned(inst.Id(), "", "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst
 }

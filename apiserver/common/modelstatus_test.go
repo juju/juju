@@ -134,6 +134,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Jobs:            []state.MachineJob{state.JobManageModel},
 		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
 		InstanceId:      "id-4",
+		DisplayName:     "snowflake",
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped",
@@ -193,7 +194,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 			OwnerTag:           s.Owner.String(),
 			Life:               params.Alive,
 			Machines: []params.ModelMachineInfo{
-				{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", Status: "pending", WantsVote: true},
+				{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", DisplayName: "snowflake", Status: "pending", WantsVote: true},
 				{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
 			},
 			Volumes: []params.ModelVolumeInfo{{

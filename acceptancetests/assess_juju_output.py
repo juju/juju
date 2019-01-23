@@ -34,6 +34,17 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_juju_output")
 
+def verify_juju_status_contains_display_name(client_status):
+    fields_to_test = [
+        "instance-id",
+        "display-name",
+    ]
+    for field in fields_to_test:
+        try:
+            client_status[field]
+        except KeyError:
+            err = "juju status excludes {}".format(field)
+            raise JujuAssertionError(err)
 
 def verify_juju_status_attribute_of_charm(charm_details):
     """Verify the juju-status of the deployed charm
@@ -94,7 +105,9 @@ def assess_juju_status(client, series):
     :param series: String representing charm series
     """
     deploy_charm_with_subordinate_charm(client, series)
-    charm_details = client.get_status().get_applications()['dummy-sink']
+    status = client.get_status()
+    verify_juju_status_fields(status)
+    charm_details = status.get_applications()['dummy-sink']
     verify_juju_status_attribute_of_charm(charm_details)
     verify_juju_status_attribute_of_subordinate_charm(charm_details)
     log.warning("assess juju-status attribute done successfully")

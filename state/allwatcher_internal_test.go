@@ -76,7 +76,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	err = m.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(dfc) instance.Id should take a TAG!
-	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
+	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	hc, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
@@ -216,8 +216,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
 			Annotations: pairs,
 		})
-
-		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
+		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		sInfo := status.StatusInfo{
 			Status:  status.Error,
@@ -973,7 +972,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		Arch: &arch,
 		Mem:  &mem,
 	}
-	err = m0.SetProvisioned("i-0", "bootstrap_nonce", hc)
+	err = m0.SetProvisioned(instance.Id("i-0"), "", "bootstrap_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = m1.Remove()
@@ -1155,7 +1154,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				m, err := st.AddMachine("trusty", JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m.Id(), gc.Equals, "0")
-				err = m.SetProvisioned("inst-id", "fake_nonce", nil)
+				err = m.SetProvisioned(instance.Id("inst-id"), "", "fake_nonce", nil)
 				c.Assert(err, jc.ErrorIsNil)
 				return 1
 			},
@@ -1853,7 +1852,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 	// Make further changes to the state, including the addition of a
 	// new model.
-	err = m00.SetProvisioned("i-0", "bootstrap_nonce", nil)
+	err = m00.SetProvisioned(instance.Id("i-0"), "", "bootstrap_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = m10.Remove()
@@ -2169,7 +2168,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("trusty", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetProvisioned("i-0", "bootstrap_nonce", nil)
+			err = m.SetProvisioned("i-0", "", "bootstrap_nonce", nil)
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 			c.Assert(err, jc.ErrorIsNil)

@@ -471,6 +471,11 @@ func (m *mockMachine) InstanceId() (instance.Id, error) {
 	return m.instanceIdFunc()
 }
 
+func (m *mockMachine) InstanceNames() (instance.Id, string, error) {
+	instId, err := m.instanceIdFunc()
+	return instId, "", err
+}
+
 func (m *mockMachine) Id() string {
 	return m.id
 }

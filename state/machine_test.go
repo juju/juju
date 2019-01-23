@@ -120,7 +120,7 @@ func (s *MachineSuite) TestSetUnsetRebootFlag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetKeepInstance(c *gc.C) {
-	err := s.machine.SetProvisioned("1234", "nonce", nil)
+	err := s.machine.SetProvisioned("1234", "", "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetKeepInstance(true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -133,7 +133,7 @@ func (s *MachineSuite) TestSetKeepInstance(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetCharmProfile(c *gc.C) {
-	err := s.machine.SetProvisioned("1234", "nonce", nil)
+	err := s.machine.SetProvisioned("1234", "", "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedProfiles := []string{"juju-default-lxd-profile-0", "juju-default-lxd-sub-0"}
 	err = s.machine.SetCharmProfiles(expectedProfiles)
@@ -163,7 +163,7 @@ func (s *MachineSuite) TestSetUpgradeCharmProfileWithoutLXDProfileForRemoval(c *
 
 func (s *MachineSuite) testSetUpgradeCharmProfileWithoutLXDProfile(c *gc.C, profiles []string) {
 	m := s.machine
-	err := m.SetProvisioned("1", "fake-nonce", nil)
+	err := m.SetProvisioned("1", "", "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetCharmProfiles(profiles)
 
@@ -887,6 +887,24 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	c.Assert(string(iid), gc.Equals, "")
 }
 
+func (s *MachineSuite) TestMachineSetProvisionedStoresAndInstanceNamesReturnsDisplayName(c *gc.C) {
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
+	err := s.machine.SetProvisioned("umbrella/0", "snowflake", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	iid, iname, err := s.machine.InstanceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(iid), gc.Equals, "umbrella/0")
+	c.Assert(iname, gc.Equals, "snowflake")
+}
+
+func (s *MachineSuite) TestMachineInstanceNamesReturnsIsNotProvisionedWhenNotProvisioned(c *gc.C) {
+	iid, iname, err := s.machine.InstanceNames()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(string(iid), gc.Equals, "")
+	c.Assert(iname, gc.Equals, "")
+}
+
 func (s *MachineSuite) TestDesiredSpacesNone(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	spaces, err := machine.DesiredSpaces()
@@ -990,7 +1008,7 @@ func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) 
 		Arch: &arch,
 		Mem:  &mem,
 	}
-	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", expected)
+	err = s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", expected)
 	c.Assert(err, jc.ErrorIsNil)
 	md, err := s.machine.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1009,7 +1027,7 @@ func (s *MachineSuite) TestMachineAvailabilityZone(c *gc.C) {
 	hwc := &instance.HardwareCharacteristics{
 		AvailabilityZone: &zone,
 	}
-	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", hwc)
+	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", hwc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	zone, err = s.machine.AvailabilityZone()
@@ -1022,7 +1040,7 @@ func (s *MachineSuite) TestMachineAvailabilityZoneEmpty(c *gc.C) {
 	hwc := &instance.HardwareCharacteristics{
 		AvailabilityZone: &zone,
 	}
-	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", hwc)
+	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", hwc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	zone, err = s.machine.AvailabilityZone()
@@ -1033,7 +1051,7 @@ func (s *MachineSuite) TestMachineAvailabilityZoneEmpty(c *gc.C) {
 func (s *MachineSuite) TestMachineAvailabilityZoneMissing(c *gc.C) {
 	zone := "a_zone"
 	hwc := &instance.HardwareCharacteristics{}
-	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", hwc)
+	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", hwc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	zone, err = s.machine.AvailabilityZone()
@@ -1046,14 +1064,14 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 
 	// Either one should not be empty.
-	err := s.machine.SetProvisioned("umbrella/0", "", nil)
+	err := s.machine.SetProvisioned("umbrella/0", "", "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "1": instance id and nonce cannot be empty`)
-	err = s.machine.SetProvisioned("", "fake_nonce", nil)
+	err = s.machine.SetProvisioned(instance.Id(""), "", "fake_nonce", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "1": instance id and nonce cannot be empty`)
-	err = s.machine.SetProvisioned("", "", nil)
+	err = s.machine.SetProvisioned(instance.Id(""), "", "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "1": instance id and nonce cannot be empty`)
 
-	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
+	err = s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := s.State.Machine(s.machine.Id())
@@ -1068,7 +1086,7 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 
 	// Try it twice, it should fail.
-	err = s.machine.SetProvisioned("doesn't-matter", "phony", nil)
+	err = s.machine.SetProvisioned(instance.Id("doesn't-matter"), "", "phony", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "1": already set`)
 
 	// Check it with invalid nonce.
@@ -1082,11 +1100,11 @@ func (s *MachineSuite) TestSetProvisionedDupInstanceId(c *gc.C) {
 		loggo.RemoveWriter("dupe-test")
 	})
 
-	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
+	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	anotherMachine, _ := s.Factory.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
-	err = anotherMachine.SetProvisioned("umbrella/0", "another_nonce", nil)
+	err = anotherMachine.SetProvisioned("umbrella/0", "", "another_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	found := false
 	for _, le := range logWriter.Log() {
@@ -1107,14 +1125,14 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{
 		names.NewVolumeTag("1065"): {VolumeId: "vol-ume"},
 	}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil)
+	err := s.machine.SetInstanceInfo("umbrella/0", "", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume \"1065\" not found`)
 	assertNotProvisioned()
 
 	invalidVolumes = map[names.VolumeTag]state.VolumeInfo{
 		names.NewVolumeTag("1065"): {},
 	}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil)
+	err = s.machine.SetInstanceInfo("umbrella/0", "", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume ID not set`)
 	assertNotProvisioned()
 
@@ -1147,7 +1165,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 		Size:     1234,
 	}
 	volumes := map[names.VolumeTag]state.VolumeInfo{volumeTag: volumeInfo}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, volumes, nil, nil)
+	err = s.machine.SetInstanceInfo("umbrella/0", "", "fake_nonce", nil, nil, nil, volumes, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 
@@ -1166,13 +1184,13 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
 	testWhenDying(c, s.machine, notAliveErr, notAliveErr, func() error {
-		return s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
+		return s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
 	})
 }
 
 func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
 	// Machine needs to be provisioned first.
-	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
+	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := coretesting.ZeroTime()
@@ -1357,7 +1375,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	// Make one change (to a separate instance), check one event.
 	machine, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("m-foo", "fake_nonce", nil)
+	err = machine.SetProvisioned(instance.Id("m-foo"), "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -1411,7 +1429,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change machine, and create a unit independently; no change.
-	err := s.machine.SetProvisioned("cheese", "fake_nonce", nil)
+	err := s.machine.SetProvisioned("cheese", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
@@ -1527,7 +1545,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change machine; no change.
-	err := s.machine.SetProvisioned("cheese", "fake_nonce", nil)
+	err := s.machine.SetProvisioned("cheese", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1699,7 +1717,7 @@ func (s *MachineSuite) TestSetConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, cons1)
 
 	// ...until the machine is provisioned, at which point they stick.
-	err = machine.SetProvisioned("i-mstuck", "fake_nonce", nil)
+	err = machine.SetProvisioned("i-mstuck", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cons2 := constraints.MustParse("mem=2G")
 	err = machine.SetConstraints(cons2)
@@ -2807,7 +2825,7 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change the machine: not reported.
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned("i-blah", "", "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -2872,7 +2890,7 @@ func (s *MachineSuite) TestWatchAddressesHash(c *gc.C) {
 	wc.AssertChange("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
 	// Change the machine: not reported.
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned("i-blah", "", "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 

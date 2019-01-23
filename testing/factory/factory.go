@@ -90,6 +90,7 @@ type MachineParams struct {
 	Nonce           string
 	Constraints     constraints.Value
 	InstanceId      instance.Id
+	DisplayName     string
 	Characteristics *instance.HardwareCharacteristics
 	Addresses       []network.Address
 	Volumes         []state.HostVolumeParams
@@ -311,7 +312,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 		instance.LXD,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
+	err = m.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
 	c.Assert(err, jc.ErrorIsNil)
 	current := version.Binary{
 		Number: jujuversion.Current,
@@ -374,7 +375,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 	machine, err := factory.st.AddOneMachine(machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
 	if setProvisioned {
-		err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
+		err = machine.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	err = machine.SetPassword(params.Password)

@@ -433,6 +433,11 @@ func (m *testMachine) setInstanceId(id instance.Id) {
 	m.instanceId = id
 }
 
+func (m *testMachine) InstanceNames() (instance.Id, string, error) {
+	instId, err := m.InstanceId()
+	return instId, "", err
+}
+
 // This is stubbed out for testing.
 var MachineStatus = func(m *testMachine) (params.StatusResult, error) {
 	return params.StatusResult{Status: m.status.String()}, nil

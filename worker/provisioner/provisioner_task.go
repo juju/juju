@@ -1309,6 +1309,7 @@ func (task *provisionerTask) startMachine(
 
 	if err := machine.SetInstanceInfo(
 		result.Instance.Id(),
+		result.DisplayName,
 		startInstanceParams.InstanceConfig.MachineNonce,
 		result.Hardware,
 		networkConfig,

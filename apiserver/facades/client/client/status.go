@@ -809,9 +809,10 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 	sInfo, err := c.status.MachineInstance(machineID)
 	populateStatusFromStatusInfoAndErr(&status.InstanceStatus, sInfo, err)
 	// TODO: fetch all instance data for machines in one go.
-	instid, err := machine.InstanceId()
+	instid, displayName, err := machine.InstanceNames()
 	if err == nil {
 		status.InstanceId = instid
+		status.DisplayName = displayName
 		addr, err := machine.PublicAddress()
 		if err != nil {
 			// Usually this indicates that no addresses have been set on the

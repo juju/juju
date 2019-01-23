@@ -356,6 +356,7 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"ModelUUID",
 
 		"InstanceId",
+		"DisplayName",
 		"Arch",
 		"Mem",
 		"RootDisk",

@@ -331,19 +331,19 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	m0, err := shared.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Life(), gc.Equals, state.Alive)
-	err = m0.SetInstanceInfo("i-12345", "nonce", &instance.HardwareCharacteristics{
+	err = m0.SetInstanceInfo("i-12345", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &onecore,
 	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	m1, err := shared.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m1.SetInstanceInfo("i-45678", "nonce", &instance.HardwareCharacteristics{
+	err = m1.SetInstanceInfo("i-45678", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &twocores,
 	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	m2, err := shared.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.SetInstanceInfo("i-78901", "nonce", &instance.HardwareCharacteristics{
+	err = m2.SetInstanceInfo("i-78901", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &threecores,
 	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -353,7 +353,7 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	// Dying instance, should not count to Cores or Machine count
 	mDying, err := shared.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mDying.SetInstanceInfo("i-78901", "nonce", &instance.HardwareCharacteristics{
+	err = mDying.SetInstanceInfo("i-78901", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &threecores,
 	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -363,7 +363,7 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	m4, err := shared.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	arch := "amd64"
-	err = m4.SetInstanceInfo("i-78901", "nonce", &instance.HardwareCharacteristics{
+	err = m4.SetInstanceInfo("i-78901", "", "nonce", &instance.HardwareCharacteristics{
 		Arch: &arch,
 	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

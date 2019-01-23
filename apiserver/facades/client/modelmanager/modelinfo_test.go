@@ -934,6 +934,10 @@ func (m *mockMachine) InstanceId() (instance.Id, error) {
 	return "", nil
 }
 
+func (m *mockMachine) InstanceNames() (instance.Id, string, error) {
+	return "", "", nil
+}
+
 func (m *mockMachine) WantsVote() bool {
 	return false
 }

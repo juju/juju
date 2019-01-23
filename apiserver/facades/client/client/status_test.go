@@ -567,6 +567,31 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 	c.Assert(status.Relations, gc.HasLen, 0)
 }
 
+func (s *statusUnitTestSuite) TestMachineWithNoDisplayNameHasItsEmptyDisplayNameSent(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		InstanceId: instance.Id("i-123"),
+	})
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Machines, gc.HasLen, 1)
+	c.Assert(status.Machines[machine.Id()].DisplayName, gc.Equals, "")
+}
+
+func (s *statusUnitTestSuite) TestMachineWithDisplayNameHasItsDisplayNameSent(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		InstanceId:  instance.Id("i-123"),
+		DisplayName: "snowflake",
+	})
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Machines, gc.HasLen, 1)
+	c.Assert(status.Machines[machine.Id()].DisplayName, gc.Equals, "snowflake")
+}
+
 func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, relations []params.RelationStatus) {
 	c.Assert(relations, gc.HasLen, expectedNumber)
 	for _, relation := range relations {
