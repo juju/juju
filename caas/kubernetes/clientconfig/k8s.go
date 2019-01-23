@@ -201,22 +201,31 @@ func credentialsFromConfig(config *clientcmdapi.Config, credentialName string) (
 			attrs["ClientCertificateData"] = string(user.ClientCertificateData)
 			hasCert = true
 		}
-		if len(user.ClientKeyData) > 0 {
+		hasClientKeyData := len(user.ClientKeyData) > 0
+		if hasClientKeyData {
 			attrs["ClientKeyData"] = string(user.ClientKeyData)
 		}
-
-		var authType cloud.AuthType
-		if user.Token != "" {
+		hasToken := user.Token != ""
+		if hasToken {
 			if user.Username != "" || user.Password != "" {
 				return cred, errors.NotValidf("AuthInfo: %q with both Token and User/Pass", name)
 			}
 			attrs["Token"] = user.Token
+		}
+
+		var authType cloud.AuthType
+		if hasClientKeyData {
+			// auth type used for aks for example.
+			authType = cloud.OAuth2AuthType
 			if hasCert {
 				authType = cloud.OAuth2WithCertAuthType
-			} else {
-				authType = cloud.OAuth2AuthType
+			}
+			if !hasToken {
+				// the Token is required.
+				return cred, errors.NotValidf("missing token for %q with auth type %q", name, authType)
 			}
 		} else if user.Username != "" {
+			// basic auth type.
 			if user.Password == "" {
 				logger.Debugf("credential for user %q has empty password", user.Username)
 			}
@@ -227,11 +236,9 @@ func credentialsFromConfig(config *clientcmdapi.Config, credentialName string) (
 			} else {
 				authType = cloud.UserPassAuthType
 			}
-		} else if hasCert {
+		} else if hasCert && hasToken {
+			// bearer token of service account auth type gke for example.
 			authType = cloud.CertificateAuthType
-			if len(user.ClientKeyData) == 0 {
-				return cred, errors.NotValidf("empty ClientKeyData for %q with auth type %q", name, authType)
-			}
 		} else {
 			return cred, errors.NotSupportedf("configuration for %q", name)
 		}

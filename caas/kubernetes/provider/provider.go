@@ -60,7 +60,7 @@ func cloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error
 		Host:        cloudSpec.Endpoint,
 		Username:    credentialAttrs[CredAttrUsername],
 		Password:    credentialAttrs[CredAttrPassword],
-		BearerToken: credentialAttrs[Token],
+		BearerToken: credentialAttrs[CredAttrToken],
 		TLSClientConfig: rest.TLSClientConfig{
 			CertData: []byte(credentialAttrs[CredAttrClientCertificateData]),
 			KeyData:  []byte(credentialAttrs[CredAttrClientKeyData]),

@@ -16,7 +16,7 @@ const (
 	CredAttrPassword              = "password"
 	CredAttrClientCertificateData = "ClientCertificateData"
 	CredAttrClientKeyData         = "ClientKeyData"
-	Token                         = "Token"
+	CredAttrToken                 = "Token"
 )
 
 var k8sCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
@@ -32,7 +32,7 @@ var k8sCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
 			},
 		},
 	},
-	cloud.CertificateAuthType: {
+	cloud.OAuth2WithCertAuthType: {
 		{
 			Name: CredAttrClientCertificateData,
 			CredentialAttr: cloud.CredentialAttr{
@@ -46,8 +46,15 @@ var k8sCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
 				Hidden:      true,
 			},
 		},
+		{
+			Name: CredAttrToken,
+			CredentialAttr: cloud.CredentialAttr{
+				Description: "the kubernetes token",
+				Hidden:      true,
+			},
+		},
 	},
-	cloud.OAuth2WithCertAuthType: {
+	cloud.CertificateAuthType: {
 		{
 			Name: CredAttrClientCertificateData,
 			CredentialAttr: cloud.CredentialAttr{
@@ -55,7 +62,7 @@ var k8sCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
 			},
 		},
 		{
-			Name: Token,
+			Name: CredAttrToken,
 			CredentialAttr: cloud.CredentialAttr{
 				Description: "the kubernetes service account bearer token",
 				Hidden:      true,
