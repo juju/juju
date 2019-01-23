@@ -50,6 +50,7 @@ from jujupy.exceptions import (
     AgentsNotStarted,
     ApplicationsNotStarted,
     AuthNotAccepted,
+    ControllersTimeout,
     InvalidEndpoint,
     NameNotAccepted,
     NoProvider,
@@ -63,6 +64,9 @@ from jujupy.status import (
     AGENTS_READY,
     coalesce_agent_status,
     Status,
+)
+from jujupy.controller import (
+    Controllers,
 )
 from jujupy.utility import (
     _dns_name_for_machine,
@@ -571,6 +575,8 @@ class ModelClient:
 
     status_class = Status
 
+    controllers_class = Controllers
+
     agent_metadata_url = 'agent-metadata-url'
 
     model_permissions = frozenset(['read', 'write', 'admin'])
@@ -601,6 +607,7 @@ class ModelClient:
                 return container_type
 
     _show_status = 'show-status'
+    _show_controller = 'show-controller'
 
     @classmethod
     def get_version(cls, juju_path=None):
@@ -1053,6 +1060,21 @@ class ModelClient:
                 pass
         raise StatusTimeout(
             'Timed out waiting for juju status to succeed')
+
+    def get_controllers(self, timeout=60):
+        """Get the current controller information as a dict."""
+        for ignored in until_timeout(timeout):
+            try:
+                return self.controllers_class.from_text(
+                    self.get_juju_output(
+                        self._show_controller, '--format', 'yaml',
+                        include_e=False,
+                    ).decode('utf-8'),
+                )
+            except subprocess.CalledProcessError:
+                pass
+        raise ControllersTimeout(
+            'Timed out waiting for juju show-controllers to succeed')
 
     def show_model(self, model_name=None):
         model_details = self.get_juju_output(
