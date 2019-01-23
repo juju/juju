@@ -89,6 +89,7 @@ type ControllerAccessAPI interface {
 	ModelConfig() (map[string]interface{}, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
+	MongoVersion() (string, error)
 	Close() error
 }
 
@@ -139,6 +140,12 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 
 		var details ShowControllerDetails
+		mongoVersion, err := client.MongoVersion()
+		if err != nil {
+			details.Errors = append(details.Errors, err.Error())
+			continue
+		}
+
 		allModels, err := client.AllModels()
 		if err != nil {
 			details.Errors = append(details.Errors, err.Error())
@@ -164,7 +171,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			continue
 		}
 
-		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatusResults)
+		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatusResults, mongoVersion)
 		controllers[controllerName] = details
 		machineCount := 0
 		for _, r := range modelStatusResults {
@@ -265,6 +272,10 @@ type ControllerDetails struct {
 	// used in both list-controller and show-controller. show-controller
 	// displays the agent version where list-controller does not.
 	AgentVersion string `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
+
+	// MongoVersion is the version of the mongo server running on this
+	// controller.
+	MongoVersion string `yaml:"mongo-version" json:"mongo-version"`
 }
 
 // ModelDetails holds details of a model to show.
@@ -314,6 +325,7 @@ func (c *showControllerCommand) convertControllerForShow(
 	access string,
 	allModels []base.UserModel,
 	modelStatusResults []base.ModelStatus,
+	mongoVersion string,
 ) {
 
 	controller.Details = ControllerDetails{
@@ -324,6 +336,7 @@ func (c *showControllerCommand) convertControllerForShow(
 		Cloud:             details.Cloud,
 		CloudRegion:       details.CloudRegion,
 		AgentVersion:      details.AgentVersion,
+		MongoVersion:      mongoVersion,
 	}
 	c.convertModelsForShow(controllerName, controller, allModels, modelStatusResults)
 	c.convertAccountsForShow(controllerName, controller, access)

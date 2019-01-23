@@ -25,6 +25,8 @@ __metaclass__ = type
 class StatusTimeout(Exception):
     """Raised when 'juju status' timed out."""
 
+class ControllersTimeout(Exception):
+    """Raised when 'juju show-controller' timed out."""
 
 class SoftDeadlineExceeded(Exception):
     """Raised when an overall client operation takes too long."""
