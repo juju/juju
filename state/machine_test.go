@@ -2253,6 +2253,11 @@ func (s *MachineSuite) TestSupportsNoContainersOverwritesExisting(c *gc.C) {
 	err := machine.SupportsNoContainers()
 	c.Assert(err, jc.ErrorIsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{})
+	// Calling it a second time should not invoke a db transaction
+	defer state.SetFailIfTransaction(c, s.State).Check()
+	err = machine.SupportsNoContainers()
+	c.Assert(err, jc.ErrorIsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{})
 }
 
 func (s *MachineSuite) TestSetSupportedContainersSingle(c *gc.C) {
@@ -2267,6 +2272,7 @@ func (s *MachineSuite) TestSetSupportedContainersSingle(c *gc.C) {
 func (s *MachineSuite) TestSetSupportedContainersSame(c *gc.C) {
 	machine := s.addMachineWithSupportedContainer(c, instance.LXD)
 
+	defer state.SetFailIfTransaction(c, s.State).Check()
 	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 	c.Assert(err, jc.ErrorIsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD})
@@ -2293,6 +2299,11 @@ func (s *MachineSuite) TestSetSupportedContainersMultipleExisting(c *gc.C) {
 	machine := s.addMachineWithSupportedContainer(c, instance.LXD)
 
 	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXD, instance.KVM})
+	c.Assert(err, jc.ErrorIsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD, instance.KVM})
+	// Setting it again will be a no-op
+	defer state.SetFailIfTransaction(c, s.State).Check()
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXD, instance.KVM})
 	c.Assert(err, jc.ErrorIsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD, instance.KVM})
 }
