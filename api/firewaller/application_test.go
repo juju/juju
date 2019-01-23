@@ -9,7 +9,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher/watchertest"
 )
 
@@ -43,8 +42,6 @@ func (s *applicationSuite) TestTag(c *gc.C) {
 }
 
 func (s *applicationSuite) TestWatch(c *gc.C) {
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
-
 	w, err := s.apiApplication.Watch()
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
