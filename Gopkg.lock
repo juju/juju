@@ -726,14 +726,14 @@
   revision = "472a3e8b2073fb3cd67c12d2bc5f3cd28e5f4116"
 
 [[projects]]
-  digest = "1:4857e53a05abe24af8487f892dc316449de7f350c462081560d4e223a6616f3d"
+  digest = "1:a50b7f5375389bd4ea443fae8d04dc5443503f57469d539067c477a440787498"
   name = "github.com/juju/txn"
   packages = [
     ".",
     "testing",
   ]
   pruneopts = ""
-  revision = "79cdf4663070226316f3bc6c66de7babbb3fb899"
+  revision = "6a4d2498857a0bacc6b5ae304eac65e9881e3913"
 
 [[projects]]
   digest = "1:cf637806c17846b1660d388cfbee501ed64734526fe2e6176f16f9cd950e7c62"

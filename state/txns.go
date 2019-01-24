@@ -79,7 +79,7 @@ var seenShortStacks = make(map[string]bool)
 // RunTransaction is part of the jujutxn.Runner interface. Operations
 // that affect multi-model collections will be modified to
 // ensure correct interaction with these collections.
-func (r *multiModelRunner) RunTransaction(ops []txn.Op) error {
+func (r *multiModelRunner) RunTransaction(ops []txn.Op, attempt int) error {
 	if len(ops) == 0 {
 		stack := shortStack()
 		// It is a warning that should be reported to us, but we definitely
@@ -93,7 +93,7 @@ func (r *multiModelRunner) RunTransaction(ops []txn.Op) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return r.rawRunner.RunTransaction(newOps)
+	return r.rawRunner.RunTransaction(newOps, attempt)
 }
 
 // Run is part of the jujutxn.Runner interface. Operations returned by

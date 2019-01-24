@@ -365,7 +365,7 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 func (db *database) RunTransaction(ops []txn.Op) error {
 	runner, closer := db.TransactionRunner()
 	defer closer()
-	return runner.RunTransaction(ops)
+	return runner.RunTransaction(ops, 0)
 }
 
 // RunTransactionFor is part of the Database interface.
@@ -374,7 +374,7 @@ func (db *database) RunTransactionFor(modelUUID string, ops []txn.Op) error {
 	defer dbcloser()
 	runner, closer := newDB.TransactionRunner()
 	defer closer()
-	return runner.RunTransaction(ops)
+	return runner.RunTransaction(ops, 0)
 }
 
 // RunRawTransaction is part of the Database interface.
@@ -384,7 +384,7 @@ func (db *database) RunRawTransaction(ops []txn.Op) error {
 	if multiRunner, ok := runner.(*multiModelRunner); ok {
 		runner = multiRunner.rawRunner
 	}
-	return runner.RunTransaction(ops)
+	return runner.RunTransaction(ops, 0)
 }
 
 // Run is part of the Database interface.
