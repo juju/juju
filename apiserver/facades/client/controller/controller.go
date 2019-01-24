@@ -180,6 +180,9 @@ func (c *ControllerAPIv3) ModelStatus(req params.Entities) (params.ModelStatusRe
 	return results, nil
 }
 
+// MongoVersion isn't on the v5 API.
+func (c *ControllerAPIv5) MongoVersion() {}
+
 // MongoVersion allows the introspection of the mongo version per controller
 func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
 	result := params.StringResult{}

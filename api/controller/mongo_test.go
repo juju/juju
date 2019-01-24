@@ -14,10 +14,30 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
+func (s *Suite) TestMongoVersionPriorV6(c *gc.C) {
+	called := false
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 5,
+		APICallerFunc: func(objType string, version int, id, request string, a, response interface{}) error {
+			called = true
+			c.Assert(request, gc.Equals, "MongoVersion")
+			return nil
+		},
+	}
+
+	client := controller.NewClient(apiCaller)
+	_, err := client.MongoVersion()
+	c.Assert(err, gc.ErrorMatches, "MongoVersion not supported by this version of Juju not supported")
+	c.Assert(called, jc.IsFalse)
+}
+
 func (s *Suite) TestMongoVersionCallError(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
-		return errors.New("boom")
-	})
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 6,
+		APICallerFunc: func(string, int, string, string, interface{}, interface{}) error {
+			return errors.New("boom")
+		},
+	}
 	client := controller.NewClient(apiCaller)
 	result, err := client.MongoVersion()
 	c.Check(result, gc.Equals, "")
@@ -26,7 +46,7 @@ func (s *Suite) TestMongoVersionCallError(c *gc.C) {
 
 func (s *Suite) TestMongoVersion(c *gc.C) {
 	apiCaller := apitesting.BestVersionCaller{
-		BestVersion: 4,
+		BestVersion: 6,
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 			c.Check(objType, gc.Equals, "Controller")
 			c.Check(id, gc.Equals, "")
@@ -47,7 +67,7 @@ func (s *Suite) TestMongoVersion(c *gc.C) {
 
 func (s *Suite) TestMongoVersionWithErrorResult(c *gc.C) {
 	apiCaller := apitesting.BestVersionCaller{
-		BestVersion: 4,
+		BestVersion: 6,
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 			c.Check(objType, gc.Equals, "Controller")
 			c.Check(id, gc.Equals, "")
