@@ -113,7 +113,7 @@ class NoExistingController(Exception):
 
 def deploy_dummy_stack(client, charm_series, use_charmstore=False):
     """"Deploy a dummy stack in the specified environment."""
-    # Centos requires specific machine configuration (i.e. network device
+    # CentOS requires specific machine configuration (i.e. network device
     # order).
     if charm_series.startswith("centos") and client.env.maas:
         client.set_model_constraints({'tags': 'MAAS_NIC_1'})
@@ -146,6 +146,7 @@ def deploy_dummy_stack(client, charm_series, use_charmstore=False):
     else:
         client.wait_for_started(3600)
 
+
 def _deploy_stack(path, client, timeout=3600, charm=False, lxd_profile=None):
     # workaround to ensure lxd profile
     if lxd_profile is not None:
@@ -171,6 +172,7 @@ def _deploy_stack(path, client, timeout=3600, charm=False, lxd_profile=None):
     client.juju(client._show_status, ('--format', 'tabular'))
     return client
 
+
 def deploy_iaas_stack(path, client, timeout=3600, charm=False):
     """deploy a IAAS stack, it assumes that the path to a bundle/charm can be
        reached.
@@ -185,12 +187,14 @@ def deploy_iaas_stack(path, client, timeout=3600, charm=False):
     :param charm: deploy a charm or bundle
     """
 
-    client = _deploy_stack(path, client,
+    client = _deploy_stack(
+        path, client,
         timeout=timeout,
         charm=charm,
         lxd_profile=IAAS_LXD_PROFILE,
     )
     return IaasClient(client)
+
 
 def deploy_caas_stack(path, client, timeout=3600, charm=False):
     """deploy a CAAS stack, it assumes that the path to a bundle/charm can be
@@ -206,12 +210,14 @@ def deploy_caas_stack(path, client, timeout=3600, charm=False):
     :param charm: deploy a charm or bundle
     """
 
-    client = _deploy_stack(path, client,
+    client = _deploy_stack(
+        path, client,
         timeout=timeout,
         charm=charm,
         lxd_profile=CAAS_LXD_PROFILE,
     )
     return CaasClient(client)
+
 
 def assess_juju_relations(client):
     token = get_random_string()

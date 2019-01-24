@@ -40,14 +40,14 @@ def assess_caas_bootstrap(client):
         juju_ver=client.version
     )
 
-    caas_client = deploy_caas_stack(bundle_path=bundle, client=client, timeout=3600)
+    caas_client = deploy_caas_stack(path=bundle, client=client, timeout=3600)
     if not caas_client.is_cluster_healthy:
         raise JujuAssertionError('k8s cluster is not healthy coz kubectl is not accessible')
 
 
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="Cass Bootstrap CI test")
+    parser = argparse.ArgumentParser(description="CAAS Bootstrap CI test")
 
     add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
