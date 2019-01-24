@@ -200,7 +200,10 @@ func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
 	details, err := s.store.ModelByName("test-master", "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{
-		ModelUUID: "fake-model-uuid", ModelType: model.IAAS})
+		ModelUUID:       "fake-model-uuid",
+		ModelType:       model.IAAS,
+		ModelGeneration: model.GenerationCurrent,
+	})
 }
 
 func (s *AddModelSuite) TestAddModelUnauthorizedMentionsJujuGrant(c *gc.C) {
@@ -560,7 +563,11 @@ func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
 
 	m, err := s.store.ModelByName(controllerName, modelName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{ModelUUID: "fake-model-uuid", ModelType: model.IAAS})
+	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{
+		ModelUUID:       "fake-model-uuid",
+		ModelType:       model.IAAS,
+		ModelGeneration: model.GenerationCurrent,
+	})
 }
 
 func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
@@ -579,7 +586,11 @@ func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
 	checkNoModelSelected()
 	m, err := s.store.ModelByName(controllerName, "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{ModelUUID: "fake-model-uuid", ModelType: model.IAAS})
+	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{
+		ModelUUID:       "fake-model-uuid",
+		ModelType:       model.IAAS,
+		ModelGeneration: model.GenerationCurrent,
+	})
 }
 
 func (s *AddModelSuite) TestNoEnvCacheOtherUser(c *gc.C) {
