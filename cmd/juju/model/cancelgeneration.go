@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
@@ -43,10 +44,10 @@ type cancelGenerationCommand struct {
 }
 
 // CancelGenerationCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package model_test -destination ./cancelgenerationmock_test.go github.com/juju/juju/cmd/juju/model CancelGenerationCommandAPI
+//go:generate mockgen -package mocks -destination ./mocks/cancelgeneration_mock.go github.com/juju/juju/cmd/juju/model CancelGenerationCommandAPI
 type CancelGenerationCommandAPI interface {
 	Close() error
-	CancelGeneration() error
+	CancelGeneration(names.ModelTag) error
 }
 
 // Info implements part of the cmd.Command interface.
@@ -94,11 +95,16 @@ func (c *cancelGenerationCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	// TODO (hml) 20-12-2018
-	// update to check err when CancelGeneration() is implemented in the
-	// apiserver.
-	client.CancelGeneration()
+	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
+	if err != nil {
+		return errors.Annotate(err, "getting model details")
+	}
 
-	ctx.Stdout.Write([]byte("changes dropped and target generation set to current\n"))
+	modelTag := names.NewModelTag(modelDetails.ModelUUID)
+	if err = client.CancelGeneration(modelTag); err != nil {
+		return err
+	}
+
+	ctx.Stdout.Write([]byte("remaining incomplete changes dropped and target generation set to current\n"))
 	return nil
 }

@@ -62,8 +62,8 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 		gExp.Active().Return(true)
 		gExp.AssignAllUnits("ghost").Return(nil)
 		gExp.AssignUnit("mysql/0").Return(nil)
-		gExp.CanMakeCurrent().Return(true, nil)
-		gExp.MakeCurrent().Return(nil)
+		gExp.CanAutoComplete().Return(true, nil)
+		gExp.AutoComplete().Return(nil)
 		gExp.Refresh().Return(nil).Times(3)
 
 		mExp := mockModel.EXPECT()
@@ -77,6 +77,39 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 		{Error: nil},
 		{Error: &params.Error{Message: "expected names.UnitTag or names.ApplicationTag, got names.MachineTag"}},
 	})
+}
+
+func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+		mockGeneration := mocks.NewMockGeneration(ctrl)
+		gExp := mockGeneration.EXPECT()
+		gExp.Active().Return(true)
+		gExp.CanMakeCurrent().Return(true, []string{}, nil)
+		gExp.MakeCurrent().Return(nil)
+
+		mExp := mockModel.EXPECT()
+		mExp.NextGeneration().Return(mockGeneration, nil)
+	}).Finish()
+
+	result, err := s.api.CancelGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
+}
+
+func (s *modelGenerationSuite) TestCancelGenerationCanNotMakeCurrent(c *gc.C) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+		mockGeneration := mocks.NewMockGeneration(ctrl)
+		gExp := mockGeneration.EXPECT()
+		gExp.Active().Return(true)
+		gExp.CanMakeCurrent().Return(false, []string{"riak/0"}, nil)
+
+		mExp := mockModel.EXPECT()
+		mExp.NextGeneration().Return(mockGeneration, nil)
+	}).Finish()
+
+	result, err := s.api.CancelGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: &params.Error{Message: "cannot cancel generation, there are units behind a generation: riak/0"}})
 }
 
 func (s *modelGenerationSuite) TestSwitchGenerationNext(c *gc.C) {

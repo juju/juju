@@ -37,7 +37,9 @@ type Generation interface {
 	Active() bool
 	AssignAllUnits(string) error
 	AssignUnit(string) error
-	CanMakeCurrent() (bool, error)
+	CanMakeCurrent() (bool, []string, error)
 	MakeCurrent() error
+	CanAutoComplete() (bool, error)
+	AutoComplete() error
 	Refresh() error
 }
