@@ -2687,7 +2687,7 @@ class TestModelClient(ClientTest):
             client.restore_backup('quxx')
         gjo_mock.assert_called_once_with(
             'restore-backup',
-            ('-b', '--constraints', 'mem=2G', '--file', 'quxx'))
+            ('--file', 'quxx'))
 
     def test_restore_backup_async(self):
         env = JujuData('qux')
@@ -2695,7 +2695,7 @@ class TestModelClient(ClientTest):
         with patch.object(client, 'juju_async') as gjo_mock:
             result = client.restore_backup_async('quxx')
         gjo_mock.assert_called_once_with('restore-backup', (
-            '-b', '--constraints', 'mem=2G', '--file', 'quxx'))
+           '--file', 'quxx'))
         self.assertIs(gjo_mock.return_value, result)
 
     def test_enable_ha(self):
