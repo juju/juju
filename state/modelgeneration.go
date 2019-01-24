@@ -89,7 +89,7 @@ func (g *Generation) AssignApplication(appName string) error {
 			return nil, jujutxn.ErrNoOperations
 		}
 		// Any 'next' generation that is Active, cannot also be Completed,
-		// see MakeCurrent() and NextGeneration().
+		// see AutoComplete() and NextGeneration().
 		if !g.Active() {
 			return nil, errors.New("generation is not currently active")
 		}
@@ -130,7 +130,7 @@ func (g *Generation) AssignAllUnits(appName string) error {
 			}
 		}
 		// Any 'next' generation that is Active, cannot also be Completed,
-		// see MakeCurrent() and NextGeneration().
+		// see AutoComplete() and NextGeneration().
 		if !g.Active() {
 			return nil, errors.New("generation is not currently active")
 		}
@@ -218,14 +218,16 @@ func assignGenerationUnitTxnOps(id, appName, unitName string) []txn.Op {
 	}
 }
 
-// MakeCurrent marks the generation as completed, if it is active and
-// meets autocomplete criteria, so it becomes the "current" generation.
-func (g *Generation) MakeCurrent() error {
+// AutoComplete marks the generation as completed, if it is active and
+// meets autocomplete criteria.  Becomes the "current" generation.
+func (g *Generation) AutoComplete() error {
 	err := g.complete(false)
 	return errors.Trace(err)
 }
 
-func (g *Generation) Cancel() error {
+// MarkCurrent marks a geneneration as completed, if it is active and
+// meets markcurrent criteria. Becomes the "current" generation.
+func (g *Generation) MakeCurrent() error {
 	err := g.complete(true)
 	return errors.Trace(err)
 }
@@ -290,24 +292,26 @@ func (g *Generation) allowMakeCurrent(allowEmpty bool) (bool, error) {
 	return true, nil
 }
 
-// CanMakeCurrent returns true if every application that has had configuration
+// CanAutoComplete returns true if every application that has had configuration
 // changes in this generation also has *all* of its units assigned to the
 // generation.
-func (g *Generation) CanMakeCurrent() (bool, error) {
+// autocomplete, advance
+func (g *Generation) CanAutoComplete() (bool, error) {
 	can, _, err := g.canMakeCurrent(false)
 	return can, errors.Trace(err)
 }
 
-// CanCancel returns true if every application that has had configuration
+// CanMakeCurrent returns true if every application that has had configuration
 // changes in this generation has *all or none* of its units assigned to the
 // generation.
-func (g *Generation) CanCancel() (bool, []string, error) {
+// makecurrent, cancel.
+func (g *Generation) CanMakeCurrent() (bool, []string, error) {
 	can, units, err := g.canMakeCurrent(true)
 	return can, units, errors.Trace(err)
 }
 
 func (g *Generation) canMakeCurrent(allowEmpty bool) (bool, []string, error) {
-	// This will prevent CanMakeCurrent from returning true when no config
+	// This will prevent CanAutoComplete from returning true when no config
 	// changes have been made to the generation.
 	if !allowEmpty && len(g.doc.AssignedUnits) == 0 {
 		return false, nil, nil

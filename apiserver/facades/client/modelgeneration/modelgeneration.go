@@ -135,12 +135,12 @@ func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) 
 		}
 	}
 
-	ok, err := generation.CanMakeCurrent()
+	ok, err := generation.CanAutoComplete()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
 	if ok {
-		return results, generation.MakeCurrent()
+		return results, generation.AutoComplete()
 	}
 
 	return results, nil
@@ -167,7 +167,7 @@ func (m *ModelGenerationAPI) CancelGeneration(arg params.Entity) (params.ErrorRe
 		return result, errors.Errorf("next generation is not active")
 	}
 
-	ok, values, err := generation.CanCancel()
+	ok, values, err := generation.CanMakeCurrent()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -177,7 +177,7 @@ func (m *ModelGenerationAPI) CancelGeneration(arg params.Entity) (params.ErrorRe
 		return result, nil
 	}
 
-	result.Error = common.ServerError(generation.Cancel())
+	result.Error = common.ServerError(generation.MakeCurrent())
 	return result, nil
 }
 

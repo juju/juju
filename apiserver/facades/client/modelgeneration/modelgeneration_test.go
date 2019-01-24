@@ -62,8 +62,8 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 		gExp.Active().Return(true)
 		gExp.AssignAllUnits("ghost").Return(nil)
 		gExp.AssignUnit("mysql/0").Return(nil)
-		gExp.CanMakeCurrent().Return(true, nil)
-		gExp.MakeCurrent().Return(nil)
+		gExp.CanAutoComplete().Return(true, nil)
+		gExp.AutoComplete().Return(nil)
 		gExp.Refresh().Return(nil).Times(3)
 
 		mExp := mockModel.EXPECT()
@@ -84,8 +84,8 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.Active().Return(true)
-		gExp.CanCancel().Return(true, []string{}, nil)
-		gExp.Cancel().Return(nil)
+		gExp.CanMakeCurrent().Return(true, []string{}, nil)
+		gExp.MakeCurrent().Return(nil)
 
 		mExp := mockModel.EXPECT()
 		mExp.NextGeneration().Return(mockGeneration, nil)
@@ -96,12 +96,12 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
 }
 
-func (s *modelGenerationSuite) TestCancelGenerationCanNotCancel(c *gc.C) {
+func (s *modelGenerationSuite) TestCancelGenerationCanNotMakeCurrent(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.Active().Return(true)
-		gExp.CanCancel().Return(false, []string{"riak/0"}, nil)
+		gExp.CanMakeCurrent().Return(false, []string{"riak/0"}, nil)
 
 		mExp := mockModel.EXPECT()
 		mExp.NextGeneration().Return(mockGeneration, nil)

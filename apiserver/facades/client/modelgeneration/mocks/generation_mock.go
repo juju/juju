@@ -68,43 +68,43 @@ func (mr *MockGenerationMockRecorder) AssignUnit(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignUnit", reflect.TypeOf((*MockGeneration)(nil).AssignUnit), arg0)
 }
 
-// CanCancel mocks base method
-func (m *MockGeneration) CanCancel() (bool, []string, error) {
-	ret := m.ctrl.Call(m, "CanCancel")
+// AutoComplete mocks base method
+func (m *MockGeneration) AutoComplete() error {
+	ret := m.ctrl.Call(m, "AutoComplete")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AutoComplete indicates an expected call of AutoComplete
+func (mr *MockGenerationMockRecorder) AutoComplete() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoComplete", reflect.TypeOf((*MockGeneration)(nil).AutoComplete))
+}
+
+// CanAutoComplete mocks base method
+func (m *MockGeneration) CanAutoComplete() (bool, error) {
+	ret := m.ctrl.Call(m, "CanAutoComplete")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CanAutoComplete indicates an expected call of CanAutoComplete
+func (mr *MockGenerationMockRecorder) CanAutoComplete() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanAutoComplete", reflect.TypeOf((*MockGeneration)(nil).CanAutoComplete))
+}
+
+// CanMakeCurrent mocks base method
+func (m *MockGeneration) CanMakeCurrent() (bool, []string, error) {
+	ret := m.ctrl.Call(m, "CanMakeCurrent")
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].([]string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// CanCancel indicates an expected call of CanCancel
-func (mr *MockGenerationMockRecorder) CanCancel() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanCancel", reflect.TypeOf((*MockGeneration)(nil).CanCancel))
-}
-
-// CanMakeCurrent mocks base method
-func (m *MockGeneration) CanMakeCurrent() (bool, error) {
-	ret := m.ctrl.Call(m, "CanMakeCurrent")
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
 // CanMakeCurrent indicates an expected call of CanMakeCurrent
 func (mr *MockGenerationMockRecorder) CanMakeCurrent() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanMakeCurrent", reflect.TypeOf((*MockGeneration)(nil).CanMakeCurrent))
-}
-
-// Cancel mocks base method
-func (m *MockGeneration) Cancel() error {
-	ret := m.ctrl.Call(m, "Cancel")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Cancel indicates an expected call of Cancel
-func (mr *MockGenerationMockRecorder) Cancel() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cancel", reflect.TypeOf((*MockGeneration)(nil).Cancel))
 }
 
 // MakeCurrent mocks base method

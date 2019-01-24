@@ -72,18 +72,18 @@ func (s *generationSuite) TestActiveGenerationSwitchSuccess(c *gc.C) {
 	c.Check(v, gc.Equals, model.GenerationCurrent)
 }
 
-func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
+func (s *generationSuite) TestCanAutoCompleteAndCanMakeCurrent(c *gc.C) {
 	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
 
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
 
-	comp, values, err := gen.CanCancel()
+	comp, values, err := gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsTrue)
 	c.Check(values, gc.DeepEquals, []string{})
 
-	auto, err := gen.CanMakeCurrent()
+	auto, err := gen.CanAutoComplete()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(auto, jc.IsFalse)
 
@@ -105,12 +105,12 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	c.Assert(gen.AssignApplication("riak"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 
-	comp, values, err = gen.CanCancel()
+	comp, values, err = gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsTrue)
 	c.Check(values, gc.DeepEquals, []string{})
 
-	auto, err = gen.CanMakeCurrent()
+	auto, err = gen.CanAutoComplete()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(auto, jc.IsFalse)
 
@@ -119,12 +119,12 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 
-	comp, values, err = gen.CanCancel()
+	comp, values, err = gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsFalse)
 	c.Check(values, gc.DeepEquals, []string{"riak/1"})
 
-	auto, err = gen.CanMakeCurrent()
+	auto, err = gen.CanAutoComplete()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(auto, jc.IsFalse)
 
@@ -133,12 +133,12 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	c.Assert(gen.AssignUnit("riak/1"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 
-	comp, values, err = gen.CanCancel()
+	comp, values, err = gen.CanMakeCurrent()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(comp, jc.IsTrue)
 	c.Check(values, gc.DeepEquals, []string{})
 
-	auto, err = gen.CanMakeCurrent()
+	auto, err = gen.CanAutoComplete()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(auto, jc.IsTrue)
 }
@@ -281,7 +281,7 @@ func (s *generationSuite) setupClockForComplete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *generationSuite) TestMakeCurrentSuccess(c *gc.C) {
+func (s *generationSuite) TestAutoCompleteSuccess(c *gc.C) {
 	s.setupAssignAllUnits(c)
 	s.setupClockForComplete(c)
 
@@ -291,6 +291,46 @@ func (s *generationSuite) TestMakeCurrentSuccess(c *gc.C) {
 	c.Assert(gen.AssignAllUnits("riak"), jc.ErrorIsNil)
 
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.AutoComplete(), jc.ErrorIsNil)
+
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.Active(), jc.IsFalse)
+
+	// Idempotent.
+	c.Assert(gen.AutoComplete(), jc.ErrorIsNil)
+}
+
+func (s *generationSuite) TestAutoCompleteNotActiveError(c *gc.C) {
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// If the "next" generation is not active,
+	// a call to AutoComplete should fail.
+	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.AutoComplete(), gc.ErrorMatches, "generation is not currently active")
+}
+
+func (s *generationSuite) TestAutoCompleteGenerationIncompleteError(c *gc.C) {
+	s.setupAssignAllUnits(c)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.AutoComplete(), gc.ErrorMatches, "generation can not be completed")
+}
+
+func (s *generationSuite) TestMakeCurrentSuccess(c *gc.C) {
+	s.setupClockForComplete(c)
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
 
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
@@ -307,13 +347,13 @@ func (s *generationSuite) TestMakeCurrentNotActiveError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// If the "next" generation is not active,
-	// a call to MakeCurrent should fail.
+	// a call to AutoComplete should fail.
 	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "generation is not currently active")
 }
 
-func (s *generationSuite) TestMakeCurrentGenerationIncompleteError(c *gc.C) {
+func (s *generationSuite) TestMakeCurrentCanNotCancelError(c *gc.C) {
 	s.setupAssignAllUnits(c)
 
 	gen, err := s.Model.NextGeneration()
@@ -321,45 +361,5 @@ func (s *generationSuite) TestMakeCurrentGenerationIncompleteError(c *gc.C) {
 
 	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "generation can not be completed")
-}
-
-func (s *generationSuite) TestCancelSuccess(c *gc.C) {
-	s.setupClockForComplete(c)
-	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
-
-	gen, err := s.Model.NextGeneration()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(gen.Cancel(), jc.ErrorIsNil)
-
-	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.Active(), jc.IsFalse)
-
-	// Idempotent.
-	c.Assert(gen.Cancel(), jc.ErrorIsNil)
-}
-
-func (s *generationSuite) TestCancelNotActiveError(c *gc.C) {
-	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
-
-	gen, err := s.Model.NextGeneration()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// If the "next" generation is not active,
-	// a call to MakeCurrent should fail.
-	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
-	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.Cancel(), gc.ErrorMatches, "generation is not currently active")
-}
-
-func (s *generationSuite) TestCancelCanNotCancelError(c *gc.C) {
-	s.setupAssignAllUnits(c)
-
-	gen, err := s.Model.NextGeneration()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
-	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.Cancel(), gc.ErrorMatches, "cannot cancel generation, there are units behind a generation: riak/1, riak/2, riak/3")
+	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "cannot cancel generation, there are units behind a generation: riak/1, riak/2, riak/3")
 }
