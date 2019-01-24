@@ -19,6 +19,9 @@ type PoolManager interface {
 	// Delete removes the pool with name from state.
 	Delete(name string) error
 
+	// Update updates existing pool configuration with new or changed values
+	Update(name string, attrs map[string]interface{}) error
+
 	// Get returns the pool with name from state.
 	Get(name string) (*storage.Config, error)
 
@@ -28,6 +31,7 @@ type PoolManager interface {
 
 type SettingsManager interface {
 	CreateSettings(key string, settings map[string]interface{}) error
+	UpdateSettings(key string, settings map[string]interface{}) error
 	ReadSettings(key string) (map[string]interface{}, error)
 	RemoveSettings(key string) error
 	ListSettings(keyPrefix string) (map[string]map[string]interface{}, error)
@@ -43,6 +47,15 @@ type MemSettings struct {
 func (m MemSettings) CreateSettings(key string, settings map[string]interface{}) error {
 	if _, ok := m.Settings[key]; ok {
 		return errors.AlreadyExistsf("settings with key %q", key)
+	}
+	m.Settings[key] = settings
+	return nil
+}
+
+// UpdateSettings is part of the SettingsManager interface.
+func (m MemSettings) UpdateSettings(key string, settings map[string]interface{}) error {
+	if _, ok := m.Settings[key]; !ok {
+		return errors.NotFoundf("settings with key %q", key)
 	}
 	m.Settings[key] = settings
 	return nil

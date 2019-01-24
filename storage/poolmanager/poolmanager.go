@@ -78,6 +78,14 @@ func (pm *poolManager) Delete(name string) error {
 	return errors.Annotatef(err, "deleting pool %q", name)
 }
 
+// Update is defined on PoolManager interface.
+func (pm *poolManager) Update(name string, attrs map[string]interface{}) error {
+	if name == "" {
+		return MissingNameError
+	}
+	return pm.settings.UpdateSettings(globalKey(name), attrs)
+}
+
 // Get is defined on PoolManager interface.
 func (pm *poolManager) Get(name string) (*storage.Config, error) {
 	settings, err := pm.settings.ReadSettings(globalKey(name))

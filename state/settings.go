@@ -373,6 +373,17 @@ func removeSettingsOp(collection, key string) txn.Op {
 	}
 }
 
+// updateSettings updates the Settings for key.
+func updateSettings(db Database, collection, key string, values map[string]interface{}) error {
+	existing, err := readSettings(db, collection, key)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	existing.Update(values)
+	_, err = existing.Write()
+	return errors.Trace(err)
+}
+
 // listSettings returns all the settings with the specified key prefix.
 func listSettings(backend modelBackend, collection, keyPrefix string) (map[string]map[string]interface{}, error) {
 	settings, closer := backend.db().GetRawCollection(collection)
@@ -482,6 +493,11 @@ func (s *StateSettings) ReadSettings(key string) (map[string]interface{}, error)
 // RemoveSettings exposes removeSettings on state for use outside the state package.
 func (s *StateSettings) RemoveSettings(key string) error {
 	return removeSettings(s.backend.db(), s.collection, key)
+}
+
+// UpdateSettings exposes updateSettings on state for use outside the state package.
+func (s *StateSettings) UpdateSettings(key string, settings map[string]interface{}) error {
+	return updateSettings(s.backend.db(), s.collection, key, settings)
 }
 
 // ListSettings exposes listSettings on state for use outside the state package.

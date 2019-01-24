@@ -39,6 +39,29 @@ type APIv4 struct {
 	*APIv3
 }
 
+// APIv5 implements the storage v5 API.
+type APIv5 struct {
+	*APIv4
+}
+
+// NewAPIv5 returns a new storage v5 API facade.
+func NewAPIv5(
+	backend backend,
+	modelType state.ModelType,
+	storageAccess storageAccess,
+	registry storage.ProviderRegistry,
+	pm poolmanager.PoolManager,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	callContext context.ProviderCallContext,
+) (*APIv5, error) {
+	apiv4, err := NewAPIv4(backend, modelType, storageAccess, registry, pm, resources, authorizer, callContext)
+	if err != nil {
+		return nil, err
+	}
+	return &APIv5{apiv4}, nil
+}
+
 // NewAPIv4 returns a new storage v4 API facade.
 func NewAPIv4(
 	backend backend,
@@ -1111,3 +1134,21 @@ func (a *APIv4) importFilesystem(
 
 // Destroy was dropped in V4, replaced with Remove.
 func (*APIv4) Destroy(_, _ struct{}) {}
+
+// DeletePool deletes the named pool
+func (a *APIv5) DeletePool(poolName string) error {
+	if err := a.checkCanWrite(); err != nil {
+		return errors.Trace(err)
+	}
+	err := a.poolManager.Delete(poolName)
+	return err
+}
+
+// UpdatePool deletes the named pool
+func (a *APIv5) UpdatePool(p params.StoragePool) error {
+	if err := a.checkCanWrite(); err != nil {
+		return errors.Trace(err)
+	}
+	err := a.poolManager.Update(p.Name, p.Attrs)
+	return err
+}
