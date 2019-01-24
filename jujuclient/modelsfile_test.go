@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
@@ -98,6 +99,7 @@ func (s *ModelsFileSuite) TestReadEmptyFile(c *gc.C) {
 }
 
 func (s *ModelsFileSuite) TestMigrateLegacyLocal(c *gc.C) {
+	s.SetFeatureFlags(feature.Generations)
 	err := ioutil.WriteFile(jujuclient.JujuModelsPath(), []byte(testLegacyModelsYAML), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
