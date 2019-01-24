@@ -26,8 +26,8 @@ type baseStorageSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	api             *storage.APIv4
-	apiCaas         *storage.APIv4
+	api             *storage.APIv5
+	apiCaas         *storage.APIv5
 	apiv3           *storage.APIv3
 	storageAccessor *mockStorageAccessor
 	state           *mockState
@@ -68,8 +68,8 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 
 	s.callContext = context.NewCloudCallContext()
 	var err error
-	s.api, err = storage.NewAPIv4(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
-	s.apiCaas, err = storage.NewAPIv4(s.state, state.ModelTypeCAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
+	s.api, err = storage.NewAPIv5(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
+	s.apiCaas, err = storage.NewAPIv5(s.state, state.ModelTypeCAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiv3, err = storage.NewAPIv3(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
@@ -356,6 +356,18 @@ func (s *baseStorageSuite) constructPoolManager() *mockPoolManager {
 				i++
 			}
 			return result, nil
+		},
+		updatePool: func(name string, attrs map[string]interface{}) error {
+			if p, ok := s.pools[name]; ok {
+				updatedAttr := p.Attrs()
+				for k, v := range attrs {
+					updatedAttr[k] = v
+				}
+				newPool, err := jujustorage.NewConfig(name, p.Provider(), updatedAttr)
+				s.pools[name] = newPool
+				return err
+			}
+			return errors.NotFoundf("mock pool manager: get pool %v", name)
 		},
 	}
 }
