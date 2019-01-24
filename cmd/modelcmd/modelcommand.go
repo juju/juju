@@ -234,7 +234,7 @@ func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
 
 // ModelType implements the ModelCommand interface.
 func (c *ModelCommandBase) ModelGeneration() (model.GenerationVersion, error) {
-	if c._modelType != "" {
+	if c._modelGeneration != "" {
 		return c._modelGeneration, nil
 	}
 	// If we need to look up the model type, we need to ensure we
@@ -253,6 +253,9 @@ func (c *ModelCommandBase) ModelGeneration() (model.GenerationVersion, error) {
 		}
 	}
 	c._modelGeneration = details.ModelGeneration
+	if c._modelGeneration != "" {
+		return model.GenerationCurrent, nil
+	}
 	return c._modelGeneration, nil
 }
 
