@@ -158,24 +158,16 @@ provisioner: hostpath
 """
 
 
-def run_hook(func, is_raise=False):
-    if func is not None and callable(func):
-        try:
-            return func()
-        except Exception as e:
-            log.error(e)
-            if is_raise:
-                raise e
-    return None
+def check_app_healthy(url, timeout=300, success_hook=lambda: None, fail_hook=lambda: None):
+    if not callable(success_hook) or not callable(fail_hook):
+        raise RuntimeError("hooks are not callable")
 
-
-def check_app_healthy(url, timeout=300, success_hook=None, fail_hook=None):
     status_code = None
     for remaining in until_timeout(timeout):
         try:
             r = requests.get(url)
             if r.ok and r.status_code < 400:
-                return run_hook(success_hook)
+                return success_hook()
             status_code = r.status_code
         except IOError as e:
             log.error(e)
@@ -184,7 +176,7 @@ def check_app_healthy(url, timeout=300, success_hook=None, fail_hook=None):
             if remaining % 60 == 0:
                 log.info('timeout in %ss', remaining)
     log.error('HTTP health check failed -> %s, status_code -> %s !', url, status_code)
-    run_hook(fail_hook)
+    fail_hook()
     raise JujuAssertionError('gitlab is not healthy')
 
 
