@@ -153,3 +153,11 @@ func NewBundleDiffCommandForTest(api base.APICallCloser, charmStore BundleResolv
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
+
+func NewShowCommandForTest(api ApplicationsInfoAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &showApplicationCommand{newAPIFunc: func() (ApplicationsInfoAPI, error) {
+		return api, nil
+	}}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}

@@ -34,6 +34,7 @@ func init() {
 	}
 	// Initialize all suites here.
 	gc.Suite(&annotationsSuite{})
+	gc.Suite(&CmdApplicationSuite{})
 	gc.Suite(&CloudAPISuite{})
 	gc.Suite(&apiEnvironmentSuite{})
 	gc.Suite(&apiLoggerSuite{})

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
@@ -43,7 +45,7 @@ type ApplicationSuite struct {
 	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.APIv8
+	api          *application.APIv9
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
@@ -68,7 +70,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		common.NewResources(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv8{api}
+	s.api = &application.APIv9{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
@@ -97,6 +99,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 							"intOption":    {Type: "int", Default: int(123)},
 						},
 					},
+					meta: &charm.Meta{Name: "charm-postgresql"},
 				},
 				units: []*mockUnit{
 					{
@@ -114,6 +117,11 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 					tag: names.NewUnitTag("postgresql/99"),
 				},
 				lxdProfileUpgradeChanges: make(chan struct{}),
+				constraints:              constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
+				channel:                  csparams.DevelopmentChannel,
+				bindings: map[string]string{
+					"juju-info": "myspace",
+				},
 			},
 			"postgresql-subordinate": {
 				name:        "postgresql-subordinate",
@@ -126,6 +134,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 							"intOption":    {Type: "int", Default: int(123)},
 						},
 					},
+					meta: &charm.Meta{Name: "charm-postgresql-subordinate"},
 				},
 				units: []*mockUnit{
 					{tag: names.NewUnitTag("postgresql-subordinate/0")},
@@ -135,6 +144,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 					tag: names.NewUnitTag("postgresql-subordinate/99"),
 				},
 				lxdProfileUpgradeChanges: make(chan struct{}),
+				constraints:              constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
+				channel:                  csparams.DevelopmentChannel,
 			},
 		},
 		remoteApplications: map[string]application.RemoteApplication{
@@ -1212,7 +1223,7 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "UpdateApplicationConfig", "UpdateCharmConfig")
+	app.CheckCallNames(c, "UpdateApplicationConfig", "Charm", "UpdateCharmConfig")
 
 	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1223,7 +1234,7 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes{
 		"juju-external-hostname": "value",
 	}, []string(nil), schema, defaults)
-	app.CheckCall(c, 1, "UpdateCharmConfig", charm.Settings{"stringOption": "stringVal"})
+	app.CheckCall(c, 2, "UpdateCharmConfig", charm.Settings{"stringOption": "stringVal"})
 }
 
 func (s *ApplicationSuite) TestBlockSetApplicationConfig(c *gc.C) {
@@ -1362,4 +1373,75 @@ func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	app.CheckCallNames(c, "ApplicationConfig", "SetExposed")
+}
+
+func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
+	entities := []params.Entity{{Tag: "application-postgresql"}}
+	result, err := s.api.ApplicationsInfo(params.Entities{entities})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, len(entities))
+	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationInfo{
+		Tag:         "application-postgresql",
+		Charm:       "charm-postgresql",
+		Series:      "quantal",
+		Channel:     "development",
+		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
+		Principal:   true,
+		EndpointBindings: map[string]string{
+			"juju-info": "myspace",
+		},
+	})
+	app := s.backend.applications["postgresql"]
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "Series", "Channel", "EndpointBindings", "IsPrincipal", "IsExposed", "IsRemote")
+}
+
+func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
+	entities := []params.Entity{{Tag: "application-postgresql"}}
+	app := s.backend.applications["postgresql"]
+	app.SetErrors(
+		errors.Errorf("boom"), // a.CharmConfig() call
+	)
+
+	result, err := s.api.ApplicationsInfo(params.Entities{entities})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, len(entities))
+	app.CheckCallNames(c, "CharmConfig")
+	c.Assert(*result.Results[0].Error, gc.ErrorMatches, "boom")
+}
+
+func (s *ApplicationSuite) TestApplicationsInfoBindingsErr(c *gc.C) {
+	entities := []params.Entity{{Tag: "application-postgresql"}}
+	app := s.backend.applications["postgresql"]
+	app.SetErrors(
+		nil,                   // a.CharmConfig() call
+		errors.Errorf("boom"), // a.EndpointBindings() call
+	)
+
+	result, err := s.api.ApplicationsInfo(params.Entities{entities})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, len(entities))
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig")
+	c.Assert(*result.Results[0].Error, gc.ErrorMatches, "boom")
+}
+
+func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
+	entities := []params.Entity{{Tag: "application-postgresql"}, {Tag: "application-wordpress"}, {Tag: "unit-postgresql-0"}}
+	result, err := s.api.ApplicationsInfo(params.Entities{entities})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, len(entities))
+	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationInfo{
+		Tag:         "application-postgresql",
+		Charm:       "charm-postgresql",
+		Series:      "quantal",
+		Channel:     "development",
+		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
+		Principal:   true,
+		EndpointBindings: map[string]string{
+			"juju-info": "myspace",
+		},
+	})
+	c.Assert(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
+	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
+	app := s.backend.applications["postgresql"]
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "Series", "Channel", "EndpointBindings", "IsPrincipal", "IsExposed", "IsRemote")
 }

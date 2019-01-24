@@ -14,6 +14,7 @@ import (
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"gopkg.in/juju/charm.v6"
+	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
@@ -58,6 +60,7 @@ type mockCharm struct {
 }
 
 func (m *mockCharm) Meta() *charm.Meta {
+	m.MethodCall(m, "Meta")
 	return m.meta
 }
 
@@ -83,26 +86,50 @@ type mockApplication struct {
 	addedUnit                mockUnit
 	config                   coreapplication.ConfigAttributes
 	lxdProfileUpgradeChanges chan struct{}
+	constraints              constraints.Value
+	channel                  csparams.Channel
+	exposed                  bool
+	remote                   bool
 }
 
 func (m *mockApplication) Name() string {
+	m.MethodCall(m, "Name")
 	return m.name
 }
 
+func (m *mockApplication) Channel() csparams.Channel {
+	m.MethodCall(m, "Channel")
+	return m.channel
+}
+
 func (m *mockApplication) Charm() (application.Charm, bool, error) {
+	m.MethodCall(m, "Charm")
 	return m.charm, true, nil
 }
 
 func (m *mockApplication) CharmURL() (curl *charm.URL, force bool) {
+	m.MethodCall(m, "CharmURL")
 	return m.curl, true
 }
 
+func (m *mockApplication) CharmConfig() (charm.Settings, error) {
+	m.MethodCall(m, "CharmConfig")
+	return m.charm.config.DefaultSettings(), m.NextErr()
+}
+
+func (m *mockApplication) Constraints() (constraints.Value, error) {
+	m.MethodCall(m, "Constraints")
+	return m.constraints, nil
+}
+
 func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
+	m.MethodCall(m, "Endpoints")
 	return m.endpoints, nil
 }
 
 func (m *mockApplication) EndpointBindings() (map[string]string, error) {
-	return m.bindings, nil
+	m.MethodCall(m, "EndpointBindings")
+	return m.bindings, m.NextErr()
 }
 
 func (a *mockApplication) AllUnits() ([]application.Unit, error) {
@@ -206,6 +233,16 @@ func (a *mockApplication) SetExposed() error {
 func (a *mockApplication) WatchLXDProfileUpgradeNotifications() (state.NotifyWatcher, error) {
 	a.MethodCall(a, "WatchLXDProfileUpgradeNotifications")
 	return &mockNotifyWatcher{ch: a.lxdProfileUpgradeChanges}, a.NextErr()
+}
+
+func (a *mockApplication) IsExposed() bool {
+	a.MethodCall(a, "IsExposed")
+	return a.exposed
+}
+
+func (a *mockApplication) IsRemote() bool {
+	a.MethodCall(a, "IsRemote")
+	return a.remote
 }
 
 type mockNotifyWatcher struct {

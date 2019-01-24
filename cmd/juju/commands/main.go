@@ -409,6 +409,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewApplicationGetConstraintsCommand())
 	r.Register(application.NewApplicationSetConstraintsCommand())
 	r.Register(application.NewBundleDiffCommand())
+	r.Register(application.NewShowApplicationCommand())
 
 	// Operation protection commands
 	r.Register(block.NewDisableCommand())

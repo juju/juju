@@ -63,6 +63,11 @@ type APIv7 struct {
 
 // APIv8 provides the Application API facade for version 8.
 type APIv8 struct {
+	*APIv9
+}
+
+// APIv9 provides the Application API facade for version 9.
+type APIv9 struct {
 	*APIBase
 }
 
@@ -132,12 +137,22 @@ func NewFacadeV7(ctx facade.Context) (*APIv7, error) {
 	return &APIv7{api}, nil
 }
 
+// NewFacadeV8 provides the signature required for facade registration
+// for version 8.
 func NewFacadeV8(ctx facade.Context) (*APIv8, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := NewFacadeV9(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv8{api}, nil
+}
+
+func NewFacadeV9(ctx facade.Context) (*APIv9, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv9{api}, nil
 }
 
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
@@ -2009,4 +2024,49 @@ func (api *APIBase) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResul
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// ApplicationInfo isn't on the v8 API.
+func (u *APIv8) ApplicationInfo(_, _ struct{}) {}
+
+// ApplicationsInfo returns applications information.
+func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfoResults, error) {
+	out := make([]params.ApplicationInfoResult, len(in.Entities))
+	for i, one := range in.Entities {
+		tag, err := names.ParseApplicationTag(one.Tag)
+		if err != nil {
+			out[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := api.backend.Application(tag.Name)
+		if err != nil {
+			out[i].Error = common.ServerError(err)
+			continue
+		}
+
+		details, err := api.getConfig(params.ApplicationGet{ApplicationName: tag.Name}, describe)
+		if err != nil {
+			out[i].Error = common.ServerError(err)
+			continue
+		}
+
+		bindings, err := app.EndpointBindings()
+		if err != nil {
+			out[i].Error = common.ServerError(err)
+			continue
+		}
+
+		out[i].Result = &params.ApplicationInfo{
+			Tag:              tag.String(),
+			Charm:            details.Charm,
+			Series:           details.Series,
+			Channel:          details.Channel,
+			Constraints:      details.Constraints,
+			Principal:        app.IsPrincipal(),
+			Exposed:          app.IsExposed(),
+			Remote:           app.IsRemote(),
+			EndpointBindings: bindings,
+		}
+	}
+	return params.ApplicationInfoResults{out}, nil
 }

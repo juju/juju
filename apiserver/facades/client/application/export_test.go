@@ -15,6 +15,6 @@ func GetState(st *state.State) Backend {
 	return stateShim{st}
 }
 
-func SetModelType(api *APIv8, modelType state.ModelType) {
+func SetModelType(api *APIv9, modelType state.ModelType) {
 	api.modelType = modelType
 }
