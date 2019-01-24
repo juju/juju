@@ -16,10 +16,9 @@ import (
 )
 
 var (
-	NewClient            = &newClient
-	NewRunClient         = &newRunClient
-	NewApplicationClient = &newApplicationClient
-	NewAPIConn           = &newAPIConn
+	NewClient    = &newClient
+	NewRunClient = &newRunClient
+	NewAPIConn   = &newAPIConn
 )
 
 // NewRunClientFnc returns a function that returns a struct that implements the
@@ -27,15 +26,6 @@ var (
 // variable in tests.
 func NewRunClientFnc(client runClient) func(api.Connection) runClient {
 	return func(_ api.Connection) runClient {
-		return client
-	}
-}
-
-// NewApplicationClientFnc returns a function that returns a struct that implements the
-// applicationClient interface. This function can be used to patch the NewApplicationClient
-// variable in tests.
-func NewApplicationClientFnc(client applicationClient) func(api.Connection) applicationClient {
-	return func(_ api.Connection) applicationClient {
 		return client
 	}
 }

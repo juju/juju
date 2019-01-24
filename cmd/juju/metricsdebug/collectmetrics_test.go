@@ -303,7 +303,6 @@ func (s *collectMetricsSuite) TestCollectMetricsLocal(c *gc.C) {
 	applicationClient.charmURL = "local:quantal/charm"
 	s.PatchValue(metricsdebug.NewAPIConn, noConn)
 	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
-	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(applicationClient))
 
 	for i, test := range tests {
 		c.Logf("running test %d: %v", i, test.about)
@@ -328,7 +327,6 @@ func (s *collectMetricsSuite) TestCollectMetricsRemote(c *gc.C) {
 	applicationClient.charmURL = "quantal/charm"
 	s.PatchValue(metricsdebug.NewAPIConn, noConn)
 	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
-	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(applicationClient))
 
 	for i, test := range tests {
 		c.Logf("running test %d: %v", i, test.about)

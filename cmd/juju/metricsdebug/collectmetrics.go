@@ -11,12 +11,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	actionapi "github.com/juju/juju/api/action"
-	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
@@ -122,14 +120,6 @@ func parseActionResult(result params.ActionResult) (string, error) {
 		return "", errors.New("no collect application listening: does application support metric collection?")
 	}
 	return tag.Id(), nil
-}
-
-type applicationClient interface {
-	GetCharmURL(application string) (*charm.URL, error)
-}
-
-var newApplicationClient = func(root api.Connection) applicationClient {
-	return application.NewClient(root)
 }
 
 var newAPIConn = func(cmd modelcmd.ModelCommandBase) (api.Connection, error) {
