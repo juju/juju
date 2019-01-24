@@ -72,8 +72,7 @@ type Server struct {
 	offerAuthCtxt          *crossmodel.AuthContext
 	lastConnectionID       uint64
 	newObserver            observer.ObserverFactory
-	connCount              int64
-	totalConn              int64
+	connMetrics            *connMetric
 	loginAttempts          int64
 	allowModelAccess       bool
 	logSinkWriter          io.WriteCloser
@@ -294,6 +293,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
 		},
+		connMetrics: &connMetric{},
 	}
 
 	// The auth context for authenticating access to application offers.
@@ -365,12 +365,12 @@ func (a *metricAdaptor) ConnectionPauseTime() time.Duration {
 
 // TotalConnections returns the total number of connections ever made.
 func (srv *Server) TotalConnections() int64 {
-	return atomic.LoadInt64(&srv.totalConn)
+	return atomic.LoadInt64(&srv.connMetrics.totalConn)
 }
 
 // ConnectionCount returns the number of current connections.
 func (srv *Server) ConnectionCount() int64 {
-	return atomic.LoadInt64(&srv.connCount)
+	return atomic.LoadInt64(&srv.connMetrics.connCount)
 }
 
 // LoginAttempts returns the number of current login attempts.
@@ -497,6 +497,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
+		srv.connMetrics,
 	)
 	logSinkAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UnitTagKind, names.ApplicationTagKind}
 	logTransferHandler := logsink.NewHTTPHandler(
@@ -505,6 +506,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		newMigrationLogWriteCloserFunc(httpCtxt, &srv.dbloggers),
 		httpCtxt.stop(),
 		nil, // no rate-limiting
+		srv.connMetrics,
 	)
 	modelRestHandler := &modelRestHandler{
 		ctxt:          httpCtxt,
@@ -796,14 +798,23 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 	})
 }
 
-func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	atomic.AddInt64(&srv.totalConn, 1)
-	addCount := func(delta int64) {
-		atomic.AddInt64(&srv.connCount, delta)
-	}
+type connMetric struct {
+	connCount int64
+	totalConn int64
+}
 
-	addCount(1)
-	defer addCount(-1)
+func (c *connMetric) Increment() {
+	atomic.AddInt64(&c.totalConn, 1)
+	atomic.AddInt64(&c.connCount, 1)
+}
+
+func (c *connMetric) Decrement() {
+	atomic.AddInt64(&c.connCount, -1)
+}
+
+func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
+	srv.connMetrics.Increment()
+	defer srv.connMetrics.Decrement()
 
 	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
 

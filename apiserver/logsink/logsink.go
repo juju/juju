@@ -52,6 +52,11 @@ type RateLimitConfig struct {
 	Clock clock.Clock
 }
 
+type ConnMetrics interface {
+	Increment()
+	Decrement()
+}
+
 // NewHTTPHandler returns a new http.Handler for receiving log messages over a
 // websocket, using the given NewLogWriteCloserFunc to obtain a writer to which
 // the log messages will be written.
@@ -62,11 +67,13 @@ func NewHTTPHandler(
 	newLogWriteCloser NewLogWriteCloserFunc,
 	abort <-chan struct{},
 	ratelimit *RateLimitConfig,
+	connMetrics ConnMetrics,
 ) http.Handler {
 	return &logSinkHandler{
 		newLogWriteCloser: newLogWriteCloser,
 		abort:             abort,
 		ratelimit:         ratelimit,
+		connMetrics:       connMetrics,
 	}
 }
 
@@ -74,6 +81,7 @@ type logSinkHandler struct {
 	newLogWriteCloser NewLogWriteCloserFunc
 	abort             <-chan struct{}
 	ratelimit         *RateLimitConfig
+	connMetrics       ConnMetrics
 	mu                sync.Mutex
 }
 
@@ -103,6 +111,9 @@ const (
 // ServeHTTP implements the http.Handler interface.
 func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(socket *websocket.Conn) {
+		h.connMetrics.Increment()
+		defer h.connMetrics.Decrement()
+
 		defer socket.Close()
 		endpointVersion, err := h.getVersion(req)
 		if err != nil {
