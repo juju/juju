@@ -546,7 +546,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if err := store.UpdateModel(
 			c.controllerName,
 			c.hostedModelName,
-			jujuclient.ModelDetails{ModelUUID: hostedModelUUID.String(), ModelType: model.IAAS},
+			jujuclient.ModelDetails{
+				ModelUUID:       hostedModelUUID.String(),
+				ModelType:       model.IAAS,
+				ModelGeneration: model.GenerationCurrent,
+			},
 		); err != nil {
 			return errors.Trace(err)
 		}
