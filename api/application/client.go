@@ -881,8 +881,8 @@ func validateApplicationScale(scale, scaleChange int) error {
 
 // ApplicationsInfo retrieves applications information.
 func (c *Client) ApplicationsInfo(applications []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
-	if c.BestAPIVersion() < 9 {
-		return nil, errors.NotSupportedf("ApplicationsInfo not supported by this version of Juju")
+	if apiVersion := c.BestAPIVersion(); apiVersion < 9 {
+		return nil, errors.NotSupportedf("ApplicationsInfo for Application facade v%v", apiVersion)
 	}
 	all := make([]params.Entity, len(applications))
 	for i, one := range applications {

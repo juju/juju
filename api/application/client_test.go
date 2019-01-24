@@ -1301,7 +1301,7 @@ func (s *applicationSuite) TestApplicationsInfoPriorV9(c *gc.C) {
 	)
 	client := application.NewClient(apiCaller)
 	_, err := client.ApplicationsInfo(nil)
-	c.Assert(err, gc.ErrorMatches, "ApplicationsInfo not supported by this version of Juju not supported")
+	c.Assert(err, gc.ErrorMatches, "ApplicationsInfo for Application facade v0 not supported")
 	c.Assert(called, jc.IsFalse)
 }
 
