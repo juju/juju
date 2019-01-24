@@ -105,6 +105,6 @@ func (c *cancelGenerationCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	ctx.Stdout.Write([]byte("changes dropped and target generation set to current\n"))
+	ctx.Stdout.Write([]byte("remaining incomplete changes dropped and target generation set to current\n"))
 	return nil
 }

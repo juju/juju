@@ -85,7 +85,7 @@ func (s *cancelGenerationSuite) TestRunCommand(c *gc.C) {
 
 	ctx, err := s.runCommand(c, mockCancelGenerationCommandAPI)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "changes dropped and target generation set to current\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "remaining incomplete changes dropped and target generation set to current\n")
 }
 
 func (s *cancelGenerationSuite) TestRunCommandFail(c *gc.C) {
