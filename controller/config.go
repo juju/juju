@@ -600,7 +600,15 @@ func (c Config) PruneTxnQueryCount() int {
 
 // PruneTxnSleepTime is the amount of time to sleep between batches.
 func (c Config) PruneTxnSleepTime() time.Duration {
-	val, _ := time.ParseDuration(c.mustString(PruneTxnSleepTime))
+	asInterface, ok := c[PruneTxnSleepTime]
+	if !ok {
+		asInterface = DefaultPruneTxnSleepTime
+	}
+	asStr, ok := asInterface.(string)
+	if !ok {
+		asStr = DefaultPruneTxnSleepTime
+	}
+	val, _ := time.ParseDuration(asStr)
 	return val
 }
 
