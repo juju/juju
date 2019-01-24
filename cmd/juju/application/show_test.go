@@ -5,15 +5,16 @@ package application_test
 
 import (
 	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/juju/core/constraints"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	jujutesting "github.com/juju/juju/testing"

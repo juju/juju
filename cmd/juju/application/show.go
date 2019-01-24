@@ -4,7 +4,6 @@
 package application
 
 import (
-	"github.com/juju/juju/core/constraints"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/constraints"
 )
 
 const showApplicationDoc = `
