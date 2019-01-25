@@ -139,7 +139,9 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			socket.SetReadDeadline(time.Now().Add(vZeroDelay))
 		}
 
-		logCh := h.receiveLogs(socket, endpointVersion)
+		stopReceiving := make(chan struct{})
+		defer close(stopReceiving)
+		logCh := h.receiveLogs(socket, endpointVersion, stopReceiving)
 		for {
 			select {
 			case <-h.abort:
@@ -180,7 +182,7 @@ func (h *logSinkHandler) getVersion(req *http.Request) (int, error) {
 	}
 }
 
-func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int) <-chan params.LogRecord {
+func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int, stop <-chan struct{}) <-chan params.LogRecord {
 	logCh := make(chan params.LogRecord)
 
 	var tokenBucket *ratelimit.Bucket
@@ -233,6 +235,10 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int
 			// Send the log message.
 			select {
 			case <-h.abort:
+				// The API server is stopping.
+				return
+			case <-stop:
+				// The ServeHTTP handler has stopped.
 				return
 			case logCh <- m:
 				// If the remote end does not support ping/pong, we bump
