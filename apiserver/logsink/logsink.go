@@ -67,6 +67,10 @@ func NewHTTPHandler(
 		newLogWriteCloser: newLogWriteCloser,
 		abort:             abort,
 		ratelimit:         ratelimit,
+		newStopChannel: func() (chan struct{}, func()) {
+			ch := make(chan struct{})
+			return ch, func() { close(ch) }
+		},
 	}
 }
 
@@ -75,6 +79,11 @@ type logSinkHandler struct {
 	abort             <-chan struct{}
 	ratelimit         *RateLimitConfig
 	mu                sync.Mutex
+
+	// newStopChannel is overridden in tests so that we can check the
+	// goroutine exits when prompted.
+	newStopChannel  func() (chan struct{}, func())
+	receiverStopped bool
 }
 
 // Since the logsink only receives messages, it is possible for the other end
@@ -139,7 +148,9 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			socket.SetReadDeadline(time.Now().Add(vZeroDelay))
 		}
 
-		logCh := h.receiveLogs(socket, endpointVersion)
+		stopReceiving, closer := h.newStopChannel()
+		defer closer()
+		logCh := h.receiveLogs(socket, endpointVersion, stopReceiving)
 		for {
 			select {
 			case <-h.abort:
@@ -156,6 +167,9 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				}
 			case m, ok := <-logCh:
 				if !ok {
+					h.mu.Lock()
+					defer h.mu.Unlock()
+					h.receiverStopped = true
 					return
 				}
 				if err := writer.WriteLog(m); err != nil {
@@ -180,7 +194,7 @@ func (h *logSinkHandler) getVersion(req *http.Request) (int, error) {
 	}
 }
 
-func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int) <-chan params.LogRecord {
+func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int, stop <-chan struct{}) <-chan params.LogRecord {
 	logCh := make(chan params.LogRecord)
 
 	var tokenBucket *ratelimit.Bucket
@@ -233,6 +247,10 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int
 			// Send the log message.
 			select {
 			case <-h.abort:
+				// The API server is stopping.
+				return
+			case <-stop:
+				// The ServeHTTP handler has stopped.
 				return
 			case logCh <- m:
 				// If the remote end does not support ping/pong, we bump

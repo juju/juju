@@ -257,6 +257,110 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 	expectNoRecord()
 }
 
+func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
+	myStopCh := make(chan struct{})
+	s.srv.Close()
+
+	handler := logsink.NewHTTPHandlerForTest(
+		func(req *http.Request) (logsink.LogWriteCloser, error) {
+			s.stub.AddCall("Open")
+			return &slowWriteCloser{}, s.stub.NextErr()
+		},
+		s.abort,
+		nil,
+		func() (chan struct{}, func()) {
+			return myStopCh, func() {}
+		},
+	)
+	s.srv = httptest.NewServer(handler)
+	defer s.srv.Close()
+	conn := s.dialWebsocket(c)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
+
+	close(myStopCh)
+
+	// Send 2 log messages so we're sure the receiver gets a chance to
+	// go down the stop channel leg, since the writes are slow.
+	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
+	record := params.LogRecord{
+		Time:     t0,
+		Module:   "some.where",
+		Location: "foo.go:42",
+		Level:    loggo.INFO.String(),
+		Message:  "all is well",
+	}
+	err := conn.WriteJSON(&record)
+	c.Assert(err, jc.ErrorIsNil)
+	// The second write might error (if the receiver stopped after the
+	// first message).
+	_ = conn.WriteJSON(&record)
+
+	for a := longAttempt.Start(); a.Next(); {
+		if logsink.ReceiverStopped(c, handler) {
+			break
+		}
+	}
+	c.Assert(logsink.ReceiverStopped(c, handler), gc.Equals, true)
+
+	err = conn.Close()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *logsinkSuite) TestHandlerClosesStopChannel(c *gc.C) {
+	s.srv.Close()
+	var stub testing.Stub
+	handler := logsink.NewHTTPHandlerForTest(
+		func(req *http.Request) (logsink.LogWriteCloser, error) {
+			return &mockLogWriteCloser{
+				s.stub,
+				s.written,
+				nil,
+			}, s.stub.NextErr()
+		},
+		s.abort,
+		nil,
+		func() (chan struct{}, func()) {
+			ch := make(chan struct{})
+			return ch, func() {
+				stub.AddCall("close stop channel")
+				close(ch)
+			}
+		},
+	)
+	s.srv = httptest.NewServer(handler)
+	defer s.srv.Close()
+	conn := s.dialWebsocket(c)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
+
+	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
+	record := params.LogRecord{
+		Time:     t0,
+		Module:   "some.where",
+		Location: "foo.go:42",
+		Level:    loggo.INFO.String(),
+		Message:  "all is well",
+	}
+	err := conn.WriteJSON(&record)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case written, ok := <-s.written:
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(written, jc.DeepEquals, record)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for log record to be written")
+	}
+
+	err = conn.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	for a := longAttempt.Start(); a.Next(); {
+		if len(stub.Calls()) == 1 {
+			break
+		}
+	}
+	stub.CheckCallNames(c, "close stop channel")
+}
+
 type mockLogWriteCloser struct {
 	*testing.Stub
 	written  chan<- params.LogRecord
@@ -275,4 +379,18 @@ func (m *mockLogWriteCloser) WriteLog(r params.LogRecord) error {
 	m.MethodCall(m, "WriteLog", r)
 	m.written <- r
 	return m.NextErr()
+}
+
+type slowWriteCloser struct{}
+
+func (slowWriteCloser) Close() error {
+	return nil
+}
+
+func (slowWriteCloser) WriteLog(params.LogRecord) error {
+	// This makes it more likely that the goroutine will notice the
+	// stop channel is closed, because logCh won't be ready for
+	// sending.
+	time.Sleep(testing.ShortWait)
+	return nil
 }
