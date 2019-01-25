@@ -57,6 +57,9 @@ from jujupy.fake import (
 from jujupy.status import (
     Status,
 )
+from jujupy.controller import (
+    Controllers,
+)
 from jujupy.utility import (
     get_timeout_prefix,
 )

@@ -129,6 +129,14 @@ def extract_charm_urls(client):
         charms.append(charm["charm"])
     return charms
 
+def extract_mongo_version(client):
+    """Extract the mongo version from the controller.
+    """
+
+    ctrl_info = client.get_controllers()
+    ctrl_details = ctrl_info.get_controller(client.env.controller.name).get_details()
+    return ctrl_details.mongo_version
+
 def get_stack_client(stack_type, path, client, timeout=3600, charm=False):
     """Get the stack client dependant on the type of stack we want to deploy on
     """
@@ -181,6 +189,9 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
+        mongo_version = extract_mongo_version(client)
+        log.info("MongoVersion used for deployment: {}".format(mongo_version))
+
         deploy_bundle(client,
             charm_bundle=args.charm_bundle,
             stack_type=args.stack_type,
@@ -206,6 +217,7 @@ def main(argv=None):
                 "git-sha": args.git_sha,
                 "charm-bundle": args.charm_bundle,
                 "charm-urls": charm_urls,
+                "mongo-version": mongo_version,
             })
         except:
             raise JujuAssertionError("Error reporting metrics")

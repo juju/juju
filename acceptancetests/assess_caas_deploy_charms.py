@@ -158,18 +158,25 @@ provisioner: hostpath
 """
 
 
-def check_app_healthy(url, timeout=300):
+def check_app_healthy(url, timeout=300, success_hook=lambda: None, fail_hook=lambda: None):
+    if not callable(success_hook) or not callable(fail_hook):
+        raise RuntimeError("hooks are not callable")
+
     status_code = None
-    for _ in until_timeout(timeout):
+    for remaining in until_timeout(timeout):
         try:
             r = requests.get(url)
             if r.ok and r.status_code < 400:
-                return
+                return success_hook()
             status_code = r.status_code
         except IOError as e:
             log.error(e)
-        sleep(3)
+        finally:
+            sleep(3)
+            if remaining % 60 == 0:
+                log.info('timeout in %ss', remaining)
     log.error('HTTP health check failed -> %s, status_code -> %s !', url, status_code)
+    fail_hook()
     raise JujuAssertionError('gitlab is not healthy')
 
 
@@ -181,19 +188,24 @@ def assess_caas_charm_deployment(client):
         juju_ver=client.version
     )
 
-    caas_client = deploy_caas_stack(bundle_path=bundle, client=client)
+    caas_client = deploy_caas_stack(path=bundle, client=client, timeout=4000)
     external_hostname = caas_client.get_external_hostname()
 
     if not caas_client.is_cluster_healthy:
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
 
     # tmp fix kubernetes core ingress issue
-    caas_client.kubectl(
-        'patch', 'daemonset.apps/nginx-ingress-kubernetes-worker-controller', '--patch',
+    ingress_controller_daemonset_name = 'daemonset.apps/nginx-ingress-kubernetes-worker-controller'
+    o = caas_client.kubectl(
+        'patch', ingress_controller_daemonset_name, '--patch',
         '''
         {"spec": {"template": {"spec": {"containers": [{"name": "nginx-ingress-kubernetes-worker","args": ["/nginx-ingress-controller", "--default-backend-service=$(POD_NAMESPACE)/default-http-backend", "--configmap=$(POD_NAMESPACE)/nginx-load-balancer-conf", "--enable-ssl-chain-completion=False", "--publish-status-address=%s"]}]}}}}
         ''' % caas_client.get_first_worker_ip()
     )
+    log.info(o)
+
+    o = caas_client.kubectl('get', ingress_controller_daemonset_name, '-o', 'yaml')
+    log.info(o)
 
     # add caas model for deploying caas charms on top of it
     model_name = 'testcaas'
@@ -235,11 +247,24 @@ def assess_caas_charm_deployment(client):
     k8s_model.juju('expose', ('gitlab-k8s',))
     k8s_model.wait_for_workloads(timeout=3600)
 
-    url = '{}://{}/{}'.format('http', external_hostname, 'gitlab-k8s')
-    check_app_healthy(url, timeout=1200)
+    def success_hook():
+        log.info(caas_client.kubectl('get', 'all', '--all-namespaces'))
 
-    log.info(caas_client.kubectl('get', 'all', '--all-namespaces'))
+    def fail_hook():
+        success_hook()
+        log.info(caas_client.kubectl('get', ingress_controller_daemonset_name, '-o', 'yaml'))
+        log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
+
+    url = '{}://{}/{}'.format('http', external_hostname, 'gitlab-k8s')
+    check_app_healthy(
+        url, timeout=1800,
+        success_hook=success_hook,
+        fail_hook=fail_hook,
+    )
+
     k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
+    # current destroy controller does not handle storage, so destroy current caas model with --destroy-storage.
+    k8s_model.destroy_model()
 
 
 def parse_args(argv):

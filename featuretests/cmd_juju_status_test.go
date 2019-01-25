@@ -101,6 +101,19 @@ wordpress:logging-dir  logging:logging-directory  logging    subordinate  joinin
 `[1:])
 }
 
+func (s *StatusSuite) TestMachineDisplayNameIsDisplayed(c *gc.C) {
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		InstanceId:  instance.Id("id1"),
+		DisplayName: "eye-dee-one",
+	})
+	context := s.run(c, "status")
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "eye-dee-one")
+
+	context2 := s.run(c, "status", "--format=yaml")
+	c.Assert(cmdtesting.Stdout(context2), jc.Contains, "eye-dee-one")
+}
+
 func (s *StatusSuite) setupSeveralUnitsOnAMachine(c *gc.C) {
 	applicationA := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{

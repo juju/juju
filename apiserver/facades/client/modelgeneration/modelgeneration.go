@@ -4,6 +4,9 @@
 package modelgeneration
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -132,15 +135,50 @@ func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) 
 		}
 	}
 
-	ok, err := generation.CanMakeCurrent()
+	ok, err := generation.CanAutoComplete()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
 	if ok {
-		return results, generation.MakeCurrent()
+		return results, generation.AutoComplete()
 	}
 
 	return results, nil
+}
+
+// CancelGeneration cancels the 'next' generation if cancel
+// criteria are met.
+func (m *ModelGenerationAPI) CancelGeneration(arg params.Entity) (params.ErrorResult, error) {
+	result := params.ErrorResult{}
+	modelTag, err := names.ParseModelTag(arg.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	isModelAdmin, err := m.hasAdminAccess(modelTag)
+	if !isModelAdmin && !m.isControllerAdmin {
+		return result, common.ErrPerm
+	}
+
+	generation, err := m.model.NextGeneration()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !generation.Active() {
+		return result, errors.Errorf("next generation is not active")
+	}
+
+	ok, values, err := generation.CanMakeCurrent()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !ok {
+		msg := fmt.Sprintf("cannot cancel generation, there are units behind a generation: %s", strings.Join(values, ", "))
+		result.Error = &params.Error{Message: msg}
+		return result, nil
+	}
+
+	result.Error = common.ServerError(generation.MakeCurrent())
+	return result, nil
 }
 
 // SwitchGeneration switches the given model to using the provided

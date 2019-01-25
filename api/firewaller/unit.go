@@ -53,11 +53,6 @@ func (u *Unit) Application() (*Application, error) {
 		st:  u.st,
 		tag: applicationTag,
 	}
-	// Call Refresh() immediately to get the up-to-date
-	// life and other needed locally cached fields.
-	if err := app.Refresh(); err != nil {
-		return nil, err
-	}
 	return app, nil
 }
 

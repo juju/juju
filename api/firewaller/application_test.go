@@ -9,7 +9,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher/watchertest"
 )
 
@@ -43,8 +42,6 @@ func (s *applicationSuite) TestTag(c *gc.C) {
 }
 
 func (s *applicationSuite) TestWatch(c *gc.C) {
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
-
 	w, err := s.apiApplication.Watch()
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
@@ -62,18 +59,6 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-}
-
-func (s *applicationSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
-
-	err := s.application.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
-
-	err = s.apiApplication.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Dying)
 }
 
 func (s *applicationSuite) TestIsExposed(c *gc.C) {

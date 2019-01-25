@@ -50,6 +50,7 @@ from jujupy.exceptions import (
     AgentsNotStarted,
     ApplicationsNotStarted,
     AuthNotAccepted,
+    ControllersTimeout,
     InvalidEndpoint,
     NameNotAccepted,
     NoProvider,
@@ -63,6 +64,9 @@ from jujupy.status import (
     AGENTS_READY,
     coalesce_agent_status,
     Status,
+)
+from jujupy.controller import (
+    Controllers,
 )
 from jujupy.utility import (
     _dns_name_for_machine,
@@ -571,6 +575,8 @@ class ModelClient:
 
     status_class = Status
 
+    controllers_class = Controllers
+
     agent_metadata_url = 'agent-metadata-url'
 
     model_permissions = frozenset(['read', 'write', 'admin'])
@@ -601,6 +607,7 @@ class ModelClient:
                 return container_type
 
     _show_status = 'show-status'
+    _show_controller = 'show-controller'
 
     @classmethod
     def get_version(cls, juju_path=None):
@@ -1043,7 +1050,7 @@ class ModelClient:
         self.juju(self._show_status, ('--format', 'yaml'))
 
     def get_status(self, timeout=60, raw=False, controller=False, *args):
-        """Get the current status as a dict."""
+        """Get the current status as a jujupy.status.Status object."""
         # GZ 2015-12-16: Pass remaining timeout into get_juju_output call.
         for ignored in until_timeout(timeout):
             try:
@@ -1057,6 +1064,21 @@ class ModelClient:
                 pass
         raise StatusTimeout(
             'Timed out waiting for juju status to succeed')
+
+    def get_controllers(self, timeout=60):
+        """Get the current controller information as a dict."""
+        for ignored in until_timeout(timeout):
+            try:
+                return self.controllers_class.from_text(
+                    self.get_juju_output(
+                        self._show_controller, '--format', 'yaml',
+                        include_e=False,
+                    ).decode('utf-8'),
+                )
+            except subprocess.CalledProcessError:
+                pass
+        raise ControllersTimeout(
+            'Timed out waiting for juju show-controllers to succeed')
 
     def show_model(self, model_name=None):
         model_details = self.get_juju_output(
@@ -1673,7 +1695,8 @@ class ModelClient:
 
     def backup(self):
         try:
-            output = self.get_juju_output('create-backup')
+            # merge_stderr is required for creating a backup
+            output = self.get_juju_output('create-backup', merge_stderr=True)
         except subprocess.CalledProcessError as e:
             log.info(e.output)
             raise
@@ -1692,11 +1715,10 @@ class ModelClient:
     def restore_backup(self, backup_file):
         self.juju(
             'restore-backup',
-            ('-b', '--constraints', 'mem=2G', '--file', backup_file))
+            ('--file', backup_file))
 
     def restore_backup_async(self, backup_file):
-        return self.juju_async('restore-backup', ('-b', '--constraints',
-                                                  'mem=2G', '--file', backup_file))
+        return self.juju_async('restore-backup', ('--file', backup_file))
 
     def enable_ha(self):
         self.juju(
@@ -2133,12 +2155,13 @@ class ModelClient:
 # so parse it via env var ->  https://github.com/kubernetes/client-go/blob/master/tools/clientcmd/loader.go#L44
 KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
 
+
 class CaasClient:
     """CaasClient defines a client that can interact with CAAS setup directly.
        Methods and properties that solely interact with a kubernetes
        infrastructure can then be added to the following class.
     """
- 
+
     cloud_name = 'k8cloud'
 
     def __init__(self, client):

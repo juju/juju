@@ -55,6 +55,7 @@ func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *gc.C) {
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     agent-version: 999.99.99
+    mongo-version: 3.5.12
 `
 	s.createTestClientStore(c)
 
@@ -67,6 +68,7 @@ mallards:
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     agent-version: 999.99.99
+    mongo-version: 3.5.12
   models:
     controller:
       uuid: abc
@@ -95,6 +97,7 @@ func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *gc.C) {
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     agent-version: 999.99.99
+    mongo-version: 3.5.12
 `
 	s.createTestClientStore(c)
 
@@ -107,6 +110,7 @@ mallards:
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     agent-version: 999.99.99
+    mongo-version: 3.5.12
   models:
     controller:
       uuid: abc
@@ -137,6 +141,7 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
     cloud: mallards
     region: mallards1
     agent-version: 999.99.99
+    mongo-version: 3.5.12
 `
 	store := s.createTestClientStore(c)
 	store.BootstrapConfig["mallards"] = jujuclient.BootstrapConfig{
@@ -162,6 +167,7 @@ mallards:
     cloud: mallards
     region: mallards1
     agent-version: 999.99.99
+    mongo-version: 3.5.12
   models:
     controller:
       uuid: abc
@@ -195,6 +201,7 @@ aws-test:
     cloud: aws
     region: us-east-1
     agent-version: 999.99.99
+    mongo-version: 3.5.12
   controller-machines:
     "0":
       instance-id: id-0
@@ -231,6 +238,7 @@ aws-test:
     cloud: aws
     region: us-east-1
     agent-version: 999.99.99
+    mongo-version: 3.5.12
   controller-machines:
     "0":
       instance-id: id-0
@@ -259,6 +267,7 @@ mark-test-prodstack:
     ca-cert: this-is-a-ca-cert
     cloud: prodstack
     agent-version: 999.99.99
+    mongo-version: 3.5.12
   account:
     user: admin
     access: superuser
@@ -271,7 +280,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99","mongo-version":"3.5.12"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "aws-test")
@@ -280,7 +289,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack","agent-version":"999.99.99"},"account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99","mongo-version":"3.5.12"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack","agent-version":"999.99.99","mongo-version":"3.5.12"},"account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
@@ -303,7 +312,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
 	store.CurrentControllerName = "aws-test"
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99","mongo-version":"3.5.12"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json")
 }
@@ -403,6 +412,10 @@ func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.Mo
 		})
 	}
 	return result, nil
+}
+
+func (c *fakeController) MongoVersion() (string, error) {
+	return "3.5.12", nil
 }
 
 func (c *fakeController) AllModels() (result []base.UserModel, _ error) {

@@ -113,21 +113,6 @@ def assess_ha_recovery(bs_manager, client):
     log.info("HA recovered from leader failure.")
     log.info("PASS")
 
-
-def restore_present_state_server(controller_client, backup_file):
-    """juju-restore won't restore when the state-server is still present."""
-    try:
-        controller_client.restore_backup(backup_file)
-    except CalledProcessError:
-        log.info(
-            "juju-restore correctly refused to restore "
-            "because the state-server was still up.")
-        return
-    else:
-        raise Exception(
-            "juju-restore restored to an operational state-serve")
-
-
 def delete_controller_members(bs_manager, client, leader_only=False):
     """Delete controller members.
 
@@ -163,9 +148,9 @@ def delete_controller_members(bs_manager, client, leader_only=False):
     return deleted_machines
 
 
-def restore_missing_state_server(bs_manager, controller_client, backup_file,
+def restore_state_server(bs_manager, controller_client, backup_file,
                                  check_controller=True):
-    """juju-restore creates a replacement state-server for the services."""
+    """juju-restore creates a state-server for the services."""
     log.info("Starting restore.")
     try:
         controller_client.restore_backup(backup_file)
@@ -227,7 +212,6 @@ def assess_recovery(bs_manager, strategy, charm_series):
         enable_ha(bs_manager, controller_client)
     if strategy in ('ha-backup', 'backup'):
         backup_file = controller_client.backup()
-        restore_present_state_server(controller_client, backup_file)
     if strategy == 'ha':
         leader_only = True
     else:
@@ -238,7 +222,7 @@ def assess_recovery(bs_manager, strategy, charm_series):
         assess_ha_recovery(bs_manager, client)
     else:
         check_controller = strategy != 'ha-backup'
-        restore_missing_state_server(
+        restore_state_server(
             bs_manager, controller_client, backup_file,
             check_controller=check_controller)
     log.info("Test complete.")

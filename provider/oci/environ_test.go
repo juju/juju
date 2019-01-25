@@ -268,6 +268,26 @@ func (e *environSuite) setupListImagesExpectations() {
 	e.compute.EXPECT().ListShapes(context.Background(), gomock.Any()).Return(shapesResponse, nil).AnyTimes()
 }
 
+func (e *environSuite) TestMachineIdShortening(c *gc.C) {
+	blank := oci.ShortenMachineId(makeStringPointer(""), 6)
+	c.Check(blank, gc.Equals, "")
+
+	null := oci.ShortenMachineId(nil, 6)
+	c.Check(null, gc.Equals, "")
+
+	ocid := oci.ShortenMachineId(makeStringPointer("ocid"), 6)
+	c.Check(ocid, gc.Equals, "ocid")
+
+	id := oci.ShortenMachineId(makeStringPointer("ocid"), 2)
+	c.Check(id, gc.Equals, "...id")
+
+	short := oci.ShortenMachineId(makeStringPointer("ocid......12345678987654321"), 6)
+	c.Check(short, gc.Equals, "...654321")
+
+	shorter := oci.ShortenMachineId(makeStringPointer("ocid......12345678987654321"), 2)
+	c.Check(shorter, gc.Equals, "...21")
+}
+
 func (e *environSuite) TestAvailabilityZones(c *gc.C) {
 	ctrl := e.patchEnv(c)
 	defer ctrl.Finish()

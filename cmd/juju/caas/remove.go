@@ -29,7 +29,7 @@ See also:
     add-k8s
 `
 
-// Implemented by cloudapi.Client
+// RemoveCloudAPI is implemented by cloudapi.Client.
 type RemoveCloudAPI interface {
 	RemoveCloud(string) error
 	Close() error

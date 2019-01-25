@@ -355,7 +355,7 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
+	err = machine.SetProvisioned("i-exist", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProviderAddresses(network.Address{
 		Type:  network.IPv4Address,
@@ -581,7 +581,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 func (s *UnitSuite) TestRemoveUnitMachineFastForwardDestroy(c *gc.C) {
 	for _, tc := range s.destroyMachineTestCases(c) {
 		c.Log(tc.desc)
-		err := tc.host.SetProvisioned("inst-id", "fake_nonce", nil)
+		err := tc.host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.Destroy(), gc.IsNil)
 		if tc.destroyed {
@@ -597,7 +597,7 @@ func (s *UnitSuite) TestRemoveUnitMachineFastForwardDestroy(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineNoFastForwardDestroy(c *gc.C) {
 	for _, tc := range s.destroyMachineTestCases(c) {
 		c.Log(tc.desc)
-		err := tc.host.SetProvisioned("inst-id", "fake_nonce", nil)
+		err := tc.host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		preventUnitDestroyRemove(c, tc.target)
 		c.Assert(tc.target.Destroy(), gc.IsNil)
@@ -619,7 +619,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfile(c *gc.C) {
 
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	target, err := s.application.AddUnit(state.AddUnitParams{})
@@ -653,7 +653,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	target, err := s.application.AddUnit(state.AddUnitParams{})
@@ -684,7 +684,7 @@ func (s *UnitSuite) TestRemoveUnitMachineDestroyCleanUpProfileDoc(c *gc.C) {
 
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	unit, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
@@ -721,7 +721,7 @@ func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -746,7 +746,7 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -763,7 +763,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -809,7 +809,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1023,7 +1023,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetRetryHooks(c, s.State, func() {
@@ -1190,7 +1190,7 @@ func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("i-malive", "fake_nonce", nil)
+	err = machine.SetProvisioned("i-malive", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1637,7 +1637,7 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)

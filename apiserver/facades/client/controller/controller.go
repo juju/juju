@@ -45,11 +45,17 @@ type ControllerAPI struct {
 	hub        facade.Hub
 }
 
+// ControllerAPIv5 provides the v5 Controller API. The only difference
+// between this and v6 is that v5 doesn't have the MongoVersion method.
+type ControllerAPIv5 struct {
+	*ControllerAPI
+}
+
 // ControllerAPIv4 provides the v4 Controller API. The only difference
 // between this and v5 is that v4 doesn't have the
 // UpdateControllerConfig method.
 type ControllerAPIv4 struct {
-	*ControllerAPI
+	*ControllerAPIv5
 }
 
 // ControllerAPIv3 provides the v3 Controller API.
@@ -57,8 +63,8 @@ type ControllerAPIv3 struct {
 	*ControllerAPIv4
 }
 
-// NewControllerAPIv5 creates a new ControllerAPIv5.
-func NewControllerAPIv5(ctx facade.Context) (*ControllerAPI, error) {
+// NewControllerAPIv6 creates a new ControllerAPIv6
+func NewControllerAPIv6(ctx facade.Context) (*ControllerAPI, error) {
 	st := ctx.State()
 	authorizer := ctx.Auth()
 	pool := ctx.StatePool()
@@ -74,6 +80,15 @@ func NewControllerAPIv5(ctx facade.Context) (*ControllerAPI, error) {
 		presence,
 		hub,
 	)
+}
+
+// NewControllerAPIv5 creates a new ControllerAPIv5.
+func NewControllerAPIv5(ctx facade.Context) (*ControllerAPIv5, error) {
+	v6, err := NewControllerAPIv6(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ControllerAPIv5{v6}, nil
 }
 
 // NewControllerAPIv4 creates a new ControllerAPIv4.
@@ -163,6 +178,23 @@ func (c *ControllerAPIv3) ModelStatus(req params.Entities) (params.ModelStatusRe
 		}
 	}
 	return results, nil
+}
+
+// MongoVersion isn't on the v5 API.
+func (c *ControllerAPIv5) MongoVersion() {}
+
+// MongoVersion allows the introspection of the mongo version per controller
+func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
+	result := params.StringResult{}
+	if err := c.checkHasAdmin(); err != nil {
+		return result, errors.Trace(err)
+	}
+	version, err := c.state.MongoVersion()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	result.Result = version
+	return result, nil
 }
 
 // AllModels allows controller administrators to get the list of all the

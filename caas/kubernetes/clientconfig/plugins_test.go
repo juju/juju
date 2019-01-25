@@ -16,18 +16,18 @@ import (
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 )
 
-type K8sRawClientSuite struct {
+type k8sRawClientSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&K8sRawClientSuite{})
+var _ = gc.Suite(&k8sRawClientSuite{})
 
-func (s *K8sRawClientSuite) SetUpSuite(c *gc.C) {
+func (s *k8sRawClientSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.namespace = "kube-system"
 }
 
-func (s *K8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -128,7 +128,7 @@ func (s *K8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 
 }
 
-func (s *K8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -227,7 +227,7 @@ func (s *K8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C)
 
 }
 
-func (s *K8sRawClientSuite) TestEnsureClusterRole(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureClusterRole(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -269,7 +269,7 @@ func (s *K8sRawClientSuite) TestEnsureClusterRole(c *gc.C) {
 
 }
 
-func (s *K8sRawClientSuite) TestEnsureServiceAccount(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureServiceAccount(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -301,7 +301,7 @@ func (s *K8sRawClientSuite) TestEnsureServiceAccount(c *gc.C) {
 	c.Assert(saOut, jc.DeepEquals, sa)
 }
 
-func (s *K8sRawClientSuite) TestEnsureClusterRoleBinding(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureClusterRoleBinding(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -364,7 +364,7 @@ func (s *K8sRawClientSuite) TestEnsureClusterRoleBinding(c *gc.C) {
 	c.Assert(clusterRoleBindingOut, jc.DeepEquals, clusterRoleBinding)
 }
 
-func (s *K8sRawClientSuite) TestGetServiceAccountSecret(c *gc.C) {
+func (s *k8sRawClientSuite) TestGetServiceAccountSecret(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -401,7 +401,7 @@ func (s *K8sRawClientSuite) TestGetServiceAccountSecret(c *gc.C) {
 	c.Assert(secretOut, jc.DeepEquals, secret)
 }
 
-func (s *K8sRawClientSuite) TestReplaceAuthProviderWithServiceAccountAuthData(c *gc.C) {
+func (s *k8sRawClientSuite) TestReplaceAuthProviderWithServiceAccountAuthData(c *gc.C) {
 	cfg := newClientConfig()
 	contextName := reflect.ValueOf(cfg.Contexts).MapKeys()[0].Interface().(string)
 	authName := cfg.Contexts[contextName].AuthInfo

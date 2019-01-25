@@ -102,12 +102,13 @@ func constructModelStatus(model names.ModelTag, owner names.UserTag, r params.Mo
 			result.CoreCount += int(*mm.Hardware.Cores)
 		}
 		result.Machines[j] = base.Machine{
-			Id:         mm.Id,
-			InstanceId: mm.InstanceId,
-			HasVote:    mm.HasVote,
-			WantsVote:  mm.WantsVote,
-			Status:     mm.Status,
-			Message:    mm.Message,
+			Id:          mm.Id,
+			InstanceId:  mm.InstanceId,
+			DisplayName: mm.DisplayName,
+			HasVote:     mm.HasVote,
+			WantsVote:   mm.WantsVote,
+			Status:      mm.Status,
+			Message:     mm.Message,
 		}
 	}
 	return result

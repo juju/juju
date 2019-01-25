@@ -763,7 +763,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(arg.NetworkConfig)
 
 		err = machine.SetInstanceInfo(
-			arg.InstanceId, arg.Nonce, arg.Characteristics,
+			arg.InstanceId, arg.DisplayName, arg.Nonce, arg.Characteristics,
 			devicesArgs, devicesAddrs,
 			volumes, volumeAttachments, arg.CharmProfiles,
 		)

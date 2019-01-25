@@ -2711,7 +2711,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 
-	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sb, err := state.NewStorageBackend(s.State)
@@ -3410,7 +3410,7 @@ func (s *uniterNetworkConfigSuite) addProvisionedMachineWithDevicesAndAddresses(
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
-	err = machine.SetInstanceInfo("i-am", "fake_nonce", nil, devicesArgs, devicesAddrs, nil, nil, nil)
+	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, devicesArgs, devicesAddrs, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineAddrs, err := machine.AllAddresses()
@@ -3666,7 +3666,7 @@ func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
-	err = machine.SetInstanceInfo("i-am", "fake_nonce", nil, devicesArgs, devicesAddrs, nil, nil, nil)
+	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, devicesArgs, devicesAddrs, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineAddrs, err := machine.AllAddresses()
