@@ -72,7 +72,7 @@ type Server struct {
 	offerAuthCtxt          *crossmodel.AuthContext
 	lastConnectionID       uint64
 	newObserver            observer.ObserverFactory
-	connMetrics            *connMetric
+	connMetrics            *connMetrics
 	loginAttempts          int64
 	allowModelAccess       bool
 	logSinkWriter          io.WriteCloser
@@ -293,7 +293,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
 		},
-		connMetrics: &connMetric{},
+		connMetrics: newConnMetrics(),
 	}
 
 	// The auth context for authenticating access to application offers.
@@ -354,6 +354,10 @@ func (a *metricAdaptor) ConnectionCount() int64 {
 	return a.srv.ConnectionCount()
 }
 
+func (a *metricAdaptor) ConnectionCounts() map[string]int64 {
+	return a.srv.ConnectionCounts()
+}
+
 func (a *metricAdaptor) ConcurrentLoginAttempts() int64 {
 	return a.srv.LoginAttempts()
 }
@@ -365,12 +369,23 @@ func (a *metricAdaptor) ConnectionPauseTime() time.Duration {
 
 // TotalConnections returns the total number of connections ever made.
 func (srv *Server) TotalConnections() int64 {
-	return atomic.LoadInt64(&srv.connMetrics.totalConn)
+	return srv.connMetrics.TotalValue()
 }
 
 // ConnectionCount returns the number of current connections.
 func (srv *Server) ConnectionCount() int64 {
-	return atomic.LoadInt64(&srv.connMetrics.connCount)
+	// to keep backwards compatible with the existing metrics setup, we just
+	// sum up all count values.
+	return srv.connMetrics.CountValue()
+}
+
+// ConnectionCounts returns the number of current connections per label
+func (srv *Server) ConnectionCounts() map[string]int64 {
+	result := make(map[string]int64, len(srv.connMetrics.metrics))
+	for k, v := range srv.connMetrics.metrics {
+		result[k] = v.CountValue()
+	}
+	return result
 }
 
 // LoginAttempts returns the number of current login attempts.
@@ -487,7 +502,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	}
 
 	httpCtxt := httpContext{srv: srv}
-	mainAPIHandler := http.HandlerFunc(srv.apiHandler)
+	mainAPIHandler := http.HandlerFunc(srv.apiHandler(srv.connMetrics.Label("api")))
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt, srv.authenticator,
@@ -497,7 +512,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
-		srv.connMetrics,
+		srv.connMetrics.Label("logsink"),
 	)
 	logSinkAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UnitTagKind, names.ApplicationTagKind}
 	logTransferHandler := logsink.NewHTTPHandler(
@@ -506,7 +521,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		newMigrationLogWriteCloserFunc(httpCtxt, &srv.dbloggers),
 		httpCtxt.stop(),
 		nil, // no rate-limiting
-		srv.connMetrics,
+		srv.connMetrics.Label("logsink-transfer"),
 	)
 	modelRestHandler := &modelRestHandler{
 		ctxt:          httpCtxt,
@@ -798,44 +813,32 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 	})
 }
 
-type connMetric struct {
-	connCount int64
-	totalConn int64
-}
+func (srv *Server) apiHandler(metric *connMetric) func(w http.ResponseWriter, req *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		metric.Increment()
+		defer metric.Decrement()
 
-func (c *connMetric) Increment() {
-	atomic.AddInt64(&c.totalConn, 1)
-	atomic.AddInt64(&c.connCount, 1)
-}
+		connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
 
-func (c *connMetric) Decrement() {
-	atomic.AddInt64(&c.connCount, -1)
-}
+		apiObserver := srv.newObserver()
+		apiObserver.Join(req, connectionID)
+		defer apiObserver.Leave()
 
-func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	srv.connMetrics.Increment()
-	defer srv.connMetrics.Decrement()
-
-	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
-
-	apiObserver := srv.newObserver()
-	apiObserver.Join(req, connectionID)
-	defer apiObserver.Leave()
-
-	websocket.Serve(w, req, func(conn *websocket.Conn) {
-		modelUUID := httpcontext.RequestModelUUID(req)
-		logger.Tracef("got a request for model %q", modelUUID)
-		if err := srv.serveConn(
-			req.Context(),
-			conn,
-			modelUUID,
-			connectionID,
-			apiObserver,
-			req.Host,
-		); err != nil {
-			logger.Errorf("error serving RPCs: %v", err)
-		}
-	})
+		websocket.Serve(w, req, func(conn *websocket.Conn) {
+			modelUUID := httpcontext.RequestModelUUID(req)
+			logger.Tracef("got a request for model %q", modelUUID)
+			if err := srv.serveConn(
+				req.Context(),
+				conn,
+				modelUUID,
+				connectionID,
+				apiObserver,
+				req.Host,
+			); err != nil {
+				logger.Errorf("error serving RPCs: %v", err)
+			}
+		})
+	}
 }
 
 func (srv *Server) serveConn(
@@ -910,4 +913,57 @@ func serverError(err error) error {
 func (srv *Server) GetAuditConfig() auditlog.Config {
 	// Delegates to the getter passed in.
 	return srv.getAuditConfig()
+}
+
+type connMetrics struct {
+	metrics map[string]*connMetric
+}
+
+func newConnMetrics() *connMetrics {
+	return &connMetrics{
+		metrics: make(map[string]*connMetric),
+	}
+}
+
+func (c *connMetrics) Label(name string) *connMetric {
+	c.metrics[name] = &connMetric{}
+	return c.metrics[name]
+}
+
+func (c *connMetrics) TotalValue() int64 {
+	var sum int64
+	for _, v := range c.metrics {
+		sum += v.TotalValue()
+	}
+	return sum
+}
+
+func (c *connMetrics) CountValue() int64 {
+	var sum int64
+	for _, v := range c.metrics {
+		sum += v.CountValue()
+	}
+	return sum
+}
+
+type connMetric struct {
+	connCount int64
+	totalConn int64
+}
+
+func (c *connMetric) Increment() {
+	atomic.AddInt64(&c.totalConn, 1)
+	atomic.AddInt64(&c.connCount, 1)
+}
+
+func (c *connMetric) Decrement() {
+	atomic.AddInt64(&c.connCount, -1)
+}
+
+func (c *connMetric) TotalValue() int64 {
+	return atomic.LoadInt64(&c.totalConn)
+}
+
+func (c *connMetric) CountValue() int64 {
+	return atomic.LoadInt64(&c.connCount)
 }

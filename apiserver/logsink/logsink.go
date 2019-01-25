@@ -52,8 +52,16 @@ type RateLimitConfig struct {
 	Clock clock.Clock
 }
 
-type ConnMetrics interface {
+//go:generate mockgen -package mocks -destination mocks/conn_metric_gauge_mock.go github.com/juju/juju/apiserver/logsink ConnMetricGauge
+
+// ConnMetricGauge represents a metric gauge that can both increment and
+// decrement a value for a particular metric.
+type ConnMetricGauge interface {
+
+	// Increment increases the value of the Gauge by 1.
 	Increment()
+
+	// Decrement decreases the value of the Gauge by 1.
 	Decrement()
 }
 
@@ -67,7 +75,7 @@ func NewHTTPHandler(
 	newLogWriteCloser NewLogWriteCloserFunc,
 	abort <-chan struct{},
 	ratelimit *RateLimitConfig,
-	connMetrics ConnMetrics,
+	connMetrics ConnMetricGauge,
 ) http.Handler {
 	return &logSinkHandler{
 		newLogWriteCloser: newLogWriteCloser,
@@ -81,7 +89,7 @@ type logSinkHandler struct {
 	newLogWriteCloser NewLogWriteCloserFunc
 	abort             <-chan struct{}
 	ratelimit         *RateLimitConfig
-	connMetrics       ConnMetrics
+	connMetrics       ConnMetricGauge
 	mu                sync.Mutex
 }
 

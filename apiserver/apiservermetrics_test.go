@@ -37,11 +37,12 @@ func (s *apiservermetricsSuite) TestDescribe(c *gc.C) {
 	for desc := range ch {
 		descs = append(descs, desc)
 	}
-	c.Assert(descs, gc.HasLen, 4)
+	c.Assert(descs, gc.HasLen, 5)
 	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_apiserver_connections_total".*`)
 	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_count".*`)
 	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_pause_seconds".*`)
 	c.Assert(descs[3].String(), gc.Matches, `.*fqName: "juju_apiserver_active_login_attempts".*`)
+	c.Assert(descs[4].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_counts".*`)
 }
 
 func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
@@ -55,9 +56,9 @@ func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
 	for metric := range ch {
 		metrics = append(metrics, metric)
 	}
-	c.Assert(metrics, gc.HasLen, 4)
+	c.Assert(metrics, gc.HasLen, 6)
 
-	var dtoMetrics [4]dto.Metric
+	var dtoMetrics [6]dto.Metric
 	for i, metric := range metrics {
 		err := metric.Write(&dtoMetrics[i])
 		c.Assert(err, jc.ErrorIsNil)
@@ -66,11 +67,16 @@ func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
 	float64ptr := func(v float64) *float64 {
 		return &v
 	}
-	c.Assert(dtoMetrics, jc.DeepEquals, [4]dto.Metric{
+	stringptr := func(v string) *string {
+		return &v
+	}
+	c.Assert(dtoMetrics, jc.DeepEquals, [6]dto.Metric{
 		{Counter: &dto.Counter{Value: float64ptr(200)}},
 		{Gauge: &dto.Gauge{Value: float64ptr(2)}},
 		{Gauge: &dto.Gauge{Value: float64ptr(0.02)}},
 		{Gauge: &dto.Gauge{Value: float64ptr(3)}},
+		{Gauge: &dto.Gauge{Value: float64ptr(2)}, Label: []*dto.LabelPair{{Name: stringptr("endpoint"), Value: stringptr("api")}}},
+		{Gauge: &dto.Gauge{Value: float64ptr(1)}, Label: []*dto.LabelPair{{Name: stringptr("endpoint"), Value: stringptr("logsink")}}},
 	})
 }
 
@@ -82,6 +88,13 @@ func (a *stubCollector) TotalConnections() int64 {
 
 func (a *stubCollector) ConnectionCount() int64 {
 	return 2
+}
+
+func (a *stubCollector) ConnectionCounts() map[string]int64 {
+	return map[string]int64{
+		"api":     2,
+		"logsink": 1,
+	}
 }
 
 func (a *stubCollector) ConcurrentLoginAttempts() int64 {

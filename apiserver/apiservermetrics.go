@@ -17,6 +17,7 @@ const (
 type ServerMetricsSource interface {
 	TotalConnections() int64
 	ConnectionCount() int64
+	ConnectionCounts() map[string]int64
 	ConcurrentLoginAttempts() int64
 	ConnectionPauseTime() time.Duration
 }
@@ -28,6 +29,7 @@ type Collector struct {
 
 	connectionCounter        prometheus.Counter
 	connectionCountGauge     prometheus.Gauge
+	connectionCountGaugeVec  *prometheus.GaugeVec
 	connectionPauseTimeGauge prometheus.Gauge
 	concurrentLoginsGauge    prometheus.Gauge
 }
@@ -56,6 +58,13 @@ func NewMetricsCollector(src ServerMetricsSource) *Collector {
 			Name:      "active_login_attempts",
 			Help:      "Current number of active agent login attempts",
 		}),
+		connectionCountGaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: apiserverMetricsNamespace,
+			Name:      "connection_counts",
+			Help:      "Current number of active apiserver per connection",
+		}, []string{
+			"endpoint",
+		}),
 	}
 }
 
@@ -65,6 +74,7 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.connectionCountGauge.Describe(ch)
 	c.connectionPauseTimeGauge.Describe(ch)
 	c.concurrentLoginsGauge.Describe(ch)
+	c.connectionCountGaugeVec.Describe(ch)
 }
 
 // Collect is part of the prometheus.Collector interface.
@@ -72,6 +82,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.connectionCountGauge.Set(float64(c.src.ConnectionCount()))
 	c.connectionPauseTimeGauge.Set(float64(c.src.ConnectionPauseTime()) / float64(time.Second))
 	c.concurrentLoginsGauge.Set(float64(c.src.ConcurrentLoginAttempts()))
+	for k, v := range c.src.ConnectionCounts() {
+		c.connectionCountGaugeVec.WithLabelValues(k).Set(float64(v))
+	}
 
 	ch <- prometheus.MustNewConstMetric(
 		c.connectionCounter.Desc(),
@@ -81,4 +94,5 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.connectionCountGauge.Collect(ch)
 	c.connectionPauseTimeGauge.Collect(ch)
 	c.concurrentLoginsGauge.Collect(ch)
+	c.connectionCountGaugeVec.Collect(ch)
 }

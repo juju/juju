@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/mock/gomock"
+
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
@@ -21,6 +23,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/logsink"
+	"github.com/juju/juju/apiserver/logsink/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	coretesting "github.com/juju/juju/testing"
@@ -57,6 +60,9 @@ type logsinkSuite struct {
 var _ = gc.Suite(&logsinkSuite{})
 
 func (s *logsinkSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	s.IsolationSuite.SetUpTest(c)
 	s.abort = make(chan struct{})
 	s.written = make(chan params.LogRecord, 1)
@@ -71,6 +77,10 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 		s.lastStack = debug.Stack()
 	}
 
+	connMetricsGauge := mocks.NewMockConnMetricGauge(ctrl)
+	connMetricsGauge.EXPECT().Increment().AnyTimes()
+	connMetricsGauge.EXPECT().Decrement().AnyTimes()
+
 	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
 		func(req *http.Request) (logsink.LogWriteCloser, error) {
 			s.stub.AddCall("Open")
@@ -82,6 +92,7 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 		},
 		s.abort,
 		nil, // no rate-limiting
+		connMetricsGauge,
 	))
 	s.AddCleanup(func(*gc.C) { s.srv.Close() })
 }
@@ -192,6 +203,13 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestRateLimit(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	connMetricsGauge := mocks.NewMockConnMetricGauge(ctrl)
+	connMetricsGauge.EXPECT().Increment().AnyTimes()
+	connMetricsGauge.EXPECT().Decrement().AnyTimes()
+
 	testClock := testclock.NewClock(time.Time{})
 	s.srv.Close()
 	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
@@ -209,6 +227,7 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 			Refill: time.Second,
 			Clock:  testClock,
 		},
+		connMetricsGauge,
 	))
 	defer s.srv.Close()
 
