@@ -162,9 +162,12 @@ func (c *Client) Deploy(args DeployArgs) error {
 
 // GetCharmURL returns the charm URL the given application is
 // running at present.
-func (c *Client) GetCharmURL(applicationName string) (*charm.URL, error) {
+func (c *Client) GetCharmURL(generation model.GenerationVersion, applicationName string) (*charm.URL, error) {
 	result := new(params.StringResult)
-	args := params.ApplicationGet{ApplicationName: applicationName}
+	args := params.ApplicationGet{
+		ApplicationName: applicationName,
+		Generation:      generation,
+	}
 	err := c.facade.FacadeCall("GetCharmURL", args, result)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -293,7 +296,7 @@ type SetCharmConfig struct {
 }
 
 // SetCharm sets the charm for a given application.
-func (c *Client) SetCharm(cfg SetCharmConfig) error {
+func (c *Client) SetCharm(generation model.GenerationVersion, cfg SetCharmConfig) error {
 	var storageConstraints map[string]params.StorageConstraints
 	if len(cfg.StorageConstraints) > 0 {
 		storageConstraints = make(map[string]params.StorageConstraints)
@@ -324,6 +327,7 @@ func (c *Client) SetCharm(cfg SetCharmConfig) error {
 		ForceUnits:         cfg.ForceUnits,
 		ResourceIDs:        cfg.ResourceIDs,
 		StorageConstraints: storageConstraints,
+		Generation:         generation,
 	}
 	return c.facade.FacadeCall("SetCharm", args, nil)
 }
@@ -694,7 +698,10 @@ func (c *Client) Unexpose(application string) error {
 // Get returns the configuration for the named application.
 func (c *Client) Get(generation model.GenerationVersion, application string) (*params.ApplicationGetResults, error) {
 	var results params.ApplicationGetResults
-	args := params.ApplicationGet{ApplicationName: application}
+	args := params.ApplicationGet{
+		ApplicationName: application,
+		Generation:      generation,
+	}
 	err := c.facade.FacadeCall("Get", args, &results)
 	return &results, err
 }

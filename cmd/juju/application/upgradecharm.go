@@ -74,9 +74,9 @@ type CharmAPIClient interface {
 // CharmUpgradeClient defines a subset of the application facade, as required
 // by the upgrade-charm command.
 type CharmUpgradeClient interface {
-	GetCharmURL(string) (*charm.URL, error)
+	GetCharmURL(model.GenerationVersion, string) (*charm.URL, error)
 	Get(model.GenerationVersion, string) (*params.ApplicationGetResults, error)
-	SetCharm(application.SetCharmConfig) error
+	SetCharm(model.GenerationVersion, application.SetCharmConfig) error
 }
 
 // CharmClient defines a subset of the charms facade, as required
@@ -291,8 +291,12 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	// TODO (manadart 2018-01-24) This value will be retrieved from the local
+	// store (generally ~/.local/share/juju).
+	generation := model.GenerationCurrent
+
 	charmUpgradeClient := c.NewCharmUpgradeClient(apiRoot)
-	oldURL, err := charmUpgradeClient.GetCharmURL(c.ApplicationName)
+	oldURL, err := charmUpgradeClient.GetCharmURL(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -330,7 +334,6 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	generation := model.GenerationCurrent
 	applicationInfo, err := charmUpgradeClient.Get(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
@@ -382,7 +385,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		ResourceIDs:        ids,
 		StorageConstraints: c.Storage,
 	}
-	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(cfg), block.BlockChange)
+	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, cfg), block.BlockChange)
 }
 
 // upgradeResources pushes metadata up to the server for each resource defined

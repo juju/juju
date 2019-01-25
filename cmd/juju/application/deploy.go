@@ -62,9 +62,8 @@ type ApplicationAPI interface {
 	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
 	GetConfig(generation model.GenerationVersion, appNames ...string) ([]map[string]interface{}, error)
 	GetConstraints(appNames ...string) ([]constraints.Value, error)
-	GetCharmURL(applicationName string) (*charm.URL, error)
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
-	SetCharm(application.SetCharmConfig) error
+	SetCharm(model.GenerationVersion, application.SetCharmConfig) error
 	SetConstraints(application string, constraints constraints.Value) error
 	Update(apiparams.ApplicationUpdate) error
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
@@ -214,7 +213,7 @@ func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.Annotation
 	return a.annotationsClient.Get(tags)
 }
 
-// NewDeployCommandForTest returns a command to deploy applications inteded to be used only in tests.
+// NewDeployCommandForTest returns a command to deploy applications intended to be used only in tests.
 func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
 	deployCmd := &DeployCommand{
 		Steps:      steps,

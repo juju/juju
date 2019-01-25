@@ -19,12 +19,6 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -47,15 +41,21 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/juju/version"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -2067,13 +2067,8 @@ func (f *fakeDeployAPI) SetAnnotation(annotations map[string]map[string]string) 
 	return results[0].([]params.ErrorResult), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) GetCharmURL(applicationName string) (*charm.URL, error) {
-	results := f.MethodCall(f, "GetCharmURL", applicationName)
-	return results[0].(*charm.URL), jujutesting.TypeAssertError(results[1])
-}
-
-func (f *fakeDeployAPI) SetCharm(cfg application.SetCharmConfig) error {
-	results := f.MethodCall(f, "SetCharm", cfg)
+func (f *fakeDeployAPI) SetCharm(generation model.GenerationVersion, cfg application.SetCharmConfig) error {
+	results := f.MethodCall(f, "SetCharm", generation, cfg)
 	return jujutesting.TypeAssertError(results[0])
 }
 

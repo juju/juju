@@ -903,12 +903,14 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 			return errors.Trace(err)
 		}
 	}
+
 	cfg := application.SetCharmConfig{
 		ApplicationName: p.Application,
 		CharmID:         chID,
 		ResourceIDs:     resNames2IDs,
 	}
-	if err := h.api.SetCharm(cfg); err != nil {
+	// Bundles only ever deal with the current generation.
+	if err := h.api.SetCharm(model.GenerationCurrent, cfg); err != nil {
 		return errors.Trace(err)
 	}
 	h.writeAddedResources(resNames2IDs)
