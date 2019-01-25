@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/storage"
 )
 
@@ -92,12 +93,20 @@ type ApplicationUpdate struct {
 	SettingsStrings map[string]string  `json:"settings,omitempty"`
 	SettingsYAML    string             `json:"settings-yaml"` // Takes precedence over SettingsStrings if both are present.
 	Constraints     *constraints.Value `json:"constraints,omitempty"`
+
+	// Generation is the generation version in which this
+	// request will update the application.
+	Generation model.GenerationVersion `json:"generation"`
 }
 
 // ApplicationSetCharm sets the charm for a given application.
 type ApplicationSetCharm struct {
 	// ApplicationName is the name of the application to set the charm on.
 	ApplicationName string `json:"application"`
+
+	// Generation is the generation version that this
+	// request will set the application charm for.
+	Generation model.GenerationVersion `json:"generation"`
 
 	// CharmURL is the new url for the charm.
 	CharmURL string `json:"charm-url"`
@@ -144,22 +153,36 @@ type ApplicationExpose struct {
 // ApplicationSet holds the parameters for an application Set
 // command. Options contains the configuration data.
 type ApplicationSet struct {
-	ApplicationName string            `json:"application"`
-	Options         map[string]string `json:"options"`
+	ApplicationName string `json:"application"`
+
+	// Generation is the generation version that this request
+	// will set application configuration options for.
+	Generation model.GenerationVersion `json:"generation"`
+
+	Options map[string]string `json:"options"`
 }
 
 // ApplicationUnset holds the parameters for an application Unset
 // command. Options contains the option attribute names
 // to unset.
 type ApplicationUnset struct {
-	ApplicationName string   `json:"application"`
-	Options         []string `json:"options"`
+	ApplicationName string `json:"application"`
+
+	// Generation is the generation version that this request
+	// will unset application configuration options for.
+	Generation model.GenerationVersion `json:"generation"`
+
+	Options []string `json:"options"`
 }
 
 // ApplicationGet holds parameters for making the Get or
 // GetCharmURL calls.
 type ApplicationGet struct {
 	ApplicationName string `json:"application"`
+
+	// Generation is the generation version that this
+	// request will retrieve application data for.
+	Generation model.GenerationVersion `json:"generation"`
 }
 
 // ApplicationGetResults holds results of the application Get call.
@@ -182,8 +205,13 @@ type ApplicationConfigSetArgs struct {
 // ApplicationConfigSet holds the parameters for an application
 // config set command.
 type ApplicationConfigSet struct {
-	ApplicationName string            `json:"application"`
-	Config          map[string]string `json:"config"`
+	ApplicationName string `json:"application"`
+
+	// Generation is the generation version that this request
+	// will set application configuration for.
+	Generation model.GenerationVersion `json:"generation"`
+
+	Config map[string]string `json:"config"`
 }
 
 // ApplicationConfigUnsetArgs holds the parameters for
