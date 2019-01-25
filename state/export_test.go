@@ -100,6 +100,14 @@ func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChec
 	return txntesting.SetBeforeHooks(c, newRunnerForHooks(st), fs...)
 }
 
+// SetFailIfTransaction will set a transaction hook that marks the test as an error
+// if there is a transaction run. This is used if you know a given set of operations
+// should *not* trigger database updates.
+func SetFailIfTransaction(c *gc.C, st *State) txntesting.TransactionChecker {
+	EnsureWorkersStarted(st)
+	return txntesting.SetFailIfTransaction(c, newRunnerForHooks(st))
+}
+
 func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
 	EnsureWorkersStarted(st)
 	return txntesting.SetAfterHooks(c, newRunnerForHooks(st), fs...)
