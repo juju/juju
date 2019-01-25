@@ -67,6 +67,10 @@ func NewHTTPHandler(
 		newLogWriteCloser: newLogWriteCloser,
 		abort:             abort,
 		ratelimit:         ratelimit,
+		newStopChannel: func() (chan struct{}, func()) {
+			ch := make(chan struct{})
+			return ch, func() { close(ch) }
+		},
 	}
 }
 
@@ -75,6 +79,11 @@ type logSinkHandler struct {
 	abort             <-chan struct{}
 	ratelimit         *RateLimitConfig
 	mu                sync.Mutex
+
+	// newStopChannel is overridden in tests so that we can check the
+	// goroutine exits when prompted.
+	newStopChannel  func() (chan struct{}, func())
+	receiverStopped bool
 }
 
 // Since the logsink only receives messages, it is possible for the other end
@@ -139,8 +148,8 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			socket.SetReadDeadline(time.Now().Add(vZeroDelay))
 		}
 
-		stopReceiving := make(chan struct{})
-		defer close(stopReceiving)
+		stopReceiving, closer := h.newStopChannel()
+		defer closer()
 		logCh := h.receiveLogs(socket, endpointVersion, stopReceiving)
 		for {
 			select {
@@ -158,6 +167,9 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				}
 			case m, ok := <-logCh:
 				if !ok {
+					h.mu.Lock()
+					defer h.mu.Unlock()
+					h.receiverStopped = true
 					return
 				}
 				if err := writer.WriteLog(m); err != nil {
