@@ -991,7 +991,7 @@ class ModelClient:
         ct.actual_completion()
         return retvar
 
-    def destroy_controller(self, all_models=False):
+    def destroy_controller(self, all_models=False, destroy_storage=False, release_storage=False):
         """Destroy a controller and its models. Soft kill option.
 
         :param all_models: If true will attempt to destroy all the
@@ -1002,6 +1002,10 @@ class ModelClient:
         args = (self.env.controller.name, '-y')
         if all_models:
             args += ('--destroy-all-models',)
+        if destroy_storage:
+            args += ('--destroy-storage',)
+        if release_storage:
+            args += ('--release-storage',)
         retvar, ct = self.juju(
             'destroy-controller', args, include_e=False,
             timeout=get_teardown_timeout(self))
@@ -1015,7 +1019,7 @@ class ModelClient:
         Attempts to use the soft method destroy_controller, if that fails
         it will use the hard kill_controller and raise an error."""
         try:
-            self.destroy_controller(all_models=True)
+            self.destroy_controller(all_models=True, destroy_storage=True)
         except subprocess.CalledProcessError:
             logging.warning('tear_down destroy-controller failed')
             retval = self.kill_controller()

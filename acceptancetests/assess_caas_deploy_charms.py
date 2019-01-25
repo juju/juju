@@ -261,10 +261,7 @@ def assess_caas_charm_deployment(client):
         success_hook=success_hook,
         fail_hook=fail_hook,
     )
-
     k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
-    # current destroy controller does not handle storage, so destroy current caas model with --destroy-storage.
-    k8s_model.destroy_model()
 
 
 def parse_args(argv):
