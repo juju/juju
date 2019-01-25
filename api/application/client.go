@@ -64,7 +64,6 @@ func (c *Client) ModelUUID() string {
 
 // DeployArgs holds the arguments to be sent to Client.ApplicationDeploy.
 type DeployArgs struct {
-
 	// CharmID identifies the charm to deploy.
 	CharmID charmstore.CharmID
 
@@ -878,4 +877,25 @@ func validateApplicationScale(scale, scaleChange int) error {
 		return errors.NotValidf("requesting both scale and scale-change")
 	}
 	return nil
+}
+
+// ApplicationsInfo retrieves applications information.
+func (c *Client) ApplicationsInfo(applications []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
+	if apiVersion := c.BestAPIVersion(); apiVersion < 9 {
+		return nil, errors.NotSupportedf("ApplicationsInfo for Application facade v%v", apiVersion)
+	}
+	all := make([]params.Entity, len(applications))
+	for i, one := range applications {
+		all[i] = params.Entity{Tag: one.String()}
+	}
+	in := params.Entities{all}
+	var out params.ApplicationInfoResults
+	err := c.facade.FacadeCall("ApplicationsInfo", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if resultsLen := len(out.Results); resultsLen != len(applications) {
+		return nil, errors.Errorf("expected %d results, got %d", len(applications), resultsLen)
+	}
+	return out.Results, nil
 }

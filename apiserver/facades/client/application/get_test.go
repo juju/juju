@@ -29,7 +29,7 @@ import (
 type getSuite struct {
 	jujutesting.JujuConnSuite
 
-	applicationAPI *application.APIv8
+	applicationAPI *application.APIv9
 	authorizer     apiservertesting.FakeAuthorizer
 }
 
@@ -59,12 +59,12 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		common.NewResources(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.applicationAPI = &application.APIv8{api}
+	s.applicationAPI = &application.APIv9{api}
 }
 
 func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v4 := &application.APIv4{&application.APIv5{&application.APIv6{&application.APIv7{s.applicationAPI}}}}
+	v4 := &application.APIv4{&application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{s.applicationAPI}}}}}
 	results, err := v4.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -84,7 +84,7 @@ func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 
 func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v5 := &application.APIv5{&application.APIv6{&application.APIv7{s.applicationAPI}}}
+	v5 := &application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{s.applicationAPI}}}}
 	results, err := v5.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -198,7 +198,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 		common.NewResources(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	apiV8 := &application.APIv8{api}
+	apiV8 := &application.APIv8{&application.APIv9{api}}
 
 	results, err := apiV8.Get(params.ApplicationGet{"dashboard4miner"})
 	c.Assert(err, jc.ErrorIsNil)

@@ -559,6 +559,7 @@ var commandNames = []string{
 	"set-wallet",
 	"show-action-output",
 	"show-action-status",
+	"show-application",
 	"show-backup",
 	"show-cloud",
 	"show-controller",

@@ -16,7 +16,6 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/network"
@@ -249,90 +248,6 @@ type DestroyMachinesParams struct {
 	Keep        bool     `json:"keep,omitempty"`
 }
 
-// ApplicationsDeploy holds the parameters for deploying one or more applications.
-type ApplicationsDeploy struct {
-	Applications []ApplicationDeploy `json:"applications"`
-}
-
-// ApplicationDeploy holds the parameters for making the application Deploy call.
-type ApplicationDeploy struct {
-	ApplicationName  string                         `json:"application"`
-	Series           string                         `json:"series"`
-	CharmURL         string                         `json:"charm-url"`
-	Channel          string                         `json:"channel"`
-	NumUnits         int                            `json:"num-units"`
-	Config           map[string]string              `json:"config,omitempty"`
-	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
-	Constraints      constraints.Value              `json:"constraints"`
-	Placement        []*instance.Placement          `json:"placement,omitempty"`
-	Policy           string                         `json:"policy,omitempty"`
-	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
-	Devices          map[string]devices.Constraints `json:"devices,omitempty"`
-	AttachStorage    []string                       `json:"attach-storage,omitempty"`
-	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
-	Resources        map[string]string              `json:"resources,omitempty"`
-}
-
-// ApplicationsDeployV5 holds the parameters for deploying one or more applications.
-type ApplicationsDeployV5 struct {
-	Applications []ApplicationDeployV5 `json:"applications"`
-}
-
-// ApplicationDeployV5 holds the parameters for making the application Deploy call for
-// application facades older than v6. Missing the newer Policy arg.
-type ApplicationDeployV5 struct {
-	ApplicationName  string                         `json:"application"`
-	Series           string                         `json:"series"`
-	CharmURL         string                         `json:"charm-url"`
-	Channel          string                         `json:"channel"`
-	NumUnits         int                            `json:"num-units"`
-	Config           map[string]string              `json:"config,omitempty"`
-	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
-	Constraints      constraints.Value              `json:"constraints"`
-	Placement        []*instance.Placement          `json:"placement,omitempty"`
-	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
-	AttachStorage    []string                       `json:"attach-storage,omitempty"`
-	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
-	Resources        map[string]string              `json:"resources,omitempty"`
-}
-
-// ApplicationsDeployV6 holds the parameters for deploying one or more applications.
-type ApplicationsDeployV6 struct {
-	Applications []ApplicationDeployV6 `json:"applications"`
-}
-
-// ApplicationDeployV6 holds the parameters for making the application Deploy call for
-// application facades older than v6. Missing the newer Device arg.
-type ApplicationDeployV6 struct {
-	ApplicationName  string                         `json:"application"`
-	Series           string                         `json:"series"`
-	CharmURL         string                         `json:"charm-url"`
-	Channel          string                         `json:"channel"`
-	NumUnits         int                            `json:"num-units"`
-	Config           map[string]string              `json:"config,omitempty"`
-	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
-	Constraints      constraints.Value              `json:"constraints"`
-	Placement        []*instance.Placement          `json:"placement,omitempty"`
-	Policy           string                         `json:"policy,omitempty"`
-	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
-	AttachStorage    []string                       `json:"attach-storage,omitempty"`
-	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
-	Resources        map[string]string              `json:"resources,omitempty"`
-}
-
-// ApplicationUpdate holds the parameters for making the application Update call.
-type ApplicationUpdate struct {
-	ApplicationName string             `json:"application"`
-	CharmURL        string             `json:"charm-url"`
-	ForceCharmURL   bool               `json:"force-charm-url"`
-	ForceSeries     bool               `json:"force-series"`
-	Force           bool               `json:"force"`
-	MinUnits        *int               `json:"min-units,omitempty"`
-	SettingsStrings map[string]string  `json:"settings,omitempty"`
-	SettingsYAML    string             `json:"settings-yaml"` // Takes precedence over SettingsStrings if both are present.
-	Constraints     *constraints.Value `json:"constraints,omitempty"`
-}
-
 // UpdateSeriesArg holds the parameters for updating the series for the
 // specified application or machine. For Application, only known by facade
 // version 5 and greater. For MachineManger, only known by facade version
@@ -349,135 +264,6 @@ type UpdateSeriesArg struct {
 // version 4 or greater.
 type UpdateSeriesArgs struct {
 	Args []UpdateSeriesArg `json:"args"`
-}
-
-// ApplicationSetCharm sets the charm for a given application.
-type ApplicationSetCharm struct {
-	// ApplicationName is the name of the application to set the charm on.
-	ApplicationName string `json:"application"`
-
-	// CharmURL is the new url for the charm.
-	CharmURL string `json:"charm-url"`
-
-	// Channel is the charm store channel from which the charm came.
-	Channel string `json:"channel"`
-
-	// ConfigSettings is the charm settings to set during the upgrade.
-	// This field is only understood by Application facade version 2
-	// and greater.
-	ConfigSettings map[string]string `json:"config-settings,omitempty"`
-
-	// ConfigSettingsYAML is the charm settings in YAML format to set
-	// during the upgrade. If this is non-empty, it will take precedence
-	// over ConfigSettings. This field is only understood by Application
-	// facade version 2
-	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
-
-	// Force forces the lxd profile validation overriding even if it's fails.
-	Force bool `json:"force"`
-
-	// ForceUnits forces the upgrade on units in an error state.
-	ForceUnits bool `json:"force-units"`
-
-	// ForceSeries forces the use of the charm even if it doesn't match the
-	// series of the unit.
-	ForceSeries bool `json:"force-series"`
-
-	// ResourceIDs is a map of resource names to resource IDs to activate during
-	// the upgrade.
-	ResourceIDs map[string]string `json:"resource-ids,omitempty"`
-
-	// StorageConstraints is a map of storage names to storage constraints to
-	// update during the upgrade. This field is only understood by Application
-	// facade version 2 and greater.
-	StorageConstraints map[string]StorageConstraints `json:"storage-constraints,omitempty"`
-}
-
-// ApplicationExpose holds the parameters for making the application Expose call.
-type ApplicationExpose struct {
-	ApplicationName string `json:"application"`
-}
-
-// ApplicationSet holds the parameters for an application Set
-// command. Options contains the configuration data.
-type ApplicationSet struct {
-	ApplicationName string            `json:"application"`
-	Options         map[string]string `json:"options"`
-}
-
-// ApplicationUnset holds the parameters for an application Unset
-// command. Options contains the option attribute names
-// to unset.
-type ApplicationUnset struct {
-	ApplicationName string   `json:"application"`
-	Options         []string `json:"options"`
-}
-
-// ApplicationGet holds parameters for making the Get or
-// GetCharmURL calls.
-type ApplicationGet struct {
-	ApplicationName string `json:"application"`
-}
-
-// ApplicationGetResults holds results of the application Get call.
-type ApplicationGetResults struct {
-	Application       string                 `json:"application"`
-	Charm             string                 `json:"charm"`
-	CharmConfig       map[string]interface{} `json:"config"`
-	ApplicationConfig map[string]interface{} `json:"application-config,omitempty"`
-	Constraints       constraints.Value      `json:"constraints"`
-	Series            string                 `json:"series"`
-	Channel           string                 `json:"channel"`
-}
-
-// ApplicationConfigSetArgs holds the parameters for
-// setting application config values for specified applications.
-type ApplicationConfigSetArgs struct {
-	Args []ApplicationConfigSet
-}
-
-// ApplicationConfigSet holds the parameters for an application
-// config set command.
-type ApplicationConfigSet struct {
-	ApplicationName string            `json:"application"`
-	Config          map[string]string `json:"config"`
-}
-
-// ApplicationConfigUnsetArgs holds the parameters for
-// resetting application config values for specified applications.
-type ApplicationConfigUnsetArgs struct {
-	Args []ApplicationUnset
-}
-
-// ApplicationCharmRelations holds parameters for making the application CharmRelations call.
-type ApplicationCharmRelations struct {
-	ApplicationName string `json:"application"`
-}
-
-// ApplicationCharmRelationsResults holds the results of the application CharmRelations call.
-type ApplicationCharmRelationsResults struct {
-	CharmRelations []string `json:"charm-relations"`
-}
-
-// ApplicationUnexpose holds parameters for the application Unexpose call.
-type ApplicationUnexpose struct {
-	ApplicationName string `json:"application"`
-}
-
-// ApplicationMetricCredential holds parameters for the SetApplicationCredentials call.
-type ApplicationMetricCredential struct {
-	ApplicationName   string `json:"application"`
-	MetricCredentials []byte `json:"metrics-credentials"`
-}
-
-// ApplicationMetricCredentials holds multiple ApplicationMetricCredential parameters.
-type ApplicationMetricCredentials struct {
-	Creds []ApplicationMetricCredential `json:"creds"`
-}
-
-// ApplicationGetConfigResults holds the return values for application GetConfig.
-type ApplicationGetConfigResults struct {
-	Results []ConfigResult
 }
 
 // LXDProfileUpgrade holds the parameters for an application
@@ -603,20 +389,6 @@ type ApplicationUnitParams struct {
 	Data           map[string]interface{}     `json:"data,omitempty"`
 }
 
-// UpdateApplicationServiceArgs holds the parameters for
-// updating application services.
-type UpdateApplicationServiceArgs struct {
-	Args []UpdateApplicationServiceArg `json:"args"`
-}
-
-// UpdateApplicationServiceArg holds parameters used to update
-// an application's service definition for the cloud.
-type UpdateApplicationServiceArg struct {
-	ApplicationTag string    `json:"application-tag"`
-	ProviderId     string    `json:"provider-id"`
-	Addresses      []Address `json:"addresses"`
-}
-
 // DestroyApplicationUnits holds parameters for the deprecated
 // Application.DestroyUnits call.
 type DestroyApplicationUnits struct {
@@ -636,41 +408,6 @@ type DestroyUnitParams struct {
 	// DestroyStorage controls whether or not storage
 	// attached to the unit should be destroyed.
 	DestroyStorage bool `json:"destroy-storage,omitempty"`
-}
-
-// ApplicationDestroy holds the parameters for making the deprecated
-// Application.Destroy call.
-type ApplicationDestroy struct {
-	ApplicationName string `json:"application"`
-}
-
-// DestroyApplicationsParams holds bulk parameters for the
-// Application.DestroyApplication call.
-type DestroyApplicationsParams struct {
-	Applications []DestroyApplicationParams `json:"applications"`
-}
-
-// DestroyApplicationParams holds parameters for the
-// Application.DestroyApplication call.
-type DestroyApplicationParams struct {
-	// ApplicationTag holds the tag of the application to destroy.
-	ApplicationTag string `json:"application-tag"`
-
-	// DestroyStorage controls whether or not storage attached to
-	// units of the application should be destroyed.
-	DestroyStorage bool `json:"destroy-storage,omitempty"`
-}
-
-// DestroyConsumedApplicationsParams holds bulk parameters for the
-// Application.DestroyConsumedApplication call.
-type DestroyConsumedApplicationsParams struct {
-	Applications []DestroyConsumedApplicationParams `json:"applications"`
-}
-
-// DestroyConsumedApplicationParams holds the parameters for the
-// RemoteApplication.Destroy call.
-type DestroyConsumedApplicationParams struct {
-	ApplicationTag string `json:"application-tag"`
 }
 
 // Creds holds credentials for identifying an entity.
@@ -719,26 +456,9 @@ type SetAnnotations struct {
 	Pairs map[string]string `json:"annotations"`
 }
 
-// GetApplicationConstraints stores parameters for making the GetApplicationConstraints call.
-type GetApplicationConstraints struct {
-	ApplicationName string `json:"application"`
-}
-
 // GetConstraintsResults holds results of the GetConstraints call.
 type GetConstraintsResults struct {
 	Constraints constraints.Value `json:"constraints"`
-}
-
-// ApplicationGetConstraintsResults holds the multiple return values for GetConstraints call.
-type ApplicationGetConstraintsResults struct {
-	Results []ApplicationConstraint `json:"results"`
-}
-
-// ApplicationConstraint holds the constraints value for a single application, or
-// an error for trying to get it.
-type ApplicationConstraint struct {
-	Constraints constraints.Value `json:"constraints"`
-	Error       *Error            `json:"error,omitempty"`
 }
 
 // SetConstraints stores parameters for making the SetConstraints call.
@@ -1248,36 +968,6 @@ type DestroyMachineInfo struct {
 	DestroyedUnits []Entity `json:"destroyed-units,omitempty"`
 }
 
-// DestroyApplicationResults contains the results of a DestroyApplication
-// API request.
-type DestroyApplicationResults struct {
-	Results []DestroyApplicationResult `json:"results,omitempty"`
-}
-
-// DestroyApplicationResult contains one of the results of a
-// DestroyApplication API request.
-type DestroyApplicationResult struct {
-	Error *Error                  `json:"error,omitempty"`
-	Info  *DestroyApplicationInfo `json:"info,omitempty"`
-}
-
-// DestroyApplicationInfo contains information related to the removal of
-// an application.
-type DestroyApplicationInfo struct {
-	// DetachedStorage is the tags of storage instances that will be
-	// detached from the application's units, and will remain in the
-	// model after the units are removed.
-	DetachedStorage []Entity `json:"detached-storage,omitempty"`
-
-	// DestroyedStorage is the tags of storage instances that will be
-	// destroyed as a result of destroying the application.
-	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
-
-	// DestroyedUnits is the tags of units that will be destroyed
-	// as a result of destroying the application.
-	DestroyedUnits []Entity `json:"destroyed-units,omitempty"`
-}
-
 // DestroyUnitResults contains the results of a DestroyUnit API request.
 type DestroyUnitResults struct {
 	Results []DestroyUnitResult `json:"results,omitempty"`
@@ -1301,43 +991,6 @@ type DestroyUnitInfo struct {
 	// DestroyedStorage is the tags of storage instances that will be
 	// destroyed as a result of destroying the unit.
 	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
-}
-
-// ScaleApplicationsParams holds bulk parameters for the Application.ScaleApplication call.
-type ScaleApplicationsParams struct {
-	Applications []ScaleApplicationParams `json:"applications"`
-}
-
-// ScaleApplicationParams holds parameters for the Application.ScaleApplication call.
-type ScaleApplicationParams struct {
-	// ApplicationTag holds the tag of the application to scale.
-	ApplicationTag string `json:"application-tag"`
-
-	// Scale is the number of units which should be running.
-	Scale int `json:"scale"`
-
-	// Scale is the number of units which should be added/removed from the existing count.
-	ScaleChange int `json:"scale-change,omitempty"`
-}
-
-// ScaleApplicationResults contains the results of a ScaleApplication
-// API request.
-type ScaleApplicationResults struct {
-	Results []ScaleApplicationResult `json:"results,omitempty"`
-}
-
-// ScaleApplicationResult contains one of the results of a
-// ScaleApplication API request.
-type ScaleApplicationResult struct {
-	Error *Error                `json:"error,omitempty"`
-	Info  *ScaleApplicationInfo `json:"info,omitempty"`
-}
-
-// ScaleApplicationInfo contains information related to the scaling of
-// an application.
-type ScaleApplicationInfo struct {
-	// Scale is the number of units which should be running.
-	Scale int `json:"num-units"`
 }
 
 // DumpModelRequest wraps the request for a dump-model call.

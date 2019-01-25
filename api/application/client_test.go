@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -1287,4 +1288,131 @@ func (s *applicationSuite) TestScaleApplicationCallError(c *gc.C) {
 		Scale:           5,
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *applicationSuite) TestApplicationsInfoPriorV9(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			called = true
+			c.Assert(request, gc.Equals, "ApplicationsInfo")
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+	_, err := client.ApplicationsInfo(nil)
+	c.Assert(err, gc.ErrorMatches, "ApplicationsInfo for Application facade v0 not supported")
+	c.Assert(called, jc.IsFalse)
+}
+
+func apiForApplicationsInfo(f basetesting.APICallerFunc) basetesting.BestVersionCaller {
+	return basetesting.BestVersionCaller{
+		BestVersion:   9,
+		APICallerFunc: f,
+	}
+}
+
+func (s *applicationSuite) TestApplicationsInfoCallError(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			called = true
+			c.Assert(request, gc.Equals, "ApplicationsInfo")
+			return errors.New("boom")
+		},
+	)
+
+	client := application.NewClient(apiForApplicationsInfo(apiCaller))
+	_, err := client.ApplicationsInfo(nil)
+	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			called = true
+			c.Assert(request, gc.Equals, "ApplicationsInfo")
+			args, ok := a.(params.Entities)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.Entities{
+				Entities: []params.Entity{
+					{Tag: "application-foo"},
+					{Tag: "application-bar"},
+				}})
+
+			result, ok := response.(*params.ApplicationInfoResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ApplicationInfoResult{
+				{Error: &params.Error{Message: "boom"}},
+				{Result: &params.ApplicationInfo{
+					Tag:       "application-bar",
+					Charm:     "charm-bar",
+					Series:    "bionic",
+					Channel:   "development",
+					Principal: true,
+					EndpointBindings: map[string]string{
+						"juju-info": "myspace",
+					},
+					Remote: true,
+				},
+				},
+			}
+			return nil
+		},
+	)
+
+	client := application.NewClient(apiForApplicationsInfo(apiCaller))
+	results, err := client.ApplicationsInfo(
+		[]names.ApplicationTag{
+			names.NewApplicationTag("foo"),
+			names.NewApplicationTag("bar"),
+		},
+	)
+	c.Check(called, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, []params.ApplicationInfoResult{
+		{Error: &params.Error{Message: "boom"}},
+		{Result: &params.ApplicationInfo{
+			Tag:       "application-bar",
+			Charm:     "charm-bar",
+			Series:    "bionic",
+			Channel:   "development",
+			Principal: true,
+			EndpointBindings: map[string]string{
+				"juju-info": "myspace",
+			},
+			Remote: true,
+		}},
+	})
+}
+
+func (s *applicationSuite) TestApplicationsInfoResultMismatch(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			called = true
+			c.Assert(request, gc.Equals, "ApplicationsInfo")
+
+			result, ok := response.(*params.ApplicationInfoResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ApplicationInfoResult{
+				{Error: &params.Error{Message: "boom"}},
+				{Error: &params.Error{Message: "boom again"}},
+				{Result: &params.ApplicationInfo{Tag: "application-bar"}},
+			}
+			return nil
+		},
+	)
+
+	client := application.NewClient(apiForApplicationsInfo(apiCaller))
+	_, err := client.ApplicationsInfo(
+		[]names.ApplicationTag{
+			names.NewApplicationTag("foo"),
+			names.NewApplicationTag("bar"),
+		},
+	)
+	c.Check(called, jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 3")
 }
