@@ -2013,8 +2013,12 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 	if m.doc.SupportedContainersKnown {
 		if len(m.doc.SupportedContainers) == len(supportedContainers) {
 			equal := true
-			for i := range m.doc.SupportedContainers {
-				if m.doc.SupportedContainers[i] != supportedContainers[i] {
+			types := make(map[instance.ContainerType]struct{}, len(m.doc.SupportedContainers))
+			for _, v := range m.doc.SupportedContainers {
+				types[v] = struct{}{}
+			}
+			for _, v := range supportedContainers {
+				if _, ok := types[v]; !ok {
 					equal = false
 					break
 				}

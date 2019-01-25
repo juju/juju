@@ -2468,6 +2468,30 @@ func (s *MachineSuite) TestSetSupportedContainersMultipleExisting(c *gc.C) {
 	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD, instance.KVM})
 }
 
+func (s *MachineSuite) TestSetSupportedContainersMultipleExistingInvertedOrder(c *gc.C) {
+	machine := s.addMachineWithSupportedContainer(c, instance.LXD)
+
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.KVM, instance.LXD})
+	c.Assert(err, jc.ErrorIsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.KVM, instance.LXD})
+	// Setting it again will be a no-op
+	defer state.SetFailIfTransaction(c, s.State).Check()
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.KVM, instance.LXD})
+	c.Assert(err, jc.ErrorIsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.KVM, instance.LXD})
+}
+
+func (s *MachineSuite) TestSetSupportedContainersMultipleExistingWithDifferentInstanceType(c *gc.C) {
+	machine := s.addMachineWithSupportedContainer(c, instance.LXD)
+
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXD, instance.KVM})
+	c.Assert(err, jc.ErrorIsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD, instance.KVM})
+	// Setting it again will be a no-op
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXD, instance.ContainerType("FOO")})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
 	// Create a machine and add lxd and kvm containers prior to calling SetSupportedContainers
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
