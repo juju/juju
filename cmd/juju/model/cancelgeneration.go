@@ -105,7 +105,7 @@ func (c *cancelGenerationCommand) Run(ctx *cmd.Context) error {
 	if err = client.CancelGeneration(modelTag); err != nil {
 		return err
 	}
-	
+
 	// Now update the model store with the 'current' generation for this
 	// model.
 	modelName, modelDetails, err := c.ModelDetails()
