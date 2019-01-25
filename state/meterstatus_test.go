@@ -49,8 +49,9 @@ func (s *MeterStateSuite) TestMeterStatusIncludesModelUUID(c *gc.C) {
 	var docs []bson.M
 	err := meterStatus.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs, gc.HasLen, 2)
 	c.Assert(docs[0]["model-uuid"], gc.Equals, s.State.ModelUUID())
+	c.Assert(docs[1]["model-uuid"], gc.Equals, s.State.ModelUUID())
 }
 
 func (s *MeterStateSuite) TestSetMeterStatusIncorrect(c *gc.C) {
