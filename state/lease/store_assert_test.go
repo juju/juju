@@ -45,7 +45,7 @@ func (s *StoreAssertSuite) TestPassesWhenLeaseHeld(c *gc.C) {
 	var ops []txn.Op
 	err := info.Trapdoor(&ops)
 	c.Check(err, jc.ErrorIsNil)
-	err = s.fix.Runner.RunTransaction(ops)
+	err = s.fix.Runner.RunTransaction(ops, 0)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -59,7 +59,7 @@ func (s *StoreAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *gc
 	var ops []txn.Op
 	err = info.Trapdoor(&ops)
 	c.Check(err, jc.ErrorIsNil)
-	err = s.fix.Runner.RunTransaction(ops)
+	err = s.fix.Runner.RunTransaction(ops, 0)
 	c.Check(err, gc.IsNil)
 }
 
@@ -73,7 +73,7 @@ func (s *StoreAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *g
 	var ops []txn.Op
 	err = info.Trapdoor(&ops)
 	c.Check(err, jc.ErrorIsNil)
-	err = s.fix.Runner.RunTransaction(ops)
+	err = s.fix.Runner.RunTransaction(ops, 0)
 	c.Check(err, gc.IsNil)
 }
 
@@ -87,6 +87,6 @@ func (s *StoreAssertSuite) TestAbortsWhenLeaseVacant(c *gc.C) {
 	var ops []txn.Op
 	err = info.Trapdoor(&ops)
 	c.Check(err, jc.ErrorIsNil)
-	err = s.fix.Runner.RunTransaction(ops)
+	err = s.fix.Runner.RunTransaction(ops, 0)
 	c.Check(err, gc.Equals, txn.ErrAborted)
 }

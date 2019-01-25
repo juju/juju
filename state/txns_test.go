@@ -256,7 +256,7 @@ func (s *MultiModelRunnerSuite) TestRunTransaction(c *gc.C) {
 		c.Logf("TestRunTransaction %d: %s", i, t.label)
 
 		inOps := []txn.Op{t.input}
-		err := s.multiModelRunner.RunTransaction(inOps)
+		err := s.multiModelRunner.RunTransaction(inOps, 0)
 		c.Assert(err, jc.ErrorIsNil)
 
 		expected := []txn.Op{t.expected}
@@ -274,7 +274,7 @@ func (s *MultiModelRunnerSuite) TestMultipleOps(c *gc.C) {
 		expectedOps = append(expectedOps, t.expected)
 	}
 
-	err := s.multiModelRunner.RunTransaction(inOps)
+	err := s.multiModelRunner.RunTransaction(inOps, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.testRunner.seenOps, gc.DeepEquals, expectedOps)
@@ -294,7 +294,7 @@ func (s *MultiModelRunnerSuite) TestWithObjectIds(c *gc.C) {
 		Insert: &objIdDoc{Id: id},
 	}}
 
-	err := s.multiModelRunner.RunTransaction(inOps)
+	err := s.multiModelRunner.RunTransaction(inOps, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedOps := []txn.Op{{
@@ -314,7 +314,7 @@ func (s *MultiModelRunnerSuite) TestRejectsAttemptToInsertWrongModelUUID(c *gc.C
 		Id:     "1",
 		Insert: &machineDoc{},
 	}}
-	err := s.multiModelRunner.RunTransaction(ops)
+	err := s.multiModelRunner.RunTransaction(ops, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ops = []txn.Op{{
@@ -324,7 +324,7 @@ func (s *MultiModelRunnerSuite) TestRejectsAttemptToInsertWrongModelUUID(c *gc.C
 			ModelUUID: "wrong",
 		},
 	}}
-	err = s.multiModelRunner.RunTransaction(ops)
+	err = s.multiModelRunner.RunTransaction(ops, 0)
 	c.Assert(err, gc.ErrorMatches, `cannot insert into "machines": bad "model-uuid" value.+`)
 }
 
@@ -335,7 +335,7 @@ func (s *MultiModelRunnerSuite) TestRejectsAttemptToChangeModelUUID(c *gc.C) {
 		Id:     "1",
 		Update: bson.M{"$set": &machineDoc{ModelUUID: modelUUID}},
 	}}
-	err := s.multiModelRunner.RunTransaction(ops)
+	err := s.multiModelRunner.RunTransaction(ops, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Using the wrong model UUID isn't allowed.
@@ -344,7 +344,7 @@ func (s *MultiModelRunnerSuite) TestRejectsAttemptToChangeModelUUID(c *gc.C) {
 		Id:     "1",
 		Update: bson.M{"$set": &machineDoc{ModelUUID: "wrong"}},
 	}}
-	err = s.multiModelRunner.RunTransaction(ops)
+	err = s.multiModelRunner.RunTransaction(ops, 0)
 	c.Assert(err, gc.ErrorMatches, `cannot update "machines": bad "model-uuid" value.+`)
 }
 
@@ -353,7 +353,7 @@ func (s *MultiModelRunnerSuite) TestDoesNotAssertReferencedModel(c *gc.C) {
 		C:      modelsC,
 		Id:     modelUUID,
 		Insert: bson.M{},
-	}})
+	}}, 0)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.testRunner.seenOps, jc.DeepEquals, []txn.Op{{
 		C:      modelsC,
@@ -367,7 +367,7 @@ func (s *MultiModelRunnerSuite) TestRejectRawAccessCollection(c *gc.C) {
 		C:      "raw",
 		Id:     "whatever",
 		Assert: bson.D{{"any", "thing"}},
-	}})
+	}}, 0)
 	c.Check(err, gc.ErrorMatches, `forbidden transaction: references raw-access collection "raw"`)
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
@@ -377,7 +377,7 @@ func (s *MultiModelRunnerSuite) TestRejectUnknownCollection(c *gc.C) {
 		C:      "unknown",
 		Id:     "whatever",
 		Assert: bson.D{{"any", "thing"}},
-	}})
+	}}, 0)
 	c.Check(err, gc.ErrorMatches, `forbidden transaction: references unknown collection "unknown"`)
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
@@ -390,7 +390,7 @@ func (s *MultiModelRunnerSuite) TestRejectStructModelUUIDMismatch(c *gc.C) {
 			DocID:     "uuid:0",
 			ModelUUID: "somethingelse",
 		},
-	}})
+	}}, 0)
 	c.Check(err, gc.ErrorMatches,
 		`cannot insert into "machines": bad "model-uuid" value: expected uuid, got somethingelse`)
 	c.Check(s.testRunner.seenOps, gc.IsNil)
@@ -401,7 +401,7 @@ func (s *MultiModelRunnerSuite) TestRejectBsonDModelUUIDMismatch(c *gc.C) {
 		C:      machinesC,
 		Id:     "uuid:0",
 		Insert: bson.D{{"model-uuid", "wtf"}},
-	}})
+	}}, 0)
 	c.Check(err, gc.ErrorMatches,
 		`cannot insert into "machines": bad "model-uuid" value: expected uuid, got wtf`)
 	c.Check(s.testRunner.seenOps, gc.IsNil)
@@ -412,7 +412,7 @@ func (s *MultiModelRunnerSuite) TestRejectBsonMModelUUIDMismatch(c *gc.C) {
 		C:      machinesC,
 		Id:     "uuid:0",
 		Insert: bson.M{"model-uuid": "wtf"},
-	}})
+	}}, 0)
 	c.Check(err, gc.ErrorMatches,
 		`cannot insert into "machines": bad "model-uuid" value: expected uuid, got wtf`)
 	c.Check(s.testRunner.seenOps, gc.IsNil)
@@ -480,14 +480,16 @@ func (s *MultiModelRunnerSuite) TestMaybePruneTransactionsWithError(c *gc.C) {
 // fresh instance should be created for each test.
 type recordingRunner struct {
 	seenOps                  []txn.Op
+	seenAttempt              int
 	resumeTransactionsCalled bool
 	resumeTransactionsErr    error
 	pruneTransactionsCalled  bool
 	pruneTransactionsErr     error
 }
 
-func (r *recordingRunner) RunTransaction(ops []txn.Op) error {
+func (r *recordingRunner) RunTransaction(ops []txn.Op, attempt int) error {
 	r.seenOps = ops
+	r.seenAttempt = attempt
 	return nil
 }
 
