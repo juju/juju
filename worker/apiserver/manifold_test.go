@@ -79,6 +79,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		UpgradeGateName:                   "upgrade",
 		AuditConfigUpdaterName:            "auditconfig-updater",
 		LeaseManagerName:                  "lease-manager",
+		RaftTransportName:                 "raft-transport",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -98,6 +99,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"upgrade":             &s.upgradeGate,
 		"auditconfig-updater": s.auditConfig.get,
 		"lease-manager":       s.leaseManager,
+		"raft-transport":      nil,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -119,7 +121,7 @@ func (s *ManifoldSuite) newWorker(config apiserver.Config) (worker.Worker, error
 }
 
 var expectedInputs = []string{
-	"agent", "authenticator", "clock", "mux", "restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager",
+	"agent", "authenticator", "clock", "mux", "restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager", "raft-transport",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {

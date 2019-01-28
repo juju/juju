@@ -308,6 +308,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
+		"raft-transport",
 		"restore-watcher",
 		"state",
 		"state-config-watcher",

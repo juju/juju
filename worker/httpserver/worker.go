@@ -100,8 +100,6 @@ type Worker struct {
 	url      chan string
 	holdable *heldListener
 
-	unsub func()
-
 	// mu controls access to both status and reporter.
 	mu     sync.Mutex
 	status string
