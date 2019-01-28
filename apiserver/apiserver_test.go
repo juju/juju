@@ -97,6 +97,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 				io.WriteString(w, "gazing")
 			}))
 		},
+		MetricsCollector: apiserver.NewMetricsCollector(),
 	}
 }
 

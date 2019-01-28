@@ -80,7 +80,7 @@ type Server struct {
 	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
 	prometheusRegisterer   prometheus.Registerer
-	serverMetrics          *Collector
+	metricsCollector       *Collector
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -168,6 +168,10 @@ type ServerConfig struct {
 
 	// PrometheusRegisterer registers Prometheus collectors.
 	PrometheusRegisterer prometheus.Registerer
+
+	// MetricsCollector defines all the metrics to be collected for the
+	// apiserver
+	MetricsCollector *Collector
 }
 
 // Validate validates the API server configuration.
@@ -209,6 +213,9 @@ func (c ServerConfig) Validate() error {
 		if err := c.LogSinkConfig.Validate(); err != nil {
 			return errors.Annotate(err, "validating logsink configuration")
 		}
+	}
+	if c.MetricsCollector == nil {
+		return errors.NotValidf("missing MetricsCollector")
 	}
 	return nil
 }
@@ -283,7 +290,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
 		},
 		prometheusRegisterer: cfg.PrometheusRegisterer,
-		serverMetrics:        NewMetricsCollector(),
+		metricsCollector:     cfg.MetricsCollector,
 	}
 
 	// The auth context for authenticating access to application offers.
@@ -380,12 +387,12 @@ func (srv *Server) loop(ready chan struct{}) error {
 	// ensure we register the prometheus metrics in the loop, so that when the
 	// loop exists and restarts, we register correctly.
 	if srv.prometheusRegisterer != nil {
-		if err := srv.prometheusRegisterer.Register(srv.serverMetrics); err != nil {
+		if err := srv.prometheusRegisterer.Register(srv.metricsCollector); err != nil {
 			// It isn't a fatal error to fail to register the metrics, so
 			// log and continue
 			logger.Warningf("registration of apiserver metrics failed: %v", err)
 		} else {
-			defer srv.prometheusRegisterer.Unregister(srv.serverMetrics)
+			defer srv.prometheusRegisterer.Unregister(srv.metricsCollector)
 		}
 	}
 
@@ -469,7 +476,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
-		logsinkMetricsCollectorWrapper{collector: srv.serverMetrics},
+		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
 	)
 	logSinkAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UnitTagKind, names.ApplicationTagKind}
 	logTransferHandler := logsink.NewHTTPHandler(
@@ -478,7 +485,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		newMigrationLogWriteCloserFunc(httpCtxt, &srv.dbloggers),
 		httpCtxt.stop(),
 		nil, // no rate-limiting
-		logsinkMetricsCollectorWrapper{collector: srv.serverMetrics},
+		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
 	)
 	modelRestHandler := &modelRestHandler{
 		ctxt:          httpCtxt,
@@ -771,9 +778,9 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	srv.serverMetrics.TotalConnections.Inc()
-	srv.serverMetrics.APIConnections.Inc()
-	defer srv.serverMetrics.APIConnections.Dec()
+	srv.metricsCollector.TotalConnections.Inc()
+	srv.metricsCollector.APIConnections.Inc()
+	defer srv.metricsCollector.APIConnections.Dec()
 
 	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
 

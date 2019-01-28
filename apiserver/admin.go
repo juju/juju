@@ -214,8 +214,8 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 		if err != nil || tag.Kind() != names.UserTagKind {
 			// Either the tag is invalid, or
 			// it's not a user; rate limit it.
-			a.srv.serverMetrics.LoginAttempts.Inc()
-			defer a.srv.serverMetrics.LoginAttempts.Dec()
+			a.srv.metricsCollector.LoginAttempts.Inc()
+			defer a.srv.metricsCollector.LoginAttempts.Dec()
 
 			// Users are not rate limited, all other entities are.
 			if !a.srv.limiter.Acquire() {

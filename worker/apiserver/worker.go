@@ -139,6 +139,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),
 		NewObserver:                   observerFactory,
 		RegisterIntrospectionHandlers: config.RegisterIntrospectionHTTPHandlers,
+		MetricsCollector:              apiserver.NewMetricsCollector(),
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          config.PrometheusRegisterer,
