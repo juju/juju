@@ -74,7 +74,7 @@ type Token interface {
 	//
 	// In practice, most Token implementations will likely expect *[]txn.Op,
 	// so that they can be used to gate mgo/txn-based state changes.
-	Check(interface{}) error
+	Check(interface{}, bool) error
 }
 
 // Checker exposes leadership testing capabilities.

@@ -317,7 +317,11 @@ func (manager *Manager) handleCheck(check check) error {
 
 	trapdoor, err := store.Trapdoor(check.leaseKey, check.holderName)
 	if err == nil {
-		err = trapdoor(check.trapdoorKey)
+		var syncStore lease.Store
+		if check.sync {
+			syncStore = store
+		}
+		err = trapdoor(check.trapdoorKey, syncStore)
 	} else if err != lease.ErrNotHeld {
 		return errors.Trace(err)
 	}

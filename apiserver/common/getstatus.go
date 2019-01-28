@@ -147,7 +147,7 @@ func (s *ApplicationStatusGetter) Status(args params.Entities) (params.Applicati
 		// ...so we can check the unit's application leadership...
 		checker := s.st.LeadershipChecker()
 		token := checker.LeadershipCheck(applicationId, unitId)
-		if err := token.Check(nil); err != nil {
+		if err := token.Check(nil, false); err != nil {
 			// TODO(fwereade) this should probably be ErrPerm is certain cases,
 			// but I don't think I implemented an exported ErrNotLeader. I
 			// should have done, though.

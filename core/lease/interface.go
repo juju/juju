@@ -85,10 +85,15 @@ type Token interface {
 	//
 	// If the token represents a true fact and trapdoorKey is *not* nil, it will
 	// be passed through layers for the attention of the underlying lease.Client
-	// implementation. If you need to do this, consult the documentation for the
-	// particular Client you're using to determine what key should be passed and
+	// implementation.
+	// Passing a sync value of true signals that a the lease implementation
+	// should re-assert its claim to the token's lease and synchronise this fact
+	// with state.
+	// If you need to do this, consult the documentation for the particular
+	// Client you're using to determine what key should be passed and
 	// what errors that might induce.
-	Check(trapdoorKey interface{}) error
+
+	Check(trapdoorKey interface{}, sync bool) error
 }
 
 // Manager describes methods for acquiring objects that manipulate and query

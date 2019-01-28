@@ -473,6 +473,9 @@ func (store *store) expireLeaseOps(name string) ([]txn.Op, error) {
 
 // assertOpTrapdoor returns a lease.Trapdoor that will replace a supplied
 // *[]txn.Op with one that asserts that the holder still holds the named lease.
+// The state-based lease implementation is implicitly in sync with itself,
+// so such Trapdoors ignore any supplied store intended for re-asserting the
+// lease.
 func (store *store) assertOpTrapdoor(name, holder string) lease.Trapdoor {
 	op := txn.Op{
 		C:  store.config.Collection,
@@ -481,7 +484,7 @@ func (store *store) assertOpTrapdoor(name, holder string) lease.Trapdoor {
 			fieldHolder: holder,
 		},
 	}
-	return func(out interface{}) error {
+	return func(out interface{}, _ lease.Store) error {
 		outPtr, ok := out.(*[]txn.Op)
 		if !ok {
 			return errors.NotValidf("expected *[]txn.Op; %T", out)

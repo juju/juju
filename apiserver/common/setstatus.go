@@ -94,7 +94,7 @@ func (s *ApplicationStatusSetter) SetStatus(args params.SetStatus) (params.Error
 		token := checker.LeadershipCheck(serviceId, unitId)
 
 		// TODO(fwereade) pass token into SetStatus instead of checking here.
-		if err := token.Check(nil); err != nil {
+		if err := token.Check(nil, false); err != nil {
 			// TODO(fwereade) this should probably be ErrPerm is certain cases,
 			// but I don't think I implemented an exported ErrNotLeader. I
 			// should have done, though.

@@ -1581,7 +1581,7 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 			return err
 		}
 		token := checker.LeadershipCheck(unit.ApplicationName(), unit.Name())
-		if err := token.Check(nil); err != nil {
+		if err := token.Check(nil, false); err != nil {
 			return errors.Trace(err)
 		}
 

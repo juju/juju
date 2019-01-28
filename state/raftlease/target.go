@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -216,11 +217,22 @@ func MakeTrapdoorFunc(collection string) raftlease.TrapdoorFunc {
 				fieldHolder: holder,
 			},
 		}
-		return func(out interface{}) error {
+		return func(out interface{}, store lease.Store) error {
 			outPtr, ok := out.(*[]txn.Op)
 			if !ok {
 				return errors.NotValidf("expected *[]txn.Op; %T", out)
 			}
+
+			// If being asked to sync, re-claim the lease for the specifies
+			// holder so that the ensuing notifyTarget.Claimed() call updates
+			// state. If the lease is not held by the input hold according to
+			// Raft, an error will result.
+			if store != nil {
+				if err := store.ExtendLease(key, lease.Request{Holder: holder, Duration: time.Minute}); err != nil {
+					return errors.Trace(err)
+				}
+			}
+
 			*outPtr = []txn.Op{op}
 			return nil
 		}

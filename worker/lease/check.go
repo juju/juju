@@ -19,7 +19,7 @@ type token struct {
 }
 
 // Check is part of the lease.Token interface.
-func (t token) Check(trapdoorKey interface{}) error {
+func (t token) Check(trapdoorKey interface{}, sync bool) error {
 
 	// This validation, which could be done at Token creation time, is deferred
 	// until this point for historical reasons. In particular, this code was
@@ -39,6 +39,7 @@ func (t token) Check(trapdoorKey interface{}) error {
 		leaseKey:    t.leaseKey,
 		holderName:  t.holderName,
 		trapdoorKey: trapdoorKey,
+		sync:        sync,
 		response:    make(chan error),
 		stop:        t.stop,
 	}.invoke(t.checks)
@@ -50,6 +51,7 @@ type check struct {
 	leaseKey    lease.Key
 	holderName  string
 	trapdoorKey interface{}
+	sync        bool
 	response    chan error
 	stop        <-chan struct{}
 }
