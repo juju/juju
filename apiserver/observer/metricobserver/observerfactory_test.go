@@ -39,6 +39,7 @@ func (s *observerFactorySuite) TestNewObserverFactoryRegisterError(c *gc.C) {
 	s.registerer.SetErrors(errors.New("oy vey"))
 	_, err := metricobserver.NewObserverFactory(metricobserver.Config{
 		Clock:                s.clock,
+		Subsystem:            "api",
 		PrometheusRegisterer: &s.registerer,
 	})
 	c.Assert(err, gc.ErrorMatches, "oy vey")
@@ -47,6 +48,7 @@ func (s *observerFactorySuite) TestNewObserverFactoryRegisterError(c *gc.C) {
 func (s *observerFactorySuite) TestNewObserverFactoryRegister(c *gc.C) {
 	f, err := metricobserver.NewObserverFactory(metricobserver.Config{
 		Clock:                s.clock,
+		Subsystem:            "api",
 		PrometheusRegisterer: &s.registerer,
 	})
 	c.Assert(err, jc.ErrorIsNil)

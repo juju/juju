@@ -35,6 +35,7 @@ func (s *observerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.factory, err = metricobserver.NewObserverFactory(metricobserver.Config{
 		Clock:                s.clock,
+		Subsystem:            "api",
 		PrometheusRegisterer: s.registry,
 	})
 	c.Assert(err, jc.ErrorIsNil)

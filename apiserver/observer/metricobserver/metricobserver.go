@@ -36,6 +36,9 @@ type Config struct {
 	// Clock is the clock to use for all time-related operations.
 	Clock clock.Clock
 
+	// Subsystem to report the metrics upon.
+	Subsystem string
+
 	// PrometheusRegisterer is the prometheus.Registerer in which metric
 	// collectors will be registered.
 	PrometheusRegisterer prometheus.Registerer
@@ -45,6 +48,9 @@ type Config struct {
 func (cfg Config) Validate() error {
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
+	}
+	if cfg.Subsystem == "" {
+		return errors.NotValidf("empty Subsystem")
 	}
 	if cfg.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -62,14 +68,14 @@ func NewObserverFactory(config Config) (observer.ObserverFactory, error) {
 
 	apiRequestsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "juju",
-		Subsystem: "api",
+		Subsystem: config.Subsystem,
 		Name:      "requests_total",
 		Help:      "Number of Juju API requests served.",
 	}, metricLabelNames)
 
 	apiRequestDuration := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: "juju",
-		Subsystem: "api",
+		Subsystem: config.Subsystem,
 		Name:      "request_duration_seconds",
 		Help:      "Latency of Juju API requests in seconds.",
 	}, metricLabelNames)

@@ -22,6 +22,7 @@ var _ = gc.Suite(&configSuite{})
 func (*configSuite) TestValidateValid(c *gc.C) {
 	cfg := metricobserver.Config{
 		Clock:                clock.WallClock,
+		Subsystem:            "apiserver",
 		PrometheusRegisterer: prometheus.NewRegistry(),
 	}
 	err := cfg.Validate()
@@ -32,6 +33,10 @@ func (*configSuite) TestValidateInvalid(c *gc.C) {
 	assertConfigInvalid(c, metricobserver.Config{}, "nil Clock not valid")
 	assertConfigInvalid(c, metricobserver.Config{
 		Clock: clock.WallClock,
+	}, "empty Subsystem not valid")
+	assertConfigInvalid(c, metricobserver.Config{
+		Clock:     clock.WallClock,
+		Subsystem: "apiserver",
 	}, "nil PrometheusRegisterer not valid")
 }
 
