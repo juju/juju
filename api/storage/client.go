@@ -90,6 +90,20 @@ func (c *Client) CreatePool(pname, provider string, attrs map[string]interface{}
 	return c.facade.FacadeCall("CreatePool", args, nil)
 }
 
+// DeletePool deletes the named pool
+func (c *Client) DeletePool(pname string) error {
+	return c.facade.FacadeCall("DeletePool", pname, nil)
+}
+
+// UpdatePool updates a  pool with specified parameters.
+func (c *Client) UpdatePool(pname string, attrs map[string]interface{}) error {
+	args := params.StoragePool{
+		Name:  pname,
+		Attrs: attrs,
+	}
+	return c.facade.FacadeCall("UpdatePool", args, nil)
+}
+
 // ListVolumes lists volumes for desired machines.
 // If no machines provided, a list of all volumes is returned.
 func (c *Client) ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error) {
