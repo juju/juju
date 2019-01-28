@@ -132,7 +132,7 @@ func (s *RebootSuite) newService(name string, conf common.Conf, series string) (
 }
 
 func (s *RebootSuite) TestRebootStopUnits(c *gc.C) {
-	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
+	w, err := reboot.NewRebootWaiter(s.acfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = w.ExecuteReboot(params.ShouldReboot)
