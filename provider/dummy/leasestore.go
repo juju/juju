@@ -119,6 +119,17 @@ func (s *leaseStore) Leases() map[lease.Key]lease.Info {
 	return results
 }
 
+func (s *leaseStore) Trapdoor(leaseKey lease.Key, holder string) (lease.Trapdoor, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	l, found := s.Leases()[leaseKey]
+	if !found || l.Holder != holder {
+		return nil, lease.ErrNotHeld
+	}
+	return s.trapdoor(leaseKey, holder), nil
+}
+
 // Refresh is part of lease.Store.
 func (s *leaseStore) Refresh() error {
 	return nil

@@ -226,6 +226,49 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 	c.Assert(out, gc.Equals, "{la cry mosa} held by mozart")
 }
 
+func (s *storeSuite) TestTrapdoorNoLease(c *gc.C) {
+	leaseKey := lease.Key{
+		Namespace: "does",
+		ModelUUID: "not",
+		Lease:     "matter",
+	}
+	_, err := s.store.Trapdoor(leaseKey, "nope")
+	c.Assert(err, gc.Equals, lease.ErrNotHeld)
+}
+
+func (s *storeSuite) TestTrapdoorNotHolder(c *gc.C) {
+	leaseKey := lease.Key{
+		Namespace: "does",
+		ModelUUID: "not",
+		Lease:     "matter",
+	}
+	s.fsm.leases[leaseKey] = lease.Info{
+		Holder: "some-cat",
+		Expiry: s.clock.Now().Add(10 * time.Second),
+	}
+	_, err := s.store.Trapdoor(leaseKey, "nope")
+	c.Assert(err, gc.Equals, lease.ErrNotHeld)
+}
+
+func (s *storeSuite) TestTrapdoorSuccess(c *gc.C) {
+	leaseKey := lease.Key{
+		Namespace: "does",
+		ModelUUID: "not",
+		Lease:     "matter",
+	}
+	s.fsm.leases[leaseKey] = lease.Info{
+		Holder: "some-cat",
+		Expiry: s.clock.Now().Add(10 * time.Second),
+	}
+
+	f, err := s.store.Trapdoor(leaseKey, "some-cat")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var out string
+	c.Assert(f(&out), jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, "{does not matter} held by some-cat")
+}
+
 func (s *storeSuite) TestPin(c *gc.C) {
 	machine := names.NewMachineTag("0").String()
 	s.handleHubRequest(c,

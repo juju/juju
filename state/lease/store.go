@@ -84,6 +84,46 @@ func (store *store) Leases() map[lease.Key]lease.Info {
 	return leases
 }
 
+// Trapdoor (lease.Store) returns the Trapdoor for the input lease,
+// if the supplied holder currently holds it. Otherwise an error is returned.
+func (store *store) Trapdoor(leaseKey lease.Key, holder string) (lease.Trapdoor, error) {
+	cfg := store.config
+	if leaseKey.Namespace != cfg.Namespace {
+		return nil, errors.Errorf("store namespace is %q, but lease requested for %q",
+			cfg.Namespace, leaseKey.Namespace)
+	}
+	if leaseKey.ModelUUID != store.config.ModelUUID {
+		return nil, errors.Errorf("store model UUID is %q, but lease requested for %q",
+			cfg.ModelUUID, leaseKey.ModelUUID)
+	}
+
+	name := leaseKey.Lease
+
+	// Lock holding is done tightly around the map access,
+	// as a call to Refresh also requires the lock.
+	store.mu.Lock()
+	entry, found := store.entries[name]
+	store.mu.Unlock()
+
+	if !found || entry.holder != holder {
+		store.logger.Tracef("checking for lease %s on behalf of %s, not found, refreshing", name, holder)
+		if err := store.Refresh(); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		store.mu.Lock()
+		entry, found = store.entries[name]
+		store.mu.Unlock()
+
+		if !found || entry.holder != holder {
+			store.logger.Tracef("checking for lease %s on behalf of %s, not held", name, holder)
+			return nil, lease.ErrNotHeld
+		}
+	}
+
+	return store.assertOpTrapdoor(name, holder), nil
+}
+
 // ClaimLease is part of the lease.Store interface.
 func (store *store) ClaimLease(key lease.Key, request lease.Request) error {
 	return store.request(key.Lease, request, store.claimLeaseOps, "claiming")

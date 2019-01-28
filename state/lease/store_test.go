@@ -14,7 +14,6 @@ import (
 	statelease "github.com/juju/juju/state/lease"
 )
 
-// StoreAssertSuite tests that AssertOp does what it should.
 type StoreSuite struct {
 	FixtureSuite
 }
@@ -31,7 +30,7 @@ func (s *StoreSuite) TestLookupLeaseNotThere(c *gc.C) {
 
 func (s *StoreSuite) TestLookupLease(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Store.ClaimLease(key("name"), corelease.Request{"holder", time.Minute})
+	err := fix.Store.ClaimLease(key("name"), corelease.Request{Holder: "holder", Duration: time.Minute})
 	c.Assert(err, jc.ErrorIsNil)
 	db := NewMongo(s.db)
 	coll, closer := db.GetCollection("default-collection")
@@ -41,4 +40,57 @@ func (s *StoreSuite) TestLookupLease(c *gc.C) {
 	c.Check(doc.Name, gc.Equals, "name")
 	c.Check(doc.Holder, gc.Equals, "holder")
 	c.Check(doc.Namespace, gc.Equals, "default-namespace")
+}
+
+func (s *StoreSuite) TestTrapdoorBadKeyErrors(c *gc.C) {
+	fix := s.EasyFixture(c)
+
+	_, err := fix.Store.Trapdoor(corelease.Key{Namespace: "nope"}, "")
+	c.Assert(err, gc.ErrorMatches, `store namespace is "default-namespace", but lease requested for "nope"`)
+
+	_, err = fix.Store.Trapdoor(corelease.Key{Namespace: defaultNamespace, ModelUUID: "nope"}, "")
+	c.Assert(err, gc.ErrorMatches, `store model UUID is "model-uuid", but lease requested for "nope"`)
+}
+
+func (s *StoreSuite) TestTrapdoorNoLease(c *gc.C) {
+	fix := s.EasyFixture(c)
+
+	leaseKey := corelease.Key{
+		Namespace: defaultNamespace,
+		ModelUUID: "model-uuid",
+		Lease:     "name",
+	}
+	_, err := fix.Store.Trapdoor(leaseKey, "holder")
+	c.Assert(err, gc.Equals, corelease.ErrNotHeld)
+}
+
+func (s *StoreSuite) TestTrapdoorNotHolder(c *gc.C) {
+	fix := s.EasyFixture(c)
+
+	err := fix.Store.ClaimLease(key("name"), corelease.Request{Holder: "holder", Duration: time.Minute})
+	c.Assert(err, jc.ErrorIsNil)
+
+	leaseKey := corelease.Key{
+		Namespace: defaultNamespace,
+		ModelUUID: "model-uuid",
+		Lease:     "name",
+	}
+	_, err = fix.Store.Trapdoor(leaseKey, "nope")
+	c.Assert(err, gc.Equals, corelease.ErrNotHeld)
+}
+
+func (s *StoreSuite) TestTrapdoorSuccess(c *gc.C) {
+	fix := s.EasyFixture(c)
+
+	err := fix.Store.ClaimLease(key("name"), corelease.Request{Holder: "holder", Duration: time.Minute})
+	c.Assert(err, jc.ErrorIsNil)
+
+	leaseKey := corelease.Key{
+		Namespace: defaultNamespace,
+		ModelUUID: "model-uuid",
+		Lease:     "name",
+	}
+	f, err := fix.Store.Trapdoor(leaseKey, "holder")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(f, gc.NotNil)
 }

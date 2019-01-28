@@ -130,6 +130,25 @@ func (s *Store) Leases() map[lease.Key]lease.Info {
 	return result
 }
 
+// Trapdoor (lease.Store) returns the Trapdoor for the input lease,
+// if the supplied holder currently holds it. Otherwise an error is returned.
+func (s *Store) Trapdoor(key lease.Key, holder string) (lease.Trapdoor, error) {
+	leaseMap := s.fsm.Leases(s.config.Clock.Now())
+	entry, found := leaseMap[key]
+	if !found || entry.Holder != holder {
+		logger.Tracef("checking for lease %s on behalf of %s, not found, refreshing", key.Lease, holder)
+		if err := s.Refresh(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		entry, found = leaseMap[key]
+		if !found || entry.Holder != holder {
+			logger.Tracef("checking for lease %s on behalf of %s, not held", key.Lease, holder)
+			return nil, lease.ErrNotHeld
+		}
+	}
+	return s.config.Trapdoor(key, holder), nil
+}
+
 // Refresh is part of lease.Store.
 func (s *Store) Refresh() error {
 	return nil

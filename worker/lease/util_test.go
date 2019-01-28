@@ -99,6 +99,23 @@ func (store *Store) Leases() map[lease.Key]lease.Info {
 	return result
 }
 
+// Trapdoor is part of the lease.Store interface.
+// Note that this method mimics the refresh-on-not-found behaviour
+// found in the real lease.Store implementations.
+func (store *Store) Trapdoor(leaseKey lease.Key, holder string) (lease.Trapdoor, error) {
+	l, found := store.Leases()[leaseKey]
+	if !found || l.Holder != holder {
+		if err := store.Refresh(); err != nil {
+			return nil, err
+		}
+		l, found = store.Leases()[leaseKey]
+		if !found || l.Holder != holder {
+			return nil, lease.ErrNotHeld
+		}
+	}
+	return l.Trapdoor, nil
+}
+
 func (store *Store) closeIfEmpty() {
 	// This must be called with the lock held.
 	if store.runningCalls > 1 {
@@ -183,7 +200,7 @@ func (store *Store) UnpinLease(key lease.Key, entity string) error {
 }
 
 func (store *Store) Pinned() map[lease.Key][]string {
-	store.call("Pinned", nil)
+	_ = store.call("Pinned", nil)
 	return map[lease.Key][]string{
 		{
 			Namespace: "namespace",

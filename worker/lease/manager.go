@@ -49,7 +49,7 @@ func NewDeadManager(err error) *Manager {
 			},
 		},
 	}
-	catacomb.Invoke(catacomb.Plan{
+	_ = catacomb.Invoke(catacomb.Plan{
 		Site: &m.catacomb,
 		Work: func() error {
 			return errors.Trace(err)
@@ -143,8 +143,8 @@ func (manager *Manager) Wait() error {
 func (manager *Manager) loop() error {
 	if collector, ok := manager.config.Store.(prometheus.Collector); ok && manager.config.PrometheusRegisterer != nil {
 		// The store implements the collector interface, but the lease.Store
-		// doen't expose those.
-		manager.config.PrometheusRegisterer.Register(collector)
+		// does not expose those.
+		_ = manager.config.PrometheusRegisterer.Register(collector)
 		defer manager.config.PrometheusRegisterer.Unregister(collector)
 	}
 
@@ -271,7 +271,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 // indicates a bad request, and is returned as (false, nil).
 func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	store := manager.config.Store
-	request := lease.Request{claim.holderName, claim.duration}
+	request := lease.Request{Holder: claim.holderName, Duration: claim.duration}
 	err := lease.ErrInvalid
 	for lease.IsInvalid(err) {
 		select {
@@ -315,25 +315,14 @@ func (manager *Manager) handleCheck(check check) error {
 	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s",
 		manager.logContext, check.leaseKey.Lease, check.holderName)
 
-	info, found := store.Leases()[check.leaseKey]
-	if !found || info.Holder != check.holderName {
-		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing",
-			manager.logContext, check.leaseKey.Lease, check.holderName)
-		if err := store.Refresh(); err != nil {
-			return errors.Trace(err)
-		}
-		info, found = store.Leases()[check.leaseKey]
+	trapdoor, err := store.Trapdoor(check.leaseKey, check.holderName)
+	if err == nil {
+		err = trapdoor(check.trapdoorKey)
+	} else if err != lease.ErrNotHeld {
+		return errors.Trace(err)
 	}
 
-	var response error
-	if !found || info.Holder != check.holderName {
-		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held",
-			manager.logContext, check.leaseKey.Lease, check.holderName)
-		response = lease.ErrNotHeld
-	} else if check.trapdoorKey != nil {
-		response = info.Trapdoor(check.trapdoorKey)
-	}
-	check.respond(errors.Trace(response))
+	check.respond(errors.Trace(err))
 	return nil
 }
 
