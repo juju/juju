@@ -37,6 +37,7 @@ type ManifoldConfig struct {
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
+	RaftTransportName      string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -75,6 +76,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.LeaseManagerName == "" {
 		return errors.NotValidf("empty LeaseManagerName")
 	}
+	if config.RaftTransportName == "" {
+		return errors.NotValidf("empty RaftTransportName")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -108,6 +112,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
+			config.RaftTransportName,
 		},
 		Start: config.start,
 	}
@@ -160,6 +165,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var leaseManager lease.Manager
 	if err := context.Get(config.LeaseManagerName, &leaseManager); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We don't need anything from the raft-transport but we need to
+	// tie the lifetime of this worker to it - otherwise http-server
+	// will hang waiting for this to release the mux.
+	if err := context.Get(config.RaftTransportName, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 

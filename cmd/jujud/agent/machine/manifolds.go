@@ -749,15 +749,20 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
-			AgentName:                         agentName,
-			AuthenticatorName:                 httpServerArgsName,
-			ClockName:                         clockName,
-			StateName:                         stateName,
-			MuxName:                           httpServerArgsName,
-			LeaseManagerName:                  leaseManagerName,
-			UpgradeGateName:                   upgradeStepsGateName,
-			RestoreStatusName:                 restoreWatcherName,
-			AuditConfigUpdaterName:            auditConfigUpdaterName,
+			AgentName:              agentName,
+			AuthenticatorName:      httpServerArgsName,
+			ClockName:              clockName,
+			StateName:              stateName,
+			MuxName:                httpServerArgsName,
+			LeaseManagerName:       leaseManagerName,
+			UpgradeGateName:        upgradeStepsGateName,
+			RestoreStatusName:      restoreWatcherName,
+			AuditConfigUpdaterName: auditConfigUpdaterName,
+			// Synthetic dependency - if raft-transport bounces we
+			// need to bounce api-server too, otherwise http-server
+			// can't shutdown properly.
+			RaftTransportName: raftTransportName,
+
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 			Hub:                               config.CentralHub,
