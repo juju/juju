@@ -16,6 +16,7 @@ import (
 	"github.com/juju/ratelimit"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
@@ -52,6 +53,23 @@ type RateLimitConfig struct {
 	Clock clock.Clock
 }
 
+// MetricsCollector represents a way to change the metrics for the logsink
+// api handler.
+//go:generate mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/logsink MetricsCollector
+//go:generate mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Counter,Gauge
+type MetricsCollector interface {
+
+	// TotalConnections returns a prometheus metric that can be incremented
+	// as a counter for the total number connections being served from the api
+	// handler.
+	TotalConnections() prometheus.Counter
+
+	// Connections returns a prometheus metrics that can be incremented and
+	// decremented as a gauge, for the number connections being current served
+	// from the api handler.
+	Connections() prometheus.Gauge
+}
+
 // NewHTTPHandler returns a new http.Handler for receiving log messages over a
 // websocket, using the given NewLogWriteCloserFunc to obtain a writer to which
 // the log messages will be written.
@@ -62,6 +80,7 @@ func NewHTTPHandler(
 	newLogWriteCloser NewLogWriteCloserFunc,
 	abort <-chan struct{},
 	ratelimit *RateLimitConfig,
+	metrics MetricsCollector,
 ) http.Handler {
 	return &logSinkHandler{
 		newLogWriteCloser: newLogWriteCloser,
@@ -71,6 +90,7 @@ func NewHTTPHandler(
 			ch := make(chan struct{})
 			return ch, func() { close(ch) }
 		},
+		metrics: metrics,
 	}
 }
 
@@ -78,6 +98,7 @@ type logSinkHandler struct {
 	newLogWriteCloser NewLogWriteCloserFunc
 	abort             <-chan struct{}
 	ratelimit         *RateLimitConfig
+	metrics           MetricsCollector
 	mu                sync.Mutex
 
 	// newStopChannel is overridden in tests so that we can check the
@@ -112,6 +133,10 @@ const (
 // ServeHTTP implements the http.Handler interface.
 func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(socket *websocket.Conn) {
+		h.metrics.TotalConnections().Inc()
+		h.metrics.Connections().Inc()
+		defer h.metrics.Connections().Dec()
+
 		defer socket.Close()
 		endpointVersion, err := h.getVersion(req)
 		if err != nil {

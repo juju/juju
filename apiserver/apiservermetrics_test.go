@@ -4,8 +4,6 @@
 package apiserver_test
 
 import (
-	"time"
-
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
@@ -24,7 +22,7 @@ var _ = gc.Suite(&apiservermetricsSuite{})
 
 func (s *apiservermetricsSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.collector = apiserver.NewMetricsCollector(&stubCollector{})
+	s.collector = apiserver.NewMetricsCollector()
 }
 
 func (s *apiservermetricsSuite) TestDescribe(c *gc.C) {
@@ -40,7 +38,7 @@ func (s *apiservermetricsSuite) TestDescribe(c *gc.C) {
 	c.Assert(descs, gc.HasLen, 4)
 	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_apiserver_connections_total".*`)
 	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_count".*`)
-	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_pause_seconds".*`)
+	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_count_logsink".*`)
 	c.Assert(descs[3].String(), gc.Matches, `.*fqName: "juju_apiserver_active_login_attempts".*`)
 }
 
@@ -67,27 +65,9 @@ func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
 		return &v
 	}
 	c.Assert(dtoMetrics, jc.DeepEquals, [4]dto.Metric{
-		{Counter: &dto.Counter{Value: float64ptr(200)}},
-		{Gauge: &dto.Gauge{Value: float64ptr(2)}},
-		{Gauge: &dto.Gauge{Value: float64ptr(0.02)}},
-		{Gauge: &dto.Gauge{Value: float64ptr(3)}},
+		{Counter: &dto.Counter{Value: float64ptr(0)}},
+		{Gauge: &dto.Gauge{Value: float64ptr(0)}},
+		{Gauge: &dto.Gauge{Value: float64ptr(0)}},
+		{Gauge: &dto.Gauge{Value: float64ptr(0)}},
 	})
-}
-
-type stubCollector struct{}
-
-func (a *stubCollector) TotalConnections() int64 {
-	return 200
-}
-
-func (a *stubCollector) ConnectionCount() int64 {
-	return 2
-}
-
-func (a *stubCollector) ConcurrentLoginAttempts() int64 {
-	return 3
-}
-
-func (a *stubCollector) ConnectionPauseTime() time.Duration {
-	return 20 * time.Millisecond
 }

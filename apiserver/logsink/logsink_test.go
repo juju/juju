@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
@@ -21,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/logsink"
+	"github.com/juju/juju/apiserver/logsink/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	coretesting "github.com/juju/juju/testing"
@@ -71,6 +73,8 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 		s.lastStack = debug.Stack()
 	}
 
+	metricsCollector, finish := createMockMetrics(c)
+
 	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
 		func(req *http.Request) (logsink.LogWriteCloser, error) {
 			s.stub.AddCall("Open")
@@ -82,8 +86,10 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 		},
 		s.abort,
 		nil, // no rate-limiting
+		metricsCollector,
 	))
 	s.AddCleanup(func(*gc.C) { s.srv.Close() })
+	s.AddCleanup(func(*gc.C) { finish() })
 }
 
 func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
@@ -192,6 +198,9 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestRateLimit(c *gc.C) {
+	metricsCollector, finish := createMockMetrics(c)
+	defer finish()
+
 	testClock := testclock.NewClock(time.Time{})
 	s.srv.Close()
 	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
@@ -209,6 +218,7 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 			Refill: time.Second,
 			Clock:  testClock,
 		},
+		metricsCollector,
 	))
 	defer s.srv.Close()
 
@@ -261,6 +271,9 @@ func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
 	myStopCh := make(chan struct{})
 	s.srv.Close()
 
+	metricsCollector, finish := createMockMetrics(c)
+	defer finish()
+
 	handler := logsink.NewHTTPHandlerForTest(
 		func(req *http.Request) (logsink.LogWriteCloser, error) {
 			s.stub.AddCall("Open")
@@ -268,6 +281,7 @@ func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
 		},
 		s.abort,
 		nil,
+		metricsCollector,
 		func() (chan struct{}, func()) {
 			return myStopCh, func() {}
 		},
@@ -308,6 +322,10 @@ func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
 
 func (s *logsinkSuite) TestHandlerClosesStopChannel(c *gc.C) {
 	s.srv.Close()
+
+	metricsCollector, finish := createMockMetrics(c)
+	defer finish()
+
 	var stub testing.Stub
 	handler := logsink.NewHTTPHandlerForTest(
 		func(req *http.Request) (logsink.LogWriteCloser, error) {
@@ -319,6 +337,7 @@ func (s *logsinkSuite) TestHandlerClosesStopChannel(c *gc.C) {
 		},
 		s.abort,
 		nil,
+		metricsCollector,
 		func() (chan struct{}, func()) {
 			ch := make(chan struct{})
 			return ch, func() {
@@ -393,4 +412,21 @@ func (slowWriteCloser) WriteLog(params.LogRecord) error {
 	// sending.
 	time.Sleep(testing.ShortWait)
 	return nil
+}
+
+func createMockMetrics(c *gc.C) (*mocks.MockMetricsCollector, func()) {
+	ctrl := gomock.NewController(c)
+
+	counter := mocks.NewMockCounter(ctrl)
+	counter.EXPECT().Inc().AnyTimes()
+
+	gauge := mocks.NewMockGauge(ctrl)
+	gauge.EXPECT().Inc().AnyTimes()
+	gauge.EXPECT().Dec().AnyTimes()
+
+	metricsCollector := mocks.NewMockMetricsCollector(ctrl)
+	metricsCollector.EXPECT().TotalConnections().Return(counter).AnyTimes()
+	metricsCollector.EXPECT().Connections().Return(gauge).AnyTimes()
+
+	return metricsCollector, ctrl.Finish
 }
