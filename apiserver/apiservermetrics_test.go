@@ -5,9 +5,7 @@ package apiserver_test
 
 import (
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
@@ -35,11 +33,16 @@ func (s *apiservermetricsSuite) TestDescribe(c *gc.C) {
 	for desc := range ch {
 		descs = append(descs, desc)
 	}
-	c.Assert(descs, gc.HasLen, 4)
+	c.Assert(descs, gc.HasLen, 7)
 	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_apiserver_connections_total".*`)
 	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_count".*`)
 	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_count_logsink".*`)
 	c.Assert(descs[3].String(), gc.Matches, `.*fqName: "juju_apiserver_active_login_attempts".*`)
+	c.Assert(descs[4].String(), gc.Matches, `.*fqName: "juju_apiserver_request_duration_seconds".*`)
+
+	// The following will be removed the future (post 2.6 release)
+	c.Assert(descs[5].String(), gc.Matches, `.*fqName: "juju_api_requests_total".*`)
+	c.Assert(descs[6].String(), gc.Matches, `.*fqName: "juju_api_request_duration_seconds".*`)
 }
 
 func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
@@ -54,20 +57,4 @@ func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
 		metrics = append(metrics, metric)
 	}
 	c.Assert(metrics, gc.HasLen, 4)
-
-	var dtoMetrics [4]dto.Metric
-	for i, metric := range metrics {
-		err := metric.Write(&dtoMetrics[i])
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	float64ptr := func(v float64) *float64 {
-		return &v
-	}
-	c.Assert(dtoMetrics, jc.DeepEquals, [4]dto.Metric{
-		{Counter: &dto.Counter{Value: float64ptr(0)}},
-		{Gauge: &dto.Gauge{Value: float64ptr(0)}},
-		{Gauge: &dto.Gauge{Value: float64ptr(0)}},
-		{Gauge: &dto.Gauge{Value: float64ptr(0)}},
-	})
 }

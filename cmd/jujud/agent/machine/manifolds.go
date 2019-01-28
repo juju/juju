@@ -768,6 +768,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Hub:                               config.CentralHub,
 			Presence:                          config.PresenceRecorder,
 			NewWorker:                         apiserver.NewWorker,
+			NewMetricsCollector:               apiserver.NewMetricsCollector,
 		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{

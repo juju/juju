@@ -4,13 +4,11 @@
 package metricobserver_test
 
 import (
-	"errors"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver"
@@ -18,8 +16,7 @@ import (
 
 type observerFactorySuite struct {
 	testing.IsolationSuite
-	clock      *testclock.Clock
-	registerer fakePrometheusRegisterer
+	clock *testclock.Clock
 }
 
 var _ = gc.Suite(&observerFactorySuite{})
@@ -27,7 +24,6 @@ var _ = gc.Suite(&observerFactorySuite{})
 func (s *observerFactorySuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Time{})
-	s.registerer = fakePrometheusRegisterer{}
 }
 
 func (*observerFactorySuite) TestNewObserverFactoryInvalidConfig(c *gc.C) {
@@ -35,37 +31,14 @@ func (*observerFactorySuite) TestNewObserverFactoryInvalidConfig(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "validating config: nil Clock not valid")
 }
 
-func (s *observerFactorySuite) TestNewObserverFactoryRegisterError(c *gc.C) {
-	s.registerer.SetErrors(errors.New("oy vey"))
-	_, err := metricobserver.NewObserverFactory(metricobserver.Config{
-		Clock:                s.clock,
-		Subsystem:            "api",
-		PrometheusRegisterer: &s.registerer,
-	})
-	c.Assert(err, gc.ErrorMatches, "oy vey")
-}
-
 func (s *observerFactorySuite) TestNewObserverFactoryRegister(c *gc.C) {
+	metricsCollector, finish := createMockMetrics(c)
+	defer finish()
+
 	f, err := metricobserver.NewObserverFactory(metricobserver.Config{
-		Clock:                s.clock,
-		Subsystem:            "api",
-		PrometheusRegisterer: &s.registerer,
+		Clock:            s.clock,
+		MetricsCollector: metricsCollector,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f, gc.NotNil)
-	s.registerer.CheckCallNames(c, "Register", "Register")
-}
-
-type fakePrometheusRegisterer struct {
-	prometheus.Registerer
-	testing.Stub
-}
-
-func (r *fakePrometheusRegisterer) Register(c prometheus.Collector) error {
-	r.MethodCall(r, "Register", c)
-	return r.NextErr()
-}
-
-func (r *fakePrometheusRegisterer) Unregister(c prometheus.Collector) bool {
-	return true
 }

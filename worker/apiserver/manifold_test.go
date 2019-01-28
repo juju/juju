@@ -21,6 +21,7 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
+	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
@@ -48,6 +49,7 @@ type ManifoldSuite struct {
 	upgradeGate          stubGateWaiter
 	auditConfig          stubAuditConfig
 	leaseManager         *lease.Manager
+	metricsCollector     *coreapiserver.Collector
 
 	stub testing.Stub
 }
@@ -62,7 +64,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 	s.mux = apiserverhttp.NewMux()
 	s.state = stubStateTracker{}
-	s.prometheusRegisterer = stubPrometheusRegisterer{}
+	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.upgradeGate = stubGateWaiter{}
 	s.auditConfig = stubAuditConfig{}
 	s.leaseManager = &lease.Manager{}
@@ -85,6 +87,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		Hub:                               &s.hub,
 		Presence:                          presence.New(s.clock),
 		NewWorker:                         s.newWorker,
+		NewMetricsCollector:               s.newMetricsCollector,
 	})
 }
 
@@ -118,6 +121,10 @@ func (s *ManifoldSuite) newWorker(config apiserver.Config) (worker.Worker, error
 		return nil, err
 	}
 	return worker.NewRunner(worker.RunnerParams{}), nil
+}
+
+func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
+	return s.metricsCollector
 }
 
 var expectedInputs = []string{
@@ -179,14 +186,14 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.NewServer = nil
 
 	c.Assert(config, jc.DeepEquals, apiserver.Config{
-		AgentConfig:          &s.agent.conf,
-		Authenticator:        s.authenticator,
-		Clock:                s.clock,
-		Mux:                  s.mux,
-		StatePool:            &s.state.pool,
-		LeaseManager:         s.leaseManager,
-		PrometheusRegisterer: &s.prometheusRegisterer,
-		Hub:                  &s.hub,
+		AgentConfig:      &s.agent.conf,
+		Authenticator:    s.authenticator,
+		Clock:            s.clock,
+		Mux:              s.mux,
+		StatePool:        &s.state.pool,
+		LeaseManager:     s.leaseManager,
+		MetricsCollector: s.metricsCollector,
+		Hub:              &s.hub,
 	})
 }
 

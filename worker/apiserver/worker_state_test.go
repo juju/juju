@@ -106,19 +106,19 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
 
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
-		StatePool:            s.StatePool,
-		Authenticator:        s.authenticator,
-		Mux:                  s.mux,
-		Clock:                s.clock,
-		Tag:                  s.agentConfig.Tag(),
-		DataDir:              s.agentConfig.DataDir(),
-		LogDir:               s.agentConfig.LogDir(),
-		Hub:                  &s.hub,
-		PublicDNSName:        "",
-		AllowModelAccess:     false,
-		RateLimitConfig:      rateLimitConfig,
-		LogSinkConfig:        &logSinkConfig,
-		PrometheusRegisterer: &s.prometheusRegisterer,
-		LeaseManager:         s.leaseManager,
+		StatePool:        s.StatePool,
+		Authenticator:    s.authenticator,
+		Mux:              s.mux,
+		Clock:            s.clock,
+		Tag:              s.agentConfig.Tag(),
+		DataDir:          s.agentConfig.DataDir(),
+		LogDir:           s.agentConfig.LogDir(),
+		Hub:              &s.hub,
+		PublicDNSName:    "",
+		AllowModelAccess: false,
+		RateLimitConfig:  rateLimitConfig,
+		LogSinkConfig:    &logSinkConfig,
+		LeaseManager:     s.leaseManager,
+		MetricsCollector: s.metricsCollector,
 	})
 }

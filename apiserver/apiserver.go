@@ -79,7 +79,6 @@ type Server struct {
 	upgradeComplete        func() bool
 	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
-	prometheusRegisterer   prometheus.Registerer
 	metricsCollector       *Collector
 
 	// mu guards the fields below it.
@@ -165,9 +164,6 @@ type ServerConfig struct {
 	// LeaseManager gives access to leadership and singular claimers
 	// and checkers for use in API facades.
 	LeaseManager lease.Manager
-
-	// PrometheusRegisterer registers Prometheus collectors.
-	PrometheusRegisterer prometheus.Registerer
 
 	// MetricsCollector defines all the metrics to be collected for the
 	// apiserver
@@ -289,8 +285,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
 		},
-		prometheusRegisterer: cfg.PrometheusRegisterer,
-		metricsCollector:     cfg.MetricsCollector,
+		metricsCollector: cfg.MetricsCollector,
 	}
 
 	// The auth context for authenticating access to application offers.
@@ -384,18 +379,6 @@ func (w logsinkMetricsCollectorWrapper) Connections() prometheus.Gauge {
 
 // loop is the main loop for the server.
 func (srv *Server) loop(ready chan struct{}) error {
-	// ensure we register the prometheus metrics in the loop, so that when the
-	// loop exists and restarts, we register correctly.
-	if srv.prometheusRegisterer != nil {
-		if err := srv.prometheusRegisterer.Register(srv.metricsCollector); err != nil {
-			// It isn't a fatal error to fail to register the metrics, so
-			// log and continue
-			logger.Warningf("registration of apiserver metrics failed: %v", err)
-		} else {
-			defer srv.prometheusRegisterer.Unregister(srv.metricsCollector)
-		}
-	}
-
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
