@@ -21,6 +21,7 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -65,7 +66,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	v4 := &application.APIv4{&application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{s.applicationAPI}}}}}
-	results, err := v4.Get(params.ApplicationGet{"wordpress"})
+	results, err := v4.Get(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
@@ -85,7 +86,7 @@ func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	v5 := &application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{s.applicationAPI}}}}
-	results, err := v5.Get(params.ApplicationGet{"wordpress"})
+	results, err := v5.Get(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
@@ -106,7 +107,7 @@ func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 func (s *getSuite) TestClientApplicationGetIAASModelSmoketest(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	results, err := s.applicationAPI.Get(params.ApplicationGet{"wordpress"})
+	results, err := s.applicationAPI.Get(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
@@ -200,7 +201,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiV8 := &application.APIv8{&application.APIv9{api}}
 
-	results, err := apiV8.Get(params.ApplicationGet{"dashboard4miner"})
+	results, err := apiV8.Get(params.ApplicationGet{ApplicationName: "dashboard4miner"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
 		Application: "dashboard4miner",
@@ -220,7 +221,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 }
 
 func (s *getSuite) TestApplicationGetUnknownApplication(c *gc.C) {
-	_, err := s.applicationAPI.Get(params.ApplicationGet{"unknown"})
+	_, err := s.applicationAPI.Get(params.ApplicationGet{ApplicationName: "unknown"})
 	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)
 }
 
@@ -378,7 +379,7 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 		expect.Application = app.Name()
 		expect.Charm = ch.Meta().Name
 		client := apiapplication.NewClient(s.APIState)
-		got, err := client.Get(app.Name())
+		got, err := client.Get(model.GenerationCurrent, app.Name())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*got, jc.DeepEquals, expect)
 	}
@@ -401,7 +402,7 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	err := app.UpdateCharmConfig(map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, jc.ErrorIsNil)
 	client := apiapplication.NewClient(s.APIState)
-	got, err := client.Get(app.Name())
+	got, err := client.Get(model.GenerationCurrent, app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.CharmConfig["skill-level"], jc.DeepEquals, map[string]interface{}{
 		"description": "A number indicating skill.",

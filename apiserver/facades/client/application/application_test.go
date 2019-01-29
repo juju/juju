@@ -896,7 +896,7 @@ func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	result, err := s.applicationAPI.GetCharmURL(params.ApplicationGet{"wordpress"})
+	result, err := s.applicationAPI.GetCharmURL(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.Equals, "local:quantal/wordpress-3")
