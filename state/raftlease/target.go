@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/wrench"
 )
 
 const (
@@ -123,6 +124,10 @@ func (t *notifyTarget) Claimed(key lease.Key, holder string) {
 	coll, closer := t.mongo.GetCollection(t.collection)
 	defer closer()
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
+	if wrench.IsActive("raftlease-notifytarget", "fail-claim") {
+		t.errorLogger.Errorf("wrench failing claimed of %q for %q", docId, holder)
+		return
+	}
 	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
 		existingDoc, err := getRecord(coll, docId)
 		switch {
