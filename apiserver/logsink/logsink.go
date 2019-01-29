@@ -53,6 +53,20 @@ type RateLimitConfig struct {
 	Clock clock.Clock
 }
 
+// CounterVec is a Collector that bundles a set of Counters that all share the
+// same description.
+type CounterVec interface {
+	// With returns a Counter for a given labels slice
+	With(prometheus.Labels) prometheus.Counter
+}
+
+// GaugeVec is a Collector that bundles a set of Gauges that all share the
+// same description.
+type GaugeVec interface {
+	// With returns a Gauge for a given labels slice
+	With(prometheus.Labels) prometheus.Gauge
+}
+
 // MetricsCollector represents a way to change the metrics for the logsink
 // api handler.
 //go:generate mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/logsink MetricsCollector
@@ -64,10 +78,15 @@ type MetricsCollector interface {
 	// handler.
 	TotalConnections() prometheus.Counter
 
-	// Connections returns a prometheus metrics that can be incremented and
+	// Connections returns a prometheus metric that can be incremented and
 	// decremented as a gauge, for the number connections being current served
 	// from the api handler.
 	Connections() prometheus.Gauge
+
+	// PingFailureCount returns a prometheus metric for the number of
+	// ping failures per model uuid, that can be incremented as
+	// a counter.
+	PingFailureCount(modelUUID string) prometheus.Counter
 }
 
 // NewHTTPHandler returns a new http.Handler for receiving log messages over a
@@ -81,6 +100,7 @@ func NewHTTPHandler(
 	abort <-chan struct{},
 	ratelimit *RateLimitConfig,
 	metrics MetricsCollector,
+	modelUUID string,
 ) http.Handler {
 	return &logSinkHandler{
 		newLogWriteCloser: newLogWriteCloser,
@@ -90,7 +110,8 @@ func NewHTTPHandler(
 			ch := make(chan struct{})
 			return ch, func() { close(ch) }
 		},
-		metrics: metrics,
+		metrics:   metrics,
+		modelUUID: modelUUID,
 	}
 }
 
@@ -99,6 +120,7 @@ type logSinkHandler struct {
 	abort             <-chan struct{}
 	ratelimit         *RateLimitConfig
 	metrics           MetricsCollector
+	modelUUID         string
 	mu                sync.Mutex
 
 	// newStopChannel is overridden in tests so that we can check the
@@ -188,6 +210,8 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					// returning we clean up the strategy and close the socket
 					// through the defer calls.
 					logger.Debugf("failed to write ping: %s", err)
+					// Bump the ping failure count.
+					h.metrics.PingFailureCount(h.modelUUID).Inc()
 					return
 				}
 			case m, ok := <-logCh:
@@ -197,6 +221,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					h.receiverStopped = true
 					return
 				}
+
 				if err := writer.WriteLog(m); err != nil {
 					h.sendError(socket, req, err)
 					return

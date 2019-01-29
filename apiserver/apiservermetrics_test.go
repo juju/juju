@@ -33,16 +33,17 @@ func (s *apiservermetricsSuite) TestDescribe(c *gc.C) {
 	for desc := range ch {
 		descs = append(descs, desc)
 	}
-	c.Assert(descs, gc.HasLen, 7)
+	c.Assert(descs, gc.HasLen, 8)
 	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_apiserver_connections_total".*`)
 	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_counts".*`)
 	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_apiserver_active_login_attempts".*`)
 	c.Assert(descs[3].String(), gc.Matches, `.*fqName: "juju_apiserver_request_duration_seconds".*`)
+	c.Assert(descs[4].String(), gc.Matches, `.*fqName: "juju_apiserver_ping_failure_count".*`)
 
 	// The following will be removed the future (post 2.6 release)
-	c.Assert(descs[4].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_count".*`)
-	c.Assert(descs[5].String(), gc.Matches, `.*fqName: "juju_api_requests_total".*`)
-	c.Assert(descs[6].String(), gc.Matches, `.*fqName: "juju_api_request_duration_seconds".*`)
+	c.Assert(descs[5].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_count".*`)
+	c.Assert(descs[6].String(), gc.Matches, `.*fqName: "juju_api_requests_total".*`)
+	c.Assert(descs[7].String(), gc.Matches, `.*fqName: "juju_api_request_duration_seconds".*`)
 }
 
 func (s *apiservermetricsSuite) TestCollect(c *gc.C) {

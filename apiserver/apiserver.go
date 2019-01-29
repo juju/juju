@@ -377,6 +377,10 @@ func (w logsinkMetricsCollectorWrapper) Connections() prometheus.Gauge {
 	return w.collector.APIConnections.WithLabelValues("logsink")
 }
 
+func (w logsinkMetricsCollectorWrapper) PingFailureCount(modelUUID string) prometheus.Counter {
+	return w.collector.PingFailureCount.WithLabelValues(modelUUID)
+}
+
 // loop is the main loop for the server.
 func (srv *Server) loop(ready chan struct{}) error {
 	// for pat based handlers, they are matched in-order of being
@@ -460,6 +464,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
+		srv.modelUUID,
 	)
 	logSinkAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UnitTagKind, names.ApplicationTagKind}
 	logTransferHandler := logsink.NewHTTPHandler(
@@ -469,6 +474,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		httpCtxt.stop(),
 		nil, // no rate-limiting
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
+		srv.modelUUID,
 	)
 	modelRestHandler := &modelRestHandler{
 		ctxt:          httpCtxt,

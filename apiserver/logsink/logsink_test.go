@@ -75,6 +75,9 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 
 	metricsCollector, finish := createMockMetrics(c)
 
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
 		func(req *http.Request) (logsink.LogWriteCloser, error) {
 			s.stub.AddCall("Open")
@@ -87,6 +90,7 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 		s.abort,
 		nil, // no rate-limiting
 		metricsCollector,
+		modelUUID.String(),
 	))
 	s.AddCleanup(func(*gc.C) { s.srv.Close() })
 	s.AddCleanup(func(*gc.C) { finish() })
@@ -201,6 +205,9 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 	metricsCollector, finish := createMockMetrics(c)
 	defer finish()
 
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
 	testClock := testclock.NewClock(time.Time{})
 	s.srv.Close()
 	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
@@ -219,6 +226,7 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 			Clock:  testClock,
 		},
 		metricsCollector,
+		modelUUID.String(),
 	))
 	defer s.srv.Close()
 

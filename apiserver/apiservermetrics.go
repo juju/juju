@@ -18,10 +18,19 @@ const (
 // MetricLabelEndpoint defines a constant for the APIConnections Label
 const MetricLabelEndpoint = "endpoint"
 
-// MetricAPIConnectionsLabelNames defines a constant for the APIConnections
-// metric.
+// MetricLabelModelUUID defines a constant for the PingFailureCount Label
+const MetricLabelModelUUID = "model-uuid"
+
+// MetricAPIConnectionsLabelNames defines a series of labels for the
+// APIConnections metric.
 var MetricAPIConnectionsLabelNames = []string{
 	MetricLabelEndpoint,
+}
+
+// MetricPingFailureLabelNames defines a series of labels for the PingFailure
+// metric.
+var MetricPingFailureLabelNames = []string{
+	MetricLabelModelUUID,
 }
 
 // Collector is a prometheus.Collector that collects metrics based
@@ -31,6 +40,7 @@ type Collector struct {
 	LoginAttempts      prometheus.Gauge
 	APIConnections     *prometheus.GaugeVec
 	APIRequestDuration *prometheus.SummaryVec
+	PingFailureCount   *prometheus.CounterVec
 
 	DeprecatedAPIConnections     prometheus.Gauge
 	DeprecatedAPIRequestsTotal   *prometheus.CounterVec
@@ -65,6 +75,12 @@ func NewMetricsCollector() *Collector {
 			Name:      "request_duration_seconds",
 			Help:      "Latency of Juju API requests in seconds.",
 		}, metricobserver.MetricLabelNames),
+		PingFailureCount: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "ping_failure_count",
+			Help:      "Current number of ping failures",
+		}, MetricPingFailureLabelNames),
 
 		// TODO (stickupkid): remove post 2.6 release
 		DeprecatedAPIConnections: prometheus.NewGauge(prometheus.GaugeOpts{
@@ -94,6 +110,7 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.APIConnections.Describe(ch)
 	c.LoginAttempts.Describe(ch)
 	c.APIRequestDuration.Describe(ch)
+	c.PingFailureCount.Describe(ch)
 
 	// TODO (stickupkid): remove post 2.6 release
 	c.DeprecatedAPIConnections.Describe(ch)
@@ -107,6 +124,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.APIConnections.Collect(ch)
 	c.LoginAttempts.Collect(ch)
 	c.APIRequestDuration.Collect(ch)
+	c.PingFailureCount.Collect(ch)
 
 	// TODO (stickupkid): remove post 2.6 release
 	c.DeprecatedAPIConnections.Collect(ch)

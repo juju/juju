@@ -45,6 +45,18 @@ func (mr *MockMetricsCollectorMockRecorder) Connections() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connections", reflect.TypeOf((*MockMetricsCollector)(nil).Connections))
 }
 
+// PingFailureCount mocks base method
+func (m *MockMetricsCollector) PingFailureCount(arg0 string) prometheus.Counter {
+	ret := m.ctrl.Call(m, "PingFailureCount", arg0)
+	ret0, _ := ret[0].(prometheus.Counter)
+	return ret0
+}
+
+// PingFailureCount indicates an expected call of PingFailureCount
+func (mr *MockMetricsCollectorMockRecorder) PingFailureCount(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PingFailureCount", reflect.TypeOf((*MockMetricsCollector)(nil).PingFailureCount), arg0)
+}
+
 // TotalConnections mocks base method
 func (m *MockMetricsCollector) TotalConnections() prometheus.Counter {
 	ret := m.ctrl.Call(m, "TotalConnections")
