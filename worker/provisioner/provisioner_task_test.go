@@ -253,7 +253,7 @@ func (s *ProvisionerTaskSuite) TestProcessProfileChanges(c *gc.C) {
 	).Return([]string{"default", "juju-default", "juju-default-different-0", info3.NewProfileName}, nil)
 
 	task := s.newProvisionerTaskWithBroker(c, mockBroker, nil)
-	c.Assert(provisioner.ProcessProfileChanges(task, []string{"0", "1", "2", "3"}), jc.ErrorIsNil)
+	c.Assert(provisioner.ProcessProfileChanges(task, []string{"0#lxd-profile", "1#lxd-profile", "2#lxd-profile", "3#lxd-profile"}), jc.ErrorIsNil)
 }
 
 func (s *ProvisionerTaskSuite) TestProcessProfileChangesNotProvisioned(c *gc.C) {
@@ -331,17 +331,17 @@ func setUpSuccessfulMockProfileMachine(ctrl *gomock.Controller, num, old string,
 		LXDProfile:     nil,
 		Subordinate:    sub,
 	}
-	mExp.CharmProfileChangeInfo().Return(info, nil)
+	mExp.CharmProfileChangeInfo("lxd-profile").Return(info, nil)
 	mExp.Id().Return(num)
 	mExp.Life().Return(params.Alive)
 	mExp.InstanceId().Return(instance.Id(num), nil)
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
 	if old == "" && sub {
-		mExp.RemoveUpgradeCharmProfileData().Return(nil)
+		mExp.RemoveUpgradeCharmProfileData("lxd-profile").Return(nil)
 	} else {
 		mExp.SetInstanceStatus(status.Running, "Running", nil).Return(nil)
 		mExp.SetStatus(status.Started, "", nil).Return(nil)
-		mExp.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus).Return(nil)
+		mExp.SetUpgradeCharmProfileComplete("lxd-profile", lxdprofile.SuccessStatus).Return(nil)
 	}
 
 	return mockMachine, info
@@ -350,12 +350,12 @@ func setUpSuccessfulMockProfileMachine(ctrl *gomock.Controller, num, old string,
 func setUpFailureMockProfileMachine(ctrl *gomock.Controller, num string) *apiprovisionermock.MockMachineProvisioner {
 	mockMachine := apiprovisionermock.NewMockMachineProvisioner(ctrl)
 	mExp := mockMachine.EXPECT()
-	mExp.CharmProfileChangeInfo().Return(apiprovisioner.CharmProfileChangeInfo{}, errors.New("fail me"))
+	mExp.CharmProfileChangeInfo(gomock.Any()).Return(apiprovisioner.CharmProfileChangeInfo{}, errors.New("fail me"))
 	mExp.Id().Return(num)
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
 	mExp.Life().Return(params.Alive)
 	mExp.SetInstanceStatus(status.Error, gomock.Any(), nil).Return(nil)
-	mExp.SetUpgradeCharmProfileComplete(gomock.Any()).Return(nil)
+	mExp.SetUpgradeCharmProfileComplete(gomock.Any(), gomock.Any()).Return(nil)
 
 	return mockMachine
 }
@@ -366,7 +366,7 @@ func (s *ProvisionerTaskSuite) TestProcessProfileChangesNoLXDBroker(c *gc.C) {
 
 	mockMachine := apiprovisionermock.NewMockMachineProvisioner(ctrl)
 	mExp := mockMachine.EXPECT()
-	mExp.SetUpgradeCharmProfileComplete(lxdprofile.NotSupportedStatus).Return(nil)
+	mExp.SetUpgradeCharmProfileComplete("lxd-profile", lxdprofile.NotSupportedStatus).Return(nil)
 
 	s.machinesResults = []apiprovisioner.MachineResult{
 		{Machine: mockMachine, Err: nil},
@@ -379,7 +379,7 @@ func (s *ProvisionerTaskSuite) TestProcessProfileChangesNoLXDBroker(c *gc.C) {
 	)
 	defer workertest.CleanKill(c, task)
 
-	c.Assert(provisioner.ProcessProfileChanges(task, []string{"0"}), jc.ErrorIsNil)
+	c.Assert(provisioner.ProcessProfileChanges(task, []string{"0#lxd-profile"}), jc.ErrorIsNil)
 }
 
 func (s *ProvisionerTaskSuite) testProcessOneMachineProfileChangeAddProfile(c *gc.C, sub bool) {
@@ -395,7 +395,7 @@ func (s *ProvisionerTaskSuite) testProcessOneMachineProfileChangeAddProfile(c *g
 		LXDProfile:     nil,
 		Subordinate:    sub,
 	}
-	mExp.CharmProfileChangeInfo().Return(info, nil)
+	mExp.CharmProfileChangeInfo("lxd-profile").Return(info, nil)
 	mExp.Id().Return("0")
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
 	mExp.Life().Return(params.Alive)
@@ -410,7 +410,7 @@ func (s *ProvisionerTaskSuite) testProcessOneMachineProfileChangeAddProfile(c *g
 		"0", info.OldProfileName, info.NewProfileName, info.LXDProfile,
 	).Return(machineCharmProfiles, nil)
 
-	remove, err := provisioner.ProcessOneMachineProfileChanges(mockMachineProvisioner, mockLXDProfiler)
+	remove, err := provisioner.ProcessOneProfileChanges(mockMachineProvisioner, mockLXDProfiler, "lxd-profile")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(remove, gc.Equals, sub)
 }
@@ -434,7 +434,7 @@ func (s *ProvisionerTaskSuite) TestProcessOneMachineProfileChangeRemoveProfileSu
 	ctrl, mockMachineProvisioner, mockLXDProfiler := setUpMocksProcessOneMachineProfileChange(c, info)
 	defer ctrl.Finish()
 
-	remove, err := provisioner.ProcessOneMachineProfileChanges(mockMachineProvisioner, mockLXDProfiler)
+	remove, err := provisioner.ProcessOneProfileChanges(mockMachineProvisioner, mockLXDProfiler, "lxd-profile")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(remove, gc.Equals, false)
 }
@@ -450,7 +450,7 @@ func (s *ProvisionerTaskSuite) TestProcessOneMachineProfileChangeChangeProfile(c
 	ctrl, mockMachineProvisioner, mockLXDProfiler := setUpMocksProcessOneMachineProfileChange(c, info)
 	defer ctrl.Finish()
 
-	remove, err := provisioner.ProcessOneMachineProfileChanges(mockMachineProvisioner, mockLXDProfiler)
+	remove, err := provisioner.ProcessOneProfileChanges(mockMachineProvisioner, mockLXDProfiler, "lxd-profile")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(remove, gc.Equals, false)
 }
@@ -460,7 +460,7 @@ func setUpMocksProcessOneMachineProfileChange(c *gc.C, info apiprovisioner.Charm
 
 	mockMachineProvisioner := apiprovisionermock.NewMockMachineProvisioner(ctrl)
 	mExp := mockMachineProvisioner.EXPECT()
-	mExp.CharmProfileChangeInfo().Return(info, nil)
+	mExp.CharmProfileChangeInfo("lxd-profile").Return(info, nil)
 	mExp.Id().Return("0")
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
 	mExp.Life().Return(params.Alive)

@@ -78,9 +78,10 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C
 	mockUnit1 := mocks.NewMockLXDProfileUnit(ctrl)
 
 	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine1, nil)
-	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil)
-	mockMachine1.EXPECT().WatchLXDProfileUpgradeNotifications("foo-bar").Return(lxdProfileWatcher, nil)
+	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil).Times(2)
+	mockMachine1.EXPECT().WatchLXDProfileUpgradeNotifications("mysql/1").Return(lxdProfileWatcher, nil)
 	mockUnit1.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil)
+	mockUnit1.EXPECT().Name().Return("mysql/1")
 
 	args := params.LXDProfileUpgrade{
 		Entities: []params.Entity{
@@ -111,7 +112,7 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsMachineTag(c *g
 	lxdProfileWatcher.changes <- []string{lxdprofile.EmptyStatus}
 
 	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine, nil)
-	mockMachine.EXPECT().WatchLXDProfileUpgradeNotifications("foo-bar").Return(lxdProfileWatcher, nil)
+	mockMachine.EXPECT().WatchLXDProfileUpgradeNotifications("mysql/1").Return(lxdProfileWatcher, nil)
 
 	watches, err := api.WatchLXDProfileUpgradeNotifications(
 		params.LXDProfileUpgrade{
@@ -140,9 +141,9 @@ func (s *lxdProfileSuite) TestRemoveUpgradeCharmProfileDataUnitTag(c *gc.C) {
 
 	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine1, nil)
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil).Times(2)
-	mockMachine1.EXPECT().RemoveUpgradeCharmProfileData("mysql").Return(nil)
+	mockMachine1.EXPECT().RemoveUpgradeCharmProfileData("mysql/1").Return(nil)
 	mockUnit1.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil)
-	mockUnit1.EXPECT().ApplicationName().Return("mysql")
+	mockUnit1.EXPECT().Name().Return("mysql/1")
 
 	args := params.Entities{
 		Entities: []params.Entity{
