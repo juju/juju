@@ -444,6 +444,7 @@ func createMockMetrics(c *gc.C, modelUUID string) (*mocks.MockMetricsCollector, 
 	metricsCollector.EXPECT().TotalConnections().Return(counter).AnyTimes()
 	metricsCollector.EXPECT().Connections().Return(gauge).AnyTimes()
 	metricsCollector.EXPECT().LogWriteCount(modelUUID, "success").Return(counter).AnyTimes()
+	metricsCollector.EXPECT().LogReadCount(modelUUID, gomock.Any()).Return(counter).AnyTimes()
 
 	return metricsCollector, ctrl.Finish
 }

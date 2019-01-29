@@ -24,8 +24,14 @@ import (
 )
 
 const (
-	metricLogWriteLabelSuccess string = "success"
-	metricLogWriteLabelFailure string = "failure"
+	metricLogWriteLabelSuccess = "success"
+	metricLogWriteLabelFailure = "failure"
+)
+
+const (
+	metricLogReadLabelSuccess    = "success"
+	metricLogReadLabelError      = "error"
+	metricLogReadLabelDisconnect = "disconnect"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.logsink")
@@ -97,6 +103,11 @@ type MetricsCollector interface {
 	// the log that happened. It's split on the success/failure, so the charts
 	// will have to take that into account.
 	LogWriteCount(modelUUID, state string) prometheus.Counter
+
+	// LogReadCount returns a prometheus metric for the number of reads to
+	// the log that happened. It's split on the success/error/disconnect, so
+	// the charts will have to take that into account.
+	LogReadCount(modelUUID, string string) prometheus.Counter
 }
 
 // NewHTTPHandler returns a new http.Handler for receiving log messages over a
@@ -289,8 +300,10 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int
 			if err := socket.ReadJSON(&m); err != nil {
 				if gorillaws.IsUnexpectedCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
 					logger.Debugf("logsink receive error: %v", err)
+					h.metrics.LogReadCount(h.modelUUID, metricLogReadLabelError).Inc()
 				} else {
 					logger.Debugf("disconnected, %p", socket)
+					h.metrics.LogReadCount(h.modelUUID, metricLogReadLabelDisconnect).Inc()
 				}
 				// Try to tell the other end we are closing. If the other end
 				// has already disconnected from us, this will fail, but we don't
@@ -323,6 +336,8 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int
 				// The ServeHTTP handler has stopped.
 				return
 			case logCh <- m:
+				h.metrics.LogReadCount(h.modelUUID, metricLogReadLabelSuccess).Inc()
+
 				// If the remote end does not support ping/pong, we bump
 				// the read deadline everytime a message is received.
 				if endpointVersion == 0 {

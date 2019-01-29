@@ -45,6 +45,18 @@ func (mr *MockMetricsCollectorMockRecorder) Connections() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connections", reflect.TypeOf((*MockMetricsCollector)(nil).Connections))
 }
 
+// LogReadCount mocks base method
+func (m *MockMetricsCollector) LogReadCount(arg0, arg1 string) prometheus.Counter {
+	ret := m.ctrl.Call(m, "LogReadCount", arg0, arg1)
+	ret0, _ := ret[0].(prometheus.Counter)
+	return ret0
+}
+
+// LogReadCount indicates an expected call of LogReadCount
+func (mr *MockMetricsCollectorMockRecorder) LogReadCount(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogReadCount", reflect.TypeOf((*MockMetricsCollector)(nil).LogReadCount), arg0, arg1)
+}
+
 // LogWriteCount mocks base method
 func (m *MockMetricsCollector) LogWriteCount(arg0, arg1 string) prometheus.Counter {
 	ret := m.ctrl.Call(m, "LogWriteCount", arg0, arg1)

@@ -385,6 +385,10 @@ func (w logsinkMetricsCollectorWrapper) LogWriteCount(modelUUID, state string) p
 	return w.collector.LogWriteCount.WithLabelValues(modelUUID, state)
 }
 
+func (w logsinkMetricsCollectorWrapper) LogReadCount(modelUUID, state string) prometheus.Counter {
+	return w.collector.LogReadCount.WithLabelValues(modelUUID, state)
+}
+
 // loop is the main loop for the server.
 func (srv *Server) loop(ready chan struct{}) error {
 	// for pat based handlers, they are matched in-order of being

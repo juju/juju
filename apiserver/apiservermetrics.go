@@ -37,8 +37,9 @@ var MetricPingFailureLabelNames = []string{
 	MetricLabelModelUUID,
 }
 
-// MetricLogWriteLabelNames defines a series of labels for the LogWrite metric
-var MetricLogWriteLabelNames = []string{
+// MetricLogLabelNames defines a series of labels for the LogWrite and LogRead
+// metric
+var MetricLogLabelNames = []string{
 	MetricLabelModelUUID,
 	MetricLabelState,
 }
@@ -52,6 +53,7 @@ type Collector struct {
 	APIRequestDuration *prometheus.SummaryVec
 	PingFailureCount   *prometheus.CounterVec
 	LogWriteCount      *prometheus.CounterVec
+	LogReadCount       *prometheus.CounterVec
 
 	DeprecatedAPIConnections     prometheus.Gauge
 	DeprecatedAPIRequestsTotal   *prometheus.CounterVec
@@ -97,7 +99,13 @@ func NewMetricsCollector() *Collector {
 			Subsystem: apiserverSubsystemNamespace,
 			Name:      "log_write_count",
 			Help:      "Current number of log writes",
-		}, MetricLogWriteLabelNames),
+		}, MetricLogLabelNames),
+		LogReadCount: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "log_read_count",
+			Help:      "Current number of log reads",
+		}, MetricLogLabelNames),
 
 		// TODO (stickupkid): remove post 2.6 release
 		DeprecatedAPIConnections: prometheus.NewGauge(prometheus.GaugeOpts{
@@ -129,6 +137,7 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.APIRequestDuration.Describe(ch)
 	c.PingFailureCount.Describe(ch)
 	c.LogWriteCount.Describe(ch)
+	c.LogReadCount.Describe(ch)
 
 	// TODO (stickupkid): remove post 2.6 release
 	c.DeprecatedAPIConnections.Describe(ch)
@@ -144,6 +153,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.APIRequestDuration.Collect(ch)
 	c.PingFailureCount.Collect(ch)
 	c.LogWriteCount.Collect(ch)
+	c.LogReadCount.Collect(ch)
 
 	// TODO (stickupkid): remove post 2.6 release
 	c.DeprecatedAPIConnections.Collect(ch)
