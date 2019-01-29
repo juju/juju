@@ -64,9 +64,10 @@ type Pinner interface {
 // Token represents a unit's leadership of its application.
 type Token interface {
 
-	// Check returns an error if the condition it embodies no longer holds.
-	// If you pass a non-nil value into Check, it must be a pointer to data
-	// of the correct type, into which the token's content will be copied.
+	// Check returns an error if the condition it embodies no longer
+	// holds.  If you pass a non-nil trapdoorKey value into Check, it
+	// must be a pointer to data of the correct type, into which the
+	// token's content will be copied.
 	//
 	// The "correct type" is implementation-specific, and no implementation
 	// is obliged to accept any non-nil parameter; but methods that return
@@ -74,7 +75,13 @@ type Token interface {
 	//
 	// In practice, most Token implementations will likely expect *[]txn.Op,
 	// so that they can be used to gate mgo/txn-based state changes.
-	Check(interface{}) error
+	//
+	// If a non-nil trapdoorKey value is passed, attempt should be how
+	// many times this check has been tried previously (for example,
+	// in a buildTxn function it'll be the transaction attempt). This
+	// enables the token to generate different ops for the second
+	// attempt (the raft lease implementation uses this).
+	Check(attempt int, trapdoorKey interface{}) error
 }
 
 // Checker exposes leadership testing capabilities.

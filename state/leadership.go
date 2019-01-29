@@ -50,7 +50,7 @@ func (st *State) LeadershipChecker() leadership.Checker {
 func buildTxnWithLeadership(buildTxn jujutxn.TransactionSource, token leadership.Token) jujutxn.TransactionSource {
 	return func(attempt int) ([]txn.Op, error) {
 		var prereqs []txn.Op
-		if err := token.Check(&prereqs); err != nil {
+		if err := token.Check(attempt, &prereqs); err != nil {
 			return nil, errors.Annotatef(err, "prerequisites failed")
 		}
 		ops, err := buildTxn(attempt)
@@ -86,8 +86,8 @@ type leadershipToken struct {
 }
 
 // Check is part of the leadership.Token interface.
-func (t leadershipToken) Check(out interface{}) error {
-	err := t.token.Check(out)
+func (t leadershipToken) Check(attempt int, out interface{}) error {
+	err := t.token.Check(attempt, out)
 	if errors.Cause(err) == lease.ErrNotHeld {
 		return errors.Errorf("%q is not leader of %q", t.unitName, t.applicationName)
 	}
