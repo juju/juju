@@ -269,6 +269,7 @@ func AllFacades() *facade.Registry {
 
 	reg("Storage", 3, storage.NewFacadeV3)
 	reg("Storage", 4, storage.NewFacadeV4) // changes Destroy() method signature.
+	reg("Storage", 5, storage.NewFacadeV5) // adds Update() and Delete()
 
 	reg("StorageProvisioner", 3, storageprovisioner.NewFacadeV3)
 	reg("StorageProvisioner", 4, storageprovisioner.NewFacadeV4)

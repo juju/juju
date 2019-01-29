@@ -21,6 +21,34 @@ import (
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
 
+// NewFacadeV5 provides the signature required for facade registration.
+func NewFacadeV5(
+	st *state.State,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*APIv5, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
+		model,
+		stateenvirons.GetNewEnvironFunc(environs.New),
+		stateenvirons.GetNewCAASBrokerFunc(caas.New))
+	pm := poolmanager.New(state.NewStateSettings(st), registry)
+
+	storageAccessor, err := getStorageAccessor(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting backend")
+	}
+	return NewAPIv5(
+		stateShim{st},
+		model.Type(),
+		storageAccessor,
+		registry, pm, resources, authorizer,
+		state.CallContext(st))
+}
+
 // NewFacadeV4 provides the signature required for facade registration.
 func NewFacadeV4(
 	st *state.State,
