@@ -3022,5 +3022,6 @@ func (u *Unit) RemoveUpgradeCharmProfileData() error {
 	if err != nil {
 		return err
 	}
-	return machine.RemoveUpgradeCharmProfileData()
+
+	return machine.RemoveUpgradeCharmProfileData(u.doc.Application)
 }

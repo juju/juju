@@ -13,6 +13,6 @@ func NewContainerProfileContext(result params.ContainerProfileResults, modelName
 	return &containerProfileContext{result: result, modelName: modelName}
 }
 
-func MachineChangeProfileChangeInfo(machine ProfileMachine, st ProfileBackend) (params.ProfileChangeResult, error) {
-	return machineChangeProfileChangeInfo(machine, st)
+func MachineChangeProfileChangeInfo(machine ProfileMachine, st ProfileBackend, appName string) (params.ProfileChangeResult, error) {
+	return machineChangeProfileChangeInfo(machine, st, appName)
 }

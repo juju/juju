@@ -24,7 +24,6 @@ type lxdProfileSuite struct {
 
 	machineTag1 names.MachineTag
 	unitTag1    names.UnitTag
-	unitTag2    names.UnitTag
 }
 
 var _ = gc.Suite(&lxdProfileSuite{})
@@ -32,7 +31,6 @@ var _ = gc.Suite(&lxdProfileSuite{})
 func (s *lxdProfileSuite) SetUpTest(c *gc.C) {
 	s.machineTag1 = names.NewMachineTag("1")
 	s.unitTag1 = names.NewUnitTag("mysql/1")
-	s.unitTag2 = names.NewUnitTag("redis/1")
 }
 
 func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*uniter.LXDProfileAPI, *gomock.Controller, *mocks.MockLXDProfileBackend) {
@@ -129,6 +127,35 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsMachineTag(c *g
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "1", Changes: []string{""}},
 			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+		},
+	})
+}
+
+func (s *lxdProfileSuite) TestRemoveUpgradeCharmProfileDataUnitTag(c *gc.C) {
+	api, ctrl, mockBackend := s.assertBackendAPI(c, s.unitTag1)
+	defer ctrl.Finish()
+
+	mockMachine1 := mocks.NewMockLXDProfileMachine(ctrl)
+	mockUnit1 := mocks.NewMockLXDProfileUnit(ctrl)
+
+	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine1, nil)
+	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil).Times(2)
+	mockMachine1.EXPECT().RemoveUpgradeCharmProfileData("mysql").Return(nil)
+	mockUnit1.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil)
+	mockUnit1.EXPECT().ApplicationName().Return("mysql")
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewUnitTag("mysql/2").String()},
+			{Tag: s.unitTag1.String()},
+		},
+	}
+	watches, err := api.RemoveUpgradeCharmProfileData(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+			{Error: nil},
 		},
 	})
 }
