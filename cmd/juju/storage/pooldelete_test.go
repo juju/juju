@@ -23,7 +23,7 @@ var _ = gc.Suite(&PoolDeleteSuite{})
 func (s *PoolDeleteSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockPoolDeleteAPI{}
+	s.mockAPI = &mockPoolDeleteAPI{APIVersion: 5}
 }
 
 func (s *PoolDeleteSuite) runPoolDelete(c *gc.C, args []string) (*cmd.Context, error) {
@@ -45,7 +45,14 @@ func (s *PoolDeleteSuite) TestPoolDeleteErrorsManyArgs(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "pool deletion requires storage pool name")
 }
 
+func (s *PoolUpdateSuite) TestPoolDeleteUnsupportedAPIVersion(c *gc.C) {
+	s.mockAPI.APIVersion = 3
+	_, err := s.runPoolUpdate(c, []string{"sunshine"})
+	c.Check(err, gc.ErrorMatches, "pool update requires name and configuration attributes")
+}
+
 type mockPoolDeleteAPI struct {
+	APIVersion int
 }
 
 func (s mockPoolDeleteAPI) DeletePool(pname string) error {
@@ -54,4 +61,8 @@ func (s mockPoolDeleteAPI) DeletePool(pname string) error {
 
 func (s mockPoolDeleteAPI) Close() error {
 	return nil
+}
+
+func (s mockPoolDeleteAPI) BestAPIVersion() int {
+	return s.APIVersion
 }

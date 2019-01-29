@@ -16,6 +16,7 @@ import (
 type PoolUpdateAPI interface {
 	Close() error
 	UpdatePool(name string, attr map[string]interface{}) error
+	BestAPIVersion() int
 }
 
 const poolUpdateCommandDoc = `
@@ -78,6 +79,9 @@ func (c *poolUpdateCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer api.Close()
+	if api.BestAPIVersion() < 5 {
+		return errors.New("updating storage pools is not supported by this API server")
+	}
 	err = api.UpdatePool(c.poolName, c.configAttrs)
 	if err != nil {
 		return err

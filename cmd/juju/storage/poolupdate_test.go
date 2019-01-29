@@ -23,7 +23,7 @@ var _ = gc.Suite(&PoolUpdateSuite{})
 func (s *PoolUpdateSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockPoolUpdateAPI{}
+	s.mockAPI = &mockPoolUpdateAPI{APIVersion: 5}
 }
 
 func (s *PoolUpdateSuite) runPoolUpdate(c *gc.C, args []string) (*cmd.Context, error) {
@@ -75,7 +75,14 @@ func (s *PoolUpdateSuite) TestPoolUpdateManyAttrs(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
+func (s *PoolUpdateSuite) TestPoolUpdateUnsupportedAPIVersion(c *gc.C) {
+	s.mockAPI.APIVersion = 3
+	_, err := s.runPoolUpdate(c, []string{"sunshine", "something=too", "another=one"})
+	c.Check(err, gc.ErrorMatches, "updating storage pools is not supported by this API server")
+}
+
 type mockPoolUpdateAPI struct {
+	APIVersion int
 }
 
 func (s mockPoolUpdateAPI) UpdatePool(pname string, pconfig map[string]interface{}) error {
@@ -84,4 +91,8 @@ func (s mockPoolUpdateAPI) UpdatePool(pname string, pconfig map[string]interface
 
 func (s mockPoolUpdateAPI) Close() error {
 	return nil
+}
+
+func (s mockPoolUpdateAPI) BestAPIVersion() int {
+	return s.APIVersion
 }

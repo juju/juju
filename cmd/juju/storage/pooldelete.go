@@ -15,6 +15,7 @@ import (
 type PoolDeleteAPI interface {
 	Close() error
 	DeletePool(name string) error
+	BestAPIVersion() int
 }
 
 const poolDeleteCommandDoc = `
@@ -63,6 +64,9 @@ func (c *poolDeleteCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer api.Close()
+	if api.BestAPIVersion() < 5 {
+		return errors.New("deleting storage pools is not supported by this API server")
+	}
 	err = api.DeletePool(c.poolName)
 	if err != nil {
 		return err
