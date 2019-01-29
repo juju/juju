@@ -49,7 +49,7 @@ func NewDeadManager(err error) *Manager {
 			},
 		},
 	}
-	catacomb.Invoke(catacomb.Plan{
+	_ = catacomb.Invoke(catacomb.Plan{
 		Site: &m.catacomb,
 		Work: func() error {
 			return errors.Trace(err)
@@ -143,8 +143,8 @@ func (manager *Manager) Wait() error {
 func (manager *Manager) loop() error {
 	if collector, ok := manager.config.Store.(prometheus.Collector); ok && manager.config.PrometheusRegisterer != nil {
 		// The store implements the collector interface, but the lease.Store
-		// doen't expose those.
-		manager.config.PrometheusRegisterer.Register(collector)
+		// does not expose those.
+		_ = manager.config.PrometheusRegisterer.Register(collector)
 		defer manager.config.PrometheusRegisterer.Unregister(collector)
 	}
 
@@ -271,17 +271,14 @@ func (manager *Manager) retryingClaim(claim claim) {
 // indicates a bad request, and is returned as (false, nil).
 func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	store := manager.config.Store
-	request := lease.Request{claim.holderName, claim.duration}
+	request := lease.Request{Holder: claim.holderName, Duration: claim.duration}
 	err := lease.ErrInvalid
 	for lease.IsInvalid(err) {
 		select {
 		case <-manager.catacomb.Dying():
 			return false, manager.catacomb.ErrDying()
 		default:
-			// TODO(jam) 2017-10-31: We are asking for all leases just to look
-			// up one of them. Shouldn't the store.Leases() interface allow us
-			// to just query for a single entry?
-			info, found := store.Leases()[claim.leaseKey]
+			info, found := store.Leases(claim.leaseKey)[claim.leaseKey]
 			switch {
 			case !found:
 				manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
@@ -311,24 +308,25 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 // unrecoverable errors; mere untruth of the assertion just indicates a bad
 // request, and is communicated back to the check's originator.
 func (manager *Manager) handleCheck(check check) error {
+	key := check.leaseKey
 	store := manager.config.Store
 	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s",
-		manager.logContext, check.leaseKey.Lease, check.holderName)
+		manager.logContext, key.Lease, check.holderName)
 
-	info, found := store.Leases()[check.leaseKey]
-	if !found || info.Holder != check.holderName {
+	info := store.Leases(key)[key]
+	if info.Holder != check.holderName {
 		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing",
-			manager.logContext, check.leaseKey.Lease, check.holderName)
+			manager.logContext, key.Lease, check.holderName)
 		if err := store.Refresh(); err != nil {
 			return errors.Trace(err)
 		}
-		info, found = store.Leases()[check.leaseKey]
+		info = store.Leases(key)[key]
 	}
 
 	var response error
-	if !found || info.Holder != check.holderName {
+	if info.Holder != check.holderName {
 		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held",
-			manager.logContext, check.leaseKey.Lease, check.holderName)
+			manager.logContext, key.Lease, check.holderName)
 		response = lease.ErrNotHeld
 	} else if check.trapdoorKey != nil {
 		response = info.Trapdoor(check.trapdoorKey)

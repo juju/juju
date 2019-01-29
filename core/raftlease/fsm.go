@@ -161,8 +161,6 @@ func (f *FSM) GlobalTime() time.Time {
 // Leases gets information about all of the leases in the system,
 // optionally filtered by the input lease keys.
 func (f *FSM) Leases(localTime time.Time, keys ...lease.Key) map[lease.Key]lease.Info {
-	f.mu.Lock()
-
 	filter := make(map[lease.Key]bool)
 	filtering := len(keys) > 0
 	if filtering {
@@ -172,6 +170,7 @@ func (f *FSM) Leases(localTime time.Time, keys ...lease.Key) map[lease.Key]lease
 	}
 
 	results := make(map[lease.Key]lease.Info)
+	f.mu.Lock()
 	for key, entry := range f.entries {
 		if filtering && !filter[key] {
 			continue
