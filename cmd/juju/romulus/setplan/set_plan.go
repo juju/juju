@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"net/url"
 
+	"github.com/juju/juju/core/model"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	api "github.com/juju/romulus/api/plan"
@@ -22,7 +24,7 @@ import (
 )
 
 // authorizationClient defines the interface of an api client that
-// the comand uses to create an authorization macaroon.
+// the command uses to create an authorization macaroon.
 type authorizationClient interface {
 	// Authorize returns the authorization macaroon for the specified environment,
 	// charm url, application name and plan.
@@ -84,8 +86,7 @@ func (c *setPlanCommand) Init(args []string) error {
 }
 
 func (c *setPlanCommand) requestMetricCredentials(client *application.Client, ctx *cmd.Context) ([]byte, error) {
-	modelUUID := client.ModelUUID()
-	charmURL, err := client.GetCharmURL(c.Application)
+	charmURL, err := client.GetCharmURL(model.GenerationCurrent, c.Application)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -102,7 +103,7 @@ func (c *setPlanCommand) requestMetricCredentials(client *application.Client, ct
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	m, err := authClient.Authorize(modelUUID, charmURL.String(), c.Application, c.Plan, hc.VisitWebPage)
+	m, err := authClient.Authorize(client.ModelUUID(), charmURL.String(), c.Application, c.Plan, hc.VisitWebPage)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

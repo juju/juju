@@ -89,9 +89,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 		Name:  "test",
 		Owner: names.NewUserTag("admin"),
 	})
-	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	s.CleanupSuite.AddCleanup(func(*gc.C) { _ = st.Close() })
+
 	// Close the state pool before the state object itself.
-	s.StatePool.Close()
+	c.Assert(s.StatePool.Close(), jc.ErrorIsNil)
 	s.StatePool = nil
 	err := s.State.Close()
 	c.Assert(err, jc.ErrorIsNil)

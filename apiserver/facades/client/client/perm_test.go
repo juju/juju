@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 )
@@ -238,7 +239,7 @@ func opClientServiceSet(c *gc.C, st api.Connection, mst *state.State) (func(), e
 }
 
 func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := application.NewClient(st).Get("wordpress")
+	_, err := application.NewClient(st).Get(model.GenerationCurrent, "wordpress")
 	if err != nil {
 		return func() {}, err
 	}
@@ -335,7 +336,7 @@ func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func
 			URL: charm.MustParseURL("local:quantal/wordpress"),
 		},
 	}
-	err := application.NewClient(st).SetCharm(cfg)
+	err := application.NewClient(st).SetCharm(model.GenerationCurrent, cfg)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}

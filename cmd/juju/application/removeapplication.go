@@ -8,7 +8,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
@@ -81,7 +80,6 @@ type removeApplicationAPI interface {
 	DestroyDeprecated(appName string) error
 	DestroyUnits(application.DestroyUnitsParams) ([]params.DestroyUnitResult, error)
 	DestroyUnitsDeprecated(unitNames ...string) error
-	GetCharmURL(appName string) (*charm.URL, error)
 	ModelUUID() string
 	BestAPIVersion() int
 }

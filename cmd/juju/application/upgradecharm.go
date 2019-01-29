@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -73,9 +74,9 @@ type CharmAPIClient interface {
 // CharmUpgradeClient defines a subset of the application facade, as required
 // by the upgrade-charm command.
 type CharmUpgradeClient interface {
-	GetCharmURL(string) (*charm.URL, error)
-	Get(string) (*params.ApplicationGetResults, error)
-	SetCharm(application.SetCharmConfig) error
+	GetCharmURL(model.GenerationVersion, string) (*charm.URL, error)
+	Get(model.GenerationVersion, string) (*params.ApplicationGetResults, error)
+	SetCharm(model.GenerationVersion, application.SetCharmConfig) error
 }
 
 // CharmClient defines a subset of the charms facade, as required
@@ -290,8 +291,12 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	// TODO (manadart 2018-01-24) This value will be retrieved from the local
+	// store (generally ~/.local/share/juju).
+	generation := model.GenerationCurrent
+
 	charmUpgradeClient := c.NewCharmUpgradeClient(apiRoot)
-	oldURL, err := charmUpgradeClient.GetCharmURL(c.ApplicationName)
+	oldURL, err := charmUpgradeClient.GetCharmURL(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -328,10 +333,12 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	applicationInfo, err := charmUpgradeClient.Get(c.ApplicationName)
+
+	applicationInfo, err := charmUpgradeClient.Get(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if c.Channel == "" {
 		c.Channel = csclientparams.Channel(applicationInfo.Channel)
 	}
@@ -378,7 +385,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		ResourceIDs:        ids,
 		StorageConstraints: c.Storage,
 	}
-	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(cfg), block.BlockChange)
+	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, cfg), block.BlockChange)
 }
 
 // upgradeResources pushes metadata up to the server for each resource defined

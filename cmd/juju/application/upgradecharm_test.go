@@ -36,7 +36,7 @@ import (
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/model"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
@@ -176,7 +176,10 @@ func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
-	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
+
+	// TODO (manadart 2019-01-24) Once we are retrieving the active generation
+	// from the local store, this test should flex that behaviour.
+	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationCurrent, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -225,7 +228,10 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
-	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
+
+	// TODO (manadart 2019-01-24) Once we are retrieving the active generation
+	// from the local store, this test should flex that behaviour.
+	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationCurrent, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -911,35 +917,21 @@ type mockCharmAPIClient struct {
 	charmURL *charm.URL
 }
 
-func (m *mockCharmAPIClient) GetCharmURL(applicationName string) (*charm.URL, error) {
-	m.MethodCall(m, "GetCharmURL", applicationName)
+func (m *mockCharmAPIClient) GetCharmURL(generation model.GenerationVersion, appName string) (*charm.URL, error) {
+	m.MethodCall(m, "GetCharmURL", generation, appName)
 	return m.charmURL, m.NextErr()
 }
 
-func (m *mockCharmAPIClient) SetCharm(cfg application.SetCharmConfig) error {
-	m.MethodCall(m, "SetCharm", cfg)
+func (m *mockCharmAPIClient) SetCharm(generation model.GenerationVersion, cfg application.SetCharmConfig) error {
+	m.MethodCall(m, "SetCharm", generation, cfg)
 	return m.NextErr()
 }
 
-func (m *mockCharmAPIClient) Get(applicationName string) (*params.ApplicationGetResults, error) {
+func (m *mockCharmAPIClient) Get(
+	generation model.GenerationVersion, applicationName string,
+) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", applicationName)
 	return &params.ApplicationGetResults{}, m.NextErr()
-}
-
-type mockNotifyWatcher struct {
-	watcher.NotifyWatcher
-	testing.Stub
-	ch chan struct{}
-}
-
-func (w *mockNotifyWatcher) Changes() watcher.NotifyChannel {
-	return w.ch
-}
-
-func (w *mockNotifyWatcher) Kill() {}
-
-func (w *mockNotifyWatcher) Wait() error {
-	return nil
 }
 
 type mockModelConfigGetter struct {

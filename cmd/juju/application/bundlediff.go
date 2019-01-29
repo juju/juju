@@ -21,6 +21,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 )
 
 const bundleDiffDoc = `
@@ -262,8 +263,10 @@ func (e *extractorImpl) GetConstraints(applications ...string) ([]constraints.Va
 }
 
 // GetConfig is part of ModelExtractor.
-func (e *extractorImpl) GetConfig(applications ...string) ([]map[string]interface{}, error) {
-	return e.application.GetConfig(applications...)
+func (e *extractorImpl) GetConfig(
+	generation model.GenerationVersion, applications ...string,
+) ([]map[string]interface{}, error) {
+	return e.application.GetConfig(generation, applications...)
 }
 
 // Sequences is part of ModelExtractor.

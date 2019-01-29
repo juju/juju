@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/storage"
 )
 
@@ -44,7 +45,7 @@ func (c *Client) SetMetricCredentials(application string, credentials []byte) er
 	creds := []params.ApplicationMetricCredential{
 		{application, credentials},
 	}
-	p := params.ApplicationMetricCredentials{creds}
+	p := params.ApplicationMetricCredentials{Creds: creds}
 	results := new(params.ErrorResults)
 	err := c.facade.FacadeCall("SetMetricCredentials", p, results)
 	if err != nil {
@@ -161,9 +162,12 @@ func (c *Client) Deploy(args DeployArgs) error {
 
 // GetCharmURL returns the charm URL the given application is
 // running at present.
-func (c *Client) GetCharmURL(applicationName string) (*charm.URL, error) {
+func (c *Client) GetCharmURL(generation model.GenerationVersion, applicationName string) (*charm.URL, error) {
 	result := new(params.StringResult)
-	args := params.ApplicationGet{ApplicationName: applicationName}
+	args := params.ApplicationGet{
+		ApplicationName: applicationName,
+		Generation:      generation,
+	}
 	err := c.facade.FacadeCall("GetCharmURL", args, result)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -177,11 +181,11 @@ func (c *Client) GetCharmURL(applicationName string) (*charm.URL, error) {
 // GetConfig returns the charm configuration settings for each of the
 // applications. If any of the applications are not found, an error is
 // returned.
-func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error) {
+func (c *Client) GetConfig(generation model.GenerationVersion, appNames ...string) ([]map[string]interface{}, error) {
 	var allSettings []map[string]interface{}
 	if c.BestAPIVersion() < 5 {
 		for _, appName := range appNames {
-			results, err := c.Get(appName)
+			results, err := c.Get(generation, appName)
 			if err != nil {
 				return nil, errors.Annotatef(err, "unable to get settings for %q", appName)
 			}
@@ -203,7 +207,7 @@ func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error)
 	var args params.Entities
 	for _, appName := range appNames {
 		args.Entities = append(args.Entities,
-			params.Entity{names.NewApplicationTag(appName).String()})
+			params.Entity{Tag: names.NewApplicationTag(appName).String()})
 	}
 	err := c.facade.FacadeCall(apiName, args, &results)
 	if err != nil {
@@ -292,7 +296,7 @@ type SetCharmConfig struct {
 }
 
 // SetCharm sets the charm for a given application.
-func (c *Client) SetCharm(cfg SetCharmConfig) error {
+func (c *Client) SetCharm(generation model.GenerationVersion, cfg SetCharmConfig) error {
 	var storageConstraints map[string]params.StorageConstraints
 	if len(cfg.StorageConstraints) > 0 {
 		storageConstraints = make(map[string]params.StorageConstraints)
@@ -323,6 +327,7 @@ func (c *Client) SetCharm(cfg SetCharmConfig) error {
 		ForceUnits:         cfg.ForceUnits,
 		ResourceIDs:        cfg.ResourceIDs,
 		StorageConstraints: storageConstraints,
+		Generation:         generation,
 	}
 	return c.facade.FacadeCall("SetCharm", args, nil)
 }
@@ -412,8 +417,8 @@ func (c *Client) AddUnits(args AddUnitsParams) ([]string, error) {
 // TODO(axw) 2017-03-16 #1673323
 // Drop this in Juju 3.0.
 func (c *Client) DestroyUnitsDeprecated(unitNames ...string) error {
-	params := params.DestroyApplicationUnits{unitNames}
-	return c.facade.FacadeCall("DestroyUnits", params, nil)
+	args := params.DestroyApplicationUnits{UnitNames: unitNames}
+	return c.facade.FacadeCall("DestroyUnits", args, nil)
 }
 
 // DestroyUnitsParams contains parameters for the DestroyUnits API method.
@@ -487,10 +492,10 @@ func (c *Client) DestroyUnits(in DestroyUnitsParams) ([]params.DestroyUnitResult
 // TODO(axw) 2017-03-16 #1673323
 // Drop this in Juju 3.0.
 func (c *Client) DestroyDeprecated(application string) error {
-	params := params.ApplicationDestroy{
+	args := params.ApplicationDestroy{
 		ApplicationName: application,
 	}
-	return c.facade.FacadeCall("Destroy", params, nil)
+	return c.facade.FacadeCall("Destroy", args, nil)
 }
 
 // DestroyApplicationsParams contains parameters for the DestroyApplications
@@ -637,7 +642,8 @@ func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, er
 	if c.BestAPIVersion() < 5 {
 		for _, application := range applications {
 			var result params.GetConstraintsResults
-			err := c.facade.FacadeCall("GetConstraints", params.GetApplicationConstraints{application}, &result)
+			err := c.facade.FacadeCall(
+				"GetConstraints", params.GetApplicationConstraints{ApplicationName: application}, &result)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -651,7 +657,7 @@ func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, er
 	var args params.Entities
 	for _, application := range applications {
 		args.Entities = append(args.Entities,
-			params.Entity{names.NewApplicationTag(application).String()})
+			params.Entity{Tag: names.NewApplicationTag(application).String()})
 	}
 	err := c.facade.FacadeCall("GetConstraints", args, &results)
 	if err != nil {
@@ -668,32 +674,35 @@ func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, er
 
 // SetConstraints specifies the constraints for the given application.
 func (c *Client) SetConstraints(application string, constraints constraints.Value) error {
-	params := params.SetConstraints{
+	args := params.SetConstraints{
 		ApplicationName: application,
 		Constraints:     constraints,
 	}
-	return c.facade.FacadeCall("SetConstraints", params, nil)
+	return c.facade.FacadeCall("SetConstraints", args, nil)
 }
 
 // Expose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) Expose(application string) error {
-	params := params.ApplicationExpose{ApplicationName: application}
-	return c.facade.FacadeCall("Expose", params, nil)
+	args := params.ApplicationExpose{ApplicationName: application}
+	return c.facade.FacadeCall("Expose", args, nil)
 }
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) Unexpose(application string) error {
-	params := params.ApplicationUnexpose{ApplicationName: application}
-	return c.facade.FacadeCall("Unexpose", params, nil)
+	args := params.ApplicationUnexpose{ApplicationName: application}
+	return c.facade.FacadeCall("Unexpose", args, nil)
 }
 
 // Get returns the configuration for the named application.
-func (c *Client) Get(application string) (*params.ApplicationGetResults, error) {
+func (c *Client) Get(generation model.GenerationVersion, application string) (*params.ApplicationGetResults, error) {
 	var results params.ApplicationGetResults
-	params := params.ApplicationGet{ApplicationName: application}
-	err := c.facade.FacadeCall("Get", params, &results)
+	args := params.ApplicationGet{
+		ApplicationName: application,
+		Generation:      generation,
+	}
+	err := c.facade.FacadeCall("Get", args, &results)
 	return &results, err
 }
 
@@ -718,29 +727,29 @@ func (c *Client) Unset(application string, options []string) error {
 // CharmRelations returns the application's charms relation names.
 func (c *Client) CharmRelations(application string) ([]string, error) {
 	var results params.ApplicationCharmRelationsResults
-	params := params.ApplicationCharmRelations{ApplicationName: application}
-	err := c.facade.FacadeCall("CharmRelations", params, &results)
+	args := params.ApplicationCharmRelations{ApplicationName: application}
+	err := c.facade.FacadeCall("CharmRelations", args, &results)
 	return results.CharmRelations, err
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 	var addRelRes params.AddRelationResults
-	params := params.AddRelation{Endpoints: endpoints, ViaCIDRs: viaCIDRs}
-	err := c.facade.FacadeCall("AddRelation", params, &addRelRes)
+	args := params.AddRelation{Endpoints: endpoints, ViaCIDRs: viaCIDRs}
+	err := c.facade.FacadeCall("AddRelation", args, &addRelRes)
 	return &addRelRes, err
 }
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(endpoints ...string) error {
-	params := params.DestroyRelation{Endpoints: endpoints}
-	return c.facade.FacadeCall("DestroyRelation", params, nil)
+	args := params.DestroyRelation{Endpoints: endpoints}
+	return c.facade.FacadeCall("DestroyRelation", args, nil)
 }
 
 // DestroyRelationId removes the relation with the specified id.
 func (c *Client) DestroyRelationId(relationId int) error {
-	params := params.DestroyRelation{RelationId: relationId}
-	return c.facade.FacadeCall("DestroyRelation", params, nil)
+	args := params.DestroyRelation{RelationId: relationId}
+	return c.facade.FacadeCall("DestroyRelation", args, nil)
 }
 
 // SetRelationSuspended updates the suspended status of the relation with the specified id.
@@ -799,13 +808,16 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 }
 
 // SetApplicationConfig sets configuration options on an application.
-func (c *Client) SetApplicationConfig(application string, config map[string]string) error {
+func (c *Client) SetApplicationConfig(
+	generation model.GenerationVersion, application string, config map[string]string,
+) error {
 	if c.BestAPIVersion() < 6 {
 		return errors.NotSupportedf("SetApplicationsConfig not supported by this version of Juju")
 	}
 	args := params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: application,
+			Generation:      generation,
 			Config:          config,
 		}},
 	}
@@ -818,13 +830,16 @@ func (c *Client) SetApplicationConfig(application string, config map[string]stri
 }
 
 // UnsetApplicationConfig resets configuration options on an application.
-func (c *Client) UnsetApplicationConfig(application string, options []string) error {
+func (c *Client) UnsetApplicationConfig(
+	generation model.GenerationVersion, application string, options []string,
+) error {
 	if c.BestAPIVersion() < 6 {
 		return errors.NotSupportedf("UnsetApplicationConfig not supported by this version of Juju")
 	}
 	args := params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: application,
+			Generation:      generation,
 			Options:         options,
 		}},
 	}
