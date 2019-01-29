@@ -653,7 +653,7 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications() (watcher.StringsWatcher, er
 
 // RemoveUpgradeCharmProfileData removes the upgrade charm profile data
 func (u *Unit) RemoveUpgradeCharmProfileData() error {
-	return u.st.RemoveUpgradeCharmProfileData()
+	return u.st.RemoveUpgradeCharmProfileData(u.ApplicationName())
 }
 
 // RequestReboot sets the reboot flag for its machine agent

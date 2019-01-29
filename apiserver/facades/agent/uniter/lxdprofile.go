@@ -27,7 +27,7 @@ type LXDProfileBackend interface {
 type LXDProfileMachine interface {
 	WatchLXDProfileUpgradeNotifications(string) (state.StringsWatcher, error)
 	Units() ([]LXDProfileUnit, error)
-	RemoveUpgradeCharmProfileData() error
+	RemoveUpgradeCharmProfileData(string) error
 }
 
 // LXDProfileUnit describes unit-receiver state methods
@@ -175,17 +175,17 @@ func (u *LXDProfileAPI) watchOneChangeLXDProfileUpgradeNotifications(machine LXD
 
 // RemoveUpgradeCharmProfileData is intended to clean up the LXDProfile status
 // to ensure that we start from a clean slate.
-func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (params.ErrorResults, error) {
+func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.ProfileArgs) (params.ErrorResults, error) {
 	u.logger.Tracef("Starting RemoveUpgradeCharmProfileData with %+v", args)
 	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
+		Results: make([]params.ErrorResult, len(args.Args)),
 	}
 	canAccess, err := u.accessUnitOrMachine()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseTag(entity.Tag)
+	for i, arg := range args.Args {
+		tag, err := names.ParseTag(arg.Entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
@@ -200,7 +200,8 @@ func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (par
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = machine.RemoveUpgradeCharmProfileData()
+
+		err = machine.RemoveUpgradeCharmProfileData(arg.AppName)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

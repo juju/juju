@@ -1404,6 +1404,15 @@ type UpgradeSeriesUnitsResult struct {
 	UnitNames []string `json:"unit-names"`
 }
 
+type ProfileArg struct {
+	Entity  Entity `json:"entity"`
+	AppName string `json:"app-name"`
+}
+
+type ProfileArgs struct {
+	Args []ProfileArg `json:"args"`
+}
+
 type ProfileChangeResult struct {
 	OldProfileName string           `json:"old-profile-name,omitempty"`
 	NewProfileName string           `json:"new-profile-name,omitempty"`
@@ -1431,5 +1440,6 @@ type SetProfileUpgradeCompleteArgs struct {
 
 type SetProfileUpgradeCompleteArg struct {
 	Entity  Entity `json:"entity"`
+	AppName string `json:"app-name"`
 	Message string `json:"message"`
 }
