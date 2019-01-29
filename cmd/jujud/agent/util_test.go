@@ -68,10 +68,6 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
 }
 
-func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
-	s.AgentSuite.TearDownSuite(c)
-}
-
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
@@ -86,7 +82,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeCmd(filepath.Join(testpath, "stop"))
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
-
 	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
 }
 

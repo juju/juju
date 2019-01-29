@@ -127,7 +127,7 @@
 
 [[constraint]]
   name = "github.com/lxc/lxd"
-  revision = "d0d66b4842f459c6c3e039a9e2f25eff02174ab1"
+  revision = "4c2bbb608e7a90a9f175a566b9e638069424f0f7"
 
 [[constraint]]
   name = "github.com/oracle/oci-go-sdk"
@@ -287,7 +287,7 @@
 
 [[constraint]]
   name = "github.com/juju/cmd"
-  revision = "fd568e4a4120f7d5a417252d701daff61a6322b4"
+  revision = "a8c88215d37e4d65036822bca0522d11f888f7eb"
 
 [[constraint]]
   name = "github.com/juju/collections"
@@ -312,6 +312,10 @@
 [[constraint]]
   name = "github.com/juju/loggo"
   revision = "8232ab8918d91c72af1a9fb94d3edbe31d88b790"
+
+[[override]]
+  name = "github.com/juju/lru"
+  revision = "305dec07bf2f69353bb05fa849e2a0834e220f94"
 
 [[constraint]]
   name = "github.com/juju/persistent-cookiejar"
@@ -339,7 +343,7 @@
 
 [[constraint]]
   name = "github.com/juju/txn"
-  revision = "f08211fa34f20cae79efd3dde0f54c77238292c3"
+  revision = "0735533e000d6c33a901ee30cc1964ac2721fd39"
 
 [[override]]
   name = "github.com/juju/usso"

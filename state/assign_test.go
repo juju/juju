@@ -311,6 +311,9 @@ func (s *AssignSuite) TestPrincipals(c *gc.C) {
 func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
@@ -1073,6 +1076,58 @@ func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageCleanAvailable(c *
 	// it will be forced onto a new machine.
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the machine on the unit is set.
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	// Check that the machine isn't our clean one.
+	c.Assert(machineId, gc.Not(gc.Equals), clean.Id())
+}
+
+func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageAndMachinePlacementDirective(c *gc.C) {
+	_, unit, _ := s.setupSingleStorage(c, "filesystem", "static")
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	storageAttachments, err := sb.UnitStorageAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+
+	// Add a clean machine.
+	clean, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// assign the unit to a machine, requesting clean/empty. Since
+	// the unit has non dynamic storage instances associated,
+	// it will be forced onto a new machine.
+	placement := &instance.Placement{
+		instance.MachineScope, clean.Id(),
+	}
+	err = s.State.AssignUnitWithPlacement(unit, placement)
+	c.Assert(
+		err, gc.ErrorMatches,
+		`cannot assign unit "storage-filesystem/0" to machine 0: "static" storage provider does not support dynamic storage`,
+	)
+}
+
+func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageAndZonePlacementDirective(c *gc.C) {
+	_, unit, _ := s.setupSingleStorage(c, "filesystem", "static")
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	storageAttachments, err := sb.UnitStorageAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+
+	// Add a clean machine.
+	clean, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// assign the unit to a machine, requesting clean/empty. Since
+	// the unit has non dynamic storage instances associated,
+	// it will be forced onto a new machine.
+	placement := &instance.Placement{
+		s.State.ModelUUID(), "zone=test",
+	}
+	err = s.State.AssignUnitWithPlacement(unit, placement)
 
 	// Check the machine on the unit is set.
 	machineId, err := unit.AssignedMachineId()

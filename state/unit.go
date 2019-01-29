@@ -692,14 +692,41 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
+		// Clean up any instanceCharmProfileData docs for this machine before
+		// it is destroyed.
+		_, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+		if err == nil {
+			logger.Tracef("Remove instance charm profile data for machine %s", m.Id())
+			ops = append(ops, txn.Op{
+				C:      instanceCharmProfileDataC,
+				Id:     m.doc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+		} else if !errors.IsNotFound(err) {
+			logger.Errorf("Error getting instance charm profile data for machine %s, %s", m.Id(), err.Error())
+		}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
 			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
-		logger.Tracef("Remove charm profile from machine %s for %s", m.Id(), a.Name())
-		ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
+		// Remove any charm profile applied to the machine for this unit,
+		// if this is a unit removal from a machine which will not be
+		// destroyed.
+		machineProfiles, err := m.CharmProfiles()
+		if err != nil {
+			return nil, err
+		}
+		profile, err := lxdprofile.MatchProfileNameByAppName(machineProfiles, u.ApplicationName())
+		if err != nil {
+			return nil, err
+		}
+		if profile != "" {
+			logger.Tracef("Setup to remove charm profile %q, removing unit from machine %s", profile, m.Id())
+			ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
+		}
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can
@@ -2080,6 +2107,13 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 // time of unit creation.
 func (u *Unit) AssignToNewMachine() (err error) {
 	defer assignContextf(&err, u.Name(), "new machine")
+	return u.assignToNewMachine("")
+}
+
+// assignToNewMachine assigns the unit to a new machine with the
+// optional placement directive, with constraints determined according
+// to the application and model constraints at the time of unit creation.
+func (u *Unit) assignToNewMachine(placement string) error {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
@@ -2109,6 +2143,8 @@ func (u *Unit) AssignToNewMachine() (err error) {
 			Series:                u.doc.Series,
 			Constraints:           *cons,
 			Jobs:                  []MachineJob{JobHostUnits},
+			Placement:             placement,
+			Dirty:                 placement != "",
 			Volumes:               storageParams.volumes,
 			VolumeAttachments:     storageParams.volumeAttachments,
 			Filesystems:           storageParams.filesystems,

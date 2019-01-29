@@ -61,5 +61,6 @@ func runNotifier(name string) {
 func Info(i *cmd.Info) *cmd.Info {
 	info := *i
 	info.FlagKnownAs = "option"
+	info.ShowSuperFlags = []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"}
 	return &info
 }

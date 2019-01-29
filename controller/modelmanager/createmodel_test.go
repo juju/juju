@@ -77,6 +77,7 @@ func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := s.baseConfig.AllAttrs()
 	expected["name"] = "new-model"
+	expected["type"] = "fake"
 	expected["additional"] = "value"
 	expected["uuid"] = newModelUUID
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
@@ -89,26 +90,6 @@ func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	c.Assert(validateCall.Args, gc.HasLen, 2)
 	c.Assert(validateCall.Args[0], gc.Equals, cfg)
 	c.Assert(validateCall.Args[1], gc.IsNil)
-}
-
-func (s *ModelConfigCreatorSuite) TestCreateModelBadConfig(c *gc.C) {
-	for i, test := range []struct {
-		key      string
-		value    interface{}
-		errMatch string
-	}{{
-		key:      "type",
-		value:    "dummy",
-		errMatch: `specified type "dummy" does not match controller "fake"`,
-	}} {
-		c.Logf("%d: %s", i, test.key)
-		_, err := s.newModelConfig(coretesting.Attrs(
-			s.baseConfig.AllAttrs(),
-		).Merge(coretesting.Attrs{
-			test.key: test.value,
-		}))
-		c.Check(err, gc.ErrorMatches, test.errMatch)
-	}
 }
 
 func (s *ModelConfigCreatorSuite) TestCreateModelSameAgentVersion(c *gc.C) {
@@ -182,44 +163,6 @@ func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderNo
 		"agent-version": "1.9.9",
 	}))
 	c.Assert(err, gc.ErrorMatches, "no agent binaries found for version .*")
-}
-
-type RestrictedProviderFieldsSuite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&RestrictedProviderFieldsSuite{})
-
-func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
-	for i, test := range []struct {
-		provider string
-		expected []string
-	}{{
-		provider: "azure",
-		expected: []string{"type"},
-	}, {
-		provider: "dummy",
-		expected: []string{"type"},
-	}, {
-		provider: "joyent",
-		expected: []string{"type"},
-	}, {
-		provider: "maas",
-		expected: []string{"type"},
-	}, {
-		provider: "openstack",
-		expected: []string{"type"},
-	}, {
-		provider: "ec2",
-		expected: []string{"type"},
-	}} {
-		c.Logf("%d: %s provider", i, test.provider)
-		provider, err := environs.Provider(test.provider)
-		c.Check(err, jc.ErrorIsNil)
-		fields, err := modelmanager.RestrictedProviderFields(provider)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(fields, jc.SameContents, test.expected)
-	}
 }
 
 type fakeProvider struct {

@@ -140,7 +140,7 @@ check-deps:
 DOCKER_USERNAME?=jujusolutions
 JUJUD_STAGING_DIR?=/tmp/jujud-operator
 JUJUD_BIN_DIR=${GOPATH}/bin
-OPERATOR_IMAGE_TAG = $(shell jujud version | cut -d- -f1,2)
+OPERATOR_IMAGE_TAG = $(shell jujud version | rev | cut -d- -f3- | rev)
 
 operator-image: install caas/jujud-operator-dockerfile caas/jujud-operator-requirements.txt
 	rm -rf ${JUJUD_STAGING_DIR}

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	testclock "github.com/juju/clock/testclock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -653,7 +653,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	}
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "juju-app-name",
+			Name:        "juju-app-name",
+			Annotations: map[string]string{"a": "b"},
 			Labels: map[string]string{
 				"juju-application": "app-name",
 				"fred":             "mary",
@@ -696,6 +697,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
+		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

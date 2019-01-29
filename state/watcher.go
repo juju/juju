@@ -2074,7 +2074,7 @@ func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, er
 			logger.Debugf("instanceCharmProfileData NOT mgo err not found")
 			return false, err
 		}
-		logger.Debugf("instanceCharmProfileData mgo err not found")
+		logger.Tracef("instanceCharmProfileData for %s on machine %s: mgo err not found", w.applicationName, machineId)
 		return false, nil
 	}
 

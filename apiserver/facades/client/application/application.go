@@ -396,6 +396,47 @@ func splitApplicationAndCharmConfig(modelType state.ModelType, inConfig map[stri
 	return appConfigAttrs, charmConfig, nil
 }
 
+// splitApplicationAndCharmConfigFromYAML extracts app specific settings from a charm config YAML
+// and returns those app settings plus a YAML with just the charm settings left behind.
+func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, appName string) (
+	appCfg map[string]interface{},
+	outYaml string,
+	_ error,
+) {
+	var allSettings map[string]map[string]interface{}
+	if err := goyaml.Unmarshal([]byte(inYaml), &allSettings); err != nil {
+		return nil, "", errors.Annotate(err, "cannot parse settings data")
+	}
+	settings, ok := allSettings[appName]
+	if !ok {
+		return nil, "", errors.Errorf("no settings found for %q", appName)
+	}
+
+	providerSchema, _, err := applicationConfigSchema(modelType)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	appConfigKeys := application.KnownConfigKeys(providerSchema)
+
+	appConfigAttrs := make(map[string]interface{})
+	for k, v := range settings {
+		if appConfigKeys.Contains(k) {
+			appConfigAttrs[k] = v
+			delete(settings, k)
+		}
+	}
+	if len(settings) == 0 {
+		return appConfigAttrs, "", nil
+	}
+
+	allSettings[appName] = settings
+	charmConfig, err := goyaml.Marshal(allSettings)
+	if err != nil {
+		return nil, "", errors.Annotate(err, "cannot marshall charm settings")
+	}
+	return appConfigAttrs, string(charmConfig), nil
+}
+
 // deployApplication fetches the charm from the charm store and deploys it.
 // The logic has been factored out into a common function which is called by
 // both the legacy API on the client facade, as well as the new application facade.
@@ -459,9 +500,29 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(modelType, args.Config)
-	if err != nil {
-		return errors.Trace(err)
+	// Split out the app config from the charm config for any config
+	// passed in as a map as opposed to YAML.
+	var appConfig map[string]interface{}
+	var charmConfig map[string]string
+	if len(args.Config) > 0 {
+		if appConfig, charmConfig, err = splitApplicationAndCharmConfig(modelType, args.Config); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Split out the app config from the charm config for any config
+	// passed in as YAML.
+	var charmYamlConfig string
+	appSettings := make(map[string]interface{})
+	if len(args.ConfigYAML) > 0 {
+		if appSettings, charmYamlConfig, err = splitApplicationAndCharmConfigFromYAML(modelType, args.ConfigYAML, args.ApplicationName); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Overlay any app settings in YAML with those from config map.
+	for k, v := range appConfig {
+		appSettings[k] = v
 	}
 
 	var applicationConfig *application.Config
@@ -469,14 +530,14 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	applicationConfig, err = application.NewConfig(appConfigAttrs, schema, defaults)
+	applicationConfig, err = application.NewConfig(appSettings, schema, defaults)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	var settings = make(charm.Settings)
-	if len(args.ConfigYAML) > 0 {
-		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ApplicationName)
+	if len(charmYamlConfig) > 0 {
+		settings, err = ch.Config().ParseSettingsYAML([]byte(charmYamlConfig), args.ApplicationName)
 		if err != nil {
 			return errors.Trace(err)
 		}

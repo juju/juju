@@ -217,9 +217,11 @@ func volumeAttachmentDevicePath(
 		volumeAttachmentInfo.DeviceName != "" ||
 		volumeAttachmentInfo.DeviceLink != "" {
 		// Prefer the volume attachment's information over what is
-		// in the published block device information.
+		// in the published block device information, but only if the
+		// block device information actually has any device links. In
+		// some cases, the block device has very little hw info published.
 		var deviceLinks []string
-		if volumeAttachmentInfo.DeviceLink != "" {
+		if volumeAttachmentInfo.DeviceLink != "" && len(blockDevice.DeviceLinks) > 0 {
 			deviceLinks = []string{volumeAttachmentInfo.DeviceLink}
 		}
 		var deviceName string

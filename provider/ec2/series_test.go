@@ -55,6 +55,9 @@ func makeImage(id, storage, virtType, arch, version, region string) *imagemetada
 
 var TestImageMetadata = []*imagemetadata.ImageMetadata{
 	// LTS-dependent requires new entries upon new LTS release.
+	// 18.04:arm64
+	makeImage("ami-00002133", "ssd", "hvm", "arm64", "18.04", "test"),
+
 	// 18.04:amd64
 	makeImage("ami-00001133", "ssd", "hvm", "amd64", "18.04", "test"),
 	makeImage("ami-00001139", "ebs", "hvm", "amd64", "18.04", "test"),

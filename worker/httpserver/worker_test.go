@@ -11,6 +11,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -35,6 +38,7 @@ type workerFixture struct {
 	clock                *testclock.Clock
 	hub                  *pubsub.StructuredHub
 	config               httpserver.Config
+	logDir               string
 	stub                 testing.Stub
 }
 
@@ -50,12 +54,15 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Now())
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.agentName = "machine-42"
+	s.logDir = c.MkDir()
 	s.config = httpserver.Config{
 		AgentName:            s.agentName,
 		Clock:                s.clock,
 		TLSConfig:            tlsConfig,
 		Mux:                  s.mux,
 		PrometheusRegisterer: &s.prometheusRegisterer,
+		LogDir:               s.logDir,
+		MuxShutdownWait:      1 * time.Minute,
 		Hub:                  s.hub,
 		APIPort:              0,
 		APIPortOpenDelay:     0,
@@ -187,6 +194,44 @@ func (s *WorkerSuite) TestWaitsForClients(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("didn't stop after clients were finished")
 	}
+	// Normal exit, no debug file.
+	_, err := os.Stat(filepath.Join(s.logDir, "apiserver-debug.log"))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+func (s *WorkerSuite) TestExitsWithTardyClients(c *gc.C) {
+	// Check that the httpserver shuts down eventually if
+	// clients appear to be stuck.
+	s.mux.AddClient()
+
+	// Shouldn't take effect until the timeout.
+	s.worker.Kill()
+
+	waitResult := make(chan error)
+	go func() {
+		waitResult <- s.worker.Wait()
+	}()
+
+	select {
+	case <-waitResult:
+		c.Fatalf("didn't wait for timeout")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	// Don't call s.mux.ClientDone(), timeout instead.
+	s.clock.Advance(1 * time.Minute)
+	select {
+	case err := <-waitResult:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("didn't stop after timeout")
+	}
+	// There should be a log file with goroutines.
+	data, err := ioutil.ReadFile(filepath.Join(s.logDir, "apiserver-debug.log"))
+	c.Assert(err, jc.ErrorIsNil)
+	lines := strings.Split(string(data), "\n")
+	c.Assert(len(lines), jc.GreaterThan, 1)
+	c.Assert(lines[1], gc.Matches, "goroutine profile:.*")
 }
 
 func (s *WorkerSuite) TestMinTLSVersion(c *gc.C) {
