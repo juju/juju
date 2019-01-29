@@ -431,7 +431,7 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 			return errors.Trace(err)
 		}
 
-		ctx.Stdout.Write([]byte(fmt.Sprintf("changes will be targeted to generation: %s\n", gen)))
+		ctx.Stdout.Write([]byte(fmt.Sprintf("\nchanges will be targeted to generation: %s\n", gen)))
 	}
 	return nil
 
