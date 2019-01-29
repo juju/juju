@@ -441,7 +441,7 @@ func (store *store) assertOpTrapdoor(name, holder string) lease.Trapdoor {
 			fieldHolder: holder,
 		},
 	}
-	return func(out interface{}) error {
+	return func(_ int, out interface{}) error {
 		outPtr, ok := out.(*[]txn.Op)
 		if !ok {
 			return errors.NotValidf("expected *[]txn.Op; %T", out)

@@ -119,6 +119,48 @@ func (t *notifyTarget) log(message string, args ...interface{}) {
 	}
 }
 
+func buildClaimedOps(coll mongo.Collection, docId string, key lease.Key, holder string) ([]txn.Op, error) {
+	existingDoc, err := getRecord(coll, docId)
+	switch {
+	case err == mgo.ErrNotFound:
+		doc, err := newLeaseHolderDoc(
+			key.Namespace,
+			key.ModelUUID,
+			key.Lease,
+			holder,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return []txn.Op{{
+			C:      coll.Name(),
+			Id:     docId,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		}}, nil
+
+	case err != nil:
+		return nil, errors.Trace(err)
+
+	case existingDoc.Holder == holder:
+		return nil, jujutxn.ErrNoOperations
+
+	default:
+		return []txn.Op{{
+			C:  coll.Name(),
+			Id: docId,
+			Assert: bson.M{
+				fieldHolder: existingDoc.Holder,
+			},
+			Update: bson.M{
+				"$set": bson.M{
+					fieldHolder: holder,
+				},
+			},
+		}}, nil
+	}
+}
+
 // Claimed is part of raftlease.NotifyTarget.
 func (t *notifyTarget) Claimed(key lease.Key, holder string) {
 	coll, closer := t.mongo.GetCollection(t.collection)
@@ -129,45 +171,7 @@ func (t *notifyTarget) Claimed(key lease.Key, holder string) {
 		return
 	}
 	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
-		existingDoc, err := getRecord(coll, docId)
-		switch {
-		case err == mgo.ErrNotFound:
-			doc, err := newLeaseHolderDoc(
-				key.Namespace,
-				key.ModelUUID,
-				key.Lease,
-				holder,
-			)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return []txn.Op{{
-				C:      t.collection,
-				Id:     docId,
-				Assert: txn.DocMissing,
-				Insert: doc,
-			}}, nil
-
-		case err != nil:
-			return nil, errors.Trace(err)
-
-		case existingDoc.Holder == holder:
-			return nil, jujutxn.ErrNoOperations
-
-		default:
-			return []txn.Op{{
-				C:  t.collection,
-				Id: docId,
-				Assert: bson.M{
-					fieldHolder: existingDoc.Holder,
-				},
-				Update: bson.M{
-					"$set": bson.M{
-						fieldHolder: holder,
-					},
-				},
-			}}, nil
-		}
+		return buildClaimedOps(coll, docId, key, holder)
 	})
 	if err != nil {
 		t.errorLogger.Errorf("couldn't claim lease %q for %q: %s", docId, holder, err.Error())
@@ -208,25 +212,48 @@ func (t *notifyTarget) Expired(key lease.Key) {
 
 // MakeTrapdoorFunc returns a raftlease.TrapdoorFunc for the specified
 // collection.
-func MakeTrapdoorFunc(collection string) raftlease.TrapdoorFunc {
+func MakeTrapdoorFunc(mongo Mongo, collection string) raftlease.TrapdoorFunc {
 	return func(key lease.Key, holder string) lease.Trapdoor {
-		op := txn.Op{
-			C: collection,
-			Id: leaseHolderDocId(
-				key.Namespace,
-				key.ModelUUID,
-				key.Lease,
-			),
-			Assert: bson.M{
-				fieldHolder: holder,
-			},
-		}
-		return func(out interface{}) error {
+		return func(attempt int, out interface{}) error {
 			outPtr, ok := out.(*[]txn.Op)
 			if !ok {
 				return errors.NotValidf("expected *[]txn.Op; %T", out)
 			}
-			*outPtr = []txn.Op{op}
+			assertionOps := []txn.Op{{
+				C: collection,
+				Id: leaseHolderDocId(
+					key.Namespace,
+					key.ModelUUID,
+					key.Lease,
+				),
+				Assert: bson.M{
+					fieldHolder: holder,
+				},
+			}}
+			var ops []txn.Op
+			if attempt == 0 {
+				ops = assertionOps
+			} else {
+				// If the assertion failed it may be because a claim
+				// notify failed in the past due to the DB not being
+				// available. Check whether we need to sync the lease
+				// holder - this is safe to do because raft is the
+				// arbiter of who really holds the lease, and we check
+				// that the lease is held in buildTxnWithLeadership
+				// each time before collecting the assertion ops.
+				docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
+				coll, closer := mongo.GetCollection(collection)
+				defer closer()
+				claimedOps, err := buildClaimedOps(coll, docId, key, holder)
+				if err == jujutxn.ErrNoOperations {
+					ops = assertionOps
+				} else if err != nil {
+					return errors.Trace(err)
+				} else {
+					ops = claimedOps
+				}
+			}
+			*outPtr = ops
 			return nil
 		}
 	}

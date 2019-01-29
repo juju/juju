@@ -331,7 +331,7 @@ func (manager *Manager) handleCheck(check check) error {
 			manager.logContext, check.leaseKey.Lease, check.holderName)
 		response = lease.ErrNotHeld
 	} else if check.trapdoorKey != nil {
-		response = info.Trapdoor(check.trapdoorKey)
+		response = info.Trapdoor(check.attempt, check.trapdoorKey)
 	}
 	check.respond(errors.Trace(response))
 	return nil
