@@ -749,7 +749,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            config.AgentName,
 			Clock:                config.Clock,
 			MuxShutdownWait:      config.MuxShutdownWait,
-			LogDir:               "/var/log/juju", //agentConfig.LogDir(),
+			LogDir:               agentConfig.LogDir(),
 			GetControllerConfig:  httpserver.GetControllerConfig,
 			NewTLSConfig:         httpserver.NewTLSConfig,
 			NewWorker:            httpserver.NewWorkerShim,
