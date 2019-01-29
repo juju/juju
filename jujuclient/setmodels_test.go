@@ -116,7 +116,7 @@ func (s *SetModelsSuite) TestSetModelsAddUpdateDeleteCombination(c *gc.C) {
 		"admin/update-model": detailsToUpdate,
 	}
 	after := map[string]jujuclient.ModelDetails{
-		"admin/new-model":    {ModelUUID: "test.model.uuid", ModelType: model.IAAS},
+		"admin/new-model":    {ModelUUID: "test.model.uuid", ModelType: model.IAAS, ModelGeneration: model.GenerationCurrent},
 		"admin/update-model": detailsToUpdate,
 	}
 
@@ -150,7 +150,7 @@ func (s *SetModelsSuite) TestSetModelsControllerIsolated(c *gc.C) {
 	err := s.store.AddController("another-kontroller", s.controller)
 	c.Assert(err, jc.ErrorIsNil)
 	otherModels := map[string]jujuclient.ModelDetails{
-		"admin/foreign-model": {ModelUUID: "test.foreign.model.uuid", ModelType: model.IAAS},
+		"admin/foreign-model": {ModelUUID: "test.foreign.model.uuid", ModelType: model.IAAS, ModelGeneration: model.GenerationCurrent},
 	}
 	err = s.store.SetModels("another-kontroller", otherModels)
 	c.Assert(err, jc.ErrorIsNil)
@@ -170,7 +170,7 @@ func (s *SetModelsSuite) assertSetModels(c *gc.C, models map[string]jujuclient.M
 }
 
 func (s *SetModelsSuite) assertUpdateModel(c *gc.C, modelName, modelUUID string) jujuclient.ModelDetails {
-	modelDetails := jujuclient.ModelDetails{ModelUUID: modelUUID, ModelType: model.IAAS}
+	modelDetails := jujuclient.ModelDetails{ModelUUID: modelUUID, ModelType: model.IAAS, ModelGeneration: model.GenerationCurrent}
 	err := s.store.UpdateModel(s.controllerName, modelName, modelDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	return modelDetails

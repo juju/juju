@@ -4,21 +4,17 @@
 package model_test
 
 import (
-	"os"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/model/mocks"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -32,10 +28,7 @@ var _ = gc.Suite(&advanceGenerationSuite{})
 
 func (s *advanceGenerationSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.Generations); err != nil {
-		panic(err)
-	}
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.SetFeatureFlags(feature.Generations)
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
@@ -43,8 +36,9 @@ func (s *advanceGenerationSuite) SetUpTest(c *gc.C) {
 		User: "admin",
 	}
 	err := s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
-		ModelUUID: testing.ModelTag.Id(),
-		ModelType: coremodel.IAAS,
+		ModelUUID:       testing.ModelTag.Id(),
+		ModelType:       coremodel.IAAS,
+		ModelGeneration: coremodel.GenerationCurrent,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
@@ -95,6 +89,11 @@ func (s *advanceGenerationSuite) TestRunCommand(c *gc.C) {
 
 	_, err := s.runCommand(c, mockAdvanceGenerationCommandAPI, "ubuntu/0", "redis")
 	c.Assert(err, jc.ErrorIsNil)
+
+	// ensure the model's store has been updated to 'current'.
+	details, err := s.store.ModelByName(s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationCurrent)
 }
 
 func (s *advanceGenerationSuite) TestRunCommandFail(c *gc.C) {

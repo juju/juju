@@ -12,6 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -24,8 +25,10 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -245,11 +248,15 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	messageFormat := "Added '%s' model"
 	messageArgs := []interface{}{c.Name}
 
+	details := jujuclient.ModelDetails{
+		ModelUUID: model.UUID,
+		ModelType: model.Type,
+	}
+	if featureflag.Enabled(feature.Generations) {
+		details.ModelGeneration = coremodel.GenerationCurrent // This is the default generation.
+	}
 	if modelOwner == accountDetails.User {
-		if err := store.UpdateModel(controllerName, c.Name, jujuclient.ModelDetails{
-			ModelUUID: model.UUID,
-			ModelType: model.Type,
-		}); err != nil {
+		if err := store.UpdateModel(controllerName, c.Name, details); err != nil {
 			return errors.Trace(err)
 		}
 		if !c.noSwitch {

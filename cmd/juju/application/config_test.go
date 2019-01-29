@@ -89,15 +89,17 @@ var getTests = []struct {
 					"value":       "ext-host",
 				},
 			},
-			"settings": charmSettings,
+			"settings":                               charmSettings,
+			"changes will be targeted to generation": interface{}(nil),
 		},
 	}, {
 		"dummy-application",
 		false,
 		map[string]interface{}{
-			"application": "dummy-application",
-			"charm":       "dummy",
-			"settings":    charmSettings,
+			"application":                            "dummy-application",
+			"charm":                                  "dummy",
+			"settings":                               charmSettings,
+			"changes will be targeted to generation": interface{}(nil),
 		},
 	},
 }
@@ -160,6 +162,7 @@ func (s *configCommandSuite) TestGetCommandInitWithGeneration(c *gc.C) {
 }
 
 func (s *configCommandSuite) TestGetConfig(c *gc.C) {
+	s.SetFeatureFlags(feature.Generations)
 	for _, t := range getTests {
 		if !t.useAppConfig {
 			s.fake.appValues = nil

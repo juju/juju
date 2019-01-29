@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/testing"
@@ -184,6 +185,7 @@ func (s *AddModelSuite) TestInit(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
+	s.SetFeatureFlags(feature.Generations)
 	// If there's any model details existing, we just overwrite them. The
 	// controller will error out if the model already exists. Overwriting
 	// means we'll replace any stale details from an previously existing
@@ -200,7 +202,10 @@ func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
 	details, err := s.store.ModelByName("test-master", "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{
-		ModelUUID: "fake-model-uuid", ModelType: model.IAAS})
+		ModelUUID:       "fake-model-uuid",
+		ModelType:       model.IAAS,
+		ModelGeneration: model.GenerationCurrent,
+	})
 }
 
 func (s *AddModelSuite) TestAddModelUnauthorizedMentionsJujuGrant(c *gc.C) {
@@ -548,6 +553,7 @@ func (s *AddModelSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
+	s.SetFeatureFlags(feature.Generations)
 	const controllerName = "test-master"
 
 	_, err := s.run(c, "test")
@@ -560,10 +566,15 @@ func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
 
 	m, err := s.store.ModelByName(controllerName, modelName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{ModelUUID: "fake-model-uuid", ModelType: model.IAAS})
+	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{
+		ModelUUID:       "fake-model-uuid",
+		ModelType:       model.IAAS,
+		ModelGeneration: model.GenerationCurrent,
+	})
 }
 
 func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
+	s.SetFeatureFlags(feature.Generations)
 	const controllerName = "test-master"
 	checkNoModelSelected := func() {
 		_, err := s.store.CurrentModel(controllerName)
@@ -579,7 +590,11 @@ func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
 	checkNoModelSelected()
 	m, err := s.store.ModelByName(controllerName, "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{ModelUUID: "fake-model-uuid", ModelType: model.IAAS})
+	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{
+		ModelUUID:       "fake-model-uuid",
+		ModelType:       model.IAAS,
+		ModelGeneration: model.GenerationCurrent,
+	})
 }
 
 func (s *AddModelSuite) TestNoEnvCacheOtherUser(c *gc.C) {

@@ -543,10 +543,17 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 
 		// Set the current model to the initial hosted model.
+		modelDetails := jujuclient.ModelDetails{
+			ModelUUID: hostedModelUUID.String(),
+			ModelType: model.IAAS,
+		}
+		if featureflag.Enabled(feature.Generations) {
+			modelDetails.ModelGeneration = model.GenerationCurrent
+		}
 		if err := store.UpdateModel(
 			c.controllerName,
 			c.hostedModelName,
-			jujuclient.ModelDetails{ModelUUID: hostedModelUUID.String(), ModelType: model.IAAS},
+			modelDetails,
 		); err != nil {
 			return errors.Trace(err)
 		}

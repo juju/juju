@@ -157,6 +157,30 @@ func (s *ModelCommandSuite) TestModelType(c *gc.C) {
 	c.Assert(modelType, gc.Equals, model.IAAS)
 }
 
+func (s *ModelCommandSuite) TestModelGeneration(c *gc.C) {
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	s.store.CurrentControllerName = "foo"
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar", Password: "hunter2",
+	}
+	err := s.store.UpdateModel("foo", "adminfoo/currentfoo",
+		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS, ModelGeneration: model.GenerationNext})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.SetCurrentModel("foo", "adminfoo/currentfoo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd, err := runTestCommand(c, s.store)
+	c.Assert(err, jc.ErrorIsNil)
+	modelGeneration, err := cmd.ModelGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelGeneration, gc.Equals, model.GenerationNext)
+
+	c.Assert(cmd.SetModelGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+	modelGeneration, err = cmd.ModelGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelGeneration, gc.Equals, model.GenerationCurrent)
+}
+
 func (s *ModelCommandSuite) TestBootstrapContext(c *gc.C) {
 	ctx := modelcmd.BootstrapContext(&cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsTrue)

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 const (
@@ -105,13 +106,19 @@ func (c *switchGenerationCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
+	_, modelDetails, err := c.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
 
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
 	if err = client.SwitchGeneration(modelTag, c.generation); err != nil {
+		return err
+	}
+
+	// Now update the model store with the generation switched to for this
+	// model.
+	if err = c.SetModelGeneration(model.GenerationVersion(c.generation)); err != nil {
 		return err
 	}
 

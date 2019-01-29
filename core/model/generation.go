@@ -16,3 +16,7 @@ const (
 	// selectively to units added to the generation.
 	GenerationNext GenerationVersion = "next"
 )
+
+func (g GenerationVersion) String() string {
+	return string(g)
+}

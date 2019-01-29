@@ -68,6 +68,13 @@ type ModelCommand interface {
 	// ModelType returns the type of the model.
 	ModelType() (model.ModelType, error)
 
+	// ModelGeneration sets the model generation for this command and updates
+	// the store.
+	SetModelGeneration(model.GenerationVersion) error
+
+	// ModelGeneration returns the generation of the model.
+	ModelGeneration() (model.GenerationVersion, error)
+
 	// ControllerName returns the name of the controller that contains
 	// the model returned by ModelName().
 	ControllerName() (string, error)
@@ -87,14 +94,15 @@ type ModelCommandBase struct {
 	// about controllers, models, etc.
 	store jujuclient.ClientStore
 
-	// _modelName, _modelType, and _controllerName hold the current
-	// model and controller names and model type. They are only valid
-	// after maybeInitModel is called, and should in general
-	// not be accessed directly, but through ModelName and
-	// ControllerName respectively.
-	_modelName      string
-	_modelType      model.ModelType
-	_controllerName string
+	// _modelName, _modelType, _modelGeneration and _controllerName hold the
+	// current model and controller names, model type and generation. They
+	// are only valid after maybeInitModel is called, and should in general
+	// not be accessed directly, but through ModelName and ControllerName
+	// respectively.
+	_modelName       string
+	_modelType       model.ModelType
+	_modelGeneration model.GenerationVersion
+	_controllerName  string
 
 	allowDefaultModel bool
 
@@ -226,6 +234,44 @@ func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
 	}
 	c._modelType = details.ModelType
 	return c._modelType, nil
+}
+
+// SetModelGeneration implements the ModelCommand interface.
+func (c *ModelCommandBase) SetModelGeneration(generation model.GenerationVersion) error {
+	_, modelDetails, err := c.ModelDetails()
+	if err != nil {
+		return errors.Annotate(err, "getting model details")
+	}
+	modelDetails.ModelGeneration = generation
+	if err = c.store.UpdateModel(c._controllerName, c._modelName, *modelDetails); err != nil {
+		return err
+	}
+	c._modelGeneration = generation
+	return nil
+}
+
+// ModelGeneration implements the ModelCommand interface.
+func (c *ModelCommandBase) ModelGeneration() (model.GenerationVersion, error) {
+	if c._modelGeneration != "" {
+		return c._modelGeneration, nil
+	}
+	// If we need to look up the model generation, we need to ensure we
+	// have access to the model details.
+	if err := c.maybeInitModel(); err != nil {
+		return "", errors.Trace(err)
+	}
+	details, err := c.store.ModelByName(c._controllerName, c._modelName)
+	if err != nil {
+		if !c.runStarted {
+			return "", errors.Trace(err)
+		}
+		details, err = c.modelDetails(c._controllerName, c._modelName)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+	c._modelGeneration = details.ModelGeneration
+	return c._modelGeneration, nil
 }
 
 // ControllerName implements the ModelCommand interface.

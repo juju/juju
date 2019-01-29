@@ -13,7 +13,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/keyvalues"
 	"github.com/juju/utils/set"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
@@ -419,7 +419,22 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 	if len(results.ApplicationConfig) > 0 {
 		resultsMap["application-config"] = results.ApplicationConfig
 	}
-	return c.out.Write(ctx, resultsMap)
+
+	err = c.out.Write(ctx, resultsMap)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if featureflag.Enabled(feature.Generations) {
+		gen, err := c.ModelGeneration()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		ctx.Stdout.Write([]byte(fmt.Sprintf("\nchanges will be targeted to generation: %s\n", gen)))
+	}
+	return nil
+
 }
 
 // validateValues reads the values provided as args and validates that they are
