@@ -213,7 +213,7 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 
 	// Can't compare trapdoors directly.
 	var out string
-	err := r1.Trapdoor(&out)
+	err := r1.Trapdoor(0, &out)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, "{quam olim abrahe} held by verdi")
 
@@ -221,7 +221,7 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 	c.Assert(r2.Holder, gc.Equals, "mozart")
 	c.Assert(r2.Expiry, gc.Equals, in5Seconds)
 
-	err = r2.Trapdoor(&out)
+	err = r2.Trapdoor(0, &out)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, "{la cry mosa} held by mozart")
 }
@@ -511,7 +511,7 @@ func (f *fakeFSM) GlobalTime() time.Time {
 }
 
 func FakeTrapdoor(key lease.Key, holder string) lease.Trapdoor {
-	return func(out interface{}) error {
+	return func(attempt int, out interface{}) error {
 		if s, ok := out.(*string); ok {
 			*s = fmt.Sprintf("%v held by %s", key, holder)
 			return nil

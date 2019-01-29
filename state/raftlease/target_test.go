@@ -252,10 +252,10 @@ func (s *targetSuite) TestExpiredError(c *gc.C) {
 	})
 }
 
-func (s *targetSuite) TestTrapdoor(c *gc.C) {
-	trapdoor := raftlease.MakeTrapdoorFunc(collection)(lease.Key{"ns", "model", "landfall"}, "roy")
+func (s *targetSuite) TestTrapdoorAttempt0(c *gc.C) {
+	trapdoor := raftlease.MakeTrapdoorFunc(s.mongo, collection)(lease.Key{"ns", "model", "landfall"}, "roy")
 	var result []txn.Op
-	err := trapdoor(&result)
+	err := trapdoor(0, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []txn.Op{{
 		C:      collection,
@@ -263,7 +263,91 @@ func (s *targetSuite) TestTrapdoor(c *gc.C) {
 		Assert: bson.M{"holder": "roy"},
 	}})
 	var bad int
-	c.Assert(trapdoor(&bad), gc.ErrorMatches, `expected \*\[\]txn\.Op; \*int not valid`)
+	c.Assert(trapdoor(0, &bad), gc.ErrorMatches, `expected \*\[\]txn\.Op; \*int not valid`)
+}
+
+func (s *targetSuite) TestTrapdoorAttempt1NoHolderInDB(c *gc.C) {
+	key := lease.Key{"ns", "model", "landfall"}
+	trapdoor := raftlease.MakeTrapdoorFunc(s.mongo, collection)(key, "roy")
+	var result []txn.Op
+	err := trapdoor(1, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	op := result[0]
+	c.Assert(op.C, gc.Equals, collection)
+	c.Assert(op.Id, gc.Equals, "model:ns#landfall#")
+	c.Assert(op.Assert, gc.Equals, "d-")
+	raftlease.AssertLeaseholderDocEquals(c, op.Insert, key, "roy")
+
+	err = s.mongo.RunTransaction(func(int) ([]txn.Op, error) {
+		return result, nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.getRows(c), gc.DeepEquals, []bson.M{{
+		"_id":        "model:ns#landfall#",
+		"namespace":  "ns",
+		"model-uuid": "model",
+		"lease":      "landfall",
+		"holder":     "roy",
+	}})
+}
+
+func (s *targetSuite) TestTrapdoorAttempt1DifferentHolderInDB(c *gc.C) {
+	err := s.db.C(collection).Insert(
+		bson.M{
+			"_id":        "model:ns#landfall#",
+			"namespace":  "ns",
+			"model-uuid": "model",
+			"lease":      "landfall",
+			"holder":     "george",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	key := lease.Key{"ns", "model", "landfall"}
+	trapdoor := raftlease.MakeTrapdoorFunc(s.mongo, collection)(key, "roy")
+	var result []txn.Op
+	err = trapdoor(1, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result, gc.DeepEquals, []txn.Op{{
+		C:      collection,
+		Id:     "model:ns#landfall#",
+		Assert: bson.M{"holder": "george"},
+		Update: bson.M{"$set": bson.M{"holder": "roy"}},
+	}})
+	err = s.mongo.RunTransaction(func(int) ([]txn.Op, error) {
+		return result, nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.getRows(c), gc.DeepEquals, []bson.M{{
+		"_id":        "model:ns#landfall#",
+		"namespace":  "ns",
+		"model-uuid": "model",
+		"lease":      "landfall",
+		"holder":     "roy",
+	}})
+}
+
+func (s *targetSuite) TestTrapdoorAttempt1ThisHolderInDB(c *gc.C) {
+	err := s.db.C(collection).Insert(
+		bson.M{
+			"_id":        "model:ns#landfall#",
+			"namespace":  "ns",
+			"model-uuid": "model",
+			"lease":      "landfall",
+			"holder":     "roy",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	trapdoor := raftlease.MakeTrapdoorFunc(s.mongo, collection)(lease.Key{"ns", "model", "landfall"}, "roy")
+	var result []txn.Op
+	err = trapdoor(0, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []txn.Op{{
+		C:      collection,
+		Id:     "model:ns#landfall#",
+		Assert: bson.M{"holder": "roy"},
+	}})
 }
 
 func (s *targetSuite) TestLeaseHolders(c *gc.C) {

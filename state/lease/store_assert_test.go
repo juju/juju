@@ -43,7 +43,7 @@ func (s *StoreAssertSuite) TestPassesWhenLeaseHeld(c *gc.C) {
 	info := s.fix.Store.Leases()[key("name")]
 
 	var ops []txn.Op
-	err := info.Trapdoor(&ops)
+	err := info.Trapdoor(0, &ops)
 	c.Check(err, jc.ErrorIsNil)
 	err = s.fix.Runner.RunTransaction(ops)
 	c.Check(err, jc.ErrorIsNil)
@@ -57,7 +57,7 @@ func (s *StoreAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ops []txn.Op
-	err = info.Trapdoor(&ops)
+	err = info.Trapdoor(0, &ops)
 	c.Check(err, jc.ErrorIsNil)
 	err = s.fix.Runner.RunTransaction(ops)
 	c.Check(err, gc.IsNil)
@@ -71,7 +71,7 @@ func (s *StoreAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *g
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ops []txn.Op
-	err = info.Trapdoor(&ops)
+	err = info.Trapdoor(0, &ops)
 	c.Check(err, jc.ErrorIsNil)
 	err = s.fix.Runner.RunTransaction(ops)
 	c.Check(err, gc.IsNil)
@@ -85,7 +85,7 @@ func (s *StoreAssertSuite) TestAbortsWhenLeaseVacant(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ops []txn.Op
-	err = info.Trapdoor(&ops)
+	err = info.Trapdoor(0, &ops)
 	c.Check(err, jc.ErrorIsNil)
 	err = s.fix.Runner.RunTransaction(ops)
 	c.Check(err, gc.Equals, txn.ErrAborted)
