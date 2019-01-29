@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -117,6 +118,7 @@ func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.fake = &fakeApplicationAPI{
+		generation:  model.GenerationCurrent,
 		name:        "dummy-application",
 		charmName:   "dummy",
 		charmValues: s.defaultCharmValues,
@@ -208,7 +210,8 @@ func (s *configCommandSuite) TestGetCharmConfigKeyMultilineValueJSON(c *gc.C) {
 
 func (s *configCommandSuite) TestGetAppConfigKey(c *gc.C) {
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{"dummy-application", "juju-external-hostname"})
+	code := cmd.Main(application.NewConfigCommandForTest(
+		s.fake, s.store), ctx, []string{"dummy-application", "juju-external-hostname"})
 	c.Check(code, gc.Equals, 0)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "ext-host")
@@ -314,6 +317,8 @@ func (s *configCommandSuite) TestSetCharmConfigSuccess(c *gc.C) {
 		"username": "hello",
 		"outlook":  "hello@world.tld",
 	})
+
+	s.fake.generation = model.GenerationNext
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello",
 		"outlook=hello@world.tld",
