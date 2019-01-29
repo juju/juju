@@ -241,3 +241,7 @@ func (mc *mockConfig) SetStateServingInfo(info params.StateServingInfo) {
 	mc.ssiSet = true
 	mc.ssi = info
 }
+
+func (mc *mockConfig) LogDir() string {
+	return "log-dir"
+}

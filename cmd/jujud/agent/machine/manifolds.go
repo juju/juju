@@ -243,6 +243,11 @@ type ManifoldsConfig struct {
 	// This is used by a number of workers to ensure serialisation of actions
 	// across the machine.
 	MachineLock machinelock.Lock
+
+	// MuxShutdownWait is the maximum time the http-server worker will wait
+	// for all mux clients to gracefully terminate before the http-worker
+	// exits regardless.
+	MuxShutdownWait time.Duration
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -743,6 +748,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			AgentName:            config.AgentName,
 			Clock:                config.Clock,
+			MuxShutdownWait:      config.MuxShutdownWait,
+			LogDir:               "/var/log/juju", //agentConfig.LogDir(),
 			GetControllerConfig:  httpserver.GetControllerConfig,
 			NewTLSConfig:         httpserver.NewTLSConfig,
 			NewWorker:            httpserver.NewWorkerShim,

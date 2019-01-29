@@ -72,6 +72,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		RaftTransportName:    "raft-transport",
 		Clock:                s.clock,
 		PrometheusRegisterer: &s.prometheusRegisterer,
+		MuxShutdownWait:      1 * time.Minute,
+		LogDir:               "log-dir",
 		GetControllerConfig:  s.getControllerConfig,
 		NewTLSConfig:         s.newTLSConfig,
 		NewWorker:            s.newWorker,
@@ -164,6 +166,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		APIPort:              1024,
 		APIPortOpenDelay:     5 * time.Second,
 		ControllerAPIPort:    2048,
+		MuxShutdownWait:      1 * time.Minute,
+		LogDir:               "log-dir",
 	})
 }
 
@@ -184,6 +188,12 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 	}, {
 		func(cfg *httpserver.ManifoldConfig) { cfg.MuxName = "" },
 		"empty MuxName not valid",
+	}, {
+		func(cfg *httpserver.ManifoldConfig) { cfg.MuxShutdownWait = 0 },
+		"MuxShutdownWait 0s not valid",
+	}, {
+		func(cfg *httpserver.ManifoldConfig) { cfg.LogDir = "" },
+		"empty LogDir not valid",
 	}, {
 		func(cfg *httpserver.ManifoldConfig) { cfg.RaftTransportName = "" },
 		"empty RaftTransportName not valid",

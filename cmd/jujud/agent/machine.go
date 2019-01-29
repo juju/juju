@@ -582,6 +582,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
 			ControllerSupportsSpaces:          controllerSupportsSpaces,
+			MuxShutdownWait:                   1 * time.Minute,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
