@@ -53,16 +53,16 @@ func (mr *MockMachineProvisionerMockRecorder) AvailabilityZone() *gomock.Call {
 }
 
 // CharmProfileChangeInfo mocks base method
-func (m *MockMachineProvisioner) CharmProfileChangeInfo() (provisioner.CharmProfileChangeInfo, error) {
-	ret := m.ctrl.Call(m, "CharmProfileChangeInfo")
+func (m *MockMachineProvisioner) CharmProfileChangeInfo(arg0 string) (provisioner.CharmProfileChangeInfo, error) {
+	ret := m.ctrl.Call(m, "CharmProfileChangeInfo", arg0)
 	ret0, _ := ret[0].(provisioner.CharmProfileChangeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CharmProfileChangeInfo indicates an expected call of CharmProfileChangeInfo
-func (mr *MockMachineProvisionerMockRecorder) CharmProfileChangeInfo() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfileChangeInfo", reflect.TypeOf((*MockMachineProvisioner)(nil).CharmProfileChangeInfo))
+func (mr *MockMachineProvisionerMockRecorder) CharmProfileChangeInfo(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfileChangeInfo", reflect.TypeOf((*MockMachineProvisioner)(nil).CharmProfileChangeInfo), arg0)
 }
 
 // DistributionGroup mocks base method
@@ -229,15 +229,15 @@ func (mr *MockMachineProvisionerMockRecorder) Remove() *gomock.Call {
 }
 
 // RemoveUpgradeCharmProfileData mocks base method
-func (m *MockMachineProvisioner) RemoveUpgradeCharmProfileData() error {
-	ret := m.ctrl.Call(m, "RemoveUpgradeCharmProfileData")
+func (m *MockMachineProvisioner) RemoveUpgradeCharmProfileData(arg0 string) error {
+	ret := m.ctrl.Call(m, "RemoveUpgradeCharmProfileData", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveUpgradeCharmProfileData indicates an expected call of RemoveUpgradeCharmProfileData
-func (mr *MockMachineProvisionerMockRecorder) RemoveUpgradeCharmProfileData() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUpgradeCharmProfileData", reflect.TypeOf((*MockMachineProvisioner)(nil).RemoveUpgradeCharmProfileData))
+func (mr *MockMachineProvisionerMockRecorder) RemoveUpgradeCharmProfileData(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUpgradeCharmProfileData", reflect.TypeOf((*MockMachineProvisioner)(nil).RemoveUpgradeCharmProfileData), arg0)
 }
 
 // SetCharmProfiles mocks base method
@@ -317,15 +317,15 @@ func (mr *MockMachineProvisionerMockRecorder) SetSupportedContainers(arg0 ...int
 }
 
 // SetUpgradeCharmProfileComplete mocks base method
-func (m *MockMachineProvisioner) SetUpgradeCharmProfileComplete(arg0 string) error {
-	ret := m.ctrl.Call(m, "SetUpgradeCharmProfileComplete", arg0)
+func (m *MockMachineProvisioner) SetUpgradeCharmProfileComplete(arg0, arg1 string) error {
+	ret := m.ctrl.Call(m, "SetUpgradeCharmProfileComplete", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetUpgradeCharmProfileComplete indicates an expected call of SetUpgradeCharmProfileComplete
-func (mr *MockMachineProvisionerMockRecorder) SetUpgradeCharmProfileComplete(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeCharmProfileComplete", reflect.TypeOf((*MockMachineProvisioner)(nil).SetUpgradeCharmProfileComplete), arg0)
+func (mr *MockMachineProvisionerMockRecorder) SetUpgradeCharmProfileComplete(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeCharmProfileComplete", reflect.TypeOf((*MockMachineProvisioner)(nil).SetUpgradeCharmProfileComplete), arg0, arg1)
 }
 
 // Status mocks base method

@@ -373,7 +373,6 @@ func (s *MigrationSuite) TestInstanceCharmProfileDataFields(c *gc.C) {
 		// DocID is the model + machine id
 		"DocID",
 		"MachineId",
-		"UpgradeCharmProfileApplication",
 		"UpgradeCharmProfileCharmURL",
 		"UpgradeCharmProfileComplete",
 	)

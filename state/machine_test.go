@@ -216,16 +216,16 @@ func (s *MachineSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
 	err = unit.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = m.SetUpgradeCharmProfile("app-name", "local:quantal/quantal-lxd-profile-0")
+	err = m.SetUpgradeCharmProfile(app.Name(), "local:quantal/quantal-lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
+	err = m.SetUpgradeCharmProfileComplete(app.Name(), lxdprofile.SuccessStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, err := m.UpgradeCharmProfileComplete()
+	status, err := m.UpgradeCharmProfileComplete(app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, lxdprofile.SuccessStatus)
 }
@@ -234,13 +234,10 @@ func assertUpgradeCharmProfileNotRequired(c *gc.C, m *state.Machine, expectedApp
 	err := m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedAppName, err := m.UpgradeCharmProfileApplication()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedAppName, gc.Equals, expectedAppName)
-	charmURL, err := m.UpgradeCharmProfileCharmURL()
+	charmURL, err := m.UpgradeCharmProfileCharmURL(expectedAppName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charmURL, gc.Equals, "")
-	status, err := m.UpgradeCharmProfileComplete()
+	status, err := m.UpgradeCharmProfileComplete(expectedAppName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, lxdprofile.NotRequiredStatus)
 }
@@ -249,13 +246,10 @@ func assertUpgradeCharmProfileRequired(c *gc.C, m *state.Machine, expectedAppNam
 	err := m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedAppName, err := m.UpgradeCharmProfileApplication()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedAppName, gc.Equals, expectedAppName)
-	obtainedCharmURL, err := m.UpgradeCharmProfileCharmURL()
+	obtainedCharmURL, err := m.UpgradeCharmProfileCharmURL(expectedAppName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedCharmURL, gc.Equals, expectedCharmURL)
-	status, err := m.UpgradeCharmProfileComplete()
+	status, err := m.UpgradeCharmProfileComplete(expectedAppName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, lxdprofile.EmptyStatus)
 }

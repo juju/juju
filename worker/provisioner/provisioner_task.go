@@ -356,8 +356,14 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 	}
 
 	machineTags := make([]names.MachineTag, len(ids))
+	appNames := make([]string, len(ids))
 	for i, id := range ids {
-		machineTags[i] = names.NewMachineTag(id)
+		machineId, appName, err := machineIdAndAppName(id)
+		if err != nil {
+			return errors.Annotatef(err, "failed to parse ids: %v", ids)
+		}
+		machineTags[i] = names.NewMachineTag(machineId)
+		appNames[i] = appName
 	}
 	machines, err := task.machineGetter.Machines(machineTags...)
 	if err != nil {
@@ -366,7 +372,7 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 	profileBroker, ok := task.broker.(environs.LXDProfiler)
 	if !ok {
 		logger.Debugf("Attempting to update the profile of a machine that doesn't support profiles")
-		profileUpgradeNotSupported(machines)
+		profileUpgradeNotSupported(machines, appNames)
 		return nil
 	}
 	for i, mResult := range machines {
@@ -374,7 +380,7 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 			return errors.Annotatef(err, "failed to get machine %v", machineTags[i])
 		}
 		m := mResult.Machine
-		removeDoc, err := processOneMachineProfileChange(m, profileBroker)
+		removeDoc, err := processOneProfileChange(m, profileBroker, appNames[i])
 		// The machine is not provisioned yet, therefore we can continue and
 		// the profile will be applied when the machine is provisioned.
 		if err != nil && (errors.IsNotProvisioned(err) || errors.IsNotValid(err)) {
@@ -385,12 +391,12 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 			if err != nil {
 				logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
 			}
-			if err := m.RemoveUpgradeCharmProfileData(); err != nil {
+			if err := m.RemoveUpgradeCharmProfileData(appNames[i]); err != nil {
 				logger.Errorf("cannot remove subordinates upgrade charm profile data: %s", err.Error())
 			}
 		} else if err != nil {
 			logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
-			if err2 := m.SetUpgradeCharmProfileComplete(lxdprofile.AnnotateErrorStatus(err)); err2 != nil {
+			if err2 := m.SetUpgradeCharmProfileComplete(appNames[i], lxdprofile.AnnotateErrorStatus(err)); err2 != nil {
 				return errors.Annotatef(err2, "cannot set error status for instance charm profile data for machine %q", m)
 			}
 			// If Error, SetInstanceStatus in the provisioner api will also call
@@ -407,7 +413,7 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 			if err2 := m.SetStatus(status.Started, "", nil); err2 != nil {
 				return errors.Annotatef(err2, "cannot set error status for machine %q agent", m)
 			}
-			if err2 := m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus); err2 != nil {
+			if err2 := m.SetUpgradeCharmProfileComplete(appNames[i], lxdprofile.SuccessStatus); err2 != nil {
 				return errors.Annotatef(err2, "cannot set success status for instance charm profile data for machine %q", m)
 			}
 		}
@@ -415,17 +421,26 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 	return nil
 }
 
-func profileUpgradeNotSupported(machines []apiprovisioner.MachineResult) {
-	for _, mResult := range machines {
-		if err := mResult.Machine.SetUpgradeCharmProfileComplete(lxdprofile.NotSupportedStatus); err != nil {
+func machineIdAndAppName(id string) (string, string, error) {
+	parts := strings.Split(id, "#")
+	if len(parts) != 2 {
+		return "", "", errors.Errorf("%q not in machine#application format", id)
+	}
+	return parts[0], parts[1], nil
+}
+
+func profileUpgradeNotSupported(machines []apiprovisioner.MachineResult, appNames []string) {
+	for i, mResult := range machines {
+		if err := mResult.Machine.SetUpgradeCharmProfileComplete(appNames[i], lxdprofile.NotSupportedStatus); err != nil {
 			logger.Errorf("cannot set not supported status for instance charm profile data: %s", err.Error())
 		}
 	}
 }
 
-func processOneMachineProfileChange(
+func processOneProfileChange(
 	m apiprovisioner.MachineProvisioner,
 	profileBroker environs.LXDProfiler,
+	appName string,
 ) (bool, error) {
 	ident := m.Id()
 	logger.Tracef("processOneMachineProfileChange(%s)", ident)
@@ -457,7 +472,7 @@ func processOneMachineProfileChange(
 			return false, errors.NotProvisionedf("machine %q", ident)
 		}
 	}
-	info, err := m.CharmProfileChangeInfo()
+	info, err := m.CharmProfileChangeInfo(appName)
 	if err != nil {
 		return false, err
 	}
