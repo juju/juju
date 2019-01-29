@@ -174,6 +174,11 @@ func (s *ModelCommandSuite) TestModelGeneration(c *gc.C) {
 	modelGeneration, err := cmd.ModelGeneration()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelGeneration, gc.Equals, model.GenerationNext)
+
+	c.Assert(cmd.SetModelGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+	modelGeneration, err = cmd.ModelGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelGeneration, gc.Equals, model.GenerationCurrent)
 }
 
 func (s *ModelCommandSuite) TestBootstrapContext(c *gc.C) {

@@ -110,7 +110,7 @@ func (c *advanceGenerationCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	modelName, modelDetails, err := c.ModelDetails()
+	_, modelDetails, err := c.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
@@ -122,13 +122,7 @@ func (c *advanceGenerationCommand) Run(ctx *cmd.Context) error {
 
 	// Now update the model store with the 'current' generation for this
 	// model.
-	ctrlName, err := c.ControllerName()
-	if err != nil {
-		return err
-	}
-	store := c.ClientStore()
-	modelDetails.ModelGeneration = model.GenerationCurrent
-	if err = store.UpdateModel(ctrlName, modelName, *modelDetails); err != nil {
+	if err = c.SetModelGeneration(model.GenerationCurrent); err != nil {
 		return err
 	}
 

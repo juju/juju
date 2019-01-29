@@ -68,7 +68,11 @@ type ModelCommand interface {
 	// ModelType returns the type of the model.
 	ModelType() (model.ModelType, error)
 
-	// ModelGeneration return the generation of the model.
+	// ModelGeneration sets the model generation for this command and updates
+	// the store.
+	SetModelGeneration(model.GenerationVersion) error
+
+	// ModelGeneration returns the generation of the model.
 	ModelGeneration() (model.GenerationVersion, error)
 
 	// ControllerName returns the name of the controller that contains
@@ -230,6 +234,20 @@ func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
 	}
 	c._modelType = details.ModelType
 	return c._modelType, nil
+}
+
+// SetModelGeneration implements the ModelCommand interface.
+func (c *ModelCommandBase) SetModelGeneration(generation model.GenerationVersion) error {
+	_, modelDetails, err := c.ModelDetails()
+	if err != nil {
+		return errors.Annotate(err, "getting model details")
+	}
+	modelDetails.ModelGeneration = generation
+	if err = c.store.UpdateModel(c._controllerName, c._modelName, *modelDetails); err != nil {
+		return err
+	}
+	c._modelGeneration = generation
+	return nil
 }
 
 // ModelGeneration implements the ModelCommand interface.

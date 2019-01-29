@@ -108,17 +108,7 @@ func (c *cancelGenerationCommand) Run(ctx *cmd.Context) error {
 
 	// Now update the model store with the 'current' generation for this
 	// model.
-	modelName, modelDetails, err := c.ModelDetails()
-	if err != nil {
-		return errors.Annotate(err, "getting model details")
-	}
-	ctrlName, err := c.ControllerName()
-	if err != nil {
-		return err
-	}
-	store := c.ClientStore()
-	modelDetails.ModelGeneration = model.GenerationCurrent
-	if err = store.UpdateModel(ctrlName, modelName, *modelDetails); err != nil {
+	if err = c.SetModelGeneration(model.GenerationCurrent); err != nil {
 		return err
 	}
 

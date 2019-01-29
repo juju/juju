@@ -106,7 +106,7 @@ func (c *switchGenerationCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	modelName, modelDetails, err := c.ModelDetails()
+	_, modelDetails, err := c.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
@@ -118,13 +118,7 @@ func (c *switchGenerationCommand) Run(ctx *cmd.Context) error {
 
 	// Now update the model store with the generation switched to for this
 	// model.
-	ctrlName, err := c.ControllerName()
-	if err != nil {
-		return err
-	}
-	store := c.ClientStore()
-	modelDetails.ModelGeneration = model.GenerationVersion(c.generation)
-	if err = store.UpdateModel(ctrlName, modelName, *modelDetails); err != nil {
+	if err = c.SetModelGeneration(model.GenerationVersion(c.generation)); err != nil {
 		return err
 	}
 

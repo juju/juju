@@ -98,7 +98,7 @@ func (c *addGenerationCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	modelName, modelDetails, err := c.ModelCommandBase.ModelDetails()
+	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
@@ -110,13 +110,7 @@ func (c *addGenerationCommand) Run(ctx *cmd.Context) error {
 
 	// Now update the model store with the 'next' generation for this
 	// model.
-	ctrlName, err := c.ControllerName()
-	if err != nil {
-		return err
-	}
-	store := c.ClientStore()
-	modelDetails.ModelGeneration = model.GenerationNext
-	if err = store.UpdateModel(ctrlName, modelName, *modelDetails); err != nil {
+	if err = c.SetModelGeneration(model.GenerationNext); err != nil {
 		return err
 	}
 
