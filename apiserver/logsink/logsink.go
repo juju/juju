@@ -23,6 +23,11 @@ import (
 	"github.com/juju/juju/feature"
 )
 
+const (
+	metricLogWriteLabelSuccess string = "success"
+	metricLogWriteLabelFailure string = "failure"
+)
+
 var logger = loggo.GetLogger("juju.apiserver.logsink")
 
 // LogWriteCloser provides an interface for persisting log records.
@@ -87,6 +92,11 @@ type MetricsCollector interface {
 	// ping failures per model uuid, that can be incremented as
 	// a counter.
 	PingFailureCount(modelUUID string) prometheus.Counter
+
+	// LogWriteCount returns a prometheus metric for the number of writes to
+	// the log that happened. It's split on the success/failure, so the charts
+	// will have to take that into account.
+	LogWriteCount(modelUUID, state string) prometheus.Counter
 }
 
 // NewHTTPHandler returns a new http.Handler for receiving log messages over a
@@ -224,8 +234,18 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 				if err := writer.WriteLog(m); err != nil {
 					h.sendError(socket, req, err)
+					// Increment the number of failure cases per modelUUID, that
+					// we where unable to write a log to - note: we won't see
+					// why the failure happens, only that it did happen. Maybe
+					// we should add a trace log here. Developer mode for send
+					// error might help if it was enabled at first ?
+					h.metrics.LogWriteCount(h.modelUUID, metricLogWriteLabelFailure).Inc()
 					return
 				}
+
+				// Increment the number of successful modelUUID log writes, so
+				// that we can see what's a success over failure case
+				h.metrics.LogWriteCount(h.modelUUID, metricLogWriteLabelSuccess).Inc()
 			}
 		}
 	}

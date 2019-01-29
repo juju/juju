@@ -73,10 +73,10 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 		s.lastStack = debug.Stack()
 	}
 
-	metricsCollector, finish := createMockMetrics(c)
-
 	modelUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
+
+	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
 
 	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
 		func(req *http.Request) (logsink.LogWriteCloser, error) {
@@ -202,11 +202,11 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestRateLimit(c *gc.C) {
-	metricsCollector, finish := createMockMetrics(c)
-	defer finish()
-
 	modelUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
+
+	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
+	defer finish()
 
 	testClock := testclock.NewClock(time.Time{})
 	s.srv.Close()
@@ -279,7 +279,10 @@ func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
 	myStopCh := make(chan struct{})
 	s.srv.Close()
 
-	metricsCollector, finish := createMockMetrics(c)
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
 	defer finish()
 
 	handler := logsink.NewHTTPHandlerForTest(
@@ -290,6 +293,7 @@ func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
 		s.abort,
 		nil,
 		metricsCollector,
+		modelUUID.String(),
 		func() (chan struct{}, func()) {
 			return myStopCh, func() {}
 		},
@@ -311,7 +315,7 @@ func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
 		Level:    loggo.INFO.String(),
 		Message:  "all is well",
 	}
-	err := conn.WriteJSON(&record)
+	err = conn.WriteJSON(&record)
 	c.Assert(err, jc.ErrorIsNil)
 	// The second write might error (if the receiver stopped after the
 	// first message).
@@ -331,7 +335,10 @@ func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
 func (s *logsinkSuite) TestHandlerClosesStopChannel(c *gc.C) {
 	s.srv.Close()
 
-	metricsCollector, finish := createMockMetrics(c)
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
 	defer finish()
 
 	var stub testing.Stub
@@ -346,6 +353,7 @@ func (s *logsinkSuite) TestHandlerClosesStopChannel(c *gc.C) {
 		s.abort,
 		nil,
 		metricsCollector,
+		modelUUID.String(),
 		func() (chan struct{}, func()) {
 			ch := make(chan struct{})
 			return ch, func() {
@@ -367,7 +375,7 @@ func (s *logsinkSuite) TestHandlerClosesStopChannel(c *gc.C) {
 		Level:    loggo.INFO.String(),
 		Message:  "all is well",
 	}
-	err := conn.WriteJSON(&record)
+	err = conn.WriteJSON(&record)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -422,7 +430,7 @@ func (slowWriteCloser) WriteLog(params.LogRecord) error {
 	return nil
 }
 
-func createMockMetrics(c *gc.C) (*mocks.MockMetricsCollector, func()) {
+func createMockMetrics(c *gc.C, modelUUID string) (*mocks.MockMetricsCollector, func()) {
 	ctrl := gomock.NewController(c)
 
 	counter := mocks.NewMockCounter(ctrl)
@@ -435,6 +443,7 @@ func createMockMetrics(c *gc.C) (*mocks.MockMetricsCollector, func()) {
 	metricsCollector := mocks.NewMockMetricsCollector(ctrl)
 	metricsCollector.EXPECT().TotalConnections().Return(counter).AnyTimes()
 	metricsCollector.EXPECT().Connections().Return(gauge).AnyTimes()
+	metricsCollector.EXPECT().LogWriteCount(modelUUID, "success").Return(counter).AnyTimes()
 
 	return metricsCollector, ctrl.Finish
 }

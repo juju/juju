@@ -18,8 +18,12 @@ const (
 // MetricLabelEndpoint defines a constant for the APIConnections Label
 const MetricLabelEndpoint = "endpoint"
 
-// MetricLabelModelUUID defines a constant for the PingFailureCount Label
+// MetricLabelModelUUID defines a constant for the PingFailureCount and
+// LogWriteCount Label
 const MetricLabelModelUUID = "model-uuid"
+
+// MetricLabelState defines a constant for the LogWriteCount Label
+const MetricLabelState = "state"
 
 // MetricAPIConnectionsLabelNames defines a series of labels for the
 // APIConnections metric.
@@ -33,6 +37,12 @@ var MetricPingFailureLabelNames = []string{
 	MetricLabelModelUUID,
 }
 
+// MetricLogWriteLabelNames defines a series of labels for the LogWrite metric
+var MetricLogWriteLabelNames = []string{
+	MetricLabelModelUUID,
+	MetricLabelState,
+}
+
 // Collector is a prometheus.Collector that collects metrics based
 // on apiserver status.
 type Collector struct {
@@ -41,6 +51,7 @@ type Collector struct {
 	APIConnections     *prometheus.GaugeVec
 	APIRequestDuration *prometheus.SummaryVec
 	PingFailureCount   *prometheus.CounterVec
+	LogWriteCount      *prometheus.CounterVec
 
 	DeprecatedAPIConnections     prometheus.Gauge
 	DeprecatedAPIRequestsTotal   *prometheus.CounterVec
@@ -81,6 +92,12 @@ func NewMetricsCollector() *Collector {
 			Name:      "ping_failure_count",
 			Help:      "Current number of ping failures",
 		}, MetricPingFailureLabelNames),
+		LogWriteCount: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "log_write_count",
+			Help:      "Current number of log writes",
+		}, MetricLogWriteLabelNames),
 
 		// TODO (stickupkid): remove post 2.6 release
 		DeprecatedAPIConnections: prometheus.NewGauge(prometheus.GaugeOpts{
@@ -111,6 +128,7 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.LoginAttempts.Describe(ch)
 	c.APIRequestDuration.Describe(ch)
 	c.PingFailureCount.Describe(ch)
+	c.LogWriteCount.Describe(ch)
 
 	// TODO (stickupkid): remove post 2.6 release
 	c.DeprecatedAPIConnections.Describe(ch)
@@ -125,6 +143,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.LoginAttempts.Collect(ch)
 	c.APIRequestDuration.Collect(ch)
 	c.PingFailureCount.Collect(ch)
+	c.LogWriteCount.Collect(ch)
 
 	// TODO (stickupkid): remove post 2.6 release
 	c.DeprecatedAPIConnections.Collect(ch)
