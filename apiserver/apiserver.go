@@ -374,7 +374,7 @@ func (w logsinkMetricsCollectorWrapper) TotalConnections() prometheus.Counter {
 }
 
 func (w logsinkMetricsCollectorWrapper) Connections() prometheus.Gauge {
-	return w.collector.LogsinkConnections
+	return w.collector.APIConnections.WithLabelValues("logsink")
 }
 
 // loop is the main loop for the server.
@@ -762,8 +762,10 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	srv.metricsCollector.TotalConnections.Inc()
-	srv.metricsCollector.APIConnections.Inc()
-	defer srv.metricsCollector.APIConnections.Dec()
+
+	gauge := srv.metricsCollector.APIConnections.WithLabelValues("api")
+	gauge.Inc()
+	defer gauge.Dec()
 
 	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
 

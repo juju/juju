@@ -15,15 +15,24 @@ const (
 	deprecatedSubsystemNamespace = "api"
 )
 
+// MetricLabelEndpoint defines a constant for the APIConnections Label
+const MetricLabelEndpoint = "endpoint"
+
+// MetricAPIConnectionsLabelNames defines a constant for the APIConnections
+// metric.
+var MetricAPIConnectionsLabelNames = []string{
+	MetricLabelEndpoint,
+}
+
 // Collector is a prometheus.Collector that collects metrics based
 // on apiserver status.
 type Collector struct {
 	TotalConnections   prometheus.Counter
-	APIConnections     prometheus.Gauge
-	LogsinkConnections prometheus.Gauge
 	LoginAttempts      prometheus.Gauge
+	APIConnections     *prometheus.GaugeVec
 	APIRequestDuration *prometheus.SummaryVec
 
+	DeprecatedAPIConnections     prometheus.Gauge
 	DeprecatedAPIRequestsTotal   *prometheus.CounterVec
 	DeprecatedAPIRequestDuration *prometheus.SummaryVec
 }
@@ -37,18 +46,13 @@ func NewMetricsCollector() *Collector {
 			Name:      "connections_total",
 			Help:      "Total number of apiserver connections ever made",
 		}),
-		APIConnections: prometheus.NewGauge(prometheus.GaugeOpts{
+
+		APIConnections: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: apiserverMetricsNamespace,
 			Subsystem: apiserverSubsystemNamespace,
-			Name:      "connection_count",
-			Help:      "Current number of active apiserver connections",
-		}),
-		LogsinkConnections: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: apiserverMetricsNamespace,
-			Subsystem: apiserverSubsystemNamespace,
-			Name:      "connection_count_logsink",
+			Name:      "connection_counts",
 			Help:      "Current number of active apiserver connections for logsink",
-		}),
+		}, MetricAPIConnectionsLabelNames),
 		LoginAttempts: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: apiserverMetricsNamespace,
 			Subsystem: apiserverSubsystemNamespace,
@@ -63,6 +67,12 @@ func NewMetricsCollector() *Collector {
 		}, metricobserver.MetricLabelNames),
 
 		// TODO (stickupkid): remove post 2.6 release
+		DeprecatedAPIConnections: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "connection_count",
+			Help:      "Current number of active apiserver connections",
+		}),
 		DeprecatedAPIRequestsTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: apiserverMetricsNamespace,
 			Subsystem: deprecatedSubsystemNamespace,
@@ -82,11 +92,11 @@ func NewMetricsCollector() *Collector {
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.TotalConnections.Describe(ch)
 	c.APIConnections.Describe(ch)
-	c.LogsinkConnections.Describe(ch)
 	c.LoginAttempts.Describe(ch)
 	c.APIRequestDuration.Describe(ch)
 
 	// TODO (stickupkid): remove post 2.6 release
+	c.DeprecatedAPIConnections.Describe(ch)
 	c.DeprecatedAPIRequestsTotal.Describe(ch)
 	c.DeprecatedAPIRequestDuration.Describe(ch)
 }
@@ -95,11 +105,11 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.TotalConnections.Collect(ch)
 	c.APIConnections.Collect(ch)
-	c.LogsinkConnections.Collect(ch)
 	c.LoginAttempts.Collect(ch)
 	c.APIRequestDuration.Collect(ch)
 
 	// TODO (stickupkid): remove post 2.6 release
+	c.DeprecatedAPIConnections.Collect(ch)
 	c.DeprecatedAPIRequestsTotal.Collect(ch)
 	c.DeprecatedAPIRequestDuration.Collect(ch)
 }
