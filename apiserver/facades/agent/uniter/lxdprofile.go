@@ -27,7 +27,7 @@ type LXDProfileBackend interface {
 type LXDProfileMachine interface {
 	WatchLXDProfileUpgradeNotifications(string) (state.StringsWatcher, error)
 	Units() ([]LXDProfileUnit, error)
-	RemoveUpgradeCharmProfileData() error
+	RemoveUpgradeCharmProfileData(string) error
 }
 
 // LXDProfileUnit describes unit-receiver state methods
@@ -35,6 +35,7 @@ type LXDProfileMachine interface {
 type LXDProfileUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
+	ApplicationName() string
 }
 
 type LXDProfileAPI struct {
@@ -200,7 +201,12 @@ func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (par
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = machine.RemoveUpgradeCharmProfileData()
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = machine.RemoveUpgradeCharmProfileData(unit.ApplicationName())
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

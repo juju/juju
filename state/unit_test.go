@@ -638,10 +638,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfile(c *gc.C) {
 	c.Assert(colocated.Destroy(), gc.IsNil)
 	assertLife(c, host, state.Alive)
 
-	chAppName, err := host.UpgradeCharmProfileApplication()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chAppName, gc.Equals, "lxd-profile")
-	chCharmURL, err := host.UpgradeCharmProfileCharmURL()
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL(applicationWithProfile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(chCharmURL, gc.Equals, "")
 
@@ -669,10 +666,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 
 	// "", nil is equivalent to IsNotFound, which is what we
 	// expect here
-	chAppName, err := host.UpgradeCharmProfileApplication()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chAppName, gc.Equals, "")
-	chCharmURL, err := host.UpgradeCharmProfileCharmURL()
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL(applicationWithOutProfile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(chCharmURL, gc.Equals, "")
 
@@ -696,19 +690,13 @@ func (s *UnitSuite) TestRemoveUnitMachineDestroyCleanUpProfileDoc(c *gc.C) {
 	// to check it's been deleted.
 	err = host.SetUpgradeCharmProfile(applicationWithProfile.Name(), charmWithProfile.URL().String())
 	c.Assert(err, jc.ErrorIsNil)
-	chAppName, err := host.UpgradeCharmProfileApplication()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chAppName, gc.Equals, applicationWithProfile.Name())
 
 	c.Assert(unit.Destroy(), gc.IsNil)
 	assertLife(c, host, state.Dying)
 
 	// "", nil is equivalent to IsNotFound, which is what we
 	// expect here
-	chAppName, err = host.UpgradeCharmProfileApplication()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chAppName, gc.Equals, "")
-	chCharmURL, err := host.UpgradeCharmProfileCharmURL()
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL(applicationWithProfile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(chCharmURL, gc.Equals, "")
 }

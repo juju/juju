@@ -695,17 +695,18 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 		}}}
 		// Clean up any instanceCharmProfileData docs for this machine before
 		// it is destroyed.
-		_, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+		docId := m.instanceCharmProfileDataId(u.ApplicationName())
+		_, err := getInstanceCharmProfileData(m.st, docId)
 		if err == nil {
-			logger.Tracef("Remove instance charm profile data for machine %s", m.Id())
+			logger.Tracef("Remove instance charm profile data for %q", docId)
 			ops = append(ops, txn.Op{
 				C:      instanceCharmProfileDataC,
-				Id:     m.doc.DocID,
+				Id:     docId,
 				Assert: txn.DocExists,
 				Remove: true,
 			})
 		} else if !errors.IsNotFound(err) {
-			logger.Errorf("Error getting instance charm profile data for machine %s, %s", m.Id(), err.Error())
+			logger.Errorf("Error getting instance charm profile data for %q, %s", docId, err.Error())
 		}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
@@ -3023,5 +3024,6 @@ func (u *Unit) RemoveUpgradeCharmProfileData() error {
 	if err != nil {
 		return err
 	}
-	return machine.RemoveUpgradeCharmProfileData()
+
+	return machine.RemoveUpgradeCharmProfileData(u.doc.Application)
 }

@@ -422,12 +422,12 @@ func (s *provisionerSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
 	err := apiMachine.SetCharmProfiles(profiles)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = apiMachine.SetUpgradeCharmProfileComplete("testme")
+	err = apiMachine.SetUpgradeCharmProfileComplete(application.Name(), "testme")
 	c.Assert(err, jc.ErrorIsNil)
 
 	mach, err := s.State.Machine(apiMachine.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	status, err := mach.UpgradeCharmProfileComplete()
+	status, err := mach.UpgradeCharmProfileComplete(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, "testme")
 }
@@ -439,7 +439,7 @@ func (s *provisionerSuite) TestCharmProfileChangeInfo(c *gc.C) {
 
 	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 
-	info, err := apiMachine.CharmProfileChangeInfo()
+	info, err := apiMachine.CharmProfileChangeInfo(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, provisioner.CharmProfileChangeInfo{
 		OldProfileName: "",
@@ -482,7 +482,7 @@ func (s *provisionerSuite) TestCharmProfileChangeInfoSubordinate(c *gc.C) {
 
 	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 
-	info, err := apiMachine.CharmProfileChangeInfo()
+	info, err := apiMachine.CharmProfileChangeInfo(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, provisioner.CharmProfileChangeInfo{
 		OldProfileName: "",
@@ -514,7 +514,7 @@ func (s *provisionerSuite) TestRemoveUpgradeCharmProfileData(c *gc.C) {
 
 	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 
-	err := apiMachine.RemoveUpgradeCharmProfileData()
+	err := apiMachine.RemoveUpgradeCharmProfileData(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -741,9 +741,9 @@ func (s *provisionerSuite) TestWatchContainersCharmProfiles(c *gc.C) {
 	defer wc.AssertStops()
 
 	// Update the upgrade-charm charm profile to trigger watcher.
-	container.SetUpgradeCharmProfile("app-name", "local:quantal/lxd-profile-0")
+	container.SetUpgradeCharmProfile(app.Name(), "local:quantal/lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(container.Id())
+	wc.AssertChange(container.Id() + "#" + app.Name())
 }
 
 func (s *provisionerSuite) TestWatchContainersAcceptsSupportedContainers(c *gc.C) {
@@ -1001,9 +1001,9 @@ func (s *provisionerSuite) TestWatchModelMachinesCharmProfiles(c *gc.C) {
 	defer wc.AssertStops()
 
 	// Trigger the watcher.
-	err = s.machine.SetUpgradeCharmProfile("lxd-profile", "local:quantal/lxd-profile-0")
+	err = s.machine.SetUpgradeCharmProfile(app.Name(), "local:quantal/lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(s.machine.Id())
+	wc.AssertChange(s.machine.Id() + "#" + app.Name())
 }
 
 var _ = gc.Suite(&provisionerContainerSuite{})

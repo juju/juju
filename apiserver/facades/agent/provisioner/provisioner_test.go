@@ -2013,10 +2013,9 @@ func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfoRemoveUn
 		"juju-testme-lxd-profile-alt-2",
 		"juju-testme-application-1",
 	}, nil)
-	mExp.UpgradeCharmProfileCharmURL().Return("", nil)
-	mExp.UpgradeCharmProfileApplication().Return("lxd-profile-alt", nil)
+	mExp.UpgradeCharmProfileCharmURL("lxd-profile-alt").Return("", nil)
 
-	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend)
+	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend, "lxd-profile-alt")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.OldProfileName, gc.Equals, "juju-testme-lxd-profile-alt-2")
@@ -2033,8 +2032,7 @@ func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfoRemovePr
 		"juju-testme-lxd-profile-alt-2",
 		"juju-testme-application-1",
 	}, nil)
-	mExp.UpgradeCharmProfileCharmURL().Return(charmURLString, nil)
-	mExp.UpgradeCharmProfileApplication().Return("lxd-profile-alt", nil)
+	mExp.UpgradeCharmProfileCharmURL("lxd-profile-alt").Return(charmURLString, nil)
 	mExp.Id().Return("2")
 
 	cExp := s.charm.EXPECT()
@@ -2046,7 +2044,7 @@ func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfoRemovePr
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.EXPECT().Charm(gomock.Eq(chURL)).Return(s.charm, nil)
 
-	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend)
+	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend, "lxd-profile-alt")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.OldProfileName, gc.Equals, "juju-testme-lxd-profile-alt-2")
@@ -2063,8 +2061,7 @@ func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfoAddProfi
 		"juju-testme",
 		"juju-testme-application-1",
 	}, nil)
-	mExp.UpgradeCharmProfileCharmURL().Return(charmURLString, nil)
-	mExp.UpgradeCharmProfileApplication().Return("lxd-profile-alt", nil)
+	mExp.UpgradeCharmProfileCharmURL("lxd-profile-alt").Return(charmURLString, nil)
 	mExp.Id().Return("2")
 	mExp.ModelName().Return("testme")
 
@@ -2080,7 +2077,7 @@ func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfoAddProfi
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.EXPECT().Charm(gomock.Eq(chURL)).Return(s.charm, nil)
 
-	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend)
+	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend, "lxd-profile-alt")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.NewProfileName, gc.Equals, "juju-testme-lxd-profile-alt-3")
@@ -2103,8 +2100,7 @@ func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfoChangePr
 		"juju-testme-lxd-profile-alt-2",
 		"juju-testme-application-1",
 	}, nil)
-	mExp.UpgradeCharmProfileCharmURL().Return(charmURLString, nil)
-	mExp.UpgradeCharmProfileApplication().Return("lxd-profile-alt", nil)
+	mExp.UpgradeCharmProfileCharmURL("lxd-profile-alt").Return(charmURLString, nil)
 	mExp.Id().Return("2")
 
 	cExp := s.charm.EXPECT()
@@ -2119,7 +2115,7 @@ func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfoChangePr
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.EXPECT().Charm(gomock.Eq(chURL)).Return(s.charm, nil)
 
-	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend)
+	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend, "lxd-profile-alt")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.OldProfileName, gc.Equals, "juju-testme-lxd-profile-alt-2")

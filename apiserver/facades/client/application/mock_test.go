@@ -423,13 +423,13 @@ func (m *mockMachine) Id() string {
 	return m.id
 }
 
-func (m *mockMachine) UpgradeCharmProfileComplete() (string, error) {
-	m.MethodCall(m, "UpgradeCharmProfileComplete")
+func (m *mockMachine) UpgradeCharmProfileComplete(appName string) (string, error) {
+	m.MethodCall(m, "UpgradeCharmProfileComplete", appName)
 	return m.upgradeCharmProfileComplete, m.NextErr()
 }
 
-func (m *mockMachine) RemoveUpgradeCharmProfileData() error {
-	m.MethodCall(m, "RemoveUpgradeCharmProfileData")
+func (m *mockMachine) RemoveUpgradeCharmProfileData(appName string) error {
+	m.MethodCall(m, "RemoveUpgradeCharmProfileData", appName)
 	return m.NextErr()
 }
 
