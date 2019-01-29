@@ -44,7 +44,7 @@ type TrapdoorFunc func(lease.Key, string) lease.Trapdoor
 // ReadonlyFSM defines the methods of the lease FSM the store can use
 // - any writes must go through the hub.
 type ReadonlyFSM interface {
-	Leases(time.Time) map[lease.Key]lease.Info
+	Leases(time.Time, ...lease.Key) map[lease.Key]lease.Info
 	GlobalTime() time.Time
 	Pinned() map[lease.Key][]string
 }
@@ -119,8 +119,8 @@ func (s *Store) ExpireLease(key lease.Key) error {
 }
 
 // Leases is part of lease.Store.
-func (s *Store) Leases() map[lease.Key]lease.Info {
-	leaseMap := s.fsm.Leases(s.config.Clock.Now())
+func (s *Store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
+	leaseMap := s.fsm.Leases(s.config.Clock.Now(), keys...)
 	result := make(map[lease.Key]lease.Info, len(leaseMap))
 	// Add trapdoors into the information from the FSM.
 	for k, v := range leaseMap {

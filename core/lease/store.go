@@ -34,13 +34,8 @@ type Store interface {
 
 	// Leases returns a recent snapshot of lease state. Expiry times are
 	// expressed according to the Clock the store was configured with.
-	Leases() map[Key]Info
-
-	// TODO (jam) 2017-10-31: Many callers of Leases() actually only want
-	// exactly 1 lease, we should have a way to do a query to return exactly
-	// that lease, instead of having to read all of them to pull one out of the
-	// map. (Worst case it is implemented as exactly this, best case avoids
-	// reading lots of unused data.)
+	// Supplying any lease keys will filter the return for those requested.
+	Leases(keys ...Key) map[Key]Info
 
 	// Refresh reads all lease state from the database.
 	Refresh() error

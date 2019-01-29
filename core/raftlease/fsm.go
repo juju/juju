@@ -158,11 +158,25 @@ func (f *FSM) GlobalTime() time.Time {
 	return f.globalTime
 }
 
-// Leases gets information about all of the leases in the system.
-func (f *FSM) Leases(localTime time.Time) map[lease.Key]lease.Info {
+// Leases gets information about all of the leases in the system,
+// optionally filtered by the input lease keys.
+func (f *FSM) Leases(localTime time.Time, keys ...lease.Key) map[lease.Key]lease.Info {
 	f.mu.Lock()
+
+	filter := make(map[lease.Key]bool)
+	filtering := len(keys) > 0
+	if filtering {
+		for _, key := range keys {
+			filter[key] = true
+		}
+	}
+
 	results := make(map[lease.Key]lease.Info)
 	for key, entry := range f.entries {
+		if filtering && !filter[key] {
+			continue
+		}
+
 		globalExpiry := entry.start.Add(entry.duration)
 
 		// If there is a pinned lease, always represent it as having an expiry

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/utils/set"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
@@ -61,12 +63,33 @@ type store struct {
 }
 
 // Leases is part of the lease.Store interface.
-func (store *store) Leases() map[lease.Key]lease.Info {
+func (store *store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
+	cfg := store.config
+	limit := set.NewStrings()
+
+	// Do a single pass over the keys for model and namespace.
+	// This lets us use a set for filtering on lease name when we iterate
+	// over the collection of leases.
+	filtering := len(keys) > 0
+	if filtering {
+		for _, key := range keys {
+			if key.Namespace == cfg.Namespace && key.ModelUUID == cfg.ModelUUID {
+				limit.Add(key.Lease)
+			}
+		}
+	}
+
+	localTime := store.config.LocalClock.Now()
+
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	localTime := store.config.LocalClock.Now()
+
 	leases := make(map[lease.Key]lease.Info)
 	for name, entry := range store.entries {
+		if filtering && !limit.Contains(name) {
+			continue
+		}
+
 		globalExpiry := entry.start.Add(entry.duration)
 		remaining := globalExpiry.Sub(store.globalTime)
 		localExpiry := localTime.Add(remaining)
