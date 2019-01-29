@@ -6,12 +6,11 @@ package application_test
 import (
 	"fmt"
 
-	"github.com/juju/juju/core/model"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
 // fakeApplicationAPI is the fake application API for testing the application

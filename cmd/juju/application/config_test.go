@@ -9,10 +9,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/utils/featureflag"
-
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -23,6 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
@@ -106,9 +103,7 @@ var getTests = []struct {
 
 func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-
-	c.Assert(os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.Generations), jc.ErrorIsNil)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.SetFeatureFlags(feature.Generations)
 
 	s.defaultCharmValues = map[string]interface{}{
 		"title":           "Nearly There",
