@@ -161,18 +161,24 @@ func buildClaimedOps(coll mongo.Collection, docId string, key lease.Key, holder 
 	}
 }
 
+func applyClaimed(mongo Mongo, collection string, docId string, key lease.Key, holder string) error {
+	coll, closer := mongo.GetCollection(collection)
+	defer closer()
+	return errors.Trace(mongo.RunTransaction(func(int) ([]txn.Op, error) {
+		return buildClaimedOps(coll, docId, key, holder)
+	}))
+}
+
 // Claimed is part of raftlease.NotifyTarget.
 func (t *notifyTarget) Claimed(key lease.Key, holder string) {
-	coll, closer := t.mongo.GetCollection(t.collection)
-	defer closer()
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
+	// Use this wrench to simulate a failure writing the claimed info
+	// to the database.
 	if wrench.IsActive("raftlease-notifytarget", "fail-claim") {
 		t.errorLogger.Errorf("wrench failing claimed of %q for %q", docId, holder)
 		return
 	}
-	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
-		return buildClaimedOps(coll, docId, key, holder)
-	})
+	err := applyClaimed(t.mongo, t.collection, docId, key, holder)
 	if err != nil {
 		t.errorLogger.Errorf("couldn't claim lease %q for %q: %s", docId, holder, err.Error())
 		return
@@ -219,7 +225,21 @@ func MakeTrapdoorFunc(mongo Mongo, collection string) raftlease.TrapdoorFunc {
 			if !ok {
 				return errors.NotValidf("expected *[]txn.Op; %T", out)
 			}
-			assertionOps := []txn.Op{{
+			if attempt != 0 {
+				// If the assertion failed it may be because a claim
+				// notify failed in the past due to the DB not being
+				// available. Sync the lease holder - this is safe to
+				// do because raft is the arbiter of who really holds
+				// the lease, and we check that the lease is held in
+				// buildTxnWithLeadership each time before collecting
+				// the assertion ops.
+				docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
+				err := applyClaimed(mongo, collection, docId, key, holder)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+			*outPtr = []txn.Op{{
 				C: collection,
 				Id: leaseHolderDocId(
 					key.Namespace,
@@ -230,30 +250,6 @@ func MakeTrapdoorFunc(mongo Mongo, collection string) raftlease.TrapdoorFunc {
 					fieldHolder: holder,
 				},
 			}}
-			var ops []txn.Op
-			if attempt == 0 {
-				ops = assertionOps
-			} else {
-				// If the assertion failed it may be because a claim
-				// notify failed in the past due to the DB not being
-				// available. Check whether we need to sync the lease
-				// holder - this is safe to do because raft is the
-				// arbiter of who really holds the lease, and we check
-				// that the lease is held in buildTxnWithLeadership
-				// each time before collecting the assertion ops.
-				docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-				coll, closer := mongo.GetCollection(collection)
-				defer closer()
-				claimedOps, err := buildClaimedOps(coll, docId, key, holder)
-				if err == jujutxn.ErrNoOperations {
-					ops = assertionOps
-				} else if err != nil {
-					return errors.Trace(err)
-				} else {
-					ops = claimedOps
-				}
-			}
-			*outPtr = ops
 			return nil
 		}
 	}

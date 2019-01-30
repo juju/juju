@@ -272,17 +272,12 @@ func (s *targetSuite) TestTrapdoorAttempt1NoHolderInDB(c *gc.C) {
 	var result []txn.Op
 	err := trapdoor(1, &result)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 1)
-	op := result[0]
-	c.Assert(op.C, gc.Equals, collection)
-	c.Assert(op.Id, gc.Equals, "model:ns#landfall#")
-	c.Assert(op.Assert, gc.Equals, "d-")
-	raftlease.AssertLeaseholderDocEquals(c, op.Insert, key, "roy")
-
-	err = s.mongo.RunTransaction(func(int) ([]txn.Op, error) {
-		return result, nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []txn.Op{{
+		C:      collection,
+		Id:     "model:ns#landfall#",
+		Assert: bson.M{"holder": "roy"},
+	}})
+	// It also updated the database to make the holder roy.
 	c.Assert(s.getRows(c), gc.DeepEquals, []bson.M{{
 		"_id":        "model:ns#landfall#",
 		"namespace":  "ns",
@@ -308,17 +303,12 @@ func (s *targetSuite) TestTrapdoorAttempt1DifferentHolderInDB(c *gc.C) {
 	var result []txn.Op
 	err = trapdoor(1, &result)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result, gc.DeepEquals, []txn.Op{{
 		C:      collection,
 		Id:     "model:ns#landfall#",
-		Assert: bson.M{"holder": "george"},
-		Update: bson.M{"$set": bson.M{"holder": "roy"}},
+		Assert: bson.M{"holder": "roy"},
 	}})
-	err = s.mongo.RunTransaction(func(int) ([]txn.Op, error) {
-		return result, nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	// It also updated the database to make the holder roy.
 	c.Assert(s.getRows(c), gc.DeepEquals, []bson.M{{
 		"_id":        "model:ns#landfall#",
 		"namespace":  "ns",
@@ -342,11 +332,18 @@ func (s *targetSuite) TestTrapdoorAttempt1ThisHolderInDB(c *gc.C) {
 	trapdoor := raftlease.MakeTrapdoorFunc(s.mongo, collection)(lease.Key{"ns", "model", "landfall"}, "roy")
 	var result []txn.Op
 	err = trapdoor(0, &result)
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []txn.Op{{
 		C:      collection,
 		Id:     "model:ns#landfall#",
 		Assert: bson.M{"holder": "roy"},
+	}})
+	// No change in the DB.
+	c.Assert(s.getRows(c), gc.DeepEquals, []bson.M{{
+		"_id":        "model:ns#landfall#",
+		"namespace":  "ns",
+		"model-uuid": "model",
+		"lease":      "landfall",
+		"holder":     "roy",
 	}})
 }
 
