@@ -30,7 +30,6 @@ type BaseWatcher interface {
 	Dead() <-chan struct{}
 	Err() error
 
-	WatchMulti(collection string, ids []interface{}, ch chan<- Change) error
 	// Watch will send events on the Change channel whenever the document you
 	// are watching is changed. Note that in order to not miss any changes, you
 	// should start Watch()ing the document before you read the document.
@@ -38,6 +37,10 @@ type BaseWatcher interface {
 	// Instead, Watch is synchronous, the Watch will not return until the
 	// watcher is registered.
 	Watch(collection string, id interface{}, ch chan<- Change)
+	// WatchMulti is similar to Watch, it just allows you to watch a set of
+	// documents in the same collection in one request. Just like Watch,
+	// no event will be sent for documents that don't change.
+	WatchMulti(collection string, ids []interface{}, ch chan<- Change) error
 	WatchCollection(collection string, ch chan<- Change)
 	WatchCollectionWithFilter(collection string, ch chan<- Change, filter func(interface{}) bool)
 	Unwatch(collection string, id interface{}, ch chan<- Change)
