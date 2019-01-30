@@ -93,11 +93,11 @@ type Info struct {
 
 // Trapdoor allows a store to use pre-agreed special knowledge to communicate
 // with a Store substrate by passing a key with suitable properties.
-type Trapdoor func(key interface{}) error
+type Trapdoor func(attempt int, key interface{}) error
 
 // LockedTrapdoor is a Trapdoor suitable for use by substrates that don't want
 // or need to expose their internals.
-func LockedTrapdoor(key interface{}) error {
+func LockedTrapdoor(attempt int, key interface{}) error {
 	if key != nil {
 		return errors.New("lease substrate not accessible")
 	}

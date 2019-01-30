@@ -873,6 +873,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			ClockName:            clockName,
 			CentralHubName:       centralHubName,
+			StateName:            stateName,
 			FSM:                  leaseFSM,
 			RequestTopic:         leaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.lease.raft"),

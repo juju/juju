@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
+	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
@@ -26,6 +27,8 @@ import (
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/lease"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
 )
@@ -36,9 +39,10 @@ type manifoldSuite struct {
 	context  dependency.Context
 	manifold dependency.Manifold
 
-	agent *mockAgent
-	clock *testclock.Clock
-	hub   *pubsub.StructuredHub
+	agent        *mockAgent
+	clock        *testclock.Clock
+	hub          *pubsub.StructuredHub
+	stateTracker *stubStateTracker
 
 	fsm     *raftlease.FSM
 	logger  loggo.Logger
@@ -62,6 +66,10 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	}}
 	s.clock = testclock.NewClock(time.Now())
 	s.hub = pubsub.NewStructuredHub(nil)
+	s.stateTracker = &stubStateTracker{
+		done: make(chan struct{}),
+	}
+
 	s.fsm = raftlease.NewFSM()
 	s.logger = loggo.GetLogger("lease.manifold_test")
 	registerer := struct{ prometheus.Registerer }{}
@@ -75,6 +83,7 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:            "agent",
 		ClockName:            "clock",
 		CentralHubName:       "hub",
+		StateName:            "state",
 		FSM:                  s.fsm,
 		RequestTopic:         "lease.manifold_test",
 		Logger:               &s.logger,
@@ -89,6 +98,7 @@ func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"agent": s.agent,
 		"clock": s.clock,
 		"hub":   s.hub,
+		"state": s.stateTracker,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -110,7 +120,7 @@ func (s *manifoldSuite) newStore(config raftlease.StoreConfig) *raftlease.Store 
 }
 
 var expectedInputs = []string{
-	"agent", "clock", "hub",
+	"agent", "clock", "hub", "state",
 }
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
@@ -130,7 +140,9 @@ func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.Equals, s.worker)
+	underlying, ok := w.(*common.CleanupWorker)
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(underlying.Worker, gc.Equals, s.worker)
 
 	s.stub.CheckCallNames(c, "NewStore", "NewWorker")
 
@@ -140,7 +152,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	storeConfig := args[0].(raftlease.StoreConfig)
 	c.Assert(storeConfig.ResponseTopic(1234), gc.Matches, "lease.manifold_test.[0-9a-f]{8}.1234")
 	storeConfig.ResponseTopic = nil
-	assertTrapdoorFuncsEqual(c, storeConfig.Trapdoor, state.LeaseTrapdoorFunc())
+	assertTrapdoorFuncsEqual(c, storeConfig.Trapdoor, s.stateTracker.pool.SystemState().LeaseTrapdoorFunc())
 	storeConfig.Trapdoor = nil
 	c.Assert(storeConfig, gc.DeepEquals, raftlease.StoreConfig{
 		FSM:            s.fsm,
@@ -192,15 +204,34 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `expected output of type \*globalclock.Updater or \*core/lease.Manager, got \*io.Writer`)
 }
 
+func (s *manifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {
+	w, err := s.manifold.Start(s.context)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stateTracker.CheckCallNames(c, "Use")
+	select {
+	case <-s.stateTracker.done:
+		c.Fatal("unexpected state release")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	// Stopping the worker should cause the state to
+	// eventually be released.
+	workertest.CleanKill(c, w)
+
+	s.stateTracker.waitDone(c)
+	s.stateTracker.CheckCallNames(c, "Use", "Done")
+}
+
 func assertTrapdoorFuncsEqual(c *gc.C, actual, expected raftlease.TrapdoorFunc) {
 	if actual == nil {
 		c.Assert(expected, gc.Equals, nil)
 		return
 	}
 	var actualOps, expectedOps []txn.Op
-	err := actual(corelease.Key{"ns", "model", "lease"}, "holder")(&actualOps)
+	err := actual(corelease.Key{"ns", "model", "lease"}, "holder")(0, &actualOps)
 	c.Assert(err, jc.ErrorIsNil)
-	err = expected(corelease.Key{"ns", "model", "lease"}, "holder")(&expectedOps)
+	err = expected(corelease.Key{"ns", "model", "lease"}, "holder")(0, &expectedOps)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actualOps, gc.DeepEquals, expectedOps)
 }
@@ -228,4 +259,34 @@ type mockWorker struct{}
 func (w *mockWorker) Kill() {}
 func (w *mockWorker) Wait() error {
 	return nil
+}
+
+type stubStateTracker struct {
+	testing.Stub
+	pool state.StatePool
+	done chan struct{}
+}
+
+func (s *stubStateTracker) Use() (*state.StatePool, error) {
+	s.MethodCall(s, "Use")
+	return &s.pool, s.NextErr()
+}
+
+func (s *stubStateTracker) Done() error {
+	s.MethodCall(s, "Done")
+	err := s.NextErr()
+	close(s.done)
+	return err
+}
+
+func (s *stubStateTracker) Report() map[string]interface{} {
+	return map[string]interface{}{"hey": "mum"}
+}
+
+func (s *stubStateTracker) waitDone(c *gc.C) {
+	select {
+	case <-s.done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for state to be released")
+	}
 }

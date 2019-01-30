@@ -1233,7 +1233,7 @@ func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {
 type goodToken struct{}
 
 // Check implements leadership.Token
-func (*goodToken) Check(interface{}) error {
+func (*goodToken) Check(int, interface{}) error {
 	return nil
 }
 

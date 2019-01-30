@@ -234,6 +234,6 @@ type errorToken struct {
 }
 
 // Check is part of the lease.Token interface.
-func (t errorToken) Check(key interface{}) error {
+func (t errorToken) Check(attempt int, key interface{}) error {
 	return t.err
 }
