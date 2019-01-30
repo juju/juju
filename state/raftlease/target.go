@@ -9,6 +9,7 @@ import (
 	"log"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -29,6 +30,10 @@ const (
 	// fieldHolder identifies the holder field in a leaseHolderDoc.
 	fieldHolder = "holder"
 )
+
+// logger is only used when we need to update the database from within
+// a trapdoor function.
+var logger = loggo.GetLogger("juju.state.raftlease")
 
 // leaseHolderDoc is used to serialise lease holder info.
 type leaseHolderDoc struct {
@@ -160,12 +165,16 @@ func buildClaimedOps(coll mongo.Collection, docId string, key lease.Key, holder 
 	}
 }
 
-func applyClaimed(mongo Mongo, collection string, docId string, key lease.Key, holder string) error {
+func applyClaimed(mongo Mongo, collection string, docId string, key lease.Key, holder string) (bool, error) {
 	coll, closer := mongo.GetCollection(collection)
 	defer closer()
-	return errors.Trace(mongo.RunTransaction(func(int) ([]txn.Op, error) {
-		return buildClaimedOps(coll, docId, key, holder)
-	}))
+	var writeNeeded bool
+	err := mongo.RunTransaction(func(int) ([]txn.Op, error) {
+		ops, err := buildClaimedOps(coll, docId, key, holder)
+		writeNeeded = len(ops) != 0
+		return ops, err
+	})
+	return writeNeeded, errors.Trace(err)
 }
 
 // Claimed is part of raftlease.NotifyTarget.
@@ -177,7 +186,7 @@ func (t *notifyTarget) Claimed(key lease.Key, holder string) {
 	// 	t.errorLogger.Errorf("wrench failing claimed of %q for %q", docId, holder)
 	// 	return
 	// }
-	err := applyClaimed(t.mongo, t.collection, docId, key, holder)
+	_, err := applyClaimed(t.mongo, t.collection, docId, key, holder)
 	if err != nil {
 		t.errorLogger.Errorf("couldn't claim lease %q for %q: %s", docId, holder, err.Error())
 		return
@@ -233,9 +242,12 @@ func MakeTrapdoorFunc(mongo Mongo, collection string) raftlease.TrapdoorFunc {
 				// buildTxnWithLeadership each time before collecting
 				// the assertion ops.
 				docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-				err := applyClaimed(mongo, collection, docId, key, holder)
+				writeNeeded, err := applyClaimed(mongo, collection, docId, key, holder)
 				if err != nil {
 					return errors.Trace(err)
+				}
+				if writeNeeded {
+					logger.Infof("trapdoor claimed lease %q for %q", docId, holder)
 				}
 			}
 			*outPtr = []txn.Op{{
