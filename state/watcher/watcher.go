@@ -206,6 +206,12 @@ func (w *Watcher) Err() error {
 type reqWatch struct {
 	key  watchKey
 	info watchInfo
+	// registeredCh is used to indicate when
+	registeredCh chan error
+}
+
+func (r reqWatch) Completed() chan error {
+	return r.registeredCh
 }
 
 type reqWatchMulti struct {
@@ -240,6 +246,21 @@ func (w *Watcher) sendReq(req interface{}) {
 	}
 }
 
+func (w *Watcher) sendAndWaitReq(req waitableRequest) error {
+	select {
+	case w.request <- req:
+	case <-w.tomb.Dying():
+		return errors.Trace(tomb.ErrDying)
+	}
+	completed := req.Completed()
+	select {
+	case err := <-completed:
+		return errors.Trace(err)
+	case <-w.tomb.Dying():
+		return errors.Trace(tomb.ErrDying)
+	}
+}
+
 // WatchAtRevno starts watching the given collection and document id.
 // An event will be sent onto ch whenever a matching document's txn-revno
 // field is observed to change after a transaction is applied. The revno
@@ -249,7 +270,11 @@ func (w *Watcher) WatchAtRevno(collection string, id interface{}, revno int64, c
 	if id == nil {
 		panic("watcher: cannot watch a document with nil id")
 	}
-	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno, nil}})
+	w.sendAndWaitReq(reqWatch{
+		key:          watchKey{collection, id},
+		info:         watchInfo{ch, revno, nil},
+		registeredCh: make(chan error),
+	})
 }
 
 // WatchNoRevno starts watching the given collection and document id.
@@ -259,7 +284,11 @@ func (w *Watcher) WatchNoRevno(collection string, id interface{}, ch chan<- Chan
 	if id == nil {
 		panic("watcher: cannot watch a document with nil id")
 	}
-	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, -2, nil}})
+	w.sendAndWaitReq(reqWatch{
+		key:          watchKey{collection, id},
+		info:         watchInfo{ch, -2, nil},
+		registeredCh: make(chan error),
+	})
 }
 
 func (w *Watcher) WatchMulti(collection string, ids []interface{}, ch chan<- Change) error {
@@ -295,7 +324,11 @@ func (w *Watcher) WatchCollection(collection string, ch chan<- Change) {
 // to change after a transaction is applied for any document in the collection, so long as the
 // specified filter function returns true when called with the document id value.
 func (w *Watcher) WatchCollectionWithFilter(collection string, ch chan<- Change, filter func(interface{}) bool) {
-	w.sendReq(reqWatch{watchKey{collection, nil}, watchInfo{ch, 0, filter}})
+	w.sendAndWaitReq(reqWatch{
+		key:          watchKey{collection, nil},
+		info:         watchInfo{ch, 0, filter},
+		registeredCh: make(chan error),
+	})
 }
 
 // Unwatch stops watching the given collection and document id via ch.
@@ -426,6 +459,12 @@ func (w *Watcher) handle(req interface{}) {
 			w.requestEvents = append(w.requestEvents, evt)
 		}
 		w.watches[r.key] = append(w.watches[r.key], r.info)
+		if r.registeredCh != nil {
+			select {
+			case r.registeredCh <- nil:
+			case <-w.tomb.Dying():
+			}
+		}
 	case reqUnwatch:
 		watches := w.watches[r.key]
 		removed := false

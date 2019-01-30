@@ -28,6 +28,8 @@ func (s *watcherSuite) TestEntityWatcherEventsNonExistent(c *gc.C) {
 func (s *watcherSuite) TestEntityWatcherFirstEvent(c *gc.C) {
 	m, err := s.State.AddMachine("bionic", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	// Send the Machine creation event before we start our watcher
+	s.State.StartSync()
 	w := m.Watch()
 	c.Logf("Watch started")
 	wc := testing.NewNotifyWatcherC(c, s.State, w)

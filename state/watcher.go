@@ -2197,9 +2197,15 @@ func getTxnRevno(coll mongo.Collection, id interface{}) (int64, error) {
 
 func (w *docWatcher) loop(docKeys []docKey) error {
 	in := make(chan watcher.Change)
+	logger.Criticalf("watching docs: %v", docKeys)
 	for _, k := range docKeys {
 		w.watcher.WatchNoRevno(k.coll, k.docId, in)
 		defer w.watcher.Unwatch(k.coll, k.docId, in)
+	}
+	// Check to see if there is a backing event that should be coalesced with the
+	// first event
+	if _, ok := collect(watcher.Change{}, in, w.tomb.Dying()); !ok {
+		return tomb.ErrDying
 	}
 	out := w.out
 	for {
@@ -2416,8 +2422,6 @@ func (w *machineUnitsWatcher) loop() error {
 	machineCh := make(chan watcher.Change)
 	w.watcher.WatchNoRevno(machinesC, w.machine.doc.DocID, machineCh)
 	defer w.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
-	// XXX: We shouldn't need this step, it should be handled by the first change on machineCh
-	// or we don't have WatchNoRevno generate an event and it is handled here
 	changes, err := w.updateMachine(nil)
 	if err != nil {
 		return errors.Trace(err)

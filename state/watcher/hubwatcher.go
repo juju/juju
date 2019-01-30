@@ -47,11 +47,6 @@ type HubWatcher struct {
 	// watches holds the observers managed by Watch/Unwatch.
 	watches map[watchKey][]watchInfo
 
-	// current holds the current txn-revno values for all the observed
-	// documents known to exist. Documents not observed or deleted are
-	// omitted from this map and are considered to have revno -1.
-	current map[watchKey]int64
-
 	// syncEvents and requestEvents contain the events to be
 	// dispatched to the watcher channels. They're queued during
 	// processing and flushed at the end to simplify the algorithm.
@@ -142,7 +137,6 @@ func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) 
 		idleFunc:  HubWatcherIdleFunc,
 		logger:    logger,
 		watches:   make(map[watchKey][]watchInfo),
-		current:   make(map[watchKey]int64),
 		request:   make(chan interface{}),
 		changes:   make(chan Change),
 	}
@@ -264,7 +258,11 @@ func (w *HubWatcher) WatchAtRevno(collection string, id interface{}, revno int64
 	if id == nil {
 		panic("watcher: cannot watch a document with nil id")
 	}
-	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno, nil}})
+	w.sendAndWaitReq(reqWatch{
+		key:          watchKey{collection, id},
+		info:         watchInfo{ch, revno, nil},
+		registeredCh: make(chan error),
+	})
 }
 
 // WatchNoRevno starts watching the given collection and document id.
@@ -277,7 +275,11 @@ func (w *HubWatcher) WatchNoRevno(collection string, id interface{}, ch chan<- C
 	// We use a value of -2 to indicate that we don't know the state of the document.
 	// -1 would indicate that we think the document is deleted (and won't trigger
 	// a change event if the document really is deleted).
-	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, -2, nil}})
+	w.sendAndWaitReq(reqWatch{
+		key:          watchKey{collection, id},
+		info:         watchInfo{ch, -2, nil},
+		registeredCh: make(chan error),
+	})
 }
 
 // WatchCollection starts watching the given collection.
@@ -292,7 +294,11 @@ func (w *HubWatcher) WatchCollection(collection string, ch chan<- Change) {
 // to change after a transaction is applied for any document in the collection, so long as the
 // specified filter function returns true when called with the document id value.
 func (w *HubWatcher) WatchCollectionWithFilter(collection string, ch chan<- Change, filter func(interface{}) bool) {
-	w.sendReq(reqWatch{watchKey{collection, nil}, watchInfo{ch, 0, filter}})
+	w.sendAndWaitReq(reqWatch{
+		key:          watchKey{collection, nil},
+		info:         watchInfo{ch, 0, filter},
+		registeredCh: make(chan error),
+	})
 }
 
 // Unwatch stops watching the given collection and document id via ch.
@@ -314,10 +320,6 @@ type HubWatcherStats struct {
 	WatchKeyCount int
 	// WatchCount is the number of watchers (keys can be watched by multiples)
 	WatchCount uint64
-	// RevnoMapSize is the number of keys stored in the 'current' map
-	RevnoMapSize int
-	// RevnoMapBytes is an approximation of the number of bytes being stored by 'current'
-	RevnoMapBytes uint64
 	// SyncQueueCap is the maximum buffer size for synchronization events
 	SyncQueueCap int
 	// SyncQueueLen is the current number of events being queued
@@ -366,8 +368,6 @@ func (w *HubWatcher) Report() map[string]interface{} {
 	return map[string]interface{}{
 		"watch-count":           stats.WatchCount,
 		"watch-key-count":       stats.WatchKeyCount,
-		"revno-map-size":        stats.RevnoMapSize,
-		"revno-map-bytes":       stats.RevnoMapBytes,
 		"sync-queue-cap":        stats.SyncQueueCap,
 		"sync-queue-len":        stats.SyncQueueLen,
 		"sync-last-len":         stats.SyncLastLen,
@@ -509,22 +509,20 @@ func (w *HubWatcher) handle(req interface{}) {
 	w.requestCount++
 	switch r := req.(type) {
 	case reqWatch:
+		// TODO(jam): 2019-01-30 Now that reqWatch has a registeredCh, we could have WatchNoRevno return an error
+		// rather than panic()
 		for _, info := range w.watches[r.key] {
 			if info.ch == r.info.ch {
 				panic(fmt.Errorf("tried to re-add channel %v for %s", info.ch, r.key))
 			}
 		}
-		if revno, ok := w.current[r.key]; ok && (revno > r.info.revno || revno == -1 && r.info.revno >= 0) {
-			r.info.revno = revno
-			evt := event{
-				ch:        r.info.ch,
-				key:       r.key,
-				isDeleted: revno == -1,
-				revno:     revno,
-			}
-			w.requestEvents = append(w.requestEvents, evt)
-		}
 		w.watches[r.key] = append(w.watches[r.key], r.info)
+		if r.registeredCh != nil {
+			select {
+			case r.registeredCh <- nil:
+			case <-w.tomb.Dying():
+			}
+		}
 	case reqWatchMulti:
 		for _, id := range r.ids {
 			key := watchKey{c: r.collection, id: id}
@@ -587,8 +585,6 @@ func (w *HubWatcher) handle(req interface{}) {
 			ChangeCount:        w.changeCount,
 			WatchKeyCount:      len(w.watches),
 			WatchCount:         watchCount,
-			RevnoMapSize:       len(w.current),
-			RevnoMapBytes:      uint64(w.revnoMapBytes),
 			SyncQueueCap:       cap(w.syncEvents),
 			SyncQueueLen:       len(w.syncEvents),
 			SyncLastLen:        w.lastSyncLen,
@@ -640,12 +636,7 @@ func (w *HubWatcher) queueChange(change Change) {
 	w.changeCount++
 	w.logger.Tracef("got change document: %#v", change)
 	key := watchKey{change.C, change.Id}
-	if _, ok := w.current[key]; !ok {
-		// We didn't have this in our map before, so we need to track the bytes
-		w.revnoMapBytes += sizeInMap(key)
-	}
 	revno := change.Revno
-	w.current[key] = revno
 
 	// Queue notifications for per-collection watches.
 	for _, info := range w.watches[watchKey{change.C, nil}] {
