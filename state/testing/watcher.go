@@ -88,7 +88,9 @@ func NewNotifyWatcherC(c *gc.C, st SyncStarter, w NotifyWatcher) NotifyWatcherC 
 }
 
 func (c NotifyWatcherC) AssertNoChange() {
+	c.C.Logf("StartSync()")
 	c.State.StartSync()
+	c.C.Logf("waiting for no change")
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -97,12 +99,23 @@ func (c NotifyWatcherC) AssertNoChange() {
 }
 
 func (c NotifyWatcherC) AssertOneChange() {
-	c.State.StartSync()
-	select {
-	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsTrue)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("watcher did not send change")
+	shortTimeout := time.After(1 * time.Millisecond)
+	longTimeout := time.After(testing.LongWait)
+loop:
+	for {
+		select {
+		case _, ok := <-c.Watcher.Changes():
+			c.C.Logf("got change")
+			c.Assert(ok, jc.IsTrue)
+			break loop
+		case <-shortTimeout:
+			c.C.Logf("StartSync()")
+			c.State.StartSync()
+			shortTimeout = nil
+		case <-longTimeout:
+			c.Fatalf("watcher did not send change")
+			break loop
+		}
 	}
 	c.AssertNoChange()
 }
