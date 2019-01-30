@@ -6,9 +6,11 @@ package metricobserver_test
 import (
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver"
@@ -32,7 +34,7 @@ func (*observerFactorySuite) TestNewObserverFactoryInvalidConfig(c *gc.C) {
 }
 
 func (s *observerFactorySuite) TestNewObserverFactoryRegister(c *gc.C) {
-	metricsCollector, finish := createMockMetrics(c)
+	metricsCollector, finish := createMockMetrics(c, gomock.AssignableToTypeOf(prometheus.Labels{}))
 	defer finish()
 
 	f, err := metricobserver.NewObserverFactory(metricobserver.Config{
