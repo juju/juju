@@ -153,11 +153,6 @@ func (s *Settings) Update(kv map[string]interface{}) {
 	}
 }
 
-// Replace overwrites the existing settings with new onesl
-func (s *Settings) Replace(kv map[string]interface{}) {
-	s.core = kv
-}
-
 // Delete removes key.
 func (s *Settings) Delete(key string) {
 	delete(s.core, key)
@@ -380,13 +375,18 @@ func removeSettingsOp(collection, key string) txn.Op {
 
 // replaceSettings replaces the settings value for key.
 func replaceSettings(db Database, collection, key string, values map[string]interface{}) error {
-	existing, err := readSettings(db, collection, key)
+	op, _, err := replaceSettingsOp(db, collection, key, values)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "settings %q", key)
 	}
-	existing.Replace(values)
-	_, err = existing.Write()
-	return errors.Trace(err)
+	err = db.RunTransaction([]txn.Op{op})
+	if err == txn.ErrAborted {
+		return errors.NotFoundf("settings")
+	}
+	if err != nil {
+		return fmt.Errorf("cannot replace settings: %v", err)
+	}
+	return nil
 }
 
 // listSettings returns all the settings with the specified key prefix.
