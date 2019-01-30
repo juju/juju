@@ -108,8 +108,9 @@ func (s *HubWatcherSuite) TestWatchAfterKnown(c *gc.C) {
 	change := watcher.Change{"test", "a", false, 5}
 	s.publish(c, change)
 
+	// WatchNoRevno doesn't publish an initial event, whether or not we've
+	// seen the document before.
 	s.w.WatchNoRevno("test", "a", s.ch)
-	assertChange(c, s.ch, change)
 	assertNoChange(c, s.ch)
 }
 
@@ -201,31 +202,21 @@ func (s *HubWatcherSuite) TestWatchMultipleChannels(c *gc.C) {
 	assertNoChange(c, ch3)
 }
 
-func (s *HubWatcherSuite) TestWatchKnownRemove(c *gc.C) {
-	change := watcher.Change{"test", "a", true, -1}
-	s.publish(c, change)
-
-	s.w.WatchAtRevno("test", "a", 2, s.ch)
-	assertChange(c, s.ch, change)
-	assertNoChange(c, s.ch)
-}
-
 func (s *HubWatcherSuite) TestWatchAlreadyRemoved(c *gc.C) {
 	change := watcher.Change{"test", "a", true, -1}
 	s.publish(c, change)
 
 	s.w.WatchNoRevno("test", "a", s.ch)
-	assertChange(c, s.ch, change)
 	assertNoChange(c, s.ch)
 }
 
 func (s *HubWatcherSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 	const N = 10
 	for i := 0; i < N; i++ {
-		s.publish(c, watcher.Change{"test", i, false, int64(i + 3)})
+		s.w.WatchNoRevno("test", i, s.ch)
 	}
 	for i := 0; i < N; i++ {
-		s.w.WatchNoRevno("test", i, s.ch)
+		s.publish(c, watcher.Change{"test", i, false, int64(i + 3)})
 	}
 	for i := 1; i < N; i += 2 {
 		s.w.Unwatch("test", i, s.ch)
@@ -339,8 +330,6 @@ func (s *HubWatcherSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
 
 	removed := watcher.Change{"test", "a", true, -1}
 	s.publish(c, removed)
-
-	assertChange(c, s.ch, added)
 	assertChange(c, s.ch, removed)
 }
 

@@ -50,11 +50,6 @@ type Watcher struct {
 	// watches holds the observers managed by Watch/Unwatch.
 	watches map[watchKey][]watchInfo
 
-	// current holds the current txn-revno values for all the observed
-	// documents known to exist. Documents not observed or deleted are
-	// omitted from this map and are considered to have revno -1.
-	current map[watchKey]int64
-
 	// needSync is set when a synchronization should take
 	// place.
 	needSync bool
@@ -147,7 +142,6 @@ func newWatcher(changelog *mgo.Collection, iteratorFunc func() mongo.Iterator) *
 		log:          changelog,
 		iteratorFunc: iteratorFunc,
 		watches:      make(map[watchKey][]watchInfo),
-		current:      make(map[watchKey]int64),
 		request:      make(chan interface{}),
 	}
 	if w.iteratorFunc == nil {
@@ -448,16 +442,6 @@ func (w *Watcher) handle(req interface{}) {
 				panic(fmt.Errorf("tried to re-add channel %v for %s", info.ch, r.key))
 			}
 		}
-		if revno, ok := w.current[r.key]; ok && (revno > r.info.revno || revno == -1 && r.info.revno >= 0) {
-			r.info.revno = revno
-			evt := event{
-				ch:        r.info.ch,
-				key:       r.key,
-				isDeleted: revno == -1,
-				revno:     revno,
-			}
-			w.requestEvents = append(w.requestEvents, evt)
-		}
 		w.watches[r.key] = append(w.watches[r.key], r.info)
 		if r.registeredCh != nil {
 			select {
@@ -507,11 +491,7 @@ func (w *Watcher) handle(req interface{}) {
 		}
 		for _, id := range r.ids {
 			key := watchKey{c: r.collection, id: id}
-			revno, ok := w.current[key]
-			if !ok {
-				revno = -2
-			}
-			w.watches[key] = append(w.watches[key], watchInfo{ch: r.watchCh, revno: revno, filter: nil})
+			w.watches[key] = append(w.watches[key], watchInfo{ch: r.watchCh, revno: -2, filter: nil})
 		}
 		select {
 		case r.completedCh <- nil:
@@ -599,10 +579,6 @@ func (w *Watcher) sync() error {
 				if revno < 0 {
 					revno = -1
 				}
-				if w.current[key] == revno {
-					continue
-				}
-				w.current[key] = revno
 				// Queue notifications for per-collection watches.
 				for _, info := range w.watches[watchKey{c.Name, nil}] {
 					if info.filter != nil && !info.filter(d[i]) {
