@@ -363,6 +363,7 @@ func (s *MachineLegacyLeasesSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*
 				c.Logf("unit provisioned with instance %s", instId)
 				return m, instId
 			} else {
+				c.Logf("event before provisioned %s, %v", instId, err)
 				c.Check(err, jc.Satisfies, errors.IsNotProvisioned)
 			}
 		}
