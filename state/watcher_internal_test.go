@@ -4,15 +4,11 @@
 package state_test
 
 import (
-	//	"container/list"
-	//	"fmt"
-	//	"sync"
-	//	"time"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
-
-	gc "gopkg.in/check.v1"
 )
 
 var _ = gc.Suite(&watcherSuite{})
@@ -25,6 +21,14 @@ func (s *watcherSuite) TestEntityWatcherEventsNonExistent(c *gc.C) {
 	// Just watching a document should not trigger an event
 	c.Logf("starting watcher for %q %q", "machines", "2")
 	w := state.NewEntityWatcher(s.State, "machines", "2")
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+}
+
+func (s *watcherSuite) TestEntityWatcherFirstEvent(c *gc.C) {
+	m, err := s.State.AddMachine("bionic", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	w := m.Watch()
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 }
