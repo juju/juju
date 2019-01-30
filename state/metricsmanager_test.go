@@ -26,6 +26,7 @@ func (s *metricsManagerSuite) TestDefaultsWritten(c *gc.C) {
 	c.Assert(mm.LastSuccessfulSend(), gc.DeepEquals, time.Time{})
 	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 0)
 	c.Assert(mm.GracePeriod(), gc.Equals, 24*7*time.Hour)
+	c.Assert(mm.ModelStatus().Code, gc.Equals, state.MeterNotSet)
 }
 
 func (s *metricsManagerSuite) TestNewMetricsManager(c *gc.C) {
@@ -101,10 +102,14 @@ func (s *metricsManagerSuite) TestNegativeGracePeriod(c *gc.C) {
 }
 
 func (s *metricsManagerSuite) TestMeterStatus(c *gc.C) {
+	err := s.State.SetClockForTesting(s.Clock)
+	c.Assert(err, jc.ErrorIsNil)
+
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	status := mm.MeterStatus()
 	c.Assert(status.Code, gc.Equals, state.MeterGreen)
+	c.Assert(mm.ModelStatus().Code, gc.Equals, state.MeterNotSet)
 	now := coretesting.NonZeroTime()
 	err = mm.SetLastSuccessfulSend(now)
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,6 +121,7 @@ func (s *metricsManagerSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(status.Code, gc.Equals, state.MeterAmber)
 	err = mm.SetLastSuccessfulSend(now.Add(-(24 * 7 * time.Hour)))
 	c.Assert(err, jc.ErrorIsNil)
+
 	for i := 0; i < 3; i++ {
 		err := mm.IncrementConsecutiveErrors()
 		c.Assert(err, jc.ErrorIsNil)
@@ -123,8 +129,37 @@ func (s *metricsManagerSuite) TestMeterStatus(c *gc.C) {
 	status = mm.MeterStatus()
 	c.Assert(status.Code, gc.Equals, state.MeterRed)
 
+	// if we create a new metrics manager, it will pick up
+	// model meter status from mongo (RED).
+	m, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.ModelStatus().Code, gc.Equals, state.MeterRed)
+
 	err = mm.SetLastSuccessfulSend(now)
 	c.Assert(err, jc.ErrorIsNil)
 	status = mm.MeterStatus()
 	c.Assert(status.Code, gc.Equals, state.MeterGreen)
+
+	// if we create a new metrics manager, it will pick up
+	// model meter status from mongo (GREEN).
+	m, err = s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.ModelStatus().Code, gc.Equals, state.MeterGreen)
+
+	err = mm.SetGracePeriod(time.Hour)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i := 0; i < 3; i++ {
+		err := mm.IncrementConsecutiveErrors()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	s.Clock.Advance(24 * time.Hour)
+
+	status = mm.MeterStatus()
+	c.Assert(status.Code, gc.Equals, state.MeterRed)
+
+	m, err = s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.MeterStatus(), jc.DeepEquals, status)
 }
