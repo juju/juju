@@ -4,7 +4,10 @@
 package apiserver_test
 
 import (
+	"regexp"
+
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
@@ -60,4 +63,42 @@ func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
 		metrics = append(metrics, metric)
 	}
 	c.Assert(metrics, gc.HasLen, 3)
+}
+
+func (s *apiservermetricsSuite) TestLabelNames(c *gc.C) {
+	// This is the prometheus label specs.
+	labelNameRE := regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
+	testCases := []struct {
+		name    string
+		labels  []string
+		checker gc.Checker
+	}{
+		{
+			name:    "api connections label names",
+			labels:  apiserver.MetricAPIConnectionsLabelNames,
+			checker: jc.IsTrue,
+		},
+		{
+			name:    "ping failure label names",
+			labels:  apiserver.MetricPingFailureLabelNames,
+			checker: jc.IsTrue,
+		},
+		{
+			name:    "log failure label names",
+			labels:  apiserver.MetricLogLabelNames,
+			checker: jc.IsTrue,
+		},
+		{
+			name:    "invalid names",
+			labels:  []string{"model-uuid"},
+			checker: jc.IsFalse,
+		},
+	}
+
+	for i, testCase := range testCases {
+		c.Logf("running test %d", i)
+		for k, label := range testCase.labels {
+			c.Assert(labelNameRE.MatchString(label), testCase.checker, gc.Commentf("%d %s", k, testCase.name))
+		}
+	}
 }

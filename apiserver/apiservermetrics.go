@@ -20,7 +20,8 @@ const MetricLabelEndpoint = "endpoint"
 
 // MetricLabelModelUUID defines a constant for the PingFailureCount and
 // LogWriteCount Label
-const MetricLabelModelUUID = "model-uuid"
+// Note: prometheus doesn't allow hyphens only underscores
+const MetricLabelModelUUID = "model_uuid"
 
 // MetricLabelState defines a constant for the LogWriteCount Label
 const MetricLabelState = "state"
