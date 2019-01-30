@@ -2209,11 +2209,13 @@ func (w *docWatcher) loop(docKeys []docKey) error {
 		case <-w.watcher.Dead():
 			return stateWatcherDeadError(w.watcher.Err())
 		case ch := <-in:
+			logger.Criticalf("in channel triggered")
 			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
 			}
 			out = w.out
 		case out <- struct{}{}:
+			logger.Criticalf("out channel sent")
 			out = nil
 		}
 	}

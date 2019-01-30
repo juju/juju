@@ -21,9 +21,10 @@ type watcherSuite struct {
 	testing.StateSuite
 }
 
-func (s *watcherSuite) TestEntityWatcherEvents(c *gc.C) {
+func (s *watcherSuite) TestEntityWatcherEventsNonExistent(c *gc.C) {
 	// Just watching a document should not trigger an event
-	w := state.NewEntityWatcher(s.State, "coll", "id")
+	c.Logf("starting watcher for %q %q", "machines", "2")
+	w := state.NewEntityWatcher(s.State, "machines", "2")
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
-	wc.AssertNoChange()
+	wc.AssertOneChange()
 }
