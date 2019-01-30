@@ -32,6 +32,9 @@ same way as the deploy command) before comparing with the model.
 The map-machines option works similarly as for the deploy command, but
 existing is always assumed, so it doesn't need to be specified.
 
+Config values for comparison are always source from the "current" model
+generation.
+
 Examples:
     juju diff-bundle localbundle.yaml
     juju diff-bundle canonical-kubernetes
