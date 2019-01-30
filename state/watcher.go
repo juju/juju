@@ -1275,16 +1275,25 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 // leaving the scope in the supplied RelationScopeChange event, and applies
 // the expressed changes to the supplied RelationUnitsChange event.
 func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c *RelationScopeChange) error {
-	for _, name := range c.Entered {
+	docIds := make([]interface{}, len(c.Entered))
+	for i, name := range c.Entered {
 		key := w.sw.prefix + name
 		docID := w.backend.docID(key)
-		revno, err := w.mergeSettings(changes, key)
+		docIds[i] = docID
+	}
+	if err := w.watcher.WatchMulti(settingsC, docIds, w.updates); err != nil {
+		return errors.Trace(err)
+	}
+	for _, docID := range docIds {
+		w.watching.Add(docID.(string))
+	}
+	for _, name := range c.Entered {
+		key := w.sw.prefix + name
+		_, err := w.mergeSettings(changes, key)
 		if err != nil {
 			return errors.Annotatef(err, "while merging settings for %q entering relation scope", name)
 		}
 		changes.Departed = remove(changes.Departed, name)
-		w.watcher.WatchAtRevno(settingsC, docID, revno, w.updates)
-		w.watching.Add(docID)
 	}
 	for _, name := range c.Left {
 		key := w.sw.prefix + name
