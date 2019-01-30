@@ -75,9 +75,6 @@ type Change struct {
 	C  string
 	Id interface{}
 
-	// IsDeleted will be True if the document has been removed, rather than added
-	IsDeleted bool
-
 	// Revno is the latest known value for the document's txn-revno
 	// field, or -1 if the document was deleted.
 	Revno int64
@@ -387,10 +384,9 @@ func (w *Watcher) flush() {
 		e := &w.syncEvents[i]
 		for e.ch != nil {
 			change := Change{
-				C:         e.key.c,
-				Id:        e.key.id,
-				IsDeleted: e.isDeleted,
-				Revno:     e.revno,
+				C:     e.key.c,
+				Id:    e.key.id,
+				Revno: e.revno,
 			}
 			select {
 			case <-w.tomb.Dying():
@@ -409,10 +405,9 @@ func (w *Watcher) flush() {
 		e := &w.requestEvents[i]
 		for e.ch != nil {
 			change := Change{
-				C:         e.key.c,
-				Id:        e.key.id,
-				IsDeleted: e.isDeleted,
-				Revno:     e.revno,
+				C:     e.key.c,
+				Id:    e.key.id,
+				Revno: e.revno,
 			}
 			select {
 			case <-w.tomb.Dying():

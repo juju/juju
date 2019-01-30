@@ -939,10 +939,9 @@ func (b *storeManagerTestBacking) updateEntity(info multiwatcher.EntityInfo) {
 	b.txnRevno++
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
-			C:         id.Kind,
-			Id:        ensureModelUUID(id.ModelUUID, id.Id),
-			IsDeleted: false,
-			Revno:     b.txnRevno, // This is actually ignored, but fill it in anyway.
+			C:     id.Kind,
+			Id:    ensureModelUUID(id.ModelUUID, id.Id),
+			Revno: b.txnRevno, // This is actually ignored, but fill it in anyway.
 		}
 	}
 }
@@ -960,10 +959,9 @@ func (b *storeManagerTestBacking) deleteEntity(id multiwatcher.EntityId) {
 	b.txnRevno++
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
-			C:         id.Kind,
-			Id:        ensureModelUUID(id.ModelUUID, id.Id),
-			IsDeleted: true,
-			Revno:     -1,
+			C:     id.Kind,
+			Id:    ensureModelUUID(id.ModelUUID, id.Id),
+			Revno: -1,
 		}
 	}
 }

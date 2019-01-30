@@ -375,10 +375,9 @@ func (w *TxnWatcher) sync() (bool, error) {
 					revno = -1
 				}
 				w.syncEvents = append(w.syncEvents, Change{
-					C:         c.Name,
-					Id:        d[i],
-					IsDeleted: revno == -1,
-					Revno:     revno,
+					C:     c.Name,
+					Id:    d[i],
+					Revno: revno,
 				})
 				w.changesCount++
 				added = true

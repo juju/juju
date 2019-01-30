@@ -97,7 +97,7 @@ func (s *HubWatcherSuite) TestWatchBeforeKnown(c *gc.C) {
 	s.w.WatchNoRevno("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 
-	change := watcher.Change{"test", "a", false, 5}
+	change := watcher.Change{"test", "a", 5}
 	s.publish(c, change)
 
 	assertChange(c, s.ch, change)
@@ -105,7 +105,7 @@ func (s *HubWatcherSuite) TestWatchBeforeKnown(c *gc.C) {
 }
 
 func (s *HubWatcherSuite) TestWatchAfterKnown(c *gc.C) {
-	change := watcher.Change{"test", "a", false, 5}
+	change := watcher.Change{"test", "a", 5}
 	s.publish(c, change)
 
 	// WatchNoRevno doesn't publish an initial event, whether or not we've
@@ -117,7 +117,7 @@ func (s *HubWatcherSuite) TestWatchAfterKnown(c *gc.C) {
 func (s *HubWatcherSuite) TestWatchIgnoreUnwatched(c *gc.C) {
 	s.w.WatchNoRevno("test", "a", s.ch)
 
-	s.publish(c, watcher.Change{"test", "b", false, 5})
+	s.publish(c, watcher.Change{"test", "b", 5})
 
 	assertNoChange(c, s.ch)
 }
@@ -127,7 +127,7 @@ func (s *HubWatcherSuite) TestWatchMultiBeforeKnown(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoChange(c, s.ch)
 
-	change := watcher.Change{"test", "a", false, 5}
+	change := watcher.Change{"test", "a", 5}
 	s.publish(c, change)
 
 	assertChange(c, s.ch, change)
@@ -140,7 +140,7 @@ func (s *HubWatcherSuite) TestWatchMultiDuplicateWatch(c *gc.C) {
 	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
 	c.Assert(err, gc.ErrorMatches, `tried to re-add channel .* for document "b" in collection "test"`)
 	// Changes to "a" should not be watched as we had an error
-	s.publish(c, watcher.Change{"test", "a", false, 5})
+	s.publish(c, watcher.Change{"test", "a", 5})
 	assertNoChange(c, s.ch)
 }
 
@@ -148,26 +148,26 @@ func (s *HubWatcherSuite) TestWatchMultiInvalidId(c *gc.C) {
 	err := s.w.WatchMulti("test", []interface{}{"a", nil}, s.ch)
 	c.Assert(err, gc.ErrorMatches, `cannot watch a document with nil id`)
 	// Changes to "a" should not be watched as we had an error
-	s.publish(c, watcher.Change{"test", "a", false, 5})
+	s.publish(c, watcher.Change{"test", "a", 5})
 	assertNoChange(c, s.ch)
 }
 
 func (s *HubWatcherSuite) TestWatchMultiAfterKnown(c *gc.C) {
-	s.publish(c, watcher.Change{"test", "a", false, 5})
+	s.publish(c, watcher.Change{"test", "a", 5})
 	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoChange(c, s.ch)
 	// We don't see the change that occurred before we started watching, but we see any changes after that fact
-	change := watcher.Change{"test", "a", false, 6}
+	change := watcher.Change{"test", "a", 6}
 	s.publish(c, change)
 	assertChange(c, s.ch, change)
 	assertNoChange(c, s.ch)
 }
 
 func (s *HubWatcherSuite) TestWatchOrder(c *gc.C) {
-	first := watcher.Change{"test", "a", false, 3}
-	second := watcher.Change{"test", "b", false, 4}
-	third := watcher.Change{"test", "c", false, 5}
+	first := watcher.Change{"test", "a", 3}
+	second := watcher.Change{"test", "b", 4}
+	third := watcher.Change{"test", "c", 5}
 
 	for _, id := range []string{"a", "b", "c", "d"} {
 		s.w.WatchNoRevno("test", id, s.ch)
@@ -189,9 +189,9 @@ func (s *HubWatcherSuite) TestWatchMultipleChannels(c *gc.C) {
 	s.w.WatchNoRevno("test2", 2, ch2)
 	s.w.WatchNoRevno("test3", 3, ch3)
 
-	first := watcher.Change{"test1", 1, false, 3}
-	second := watcher.Change{"test2", 2, false, 4}
-	third := watcher.Change{"test3", 3, false, 5}
+	first := watcher.Change{"test1", 1, 3}
+	second := watcher.Change{"test2", 2, 4}
+	third := watcher.Change{"test3", 3, 5}
 	s.publish(c, first, second, third)
 
 	s.w.Unwatch("test2", 2, ch2)
@@ -203,7 +203,7 @@ func (s *HubWatcherSuite) TestWatchMultipleChannels(c *gc.C) {
 }
 
 func (s *HubWatcherSuite) TestWatchAlreadyRemoved(c *gc.C) {
-	change := watcher.Change{"test", "a", true, -1}
+	change := watcher.Change{"test", "a", -1}
 	s.publish(c, change)
 
 	s.w.WatchNoRevno("test", "a", s.ch)
@@ -216,7 +216,7 @@ func (s *HubWatcherSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 		s.w.WatchNoRevno("test", i, s.ch)
 	}
 	for i := 0; i < N; i++ {
-		s.publish(c, watcher.Change{"test", i, false, int64(i + 3)})
+		s.publish(c, watcher.Change{"test", i, int64(i + 3)})
 	}
 	for i := 1; i < N; i += 2 {
 		s.w.Unwatch("test", i, s.ch)
@@ -246,10 +246,10 @@ func (s *HubWatcherSuite) TestWatchCollection(c *gc.C) {
 	s.w.WatchCollection("testB", chB)
 
 	changes := []watcher.Change{
-		{"testA", 1, false, 3},
-		{"testA", 2, false, 2},
-		{"testB", 1, false, 5},
-		{"testB", 2, false, 6},
+		{"testA", 1, 3},
+		{"testA", 2, 2},
+		{"testB", 1, 5},
+		{"testB", 2, 6},
 	}
 	s.publish(c, changes...)
 
@@ -283,7 +283,7 @@ func (s *HubWatcherSuite) TestWatchCollection(c *gc.C) {
 	s.w.UnwatchCollection("testB", chB)
 	s.w.Unwatch("testB", 1, chB1)
 
-	next := watcher.Change{"testA", 1, false, 4}
+	next := watcher.Change{"testA", 1, 4}
 	s.publish(c, next)
 
 	seen = map[chan<- watcher.Change][]watcher.Change{}
@@ -310,32 +310,32 @@ func (s *HubWatcherSuite) TestUnwatchCollectionWithFilter(c *gc.C) {
 		return id != 2
 	}
 
-	change := watcher.Change{"testA", 1, false, 3}
+	change := watcher.Change{"testA", 1, 3}
 	s.w.WatchCollectionWithFilter("testA", s.ch, filter)
 	s.publish(c, change)
 	assertChange(c, s.ch, change)
-	s.publish(c, watcher.Change{"testA", 2, false, 2})
+	s.publish(c, watcher.Change{"testA", 2, 2})
 	assertNoChange(c, s.ch)
 
-	change = watcher.Change{"testA", 3, false, 3}
+	change = watcher.Change{"testA", 3, 3}
 	s.publish(c, change)
 	assertChange(c, s.ch, change)
 }
 
 func (s *HubWatcherSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
-	added := watcher.Change{"test", "a", false, 2}
+	added := watcher.Change{"test", "a", 2}
 	s.publish(c, added)
 
 	s.w.WatchNoRevno("test", "a", s.ch)
 
-	removed := watcher.Change{"test", "a", true, -1}
+	removed := watcher.Change{"test", "a", -1}
 	s.publish(c, removed)
 	assertChange(c, s.ch, removed)
 }
 
 func (s *HubWatcherSuite) TestWatchStoppedWhileFlushing(c *gc.C) {
-	first := watcher.Change{"test", "a", false, 2}
-	second := watcher.Change{"test", "a", false, 3}
+	first := watcher.Change{"test", "a", 2}
+	second := watcher.Change{"test", "a", 3}
 
 	s.w.WatchNoRevno("test", "a", s.ch)
 

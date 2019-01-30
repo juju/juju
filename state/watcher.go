@@ -141,7 +141,7 @@ func collect(one watcher.Change, more <-chan watcher.Change, stop <-chan struct{
 	result := map[interface{}]bool{}
 	handle := func(ch watcher.Change) {
 		count++
-		result[ch.Id] = !ch.IsDeleted
+		result[ch.Id] = ch.Revno > 0
 	}
 	handle(one)
 	// TODO(fwereade): 2016-03-17 lp:1558657
@@ -748,7 +748,7 @@ func (w *minUnitsWatcher) initial() (set.Strings, error) {
 
 func (w *minUnitsWatcher) merge(applicationnames set.Strings, change watcher.Change) error {
 	applicationname := w.backend.localID(change.Id.(string))
-	if change.IsDeleted {
+	if change.Revno < 0 {
 		delete(w.known, applicationname)
 		applicationnames.Remove(applicationname)
 		return nil
@@ -919,7 +919,7 @@ func (w *modelFieldChangeWatcher) initial() (set.Strings, error) {
 
 func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.Change) error {
 	machineId := w.backend.localID(change.Id.(string))
-	if change.IsDeleted {
+	if change.Revno < 0 {
 		if _, ok := w.known[machineId]; ok {
 			logger.Tracef("stopped field change watching for machine %q", machineId)
 		}
@@ -2061,7 +2061,7 @@ func (w *instanceCharmProfileDataWatcher) initial() error {
 
 func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, error) {
 	machineId := change.Id.(string)
-	if change.IsDeleted {
+	if change.Revno < 0 {
 		return false, nil
 	}
 	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
@@ -3166,7 +3166,7 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if change.IsDeleted {
+	if change.Revno < 0 {
 		delete(w.known, localID)
 		if changeID, err := w.transformID(localID); err != nil {
 			logger.Errorf(err.Error())

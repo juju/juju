@@ -435,10 +435,9 @@ func (w *HubWatcher) flush() bool {
 		for e := &w.syncEvents[i]; e.ch != nil; e = &w.syncEvents[i] {
 			w.logger.Tracef("syncEvents: e.ch=%v len(%d), cap(%d)", e.ch, len(w.syncEvents), cap(w.syncEvents))
 			change := Change{
-				C:         e.key.c,
-				Id:        e.key.id,
-				IsDeleted: e.isDeleted,
-				Revno:     e.revno,
+				C:     e.key.c,
+				Id:    e.key.id,
+				Revno: e.revno,
 			}
 			select {
 			case <-w.tomb.Dying():
@@ -477,10 +476,9 @@ func (w *HubWatcher) flush() bool {
 		// as the slice may be reallocated.
 		for e := &w.requestEvents[i]; e.ch != nil; e = &w.requestEvents[i] {
 			change := Change{
-				C:         e.key.c,
-				Id:        e.key.id,
-				IsDeleted: e.isDeleted,
-				Revno:     e.revno,
+				C:     e.key.c,
+				Id:    e.key.id,
+				Revno: e.revno,
 			}
 			select {
 			case <-w.tomb.Dying():
@@ -644,10 +642,9 @@ func (w *HubWatcher) queueChange(change Change) {
 			continue
 		}
 		evt := event{
-			ch:        info.ch,
-			key:       key,
-			isDeleted: change.IsDeleted,
-			revno:     revno,
+			ch:    info.ch,
+			key:   key,
+			revno: revno,
 		}
 		w.syncEvents = append(w.syncEvents, evt)
 		w.syncEventCollectionCount++
@@ -660,10 +657,9 @@ func (w *HubWatcher) queueChange(change Change) {
 		if revno > info.revno || revno < 0 && info.revno >= 0 {
 			infos[i].revno = revno
 			evt := event{
-				ch:        info.ch,
-				key:       key,
-				isDeleted: change.IsDeleted,
-				revno:     revno,
+				ch:    info.ch,
+				key:   key,
+				revno: revno,
 			}
 			w.syncEvents = append(w.syncEvents, evt)
 			w.syncEventDocCount++
