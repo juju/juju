@@ -294,14 +294,7 @@ func (w *Worker) Wait() error {
 func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	// Register the metrics.
 	if w.config.PrometheusRegisterer != nil {
-		collector, err := registerMetrics(w.config.PrometheusRegisterer)
-		if err != nil {
-			// It isn't a fatal error to fail to register the metrics, so
-			// log and continue
-			w.config.Logger.Warningf("registration of raft metrics failed: %v", err)
-		} else {
-			defer w.config.PrometheusRegisterer.Unregister(collector)
-		}
+		registerMetrics(w.config.PrometheusRegisterer, w.config.Logger)
 	}
 
 	rawLogStore, err := NewLogStore(w.config.StorageDir)
