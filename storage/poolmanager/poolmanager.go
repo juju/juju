@@ -48,6 +48,21 @@ func (pm *poolManager) Create(name string, providerType storage.ProviderType, at
 		return nil, MissingTypeError
 	}
 
+	cfg, err := pm.validatedConfig(name, providerType, attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	poolAttrs := cfg.Attrs()
+	poolAttrs[Name] = name
+	poolAttrs[Type] = string(providerType)
+	if err := pm.settings.CreateSettings(globalKey(name), poolAttrs); err != nil {
+		return nil, errors.Annotatef(err, "creating pool %q", name)
+	}
+	return cfg, nil
+}
+
+func (pm *poolManager) validatedConfig(name string, providerType storage.ProviderType, attrs map[string]interface{}) (*storage.Config, error) {
 	cfg, err := storage.NewConfig(name, providerType, attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -60,12 +75,6 @@ func (pm *poolManager) Create(name string, providerType storage.ProviderType, at
 		return nil, errors.Annotate(err, "validating storage provider config")
 	}
 
-	poolAttrs := cfg.Attrs()
-	poolAttrs[Name] = name
-	poolAttrs[Type] = string(providerType)
-	if err := pm.settings.CreateSettings(globalKey(name), poolAttrs); err != nil {
-		return nil, errors.Annotatef(err, "creating pool %q", name)
-	}
 	return cfg, nil
 }
 
@@ -83,6 +92,30 @@ func (pm *poolManager) Replace(name string, attrs map[string]interface{}) error 
 	if name == "" {
 		return MissingNameError
 	}
+	var providerType storage.ProviderType
+	if newProviderType, ok := attrs[Type]; ok {
+		switch newProviderType.(type) {
+		case string:
+			providerType = storage.ProviderType(newProviderType.(string))
+		default:
+			return errors.New("provider type must be a string")
+		}
+	} else {
+		existingConfig, err := pm.Get(name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		providerType = existingConfig.Provider()
+	}
+	attrs[Type] = providerType
+	attrs[Name] = name
+	cfg, err := pm.validatedConfig(name, providerType, attrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	validatedAttrs := cfg.Attrs()
+	validatedAttrs[Name] = name
+	validatedAttrs[Type] = string(providerType)
 	return pm.settings.ReplaceSettings(globalKey(name), attrs)
 }
 

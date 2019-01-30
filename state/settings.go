@@ -373,7 +373,7 @@ func removeSettingsOp(collection, key string) txn.Op {
 	}
 }
 
-// replaceSettings replaces the settings value for key.
+// replaceSettings replaces the settings values for key.
 func replaceSettings(db Database, collection, key string, values map[string]interface{}) error {
 	op, _, err := replaceSettingsOp(db, collection, key, values)
 	if err != nil {
