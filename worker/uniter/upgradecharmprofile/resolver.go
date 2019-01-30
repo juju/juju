@@ -25,6 +25,13 @@ func NewResolver() resolver.Resolver {
 func (l *upgradeCharmProfileResolver) NextOp(
 	localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory,
 ) (operation.Operation, error) {
+	// In case we arrive here, via charm modified, check to see if the local
+	// and remote charm URLs are the same.  If no change, don't wait for a
+	// profile to be applied.
+	if localState.CharmURL == remoteState.CharmURL {
+		logger.Debugf("most likely charm upgrade via modifed, no need to ensure profile change if charmURL not changed.")
+		return nil, resolver.ErrNoOperation
+	}
 	// Ensure the lxd profile is installed, before we move to upgrading
 	// of the charm.
 	if !lxdprofile.UpgradeStatusTerminal(remoteState.UpgradeCharmProfileStatus) {
@@ -44,6 +51,5 @@ func (l *upgradeCharmProfileResolver) NextOp(
 		logger.Errorf("error upgrading charm profile: %v", remoteState.UpgradeCharmProfileStatus)
 		return opFactory.NewFinishUpgradeCharmProfile(remoteState.CharmURL)
 	}
-
 	return nil, resolver.ErrNoOperation
 }
