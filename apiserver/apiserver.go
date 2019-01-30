@@ -66,7 +66,6 @@ type Server struct {
 	limiter                utils.Limiter
 	loginRetryPause        time.Duration
 	facades                *facade.Registry
-	modelUUID              string
 	authenticator          httpcontext.LocalMacaroonAuthenticator
 	offerAuthCtxt          *crossmodel.AuthContext
 	lastConnectionID       uint64
@@ -472,7 +471,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
-		srv.modelUUID,
+		controllerModelUUID,
 	)
 	logSinkAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UnitTagKind, names.ApplicationTagKind}
 	logTransferHandler := logsink.NewHTTPHandler(
@@ -482,7 +481,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		httpCtxt.stop(),
 		nil, // no rate-limiting
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
-		srv.modelUUID,
+		controllerModelUUID,
 	)
 	modelRestHandler := &modelRestHandler{
 		ctxt:          httpCtxt,
