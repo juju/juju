@@ -505,8 +505,8 @@ type fakeFSM struct {
 	pinned     map[lease.Key][]string
 }
 
-func (f *fakeFSM) Leases(t time.Time, keys ...lease.Key) map[lease.Key]lease.Info {
-	f.AddCall("Leases", t, keys)
+func (f *fakeFSM) Leases(t func() time.Time, keys ...lease.Key) map[lease.Key]lease.Info {
+	f.AddCall("Leases", t(), keys)
 	return f.leases
 }
 

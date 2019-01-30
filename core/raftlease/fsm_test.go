@@ -59,7 +59,7 @@ func (s *fsmSuite) TestClaim(c *gc.C) {
 	c.Assert(resp.Error(), jc.ErrorIsNil)
 	assertClaimed(c, resp, lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}, "me")
 
-	c.Assert(s.fsm.Leases(zero), gc.DeepEquals,
+	c.Assert(s.fsm.Leases(timeDelegate(zero)), gc.DeepEquals,
 		map[lease.Key]lease.Info{
 			{"ns", "model", "lease"}: {
 				Holder: "me",
@@ -112,7 +112,7 @@ func (s *fsmSuite) TestExtend(c *gc.C) {
 	c.Assert(resp.Error(), jc.ErrorIsNil)
 	assertNoNotifications(c, resp)
 
-	c.Assert(s.fsm.Leases(zero), gc.DeepEquals,
+	c.Assert(s.fsm.Leases(timeDelegate(zero)), gc.DeepEquals,
 		map[lease.Key]lease.Info{
 			{"ns", "model", "lease"}: {
 				Holder: "me",
@@ -128,7 +128,7 @@ func (s *fsmSuite) TestExtend(c *gc.C) {
 	c.Assert(resp.Error(), jc.ErrorIsNil)
 	assertNoNotifications(c, resp)
 
-	c.Assert(s.fsm.Leases(zero), gc.DeepEquals,
+	c.Assert(s.fsm.Leases(timeDelegate(zero)), gc.DeepEquals,
 		map[lease.Key]lease.Info{
 			{"ns", "model", "lease"}: {
 				Holder: "me",
@@ -223,7 +223,7 @@ func (s *fsmSuite) TestSetTimeExpiresLeases(c *gc.C) {
 	)
 
 	// Using the same local time as global time to keep things clear.
-	c.Assert(s.fsm.Leases(offset(4*time.Second)), gc.DeepEquals,
+	c.Assert(s.fsm.Leases(timeDelegate(offset(4*time.Second))), gc.DeepEquals,
 		map[lease.Key]lease.Info{
 			{"ns", "model", "bang-on"}: {
 				Holder: "you",
@@ -384,7 +384,7 @@ func (s *fsmSuite) TestLeases(c *gc.C) {
 		Duration:  4 * time.Second,
 	}).Error(), jc.ErrorIsNil)
 
-	c.Assert(s.fsm.Leases(zero), gc.DeepEquals,
+	c.Assert(s.fsm.Leases(timeDelegate(zero)), gc.DeepEquals,
 		map[lease.Key]lease.Info{
 			{"ns", "model", "lease"}: {
 				Holder: "me",
@@ -418,7 +418,9 @@ func (s *fsmSuite) TestLeasesFilter(c *gc.C) {
 		Duration:  4 * time.Second,
 	}).Error(), jc.ErrorIsNil)
 
-	c.Assert(s.fsm.Leases(zero, lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}), gc.DeepEquals,
+	c.Assert(
+		s.fsm.Leases(timeDelegate(zero), lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}),
+		gc.DeepEquals,
 		map[lease.Key]lease.Info{
 			{"ns", "model", "lease"}: {
 				Holder: "me",
@@ -449,7 +451,7 @@ func (s *fsmSuite) TestLeasesPinnedFutureExpiry(c *gc.C) {
 
 	// Even though the lease duration is only one second,
 	// expiry should be represented as 30 seconds in the future.
-	c.Assert(s.fsm.Leases(zero), gc.DeepEquals,
+	c.Assert(s.fsm.Leases(timeDelegate(zero)), gc.DeepEquals,
 		map[lease.Key]lease.Info{
 			{"ns", "model", "lease"}: {
 				Holder: "me",
@@ -486,7 +488,7 @@ func (s *fsmSuite) TestLeasesDifferentTime(c *gc.C) {
 	}).Error(), jc.ErrorIsNil)
 
 	// Global time is 00:00:02, but we think it's only 00:00:01
-	c.Assert(s.fsm.Leases(offset(time.Second)), gc.DeepEquals,
+	c.Assert(s.fsm.Leases(timeDelegate(offset(time.Second))), gc.DeepEquals,
 		map[lease.Key]lease.Info{
 			{"ns", "model", "lease"}: {
 				Holder: "me",
@@ -500,7 +502,7 @@ func (s *fsmSuite) TestLeasesDifferentTime(c *gc.C) {
 	)
 
 	// Global time is 00:00:02, but we think it's 00:00:04!
-	c.Assert(s.fsm.Leases(offset(4*time.Second)), gc.DeepEquals,
+	c.Assert(s.fsm.Leases(timeDelegate(offset(4*time.Second))), gc.DeepEquals,
 		map[lease.Key]lease.Info{
 			{"ns", "model", "lease"}: {
 				Holder: "me",
@@ -831,3 +833,11 @@ pinned:
     lease: lease
   : [machine-0]
 `[1:]
+
+// timeDelegate is a convenience wrapper for turning a time into a delegate
+// returning the input time.
+// It is intended for use with static time values in testing, so we don't care
+// that it does not do run-time evaluation.
+func timeDelegate(t time.Time) func() time.Time {
+	return func() time.Time { return t }
+}
