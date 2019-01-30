@@ -273,7 +273,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer apiRoot.Close()
+	defer func() { _ = apiRoot.Close() }()
 
 	// If the user has specified config or storage constraints,
 	// make sure the server has facade version 2 at a minimum.
@@ -291,10 +291,10 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// TODO (manadart 2018-01-24) This value will be retrieved from the local
-	// store (generally ~/.local/share/juju).
-	generation := model.GenerationCurrent
-
+	generation, err := c.ModelGeneration()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	charmUpgradeClient := c.NewCharmUpgradeClient(apiRoot)
 	oldURL, err := charmUpgradeClient.GetCharmURL(generation, c.ApplicationName)
 	if err != nil {
@@ -392,7 +392,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 // in the new charm's metadata and returns a map of resource names to pending
 // IDs to include in the upgrage-charm call.
 //
-// TODO(axw) apiRoot is passed in here because DeloyResources requires it,
+// TODO(axw) apiRoot is passed in here because DeployResources requires it,
 // DeployResources should accept a resource-specific client instead.
 func (c *upgradeCharmCommand) upgradeResources(
 	apiRoot base.APICallCloser,

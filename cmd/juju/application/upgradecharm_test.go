@@ -126,7 +126,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 	}
 	store.Models["foo"] = &jujuclient.ControllerModels{
 		CurrentModel: "admin/bar",
-		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
+		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {ModelGeneration: model.GenerationNext}},
 	}
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		s.AddCall("OpenAPI")
@@ -177,9 +177,7 @@ func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
 
-	// TODO (manadart 2019-01-24) Once we are retrieving the active generation
-	// from the local store, this test should flex that behaviour.
-	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationCurrent, application.SetCharmConfig{
+	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationNext, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -229,9 +227,7 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
 
-	// TODO (manadart 2019-01-24) Once we are retrieving the active generation
-	// from the local store, this test should flex that behaviour.
-	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationCurrent, application.SetCharmConfig{
+	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationNext, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,

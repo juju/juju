@@ -179,10 +179,11 @@ func (c *configCommand) Init(args []string) error {
 
 func (c *configCommand) validateGeneration() error {
 	if c.generation == "" {
-		// TODO (manadart 2018-01-23) If unspecified via the --generation
-		// option, this value will be retrieved from the local store
-		// (generally ~/.local/share/juju).
-		c.generation = string(model.GenerationCurrent)
+		gen, err := c.ModelGeneration()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		c.generation = string(gen)
 	}
 	if !set.NewStrings(string(model.GenerationCurrent), string(model.GenerationNext)).Contains(c.generation) {
 		return errors.New(`generation option must be "current" or "next"`)
@@ -421,20 +422,15 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 	}
 
 	err = c.out.Write(ctx, resultsMap)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
-	if featureflag.Enabled(feature.Generations) {
-		gen, err := c.ModelGeneration()
-		if err != nil {
-			return errors.Trace(err)
+	if featureflag.Enabled(feature.Generations) && err == nil {
+		var gen model.GenerationVersion
+		gen, err = c.ModelGeneration()
+		if err == nil {
+			_, err = ctx.Stdout.Write([]byte(fmt.Sprintf("\nchanges will be targeted to generation: %s\n", gen)))
 		}
-
-		ctx.Stdout.Write([]byte(fmt.Sprintf("\nchanges will be targeted to generation: %s\n", gen)))
 	}
-	return nil
-
+	return errors.Trace(err)
 }
 
 // validateValues reads the values provided as args and validates that they are
