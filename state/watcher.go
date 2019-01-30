@@ -1764,7 +1764,7 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 func (w *unitsWatcher) loop(coll, id string) error {
 	logger.Tracef("watching root channel %q %q", coll, id)
 	rootCh := make(chan watcher.Change)
-	w.watcher.WatchNoRevno(coll, id, rootCh)
+	w.watcher.Watch(coll, id, rootCh)
 	defer func() {
 		w.watcher.Unwatch(coll, id, rootCh)
 		for name := range w.life {
@@ -2199,7 +2199,7 @@ func (w *docWatcher) loop(docKeys []docKey) error {
 	in := make(chan watcher.Change)
 	logger.Criticalf("watching docs: %v", docKeys)
 	for _, k := range docKeys {
-		w.watcher.WatchNoRevno(k.coll, k.docId, in)
+		w.watcher.Watch(k.coll, k.docId, in)
 		defer w.watcher.Unwatch(k.coll, k.docId, in)
 	}
 	// Check to see if there is a backing event that should be coalesced with the
@@ -2420,7 +2420,7 @@ func (w *machineUnitsWatcher) loop() error {
 	}()
 
 	machineCh := make(chan watcher.Change)
-	w.watcher.WatchNoRevno(machinesC, w.machine.doc.DocID, machineCh)
+	w.watcher.Watch(machinesC, w.machine.doc.DocID, machineCh)
 	defer w.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	changes, err := w.updateMachine(nil)
 	if err != nil {
@@ -2494,7 +2494,7 @@ func (w *machineAddressesWatcher) Changes() <-chan struct{} {
 
 func (w *machineAddressesWatcher) loop() error {
 	machineCh := make(chan watcher.Change)
-	w.watcher.WatchNoRevno(machinesC, w.machine.doc.DocID, machineCh)
+	w.watcher.Watch(machinesC, w.machine.doc.DocID, machineCh)
 	defer w.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	addresses := w.machine.Addresses()
 	out := w.out
@@ -3246,7 +3246,7 @@ func (w *blockDevicesWatcher) Changes() <-chan struct{} {
 func (w *blockDevicesWatcher) loop() error {
 	docID := w.backend.docID(w.machineId)
 	changes := make(chan watcher.Change)
-	w.watcher.WatchNoRevno(blockDevicesC, docID, changes)
+	w.watcher.Watch(blockDevicesC, docID, changes)
 	defer w.watcher.Unwatch(blockDevicesC, docID, changes)
 	blockDevices, err := getBlockDevices(w.db, w.machineId)
 	if err != nil {
@@ -3309,7 +3309,7 @@ func (w *migrationActiveWatcher) Changes() <-chan struct{} {
 
 func (w *migrationActiveWatcher) loop() error {
 	in := make(chan watcher.Change)
-	w.watcher.WatchNoRevno(w.collName, w.id, in)
+	w.watcher.Watch(w.collName, w.id, in)
 	defer w.watcher.Unwatch(w.collName, w.id, in)
 
 	// check if there are any pending changes before the first event
@@ -3781,7 +3781,7 @@ func (w *containerAddressesWatcher) Changes() <-chan struct{} {
 func (w *containerAddressesWatcher) loop() error {
 	id := w.backend.docID(w.unit.globalKey())
 	containerCh := make(chan watcher.Change)
-	w.watcher.WatchNoRevno(cloudContainersC, id, containerCh)
+	w.watcher.Watch(cloudContainersC, id, containerCh)
 	defer w.watcher.Unwatch(cloudContainersC, id, containerCh)
 
 	var currentAddress *address
@@ -3963,7 +3963,7 @@ func (w *hashWatcher) start() {
 
 func (w *hashWatcher) loop() error {
 	changesCh := make(chan watcher.Change)
-	w.watcher.WatchNoRevno(w.collection, w.id, changesCh)
+	w.watcher.Watch(w.collection, w.id, changesCh)
 	defer w.watcher.Unwatch(w.collection, w.id, changesCh)
 
 	lastHash, err := w.hash()

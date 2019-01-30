@@ -249,26 +249,10 @@ func (w *HubWatcher) WatchMulti(collection string, ids []interface{}, ch chan<- 
 	return errors.Trace(w.sendAndWaitReq(req))
 }
 
-// WatchAtRevno starts watching the given collection and document id.
-// An event will be sent onto ch whenever a matching document's txn-revno
-// field is observed to change after a transaction is applied. The revno
-// parameter holds the currently known revision number for the document.
-// Non-existent documents are represented by a -1 revno.
-func (w *HubWatcher) WatchAtRevno(collection string, id interface{}, revno int64, ch chan<- Change) {
-	if id == nil {
-		panic("watcher: cannot watch a document with nil id")
-	}
-	w.sendAndWaitReq(reqWatch{
-		key:          watchKey{collection, id},
-		info:         watchInfo{ch, revno, nil},
-		registeredCh: make(chan error),
-	})
-}
-
-// WatchNoRevno starts watching the given collection and document id.
+// Watch starts watching the given collection and document id.
 // An event will be sent onto ch whenever a matching document's txn-revno
 // field is observed to change after a transaction is applied.
-func (w *HubWatcher) WatchNoRevno(collection string, id interface{}, ch chan<- Change) {
+func (w *HubWatcher) Watch(collection string, id interface{}, ch chan<- Change) {
 	if id == nil {
 		panic("watcher: cannot watch a document with nil id")
 	}
@@ -507,7 +491,7 @@ func (w *HubWatcher) handle(req interface{}) {
 	w.requestCount++
 	switch r := req.(type) {
 	case reqWatch:
-		// TODO(jam): 2019-01-30 Now that reqWatch has a registeredCh, we could have WatchNoRevno return an error
+		// TODO(jam): 2019-01-30 Now that reqWatch has a registeredCh, we could have Watch return an error
 		// rather than panic()
 		for _, info := range w.watches[r.key] {
 			if info.ch == r.info.ch {

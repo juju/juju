@@ -216,7 +216,7 @@ func (s *FastPeriodSuite) TestErrAndDead(c *gc.C) {
 }
 
 func (s *FastPeriodSuite) TestWatchBeforeKnown(c *gc.C) {
-	s.w.WatchNoRevno("test", "a", s.ch)
+	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 
 	revno := s.insert(c, "test", "a")
@@ -233,7 +233,7 @@ func (s *FastPeriodSuite) TestWatchAfterKnown(c *gc.C) {
 
 	s.w.StartSync()
 
-	s.w.WatchNoRevno("test", "a", s.ch)
+	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 	revno := s.update(c, "test", "a")
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
@@ -243,7 +243,7 @@ func (s *FastPeriodSuite) TestWatchAfterKnown(c *gc.C) {
 }
 
 func (s *FastPeriodSuite) TestWatchIgnoreUnwatched(c *gc.C) {
-	s.w.WatchNoRevno("test", "a", s.ch)
+	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 
 	s.insert(c, "test", "b")
@@ -255,7 +255,7 @@ func (s *FastPeriodSuite) TestWatchIgnoreUnwatched(c *gc.C) {
 func (s *FastPeriodSuite) TestWatchOrder(c *gc.C) {
 	s.w.StartSync()
 	for _, id := range []string{"a", "b", "c", "d"} {
-		s.w.WatchNoRevno("test", id, s.ch)
+		s.w.Watch("test", id, s.ch)
 	}
 	revno1 := s.insert(c, "test", "a")
 	revno2 := s.insert(c, "test", "b")
@@ -271,7 +271,7 @@ func (s *FastPeriodSuite) TestWatchOrder(c *gc.C) {
 func (s *FastPeriodSuite) TestTransactionWithMultiple(c *gc.C) {
 	s.w.StartSync()
 	for _, id := range []string{"a", "b", "c"} {
-		s.w.WatchNoRevno("test", id, s.ch)
+		s.w.Watch("test", id, s.ch)
 	}
 	revnos := s.insertAll(c, "test", "a", "b", "c")
 	s.w.StartSync()
@@ -285,9 +285,9 @@ func (s *FastPeriodSuite) TestWatchMultipleChannels(c *gc.C) {
 	ch1 := make(chan watcher.Change)
 	ch2 := make(chan watcher.Change)
 	ch3 := make(chan watcher.Change)
-	s.w.WatchNoRevno("test1", 1, ch1)
-	s.w.WatchNoRevno("test2", 2, ch2)
-	s.w.WatchNoRevno("test3", 3, ch3)
+	s.w.Watch("test1", 1, ch1)
+	s.w.Watch("test2", 2, ch2)
+	s.w.Watch("test3", 3, ch3)
 	revno1 := s.insert(c, "test1", 1)
 	revno2 := s.insert(c, "test2", 2)
 	revno3 := s.insert(c, "test3", 3)
@@ -308,12 +308,12 @@ func (s *FastPeriodSuite) TestIgnoreAncientHistory(c *gc.C) {
 	defer w.Stop()
 	w.StartSync()
 
-	w.WatchNoRevno("test", "a", s.ch)
+	w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 }
 
 func (s *FastPeriodSuite) TestUpdate(c *gc.C) {
-	s.w.WatchNoRevno("test", "a", s.ch)
+	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 
 	revno1 := s.insert(c, "test", "a")
@@ -329,7 +329,7 @@ func (s *FastPeriodSuite) TestUpdate(c *gc.C) {
 }
 
 func (s *FastPeriodSuite) TestRemove(c *gc.C) {
-	s.w.WatchNoRevno("test", "a", s.ch)
+	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 
 	revno1 := s.insert(c, "test", "a")
@@ -354,7 +354,7 @@ func (s *FastPeriodSuite) TestRemove(c *gc.C) {
 func (s *FastPeriodSuite) TestWatchKnownRemove(c *gc.C) {
 	revno1 := s.insert(c, "test", "a")
 	s.w.StartSync()
-	s.w.WatchNoRevno("test", "a", s.ch)
+	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 	revno2 := s.remove(c, "test", "a")
 	s.w.StartSync()
@@ -369,7 +369,7 @@ func (s *FastPeriodSuite) TestWatchAlreadyRemoved(c *gc.C) {
 	_ = s.remove(c, "test", "a")
 	s.w.StartSync()
 
-	s.w.WatchNoRevno("test", "a", s.ch)
+	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 	// If you watch after the changes have happened, you don't get an event.
 	// If you recreate the document, you see it show up again.
@@ -390,7 +390,7 @@ func (s *FastPeriodSuite) TestWatchMultiBeforeKnown(c *gc.C) {
 }
 
 func (s *FastPeriodSuite) TestWatchMultiDuplicateWatch(c *gc.C) {
-	s.w.WatchNoRevno("test", "b", s.ch)
+	s.w.Watch("test", "b", s.ch)
 	assertNoChange(c, s.ch)
 	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
 	c.Assert(err, gc.ErrorMatches, `tried to re-add channel .* for document "b" in collection "test"`)
@@ -409,7 +409,7 @@ func (s *FastPeriodSuite) TestWatchMultiInvalidId(c *gc.C) {
 }
 
 func (s *FastPeriodSuite) TestWatchMultiAfterKnown(c *gc.C) {
-	s.w.WatchNoRevno("test", "b", s.ch)
+	s.w.Watch("test", "b", s.ch)
 	revno1 := s.insert(c, "test", "a")
 	revnob := s.insert(c, "test", "b")
 	s.w.StartSync()
@@ -431,7 +431,7 @@ func (s *FastPeriodSuite) TestScale(c *gc.C) {
 
 	c.Logf("Watching all documents...")
 	for i := 0; i < N; i++ {
-		s.w.WatchNoRevno("test", i, s.ch)
+		s.w.Watch("test", i, s.ch)
 	}
 
 	c.Logf("Creating %d documents, %d per transaction...", N, T)
@@ -471,7 +471,7 @@ func (s *FastPeriodSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 	const N = 10
 	s.w.StartSync()
 	for i := 0; i < N; i++ {
-		s.w.WatchNoRevno("test", i, s.ch)
+		s.w.Watch("test", i, s.ch)
 	}
 	for i := 0; i < N; i++ {
 		s.insert(c, "test", i)
@@ -494,7 +494,7 @@ func (s *FastPeriodSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 }
 
 func (s *FastPeriodSuite) TestStartSync(c *gc.C) {
-	s.w.WatchNoRevno("test", "a", s.ch)
+	s.w.Watch("test", "a", s.ch)
 
 	revno := s.insert(c, "test", "a")
 
@@ -521,8 +521,8 @@ func (s *FastPeriodSuite) TestWatchCollection(c *gc.C) {
 	chA := make(chan watcher.Change)
 	chB := make(chan watcher.Change)
 
-	s.w.WatchNoRevno("testA", 1, chA1)
-	s.w.WatchNoRevno("testB", 1, chB1)
+	s.w.Watch("testA", 1, chA1)
+	s.w.Watch("testB", 1, chB1)
 	s.w.WatchCollection("testA", chA)
 	s.w.WatchCollection("testB", chB)
 
@@ -636,7 +636,7 @@ func (s *FastPeriodSuite) TestUnwatchCollectionWithOutstandingRequest(c *gc.C) {
 	chA := make(chan watcher.Change)
 	s.w.WatchCollection("testA", chA)
 	chB := make(chan watcher.Change)
-	s.w.WatchNoRevno("testB", 1, chB)
+	s.w.Watch("testB", 1, chB)
 	revnoA := s.insert(c, "testA", 1)
 	s.insert(c, "testA", 2)
 	// By inserting this *after* the testA document, we ensure that
@@ -659,7 +659,7 @@ func (s *FastPeriodSuite) TestNonMutatingTxn(c *gc.C) {
 	chA1 := make(chan watcher.Change)
 	chA := make(chan watcher.Change)
 
-	s.w.WatchNoRevno("test", "a", chA1)
+	s.w.Watch("test", "a", chA1)
 	s.w.WatchCollection("test", chA)
 	revno1 := s.insert(c, "test", "a")
 
@@ -695,7 +695,7 @@ func (s *SlowPeriodSuite) SetUpSuite(c *gc.C) {
 var _ = gc.Suite(&SlowPeriodSuite{})
 
 func (s *SlowPeriodSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
-	s.w.WatchNoRevno("test", "a", s.ch)
+	s.w.Watch("test", "a", s.ch)
 	revno1 := s.insert(c, "test", "a")
 	s.w.StartSync()
 	revno2 := s.remove(c, "test", "a")
@@ -716,7 +716,7 @@ func (s *SlowPeriodSuite) TestDoubleUpdate(c *gc.C) {
 	revno2 := s.update(c, "test", "a")
 	revno3 := s.update(c, "test", "a")
 
-	s.w.WatchAtRevno("test", "a", revno2, s.ch)
+	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 
 	s.w.StartSync()
@@ -730,7 +730,7 @@ func (s *SlowPeriodSuite) TestWatchPeriod(c *gc.C) {
 	revno1 := s.insert(c, "test", "a")
 	s.w.StartSync()
 	t0 := time.Now()
-	s.w.WatchAtRevno("test", "a", revno1, s.ch)
+	s.w.Watch("test", "a", s.ch)
 	revno2 := s.update(c, "test", "a")
 
 	leeway := watcher.Period / 4
@@ -755,7 +755,7 @@ func (s *SlowPeriodSuite) TestStartSyncStartsImmediately(c *gc.C) {
 	time.Sleep(justLongEnough)
 
 	// StartSync after Watching should see the current state of affairs.
-	s.w.WatchNoRevno("test", "a", s.ch)
+	s.w.Watch("test", "a", s.ch)
 	revno := s.insert(c, "test", "a")
 	s.w.StartSync()
 	select {
@@ -768,7 +768,7 @@ func (s *SlowPeriodSuite) TestStartSyncStartsImmediately(c *gc.C) {
 	s.remove(c, "test", "a")
 	s.w.StartSync()
 	ch := make(chan watcher.Change)
-	s.w.WatchNoRevno("test", "a", ch)
+	s.w.Watch("test", "a", ch)
 	select {
 	case got := <-ch:
 		c.Fatalf("got event %#v when starting watcher after doc was removed", got)
@@ -823,7 +823,7 @@ func (s *WatcherErrorSuite) TearDownTest(c *gc.C) {
 var _ = gc.Suite(&WatcherErrorSuite{})
 
 func (s *WatcherErrorSuite) TestCappedCollectionError(c *gc.C) {
-	s.w.WatchNoRevno("test", "a", s.ch)
+	s.w.Watch("test", "a", s.ch)
 	s.w.StartSync()
 
 	s.insert(c, "test", "a")
