@@ -1615,9 +1615,6 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	w = s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
 	wc = testing.NewStringsWatcherC(c, s.State, w)
-	// XXX: the previous implementation would report mysql/0 even though mysql/0 is flagged Dead, and a future
-	// removal of mysql/0 would then not send another update to let you know it was really dead, is that actually correct?
-	// it seems that a Dead unit should not be returned
 	wc.AssertChange("mysql/0", "mysql/1", "logging/0")
 	wc.AssertNoChange()
 

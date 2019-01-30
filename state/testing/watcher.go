@@ -88,9 +88,7 @@ func NewNotifyWatcherC(c *gc.C, st SyncStarter, w NotifyWatcher) NotifyWatcherC 
 }
 
 func (c NotifyWatcherC) AssertNoChange() {
-	c.C.Logf("StartSync()")
 	c.State.StartSync()
-	c.C.Logf("waiting for no change")
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -99,6 +97,9 @@ func (c NotifyWatcherC) AssertNoChange() {
 }
 
 func (c NotifyWatcherC) AssertOneChange() {
+	// Wait a very small amount of time, so that if there is already an event
+	// queued to be processed, we see it, before the StartSync flushes new
+	// events into the queue.
 	shortTimeout := time.After(1 * time.Millisecond)
 	longTimeout := time.After(testing.LongWait)
 loop:
@@ -228,6 +229,7 @@ loop:
 			if !gotOneChange {
 				c.Fatalf("watcher did not send change")
 			}
+			// If we triggered a timeout, stop looking for more changes
 			break loop
 		}
 	}

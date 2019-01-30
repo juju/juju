@@ -1659,7 +1659,10 @@ func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 
 	found := set.NewStrings()
 	for _, doc := range docs {
-		localId := w.backend.localID(doc.Id)
+		localId, err := w.backend.strictLocalID(doc.Id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		found.Add(localId)
 		if !hasString(changes, localId) {
 			logger.Tracef("marking change for %q", localId)
@@ -1669,7 +1672,7 @@ func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 			logger.Tracef("setting life of %q to %q", localId, doc.Life)
 			w.life[localId] = doc.Life
 		} else {
-			logger.Tracef("unwatching %q id: %q", unitsC, localId)
+			logger.Tracef("unwatching Dead unit: %q", localId)
 			w.watcher.Unwatch(unitsC, doc.Id, w.in)
 			delete(w.life, localId)
 		}
@@ -1677,7 +1680,7 @@ func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 	// See if there are any entries that we wanted to watch but are actually gone
 	for _, name := range names {
 		if !found.Contains(name) {
-			logger.Tracef("looking for %q from %q found it gone", name)
+			logger.Tracef("looking for unit %q, found it gone, Unwatching", name)
 			if _, ok := w.life[name]; ok {
 				// we see this doc, but it doesn't exist
 				if !hasString(changes, name) {
@@ -2197,7 +2200,7 @@ func getTxnRevno(coll mongo.Collection, id interface{}) (int64, error) {
 
 func (w *docWatcher) loop(docKeys []docKey) error {
 	in := make(chan watcher.Change)
-	logger.Criticalf("watching docs: %v", docKeys)
+	logger.Tracef("watching docs: %v", docKeys)
 	for _, k := range docKeys {
 		w.watcher.Watch(k.coll, k.docId, in)
 		defer w.watcher.Unwatch(k.coll, k.docId, in)
@@ -2215,13 +2218,11 @@ func (w *docWatcher) loop(docKeys []docKey) error {
 		case <-w.watcher.Dead():
 			return stateWatcherDeadError(w.watcher.Err())
 		case ch := <-in:
-			logger.Criticalf("in channel triggered")
 			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
 			}
 			out = w.out
 		case out <- struct{}{}:
-			logger.Criticalf("out channel sent")
 			out = nil
 		}
 	}
