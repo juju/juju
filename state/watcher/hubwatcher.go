@@ -383,8 +383,8 @@ func (w *HubWatcher) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
-		case change := <-w.changes:
-			w.queueChange(change)
+		case inChange := <-w.changes:
+			w.queueChange(inChange)
 		case req := <-w.request:
 			w.handle(req)
 		case <-idle:
@@ -418,7 +418,7 @@ func (w *HubWatcher) flush() bool {
 		// as the slice may be reallocated.
 		for e := &w.syncEvents[i]; e.ch != nil; e = &w.syncEvents[i] {
 			w.logger.Tracef("syncEvents: e.ch=%v len(%d), cap(%d)", e.ch, len(w.syncEvents), cap(w.syncEvents))
-			change := Change{
+			outChange := Change{
 				C:     e.key.c,
 				Id:    e.key.id,
 				Revno: e.revno,
@@ -429,11 +429,11 @@ func (w *HubWatcher) flush() bool {
 			case req := <-w.request:
 				w.handle(req)
 				continue
-			case change := <-w.changes:
-				w.queueChange(change)
+			case inChange := <-w.changes:
+				w.queueChange(inChange)
 				continue
-			case e.ch <- change:
-				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, change)
+			case e.ch <- outChange:
+				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, outChange)
 				watchersNotified = true
 			}
 			break
@@ -459,7 +459,7 @@ func (w *HubWatcher) flush() bool {
 		// We need to reget the address value each time through the loop
 		// as the slice may be reallocated.
 		for e := &w.requestEvents[i]; e.ch != nil; e = &w.requestEvents[i] {
-			change := Change{
+			outChange := Change{
 				C:     e.key.c,
 				Id:    e.key.id,
 				Revno: e.revno,
@@ -470,11 +470,11 @@ func (w *HubWatcher) flush() bool {
 			case req := <-w.request:
 				w.handle(req)
 				continue
-			case change := <-w.changes:
-				w.queueChange(change)
+			case inChange := <-w.changes:
+				w.queueChange(inChange)
 				continue
-			case e.ch <- change:
-				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, change)
+			case e.ch <- outChange:
+				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, outChange)
 				watchersNotified = true
 			}
 			break
