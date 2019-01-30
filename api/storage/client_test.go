@@ -847,3 +847,101 @@ func (s *storageMockSuite) TestImportArityMismatch(c *gc.C) {
 	_, err := client.Import(jujustorage.StorageKindBlock, "foo", "bar", "baz")
 	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
 }
+
+func (s *storageMockSuite) TestDeletePool(c *gc.C) {
+	var called bool
+	poolName := "poolName"
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "DeletePool")
+
+			args, ok := a.(string)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, gc.Equals, poolName)
+
+			return nil
+		})
+	storageClient := storage.NewClient(apiCaller)
+	err := storageClient.DeletePool(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *storageMockSuite) TestDeletePoolFacadeCallError(c *gc.C) {
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "DeletePool")
+
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(apiCaller)
+	err := storageClient.DeletePool("")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+}
+
+func (s *storageMockSuite) TestUpdatePool(c *gc.C) {
+	var called bool
+	poolName := "poolName"
+	poolConfig := map[string]interface{}{
+		"test": "one",
+		"pass": true,
+	}
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "UpdatePool")
+
+			args, ok := a.(params.StoragePool)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Name, gc.Equals, poolName)
+			c.Assert(args.Provider, gc.Equals, "")
+			c.Assert(args.Attrs, gc.DeepEquals, poolConfig)
+
+			return nil
+		})
+	storageClient := storage.NewClient(apiCaller)
+	err := storageClient.UpdatePool(poolName, poolConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *storageMockSuite) TestUpdatePoolFacadeCallError(c *gc.C) {
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "UpdatePool")
+
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(apiCaller)
+	err := storageClient.UpdatePool("", nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+}

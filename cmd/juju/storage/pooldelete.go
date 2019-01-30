@@ -20,6 +20,16 @@ type PoolDeleteAPI interface {
 
 const poolDeleteCommandDoc = `
 Delete a single existing storage pool.
+
+Example:
+    # Delete the storage-pool named operator-storage
+
+      juju delete-storage-pool operator-storage
+
+See also:
+    create-storage-pool
+    update-storage-pool
+    storage-pools
 `
 
 // NewPoolDeleteCommand returns a command that deletes the named storage pool.
@@ -40,12 +50,11 @@ type poolDeleteCommand struct {
 
 // Init implements Command.Init.
 func (c *poolDeleteCommand) Init(args []string) (err error) {
-	if len(args) != 1 {
+	if len(args) < 1 {
 		return errors.New("pool deletion requires storage pool name")
 	}
-
 	c.poolName = args[0]
-	return nil
+	return cmd.CheckEmpty(args[1:])
 }
 
 // Info implements Command.Info.
@@ -54,6 +63,7 @@ func (c *poolDeleteCommand) Info() *cmd.Info {
 		Name:    "delete-storage-pool",
 		Purpose: "Delete an existing storage pool.",
 		Doc:     poolDeleteCommandDoc,
+		Args:    "<name>",
 	})
 }
 
@@ -65,11 +75,7 @@ func (c *poolDeleteCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 	if api.BestAPIVersion() < 5 {
-		return errors.New("deleting storage pools is not supported by this API server")
+		return errors.New("deleting storage pools is not supported by this version of Juju")
 	}
-	err = api.DeletePool(c.poolName)
-	if err != nil {
-		return err
-	}
-	return nil
+	return api.DeletePool(c.poolName)
 }

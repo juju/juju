@@ -21,9 +21,22 @@ type PoolUpdateAPI interface {
 
 const poolUpdateCommandDoc = `
 Update configuration attributes for a single existing storage pool.
+
+Example:
+    # Update the storage-pool named iops with new configuration details
+
+      juju update-storage-pool operator-storage volume-type=provisioned-iops iops=40
+
+    # Update which provider the pool is for
+      juju update-storage-pool lxd-storage type=lxd-zfs
+
+See also:
+    create-storage-pool
+    delete-storage-pool
+    storage-pools
 `
 
-// NewPoolUpdateCommand returns a command that updates the named storage pools' attributes.
+// NewPoolUpdateCommand returns a command that replaces the named storage pools' attributes.
 func NewPoolUpdateCommand() cmd.Command {
 	cmd := &poolUpdateCommand{}
 	cmd.newAPIFunc = func() (PoolUpdateAPI, error) {
@@ -69,6 +82,7 @@ func (c *poolUpdateCommand) Info() *cmd.Info {
 		Name:    "update-storage-pool",
 		Purpose: "Update storage pool attributes.",
 		Doc:     poolUpdateCommandDoc,
+		Args:    "<name> [<key>=<value> [<key>=<value>...]]",
 	})
 }
 
