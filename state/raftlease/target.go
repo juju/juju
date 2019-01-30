@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/wrench"
 )
 
 const (
@@ -174,10 +173,10 @@ func (t *notifyTarget) Claimed(key lease.Key, holder string) {
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
 	// Use this wrench to simulate a failure writing the claimed info
 	// to the database.
-	if wrench.IsActive("raftlease-notifytarget", "fail-claim") {
-		t.errorLogger.Errorf("wrench failing claimed of %q for %q", docId, holder)
-		return
-	}
+	// if wrench.IsActive("raftlease-notifytarget", "fail-claim") {
+	// 	t.errorLogger.Errorf("wrench failing claimed of %q for %q", docId, holder)
+	// 	return
+	// }
 	err := applyClaimed(t.mongo, t.collection, docId, key, holder)
 	if err != nil {
 		t.errorLogger.Errorf("couldn't claim lease %q for %q: %s", docId, holder, err.Error())
