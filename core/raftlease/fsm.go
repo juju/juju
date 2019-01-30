@@ -161,39 +161,53 @@ func (f *FSM) GlobalTime() time.Time {
 // Leases gets information about all of the leases in the system,
 // optionally filtered by the input lease keys.
 func (f *FSM) Leases(localTime time.Time, keys ...lease.Key) map[lease.Key]lease.Info {
-	filter := make(map[lease.Key]bool)
-	filtering := len(keys) > 0
-	if filtering {
-		for _, key := range keys {
-			filter[key] = true
-		}
+	if len(keys) > 0 {
+		return f.filteredLeases(localTime, keys)
 	}
+	return f.allLeases(localTime)
+}
 
+// filteredLeases is an optimisation for anticipated usage.
+// There will usually be a single key for filtering, so iterating over the
+// filter list and retrieving from entries will be fastest by far.
+func (f *FSM) filteredLeases(localTime time.Time, keys []lease.Key) map[lease.Key]lease.Info {
 	results := make(map[lease.Key]lease.Info)
 	f.mu.Lock()
-	for key, entry := range f.entries {
-		if filtering && !filter[key] {
-			continue
-		}
-
-		globalExpiry := entry.start.Add(entry.duration)
-
-		// If there is a pinned lease, always represent it as having an expiry
-		// in the future. This prevents the lease manager from waking up
-		// thinking it has some expiry events to handle.
-		remaining := globalExpiry.Sub(f.globalTime)
-		if f.isPinned(key) {
-			remaining = 30 * time.Second
-		}
-		localExpiry := localTime.Add(remaining)
-
-		results[key] = lease.Info{
-			Holder: entry.holder,
-			Expiry: localExpiry,
+	for _, key := range keys {
+		if entry, ok := f.entries[key]; ok {
+			results[key] = f.infoFromEntry(localTime, key, entry)
 		}
 	}
 	f.mu.Unlock()
 	return results
+}
+
+func (f *FSM) allLeases(localTime time.Time) map[lease.Key]lease.Info {
+	results := make(map[lease.Key]lease.Info)
+	f.mu.Lock()
+	for key, entry := range f.entries {
+		results[key] = f.infoFromEntry(localTime, key, entry)
+	}
+	f.mu.Unlock()
+	return results
+}
+
+func (f *FSM) infoFromEntry(localTime time.Time, key lease.Key, entry *entry) lease.Info {
+	globalExpiry := entry.start.Add(entry.duration)
+
+	// Pinned leases are always represented as having an expiry in the future.
+	// This prevents the lease manager from waking up thinking it has some
+	// expiry events to handle.
+	remaining := globalExpiry.Sub(f.globalTime)
+	if f.isPinned(key) {
+		remaining = 30 * time.Second
+	}
+	localExpiry := localTime.Add(remaining)
+
+	return lease.Info{
+		Holder: entry.holder,
+		Expiry: localExpiry,
+	}
 }
 
 // Pinned returns all of the currently known lease pins and applications
