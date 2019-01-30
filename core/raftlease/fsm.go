@@ -160,19 +160,20 @@ func (f *FSM) GlobalTime() time.Time {
 
 // Leases gets information about all of the leases in the system,
 // optionally filtered by the input lease keys.
-func (f *FSM) Leases(localTime time.Time, keys ...lease.Key) map[lease.Key]lease.Info {
+func (f *FSM) Leases(getLocalTime func() time.Time, keys ...lease.Key) map[lease.Key]lease.Info {
 	if len(keys) > 0 {
-		return f.filteredLeases(localTime, keys)
+		return f.filteredLeases(getLocalTime, keys)
 	}
-	return f.allLeases(localTime)
+	return f.allLeases(getLocalTime)
 }
 
 // filteredLeases is an optimisation for anticipated usage.
 // There will usually be a single key for filtering, so iterating over the
 // filter list and retrieving from entries will be fastest by far.
-func (f *FSM) filteredLeases(localTime time.Time, keys []lease.Key) map[lease.Key]lease.Info {
+func (f *FSM) filteredLeases(getLocalTime func() time.Time, keys []lease.Key) map[lease.Key]lease.Info {
 	results := make(map[lease.Key]lease.Info)
 	f.mu.Lock()
+	localTime := getLocalTime()
 	for _, key := range keys {
 		if entry, ok := f.entries[key]; ok {
 			results[key] = f.infoFromEntry(localTime, key, entry)
@@ -182,9 +183,10 @@ func (f *FSM) filteredLeases(localTime time.Time, keys []lease.Key) map[lease.Ke
 	return results
 }
 
-func (f *FSM) allLeases(localTime time.Time) map[lease.Key]lease.Info {
+func (f *FSM) allLeases(getLocalTime func() time.Time) map[lease.Key]lease.Info {
 	results := make(map[lease.Key]lease.Info)
 	f.mu.Lock()
+	localTime := getLocalTime()
 	for key, entry := range f.entries {
 		results[key] = f.infoFromEntry(localTime, key, entry)
 	}

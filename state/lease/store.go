@@ -79,11 +79,8 @@ func (store *store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 		}
 	}
 
-	localTime := store.config.LocalClock.Now()
-
 	store.mu.Lock()
-	defer store.mu.Unlock()
-
+	localTime := store.config.LocalClock.Now()
 	leases := make(map[lease.Key]lease.Info)
 	for name, entry := range store.entries {
 		if filtering && !limit.Contains(name) {
@@ -104,6 +101,8 @@ func (store *store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 			Trapdoor: store.assertOpTrapdoor(name, entry.holder),
 		}
 	}
+	defer store.mu.Unlock()
+
 	return leases
 }
 
