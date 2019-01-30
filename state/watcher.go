@@ -3312,6 +3312,10 @@ func (w *migrationActiveWatcher) loop() error {
 	w.watcher.WatchNoRevno(w.collName, w.id, in)
 	defer w.watcher.Unwatch(w.collName, w.id, in)
 
+	// check if there are any pending changes before the first event
+	if _, ok := collect(watcher.Change{}, in, w.tomb.Dying()); !ok {
+		return tomb.ErrDying
+	}
 	out := w.sink
 	for {
 		select {
@@ -3393,6 +3397,10 @@ func (w *notifyCollWatcher) loop() error {
 	w.watcher.WatchCollectionWithFilter(w.collName, in, w.filter)
 	defer w.watcher.UnwatchCollection(w.collName, in)
 
+	// check if there are any pending changes before the first event
+	if _, ok := collect(watcher.Change{}, in, w.tomb.Dying()); !ok {
+		return tomb.ErrDying
+	}
 	out := w.sink // out set so that initial event is sent.
 	for {
 		select {
