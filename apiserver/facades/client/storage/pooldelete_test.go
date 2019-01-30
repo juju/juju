@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	storage "github.com/juju/juju/storage"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 )
 
@@ -41,7 +41,7 @@ func (s *poolDeleteSuite) TestDeletePool(c *gc.C) {
 	c.Assert(pools, gc.HasLen, 0)
 }
 
-func (s *poolDeleteSuite) TestDeleteErrorNotExists(c *gc.C) {
+func (s *poolDeleteSuite) TestDeleteNotExists(c *gc.C) {
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 
 	err := s.api.DeletePool(poolName)

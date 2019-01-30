@@ -153,6 +153,11 @@ func (s *Settings) Update(kv map[string]interface{}) {
 	}
 }
 
+// Replace overwrites the existing settings with new onesl
+func (s *Settings) Replace(kv map[string]interface{}) {
+	s.core = kv
+}
+
 // Delete removes key.
 func (s *Settings) Delete(key string) {
 	delete(s.core, key)
@@ -373,13 +378,13 @@ func removeSettingsOp(collection, key string) txn.Op {
 	}
 }
 
-// updateSettings updates the Settings for key.
-func updateSettings(db Database, collection, key string, values map[string]interface{}) error {
+// replaceSettings replaces the settings value for key.
+func replaceSettings(db Database, collection, key string, values map[string]interface{}) error {
 	existing, err := readSettings(db, collection, key)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	existing.Update(values)
+	existing.Replace(values)
 	_, err = existing.Write()
 	return errors.Trace(err)
 }
@@ -495,9 +500,9 @@ func (s *StateSettings) RemoveSettings(key string) error {
 	return removeSettings(s.backend.db(), s.collection, key)
 }
 
-// UpdateSettings exposes updateSettings on state for use outside the state package.
-func (s *StateSettings) UpdateSettings(key string, settings map[string]interface{}) error {
-	return updateSettings(s.backend.db(), s.collection, key, settings)
+// ReplaceSettings exposes replaceSettings on state for use outside the state package.
+func (s *StateSettings) ReplaceSettings(key string, settings map[string]interface{}) error {
+	return replaceSettings(s.backend.db(), s.collection, key, settings)
 }
 
 // ListSettings exposes listSettings on state for use outside the state package.

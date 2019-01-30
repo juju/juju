@@ -511,11 +511,11 @@ func (s *SettingsSuite) TestList(c *gc.C) {
 	})
 }
 
-func (s *SettingsSuite) TestUpdateSettings(c *gc.C) {
+func (s *SettingsSuite) TestReplaceSettings(c *gc.C) {
 	_, err := s.createSettings(s.key, map[string]interface{}{"foo1": "bar1", "foo2": "bar2"})
 	c.Assert(err, jc.ErrorIsNil)
 	options := map[string]interface{}{"alpha": "beta", "foo2": "zap100"}
-	err = updateSettings(s.state.db(), s.collection, s.key, options)
+	err = replaceSettings(s.state.db(), s.collection, s.key, options)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check MongoDB state.
@@ -530,13 +530,13 @@ func (s *SettingsSuite) TestUpdateSettings(c *gc.C) {
 		map[string]interface{}(mgoData.Settings),
 		gc.DeepEquals,
 		map[string]interface{}{
-			"foo1": "bar1", "alpha": "beta", "foo2": "zap100",
+			"alpha": "beta", "foo2": "zap100",
 		})
 }
 
-func (s *SettingsSuite) TestUpdateSettingsErrorsNotFound(c *gc.C) {
+func (s *SettingsSuite) TestReplaceSettingsNotFound(c *gc.C) {
 	options := map[string]interface{}{"alpha": "beta", "foo2": "zap100"}
-	err := updateSettings(s.state.db(), s.collection, s.key, options)
+	err := replaceSettings(s.state.db(), s.collection, s.key, options)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

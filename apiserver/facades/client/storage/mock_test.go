@@ -16,11 +16,11 @@ import (
 )
 
 type mockPoolManager struct {
-	getPool    func(name string) (*jujustorage.Config, error)
-	createPool func(name string, providerType jujustorage.ProviderType, attrs map[string]interface{}) (*jujustorage.Config, error)
-	deletePool func(name string) error
-	listPools  func() ([]*jujustorage.Config, error)
-	updatePool func(name string, attrs map[string]interface{}) error
+	getPool     func(name string) (*jujustorage.Config, error)
+	createPool  func(name string, providerType jujustorage.ProviderType, attrs map[string]interface{}) (*jujustorage.Config, error)
+	deletePool  func(name string) error
+	listPools   func() ([]*jujustorage.Config, error)
+	replacePool func(name string, attrs map[string]interface{}) error
 }
 
 func (m *mockPoolManager) Get(name string) (*jujustorage.Config, error) {
@@ -39,8 +39,8 @@ func (m *mockPoolManager) List() ([]*jujustorage.Config, error) {
 	return m.listPools()
 }
 
-func (m *mockPoolManager) Update(name string, attrs map[string]interface{}) error {
-	return m.updatePool(name, attrs)
+func (m *mockPoolManager) Replace(name string, attrs map[string]interface{}) error {
+	return m.replacePool(name, attrs)
 }
 
 type mockStorageAccessor struct {

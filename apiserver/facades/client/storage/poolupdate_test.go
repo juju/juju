@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	storage "github.com/juju/juju/storage"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 )
 
@@ -26,7 +26,10 @@ func (s *poolUpdateSuite) createPools(c *gc.C, num int) {
 	for i := 0; i < num; i++ {
 		poolName := fmt.Sprintf("%v%v", tstName, i)
 		s.baseStorageSuite.pools[poolName], err =
-			storage.NewConfig(poolName, provider.LoopProviderType, map[string]interface{}{"zip": "zap"})
+			storage.NewConfig(poolName, provider.LoopProviderType, map[string]interface{}{
+				"zip":  "zap",
+				"beep": "boop",
+			})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }

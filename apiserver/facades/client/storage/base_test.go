@@ -26,9 +26,9 @@ type baseStorageSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	api             *storage.APIv5
-	apiCaas         *storage.APIv5
-	apiv3           *storage.APIv3
+	api             *storage.StorageAPI
+	apiCaas         *storage.StorageAPI
+	apiv3           *storage.StorageAPIv3
 	storageAccessor *mockStorageAccessor
 	state           *mockState
 
@@ -67,12 +67,14 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.poolManager = s.constructPoolManager()
 
 	s.callContext = context.NewCloudCallContext()
-	var err error
-	s.api, err = storage.NewAPIv5(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
-	s.apiCaas, err = storage.NewAPIv5(s.state, state.ModelTypeCAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
-	c.Assert(err, jc.ErrorIsNil)
-	s.apiv3, err = storage.NewAPIv3(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
-	c.Assert(err, jc.ErrorIsNil)
+	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
+	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
+	newAPI := storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
+	s.apiv3 = &storage.StorageAPIv3{
+		StorageAPIv4: storage.StorageAPIv4{
+			StorageAPI: *newAPI,
+		},
+	}
 }
 
 // TODO(axw) get rid of assertCalls, use stub directly everywhere.
@@ -357,13 +359,9 @@ func (s *baseStorageSuite) constructPoolManager() *mockPoolManager {
 			}
 			return result, nil
 		},
-		updatePool: func(name string, attrs map[string]interface{}) error {
+		replacePool: func(name string, attrs map[string]interface{}) error {
 			if p, ok := s.pools[name]; ok {
-				updatedAttr := p.Attrs()
-				for k, v := range attrs {
-					updatedAttr[k] = v
-				}
-				newPool, err := jujustorage.NewConfig(name, p.Provider(), updatedAttr)
+				newPool, err := jujustorage.NewConfig(name, p.Provider(), attrs)
 				s.pools[name] = newPool
 				return err
 			}

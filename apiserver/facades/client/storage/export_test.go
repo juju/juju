@@ -1,13 +1,14 @@
-// Copyright 2015, 2019 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package storage
 
 var (
-	ValidatePoolListFilter   = (*APIv5).validatePoolListFilter
-	ValidateNameCriteria     = (*APIv5).validateNameCriteria
-	ValidateProviderCriteria = (*APIv5).validateProviderCriteria
-	EnsureStoragePoolFilter  = (*APIv5).ensureStoragePoolFilter
+	ValidatePoolListFilter   = (*StorageAPI).validatePoolListFilter
+	ValidateNameCriteria     = (*StorageAPI).validateNameCriteria
+	ValidateProviderCriteria = (*StorageAPI).validateProviderCriteria
+	EnsureStoragePoolFilter  = (*StorageAPI).ensureStoragePoolFilter
+	NewStorageAPIForTest     = newStorageAPI
 )
 
 type (

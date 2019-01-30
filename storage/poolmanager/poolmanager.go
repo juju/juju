@@ -78,12 +78,12 @@ func (pm *poolManager) Delete(name string) error {
 	return errors.Annotatef(err, "deleting pool %q", name)
 }
 
-// Update is defined on PoolManager interface.
-func (pm *poolManager) Update(name string, attrs map[string]interface{}) error {
+// Replace is defined on PoolManager interface.
+func (pm *poolManager) Replace(name string, attrs map[string]interface{}) error {
 	if name == "" {
 		return MissingNameError
 	}
-	return pm.settings.UpdateSettings(globalKey(name), attrs)
+	return pm.settings.ReplaceSettings(globalKey(name), attrs)
 }
 
 // Get is defined on PoolManager interface.
