@@ -1275,23 +1275,16 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 // leaving the scope in the supplied RelationScopeChange event, and applies
 // the expressed changes to the supplied RelationUnitsChange event.
 func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c *RelationScopeChange) error {
-	ids := make([]interface{}, len(c.Entered))
-	for i := range ids {
-		docID := w.backend.docID(c.Entered[i])
-		ids[i] = docID
-		w.watching.Add(docID)
-	}
-	err := w.watcher.WatchMulti(settingsC, ids, w.updates)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	for _, name := range c.Entered {
 		key := w.sw.prefix + name
-		_, err := w.mergeSettings(changes, key)
+		docID := w.backend.docID(key)
+		revno, err := w.mergeSettings(changes, key)
 		if err != nil {
 			return errors.Annotatef(err, "while merging settings for %q entering relation scope", name)
 		}
 		changes.Departed = remove(changes.Departed, name)
+		w.watcher.WatchAtRevno(settingsC, docID, revno, w.updates)
+		w.watching.Add(docID)
 	}
 	for _, name := range c.Left {
 		key := w.sw.prefix + name
@@ -2285,6 +2278,9 @@ func (w *machineUnitsWatcher) updateMachine(pending []string) (new []string, err
 // watchNewUnits sets up a watcher for all of the named units and then updates pending changes.
 // There is an assumption that all unitNames being passed are unknown and do not have a watch active for them.
 func (w *machineUnitsWatcher) watchNewUnits(unitNames, pending []string, unitColl mongo.Collection) ([]string, error) {
+	if len(unitNames) == 0 {
+		return pending, nil
+	}
 	ids := make([]interface{}, len(unitNames))
 	for i := range unitNames {
 		ids[i] = w.backend.docID(unitNames[i])
