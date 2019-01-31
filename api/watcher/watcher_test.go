@@ -431,6 +431,7 @@ func (s *watcherSuite) setupOfferStatusWatch(
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// Start watching for a relation change.
 	client := crossmodelrelations.NewClient(s.stateAPI)
 	w, err := client.WatchOfferStatus(params.OfferArg{
