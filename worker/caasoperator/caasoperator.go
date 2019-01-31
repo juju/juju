@@ -365,6 +365,10 @@ func (op *caasOperator) loop() (err error) {
 				if err != nil {
 					return errors.Annotatef(err, "error downloading updated charm %v", localState.CharmURL)
 				}
+				// Reset the application's "Downloading..." message.
+				if err := op.setStatus(status.Active, ""); err != nil {
+					return errors.Trace(err)
+				}
 				// Notify all uniters of the change so they run the upgrade-charm hook.
 				for unitId, changedChan := range aliveUnits {
 					logger.Debugf("trigger upgrade charm for caas unit %v", unitId)

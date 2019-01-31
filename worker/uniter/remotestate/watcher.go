@@ -260,6 +260,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		lxdProfileChanges    watcher.StringsChannel
 	)
 
+	// CAAS models don't use an application watcher
+	// which fires an initial event.
+	if w.modelType == model.CAAS {
+		seenApplicationChange = true
+	}
+
 	if w.modelType == model.IAAS {
 		// This is in IAAS model so we need to watch state for application
 		// charm changes instead of being informed by the operator.
