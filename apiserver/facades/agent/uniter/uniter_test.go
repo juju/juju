@@ -2439,6 +2439,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-42", Unit: "unit-foo-0"},
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},

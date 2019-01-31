@@ -55,6 +55,7 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, departed []string)
 	timeout := time.After(testing.LongWait)
 	select {
 	case actual, ok := <-c.Watcher.Changes():
+		c.Logf("got change %v", actual)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(actual.Changed, gc.HasLen, len(changed))
 		// Because the versions can change, we only need to make sure

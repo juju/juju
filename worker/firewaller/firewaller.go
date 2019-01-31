@@ -1121,17 +1121,24 @@ func (ad *applicationData) watchLoop(exposed bool) error {
 			}
 			if err := ad.application.Refresh(); err != nil {
 				if !params.IsCodeNotFound(err) {
+					logger.Debugf("application(%q).Refresh() returned NotFound: %v", ad.application.Name(), err)
 					return errors.Trace(err)
 				}
 				return nil
 			}
 			change, err := ad.application.IsExposed()
 			if err != nil {
+				if params.IsCodeNotFound(err) {
+					logger.Debugf("application(%q).IsExposed() returned NotFound: %v", ad.application.Name(), err)
+					return nil
+				}
 				return errors.Trace(err)
 			}
 			if change == exposed {
+				logger.Tracef("application(%q).IsExposed() == %v (unchanged)", ad.application.Name(), exposed)
 				continue
 			}
+			logger.Tracef("application(%q).IsExposed() changed %v => %v", ad.application.Name(), exposed, change)
 
 			exposed = change
 			select {

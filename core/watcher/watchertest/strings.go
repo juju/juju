@@ -180,6 +180,7 @@ loop:
 			if !gotOneChange {
 				c.Fatalf("watcher did not send change")
 			}
+			break loop
 		}
 	}
 	return actual

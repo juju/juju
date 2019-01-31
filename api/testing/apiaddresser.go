@@ -63,12 +63,15 @@ func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
 }
 
 func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
-	expectServerAddrs := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
-	}
-	err := s.state.SetAPIHostPorts(expectServerAddrs)
+	hostports, err := s.state.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
+	expectServerAddrs := [][]network.HostPort{
+		network.NewHostPorts(5678, "0.1.2.3"),
+	}
+	// Make sure we are changing the value
+	c.Assert(hostports, gc.Not(gc.DeepEquals), expectServerAddrs)
 
+	c.Logf("starting api host port watcher")
 	w, err := s.facade.WatchAPIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w, s.state.StartSync)
@@ -76,12 +79,21 @@ func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 
 	// Initial event.
 	wc.AssertOneChange()
+	c.Logf("got initial event")
 
 	// Change the state addresses and check that we get a notification
+	err = s.state.SetAPIHostPorts(expectServerAddrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertOneChange()
+	c.Logf("saw change event")
+
+	// And that we can change it again and see the notification
 	expectServerAddrs[0][0].Value = "0.1.99.99"
 
 	err = s.state.SetAPIHostPorts(expectServerAddrs)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("saw second change event")
 
 	wc.AssertOneChange()
 }

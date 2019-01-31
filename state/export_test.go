@@ -62,6 +62,7 @@ var (
 	MergeBindings                        = mergeBindings
 	UpgradeInProgressError               = errUpgradeInProgress
 	DBCollectionSizeToInt                = dbCollectionSizeToInt
+	NewEntityWatcher                     = newEntityWatcher
 )
 
 type (

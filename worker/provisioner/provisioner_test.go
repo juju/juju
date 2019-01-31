@@ -442,6 +442,8 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 		} else if !errors.IsNotProvisioned(err) {
 			// We don't expect any errors.
 			panic(err)
+		} else {
+			c.Logf("got not provisioned error while waiting: %v", err)
 		}
 		return false
 	})
