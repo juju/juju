@@ -132,7 +132,7 @@ func (s *poolSuite) TestCreateInvalidConfig(c *gc.C) {
 
 func (s *poolSuite) TestReplace(c *gc.C) {
 	s.createSettings(c)
-	err := s.poolManager.Replace("testpool", map[string]interface{}{"zip": "zap"})
+	err := s.poolManager.Replace("testpool", "", map[string]interface{}{"zip": "zap"})
 	c.Assert(err, jc.ErrorIsNil)
 	p, err := s.poolManager.Get("testpool")
 	c.Assert(err, jc.ErrorIsNil)
@@ -142,27 +142,20 @@ func (s *poolSuite) TestReplace(c *gc.C) {
 }
 
 func (s *poolSuite) TestReplaceMissingName(c *gc.C) {
-	err := s.poolManager.Replace("", map[string]interface{}{"foo": "bar"})
+	err := s.poolManager.Replace("", "", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "pool name is missing")
 }
 
 func (s *poolSuite) TestReplaceNewProvider(c *gc.C) {
 	s.registry.Providers["notebook"] = &dummystorage.StorageProvider{}
 	s.createSettings(c)
-	err := s.poolManager.Replace("testpool", map[string]interface{}{"handwritten": "true", "type": "notebook"})
+	err := s.poolManager.Replace("testpool", "notebook", map[string]interface{}{"handwritten": "true"})
 	c.Assert(err, jc.ErrorIsNil)
 	p, err := s.poolManager.Get("testpool")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p.Attrs(), gc.DeepEquals, map[string]interface{}{"handwritten": "true"})
 	c.Assert(p.Name(), gc.Equals, "testpool")
 	c.Assert(p.Provider(), gc.Equals, storage.ProviderType("notebook"))
-}
-
-func (s *poolSuite) TestReplaceNewProviderIncorrect(c *gc.C) {
-	s.registry.Providers["notebook"] = &dummystorage.StorageProvider{}
-	s.createSettings(c)
-	err := s.poolManager.Replace("testpool", map[string]interface{}{"handwritten": "true", "type": 1})
-	c.Assert(err, gc.ErrorMatches, "provider type must be a string")
 }
 
 func (s *poolSuite) TestReplaceInvalidConfig(c *gc.C) {
@@ -172,12 +165,12 @@ func (s *poolSuite) TestReplaceInvalidConfig(c *gc.C) {
 		},
 	}
 	s.createSettings(c)
-	err := s.poolManager.Replace("testpool", map[string]interface{}{"zip": "zap", "type": "invalid"})
+	err := s.poolManager.Replace("testpool", "invalid", map[string]interface{}{"zip": "zap"})
 	c.Assert(err, gc.ErrorMatches, "validating storage provider config: no good")
 }
 
 func (s *poolSuite) TestReplaceNotFound(c *gc.C) {
-	err := s.poolManager.Replace("deadpool", map[string]interface{}{"zip": "zap"})
+	err := s.poolManager.Replace("deadpool", "", map[string]interface{}{"zip": "zap"})
 	c.Assert(err, gc.ErrorMatches, "pool \"deadpool\" not found")
 }
 

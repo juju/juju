@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 )
@@ -33,7 +34,9 @@ func (s *poolDeleteSuite) TestDeletePool(c *gc.C) {
 	s.createPools(c, 1)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 
-	err := s.api.DeletePool(poolName)
+	err := s.api.DeletePool(params.StoragePoolDelete{
+		Name: poolName,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	pools, err := s.poolManager.List()
@@ -44,7 +47,9 @@ func (s *poolDeleteSuite) TestDeletePool(c *gc.C) {
 func (s *poolDeleteSuite) TestDeleteNotExists(c *gc.C) {
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 
-	err := s.api.DeletePool(poolName)
+	err := s.api.DeletePool(params.StoragePoolDelete{
+		Name: poolName,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	pools, err := s.poolManager.List()

@@ -458,6 +458,8 @@ func (a *StorageAPI) validateProviderCriteria(providers []string) error {
 
 // CreatePool creates a new pool with specified parameters.
 func (a *StorageAPI) CreatePool(p params.StoragePool) error {
+	// (veebers) TODO: This should be a bulk call. Observed during addition
+	// of update/delete, put off for a follow up fix.
 	_, err := a.poolManager.Create(
 		p.Name,
 		storage.ProviderType(p.Provider),
@@ -1123,11 +1125,11 @@ func (a *StorageAPI) importFilesystem(
 }
 
 // DeletePool deletes the named pool
-func (a *StorageAPI) DeletePool(poolName string) error {
+func (a *StorageAPI) DeletePool(p params.StoragePoolDelete) error {
 	if err := a.checkCanWrite(); err != nil {
 		return errors.Trace(err)
 	}
-	err := a.poolManager.Delete(poolName)
+	err := a.poolManager.Delete(p.Name)
 	return err
 }
 
@@ -1136,7 +1138,7 @@ func (a *StorageAPI) UpdatePool(p params.StoragePool) error {
 	if err := a.checkCanWrite(); err != nil {
 		return errors.Trace(err)
 	}
-	err := a.poolManager.Replace(p.Name, p.Attrs)
+	err := a.poolManager.Replace(p.Name, p.Provider, p.Attrs)
 	return err
 }
 

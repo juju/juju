@@ -585,6 +585,11 @@ type StoragePool struct {
 	Attrs map[string]interface{} `json:"attrs"`
 }
 
+// StoragePoolDelete holds data for a pool instance to be deleted
+type StoragePoolDelete struct {
+	Name string `json:"name"`
+}
+
 // StoragePoolFilter holds a filter for matching storage pools.
 type StoragePoolFilter struct {
 	// Names are pool's names to filter on.

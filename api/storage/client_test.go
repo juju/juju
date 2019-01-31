@@ -863,13 +863,13 @@ func (s *storageMockSuite) TestDeletePool(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "DeletePool")
 
-			args, ok := a.(string)
+			args, ok := a.(params.StoragePoolDelete)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args, gc.Equals, poolName)
+			c.Assert(args.Name, gc.Equals, poolName)
 
 			return nil
 		})
-	storageClient := storage.NewClient(apiCaller)
+	storageClient := storage.NewClient(basetesting.BestVersionCaller{BestVersion: 5, APICallerFunc: apiCaller})
 	err := storageClient.DeletePool(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
@@ -889,7 +889,7 @@ func (s *storageMockSuite) TestDeletePoolFacadeCallError(c *gc.C) {
 
 			return errors.New(msg)
 		})
-	storageClient := storage.NewClient(apiCaller)
+	storageClient := storage.NewClient(basetesting.BestVersionCaller{BestVersion: 5, APICallerFunc: apiCaller})
 	err := storageClient.DeletePool("")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
@@ -897,6 +897,7 @@ func (s *storageMockSuite) TestDeletePoolFacadeCallError(c *gc.C) {
 func (s *storageMockSuite) TestUpdatePool(c *gc.C) {
 	var called bool
 	poolName := "poolName"
+	providerType := "loop"
 	poolConfig := map[string]interface{}{
 		"test": "one",
 		"pass": true,
@@ -916,13 +917,13 @@ func (s *storageMockSuite) TestUpdatePool(c *gc.C) {
 			args, ok := a.(params.StoragePool)
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Name, gc.Equals, poolName)
-			c.Assert(args.Provider, gc.Equals, "")
+			c.Assert(args.Provider, gc.Equals, providerType)
 			c.Assert(args.Attrs, gc.DeepEquals, poolConfig)
 
 			return nil
 		})
-	storageClient := storage.NewClient(apiCaller)
-	err := storageClient.UpdatePool(poolName, poolConfig)
+	storageClient := storage.NewClient(basetesting.BestVersionCaller{BestVersion: 5, APICallerFunc: apiCaller})
+	err := storageClient.UpdatePool(poolName, providerType, poolConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -941,7 +942,7 @@ func (s *storageMockSuite) TestUpdatePoolFacadeCallError(c *gc.C) {
 
 			return errors.New(msg)
 		})
-	storageClient := storage.NewClient(apiCaller)
-	err := storageClient.UpdatePool("", nil)
+	storageClient := storage.NewClient(basetesting.BestVersionCaller{BestVersion: 5, APICallerFunc: apiCaller})
+	err := storageClient.UpdatePool("", "", nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }

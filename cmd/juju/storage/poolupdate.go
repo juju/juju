@@ -12,10 +12,14 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+const (
+	Type = "type"
+)
+
 // PoolUpdateAPI defines the API methods that the storage commands use.
 type PoolUpdateAPI interface {
 	Close() error
-	UpdatePool(name string, attr map[string]interface{}) error
+	UpdatePool(name, provider string, attr map[string]interface{}) error
 	BestAPIVersion() int
 }
 
@@ -51,6 +55,7 @@ type poolUpdateCommand struct {
 	newAPIFunc  func() (PoolUpdateAPI, error)
 	poolName    string
 	configAttrs map[string]interface{}
+	provider    string
 }
 
 // Init implements Command.Init.
@@ -65,10 +70,14 @@ func (c *poolUpdateCommand) Init(args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	if len(config) == 0 {
-		return errors.New("pool update requires configuration attributes")
-	}
+	// if len(config) == 0 {
+	// 	return errors.New("pool update requires configuration attributes")
+	// }
 
+	if providerType, ok := config[Type]; ok {
+		delete(config, Type)
+		c.provider = providerType
+	}
 	c.configAttrs = make(map[string]interface{})
 	for key, value := range config {
 		c.configAttrs[key] = value
@@ -94,9 +103,9 @@ func (c *poolUpdateCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 	if api.BestAPIVersion() < 5 {
-		return errors.New("updating storage pools is not supported by this API server")
+		return errors.New("updating storage pools is not supported by this version of Juju")
 	}
-	err = api.UpdatePool(c.poolName, c.configAttrs)
+	err = api.UpdatePool(c.poolName, c.provider, c.configAttrs)
 	if err != nil {
 		return err
 	}

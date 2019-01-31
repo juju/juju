@@ -88,18 +88,14 @@ func (pm *poolManager) Delete(name string) error {
 }
 
 // Replace is defined on PoolManager interface.
-func (pm *poolManager) Replace(name string, attrs map[string]interface{}) error {
+func (pm *poolManager) Replace(name, provider string, attrs map[string]interface{}) error {
 	if name == "" {
 		return MissingNameError
 	}
 	var providerType storage.ProviderType
-	if newProviderType, ok := attrs[Type]; ok {
-		switch newProviderType.(type) {
-		case string:
-			providerType = storage.ProviderType(newProviderType.(string))
-		default:
-			return errors.New("provider type must be a string")
-		}
+	// Use the existing provider type unless explicitly overwritten.
+	if provider != "" {
+		providerType = storage.ProviderType(provider)
 	} else {
 		existingConfig, err := pm.Get(name)
 		if err != nil {

@@ -20,7 +20,7 @@ type PoolManager interface {
 	Delete(name string) error
 
 	// Replace replaces pool configuration with the newly provided values.
-	Replace(name string, attrs map[string]interface{}) error
+	Replace(name, provider string, attrs map[string]interface{}) error
 
 	// Get returns the pool with name from state.
 	Get(name string) (*storage.Config, error)

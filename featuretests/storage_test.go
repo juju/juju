@@ -697,3 +697,65 @@ storage-block/1  data/1      block                       pending
 
 `[1:])
 }
+
+func runPoolUpdate(c *gc.C, args ...string) (string, string, error) {
+	cmdArgs := append([]string{"update-storage-pool"}, args...)
+	ctx, err := runJujuCommand(c, cmdArgs...)
+	stdout, stderr := "", ""
+	if ctx != nil {
+		stdout = cmdtesting.Stdout(ctx)
+		stderr = cmdtesting.Stderr(ctx)
+	}
+	return stdout, stderr, err
+
+}
+
+func (s *cmdStorageSuite) TestUpdate(c *gc.C) {
+	stdout, _, err := runPoolUpdate(c, testPool, "smth=one")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdout, gc.Equals, "")
+	assertPoolExists(c, s.State, testPool, "loop", "smth=one")
+}
+
+func (s *cmdStorageSuite) TestUpdateNoMatch(c *gc.C) {
+	_, stderr, err := runPoolUpdate(c, "nope", "smth=one")
+	c.Assert(err, gc.NotNil)
+	c.Assert(stderr, gc.Equals, "ERROR pool \"nope\" not found (not found)\n")
+	assertPoolExists(c, s.State, testPool, "loop", "it=works")
+}
+
+func runPoolDelete(c *gc.C, args ...string) (string, string, error) {
+	cmdArgs := append([]string{"delete-storage-pool"}, args...)
+	ctx, err := runJujuCommand(c, cmdArgs...)
+	stdout, stderr := "", ""
+	if ctx != nil {
+		stdout = cmdtesting.Stdout(ctx)
+		stderr = cmdtesting.Stderr(ctx)
+	}
+	return stdout, stderr, err
+
+}
+
+func (s *cmdStorageSuite) TestDelete(c *gc.C) {
+	assertPoolExists(c, s.State, testPool, "loop", "it=works")
+	stdout, _, err := runPoolDelete(c, testPool)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdout, gc.Equals, "")
+
+	stsetts := state.NewStateSettings(s.State)
+	poolManager := poolmanager.New(stsetts, storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
+
+	found, err := poolManager.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(found), gc.Equals, 0)
+}
+
+func (s *cmdStorageSuite) TestDeleteNoMatch(c *gc.C) {
+	_, stderr, err := runPoolUpdate(c, "nope", "smth=one")
+	c.Assert(err, gc.NotNil)
+	c.Assert(stderr, gc.Equals, "ERROR pool \"nope\" not found (not found)\n")
+	assertPoolExists(c, s.State, testPool, "loop", "it=works")
+}
