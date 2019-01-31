@@ -17,18 +17,55 @@ import (
 	"github.com/juju/juju/rpc"
 )
 
+// MetricLabels used for setting labels for the Counter and Summary vectors.
 const (
-	facadeLabel    = "facade"
-	versionLabel   = "version"
-	methodLabel    = "method"
-	errorCodeLabel = "error_code"
+	MetricLabelFacade    = "facade"
+	MetricLabelVersion   = "version"
+	MetricLabelMethod    = "method"
+	MetricLabelErrorCode = "error_code"
 )
 
-var metricLabelNames = []string{
-	facadeLabel,
-	versionLabel,
-	methodLabel,
-	errorCodeLabel,
+// MetricLabelNames holds the names for reporting the names of the metric
+// types when calling the observers.
+var MetricLabelNames = []string{
+	MetricLabelFacade,
+	MetricLabelVersion,
+	MetricLabelMethod,
+	MetricLabelErrorCode,
+}
+
+// CounterVec is a Collector that bundles a set of Counters that all share the
+// same description.
+type CounterVec interface {
+	// With returns a Counter for a given labels slice
+	With(prometheus.Labels) prometheus.Counter
+}
+
+// SummaryVec is a Collector that bundles a set of Summaries that all share the
+// same description.
+type SummaryVec interface {
+	// With returns a Summary for a given labels slice
+	With(prometheus.Labels) prometheus.Summary
+}
+
+// MetricsCollector represents a bundle of metrics that is used by the observer
+// factory.
+//go:generate mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/observer/metricobserver MetricsCollector,CounterVec,SummaryVec
+//go:generate mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Counter,Summary
+type MetricsCollector interface {
+	// APIRequestDuration returns a SummaryVec for updating the duration of
+	// api request duration.
+	APIRequestDuration() SummaryVec
+
+	// DeprecatedAPIRequestsTotal returns a CounterVec for updating the number of
+	// api requests total.
+	// The following is obsolete and should be removed for 2.6 release
+	DeprecatedAPIRequestsTotal() CounterVec
+
+	// DeprecatedAPIRequestDuration returns a SummaryVec for updating the duration of
+	// api request duration.
+	// The following is obsolete and should be removed for 2.6 release
+	DeprecatedAPIRequestDuration() SummaryVec
 }
 
 // Config contains the configuration for an Observer.
@@ -36,9 +73,8 @@ type Config struct {
 	// Clock is the clock to use for all time-related operations.
 	Clock clock.Clock
 
-	// PrometheusRegisterer is the prometheus.Registerer in which metric
-	// collectors will be registered.
-	PrometheusRegisterer prometheus.Registerer
+	// MetricsCollector defines .
+	MetricsCollector MetricsCollector
 }
 
 // Validate validates the observer factory configuration.
@@ -46,8 +82,8 @@ func (cfg Config) Validate() error {
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
-	if cfg.PrometheusRegisterer == nil {
-		return errors.NotValidf("nil PrometheusRegisterer")
+	if cfg.MetricsCollector == nil {
+		return errors.NotValidf("nil MetricsCollector")
 	}
 	return nil
 }
@@ -60,38 +96,15 @@ func NewObserverFactory(config Config) (observer.ObserverFactory, error) {
 		return nil, errors.Annotate(err, "validating config")
 	}
 
-	apiRequestsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "juju",
-		Subsystem: "api",
-		Name:      "requests_total",
-		Help:      "Number of Juju API requests served.",
-	}, metricLabelNames)
-
-	apiRequestDuration := prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Namespace: "juju",
-		Subsystem: "api",
-		Name:      "request_duration_seconds",
-		Help:      "Latency of Juju API requests in seconds.",
-	}, metricLabelNames)
-
-	config.PrometheusRegisterer.Unregister(apiRequestsTotal)
-	if err := config.PrometheusRegisterer.Register(apiRequestsTotal); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	config.PrometheusRegisterer.Unregister(apiRequestDuration)
-	if err := config.PrometheusRegisterer.Register(apiRequestDuration); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// Observer is currently stateless, so we return the same one for each
 	// API connection. Individual RPC requests still get their own RPC
 	// observers.
 	o := &Observer{
 		clock: config.Clock,
 		metrics: metrics{
-			apiRequestDuration: apiRequestDuration,
-			apiRequestsTotal:   apiRequestsTotal,
+			apiRequestDuration:           config.MetricsCollector.APIRequestDuration(),
+			deprecatedAPIRequestsTotal:   config.MetricsCollector.DeprecatedAPIRequestsTotal(),
+			deprecatedAPIRequestDuration: config.MetricsCollector.DeprecatedAPIRequestDuration(),
 		},
 	}
 	return func() observer.Observer {
@@ -106,8 +119,9 @@ type Observer struct {
 }
 
 type metrics struct {
-	apiRequestDuration *prometheus.SummaryVec
-	apiRequestsTotal   *prometheus.CounterVec
+	apiRequestDuration           SummaryVec
+	deprecatedAPIRequestDuration SummaryVec
+	deprecatedAPIRequestsTotal   CounterVec
 }
 
 // Login is part of the observer.Observer interface.
@@ -141,12 +155,15 @@ func (o *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
 // ServerReply is part of the rpc.Observer interface.
 func (o *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 	labels := prometheus.Labels{
-		facadeLabel:    req.Type,
-		versionLabel:   strconv.Itoa(req.Version),
-		methodLabel:    req.Action,
-		errorCodeLabel: hdr.ErrorCode,
+		MetricLabelFacade:    req.Type,
+		MetricLabelVersion:   strconv.Itoa(req.Version),
+		MetricLabelMethod:    req.Action,
+		MetricLabelErrorCode: hdr.ErrorCode,
 	}
 	duration := o.clock.Now().Sub(o.requestStart)
 	o.metrics.apiRequestDuration.With(labels).Observe(duration.Seconds())
-	o.metrics.apiRequestsTotal.With(labels).Inc()
+
+	// The following is obsolete and should be removed for 2.6 release
+	o.metrics.deprecatedAPIRequestDuration.With(labels).Observe(duration.Seconds())
+	o.metrics.deprecatedAPIRequestsTotal.With(labels).Inc()
 }

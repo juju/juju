@@ -923,6 +923,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				RestoreStatus: func() state.RestoreStatus {
 					return state.RestoreNotActive
 				},
+				MetricsCollector: apiserver.NewMetricsCollector(),
 			})
 			if err != nil {
 				panic(err)

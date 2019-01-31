@@ -4,13 +4,13 @@
 package metricobserver_test
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer"
@@ -20,9 +20,7 @@ import (
 
 type observerSuite struct {
 	testing.IsolationSuite
-	clock    *testclock.Clock
-	registry *prometheus.Registry
-	factory  observer.ObserverFactory
+	clock *testclock.Clock
 }
 
 var _ = gc.Suite(&observerSuite{})
@@ -30,23 +28,21 @@ var _ = gc.Suite(&observerSuite{})
 func (s *observerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Time{})
-	s.registry = prometheus.NewPedanticRegistry()
-
-	var err error
-	s.factory, err = metricobserver.NewObserverFactory(metricobserver.Config{
-		Clock:                s.clock,
-		PrometheusRegisterer: s.registry,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *observerSuite) TestObserver(c *gc.C) {
-	o := s.factory()
+	factory, finish := s.createFactory(c)
+	defer finish()
+
+	o := factory()
 	c.Assert(o, gc.NotNil)
 }
 
 func (s *observerSuite) TestRPCObserver(c *gc.C) {
-	o := s.factory().RPCObserver()
+	factory, finish := s.createFactory(c)
+	defer finish()
+
+	o := factory().RPCObserver()
 	c.Assert(o, gc.NotNil)
 
 	latencies := []time.Duration{
@@ -64,60 +60,20 @@ func (s *observerSuite) TestRPCObserver(c *gc.C) {
 		s.clock.Advance(latency)
 		o.ServerReply(req, &rpc.Header{ErrorCode: "badness"}, nil)
 	}
+}
 
-	stringptr := func(s string) *string {
-		return &s
-	}
-	metricTypePtr := func(t dto.MetricType) *dto.MetricType {
-		return &t
-	}
-	float64ptr := func(f float64) *float64 {
-		return &f
-	}
-	uint64ptr := func(u uint64) *uint64 {
-		return &u
-	}
+func (s *observerSuite) createFactory(c *gc.C) (observer.ObserverFactory, func()) {
+	metricsCollector, finish := createMockMetrics(c, prometheus.Labels{
+		metricobserver.MetricLabelFacade:    "api-facade",
+		metricobserver.MetricLabelVersion:   strconv.Itoa(42),
+		metricobserver.MetricLabelMethod:    "api-method",
+		metricobserver.MetricLabelErrorCode: "badness",
+	})
 
-	labels := []*dto.LabelPair{
-		{stringptr("error_code"), stringptr("badness"), nil},
-		{stringptr("facade"), stringptr("api-facade"), nil},
-		{stringptr("method"), stringptr("api-method"), nil},
-		{stringptr("version"), stringptr("42"), nil},
-	}
-
-	metricFamilies, err := s.registry.Gather()
+	factory, err := metricobserver.NewObserverFactory(metricobserver.Config{
+		Clock:            s.clock,
+		MetricsCollector: metricsCollector,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricFamilies, gc.HasLen, 2)
-	c.Assert(metricFamilies, jc.DeepEquals, []*dto.MetricFamily{{
-		Name: stringptr("juju_api_request_duration_seconds"),
-		Help: stringptr("Latency of Juju API requests in seconds."),
-		Type: metricTypePtr(dto.MetricType_SUMMARY),
-		Metric: []*dto.Metric{{
-			Label: labels,
-			Summary: &dto.Summary{
-				SampleCount: uint64ptr(3),
-				SampleSum:   float64ptr(4.5),
-				Quantile: []*dto.Quantile{{
-					Quantile: float64ptr(0.5),
-					Value:    float64ptr(1),
-				}, {
-					Quantile: float64ptr(0.9),
-					Value:    float64ptr(1.5),
-				}, {
-					Quantile: float64ptr(0.99),
-					Value:    float64ptr(1.5),
-				}},
-			},
-		}},
-	}, {
-		Name: stringptr("juju_api_requests_total"),
-		Help: stringptr("Number of Juju API requests served."),
-		Type: metricTypePtr(dto.MetricType_COUNTER),
-		Metric: []*dto.Metric{{
-			Label: labels,
-			Counter: &dto.Counter{
-				Value: float64ptr(3),
-			},
-		}},
-	}})
+	return factory, finish
 }

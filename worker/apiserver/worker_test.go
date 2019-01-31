@@ -35,6 +35,7 @@ type workerFixture struct {
 	leaseManager         lease.Manager
 	config               apiserver.Config
 	stub                 testing.Stub
+	metricsCollector     *coreapiserver.Collector
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -52,6 +53,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.mux = apiserverhttp.NewMux()
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.leaseManager = &struct{ lease.Manager }{}
+	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{
@@ -62,12 +64,12 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Presence:                          presence.New(s.clock),
 		Mux:                               s.mux,
 		StatePool:                         &state.StatePool{},
-		PrometheusRegisterer:              &s.prometheusRegisterer,
 		LeaseManager:                      s.leaseManager,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		UpgradeComplete:                   func() bool { return true },
 		RestoreStatus:                     func() state.RestoreStatus { return "" },
 		NewServer:                         s.newServer,
+		MetricsCollector:                  s.metricsCollector,
 	}
 }
 
@@ -111,8 +113,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.StatePool = nil },
 		"nil StatePool not valid",
 	}, {
-		func(cfg *apiserver.Config) { cfg.PrometheusRegisterer = nil },
-		"nil PrometheusRegisterer not valid",
+		func(cfg *apiserver.Config) { cfg.MetricsCollector = nil },
+		"nil MetricsCollector not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.LeaseManager = nil },
 		"nil LeaseManager not valid",
