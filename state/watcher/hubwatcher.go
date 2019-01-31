@@ -47,12 +47,10 @@ type HubWatcher struct {
 	// watches holds the observers managed by Watch/Unwatch.
 	watches map[watchKey][]watchInfo
 
-	// syncEvents and requestEvents contain the events to be
+	// syncEvents contain the events to be
 	// dispatched to the watcher channels. They're queued during
 	// processing and flushed at the end to simplify the algorithm.
-	// The two queues are separated because events from sync are
-	// handled in reverse order due to the way the algorithm works.
-	syncEvents, requestEvents []event
+	syncEvents []event
 
 	// request is used to deliver requests from the public API into
 	// the the goroutine loop.
@@ -318,13 +316,6 @@ type HubWatcherStats struct {
 	SyncEventDocCount uint64
 	// SyncEventCollCount is the number of sync events we've generated for documents changed in collections
 	SyncEventCollCount uint64
-	// RequestEventCount is the number of request events we've generated
-	// (documents being watched that changed since the request came in)
-	RequestEventCount uint64
-	// RequestQueueCap is the maximum size of the request queue buffer
-	RequestQueueCap int
-	// RequestQueueLen is the current number of requested events
-	RequestQueueLen int
 	// RequestCount is the number of requests (reqWatch/reqUnwatch, etc) that we've seen
 	RequestCount uint64
 	// ChangeCount is the number of changes we've processed
@@ -359,9 +350,6 @@ func (w *HubWatcher) Report() map[string]interface{} {
 		"sync-max-len":          stats.SyncMaxLen,
 		"sync-event-doc-count":  stats.SyncEventDocCount,
 		"sync-event-coll-count": stats.SyncEventCollCount,
-		"request-queue-cap":     stats.RequestQueueCap,
-		"request-queue-len":     stats.RequestQueueLen,
-		"request-event-count":   stats.RequestEventCount,
 		"request-count":         stats.RequestCount,
 		"change-count":          stats.ChangeCount,
 	}
@@ -392,7 +380,7 @@ func (w *HubWatcher) loop() error {
 			w.idleFunc(w.modelUUID)
 			idle = w.clock.After(HubWatcherIdleTime)
 		}
-		for (len(w.syncEvents) + len(w.requestEvents)) > 0 {
+		for len(w.syncEvents) > 0 {
 			select {
 			case <-w.tomb.Dying():
 				return errors.Trace(tomb.ErrDying)
@@ -413,11 +401,12 @@ func (w *HubWatcher) flush() bool {
 	// syncEvents are stored first in first out.
 	// syncEvents may grow during the looping here if new
 	// watch events come in while we are notifying other watchers.
+	w.logger.Tracef("flushing syncEvents: len(%d) cap(%d)", len(w.syncEvents), cap(w.syncEvents))
 	for i := 0; i < len(w.syncEvents); i++ {
 		// We need to reget the address value each time through the loop
 		// as the slice may be reallocated.
 		for e := &w.syncEvents[i]; e.ch != nil; e = &w.syncEvents[i] {
-			w.logger.Tracef("syncEvents: e.ch=%v len(%d), cap(%d)", e.ch, len(w.syncEvents), cap(w.syncEvents))
+			w.logger.Tracef("sending syncEvent(%d): %v e.ch=%v", i, e.key, e.ch)
 			outChange := Change{
 				C:     e.key.c,
 				Id:    e.key.id,
@@ -451,36 +440,12 @@ func (w *HubWatcher) flush() bool {
 	// larger than averageSyncLen. Consider something like "if cap(syncEventsLen) > 10*w.averageSyncLen".
 	// That means that we can shrink the buffer after an outlier, rather than requiring it to always be the longest
 	// it was ever needed.
-	w.logger.Tracef("syncEvents: len(%d), cap(%d) avg(%.1f)", len(w.syncEvents), cap(w.syncEvents), w.averageSyncLen)
-
-	// requestEvents are stored oldest first, and
-	// may grow during the loop.
-	for i := 0; i < len(w.requestEvents); i++ {
-		// We need to reget the address value each time through the loop
-		// as the slice may be reallocated.
-		for e := &w.requestEvents[i]; e.ch != nil; e = &w.requestEvents[i] {
-			outChange := Change{
-				C:     e.key.c,
-				Id:    e.key.id,
-				Revno: e.revno,
-			}
-			select {
-			case <-w.tomb.Dying():
-				return watchersNotified
-			case req := <-w.request:
-				w.handle(req)
-				continue
-			case inChange := <-w.changes:
-				w.queueChange(inChange)
-				continue
-			case e.ch <- outChange:
-				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, outChange)
-				watchersNotified = true
-			}
-			break
-		}
+	w.logger.Tracef("syncEvents after flush: len(%d), cap(%d) avg(%.1f)", len(w.syncEvents), cap(w.syncEvents), w.averageSyncLen)
+	if cap(w.syncEvents) > 100 && float64(cap(w.syncEvents)) > 10.0*w.averageSyncLen {
+		w.logger.Debugf("syncEvents buffer being reset from peak size", cap(w.syncEvents))
+		w.syncEvents = nil
 	}
-	w.requestEvents = w.requestEvents[:0]
+
 	return watchersNotified
 }
 
@@ -546,12 +511,6 @@ func (w *HubWatcher) handle(req interface{}) {
 		if !removed {
 			panic(fmt.Errorf("tried to remove missing channel %v for %s", r.ch, r.key))
 		}
-		for i := range w.requestEvents {
-			e := &w.requestEvents[i]
-			if r.key.match(e.key) && e.ch == r.ch {
-				e.ch = nil
-			}
-		}
 		for i := range w.syncEvents {
 			e := &w.syncEvents[i]
 			if r.key.match(e.key) && e.ch == r.ch {
@@ -574,8 +533,6 @@ func (w *HubWatcher) handle(req interface{}) {
 			SyncAvgLen:         int(w.averageSyncLen + 0.5),
 			SyncEventCollCount: w.syncEventCollectionCount,
 			SyncEventDocCount:  w.syncEventDocCount,
-			RequestQueueCap:    cap(w.requestEvents),
-			RequestQueueLen:    len(w.requestEvents),
 			RequestCount:       w.requestCount,
 		}
 		select {
@@ -632,7 +589,7 @@ func (w *HubWatcher) queueChange(change Change) {
 		}
 		w.syncEvents = append(w.syncEvents, evt)
 		w.syncEventCollectionCount++
-		w.logger.Tracef("adding collection watch for %v syncEvents: len(%d), cap(%d)", info.ch, len(w.syncEvents), cap(w.syncEvents))
+		w.logger.Tracef("adding event for collection %q watch %v, syncEvents: len(%d), cap(%d)", change.C, info.ch, len(w.syncEvents), cap(w.syncEvents))
 	}
 
 	// Queue notifications for per-document watches.
@@ -647,7 +604,7 @@ func (w *HubWatcher) queueChange(change Change) {
 			}
 			w.syncEvents = append(w.syncEvents, evt)
 			w.syncEventDocCount++
-			w.logger.Tracef("adding document watch for %v syncEvents: len(%d), cap(%d)", info.ch, len(w.syncEvents), cap(w.syncEvents))
+			w.logger.Tracef("adding event for document %v watch %v, syncEvents: len(%d), cap(%d)", key, info.ch, len(w.syncEvents), cap(w.syncEvents))
 		}
 	}
 }
