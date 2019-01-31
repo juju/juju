@@ -343,7 +343,7 @@
 
 [[constraint]]
   name = "github.com/juju/txn"
-  revision = "0735533e000d6c33a901ee30cc1964ac2721fd39"
+  revision = "df6ecfd7d096675fb784bd5a4ebf253eddb7da05"
 
 [[override]]
   name = "github.com/juju/usso"

@@ -213,7 +213,7 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 
 	// Can't compare trapdoors directly.
 	var out string
-	err := r1.Trapdoor(&out)
+	err := r1.Trapdoor(0, &out)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, "{quam olim abrahe} held by verdi")
 
@@ -221,9 +221,18 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 	c.Assert(r2.Holder, gc.Equals, "mozart")
 	c.Assert(r2.Expiry, gc.Equals, in5Seconds)
 
-	err = r2.Trapdoor(&out)
+	err = r2.Trapdoor(0, &out)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, "{la cry mosa} held by mozart")
+}
+
+func (s *storeSuite) TestLeasesFilter(c *gc.C) {
+	lease1 := lease.Key{Namespace: "quam", ModelUUID: "olim", Lease: "abrahe"}
+	lease2 := lease.Key{Namespace: "la", ModelUUID: "cry", Lease: "mosa"}
+
+	_ = s.store.Leases(lease1, lease2)
+	s.fsm.CheckCallNames(c, "Leases")
+	c.Check(s.fsm.Calls()[0].Args[1], jc.SameContents, []lease.Key{lease1, lease2})
 }
 
 func (s *storeSuite) TestPin(c *gc.C) {
@@ -496,8 +505,8 @@ type fakeFSM struct {
 	pinned     map[lease.Key][]string
 }
 
-func (f *fakeFSM) Leases(t time.Time) map[lease.Key]lease.Info {
-	f.AddCall("Leases", t)
+func (f *fakeFSM) Leases(t func() time.Time, keys ...lease.Key) map[lease.Key]lease.Info {
+	f.AddCall("Leases", t(), keys)
 	return f.leases
 }
 
@@ -511,7 +520,7 @@ func (f *fakeFSM) GlobalTime() time.Time {
 }
 
 func FakeTrapdoor(key lease.Key, holder string) lease.Trapdoor {
-	return func(out interface{}) error {
+	return func(attempt int, out interface{}) error {
 		if s, ok := out.(*string); ok {
 			*s = fmt.Sprintf("%v held by %s", key, holder)
 			return nil

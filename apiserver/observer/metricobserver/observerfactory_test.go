@@ -4,9 +4,9 @@
 package metricobserver_test
 
 import (
-	"errors"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,8 +18,7 @@ import (
 
 type observerFactorySuite struct {
 	testing.IsolationSuite
-	clock      *testclock.Clock
-	registerer fakePrometheusRegisterer
+	clock *testclock.Clock
 }
 
 var _ = gc.Suite(&observerFactorySuite{})
@@ -27,7 +26,6 @@ var _ = gc.Suite(&observerFactorySuite{})
 func (s *observerFactorySuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Time{})
-	s.registerer = fakePrometheusRegisterer{}
 }
 
 func (*observerFactorySuite) TestNewObserverFactoryInvalidConfig(c *gc.C) {
@@ -35,35 +33,14 @@ func (*observerFactorySuite) TestNewObserverFactoryInvalidConfig(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "validating config: nil Clock not valid")
 }
 
-func (s *observerFactorySuite) TestNewObserverFactoryRegisterError(c *gc.C) {
-	s.registerer.SetErrors(errors.New("oy vey"))
-	_, err := metricobserver.NewObserverFactory(metricobserver.Config{
-		Clock:                s.clock,
-		PrometheusRegisterer: &s.registerer,
-	})
-	c.Assert(err, gc.ErrorMatches, "oy vey")
-}
-
 func (s *observerFactorySuite) TestNewObserverFactoryRegister(c *gc.C) {
+	metricsCollector, finish := createMockMetrics(c, gomock.AssignableToTypeOf(prometheus.Labels{}))
+	defer finish()
+
 	f, err := metricobserver.NewObserverFactory(metricobserver.Config{
-		Clock:                s.clock,
-		PrometheusRegisterer: &s.registerer,
+		Clock:            s.clock,
+		MetricsCollector: metricsCollector,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f, gc.NotNil)
-	s.registerer.CheckCallNames(c, "Register", "Register")
-}
-
-type fakePrometheusRegisterer struct {
-	prometheus.Registerer
-	testing.Stub
-}
-
-func (r *fakePrometheusRegisterer) Register(c prometheus.Collector) error {
-	r.MethodCall(r, "Register", c)
-	return r.NextErr()
-}
-
-func (r *fakePrometheusRegisterer) Unregister(c prometheus.Collector) bool {
-	return true
 }

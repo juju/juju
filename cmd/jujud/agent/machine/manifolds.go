@@ -749,7 +749,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            config.AgentName,
 			Clock:                config.Clock,
 			MuxShutdownWait:      config.MuxShutdownWait,
-			LogDir:               "/var/log/juju", //agentConfig.LogDir(),
+			LogDir:               agentConfig.LogDir(),
 			GetControllerConfig:  httpserver.GetControllerConfig,
 			NewTLSConfig:         httpserver.NewTLSConfig,
 			NewWorker:            httpserver.NewWorkerShim,
@@ -775,6 +775,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Hub:                               config.CentralHub,
 			Presence:                          config.PresenceRecorder,
 			NewWorker:                         apiserver.NewWorker,
+			NewMetricsCollector:               apiserver.NewMetricsCollector,
 		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
@@ -873,6 +874,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			ClockName:            clockName,
 			CentralHubName:       centralHubName,
+			StateName:            stateName,
 			FSM:                  leaseFSM,
 			RequestTopic:         leaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.lease.raft"),

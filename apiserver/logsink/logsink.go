@@ -16,10 +16,22 @@ import (
 	"github.com/juju/ratelimit"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
+	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/feature"
+)
+
+const (
+	metricLogWriteLabelSuccess = "success"
+	metricLogWriteLabelFailure = "failure"
+)
+
+const (
+	metricLogReadLabelError      = "error"
+	metricLogReadLabelDisconnect = "disconnect"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.logsink")
@@ -52,6 +64,52 @@ type RateLimitConfig struct {
 	Clock clock.Clock
 }
 
+// CounterVec is a Collector that bundles a set of Counters that all share the
+// same description.
+type CounterVec interface {
+	// With returns a Counter for a given labels slice
+	With(prometheus.Labels) prometheus.Counter
+}
+
+// GaugeVec is a Collector that bundles a set of Gauges that all share the
+// same description.
+type GaugeVec interface {
+	// With returns a Gauge for a given labels slice
+	With(prometheus.Labels) prometheus.Gauge
+}
+
+// MetricsCollector represents a way to change the metrics for the logsink
+// api handler.
+//go:generate mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/logsink MetricsCollector
+//go:generate mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Counter,Gauge
+type MetricsCollector interface {
+
+	// TotalConnections returns a prometheus metric that can be incremented
+	// as a counter for the total number connections being served from the api
+	// handler.
+	TotalConnections() prometheus.Counter
+
+	// Connections returns a prometheus metric that can be incremented and
+	// decremented as a gauge, for the number connections being current served
+	// from the api handler.
+	Connections() prometheus.Gauge
+
+	// PingFailureCount returns a prometheus metric for the number of
+	// ping failures per model uuid, that can be incremented as
+	// a counter.
+	PingFailureCount(modelUUID string) prometheus.Counter
+
+	// LogWriteCount returns a prometheus metric for the number of writes to
+	// the log that happened. It's split on the success/failure, so the charts
+	// will have to take that into account.
+	LogWriteCount(modelUUID, state string) prometheus.Counter
+
+	// LogReadCount returns a prometheus metric for the number of reads to
+	// the log that happened. It's split on the success/error/disconnect, so
+	// the charts will have to take that into account.
+	LogReadCount(modelUUID, state string) prometheus.Counter
+}
+
 // NewHTTPHandler returns a new http.Handler for receiving log messages over a
 // websocket, using the given NewLogWriteCloserFunc to obtain a writer to which
 // the log messages will be written.
@@ -62,6 +120,8 @@ func NewHTTPHandler(
 	newLogWriteCloser NewLogWriteCloserFunc,
 	abort <-chan struct{},
 	ratelimit *RateLimitConfig,
+	metrics MetricsCollector,
+	modelUUID string,
 ) http.Handler {
 	return &logSinkHandler{
 		newLogWriteCloser: newLogWriteCloser,
@@ -71,6 +131,8 @@ func NewHTTPHandler(
 			ch := make(chan struct{})
 			return ch, func() { close(ch) }
 		},
+		metrics:   metrics,
+		modelUUID: modelUUID,
 	}
 }
 
@@ -78,6 +140,8 @@ type logSinkHandler struct {
 	newLogWriteCloser NewLogWriteCloserFunc
 	abort             <-chan struct{}
 	ratelimit         *RateLimitConfig
+	metrics           MetricsCollector
+	modelUUID         string
 	mu                sync.Mutex
 
 	// newStopChannel is overridden in tests so that we can check the
@@ -111,7 +175,18 @@ const (
 
 // ServeHTTP implements the http.Handler interface.
 func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// If the modelUUID from the request is empty, fallback to the one in
+	// the logsink handler (controller UUID)
+	resolvedModelUUID := h.modelUUID
+	if modelUUID := httpcontext.RequestModelUUID(req); modelUUID != "" {
+		resolvedModelUUID = modelUUID
+	}
+
 	handler := func(socket *websocket.Conn) {
+		h.metrics.TotalConnections().Inc()
+		h.metrics.Connections().Inc()
+		defer h.metrics.Connections().Dec()
+
 		defer socket.Close()
 		endpointVersion, err := h.getVersion(req)
 		if err != nil {
@@ -150,7 +225,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		stopReceiving, closer := h.newStopChannel()
 		defer closer()
-		logCh := h.receiveLogs(socket, endpointVersion, stopReceiving)
+		logCh := h.receiveLogs(socket, endpointVersion, resolvedModelUUID, stopReceiving)
 		for {
 			select {
 			case <-h.abort:
@@ -163,6 +238,8 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					// returning we clean up the strategy and close the socket
 					// through the defer calls.
 					logger.Debugf("failed to write ping: %s", err)
+					// Bump the ping failure count.
+					h.metrics.PingFailureCount(resolvedModelUUID).Inc()
 					return
 				}
 			case m, ok := <-logCh:
@@ -172,10 +249,21 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					h.receiverStopped = true
 					return
 				}
+
 				if err := writer.WriteLog(m); err != nil {
 					h.sendError(socket, req, err)
+					// Increment the number of failure cases per modelUUID, that
+					// we where unable to write a log to - note: we won't see
+					// why the failure happens, only that it did happen. Maybe
+					// we should add a trace log here. Developer mode for send
+					// error might help if it was enabled at first ?
+					h.metrics.LogWriteCount(resolvedModelUUID, metricLogWriteLabelFailure).Inc()
 					return
 				}
+
+				// Increment the number of successful modelUUID log writes, so
+				// that we can see what's a success over failure case
+				h.metrics.LogWriteCount(resolvedModelUUID, metricLogWriteLabelSuccess).Inc()
 			}
 		}
 	}
@@ -194,7 +282,11 @@ func (h *logSinkHandler) getVersion(req *http.Request) (int, error) {
 	}
 }
 
-func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int, stop <-chan struct{}) <-chan params.LogRecord {
+func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
+	endpointVersion int,
+	resolvedModelUUID string,
+	stop <-chan struct{},
+) <-chan params.LogRecord {
 	logCh := make(chan params.LogRecord)
 
 	var tokenBucket *ratelimit.Bucket
@@ -219,8 +311,10 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int
 			if err := socket.ReadJSON(&m); err != nil {
 				if gorillaws.IsUnexpectedCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
 					logger.Debugf("logsink receive error: %v", err)
+					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelError).Inc()
 				} else {
 					logger.Debugf("disconnected, %p", socket)
+					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelDisconnect).Inc()
 				}
 				// Try to tell the other end we are closing. If the other end
 				// has already disconnected from us, this will fail, but we don't

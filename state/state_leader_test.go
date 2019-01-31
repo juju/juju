@@ -60,14 +60,14 @@ func (s *LeadershipSuite) TestClaimValidateDuration(c *gc.C) {
 
 func (s *LeadershipSuite) TestCheckValidatesApplicationname(c *gc.C) {
 	token := s.checker.LeadershipCheck("not/a/application", "u/0")
-	err := token.Check(nil)
+	err := token.Check(0, nil)
 	c.Check(err, gc.ErrorMatches, `cannot check lease "not/a/application": not an application name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *LeadershipSuite) TestCheckValidatesUnitName(c *gc.C) {
 	token := s.checker.LeadershipCheck("application", "not/a/unit")
-	err := token.Check(nil)
+	err := token.Check(0, nil)
 	c.Check(err, gc.ErrorMatches, `cannot check holder "not/a/unit": not a unit name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -107,7 +107,7 @@ func (s *LeadershipSuite) TestCheck(c *gc.C) {
 
 	// Check token reports current leadership state.
 	var ops []txn.Op
-	err = token.Check(&ops)
+	err = token.Check(0, &ops)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ops, gc.HasLen, 1)
 
@@ -116,7 +116,7 @@ func (s *LeadershipSuite) TestCheck(c *gc.C) {
 
 	// Check leadership still reported accurately.
 	var ops2 []txn.Op
-	err = token.Check(&ops2)
+	err = token.Check(1, &ops2)
 	c.Check(err, gc.ErrorMatches, `"application/0" is not leader of "application"`)
 	c.Check(ops2, gc.IsNil)
 }
@@ -154,7 +154,7 @@ func (s *LeadershipSuite) TestLeadershipCheckerRestarts(c *gc.C) {
 	s.State.SetClockForTesting(testclock.NewClock(time.Time{}))
 
 	token := s.checker.LeadershipCheck("application", "application/0")
-	err = token.Check(nil)
+	err = token.Check(0, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

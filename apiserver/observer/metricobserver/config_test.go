@@ -4,13 +4,14 @@
 package metricobserver_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver"
+	"github.com/juju/juju/apiserver/observer/metricobserver/mocks"
 )
 
 type configSuite struct {
@@ -20,9 +21,14 @@ type configSuite struct {
 var _ = gc.Suite(&configSuite{})
 
 func (*configSuite) TestValidateValid(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	metricsCollector := mocks.NewMockMetricsCollector(ctrl)
+
 	cfg := metricobserver.Config{
-		Clock:                clock.WallClock,
-		PrometheusRegisterer: prometheus.NewRegistry(),
+		Clock:            clock.WallClock,
+		MetricsCollector: metricsCollector,
 	}
 	err := cfg.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -32,7 +38,7 @@ func (*configSuite) TestValidateInvalid(c *gc.C) {
 	assertConfigInvalid(c, metricobserver.Config{}, "nil Clock not valid")
 	assertConfigInvalid(c, metricobserver.Config{
 		Clock: clock.WallClock,
-	}, "nil PrometheusRegisterer not valid")
+	}, "nil MetricsCollector not valid")
 }
 
 func assertConfigInvalid(c *gc.C, cfg metricobserver.Config, expect string) {

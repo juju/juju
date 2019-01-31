@@ -1991,8 +1991,8 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 			meterStatusC,
 			u.st.docID(u.globalMeterStatusKey()),
 		}, {
-			metricsManagerC,
-			metricsManagerKey,
+			meterStatusC,
+			metricsManagerKey(u.st),
 		},
 	})
 }

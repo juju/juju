@@ -4,12 +4,11 @@
 package apiserver_test
 
 import (
-	"time"
+	"regexp"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
@@ -24,7 +23,7 @@ var _ = gc.Suite(&apiservermetricsSuite{})
 
 func (s *apiservermetricsSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.collector = apiserver.NewMetricsCollector(&stubCollector{})
+	s.collector = apiserver.NewMetricsCollector()
 }
 
 func (s *apiservermetricsSuite) TestDescribe(c *gc.C) {
@@ -37,11 +36,19 @@ func (s *apiservermetricsSuite) TestDescribe(c *gc.C) {
 	for desc := range ch {
 		descs = append(descs, desc)
 	}
-	c.Assert(descs, gc.HasLen, 4)
+	c.Assert(descs, gc.HasLen, 10)
 	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_apiserver_connections_total".*`)
-	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_count".*`)
-	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_pause_seconds".*`)
-	c.Assert(descs[3].String(), gc.Matches, `.*fqName: "juju_apiserver_active_login_attempts".*`)
+	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_apiserver_connections".*`)
+	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_apiserver_active_login_attempts".*`)
+	c.Assert(descs[3].String(), gc.Matches, `.*fqName: "juju_apiserver_request_duration_seconds".*`)
+	c.Assert(descs[4].String(), gc.Matches, `.*fqName: "juju_apiserver_ping_failure_count".*`)
+	c.Assert(descs[5].String(), gc.Matches, `.*fqName: "juju_apiserver_log_write_count".*`)
+	c.Assert(descs[6].String(), gc.Matches, `.*fqName: "juju_apiserver_log_read_count".*`)
+
+	// The following will be removed the future (post 2.6 release)
+	c.Assert(descs[7].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_count".*`)
+	c.Assert(descs[8].String(), gc.Matches, `.*fqName: "juju_api_requests_total".*`)
+	c.Assert(descs[9].String(), gc.Matches, `.*fqName: "juju_api_request_duration_seconds".*`)
 }
 
 func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
@@ -55,39 +62,43 @@ func (s *apiservermetricsSuite) TestCollect(c *gc.C) {
 	for metric := range ch {
 		metrics = append(metrics, metric)
 	}
-	c.Assert(metrics, gc.HasLen, 4)
+	c.Assert(metrics, gc.HasLen, 3)
+}
 
-	var dtoMetrics [4]dto.Metric
-	for i, metric := range metrics {
-		err := metric.Write(&dtoMetrics[i])
-		c.Assert(err, jc.ErrorIsNil)
+func (s *apiservermetricsSuite) TestLabelNames(c *gc.C) {
+	// This is the prometheus label specs.
+	labelNameRE := regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
+	testCases := []struct {
+		name    string
+		labels  []string
+		checker gc.Checker
+	}{
+		{
+			name:    "api connections label names",
+			labels:  apiserver.MetricAPIConnectionsLabelNames,
+			checker: jc.IsTrue,
+		},
+		{
+			name:    "ping failure label names",
+			labels:  apiserver.MetricPingFailureLabelNames,
+			checker: jc.IsTrue,
+		},
+		{
+			name:    "log failure label names",
+			labels:  apiserver.MetricLogLabelNames,
+			checker: jc.IsTrue,
+		},
+		{
+			name:    "invalid names",
+			labels:  []string{"model-uuid"},
+			checker: jc.IsFalse,
+		},
 	}
 
-	float64ptr := func(v float64) *float64 {
-		return &v
+	for i, testCase := range testCases {
+		c.Logf("running test %d", i)
+		for k, label := range testCase.labels {
+			c.Assert(labelNameRE.MatchString(label), testCase.checker, gc.Commentf("%d %s", k, testCase.name))
+		}
 	}
-	c.Assert(dtoMetrics, jc.DeepEquals, [4]dto.Metric{
-		{Counter: &dto.Counter{Value: float64ptr(200)}},
-		{Gauge: &dto.Gauge{Value: float64ptr(2)}},
-		{Gauge: &dto.Gauge{Value: float64ptr(0.02)}},
-		{Gauge: &dto.Gauge{Value: float64ptr(3)}},
-	})
-}
-
-type stubCollector struct{}
-
-func (a *stubCollector) TotalConnections() int64 {
-	return 200
-}
-
-func (a *stubCollector) ConnectionCount() int64 {
-	return 2
-}
-
-func (a *stubCollector) ConcurrentLoginAttempts() int64 {
-	return 3
-}
-
-func (a *stubCollector) ConnectionPauseTime() time.Duration {
-	return 20 * time.Millisecond
 }

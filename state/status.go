@@ -197,8 +197,9 @@ func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.
 	}
 	if containerStatus.Status == "" {
 		// No container update received from k8s yet.
-		// Unit may have set status.
-		if unitStatus.Status != "" {
+		// Unit may have set status, (though final status
+		// can only be active if a container status has come through).
+		if unitStatus.Status != "" && unitStatus.Status != status.Active {
 			return unitStatus
 		}
 
