@@ -15,11 +15,12 @@ const (
 	deprecatedSubsystemNamespace = "api"
 )
 
-// MetricLabelEndpoint defines a constant for the APIConnections Label
+// MetricLabelEndpoint defines a constant for the APIConnections abd
+// PingFailureCount Labels
 const MetricLabelEndpoint = "endpoint"
 
 // MetricLabelModelUUID defines a constant for the PingFailureCount and
-// LogWriteCount Label
+// LogWriteCount Labels
 // Note: prometheus doesn't allow hyphens only underscores
 const MetricLabelModelUUID = "model_uuid"
 
@@ -36,6 +37,7 @@ var MetricAPIConnectionsLabelNames = []string{
 // metric.
 var MetricPingFailureLabelNames = []string{
 	MetricLabelModelUUID,
+	MetricLabelEndpoint,
 }
 
 // MetricLogLabelNames defines a series of labels for the LogWrite and LogRead
@@ -74,8 +76,8 @@ func NewMetricsCollector() *Collector {
 		APIConnections: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: apiserverMetricsNamespace,
 			Subsystem: apiserverSubsystemNamespace,
-			Name:      "connection_counts",
-			Help:      "Current number of active apiserver connections for logsink",
+			Name:      "connections",
+			Help:      "Current number of active apiserver connections for api handlers",
 		}, MetricAPIConnectionsLabelNames),
 		LoginAttempts: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: apiserverMetricsNamespace,

@@ -108,7 +108,7 @@ type MetricsCollector interface {
 	// LogReadCount returns a prometheus metric for the number of reads to
 	// the log that happened. It's split on the success/error/disconnect, so
 	// the charts will have to take that into account.
-	LogReadCount(modelUUID, string string) prometheus.Counter
+	LogReadCount(modelUUID, state string) prometheus.Counter
 }
 
 // NewHTTPHandler returns a new http.Handler for receiving log messages over a

@@ -377,7 +377,7 @@ func (w logsinkMetricsCollectorWrapper) Connections() prometheus.Gauge {
 }
 
 func (w logsinkMetricsCollectorWrapper) PingFailureCount(modelUUID string) prometheus.Counter {
-	return w.collector.PingFailureCount.WithLabelValues(modelUUID)
+	return w.collector.PingFailureCount.WithLabelValues(modelUUID, "logsink")
 }
 
 func (w logsinkMetricsCollectorWrapper) LogWriteCount(modelUUID, state string) prometheus.Counter {
@@ -779,6 +779,13 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	gauge := srv.metricsCollector.APIConnections.WithLabelValues("api")
 	gauge.Inc()
 	defer gauge.Dec()
+
+	// This is the deprecated api connections gauge, note it doesn't have the
+	// labels to pivot on.
+	// Remove this post 2.6 release
+	deprecatedGauge := srv.metricsCollector.DeprecatedAPIConnections
+	deprecatedGauge.Inc()
+	defer deprecatedGauge.Dec()
 
 	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
 

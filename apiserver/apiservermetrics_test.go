@@ -38,7 +38,7 @@ func (s *apiservermetricsSuite) TestDescribe(c *gc.C) {
 	}
 	c.Assert(descs, gc.HasLen, 10)
 	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_apiserver_connections_total".*`)
-	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_apiserver_connection_counts".*`)
+	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_apiserver_connections".*`)
 	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_apiserver_active_login_attempts".*`)
 	c.Assert(descs[3].String(), gc.Matches, `.*fqName: "juju_apiserver_request_duration_seconds".*`)
 	c.Assert(descs[4].String(), gc.Matches, `.*fqName: "juju_apiserver_ping_failure_count".*`)
