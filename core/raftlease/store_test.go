@@ -226,6 +226,15 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 	c.Assert(out, gc.Equals, "{la cry mosa} held by mozart")
 }
 
+func (s *storeSuite) TestLeasesFilter(c *gc.C) {
+	lease1 := lease.Key{Namespace: "quam", ModelUUID: "olim", Lease: "abrahe"}
+	lease2 := lease.Key{Namespace: "la", ModelUUID: "cry", Lease: "mosa"}
+
+	_ = s.store.Leases(lease1, lease2)
+	s.fsm.CheckCallNames(c, "Leases")
+	c.Check(s.fsm.Calls()[0].Args[1], jc.SameContents, []lease.Key{lease1, lease2})
+}
+
 func (s *storeSuite) TestPin(c *gc.C) {
 	machine := names.NewMachineTag("0").String()
 	s.handleHubRequest(c,
@@ -496,8 +505,8 @@ type fakeFSM struct {
 	pinned     map[lease.Key][]string
 }
 
-func (f *fakeFSM) Leases(t time.Time) map[lease.Key]lease.Info {
-	f.AddCall("Leases", t)
+func (f *fakeFSM) Leases(t func() time.Time, keys ...lease.Key) map[lease.Key]lease.Info {
+	f.AddCall("Leases", t(), keys)
 	return f.leases
 }
 
