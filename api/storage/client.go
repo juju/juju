@@ -95,7 +95,7 @@ func (c *Client) DeletePool(pname string) error {
 	if c.BestAPIVersion() < 5 {
 		return errors.New("deleting storage pools is not supported by this version of Juju")
 	}
-	args := params.StoragePoolDelete{
+	args := params.StoragePoolDeleteArg{
 		Name: pname,
 	}
 	return c.facade.FacadeCall("DeletePool", args, nil)

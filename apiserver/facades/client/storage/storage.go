@@ -1125,7 +1125,7 @@ func (a *StorageAPI) importFilesystem(
 }
 
 // DeletePool deletes the named pool
-func (a *StorageAPI) DeletePool(p params.StoragePoolDelete) error {
+func (a *StorageAPI) DeletePool(p params.StoragePoolDeleteArg) error {
 	if err := a.checkCanWrite(); err != nil {
 		return errors.Trace(err)
 	}

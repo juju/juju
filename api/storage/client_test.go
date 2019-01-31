@@ -863,7 +863,7 @@ func (s *storageMockSuite) TestDeletePool(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "DeletePool")
 
-			args, ok := a.(params.StoragePoolDelete)
+			args, ok := a.(params.StoragePoolDeleteArg)
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Name, gc.Equals, poolName)
 
