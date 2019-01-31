@@ -30,7 +30,6 @@ const (
 )
 
 const (
-	metricLogReadLabelSuccess    = "success"
 	metricLogReadLabelError      = "error"
 	metricLogReadLabelDisconnect = "disconnect"
 )
@@ -348,8 +347,6 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 				// The ServeHTTP handler has stopped.
 				return
 			case logCh <- m:
-				h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelSuccess).Inc()
-
 				// If the remote end does not support ping/pong, we bump
 				// the read deadline everytime a message is received.
 				if endpointVersion == 0 {
