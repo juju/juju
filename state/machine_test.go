@@ -1394,10 +1394,9 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.Watch()
-		longWait := time.After(coretesting.LongWait)
 		select {
 		case <-w.Changes():
-		case <-longWait:
+		case <-time.After(coretesting.LongWait):
 			c.Errorf("timeout waiting for Changes() to trigger")
 		}
 		return w

@@ -1672,6 +1672,13 @@ func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 			logger.Tracef("setting life of %q to %q", localId, doc.Life)
 			w.life[localId] = doc.Life
 		} else {
+			// Note(jam): 2019-01-31 This was done to match existing behavior, it is not guaranteed
+			// to be the behavior we want. Specifically, if we see a Dead unit we will report that
+			// it exists in the initial event. However, we stop watching because
+			// the object is dead, so you don't get an event when the doc is
+			// removed from the database. It seems better if we either/
+			// a) don't tell you about Dead documents
+			// b) give you an event if a Dead document goes away.
 			logger.Tracef("unwatching Dead unit: %q", localId)
 			w.watcher.Unwatch(unitsC, doc.Id, w.in)
 			delete(w.life, localId)
@@ -2321,7 +2328,6 @@ func (w *machineUnitsWatcher) watchNewUnits(unitNames, pending []string, unitCol
 	for iter.Next(&doc) {
 		notfound.Remove(doc.Name)
 		w.known[doc.Name] = doc.Life
-		// TODO: Do we need a hasString(pending, doc.Name) check?
 		pending = append(pending, doc.Name)
 		// now load subordinates
 		for _, subunitName := range doc.Subordinates {
