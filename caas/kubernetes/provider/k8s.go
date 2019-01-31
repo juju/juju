@@ -1922,6 +1922,25 @@ func makeUnitSpec(appName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 		}
 	}
 	unitSpec.Pod.ImagePullSecrets = imageSecretNames
+	if podSpec.ProviderPod != nil {
+		spec, ok := podSpec.ProviderPod.(*K8sPodSpec)
+		if !ok {
+			return nil, errors.Errorf("unexpected kubernetes pod spec type %T", podSpec.ProviderPod)
+		}
+		unitSpec.Pod.ActiveDeadlineSeconds = spec.ActiveDeadlineSeconds
+		unitSpec.Pod.ServiceAccountName = spec.ServiceAccountName
+		unitSpec.Pod.TerminationGracePeriodSeconds = spec.TerminationGracePeriodSeconds
+		unitSpec.Pod.Hostname = spec.Hostname
+		unitSpec.Pod.Subdomain = spec.Subdomain
+		unitSpec.Pod.DNSConfig = spec.DNSConfig
+		unitSpec.Pod.DNSPolicy = spec.DNSPolicy
+		unitSpec.Pod.Priority = spec.Priority
+		unitSpec.Pod.PriorityClassName = spec.PriorityClassName
+		unitSpec.Pod.SecurityContext = spec.SecurityContext
+		unitSpec.Pod.RestartPolicy = spec.RestartPolicy
+		unitSpec.Pod.AutomountServiceAccountToken = spec.AutomountServiceAccountToken
+		unitSpec.Pod.ReadinessGates = spec.ReadinessGates
+	}
 	return &unitSpec, nil
 }
 
