@@ -61,6 +61,14 @@ type PodSpec struct {
 	Containers                []ContainerSpec            `yaml:"-"`
 	OmitServiceFrontend       bool                       `yaml:"omitServiceFrontend"`
 	CustomResourceDefinitions []CustomResourceDefinition `yaml:"customResourceDefinition,omitempty"`
+
+	// ProviderPod defines config which is specific to a substrate, eg k8s
+	ProviderPod `yaml:"-"`
+}
+
+// ProviderPod defines a provider specific pod.
+type ProviderPod interface {
+	Validate() error
 }
 
 // CustomResourceDefinitionValidation defines the custom resource definition validation schema.
@@ -105,6 +113,9 @@ func (spec *PodSpec) Validate() error {
 		if err := crd.Validate(); err != nil {
 			return errors.Trace(err)
 		}
+	}
+	if spec.ProviderPod != nil {
+		return spec.ProviderPod.Validate()
 	}
 	return nil
 }

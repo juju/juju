@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	watch "k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -44,6 +44,27 @@ var _ = gc.Suite(&K8sSuite{})
 
 func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 	podSpec := caas.PodSpec{
+		ProviderPod: &provider.K8sPodSpec{
+			ActiveDeadlineSeconds:         int64Ptr(10),
+			ServiceAccountName:            "serviceAccount",
+			Hostname:                      "host",
+			Subdomain:                     "sub",
+			DNSPolicy:                     core.DNSClusterFirst,
+			TerminationGracePeriodSeconds: int64Ptr(20),
+			RestartPolicy:                 core.RestartPolicyOnFailure,
+			AutomountServiceAccountToken:  boolPtr(true),
+			Priority:                      int32Ptr(30),
+			PriorityClassName:             "top",
+			DNSConfig: &core.PodDNSConfig{
+				Nameservers: []string{"ns1", "n2"},
+			},
+			SecurityContext: &core.PodSecurityContext{
+				RunAsNonRoot: boolPtr(true),
+			},
+			ReadinessGates: []core.PodReadinessGate{
+				{ConditionType: core.PodInitialized},
+			},
+		},
 		Containers: []caas.ContainerSpec{{
 			Name:  "test",
 			Ports: []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
@@ -68,6 +89,25 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 	spec, err := provider.MakeUnitSpec("app-name", &podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
+		ActiveDeadlineSeconds:         int64Ptr(10),
+		ServiceAccountName:            "serviceAccount",
+		Hostname:                      "host",
+		Subdomain:                     "sub",
+		DNSPolicy:                     core.DNSClusterFirst,
+		TerminationGracePeriodSeconds: int64Ptr(20),
+		RestartPolicy:                 core.RestartPolicyOnFailure,
+		AutomountServiceAccountToken:  boolPtr(true),
+		Priority:                      int32Ptr(30),
+		PriorityClassName:             "top",
+		DNSConfig: &core.PodDNSConfig{
+			Nameservers: []string{"ns1", "n2"},
+		},
+		SecurityContext: &core.PodSecurityContext{
+			RunAsNonRoot: boolPtr(true),
+		},
+		ReadinessGates: []core.PodReadinessGate{
+			{ConditionType: core.PodInitialized},
+		},
 		Containers: []core.Container{
 			{
 				Name:            "test",

@@ -25,6 +25,21 @@ func (s *ContainersSuite) TestParse(c *gc.C) {
 
 	specStr := `
 omitServiceFrontend: true
+activeDeadlineSeconds: 10
+serviceAccountName: serviceAccount
+restartPolicy: OnFailure
+terminationGracePeriodSeconds: 20
+automountServiceAccountToken: true
+securityContext:
+  runAsNonRoot: true
+hostname: host
+subdomain: sub
+priorityClassName: top
+priority: 30
+dnsConfig: 
+  nameservers: [ns1, ns2]
+readinessGates:
+  - conditionType: PodScheduled
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -109,6 +124,26 @@ foo: bar
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, jc.DeepEquals, &caas.PodSpec{
 		OmitServiceFrontend: true,
+		ProviderPod: &provider.K8sPodSpec{
+			ActiveDeadlineSeconds:         int64Ptr(10),
+			ServiceAccountName:            "serviceAccount",
+			RestartPolicy:                 core.RestartPolicyOnFailure,
+			TerminationGracePeriodSeconds: int64Ptr(20),
+			AutomountServiceAccountToken:  boolPtr(true),
+			SecurityContext: &core.PodSecurityContext{
+				RunAsNonRoot: boolPtr(true),
+			},
+			Hostname:          "host",
+			Subdomain:         "sub",
+			PriorityClassName: "top",
+			Priority:          int32Ptr(30),
+			DNSConfig: &core.PodDNSConfig{
+				Nameservers: []string{"ns1", "ns2"},
+			},
+			ReadinessGates: []core.PodReadinessGate{
+				{ConditionType: core.PodScheduled},
+			},
+		},
 		Containers: []caas.ContainerSpec{{
 			Name:       "gitlab",
 			Image:      "gitlab/latest",
@@ -219,6 +254,18 @@ foo: bar
 
 func float64Ptr(f float64) *float64 {
 	return &f
+}
+
+func int32Ptr(i int32) *int32 {
+	return &i
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }
 
 func (s *ContainersSuite) TestValidateMissingContainers(c *gc.C) {
