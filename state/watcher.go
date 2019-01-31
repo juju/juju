@@ -16,6 +16,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -1095,6 +1096,8 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 			info.add(name)
 		}
 	}
+	logger.Tracef("relationScopeWatcher prefix %q initializing with %# v",
+		w.prefix, pretty.Formatter(info))
 	return info, nil
 }
 
@@ -1136,6 +1139,8 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 			info.add(name)
 		}
 	}
+	logger.Tracef("RelationScopeWatcher prefix %q merge scope to %# v from ids: %# v",
+		w.prefix, pretty.Formatter(info), pretty.Formatter(ids))
 	return nil
 }
 
@@ -1259,16 +1264,18 @@ func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key strin
 // mergeSettings reads the relation settings node for the unit with the
 // supplied key, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
-func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange, key string) (int64, error) {
+func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange, key string) error {
 	var doc struct {
 		TxnRevno int64 `bson:"txn-revno"`
 		Version  int64 `bson:"version"`
 	}
 	if err := readSettingsDocInto(w.backend.db(), settingsC, key, &doc); err != nil {
-		return -1, err
+		logger.Tracef("relationUnitsWatcher %q merging key %q (not found)", w.sw.prefix, key)
+		return err
 	}
+	logger.Tracef("relationUnitsWatcher %q merging key %q revno: %d version: %d", w.sw.prefix, key, doc.TxnRevno, doc.Version)
 	setRelationUnitChangeVersion(changes, key, doc.Version)
-	return doc.TxnRevno, nil
+	return nil
 }
 
 // mergeScope starts and stops settings watches on the units entering and
@@ -1281,6 +1288,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c
 		docID := w.backend.docID(key)
 		docIds[i] = docID
 	}
+	logger.Tracef("relationUnitsWatcher %q watching newly entered: %v, and unwatching left %v", w.sw.prefix, c.Entered, c.Left)
 	if err := w.watcher.WatchMulti(settingsC, docIds, w.updates); err != nil {
 		return errors.Trace(err)
 	}
@@ -1289,8 +1297,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c
 	}
 	for _, name := range c.Entered {
 		key := w.sw.prefix + name
-		_, err := w.mergeSettings(changes, key)
-		if err != nil {
+		if err := w.mergeSettings(changes, key); err != nil {
 			return errors.Annotatef(err, "while merging settings for %q entering relation scope", name)
 		}
 		changes.Departed = remove(changes.Departed, name)
@@ -1305,6 +1312,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c
 		w.watcher.Unwatch(settingsC, docID, w.updates)
 		w.watching.Remove(docID)
 	}
+	logger.Tracef("relationUnitsWatcher %q Change updated to: %# v", w.sw.prefix, changes)
 	return nil
 }
 
@@ -1358,11 +1366,12 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			if !ok {
 				logger.Warningf("ignoring bad relation scope id: %#v", c.Id)
 			}
-			if _, err := w.mergeSettings(&changes, id); err != nil {
+			if err := w.mergeSettings(&changes, id); err != nil {
 				return errors.Annotatef(err, "relation scope id %q", id)
 			}
 			out = w.out
 		case out <- changes:
+			logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
 			sentInitial = true
 			changes = params.RelationUnitsChange{}
 			out = nil

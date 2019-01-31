@@ -419,6 +419,7 @@ func (s *clientSuite) TestOpenURIError(c *gc.C) {
 func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
 	client := s.APIState.Client()
 	curl, ch := addLocalCharm(c, client, "dummy", false)
+	c.Logf("added local charm as %v", curl)
 	expected, err := ioutil.ReadFile(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -435,6 +436,7 @@ func (s *clientSuite) TestOpenCharmFoundWithForceStillSucceeds(c *gc.C) {
 	client := s.APIState.Client()
 	curl, ch := addLocalCharm(c, client, "dummy", true)
 	expected, err := ioutil.ReadFile(ch.Path)
+	c.Logf("force added local charm as %v", curl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	reader, err := client.OpenCharm(curl)

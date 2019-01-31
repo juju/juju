@@ -406,12 +406,12 @@ func (w *HubWatcher) flush() bool {
 		// We need to reget the address value each time through the loop
 		// as the slice may be reallocated.
 		for e := &w.syncEvents[i]; e.ch != nil; e = &w.syncEvents[i] {
-			w.logger.Tracef("sending syncEvent(%d): %v e.ch=%v", i, e.key, e.ch)
 			outChange := Change{
 				C:     e.key.c,
 				Id:    e.key.id,
 				Revno: e.revno,
 			}
+			w.logger.Tracef("sending syncEvent(%d): e.ch=%v %v", i, e.ch, outChange)
 			select {
 			case <-w.tomb.Dying():
 				return watchersNotified
@@ -604,7 +604,7 @@ func (w *HubWatcher) queueChange(change Change) {
 			}
 			w.syncEvents = append(w.syncEvents, evt)
 			w.syncEventDocCount++
-			w.logger.Tracef("adding event for document %v watch %v, syncEvents: len(%d), cap(%d)", key, info.ch, len(w.syncEvents), cap(w.syncEvents))
+			w.logger.Tracef("adding event for %v watch %v, syncEvents: len(%d), cap(%d)", key, info.ch, len(w.syncEvents), cap(w.syncEvents))
 		}
 	}
 }
