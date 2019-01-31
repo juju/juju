@@ -181,12 +181,6 @@ func applyClaimed(mongo Mongo, collection string, docId string, key lease.Key, h
 func (t *notifyTarget) Claimed(key lease.Key, holder string) {
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
 	t.log("claimed %q for %q", docId, holder)
-	// Use this wrench to simulate a failure writing the claimed info
-	// to the database.
-	// if wrench.IsActive("raftlease-notifytarget", "fail-claim") {
-	// 	t.errorLogger.Errorf("wrench failing claimed of %q for %q", docId, holder)
-	// 	return
-	// }
 	_, err := applyClaimed(t.mongo, t.collection, docId, key, holder)
 	if err != nil {
 		t.errorLogger.Errorf("couldn't claim lease %q for %q in db: %s", docId, holder, err.Error())
