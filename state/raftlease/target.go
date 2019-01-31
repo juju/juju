@@ -180,18 +180,13 @@ func applyClaimed(mongo Mongo, collection string, docId string, key lease.Key, h
 // Claimed is part of raftlease.NotifyTarget.
 func (t *notifyTarget) Claimed(key lease.Key, holder string) {
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	// Use this wrench to simulate a failure writing the claimed info
-	// to the database.
-	// if wrench.IsActive("raftlease-notifytarget", "fail-claim") {
-	// 	t.errorLogger.Errorf("wrench failing claimed of %q for %q", docId, holder)
-	// 	return
-	// }
+	t.log("claimed %q for %q", docId, holder)
 	_, err := applyClaimed(t.mongo, t.collection, docId, key, holder)
 	if err != nil {
-		t.errorLogger.Errorf("couldn't claim lease %q for %q: %s", docId, holder, err.Error())
+		t.errorLogger.Errorf("couldn't claim lease %q for %q in db: %s", docId, holder, err.Error())
+		t.log("couldn't claim lease %q for %q in db: %s", docId, holder, err.Error())
 		return
 	}
-	t.log("claimed %q for %q", docId, holder)
 }
 
 // Expired is part of raftlease.NotifyTarget.
@@ -199,6 +194,7 @@ func (t *notifyTarget) Expired(key lease.Key) {
 	coll, closer := t.mongo.GetCollection(t.collection)
 	defer closer()
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
+	t.log("expired %q", docId)
 	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
 		existingDoc, err := getRecord(coll, docId)
 		if err == mgo.ErrNotFound {
@@ -218,10 +214,10 @@ func (t *notifyTarget) Expired(key lease.Key) {
 	})
 
 	if err != nil {
-		t.errorLogger.Errorf("couldn't expire lease %q: %s", docId, err.Error())
+		t.errorLogger.Errorf("couldn't expire lease %q in db: %s", docId, err.Error())
+		t.log("couldn't expire lease %q in db: %s", docId, err.Error())
 		return
 	}
-	t.log("expired %q", docId)
 }
 
 // MakeTrapdoorFunc returns a raftlease.TrapdoorFunc for the specified

@@ -177,8 +177,12 @@ func (s *targetSuite) TestClaimedError(c *gc.C) {
 	s.newTarget().Claimed(lease.Key{"ns", "model", "lease"}, "me")
 	c.Assert(s.getRows(c), gc.HasLen, 0)
 	c.Assert(logWriter.Log(), jc.LogMatches, []string{
-		`couldn't claim lease "model:ns#lease#" for "me": oh no!`,
+		`couldn't claim lease "model:ns#lease#" for "me" in db: oh no!`,
 	})
+	s.assertLogMatches(c,
+		`claimed "model:ns#lease#" for "me"`,
+		`couldn't claim lease "model:ns#lease#" for "me" in db: oh no!`,
+	)
 }
 
 func (s *targetSuite) assertLogMatches(c *gc.C, expectLines ...string) {
@@ -248,8 +252,12 @@ func (s *targetSuite) TestExpiredError(c *gc.C) {
 	s.mongo.txnErr = errors.Errorf("oops!")
 	s.newTarget().Expired(lease.Key{"leadership", "model", "twin"})
 	c.Assert(logWriter.Log(), jc.LogMatches, []string{
-		`couldn't expire lease "model:leadership#twin#": oops!`,
+		`couldn't expire lease "model:leadership#twin#" in db: oops!`,
 	})
+	s.assertLogMatches(c,
+		`expired "model:leadership#twin#"`,
+		`couldn't expire lease "model:leadership#twin#" in db: oops!`,
+	)
 }
 
 func (s *targetSuite) TestTrapdoorAttempt0(c *gc.C) {
