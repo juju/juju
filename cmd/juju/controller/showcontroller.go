@@ -139,6 +139,15 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 
 		var details ShowControllerDetails
+
+		// If user lacks sufficient access level to display controller details,
+		// append the empty controller details and attach a permission error.
+		if !permission.Access(access).EqualOrGreaterControllerAccessThan(permission.SuperuserAccess) {
+			details.Errors = append(details.Errors, errors.Unauthorizedf("permission denied").Error())
+			controllers[controllerName] = details
+			continue
+		}
+
 		allModels, err := client.AllModels()
 		if err != nil {
 			details.Errors = append(details.Errors, err.Error())
