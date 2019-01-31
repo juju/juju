@@ -66,8 +66,6 @@ func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 	expectServerAddrs := [][]network.HostPort{
 		network.NewHostPorts(1234, "0.1.2.3"),
 	}
-	err := s.state.SetAPIHostPorts(expectServerAddrs)
-	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.facade.WatchAPIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,6 +76,12 @@ func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change the state addresses and check that we get a notification
+	err = s.state.SetAPIHostPorts(expectServerAddrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertOneChange()
+
+	// And that we can change it again and see the notification
 	expectServerAddrs[0][0].Value = "0.1.99.99"
 
 	err = s.state.SetAPIHostPorts(expectServerAddrs)
