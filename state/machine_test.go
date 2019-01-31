@@ -1638,6 +1638,39 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *MachineSuite) TestWatchUnitsHandlesDeletedEntries(c *gc.C) {
+	w := s.machine.WatchUnits()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Change machine; no change.
+	err := s.machine.SetProvisioned("cheese", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Assign a unit (to a separate instance); change detected.
+	c.Logf("assigning mysql to machine %s", s.machine.Id())
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysql0.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("mysql/0")
+	wc.AssertNoChange()
+
+	// Destroy the instance before checking the change
+	err = mysql0.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysql0.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("mysql/0")
+	wc.AssertNoChange()
+}
+
 func (s *MachineSuite) TestApplicationNames(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))

@@ -128,6 +128,7 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Call the Deployer facade's WatchUnits for machine-0.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	var results params.StringsWatchResults
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err = s.stateAPI.APICall("Deployer", s.stateAPI.BestFacadeVersion("Deployer"), "", "WatchUnits", args, &results)

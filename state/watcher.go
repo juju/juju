@@ -2362,14 +2362,14 @@ func (w *machineUnitsWatcher) watchNewUnits(unitNames, pending []string, unitCol
 }
 
 // removeWatchedUnit stops watching the unit, and all subordinates for this unit
-func (w *machineUnitsWatcher) removeWatchedUnit(doc unitDoc, pending []string) ([]string, error) {
+func (w *machineUnitsWatcher) removeWatchedUnit(unitName string, doc unitDoc, pending []string) ([]string, error) {
 	logger.Tracef("machineUnitsWatcher removing unit %q for life %q", doc.Name, doc.Life)
-	unitName := doc.Name
 	life, known := w.known[unitName]
 	// Unit was removed or unassigned from w.machine
 	if known {
 		delete(w.known, unitName)
-		w.watcher.Unwatch(unitsC, doc.DocID, w.in)
+		docID := w.backend.docID(unitName)
+		w.watcher.Unwatch(unitsC, docID, w.in)
 		if life != Dead && !hasString(pending, unitName) {
 			pending = append(pending, unitName)
 		}
@@ -2398,7 +2398,8 @@ func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []st
 		return nil, errors.Trace(err)
 	}
 	if err == mgo.ErrNotFound || doc.Principal == "" && (doc.MachineId == "" || doc.MachineId != w.machine.doc.Id) {
-		pending, err := w.removeWatchedUnit(doc, pending)
+		// We always pass the unitName because the document may be deleted, and thus not have a name on the object
+		pending, err := w.removeWatchedUnit(unitName, doc, pending)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
