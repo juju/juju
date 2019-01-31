@@ -182,42 +182,63 @@ func (c *Client) GetCharmURL(generation model.GenerationVersion, applicationName
 // applications. If any of the applications are not found, an error is
 // returned.
 func (c *Client) GetConfig(generation model.GenerationVersion, appNames ...string) ([]map[string]interface{}, error) {
-	var allSettings []map[string]interface{}
-	if c.BestAPIVersion() < 5 {
-		for _, appName := range appNames {
-			results, err := c.Get(generation, appName)
-			if err != nil {
-				return nil, errors.Annotatef(err, "unable to get settings for %q", appName)
-			}
-			settings, err := describeV5(results.CharmConfig)
-			if err != nil {
-				return nil, errors.Annotatef(err, "unable to process settings for %q", appName)
-			}
-			allSettings = append(allSettings, settings)
-		}
-		return allSettings, nil
+	v := c.BestAPIVersion()
+
+	if v < 5 {
+		settings, err := c.getConfigV4(generation, appNames)
+		return settings, errors.Trace(err)
 	}
 
-	apiName := "CharmConfig"
-	if c.BestAPIVersion() < 6 {
-		apiName = "GetConfig"
+	callName := "CharmConfig"
+	if v < 6 {
+		callName = "GetConfig"
 	}
-	// Make a single call to get all the settings.
+
+	var callArg interface{}
+	if v < 9 {
+		arg := params.Entities{Entities: make([]params.Entity, len(appNames))}
+		for i, appName := range appNames {
+			arg.Entities[i] = params.Entity{Tag: names.NewApplicationTag(appName).String()}
+		}
+		callArg = arg
+	} else {
+		// Version 9 of the API introduces generational config.
+		arg := params.ApplicationGetArgs{Args: make([]params.ApplicationGet, len(appNames))}
+		for i, appName := range appNames {
+			arg.Args[i] = params.ApplicationGet{ApplicationName: appName, Generation: generation}
+		}
+		callArg = arg
+	}
+
 	var results params.ApplicationGetConfigResults
-	var args params.Entities
-	for _, appName := range appNames {
-		args.Entities = append(args.Entities,
-			params.Entity{Tag: names.NewApplicationTag(appName).String()})
-	}
-	err := c.facade.FacadeCall(apiName, args, &results)
+	err := c.facade.FacadeCall(callName, callArg, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	var settings []map[string]interface{}
 	for i, result := range results.Results {
 		if result.Error != nil {
 			return nil, errors.Annotatef(err, "unable to get settings for %q", appNames[i])
 		}
-		allSettings = append(allSettings, result.Config)
+		settings = append(settings, result.Config)
+	}
+	return settings, nil
+}
+
+// getConfigV4 retrieves application config for versions of the API < 5.
+func (c *Client) getConfigV4(generation model.GenerationVersion, appNames []string) ([]map[string]interface{}, error) {
+	var allSettings []map[string]interface{}
+	for _, appName := range appNames {
+		results, err := c.Get(generation, appName)
+		if err != nil {
+			return nil, errors.Annotatef(err, "unable to get settings for %q", appName)
+		}
+		settings, err := describeV5(results.CharmConfig)
+		if err != nil {
+			return nil, errors.Annotatef(err, "unable to process settings for %q", appName)
+		}
+		allSettings = append(allSettings, settings)
 	}
 	return allSettings, nil
 }

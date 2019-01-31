@@ -175,8 +175,11 @@ type ApplicationUnset struct {
 	Options []string `json:"options"`
 }
 
-// ApplicationGet holds parameters for making the Get or
-// GetCharmURL calls.
+type ApplicationGetArgs struct {
+	Args []ApplicationGet `json:"args"`
+}
+
+// ApplicationGet holds parameters for making the Get or GetCharmURL calls.
 type ApplicationGet struct {
 	ApplicationName string `json:"application"`
 
