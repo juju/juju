@@ -1961,12 +1961,12 @@ func applicationConfigMapName(appName, fileSetName string) string {
 }
 
 func deploymentName(appName string) string {
-	return "juju-" + appName
+	return appName
 }
 
 func appSecretName(appName, containerName string) string {
 	// A pod may have multiple containers with different images and thus different secrets
-	return "juju-" + appName + "-" + containerName + "-secret"
+	return appName + "-" + containerName + "-secret"
 }
 
 func qualifiedStorageClassName(namespace, storageClass string) string {
