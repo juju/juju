@@ -6,7 +6,6 @@ package storage_test
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -42,11 +41,16 @@ func (s *poolUpdateSuite) TestUpdatePool(c *gc.C) {
 		"zip":  "zoom",
 	}
 
-	err := s.api.UpdatePool(params.StoragePool{
-		Name:  poolName,
-		Attrs: newAttrs,
-	})
+	args := params.StoragePoolArgs{
+		Pools: []params.StoragePool{{
+			Name:  poolName,
+			Attrs: newAttrs,
+		}},
+	}
+	results, err := s.api.UpdatePool(args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 
 	expected, err := storage.NewConfig(poolName, provider.LoopProviderType, newAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,8 +63,16 @@ func (s *poolUpdateSuite) TestUpdatePool(c *gc.C) {
 
 func (s *poolUpdateSuite) TestUpdatePoolError(c *gc.C) {
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
-	err := s.api.UpdatePool(params.StoragePool{
-		Name: poolName,
+	args := params.StoragePoolArgs{
+		Pools: []params.StoragePool{{
+			Name: poolName,
+		}},
+	}
+	results, err := s.api.UpdatePool(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: "mock pool manager: get pool testpool0 not found",
+		Code:    "not found",
 	})
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

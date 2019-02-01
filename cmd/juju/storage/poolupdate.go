@@ -70,9 +70,6 @@ func (c *poolUpdateCommand) Init(args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	// if len(config) == 0 {
-	// 	return errors.New("pool update requires configuration attributes")
-	// }
 
 	if providerType, ok := config[Type]; ok {
 		delete(config, Type)

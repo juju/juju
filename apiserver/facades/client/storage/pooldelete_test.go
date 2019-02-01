@@ -34,10 +34,15 @@ func (s *poolDeleteSuite) TestDeletePool(c *gc.C) {
 	s.createPools(c, 1)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 
-	err := s.api.DeletePool(params.StoragePoolDeleteArg{
-		Name: poolName,
-	})
+	args := params.StoragePoolDeleteArgs{
+		Pools: []params.StoragePoolDeleteArg{{
+			Name: poolName,
+		}},
+	}
+	results, err := s.api.DeletePool(args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 
 	pools, err := s.poolManager.List()
 	c.Assert(err, jc.ErrorIsNil)
@@ -47,10 +52,15 @@ func (s *poolDeleteSuite) TestDeletePool(c *gc.C) {
 func (s *poolDeleteSuite) TestDeleteNotExists(c *gc.C) {
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 
-	err := s.api.DeletePool(params.StoragePoolDeleteArg{
-		Name: poolName,
-	})
+	args := params.StoragePoolDeleteArgs{
+		Pools: []params.StoragePoolDeleteArg{{
+			Name: poolName,
+		}},
+	}
+	results, err := s.api.DeletePool(args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 
 	pools, err := s.poolManager.List()
 	c.Assert(err, jc.ErrorIsNil)

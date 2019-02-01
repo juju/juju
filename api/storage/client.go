@@ -82,6 +82,23 @@ func (c *Client) ListPools(providers, names []string) ([]params.StoragePool, err
 
 // CreatePool creates pool with specified parameters.
 func (c *Client) CreatePool(pname, provider string, attrs map[string]interface{}) error {
+	var results params.ErrorResults
+	args := params.StoragePoolArgs{
+		Pools: []params.StoragePool{{
+			Name:     pname,
+			Provider: provider,
+			Attrs:    attrs,
+		}},
+	}
+
+	if err := c.facade.FacadeCall("CreatePool", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// LegacyCreatePool uses an older api call to create pool with specified parameters.
+func (c *Client) LegacyCreatePool(pname, provider string, attrs map[string]interface{}) error {
 	args := params.StoragePool{
 		Name:     pname,
 		Provider: provider,
@@ -95,10 +112,16 @@ func (c *Client) DeletePool(pname string) error {
 	if c.BestAPIVersion() < 5 {
 		return errors.New("deleting storage pools is not supported by this version of Juju")
 	}
-	args := params.StoragePoolDeleteArg{
-		Name: pname,
+	var results params.ErrorResults
+	args := params.StoragePoolDeleteArgs{
+		Pools: []params.StoragePoolDeleteArg{{
+			Name: pname,
+		}},
 	}
-	return c.facade.FacadeCall("DeletePool", args, nil)
+	if err := c.facade.FacadeCall("DeletePool", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }
 
 // UpdatePool updates a  pool with specified parameters.
@@ -106,12 +129,18 @@ func (c *Client) UpdatePool(pname, provider string, attrs map[string]interface{}
 	if c.BestAPIVersion() < 5 {
 		return errors.New("updating storage pools is not supported by this version of Juju")
 	}
-	args := params.StoragePool{
-		Name:     pname,
-		Provider: provider,
-		Attrs:    attrs,
+	var results params.ErrorResults
+	args := params.StoragePoolArgs{
+		Pools: []params.StoragePool{{
+			Name:     pname,
+			Provider: provider,
+			Attrs:    attrs,
+		}},
 	}
-	return c.facade.FacadeCall("UpdatePool", args, nil)
+	if err := c.facade.FacadeCall("UpdatePool", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }
 
 // ListVolumes lists volumes for desired machines.

@@ -720,7 +720,7 @@ func (s *cmdStorageSuite) TestUpdate(c *gc.C) {
 func (s *cmdStorageSuite) TestUpdateNoMatch(c *gc.C) {
 	_, stderr, err := runPoolUpdate(c, "nope", "smth=one")
 	c.Assert(err, gc.NotNil)
-	c.Assert(stderr, gc.Equals, "ERROR pool \"nope\" not found (not found)\n")
+	c.Assert(stderr, gc.Equals, "ERROR pool \"nope\" not found\n")
 	assertPoolExists(c, s.State, testPool, "loop", "it=works")
 }
 
@@ -756,6 +756,6 @@ func (s *cmdStorageSuite) TestDelete(c *gc.C) {
 func (s *cmdStorageSuite) TestDeleteNoMatch(c *gc.C) {
 	_, stderr, err := runPoolUpdate(c, "nope", "smth=one")
 	c.Assert(err, gc.NotNil)
-	c.Assert(stderr, gc.Equals, "ERROR pool \"nope\" not found (not found)\n")
+	c.Assert(stderr, gc.Equals, "ERROR pool \"nope\" not found\n")
 	assertPoolExists(c, s.State, testPool, "loop", "it=works")
 }

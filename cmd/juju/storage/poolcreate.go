@@ -18,6 +18,8 @@ import (
 type PoolCreateAPI interface {
 	Close() error
 	CreatePool(pname, ptype string, pconfig map[string]interface{}) error
+	LegacyCreatePool(pname, ptype string, pconfig map[string]interface{}) error
+	BestAPIVersion() int
 }
 
 const poolCreateCommandDoc = `
@@ -114,5 +116,8 @@ func (c *poolCreateCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer api.Close()
+	if api.BestAPIVersion() < 5 {
+		return api.LegacyCreatePool(c.poolName, c.provider, c.attrs)
+	}
 	return api.CreatePool(c.poolName, c.provider, c.attrs)
 }

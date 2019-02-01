@@ -359,9 +359,13 @@ func (s *baseStorageSuite) constructPoolManager() *mockPoolManager {
 			}
 			return result, nil
 		},
-		replacePool: func(name string, attrs map[string]interface{}) error {
+		replacePool: func(name, provider string, attrs map[string]interface{}) error {
 			if p, ok := s.pools[name]; ok {
-				newPool, err := jujustorage.NewConfig(name, p.Provider(), attrs)
+				providerType := p.Provider()
+				if provider != "" {
+					providerType = jujustorage.ProviderType(provider)
+				}
+				newPool, err := jujustorage.NewConfig(name, providerType, attrs)
 				s.pools[name] = newPool
 				return err
 			}

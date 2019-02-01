@@ -104,8 +104,9 @@ func (s *PoolUpdateSuite) TestPoolUpdateUnsupportedAPIVersion(c *gc.C) {
 }
 
 type mockUpdateData struct {
-	Name   string
-	Config map[string]interface{}
+	Name     string
+	Provider string
+	Config   map[string]interface{}
 }
 
 type mockPoolUpdateAPI struct {
@@ -113,8 +114,8 @@ type mockPoolUpdateAPI struct {
 	Updates    []mockUpdateData
 }
 
-func (s *mockPoolUpdateAPI) UpdatePool(pname string, pconfig map[string]interface{}) error {
-	s.Updates = append(s.Updates, mockUpdateData{Name: pname, Config: pconfig})
+func (s *mockPoolUpdateAPI) UpdatePool(pname, provider string, pconfig map[string]interface{}) error {
+	s.Updates = append(s.Updates, mockUpdateData{Name: pname, Provider: provider, Config: pconfig})
 	return nil
 }
 

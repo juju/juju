@@ -457,14 +457,29 @@ func (a *StorageAPI) validateProviderCriteria(providers []string) error {
 }
 
 // CreatePool creates a new pool with specified parameters.
-func (a *StorageAPI) CreatePool(p params.StoragePool) error {
-	// (veebers) TODO: This should be a bulk call. Observed during addition
-	// of update/delete, put off for a follow up fix.
+func (a *StorageAPIv4) CreatePool(p params.StoragePool) error {
 	_, err := a.poolManager.Create(
 		p.Name,
 		storage.ProviderType(p.Provider),
 		p.Attrs)
 	return err
+}
+
+// CreatePool creates a new pool with specified parameters.
+func (a *StorageAPI) CreatePool(p params.StoragePoolArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(p.Pools)),
+	}
+	for i, pool := range p.Pools {
+		_, err := a.poolManager.Create(
+			pool.Name,
+			storage.ProviderType(pool.Provider),
+			pool.Attrs)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
 }
 
 // ListVolumes lists volumes with the given filters. Each filter produces
@@ -1125,21 +1140,38 @@ func (a *StorageAPI) importFilesystem(
 }
 
 // DeletePool deletes the named pool
-func (a *StorageAPI) DeletePool(p params.StoragePoolDeleteArg) error {
-	if err := a.checkCanWrite(); err != nil {
-		return errors.Trace(err)
+func (a *StorageAPI) DeletePool(p params.StoragePoolDeleteArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
-	err := a.poolManager.Delete(p.Name)
-	return err
+	if err := a.checkCanWrite(); err != nil {
+		return results, errors.Trace(err)
+	}
+	for i, pool := range p.Pools {
+		err := a.poolManager.Delete(pool.Name)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+
+	}
+	return results, nil
 }
 
 // UpdatePool deletes the named pool
-func (a *StorageAPI) UpdatePool(p params.StoragePool) error {
-	if err := a.checkCanWrite(); err != nil {
-		return errors.Trace(err)
+func (a *StorageAPI) UpdatePool(p params.StoragePoolArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
-	err := a.poolManager.Replace(p.Name, p.Provider, p.Attrs)
-	return err
+	if err := a.checkCanWrite(); err != nil {
+		return results, errors.Trace(err)
+	}
+	for i, pool := range p.Pools {
+		err := a.poolManager.Replace(pool.Name, pool.Provider, pool.Attrs)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
 }
 
 // Mask out old methods from the new API versions. The API reflection
