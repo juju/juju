@@ -187,7 +187,7 @@ var operatorPodspec = core.PodSpec{
 
 var basicServiceArg = &core.Service{
 	ObjectMeta: v1.ObjectMeta{
-		Name:   "juju-app-name",
+		Name:   "app-name",
 		Labels: map[string]string{"juju-application": "app-name"}},
 	Spec: core.ServiceSpec{
 		Selector: map[string]string{"juju-application": "app-name"},
@@ -206,7 +206,7 @@ func (s *K8sBrokerSuite) secretArg(c *gc.C, labels map[string]string) *core.Secr
 	c.Assert(err, jc.ErrorIsNil)
 	secret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-app-name-test-secret",
+			Name:      "app-name-test-secret",
 			Namespace: "test",
 			Labels:    labels,
 		},
@@ -224,7 +224,7 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 	spec, err := provider.MakeUnitSpec("app-name", basicPodspec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
-		ImagePullSecrets: []core.LocalObjectReference{{Name: "juju-app-name-test-secret"}},
+		ImagePullSecrets: []core.LocalObjectReference{{Name: "app-name-test-secret"}},
 		Containers: []core.Container{
 			{
 				Name:       "test",
@@ -402,7 +402,7 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 	gomock.InOrder(
 		s.mockConfigMaps.EXPECT().Delete("juju-operator-test-config", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockConfigMaps.EXPECT().Delete("juju-test-configurations-config", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockConfigMaps.EXPECT().Delete("test-configurations-config", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Delete("juju-operator-test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
@@ -420,7 +420,7 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 					}},
 				},
 			}}}, nil),
-		s.mockSecrets.EXPECT().Delete("juju-test-jujud-secret", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockSecrets.EXPECT().Delete("test-jujud-secret", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 		s.mockPersistentVolumeClaims.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
@@ -483,7 +483,7 @@ func operatorStatefulSetArg(numUnits int32, scName string) *appsv1.StatefulSet {
 func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-app-name",
+			Name:   "app-name",
 			Labels: map[string]string{"juju-application": "app-name"}},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
@@ -615,11 +615,11 @@ func (s *K8sBrokerSuite) TestDeleteService(c *gc.C) {
 
 	// Delete operations below return a not found to ensure it's treated as a no-op.
 	gomock.InOrder(
-		s.mockServices.EXPECT().Delete("juju-test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockServices.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Delete("juju-test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockStatefulSets.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Delete("juju-test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockDeployments.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-application==test"}).
 			Return(&core.PodList{Items: []core.Pod{}}, nil),
@@ -645,9 +645,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
 	emptyDc := dc
 	emptyDc.Spec.Replicas = &zero
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(dc, nil),
 		s.mockDeployments.EXPECT().Update(emptyDc).Times(1).
 			Return(nil, nil),
@@ -669,7 +669,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "juju-app-name",
+			Name: "app-name",
 			Labels: map[string]string{
 				"juju-application": "app-name",
 				"fred":             "mary",
@@ -681,7 +681,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					GenerateName: "juju-app-name-",
+					GenerateName: "app-name-",
 					Labels: map[string]string{
 						"juju-application": "app-name",
 						"fred":             "mary",
@@ -693,7 +693,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	}
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-app-name",
+			Name:        "app-name",
 			Annotations: map[string]string{"a": "b"},
 			Labels: map[string]string{
 				"juju-application": "app-name",
@@ -715,13 +715,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	gomock.InOrder(
 		s.mockSecrets.EXPECT().Update(secretArg).Times(1).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(serviceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -975,7 +975,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -1025,7 +1025,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-app-name",
+			Name:   "app-name",
 			Labels: map[string]string{"juju-application": "app-name"}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -1034,7 +1034,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					GenerateName: "juju-app-name-",
+					GenerateName: "app-name-",
 					Labels:       map[string]string{"juju-application": "app-name"},
 				},
 				Spec: podSpec,
@@ -1045,13 +1045,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	gomock.InOrder(
 		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -1112,7 +1112,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -1179,7 +1179,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -1233,7 +1233,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
