@@ -380,6 +380,23 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 			return errors.Annotatef(err, "failed to get machine %v", machineTags[i])
 		}
 		m := mResult.Machine
+		// if we're asked to set the instance profile data, but the machine
+		// isn't provisioned, then continue on with other machines and then
+		// apply the profile, when the machine is provisioned.
+		if machineStatus, _, err := m.InstanceStatus(); err != nil {
+			return errors.Annotatef(err, "failed to get machine status %q", m)
+		} else if machineStatus != status.Running {
+			if _, err := m.InstanceId(); err != nil && params.IsCodeNotProvisioned(err) {
+				logger.Tracef("Attempting to apply a profile to a machine that isn't provisioned %q", m)
+				if err := m.RemoveUpgradeCharmProfileData(appNames[i]); err != nil {
+					logger.Tracef("cannot remove machine upgrade charm profile data: %s", err.Error())
+				}
+				// There is nothing we can do with this machine, we should
+				// continue on and let the uniter apply the profile at a later
+				// stage.
+				continue
+			}
+		}
 		removeDoc, err := processOneProfileChange(m, profileBroker, appNames[i])
 		if removeDoc {
 			if err != nil {
