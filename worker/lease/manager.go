@@ -175,8 +175,13 @@ func (manager *Manager) choose(blocks blocks) error {
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
 	case manager.now = <-manager.nextTick(manager.now):
-		manager.wg.Add(1)
-		go manager.retryingTick(manager.now)
+		// If we need to expire leases we should do it, otherwise this
+		// is just an opportunity to check for blocks that need to be
+		// notified.
+		if !manager.config.Store.Autoexpire() {
+			manager.wg.Add(1)
+			go manager.retryingTick(manager.now)
+		}
 	case claim := <-manager.claims:
 		manager.wg.Add(1)
 		go manager.retryingClaim(claim)
