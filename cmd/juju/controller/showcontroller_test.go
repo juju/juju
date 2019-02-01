@@ -381,11 +381,21 @@ func (s *ShowControllerSuite) TestShowControllerForUserWithLoginAccess(c *gc.C) 
 `
 	s.expectedOutput = `
 mallards:
-  errors:
-  - permission denied
+  details:
+    uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+    cloud: mallards
+    agent-version: 999.99.99
+  current-model: admin/my-model
+  account:
+    user: admin
+    access: login
 `[1:]
 
-	s.createTestClientStore(c)
+	store := s.createTestClientStore(c)
+	c.Assert(store.Models["mallards"].Models, gc.HasLen, 2)
 	s.setAccess(permission.LoginAccess)
 	s.assertShowController(c, "mallards")
 }
