@@ -126,13 +126,12 @@ func (s *Store) ExpireLease(key lease.Key) error {
 // Leases is part of lease.Store.
 func (s *Store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 	leaseMap := s.fsm.Leases(s.config.Clock.Now, keys...)
-	result := make(map[lease.Key]lease.Info, len(leaseMap))
 	// Add trapdoors into the information from the FSM.
 	for k, v := range leaseMap {
 		v.Trapdoor = s.config.Trapdoor(k, v.Holder)
-		result[k] = v
+		leaseMap[k] = v
 	}
-	return result
+	return leaseMap
 }
 
 // Refresh is part of lease.Store.
