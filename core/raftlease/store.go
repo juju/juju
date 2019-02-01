@@ -86,6 +86,9 @@ type Store struct {
 	prevTime   time.Time
 }
 
+// Autoexpire is part of lease.Store.
+func (*Store) Autoexpire() bool { return true }
+
 // ClaimLease is part of lease.Store.
 func (s *Store) ClaimLease(key lease.Key, req lease.Request) error {
 	err := s.runOnLeader(&Command{
