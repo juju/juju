@@ -976,7 +976,7 @@ func (fw *Firewaller) forgetMachine(machined *machineData) error {
 	// Unusually, it's fine to ignore this error, because we know the machined
 	// is being tracked in fw.catacomb. But we do still want to wait until the
 	// watch loop has stopped before we nuke the last data and return.
-	worker.Stop(machined)
+	_ = worker.Stop(machined)
 	delete(fw.machineds, machined.tag)
 	logger.Debugf("stopped watching %q", machined.tag)
 	return nil
@@ -995,7 +995,7 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 			// applicationd is being tracked in fw.catacomb. But we do still want
 			// to wait until the watch loop has stopped before we nuke the last
 			// data and return.
-			worker.Stop(applicationd)
+			_ = worker.Stop(applicationd)
 			stoppedApplication = true
 		}
 	}
@@ -1122,6 +1122,7 @@ func (ad *applicationData) watchLoop(exposed bool) error {
 			change, err := ad.application.IsExposed()
 			if err != nil {
 				if errors.IsNotFound(err) {
+					logger.Debugf("application(%q).IsExposed() returned NotFound: %v", ad.application.Name(), err)
 					return nil
 				}
 				return errors.Trace(err)
