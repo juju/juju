@@ -8,9 +8,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/metricobserver"
 	"github.com/juju/juju/controller"
@@ -20,8 +20,8 @@ func newObserverFn(
 	agentConfig agent.Config,
 	controllerConfig controller.Config,
 	clock clock.Clock,
-	prometheusRegisterer prometheus.Registerer,
 	hub *pubsub.StructuredHub,
+	metricsCollector *apiserver.Collector,
 ) (observer.ObserverFactory, error) {
 
 	var observerFactories []observer.ObserverFactory
@@ -39,8 +39,8 @@ func newObserverFn(
 
 	// Metrics observer.
 	metricObserver, err := metricobserver.NewObserverFactory(metricobserver.Config{
-		Clock:                clock,
-		PrometheusRegisterer: prometheusRegisterer,
+		Clock:            clock,
+		MetricsCollector: metricCollectorWrapper{collector: metricsCollector},
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "creating metric observer factory")
@@ -48,4 +48,24 @@ func newObserverFn(
 	observerFactories = append(observerFactories, metricObserver)
 
 	return observer.ObserverFactoryMultiplexer(observerFactories...), nil
+}
+
+type metricCollectorWrapper struct {
+	collector *apiserver.Collector
+}
+
+func (o metricCollectorWrapper) APIRequestDuration() metricobserver.SummaryVec {
+	return o.collector.APIRequestDuration
+}
+
+// TODO (stickupkid): Remove this in 2.6+ as DeprecatedAPIRequestsTotal will become
+// obsolete
+func (o metricCollectorWrapper) DeprecatedAPIRequestsTotal() metricobserver.CounterVec {
+	return o.collector.DeprecatedAPIRequestsTotal
+}
+
+// TODO (stickupkid): Remove this in 2.6+ as DeprecatedAPIRequestDuration will become
+// obsolete
+func (o metricCollectorWrapper) DeprecatedAPIRequestDuration() metricobserver.SummaryVec {
+	return o.collector.DeprecatedAPIRequestDuration
 }

@@ -46,7 +46,7 @@ const (
 )
 
 // apiserverConfigFixture provides a complete, valid, apiserver.Config.
-// Unforunaately this also means that it requires State, at least until
+// Unfortunately this also means that it requires State, at least until
 // we update the tests to stop expecting state-based authentication.
 //
 // apiserverConfigFixture does not run an API server; see apiserverBaseSuite
@@ -115,6 +115,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 				io.WriteString(w, "gazing")
 			}))
 		},
+		MetricsCollector: apiserver.NewMetricsCollector(),
 	}
 }
 

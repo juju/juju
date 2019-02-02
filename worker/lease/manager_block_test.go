@@ -114,7 +114,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 		// lease had already been expired by someone else.
 		checker, err := manager.Checker("namespace", "model")
 		c.Assert(err, jc.ErrorIsNil)
-		checker.Token("redis", "redis/99").Check(nil)
+		checker.Token("redis", "redis/99").Check(0, nil)
 		err = blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})

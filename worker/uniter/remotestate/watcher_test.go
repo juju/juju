@@ -284,12 +284,11 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 		assertOneChange()
 		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- []string{lxdprofile.SuccessStatus}
 		assertOneChange()
-
-		s.st.unit.application.forceUpgrade = true
-		s.applicationWatcher.changes <- struct{}{}
-		assertOneChange()
-		c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
 	}
+	s.st.unit.application.forceUpgrade = true
+	s.applicationWatcher.changes <- struct{}{}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
 
 	s.clock.Advance(5 * time.Minute)
 	assertOneChange()

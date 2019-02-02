@@ -188,6 +188,10 @@ application-config:
     source: default
     type: bool
     value: false
+  kubernetes-service-annotations:
+    description: a space separated set of annotations to add to the service
+    source: unset
+    type: attrs
   kubernetes-service-external-ips:
     description: list of IP addresses for which nodes in the cluster will also accept
       traffic

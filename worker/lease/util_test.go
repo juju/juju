@@ -89,11 +89,22 @@ func (store *Store) Wait(c *gc.C) {
 }
 
 // Leases is part of the lease.Store interface.
-func (store *Store) Leases() map[lease.Key]lease.Info {
+func (store *Store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
+	filter := make(map[lease.Key]bool)
+	filtering := len(keys) > 0
+	if filtering {
+		for _, key := range keys {
+			filter[key] = true
+		}
+	}
+
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	result := make(map[lease.Key]lease.Info)
 	for k, v := range store.leases {
+		if filtering && !filter[k] {
+			continue
+		}
 		result[k] = v
 	}
 	return result

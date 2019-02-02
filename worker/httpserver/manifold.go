@@ -5,6 +5,7 @@ package httpserver
 
 import (
 	"crypto/tls"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -36,6 +37,8 @@ type ManifoldConfig struct {
 
 	AgentName            string
 	Clock                clock.Clock
+	MuxShutdownWait      time.Duration
+	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 
 	GetControllerConfig func(*state.State) (controller.Config, error)
@@ -80,6 +83,12 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.MuxShutdownWait < 1*time.Minute {
+		return errors.NotValidf("MuxShutdownWait %v", config.MuxShutdownWait)
+	}
+	if config.LogDir == "" {
+		return errors.NotValidf("empty LogDir")
 	}
 	return nil
 }
@@ -162,6 +171,8 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		Hub:                  hub,
 		TLSConfig:            tlsConfig,
 		Mux:                  mux,
+		MuxShutdownWait:      config.MuxShutdownWait,
+		LogDir:               config.LogDir,
 		APIPort:              controllerConfig.APIPort(),
 		APIPortOpenDelay:     controllerConfig.APIPortOpenDelay(),
 		ControllerAPIPort:    controllerConfig.ControllerAPIPort(),

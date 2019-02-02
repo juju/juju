@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/core/globalclock"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/lease"
+	workerstate "github.com/juju/juju/worker/state"
 )
 
 const (
@@ -54,6 +54,7 @@ type ManifoldConfig struct {
 	AgentName      string
 	ClockName      string
 	CentralHubName string
+	StateName      string
 
 	FSM                  *raftlease.FSM
 	RequestTopic         string
@@ -73,6 +74,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.CentralHubName == "" {
 		return errors.NotValidf("empty CentralHubName")
+	}
+	if c.StateName == "" {
+		return errors.NotValidf("empty StateName")
 	}
 	if c.FSM == nil {
 		return errors.NotValidf("nil FSM")
@@ -120,13 +124,24 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
+	var stTracker workerstate.StateTracker
+	if err := context.Get(s.config.StateName, &stTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+	statePool, err := stTracker.Use()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	st := statePool.SystemState()
+
 	source := rand.NewSource(clock.Now().UnixNano())
 	runID := rand.New(source).Int31()
 
 	s.store = s.config.NewStore(raftlease.StoreConfig{
 		FSM:          s.config.FSM,
 		Hub:          hub,
-		Trapdoor:     state.LeaseTrapdoorFunc(),
+		Trapdoor:     st.LeaseTrapdoorFunc(),
 		RequestTopic: s.config.RequestTopic,
 		ResponseTopic: func(requestID uint64) string {
 			return fmt.Sprintf("%s.%08x.%d", s.config.RequestTopic, runID, requestID)
@@ -136,7 +151,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 	})
 
 	controllerUUID := agent.CurrentConfig().Controller().Id()
-	return s.config.NewWorker(lease.ManagerConfig{
+	w, err := s.config.NewWorker(lease.ManagerConfig{
 		Secretary:            lease.SecretaryFinder(controllerUUID),
 		Store:                s.store,
 		Clock:                clock,
@@ -145,6 +160,11 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		EntityUUID:           controllerUUID,
 		PrometheusRegisterer: s.config.PrometheusRegisterer,
 	})
+	if err != nil {
+		stTracker.Done()
+		return nil, errors.Trace(err)
+	}
+	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
 }
 
 func (s *manifoldState) output(in worker.Worker, out interface{}) error {
@@ -175,6 +195,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.ClockName,
 			config.CentralHubName,
+			config.StateName,
 		},
 		Start:  s.start,
 		Output: s.output,

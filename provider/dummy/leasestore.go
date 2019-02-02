@@ -105,11 +105,24 @@ func (s *leaseStore) ExpireLease(key lease.Key) error {
 }
 
 // Leases is part of lease.Store.
-func (s *leaseStore) Leases() map[lease.Key]lease.Info {
+func (s *leaseStore) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	filter := make(map[lease.Key]bool)
+	filtering := len(keys) > 0
+	if filtering {
+		for _, key := range keys {
+			filter[key] = true
+		}
+	}
+
 	results := make(map[lease.Key]lease.Info)
 	for key, entry := range s.entries {
+		if filtering && !filter[key] {
+			continue
+		}
+
 		results[key] = lease.Info{
 			Holder:   entry.holder,
 			Expiry:   entry.start.Add(entry.duration),

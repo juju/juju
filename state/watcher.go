@@ -16,6 +16,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -141,7 +142,7 @@ func collect(one watcher.Change, more <-chan watcher.Change, stop <-chan struct{
 	result := map[interface{}]bool{}
 	handle := func(ch watcher.Change) {
 		count++
-		result[ch.Id] = ch.Revno != -1
+		result[ch.Id] = ch.Revno > 0
 	}
 	handle(one)
 	// TODO(fwereade): 2016-03-17 lp:1558657
@@ -748,7 +749,7 @@ func (w *minUnitsWatcher) initial() (set.Strings, error) {
 
 func (w *minUnitsWatcher) merge(applicationnames set.Strings, change watcher.Change) error {
 	applicationname := w.backend.localID(change.Id.(string))
-	if change.Revno == -1 {
+	if change.Revno < 0 {
 		delete(w.known, applicationname)
 		applicationnames.Remove(applicationname)
 		return nil
@@ -919,7 +920,7 @@ func (w *modelFieldChangeWatcher) initial() (set.Strings, error) {
 
 func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.Change) error {
 	machineId := w.backend.localID(change.Id.(string))
-	if change.Revno == -1 {
+	if change.Revno < 0 {
 		if _, ok := w.known[machineId]; ok {
 			logger.Tracef("stopped field change watching for machine %q", machineId)
 		}
@@ -1095,6 +1096,8 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 			info.add(name)
 		}
 	}
+	logger.Tracef("relationScopeWatcher prefix %q initializing with %# v",
+		w.prefix, pretty.Formatter(info))
 	return info, nil
 }
 
@@ -1136,6 +1139,8 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 			info.add(name)
 		}
 	}
+	logger.Tracef("RelationScopeWatcher prefix %q merge scope to %# v from ids: %# v",
+		w.prefix, pretty.Formatter(info), pretty.Formatter(ids))
 	return nil
 }
 
@@ -1259,32 +1264,43 @@ func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key strin
 // mergeSettings reads the relation settings node for the unit with the
 // supplied key, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
-func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange, key string) (int64, error) {
+func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange, key string) error {
 	var doc struct {
 		TxnRevno int64 `bson:"txn-revno"`
 		Version  int64 `bson:"version"`
 	}
 	if err := readSettingsDocInto(w.backend.db(), settingsC, key, &doc); err != nil {
-		return -1, err
+		logger.Tracef("relationUnitsWatcher %q merging key %q (not found)", w.sw.prefix, key)
+		return err
 	}
+	logger.Tracef("relationUnitsWatcher %q merging key %q revno: %d version: %d", w.sw.prefix, key, doc.TxnRevno, doc.Version)
 	setRelationUnitChangeVersion(changes, key, doc.Version)
-	return doc.TxnRevno, nil
+	return nil
 }
 
 // mergeScope starts and stops settings watches on the units entering and
 // leaving the scope in the supplied RelationScopeChange event, and applies
 // the expressed changes to the supplied RelationUnitsChange event.
 func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c *RelationScopeChange) error {
-	for _, name := range c.Entered {
+	docIds := make([]interface{}, len(c.Entered))
+	for i, name := range c.Entered {
 		key := w.sw.prefix + name
 		docID := w.backend.docID(key)
-		revno, err := w.mergeSettings(changes, key)
-		if err != nil {
+		docIds[i] = docID
+	}
+	logger.Tracef("relationUnitsWatcher %q watching newly entered: %v, and unwatching left %v", w.sw.prefix, c.Entered, c.Left)
+	if err := w.watcher.WatchMulti(settingsC, docIds, w.updates); err != nil {
+		return errors.Trace(err)
+	}
+	for _, docID := range docIds {
+		w.watching.Add(docID.(string))
+	}
+	for _, name := range c.Entered {
+		key := w.sw.prefix + name
+		if err := w.mergeSettings(changes, key); err != nil {
 			return errors.Annotatef(err, "while merging settings for %q entering relation scope", name)
 		}
 		changes.Departed = remove(changes.Departed, name)
-		w.watcher.Watch(settingsC, docID, revno, w.updates)
-		w.watching.Add(docID)
 	}
 	for _, name := range c.Left {
 		key := w.sw.prefix + name
@@ -1296,6 +1312,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c
 		w.watcher.Unwatch(settingsC, docID, w.updates)
 		w.watching.Remove(docID)
 	}
+	logger.Tracef("relationUnitsWatcher %q Change updated to: %# v", w.sw.prefix, changes)
 	return nil
 }
 
@@ -1349,11 +1366,12 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			if !ok {
 				logger.Warningf("ignoring bad relation scope id: %#v", c.Id)
 			}
-			if _, err := w.mergeSettings(&changes, id); err != nil {
+			if err := w.mergeSettings(&changes, id); err != nil {
 				return errors.Annotatef(err, "relation scope id %q", id)
 			}
 			out = w.out
 		case out <- changes:
+			logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
 			sentInitial = true
 			changes = params.RelationUnitsChange{}
 			out = nil
@@ -1627,25 +1645,69 @@ func (w *unitsWatcher) initial() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	newUnits, closer := w.db.GetCollection(unitsC)
-	defer closer()
-	query := bson.D{{"name", bson.D{{"$in", initialNames}}}}
+	return w.watchUnits(initialNames, nil)
+}
+
+func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 	docs := []lifeWatchDoc{}
-	if err := newUnits.Find(query).Select(lifeWatchFields).All(&docs); err != nil {
-		return nil, err
+	ids := make([]interface{}, len(names))
+	for i := range names {
+		ids[i] = w.backend.docID(names[i])
 	}
-	changes := []string{}
+	if err := w.watcher.WatchMulti(unitsC, ids, w.in); err != nil {
+		logger.Tracef("error watching %q in %q: %v", ids, unitsC, err)
+		return nil, errors.Trace(err)
+	}
+	logger.Tracef("watching %q ids: %q", unitsC, ids)
+	newUnits, closer := w.db.GetCollection(unitsC)
+	err := newUnits.Find(bson.M{"_id": bson.M{"$in": names}}).Select(lifeWatchFields).All(&docs)
+	closer()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	found := set.NewStrings()
 	for _, doc := range docs {
-		unitName, err := w.backend.strictLocalID(doc.Id)
+		localId, err := w.backend.strictLocalID(doc.Id)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		changes = append(changes, unitName)
+		found.Add(localId)
+		if !hasString(changes, localId) {
+			logger.Tracef("marking change for %q", localId)
+			changes = append(changes, localId)
+		}
 		if doc.Life != Dead {
-			w.life[unitName] = doc.Life
-			w.watcher.Watch(unitsC, doc.Id, doc.TxnRevno, w.in)
+			logger.Tracef("setting life of %q to %q", localId, doc.Life)
+			w.life[localId] = doc.Life
+		} else {
+			// Note(jam): 2019-01-31 This was done to match existing behavior, it is not guaranteed
+			// to be the behavior we want. Specifically, if we see a Dead unit we will report that
+			// it exists in the initial event. However, we stop watching because
+			// the object is dead, so you don't get an event when the doc is
+			// removed from the database. It seems better if we either/
+			// a) don't tell you about Dead documents
+			// b) give you an event if a Dead document goes away.
+			logger.Tracef("unwatching Dead unit: %q", localId)
+			w.watcher.Unwatch(unitsC, doc.Id, w.in)
+			delete(w.life, localId)
 		}
 	}
+	// See if there are any entries that we wanted to watch but are actually gone
+	for _, name := range names {
+		if !found.Contains(name) {
+			logger.Tracef("looking for unit %q, found it gone, Unwatching", name)
+			if _, ok := w.life[name]; ok {
+				// we see this doc, but it doesn't exist
+				if !hasString(changes, name) {
+					changes = append(changes, name)
+				}
+				delete(w.life, name)
+			}
+			w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
+		}
+	}
+	logger.Tracef("changes: %q", changes)
 	return changes, nil
 }
 
@@ -1656,12 +1718,16 @@ func (w *unitsWatcher) update(changes []string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	var unknown []string
 	for _, name := range latest {
-		if _, known := w.life[name]; !known {
-			changes, err = w.merge(changes, name)
-			if err != nil {
-				return nil, err
-			}
+		if _, found := w.life[name]; !found {
+			unknown = append(unknown, name)
+		}
+	}
+	if len(unknown) > 0 {
+		changes, err = w.watchUnits(unknown, changes)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 	for name := range w.life {
@@ -1671,21 +1737,22 @@ func (w *unitsWatcher) update(changes []string) ([]string, error) {
 		if !hasString(changes, name) {
 			changes = append(changes, name)
 		}
+		logger.Tracef("unit %q %q no longer in latest, removing watch", unitsC, name)
 		delete(w.life, name)
 		w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 	}
+	logger.Tracef("update reports changes: %q", changes)
 	return changes, nil
 }
 
 // merge adds to and returns changes, such that it contains the supplied unit
 // name if that unit is unknown and non-Dead, or has changed lifecycle status.
 func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
+	logger.Tracef("merging change for %q %q", unitsC, name)
+	var doc lifeWatchDoc
 	units, closer := w.db.GetCollection(unitsC)
-	defer closer()
-
-	unitDocID := w.backend.docID(name)
-	doc := lifeWatchDoc{}
-	err := units.FindId(unitDocID).Select(lifeWatchFields).One(&doc)
+	err := units.FindId(name).Select(lifeWatchFields).One(&doc)
+	closer()
 	gone := false
 	if err == mgo.ErrNotFound {
 		gone = true
@@ -1694,15 +1761,14 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	} else if doc.Life == Dead {
 		gone = true
 	}
-	life, known := w.life[name]
+	life := w.life[name]
 	switch {
-	case known && gone:
+	case gone:
 		delete(w.life, name)
-		w.watcher.Unwatch(unitsC, unitDocID, w.in)
-	case !known && !gone:
-		w.watcher.Watch(unitsC, unitDocID, doc.TxnRevno, w.in)
-		w.life[name] = doc.Life
-	case known && life != doc.Life:
+		logger.Tracef("document gone, unwatching %q %q", unitsC, name)
+		w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
+	case life != doc.Life:
+		logger.Tracef("updating doc life %q %q to %q", unitsC, name, doc.Life)
 		w.life[name] = doc.Life
 	default:
 		return changes, nil
@@ -1710,20 +1776,16 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	if !hasString(changes, name) {
 		changes = append(changes, name)
 	}
+	logger.Tracef("merge reporting changes: %q", changes)
 	return changes, nil
 }
 
 func (w *unitsWatcher) loop(coll, id string) error {
-	collection, closer := w.db.GetCollection(coll)
-	revno, err := getTxnRevno(collection, id)
-	closer()
-	if err != nil {
-		return err
-	}
-
-	w.watcher.Watch(coll, id, revno, w.in)
+	logger.Tracef("watching root channel %q %q", coll, id)
+	rootCh := make(chan watcher.Change)
+	w.watcher.Watch(coll, id, rootCh)
 	defer func() {
-		w.watcher.Unwatch(coll, id, w.in)
+		w.watcher.Unwatch(coll, id, rootCh)
 		for name := range w.life {
 			w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 		}
@@ -1732,7 +1794,6 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	if err != nil {
 		return err
 	}
-	rootLocalID := w.backend.localID(id)
 	out := w.out
 	for {
 		select {
@@ -1740,13 +1801,14 @@ func (w *unitsWatcher) loop(coll, id string) error {
 			return stateWatcherDeadError(w.watcher.Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
+		case <-rootCh:
+			changes, err = w.update(changes)
+			if len(changes) > 0 {
+				out = w.out
+			}
 		case c := <-w.in:
 			localID := w.backend.localID(c.Id.(string))
-			if localID == rootLocalID {
-				changes, err = w.update(changes)
-			} else {
-				changes, err = w.merge(changes, localID)
-			}
+			changes, err = w.merge(changes, localID)
 			if err != nil {
 				return err
 			}
@@ -1754,6 +1816,7 @@ func (w *unitsWatcher) loop(coll, id string) error {
 				out = w.out
 			}
 		case out <- changes:
+			logger.Tracef("watcher reported changes: %q", changes)
 			out = nil
 			changes = nil
 		}
@@ -1928,8 +1991,8 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 			meterStatusC,
 			u.st.docID(u.globalMeterStatusKey()),
 		}, {
-			metricsManagerC,
-			metricsManagerKey,
+			meterStatusC,
+			metricsManagerKey(u.st),
 		},
 	})
 }
@@ -2017,7 +2080,7 @@ func (w *instanceCharmProfileDataWatcher) initial() error {
 
 func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, error) {
 	machineId := change.Id.(string)
-	if change.Revno == -1 {
+	if change.Revno < 0 {
 		return false, nil
 	}
 	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
@@ -2153,15 +2216,15 @@ func getTxnRevno(coll mongo.Collection, id interface{}) (int64, error) {
 
 func (w *docWatcher) loop(docKeys []docKey) error {
 	in := make(chan watcher.Change)
+	logger.Tracef("watching docs: %v", docKeys)
 	for _, k := range docKeys {
-		coll, closer := w.db.GetCollection(k.coll)
-		txnRevno, err := getTxnRevno(coll, k.docId)
-		closer()
-		if err != nil {
-			return err
-		}
-		w.watcher.Watch(coll.Name(), k.docId, txnRevno, in)
-		defer w.watcher.Unwatch(coll.Name(), k.docId, in)
+		w.watcher.Watch(k.coll, k.docId, in)
+		defer w.watcher.Unwatch(k.coll, k.docId, in)
+	}
+	// Check to see if there is a backing event that should be coalesced with the
+	// first event
+	if _, ok := collect(watcher.Change{}, in, w.tomb.Dying()); !ok {
+		return tomb.ErrDying
 	}
 	out := w.out
 	for {
@@ -2231,59 +2294,136 @@ func (w *machineUnitsWatcher) updateMachine(pending []string) (new []string, err
 	if err != nil {
 		return nil, err
 	}
+	var unknown []string
 	for _, unitName := range w.machine.doc.Principals {
 		if _, ok := w.known[unitName]; !ok {
-			pending, err = w.merge(pending, unitName)
-			if err != nil {
-				return nil, err
+			unknown = append(unknown, unitName)
+		}
+	}
+	if len(unknown) > 0 {
+		pending, err = w.watchNewUnits(unknown, pending, nil)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return pending, nil
+}
+
+// watchNewUnits sets up a watcher for all of the named units and then updates pending changes.
+// There is an assumption that all unitNames being passed are unknown and do not have a watch active for them.
+func (w *machineUnitsWatcher) watchNewUnits(unitNames, pending []string, unitColl mongo.Collection) ([]string, error) {
+	if len(unitNames) == 0 {
+		return pending, nil
+	}
+	ids := make([]interface{}, len(unitNames))
+	for i := range unitNames {
+		ids[i] = w.backend.docID(unitNames[i])
+	}
+	logger.Tracef("for machine %q watching new units %q", w.machine.doc.DocID, unitNames)
+	err := w.watcher.WatchMulti(unitsC, ids, w.in)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if unitColl == nil {
+		var closer SessionCloser
+		unitColl, closer = w.db.GetCollection(unitsC)
+		defer closer()
+	}
+	var doc unitDoc
+	iter := unitColl.Find(bson.M{"_id": bson.M{"$in": unitNames}}).Iter()
+	unknownSubs := set.NewStrings()
+	notfound := set.NewStrings(unitNames...)
+	for iter.Next(&doc) {
+		notfound.Remove(doc.Name)
+		w.known[doc.Name] = doc.Life
+		pending = append(pending, doc.Name)
+		// now load subordinates
+		for _, subunitName := range doc.Subordinates {
+			if _, subknown := w.known[subunitName]; !subknown {
+				unknownSubs.Add(subunitName)
+			}
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	for name := range notfound {
+		logger.Debugf("unit %q referenced but not found", name)
+		w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
+	}
+	if !unknownSubs.IsEmpty() {
+		pending, err = w.watchNewUnits(unknownSubs.Values(), pending, unitColl)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return pending, nil
+}
+
+// removeWatchedUnit stops watching the unit, and all subordinates for this unit
+func (w *machineUnitsWatcher) removeWatchedUnit(unitName string, doc unitDoc, pending []string) ([]string, error) {
+	logger.Tracef("machineUnitsWatcher removing unit %q for life %q", doc.Name, doc.Life)
+	life, known := w.known[unitName]
+	// Unit was removed or unassigned from w.machine
+	if known {
+		delete(w.known, unitName)
+		docID := w.backend.docID(unitName)
+		w.watcher.Unwatch(unitsC, docID, w.in)
+		if life != Dead && !hasString(pending, unitName) {
+			pending = append(pending, unitName)
+		}
+		for _, subunitName := range doc.Subordinates {
+			if sublife, subknown := w.known[subunitName]; subknown {
+				delete(w.known, subunitName)
+				w.watcher.Unwatch(unitsC, w.backend.docID(subunitName), w.in)
+				if sublife != Dead && !hasString(pending, subunitName) {
+					pending = append(pending, subunitName)
+				}
 			}
 		}
 	}
 	return pending, nil
 }
 
+// merge checks if this unitName has been modified and if so, updates pending accordingly.
+// merge() should only be called for documents that are already being watched and part of known
+// use watchNewUnits if you have a new object
 func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []string, err error) {
 	doc := unitDoc{}
 	newUnits, closer := w.db.GetCollection(unitsC)
 	defer closer()
 	err = newUnits.FindId(unitName).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	life, known := w.known[unitName]
 	if err == mgo.ErrNotFound || doc.Principal == "" && (doc.MachineId == "" || doc.MachineId != w.machine.doc.Id) {
-		// Unit was removed or unassigned from w.machine.
-		if known {
-			delete(w.known, unitName)
-			w.watcher.Unwatch(unitsC, w.backend.docID(unitName), w.in)
-			if life != Dead && !hasString(pending, unitName) {
-				pending = append(pending, unitName)
-			}
-			for _, subunitName := range doc.Subordinates {
-				if sublife, subknown := w.known[subunitName]; subknown {
-					delete(w.known, subunitName)
-					w.watcher.Unwatch(unitsC, w.backend.docID(subunitName), w.in)
-					if sublife != Dead && !hasString(pending, subunitName) {
-						pending = append(pending, subunitName)
-					}
-				}
-			}
+		// We always pass the unitName because the document may be deleted, and thus not have a name on the object
+		pending, err := w.removeWatchedUnit(unitName, doc, pending)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 		return pending, nil
 	}
+	life, known := w.known[unitName]
 	if !known {
-		w.watcher.Watch(unitsC, doc.DocID, doc.TxnRevno, w.in)
-		pending = append(pending, unitName)
-	} else if life != doc.Life && !hasString(pending, unitName) {
-		pending = append(pending, unitName)
+		return nil, errors.Errorf("merge() called with an unknown document: %q", doc.DocID)
 	}
-	w.known[unitName] = doc.Life
+	if life != doc.Life && !hasString(pending, doc.Name) {
+		logger.Tracef("machineUnitsWatcher found life changed to %q => %q for %q", life, doc.Life, doc.Name)
+		pending = append(pending, doc.Name)
+	}
+	w.known[doc.Name] = doc.Life
+	unknownSubordinates := set.NewStrings()
 	for _, subunitName := range doc.Subordinates {
 		if _, ok := w.known[subunitName]; !ok {
-			pending, err = w.merge(pending, subunitName)
-			if err != nil {
-				return nil, err
-			}
+			unknownSubordinates.Add(subunitName)
+		}
+	}
+	if !unknownSubordinates.IsEmpty() {
+		pending, err = w.watchNewUnits(unknownSubordinates.Values(), pending, nil)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 	return pending, nil
@@ -2296,18 +2436,12 @@ func (w *machineUnitsWatcher) loop() error {
 		}
 	}()
 
-	machines, closer := w.db.GetCollection(machinesC)
-	revno, err := getTxnRevno(machines, w.machine.doc.DocID)
-	closer()
-	if err != nil {
-		return err
-	}
 	machineCh := make(chan watcher.Change)
-	w.watcher.Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
+	w.watcher.Watch(machinesC, w.machine.doc.DocID, machineCh)
 	defer w.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
-	changes, err := w.updateMachine([]string(nil))
+	changes, err := w.updateMachine(nil)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	out := w.out
 	for {
@@ -2319,7 +2453,7 @@ func (w *machineUnitsWatcher) loop() error {
 		case <-machineCh:
 			changes, err = w.updateMachine(changes)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			if len(changes) > 0 {
 				out = w.out
@@ -2327,7 +2461,7 @@ func (w *machineUnitsWatcher) loop() error {
 		case c := <-w.in:
 			changes, err = w.merge(changes, w.backend.localID(c.Id.(string)))
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			if len(changes) > 0 {
 				out = w.out
@@ -2376,14 +2510,8 @@ func (w *machineAddressesWatcher) Changes() <-chan struct{} {
 }
 
 func (w *machineAddressesWatcher) loop() error {
-	machines, closer := w.db.GetCollection(machinesC)
-	revno, err := getTxnRevno(machines, w.machine.doc.DocID)
-	closer()
-	if err != nil {
-		return err
-	}
 	machineCh := make(chan watcher.Change)
-	w.watcher.Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
+	w.watcher.Watch(machinesC, w.machine.doc.DocID, machineCh)
 	defer w.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	addresses := w.machine.Addresses()
 	out := w.out
@@ -3055,7 +3183,7 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if change.Revno == -1 {
+	if change.Revno < 0 {
 		delete(w.known, localID)
 		if changeID, err := w.transformID(localID); err != nil {
 			logger.Errorf(err.Error())
@@ -3134,14 +3262,8 @@ func (w *blockDevicesWatcher) Changes() <-chan struct{} {
 
 func (w *blockDevicesWatcher) loop() error {
 	docID := w.backend.docID(w.machineId)
-	coll, closer := w.db.GetCollection(blockDevicesC)
-	revno, err := getTxnRevno(coll, docID)
-	closer()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	changes := make(chan watcher.Change)
-	w.watcher.Watch(blockDevicesC, docID, revno, changes)
+	w.watcher.Watch(blockDevicesC, docID, changes)
 	defer w.watcher.Unwatch(blockDevicesC, docID, changes)
 	blockDevices, err := getBlockDevices(w.db, w.machineId)
 	if err != nil {
@@ -3203,17 +3325,14 @@ func (w *migrationActiveWatcher) Changes() <-chan struct{} {
 }
 
 func (w *migrationActiveWatcher) loop() error {
-	collection, closer := w.db.GetCollection(w.collName)
-	revno, err := getTxnRevno(collection, w.id)
-	closer()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	in := make(chan watcher.Change)
-	w.watcher.Watch(w.collName, w.id, revno, in)
+	w.watcher.Watch(w.collName, w.id, in)
 	defer w.watcher.Unwatch(w.collName, w.id, in)
 
+	// check if there are any pending changes before the first event
+	if _, ok := collect(watcher.Change{}, in, w.tomb.Dying()); !ok {
+		return tomb.ErrDying
+	}
 	out := w.sink
 	for {
 		select {
@@ -3295,6 +3414,10 @@ func (w *notifyCollWatcher) loop() error {
 	w.watcher.WatchCollectionWithFilter(w.collName, in, w.filter)
 	defer w.watcher.UnwatchCollection(w.collName, in)
 
+	// check if there are any pending changes before the first event
+	if _, ok := collect(watcher.Change{}, in, w.tomb.Dying()); !ok {
+		return tomb.ErrDying
+	}
 	out := w.sink // out set so that initial event is sent.
 	for {
 		select {
@@ -3674,14 +3797,8 @@ func (w *containerAddressesWatcher) Changes() <-chan struct{} {
 
 func (w *containerAddressesWatcher) loop() error {
 	id := w.backend.docID(w.unit.globalKey())
-	containers, closer := w.db.GetCollection(cloudContainersC)
-	revno, err := getTxnRevno(containers, id)
-	closer()
-	if err != nil {
-		return err
-	}
 	containerCh := make(chan watcher.Change)
-	w.watcher.Watch(cloudContainersC, id, revno, containerCh)
+	w.watcher.Watch(cloudContainersC, id, containerCh)
 	defer w.watcher.Unwatch(cloudContainersC, id, containerCh)
 
 	var currentAddress *address
@@ -3862,14 +3979,8 @@ func (w *hashWatcher) start() {
 }
 
 func (w *hashWatcher) loop() error {
-	coll, closer := w.db.GetCollection(w.collection)
-	revno, err := getTxnRevno(coll, w.id)
-	closer()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	changesCh := make(chan watcher.Change)
-	w.watcher.Watch(w.collection, w.id, revno, changesCh)
+	w.watcher.Watch(w.collection, w.id, changesCh)
 	defer w.watcher.Unwatch(w.collection, w.id, changesCh)
 
 	lastHash, err := w.hash()

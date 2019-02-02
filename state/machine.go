@@ -2025,6 +2025,24 @@ func isSupportedContainer(container instance.ContainerType, supportedContainers 
 
 // updateSupportedContainers sets the supported containers on this host machine.
 func (m *Machine) updateSupportedContainers(supportedContainers []instance.ContainerType) (err error) {
+	if m.doc.SupportedContainersKnown {
+		if len(m.doc.SupportedContainers) == len(supportedContainers) {
+			equal := true
+			types := make(map[instance.ContainerType]struct{}, len(m.doc.SupportedContainers))
+			for _, v := range m.doc.SupportedContainers {
+				types[v] = struct{}{}
+			}
+			for _, v := range supportedContainers {
+				if _, ok := types[v]; !ok {
+					equal = false
+					break
+				}
+			}
+			if equal {
+				return nil
+			}
+		}
+	}
 	ops := []txn.Op{
 		{
 			C:      machinesC,

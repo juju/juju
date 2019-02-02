@@ -1005,10 +1005,6 @@ func (s *modelManagerStateSuite) TestCreateModelBadConfig(c *gc.C) {
 			key:      "uuid",
 			value:    "anything",
 			errMatch: `failed to create config: uuid is generated, you cannot specify one`,
-		}, {
-			key:      "type",
-			value:    "fake",
-			errMatch: `failed to create config: specified type "fake" does not match controller "dummy"`,
 		},
 	} {
 		c.Logf("%d: %s", i, test.key)

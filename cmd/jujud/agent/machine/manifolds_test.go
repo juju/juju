@@ -311,6 +311,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"model-cache",
+		"raft-transport",
 		"restore-watcher",
 		"state",
 		"state-config-watcher",

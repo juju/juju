@@ -17,20 +17,24 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cloud"
+	cloudapi "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/apiserver/params"
+	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/jujuclient"
 )
 
 type CloudMetadataStore interface {
-	ParseCloudMetadataFile(path string) (map[string]cloud.Cloud, error)
-	ParseOneCloud(data []byte) (cloud.Cloud, error)
-	PublicCloudMetadata(searchPaths ...string) (result map[string]cloud.Cloud, fallbackUsed bool, _ error)
-	PersonalCloudMetadata() (map[string]cloud.Cloud, error)
-	WritePersonalCloudMetadata(cloudsMap map[string]cloud.Cloud) error
+	ParseCloudMetadataFile(path string) (map[string]jujucloud.Cloud, error)
+	ParseOneCloud(data []byte) (jujucloud.Cloud, error)
+	PublicCloudMetadata(searchPaths ...string) (result map[string]jujucloud.Cloud, fallbackUsed bool, _ error)
+	PersonalCloudMetadata() (map[string]jujucloud.Cloud, error)
+	WritePersonalCloudMetadata(cloudsMap map[string]jujucloud.Cloud) error
 }
 
 var usageAddCloudSummary = `
@@ -86,18 +90,37 @@ clouds:                           # mandatory
  - joyent
  - oci
 
+If you do not supply a controller name, only the local Juju cache
+is updated. If you want to update a running controller to upload a
+new, additional cloud, you can use the --controller or -c option.
+The cloud details will be uploaded to the controller, along with
+a credential for the cloud. As with the cloud, the credential needs
+to have been added to the local Juju cache; add-credential is used to
+do that. If there's only one credential for the cloud it will be
+uploaded to the controller. If the cloud has multiple local credentials
+you can specify which to upload with the --credential option.
+
 Examples:
     juju add-cloud
     juju add-cloud mycloud ~/mycloud.yaml
     juju add-cloud --replace mycloud ~/mycloud2.yaml
+    juju add-cloud --controller mycontroller mycloud
+    juju add-cloud --controller mycontroller mycloud --credential mycred
 
 See also: 
     clouds`
 
+// AddCloudAPI - Implemented by cloudapi.Client.
+type AddCloudAPI interface {
+	AddCloud(jujucloud.Cloud) error
+	AddCredential(tag string, credential jujucloud.Credential) error
+	Close() error
+}
+
 // AddCloudCommand is the command that allows you to add a cloud configuration
 // for use with juju bootstrap.
 type AddCloudCommand struct {
-	cmd.CommandBase
+	modelcmd.CommandBase
 
 	// Replace, if true, existing cloud information is overwritten.
 	Replace bool
@@ -116,12 +139,18 @@ type AddCloudCommand struct {
 	// CloudCallCtx contains context to be used for any cloud calls.
 	CloudCallCtx       *context.CloudCallContext
 	cloudMetadataStore CloudMetadataStore
+
+	// These attributes are used when adding a cloud to a controller.
+	controllerName  string
+	credentialName  string
+	store           jujuclient.ClientStore
+	addCloudAPIFunc func() (AddCloudAPI, error)
 }
 
 // NewAddCloudCommand returns a command to add cloud information.
-func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) *AddCloudCommand {
+func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	cloudCallCtx := context.NewCloudCallContext()
-	return &AddCloudCommand{
+	c := &AddCloudCommand{
 		cloudMetadataStore: cloudMetadataStore,
 		CloudCallCtx:       cloudCallCtx,
 		// Ping is provider.Ping except in tests where we don't actually want to
@@ -129,14 +158,25 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) *AddCloudCommand 
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
 			return p.Ping(cloudCallCtx, endpoint)
 		},
+		store: jujuclient.NewFileClientStore(),
 	}
+	c.addCloudAPIFunc = c.cloudAPI
+	return modelcmd.WrapBase(c)
+}
+
+func (c *AddCloudCommand) cloudAPI() (AddCloudAPI, error) {
+	root, err := c.NewAPIRoot(c.store, c.controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cloudapi.NewClient(root), nil
 }
 
 // Info returns help information about the command.
 func (c *AddCloudCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "add-cloud",
-		Args:    "<cloud name> <cloud definition file>",
+		Args:    "<cloud name> [<cloud definition file>]",
 		Purpose: usageAddCloudSummary,
 		Doc:     usageAddCloudDetails,
 	})
@@ -147,6 +187,9 @@ func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information for <cloud name>")
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
+	f.StringVar(&c.credentialName, "credential", "", "Credential to use for new cloud")
+	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
+	f.StringVar(&c.controllerName, "controller", "", "")
 }
 
 // Init populates the command with the args from the command line.
@@ -169,50 +212,155 @@ func (c *AddCloudCommand) Init(args []string) (err error) {
 	return nil
 }
 
+var ambiguousCredentialError = errors.New(`
+more than one credential is available
+specify a credential using the --credential argument`[1:],
+)
+
+func (c *AddCloudCommand) findLocalCredential(ctx *cmd.Context, cloud jujucloud.Cloud, credentialName string) (*jujucloud.Credential, string, error) {
+	credential, chosenCredentialName, _, err := modelcmd.GetCredentials(ctx, c.store, modelcmd.GetCredentialsParams{
+		Cloud:          cloud,
+		CredentialName: credentialName,
+	})
+	if err == nil {
+		return credential, chosenCredentialName, nil
+	}
+
+	switch errors.Cause(err) {
+	case modelcmd.ErrMultipleCredentials:
+		return nil, "", ambiguousCredentialError
+	}
+	return nil, "", errors.Trace(err)
+}
+
+func (c *AddCloudCommand) addCredentialToController(ctx *cmd.Context, cloud jujucloud.Cloud, apiClient AddCloudAPI) error {
+	_, err := c.store.ControllerByName(c.controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	currentAccountDetails, err := c.store.AccountDetails(c.controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	cred, credentialName, err := c.findLocalCredential(ctx, cloud, c.credentialName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	cloudCredTag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s",
+		c.Cloud, currentAccountDetails.User, credentialName))
+
+	if err := apiClient.AddCredential(cloudCredTag.String(), *cred); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // Run executes the add cloud command, adding a cloud based on a passed-in yaml
 // file or interactive queries.
 func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
-	if c.CloudFile == "" {
+	if c.CloudFile == "" && c.controllerName == "" {
 		return c.runInteractive(ctxt)
 	}
 
-	specifiedClouds, err := c.cloudMetadataStore.ParseCloudMetadataFile(c.CloudFile)
+	var newCloud *jujucloud.Cloud
+	if c.CloudFile != "" {
+		var err error
+		newCloud, err = c.readCloudFromFile(ctxt)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		// No cloud file specified so we try and use a named
+		// cloud that already has been added to the local cache.
+		details, err := listCloudDetails()
+		if err != nil {
+			return err
+		}
+		cloudDetails, ok := details.all()[c.Cloud]
+		if !ok {
+			return errors.NotFoundf("cloud %q", c.Cloud)
+		}
+		newCloud = &jujucloud.Cloud{
+			Name:             c.Cloud,
+			Type:             cloudDetails.CloudType,
+			Description:      cloudDetails.CloudDescription,
+			Endpoint:         cloudDetails.Endpoint,
+			IdentityEndpoint: cloudDetails.IdentityEndpoint,
+			StorageEndpoint:  cloudDetails.StorageEndpoint,
+			CACertificates:   cloudDetails.CACredentials,
+			Config:           cloudDetails.Config,
+			RegionConfig:     cloudDetails.RegionConfig,
+		}
+		for _, at := range cloudDetails.AuthTypes {
+			newCloud.AuthTypes = append(newCloud.AuthTypes, jujucloud.AuthType(at))
+		}
+		for name, r := range cloudDetails.RegionsMap {
+			newCloud.Regions = append(newCloud.Regions, jujucloud.Region{
+				Name:             name,
+				Endpoint:         r.Endpoint,
+				StorageEndpoint:  r.StorageEndpoint,
+				IdentityEndpoint: r.IdentityEndpoint,
+			})
+		}
+	}
+	if c.controllerName == "" {
+		return addLocalCloud(c.cloudMetadataStore, *newCloud)
+	}
+
+	// A controller has been specified so upload the cloud details
+	// plus a corresponding credential to the controller.
+	api, err := c.addCloudAPIFunc()
 	if err != nil {
 		return err
 	}
+	err = api.AddCloud(*newCloud)
+	if err != nil && params.ErrCode(err) != params.CodeAlreadyExists {
+		return err
+	}
+	// Add a credential for the newly added cloud.
+	return c.addCredentialToController(ctxt, *newCloud, api)
+}
+
+func (c *AddCloudCommand) readCloudFromFile(ctxt *cmd.Context) (*jujucloud.Cloud, error) {
+	specifiedClouds, err := c.cloudMetadataStore.ParseCloudMetadataFile(c.CloudFile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if specifiedClouds == nil {
-		return errors.New("no personal clouds are defined")
+		return nil, errors.New("no personal clouds are defined")
 	}
 	newCloud, ok := specifiedClouds[c.Cloud]
 	if !ok {
-		return errors.Errorf("cloud %q not found in file %q", c.Cloud, c.CloudFile)
+		return nil, errors.Errorf("cloud %q not found in file %q", c.Cloud, c.CloudFile)
 	}
 
 	// first validate cloud input
 	data, err := ioutil.ReadFile(c.CloudFile)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	if err = cloud.ValidateCloudSet(data); err != nil {
+	if err = jujucloud.ValidateCloudSet(data); err != nil {
 		ctxt.Warningf(err.Error())
 	}
 
 	// validate cloud data
 	provider, err := environs.Provider(newCloud.Type)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	schemas := provider.CredentialSchemas()
 	for _, authType := range newCloud.AuthTypes {
 		if _, defined := schemas[authType]; !defined {
-			return errors.NotSupportedf("auth type %q", authType)
+			return nil, errors.NotSupportedf("auth type %q", authType)
 		}
 	}
 	if err := c.verifyName(c.Cloud); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-
-	return addCloud(c.cloudMetadataStore, newCloud)
+	return &newCloud, nil
 }
 
 func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
@@ -291,7 +439,7 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	}
 	newCloud.Name = name
 	newCloud.Type = cloudType
-	if err := addCloud(c.cloudMetadataStore, newCloud); err != nil {
+	if err := addLocalCloud(c.cloudMetadataStore, newCloud); err != nil {
 		return errors.Trace(err)
 	}
 	ctxt.Infof("Cloud %q successfully added", name)
@@ -311,7 +459,7 @@ func addCertificate(data []byte) (string, []byte, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	name, ok := vals[cloud.CertFilenameKey]
+	name, ok := vals[jujucloud.CertFilenameKey]
 	if !ok {
 		return "", nil, errors.NotFoundf("yaml has no certificate file")
 	}
@@ -480,7 +628,7 @@ func (c *AddCloudCommand) verifyName(name string) error {
 
 // nameExists returns either an empty string if the name does not exist, or a
 // non-empty string with an error message if it does exist.
-func nameExists(name string, public map[string]cloud.Cloud) (string, error) {
+func nameExists(name string, public map[string]jujucloud.Cloud) (string, error) {
 	if _, ok := public[name]; ok {
 		return fmt.Sprintf("%q is the name of a public cloud", name), nil
 	}
@@ -494,13 +642,13 @@ func nameExists(name string, public map[string]cloud.Cloud) (string, error) {
 	return "", nil
 }
 
-func addCloud(cloudMetadataStore CloudMetadataStore, newCloud cloud.Cloud) error {
+func addLocalCloud(cloudMetadataStore CloudMetadataStore, newCloud jujucloud.Cloud) error {
 	personalClouds, err := cloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
 		return err
 	}
 	if personalClouds == nil {
-		personalClouds = make(map[string]cloud.Cloud)
+		personalClouds = make(map[string]jujucloud.Cloud)
 	}
 	personalClouds[newCloud.Name] = newCloud
 	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)

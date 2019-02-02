@@ -418,6 +418,11 @@ func (s *UnitCloudStatusSuite) TestContainerOrUnitStatusChoice(c *gc.C) {
 			unitStatus:           status.StatusInfo{},
 			messageCheck:         status.MessageWaitForContainer,
 		},
+		{
+			cloudContainerStatus: status.StatusInfo{},
+			unitStatus:           status.StatusInfo{Status: status.Active},
+			messageCheck:         status.MessageWaitForContainer,
+		},
 	}
 
 	for i, check := range checks {

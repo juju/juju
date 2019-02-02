@@ -7,9 +7,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"sync"
 	"time"
@@ -33,6 +37,8 @@ type Config struct {
 	Clock                clock.Clock
 	TLSConfig            *tls.Config
 	Mux                  *apiserverhttp.Mux
+	MuxShutdownWait      time.Duration
+	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 	Hub                  *pubsub.StructuredHub
 	APIPort              int
@@ -99,8 +105,6 @@ type Worker struct {
 	config   Config
 	url      chan string
 	holdable *heldListener
-
-	unsub func()
 
 	// mu controls access to both status and reporter.
 	mu     sync.Mutex
@@ -183,13 +187,44 @@ func (w *Worker) loop() error {
 			// to process all pending requests without having to deal with
 			// new ones.
 			w.holdable.hold()
-			// Asked to shutdown - make sure we wait until all clients
-			// have finished up.
-			w.config.Mux.Wait()
-			return w.catacomb.ErrDying()
+			return w.shutdown()
 		case w.url <- w.holdable.URL():
 		}
 	}
+}
+
+func (w *Worker) shutdown() error {
+	muxDone := make(chan struct{})
+	go func() {
+		// Asked to shutdown - make sure we wait until all clients
+		// have finished up.
+		w.config.Mux.Wait()
+		close(muxDone)
+	}()
+	select {
+	case <-muxDone:
+	case <-w.config.Clock.After(w.config.MuxShutdownWait):
+		msg := "timeout waiting for apiserver shutdown"
+		dumpFile, err := w.dumpDebug()
+		if err == nil {
+			logger.Warningf("%v\ndebug info written to %v", msg, dumpFile)
+		} else {
+			logger.Warningf("%v\nerror writing debug info: %v", msg, err)
+		}
+	}
+	return w.catacomb.ErrDying()
+}
+
+func (w *Worker) dumpDebug() (string, error) {
+	dumpFile, err := os.OpenFile(filepath.Join(w.config.LogDir, "apiserver-debug.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer dumpFile.Close()
+	if _, err = io.WriteString(dumpFile, fmt.Sprintf("goroutime dump %v\n", time.Now().Format(time.RFC3339))); err != nil {
+		return "", errors.Annotate(err, "writing header to apiserver log file")
+	}
+	return dumpFile.Name(), pprof.Lookup("goroutine").WriteTo(dumpFile, 1)
 }
 
 type heldListener struct {

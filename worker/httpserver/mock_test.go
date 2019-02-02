@@ -9,7 +9,6 @@ import (
 	"github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/state"
 )
 
@@ -59,8 +58,4 @@ type stubCertWatcher struct {
 func (w *stubCertWatcher) get() *tls.Certificate {
 	w.MethodCall(w, "get")
 	return &w.cert
-}
-
-type mockLocalMacaroonAuthenticator struct {
-	httpcontext.LocalMacaroonAuthenticator
 }

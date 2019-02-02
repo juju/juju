@@ -34,13 +34,8 @@ type Store interface {
 
 	// Leases returns a recent snapshot of lease state. Expiry times are
 	// expressed according to the Clock the store was configured with.
-	Leases() map[Key]Info
-
-	// TODO (jam) 2017-10-31: Many callers of Leases() actually only want
-	// exactly 1 lease, we should have a way to do a query to return exactly
-	// that lease, instead of having to read all of them to pull one out of the
-	// map. (Worst case it is implemented as exactly this, best case avoids
-	// reading lots of unused data.)
+	// Supplying any lease keys will filter the return for those requested.
+	Leases(keys ...Key) map[Key]Info
 
 	// Refresh reads all lease state from the database.
 	Refresh() error
@@ -93,11 +88,11 @@ type Info struct {
 
 // Trapdoor allows a store to use pre-agreed special knowledge to communicate
 // with a Store substrate by passing a key with suitable properties.
-type Trapdoor func(key interface{}) error
+type Trapdoor func(attempt int, key interface{}) error
 
 // LockedTrapdoor is a Trapdoor suitable for use by substrates that don't want
 // or need to expose their internals.
-func LockedTrapdoor(key interface{}) error {
+func LockedTrapdoor(attempt int, key interface{}) error {
 	if key != nil {
 		return errors.New("lease substrate not accessible")
 	}

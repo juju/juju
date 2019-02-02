@@ -49,6 +49,7 @@ func DefaultServerConfig(c *gc.C) apiserver.ServerConfig {
 		RestoreStatus: func() state.RestoreStatus {
 			return state.RestoreNotActive
 		},
+		MetricsCollector: apiserver.NewMetricsCollector(),
 	}
 }
 
@@ -94,6 +95,10 @@ func NewServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.Serv
 		authenticator, err := stateauthenticator.NewAuthenticator(statePool, cfg.Clock)
 		c.Assert(err, jc.ErrorIsNil)
 		cfg.Authenticator = authenticator
+	}
+
+	if cfg.MetricsCollector == nil {
+		cfg.MetricsCollector = apiserver.NewMetricsCollector()
 	}
 
 	srv, err := apiserver.NewServer(cfg)

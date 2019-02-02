@@ -966,6 +966,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				RestoreStatus: func() state.RestoreStatus {
 					return state.RestoreNotActive
 				},
+				MetricsCollector: apiserver.NewMetricsCollector(),
 			})
 			if err != nil {
 				panic(err)
@@ -998,7 +999,7 @@ func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error
 		ioutil.Discard,
 		loggo.GetLogger("juju.state.raftlease"),
 	)
-	dummyStore := newLeaseStore(clock.WallClock, target, state.LeaseTrapdoorFunc())
+	dummyStore := newLeaseStore(clock.WallClock, target, st.LeaseTrapdoorFunc())
 	return lease.NewManager(lease.ManagerConfig{
 		Secretary:            lease.SecretaryFinder(controllerUUID),
 		Store:                dummyStore,

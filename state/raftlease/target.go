@@ -9,6 +9,7 @@ import (
 	"log"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -29,6 +30,10 @@ const (
 	// fieldHolder identifies the holder field in a leaseHolderDoc.
 	fieldHolder = "holder"
 )
+
+// logger is only used when we need to update the database from within
+// a trapdoor function.
+var logger = loggo.GetLogger("juju.state.raftlease")
 
 // leaseHolderDoc is used to serialise lease holder info.
 type leaseHolderDoc struct {
@@ -118,57 +123,70 @@ func (t *notifyTarget) log(message string, args ...interface{}) {
 	}
 }
 
+func buildClaimedOps(coll mongo.Collection, docId string, key lease.Key, holder string) ([]txn.Op, error) {
+	existingDoc, err := getRecord(coll, docId)
+	switch {
+	case err == mgo.ErrNotFound:
+		doc, err := newLeaseHolderDoc(
+			key.Namespace,
+			key.ModelUUID,
+			key.Lease,
+			holder,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return []txn.Op{{
+			C:      coll.Name(),
+			Id:     docId,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		}}, nil
+
+	case err != nil:
+		return nil, errors.Trace(err)
+
+	case existingDoc.Holder == holder:
+		return nil, jujutxn.ErrNoOperations
+
+	default:
+		return []txn.Op{{
+			C:  coll.Name(),
+			Id: docId,
+			Assert: bson.M{
+				fieldHolder: existingDoc.Holder,
+			},
+			Update: bson.M{
+				"$set": bson.M{
+					fieldHolder: holder,
+				},
+			},
+		}}, nil
+	}
+}
+
+func applyClaimed(mongo Mongo, collection string, docId string, key lease.Key, holder string) (bool, error) {
+	coll, closer := mongo.GetCollection(collection)
+	defer closer()
+	var writeNeeded bool
+	err := mongo.RunTransaction(func(int) ([]txn.Op, error) {
+		ops, err := buildClaimedOps(coll, docId, key, holder)
+		writeNeeded = len(ops) != 0
+		return ops, err
+	})
+	return writeNeeded, errors.Trace(err)
+}
+
 // Claimed is part of raftlease.NotifyTarget.
 func (t *notifyTarget) Claimed(key lease.Key, holder string) {
-	coll, closer := t.mongo.GetCollection(t.collection)
-	defer closer()
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
-		existingDoc, err := getRecord(coll, docId)
-		switch {
-		case err == mgo.ErrNotFound:
-			doc, err := newLeaseHolderDoc(
-				key.Namespace,
-				key.ModelUUID,
-				key.Lease,
-				holder,
-			)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return []txn.Op{{
-				C:      t.collection,
-				Id:     docId,
-				Assert: txn.DocMissing,
-				Insert: doc,
-			}}, nil
-
-		case err != nil:
-			return nil, errors.Trace(err)
-
-		case existingDoc.Holder == holder:
-			return nil, jujutxn.ErrNoOperations
-
-		default:
-			return []txn.Op{{
-				C:  t.collection,
-				Id: docId,
-				Assert: bson.M{
-					fieldHolder: existingDoc.Holder,
-				},
-				Update: bson.M{
-					"$set": bson.M{
-						fieldHolder: holder,
-					},
-				},
-			}}, nil
-		}
-	})
+	t.log("claimed %q for %q", docId, holder)
+	_, err := applyClaimed(t.mongo, t.collection, docId, key, holder)
 	if err != nil {
-		t.errorLogger.Errorf("couldn't claim lease %q for %q: %s", docId, holder, err.Error())
+		t.errorLogger.Errorf("couldn't claim lease %q for %q in db: %s", docId, holder, err.Error())
+		t.log("couldn't claim lease %q for %q in db: %s", docId, holder, err.Error())
 		return
 	}
-	t.log("claimed %q for %q", docId, holder)
 }
 
 // Expired is part of raftlease.NotifyTarget.
@@ -176,6 +194,7 @@ func (t *notifyTarget) Expired(key lease.Key) {
 	coll, closer := t.mongo.GetCollection(t.collection)
 	defer closer()
 	docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
+	t.log("expired %q", docId)
 	err := t.mongo.RunTransaction(func(_ int) ([]txn.Op, error) {
 		existingDoc, err := getRecord(coll, docId)
 		if err == mgo.ErrNotFound {
@@ -195,33 +214,49 @@ func (t *notifyTarget) Expired(key lease.Key) {
 	})
 
 	if err != nil {
-		t.errorLogger.Errorf("couldn't expire lease %q: %s", docId, err.Error())
+		t.errorLogger.Errorf("couldn't expire lease %q in db: %s", docId, err.Error())
+		t.log("couldn't expire lease %q in db: %s", docId, err.Error())
 		return
 	}
-	t.log("expired %q", docId)
 }
 
 // MakeTrapdoorFunc returns a raftlease.TrapdoorFunc for the specified
 // collection.
-func MakeTrapdoorFunc(collection string) raftlease.TrapdoorFunc {
+func MakeTrapdoorFunc(mongo Mongo, collection string) raftlease.TrapdoorFunc {
 	return func(key lease.Key, holder string) lease.Trapdoor {
-		op := txn.Op{
-			C: collection,
-			Id: leaseHolderDocId(
-				key.Namespace,
-				key.ModelUUID,
-				key.Lease,
-			),
-			Assert: bson.M{
-				fieldHolder: holder,
-			},
-		}
-		return func(out interface{}) error {
+		return func(attempt int, out interface{}) error {
 			outPtr, ok := out.(*[]txn.Op)
 			if !ok {
 				return errors.NotValidf("expected *[]txn.Op; %T", out)
 			}
-			*outPtr = []txn.Op{op}
+			if attempt != 0 {
+				// If the assertion failed it may be because a claim
+				// notify failed in the past due to the DB not being
+				// available. Sync the lease holder - this is safe to
+				// do because raft is the arbiter of who really holds
+				// the lease, and we check that the lease is held in
+				// buildTxnWithLeadership each time before collecting
+				// the assertion ops.
+				docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
+				writeNeeded, err := applyClaimed(mongo, collection, docId, key, holder)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if writeNeeded {
+					logger.Infof("trapdoor claimed lease %q for %q", docId, holder)
+				}
+			}
+			*outPtr = []txn.Op{{
+				C: collection,
+				Id: leaseHolderDocId(
+					key.Namespace,
+					key.ModelUUID,
+					key.Lease,
+				),
+				Assert: bson.M{
+					fieldHolder: holder,
+				},
+			}}
 			return nil
 		}
 	}

@@ -94,7 +94,7 @@ func (s *HubWatcherSuite) TestTxnWatcherSyncErrWorker(c *gc.C) {
 }
 
 func (s *HubWatcherSuite) TestWatchBeforeKnown(c *gc.C) {
-	s.w.Watch("test", "a", -1, s.ch)
+	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 
 	change := watcher.Change{"test", "a", 5}
@@ -108,16 +108,59 @@ func (s *HubWatcherSuite) TestWatchAfterKnown(c *gc.C) {
 	change := watcher.Change{"test", "a", 5}
 	s.publish(c, change)
 
-	s.w.Watch("test", "a", -1, s.ch)
-	assertChange(c, s.ch, change)
+	// Watch doesn't publish an initial event, whether or not we've
+	// seen the document before.
+	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 }
 
 func (s *HubWatcherSuite) TestWatchIgnoreUnwatched(c *gc.C) {
-	s.w.Watch("test", "a", -1, s.ch)
+	s.w.Watch("test", "a", s.ch)
 
 	s.publish(c, watcher.Change{"test", "b", 5})
 
+	assertNoChange(c, s.ch)
+}
+
+func (s *HubWatcherSuite) TestWatchMultiBeforeKnown(c *gc.C) {
+	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
+	c.Assert(err, jc.ErrorIsNil)
+	assertNoChange(c, s.ch)
+
+	change := watcher.Change{"test", "a", 5}
+	s.publish(c, change)
+
+	assertChange(c, s.ch, change)
+	assertNoChange(c, s.ch)
+}
+
+func (s *HubWatcherSuite) TestWatchMultiDuplicateWatch(c *gc.C) {
+	s.w.Watch("test", "b", s.ch)
+	assertNoChange(c, s.ch)
+	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
+	c.Assert(err, gc.ErrorMatches, `tried to re-add channel .* for document "b" in collection "test"`)
+	// Changes to "a" should not be watched as we had an error
+	s.publish(c, watcher.Change{"test", "a", 5})
+	assertNoChange(c, s.ch)
+}
+
+func (s *HubWatcherSuite) TestWatchMultiInvalidId(c *gc.C) {
+	err := s.w.WatchMulti("test", []interface{}{"a", nil}, s.ch)
+	c.Assert(err, gc.ErrorMatches, `cannot watch a document with nil id`)
+	// Changes to "a" should not be watched as we had an error
+	s.publish(c, watcher.Change{"test", "a", 5})
+	assertNoChange(c, s.ch)
+}
+
+func (s *HubWatcherSuite) TestWatchMultiAfterKnown(c *gc.C) {
+	s.publish(c, watcher.Change{"test", "a", 5})
+	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
+	c.Assert(err, jc.ErrorIsNil)
+	assertNoChange(c, s.ch)
+	// We don't see the change that occurred before we started watching, but we see any changes after that fact
+	change := watcher.Change{"test", "a", 6}
+	s.publish(c, change)
+	assertChange(c, s.ch, change)
 	assertNoChange(c, s.ch)
 }
 
@@ -127,7 +170,7 @@ func (s *HubWatcherSuite) TestWatchOrder(c *gc.C) {
 	third := watcher.Change{"test", "c", 5}
 
 	for _, id := range []string{"a", "b", "c", "d"} {
-		s.w.Watch("test", id, -1, s.ch)
+		s.w.Watch("test", id, s.ch)
 	}
 
 	s.publish(c, first, second, third)
@@ -142,9 +185,9 @@ func (s *HubWatcherSuite) TestWatchMultipleChannels(c *gc.C) {
 	ch1 := make(chan watcher.Change)
 	ch2 := make(chan watcher.Change)
 	ch3 := make(chan watcher.Change)
-	s.w.Watch("test1", 1, -1, ch1)
-	s.w.Watch("test2", 2, -1, ch2)
-	s.w.Watch("test3", 3, -1, ch3)
+	s.w.Watch("test1", 1, ch1)
+	s.w.Watch("test2", 2, ch2)
+	s.w.Watch("test3", 3, ch3)
 
 	first := watcher.Change{"test1", 1, 3}
 	second := watcher.Change{"test2", 2, 4}
@@ -159,22 +202,21 @@ func (s *HubWatcherSuite) TestWatchMultipleChannels(c *gc.C) {
 	assertNoChange(c, ch3)
 }
 
-func (s *HubWatcherSuite) TestWatchKnownRemove(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchAlreadyRemoved(c *gc.C) {
 	change := watcher.Change{"test", "a", -1}
 	s.publish(c, change)
 
-	s.w.Watch("test", "a", 2, s.ch)
-	assertChange(c, s.ch, change)
+	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 }
 
 func (s *HubWatcherSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 	const N = 10
 	for i := 0; i < N; i++ {
-		s.publish(c, watcher.Change{"test", i, int64(i + 3)})
+		s.w.Watch("test", i, s.ch)
 	}
 	for i := 0; i < N; i++ {
-		s.w.Watch("test", i, -1, s.ch)
+		s.publish(c, watcher.Change{"test", i, int64(i + 3)})
 	}
 	for i := 1; i < N; i += 2 {
 		s.w.Unwatch("test", i, s.ch)
@@ -198,8 +240,8 @@ func (s *HubWatcherSuite) TestWatchCollection(c *gc.C) {
 	chA := make(chan watcher.Change)
 	chB := make(chan watcher.Change)
 
-	s.w.Watch("testA", 1, -1, chA1)
-	s.w.Watch("testB", 1, -1, chB1)
+	s.w.Watch("testA", 1, chA1)
+	s.w.Watch("testB", 1, chB1)
 	s.w.WatchCollection("testA", chA)
 	s.w.WatchCollection("testB", chB)
 
@@ -284,12 +326,10 @@ func (s *HubWatcherSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
 	added := watcher.Change{"test", "a", 2}
 	s.publish(c, added)
 
-	s.w.Watch("test", "a", -1, s.ch)
+	s.w.Watch("test", "a", s.ch)
 
 	removed := watcher.Change{"test", "a", -1}
 	s.publish(c, removed)
-
-	assertChange(c, s.ch, added)
 	assertChange(c, s.ch, removed)
 }
 
@@ -297,7 +337,7 @@ func (s *HubWatcherSuite) TestWatchStoppedWhileFlushing(c *gc.C) {
 	first := watcher.Change{"test", "a", 2}
 	second := watcher.Change{"test", "a", 3}
 
-	s.w.Watch("test", "a", -1, s.ch)
+	s.w.Watch("test", "a", s.ch)
 
 	s.publish(c, first)
 	// The second event forces a reallocation of the slice in the

@@ -14,7 +14,6 @@ import (
 	statelease "github.com/juju/juju/state/lease"
 )
 
-// StoreAssertSuite tests that AssertOp does what it should.
 type StoreSuite struct {
 	FixtureSuite
 }
@@ -23,22 +22,54 @@ var _ = gc.Suite(&StoreSuite{})
 
 func (s *StoreSuite) TestLookupLeaseNotThere(c *gc.C) {
 	db := NewMongo(s.db)
-	coll, closer := db.GetCollection("default-collection")
+	coll, closer := db.GetCollection(defaultCollection)
 	defer closer()
-	_, err := statelease.LookupLease(coll, "default-namespace", "bar")
+	_, err := statelease.LookupLease(coll, defaultNamespace, "bar")
 	c.Assert(err, gc.Equals, mgo.ErrNotFound)
 }
 
 func (s *StoreSuite) TestLookupLease(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Store.ClaimLease(key("name"), corelease.Request{"holder", time.Minute})
+	err := fix.Store.ClaimLease(key("name"), corelease.Request{Holder: "holder", Duration: time.Minute})
 	c.Assert(err, jc.ErrorIsNil)
 	db := NewMongo(s.db)
-	coll, closer := db.GetCollection("default-collection")
+	coll, closer := db.GetCollection(defaultCollection)
 	defer closer()
-	doc, err := statelease.LookupLease(coll, "default-namespace", "name")
+	doc, err := statelease.LookupLease(coll, defaultNamespace, "name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(doc.Name, gc.Equals, "name")
 	c.Check(doc.Holder, gc.Equals, "holder")
-	c.Check(doc.Namespace, gc.Equals, "default-namespace")
+	c.Check(doc.Namespace, gc.Equals, defaultNamespace)
+}
+
+func (s *StoreSuite) TestLeasesNoFilter(c *gc.C) {
+	fix := s.EasyFixture(c)
+
+	err := fix.Store.ClaimLease(key("duck"), corelease.Request{Holder: "donald", Duration: time.Minute})
+	c.Assert(err, jc.ErrorIsNil)
+	err = fix.Store.ClaimLease(key("mouse"), corelease.Request{Holder: "mickey", Duration: time.Minute})
+	c.Assert(err, jc.ErrorIsNil)
+
+	leases := fix.Store.Leases()
+	c.Check(len(leases), gc.Equals, 2)
+	c.Check(leases[key("duck")].Holder, gc.Equals, "donald")
+	c.Check(leases[key("mouse")].Holder, gc.Equals, "mickey")
+}
+
+func (s *StoreSuite) TestLeasesFilter(c *gc.C) {
+	fix := s.EasyFixture(c)
+
+	err := fix.Store.ClaimLease(key("duck"), corelease.Request{Holder: "donald", Duration: time.Minute})
+	c.Assert(err, jc.ErrorIsNil)
+	err = fix.Store.ClaimLease(key("mouse"), corelease.Request{Holder: "mickey", Duration: time.Minute})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// One key with an unheld lease, one with an invalid namespace, one with an invalid model.
+	leases := fix.Store.Leases(
+		key("dog"),
+		corelease.Key{Lease: "duck", ModelUUID: "model-uuid", Namespace: "nope"},
+		corelease.Key{Lease: "mouse", ModelUUID: "nope", Namespace: defaultNamespace},
+	)
+
+	c.Check(len(leases), gc.Equals, 0)
 }
