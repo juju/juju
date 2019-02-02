@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
@@ -21,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/logsink"
+	"github.com/juju/juju/apiserver/logsink/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	coretesting "github.com/juju/juju/testing"
@@ -39,7 +41,6 @@ var longAttempt = &utils.AttemptStrategy{
 type logsinkSuite struct {
 	testing.IsolationSuite
 
-	srv   *httptest.Server
 	abort chan struct{}
 
 	mu      sync.Mutex
@@ -64,30 +65,10 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	s.stackMu.Lock()
 	s.lastStack = nil
 	s.stackMu.Unlock()
-
-	recordStack := func() {
-		s.stackMu.Lock()
-		defer s.stackMu.Unlock()
-		s.lastStack = debug.Stack()
-	}
-
-	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
-		func(req *http.Request) (logsink.LogWriteCloser, error) {
-			s.stub.AddCall("Open")
-			return &mockLogWriteCloser{
-				s.stub,
-				s.written,
-				recordStack,
-			}, s.stub.NextErr()
-		},
-		s.abort,
-		nil, // no rate-limiting
-	))
-	s.AddCleanup(func(*gc.C) { s.srv.Close() })
 }
 
-func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
-	u, err := url.Parse(s.srv.URL)
+func (s *logsinkSuite) dialWebsocket(c *gc.C, srv *httptest.Server) *websocket.Conn {
+	u, err := url.Parse(srv.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	u.Scheme = "ws"
 	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -97,7 +78,10 @@ func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
 }
 
 func (s *logsinkSuite) TestSuccess(c *gc.C) {
-	conn := s.dialWebsocket(c)
+	srv, finish := s.createServer(c)
+	defer finish()
+
+	conn := s.dialWebsocket(c, srv)
 	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
@@ -142,12 +126,15 @@ func (s *logsinkSuite) TestSuccess(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestLogMessages(c *gc.C) {
+	srv, finish := s.createServer(c)
+	defer finish()
+
 	var logs loggo.TestWriter
 	writer := loggo.NewMinimumLevelWriter(&logs, loggo.INFO)
 	c.Assert(loggo.RegisterWriter("logsink-tests", writer), jc.ErrorIsNil)
 
 	// Open, then close connection.
-	conn := s.dialWebsocket(c)
+	conn := s.dialWebsocket(c, srv)
 	websockettest.AssertJSONInitialErrorNil(c, conn)
 	err := conn.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -161,15 +148,21 @@ func (s *logsinkSuite) TestLogMessages(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestLogOpenFails(c *gc.C) {
+	srv, finish := s.createServer(c)
+	defer finish()
+
 	s.stub.SetErrors(errors.New("rats"))
-	conn := s.dialWebsocket(c)
+	conn := s.dialWebsocket(c, srv)
 	websockettest.AssertJSONError(c, conn, "rats")
 	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *logsinkSuite) TestLogWriteFails(c *gc.C) {
+	srv, finish := s.createServer(c)
+	defer finish()
+
 	s.stub.SetErrors(nil, errors.New("cannae write"))
-	conn := s.dialWebsocket(c)
+	conn := s.dialWebsocket(c, srv)
 	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	err := conn.WriteJSON(&params.LogRecord{})
@@ -180,7 +173,10 @@ func (s *logsinkSuite) TestLogWriteFails(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
-	conn := s.dialWebsocket(c)
+	srv, finish := s.createServer(c)
+	defer finish()
+
+	conn := s.dialWebsocket(c, srv)
 	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	// The logsink handler expects JSON messages. Send some
@@ -192,9 +188,14 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestRateLimit(c *gc.C) {
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
+	defer finish()
+
 	testClock := testclock.NewClock(time.Time{})
-	s.srv.Close()
-	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
+	srv := httptest.NewServer(logsink.NewHTTPHandler(
 		func(req *http.Request) (logsink.LogWriteCloser, error) {
 			s.stub.AddCall("Open")
 			return &mockLogWriteCloser{
@@ -209,10 +210,12 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 			Refill: time.Second,
 			Clock:  testClock,
 		},
+		metricsCollector,
+		modelUUID.String(),
 	))
-	defer s.srv.Close()
+	defer srv.Close()
 
-	conn := s.dialWebsocket(c)
+	conn := s.dialWebsocket(c, srv)
 	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	record := params.LogRecord{
@@ -257,6 +260,157 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 	expectNoRecord()
 }
 
+func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
+	myStopCh := make(chan struct{})
+
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
+	defer finish()
+
+	handler := logsink.NewHTTPHandlerForTest(
+		func(req *http.Request) (logsink.LogWriteCloser, error) {
+			s.stub.AddCall("Open")
+			return &slowWriteCloser{}, s.stub.NextErr()
+		},
+		s.abort,
+		nil,
+		metricsCollector,
+		modelUUID.String(),
+		func() (chan struct{}, func()) {
+			return myStopCh, func() {}
+		},
+	)
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	conn := s.dialWebsocket(c, srv)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
+
+	close(myStopCh)
+
+	// Send 2 log messages so we're sure the receiver gets a chance to
+	// go down the stop channel leg, since the writes are slow.
+	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
+	record := params.LogRecord{
+		Time:     t0,
+		Module:   "some.where",
+		Location: "foo.go:42",
+		Level:    loggo.INFO.String(),
+		Message:  "all is well",
+	}
+	err = conn.WriteJSON(&record)
+	c.Assert(err, jc.ErrorIsNil)
+	// The second write might error (if the receiver stopped after the
+	// first message).
+	_ = conn.WriteJSON(&record)
+
+	for a := longAttempt.Start(); a.Next(); {
+		if logsink.ReceiverStopped(c, handler) {
+			break
+		}
+	}
+	c.Assert(logsink.ReceiverStopped(c, handler), gc.Equals, true)
+
+	err = conn.Close()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *logsinkSuite) TestHandlerClosesStopChannel(c *gc.C) {
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
+	defer finish()
+
+	var stub testing.Stub
+	handler := logsink.NewHTTPHandlerForTest(
+		func(req *http.Request) (logsink.LogWriteCloser, error) {
+			return &mockLogWriteCloser{
+				s.stub,
+				s.written,
+				nil,
+			}, s.stub.NextErr()
+		},
+		s.abort,
+		nil,
+		metricsCollector,
+		modelUUID.String(),
+		func() (chan struct{}, func()) {
+			ch := make(chan struct{})
+			return ch, func() {
+				stub.AddCall("close stop channel")
+				close(ch)
+			}
+		},
+	)
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+	conn := s.dialWebsocket(c, srv)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
+
+	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
+	record := params.LogRecord{
+		Time:     t0,
+		Module:   "some.where",
+		Location: "foo.go:42",
+		Level:    loggo.INFO.String(),
+		Message:  "all is well",
+	}
+	err = conn.WriteJSON(&record)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case written, ok := <-s.written:
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(written, jc.DeepEquals, record)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for log record to be written")
+	}
+
+	err = conn.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	for a := longAttempt.Start(); a.Next(); {
+		if len(stub.Calls()) == 1 {
+			break
+		}
+	}
+	stub.CheckCallNames(c, "close stop channel")
+}
+
+func (s *logsinkSuite) createServer(c *gc.C) (*httptest.Server, func()) {
+	recordStack := func() {
+		s.stackMu.Lock()
+		defer s.stackMu.Unlock()
+		s.lastStack = debug.Stack()
+	}
+
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
+
+	srv := httptest.NewServer(logsink.NewHTTPHandler(
+		func(req *http.Request) (logsink.LogWriteCloser, error) {
+			s.stub.AddCall("Open")
+			return &mockLogWriteCloser{
+				s.stub,
+				s.written,
+				recordStack,
+			}, s.stub.NextErr()
+		},
+		s.abort,
+		nil, // no rate-limiting
+		metricsCollector,
+		modelUUID.String(),
+	))
+	return srv, func() {
+		finish()
+		srv.Close()
+	}
+}
+
 type mockLogWriteCloser struct {
 	*testing.Stub
 	written  chan<- params.LogRecord
@@ -275,4 +429,37 @@ func (m *mockLogWriteCloser) WriteLog(r params.LogRecord) error {
 	m.MethodCall(m, "WriteLog", r)
 	m.written <- r
 	return m.NextErr()
+}
+
+type slowWriteCloser struct{}
+
+func (slowWriteCloser) Close() error {
+	return nil
+}
+
+func (slowWriteCloser) WriteLog(params.LogRecord) error {
+	// This makes it more likely that the goroutine will notice the
+	// stop channel is closed, because logCh won't be ready for
+	// sending.
+	time.Sleep(testing.ShortWait)
+	return nil
+}
+
+func createMockMetrics(c *gc.C, modelUUID string) (*mocks.MockMetricsCollector, func()) {
+	ctrl := gomock.NewController(c)
+
+	counter := mocks.NewMockCounter(ctrl)
+	counter.EXPECT().Inc().AnyTimes()
+
+	gauge := mocks.NewMockGauge(ctrl)
+	gauge.EXPECT().Inc().AnyTimes()
+	gauge.EXPECT().Dec().AnyTimes()
+
+	metricsCollector := mocks.NewMockMetricsCollector(ctrl)
+	metricsCollector.EXPECT().TotalConnections().Return(counter).AnyTimes()
+	metricsCollector.EXPECT().Connections().Return(gauge).AnyTimes()
+	metricsCollector.EXPECT().LogWriteCount(modelUUID, gomock.Any()).Return(counter).AnyTimes()
+	metricsCollector.EXPECT().LogReadCount(modelUUID, gomock.Any()).Return(counter).AnyTimes()
+
+	return metricsCollector, ctrl.Finish
 }

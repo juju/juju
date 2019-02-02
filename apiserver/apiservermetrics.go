@@ -4,81 +4,163 @@
 package apiserver
 
 import (
-	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/juju/juju/apiserver/observer/metricobserver"
 )
 
 const (
-	apiserverMetricsNamespace = "juju_apiserver"
+	apiserverMetricsNamespace   = "juju"
+	apiserverSubsystemNamespace = "apiserver"
+	// TODO (stickupkid): remove this deprecated subsystem in 2.6+
+	deprecatedSubsystemNamespace = "api"
 )
 
-// ServerMetricsSource implementations provide apiserver metrics.
-type ServerMetricsSource interface {
-	TotalConnections() int64
-	ConnectionCount() int64
-	ConcurrentLoginAttempts() int64
-	ConnectionPauseTime() time.Duration
+// MetricLabelEndpoint defines a constant for the APIConnections abd
+// PingFailureCount Labels
+const MetricLabelEndpoint = "endpoint"
+
+// MetricLabelModelUUID defines a constant for the PingFailureCount and
+// LogWriteCount Labels
+// Note: prometheus doesn't allow hyphens only underscores
+const MetricLabelModelUUID = "model_uuid"
+
+// MetricLabelState defines a constant for the LogWriteCount Label
+const MetricLabelState = "state"
+
+// MetricAPIConnectionsLabelNames defines a series of labels for the
+// APIConnections metric.
+var MetricAPIConnectionsLabelNames = []string{
+	MetricLabelEndpoint,
+}
+
+// MetricPingFailureLabelNames defines a series of labels for the PingFailure
+// metric.
+var MetricPingFailureLabelNames = []string{
+	MetricLabelModelUUID,
+	MetricLabelEndpoint,
+}
+
+// MetricLogLabelNames defines a series of labels for the LogWrite and LogRead
+// metric
+var MetricLogLabelNames = []string{
+	MetricLabelModelUUID,
+	MetricLabelState,
 }
 
 // Collector is a prometheus.Collector that collects metrics based
 // on apiserver status.
 type Collector struct {
-	src ServerMetricsSource
+	TotalConnections   prometheus.Counter
+	LoginAttempts      prometheus.Gauge
+	APIConnections     *prometheus.GaugeVec
+	APIRequestDuration *prometheus.SummaryVec
+	PingFailureCount   *prometheus.CounterVec
+	LogWriteCount      *prometheus.CounterVec
+	LogReadCount       *prometheus.CounterVec
 
-	connectionCounter        prometheus.Counter
-	connectionCountGauge     prometheus.Gauge
-	connectionPauseTimeGauge prometheus.Gauge
-	concurrentLoginsGauge    prometheus.Gauge
+	DeprecatedAPIConnections     prometheus.Gauge
+	DeprecatedAPIRequestsTotal   *prometheus.CounterVec
+	DeprecatedAPIRequestDuration *prometheus.SummaryVec
 }
 
 // NewMetricsCollector returns a new Collector.
-func NewMetricsCollector(src ServerMetricsSource) *Collector {
+func NewMetricsCollector() *Collector {
 	return &Collector{
-		src: src,
-		connectionCounter: prometheus.NewCounter(prometheus.CounterOpts{
+		TotalConnections: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
 			Name:      "connections_total",
 			Help:      "Total number of apiserver connections ever made",
 		}),
-		connectionCountGauge: prometheus.NewGauge(prometheus.GaugeOpts{
+
+		APIConnections: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: apiserverMetricsNamespace,
-			Name:      "connection_count",
-			Help:      "Current number of active apiserver connections",
-		}),
-		connectionPauseTimeGauge: prometheus.NewGauge(prometheus.GaugeOpts{
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "connections",
+			Help:      "Current number of active apiserver connections for api handlers",
+		}, MetricAPIConnectionsLabelNames),
+		LoginAttempts: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: apiserverMetricsNamespace,
-			Name:      "connection_pause_seconds",
-			Help:      "Current wait time in before accepting incoming connections",
-		}),
-		concurrentLoginsGauge: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
 			Name:      "active_login_attempts",
 			Help:      "Current number of active agent login attempts",
 		}),
+		APIRequestDuration: prometheus.NewSummaryVec(prometheus.SummaryOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "request_duration_seconds",
+			Help:      "Latency of Juju API requests in seconds.",
+		}, metricobserver.MetricLabelNames),
+		PingFailureCount: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "ping_failure_count",
+			Help:      "Current number of ping failures",
+		}, MetricPingFailureLabelNames),
+		LogWriteCount: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "log_write_count",
+			Help:      "Current number of log writes",
+		}, MetricLogLabelNames),
+		LogReadCount: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "log_read_count",
+			Help:      "Current number of log reads",
+		}, MetricLogLabelNames),
+
+		// TODO (stickupkid): remove post 2.6 release
+		DeprecatedAPIConnections: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "connection_count",
+			Help:      "Current number of active apiserver connections",
+		}),
+		DeprecatedAPIRequestsTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: deprecatedSubsystemNamespace,
+			Name:      "requests_total",
+			Help:      "Number of Juju API requests served.",
+		}, metricobserver.MetricLabelNames),
+		DeprecatedAPIRequestDuration: prometheus.NewSummaryVec(prometheus.SummaryOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: deprecatedSubsystemNamespace,
+			Name:      "request_duration_seconds",
+			Help:      "Latency of Juju API requests in seconds.",
+		}, metricobserver.MetricLabelNames),
 	}
 }
 
 // Describe is part of the prometheus.Collector interface.
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
-	c.connectionCounter.Describe(ch)
-	c.connectionCountGauge.Describe(ch)
-	c.connectionPauseTimeGauge.Describe(ch)
-	c.concurrentLoginsGauge.Describe(ch)
+	c.TotalConnections.Describe(ch)
+	c.APIConnections.Describe(ch)
+	c.LoginAttempts.Describe(ch)
+	c.APIRequestDuration.Describe(ch)
+	c.PingFailureCount.Describe(ch)
+	c.LogWriteCount.Describe(ch)
+	c.LogReadCount.Describe(ch)
+
+	// TODO (stickupkid): remove post 2.6 release
+	c.DeprecatedAPIConnections.Describe(ch)
+	c.DeprecatedAPIRequestsTotal.Describe(ch)
+	c.DeprecatedAPIRequestDuration.Describe(ch)
 }
 
 // Collect is part of the prometheus.Collector interface.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
-	c.connectionCountGauge.Set(float64(c.src.ConnectionCount()))
-	c.connectionPauseTimeGauge.Set(float64(c.src.ConnectionPauseTime()) / float64(time.Second))
-	c.concurrentLoginsGauge.Set(float64(c.src.ConcurrentLoginAttempts()))
+	c.TotalConnections.Collect(ch)
+	c.APIConnections.Collect(ch)
+	c.LoginAttempts.Collect(ch)
+	c.APIRequestDuration.Collect(ch)
+	c.PingFailureCount.Collect(ch)
+	c.LogWriteCount.Collect(ch)
+	c.LogReadCount.Collect(ch)
 
-	ch <- prometheus.MustNewConstMetric(
-		c.connectionCounter.Desc(),
-		prometheus.CounterValue,
-		float64(c.src.TotalConnections()),
-	)
-	c.connectionCountGauge.Collect(ch)
-	c.connectionPauseTimeGauge.Collect(ch)
-	c.concurrentLoginsGauge.Collect(ch)
+	// TODO (stickupkid): remove post 2.6 release
+	c.DeprecatedAPIConnections.Collect(ch)
+	c.DeprecatedAPIRequestsTotal.Collect(ch)
+	c.DeprecatedAPIRequestDuration.Collect(ch)
 }

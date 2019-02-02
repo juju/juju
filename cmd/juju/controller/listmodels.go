@@ -354,7 +354,7 @@ func (c *modelsCommand) tabularColumns(tw *ansiterm.TabWriter, w output.Wrapper)
 	if c.listUUID {
 		w.Print("UUID")
 	}
-	w.Print("Cloud/Region", "Status")
+	w.Print("Cloud/Region", "Type", "Status")
 	printColumnHeader := func(columnName string, columnNumber int) {
 		w.Print(columnName)
 		offset := 0
@@ -365,11 +365,11 @@ func (c *modelsCommand) tabularColumns(tw *ansiterm.TabWriter, w output.Wrapper)
 	}
 
 	if c.runVars.hasMachinesCount {
-		printColumnHeader("Machines", 3)
+		printColumnHeader("Machines", 4)
 	}
 
 	if c.runVars.hasCoresCount {
-		printColumnHeader("Cores", 4)
+		printColumnHeader("Cores", 5)
 	}
 	w.Println("Access", "Last connection")
 }
@@ -401,7 +401,7 @@ func (c *modelsCommand) tabularSummaries(writer io.Writer, modelSet ModelSummary
 		if model.Status != nil && model.Status.Current.String() != "" {
 			status = model.Status.Current.String()
 		}
-		w.Print(cloudRegion, status)
+		w.Print(cloudRegion, model.ProviderType, status)
 		if c.runVars.hasMachinesCount {
 			if v, ok := model.Counts[string(params.Machines)]; ok {
 				w.Print(v)

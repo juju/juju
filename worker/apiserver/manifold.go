@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/auditlog"
@@ -39,13 +40,15 @@ type ManifoldConfig struct {
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
+	RaftTransportName      string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	Hub                               *pubsub.StructuredHub
 	Presence                          presence.Recorder
 
-	NewWorker func(Config) (worker.Worker, error)
+	NewWorker           func(Config) (worker.Worker, error)
+	NewMetricsCollector func() *apiserver.Collector
 }
 
 // Validate validates the manifold configuration.
@@ -80,6 +83,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.LeaseManagerName == "" {
 		return errors.NotValidf("empty LeaseManagerName")
 	}
+	if config.RaftTransportName == "" {
+		return errors.NotValidf("empty RaftTransportName")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -94,6 +100,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.NewMetricsCollector == nil {
+		return errors.NotValidf("nil NewMetricsCollector")
 	}
 	return nil
 }
@@ -114,6 +123,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
+			config.RaftTransportName,
 		},
 		Start: config.start,
 	}
@@ -175,10 +185,23 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	// We don't need anything from the raft-transport but we need to
+	// tie the lifetime of this worker to it - otherwise http-server
+	// will hang waiting for this to release the mux.
+	if err := context.Get(config.RaftTransportName, nil); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Get the state pool after grabbing dependencies so we don't need
 	// to remember to call Done on it if they're not running yet.
 	statePool, err := stTracker.Use()
 	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Register the metrics collector against the prometheus register.
+	metricsCollector := config.NewMetricsCollector()
+	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -189,7 +212,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		StatePool:                         statePool,
 		Controller:                        controller,
 		LeaseManager:                      leaseManager,
-		PrometheusRegisterer:              config.PrometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 		RestoreStatus:                     restoreStatus,
 		UpgradeComplete:                   upgradeLock.IsUnlocked,
@@ -198,6 +220,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Authenticator:                     authenticator,
 		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
+		MetricsCollector:                  metricsCollector,
 	})
 	if err != nil {
 		stTracker.Done()
@@ -207,5 +230,9 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	return common.NewCleanupWorker(w, func() {
 		mux.ClientDone()
 		stTracker.Done()
+
+		// clean up the metrics for the worker, so the next time a worker is
+		// created we can safely register the metrics again.
+		config.PrometheusRegisterer.Unregister(metricsCollector)
 	}), nil
 }

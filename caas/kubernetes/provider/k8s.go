@@ -1339,10 +1339,16 @@ func (k *kubernetesClient) configureService(
 	}
 
 	serviceType := core.ServiceType(config.GetString(serviceTypeConfigKey, defaultServiceType))
+	annotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
+	if err != nil {
+		return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
+	}
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   deploymentName(appName),
-			Labels: tags},
+			Name:        deploymentName(appName),
+			Labels:      tags,
+			Annotations: annotations,
+		},
 		Spec: core.ServiceSpec{
 			Selector:                 map[string]string{labelApplication: appName},
 			Type:                     serviceType,
@@ -1917,6 +1923,25 @@ func makeUnitSpec(appName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 		}
 	}
 	unitSpec.Pod.ImagePullSecrets = imageSecretNames
+	if podSpec.ProviderPod != nil {
+		spec, ok := podSpec.ProviderPod.(*K8sPodSpec)
+		if !ok {
+			return nil, errors.Errorf("unexpected kubernetes pod spec type %T", podSpec.ProviderPod)
+		}
+		unitSpec.Pod.ActiveDeadlineSeconds = spec.ActiveDeadlineSeconds
+		unitSpec.Pod.ServiceAccountName = spec.ServiceAccountName
+		unitSpec.Pod.TerminationGracePeriodSeconds = spec.TerminationGracePeriodSeconds
+		unitSpec.Pod.Hostname = spec.Hostname
+		unitSpec.Pod.Subdomain = spec.Subdomain
+		unitSpec.Pod.DNSConfig = spec.DNSConfig
+		unitSpec.Pod.DNSPolicy = spec.DNSPolicy
+		unitSpec.Pod.Priority = spec.Priority
+		unitSpec.Pod.PriorityClassName = spec.PriorityClassName
+		unitSpec.Pod.SecurityContext = spec.SecurityContext
+		unitSpec.Pod.RestartPolicy = spec.RestartPolicy
+		unitSpec.Pod.AutomountServiceAccountToken = spec.AutomountServiceAccountToken
+		unitSpec.Pod.ReadinessGates = spec.ReadinessGates
+	}
 	return &unitSpec, nil
 }
 
@@ -1937,12 +1962,12 @@ func applicationConfigMapName(appName, fileSetName string) string {
 }
 
 func deploymentName(appName string) string {
-	return "juju-" + appName
+	return appName
 }
 
 func appSecretName(appName, containerName string) string {
 	// A pod may have multiple containers with different images and thus different secrets
-	return "juju-" + appName + "-" + containerName + "-secret"
+	return appName + "-" + containerName + "-secret"
 }
 
 func qualifiedStorageClassName(namespace, storageClass string) string {

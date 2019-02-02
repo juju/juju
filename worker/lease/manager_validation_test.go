@@ -132,7 +132,7 @@ func (s *ValidationSuite) TestToken_LeaseName(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("INVALID", "bar/0")
-		err := token.Check(nil)
+		err := token.Check(0, nil)
 		c.Check(err, gc.ErrorMatches, `cannot check lease "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	})
@@ -142,7 +142,7 @@ func (s *ValidationSuite) TestToken_HolderName(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("foo", "INVALID")
-		err := token.Check(nil)
+		err := token.Check(0, nil)
 		c.Check(err, gc.ErrorMatches, `cannot check holder "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	})
@@ -159,7 +159,8 @@ func (s *ValidationSuite) TestToken_OutPtr(c *gc.C) {
 				leases[key("redis")] = corelease.Info{
 					Holder: "redis/0",
 					Expiry: offset(time.Second),
-					Trapdoor: func(gotKey interface{}) error {
+					Trapdoor: func(attempt int, gotKey interface{}) error {
+						c.Check(attempt, gc.Equals, 27)
 						c.Check(gotKey, gc.Equals, &expectKey)
 						return expectErr
 					},
@@ -169,7 +170,7 @@ func (s *ValidationSuite) TestToken_OutPtr(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("redis", "redis/0")
-		err := token.Check(&expectKey)
+		err := token.Check(27, &expectKey)
 		cause := errors.Cause(err)
 		c.Check(cause, gc.Equals, expectErr)
 	})

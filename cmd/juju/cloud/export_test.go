@@ -8,6 +8,8 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -15,6 +17,23 @@ import (
 var (
 	ShouldFinalizeCredential = shouldFinalizeCredential
 )
+
+func NewAddCloudCommandForTest(
+	cloudMetadataStore CloudMetadataStore,
+	store jujuclient.ClientStore,
+	cloudAPI func() (AddCloudAPI, error),
+) *AddCloudCommand {
+	cloudCallCtx := context.NewCloudCallContext()
+	return &AddCloudCommand{
+		cloudMetadataStore: cloudMetadataStore,
+		CloudCallCtx:       cloudCallCtx,
+		Ping: func(p environs.EnvironProvider, endpoint string) error {
+			return nil
+		},
+		store:           store,
+		addCloudAPIFunc: cloudAPI,
+	}
+}
 
 func NewUpdateCloudsCommandForTest(publicCloudURL string) *updateCloudsCommand {
 	return &updateCloudsCommand{

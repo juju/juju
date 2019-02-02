@@ -88,6 +88,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	results, err := s.upgrader.WatchAPIVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)

@@ -319,6 +319,7 @@ func (w *TxnWatcher) iter() mongo.Iterator {
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
 func (w *TxnWatcher) sync() (bool, error) {
+	w.logger.Tracef("txn watcher %p starting sync", w)
 	added := false
 	// Iterate through log events in reverse insertion order (newest first).
 	iter := w.iteratorFunc()
@@ -343,7 +344,7 @@ func (w *TxnWatcher) sync() (bool, error) {
 		if id.Value == lastId {
 			break
 		}
-		w.logger.Tracef("got changelog document: %#v", entry)
+		w.logger.Tracef("%p step %d got changelog document: %#v", w, w.iteratorStepCount, entry)
 		for _, c := range entry[1:] {
 			// See txn's Runner.ChangeLog for the structure of log entries.
 			var d, r []interface{}

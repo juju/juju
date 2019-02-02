@@ -190,7 +190,7 @@ func (f *fakeModelMgrAPIClient) convertInfosToUserModels() []base.UserModel {
 	models := make([]base.UserModel, len(f.infos))
 	for i, info := range f.infos {
 		if info.Error == nil {
-			models[i] = base.UserModel{UUID: info.Result.UUID}
+			models[i] = base.UserModel{UUID: info.Result.UUID, Type: "local"}
 		}
 	}
 	return models
@@ -262,10 +262,10 @@ func (s *BaseModelsSuite) TestModelsOwner(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Cloud/Region  Status      Access  Last connection\n"+
-		"test-model1*                 dummy         active      read    2015-03-20\n"+
-		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
+		"Model                        Cloud/Region  Type   Status      Access  Last connection\n"+
+		"test-model1*                 dummy         local  active      read    2015-03-20\n"+
+		"carlotta/test-model2         dummy         local  active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  dummy         local  destroying  -       never connected\n"+
 		"\n")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
@@ -305,10 +305,10 @@ func (s *BaseModelsSuite) TestModelsNonOwner(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Cloud/Region  Status      Access  Last connection\n"+
-		"admin/test-model1*           dummy         active      read    2015-03-20\n"+
-		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
+		"Model                        Cloud/Region  Type   Status      Access  Last connection\n"+
+		"admin/test-model1*           dummy         local  active      read    2015-03-20\n"+
+		"carlotta/test-model2         dummy         local  active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  dummy         local  destroying  -       never connected\n"+
 		"\n")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
@@ -321,10 +321,10 @@ func (s *BaseModelsSuite) TestModelsNoneCurrent(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Cloud/Region  Status      Access  Last connection\n"+
-		"test-model1                  dummy         active      read    2015-03-20\n"+
-		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
+		"Model                        Cloud/Region  Type   Status      Access  Last connection\n"+
+		"test-model1                  dummy         local  active      read    2015-03-20\n"+
+		"carlotta/test-model2         dummy         local  active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  dummy         local  destroying  -       never connected\n"+
 		"\n")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
@@ -341,10 +341,10 @@ func (s *BaseModelsSuite) TestModelsUUID(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        UUID              Cloud/Region  Status      Machines  Cores  Access  Last connection\n"+
-		"test-model1*                 test-model1-UUID  dummy         active             2      1  read    2015-03-20\n"+
-		"carlotta/test-model2         test-model2-UUID  dummy         active             0      -  write   2015-03-01\n"+
-		"daiwik@external/test-model3  test-model3-UUID  dummy         destroying         0      -  -       never connected\n"+
+		"Model                        UUID              Cloud/Region  Type   Status      Machines  Cores  Access  Last connection\n"+
+		"test-model1*                 test-model1-UUID  dummy         local  active             2      1  read    2015-03-20\n"+
+		"carlotta/test-model2         test-model2-UUID  dummy         local  active             0      -  write   2015-03-01\n"+
+		"daiwik@external/test-model3  test-model3-UUID  dummy         local  destroying         0      -  -       never connected\n"+
 		"\n")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
@@ -361,10 +361,10 @@ func (s *BaseModelsSuite) TestModelsMachineInfo(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Cloud/Region  Status      Machines  Cores  Access  Last connection\n"+
-		"test-model1*                 dummy         active             2      1  read    2015-03-20\n"+
-		"carlotta/test-model2         dummy         active             0      -  write   2015-03-01\n"+
-		"daiwik@external/test-model3  dummy         destroying         0      -  -       never connected\n"+
+		"Model                        Cloud/Region  Type   Status      Machines  Cores  Access  Last connection\n"+
+		"test-model1*                 dummy         local  active             2      1  read    2015-03-20\n"+
+		"carlotta/test-model2         dummy         local  active             0      -  write   2015-03-01\n"+
+		"daiwik@external/test-model3  dummy         local  destroying         0      -  -       never connected\n"+
 		"\n")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
@@ -423,11 +423,11 @@ func (s *BaseModelsSuite) TestWithIncompleteModels(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Controller: fake
 
-Model              Cloud/Region           Status  Machines  Access  Last connection
-owner/basic-model  altostratus/mid-level  -              0  -       never connected
-owner/basic-model  altostratus/mid-level  busy           0  -       never connected
-owner/basic-model  altostratus/mid-level  -              0  admin   never connected
-owner/basic-model  altostratus/mid-level  -              2  -       never connected
+Model              Cloud/Region           Type   Status  Machines  Access  Last connection
+owner/basic-model  altostratus/mid-level  local  -              0  -       never connected
+owner/basic-model  altostratus/mid-level  local  busy           0  -       never connected
+owner/basic-model  altostratus/mid-level  local  -              0  admin   never connected
+owner/basic-model  altostratus/mid-level  local  -              2  -       never connected
 
 `[1:])
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
@@ -452,7 +452,7 @@ func (s *BaseModelsSuite) TestNoModelsMessage(c *gc.C) {
 		c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Controller: fake
 
-Model  Cloud/Region  Status  Access  Last connection
+Model  Cloud/Region  Type  Status  Access  Last connection
 
 `[1:])
 		c.Assert(cmdtesting.Stderr(context), gc.Equals, controller.NoModelsMessage+"\n")
@@ -514,6 +514,7 @@ func createBasicModelInfo() *params.ModelInfo {
 		Name:           "basic-model",
 		UUID:           testing.ModelTag.Id(),
 		Type:           "iaas",
+		ProviderType:   "local",
 		ControllerUUID: testing.ControllerTag.Id(),
 		IsController:   false,
 		OwnerTag:       names.NewUserTag("owner").String(),
@@ -535,6 +536,7 @@ func convert(models []base.UserModel) []params.ModelInfoResult {
 			Type:         model.Type.String(),
 			OwnerTag:     names.NewUserTag(model.Owner).String(),
 			CloudTag:     "cloud-dummy",
+			ProviderType: "local",
 			AgentVersion: &agentVersion,
 			Status:       params.EntityStatus{Status: status.Active},
 		}
@@ -561,9 +563,9 @@ func (s *ModelsSuiteV3) TestModelsWithOneUnauthorised(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                 Cloud/Region  Status  Access  Last connection\n"+
-		"test-model1*          dummy         active  read    2015-03-20\n"+
-		"carlotta/test-model2  dummy         active  write   2015-03-01\n"+
+		"Model                 Cloud/Region  Type   Status  Access  Last connection\n"+
+		"test-model1*          dummy         local  active  read    2015-03-20\n"+
+		"carlotta/test-model2  dummy         local  active  write   2015-03-01\n"+
 		"\n")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(s.store.Models["fake"].Models, gc.DeepEquals, map[string]jujuclient.ModelDetails{
@@ -576,7 +578,7 @@ func (s *ModelsSuiteV3) TestModelsWithOneUnauthorised(c *gc.C) {
 func (s *ModelsSuiteV3) TestModelsJson(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"admin","cloud":"dummy","life":"","status":{"current":"active"},"users":{"admin":{"access":"read","last-connection":"2015-03-20"}},"agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"carlotta","cloud":"dummy","life":"","status":{"current":"active"},"users":{"admin":{"access":"write","last-connection":"2015-03-01"}},"agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"daiwik@external","cloud":"dummy","life":"","status":{"current":"destroying"},"agent-version":"2.55.5"}],"current-model":"test-model1"}
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"admin","cloud":"dummy","type":"local","life":"","status":{"current":"active"},"users":{"admin":{"access":"read","last-connection":"2015-03-20"}},"agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"carlotta","cloud":"dummy","type":"local","life":"","status":{"current":"active"},"users":{"admin":{"access":"write","last-connection":"2015-03-01"}},"agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"daiwik@external","cloud":"dummy","type":"local","life":"","status":{"current":"destroying"},"agent-version":"2.55.5"}],"current-model":"test-model1"}
 `)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
@@ -596,6 +598,7 @@ models:
   is-controller: false
   owner: admin
   cloud: dummy
+  type: local
   life: ""
   status:
     current: active
@@ -613,6 +616,7 @@ models:
   is-controller: false
   owner: carlotta
   cloud: dummy
+  type: local
   life: ""
   status:
     current: active
@@ -630,6 +634,7 @@ models:
   is-controller: false
   owner: daiwik@external
   cloud: dummy
+  type: local
   life: ""
   status:
     current: destroying
@@ -647,10 +652,10 @@ func (s *ModelsSuiteV3) TestAllModels(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Cloud/Region  Status      Access  Last connection\n"+
-		"test-model1*                 dummy         active      read    2015-03-20\n"+
-		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
+		"Model                        Cloud/Region  Type   Status      Access  Last connection\n"+
+		"test-model1*                 dummy         local  active      read    2015-03-20\n"+
+		"carlotta/test-model2         dummy         local  active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  dummy         local  destroying  -       never connected\n"+
 		"\n")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(s.store.Models["fake"].Models, gc.DeepEquals, map[string]jujuclient.ModelDetails{
@@ -670,7 +675,7 @@ func (s *ModelsSuiteV4) SetUpTest(c *gc.C) {
 func (s *ModelsSuiteV4) TestModelsJson(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"admin","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"life":"","status":{"current":"active"},"access":"read","last-connection":"2015-03-20","agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"carlotta","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"life":"","status":{"current":"active"},"access":"write","last-connection":"2015-03-01","agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"daiwik@external","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"life":"","status":{"current":"destroying"},"access":"","last-connection":"never connected","agent-version":"2.55.5"}],"current-model":"test-model1"}
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"admin","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"read","last-connection":"2015-03-20","agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"carlotta","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"write","last-connection":"2015-03-01","agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"daiwik@external","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"destroying"},"access":"","last-connection":"never connected","agent-version":"2.55.5"}],"current-model":"test-model1"}
 `)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
@@ -694,6 +699,7 @@ models:
     name: one
     owner: bob
     cloud: foo
+  type: local
   life: ""
   status:
     current: active
@@ -713,6 +719,7 @@ models:
     name: one
     owner: bob
     cloud: foo
+  type: local
   life: ""
   status:
     current: active
@@ -732,6 +739,7 @@ models:
     name: one
     owner: bob
     cloud: foo
+  type: local
   life: ""
   status:
     current: destroying
@@ -755,9 +763,9 @@ func (s *ModelsSuiteV4) TestModelsWithOneModelInError(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                 Cloud/Region  Status  Access  Last connection\n"+
-		"test-model1*          dummy         active  read    2015-03-20\n"+
-		"carlotta/test-model2  dummy         active  write   2015-03-01\n"+
+		"Model                 Cloud/Region  Type   Status  Access  Last connection\n"+
+		"test-model1*          dummy         local  active  read    2015-03-20\n"+
+		"carlotta/test-model2  dummy         local  active  write   2015-03-01\n"+
 		"\n")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "some model error\n")
 	c.Assert(s.store.Models["fake"].Models, gc.DeepEquals, map[string]jujuclient.ModelDetails{

@@ -67,14 +67,10 @@ type Server struct {
 	limiter                utils.Limiter
 	loginRetryPause        time.Duration
 	facades                *facade.Registry
-	modelUUID              string
 	authenticator          httpcontext.LocalMacaroonAuthenticator
 	offerAuthCtxt          *crossmodel.AuthContext
 	lastConnectionID       uint64
 	newObserver            observer.ObserverFactory
-	connCount              int64
-	totalConn              int64
-	loginAttempts          int64
 	allowModelAccess       bool
 	logSinkWriter          io.WriteCloser
 	logsinkRateLimitConfig logsink.RateLimitConfig
@@ -83,6 +79,7 @@ type Server struct {
 	upgradeComplete        func() bool
 	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
+	metricsCollector       *Collector
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -173,8 +170,9 @@ type ServerConfig struct {
 	// and checkers for use in API facades.
 	LeaseManager lease.Manager
 
-	// PrometheusRegisterer registers Prometheus collectors.
-	PrometheusRegisterer prometheus.Registerer
+	// MetricsCollector defines all the metrics to be collected for the
+	// apiserver
+	MetricsCollector *Collector
 }
 
 // Validate validates the API server configuration.
@@ -219,6 +217,9 @@ func (c ServerConfig) Validate() error {
 		if err := c.LogSinkConfig.Validate(); err != nil {
 			return errors.Annotate(err, "validating logsink configuration")
 		}
+	}
+	if c.MetricsCollector == nil {
+		return errors.NotValidf("missing MetricsCollector")
 	}
 	return nil
 }
@@ -294,6 +295,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
 		},
+		metricsCollector: cfg.MetricsCollector,
 	}
 
 	// The auth context for authenticating access to application offers.
@@ -307,14 +309,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Annotate(err, "creating logsink writer")
 	}
 	srv.logSinkWriter = logSinkWriter
-
-	if cfg.PrometheusRegisterer != nil {
-		apiserverCollector := NewMetricsCollector(&metricAdaptor{srv})
-		cfg.PrometheusRegisterer.Unregister(apiserverCollector)
-		if err := cfg.PrometheusRegisterer.Register(apiserverCollector); err != nil {
-			return nil, errors.Annotate(err, "registering apiserver metrics collector")
-		}
-	}
 
 	unsubscribe, err := cfg.Hub.Subscribe(apiserver.RestartTopic, func(string, map[string]interface{}) {
 		srv.tomb.Kill(dependency.ErrBounce)
@@ -340,42 +334,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	return srv, nil
-}
-
-type metricAdaptor struct {
-	srv *Server
-}
-
-func (a *metricAdaptor) TotalConnections() int64 {
-	return a.srv.TotalConnections()
-}
-
-func (a *metricAdaptor) ConnectionCount() int64 {
-	return a.srv.ConnectionCount()
-}
-
-func (a *metricAdaptor) ConcurrentLoginAttempts() int64 {
-	return a.srv.LoginAttempts()
-}
-
-func (a *metricAdaptor) ConnectionPauseTime() time.Duration {
-	//return a.srv.lis.(*throttlingListener).pauseTime()
-	return 0 // XXX
-}
-
-// TotalConnections returns the total number of connections ever made.
-func (srv *Server) TotalConnections() int64 {
-	return atomic.LoadInt64(&srv.totalConn)
-}
-
-// ConnectionCount returns the number of current connections.
-func (srv *Server) ConnectionCount() int64 {
-	return atomic.LoadInt64(&srv.connCount)
-}
-
-// LoginAttempts returns the number of current login attempts.
-func (srv *Server) LoginAttempts() int64 {
-	return atomic.LoadInt64(&srv.loginAttempts)
 }
 
 // Dead returns a channel that signals when the server has exited.
@@ -413,6 +371,32 @@ type loggoWrapper struct {
 func (w *loggoWrapper) Write(content []byte) (int, error) {
 	w.logger.Logf(w.level, "%s", string(content))
 	return len(content), nil
+}
+
+// logsinkMetricsCollectorWrapper defines a wrapper for exposing the essentials
+// for the logsink api handler to interact with the metrics collector.
+type logsinkMetricsCollectorWrapper struct {
+	collector *Collector
+}
+
+func (w logsinkMetricsCollectorWrapper) TotalConnections() prometheus.Counter {
+	return w.collector.TotalConnections
+}
+
+func (w logsinkMetricsCollectorWrapper) Connections() prometheus.Gauge {
+	return w.collector.APIConnections.WithLabelValues("logsink")
+}
+
+func (w logsinkMetricsCollectorWrapper) PingFailureCount(modelUUID string) prometheus.Counter {
+	return w.collector.PingFailureCount.WithLabelValues(modelUUID, "logsink")
+}
+
+func (w logsinkMetricsCollectorWrapper) LogWriteCount(modelUUID, state string) prometheus.Counter {
+	return w.collector.LogWriteCount.WithLabelValues(modelUUID, state)
+}
+
+func (w logsinkMetricsCollectorWrapper) LogReadCount(modelUUID, state string) prometheus.Counter {
+	return w.collector.LogReadCount.WithLabelValues(modelUUID, state)
 }
 
 // loop is the main loop for the server.
@@ -497,6 +481,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
+		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
+		controllerModelUUID,
 	)
 	logSinkAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UnitTagKind, names.ApplicationTagKind}
 	logTransferHandler := logsink.NewHTTPHandler(
@@ -505,6 +491,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		newMigrationLogWriteCloserFunc(httpCtxt, &srv.dbloggers),
 		httpCtxt.stop(),
 		nil, // no rate-limiting
+		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
+		controllerModelUUID,
 	)
 	modelRestHandler := &modelRestHandler{
 		ctxt:          httpCtxt,
@@ -797,13 +785,18 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	atomic.AddInt64(&srv.totalConn, 1)
-	addCount := func(delta int64) {
-		atomic.AddInt64(&srv.connCount, delta)
-	}
+	srv.metricsCollector.TotalConnections.Inc()
 
-	addCount(1)
-	defer addCount(-1)
+	gauge := srv.metricsCollector.APIConnections.WithLabelValues("api")
+	gauge.Inc()
+	defer gauge.Dec()
+
+	// This is the deprecated api connections gauge, note it doesn't have the
+	// labels to pivot on.
+	// Remove this post 2.6 release
+	deprecatedGauge := srv.metricsCollector.DeprecatedAPIConnections
+	deprecatedGauge.Inc()
+	defer deprecatedGauge.Dec()
 
 	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
 

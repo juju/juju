@@ -1652,7 +1652,7 @@ func (s setLeaderSettings) step(c *gc.C, ctx *context) {
 
 type successToken struct{}
 
-func (successToken) Check(interface{}) error {
+func (successToken) Check(int, interface{}) error {
 	return nil
 }
 

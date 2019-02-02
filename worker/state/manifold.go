@@ -18,6 +18,7 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/statemetrics"
+	"github.com/juju/juju/wrench"
 )
 
 var logger = loggo.GetLogger("juju.worker.state")
@@ -193,6 +194,12 @@ func (w *stateWorker) loop() error {
 				); err != nil {
 					return errors.Trace(err)
 				}
+			}
+		// Useful for tracking down some bugs that occur when
+		// mongo is overloaded.
+		case <-time.After(30 * time.Second):
+			if wrench.IsActive("state-worker", "io-timeout") {
+				return errors.Errorf("wrench simulating i/o timeout!")
 			}
 		}
 	}

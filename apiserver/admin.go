@@ -6,7 +6,6 @@ package apiserver
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock"
@@ -215,8 +214,8 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 		if err != nil || tag.Kind() != names.UserTagKind {
 			// Either the tag is invalid, or
 			// it's not a user; rate limit it.
-			atomic.AddInt64(&a.srv.loginAttempts, 1)
-			defer atomic.AddInt64(&a.srv.loginAttempts, -1)
+			a.srv.metricsCollector.LoginAttempts.Inc()
+			defer a.srv.metricsCollector.LoginAttempts.Dec()
 
 			// Users are not rate limited, all other entities are.
 			if !a.srv.limiter.Acquire() {

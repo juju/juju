@@ -47,17 +47,10 @@ type HubWatcher struct {
 	// watches holds the observers managed by Watch/Unwatch.
 	watches map[watchKey][]watchInfo
 
-	// current holds the current txn-revno values for all the observed
-	// documents known to exist. Documents not observed or deleted are
-	// omitted from this map and are considered to have revno -1.
-	current map[watchKey]int64
-
-	// syncEvents and requestEvents contain the events to be
+	// syncEvents contain the events to be
 	// dispatched to the watcher channels. They're queued during
 	// processing and flushed at the end to simplify the algorithm.
-	// The two queues are separated because events from sync are
-	// handled in reverse order due to the way the algorithm works.
-	syncEvents, requestEvents []event
+	syncEvents []event
 
 	// request is used to deliver requests from the public API into
 	// the the goroutine loop.
@@ -142,7 +135,6 @@ func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) 
 		idleFunc:  HubWatcherIdleFunc,
 		logger:    logger,
 		watches:   make(map[watchKey][]watchInfo),
-		current:   make(map[watchKey]int64),
 		request:   make(chan interface{}),
 		changes:   make(chan Change),
 	}
@@ -221,16 +213,55 @@ func (w *HubWatcher) sendReq(req interface{}) {
 	}
 }
 
+func (w *HubWatcher) sendAndWaitReq(req waitableRequest) error {
+	select {
+	case w.request <- req:
+	case <-w.tomb.Dying():
+		return errors.Trace(tomb.ErrDying)
+	}
+	completed := req.Completed()
+	select {
+	case err := <-completed:
+		return errors.Trace(err)
+	case <-w.tomb.Dying():
+		return errors.Trace(tomb.ErrDying)
+	}
+}
+
+// WatchMulti watches a particular collection for several ids.
+// The request is synchronous with the worker loop, so by the time the function returns,
+// we guarantee that the watch is in place. If there is a mistake in the arguments (id is nil,
+// channel is already watching a given id), an error will be returned and no watches will be added.
+func (w *HubWatcher) WatchMulti(collection string, ids []interface{}, ch chan<- Change) error {
+	for _, id := range ids {
+		if id == nil {
+			return errors.Errorf("cannot watch a document with nil id")
+		}
+	}
+	req := reqWatchMulti{
+		collection:  collection,
+		ids:         ids,
+		completedCh: make(chan error),
+		watchCh:     ch,
+	}
+	return errors.Trace(w.sendAndWaitReq(req))
+}
+
 // Watch starts watching the given collection and document id.
 // An event will be sent onto ch whenever a matching document's txn-revno
-// field is observed to change after a transaction is applied. The revno
-// parameter holds the currently known revision number for the document.
-// Non-existent documents are represented by a -1 revno.
-func (w *HubWatcher) Watch(collection string, id interface{}, revno int64, ch chan<- Change) {
+// field is observed to change after a transaction is applied.
+func (w *HubWatcher) Watch(collection string, id interface{}, ch chan<- Change) {
 	if id == nil {
 		panic("watcher: cannot watch a document with nil id")
 	}
-	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno, nil}})
+	// We use a value of -2 to indicate that we don't know the state of the document.
+	// -1 would indicate that we think the document is deleted (and won't trigger
+	// a change event if the document really is deleted).
+	w.sendAndWaitReq(reqWatch{
+		key:          watchKey{collection, id},
+		info:         watchInfo{ch, -2, nil},
+		registeredCh: make(chan error),
+	})
 }
 
 // WatchCollection starts watching the given collection.
@@ -245,7 +276,11 @@ func (w *HubWatcher) WatchCollection(collection string, ch chan<- Change) {
 // to change after a transaction is applied for any document in the collection, so long as the
 // specified filter function returns true when called with the document id value.
 func (w *HubWatcher) WatchCollectionWithFilter(collection string, ch chan<- Change, filter func(interface{}) bool) {
-	w.sendReq(reqWatch{watchKey{collection, nil}, watchInfo{ch, 0, filter}})
+	w.sendAndWaitReq(reqWatch{
+		key:          watchKey{collection, nil},
+		info:         watchInfo{ch, 0, filter},
+		registeredCh: make(chan error),
+	})
 }
 
 // Unwatch stops watching the given collection and document id via ch.
@@ -267,10 +302,6 @@ type HubWatcherStats struct {
 	WatchKeyCount int
 	// WatchCount is the number of watchers (keys can be watched by multiples)
 	WatchCount uint64
-	// RevnoMapSize is the number of keys stored in the 'current' map
-	RevnoMapSize int
-	// RevnoMapBytes is an approximation of the number of bytes being stored by 'current'
-	RevnoMapBytes uint64
 	// SyncQueueCap is the maximum buffer size for synchronization events
 	SyncQueueCap int
 	// SyncQueueLen is the current number of events being queued
@@ -285,13 +316,6 @@ type HubWatcherStats struct {
 	SyncEventDocCount uint64
 	// SyncEventCollCount is the number of sync events we've generated for documents changed in collections
 	SyncEventCollCount uint64
-	// RequestEventCount is the number of request events we've generated
-	// (documents being watched that changed since the request came in)
-	RequestEventCount uint64
-	// RequestQueueCap is the maximum size of the request queue buffer
-	RequestQueueCap int
-	// RequestQueueLen is the current number of requested events
-	RequestQueueLen int
 	// RequestCount is the number of requests (reqWatch/reqUnwatch, etc) that we've seen
 	RequestCount uint64
 	// ChangeCount is the number of changes we've processed
@@ -319,8 +343,6 @@ func (w *HubWatcher) Report() map[string]interface{} {
 	return map[string]interface{}{
 		"watch-count":           stats.WatchCount,
 		"watch-key-count":       stats.WatchKeyCount,
-		"revno-map-size":        stats.RevnoMapSize,
-		"revno-map-bytes":       stats.RevnoMapBytes,
 		"sync-queue-cap":        stats.SyncQueueCap,
 		"sync-queue-len":        stats.SyncQueueLen,
 		"sync-last-len":         stats.SyncLastLen,
@@ -328,9 +350,6 @@ func (w *HubWatcher) Report() map[string]interface{} {
 		"sync-max-len":          stats.SyncMaxLen,
 		"sync-event-doc-count":  stats.SyncEventDocCount,
 		"sync-event-coll-count": stats.SyncEventCollCount,
-		"request-queue-cap":     stats.RequestQueueCap,
-		"request-queue-len":     stats.RequestQueueLen,
-		"request-event-count":   stats.RequestEventCount,
 		"request-count":         stats.RequestCount,
 		"change-count":          stats.ChangeCount,
 	}
@@ -339,36 +358,36 @@ func (w *HubWatcher) Report() map[string]interface{} {
 // loop implements the main watcher loop.
 // period is the delay between each sync.
 func (w *HubWatcher) loop() error {
-	w.logger.Tracef("loop started")
+	w.logger.Tracef("%p loop started", w)
 	defer w.logger.Tracef("loop finished")
 	// idle is initially nil, and is only ever set if idleFunc
 	// has a value.
 	var idle <-chan time.Time
 	if w.idleFunc != nil {
-		w.logger.Tracef("set idle timeout to %s", HubWatcherIdleTime)
+		w.logger.Tracef("%p set idle timeout to %s", w, HubWatcherIdleTime)
 		idle = w.clock.After(HubWatcherIdleTime)
 	}
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
-		case change := <-w.changes:
-			w.queueChange(change)
+		case inChange := <-w.changes:
+			w.queueChange(inChange)
 		case req := <-w.request:
 			w.handle(req)
 		case <-idle:
-			w.logger.Tracef("notify %s idle", w.modelUUID)
+			w.logger.Tracef("%p notify %s idle", w, w.modelUUID)
 			w.idleFunc(w.modelUUID)
 			idle = w.clock.After(HubWatcherIdleTime)
 		}
-		for (len(w.syncEvents) + len(w.requestEvents)) > 0 {
+		for len(w.syncEvents) > 0 {
 			select {
 			case <-w.tomb.Dying():
 				return errors.Trace(tomb.ErrDying)
 			default:
 				if w.flush() {
 					if w.idleFunc != nil {
-						w.logger.Tracef("set idle timeout to %s", HubWatcherIdleTime)
+						w.logger.Tracef("%p set idle timeout to %s", w, HubWatcherIdleTime)
 						idle = w.clock.After(HubWatcherIdleTime)
 					}
 				}
@@ -382,22 +401,28 @@ func (w *HubWatcher) flush() bool {
 	// syncEvents are stored first in first out.
 	// syncEvents may grow during the looping here if new
 	// watch events come in while we are notifying other watchers.
+	w.logger.Tracef("%p flushing syncEvents: len(%d) cap(%d)", w, len(w.syncEvents), cap(w.syncEvents))
 	for i := 0; i < len(w.syncEvents); i++ {
 		// We need to reget the address value each time through the loop
 		// as the slice may be reallocated.
 		for e := &w.syncEvents[i]; e.ch != nil; e = &w.syncEvents[i] {
-			w.logger.Tracef("syncEvents: e.ch=%v len(%d), cap(%d)", e.ch, len(w.syncEvents), cap(w.syncEvents))
+			outChange := Change{
+				C:     e.key.c,
+				Id:    e.key.id,
+				Revno: e.revno,
+			}
+			w.logger.Tracef("%p sending syncEvent(%d): e.ch=%v %v", w, i, e.ch, outChange)
 			select {
 			case <-w.tomb.Dying():
 				return watchersNotified
 			case req := <-w.request:
 				w.handle(req)
 				continue
-			case change := <-w.changes:
-				w.queueChange(change)
+			case inChange := <-w.changes:
+				w.queueChange(inChange)
 				continue
-			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
-				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, Change{e.key.c, e.key.id, e.revno})
+			case e.ch <- outChange:
+				w.logger.Tracef("%p e.ch=%v has been notified %v", w, e.ch, outChange)
 				watchersNotified = true
 			}
 			break
@@ -415,51 +440,63 @@ func (w *HubWatcher) flush() bool {
 	// larger than averageSyncLen. Consider something like "if cap(syncEventsLen) > 10*w.averageSyncLen".
 	// That means that we can shrink the buffer after an outlier, rather than requiring it to always be the longest
 	// it was ever needed.
-	w.logger.Tracef("syncEvents: len(%d), cap(%d) avg(%.1f)", len(w.syncEvents), cap(w.syncEvents), w.averageSyncLen)
-
-	// requestEvents are stored oldest first, and
-	// may grow during the loop.
-	for i := 0; i < len(w.requestEvents); i++ {
-		// We need to reget the address value each time through the loop
-		// as the slice may be reallocated.
-		for e := &w.requestEvents[i]; e.ch != nil; e = &w.requestEvents[i] {
-			select {
-			case <-w.tomb.Dying():
-				return watchersNotified
-			case req := <-w.request:
-				w.handle(req)
-				continue
-			case change := <-w.changes:
-				w.queueChange(change)
-				continue
-			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
-				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, Change{e.key.c, e.key.id, e.revno})
-				watchersNotified = true
-			}
-			break
-		}
+	w.logger.Tracef("%p syncEvents after flush: len(%d), cap(%d) avg(%.1f)", w, len(w.syncEvents), cap(w.syncEvents), w.averageSyncLen)
+	if cap(w.syncEvents) > 100 && float64(cap(w.syncEvents)) > 10.0*w.averageSyncLen {
+		w.logger.Debugf("syncEvents buffer being reset from peak size", cap(w.syncEvents))
+		w.syncEvents = nil
 	}
-	w.requestEvents = w.requestEvents[:0]
+
 	return watchersNotified
 }
 
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *HubWatcher) handle(req interface{}) {
-	w.logger.Tracef("got request: %#v", req)
+	w.logger.Tracef("%p got request: %#v", w, req)
 	w.requestCount++
 	switch r := req.(type) {
 	case reqWatch:
+		// TODO(jam): 2019-01-30 Now that reqWatch has a registeredCh, we could have Watch return an error
+		// rather than panic()
 		for _, info := range w.watches[r.key] {
 			if info.ch == r.info.ch {
 				panic(fmt.Errorf("tried to re-add channel %v for %s", info.ch, r.key))
 			}
 		}
-		if revno, ok := w.current[r.key]; ok && (revno > r.info.revno || revno == -1 && r.info.revno >= 0) {
-			r.info.revno = revno
-			w.requestEvents = append(w.requestEvents, event{r.info.ch, r.key, revno})
-		}
 		w.watches[r.key] = append(w.watches[r.key], r.info)
+		if r.registeredCh != nil {
+			select {
+			case r.registeredCh <- nil:
+			case <-w.tomb.Dying():
+			}
+		}
+	case reqWatchMulti:
+		for _, id := range r.ids {
+			key := watchKey{c: r.collection, id: id}
+			for _, info := range w.watches[key] {
+				if info.ch == r.watchCh {
+					err := errors.Errorf("tried to re-add channel %v for %s", r.watchCh, key)
+					select {
+					case r.completedCh <- err:
+					case <-w.tomb.Dying():
+					}
+					return
+				}
+			}
+		}
+		for _, id := range r.ids {
+			key := watchKey{c: r.collection, id: id}
+			info := watchInfo{
+				ch:     r.watchCh,
+				revno:  -2,
+				filter: nil,
+			}
+			w.watches[key] = append(w.watches[key], info)
+		}
+		select {
+		case r.completedCh <- nil:
+		case <-w.tomb.Dying():
+		}
 	case reqUnwatch:
 		watches := w.watches[r.key]
 		removed := false
@@ -473,12 +510,6 @@ func (w *HubWatcher) handle(req interface{}) {
 		}
 		if !removed {
 			panic(fmt.Errorf("tried to remove missing channel %v for %s", r.ch, r.key))
-		}
-		for i := range w.requestEvents {
-			e := &w.requestEvents[i]
-			if r.key.match(e.key) && e.ch == r.ch {
-				e.ch = nil
-			}
 		}
 		for i := range w.syncEvents {
 			e := &w.syncEvents[i]
@@ -495,8 +526,6 @@ func (w *HubWatcher) handle(req interface{}) {
 			ChangeCount:        w.changeCount,
 			WatchKeyCount:      len(w.watches),
 			WatchCount:         watchCount,
-			RevnoMapSize:       len(w.current),
-			RevnoMapBytes:      uint64(w.revnoMapBytes),
 			SyncQueueCap:       cap(w.syncEvents),
 			SyncQueueLen:       len(w.syncEvents),
 			SyncLastLen:        w.lastSyncLen,
@@ -504,8 +533,6 @@ func (w *HubWatcher) handle(req interface{}) {
 			SyncAvgLen:         int(w.averageSyncLen + 0.5),
 			SyncEventCollCount: w.syncEventCollectionCount,
 			SyncEventDocCount:  w.syncEventDocCount,
-			RequestQueueCap:    cap(w.requestEvents),
-			RequestQueueLen:    len(w.requestEvents),
 			RequestCount:       w.requestCount,
 		}
 		select {
@@ -546,23 +573,23 @@ func sizeInMap(key watchKey) uintptr {
 // queueChange queues up the change for the registered watchers.
 func (w *HubWatcher) queueChange(change Change) {
 	w.changeCount++
-	w.logger.Tracef("got change document: %#v", change)
+	w.logger.Tracef("%p got change document: %#v", w, change)
 	key := watchKey{change.C, change.Id}
-	if _, ok := w.current[key]; !ok {
-		// We didn't have this in our map before, so we need to track the bytes
-		w.revnoMapBytes += sizeInMap(key)
-	}
 	revno := change.Revno
-	w.current[key] = revno
 
 	// Queue notifications for per-collection watches.
 	for _, info := range w.watches[watchKey{change.C, nil}] {
 		if info.filter != nil && !info.filter(change.Id) {
 			continue
 		}
-		w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+		evt := event{
+			ch:    info.ch,
+			key:   key,
+			revno: revno,
+		}
+		w.syncEvents = append(w.syncEvents, evt)
 		w.syncEventCollectionCount++
-		w.logger.Tracef("adding collection watch for %v syncEvents: len(%d), cap(%d)", info.ch, len(w.syncEvents), cap(w.syncEvents))
+		w.logger.Tracef("%p adding event for collection %q watch %v, syncEvents: len(%d), cap(%d)", w, change.C, info.ch, len(w.syncEvents), cap(w.syncEvents))
 	}
 
 	// Queue notifications for per-document watches.
@@ -570,9 +597,14 @@ func (w *HubWatcher) queueChange(change Change) {
 	for i, info := range infos {
 		if revno > info.revno || revno < 0 && info.revno >= 0 {
 			infos[i].revno = revno
-			w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+			evt := event{
+				ch:    info.ch,
+				key:   key,
+				revno: revno,
+			}
+			w.syncEvents = append(w.syncEvents, evt)
 			w.syncEventDocCount++
-			w.logger.Tracef("adding document watch for %v syncEvents: len(%d), cap(%d)", info.ch, len(w.syncEvents), cap(w.syncEvents))
+			w.logger.Tracef("%p adding event for %v watch %v, syncEvents: len(%d), cap(%d)", w, key, info.ch, len(w.syncEvents), cap(w.syncEvents))
 		}
 	}
 }

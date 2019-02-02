@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
-	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
@@ -37,12 +36,12 @@ type Config struct {
 	StatePool                         *state.StatePool
 	Controller                        *cache.Controller
 	LeaseManager                      lease.Manager
-	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	RestoreStatus                     func() state.RestoreStatus
 	UpgradeComplete                   func() bool
 	GetAuditConfig                    func() auditlog.Config
 	NewServer                         NewServerFunc
+	MetricsCollector                  *apiserver.Collector
 }
 
 // NewServerFunc is the type of function that will be used
@@ -78,9 +77,6 @@ func (config Config) Validate() error {
 	if config.LeaseManager == nil {
 		return errors.NotValidf("nil LeaseManager")
 	}
-	if config.PrometheusRegisterer == nil {
-		return errors.NotValidf("nil PrometheusRegisterer")
-	}
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
 	}
@@ -92,6 +88,9 @@ func (config Config) Validate() error {
 	}
 	if config.NewServer == nil {
 		return errors.NotValidf("nil NewServer")
+	}
+	if config.MetricsCollector == nil {
+		return errors.NotValidf("nil MetricsCollector")
 	}
 	return nil
 }
@@ -121,8 +120,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		config.AgentConfig,
 		controllerConfig,
 		config.Clock,
-		config.PrometheusRegisterer,
 		config.Hub,
+		config.MetricsCollector,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
@@ -145,9 +144,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),
 		NewObserver:                   observerFactory,
 		RegisterIntrospectionHandlers: config.RegisterIntrospectionHTTPHandlers,
+		MetricsCollector:              config.MetricsCollector,
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
-		PrometheusRegisterer:          config.PrometheusRegisterer,
 		GetAuditConfig:                config.GetAuditConfig,
 		LeaseManager:                  config.LeaseManager,
 	}
@@ -156,4 +155,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 func newServerShim(config apiserver.ServerConfig) (worker.Worker, error) {
 	return apiserver.NewServer(config)
+}
+
+// NewMetricsCollector returns a new apiserver collector
+func NewMetricsCollector() *apiserver.Collector {
+	return apiserver.NewMetricsCollector()
 }

@@ -222,7 +222,7 @@ type fakeToken struct{}
 
 // Check is part of the leadership.Token interface. It always claims success,
 // and never checks or writes the userdata.
-func (*fakeToken) Check(interface{}) error {
+func (*fakeToken) Check(int, interface{}) error {
 	return nil
 }
 
@@ -231,7 +231,7 @@ type failToken struct{}
 
 // Check is part of the leadership.Token interface. It always returns an error,
 // and never checks or writes the userdata.
-func (*failToken) Check(interface{}) error {
+func (*failToken) Check(int, interface{}) error {
 	return errors.New("something bad happened")
 }
 
@@ -243,14 +243,20 @@ type raceToken struct {
 // Check is part of the leadership.Token interface. On the first call, it expects
 // a *[]txn.Op, into which it will copy a failing assertion; on subsequent calls,
 // it just returns an error.
-func (t *raceToken) Check(out interface{}) error {
+func (t *raceToken) Check(attempt int, out interface{}) error {
 	if t.checkedOnce {
+		if attempt == 0 {
+			return errors.Errorf("SUT passed in bad attempt: 0, expected > 0")
+		}
 		return errors.New("too late")
 	}
 	t.checkedOnce = true
 	outPtr, ok := out.(*[]txn.Op)
 	if !ok {
 		return errors.Errorf("SUT passed in bad value: %#v", out)
+	}
+	if attempt != 0 {
+		return errors.Errorf("SUT passed in bad attempt: %v, expected 0", attempt)
 	}
 	wontExist := utils.MustNewUUID()
 	*outPtr = []txn.Op{{

@@ -40,6 +40,36 @@ func (*K8sContainerSpec) Validate() error {
 	return nil
 }
 
+type caasPodSpec caas.PodSpec
+
+type k8sPod struct {
+	caasPodSpec `json:",inline"`
+	*K8sPodSpec `json:",inline"`
+}
+
+// K8sPodSpec is a subset of v1.PodSpec which defines
+// attributes we expose for charms to set.
+type K8sPodSpec struct {
+	ServiceAccountName            string                   `json:"serviceAccountName,omitempty"`
+	RestartPolicy                 core.RestartPolicy       `json:"restartPolicy,omitempty"`
+	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty"`
+	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty"`
+	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty"`
+	AutomountServiceAccountToken  *bool                    `json:"automountServiceAccountToken,omitempty"`
+	SecurityContext               *core.PodSecurityContext `json:"securityContext,omitempty"`
+	Hostname                      string                   `json:"hostname,omitempty"`
+	Subdomain                     string                   `json:"subdomain,omitempty"`
+	PriorityClassName             string                   `json:"priorityClassName,omitempty"`
+	Priority                      *int32                   `json:"priority,omitempty"`
+	DNSConfig                     *core.PodDNSConfig       `json:"dnsConfig,omitempty"`
+	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty"`
+}
+
+// Validate is defined on ProviderPod.
+func (*K8sPodSpec) Validate() error {
+	return nil
+}
+
 var boolValues = set.NewStrings(
 	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...)
 
@@ -53,9 +83,19 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 		return nil, errors.Trace(err)
 	}
 
+	// Do the k8s pod attributes.
+	var pod k8sPod
+	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
+	if err := decoder.Decode(&pod); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if pod.K8sPodSpec != nil {
+		spec.ProviderPod = pod.K8sPodSpec
+	}
+
 	// Do the k8s containers.
 	var containers k8sContainers
-	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
+	decoder = k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
 	if err := decoder.Decode(&containers); err != nil {
 		return nil, errors.Trace(err)
 	}

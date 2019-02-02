@@ -19,7 +19,7 @@ type token struct {
 }
 
 // Check is part of the lease.Token interface.
-func (t token) Check(trapdoorKey interface{}) error {
+func (t token) Check(attempt int, trapdoorKey interface{}) error {
 
 	// This validation, which could be done at Token creation time, is deferred
 	// until this point for historical reasons. In particular, this code was
@@ -38,6 +38,7 @@ func (t token) Check(trapdoorKey interface{}) error {
 	return check{
 		leaseKey:    t.leaseKey,
 		holderName:  t.holderName,
+		attempt:     attempt,
 		trapdoorKey: trapdoorKey,
 		response:    make(chan error),
 		stop:        t.stop,
@@ -49,6 +50,7 @@ func (t token) Check(trapdoorKey interface{}) error {
 type check struct {
 	leaseKey    lease.Key
 	holderName  string
+	attempt     int
 	trapdoorKey interface{}
 	response    chan error
 	stop        <-chan struct{}

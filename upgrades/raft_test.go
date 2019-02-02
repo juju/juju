@@ -188,7 +188,7 @@ func (s *raftSuite) TestMigrateLegacyLeases(c *gc.C) {
 		// FSM.
 		var leases map[lease.Key]lease.Info
 		for a := coretesting.LongAttempt.Start(); a.Next(); {
-			leases = fsm.Leases(zero)
+			leases = fsm.Leases(func() time.Time { return zero })
 			if reflect.DeepEqual(leases, expectedLeases) {
 				return
 			}
@@ -221,7 +221,7 @@ func (s *raftSuite) TestMigrateLegacyLeases(c *gc.C) {
 	withRaft(c, dataDir, fsm, func(r *raft.Raft) {
 		var leases map[lease.Key]lease.Info
 		for a := coretesting.LongAttempt.Start(); a.Next(); {
-			leases = fsm.Leases(zero)
+			leases = fsm.Leases(func() time.Time { return zero })
 			// The leases haven't been updated with the changed one.
 			if reflect.DeepEqual(leases, expectedLeases) {
 				return

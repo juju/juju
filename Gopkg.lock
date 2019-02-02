@@ -726,14 +726,14 @@
   revision = "472a3e8b2073fb3cd67c12d2bc5f3cd28e5f4116"
 
 [[projects]]
-  digest = "1:4857e53a05abe24af8487f892dc316449de7f350c462081560d4e223a6616f3d"
+  digest = "1:471ca3fc247b5b89a11aa88e78805b0bec2226a7b1786e0d39eb398fa78b27d4"
   name = "github.com/juju/txn"
   packages = [
     ".",
     "testing",
   ]
   pruneopts = ""
-  revision = "79cdf4663070226316f3bc6c66de7babbb3fb899"
+  revision = "df6ecfd7d096675fb784bd5a4ebf253eddb7da05"
 
 [[projects]]
   digest = "1:cf637806c17846b1660d388cfbee501ed64734526fe2e6176f16f9cd950e7c62"
@@ -1521,7 +1521,7 @@
   revision = "fd59336b4621bc2a70bf96d9e2f49954115ad19b"
 
 [[projects]]
-  digest = "1:88607626f1e84febb15a0f76146c30075e12fffd92836cb3cdc6e6441862c65d"
+  digest = "1:deb1b0b9f4c4a65246fc1cd82b9d9a3c2ac834a04ef899055853d44770e4c31d"
   name = "gopkg.in/juju/worker.v1"
   packages = [
     ".",
@@ -1531,7 +1531,7 @@
     "workertest",
   ]
   pruneopts = ""
-  revision = "9becf9b2c7057a1043a513b4a177fa33046f4535"
+  revision = "187c8117684679e0e261b1d6f488a404d1d093c9"
 
 [[projects]]
   digest = "1:01aef8078808543c15a4cc0e669d92d37215564600e19ebabbd694939b727977"
