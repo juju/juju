@@ -231,11 +231,17 @@ func (manager *Manager) retryingClaim(claim claim) {
 	)
 	for a := manager.startRetry(); a.Next(); {
 		success, err = manager.handleClaim(claim)
-		if !lease.IsTimeout(err) {
+		if !lease.IsTimeout(err) && !lease.IsInvalid(err) {
 			break
 		}
 		if a.More() {
-			manager.config.Logger.Tracef("[%s] timed out handling claim, retrying...", manager.logContext)
+			if lease.IsInvalid(err) {
+				manager.config.Logger.Tracef("[%s] request by %s for lease %s %v, retrying...",
+					manager.logContext, claim.holderName, claim.leaseKey.Lease, err)
+			} else {
+				manager.config.Logger.Tracef("[%s] timed out handling claim by %s for lease %s, retrying...",
+					manager.logContext, claim.holderName, claim.leaseKey.Lease)
+			}
 		}
 	}
 
@@ -273,34 +279,37 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	store := manager.config.Store
 	request := lease.Request{Holder: claim.holderName, Duration: claim.duration}
 	err := lease.ErrInvalid
-	for lease.IsInvalid(err) {
-		select {
-		case <-manager.catacomb.Dying():
-			return false, manager.catacomb.ErrDying()
+	action := "unknown"
+	select {
+	case <-manager.catacomb.Dying():
+		return false, manager.catacomb.ErrDying()
+	default:
+		info, found := store.Leases(claim.leaseKey)[claim.leaseKey]
+		switch {
+		case !found:
+			manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+			action = "claiming"
+			err = store.ClaimLease(claim.leaseKey, request)
+		case info.Holder == claim.holderName:
+			manager.config.Logger.Tracef("[%s] %s extending lease %s for %s",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+			action = "extending"
+			err = store.ExtendLease(claim.leaseKey, request)
 		default:
-			info, found := store.Leases(claim.leaseKey)[claim.leaseKey]
-			switch {
-			case !found:
-				manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
-					manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
-				err = store.ClaimLease(claim.leaseKey, request)
-			case info.Holder == claim.holderName:
-				manager.config.Logger.Tracef("[%s] %s extending lease %s for %s",
-					manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
-				err = store.ExtendLease(claim.leaseKey, request)
-			default:
-				// Note: (jam) 2017-10-31) We don't check here if the lease has
-				// expired for the current holder. Should we?
-				remaining := info.Expiry.Sub(manager.config.Clock.Now())
-				manager.config.Logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
-					manager.logContext, claim.holderName, claim.leaseKey.Lease, info.Holder, remaining)
-				return false, nil
-			}
+			// Note: (jam) 2017-10-31) We don't check here if the lease has
+			// expired for the current holder. Should we?
+			remaining := info.Expiry.Sub(manager.config.Clock.Now())
+			manager.config.Logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease, info.Holder, remaining)
+			return false, nil
 		}
 	}
 	if err != nil {
 		return false, errors.Trace(err)
 	}
+	manager.config.Logger.Tracef("[%s] %s %s lease %s for %s successful",
+		manager.logContext, claim.holderName, action, claim.leaseKey.Lease, claim.duration)
 	return true, nil
 }
 
