@@ -475,9 +475,7 @@ func (a *StorageAPI) CreatePool(p params.StoragePoolArgs) (params.ErrorResults, 
 			pool.Name,
 			storage.ProviderType(pool.Provider),
 			pool.Attrs)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-		}
+		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
 }

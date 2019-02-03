@@ -48,7 +48,6 @@ func (s *PoolCreateSuite) TestPoolCreateTwoArgs(c *gc.C) {
 	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, gc.Equals, "lollypop")
 	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{})
-	c.Assert(createdConfigs.LegacyCalled, jc.IsFalse)
 }
 
 func (s *PoolCreateSuite) TestPoolCreateAttrMissingKey(c *gc.C) {
@@ -79,7 +78,6 @@ func (s *PoolCreateSuite) TestPoolCreateAttrEmptyValue(c *gc.C) {
 	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, gc.Equals, "lollypop")
 	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "\"\""})
-	c.Assert(createdConfigs.LegacyCalled, jc.IsFalse)
 }
 
 func (s *PoolCreateSuite) TestPoolCreateOneAttr(c *gc.C) {
@@ -90,7 +88,6 @@ func (s *PoolCreateSuite) TestPoolCreateOneAttr(c *gc.C) {
 	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, gc.Equals, "lollypop")
 	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "too"})
-	c.Assert(createdConfigs.LegacyCalled, jc.IsFalse)
 }
 
 func (s *PoolCreateSuite) TestPoolCreateEmptyAttr(c *gc.C) {
@@ -106,38 +103,12 @@ func (s *PoolCreateSuite) TestPoolCreateManyAttrs(c *gc.C) {
 	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, gc.Equals, "lollypop")
 	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "too", "another": "one"})
-	c.Assert(createdConfigs.LegacyCalled, jc.IsFalse)
-}
-
-func (s *PoolCreateSuite) TestLegacyPoolCreateTwoArgs(c *gc.C) {
-	s.mockAPI.APIVersion = 3
-	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop"})
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(s.mockAPI.Creates), gc.Equals, 1)
-	createdConfigs := s.mockAPI.Creates[0]
-	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
-	c.Assert(createdConfigs.Provider, gc.Equals, "lollypop")
-	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{})
-	c.Assert(createdConfigs.LegacyCalled, jc.IsTrue)
-}
-
-func (s *PoolCreateSuite) TestLegacyPoolCreateManyAttrs(c *gc.C) {
-	s.mockAPI.APIVersion = 3
-	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", "something=too", "another=one"})
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(s.mockAPI.Creates), gc.Equals, 1)
-	createdConfigs := s.mockAPI.Creates[0]
-	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
-	c.Assert(createdConfigs.Provider, gc.Equals, "lollypop")
-	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "too", "another": "one"})
-	c.Assert(createdConfigs.LegacyCalled, jc.IsTrue)
 }
 
 type mockCreateData struct {
-	LegacyCalled bool
-	Name         string
-	Provider     string
-	Config       map[string]interface{}
+	Name     string
+	Provider string
+	Config   map[string]interface{}
 }
 
 type mockPoolCreateAPI struct {
@@ -147,11 +118,6 @@ type mockPoolCreateAPI struct {
 
 func (s *mockPoolCreateAPI) CreatePool(pname, ptype string, pconfig map[string]interface{}) error {
 	s.Creates = append(s.Creates, mockCreateData{Name: pname, Provider: ptype, Config: pconfig})
-	return nil
-}
-
-func (s *mockPoolCreateAPI) LegacyCreatePool(pname, ptype string, pconfig map[string]interface{}) error {
-	s.Creates = append(s.Creates, mockCreateData{LegacyCalled: true, Name: pname, Provider: ptype, Config: pconfig})
 	return nil
 }
 

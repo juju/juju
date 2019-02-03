@@ -82,6 +82,16 @@ func (c *Client) ListPools(providers, names []string) ([]params.StoragePool, err
 
 // CreatePool creates pool with specified parameters.
 func (c *Client) CreatePool(pname, provider string, attrs map[string]interface{}) error {
+	// Older facade did not support bulk calls.
+	if c.BestAPIVersion() < 5 {
+		args := params.StoragePool{
+			Name:     pname,
+			Provider: provider,
+			Attrs:    attrs,
+		}
+		return c.facade.FacadeCall("CreatePool", args, nil)
+	}
+
 	var results params.ErrorResults
 	args := params.StoragePoolArgs{
 		Pools: []params.StoragePool{{
@@ -95,16 +105,6 @@ func (c *Client) CreatePool(pname, provider string, attrs map[string]interface{}
 		return errors.Trace(err)
 	}
 	return results.OneError()
-}
-
-// LegacyCreatePool uses an older api call to create pool with specified parameters.
-func (c *Client) LegacyCreatePool(pname, provider string, attrs map[string]interface{}) error {
-	args := params.StoragePool{
-		Name:     pname,
-		Provider: provider,
-		Attrs:    attrs,
-	}
-	return c.facade.FacadeCall("CreatePool", args, nil)
 }
 
 // DeletePool deletes the named pool

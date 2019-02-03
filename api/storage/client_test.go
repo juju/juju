@@ -244,30 +244,33 @@ func (s *storageMockSuite) TestCreatePool(c *gc.C) {
 		"test": "one",
 		"pass": true,
 	}
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Check(objType, gc.Equals, "Storage")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "CreatePool")
 
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			c.Check(objType, gc.Equals, "Storage")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "CreatePool")
+				args, ok := a.(params.StoragePoolArgs)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args.Pools, gc.HasLen, 1)
 
-			args, ok := a.(params.StoragePoolArgs)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.Pools, gc.HasLen, 1)
+				c.Assert(args.Pools[0].Name, gc.Equals, poolName)
+				c.Assert(args.Pools[0].Provider, gc.Equals, poolType)
+				c.Assert(args.Pools[0].Attrs, gc.DeepEquals, poolConfig)
+				results := result.(*params.ErrorResults)
 
-			c.Assert(args.Pools[0].Name, gc.Equals, poolName)
-			c.Assert(args.Pools[0].Provider, gc.Equals, poolType)
-			c.Assert(args.Pools[0].Attrs, gc.DeepEquals, poolConfig)
-			results := result.(*params.ErrorResults)
-
-			results.Results = make([]params.ErrorResult, len(args.Pools))
-			return nil
-		})
+				results.Results = make([]params.ErrorResult, len(args.Pools))
+				return nil
+			},
+		),
+		BestVersion: 5,
+	}
 	storageClient := storage.NewClient(apiCaller)
 	err := storageClient.CreatePool(poolName, poolType, poolConfig)
 	c.Assert(err, jc.ErrorIsNil)
@@ -322,7 +325,7 @@ func (s *storageMockSuite) TestLegacyCreatePool(c *gc.C) {
 			return nil
 		})
 	storageClient := storage.NewClient(apiCaller)
-	err := storageClient.LegacyCreatePool(poolName, poolType, poolConfig)
+	err := storageClient.CreatePool(poolName, poolType, poolConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
