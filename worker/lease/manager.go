@@ -176,6 +176,14 @@ func (manager *Manager) choose(blocks blocks) error {
 		return manager.handleCheck(check)
 	case manager.now = <-manager.nextTick(manager.now):
 		manager.wg.Add(1)
+		// TODO(jam): 2019-02-03 This retryingTick is being fired off in its own
+		//  goroutine without synchronizing with manager.nextTick above.
+		//  Which means that if handling expiring tokens takes any real length
+		//  of time, then we'll get a backlog of *many* goroutines all trying
+		//  to expire tokens at some previous point in time.
+		//  We might want to stop the ticking while retryingTick is happening,
+		//  *or* tell retryingTick that it should update its time when a new
+		//  nextTick occurs.
 		go manager.retryingTick(manager.now)
 	case claim := <-manager.claims:
 		manager.wg.Add(1)
