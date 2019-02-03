@@ -4,6 +4,8 @@
 package lease_test
 
 import (
+	"github.com/juju/testing"
+	"sync"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -98,18 +100,32 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 		PrometheusRegisterer: noopRegisterer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
+	var wg sync.WaitGroup
+	testDone := make(chan struct{})
+	wg.Add(1)
+	go func() {
 		// Dirty tests will probably have stopped the manager anyway, but no
 		// sense leaving them around if things aren't exactly as we expect.
+		select {
+		case <-testDone:
+		case <-time.After(testing.LongWait):
+			c.Errorf("test took >10s to complete")
+		}
 		manager.Kill()
 		err := manager.Wait()
 		if !fix.expectDirty {
 			c.Check(err, jc.ErrorIsNil)
 		}
+		wg.Done()
 	}()
-	defer store.Wait(c)
+	wg.Add(1)
+	go func() {
+		store.Wait(c)
+		wg.Done()
+	}()
 	waitAlarms(c, clock, 1)
 	test(manager, clock)
+	close(testDone)
 }
 
 func waitAlarms(c *gc.C, clock *testclock.Clock, count int) {
