@@ -145,18 +145,6 @@ func (m *MockLXDProfileUnit) EXPECT() *MockLXDProfileUnitMockRecorder {
 	return m.recorder
 }
 
-// ApplicationName mocks base method
-func (m *MockLXDProfileUnit) ApplicationName() string {
-	ret := m.ctrl.Call(m, "ApplicationName")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ApplicationName indicates an expected call of ApplicationName
-func (mr *MockLXDProfileUnitMockRecorder) ApplicationName() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationName", reflect.TypeOf((*MockLXDProfileUnit)(nil).ApplicationName))
-}
-
 // AssignedMachineId mocks base method
 func (m *MockLXDProfileUnit) AssignedMachineId() (string, error) {
 	ret := m.ctrl.Call(m, "AssignedMachineId")
@@ -168,6 +156,18 @@ func (m *MockLXDProfileUnit) AssignedMachineId() (string, error) {
 // AssignedMachineId indicates an expected call of AssignedMachineId
 func (mr *MockLXDProfileUnitMockRecorder) AssignedMachineId() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedMachineId", reflect.TypeOf((*MockLXDProfileUnit)(nil).AssignedMachineId))
+}
+
+// Name mocks base method
+func (m *MockLXDProfileUnit) Name() string {
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name
+func (mr *MockLXDProfileUnitMockRecorder) Name() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockLXDProfileUnit)(nil).Name))
 }
 
 // Tag mocks base method
