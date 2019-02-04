@@ -373,6 +373,22 @@ func removeSettingsOp(collection, key string) txn.Op {
 	}
 }
 
+// replaceSettings replaces the settings values for key.
+func replaceSettings(db Database, collection, key string, values map[string]interface{}) error {
+	op, _, err := replaceSettingsOp(db, collection, key, values)
+	if err != nil {
+		return errors.Annotatef(err, "settings %q", key)
+	}
+	err = db.RunTransaction([]txn.Op{op})
+	if err == txn.ErrAborted {
+		return errors.NotFoundf("settings")
+	}
+	if err != nil {
+		return fmt.Errorf("cannot replace settings: %v", err)
+	}
+	return nil
+}
+
 // listSettings returns all the settings with the specified key prefix.
 func listSettings(backend modelBackend, collection, keyPrefix string) (map[string]map[string]interface{}, error) {
 	settings, closer := backend.db().GetRawCollection(collection)
@@ -482,6 +498,11 @@ func (s *StateSettings) ReadSettings(key string) (map[string]interface{}, error)
 // RemoveSettings exposes removeSettings on state for use outside the state package.
 func (s *StateSettings) RemoveSettings(key string) error {
 	return removeSettings(s.backend.db(), s.collection, key)
+}
+
+// ReplaceSettings exposes replaceSettings on state for use outside the state package.
+func (s *StateSettings) ReplaceSettings(key string, settings map[string]interface{}) error {
+	return replaceSettings(s.backend.db(), s.collection, key, settings)
 }
 
 // ListSettings exposes listSettings on state for use outside the state package.

@@ -175,7 +175,6 @@ func (manager *Manager) choose(blocks blocks) error {
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
 	case manager.now = <-manager.nextTick(manager.now):
-		manager.wg.Add(1)
 		// TODO(jam): 2019-02-03 This retryingTick is being fired off in its own
 		//  goroutine without synchronizing with manager.nextTick above.
 		//  Which means that if handling expiring tokens takes any real length
@@ -184,7 +183,13 @@ func (manager *Manager) choose(blocks blocks) error {
 		//  We might want to stop the ticking while retryingTick is happening,
 		//  *or* tell retryingTick that it should update its time when a new
 		//  nextTick occurs.
-		go manager.retryingTick(manager.now)
+		// If we need to expire leases we should do it, otherwise this
+		// is just an opportunity to check for blocks that need to be
+		// notified.
+		if !manager.config.Store.Autoexpire() {
+			manager.wg.Add(1)
+			go manager.retryingTick(manager.now)
+		}
 	case claim := <-manager.claims:
 		manager.wg.Add(1)
 		go manager.retryingClaim(claim)

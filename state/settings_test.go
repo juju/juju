@@ -511,6 +511,35 @@ func (s *SettingsSuite) TestList(c *gc.C) {
 	})
 }
 
+func (s *SettingsSuite) TestReplaceSettings(c *gc.C) {
+	_, err := s.createSettings(s.key, map[string]interface{}{"foo1": "bar1", "foo2": "bar2"})
+	c.Assert(err, jc.ErrorIsNil)
+	options := map[string]interface{}{"alpha": "beta", "foo2": "zap100"}
+	err = replaceSettings(s.state.db(), s.collection, s.key, options)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check MongoDB state.
+	var mgoData struct {
+		Settings settingsMap
+	}
+	settings, closer := s.state.db().GetCollection(settingsC)
+	defer closer()
+	err = settings.FindId(s.key).One(&mgoData)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		map[string]interface{}(mgoData.Settings),
+		gc.DeepEquals,
+		map[string]interface{}{
+			"alpha": "beta", "foo2": "zap100",
+		})
+}
+
+func (s *SettingsSuite) TestReplaceSettingsNotFound(c *gc.C) {
+	options := map[string]interface{}{"alpha": "beta", "foo2": "zap100"}
+	err := replaceSettings(s.state.db(), s.collection, s.key, options)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *SettingsSuite) TestUpdatingInterfaceSliceValue(c *gc.C) {
 	// When storing config values that are coerced from schemas as
 	// List(Something), the value will always be a []interface{}. Make

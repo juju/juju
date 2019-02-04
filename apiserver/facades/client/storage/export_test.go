@@ -4,10 +4,11 @@
 package storage
 
 var (
-	ValidatePoolListFilter   = (*APIv4).validatePoolListFilter
-	ValidateNameCriteria     = (*APIv4).validateNameCriteria
-	ValidateProviderCriteria = (*APIv4).validateProviderCriteria
-	EnsureStoragePoolFilter  = (*APIv4).ensureStoragePoolFilter
+	ValidatePoolListFilter   = (*StorageAPI).validatePoolListFilter
+	ValidateNameCriteria     = (*StorageAPI).validateNameCriteria
+	ValidateProviderCriteria = (*StorageAPI).validateProviderCriteria
+	EnsureStoragePoolFilter  = (*StorageAPI).ensureStoragePoolFilter
+	NewStorageAPIForTest     = newStorageAPI
 )
 
 type (

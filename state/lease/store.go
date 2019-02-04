@@ -61,6 +61,9 @@ type store struct {
 	globalTime time.Time
 }
 
+// Autoexpire is part of the lease.Store interface.
+func (*store) Autoexpire() bool { return false }
+
 // Leases is part of the lease.Store interface.
 func (store *store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 	cfg := store.config
