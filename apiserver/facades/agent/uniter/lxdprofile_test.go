@@ -140,9 +140,9 @@ func (s *lxdProfileSuite) TestRemoveUpgradeCharmProfileDataUnitTag(c *gc.C) {
 
 	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine1, nil)
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil).Times(2)
-	mockMachine1.EXPECT().RemoveUpgradeCharmProfileData("mysql").Return(nil)
+	mockMachine1.EXPECT().RemoveUpgradeCharmProfileData("mysql/1").Return(nil)
 	mockUnit1.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil)
-	mockUnit1.EXPECT().ApplicationName().Return("mysql")
+	mockUnit1.EXPECT().Name().Return("mysql/1")
 
 	args := params.Entities{
 		Entities: []params.Entity{
