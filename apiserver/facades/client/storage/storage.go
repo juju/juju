@@ -26,6 +26,10 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
+const (
+	operatorStorage = "operator-storage"
+)
+
 // StorageAPI implements the latest version (v5) of the Storage API which adds Update and Delete.
 type StorageAPI struct {
 	backend       backend
@@ -1145,7 +1149,16 @@ func (a *StorageAPI) RemovePool(p params.StoragePoolDeleteArgs) (params.ErrorRes
 	if err := a.checkCanWrite(); err != nil {
 		return results, errors.Trace(err)
 	}
+	poolsInUse, err := a.storagePoolsInUse(p.Pools)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
 	for i, pool := range p.Pools {
+		if poolsInUse[pool.Name] {
+			results.Results[i].Error = common.ServerError(errors.Errorf("pool %q in use", pool.Name))
+			continue
+		}
 		err := a.poolManager.Delete(pool.Name)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
@@ -1153,6 +1166,31 @@ func (a *StorageAPI) RemovePool(p params.StoragePoolDeleteArgs) (params.ErrorRes
 
 	}
 	return results, nil
+}
+
+func (a *StorageAPI) storagePoolsInUse(pools []params.StoragePoolDeleteArg) (map[string]bool, error) {
+	// Has a specific check for operator-storage as the operator doesn't
+	// assign storage to a Unit in the traditional way
+	var (
+		poolNames    []string
+		operatorPool bool
+	)
+	for _, p := range pools {
+		poolNames = append(poolNames, p.Name)
+		operatorPool = p.Name == operatorStorage
+	}
+	poolsInUse, err := a.storageAccess.StoragePoolsInUse(poolNames)
+	if err != nil {
+		return poolsInUse, errors.Trace(err)
+	}
+	apps, err := a.backend.AllApplications()
+	if err != nil {
+		return poolsInUse, errors.Trace(err)
+	}
+	if a.modelType == state.ModelTypeCAAS && len(apps) > 0 && operatorPool {
+		poolsInUse[operatorStorage] = true
+	}
+	return poolsInUse, nil
 }
 
 // UpdatePool deletes the named pool
