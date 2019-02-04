@@ -33,6 +33,9 @@ type storageInterface interface {
 	// AllStorageInstances is required for storage functionality.
 	AllStorageInstances() ([]state.StorageInstance, error)
 
+	// StoragePoolsInUse is required to sanity check pool deletions
+	StoragePoolsInUse([]string) (map[string]bool, error)
+
 	// StorageAttachments is required for storage functionality.
 	StorageAttachments(names.StorageTag) ([]state.StorageAttachment, error)
 
@@ -141,6 +144,7 @@ func unitAssignedMachine(backend backend, tag names.UnitTag) (names.MachineTag, 
 }
 
 type backend interface {
+	AllApplications() ([]*state.Application, error)
 	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)

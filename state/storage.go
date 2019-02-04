@@ -295,6 +295,23 @@ func (sb *storageBackend) AllStorageInstances() ([]StorageInstance, error) {
 	return out, nil
 }
 
+// StoragePoolsInUse provides a lookup of which pools are actively in use.
+func (sb *storageBackend) StoragePoolsInUse(poolNames []string) (map[string]bool, error) {
+	out := make(map[string]bool)
+	for _, s := range poolNames {
+		out[s] = false
+	}
+	poolFinder := bson.D{{"constraints.pool", bson.D{{"$in", poolNames}}}}
+	storageInstances, err := sb.storageInstances(poolFinder)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, s := range storageInstances {
+		out[s.Pool()] = true
+	}
+	return out, nil
+}
+
 func (sb *storageBackend) storageInstances(query bson.D) (storageInstances []*storageInstance, err error) {
 	storageCollection, closer := sb.mb.db().GetCollection(storageInstancesC)
 	defer closer()

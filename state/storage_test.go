@@ -658,6 +658,30 @@ func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
 	}
 }
 
+func (s *StorageStateSuite) TestStoragePoolsInUse(c *gc.C) {
+	s.assertStorageUnitsAdded(c)
+
+	toCheck := []string{"loop-pool", "swimming-pool"}
+	inUse, err := s.storageBackend.StoragePoolsInUse(toCheck)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(inUse, gc.HasLen, 2)
+	c.Assert(inUse["loop-pool"], jc.IsTrue)
+	c.Assert(inUse["swimming-pool"], jc.IsFalse)
+
+	toCheck = []string{"swimming-pool", "another-pool"}
+	inUse, err = s.storageBackend.StoragePoolsInUse(toCheck)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(inUse, gc.HasLen, 2)
+	c.Assert(inUse["another-pool"], jc.IsFalse)
+	c.Assert(inUse["swimming-pool"], jc.IsFalse)
+
+	toCheck = []string{"loop-pool"}
+	inUse, err = s.storageBackend.StoragePoolsInUse(toCheck)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(inUse, gc.HasLen, 1)
+	c.Assert(inUse["loop-pool"], jc.IsTrue)
+}
+
 func (s *StorageStateSuite) TestStorageAttachments(c *gc.C) {
 	s.assertStorageUnitsAdded(c)
 
