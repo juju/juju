@@ -4,7 +4,6 @@
 package lease_test
 
 import (
-	"github.com/juju/testing"
 	"sync"
 	"time"
 
@@ -111,7 +110,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 		defer wg.Done()
 		// Dirty tests will probably have stopped the manager anyway, but no
 		// sense leaving them around if things aren't exactly as we expect.
-		timeout := time.After(testing.LongWait)
+		timeout := time.After(coretesting.LongWait)
 		select {
 		case <-testDone:
 		case <-timeout:
@@ -123,7 +122,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 		// don't wait any longer than 10s total.
 		select {
 		case <-storeDone:
-		case <-time.After(testing.LongWait):
+		case <-time.After(coretesting.LongWait):
 			c.Errorf("store took >10s to complete")
 		}
 		manager.Kill()

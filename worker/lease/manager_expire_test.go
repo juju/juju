@@ -4,11 +4,11 @@
 package lease_test
 
 import (
-	"github.com/juju/loggo"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
