@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
+	"github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/watcher"
@@ -107,7 +108,19 @@ func (w *deploymentWorker) loop() error {
 			}
 			gotSpecNotify = true
 		}
-		if scale == 0 {
+		if scale > 0 && !gotSpecNotify {
+			continue
+		}
+		info, err := w.provisioningInfoGetter.ProvisioningInfo(w.application)
+		noUnits := errors.Cause(err) == caasunitprovisioner.ErrNoUnits
+		if errors.IsNotFound(err) {
+			// No pod spec defined for a unit yet;
+			// wait for one to be set.
+			continue
+		} else if err != nil && !noUnits {
+			return errors.Trace(err)
+		}
+		if scale == 0 || noUnits {
 			if cw != nil {
 				worker.Stop(cw)
 				specChan = nil
@@ -117,20 +130,8 @@ func (w *deploymentWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			currentScale = scale
+			currentScale = 0
 			continue
-		}
-
-		if !gotSpecNotify {
-			continue
-		}
-		info, err := w.provisioningInfoGetter.ProvisioningInfo(w.application)
-		if errors.IsNotFound(err) {
-			// No pod spec defined for a unit yet;
-			// wait for one to be set.
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
 		}
 		specStr := info.PodSpec
 
