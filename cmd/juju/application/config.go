@@ -186,7 +186,16 @@ func (c *configCommand) validateGeneration() error {
 		c.generation = string(gen)
 	}
 	if !set.NewStrings(string(model.GenerationCurrent), string(model.GenerationNext)).Contains(c.generation) {
-		return errors.New(`generation option must be "current" or "next"`)
+		// TODO (manadart 2019-02-04): If the generation feature is inactive,
+		// we set a default in lieu of empty values. This is an expediency
+		// during development. When we remove the flag, there will be tests
+		// (particularly feature tests) that will need to accommodate a value
+		// for generation in the local store.
+		if !featureflag.Enabled(feature.Generations) && c.generation == "" {
+			c.generation = string(model.GenerationCurrent)
+		} else {
+			return errors.New(`generation option must be "current" or "next"`)
+		}
 	}
 	return nil
 }
