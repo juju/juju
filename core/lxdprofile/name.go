@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 )
 
-// AppName here is used as the application prefix name. We can't use names.Juju
+// UnitName here is used as the application prefix name. We can't use names.Juju
 // as that changes depending on platform.
 const AppName = "juju"
 

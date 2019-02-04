@@ -1405,8 +1405,8 @@ type UpgradeSeriesUnitsResult struct {
 }
 
 type ProfileArg struct {
-	Entity  Entity `json:"entity"`
-	AppName string `json:"app-name"`
+	Entity   Entity `json:"entity"`
+	UnitName string `json:"unit-name"`
 }
 
 type ProfileArgs struct {
@@ -1439,7 +1439,7 @@ type SetProfileUpgradeCompleteArgs struct {
 }
 
 type SetProfileUpgradeCompleteArg struct {
-	Entity  Entity `json:"entity"`
-	AppName string `json:"app-name"`
-	Message string `json:"message"`
+	Entity   Entity `json:"entity"`
+	UnitName string `json:"unit-name"`
+	Message  string `json:"message"`
 }
