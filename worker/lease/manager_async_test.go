@@ -212,10 +212,9 @@ func (s *AsyncSuite) TestExpiryRepeatedTimeout(c *gc.C) {
 		delay := 50 * time.Millisecond
 		for i := 0; i < 4; i++ {
 			c.Logf("retry %d", i+1)
-			// The two timers are the core retrying loop, and the outer
-			// 'when should I try again' loop.
-			// XXX: We should probably *not* queue up a nextTick while we're
-			// still retrying the current tick
+			// Two timers:
+			// - nextTick timer
+			// - retryingExpiry timers
 			err := clock.WaitAdvance(delay, coretesting.LongWait, 2)
 			c.Assert(err, jc.ErrorIsNil)
 			select {
@@ -430,16 +429,10 @@ func (s *AsyncSuite) TestClaimTimeout(c *gc.C) {
 			c.Fatalf("timed out waiting for claim")
 		}
 
-		// Why three waiters, you ask? I also was confused about that
-		// for a fair amount of time, but after a bit of debugging it
-		// makes sense. There's one for the clock.Alarm created in
-		// nextTick in choose the first time around the mainloop (when
-		// the claim comes in), then there's the next alarm from the
-		// next time around the loop (after the claim goroutine is
-		// launched), and then there's the claim retry timer. (The
-		// nextTick alarms are both for ~1min in the future, since
-		// there are no existing leases.)
-		err = clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 3)
+		// Two waiters:
+		// - one is the nextTick timer, set for 1 minute in the future
+		// - two is the claim retry timer
+		err = clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 2)
 
 		select {
 		case err := <-result:
@@ -448,6 +441,47 @@ func (s *AsyncSuite) TestClaimTimeout(c *gc.C) {
 			c.Fatalf("timed out waiting for response")
 		}
 	})
+}
+
+func (s *AsyncSuite) TestClockBehavior(c *gc.C) {
+	clock := testclock.NewClock(defaultClockStart)
+	timer := clock.NewTimer(time.Hour)
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		select {
+		case <-stop:
+			return
+		case t := <-timer.Chan():
+			c.Errorf("timer accidentally ticked at: %v", t)
+		case <-time.After(testing.LongWait):
+			c.Errorf("test took too long")
+		}
+	}()
+	// Just our goroutine, but we don't go so far as to trigger the wakeup.
+	clock.WaitAdvance(1*time.Minute, testing.ShortWait, 1)
+	// Reset shouldn't trigger a wakeup, just move when it thinks it will wake up.
+	timer.Reset(time.Hour)
+	clock.WaitAdvance(1*time.Minute, testing.ShortWait, 1)
+	timer.Reset(time.Minute)
+	clock.WaitAdvance(30*time.Second, testing.ShortWait, 1)
+	// Now tell the goroutine to stop and start another one that *does* want to
+	// wake up
+	close(stop)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		select {
+		case t := <-timer.Chan():
+			c.Logf("timer successfully ticked: %v", t)
+		case <-time.After(testing.LongWait):
+			c.Errorf("timer took too long")
+		}
+	}()
+	clock.WaitAdvance(31*time.Second, testing.ShortWait, 1)
+	wg.Wait()
 }
 
 func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
@@ -494,8 +528,10 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 				c.Fatalf("timed out waiting for claim call")
 			}
 
-			// See above for what the 3 waiters are.
-			err := clock.WaitAdvance(duration, coretesting.LongWait, 3)
+			// There should be 2 waiters:
+			//  - nextTick has a timer once things expire
+			//  - retryingClaim has an attempt timer
+			err := clock.WaitAdvance(duration, coretesting.LongWait, 2)
 			c.Assert(err, jc.ErrorIsNil)
 			duration *= 2
 		}
@@ -518,7 +554,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 }
 
 func (s *AsyncSuite) TestWaitsForGoroutines(c *gc.C) {
-	// The manager should wait for all of its child tick and claim
+	// The manager should wait for all of its child expire and claim
 	// goroutines to be finished before it stops.
 	tickStarted := make(chan struct{})
 	tickFinish := make(chan struct{})
@@ -557,7 +593,7 @@ func (s *AsyncSuite) TestWaitsForGoroutines(c *gc.C) {
 		select {
 		case <-tickStarted:
 		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting for tick start")
+			c.Fatalf("timed out waiting for expire start")
 		}
 
 		result := make(chan error)
@@ -593,7 +629,7 @@ func (s *AsyncSuite) TestWaitsForGoroutines(c *gc.C) {
 
 		workertest.CheckAlive(c, manager)
 
-		// And when we finish the tick the worker stops.
+		// And when we finish the expire the worker stops.
 		close(tickFinish)
 
 		err = workertest.CheckKilled(c, manager)
