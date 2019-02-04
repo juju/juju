@@ -25,6 +25,7 @@ type ShowControllerSuite struct {
 	baseControllerSuite
 	fakeController *fakeController
 	api            func(string) controller.ControllerAccessAPI
+	setAccess      func(permission.Access)
 }
 
 var _ = gc.Suite(&ShowControllerSuite{})
@@ -40,10 +41,14 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 				{Id: "3", InstanceId: "id-3", HasVote: false, WantsVote: false, Status: "active"},
 			},
 		},
+		access: permission.SuperuserAccess,
 	}
 	s.api = func(controllerName string) controller.ControllerAccessAPI {
 		s.fakeController.controllerName = controllerName
 		return s.fakeController
+	}
+	s.setAccess = func(access permission.Access) {
+		s.fakeController.access = access
 	}
 }
 
@@ -365,6 +370,36 @@ func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *gc.C) {
 	})
 }
 
+func (s *ShowControllerSuite) TestShowControllerForUserWithLoginAccess(c *gc.C) {
+	s.controllersYaml = `controllers:
+  mallards:
+    uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+    cloud: mallards
+    agent-version: 999.99.99
+`
+	s.expectedOutput = `
+mallards:
+  details:
+    uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+    cloud: mallards
+    agent-version: 999.99.99
+  current-model: admin/my-model
+  account:
+    user: admin
+    access: login
+`[1:]
+
+	store := s.createTestClientStore(c)
+	c.Assert(store.Models["mallards"].Models, gc.HasLen, 2)
+	s.setAccess(permission.LoginAccess)
+	s.assertShowController(c, "mallards")
+}
+
 func (s *ShowControllerSuite) runShowController(c *gc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, controller.NewShowControllerCommandForTest(s.store, s.api), args...)
 }
@@ -383,10 +418,11 @@ func (s *ShowControllerSuite) assertShowController(c *gc.C, args ...string) {
 type fakeController struct {
 	controllerName string
 	machines       map[string][]base.Machine
+	access         permission.Access
 }
 
-func (*fakeController) GetControllerAccess(user string) (permission.Access, error) {
-	return "superuser", nil
+func (c *fakeController) GetControllerAccess(user string) (permission.Access, error) {
+	return c.access, nil
 }
 
 func (*fakeController) ModelConfig() (map[string]interface{}, error) {
