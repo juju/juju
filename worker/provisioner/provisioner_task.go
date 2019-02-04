@@ -380,6 +380,18 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 			return errors.Annotatef(err, "failed to get machine %v", machineTags[i])
 		}
 		m := mResult.Machine
+		// We need to check for the life of the machine here, as the machine
+		// might have been dying when the watcher fired, but is now dead by
+		// the time this is triggered. We still want to clean up dying machines
+		// of the charm profile data, so that the we don't leave any orphan
+		// documents. If the machine is dead, we can't clean up the document
+		// as the machine is dead and we'll return an error doing so.
+		if m.Life() == params.Dead {
+			// Machine is dead, continue onwards as we can't do anything in this
+			// position.
+			logger.Tracef("failed to process profile changes as the machine is dead %q", m.Id())
+			continue
+		}
 		removeDoc, err := processOneProfileChange(m, profileBroker, appNames[i])
 		if removeDoc {
 			if err != nil {

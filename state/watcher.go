@@ -929,6 +929,24 @@ func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.C
 		return nil
 	}
 
+	// find out if the machine is dead, if so, don't bother adding it to the
+	// following machine ids. If the machine is dead we can't do anything about
+	// the watcher trigger any way.
+	machineCol, machineCloser := w.db.GetCollection(machinesC)
+	defer machineCloser()
+
+	var machineDoc machineDoc
+	if err := machineCol.FindId(change.Id).One(&machineDoc); err != nil {
+		// If we can't find the machine, we should just return out.
+		return err
+	}
+	if machineDoc.Life == Dead {
+		logger.Tracef("skipping field change watching as machine %q is dead", docId)
+		return nil
+	}
+
+	// Once we know that the machine is up and running, we can actually act
+	// upon the instance charm profile data.
 	collection, closer := w.db.GetCollection(instanceCharmProfileDataC)
 	defer closer()
 
