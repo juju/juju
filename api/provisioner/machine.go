@@ -120,7 +120,7 @@ type MachineProvisioner interface {
 	WatchContainersCharmProfiles(ctype instance.ContainerType) (watcher.StringsWatcher, error)
 
 	// CharmProfileChangeInfo retrieves the info necessary to change a charm
-	// profile used by a machine, for the give application.
+	// profile used by a machine, for the give unit.
 	CharmProfileChangeInfo(string) (CharmProfileChangeInfo, error)
 
 	// SetCharmProfiles records the given slice of charm profile names.
@@ -573,13 +573,13 @@ type CharmProfileChangeInfo struct {
 }
 
 // CharmProfileChangeInfo implements MachineProvisioner.CharmProfileChangeInfo.
-func (m *Machine) CharmProfileChangeInfo(appName string) (CharmProfileChangeInfo, error) {
+func (m *Machine) CharmProfileChangeInfo(unitName string) (CharmProfileChangeInfo, error) {
 	var results params.ProfileChangeResults
 	args := params.ProfileArgs{
 		Args: []params.ProfileArg{
 			{
-				Entity:  params.Entity{Tag: m.tag.String()},
-				AppName: appName,
+				Entity:   params.Entity{Tag: m.tag.String()},
+				UnitName: unitName,
 			},
 		},
 	}
@@ -638,9 +638,9 @@ func (m *Machine) SetUpgradeCharmProfileComplete(appName, message string) error 
 	args := params.SetProfileUpgradeCompleteArgs{
 		Args: []params.SetProfileUpgradeCompleteArg{
 			{
-				Entity:  params.Entity{Tag: m.tag.String()},
-				AppName: appName,
-				Message: message,
+				Entity:   params.Entity{Tag: m.tag.String()},
+				UnitName: appName,
+				Message:  message,
 			},
 		},
 	}
@@ -664,8 +664,8 @@ func (m *Machine) RemoveUpgradeCharmProfileData(appName string) error {
 	args := params.ProfileArgs{
 		Args: []params.ProfileArg{
 			{
-				Entity:  params.Entity{Tag: m.tag.String()},
-				AppName: appName,
+				Entity:   params.Entity{Tag: m.tag.String()},
+				UnitName: appName,
 			},
 		},
 	}
