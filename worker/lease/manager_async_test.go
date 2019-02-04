@@ -354,8 +354,9 @@ func (s *AsyncSuite) TestClaimSlow(c *gc.C) {
 			response2 <- claimer.Claim("antiquisearchers", "art", time.Minute)
 		}()
 
-		// response1 should have failed its claim, and no be waiting to retry
-		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 4), jc.ErrorIsNil)
+		// response1 should have failed its claim, and now be waiting to retry
+		// only 1 waiter, which is the 'when should we expire next' timer.
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 1), jc.ErrorIsNil)
 
 		// We should be able to get the response for the second claim
 		// even though the first hasn't come back yet.
@@ -370,8 +371,7 @@ func (s *AsyncSuite) TestClaimSlow(c *gc.C) {
 
 		close(slowFinish)
 
-		// response1 should have failed its claim again, and no be waiting longer to retry
-		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 4), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 1), jc.ErrorIsNil)
 
 		// Now response1 should come back.
 		select {

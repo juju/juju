@@ -159,7 +159,7 @@ func (manager *Manager) loop() error {
 	manager.setupInitialTimer()
 	for {
 		if err := manager.choose(blocks); err != nil {
-			manager.config.Logger.Tracef("[%s] exiting main loop with error: %v", err)
+			manager.config.Logger.Tracef("[%s] exiting main loop with error: %v", manager.logContext, err)
 			return errors.Trace(err)
 		}
 	}
@@ -260,6 +260,14 @@ func (manager *Manager) retryingClaim(claim claim) {
 		// Doing it this way, we'll wake up, and then see we can sleep
 		// for a bit longer. But we'll always wake up in time.
 		manager.ensureNextTimeout(claim.duration)
+	} else {
+		// Stop the main loop because we got an abnormal error
+		err := errors.Trace(err)
+		select {
+		case <-manager.catacomb.Dying():
+			return
+		case manager.errors <- err:
+		}
 	}
 }
 
