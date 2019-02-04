@@ -307,12 +307,12 @@ func (s *AsyncSuite) TestClaimSlow(c *gc.C) {
 				select {
 				case slowStarted <- struct{}{}:
 				case <-time.After(coretesting.LongWait):
-					c.Fatalf("timed out sending slowStarted")
+					c.Errorf("timed out sending slowStarted")
 				}
 				select {
 				case <-slowFinish:
 				case <-time.After(coretesting.LongWait):
-					c.Fatalf("timed out waiting for slowFinish")
+					c.Errorf("timed out waiting for slowFinish")
 				}
 				mu.Lock()
 				leases[key("dmdc")] = corelease.Info{

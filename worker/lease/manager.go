@@ -442,7 +442,10 @@ func (manager *Manager) retryingExpire(now time.Time, expired chan struct{}) {
 	for a := manager.startRetry(); a.Next(); {
 		err = manager.expire(now)
 		// We've done at least 1 attempt
-		close(expired)
+		if expired != nil {
+			close(expired)
+			expired = nil
+		}
 		if !lease.IsTimeout(err) {
 			break
 		}
