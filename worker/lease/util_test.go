@@ -86,7 +86,7 @@ func (store *Store) Wait(c *gc.C) {
 		default:
 		}
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("Store test took way too long")
+		c.Errorf("Store test took way too long")
 	}
 }
 

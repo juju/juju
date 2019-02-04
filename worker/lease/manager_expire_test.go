@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -22,6 +23,14 @@ type ExpireSuite struct {
 }
 
 var _ = gc.Suite(&ExpireSuite{})
+
+func (s *ExpireSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	logger := loggo.GetLogger("juju.worker.lease")
+	logger.SetLogLevel(loggo.TRACE)
+	logger = loggo.GetLogger("lease_test")
+	logger.SetLogLevel(loggo.TRACE)
+}
 
 func (s *ExpireSuite) TestStartup_ExpiryInPast(c *gc.C) {
 	fix := &Fixture{
@@ -253,7 +262,6 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
 		waitAdvance(c, clock, justAfterSeconds(newLeaseSecs), 3)
-		c.Logf("advanced")
 	})
 }
 
