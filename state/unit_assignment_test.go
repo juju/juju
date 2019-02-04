@@ -151,7 +151,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementAddCharmProfile(c *gc.C
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	chCharmURL, err := machine.UpgradeCharmProfileCharmURL(name)
+	chCharmURL, err := machine.UpgradeCharmProfileCharmURL(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(chCharmURL, gc.Equals, charm.URL().String())
 }

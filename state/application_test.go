@@ -2080,7 +2080,7 @@ func (s *ApplicationSuite) TestSetCharmProfile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertUpgradeCharmProfile(c, machine, profileApp.Name(), "local:quantal/quantal-lxd-profile-0")
 
-	err = machine.RemoveUpgradeCharmProfileData(subApp.Name())
+	err = machine.RemoveUpgradeCharmProfileData(subApp.Name() + "/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = subApp.SetCharmProfile("local:quantal/quantal-lxd-profile-subordinate-0")
@@ -2119,7 +2119,7 @@ func assertUpgradeCharmProfile(c *gc.C, m *state.Machine, appName, charmURL stri
 	err := m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	chCharmURL, err := m.UpgradeCharmProfileCharmURL(appName)
+	chCharmURL, err := m.UpgradeCharmProfileCharmURL(appName + "/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(chCharmURL, gc.Equals, charmURL)
 }
