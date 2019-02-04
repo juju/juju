@@ -935,14 +935,15 @@ func (h *bundleHandler) setOptions(change *bundlechanges.SetOptionsChange) error
 	}
 
 	// We know that there wouldn't be any setOptions if there were no options.
-	config, err := yaml.Marshal(map[string]map[string]interface{}{p.Application: p.Options})
+	cfg, err := yaml.Marshal(map[string]map[string]interface{}{p.Application: p.Options})
 	if err != nil {
 		return errors.Annotatef(err, "cannot marshal options for application %q", p.Application)
 	}
 
 	if err := h.api.Update(params.ApplicationUpdate{
 		ApplicationName: p.Application,
-		SettingsYAML:    string(config),
+		SettingsYAML:    string(cfg),
+		Generation:      model.GenerationCurrent,
 	}); err != nil {
 		return errors.Annotatef(err, "cannot update options for application %q", p.Application)
 	}
