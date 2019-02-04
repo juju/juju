@@ -126,6 +126,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 	waitAlarms(c, clock, 1)
 	test(manager, clock)
 	close(testDone)
+	wg.Wait()
 }
 
 func waitAlarms(c *gc.C, clock *testclock.Clock, count int) {

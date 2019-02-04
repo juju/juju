@@ -378,6 +378,7 @@ func (manager *Manager) nextTick(lastTick time.Time) <-chan time.Time {
 
 // retryingTick runs tick and retries any timeouts.
 func (manager *Manager) retryingTick(now time.Time) {
+	manager.config.Logger.Tracef("[%s] tick looking for leases to expire\n", manager.logContext)
 	defer manager.wg.Done()
 	var err error
 	for a := manager.startRetry(); a.Next(); {
