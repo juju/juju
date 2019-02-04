@@ -78,10 +78,8 @@ func NewStore(autoexpire bool, leases map[lease.Key]lease.Info, expect []call) *
 // if they don't happen within a second. (You control the clock; your tests
 // should pass in *way* less than 10 seconds of wall-clock time.)
 func (store *Store) Wait(c *gc.C) {
-	c.Logf("store Wait started: %v", store.expect)
 	select {
 	case <-store.done:
-		c.Logf("store done")
 		select {
 		case err := <-store.failed:
 			c.Fatalf(err.Error())

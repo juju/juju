@@ -169,16 +169,12 @@ func (manager *Manager) loop() error {
 func (manager *Manager) choose(blocks blocks) error {
 	select {
 	case <-manager.catacomb.Dying():
-		manager.config.Logger.Tracef("[%s] dying", manager.logContext)
 		return manager.catacomb.ErrDying()
 	case err := <-manager.errors:
-		manager.config.Logger.Tracef("[%s] error: %v", manager.logContext, err)
 		return errors.Trace(err)
 	case check := <-manager.checks:
-		manager.config.Logger.Tracef("[%s] check: %v", manager.logContext, check)
 		return manager.handleCheck(check)
 	case manager.now = <-manager.nextTick(manager.now):
-		manager.config.Logger.Tracef("[%s] tick: %v", manager.logContext, manager.now)
 		// TODO(jam): 2019-02-03 This retryingTick is being fired off in its own
 		//  goroutine without synchronizing with manager.nextTick above.
 		//  Which means that if handling expiring tokens takes any real length
@@ -195,14 +191,11 @@ func (manager *Manager) choose(blocks blocks) error {
 			go manager.retryingTick(manager.now)
 		}
 	case claim := <-manager.claims:
-		manager.config.Logger.Tracef("[%s] claim: %v", manager.logContext, claim)
 		manager.wg.Add(1)
 		go manager.retryingClaim(claim)
 	case pin := <-manager.pins:
-		manager.config.Logger.Tracef("[%s] pin: %v", manager.logContext, pin)
 		manager.handlePin(pin)
 	case unpin := <-manager.unpins:
-		manager.config.Logger.Tracef("[%s] unpin: %v", manager.logContext, unpin)
 		manager.handleUnpin(unpin)
 	case block := <-manager.blocks:
 		// TODO(raftlease): Include the other key items.

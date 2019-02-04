@@ -289,7 +289,6 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
-		c.Logf("asked to extend lease")
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
