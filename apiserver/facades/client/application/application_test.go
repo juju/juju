@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/juju/core/model"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -88,7 +90,7 @@ func (s *applicationSuite) TearDownTest(c *gc.C) {
 
 func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv9 {
 	resources := common.NewResources()
-	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+	c.Assert(resources.RegisterNamed("dataDir", common.StringResource(c.MkDir())), jc.ErrorIsNil)
 	storageAccess, err := application.GetStorageState(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	model, err := s.State.Model()
@@ -112,7 +114,53 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv9 {
 	return &application.APIv9{api}
 }
 
+func (s *applicationSuite) TestCharmConfig(c *gc.C) {
+	s.setUpConfigTest(c)
+
+	// TODO (manadart 2018-02-04): When upstream methods receive a generation,
+	// refactor these tests to account for it.
+	results, err := s.applicationAPI.CharmConfig(params.ApplicationGetArgs{
+		Args: []params.ApplicationGet{
+			{ApplicationName: "foo", Generation: model.GenerationCurrent},
+			{ApplicationName: "bar", Generation: model.GenerationCurrent},
+			{ApplicationName: "wat", Generation: model.GenerationCurrent},
+		},
+	})
+	assertConfigTest(c, results, err, []params.ConfigResult{})
+}
+
+func (s *applicationSuite) TestCharmConfigV8(c *gc.C) {
+	s.setUpConfigTest(c)
+	api := &application.APIv8{APIv9: s.applicationAPI}
+	results, err := api.CharmConfig(params.Entities{
+		Entities: []params.Entity{
+			{"wat"}, {"machine-0"}, {"user-foo"},
+			{"application-foo"}, {"application-bar"}, {"application-wat"},
+		},
+	})
+	assertConfigTest(c, results, err, []params.ConfigResult{
+		{Error: &params.Error{Message: `"wat" is not a valid tag`}},
+		{Error: &params.Error{Message: `unexpected tag type, expected application, got machine`}},
+		{Error: &params.Error{Message: `unexpected tag type, expected application, got user`}},
+	})
+}
+
 func (s *applicationSuite) TestGetConfig(c *gc.C) {
+	s.setUpConfigTest(c)
+	results, err := s.applicationAPI.GetConfig(params.Entities{
+		Entities: []params.Entity{
+			{"wat"}, {"machine-0"}, {"user-foo"},
+			{"application-foo"}, {"application-bar"}, {"application-wat"},
+		},
+	})
+	assertConfigTest(c, results, err, []params.ConfigResult{
+		{Error: &params.Error{Message: `"wat" is not a valid tag`}},
+		{Error: &params.Error{Message: `unexpected tag type, expected application, got machine`}},
+		{Error: &params.Error{Message: `unexpected tag type, expected application, got user`}},
+	})
+}
+
+func (s *applicationSuite) setUpConfigTest(c *gc.C) {
 	fooConfig := map[string]interface{}{
 		"title":       "foo",
 		"skill-level": 42,
@@ -134,22 +182,13 @@ func (s *applicationSuite) TestGetConfig(c *gc.C) {
 		Charm:       dummy,
 		CharmConfig: barConfig,
 	})
-	results, err := s.applicationAPI.GetConfig(params.Entities{
-		Entities: []params.Entity{
-			{"wat"}, {"machine-0"}, {"user-foo"},
-			{"application-foo"}, {"application-bar"}, {"application-wat"},
-		},
-	})
+}
+
+func assertConfigTest(c *gc.C, results params.ApplicationGetConfigResults, err error, resPrefix []params.ConfigResult) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetConfigResults{
-		Results: []params.ConfigResult{
+		Results: append(resPrefix, []params.ConfigResult{
 			{
-				Error: &params.Error{Message: `"wat" is not a valid tag`},
-			}, {
-				Error: &params.Error{Message: `unexpected tag type, expected application, got machine`},
-			}, {
-				Error: &params.Error{Message: `unexpected tag type, expected application, got user`},
-			}, {
 				Config: map[string]interface{}{
 					"outlook": map[string]interface{}{
 						"description": "No default outlook.",
@@ -208,14 +247,13 @@ func (s *applicationSuite) TestGetConfig(c *gc.C) {
 			}, {
 				Error: &params.Error{Message: `application "wat" not found`, Code: "not found"},
 			},
-		}})
-
+		}...)})
 }
 
 func (s *applicationSuite) TestSetMetricCredentials(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	ch := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: charm,
+		Charm: ch,
 	})
 	tests := []struct {
 		about   string
@@ -224,42 +262,42 @@ func (s *applicationSuite) TestSetMetricCredentials(c *gc.C) {
 	}{
 		{
 			"test one argument and it passes",
-			params.ApplicationMetricCredentials{[]params.ApplicationMetricCredential{{
-				s.application.Name(),
-				[]byte("creds 1234"),
+			params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
+				ApplicationName:   s.application.Name(),
+				MetricCredentials: []byte("creds 1234"),
 			}}},
-			params.ErrorResults{[]params.ErrorResult{{Error: nil}}},
+			params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}},
 		},
 		{
 			"test two arguments and both pass",
-			params.ApplicationMetricCredentials{[]params.ApplicationMetricCredential{
+			params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{
 				{
-					s.application.Name(),
-					[]byte("creds 1234"),
+					ApplicationName:   s.application.Name(),
+					MetricCredentials: []byte("creds 1234"),
 				},
 				{
-					wordpress.Name(),
-					[]byte("creds 4567"),
+					ApplicationName:   wordpress.Name(),
+					MetricCredentials: []byte("creds 4567"),
 				},
 			}},
-			params.ErrorResults{[]params.ErrorResult{
+			params.ErrorResults{Results: []params.ErrorResult{
 				{Error: nil},
 				{Error: nil},
 			}},
 		},
 		{
 			"test two arguments and second one fails",
-			params.ApplicationMetricCredentials{[]params.ApplicationMetricCredential{
+			params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{
 				{
-					s.application.Name(),
-					[]byte("creds 1234"),
+					ApplicationName:   s.application.Name(),
+					MetricCredentials: []byte("creds 1234"),
 				},
 				{
-					"not-a-application",
-					[]byte("creds 4567"),
+					ApplicationName:   "not-a-application",
+					MetricCredentials: []byte("creds 4567"),
 				},
 			}},
-			params.ErrorResults{[]params.ErrorResult{
+			params.ErrorResults{Results: []params.ErrorResult{
 				{Error: nil},
 				{Error: &params.Error{Message: `application "not-a-application" not found`, Code: "not found"}},
 			}},
@@ -1093,7 +1131,7 @@ func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Even with forceSeries = true, we can't change a charm where
-	// the series is sepcified in the URL.
+	// the series is specified in the URL.
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
