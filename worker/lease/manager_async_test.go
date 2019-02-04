@@ -100,8 +100,13 @@ func (s *AsyncSuite) TestExpirySlow(c *gc.C) {
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for slowStarted")
 		}
-		err := clock.WaitAdvance(time.Second, coretesting.LongWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		// The Waiter here should be the Clock.After in tick() that is waiting
+		// for Expire to try to cleanup. But it should eventually skip even if
+		// it is blocking
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 1), jc.ErrorIsNil)
+		// The next waiter will be the main loop, noticing that the next time to expire is
+		// in 1s
+		c.Assert(clock.WaitAdvance(time.Second-50*time.Millisecond, coretesting.LongWait, 1), jc.ErrorIsNil)
 
 		select {
 		case <-quickFinished:
@@ -441,47 +446,6 @@ func (s *AsyncSuite) TestClaimTimeout(c *gc.C) {
 			c.Fatalf("timed out waiting for response")
 		}
 	})
-}
-
-func (s *AsyncSuite) TestClockBehavior(c *gc.C) {
-	clock := testclock.NewClock(defaultClockStart)
-	timer := clock.NewTimer(time.Hour)
-	stop := make(chan struct{})
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		select {
-		case <-stop:
-			return
-		case t := <-timer.Chan():
-			c.Errorf("timer accidentally ticked at: %v", t)
-		case <-time.After(testing.LongWait):
-			c.Errorf("test took too long")
-		}
-	}()
-	// Just our goroutine, but we don't go so far as to trigger the wakeup.
-	clock.WaitAdvance(1*time.Minute, testing.ShortWait, 1)
-	// Reset shouldn't trigger a wakeup, just move when it thinks it will wake up.
-	timer.Reset(time.Hour)
-	clock.WaitAdvance(1*time.Minute, testing.ShortWait, 1)
-	timer.Reset(time.Minute)
-	clock.WaitAdvance(30*time.Second, testing.ShortWait, 1)
-	// Now tell the goroutine to stop and start another one that *does* want to
-	// wake up
-	close(stop)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		select {
-		case t := <-timer.Chan():
-			c.Logf("timer successfully ticked: %v", t)
-		case <-time.After(testing.LongWait):
-			c.Errorf("timer took too long")
-		}
-	}()
-	clock.WaitAdvance(31*time.Second, testing.ShortWait, 1)
-	wg.Wait()
 }
 
 func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {

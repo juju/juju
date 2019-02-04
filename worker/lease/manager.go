@@ -368,10 +368,14 @@ func (manager *Manager) tick(now time.Time, blocks blocks) {
 	}
 	// Wait for the goroutine to do at least one expiry pass. That way we
 	// know that the leases map is reasonably up-to-date.
+	t := manager.config.Clock.NewTimer(initialRetryDelay)
 	select {
 	case <-manager.catacomb.Dying():
 		return
 	case <-expired:
+		t.Stop()
+	case <-t.Chan():
+		// Don't let a blocked expire attempt prevent our core loop from operating.
 	}
 	manager.config.Logger.Tracef("[%s] evaluating %d blocks", manager.logContext, len(blocks))
 	leases := manager.config.Store.Leases()
