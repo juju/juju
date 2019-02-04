@@ -632,12 +632,12 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfile(c *gc.C) {
 
 	// Set a profile name on the machine, destroyHostOps will only
 	// set up to remove a profile from the machine it if it exists.
-	profileName := lxdprofile.Name("default", applicationWithProfile.Name(), charmWithProfile.Revision())
+	profileName := lxdprofile.Name("default", target.Name(), charmWithProfile.Revision())
 	host.SetCharmProfiles([]string{profileName})
 	c.Assert(colocated.Destroy(), gc.IsNil)
 	assertLife(c, host, state.Alive)
 
-	chCharmURL, err := host.UpgradeCharmProfileCharmURL(applicationWithProfile.Name())
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL(target.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(chCharmURL, gc.Equals, "")
 
@@ -665,7 +665,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 
 	// "", nil is equivalent to IsNotFound, which is what we
 	// expect here
-	chCharmURL, err := host.UpgradeCharmProfileCharmURL(applicationWithOutProfile.Name())
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL(colocated.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(chCharmURL, gc.Equals, "")
 
@@ -687,7 +687,7 @@ func (s *UnitSuite) TestRemoveUnitMachineDestroyCleanUpProfileDoc(c *gc.C) {
 
 	// create a instanceCharmProfileData which hasn't been completed
 	// to check it's been deleted.
-	err = host.SetUpgradeCharmProfile(applicationWithProfile.Name(), charmWithProfile.URL().String())
+	err = host.SetUpgradeCharmProfile(unit.Name(), charmWithProfile.URL().String())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(unit.Destroy(), gc.IsNil)
@@ -695,7 +695,8 @@ func (s *UnitSuite) TestRemoveUnitMachineDestroyCleanUpProfileDoc(c *gc.C) {
 
 	// "", nil is equivalent to IsNotFound, which is what we
 	// expect here
-	chCharmURL, err := host.UpgradeCharmProfileCharmURL(applicationWithProfile.Name())
+	host.Refresh()
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(chCharmURL, gc.Equals, "")
 }

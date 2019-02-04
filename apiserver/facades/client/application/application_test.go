@@ -910,11 +910,16 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 		URL: curl.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	numUnits := 3
+	for i := 0; i < numUnits; i++ {
+		_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
 			ApplicationName: "application",
-			NumUnits:        3,
+			NumUnits:        numUnits,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -923,6 +928,13 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{
+		names.NewUnitTag("application/0"),
+		names.NewUnitTag("application/1"),
+		names.NewUnitTag("application/2"),
+	})
+	c.Assert(errs, gc.DeepEquals, []error{error(nil), error(nil), error(nil)})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
@@ -944,16 +956,28 @@ func (s *applicationSuite) setupApplicationSetCharm(c *gc.C) {
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	})
+	numUnits := 3
+	for i := 0; i < numUnits; i++ {
+		_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
 			ApplicationName: "application",
-			NumUnits:        3,
+			NumUnits:        numUnits,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
+	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{
+		names.NewUnitTag("application/0"),
+		names.NewUnitTag("application/1"),
+		names.NewUnitTag("application/2"),
+	})
+	c.Assert(errs, gc.DeepEquals, []error{error(nil), error(nil), error(nil)})
+	c.Assert(err, jc.ErrorIsNil)
 	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1008,11 +1032,16 @@ func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
 		URL: curl.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	numUnits := 3
+	for i := 0; i < numUnits; i++ {
+		_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
 			ApplicationName: "application",
-			NumUnits:        3,
+			NumUnits:        numUnits,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -1021,6 +1050,13 @@ func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
 	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{
+		names.NewUnitTag("application/0"),
+		names.NewUnitTag("application/1"),
+		names.NewUnitTag("application/2"),
+	})
+	c.Assert(errs, gc.DeepEquals, []error{error(nil), error(nil), error(nil)})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
