@@ -18,11 +18,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.websocket")
 
-// Use a 64k frame size for the websockets while we need to deal
-// with x/net/websocket connections that don't deal with receiving
-// fragmented messages.
-const websocketFrameSize = 65536
-
 const (
 	// PongDelay is how long the server will wait for a pong to be sent
 	// before the websocket is considered broken.
@@ -41,10 +36,6 @@ const (
 
 var websocketUpgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
-	// In order to deal with the remote side not handling message
-	// fragmentation, we default to largeish frames.
-	ReadBufferSize:  websocketFrameSize,
-	WriteBufferSize: websocketFrameSize,
 }
 
 // Conn wraps a gorilla/websocket.Conn, providing additional Juju-specific
