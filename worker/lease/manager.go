@@ -186,6 +186,23 @@ func (manager *Manager) choose(blocks blocks) error {
 	case block := <-manager.blocks:
 		// TODO(raftlease): Include the other key items.
 		manager.config.Logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
+		// TODO(jam): 2019-02-04 If we are adding a block for a Lease, we need
+		// to check if that lease is known to us.
+		// This is a little bit odd, in that our Leases information might be
+		// out of date, if this is a relatively new lease, which means Leases
+		// hasn't seen it show up yet. It seems that *something* new about the
+		// Lease enough to deny the claim, so that the client fell back to
+		// ask for BlockUntilReleased. However, it is also possible for a
+		// client to call Claim, have that rejected, and in the time between
+		// being rejected and the caller coming back again with a BlockUntil,
+		// the Lease will have expired, in which case they *should* be told that
+		// they can immediately try to Claim again.
+		// I guess since we don't guarantee that the lease is actually available
+		// when we return from here, and that *will* be validated by Claim(), we
+		// can probably just check
+		// lease, exists := store.Leases(block.leaseKey)[block.leaseKey]
+		// if !exists { block.unblock(block.leaseKey) }
+		// needs testing
 		blocks.add(block)
 	}
 	return nil
