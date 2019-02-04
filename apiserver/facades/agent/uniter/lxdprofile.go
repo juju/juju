@@ -35,7 +35,7 @@ type LXDProfileMachine interface {
 type LXDProfileUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
-	ApplicationName() string
+	Name() string
 }
 
 type LXDProfileAPI struct {
@@ -206,7 +206,7 @@ func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (par
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = machine.RemoveUpgradeCharmProfileData(unit.ApplicationName())
+		err = machine.RemoveUpgradeCharmProfileData(unit.Name())
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
