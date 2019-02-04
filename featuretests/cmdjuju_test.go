@@ -5,6 +5,7 @@ package featuretests
 
 import (
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing/factory"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -248,6 +249,15 @@ settings:
     value: admin001
 `
 	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{Name: "caas-model"})
+
+	// Ensure the new CAAS model is in the local store.
+	modelDetails := jujuclient.ModelDetails{
+		ModelUUID:       st.ModelUUID(),
+		ModelType:       "caas",
+		ModelGeneration: "current",
+	}
+	c.Assert(s.ControllerStore.UpdateModel("kontroll", "admin/caas-model", modelDetails), jc.ErrorIsNil)
+
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
