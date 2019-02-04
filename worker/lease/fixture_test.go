@@ -105,26 +105,38 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	var wg sync.WaitGroup
 	testDone := make(chan struct{})
+	storeDone := make(chan struct{})
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		// Dirty tests will probably have stopped the manager anyway, but no
 		// sense leaving them around if things aren't exactly as we expect.
+		timeout := time.After(testing.LongWait)
 		select {
 		case <-testDone:
-		case <-time.After(testing.LongWait):
+		case <-timeout:
 			c.Errorf("test took >10s to complete")
+			// If we timed out here, then we need to timeout storeDone as well
+			timeout = time.After(0)
+		}
+		// Wait for the store to be done in the happy path, but
+		// don't wait any longer than 10s total.
+		select {
+		case <-storeDone:
+		case <-time.After(testing.LongWait):
+			c.Errorf("store took >10s to complete")
 		}
 		manager.Kill()
 		err := manager.Wait()
 		if !fix.expectDirty {
 			c.Check(err, jc.ErrorIsNil)
 		}
-		wg.Done()
 	}()
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		store.Wait(c)
-		wg.Done()
+		close(storeDone)
 	}()
 	waitAlarms(c, clock, 1)
 	test(manager, clock)

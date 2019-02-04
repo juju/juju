@@ -32,6 +32,7 @@ type AsyncSuite struct {
 var _ = gc.Suite(&AsyncSuite{})
 
 func (s *AsyncSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 	logger := loggo.GetLogger("juju.worker.lease")
 	logger.SetLogLevel(loggo.TRACE)
 	logger = loggo.GetLogger("lease_test")

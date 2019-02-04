@@ -4,6 +4,7 @@
 package lease_test
 
 import (
+	"github.com/juju/loggo"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -22,6 +23,14 @@ type ExpireSuite struct {
 }
 
 var _ = gc.Suite(&ExpireSuite{})
+
+func (s *ExpireSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	logger := loggo.GetLogger("juju.worker.lease")
+	logger.SetLogLevel(loggo.TRACE)
+	logger = loggo.GetLogger("lease_test")
+	logger.SetLogLevel(loggo.TRACE)
+}
 
 func (s *ExpireSuite) TestStartup_ExpiryInPast(c *gc.C) {
 	fix := &Fixture{
@@ -253,7 +262,6 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
 		waitAdvance(c, clock, justAfterSeconds(newLeaseSecs), 3)
-		c.Logf("advanced")
 	})
 }
 
@@ -281,6 +289,7 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		c.Logf("asked to extend lease")
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
