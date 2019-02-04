@@ -434,14 +434,14 @@
   revision = "b8d279cc30ffcc57dab7a51c4bc39be08fb2b569"
 
 [[projects]]
-  digest = "1:3d4df54c1d5e1be4d7aab3e6e3a3807b4ddbeebd0bf7a87ea363fe41e6aec0ac"
+  digest = "1:acc1f840c3b249910754a9d5f5cb825674ca2d2011f185c6130b78f7c5ea0df8"
   name = "github.com/juju/clock"
   packages = [
     ".",
     "testclock",
   ]
   pruneopts = ""
-  revision = "bab88fc672997ef02d03f85310182d97a93dee21"
+  revision = "88c0f736129fcaaf89fff406fefec1a3c8a99340"
 
 [[projects]]
   digest = "1:760e8f7e7dc275407516bf0c0cfcec9f946810f28da4952bbb46de8391d6a348"
