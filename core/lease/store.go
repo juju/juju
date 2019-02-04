@@ -57,6 +57,11 @@ type Store interface {
 	// The return consists of each pinned lease and the collection of entities
 	// requiring its pinned behaviour.
 	Pinned() map[Key][]string
+
+	// Autoexpire indicates whether this store expires leases
+	// automatically as time is updated, or whether the client code
+	// needs to remove expired leases.
+	Autoexpire() bool
 }
 
 // Key fully identifies a lease, including the namespace and

@@ -121,7 +121,34 @@ func (s *ExpireSuite) TestExpire_ErrInvalid_Expired(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(_ *lease.Manager, clock *testclock.Clock) {
-		clock.Advance(time.Second)
+		waitAdvance(c, clock, time.Second, 1)
+	})
+}
+
+func (s *ExpireSuite) TestAutoexpire(c *gc.C) {
+	// Handles the claim, doesn't try to do anything about the expired
+	// lease which will go away automatically.
+	fix := &Fixture{
+		autoexpire: true,
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {Expiry: offset(time.Second)},
+		},
+		expectCalls: []call{{
+			method: "ClaimLease",
+			args: []interface{}{
+				corelease.Key{
+					Namespace: "namespace",
+					ModelUUID: "modelUUID",
+					Lease:     "postgresql",
+				},
+				corelease.Request{"postgresql/0", time.Minute},
+			},
+		}},
+	}
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		waitAdvance(c, clock, time.Second, 1)
+		err := getClaimer(c, manager).Claim("postgresql", "postgresql/0", time.Minute)
+		c.Check(err, jc.ErrorIsNil)
 	})
 }
 

@@ -46,6 +46,9 @@ func newLeaseStore(clock clock.Clock, target raftlease.NotifyTarget, trapdoor ra
 	}
 }
 
+// Autoexpire is part of lease.Store.
+func (*leaseStore) Autoexpire() bool { return false }
+
 // ClaimLease is part of lease.Store.
 func (s *leaseStore) ClaimLease(key lease.Key, req lease.Request) error {
 	s.mu.Lock()
