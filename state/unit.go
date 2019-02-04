@@ -694,7 +694,7 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 		}}}
 		// Clean up any instanceCharmProfileData docs for this machine before
 		// it is destroyed.
-		docId := m.instanceCharmProfileDataId(u.ApplicationName())
+		docId := m.instanceCharmProfileDataId(u.Name())
 		_, err := getInstanceCharmProfileData(m.st, docId)
 		if err == nil {
 			logger.Tracef("Remove instance charm profile data for %q", docId)
@@ -726,7 +726,7 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 		}
 		if profile != "" {
 			logger.Tracef("Setup to remove charm profile %q, removing unit from machine %s", profile, m.Id())
-			ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
+			ops = append(ops, m.SetUpgradeCharmProfileOp(u.Name(), "", lxdprofile.EmptyStatus))
 		}
 	}
 

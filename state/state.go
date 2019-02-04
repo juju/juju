@@ -1788,7 +1788,7 @@ func (st *State) maybeApplyCharmProfileToMachine(unit *Unit, machine *Machine) e
 		return nil
 	}
 	logger.Tracef("Set up to add new charm profile to existing machine %s for %s", machine.Id(), unit.Name())
-	return machine.SetUpgradeCharmProfile(app.Name(), ch.URL().String())
+	return machine.SetUpgradeCharmProfile(unit.Name(), ch.URL().String())
 }
 
 // Application returns a application state by name.
