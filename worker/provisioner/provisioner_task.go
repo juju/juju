@@ -376,6 +376,11 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 		}
 		m := mResult.Machine
 		removeDoc, err := processOneMachineProfileChange(m, profileBroker)
+		// The machine is not provisioned yet, so we should continue on
+		// and apply the information at a later stage.
+		if errors.IsNotProvisioned(err) {
+			continue
+		}
 		if removeDoc {
 			if err != nil {
 				logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
@@ -422,7 +427,21 @@ func processOneMachineProfileChange(
 	m apiprovisioner.MachineProvisioner,
 	profileBroker environs.LXDProfiler,
 ) (bool, error) {
-	logger.Debugf("processOneMachineProfileChange(%s)", m.Id())
+	ident := m.Id()
+	logger.Debugf("processOneMachineProfileChange(%s)", ident)
+	if machineStatus, _, err := m.InstanceStatus(); err != nil {
+		return false, errors.Annotatef(err, "failed to get machine status %q", ident)
+	} else if machineStatus != status.Running {
+		if _, err := m.InstanceId(); err != nil && params.IsCodeNotProvisioned(err) {
+			logger.Tracef("Attempting to apply a profile to a machine that isn't provisioned %q", ident)
+			if err := m.RemoveUpgradeCharmProfileData(); err != nil {
+				logger.Tracef("cannot remove machine upgrade charm profile data: %s", err.Error())
+			}
+			// There is nothing we can do with this machine, we could continue
+			// on and let the uniter apply the profile at a later stage.
+			return false, errors.NotProvisionedf("machine %q", ident)
+		}
+	}
 	info, err := m.CharmProfileChangeInfo()
 	if err != nil {
 		return false, err
