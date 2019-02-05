@@ -48,8 +48,8 @@ func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 
 	clock := newTestClock()
 	go runMachine(context, m, nil, died, clock)
-	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
-	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
+	c.Assert(clock.WaitAdvance(LongPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
+	c.Assert(clock.WaitAdvance(LongPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
 
 	killMachineLoop(c, m, context.dyingc, died)
 	c.Assert(context.killErr, gc.Equals, nil)
@@ -73,8 +73,8 @@ func (s *machineSuite) TestSetsInstanceInfoDeadMachineInitially(c *gc.C) {
 
 	clock := newTestClock()
 	go runMachine(context, m, nil, died, clock)
-	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
-	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
+	c.Assert(clock.WaitAdvance(LongPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
+	c.Assert(clock.WaitAdvance(LongPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
 
 	killMachineLoop(c, m, context.dyingc, died)
 	c.Assert(context.killErr, gc.Equals, nil)
@@ -102,7 +102,7 @@ func (s *machineSuite) testShortPoll(
 	clock := newTestClock()
 	testRunMachine(c, addrs, instId, instStatus, machineStatus, clock, func() {
 		c.Assert(clock.WaitAdvance(
-			time.Duration(float64(ShortPoll)*ShortPollBackoff), 0, 1),
+			time.Duration(float64(ShortPoll)*ShortPollBackoff), coretesting.ShortWait, 1),
 			jc.ErrorIsNil,
 		)
 	})
@@ -138,7 +138,7 @@ func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
 	go runMachine(context, m, changed, died, clock)
 
 	expectPoll := func() {
-		c.Assert(clock.WaitAdvance(ShortPoll, 0, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(ShortPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
 	}
 
 	expectPoll()
@@ -178,7 +178,7 @@ func (s *machineSuite) TestShortPollBackoffLimit(c *gc.C) {
 	clock := newTestClock()
 	testRunMachine(c, nil, "i1234", "", status.Started, clock, func() {
 		for _, d := range pollDurations {
-			c.Assert(clock.WaitAdvance(time.Duration(d), 0, 1), jc.ErrorIsNil)
+			c.Assert(clock.WaitAdvance(time.Duration(d), coretesting.ShortWait, 1), jc.ErrorIsNil)
 		}
 	})
 	for i, d := range pollDurations {
@@ -189,7 +189,7 @@ func (s *machineSuite) TestShortPollBackoffLimit(c *gc.C) {
 func (s *machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
 	clock := newTestClock()
 	testRunMachine(c, testAddrs, "i1234", "running", status.Started, clock, func() {
-		c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(LongPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
 	})
 	clock.CheckCall(c, 0, "After", LongPoll)
 }
@@ -251,7 +251,7 @@ func (*machineSuite) TestChangedRefreshes(c *gc.C) {
 	clock := newTestClock()
 	go runMachine(context, m, changed, died, clock)
 
-	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
+	c.Assert(clock.WaitAdvance(LongPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
 	select {
 	case <-died:
 		c.Fatalf("machine died prematurely")
