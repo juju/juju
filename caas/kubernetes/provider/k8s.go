@@ -448,7 +448,6 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	tags[labelOperator] = appName
 
 	// Set up the parameters for creating charm storage.
-	volStorageLabel := fmt.Sprintf("%s-operator-storage", appName)
 	operatorVolumeClaim := "charm"
 	if isLegacyName(operatorName) {
 		operatorVolumeClaim = fmt.Sprintf("%v-operator-volume", appName)
@@ -456,7 +455,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 
 	params := volumeParams{
 		storageConfig:       &storageConfig{existingStorageClass: defaultOperatorStorageClassName},
-		storageLabels:       []string{volStorageLabel, k.namespace, "default"},
+		storageLabels:       caas.OperatorStorageClassLabels(appName, k.namespace),
 		pvcName:             operatorVolumeClaim,
 		requestedVolumeSize: fmt.Sprintf("%dMi", config.CharmStorage.Size),
 	}
@@ -518,6 +517,14 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	statefulset.Spec.Template.Spec = pod.Spec
 	err = k.ensureStatefulSet(statefulset, podWithoutStorage.Spec)
 	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
+}
+
+func (k *kubernetesClient) GetStorageClassName(labels ...string) (string, error) {
+	sc, err := k.maybeGetStorageClass(labels...)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return sc.Name, nil
 }
 
 // maybeGetStorageClass looks for a storage class to use when creating
@@ -1066,9 +1073,8 @@ func (k *kubernetesClient) configureStorage(
 		if legacy {
 			pvcNamePrefix = "juju-" + pvcNamePrefix
 		}
-		volStorageLabel := fmt.Sprintf("%s-unit-storage", appName)
 		params := volumeParams{
-			storageLabels:       []string{volStorageLabel, k.namespace, "default"},
+			storageLabels:       caas.UnitStorageClassLabels(appName, k.namespace),
 			pvcName:             pvcNamePrefix,
 			requestedVolumeSize: fmt.Sprintf("%dMi", fs.Size),
 		}

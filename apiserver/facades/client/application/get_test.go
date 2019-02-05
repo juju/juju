@@ -53,10 +53,12 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		blockChecker,
 		model.ModelTag(),
 		model.Type(),
+		model.Name(),
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		&mockStoragePoolManager{},
 		common.NewResources(),
+		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.applicationAPI = &application.APIv8{api}
@@ -192,10 +194,12 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 		blockChecker,
 		names.NewModelTag(st.ModelUUID()),
 		state.ModelTypeCAAS,
+		"caasmodel",
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		&mockStoragePoolManager{},
 		common.NewResources(),
+		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	apiV8 := &application.APIv8{api}

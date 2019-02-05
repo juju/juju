@@ -93,3 +93,13 @@ func (s *ConfigSuite) TestConfigSchemaProviderDefaults(c *gc.C) {
 	}
 	c.Assert(defaults, jc.DeepEquals, expectedDefaults)
 }
+
+func (s *ConfigSuite) TestOperatorStorageClassLabels(c *gc.C) {
+	labels := caas.OperatorStorageClassLabels("gitlab", "test")
+	c.Assert(labels, jc.DeepEquals, []string{"gitlab-operator-storage", "test", "default"})
+}
+
+func (s *ConfigSuite) TestUnitStorageClassLabels(c *gc.C) {
+	labels := caas.UnitStorageClassLabels("gitlab", "test")
+	c.Assert(labels, jc.DeepEquals, []string{"gitlab-unit-storage", "test", "default"})
+}
