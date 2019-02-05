@@ -283,7 +283,7 @@
 
 [[constraint]]
   name = "github.com/juju/clock"
-  revision = "88c0f736129fcaaf89fff406fefec1a3c8a99340"
+  revision = "9c5c9712527c7986f012361e7d13756b4d99543d"
 
 [[constraint]]
   name = "github.com/juju/cmd"
