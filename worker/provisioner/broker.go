@@ -138,6 +138,14 @@ func findDNSServerConfig() (*network.DNSConfig, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		// network.ParseResolvConf returns nil error and nil dnsConfig if the
+		// file isn't found, which can lead to a panic when attemptting to
+		// access the dnsConfig.Nameservers. So instead, just continue and
+		// exhaust the resolvConfFiles slice.
+		if dnsConfig == nil {
+			logger.Tracef("The DNS configuration from %s returned no dnsConfig")
+			continue
+		}
 		for _, nameServer := range dnsConfig.Nameservers {
 			if nameServer.Scope != network.ScopeMachineLocal {
 				logger.Debugf("The DNS configuration from %s has been selected for use", dnsConfigFile)
