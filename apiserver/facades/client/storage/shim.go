@@ -8,75 +8,13 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage/poolmanager"
 )
 
 // This file contains untested shims to let us wrap state in a sensible
 // interface and avoid writing tests that depend on mongodb. If you were
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
-
-// NewFacadeV4 provides the signature required for facade registration.
-func NewFacadeV4(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*APIv4, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		model,
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New))
-	pm := poolmanager.New(state.NewStateSettings(st), registry)
-
-	storageAccessor, err := getStorageAccessor(st)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting backend")
-	}
-	return NewAPIv4(
-		stateShim{st},
-		model.Type(),
-		storageAccessor,
-		registry, pm, resources, authorizer,
-		state.CallContext(st))
-}
-
-// NewFacadeV3 provides the signature required for facade registration.
-func NewFacadeV3(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*APIv3, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting environ")
-	}
-	registry := stateenvirons.NewStorageProviderRegistry(env)
-	pm := poolmanager.New(state.NewStateSettings(st), registry)
-
-	storageAccessor, err := getStorageAccessor(st)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting backend")
-	}
-	return NewAPIv3(
-		stateShim{st},
-		model.Type(),
-		storageAccessor,
-		registry, pm, resources, authorizer,
-		state.CallContext(st))
-}
 
 type storageAccess interface {
 	storageInterface

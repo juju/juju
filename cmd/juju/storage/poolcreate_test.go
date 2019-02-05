@@ -23,7 +23,7 @@ var _ = gc.Suite(&PoolCreateSuite{})
 func (s *PoolCreateSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockPoolCreateAPI{}
+	s.mockAPI = &mockPoolCreateAPI{APIVersion: 5}
 }
 
 func (s *PoolCreateSuite) runPoolCreate(c *gc.C, args []string) (*cmd.Context, error) {
@@ -43,6 +43,11 @@ func (s *PoolCreateSuite) TestPoolCreateNoArgs(c *gc.C) {
 func (s *PoolCreateSuite) TestPoolCreateTwoArgs(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop"})
 	c.Check(err, jc.ErrorIsNil)
+	c.Assert(len(s.mockAPI.Creates), gc.Equals, 1)
+	createdConfigs := s.mockAPI.Creates[0]
+	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
+	c.Assert(createdConfigs.Provider, gc.Equals, "lollypop")
+	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{})
 }
 
 func (s *PoolCreateSuite) TestPoolCreateAttrMissingKey(c *gc.C) {
@@ -68,11 +73,21 @@ func (s *PoolCreateSuite) TestPoolCreateAttrMissingValue(c *gc.C) {
 func (s *PoolCreateSuite) TestPoolCreateAttrEmptyValue(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", `something=""`})
 	c.Check(err, jc.ErrorIsNil)
+	c.Assert(len(s.mockAPI.Creates), gc.Equals, 1)
+	createdConfigs := s.mockAPI.Creates[0]
+	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
+	c.Assert(createdConfigs.Provider, gc.Equals, "lollypop")
+	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "\"\""})
 }
 
 func (s *PoolCreateSuite) TestPoolCreateOneAttr(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", "something=too"})
 	c.Check(err, jc.ErrorIsNil)
+	c.Assert(len(s.mockAPI.Creates), gc.Equals, 1)
+	createdConfigs := s.mockAPI.Creates[0]
+	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
+	c.Assert(createdConfigs.Provider, gc.Equals, "lollypop")
+	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "too"})
 }
 
 func (s *PoolCreateSuite) TestPoolCreateEmptyAttr(c *gc.C) {
@@ -83,15 +98,33 @@ func (s *PoolCreateSuite) TestPoolCreateEmptyAttr(c *gc.C) {
 func (s *PoolCreateSuite) TestPoolCreateManyAttrs(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", "something=too", "another=one"})
 	c.Check(err, jc.ErrorIsNil)
+	c.Assert(len(s.mockAPI.Creates), gc.Equals, 1)
+	createdConfigs := s.mockAPI.Creates[0]
+	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
+	c.Assert(createdConfigs.Provider, gc.Equals, "lollypop")
+	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "too", "another": "one"})
+}
+
+type mockCreateData struct {
+	Name     string
+	Provider string
+	Config   map[string]interface{}
 }
 
 type mockPoolCreateAPI struct {
+	APIVersion int
+	Creates    []mockCreateData
 }
 
-func (s mockPoolCreateAPI) CreatePool(pname, ptype string, pconfig map[string]interface{}) error {
+func (s *mockPoolCreateAPI) CreatePool(pname, ptype string, pconfig map[string]interface{}) error {
+	s.Creates = append(s.Creates, mockCreateData{Name: pname, Provider: ptype, Config: pconfig})
 	return nil
 }
 
 func (s mockPoolCreateAPI) Close() error {
 	return nil
+}
+
+func (s mockPoolCreateAPI) BestAPIVersion() int {
+	return s.APIVersion
 }

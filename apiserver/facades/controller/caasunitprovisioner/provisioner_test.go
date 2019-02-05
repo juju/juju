@@ -215,6 +215,23 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	s.storagePoolManager.CheckCallNames(c, "Get")
 }
 
+func (s *CAASProvisionerSuite) TestProvisioningInfoNoUnits(c *gc.C) {
+	s.st.application.units = []caasunitprovisioner.Unit{}
+
+	results, err := s.facade.ProvisioningInfo(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.KubernetesProvisioningInfoResults{
+		Results: []params.KubernetesProvisioningInfoResult{{}}})
+	s.st.CheckCallNames(c, "Model", "Application")
+	s.storage.CheckNoCalls(c)
+	s.storageProviderRegistry.CheckNoCalls(c)
+	s.storagePoolManager.CheckNoCalls(c)
+}
+
 func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
 	results, err := s.facade.ApplicationsScale(params.Entities{
 		Entities: []params.Entity{

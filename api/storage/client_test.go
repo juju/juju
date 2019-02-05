@@ -244,6 +244,66 @@ func (s *storageMockSuite) TestCreatePool(c *gc.C) {
 		"test": "one",
 		"pass": true,
 	}
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Check(objType, gc.Equals, "Storage")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "CreatePool")
+
+				args, ok := a.(params.StoragePoolArgs)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args.Pools, gc.HasLen, 1)
+
+				c.Assert(args.Pools[0].Name, gc.Equals, poolName)
+				c.Assert(args.Pools[0].Provider, gc.Equals, poolType)
+				c.Assert(args.Pools[0].Attrs, gc.DeepEquals, poolConfig)
+				results := result.(*params.ErrorResults)
+
+				results.Results = make([]params.ErrorResult, len(args.Pools))
+				return nil
+			},
+		),
+		BestVersion: 5,
+	}
+	storageClient := storage.NewClient(apiCaller)
+	err := storageClient.CreatePool(poolName, poolType, poolConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *storageMockSuite) TestCreatePoolFacadeCallError(c *gc.C) {
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "CreatePool")
+
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(apiCaller)
+	err := storageClient.CreatePool("", "", nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+}
+
+func (s *storageMockSuite) TestLegacyCreatePool(c *gc.C) {
+	var called bool
+	poolName := "poolName"
+	poolType := "poolType"
+	poolConfig := map[string]interface{}{
+		"test": "one",
+		"pass": true,
+	}
 
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -270,7 +330,7 @@ func (s *storageMockSuite) TestCreatePool(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *storageMockSuite) TestCreatePoolFacadeCallError(c *gc.C) {
+func (s *storageMockSuite) TestLegacyCreatePoolFacadeCallError(c *gc.C) {
 	msg := "facade failure"
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -846,4 +906,118 @@ func (s *storageMockSuite) TestImportArityMismatch(c *gc.C) {
 	client := storage.NewClient(apiCaller)
 	_, err := client.Import(jujustorage.StorageKindBlock, "foo", "bar", "baz")
 	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
+}
+
+func (s *storageMockSuite) TestDeletePool(c *gc.C) {
+	var called bool
+	poolName := "poolName"
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "DeletePool")
+
+			args, ok := a.(params.StoragePoolDeleteArgs)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Pools, gc.HasLen, 1)
+			c.Assert(args.Pools[0].Name, gc.Equals, poolName)
+
+			results := result.(*params.ErrorResults)
+			results.Results = make([]params.ErrorResult, len(args.Pools))
+
+			return nil
+		})
+	storageClient := storage.NewClient(basetesting.BestVersionCaller{BestVersion: 5, APICallerFunc: apiCaller})
+	err := storageClient.DeletePool(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *storageMockSuite) TestDeletePoolFacadeCallError(c *gc.C) {
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "DeletePool")
+
+			args, ok := a.(params.StoragePoolDeleteArgs)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Pools, gc.HasLen, 1)
+			c.Assert(args.Pools[0].Name, gc.Equals, "")
+
+			results := result.(*params.ErrorResults)
+			results.Results = make([]params.ErrorResult, len(args.Pools))
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(basetesting.BestVersionCaller{BestVersion: 5, APICallerFunc: apiCaller})
+	err := storageClient.DeletePool("")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+}
+
+func (s *storageMockSuite) TestUpdatePool(c *gc.C) {
+	var called bool
+	poolName := "poolName"
+	providerType := "loop"
+	poolConfig := map[string]interface{}{
+		"test": "one",
+		"pass": true,
+	}
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "UpdatePool")
+
+			args, ok := a.(params.StoragePoolArgs)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Pools, gc.HasLen, 1)
+			c.Assert(args.Pools[0].Name, gc.Equals, poolName)
+			c.Assert(args.Pools[0].Provider, gc.Equals, providerType)
+			c.Assert(args.Pools[0].Attrs, gc.DeepEquals, poolConfig)
+
+			results := result.(*params.ErrorResults)
+			results.Results = make([]params.ErrorResult, len(args.Pools))
+
+			return nil
+		})
+	storageClient := storage.NewClient(basetesting.BestVersionCaller{BestVersion: 5, APICallerFunc: apiCaller})
+	err := storageClient.UpdatePool(poolName, providerType, poolConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *storageMockSuite) TestUpdatePoolFacadeCallError(c *gc.C) {
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "UpdatePool")
+
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(basetesting.BestVersionCaller{BestVersion: 5, APICallerFunc: apiCaller})
+	err := storageClient.UpdatePool("", "", nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }

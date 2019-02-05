@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -22,6 +23,14 @@ type ExpireSuite struct {
 }
 
 var _ = gc.Suite(&ExpireSuite{})
+
+func (s *ExpireSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	logger := loggo.GetLogger("juju.worker.lease")
+	logger.SetLogLevel(loggo.TRACE)
+	logger = loggo.GetLogger("lease_test")
+	logger.SetLogLevel(loggo.TRACE)
+}
 
 func (s *ExpireSuite) TestStartup_ExpiryInPast(c *gc.C) {
 	fix := &Fixture{
@@ -121,7 +130,34 @@ func (s *ExpireSuite) TestExpire_ErrInvalid_Expired(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(_ *lease.Manager, clock *testclock.Clock) {
-		clock.Advance(time.Second)
+		waitAdvance(c, clock, time.Second, 1)
+	})
+}
+
+func (s *ExpireSuite) TestAutoexpire(c *gc.C) {
+	// Handles the claim, doesn't try to do anything about the expired
+	// lease which will go away automatically.
+	fix := &Fixture{
+		autoexpire: true,
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {Expiry: offset(time.Second)},
+		},
+		expectCalls: []call{{
+			method: "ClaimLease",
+			args: []interface{}{
+				corelease.Key{
+					Namespace: "namespace",
+					ModelUUID: "modelUUID",
+					Lease:     "postgresql",
+				},
+				corelease.Request{"postgresql/0", time.Minute},
+			},
+		}},
+	}
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		waitAdvance(c, clock, time.Second, 1)
+		err := getClaimer(c, manager).Claim("postgresql", "postgresql/0", time.Minute)
+		c.Check(err, jc.ErrorIsNil)
 	})
 }
 
@@ -226,7 +262,6 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
 		waitAdvance(c, clock, justAfterSeconds(newLeaseSecs), 3)
-		c.Logf("advanced")
 	})
 }
 

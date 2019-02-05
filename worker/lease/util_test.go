@@ -47,6 +47,7 @@ func (Secretary) CheckDuration(duration time.Duration) error {
 // Store implements corelease.Store for testing purposes.
 type Store struct {
 	mu           sync.Mutex
+	autoexpire   bool
 	leases       map[lease.Key]lease.Info
 	expect       []call
 	failed       chan error
@@ -56,7 +57,7 @@ type Store struct {
 
 // NewStore initializes and returns a new store configured to report
 // the supplied leases and expect the supplied calls.
-func NewStore(leases map[lease.Key]lease.Info, expect []call) *Store {
+func NewStore(autoexpire bool, leases map[lease.Key]lease.Info, expect []call) *Store {
 	if leases == nil {
 		leases = make(map[lease.Key]lease.Info)
 	}
@@ -65,10 +66,11 @@ func NewStore(leases map[lease.Key]lease.Info, expect []call) *Store {
 		close(done)
 	}
 	return &Store{
-		leases: leases,
-		expect: expect,
-		done:   done,
-		failed: make(chan error, 1000),
+		leases:     leases,
+		expect:     expect,
+		done:       done,
+		failed:     make(chan error, 1000),
+		autoexpire: autoexpire,
 	}
 }
 
@@ -84,8 +86,13 @@ func (store *Store) Wait(c *gc.C) {
 		default:
 		}
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("Store test took way too long")
+		c.Errorf("Store test took way too long")
 	}
+}
+
+// Autoexpire is part of the lease.Store interface.
+func (store *Store) Autoexpire() bool {
+	return store.autoexpire
 }
 
 // Leases is part of the lease.Store interface.

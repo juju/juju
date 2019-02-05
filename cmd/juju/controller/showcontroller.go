@@ -139,22 +139,33 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			one.AgentVersion = c.agentVersion(client, ctx)
 		}
 
-		var details ShowControllerDetails
-		mongoVersion, err := client.MongoVersion()
-		if err != nil {
-			details.Errors = append(details.Errors, err.Error())
-			continue
-		}
+		var (
+			details   ShowControllerDetails
+			allModels []base.UserModel
+		)
 
-		allModels, err := client.AllModels()
-		if err != nil {
-			details.Errors = append(details.Errors, err.Error())
-			continue
-		}
-		// Update client store.
-		if err := c.SetControllerModels(c.store, controllerName, allModels); err != nil {
-			details.Errors = append(details.Errors, err.Error())
-			continue
+		// NOTE: this user may have been granted AddModelAccess which
+		// should allow them to list only the models they have access to.
+		// However, the code that grants permissions currently uses an
+		// escape hatch (to be removed in juju 3) that actually grants
+		// controller cloud access instead of controller access.
+		//
+		// The side-effect to this is that the userAccess() call above
+		// will return LoginAccess even if the user has been granted
+		// AddModelAccess causing the AllModels() call below to fail
+		// with a permission error. As a workaround, unless the user
+		// has Superuser access we default to an empty model list which
+		// allows us to display non-model controller details.
+		if permission.Access(access).EqualOrGreaterControllerAccessThan(permission.SuperuserAccess) {
+			if allModels, err = client.AllModels(); err != nil {
+				details.Errors = append(details.Errors, err.Error())
+				continue
+			}
+			// Update client store.
+			if err := c.SetControllerModels(c.store, controllerName, allModels); err != nil {
+				details.Errors = append(details.Errors, err.Error())
+				continue
+			}
 		}
 
 		modelTags := make([]names.ModelTag, len(allModels))
@@ -171,6 +182,11 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			continue
 		}
 
+		mongoVersion, err := client.MongoVersion()
+		if err != nil {
+			details.Errors = append(details.Errors, err.Error())
+			continue
+		}
 		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatusResults, mongoVersion)
 		controllers[controllerName] = details
 		machineCount := 0

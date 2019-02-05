@@ -399,7 +399,7 @@ func (k *kubernetesClient) deleteSecret(imageSecretName string) error {
 // application exists.
 func (k *kubernetesClient) OperatorExists(appName string) (bool, error) {
 	statefulsets := k.AppsV1().StatefulSets(k.namespace)
-	_, err := statefulsets.Get(operatorName(appName), v1.GetOptions{IncludeUninitialized: true})
+	_, err := statefulsets.Get(k.operatorName(appName), v1.GetOptions{IncludeUninitialized: true})
 	if k8serrors.IsNotFound(err) {
 		return false, nil
 	}
@@ -420,17 +420,18 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		return errors.Annotatef(err, "ensuring operator namespace %v", k.namespace)
 	}
 
+	operatorName := k.operatorName(appName)
 	// TODO(caas) use secrets for storing agent password?
 	if config.AgentConf == nil {
 		// We expect that the config map already exists,
 		// so make sure it does.
 		configMaps := k.CoreV1().ConfigMaps(k.namespace)
-		_, err := configMaps.Get(operatorConfigMapName(appName), v1.GetOptions{IncludeUninitialized: true})
+		_, err := configMaps.Get(operatorConfigMapName(operatorName), v1.GetOptions{IncludeUninitialized: true})
 		if err != nil {
 			return errors.Annotatef(err, "config map for %q should already exist", appName)
 		}
 	} else {
-		if err := k.ensureConfigMap(operatorConfigMap(appName, config)); err != nil {
+		if err := k.ensureConfigMap(operatorConfigMap(appName, operatorName, config)); err != nil {
 			return errors.Annotate(err, "creating or updating ConfigMap")
 		}
 	}
@@ -448,11 +449,15 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	tags[labelOperator] = appName
 
 	// Set up the parameters for creating charm storage.
-	volStorageLabel := fmt.Sprintf("%s-operator-storage", appName)
+	operatorVolumeClaim := "charm"
+	if isLegacyName(operatorName) {
+		operatorVolumeClaim = fmt.Sprintf("%v-operator-volume", appName)
+	}
+
 	params := volumeParams{
 		storageConfig:       &storageConfig{existingStorageClass: defaultOperatorStorageClassName},
-		storageLabels:       []string{volStorageLabel, k.namespace, "default"},
-		pvcName:             operatorVolumeClaim(appName),
+		storageLabels:       caas.OperatorStorageClassLabels(appName, k.namespace),
+		pvcName:             operatorVolumeClaim,
 		requestedVolumeSize: fmt.Sprintf("%dMi", config.CharmStorage.Size),
 	}
 	if config.CharmStorage.Provider != K8s_ProviderType {
@@ -481,7 +486,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			Labels: storageTags},
 		Spec: *pvcSpec,
 	}
-	pod := operatorPod(appName, agentPath, config.OperatorImagePath, config.Version.String(), tags)
+	pod := operatorPod(operatorName, appName, agentPath, config.OperatorImagePath, config.Version.String(), tags)
 	// Take a copy for use with statefulset.
 	podWithoutStorage := pod
 
@@ -489,7 +494,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	logger.Debugf("using persistent volume claim for operator %s: %+v", appName, pvc)
 	statefulset := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   operatorName(appName),
+			Name:   operatorName,
 			Labels: pod.Labels},
 		Spec: apps.StatefulSetSpec{
 			Replicas: &numPods,
@@ -513,6 +518,14 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	statefulset.Spec.Template.Spec = pod.Spec
 	err = k.ensureStatefulSet(statefulset, podWithoutStorage.Spec)
 	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
+}
+
+func (k *kubernetesClient) GetStorageClassName(labels ...string) (string, error) {
+	sc, err := k.maybeGetStorageClass(labels...)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return sc.Name, nil
 }
 
 // maybeGetStorageClass looks for a storage class to use when creating
@@ -560,10 +573,6 @@ func (k *kubernetesClient) maybeGetStorageClass(labels ...string) (*k8sstorage.S
 		}
 	}
 	return nil, errors.NotFoundf("storage class for any %q", labels)
-}
-
-func operatorVolumeClaim(appName string) string {
-	return fmt.Sprintf("%v-operator-volume", appName)
 }
 
 type volumeParams struct {
@@ -690,16 +699,24 @@ func (k *kubernetesClient) ensureStorageClass(cfg *storageConfig) (*k8sstorage.S
 func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	logger.Debugf("deleting %s operator", appName)
 
+	operatorName := k.operatorName(appName)
+	legacy := isLegacyName(operatorName)
+
 	// First delete the config map(s).
 	configMaps := k.CoreV1().ConfigMaps(k.namespace)
-	configMapName := operatorConfigMapName(appName)
+	configMapName := operatorConfigMapName(operatorName)
 	err = configMaps.Delete(configMapName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil
 	}
-	configMapName = operatorConfigurationsConfigMapName(appName)
+
+	// Delete artefacts created by k8s itself.
+	configMapName = appName + "-configurations-config"
+	if legacy {
+		configMapName = "juju-" + configMapName
+	}
 	err = configMaps.Delete(configMapName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
@@ -708,7 +725,6 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	}
 
 	// Finally the operator itself.
-	operatorName := operatorName(appName)
 	if err := k.deleteStatefulSet(operatorName); err != nil {
 		return errors.Trace(err)
 	}
@@ -720,11 +736,15 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		return errors.Trace(err)
 	}
 
+	deploymentName := appName
+	if legacy {
+		deploymentName = "juju-" + appName
+	}
 	pvs := k.CoreV1().PersistentVolumes()
 	for _, p := range podsList.Items {
 		// Delete secrets.
 		for _, c := range p.Spec.Containers {
-			secretName := appSecretName(appName, c.Name)
+			secretName := appSecretName(deploymentName, c.Name)
 			if err := k.deleteSecret(secretName); err != nil {
 				return errors.Annotatef(err, "deleting %s secret for container %s", appName, c.Name)
 			}
@@ -793,10 +813,10 @@ func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
 func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	logger.Debugf("deleting application %s", appName)
 
-	if err := k.deleteService(appName); err != nil {
+	deploymentName := k.deploymentName(appName)
+	if err := k.deleteService(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
-	deploymentName := deploymentName(appName)
 	if err := k.deleteStatefulSet(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
@@ -892,12 +912,13 @@ func (k *kubernetesClient) EnsureService(
 	}()
 
 	logger.Debugf("creating/updating application %s", appName)
+	deploymentName := k.deploymentName(appName)
 
 	if numUnits < 0 {
 		return errors.Errorf("number of units must be >= 0")
 	}
 	if numUnits == 0 {
-		return k.deleteAllPods(appName)
+		return k.deleteAllPods(appName, deploymentName)
 	}
 	if params == nil || params.PodSpec == nil {
 		return errors.Errorf("missing pod spec")
@@ -916,7 +937,7 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}()
 
-	unitSpec, err := makeUnitSpec(appName, params.PodSpec)
+	unitSpec, err := makeUnitSpec(appName, deploymentName, params.PodSpec)
 	if err != nil {
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
@@ -952,7 +973,7 @@ func (k *kubernetesClient) EnsureService(
 		if c.ImageDetails.Password == "" {
 			continue
 		}
-		imageSecretName := appSecretName(appName, c.Name)
+		imageSecretName := appSecretName(deploymentName, c.Name)
 		if err := k.ensureSecret(imageSecretName, appName, &c.ImageDetails, resourceTags); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
@@ -964,7 +985,7 @@ func (k *kubernetesClient) EnsureService(
 	useStatefulSet := len(params.Filesystems) > 0
 	if !useStatefulSet {
 		statefulsets := k.AppsV1().StatefulSets(k.namespace)
-		_, err := statefulsets.Get(deploymentName(appName), v1.GetOptions{IncludeUninitialized: true})
+		_, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
@@ -976,12 +997,12 @@ func (k *kubernetesClient) EnsureService(
 
 	numPods := int32(numUnits)
 	if useStatefulSet {
-		if err := k.configureStatefulSet(appName, resourceTags, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		if err := k.configureStatefulSet(appName, deploymentName, resourceTags, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	} else {
-		if err := k.configureDeployment(appName, deploymentName(appName), resourceTags, unitSpec, params.PodSpec.Containers, &numPods); err != nil {
+		if err := k.configureDeployment(appName, deploymentName, resourceTags, unitSpec, params.PodSpec.Containers, &numPods); err != nil {
 			return errors.Annotate(err, "creating or updating DeploymentController")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -997,17 +1018,17 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 	if !params.PodSpec.OmitServiceFrontend {
-		if err := k.configureService(appName, ports, resourceTags, config); err != nil {
+		if err := k.configureService(appName, deploymentName, ports, resourceTags, config); err != nil {
 			return errors.Annotatef(err, "creating or updating service for %v", appName)
 		}
 	}
 	return nil
 }
 
-func (k *kubernetesClient) deleteAllPods(appName string) error {
+func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 	zero := int32(0)
 	statefulsets := k.AppsV1().StatefulSets(k.namespace)
-	statefulSet, err := statefulsets.Get(deploymentName(appName), v1.GetOptions{IncludeUninitialized: true})
+	statefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -1018,7 +1039,7 @@ func (k *kubernetesClient) deleteAllPods(appName string) error {
 	}
 
 	deployments := k.AppsV1().Deployments(k.namespace)
-	deployment, err := deployments.Get(deploymentName(appName), v1.GetOptions{IncludeUninitialized: true})
+	deployment, err := deployments.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -1031,7 +1052,7 @@ func (k *kubernetesClient) deleteAllPods(appName string) error {
 }
 
 func (k *kubernetesClient) configureStorage(
-	podSpec *core.PodSpec, statefulSet *apps.StatefulSetSpec, appName string, filesystems []storage.KubernetesFilesystemParams,
+	podSpec *core.PodSpec, statefulSet *apps.StatefulSetSpec, appName string, legacy bool, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	baseDir, err := paths.StorageDir("kubernetes")
 	if err != nil {
@@ -1049,10 +1070,12 @@ func (k *kubernetesClient) configureStorage(
 		if mountPath == "" {
 			mountPath = fmt.Sprintf("%s/fs/%s/%s/%d", baseDir, appName, fs.StorageName, i)
 		}
-		pvcNamePrefix := fmt.Sprintf("juju-%s-%d", fs.StorageName, i)
-		volStorageLabel := fmt.Sprintf("%s-unit-storage", appName)
+		pvcNamePrefix := fmt.Sprintf("%s-%d", fs.StorageName, i)
+		if legacy {
+			pvcNamePrefix = "juju-" + pvcNamePrefix
+		}
 		params := volumeParams{
-			storageLabels:       []string{volStorageLabel, k.namespace, "default"},
+			storageLabels:       caas.UnitStorageClassLabels(appName, k.namespace),
 			pvcName:             pvcNamePrefix,
 			requestedVolumeSize: fmt.Sprintf("%dMi", fs.Size),
 		}
@@ -1072,6 +1095,7 @@ func (k *kubernetesClient) configureStorage(
 		for k, v := range fs.ResourceTags {
 			tags[k] = v
 		}
+		tags[labelStorage] = fs.StorageName
 		tags[labelApplication] = appName
 		pvc := core.PersistentVolumeClaim{
 			ObjectMeta: v1.ObjectMeta{
@@ -1154,7 +1178,7 @@ func (k *kubernetesClient) configureDeployment(
 
 	// Add the specified file to the pod spec.
 	cfgName := func(fileSetName string) string {
-		return applicationConfigMapName(appName, fileSetName)
+		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 	podSpec := unitSpec.Pod
 	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
@@ -1203,18 +1227,18 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func (k *kubernetesClient) configureStatefulSet(
-	appName string, labels map[string]string, unitSpec *unitSpec,
+	appName, deploymentName string, labels map[string]string, unitSpec *unitSpec,
 	containers []caas.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
 
 	// Add the specified file to the pod spec.
 	cfgName := func(fileSetName string) string {
-		return applicationConfigMapName(appName, fileSetName)
+		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 	statefulset := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   deploymentName(appName),
+			Name:   deploymentName,
 			Labels: labels},
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
@@ -1236,7 +1260,8 @@ func (k *kubernetesClient) configureStatefulSet(
 	existingPodSpec := podSpec
 
 	// Create a new stateful set with the necessary storage config.
-	if err := k.configureStorage(&podSpec, &statefulset.Spec, appName, filesystems); err != nil {
+	legacy := isLegacyName(deploymentName)
+	if err := k.configureStorage(&podSpec, &statefulset.Spec, appName, legacy, filesystems); err != nil {
 		return errors.Annotatef(err, "configuring storage for %s", appName)
 	}
 	statefulset.Spec.Template.Spec = podSpec
@@ -1286,12 +1311,6 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 
 	var deletedClaimVolumes []string
 	for _, volMount := range p.Spec.Containers[0].VolumeMounts {
-		valid := volMount.Name == operatorVolumeClaim(appName) || jujuPVNameRegexp.MatchString(volMount.Name)
-		if !valid {
-			logger.Debugf("ignoring non-Juju attachment %q", volMount.Name)
-			continue
-		}
-
 		vol, ok := volumesByName[volMount.Name]
 		if !ok {
 			logger.Warningf("volume for volume mount %q not found", volMount.Name)
@@ -1315,7 +1334,7 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 }
 
 func (k *kubernetesClient) configureService(
-	appName string, containerPorts []core.ContainerPort,
+	appName, deploymentName string, containerPorts []core.ContainerPort,
 	tags map[string]string, config application.ConfigAttributes,
 ) error {
 	logger.Debugf("creating/updating service for %s", appName)
@@ -1345,7 +1364,7 @@ func (k *kubernetesClient) configureService(
 	}
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        deploymentName(appName),
+			Name:        deploymentName,
 			Labels:      tags,
 			Annotations: annotations,
 		},
@@ -1377,9 +1396,9 @@ func (k *kubernetesClient) ensureService(spec *core.Service) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteService(appName string) error {
+func (k *kubernetesClient) deleteService(deploymentName string) error {
 	services := k.CoreV1().Services(k.namespace)
-	err := services.Delete(deploymentName(appName), &v1.DeleteOptions{
+	err := services.Delete(deploymentName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -1408,7 +1427,8 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 		httpPath = "/" + httpPath
 	}
 
-	svc, err := k.CoreV1().Services(k.namespace).Get(deploymentName(appName), v1.GetOptions{})
+	deploymentName := k.deploymentName(appName)
+	svc, err := k.CoreV1().Services(k.namespace).Get(deploymentName, v1.GetOptions{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1417,7 +1437,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 	}
 	spec := &v1beta1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   deploymentName(appName),
+			Name:   deploymentName,
 			Labels: resourceTags,
 			Annotations: map[string]string{
 				"ingress.kubernetes.io/rewrite-target":  "",
@@ -1459,8 +1479,9 @@ func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) error {
 }
 
 func (k *kubernetesClient) deleteIngress(appName string) error {
+	deploymentName := k.deploymentName(appName)
 	ingress := k.ExtensionsV1beta1().Ingresses(k.namespace)
-	err := ingress.Delete(deploymentName(appName), &v1.DeleteOptions{
+	err := ingress.Delete(deploymentName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -1505,9 +1526,13 @@ func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher,
 	return k.newWatcher(w, appName, k.clock)
 }
 
-// jujuPVNameRegexp matches how Juju labels persistent volumes.
+// legacyJujuPVNameRegexp matches how Juju labels persistent volumes.
 // The pattern is: juju-<storagename>-<digit>
-var jujuPVNameRegexp = regexp.MustCompile(`^juju-(?P<storageName>\D+)-\d+$`)
+var legacyJujuPVNameRegexp = regexp.MustCompile(`^juju-(?P<storageName>\D+)-\d+$`)
+
+// jujuPVNameRegexp matches how Juju labels persistent volumes.
+// The pattern is: <storagename>-<digit>
+var jujuPVNameRegexp = regexp.MustCompile(`^(?P<storageName>\D+)-\d+$`)
 
 // Units returns all units and any associated filesystems of the specified application.
 // Filesystems are mounted via volumes bound to the unit.
@@ -1555,13 +1580,6 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 		// Gather info about how filesystems are attached/mounted to the pod.
 		// The mount name represents the filesystem tag name used by Juju.
 		for _, volMount := range p.Spec.Containers[0].VolumeMounts {
-			valid := jujuPVNameRegexp.MatchString(volMount.Name)
-			if !valid {
-				logger.Debugf("ignoring non-Juju attachment %q", volMount.Name)
-				continue
-			}
-			storageName := jujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
-
 			vol, ok := volumesByName[volMount.Name]
 			if !ok {
 				logger.Warningf("volume for volume mount %q not found", volMount.Name)
@@ -1595,6 +1613,14 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 				return nil, errors.Annotate(err, "unable to get persistent volume")
 			}
 
+			storageName := pvc.Labels[labelStorage]
+			if storageName == "" {
+				if valid := legacyJujuPVNameRegexp.MatchString(volMount.Name); valid {
+					storageName = legacyJujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
+				} else if valid := jujuPVNameRegexp.MatchString(volMount.Name); valid {
+					storageName = jujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
+				}
+			}
 			statusMessage := ""
 			since = now
 			if len(pvc.Status.Conditions) > 0 {
@@ -1780,10 +1806,13 @@ func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
 
 // operatorPod returns a *core.Pod for the operator pod
 // of the specified application.
-func operatorPod(appName, agentPath, operatorImagePath, version string, tags map[string]string) *core.Pod {
-	podName := operatorName(appName)
-	configMapName := operatorConfigMapName(appName)
-	configVolName := configMapName + "-volume"
+func operatorPod(podName, appName, agentPath, operatorImagePath, version string, tags map[string]string) *core.Pod {
+	configMapName := operatorConfigMapName(podName)
+	configVolName := configMapName
+
+	if isLegacyName(podName) {
+		configVolName += "-volume"
+	}
 
 	appTag := names.NewApplicationTag(appName)
 	podLabels := make(map[string]string)
@@ -1830,8 +1859,8 @@ func operatorPod(appName, agentPath, operatorImagePath, version string, tags map
 
 // operatorConfigMap returns a *core.ConfigMap for the operator pod
 // of the specified application, with the specified configuration.
-func operatorConfigMap(appName string, config *caas.OperatorConfig) *core.ConfigMap {
-	configMapName := operatorConfigMapName(appName)
+func operatorConfigMap(appName, operatorName string, config *caas.OperatorConfig) *core.ConfigMap {
+	configMapName := operatorConfigMapName(operatorName)
 	return &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name: configMapName,
@@ -1878,7 +1907,7 @@ pod:
   {{- end}}
 `[1:]
 
-func makeUnitSpec(appName string, podSpec *caas.PodSpec) (*unitSpec, error) {
+func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 	// Fill out the easy bits using a template.
 	tmpl := template.Must(template.New("").Parse(defaultPodTemplate))
 	var buf bytes.Buffer
@@ -1904,7 +1933,7 @@ func makeUnitSpec(appName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 			unitSpec.Pod.Containers[i].Image = c.ImageDetails.ImagePath
 		}
 		if c.ImageDetails.Password != "" {
-			imageSecretNames = append(imageSecretNames, core.LocalObjectReference{Name: appSecretName(appName, c.Name)})
+			imageSecretNames = append(imageSecretNames, core.LocalObjectReference{Name: appSecretName(deploymentName, c.Name)})
 		}
 
 		if c.ProviderContainer == nil {
@@ -1945,29 +1974,44 @@ func makeUnitSpec(appName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 	return &unitSpec, nil
 }
 
-func operatorName(appName string) string {
-	return "juju-operator-" + appName
+// legacyAppName returns true if there are any artifacts for
+// appName which indicate that this deployment was for Juju 2.5.0.
+func (k *kubernetesClient) legacyAppName(appName string) bool {
+	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	legacyName := "juju-operator-" + appName
+	_, err := statefulsets.Get(legacyName, v1.GetOptions{IncludeUninitialized: true})
+	return err == nil
 }
 
-func operatorConfigMapName(appName string) string {
-	return operatorName(appName) + "-config"
+func (k *kubernetesClient) operatorName(appName string) string {
+	if k.legacyAppName(appName) {
+		return "juju-operator-" + appName
+	}
+	return appName + "-operator"
 }
 
-func operatorConfigurationsConfigMapName(appName string) string {
-	return deploymentName(appName) + "-configurations-config"
-}
-
-func applicationConfigMapName(appName, fileSetName string) string {
-	return fmt.Sprintf("%v-%v-config", deploymentName(appName), fileSetName)
-}
-
-func deploymentName(appName string) string {
+func (k *kubernetesClient) deploymentName(appName string) string {
+	if k.legacyAppName(appName) {
+		return "juju-" + appName
+	}
 	return appName
 }
 
-func appSecretName(appName, containerName string) string {
+func isLegacyName(resourceName string) bool {
+	return strings.HasPrefix(resourceName, "juju-")
+}
+
+func operatorConfigMapName(operatorName string) string {
+	return operatorName + "-config"
+}
+
+func applicationConfigMapName(deploymentName, fileSetName string) string {
+	return fmt.Sprintf("%v-%v-config", deploymentName, fileSetName)
+}
+
+func appSecretName(deploymentName, containerName string) string {
 	// A pod may have multiple containers with different images and thus different secrets
-	return appName + "-" + containerName + "-secret"
+	return deploymentName + "-" + containerName + "-secret"
 }
 
 func qualifiedStorageClassName(namespace, storageClass string) string {

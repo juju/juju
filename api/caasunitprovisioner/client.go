@@ -153,6 +153,10 @@ type ProvisioningInfo struct {
 	Tags        map[string]string
 }
 
+// ErrNoUnits is returned when trying to provision a caas app but
+// there are no units defined in the model.
+var ErrNoUnits = errors.New("no units to provision")
+
 // ProvisioningInfo returns the provisioning info for the specified CAAS
 // application in the current model.
 func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
@@ -173,6 +177,9 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 		return nil, maybeNotFound(err)
 	}
 	result := results.Results[0].Result
+	if result == nil {
+		return nil, ErrNoUnits
+	}
 	info := &ProvisioningInfo{
 		PodSpec:     result.PodSpec,
 		Placement:   result.Placement,
