@@ -8,21 +8,32 @@ import (
 	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/testing"
 )
 
 type listSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
+	api   *fakeListCloudsAPI
+	store jujuclient.ClientStore
 }
 
 var _ = gc.Suite(&listSuite{})
+
+func (s *listSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.api = &fakeListCloudsAPI{}
+	s.store = jujuclient.NewMemStore()
+}
 
 func (s *listSuite) TestListPublic(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudsCommand())
@@ -37,6 +48,34 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 	c.Assert(out, gc.Matches, `.*azure +[0-9]+ +[a-z0-9-]+ +azure +Microsoft Azure.*`)
 	// LXD should be there too.
 	c.Assert(out, gc.Matches, `.*localhost[ ]*1[ ]*localhost[ ]*lxd.*`)
+}
+
+func (s *listSuite) TestListController(c *gc.C) {
+	// need to add controller details to the store?
+	cmd := cloud.NewListCloudCommandForTest(s.store, func() (cloud.ListCloudsAPI, error) { return s.api, nil })
+	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
+	s.api.controllerClouds[names.NewCloudTag("beehive")] = jujucloud.Cloud{
+		Name:      "beehive",
+		Type:      "openstack",
+		AuthTypes: []jujucloud.AuthType{"userpass", "access-key"},
+		Endpoint:  "http://myopenstack",
+		Regions: []jujucloud.Region{
+			{
+				Name:     "regionone",
+				Endpoint: "http://boston/1.0",
+			},
+		},
+	}
+
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller")
+	c.Assert(err, jc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+
+	// Check that we are producing the expected fields
+	c.Assert(out, gc.Matches, `Cloud +Regions +Default +Type +Description.*`)
+	// Just check couple of snippets of the output to make sure it looks ok.
+	c.Assert(out, jc.Contains, `cloud-beehive        1  regionone  openstack`)
 }
 
 func (s *listSuite) TestListPublicAndPersonal(c *gc.C) {
@@ -116,4 +155,19 @@ func (s *listSuite) TestListPreservesRegionOrder(c *gc.C) {
 	aws, err := jujucloud.CloudByName("aws")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&parsedCloud, jc.DeepEquals, aws)
+}
+
+type fakeListCloudsAPI struct {
+	jujutesting.Stub
+	controllerClouds map[names.CloudTag]jujucloud.Cloud
+}
+
+func (api *fakeListCloudsAPI) Close() error {
+	api.AddCall("Close", nil)
+	return nil
+}
+
+func (api *fakeListCloudsAPI) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
+	api.AddCall("Clouds")
+	return api.controllerClouds, nil
 }

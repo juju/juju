@@ -12,18 +12,27 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 
+	cloudapi "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/jujuclient"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.cloud")
 
 type listCloudsCommand struct {
-	cmd.CommandBase
+	modelcmd.CommandBase
 	out cmd.Output
+
+	// Used when querying a controller for its cloud details
+	controllerName    string
+	store             jujuclient.ClientStore
+	listCloudsAPIFunc func() (ListCloudsAPI, error)
 }
 
 // listCloudsDoc is multi-line since we need to use ` to denote
@@ -35,6 +44,7 @@ var listCloudsDoc = "" +
 	"\nThe default output shows public clouds known to Juju out of the box.\n" +
 	"These may change between Juju versions. In addition to these public\n" +
 	"clouds, the 'localhost' cloud (local LXD) is also listed.\n" +
+	"If you supply a controller name the clouds known on the controller will be displayed.\n" +
 	"\nThis command's default output format is 'tabular'.\n" +
 	"\nCloud metadata sometimes changes, e.g. AWS adds a new region. Use the\n" +
 	"`update-clouds` command to update the current Juju client accordingly.\n" +
@@ -49,6 +59,7 @@ Examples:
 
     juju clouds
     juju clouds --format yaml
+    juju add-cloud --controller mycontroller
 
 See also:
     add-cloud
@@ -57,9 +68,28 @@ See also:
     update-clouds
 `
 
+type ListCloudsAPI interface {
+	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
+	Close() error
+}
+
 // NewListCloudsCommand returns a command to list cloud information.
 func NewListCloudsCommand() cmd.Command {
-	return &listCloudsCommand{}
+	c := &listCloudsCommand{
+		store: jujuclient.NewFileClientStore(),
+	}
+	c.listCloudsAPIFunc = c.cloudAPI
+
+	return modelcmd.WrapBase(c)
+}
+
+func (c *listCloudsCommand) cloudAPI() (ListCloudsAPI, error) {
+	root, err := c.NewAPIRoot(c.store, c.controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cloudapi.NewClient(root), nil
+
 }
 
 func (c *listCloudsCommand) Info() *cmd.Info {
@@ -78,14 +108,42 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": formatCloudsTabular,
 	})
+	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
+	f.StringVar(&c.controllerName, "controller", "", "")
+}
+
+func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
+	if c.controllerName == "" {
+		details, err := listCloudDetails()
+
+		if err != nil {
+			return nil, err
+		}
+		return details, nil
+	}
+
+	api, err := c.listCloudsAPIFunc()
+	if err != nil {
+		return nil, err
+	}
+	defer api.Close()
+	controllerClouds, err := api.Clouds()
+	if err != nil {
+		return nil, err
+	}
+	details := newCloudList()
+	for name, cloud := range controllerClouds {
+		cloudDetails := makeCloudDetails(cloud)
+		details.public[name.String()] = cloudDetails
+	}
+	return details, nil
 }
 
 func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
-	details, err := listCloudDetails()
+	details, err := c.getCloudList()
 	if err != nil {
 		return err
 	}
-
 	var output interface{}
 	switch c.out.Name() {
 	case "yaml", "json":
