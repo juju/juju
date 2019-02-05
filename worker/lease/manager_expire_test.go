@@ -224,11 +224,9 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture(c *gc.C) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		// Three waiters:
-		// - the alarm from the first call to choose
-		// - the retry timer from the claim call
-		// - the alarm from the second time in choose.
-		waitAdvance(c, clock, almostSeconds(newLeaseSecs), 3)
+		// One waiters:
+		// - the timer in the main loop
+		waitAdvance(c, clock, almostSeconds(newLeaseSecs), 1)
 	})
 }
 
@@ -261,7 +259,7 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		waitAdvance(c, clock, justAfterSeconds(newLeaseSecs), 3)
+		waitAdvance(c, clock, justAfterSeconds(newLeaseSecs), 1)
 	})
 }
 
@@ -292,7 +290,8 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		waitAdvance(c, clock, almostSeconds(newLeaseSecs), 3)
+		// Only the main loop waiter
+		waitAdvance(c, clock, almostSeconds(newLeaseSecs), 1)
 	})
 }
 
@@ -331,8 +330,7 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		// See TestClaim_ExpiryInFuture_TimePasses for why 3.
-		waitAdvance(c, clock, justAfterSeconds(newLeaseSecs), 3)
+		waitAdvance(c, clock, justAfterSeconds(newLeaseSecs), 1)
 	})
 }
 

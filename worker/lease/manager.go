@@ -73,6 +73,7 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 		claims:     make(chan claim),
 		checks:     make(chan check),
 		blocks:     make(chan block),
+		expireDone: make(chan struct{}),
 		pins:       make(chan pin),
 		unpins:     make(chan pin),
 		errors:     make(chan error),
@@ -116,6 +117,9 @@ type Manager struct {
 
 	// checks is used to deliver lease check requests to the loop.
 	checks chan check
+
+	// expireDone is sent an event when we successfully finish a call to expire()
+	expireDone chan struct{}
 
 	// blocks is used to deliver expiry block requests to the loop.
 	blocks chan block
@@ -165,6 +169,11 @@ func (manager *Manager) loop() error {
 	}
 }
 
+func (manager *Manager) lookupLease(leaseKey lease.Key) (lease.Info, bool) {
+	lease, exists := manager.config.Store.Leases(leaseKey)[leaseKey]
+	return lease, exists
+}
+
 // choose breaks the select out of loop to make the blocking logic clearer.
 func (manager *Manager) choose(blocks blocks) error {
 	select {
@@ -176,6 +185,8 @@ func (manager *Manager) choose(blocks blocks) error {
 		return manager.handleCheck(check)
 	case now := <-manager.timer.Chan():
 		manager.tick(now, blocks)
+	case <-manager.expireDone:
+		manager.checkBlocks(blocks)
 	case claim := <-manager.claims:
 		manager.wg.Add(1)
 		go manager.retryingClaim(claim)
@@ -186,24 +197,12 @@ func (manager *Manager) choose(blocks blocks) error {
 	case block := <-manager.blocks:
 		// TODO(raftlease): Include the other key items.
 		manager.config.Logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
-		// TODO(jam): 2019-02-04 If we are adding a block for a Lease, we need
-		// to check if that lease is known to us.
-		// This is a little bit odd, in that our Leases information might be
-		// out of date, if this is a relatively new lease, which means Leases
-		// hasn't seen it show up yet. It seems that *something* new about the
-		// Lease enough to deny the claim, so that the client fell back to
-		// ask for BlockUntilReleased. However, it is also possible for a
-		// client to call Claim, have that rejected, and in the time between
-		// being rejected and the caller coming back again with a BlockUntil,
-		// the Lease will have expired, in which case they *should* be told that
-		// they can immediately try to Claim again.
-		// I guess since we don't guarantee that the lease is actually available
-		// when we return from here, and that *will* be validated by Claim(), we
-		// can probably just check
-		// lease, exists := store.Leases(block.leaseKey)[block.leaseKey]
-		// if !exists { block.unblock(block.leaseKey) }
-		// needs testing
 		blocks.add(block)
+
+		if _, exists := manager.lookupLease(block.leaseKey); !exists {
+			// Nobody holds this lease, so immediately unblock it.
+			blocks.unblock(block.leaseKey)
+		}
 	}
 	return nil
 }
@@ -300,7 +299,7 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	case <-manager.catacomb.Dying():
 		return false, manager.catacomb.ErrDying()
 	default:
-		info, found := store.Leases(claim.leaseKey)[claim.leaseKey]
+		info, found := manager.lookupLease(claim.leaseKey)
 		switch {
 		case !found:
 			manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
@@ -338,18 +337,26 @@ func (manager *Manager) handleCheck(check check) error {
 	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s",
 		manager.logContext, key.Lease, check.holderName)
 
-	info := store.Leases(key)[key]
-	if info.Holder != check.holderName {
-		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing",
-			manager.logContext, key.Lease, check.holderName)
+	info, found := manager.lookupLease(key)
+	if !found || info.Holder != check.holderName {
+		// TODO(jam): 2019-02-05 Currently raftlease.Store.Refresh does nothing.
+		//  We probably shouldn't have this refresh-and-try-again if it is going to be a no-op.
+		//  Instead we should probably just report failure.
+		if found {
+			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, found held by %s, refreshing",
+				manager.logContext, key.Lease, check.holderName, info.Holder)
+		} else {
+			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing",
+				manager.logContext, key.Lease, check.holderName)
+		}
 		if err := store.Refresh(); err != nil {
 			return errors.Trace(err)
 		}
-		info = store.Leases(key)[key]
+		info, found = manager.lookupLease(key)
 	}
 
 	var response error
-	if info.Holder != check.holderName {
+	if !found || info.Holder != check.holderName {
 		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held",
 			manager.logContext, key.Lease, check.holderName)
 		response = lease.ErrNotHeld
@@ -365,35 +372,20 @@ func (manager *Manager) handleCheck(check check) error {
 // and then compute the next time we should wake up.
 func (manager *Manager) tick(now time.Time, blocks blocks) {
 	manager.config.Logger.Tracef("[%s] tick at %v, running expiry checks\n", manager.logContext, now)
-	// TODO(jam): 2019-02-03 This retryingTick is being fired off in its own
-	//  goroutine without synchronizing with manager.nextTick above.
-	//  Which means that if handling expiring tokens takes any real length
-	//  of time, then we'll get a backlog of *many* goroutines all trying
-	//  to expire tokens at some previous point in time.
-	//  We might want to stop the ticking while retryingTick is happening,
-	//  *or* tell retryingTick that it should update its time when a new
-	//  nextTick occurs.
 	// If we need to expire leases we should do it, otherwise this
 	// is just an opportunity to check for blocks that need to be
 	// notified.
-	expired := make(chan struct{})
 	if !manager.config.Store.Autoexpire() {
 		manager.wg.Add(1)
-		go manager.retryingExpire(now, expired)
+		go manager.retryingExpire(now)
+		// We wait for manager.retryingExpire to finish before we checkBlocks
 	} else {
-		close(expired)
+		manager.checkBlocks(blocks)
 	}
-	// Wait for the goroutine to do at least one expiry pass. That way we
-	// know that the leases map is reasonably up-to-date.
-	t := manager.config.Clock.NewTimer(initialRetryDelay)
-	select {
-	case <-manager.catacomb.Dying():
-		return
-	case <-expired:
-		t.Stop()
-	case <-t.Chan():
-		// Don't let a blocked expire attempt prevent our core loop from operating.
-	}
+}
+
+func (manager *Manager) checkBlocks(blocks blocks) {
+	now := manager.config.Clock.Now()
 	manager.config.Logger.Tracef("[%s] evaluating %d blocks", manager.logContext, len(blocks))
 	leases := manager.config.Store.Leases()
 	for leaseName := range blocks {
@@ -464,17 +456,12 @@ func (manager *Manager) ensureNextTimeout(d time.Duration) {
 }
 
 // retryingExpire runs expire and retries any timeouts.
-func (manager *Manager) retryingExpire(now time.Time, expired chan struct{}) {
+func (manager *Manager) retryingExpire(now time.Time) {
 	manager.config.Logger.Tracef("[%s] expire looking for leases to expire\n", manager.logContext)
 	defer manager.wg.Done()
 	var err error
 	for a := manager.startRetry(); a.Next(); {
 		err = manager.expire(now)
-		// We've done at least 1 attempt
-		if expired != nil {
-			close(expired)
-			expired = nil
-		}
 		if !lease.IsTimeout(err) {
 			break
 		}
@@ -486,6 +473,7 @@ func (manager *Manager) retryingExpire(now time.Time, expired chan struct{}) {
 	// race in the tests.
 	select {
 	case <-manager.catacomb.Dying():
+		manager.config.Logger.Tracef("[%s] expire exiting early do to manager shutdown", manager.logContext)
 		return
 	default:
 	}
@@ -495,11 +483,21 @@ func (manager *Manager) retryingExpire(now time.Time, expired chan struct{}) {
 		manager.config.Logger.Warningf("[%s] retrying timed out in expire", manager.logContext)
 		return
 	}
-	select {
-	case <-manager.catacomb.Dying():
-		return
-	case manager.errors <- err:
-		// We're done.
+	if err != nil {
+		manager.config.Logger.Warningf("[%s] reporting error to main loop: %v", manager.logContext, err)
+		select {
+		case <-manager.catacomb.Dying():
+			return
+		case manager.errors <- err:
+			// We're done.
+		}
+	} else {
+		// If we send back an error, then the main loop won't listen for expireDone
+		select {
+		case <-manager.catacomb.Dying():
+			return
+		case manager.expireDone <- struct{}{}:
+		}
 	}
 }
 

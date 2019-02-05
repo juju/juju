@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -21,10 +23,18 @@ type WaitUntilExpiredSuite struct {
 
 var _ = gc.Suite(&WaitUntilExpiredSuite{})
 
+func (s *WaitUntilExpiredSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	logger := loggo.GetLogger("juju.worker.lease")
+	logger.SetLogLevel(loggo.TRACE)
+	logger = loggo.GetLogger("lease_test")
+	logger.SetLogLevel(loggo.TRACE)
+}
+
 func (s *WaitUntilExpiredSuite) TestLeadershipNotHeld(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
-		blockTest := newBlockTest(manager, key("redis"))
+		blockTest := newBlockTest(c, manager, key("redis"))
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -49,11 +59,11 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
-		blockTest := newBlockTest(manager, key("redis"))
+		blockTest := newBlockTest(c, manager, key("redis"))
 		blockTest.assertBlocked(c)
 
 		// Trigger expiry.
-		clock.Advance(time.Second)
+		c.Assert(clock.WaitAdvance(time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
@@ -82,7 +92,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
-		blockTest := newBlockTest(manager, key("redis"))
+		blockTest := newBlockTest(c, manager, key("redis"))
 		blockTest.assertBlocked(c)
 
 		// Trigger abortive expiry.
@@ -107,7 +117,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
-		blockTest := newBlockTest(manager, key("redis"))
+		blockTest := newBlockTest(c, manager, key("redis"))
 		blockTest.assertBlocked(c)
 
 		// Induce a refresh by making an unexpected check; it turns out the
@@ -152,13 +162,13 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
-		redisTest1 := newBlockTest(manager, key("redis"))
+		redisTest1 := newBlockTest(c, manager, key("redis"))
 		redisTest1.assertBlocked(c)
-		redisTest2 := newBlockTest(manager, key("redis"))
+		redisTest2 := newBlockTest(c, manager, key("redis"))
 		redisTest2.assertBlocked(c)
-		storeTest1 := newBlockTest(manager, key("store"))
+		storeTest1 := newBlockTest(c, manager, key("store"))
 		storeTest1.assertBlocked(c)
-		storeTest2 := newBlockTest(manager, key("store"))
+		storeTest2 := newBlockTest(c, manager, key("store"))
 		storeTest2.assertBlocked(c)
 
 		// Induce attempted expiry; redis was expired already, store was
@@ -183,7 +193,7 @@ func (s *WaitUntilExpiredSuite) TestKillManager(c *gc.C) {
 		},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
-		blockTest := newBlockTest(manager, key("redis"))
+		blockTest := newBlockTest(c, manager, key("redis"))
 		blockTest.assertBlocked(c)
 
 		manager.Kill()
@@ -202,7 +212,7 @@ func (s *WaitUntilExpiredSuite) TestCancelWait(c *gc.C) {
 		},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
-		blockTest := newBlockTest(manager, key("redis"))
+		blockTest := newBlockTest(c, manager, key("redis"))
 		blockTest.assertBlocked(c)
 		blockTest.cancelWait()
 
@@ -223,7 +233,7 @@ type blockTest struct {
 
 // newBlockTest starts a test goroutine blocking until the manager confirms
 // expiry of the named lease.
-func newBlockTest(manager *lease.Manager, key corelease.Key) *blockTest {
+func newBlockTest(c *gc.C, manager *lease.Manager, key corelease.Key) *blockTest {
 	bt := &blockTest{
 		manager: manager,
 		done:    make(chan error),
@@ -232,14 +242,23 @@ func newBlockTest(manager *lease.Manager, key corelease.Key) *blockTest {
 	}
 	claimer, err := bt.manager.Claimer(key.Namespace, key.ModelUUID)
 	if err != nil {
-		panic("couldn't get claimer")
+		c.Errorf("couldn't get claimer: %v", err)
 	}
+	started := make(chan struct{})
 	go func() {
+		close(started)
 		select {
 		case <-bt.abort:
 		case bt.done <- claimer.WaitUntilExpired(key.Lease, bt.cancel):
+		case <-time.After(testing.LongWait):
+			c.Errorf("block not aborted or expired after %v", testing.LongWait)
 		}
 	}()
+	select {
+	case <-started:
+	case <-bt.abort:
+		c.Errorf("bt.aborted before even started")
+	}
 	return bt
 }
 
@@ -250,8 +269,12 @@ func (bt *blockTest) cancelWait() {
 func (bt *blockTest) assertBlocked(c *gc.C) {
 	select {
 	case err := <-bt.done:
-		c.Fatalf("unblocked unexpectedly with %v", err)
-	default:
+		c.Errorf("unblocked unexpectedly with %v", err)
+	case <-time.After(time.Millisecond):
+		// happy that we are still blocked, success
+		// TODO(jam): 2019-02-05 should this be testing.ShortWait? It used to be
+		//  just plain 'default:', which didn't even give the helper goroutine
+		//  a timeslice to start to even evaluate if WaitUntilExpired had returned.
 	}
 }
 
@@ -260,7 +283,7 @@ func (bt *blockTest) assertUnblocked(c *gc.C) error {
 	case err := <-bt.done:
 		return err
 	case <-bt.abort:
-		c.Fatalf("timed out before unblocking")
+		c.Errorf("timed out before unblocking")
+		return errors.Errorf("timed out")
 	}
-	panic("unreachable")
 }

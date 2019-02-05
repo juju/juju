@@ -40,6 +40,12 @@ func (s *AsyncSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *AsyncSuite) TestExpirySlow(c *gc.C) {
+	// TODO: jam 2019-02-05 This test is explicitly testing behavior that we are changing.
+	// It test that even if an Expire is slow, it doesn't block a follow up expire
+	// to trigger on the main loop. But *that* behavior means we can have runaway
+	// expiration loops if they are having problems.
+	// If we change our minds, we should reintroduce this test.
+	c.Skip("design change in behavior for Expire triggers")
 	// Ensure that even if an expiry is taking a long time, another
 	// expiry after it can still work.
 
@@ -139,7 +145,7 @@ func (s *AsyncSuite) TestExpiryTimeout(c *gc.C) {
 				select {
 				case expireCalls <- struct{}{}:
 				case <-time.After(coretesting.LongWait):
-					c.Fatalf("timed out sending expired")
+					c.Errorf("timed out sending expired")
 				}
 			},
 		}, {
@@ -160,10 +166,8 @@ func (s *AsyncSuite) TestExpiryTimeout(c *gc.C) {
 			c.Fatalf("timed out waiting for 1st expireCall")
 		}
 
-		// We want two waiters - one for the main loop, and one for
-		// the retry delay.
-		err := clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 2)
-		c.Assert(err, jc.ErrorIsNil)
+		// Just the retry delay is waiting
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 1), jc.ErrorIsNil)
 
 		select {
 		case _, ok := <-expireCalls:
@@ -217,10 +221,11 @@ func (s *AsyncSuite) TestExpiryRepeatedTimeout(c *gc.C) {
 		delay := 50 * time.Millisecond
 		for i := 0; i < 4; i++ {
 			c.Logf("retry %d", i+1)
-			// Two timers:
-			// - nextTick timer
+			// One timer:
 			// - retryingExpiry timers
-			err := clock.WaitAdvance(delay, coretesting.LongWait, 2)
+			// - nextTick just fired and is waiting for expire to complete
+			//   before it resets
+			err := clock.WaitAdvance(delay, coretesting.LongWait, 1)
 			c.Assert(err, jc.ErrorIsNil)
 			select {
 			case <-expireCalls:
@@ -253,7 +258,7 @@ func (s *AsyncSuite) TestExpiryInterruptedRetry(c *gc.C) {
 				select {
 				case expireCalls <- struct{}{}:
 				case <-time.After(coretesting.LongWait):
-					c.Fatalf("timed out sending expired")
+					c.Errorf("timed out sending expired")
 				}
 			},
 		}},
@@ -265,19 +270,15 @@ func (s *AsyncSuite) TestExpiryInterruptedRetry(c *gc.C) {
 			c.Fatalf("timed out waiting for 1st expireCall")
 		}
 
-		// Ensure the main loop and the retry loop are both waiting
-		// for the clock without advancing it.
-		err := clock.WaitAdvance(0, coretesting.LongWait, 2)
-		c.Assert(err, jc.ErrorIsNil)
+		// The retry loop has a waiter, but the core loop's timer has just fired
+		// and because expire hasn't completed, it hasn't been reset.
+		c.Assert(clock.WaitAdvance(0, coretesting.LongWait, 1), jc.ErrorIsNil)
 
 		// Stopping the worker should cancel the retry.
-		err = worker.Stop(manager)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(worker.Stop(manager), jc.ErrorIsNil)
 
-		// Advance the clock to trigger the next retry if it's
-		// waiting.
-		err = clock.WaitAdvance(50*time.Millisecond, coretesting.ShortWait, 2)
-		c.Assert(err, jc.ErrorIsNil)
+		// Advance the clock to trigger the next expire retry
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, coretesting.ShortWait, 1), jc.ErrorIsNil)
 
 		// Allow some wallclock time for a non-cancelled retry to
 		// happen if stopping the worker didn't cancel it. This is not
