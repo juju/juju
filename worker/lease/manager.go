@@ -353,6 +353,13 @@ func (manager *Manager) handleCheck(check check) error {
 			return errors.Trace(err)
 		}
 		info, found = manager.lookupLease(key)
+		if !found {
+			// Someone thought they were the leader and held a Claim or they wouldn't
+			// have tried to do a mutating operation. However, when they actually
+			// got to this point, we detected that they were, actually, out of
+			// date. Schedule a sync
+			manager.ensureNextTimeout(time.Millisecond)
+		}
 	}
 
 	var response error

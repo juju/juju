@@ -110,10 +110,12 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 			},
 		},
 		expectCalls: []call{{
-			method: "Refresh",
+			method: "Refresh", // Called when we get inconsistent results
 			callback: func(leases map[corelease.Key]corelease.Info) {
 				delete(leases, key("redis"))
 			},
+		}, {
+			method: "Refresh", // Called at the newly injected 'expire' test
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
@@ -125,6 +127,9 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 		checker, err := manager.Checker("namespace", "model")
 		c.Assert(err, jc.ErrorIsNil)
 		checker.Token("redis", "redis/99").Check(0, nil)
+		// When we notice that we are out of sync, we should queue up an expiration
+		// and update of blockers after a very short timeout
+		clock.WaitAdvance(time.Millisecond, testing.ShortWait, 1)
 		err = blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
