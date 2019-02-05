@@ -378,7 +378,7 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 		removeDoc, err := processOneMachineProfileChange(m, profileBroker)
 		// The machine is not provisioned yet, so we should continue on
 		// and apply the information at a later stage.
-		if errors.IsNotProvisioned(err) {
+		if err != nil && errors.IsNotProvisioned(err) {
 			continue
 		}
 		if removeDoc {
