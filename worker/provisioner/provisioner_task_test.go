@@ -285,7 +285,7 @@ func setUpFailureMockProfileMachine(ctrl *gomock.Controller, num string) *apipro
 	mExp := mockMachine.EXPECT()
 	mExp.CharmProfileChangeInfo().Return(apiprovisioner.CharmProfileChangeInfo{}, errors.New("fail me"))
 	mExp.Id().Return(num)
-	mExp.SetInstanceStatus(status.Error, gomock.Any(), nil).Return(nil)
+	mExp.SetInstanceStatus(status.ProvisioningProfileError, gomock.Any(), nil).Return(nil)
 	mExp.SetUpgradeCharmProfileComplete(gomock.Any()).Return(nil)
 
 	return mockMachine

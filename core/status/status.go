@@ -219,6 +219,12 @@ const (
 	Provisioning      Status = "allocating"
 	Running           Status = "running"
 	ProvisioningError Status = "provisioning error"
+
+	// ProvisioningProfileError represents a charm profile error when
+	// attemptting to apply a charm profile to a machine. The issue occurs when
+	// the LXD profile returns an error, but the LXC instance states that the
+	// container is running.
+	ProvisioningProfileError Status = "provisioning profile error"
 )
 
 const (

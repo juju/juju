@@ -279,13 +279,27 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 			Message: instStat.Info,
 		}
 		if instInfo.status != currentInstStatus {
-			logger.Infof("machine %q instance status changed from %q to %q", m.Id(), currentInstStatus, instInfo.status)
-			if err = m.SetInstanceStatus(instInfo.status.Status, instInfo.status.Message, nil); err != nil {
-				logger.Errorf("cannot set instance status on %q: %v", m, err)
-				return instanceInfo{}, err
+			// The profile failed to apply to the machine, but the underlying LXC
+			// container states that it is running. So we need to know when this
+			// happens, to prevent the machine status returning back to running.
+			if currentInstStatus.Status == status.ProvisioningProfileError &&
+				instInfo.status.Status == status.Running {
+				logger.Tracef("machine %q instance is in a profile error state", m.Id())
+				// overwrite the instInfo with the current instance status,
+				// instead of the context instance info from the underlying
+				// from the LXC container.
+				instInfo = instanceInfo{
+					addresses: instInfo.addresses,
+					status:    currentInstStatus,
+				}
+			} else {
+				logger.Tracef("machine %q instance status changed from %q to %q", m.Id(), currentInstStatus, instInfo.status)
+				if err = m.SetInstanceStatus(instInfo.status.Status, instInfo.status.Message, nil); err != nil {
+					logger.Errorf("cannot set instance status on %q: %v", m, err)
+					return instanceInfo{}, err
+				}
 			}
 		}
-
 	}
 	if m.Life() != params.Dead {
 		providerAddresses, err := m.ProviderAddresses()

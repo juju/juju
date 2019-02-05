@@ -388,8 +388,14 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 				return errors.Annotatef(err2, "cannot set error status for instance charm profile data for machine %q", m)
 			}
 			// If Error, SetInstanceStatus in the provisioner api will also call
-			// SetStatus.
-			if err2 := m.SetInstanceStatus(status.Error, "cannot upgrade machine's lxd profile: "+err.Error(), nil); err2 != nil {
+			// SetStatus. The ProvisioningProfileError will ensure that the
+			// machine won't return back to status.Running, until intervention
+			// from an operator has happened.
+			// This is because the pollInstanceInfo checks the underlying LXC
+			// container instance for it's status, which returns Running, but
+			// in reality the profile wasn't applied and we can't provide what
+			// the operator wanted, so we force the machine into a profile error.
+			if err2 := m.SetInstanceStatus(status.ProvisioningProfileError, "cannot upgrade machine's lxd profile: "+err.Error(), nil); err2 != nil {
 				return errors.Annotatef(err2, "cannot set error status for machine %q", m)
 			}
 		} else {
