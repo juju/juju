@@ -260,9 +260,11 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Should never happen, but just in case.
+	// Can happen if scale is set to 0 in k8s, outside of Juju.
+	// In this case, there is no provisioning info to return.
 	if len(units) == 0 {
-		return nil, errors.Errorf("cannot provision application %q with no units", appTag.Id())
+		logger.Debugf("cannot provision application %q with no units", appTag.Id())
+		return nil, nil
 	}
 	modelConfig, err := model.ModelConfig()
 	if err != nil {

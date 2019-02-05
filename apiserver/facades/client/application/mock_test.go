@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
@@ -828,4 +829,18 @@ func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 		storageType = provider.RootfsProviderType
 	}
 	return storage.NewConfig(name, storageType, map[string]interface{}{"foo": "bar"})
+}
+
+type mockCaasBroker struct {
+	jtesting.Stub
+	caas.Broker
+	storageClassName string
+}
+
+func (m *mockCaasBroker) GetStorageClassName(labels ...string) (string, error) {
+	m.MethodCall(m, "GetStorageClassName", labels)
+	if err := m.NextErr(); err != nil {
+		return "", err
+	}
+	return m.storageClassName, m.NextErr()
 }

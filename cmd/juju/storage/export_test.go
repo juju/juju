@@ -31,6 +31,22 @@ func NewPoolCreateCommandForTest(api PoolCreateAPI, store jujuclient.ClientStore
 	return modelcmd.Wrap(cmd)
 }
 
+func NewPoolDeleteCommandForTest(api PoolDeleteAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &poolDeleteCommand{newAPIFunc: func() (PoolDeleteAPI, error) {
+		return api, nil
+	}}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
+
+func NewPoolUpdateCommandForTest(api PoolUpdateAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &poolUpdateCommand{newAPIFunc: func() (PoolUpdateAPI, error) {
+		return api, nil
+	}}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
+
 func NewShowCommandForTest(api StorageShowAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &showCommand{newAPIFunc: func() (StorageShowAPI, error) {
 		return api, nil

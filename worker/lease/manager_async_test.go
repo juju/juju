@@ -32,7 +32,10 @@ type AsyncSuite struct {
 var _ = gc.Suite(&AsyncSuite{})
 
 func (s *AsyncSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 	logger := loggo.GetLogger("juju.worker.lease")
+	logger.SetLogLevel(loggo.TRACE)
+	logger = loggo.GetLogger("lease_test")
 	logger.SetLogLevel(loggo.TRACE)
 }
 
@@ -209,6 +212,10 @@ func (s *AsyncSuite) TestExpiryRepeatedTimeout(c *gc.C) {
 		delay := 50 * time.Millisecond
 		for i := 0; i < 4; i++ {
 			c.Logf("retry %d", i+1)
+			// The two timers are the core retrying loop, and the outer
+			// 'when should I try again' loop.
+			// XXX: We should probably *not* queue up a nextTick while we're
+			// still retrying the current tick
 			err := clock.WaitAdvance(delay, coretesting.LongWait, 2)
 			c.Assert(err, jc.ErrorIsNil)
 			select {
@@ -343,11 +350,13 @@ func (s *AsyncSuite) TestClaimSlow(c *gc.C) {
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for slowStarted")
 		}
-
 		response2 := make(chan error)
 		go func() {
 			response2 <- claimer.Claim("antiquisearchers", "art", time.Minute)
 		}()
+
+		// response1 should have failed its claim, and no be waiting to retry
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 4), jc.ErrorIsNil)
 
 		// We should be able to get the response for the second claim
 		// even though the first hasn't come back yet.
@@ -361,6 +370,9 @@ func (s *AsyncSuite) TestClaimSlow(c *gc.C) {
 		}
 
 		close(slowFinish)
+
+		// response1 should have failed its claim again, and no be waiting longer to retry
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 4), jc.ErrorIsNil)
 
 		// Now response1 should come back.
 		select {

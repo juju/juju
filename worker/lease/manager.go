@@ -175,8 +175,21 @@ func (manager *Manager) choose(blocks blocks) error {
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
 	case manager.now = <-manager.nextTick(manager.now):
-		manager.wg.Add(1)
-		go manager.retryingTick(manager.now)
+		// TODO(jam): 2019-02-03 This retryingTick is being fired off in its own
+		//  goroutine without synchronizing with manager.nextTick above.
+		//  Which means that if handling expiring tokens takes any real length
+		//  of time, then we'll get a backlog of *many* goroutines all trying
+		//  to expire tokens at some previous point in time.
+		//  We might want to stop the ticking while retryingTick is happening,
+		//  *or* tell retryingTick that it should update its time when a new
+		//  nextTick occurs.
+		// If we need to expire leases we should do it, otherwise this
+		// is just an opportunity to check for blocks that need to be
+		// notified.
+		if !manager.config.Store.Autoexpire() {
+			manager.wg.Add(1)
+			go manager.retryingTick(manager.now)
+		}
 	case claim := <-manager.claims:
 		manager.wg.Add(1)
 		go manager.retryingClaim(claim)
@@ -231,11 +244,17 @@ func (manager *Manager) retryingClaim(claim claim) {
 	)
 	for a := manager.startRetry(); a.Next(); {
 		success, err = manager.handleClaim(claim)
-		if !lease.IsTimeout(err) {
+		if !lease.IsTimeout(err) && !lease.IsInvalid(err) {
 			break
 		}
 		if a.More() {
-			manager.config.Logger.Tracef("[%s] timed out handling claim, retrying...", manager.logContext)
+			if lease.IsInvalid(err) {
+				manager.config.Logger.Tracef("[%s] request by %s for lease %s %v, retrying...",
+					manager.logContext, claim.holderName, claim.leaseKey.Lease, err)
+			} else {
+				manager.config.Logger.Tracef("[%s] timed out handling claim by %s for lease %s, retrying...",
+					manager.logContext, claim.holderName, claim.leaseKey.Lease)
+			}
 		}
 	}
 
@@ -273,34 +292,37 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	store := manager.config.Store
 	request := lease.Request{Holder: claim.holderName, Duration: claim.duration}
 	err := lease.ErrInvalid
-	for lease.IsInvalid(err) {
-		select {
-		case <-manager.catacomb.Dying():
-			return false, manager.catacomb.ErrDying()
+	action := "unknown"
+	select {
+	case <-manager.catacomb.Dying():
+		return false, manager.catacomb.ErrDying()
+	default:
+		info, found := store.Leases(claim.leaseKey)[claim.leaseKey]
+		switch {
+		case !found:
+			manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+			action = "claiming"
+			err = store.ClaimLease(claim.leaseKey, request)
+		case info.Holder == claim.holderName:
+			manager.config.Logger.Tracef("[%s] %s extending lease %s for %s",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+			action = "extending"
+			err = store.ExtendLease(claim.leaseKey, request)
 		default:
-			info, found := store.Leases(claim.leaseKey)[claim.leaseKey]
-			switch {
-			case !found:
-				manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
-					manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
-				err = store.ClaimLease(claim.leaseKey, request)
-			case info.Holder == claim.holderName:
-				manager.config.Logger.Tracef("[%s] %s extending lease %s for %s",
-					manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
-				err = store.ExtendLease(claim.leaseKey, request)
-			default:
-				// Note: (jam) 2017-10-31) We don't check here if the lease has
-				// expired for the current holder. Should we?
-				remaining := info.Expiry.Sub(manager.config.Clock.Now())
-				manager.config.Logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
-					manager.logContext, claim.holderName, claim.leaseKey.Lease, info.Holder, remaining)
-				return false, nil
-			}
+			// Note: (jam) 2017-10-31) We don't check here if the lease has
+			// expired for the current holder. Should we?
+			remaining := info.Expiry.Sub(manager.config.Clock.Now())
+			manager.config.Logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease, info.Holder, remaining)
+			return false, nil
 		}
 	}
 	if err != nil {
 		return false, errors.Trace(err)
 	}
+	manager.config.Logger.Tracef("[%s] %s %s lease %s for %s successful",
+		manager.logContext, claim.holderName, action, claim.leaseKey.Lease, claim.duration)
 	return true, nil
 }
 
@@ -356,11 +378,13 @@ func (manager *Manager) nextTick(lastTick time.Time) <-chan time.Time {
 		}
 		nextTick = info.Expiry
 	}
+	manager.config.Logger.Tracef("[%s] next tick decided on %v %v", manager.logContext, nextTick.Sub(now), nextTick)
 	return clock.Alarm(manager.config.Clock, nextTick)
 }
 
 // retryingTick runs tick and retries any timeouts.
 func (manager *Manager) retryingTick(now time.Time) {
+	manager.config.Logger.Tracef("[%s] tick looking for leases to expire\n", manager.logContext)
 	defer manager.wg.Done()
 	var err error
 	for a := manager.startRetry(); a.Next(); {

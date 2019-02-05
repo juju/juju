@@ -167,8 +167,23 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C) {
 	s.storagePoolManager.SetErrors(errors.NotFoundf("pool"))
 	s.st.operatorImage = "jujusolutions/caas-jujud-operator"
-	_, err := s.api.OperatorProvisioningInfo()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	result, err := s.api.OperatorProvisioningInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
+		ImagePath:    s.st.operatorImage,
+		Version:      version.Current,
+		APIAddresses: []string{"10.0.0.1:1"},
+		Tags: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id()},
+		CharmStorage: params.KubernetesFilesystemParams{
+			Size:     uint64(1024),
+			Provider: "kubernetes",
+			Tags: map[string]string{
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id()},
+		},
+	})
 }
 
 func (s *CAASProvisionerSuite) TestAddresses(c *gc.C) {
