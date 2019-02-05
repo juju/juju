@@ -79,6 +79,7 @@ type APIBase struct {
 
 	modelTag  names.ModelTag
 	modelType state.ModelType
+	modelName string
 
 	resources facade.Resources
 
@@ -89,6 +90,7 @@ type APIBase struct {
 	stateCharm func(Charm) *state.Charm
 
 	storagePoolManager    poolmanager.PoolManager
+	caasBroker            caas.Broker
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
 }
 
@@ -153,12 +155,13 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	stateCharm := CharmToStateCharm
 
 	var storagePoolManager poolmanager.PoolManager
+	var caasBroker caas.Broker
 	if model.Type() == state.ModelTypeCAAS {
-		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
+		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
-		storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
+		storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(caasBroker)
 		storagePoolManager = poolmanager.New(state.NewStateSettings(ctx.State()), storageProviderRegistry)
 	}
 
@@ -171,10 +174,12 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		blockChecker,
 		model.ModelTag(),
 		model.Type(),
+		model.Name(),
 		stateCharm,
 		DeployApplication,
 		storagePoolManager,
 		resources,
+		caasBroker,
 	)
 }
 
@@ -186,10 +191,12 @@ func NewAPIBase(
 	blockChecker BlockChecker,
 	modelTag names.ModelTag,
 	modelType state.ModelType,
+	modelName string,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
 	resources facade.Resources,
+	caasBroker caas.Broker,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -201,10 +208,12 @@ func NewAPIBase(
 		check:                 blockChecker,
 		modelTag:              modelTag,
 		modelType:             modelType,
+		modelName:             modelName,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
 		storagePoolManager:    storagePoolManager,
 		resources:             resources,
+		caasBroker:            caasBroker,
 	}, nil
 }
 
@@ -319,22 +328,8 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 		return result, errors.Trace(err)
 	}
 
-	// CAAS models require that a "operator-storage" storage pool exist.
-	if api.modelType == state.ModelTypeCAAS {
-		sp, err := api.storagePoolManager.Get(caas.OperatorStoragePoolName)
-		if err != nil {
-			return params.ErrorResults{}, errors.Annotatef(
-				err,
-				"deploying a Kubernetes application requires a storage pool called %q", caas.OperatorStoragePoolName)
-		}
-		if sp.Provider() != k8s.K8s_ProviderType {
-			return params.ErrorResults{}, errors.Errorf(
-				"the %q storage pool requires a provider type of %q, not %q", caas.OperatorStoragePoolName, k8s.K8s_ProviderType, sp.Provider())
-		}
-	}
-
 	for i, arg := range args.Applications {
-		err := deployApplication(api.backend, api.modelType, api.stateCharm, arg, api.deployApplicationFunc, api.storagePoolManager)
+		err := deployApplication(api.backend, api.modelType, api.modelName, api.stateCharm, arg, api.deployApplicationFunc, api.storagePoolManager, api.caasBroker)
 		result.Results[i].Error = common.ServerError(err)
 
 		if err != nil && len(arg.Resources) != 0 {
@@ -443,10 +438,12 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 func deployApplication(
 	backend Backend,
 	modelType state.ModelType,
+	modelName string,
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
+	caasBroker caas.Broker,
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
@@ -470,16 +467,51 @@ func deployApplication(
 				len(args.Placement),
 			)
 		}
-		for storageName, cons := range args.Storage {
-			if cons.Pool == "" {
-				return errors.Errorf("storage pool for %q must be specified", storageName)
-			}
-			sp, err := storagePoolManager.Get(cons.Pool)
-			if err != nil {
-				return errors.Trace(err)
-			}
+
+		// CAAS models will use an "operator-storage" storage pool if it exists.
+		sp, err := storagePoolManager.Get(caas.OperatorStoragePoolName)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if err == nil {
 			if sp.Provider() != k8s.K8s_ProviderType {
-				return errors.Errorf("invalid storage provider type %q for %q", sp.Provider(), storageName)
+				return errors.Errorf(
+					"the %q storage pool requires a provider type of %q, not %q", caas.OperatorStoragePoolName, k8s.K8s_ProviderType, sp.Provider())
+			}
+		} else {
+			// No operator-storage pool so try and see if there's a cluster default.
+			if _, err := caasBroker.GetStorageClassName(caas.OperatorStorageClassLabels(args.ApplicationName, modelName)...); err != nil {
+				return errors.Annotatef(
+					err,
+					"deploying a Kubernetes application requires a suitable storage class.\n"+
+						"None were found in the cluster. Either create a default storage class\n"+
+						"or create a Juju storage-pool called 'operator-storage' to define how operator"+
+						"storage should be allocated. See https://discourse.jujucharms.com/t/getting-started/152.",
+				)
+			}
+		}
+
+		var defaultStorageClass *string
+		for storageName, cons := range args.Storage {
+			if cons.Pool == "" && defaultStorageClass == nil {
+				// In case no storage pool is specified for charm storage, pre-load any cluster default.
+				result, err := caasBroker.GetStorageClassName(caas.UnitStorageClassLabels(args.ApplicationName, modelName)...)
+				if err != nil && !errors.IsNotFound(err) {
+					return errors.Trace(err)
+				}
+				defaultStorageClass = &result
+			}
+			if cons.Pool == "" && *defaultStorageClass == "" {
+				return errors.Errorf("storage pool for %q must be specified since there's no cluster default storage class", storageName)
+			}
+			if cons.Pool != "" {
+				sp, err := storagePoolManager.Get(cons.Pool)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if sp.Provider() != k8s.K8s_ProviderType {
+					return errors.Errorf("invalid storage provider type %q for %q", sp.Provider(), storageName)
+				}
 			}
 		}
 	}

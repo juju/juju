@@ -109,6 +109,10 @@ type Broker interface {
 	// EnsureNamespace ensures this broker's namespace is created.
 	EnsureNamespace() error
 
+	// GetStorageClassName returns the name of a storage class with the specified
+	// labels, or else the cluster default storage class, or else a NotFound error.
+	GetStorageClassName(labels ...string) (string, error)
+
 	// EnsureOperator creates or updates an operator pod for running
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error

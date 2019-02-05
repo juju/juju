@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -149,15 +150,17 @@ func charmStorageParams(
 	var size uint64 = 1024
 
 	result := params.KubernetesFilesystemParams{
-		Size: size,
+		Size:     size,
+		Provider: string(provider.K8s_ProviderType),
 	}
 
 	providerType, cfg, err := storagecommon.StoragePoolConfig(pool, poolManager, registry)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return params.KubernetesFilesystemParams{}, errors.Trace(err)
 	}
-
-	result.Provider = string(providerType)
-	result.Attributes = cfg.Attrs()
+	if err == nil {
+		result.Provider = string(providerType)
+		result.Attributes = cfg.Attrs()
+	}
 	return result, nil
 }
