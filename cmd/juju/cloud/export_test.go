@@ -35,7 +35,7 @@ func NewAddCloudCommandForTest(
 	}
 }
 
-func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (ListCloudsAPI, error)) *listCloudsCommand {
+func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(string) (ListCloudsAPI, error)) *listCloudsCommand {
 	return &listCloudsCommand{
 		store:             store,
 		listCloudsAPIFunc: cloudAPI,

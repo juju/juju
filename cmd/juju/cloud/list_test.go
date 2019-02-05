@@ -51,8 +51,13 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 }
 
 func (s *listSuite) TestListController(c *gc.C) {
-	// need to add controller details to the store?
-	cmd := cloud.NewListCloudCommandForTest(s.store, func() (cloud.ListCloudsAPI, error) { return s.api, nil })
+	var controllerAPICalled string
+	cmd := cloud.NewListCloudCommandForTest(
+		s.store,
+		func(controllerName string) (cloud.ListCloudsAPI, error) {
+			controllerAPICalled = controllerName
+			return s.api, nil
+		})
 	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
 	s.api.controllerClouds[names.NewCloudTag("beehive")] = jujucloud.Cloud{
 		Name:      "beehive",
@@ -69,6 +74,8 @@ func (s *listSuite) TestListController(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller")
 	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "Clouds", "Close")
+	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 

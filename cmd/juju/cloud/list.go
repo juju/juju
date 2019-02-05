@@ -32,7 +32,7 @@ type listCloudsCommand struct {
 	// Used when querying a controller for its cloud details
 	controllerName    string
 	store             jujuclient.ClientStore
-	listCloudsAPIFunc func() (ListCloudsAPI, error)
+	listCloudsAPIFunc func(controllerName string) (ListCloudsAPI, error)
 }
 
 // listCloudsDoc is multi-line since we need to use ` to denote
@@ -59,7 +59,7 @@ Examples:
 
     juju clouds
     juju clouds --format yaml
-    juju add-cloud --controller mycontroller
+    juju clouds --controller mycontroller
 
 See also:
     add-cloud
@@ -83,8 +83,8 @@ func NewListCloudsCommand() cmd.Command {
 	return modelcmd.WrapBase(c)
 }
 
-func (c *listCloudsCommand) cloudAPI() (ListCloudsAPI, error) {
-	root, err := c.NewAPIRoot(c.store, c.controllerName, "")
+func (c *listCloudsCommand) cloudAPI(controllerName string) (ListCloudsAPI, error) {
+	root, err := c.NewAPIRoot(c.store, controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -122,7 +122,7 @@ func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
 		return details, nil
 	}
 
-	api, err := c.listCloudsAPIFunc()
+	api, err := c.listCloudsAPIFunc(c.controllerName)
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +134,7 @@ func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
 	details := newCloudList()
 	for name, cloud := range controllerClouds {
 		cloudDetails := makeCloudDetails(cloud)
+		// TODO: Better categorization than public.
 		details.public[name.String()] = cloudDetails
 	}
 	return details, nil
