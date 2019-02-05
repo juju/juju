@@ -102,7 +102,7 @@ type Manager struct {
 	// if supplied
 	logContext string
 
-	// nextTimeout is the next time that has a possibly expiry that we would care
+	// nextTimeout is the next time that has a possible expiry that we would care
 	// about, capped at the maximum time.
 	nextTimeout time.Time
 
@@ -455,8 +455,8 @@ func (manager *Manager) ensureNextTimeout(d time.Duration) {
 	proposed := manager.config.Clock.Now().Add(d)
 	if next.After(proposed) {
 		manager.config.Logger.Tracef("[%s] ensuring we wake up before %v at %v\n",
-			manager.logContext, d, next)
-		manager.nextTimeout = next
+			manager.logContext, d, proposed)
+		manager.nextTimeout = proposed
 		manager.timer.Reset(d)
 	}
 	manager.muNextTimeout.Unlock()

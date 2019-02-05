@@ -449,6 +449,73 @@ func (s *AsyncSuite) TestClaimTimeout(c *gc.C) {
 	})
 }
 
+func (s *AsyncSuite) TestClaimNoticesEarlyExpiry(c *gc.C) {
+	fix := Fixture{
+		leases: leaseMap{
+			key("dmdc"): {
+				Holder: "terry",
+				Expiry: offset(10 * time.Minute),
+			},
+		},
+		expectCalls: []call{{
+			method: "ClaimLease",
+			args: []interface{}{
+				key("icecream"),
+				corelease.Request{"rosie", time.Minute},
+			},
+			callback: func(leases leaseMap) {
+				leases[key("icecream")] = corelease.Info{
+					Holder: "rosie",
+					Expiry: offset(time.Minute),
+				}
+			},
+		}, {
+			method: "ClaimLease",
+			args: []interface{}{
+				key("fudge"),
+				corelease.Request{"chocolate", time.Minute},
+			},
+			callback: func(leases leaseMap) {
+				leases[key("fudge")] = corelease.Info{
+					Holder: "chocolate",
+					Expiry: offset(2 * time.Minute),
+				}
+			},
+		}, {
+			method: "Refresh",
+		}, {
+			method: "ExpireLease",
+			args:   []interface{}{key("icecream")},
+			callback: func(leases leaseMap) {
+				delete(leases, key("icecream"))
+			},
+		}},
+	}
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		// When we first start, we should not yet call Expire because the
+		// Expiry should be 10 minutes into the future. But the first claim
+		// will create an entry that expires in only 1 minute, so we should
+		// reset our expire timeout
+		claimer, err := manager.Claimer("namespace", "modelUUID")
+		c.Assert(err, jc.ErrorIsNil)
+		err = claimer.Claim("icecream", "rosie", time.Minute)
+		c.Assert(err, jc.ErrorIsNil)
+		// We sleep for 30s which *shouldn't* trigger any Expiry. And then we get
+		// another claim that also wants 1 minute duration. But that should not cause the
+		// timer to wake up in 1minute, but the 30s that are remaining.
+		c.Assert(clock.WaitAdvance(30*time.Second, testing.LongWait, 1), jc.ErrorIsNil)
+		// The second claim tries to set a timeout of another minute, but that should
+		// not cause the timer to get reset any later than it already is.
+		// Chocolate is also given a slightly longer timeout (2min after epoch)
+		err = claimer.Claim("fudge", "chocolate", time.Minute)
+		c.Assert(err, jc.ErrorIsNil)
+		// Now when we advance the clock another 30s, it should wake up and
+		// expire "icecream", and then queue up that we should expire "fudge"
+		// 1m later
+		c.Assert(clock.WaitAdvance(30*time.Second, testing.LongWait, 1), jc.ErrorIsNil)
+	})
+}
+
 func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 	// When a claim times out too many times we give up.
 	claimCalls := make(chan struct{})
