@@ -32,19 +32,21 @@ from utility import (
     until_timeout,
 )
 
+#
+# The following acceptance test has been modifed to remove the HA testing
+# strategy from the test. The CLI no longer supports the following:
+#  - constraints when restoring a backup file
+#  - HA backup and restore
+#
+# Once HA backup and restore are reinstanted in Juju, we should restore the
+# the HA nature of this acceptance test.
+#
 
 __metaclass__ = type
 
-
 running_instance_pattern = re.compile('\["([^"]+)"\]')
 
-
 log = logging.getLogger("assess_recovery")
-
-
-class HARecoveryError(Exception):
-    """The controllers failed to respond."""
-
 
 def check_token(client, token):
     for ignored in until_timeout(300):
@@ -53,7 +55,6 @@ def check_token(client, token):
             return found
     raise JujuAssertionError('Token is not {}: {}'.format(
                              token, found))
-
 
 def deploy_stack(client, charm_series):
     """"Deploy a simple stack, state-server and ubuntu."""
@@ -68,99 +69,19 @@ def show_controller(client):
     controller_info = client.show_controller(format='yaml')
     log.info('Controller is:\n{}'.format(controller_info))
 
-
-def enable_ha(bs_manager, controller_client):
-    """Enable HA and wait for the controllers to be ready."""
-    controller_client.enable_ha()
-    controller_client.wait_for_ha()
-    show_controller(controller_client)
-    remote_machines = get_remote_machines(
-        controller_client, bs_manager.known_hosts)
-    bs_manager.known_hosts = remote_machines
-
-
-def assess_ha_recovery(bs_manager, client):
-    """Verify that the client can talk to a controller.
-
-
-    The controller is given 5 minutes to respond to the client's request.
-    Another possibly 5 minutes is given to return a sensible status.
-    """
-    # Juju commands will hang when the controller is down, so ensure the
-    # call is interrupted and raise HARecoveryError. The controller
-    # might return an error, but it still has
-    # Give juju 3 quick attempts to get a status response that doesn't die
-    # partway through comms (due to reconfiguration in progress).
-    status_attempt_countdown = 2
-    while True:
-        try:
-            client.juju('status', (), check=True, timeout=300)
-            client.get_status(300)
-            break
-        except CalledProcessError:
-            if status_attempt_countdown > 0:
-                log.info('Status failed, will attempt again.')
-                status_attempt_countdown -= 1
-            else:
-                raise HARecoveryError(
-                    'Juju failed to respond (status failed).')
-    # Status works, now exercise juju further. Ensure setting model config and
-    # reading back the result works.
-    client.set_env_option('ha-testing-value', 'abc123')
-    if client.get_env_option('ha-testing-value').strip() != 'abc123':
-        raise HARecoveryError('Juju failed to respond (model-config failed).')
-    bs_manager.has_controller = True
-    log.info("HA recovered from leader failure.")
-    log.info("PASS")
-
-def delete_controller_members(bs_manager, client, leader_only=False):
-    """Delete controller members.
-
-    The all members are delete by default. The followers are deleted before the
-    leader to simulates a total controller failure. When leader_only is true,
-    the leader is deleted to trigger a new leader election.
-    """
-    if leader_only:
-        leader = client.get_controller_leader()
-        members = [leader]
-    else:
-        members = client.get_controller_members()
-        members.reverse()
-    deleted_machines = []
-    for machine in members:
-        instance_id = machine.info.get('instance-id')
-        if client.env.provider == 'azure':
-            instance_id = convert_to_azure_ids(client, [instance_id])[0]
-        host = machine.info.get('dns-name')
-        log.info("Instrumenting node failure for member {}: {} at {}".format(
-                 machine.machine_id, instance_id, host))
-        terminate_instances(client.env, [instance_id])
-        wait_for_state_server_to_shutdown(
-            host, client, instance_id, timeout=120)
-        deleted_machines.append(machine.machine_id)
-    log.info("Deleted {}".format(deleted_machines))
-    # Do not gather data about the deleted controller.
-    if not leader_only:
-        bs_manager.has_controller = False
-    for m_id in deleted_machines:
-        if bs_manager.known_hosts.get(m_id):
-            del bs_manager.known_hosts[m_id]
-    return deleted_machines
-
-
-def restore_state_server(bs_manager, controller_client, backup_file,
+def restore_backup(bs_manager, client, backup_file,
                                  check_controller=True):
-    """juju-restore creates a state-server for the services."""
+    """juju-restore restores the backup file."""
     log.info("Starting restore.")
     try:
-        controller_client.restore_backup(backup_file)
+        client.restore_backup(backup_file)
     except CalledProcessError as e:
         log.info('Call of juju restore exited with an error\n')
         log.info('Call:  %r\n', e.cmd)
         log.exception(e)
         raise LoggedException(e)
     if check_controller:
-        controller_client.wait_for_started(600)
+        client.wait_for_started(600)
     show_controller(bs_manager.client)
     bs_manager.has_controller = True
     bs_manager.client.set_config('dummy-source', {'token': 'Two'})
@@ -170,6 +91,10 @@ def restore_state_server(bs_manager, controller_client, backup_file,
     log.info("%s restored", bs_manager.client.env.environment)
     log.info("PASS")
 
+def create_tmp_model(client):
+    model_name = 'temp-model'
+    new_env = client.env.clone(model_name)
+    return client.add_model(new_env)
 
 def parse_args(argv=None):
     parser = ArgumentParser(description='Test recovery strategies.')
@@ -178,16 +103,9 @@ def parse_args(argv=None):
         '--charm-series', help='Charm series.', default='')
     strategy = parser.add_argument_group('test strategy')
     strategy.add_argument(
-        '--ha', action='store_const', dest='strategy', const='ha',
-        default='backup', help="Test HA.")
-    strategy.add_argument(
         '--backup', action='store_const', dest='strategy', const='backup',
         help="Test backup/restore.")
-    strategy.add_argument(
-        '--ha-backup', action='store_const', dest='strategy',
-        const='ha-backup', help="Test backup/restore of HA.")
     return parser.parse_args(argv)
-
 
 @contextmanager
 def detect_bootstrap_machine(bs_manager):
@@ -199,7 +117,6 @@ def detect_bootstrap_machine(bs_manager):
             bs_manager.known_hosts['0'] = address
         raise
 
-
 def assess_recovery(bs_manager, strategy, charm_series):
     log.info("Setting up test.")
     client = bs_manager.client
@@ -208,25 +125,12 @@ def assess_recovery(bs_manager, strategy, charm_series):
     log.info("Setup complete.")
     log.info("Test started.")
     controller_client = client.get_controller_client()
-    if strategy in ('ha', 'ha-backup'):
-        enable_ha(bs_manager, controller_client)
-    if strategy in ('ha-backup', 'backup'):
-        backup_file = controller_client.backup()
-    if strategy == 'ha':
-        leader_only = True
-    else:
-        leader_only = False
-    delete_controller_members(
-        bs_manager, controller_client, leader_only=leader_only)
-    if strategy == 'ha':
-        assess_ha_recovery(bs_manager, client)
-    else:
-        check_controller = strategy != 'ha-backup'
-        restore_state_server(
-            bs_manager, controller_client, backup_file,
-            check_controller=check_controller)
-    log.info("Test complete.")
 
+    backup_file = controller_client.backup()
+    create_tmp_model(client)
+    restore_backup(bs_manager, controller_client, backup_file)
+
+    log.info("Test complete.")
 
 def main(argv):
     args = parse_args(argv)
