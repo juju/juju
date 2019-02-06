@@ -10,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/core/model"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -32,6 +30,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -117,7 +116,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv9 {
 func (s *applicationSuite) TestCharmConfig(c *gc.C) {
 	s.setUpConfigTest(c)
 
-	// TODO (manadart 2018-02-04): When upstream methods receive a generation,
+	// TODO (manadart 2019-02-04): When upstream methods receive a generation,
 	// refactor these tests to account for it.
 	results, err := s.applicationAPI.CharmConfig(params.ApplicationGetArgs{
 		Args: []params.ApplicationGet{
