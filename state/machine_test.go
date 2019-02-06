@@ -204,7 +204,7 @@ func (s *MachineSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
 	c.Assert(status, gc.Equals, lxdprofile.SuccessStatus)
 }
 
-func (s *MachineSuite) TestNextUpgradeCharmProfileApplicationName(c *gc.C) {
+func (s *MachineSuite) TestNextUpgradeCharmProfileUnitName(c *gc.C) {
 	s.assertSetUpUnitSetUpgradeCharmProfile(c)
 
 	name, err := s.machine.NextUpgradeCharmProfileUnitName()
@@ -212,7 +212,7 @@ func (s *MachineSuite) TestNextUpgradeCharmProfileApplicationName(c *gc.C) {
 	c.Assert(name, gc.Equals, s.unit.Name())
 }
 
-func (s *MachineSuite) TestNextUpgradeCharmProfileApplicationNameZero(c *gc.C) {
+func (s *MachineSuite) TestNextUpgradeCharmProfileUnitNameZero(c *gc.C) {
 	s.assertSetUpUnitForLXDProfile(c)
 	m := s.machine
 
@@ -221,31 +221,27 @@ func (s *MachineSuite) TestNextUpgradeCharmProfileApplicationNameZero(c *gc.C) {
 	c.Assert(name, gc.Equals, "")
 }
 
-//func (s *MachineSuite) TestSingleUpgradeCharmProfileApplicationNameMoreThanOne(c *gc.C) {
-//	m := s.machine
-//
-//	ch := s.AddTestingCharm(c, "lxd-profile")
-//	app := s.AddTestingApplication(c, "lxd-profile", ch)
-//	unit, err := app.AddUnit(state.AddUnitParams{})
-//	c.Assert(err, jc.ErrorIsNil)
-//	err = unit.AssignToMachine(m)
-//	c.Assert(err, jc.ErrorIsNil)
-//
-//	app2 := s.AddTestingApplication(c, "lxd-profile-two", ch)
-//	unit2, err := app2.AddUnit(state.AddUnitParams{})
-//	c.Assert(err, jc.ErrorIsNil)
-//	err = unit2.AssignToMachine(m)
-//	c.Assert(err, jc.ErrorIsNil)
-//
-//	err = m.SetUpgradeCharmProfile(app.Name(), "local:quantal/quantal-lxd-profile-0")
-//	c.Assert(err, jc.ErrorIsNil)
-//	err = m.SetUpgradeCharmProfile(app2.Name(), "local:quantal/quantal-lxd-profile-0")
-//	c.Assert(err, jc.ErrorIsNil)
-//
-//	name, err := m.NextUpgradeCharmProfileApplicationName()
-//	c.Assert(err, gc.ErrorMatches, "more than one instance charm profile data for machine 1")
-//	c.Assert(name, gc.Equals, "")
-//}
+func (s *MachineSuite) TestNextUpgradeCharmProfileUnitNameMoreThanOne(c *gc.C) {
+	s.assertSetUpUnitSetUpgradeCharmProfile(c)
+
+	charm, _, err := s.application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.AddTestingApplication(c, "lxd-profile-alt", charm)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetUpgradeCharmProfile(unit.Name(), "local:quantal/quantal-lxd-profile-0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	name, err := s.machine.NextUpgradeCharmProfileUnitName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, unit.Name())
+
+	name, err = s.machine.NextUpgradeCharmProfileUnitName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, s.unit.Name())
+}
 
 func (s *MachineSuite) assertUpgradeCharmProfileNotRequired(c *gc.C, expectedUnitName string) {
 	err := s.machine.Refresh()
