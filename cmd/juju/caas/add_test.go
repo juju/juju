@@ -270,6 +270,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.K8sBrokerRegionLister, error) {
 			return s.fakeK8sBrokerRegionLister, nil
 		},
+		caas.FakeCluster(kubeConfigStr),
 		func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			if !cloudTypeExists {
 				return nil, errors.Errorf("unsupported cloud type '%s'", caasType)
@@ -286,7 +287,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 		},
 		func() (map[string]*jujucmdcloud.CloudDetails, error) {
 			return map[string]*jujucmdcloud.CloudDetails{
-				"gce": {
+				"google": {
 					Source:           "public",
 					CloudType:        "gce",
 					CloudDescription: "Google Cloud Platform",
@@ -548,6 +549,17 @@ func (s *addCAASSuite) TestCorrectParseFromStdIn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.runCommand(c, stdIn, cmd, "myk8s")
 	c.Assert(err, jc.ErrorIsNil)
+	s.assertStoreClouds(c, "")
+}
+
+func (s *addCAASSuite) TestAddGkeCluster(c *gc.C) {
+	cmd := s.makeCommand(c, true, true, false)
+	_, err := s.runCommand(c, nil, cmd, "--gke", "myk8s", "--region", "us-east1")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertStoreClouds(c, "gce/us-east1")
+}
+
+func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
 	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"myk8s": {
@@ -558,6 +570,7 @@ func (s *addCAASSuite) TestCorrectParseFromStdIn(c *gc.C) {
 				Endpoint:         "https://1.1.1.1:8888",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
+				HostCloudRegion:  hostCloud,
 				Regions:          []cloud.Region(nil),
 				Config:           map[string]interface{}(nil),
 				RegionConfig:     cloud.RegionConfig(nil),

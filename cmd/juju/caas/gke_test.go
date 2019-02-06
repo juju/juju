@@ -1,0 +1,234 @@
+// Copyright 2019 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package caas
+
+import (
+	"bytes"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/golang/mock/gomock"
+	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/exec"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/cmd/juju/caas/mocks"
+)
+
+type gkeSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&gkeSuite{})
+
+func (s *gkeSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	err := os.Setenv("PATH", "/path/to/here")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *gkeSuite) TestInteractiveParams(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockRunner := mocks.NewMockCommandRunner(ctrl)
+	gke := &gke{CommandRunner: mockRunner}
+
+	gomock.InOrder(
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands:    "gcloud auth list --format value\\(account,status\\)",
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte("mysecret\ndefaultSecret *"),
+			}, nil),
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands:    "gcloud projects list --account mysecret --filter lifecycleState:ACTIVE --format value\\(projectId\\)",
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte("myproject"),
+			}, nil),
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands:    "gcloud container clusters list --filter status:RUNNING --account mysecret --project myproject --format value\\(name,zone\\)",
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte("mycluster somezone"),
+			}, nil),
+	)
+
+	stdin := strings.NewReader("mysecret\nmyproject\nmycluster in somezone\n")
+	out := &bytes.Buffer{}
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: out,
+		Stderr: ioutil.Discard,
+		Stdin:  stdin,
+	}
+	expected := `
+Available Accounts
+  mysecret
+  defaultSecret
+
+Select account [defaultSecret]: 
+Available Projects
+  myproject
+
+Select project [myproject]: 
+Available Clusters
+  mycluster in somezone
+
+Select cluster [mycluster in somezone]: 
+`[1:]
+
+	outParams, err := gke.interactiveParams(ctx, &clusterParams{})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+		project:    "myproject",
+		name:       "mycluster",
+		region:     "somezone",
+		credential: "mysecret",
+	})
+}
+
+func (s *gkeSuite) TestInteractiveParamsProjectSpecified(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockRunner := mocks.NewMockCommandRunner(ctrl)
+	gke := &gke{CommandRunner: mockRunner}
+
+	gomock.InOrder(
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands:    "gcloud container clusters list --filter status:RUNNING --account mysecret --project myproject --format value\\(name,zone\\)",
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte("mycluster somezone"),
+			}, nil),
+	)
+
+	stdin := strings.NewReader("mycluster in somezone\n")
+	out := &bytes.Buffer{}
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: out,
+		Stderr: ioutil.Discard,
+		Stdin:  stdin,
+	}
+	expected := `
+Available Clusters
+  mycluster in somezone
+
+Select cluster [mycluster in somezone]: 
+`[1:]
+
+	outParams, err := gke.interactiveParams(ctx, &clusterParams{
+		project:    "myproject",
+		credential: "mysecret",
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+		project:    "myproject",
+		name:       "mycluster",
+		region:     "somezone",
+		credential: "mysecret",
+	})
+}
+
+func (s *gkeSuite) TestInteractiveParamsProjectAndRegionSpecified(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockRunner := mocks.NewMockCommandRunner(ctrl)
+	gke := &gke{CommandRunner: mockRunner}
+
+	gomock.InOrder(
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands:    "gcloud container clusters list --filter status:RUNNING --account mysecret --project myproject --format value\\(name,zone\\) --region somezone",
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte("mycluster somezone"),
+			}, nil),
+	)
+
+	stdin := strings.NewReader("mycluster in somezone\n")
+	out := &bytes.Buffer{}
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: out,
+		Stderr: ioutil.Discard,
+		Stdin:  stdin,
+	}
+	expected := `
+Available Clusters
+  mycluster in somezone
+
+Select cluster [mycluster in somezone]: 
+`[1:]
+
+	outParams, err := gke.interactiveParams(ctx, &clusterParams{
+		project:    "myproject",
+		region:     "somezone",
+		credential: "mysecret",
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+		project:    "myproject",
+		name:       "mycluster",
+		region:     "somezone",
+		credential: "mysecret",
+	})
+}
+
+func (s *gkeSuite) TestGetKubeConfig(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockRunner := mocks.NewMockCommandRunner(ctrl)
+	configFile := filepath.Join(c.MkDir(), "config")
+	err := os.Setenv("KUBECONFIG", configFile)
+	c.Assert(err, jc.ErrorIsNil)
+	gke := &gke{CommandRunner: mockRunner}
+	err = ioutil.WriteFile(configFile, []byte("data"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gomock.InOrder(
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands:    "gcloud container clusters get-credentials mycluster --account mysecret --project myproject --region somezone",
+			Environment: []string{"KUBECONFIG=" + configFile, "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code: 0,
+			}, nil),
+	)
+	rdr, clusterName, err := gke.getKubeConfig(&clusterParams{
+		project:    "myproject",
+		region:     "somezone",
+		name:       "mycluster",
+		credential: "mysecret",
+	})
+	c.Check(err, jc.ErrorIsNil)
+	defer rdr.Close()
+
+	c.Assert(clusterName, gc.Equals, "gke_myproject_somezone_mycluster")
+	data, err := ioutil.ReadAll(rdr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), gc.DeepEquals, "data")
+}
