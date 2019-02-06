@@ -163,11 +163,12 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 	}
 
 	ca := CharmArchive{
-		ID:     charmURL,
-		Charm:  downloadedCharm,
-		Data:   archive,
-		Size:   size,
-		SHA256: bundleSHA256,
+		ID:           charmURL,
+		Charm:        downloadedCharm,
+		Data:         archive,
+		Size:         size,
+		SHA256:       bundleSHA256,
+		CharmVersion: downloadedBundle.Version(),
 	}
 	if args.CharmStoreMacaroon != nil {
 		ca.Macaroon = macaroon.Slice{args.CharmStoreMacaroon}
