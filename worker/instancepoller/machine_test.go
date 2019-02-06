@@ -110,6 +110,75 @@ func (s *machineSuite) testShortPoll(
 	clock.CheckCall(c, 1, "After", time.Duration(float64(ShortPoll)*ShortPollBackoff*ShortPollBackoff))
 }
 
+func (s *machineSuite) TestStatusWhenProvisioningProfileError(c *gc.C) {
+	context := &testMachineContext{
+		getInstanceInfo: func(id instance.Id) (instanceInfo, error) {
+			c.Check(id, gc.Equals, instance.Id("i1234"))
+			return instanceInfo{
+				testAddrs,
+				instance.InstanceStatus{Status: status.Running, Message: "running"},
+			}, nil
+		},
+		dyingc: make(chan struct{}),
+	}
+	m := &testMachine{
+		tag:            names.NewMachineTag("99"),
+		instanceId:     "i1234",
+		instStatus:     status.ProvisioningProfileError,
+		instStatusInfo: "profile error",
+		refresh:        func() error { return nil },
+		life:           params.Alive,
+		status:         "error",
+	}
+	died := make(chan machine)
+
+	clock := newTestClock()
+	go runMachine(context, m, nil, died, clock)
+	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
+	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
+
+	killMachineLoop(c, m, context.dyingc, died)
+	c.Assert(context.killErr, gc.Equals, nil)
+	c.Assert(m.addresses, gc.DeepEquals, testAddrs)
+	c.Assert(m.setAddressCount, gc.Equals, 1)
+	c.Assert(m.instStatusInfo, gc.Equals, "profile error")
+}
+
+func (s *machineSuite) TestStatusWhenProvisioningProfileErrorCanMoveToRunning(c *gc.C) {
+	context := &testMachineContext{
+		getInstanceInfo: func(id instance.Id) (instanceInfo, error) {
+			c.Check(id, gc.Equals, instance.Id("i1234"))
+			return instanceInfo{
+				testAddrs,
+				instance.InstanceStatus{Status: status.Running, Message: "running"},
+			}, nil
+		},
+		dyingc: make(chan struct{}),
+	}
+	m := &testMachine{
+		tag:            names.NewMachineTag("99"),
+		instanceId:     "i1234",
+		instStatus:     status.ProvisioningProfileError,
+		instStatusInfo: "profile error",
+		refresh:        func() error { return nil },
+		life:           params.Alive,
+		status:         "error",
+	}
+	died := make(chan machine)
+
+	clock := newTestClock()
+	go runMachine(context, m, nil, died, clock)
+	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
+	m.setStatus(status.Running)
+	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
+
+	killMachineLoop(c, m, context.dyingc, died)
+	c.Assert(context.killErr, gc.Equals, nil)
+	c.Assert(m.addresses, gc.DeepEquals, testAddrs)
+	c.Assert(m.setAddressCount, gc.Equals, 1)
+	c.Assert(m.instStatusInfo, gc.Equals, "running")
+}
+
 func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
 	polled := make(chan struct{}, 1)
 	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
@@ -431,6 +500,13 @@ func (m *testMachine) setInstanceId(id instance.Id) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.instanceId = id
+}
+
+func (m *testMachine) setStatus(status status.Status) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.instStatus = status
+	m.instStatusInfo = status.String()
 }
 
 // This is stubbed out for testing.
