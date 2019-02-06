@@ -571,9 +571,13 @@ func tweakSysctlForMongo(editables map[string]string) {
 
 // UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju controller(s)
 func UpdateSSLKey(dataDir, cert, privateKey string) error {
-	certKey := cert + "\n" + privateKey
-	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(certKey), 0600)
+	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(GenerateSSLKey(cert, privateKey)), 0600)
 	return errors.Annotate(err, "cannot write SSL key")
+}
+
+// GenerateSSLKey combines cert and private key to generate the ssl key - server.pem.
+func GenerateSSLKey(cert, privateKey string) string {
+	return cert + "\n" + privateKey
 }
 
 func makeJournalDirs(dataDir string) error {

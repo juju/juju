@@ -188,42 +188,75 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		Arch   = arch.AMD64
 	)
 
-	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) error {
+	// imagePath = fmt.Sprintf("%s/jujud-controller:%s", "ycliuhw", vers.String())
+	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) (err error) {
+		defer func() {
+			// TODO: clean up here or not
+			// if err != nil {
+			// 	k.Destroy()
+			// }
+		}()
+
 		envConfig := k.Config()
-		if err := podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
+		if err = podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
 			return errors.Trace(err)
 		}
 
-		if err := pcfg.VerifyConfig(); err != nil {
+		if err = pcfg.VerifyConfig(); err != nil {
 			return errors.Trace(err)
 		}
-
-		// prepare bootstrapParamsFile
-		bootstrapParamsFileContent, err := pcfg.Bootstrap.StateInitializationParams.Marshal()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Debugf("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
 
 		// TODO(caas): we'll need a different tag type other than machine tag.
 		machineTag := names.NewMachineTag(pcfg.MachineId)
-		acfg, err := pcfg.AgentConfig(machineTag)
+		acfg, err = pcfg.AgentConfig(machineTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		agentConfigFileContent, err := acfg.Render()
-		if err != nil {
-			return errors.Trace(err)
+
+		logger.Debugf("controller pod config: \n%+v", pcfg)
+
+		// create service for controller pod.
+		if err = k.createControllerService(); err != nil {
+			return errors.Annotate(nil, "creating service for controller")
 		}
-		logger.Debugf("agentConfig file content: \n%s", string(agentConfigFileContent))
+
+		// create shared-secret secret for controller pod.
+		if err = k.createControllerSecretShared(acfg); err != nil {
+			return errors.Annotate(nil, "creating shared-secret secret for controller")
+		}
+
+		// create server.pem secret for controller pod.
+		if err = k.createControllerSecretServerPem(acfg); err != nil {
+			return errors.Annotate(nil, "creating server.pem secret for controller")
+		}
+
+		// create mongo admin account secret for controller pod.
+		if err = k.createControllerSecretMongoAdmin(acfg); err != nil {
+			return errors.Annotate(nil, "creating mongo admin account secret for controller")
+		}
+
+		// create bootstrap-params secret for controller pod.
+		if err = k.createControllerSecretBootstrapParams(pcfg); err != nil {
+			return errors.Annotate(nil, "creating bootstrap-params secret for controller")
+		}
+
+		// create agent config configmap for controller pod.
+		if err = k.createControllerConfigmapAgentConf(acfg); err != nil {
+			return errors.Annotate(nil, "creating agent config configmap for controller")
+		}
+
+		// create statefulset for controller pod.
+		if err = k.createControllerStatefulset(pcfg); err != nil {
+			return errors.Annotate(nil, "creating statefulset for controller")
+		}
 
 		// TODO(caas): prepare
-		// agent.conf,
-		// bootstrap-params,
-		// server.pem,
-		// system-identity,
-		// shared-secret, then generate configmap/secret.
-		// Lastly, create StatefulSet for controller.
+		// agent.conf, x
+		// bootstrap-params, x
+		// server.pem, x
+		// system-identity, ???
+		// shared-secret, then generate configmap/secret. x
+		// Lastly, create StatefulSet for controller. x
 		return nil
 	}
 	return &environs.BootstrapResult{
@@ -384,6 +417,19 @@ func (k *kubernetesClient) ensureSecret(imageSecretName, appName string, imageDe
 	return errors.Trace(err)
 }
 
+func (k *kubernetesClient) createSecret(secretName string, labels [string]string, secretType core.SecretType, data map[string][]byte) error {
+	spec := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      secretName,
+			Namespace: k.namespace,
+			Labels:    labels},
+		Type: secretType,
+		Data: data,
+	}
+	_, err := k.CoreV1().Secrets(k.namespace).Create(spec)
+	return errors.Trace(err)
+}
+
 func (k *kubernetesClient) deleteSecret(imageSecretName string) error {
 	secrets := k.CoreV1().Secrets(k.namespace)
 	err := secrets.Delete(imageSecretName, &v1.DeleteOptions{
@@ -528,6 +574,20 @@ func (k *kubernetesClient) GetStorageClassName(labels ...string) (string, error)
 	return sc.Name, nil
 }
 
+func (k *kubernetesClient) getDefaultStorageClass() (*k8sstorage.StorageClass, error) {
+	storageClasses, err := k.StorageV1().StorageClasses().List(v1.ListOptions{})
+	if err != nil {
+		return nil, errors.Annotate(err, "listing storage classes")
+	}
+	for _, sc := range storageClasses.Items {
+		if v, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && v != "false" {
+			logger.Debugf("using default storage class: %v", sc.Name)
+			return &sc, nil
+		}
+	}
+	return nil, errors.NewNotFound(nil, "default storage class")
+}
+
 // maybeGetStorageClass looks for a storage class to use when creating
 // a persistent volume, using the specified name (if supplied), or a class
 // matching the specified labels.
@@ -562,16 +622,10 @@ func (k *kubernetesClient) maybeGetStorageClass(labels ...string) (*k8sstorage.S
 	}
 
 	// Second look for the cluster default storage class, if defined.
-	storageClasses, err = k.StorageV1().StorageClasses().List(v1.ListOptions{})
-	if err != nil {
-		return nil, errors.Annotate(err, "listing storage classes")
+	if storageClass, err := k.getDefaultStorageClass(); err == nil {
+		return storageClass, nil
 	}
-	for _, sc := range storageClasses.Items {
-		if v, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && v != "false" {
-			logger.Debugf("using default storage class: %v", sc.Name)
-			return &sc, nil
-		}
-	}
+
 	return nil, errors.NotFoundf("storage class for any %q", labels)
 }
 

@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	caasdocker "github.com/juju/juju/caas/docker"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -187,6 +188,13 @@ func bootstrapCAAS(
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
+	if args.BuildAgent {
+		return errors.NewNotSupported(nil, "build agent in CAAS")
+	}
+	if args.BootstrapImage != "" {
+		return errors.NewNotSupported(nil, "specify bootstrap image in CAAS")
+	}
+
 	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
 	if err != nil {
 		return errors.Trace(err)
@@ -199,13 +207,26 @@ func bootstrapCAAS(
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	// TODO(caas): how to find the best/newest jujud docker image to use
-	newestTool := version.MustParseBinary("2.5-beta1-bionic-amd64")
-	// set agent version before finalizing bootstrap config
-	if err := setBootstrapToolsVersion(environ, newestTool.Number); err != nil {
+	tool := version.MustParseBinary("2.6-beta1-bionic-amd64")
+	dockerClient, err := caasdocker.NewClient()
+	if err != nil {
 		return errors.Trace(err)
 	}
-	podConfig.JujuVersion = newestTool.Number
+	if _, err := caasdocker.GetToolImagePath(dockerClient, tool.Number); err != nil {
+		if errors.IsNotFound(err) {
+			latestTool := "2.6-beta1-bionic-amd64"
+			tool = version.MustParseBinary(latestTool)
+		}
+		return errors.Trace(err)
+	}
+
+	// set agent version before finalizing bootstrap config
+	if err := setBootstrapToolsVersion(environ, tool.Number); err != nil {
+		return errors.Trace(err)
+	}
+	podConfig.JujuVersion = tool.Number
 	if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
