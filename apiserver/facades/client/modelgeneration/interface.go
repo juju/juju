@@ -7,7 +7,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/model"
 )
 
 // ModelGeneration defines the methods exported by the model generation API facade.
@@ -28,13 +27,11 @@ type ModelGenerationState interface {
 type GenerationModel interface {
 	AddGeneration() error
 	NextGeneration() (Generation, error)
-	SwitchGeneration(version model.GenerationVersion) error
 }
 
 // Generation defines the methods used by a generation.
 //go:generate mockgen -package mocks -destination mocks/generation_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration Generation
 type Generation interface {
-	Active() bool
 	AssignAllUnits(string) error
 	AssignUnit(string) error
 	CanMakeCurrent() (bool, []string, error)

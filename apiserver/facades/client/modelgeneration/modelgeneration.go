@@ -108,9 +108,6 @@ func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) 
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	if !generation.Active() {
-		return params.ErrorResults{}, errors.Errorf("next generation is not active")
-	}
 
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(arg.Entities)),
@@ -163,10 +160,6 @@ func (m *ModelGenerationAPI) CancelGeneration(arg params.Entity) (params.ErrorRe
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if !generation.Active() {
-		return result, errors.Errorf("next generation is not active")
-	}
-
 	ok, values, err := generation.CanMakeCurrent()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -178,22 +171,5 @@ func (m *ModelGenerationAPI) CancelGeneration(arg params.Entity) (params.ErrorRe
 	}
 
 	result.Error = common.ServerError(generation.MakeCurrent())
-	return result, nil
-}
-
-// SwitchGeneration switches the given model to using the provided
-// 'current' or 'next' generation.
-func (m *ModelGenerationAPI) SwitchGeneration(arg params.GenerationVersionArg) (params.ErrorResult, error) {
-	result := params.ErrorResult{}
-	modelTag, err := names.ParseModelTag(arg.Model.Tag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	isModelAdmin, err := m.hasAdminAccess(modelTag)
-	if !isModelAdmin && !m.isControllerAdmin {
-		return result, common.ErrPerm
-	}
-
-	result.Error = common.ServerError(m.model.SwitchGeneration(arg.Version))
 	return result, nil
 }

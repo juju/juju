@@ -32,18 +32,6 @@ func (m *MockGeneration) EXPECT() *MockGenerationMockRecorder {
 	return m.recorder
 }
 
-// Active mocks base method
-func (m *MockGeneration) Active() bool {
-	ret := m.ctrl.Call(m, "Active")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// Active indicates an expected call of Active
-func (mr *MockGenerationMockRecorder) Active() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Active", reflect.TypeOf((*MockGeneration)(nil).Active))
-}
-
 // AssignAllUnits mocks base method
 func (m *MockGeneration) AssignAllUnits(arg0 string) error {
 	ret := m.ctrl.Call(m, "AssignAllUnits", arg0)
