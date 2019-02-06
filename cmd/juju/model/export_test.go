@@ -205,10 +205,8 @@ func NewAdvanceGenerationCommandForTest(api AdvanceGenerationCommandAPI, store j
 	return modelcmd.Wrap(cmd)
 }
 
-func NewSwitchGenerationCommandForTest(api SwitchGenerationCommandAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &switchGenerationCommand{
-		api: api,
-	}
+func NewSwitchGenerationCommandForTest(store jujuclient.ClientStore) cmd.Command {
+	cmd := &switchGenerationCommand{}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }

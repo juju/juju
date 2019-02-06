@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	coremodel "github.com/juju/juju/core/model"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -54,28 +53,6 @@ func (c *Client) CancelGeneration(model names.ModelTag) error {
 	return nil
 }
 
-// SwitchGeneration switches a model generation to the config.
-func (c *Client) SwitchGeneration(model names.ModelTag, version string) error {
-	var result params.ErrorResult
-	arg := params.GenerationVersionArg{Model: params.Entity{Tag: model.String()}}
-	switch version {
-	case "current":
-		arg.Version = coremodel.GenerationCurrent
-	case "next":
-		arg.Version = coremodel.GenerationNext
-	default:
-		return errors.Trace(errors.New("version must be 'next' or 'current'"))
-	}
-	err := c.facade.FacadeCall("SwitchGeneration", arg, &result)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if result.Error != nil {
-		return errors.Trace(result.Error)
-	}
-	return nil
-}
-
 // AdvanceGeneration advances a unit and/or applications to the 'next' generation.
 func (c *Client) AdvanceGeneration(model names.ModelTag, entities []string) error {
 	var results params.ErrorResults
@@ -87,10 +64,10 @@ func (c *Client) AdvanceGeneration(model names.ModelTag, entities []string) erro
 		switch {
 		case names.IsValidApplication(entity):
 			arg.Entities = append(arg.Entities,
-				params.Entity{names.NewApplicationTag(entity).String()})
+				params.Entity{Tag: names.NewApplicationTag(entity).String()})
 		case names.IsValidUnit(entity):
 			arg.Entities = append(arg.Entities,
-				params.Entity{names.NewUnitTag(entity).String()})
+				params.Entity{Tag: names.NewUnitTag(entity).String()})
 		default:
 			return errors.Trace(errors.New("Must be application or unit"))
 		}

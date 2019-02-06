@@ -9,9 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -23,7 +21,7 @@ const (
 Switch to the given generation, either current or next. 
 
 Examples:
-    juju switch-generation
+    juju switch-generation next
 
 See also:
     add-generation
@@ -42,16 +40,7 @@ func NewSwitchGenerationCommand() cmd.Command {
 type switchGenerationCommand struct {
 	modelcmd.ModelCommandBase
 
-	api SwitchGenerationCommandAPI
-
 	generation string
-}
-
-// SwitchGenerationCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package mocks -destination ./mocks/switchgeneration_mock.go github.com/juju/juju/cmd/juju/model SwitchGenerationCommandAPI
-type SwitchGenerationCommandAPI interface {
-	Close() error
-	SwitchGeneration(names.ModelTag, string) error
 }
 
 // Info implements part of the cmd.Command interface.
@@ -84,45 +73,12 @@ func (c *switchGenerationCommand) Init(args []string) error {
 	return nil
 }
 
-// getAPI returns the API. This allows passing in a test SwitchGenerationCommandAPI
-// implementation.
-func (c *switchGenerationCommand) getAPI() (SwitchGenerationCommandAPI, error) {
-	if c.api != nil {
-		return c.api, nil
-	}
-	api, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Annotate(err, "opening API connection")
-	}
-	client := modelgeneration.NewClient(api)
-	return client, nil
-}
-
-// Run implements the meaty part of the cmd.Command interface.
+// Run (cmd.Command) sets the active generation in the local store.
 func (c *switchGenerationCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
-	if err != nil {
+	if err := c.SetModelGeneration(model.GenerationVersion(c.generation)); err != nil {
 		return err
 	}
-	defer client.Close()
-
-	_, modelDetails, err := c.ModelDetails()
-	if err != nil {
-		return errors.Annotate(err, "getting model details")
-	}
-
-	modelTag := names.NewModelTag(modelDetails.ModelUUID)
-	if err = client.SwitchGeneration(modelTag, c.generation); err != nil {
-		return err
-	}
-
-	// Now update the model store with the generation switched to for this
-	// model.
-	if err = c.SetModelGeneration(model.GenerationVersion(c.generation)); err != nil {
-		return err
-	}
-
 	msg := fmt.Sprintf("target generation set to %s\n", c.generation)
-	ctx.Stdout.Write([]byte(msg))
-	return nil
+	_, err := ctx.Stdout.Write([]byte(msg))
+	return err
 }

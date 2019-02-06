@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/modelgeneration"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/model"
 )
 
 type modelGenerationSuite struct {
@@ -25,7 +24,7 @@ func (s *modelGenerationSuite) SetUpTest(c *gc.C) {
 	s.tag = names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea")
 }
 
-func (s *modelGenerationSuite) TeadDownTest(c *gc.C) {
+func (s *modelGenerationSuite) TearDownTest(c *gc.C) {
 	s.fCaller = nil
 }
 
@@ -97,28 +96,4 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.CancelGeneration(s.tag)
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *modelGenerationSuite) TestSwitchGeneration(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-
-	resultSource := params.ErrorResult{}
-	arg := params.GenerationVersionArg{
-		Model:   params.Entity{Tag: s.tag.String()},
-		Version: model.GenerationNext,
-	}
-
-	s.fCaller.EXPECT().FacadeCall("SwitchGeneration", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
-
-	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	err := api.SwitchGeneration(s.tag, "next")
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *modelGenerationSuite) TestSwitchGenerationError(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-
-	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	err := api.SwitchGeneration(s.tag, "summer")
-	c.Assert(err, gc.ErrorMatches, "version must be 'next' or 'current'")
 }
