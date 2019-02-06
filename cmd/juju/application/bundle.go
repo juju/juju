@@ -935,14 +935,15 @@ func (h *bundleHandler) setOptions(change *bundlechanges.SetOptionsChange) error
 	}
 
 	// We know that there wouldn't be any setOptions if there were no options.
-	config, err := yaml.Marshal(map[string]map[string]interface{}{p.Application: p.Options})
+	cfg, err := yaml.Marshal(map[string]map[string]interface{}{p.Application: p.Options})
 	if err != nil {
 		return errors.Annotatef(err, "cannot marshal options for application %q", p.Application)
 	}
 
 	if err := h.api.Update(params.ApplicationUpdate{
 		ApplicationName: p.Application,
-		SettingsYAML:    string(config),
+		SettingsYAML:    string(cfg),
+		Generation:      model.GenerationCurrent,
 	}); err != nil {
 		return errors.Annotatef(err, "cannot update options for application %q", p.Application)
 	}
@@ -1539,16 +1540,12 @@ func buildModelRepresentation(
 		return nil, errors.Annotate(err, "getting model sequences")
 	}
 
-	// Now get all the application config.
-	// TODO (manadart 2019-01-23) Retrieve this value from the local store
-	// (generally ~/.local/share/juju).
-	generation := model.GenerationCurrent
-
-	configValues, err := apiRoot.GetConfig(generation, appNames...)
+	// When dealing with bundles the current model generation is always used.
+	configValues, err := apiRoot.GetConfig(model.GenerationCurrent, appNames...)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting application options")
 	}
-	for i, config := range configValues {
+	for i, cfg := range configValues {
 		options := make(map[string]interface{})
 		// The config map has values that looks like this:
 		//  map[string]interface {}{
@@ -1558,7 +1555,7 @@ func buildModelRepresentation(
 		//        "type":        "string",
 		//    },
 		// We want the value iff default is false.
-		for key, valueMap := range config {
+		for key, valueMap := range cfg {
 			value, err := applicationConfigValue(key, valueMap)
 			if err != nil {
 				return nil, errors.Annotatef(err, "bad application config for %q", appNames[i])

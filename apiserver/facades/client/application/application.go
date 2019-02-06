@@ -867,48 +867,6 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	)
 }
 
-// GetConfig returns the charm config for each of the
-// applications asked for.
-func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
-	if err := api.checkCanRead(); err != nil {
-		return params.ApplicationGetConfigResults{}, err
-	}
-	results := params.ApplicationGetConfigResults{
-		Results: make([]params.ConfigResult, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		config, err := api.getCharmConfig(arg.Tag)
-		results.Results[i].Config = config
-		results.Results[i].Error = common.ServerError(err)
-	}
-	return results, nil
-}
-
-func (api *APIBase) getCharmConfig(entity string) (map[string]interface{}, error) {
-	tag, err := names.ParseTag(entity)
-	if err != nil {
-		return nil, err
-	}
-	switch kind := tag.Kind(); kind {
-	case names.ApplicationTagKind:
-		app, err := api.backend.Application(tag.Id())
-		if err != nil {
-			return nil, err
-		}
-		settings, err := app.CharmConfig()
-		if err != nil {
-			return nil, err
-		}
-		charm, _, err := app.Charm()
-		if err != nil {
-			return nil, err
-		}
-		return describe(settings, charm.Config()), nil
-	default:
-		return nil, errors.Errorf("unexpected tag type, expected application, got %s", kind)
-	}
-}
-
 // applicationSetCharm sets the charm for the given for the application.
 func (api *APIBase) applicationSetCharm(
 	appName string,
@@ -1957,9 +1915,71 @@ func (api *APIv4) GetConstraints(args params.GetApplicationConstraints) (params.
 // CharmConfig isn't on the v5 API.
 func (u *APIv5) CharmConfig(_, _ struct{}) {}
 
-// CharmConfig is a shim to GetConfig on APIv5. It returns just the charm config.
-func (api *APIBase) CharmConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
+// CharmConfig is a shim to GetConfig on APIv5. It returns only charm config.
+// Version 8 and below accept params.Entities, where later versions must accept
+// a model generation
+func (api *APIv8) CharmConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
 	return api.GetConfig(args)
+}
+
+// CharmConfig returns charm config for the input list of applications and
+// model generations.
+func (api *APIBase) CharmConfig(args params.ApplicationGetArgs) (params.ApplicationGetConfigResults, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.ApplicationGetConfigResults{}, err
+	}
+	results := params.ApplicationGetConfigResults{
+		Results: make([]params.ConfigResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		config, err := api.getCharmConfig(arg.ApplicationName)
+		results.Results[i].Config = config
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+// GetConfig returns the charm config for each of the input applications.
+func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.ApplicationGetConfigResults{}, err
+	}
+	results := params.ApplicationGetConfigResults{
+		Results: make([]params.ConfigResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if tag.Kind() != names.ApplicationTagKind {
+			results.Results[i].Error = common.ServerError(
+				errors.Errorf("unexpected tag type, expected application, got %s", tag.Kind()))
+			continue
+		}
+
+		config, err := api.getCharmConfig(tag.Id())
+		results.Results[i].Config = config
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *APIBase) getCharmConfig(appName string) (map[string]interface{}, error) {
+	app, err := api.backend.Application(appName)
+	if err != nil {
+		return nil, err
+	}
+	settings, err := app.CharmConfig()
+	if err != nil {
+		return nil, err
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return nil, err
+	}
+	return describe(settings, ch.Config()), nil
 }
 
 // SetApplicationsConfig isn't on the v5 API.

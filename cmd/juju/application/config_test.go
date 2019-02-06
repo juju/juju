@@ -90,7 +90,7 @@ var getTests = []struct {
 				},
 			},
 			"settings":                               charmSettings,
-			"changes will be targeted to generation": interface{}(nil),
+			"changes will be targeted to generation": interface{}("current"),
 		},
 	}, {
 		"dummy-application",
@@ -99,7 +99,7 @@ var getTests = []struct {
 			"application":                            "dummy-application",
 			"charm":                                  "dummy",
 			"settings":                               charmSettings,
-			"changes will be targeted to generation": interface{}(nil),
+			"changes will be targeted to generation": interface{}("current"),
 		},
 	},
 }

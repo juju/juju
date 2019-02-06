@@ -710,14 +710,24 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 }
 
 func (s *applicationSuite) TestGetConfigV5(c *gc.C) {
-	s.assertGetConfig(c, "GetConfig", 5)
+	args := params.Entities{Entities: []params.Entity{{"application-foo"}, {"application-bar"}}}
+	s.assertGetConfig(c, 5, "GetConfig", args)
 }
 
 func (s *applicationSuite) TestGetConfigV6(c *gc.C) {
-	s.assertGetConfig(c, "CharmConfig", 6)
+	args := params.Entities{Entities: []params.Entity{{"application-foo"}, {"application-bar"}}}
+	s.assertGetConfig(c, 6, "CharmConfig", args)
 }
 
-func (s *applicationSuite) assertGetConfig(c *gc.C, method string, version int) {
+func (s *applicationSuite) TestGetConfigV9(c *gc.C) {
+	args := params.ApplicationGetArgs{Args: []params.ApplicationGet{
+		{ApplicationName: "foo", Generation: model.GenerationNext},
+		{ApplicationName: "bar", Generation: model.GenerationNext},
+	}}
+	s.assertGetConfig(c, 9, "CharmConfig", args)
+}
+
+func (s *applicationSuite) assertGetConfig(c *gc.C, version int, method string, expArgs interface{}) {
 	fooConfig := map[string]interface{}{
 		"outlook": map[string]interface{}{
 			"description": "No default outlook.",
@@ -747,18 +757,11 @@ func (s *applicationSuite) assertGetConfig(c *gc.C, method string, version int) 
 		},
 	}
 
-	// TODO (manadart 2019-01-25) When the API server-side is patched,
-	// these will use new structures instead of params.Entity.
 	client := application.NewClient(basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
+			func(objType string, version int, id, request string, args, response interface{}) error {
 				c.Assert(request, gc.Equals, method)
-				args, ok := a.(params.Entities)
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(args, jc.DeepEquals, params.Entities{
-					Entities: []params.Entity{
-						{"application-foo"}, {"application-bar"},
-					}})
+				c.Assert(args, jc.DeepEquals, expArgs)
 
 				result, ok := response.(*params.ApplicationGetConfigResults)
 				c.Assert(ok, jc.IsTrue)

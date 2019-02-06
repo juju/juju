@@ -175,8 +175,14 @@ type ApplicationUnset struct {
 	Options []string `json:"options"`
 }
 
-// ApplicationGet holds parameters for making the Get or
-// GetCharmURL calls.
+// ApplicationGetArgs is used to request config for
+// multiple application/generation pairs.
+type ApplicationGetArgs struct {
+	Args []ApplicationGet `json:"args"`
+}
+
+// ApplicationGet holds parameters for making the singular Get or GetCharmURL
+// calls, and bulk calls to CharmConfig in the V9 API.
 type ApplicationGet struct {
 	ApplicationName string `json:"application"`
 
