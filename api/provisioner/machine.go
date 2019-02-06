@@ -127,11 +127,11 @@ type MachineProvisioner interface {
 	SetCharmProfiles([]string) error
 
 	// SetUpgradeCharmProfileComplete records the result of updating
-	// the machine's charm profile(s), for the given application.
-	SetUpgradeCharmProfileComplete(appName string, msg string) error
+	// the machine's charm profile(s), for the given unit.
+	SetUpgradeCharmProfileComplete(string, string) error
 
 	// RemoveUpgradeCharmProfileData completely removes the instance charm profile
-	// data for a machine and the provided application, even if the machine is dead.
+	// data for a machine and the given unit, even if the machine is dead.
 	RemoveUpgradeCharmProfileData(string) error
 }
 
@@ -633,13 +633,13 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 }
 
 // SetUpgradeCharmProfileComplete implements MachineProvisioner.SetUpgradeCharmProfileComplete.
-func (m *Machine) SetUpgradeCharmProfileComplete(appName, message string) error {
+func (m *Machine) SetUpgradeCharmProfileComplete(unitName, message string) error {
 	var results params.ErrorResults
 	args := params.SetProfileUpgradeCompleteArgs{
 		Args: []params.SetProfileUpgradeCompleteArg{
 			{
 				Entity:   params.Entity{Tag: m.tag.String()},
-				UnitName: appName,
+				UnitName: unitName,
 				Message:  message,
 			},
 		},
@@ -659,13 +659,13 @@ func (m *Machine) SetUpgradeCharmProfileComplete(appName, message string) error 
 }
 
 // RemoveUpgradeCharmProfileData implements MachineProvisioner.RemoveUpgradeCharmProfileData.
-func (m *Machine) RemoveUpgradeCharmProfileData(appName string) error {
+func (m *Machine) RemoveUpgradeCharmProfileData(unitName string) error {
 	var results params.ErrorResults
 	args := params.ProfileArgs{
 		Args: []params.ProfileArg{
 			{
 				Entity:   params.Entity{Tag: m.tag.String()},
-				UnitName: appName,
+				UnitName: unitName,
 			},
 		},
 	}
