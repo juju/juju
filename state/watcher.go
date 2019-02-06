@@ -954,8 +954,6 @@ func (w *modelFieldChangeWatcher) merge(watchSet set.Strings, change watcher.Cha
 			logger.Tracef("stopped field change watching for %q", docId)
 		}
 		delete(w.known, docId)
-		// TODO - check this correct.
-		watchSet.Remove(docId)
 		return nil
 	}
 
