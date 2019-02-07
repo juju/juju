@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -33,14 +32,6 @@ func (s *generationSuite) TestNextGenerationSuccess(c *gc.C) {
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gen, gc.NotNil)
-
-	// A newly created generation is immediately the active one.
-	c.Check(gen.Active(), jc.IsTrue)
-
-	v, err := s.Model.ActiveGeneration()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(v, gc.Equals, model.GenerationNext)
-
 	c.Check(gen.ModelUUID(), gc.Equals, s.Model.UUID())
 	c.Check(gen.Id(), gc.Not(gc.Equals), "")
 }
@@ -52,24 +43,6 @@ func (s *generationSuite) TestNextGenerationExistsError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.Model.AddGeneration(), gc.ErrorMatches, "model has a next generation that is not completed")
-}
-
-func (s *generationSuite) TestActiveGenerationSwitchSuccess(c *gc.C) {
-	v, err := s.Model.ActiveGeneration()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(v, gc.Equals, model.GenerationCurrent)
-
-	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
-
-	v, err = s.Model.ActiveGeneration()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(v, gc.Equals, model.GenerationNext)
-
-	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
-
-	v, err = s.Model.ActiveGeneration()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(v, gc.Equals, model.GenerationCurrent)
 }
 
 func (s *generationSuite) TestCanAutoCompleteAndCanMakeCurrent(c *gc.C) {
@@ -143,18 +116,15 @@ func (s *generationSuite) TestCanAutoCompleteAndCanMakeCurrent(c *gc.C) {
 	c.Check(auto, jc.IsTrue)
 }
 
-func (s *generationSuite) TestAssignApplicationNotActiveError(c *gc.C) {
+func (s *generationSuite) TestAssignApplicationGenCompletedError(c *gc.C) {
+	s.setupClockForComplete(c)
 	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
 
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
-
-	// If the "next" generation is not active, a call to AssignApplication,
-	// such as would be made accompanying a configuration change,
-	// should not succeed.
-	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.AssignApplication("redis"), gc.ErrorMatches, "generation is not currently active")
+	c.Assert(gen.AssignApplication("redis"), gc.ErrorMatches, "generation has been completed")
 }
 
 func (s *generationSuite) TestAssignApplicationSuccess(c *gc.C) {
@@ -174,17 +144,15 @@ func (s *generationSuite) TestAssignApplicationSuccess(c *gc.C) {
 	c.Check(gen.AssignedUnits(), gc.DeepEquals, map[string][]string{"redis": {}})
 }
 
-func (s *generationSuite) TestAssignUnitNotActiveError(c *gc.C) {
+func (s *generationSuite) TestAssignUnitGenCompletedError(c *gc.C) {
+	s.setupClockForComplete(c)
 	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
 
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
-
-	// If the "next" generation is not active,
-	// a call to AssignUnit should fail.
-	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.AssignUnit("redis/0"), gc.ErrorMatches, "generation is not currently active")
+	c.Assert(gen.AssignUnit("redis/0"), gc.ErrorMatches, "generation has been completed")
 }
 
 func (s *generationSuite) TestAssignUnitSuccess(c *gc.C) {
@@ -208,9 +176,9 @@ func (s *generationSuite) TestAssignUnitSuccess(c *gc.C) {
 
 func (s *generationSuite) setupAssignAllUnits(c *gc.C) {
 	charm := s.AddTestingCharm(c, "riak")
-	redis := s.AddTestingApplication(c, "riak", charm)
+	riak := s.AddTestingApplication(c, "riak", charm)
 	for i := 0; i < 4; i++ {
-		_, err := redis.AddUnit(state.AddUnitParams{})
+		_, err := riak.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
@@ -259,17 +227,15 @@ func (s *generationSuite) TestAssignAllUnitsSuccessRemaining(c *gc.C) {
 	c.Check(gen.AssignedUnits()["riak"], jc.SameContents, expected)
 }
 
-func (s *generationSuite) TestAssignAllUnitsNotActiveError(c *gc.C) {
-	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+func (s *generationSuite) TestAssignAllUnitsGenCompletedError(c *gc.C) {
+	s.setupClockForComplete(c)
+	s.setupAssignAllUnits(c)
 
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
-
-	// If the "next" generation is not active,
-	// a call to AssignAllUnits should fail.
-	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.AssignAllUnits("riak"), gc.ErrorMatches, "generation is not currently active")
+	c.Assert(gen.AssignAllUnits("riak"), gc.ErrorMatches, "generation has been completed")
 }
 
 func (s *generationSuite) setupClockForComplete(c *gc.C) {
@@ -289,28 +255,15 @@ func (s *generationSuite) TestAutoCompleteSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(gen.AssignAllUnits("riak"), jc.ErrorIsNil)
-
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.IsCompleted(), jc.IsFalse)
+
 	c.Assert(gen.AutoComplete(), jc.ErrorIsNil)
-
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.Active(), jc.IsFalse)
+	c.Assert(gen.IsCompleted(), jc.IsTrue)
 
 	// Idempotent.
 	c.Assert(gen.AutoComplete(), jc.ErrorIsNil)
-}
-
-func (s *generationSuite) TestAutoCompleteNotActiveError(c *gc.C) {
-	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
-
-	gen, err := s.Model.NextGeneration()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// If the "next" generation is not active,
-	// a call to AutoComplete should fail.
-	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
-	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.AutoComplete(), gc.ErrorMatches, "generation is not currently active")
 }
 
 func (s *generationSuite) TestAutoCompleteGenerationIncompleteError(c *gc.C) {
@@ -331,26 +284,13 @@ func (s *generationSuite) TestMakeCurrentSuccess(c *gc.C) {
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(gen.IsCompleted(), jc.IsFalse)
 	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
-
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.Active(), jc.IsFalse)
+	c.Assert(gen.IsCompleted(), jc.IsTrue)
 
 	// Idempotent.
 	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
-}
-
-func (s *generationSuite) TestMakeCurrentNotActiveError(c *gc.C) {
-	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
-
-	gen, err := s.Model.NextGeneration()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// If the "next" generation is not active,
-	// a call to AutoComplete should fail.
-	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
-	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "generation is not currently active")
 }
 
 func (s *generationSuite) TestMakeCurrentCanNotCancelError(c *gc.C) {

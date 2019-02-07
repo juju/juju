@@ -15,8 +15,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/core/model"
 )
 
 // generationDoc represents the state of a model generation in MongoDB.
@@ -26,16 +24,6 @@ type generationDoc struct {
 
 	// ModelUUID indicates the model to which this generation applies.
 	ModelUUID string `bson:"model-uuid"`
-
-	// Active indicates whether this generation is currently the
-	// active one for the model.
-	// If true, the current model generation is indicated as "next" and
-	// configuration values applied to this generation are
-	// represented in its assigned units.
-	// If false, the current model generation is "current";
-	// configuration changes are applied in the standard fashion
-	// and apply as usual to units not yet in the generation.
-	Active bool `bson:"active"`
 
 	// AssignedUnits is a map of unit names that are in the generation,
 	// keyed by application name.
@@ -65,15 +53,14 @@ func (g *Generation) ModelUUID() string {
 	return g.doc.ModelUUID
 }
 
-// Active indicates the whether the model generation is currently active.
-func (g *Generation) Active() bool {
-	return g.doc.Active
-}
-
 // AssignedUnits returns the unit names, keyed by application name
 // that have been assigned to this generation.
 func (g *Generation) AssignedUnits() map[string][]string {
 	return g.doc.AssignedUnits
+}
+
+func (g *Generation) IsCompleted() bool {
+	return g.doc.Completed > 0
 }
 
 // AssignApplication indicates that the application with the input name has had
@@ -88,10 +75,8 @@ func (g *Generation) AssignApplication(appName string) error {
 		if _, ok := g.doc.AssignedUnits[appName]; ok {
 			return nil, jujutxn.ErrNoOperations
 		}
-		// Any 'next' generation that is Active, cannot also be Completed,
-		// see AutoComplete() and NextGeneration().
-		if !g.Active() {
-			return nil, errors.New("generation is not currently active")
+		if g.IsCompleted() {
+			return nil, errors.New("generation has been completed")
 		}
 		return assignGenerationAppTxnOps(g.doc.Id, appName), nil
 	}
@@ -108,7 +93,6 @@ func assignGenerationAppTxnOps(id, appName string) []txn.Op {
 			C:  generationsC,
 			Id: id,
 			Assert: bson.D{{"$and", []bson.D{
-				{{"active", true}},
 				{{"completed", 0}},
 				{{assignedField, bson.D{{"$exists", true}}}},
 				{{appField, bson.D{{"$exists", false}}}},
@@ -129,10 +113,8 @@ func (g *Generation) AssignAllUnits(appName string) error {
 				return nil, errors.Trace(err)
 			}
 		}
-		// Any 'next' generation that is Active, cannot also be Completed,
-		// see AutoComplete() and NextGeneration().
-		if !g.Active() {
-			return nil, errors.New("generation is not currently active")
+		if g.IsCompleted() {
+			return nil, errors.New("generation has been completed")
 		}
 		unitNames, err := appUnitNames(g.st, appName)
 		if err != nil {
@@ -169,7 +151,7 @@ func (g *Generation) AssignAllUnits(appName string) error {
 
 // AssignUnit indicates that the unit with the input name has had been added
 // to this generation and should realise config changes applied to its
-// application made while the generation is active.
+// application against this generation.
 func (g *Generation) AssignUnit(unitName string) error {
 	appName, err := names.UnitApplication(unitName)
 	if err != nil {
@@ -182,14 +164,11 @@ func (g *Generation) AssignUnit(unitName string) error {
 				return nil, errors.Trace(err)
 			}
 		}
+		if g.IsCompleted() {
+			return nil, errors.New("generation has been completed")
+		}
 		if set.NewStrings(g.doc.AssignedUnits[appName]...).Contains(unitName) {
 			return nil, jujutxn.ErrNoOperations
-		}
-		if !g.Active() {
-			return nil, errors.New("generation is not currently active")
-		}
-		if g.doc.Completed > 0 {
-			return nil, errors.New("generation has been completed")
 		}
 		return assignGenerationUnitTxnOps(g.doc.Id, appName, unitName), nil
 	}
@@ -206,7 +185,6 @@ func assignGenerationUnitTxnOps(id, appName, unitName string) []txn.Op {
 			C:  generationsC,
 			Id: id,
 			Assert: bson.D{{"$and", []bson.D{
-				{{"active", true}},
 				{{"completed", 0}},
 				{{assignedField, bson.D{{"$exists", true}}}},
 				{{appField, bson.D{{"$not", bson.D{{"$elemMatch", bson.D{{"$eq", unitName}}}}}}}},
@@ -218,15 +196,15 @@ func assignGenerationUnitTxnOps(id, appName, unitName string) []txn.Op {
 	}
 }
 
-// AutoComplete marks the generation as completed, if it is active and
-// meets autocomplete criteria.  Becomes the "current" generation.
+// AutoComplete marks the generation as completed if autocomplete criteria
+// is met.  It then becomes the "current" generation.
 func (g *Generation) AutoComplete() error {
 	err := g.complete(false)
 	return errors.Trace(err)
 }
 
-// MarkCurrent marks a geneneration as completed, if it is active and
-// meets markcurrent criteria. Becomes the "current" generation.
+// AutoComplete marks the generation as completed if makecurrent criteria
+// is met.  It then becomes the "current" generation.
 func (g *Generation) MakeCurrent() error {
 	err := g.complete(true)
 	return errors.Trace(err)
@@ -242,11 +220,8 @@ func (g *Generation) complete(allowEmpty bool) error {
 				return nil, errors.Trace(err)
 			}
 		}
-		if g.doc.Completed > 0 {
+		if g.IsCompleted() {
 			return nil, jujutxn.ErrNoOperations
-		}
-		if !g.Active() {
-			return nil, errors.New("generation is not currently active")
 		}
 		ok, err := g.allowMakeCurrent(allowEmpty)
 		if err != nil || !ok {
@@ -268,7 +243,6 @@ func (g *Generation) complete(allowEmpty bool) error {
 				Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
 				Update: bson.D{
 					{"$set", bson.D{{"completed", time.Unix()}}},
-					{"$set", bson.D{{"active", false}}},
 				},
 			},
 		}
@@ -284,7 +258,8 @@ func (g *Generation) allowMakeCurrent(allowEmpty bool) (bool, error) {
 	}
 	if !ok {
 		if allowEmpty {
-			return false, errors.New(fmt.Sprintf("cannot cancel generation, there are units behind a generation: %s", strings.Join(values, ", ")))
+			return false, errors.Errorf(
+				"cannot cancel generation, there are units behind a generation: %s", strings.Join(values, ", "))
 		} else {
 			return false, errors.New("generation can not be completed")
 		}
@@ -378,8 +353,6 @@ func (m *Model) AddGeneration() error {
 }
 
 // AddGeneration creates a new "next" generation for the current model.
-// The inserted generation is active, meaning the model's current generation
-// becomes "next" immediately.
 // A new generation can not be added for a model that has an existing
 // generation that is not completed.
 func (st *State) AddGeneration() error {
@@ -410,7 +383,6 @@ func (st *State) AddGeneration() error {
 func insertGenerationTxnOps(id string) []txn.Op {
 	doc := &generationDoc{
 		Id:            id,
-		Active:        true,
 		AssignedUnits: map[string][]string{},
 	}
 
@@ -419,76 +391,6 @@ func insertGenerationTxnOps(id string) []txn.Op {
 			C:      generationsC,
 			Id:     id,
 			Insert: doc,
-		},
-	}
-}
-
-// ActiveGeneration returns the active generation for the model.
-func (m *Model) ActiveGeneration() (model.GenerationVersion, error) {
-	v, err := m.st.ActiveGeneration()
-	return v, errors.Trace(err)
-}
-
-// ActiveGeneration returns the active generation for the current model.
-// If there is no "next" generation pending completion, or if the generation is
-// not active, then the generation to use for config is "current".
-// Otherwise, the model's "next" generation is active.
-func (st *State) ActiveGeneration() (model.GenerationVersion, error) {
-	gen, err := st.NextGeneration()
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return model.GenerationCurrent, nil
-		}
-		return "", errors.Trace(err)
-	}
-
-	if gen.Active() {
-		return model.GenerationNext, nil
-	}
-	return model.GenerationCurrent, nil
-}
-
-// SwitchGeneration ensures that the active generation of the model matches the
-// input version. This operation is idempotent
-func (m *Model) SwitchGeneration(version model.GenerationVersion) error {
-	return errors.Trace(m.st.SwitchGeneration(version))
-}
-
-// SwitchGeneration ensures that the active generation of the current model
-// matches the input version. This operation is idempotent.
-func (st *State) SwitchGeneration(version model.GenerationVersion) error {
-	active := version == model.GenerationNext
-
-	gen, err := st.NextGeneration()
-	if err != nil {
-		if errors.IsNotFound(err) && active {
-			return errors.New("cannot switch to next generation, as none exists")
-		}
-		return errors.Trace(err)
-	}
-
-	if gen.Active() == active {
-		return nil
-	}
-	gen.doc.Active = active
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		return switchGenerationTxnOps(gen), nil
-	}
-	err = st.db().Run(buildTxn)
-	if err != nil {
-		err = onAbort(err, ErrDead)
-		return err
-	}
-	return nil
-}
-
-func switchGenerationTxnOps(gen *Generation) []txn.Op {
-	return []txn.Op{
-		{
-			C:      generationsC,
-			Id:     gen.Id(),
-			Update: bson.D{{"$set", bson.D{{"active", gen.Active()}}}},
 		},
 	}
 }
