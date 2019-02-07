@@ -190,13 +190,6 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 
 	// imagePath = fmt.Sprintf("%s/jujud-controller:%s", "ycliuhw", vers.String())
 	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) (err error) {
-		defer func() {
-			// TODO: clean up here or not
-			// if err != nil {
-			// 	k.Destroy()
-			// }
-		}()
-
 		envConfig := k.Config()
 		if err = podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
 			return errors.Trace(err)
@@ -275,8 +268,7 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 
 // DestroyController implements the Environ interface.
 func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
-	logger.Warningf("DestroyController is not supported yet on CAAS.")
-	return nil
+	return k.Destroy(ctx)
 }
 
 // Provider is part of the Broker interface.
