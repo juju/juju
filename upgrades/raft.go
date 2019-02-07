@@ -178,6 +178,10 @@ func MigrateLegacyLeases(context Context) error {
 
 	// Populate the snapshot and the leaseholders collection.
 	for key, info := range legacyLeases {
+		if key.Lease == "" || info.Holder == "" {
+			logger.Debugf("not migrating blank lease %#v holder %q", key, info.Holder)
+			continue
+		}
 		entries[raftlease.SnapshotKey{
 			Namespace: key.Namespace,
 			ModelUUID: key.ModelUUID,

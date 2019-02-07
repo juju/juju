@@ -234,6 +234,75 @@ func (s *raftSuite) TestMigrateLegacyLeases(c *gc.C) {
 
 }
 
+func (s *raftSuite) TestIgnoresBlankLeaseOrHolder(c *gc.C) {
+	dataDir := c.MkDir()
+	context := &mockContext{
+		agentConfig: &mockAgentConfig{
+			tag:     names.NewMachineTag("23"),
+			dataDir: dataDir,
+		},
+		state: &mockState{
+			members: []replicaset.Member{{
+				Address: "somewhere.else:37012",
+				Tags:    map[string]string{"juju-machine-id": "42"},
+			}},
+			info: state.StateServingInfo{APIPort: 1234},
+		},
+	}
+	err := upgrades.BootstrapRaft(context)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var zero time.Time
+
+	// Now we migrate some leases...
+	config, err := controller.NewConfig(
+		coretesting.ControllerTag.Id(),
+		coretesting.CACert,
+		nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	var target mockTarget
+	context.state = &mockState{
+		config: config,
+		leases: map[lease.Key]lease.Info{
+			// Blank lease name.
+			{"nonagon", "m1", ""}: {
+				Holder: "knife",
+				Expiry: zero.Add(30 * time.Second),
+			},
+			// Blank lease holder.
+			{"reyne", "m2", "keening"}: {
+				Holder: "",
+				Expiry: zero.Add(45 * time.Second),
+			},
+		},
+		target: &target,
+	}
+
+	err = upgrades.MigrateLegacyLeases(context)
+	c.Assert(err, jc.ErrorIsNil)
+	target.assertClaimed(c, map[lease.Key]string{})
+
+	expectedLeases := make(map[lease.Key]lease.Info)
+
+	// Start up raft with the leases in the snapshot.
+	fsm := raftlease.NewFSM()
+	withRaft(c, dataDir, fsm, func(r *raft.Raft) {
+		// Once the snapshot is loaded the leases should be in the
+		// FSM.
+		var leases map[lease.Key]lease.Info
+		for a := coretesting.LongAttempt.Start(); a.Next(); {
+			leases = fsm.Leases(func() time.Time { return zero })
+			if reflect.DeepEqual(leases, expectedLeases) {
+				return
+			}
+		}
+		c.Assert(leases, gc.DeepEquals, expectedLeases,
+			gc.Commentf("waited %s but saw unexpected leases",
+				coretesting.LongAttempt.Total))
+	})
+}
+
 type mockState struct {
 	upgrades.StateBackend
 	stub    testing.Stub
