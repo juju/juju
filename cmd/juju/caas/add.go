@@ -67,17 +67,30 @@ Adds a k8s endpoint and credential to Juju.`[1:]
 var usageAddCAASDetails = `
 Creates a user-defined cloud and populate the selected controller with the k8s
 cloud details. Speficify non default kubeconfig file location using $KUBECONFIG
-environment variable or pipe in file content from stdin. The config file
-can contain definitions for different k8s clusters, use --cluster-name to pick
-which one to use. When running add-k8s on jaas and the cloud/region cannot be 
-detected automatically, use --region <cloudType/region> to specify the host 
-cloud and region.
+environment variable or pipe in file content from stdin.
+
+The config file can contain definitions for different k8s clusters,
+use --cluster-name to pick which one to use.
+It's also possible to select a context by name using --context-name.
+
+When running add-k8s on JAAS and the cloud/region cannot be detected automatically,
+use --region <cloudType/region> to specify the host cloud type and region.
+
+When adding a GKE cluster, you can use the --gke option to interactively be stepped
+through the registration process, you you can supply the necessary parameters directly.
 
 Examples:
     juju add-k8s myk8scloud
+    juju add-k8s --context-name mycontext myk8scloud
     juju add-k8s myk8scloud --region <cloudType/region>
+
     KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
+
+    juju add-k8s --gke myk8scloud
+    juju add-k8s --gke --project=myproject myk8scloud
+    juju add-k8s --gke --credential=myaccount --project=myproject myk8scloud
+    juju add-k8s --gke --credential=myaccount --project=myproject --region=someregion myk8scloud
 
 See also:
     remove-k8s
@@ -95,6 +108,9 @@ type AddCAASCommand struct {
 
 	// clusterName is the name of the cluster (k8s) or credential to import
 	clusterName string
+
+	// contextName is the name of the contex to import
+	contextName string
 
 	// project is the project id for the cluster.
 	project string
@@ -156,6 +172,7 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
+	f.StringVar(&c.contextName, "context-name", "", "Specify the k8s context to import")
 	f.StringVar(&c.hostCloudRegion, "region", "", "kubernetes cluster cloud and/or region")
 	f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	f.StringVar(&c.credential, "credential", "", "the credential to use when accessing the cluster")
@@ -169,6 +186,23 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 	}
 	c.caasType = "kubernetes"
 	c.caasName = args[0]
+
+	if c.contextName != "" && c.clusterName != "" {
+		return errors.New("only specify one of cluster-name or context-name, not both")
+	}
+	if c.gke {
+		if c.contextName != "" {
+			return errors.New("do not specify context name when adding a GKE cluster")
+		}
+	} else {
+		if c.project != "" {
+			return errors.New("do not specify project unless adding a GKE cluster")
+		}
+		if c.credential != "" {
+			return errors.New("do not specify credential unless adding a GKE cluster")
+		}
+	}
+
 	return cmd.CheckEmpty(args[1:])
 }
 
@@ -192,7 +226,7 @@ func getStdinPipe(ctx *cmd.Context) (io.Reader, error) {
 	return nil, nil
 }
 
-func (c *AddCAASCommand) newCloudCredentialFromKubeConfig(reader io.Reader, clusterName string) (jujucloud.Cloud, jujucloud.Credential, clientconfig.Context, error) {
+func (c *AddCAASCommand) newCloudCredentialFromKubeConfig(reader io.Reader, contextName, clusterName string) (jujucloud.Cloud, jujucloud.Credential, clientconfig.Context, error) {
 	var credential jujucloud.Credential
 	var context clientconfig.Context
 	newCloud := jujucloud.Cloud{
@@ -204,7 +238,7 @@ func (c *AddCAASCommand) newCloudCredentialFromKubeConfig(reader io.Reader, clus
 	if err != nil {
 		return newCloud, credential, context, errors.Trace(err)
 	}
-	caasConfig, err := clientConfigFunc(reader, clusterName, clientconfig.EnsureK8sCredential)
+	caasConfig, err := clientConfigFunc(reader, contextName, clusterName, clientconfig.EnsureK8sCredential)
 	if err != nil {
 		return newCloud, credential, context, errors.Trace(err)
 	}
@@ -271,7 +305,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	if closer, ok := rdr.(io.Closer); ok {
 		defer closer.Close()
 	}
-	newCloud, credential, context, err := c.newCloudCredentialFromKubeConfig(rdr, clusterName)
+	newCloud, credential, context, err := c.newCloudCredentialFromKubeConfig(rdr, c.contextName, clusterName)
 	if err != nil {
 		return errors.Trace(err)
 	}

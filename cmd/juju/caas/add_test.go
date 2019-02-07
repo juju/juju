@@ -127,7 +127,7 @@ func (api *fakeK8sBrokerRegionLister) ListHostCloudRegions() (set.Strings, error
 	return *results[0].(*set.Strings), jujutesting.TypeAssertError(results[1])
 }
 
-func fakeNewK8sClientConfig(_ io.Reader, clusterName string, _ clientconfig.K8sCredentialResolver) (*clientconfig.ClientConfig, error) {
+func fakeNewK8sClientConfig(_ io.Reader, contextName, clusterName string, _ clientconfig.K8sCredentialResolver) (*clientconfig.ClientConfig, error) {
 	cCfg := &clientconfig.ClientConfig{
 		CurrentContext: "key1",
 	}
@@ -157,7 +157,9 @@ func fakeNewK8sClientConfig(_ io.Reader, clusterName string, _ clientconfig.K8sC
 	}
 
 	var context clientconfig.Context
-	var contextName string
+	if contextName == "" {
+		contextName = cCfg.CurrentContext
+	}
 	if clusterName != "" {
 		var err error
 		context, contextName, err = func() (clientconfig.Context, string, error) {
@@ -172,7 +174,6 @@ func fakeNewK8sClientConfig(_ io.Reader, clusterName string, _ clientconfig.K8sC
 			return nil, err
 		}
 	} else {
-		contextName = cCfg.CurrentContext
 		context = contexts[contextName]
 	}
 	cCfg.Contexts = map[string]clientconfig.Context{contextName: context}
@@ -180,7 +181,7 @@ func fakeNewK8sClientConfig(_ io.Reader, clusterName string, _ clientconfig.K8sC
 	return cCfg, nil
 }
 
-func fakeEmptyNewK8sClientConfig(io.Reader, string, clientconfig.K8sCredentialResolver) (*clientconfig.ClientConfig, error) {
+func fakeEmptyNewK8sClientConfig(io.Reader, string, string, clientconfig.K8sCredentialResolver) (*clientconfig.ClientConfig, error) {
 	return &clientconfig.ClientConfig{}, nil
 }
 
@@ -350,6 +351,37 @@ func (s *addCAASSuite) TestNonExistClusterName(c *gc.C) {
 	cmd := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "non existing cluster name")
 	c.Assert(err, gc.ErrorMatches, `context for cluster name \"non existing cluster name\" not found`)
+}
+
+type initTestsCase struct {
+	args           []string
+	expectedErrStr string
+}
+
+func (s *addCAASSuite) TestInit(c *gc.C) {
+	for _, ts := range []initTestsCase{
+		{
+			args:           []string{"--context-name", "a", "--cluster-name", "b"},
+			expectedErrStr: "only specify one of cluster-name or context-name, not both",
+		},
+		{
+			args:           []string{"--gke", "--context-name", "a"},
+			expectedErrStr: "do not specify context name when adding a GKE cluster",
+		},
+		{
+			args:           []string{"--project", "a"},
+			expectedErrStr: "do not specify project unless adding a GKE cluster",
+		},
+		{
+			args:           []string{"--credential", "a"},
+			expectedErrStr: "do not specify credential unless adding a GKE cluster",
+		},
+	} {
+		args := append([]string{"myk8s"}, ts.args...)
+		cmd := s.makeCommand(c, true, false, true)
+		_, err := s.runCommand(c, nil, cmd, args...)
+		c.Check(err, gc.ErrorMatches, ts.expectedErrStr)
+	}
 }
 
 type regionTestCase struct {

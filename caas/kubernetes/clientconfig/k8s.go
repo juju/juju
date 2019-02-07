@@ -32,7 +32,7 @@ func EnsureK8sCredential(config *clientcmdapi.Config, contextName string) (*clie
 }
 
 // NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
-func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver K8sCredentialResolver) (*ClientConfig, error) {
+func NewK8sClientConfig(reader io.Reader, contextName, clusterName string, credentialResolver K8sCredentialResolver) (*ClientConfig, error) {
 	if reader == nil {
 		var err error
 		reader, err = readKubeConfigFile()
@@ -55,16 +55,16 @@ func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read contexts from kubernetes config")
 	}
-
-	var contextName string
 	var context Context
+	if contextName == "" {
+		contextName = config.CurrentContext
+	}
 	if clusterName != "" {
 		context, contextName, err = pickContextByClusterName(contexts, clusterName)
 		if err != nil {
 			return nil, errors.Annotatef(err, "picking context by cluster name %q", clusterName)
 		}
-	} else if config.CurrentContext != "" {
-		contextName = config.CurrentContext
+	} else if contextName != "" {
 		context = contexts[contextName]
 		logger.Debugf("no cluster name specified, so use current context %q", config.CurrentContext)
 	}

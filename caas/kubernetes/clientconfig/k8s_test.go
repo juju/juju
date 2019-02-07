@@ -156,9 +156,9 @@ func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
 }
 
 type newK8sClientConfigTestCase struct {
-	title, clusterName, configYamlContent, configYamlFileName string
-	expected                                                  *clientconfig.ClientConfig
-	errMatch                                                  string
+	title, contextName, clusterName, configYamlContent, configYamlFileName string
+	expected                                                               *clientconfig.ClientConfig
+	errMatch                                                               string
 }
 
 func (s *k8sConfigSuite) assertNewK8sClientConfig(c *gc.C, testCase newK8sClientConfigTestCase) {
@@ -167,7 +167,7 @@ func (s *k8sConfigSuite) assertNewK8sClientConfig(c *gc.C, testCase newK8sClient
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("test: %s", testCase.title)
-	cfg, err := clientconfig.NewK8sClientConfig(f, testCase.clusterName, nil)
+	cfg, err := clientconfig.NewK8sClientConfig(f, testCase.contextName, testCase.clusterName, nil)
 	if testCase.errMatch != "" {
 		c.Check(err, gc.ErrorMatches, testCase.errMatch)
 	} else {
@@ -331,6 +331,26 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 						Attributes: map[string]interface{}{"CAData": "A"}}},
 				Credentials: map[string]cloud.Credential{
 					"second-user": secondCred,
+				},
+			},
+		},
+		{
+			title:       "select the-context",
+			contextName: "the-context",
+			expected: &clientconfig.ClientConfig{
+				Type: "kubernetes",
+				Contexts: map[string]clientconfig.Context{
+					"the-context": {
+						CloudName:      "the-cluster",
+						CredentialName: "the-user"},
+				},
+				CurrentContext: "default-context",
+				Clouds: map[string]clientconfig.CloudConfig{
+					"the-cluster": {
+						Endpoint:   "https://1.1.1.1:8888",
+						Attributes: map[string]interface{}{"CAData": "A"}}},
+				Credentials: map[string]cloud.Credential{
+					"the-user": theCred,
 				},
 			},
 		},
