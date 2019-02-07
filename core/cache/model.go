@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"gopkg.in/tomb.v2"
 )
@@ -17,7 +18,10 @@ const modelConfigChange = "model-config-change"
 func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 	m := &Model{
 		metrics: metrics,
-		hub:     hub,
+		// TODO: consider a separate hub per model for better scalability
+		// when many models.
+		hub:          hub,
+		applications: make(map[string]*Application),
 	}
 	return m
 }
@@ -29,19 +33,57 @@ type Model struct {
 	hub     *pubsub.SimpleHub
 	mu      sync.Mutex
 
-	details    ModelChange
-	configHash string
-	hashCache  *modelConfigHashCache
+	details      ModelChange
+	configHash   string
+	hashCache    *modelConfigHashCache
+	applications map[string]*Application
 }
 
 // Report returns information that is used in the dependency engine report.
 func (m *Model) Report() map[string]interface{} {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	return map[string]interface{}{
-		"name": m.details.Owner + "/" + m.details.Name,
-		"life": m.details.Life,
+		"name":              m.details.Owner + "/" + m.details.Name,
+		"life":              m.details.Life,
+		"application-count": len(m.applications),
 	}
+}
+
+// Application returns the application for the input name.
+// If the application is not found, a NotFoundError is returned.
+func (m *Model) Application(appName string) (*Application, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	app, found := m.applications[appName]
+	if !found {
+		return nil, errors.NotFoundf("application %q", appName)
+	}
+	return app, nil
+
+}
+
+// updateApplication adds or updates the application in the model.
+func (m *Model) updateApplication(ch ApplicationChange) {
+	m.mu.Lock()
+
+	app, found := m.applications[ch.Name]
+	if !found {
+		app = newApplication(m.metrics, m.hub)
+		m.applications[ch.Name] = app
+	}
+	app.setDetails(ch)
+
+	m.mu.Unlock()
+}
+
+// removeApplication removes the application from the model.
+func (m *Model) removeApplication(ch RemoveApplication) {
+	m.mu.Lock()
+	delete(m.applications, ch.Name)
+	m.mu.Unlock()
 }
 
 // modelTopic prefixes the topic with the model UUID.
@@ -51,22 +93,23 @@ func (m *Model) modelTopic(topic string) string {
 
 func (m *Model) setDetails(details ModelChange) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.details = details
 
+	m.details = details
 	hashCache, configHash := newModelConfigHashCache(m.metrics, details.Config)
 	if configHash != m.configHash {
 		m.configHash = configHash
 		m.hashCache = hashCache
 		m.hub.Publish(m.modelTopic(modelConfigChange), hashCache)
 	}
+
+	m.mu.Unlock()
 }
 
 // Config returns the current model config.
 func (m *Model) Config() map[string]interface{} {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.metrics.ModelConfigReads.Inc()
+	m.mu.Unlock()
 	return m.details.Config
 }
 
@@ -124,6 +167,7 @@ func newModelConfigHashCache(metrics *ControllerGauges, config map[string]interf
 func (c *modelConfigHashCache) getHash(keys []string) string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	key := strings.Join(keys, ",")
 	value, found := c.hash[key]
 	if found {

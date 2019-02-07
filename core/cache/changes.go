@@ -4,6 +4,7 @@
 package cache
 
 import (
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 )
@@ -23,4 +24,27 @@ type ModelChange struct {
 // from the database.
 type RemoveModel struct {
 	ModelUUID string
+}
+
+// ApplicationChange represents either a new application, or a change
+// to an existing application in a model.
+type ApplicationChange struct {
+	ModelUUID       string
+	Name            string
+	Exposed         bool
+	CharmURL        string
+	Life            life.Value
+	MinUnits        int
+	Constraints     constraints.Value
+	Config          map[string]interface{}
+	Subordinate     bool
+	Status          status.StatusInfo
+	WorkloadVersion string
+}
+
+// RemoveApplication represents the situation when an application
+// is removed from a model in the database.
+type RemoveApplication struct {
+	ModelUUID string
+	Name      string
 }

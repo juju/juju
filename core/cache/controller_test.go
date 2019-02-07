@@ -16,9 +16,7 @@ import (
 )
 
 type ControllerSuite struct {
-	testing.IsolationSuite
-
-	gauges *cache.ControllerGauges
+	baseSuite
 
 	changes chan interface{}
 	config  cache.ControllerConfig
@@ -27,7 +25,7 @@ type ControllerSuite struct {
 var _ = gc.Suite(&ControllerSuite{})
 
 func (s *ControllerSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
 	s.changes = make(chan interface{})
 	s.config = cache.ControllerConfig{
 		Changes: s.changes,
@@ -56,14 +54,6 @@ func (s *ControllerSuite) TestController(c *gc.C) {
 	workertest.CleanKill(c, controller)
 }
 
-func (s *ControllerSuite) new(c *gc.C) (*cache.Controller, <-chan interface{}) {
-	events := s.captureModelEvents(c)
-	controller, err := cache.NewController(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, controller) })
-	return controller, events
-}
-
 func (s *ControllerSuite) TestAddModel(c *gc.C) {
 	controller, events := s.new(c)
 	s.processChange(c, modelChange, events)
@@ -71,8 +61,9 @@ func (s *ControllerSuite) TestAddModel(c *gc.C) {
 	c.Check(controller.ModelUUIDs(), jc.SameContents, []string{"model-uuid"})
 	c.Check(controller.Report(), gc.DeepEquals, map[string]interface{}{
 		"model-uuid": map[string]interface{}{
-			"name": "model-owner/test-model",
-			"life": life.Value("alive"),
+			"name":              "model-owner/test-model",
+			"life":              life.Value("alive"),
+			"application-count": 0,
 		}})
 }
 
@@ -87,21 +78,45 @@ func (s *ControllerSuite) TestRemoveModel(c *gc.C) {
 	c.Check(controller.Report(), gc.HasLen, 0)
 }
 
-func (s *ControllerSuite) processChange(c *gc.C, change interface{}, notify <-chan interface{}) {
-	select {
-	case s.changes <- change:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("contoller did not read change")
-	}
-	select {
-	case obtained := <-notify:
-		c.Check(obtained, jc.DeepEquals, change)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("contoller did not handle change")
-	}
+func (s *ControllerSuite) TestAddApplication(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, modelChange, events)
+	s.processChange(c, appChange, events)
+
+	mod, err := controller.Model("model-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod.Report()["application-count"], gc.Equals, 1)
+
+	app, err := mod.Application("application-name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(app, gc.NotNil)
 }
 
-func (s *ControllerSuite) captureModelEvents(c *gc.C) <-chan interface{} {
+func (s *ControllerSuite) TestRemoveApplication(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, modelChange, events)
+	s.processChange(c, appChange, events)
+
+	remove := cache.RemoveApplication{
+		ModelUUID: "model-uuid",
+		Name:      "application-name",
+	}
+	s.processChange(c, remove, events)
+
+	mod, err := controller.Model("model-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod.Report()["application-count"], gc.Equals, 0)
+}
+
+func (s *ControllerSuite) new(c *gc.C) (*cache.Controller, <-chan interface{}) {
+	events := s.captureEvents(c)
+	controller, err := cache.NewController(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, controller) })
+	return controller, events
+}
+
+func (s *ControllerSuite) captureEvents(c *gc.C) <-chan interface{} {
 	events := make(chan interface{})
 	s.config.Notify = func(change interface{}) {
 		send := false
@@ -109,6 +124,10 @@ func (s *ControllerSuite) captureModelEvents(c *gc.C) <-chan interface{} {
 		case cache.ModelChange:
 			send = true
 		case cache.RemoveModel:
+			send = true
+		case cache.ApplicationChange:
+			send = true
+		case cache.RemoveApplication:
 			send = true
 		default:
 			// no-op
@@ -123,6 +142,20 @@ func (s *ControllerSuite) captureModelEvents(c *gc.C) <-chan interface{} {
 		}
 	}
 	return events
+}
+
+func (s *ControllerSuite) processChange(c *gc.C, change interface{}, notify <-chan interface{}) {
+	select {
+	case s.changes <- change:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("controller did not read change")
+	}
+	select {
+	case obtained := <-notify:
+		c.Check(obtained, jc.DeepEquals, change)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("controller did not handle change")
+	}
 }
 
 func (s *ControllerSuite) nextChange(c *gc.C, changes <-chan interface{}) interface{} {

@@ -22,7 +22,7 @@ type ControllerConfig struct {
 	// The changes channel must be non-nil.
 	Changes <-chan interface{}
 
-	// Notify is a callback function used primariy for testing, and is
+	// Notify is a callback function used primarily for testing, and is
 	// called by the controller main processing loop after processing a change.
 	// The change processed is passed in as the arg to notify.
 	Notify func(interface{})
@@ -77,6 +77,10 @@ func (c *Controller) loop() error {
 				c.updateModel(ch)
 			case RemoveModel:
 				c.removeModel(ch)
+			case ApplicationChange:
+				c.updateApplication(ch)
+			case RemoveApplication:
+				c.removeApplication(ch)
 			}
 			if c.config.Notify != nil {
 				c.config.Notify(change)
@@ -88,22 +92,26 @@ func (c *Controller) loop() error {
 // Report returns information that is used in the dependency engine report.
 func (c *Controller) Report() map[string]interface{} {
 	result := make(map[string]interface{})
+
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	for uuid, model := range c.models {
 		result[uuid] = model.Report()
 	}
+	c.mu.Unlock()
+
 	return result
 }
 
 // ModelUUIDs returns the UUIDs of the models in the cache.
 func (c *Controller) ModelUUIDs() []string {
 	c.mu.Lock()
-	defer c.mu.Unlock()
+
 	result := make([]string, 0, len(c.models))
 	for uuid := range c.models {
 		result = append(result, uuid)
 	}
+
+	c.mu.Unlock()
 	return result
 }
 
@@ -117,11 +125,12 @@ func (c *Controller) Wait() error {
 	return c.tomb.Wait()
 }
 
-// Model return the model for the specified UUID.
+// Model returns the model for the specified UUID.
 // If the model isn't found, a NotFoundError is returned.
 func (c *Controller) Model(uuid string) (*Model, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	model, found := c.models[uuid]
 	if !found {
 		return nil, errors.NotFoundf("model %q", uuid)
@@ -133,7 +142,6 @@ func (c *Controller) Model(uuid string) (*Model, error) {
 // described in the ModelChange.
 func (c *Controller) updateModel(ch ModelChange) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	model, found := c.models[ch.ModelUUID]
 	if !found {
@@ -141,11 +149,45 @@ func (c *Controller) updateModel(ch ModelChange) {
 		c.models[ch.ModelUUID] = model
 	}
 	model.setDetails(ch)
+
+	c.mu.Unlock()
 }
 
 // removeModel removes the model from the cache.
 func (c *Controller) removeModel(ch RemoveModel) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	delete(c.models, ch.ModelUUID)
+	c.mu.Unlock()
+}
+
+// updateApplication adds or updates the application in the specified model.
+func (c *Controller) updateApplication(ch ApplicationChange) {
+	c.mu.Lock()
+
+	// While it is likely that we will receive a change update for the model
+	// before we get an update for the application for that model, but the
+	// cache needs to be resilient enough to make sure that we can handle
+	// the situation where this is not the case.
+	model, found := c.models[ch.ModelUUID]
+	if !found {
+		model = newModel(c.metrics, c.hub)
+		c.models[ch.ModelUUID] = model
+	}
+	model.updateApplication(ch)
+
+	c.mu.Unlock()
+}
+
+// removeApplication removes the application for the cached model.
+// If the cache does not have the model loaded for the application yet,
+// then it will not have the application cached.
+func (c *Controller) removeApplication(ch RemoveApplication) {
+	c.mu.Lock()
+
+	model, found := c.models[ch.ModelUUID]
+	if found {
+		model.removeApplication(ch)
+	}
+
+	c.mu.Unlock()
 }
