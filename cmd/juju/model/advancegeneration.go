@@ -56,7 +56,7 @@ type advanceGenerationCommand struct {
 //go:generate mockgen -package mocks -destination ./mocks/advancegeneration_mock.go github.com/juju/juju/cmd/juju/model AdvanceGenerationCommandAPI
 type AdvanceGenerationCommandAPI interface {
 	Close() error
-	AdvanceGeneration(names.ModelTag, []string) error
+	AdvanceGeneration(string, []string) error
 }
 
 // Info implements part of the cmd.Command interface.
@@ -115,8 +115,7 @@ func (c *advanceGenerationCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting model details")
 	}
 
-	modelTag := names.NewModelTag(modelDetails.ModelUUID)
-	if err := client.AdvanceGeneration(modelTag, c.entities); err != nil {
+	if err := client.AdvanceGeneration(modelDetails.ModelUUID, c.entities); err != nil {
 		return errors.Trace(err)
 	}
 

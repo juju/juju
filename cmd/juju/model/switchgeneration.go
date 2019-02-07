@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -40,7 +41,16 @@ func NewSwitchGenerationCommand() cmd.Command {
 type switchGenerationCommand struct {
 	modelcmd.ModelCommandBase
 
+	api SwitchGenerationCommandAPI
+
 	generation string
+}
+
+// SwitchGenerationCommandAPI defines an API interface to be used during testing.
+//go:generate mockgen -package mocks -destination ./mocks/switchgeneration_mock.go github.com/juju/juju/cmd/juju/model SwitchGenerationCommandAPI
+type SwitchGenerationCommandAPI interface {
+	Close() error
+	HasNextGeneration(string) (bool, error)
 }
 
 // Info implements part of the cmd.Command interface.
@@ -73,8 +83,45 @@ func (c *switchGenerationCommand) Init(args []string) error {
 	return nil
 }
 
+// getAPI returns the API. This allows passing in a test SwitchGenerationCommandAPI
+// Run (cmd.Command) sets the active generation in the local store.
+// implementation.
+func (c *switchGenerationCommand) getAPI() (SwitchGenerationCommandAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Annotate(err, "opening API connection")
+	}
+	client := modelgeneration.NewClient(api)
+	return client, nil
+}
+
 // Run (cmd.Command) sets the active generation in the local store.
 func (c *switchGenerationCommand) Run(ctx *cmd.Context) error {
+	// If attempting to set the active generation to "next",
+	// check that the model has such a generation.
+	if c.generation == string(model.GenerationNext) {
+		client, err := c.getAPI()
+		if err != nil {
+			return err
+		}
+		defer func() { _ = client.Close() }()
+
+		_, modelDetails, err := c.ModelDetails()
+		if err != nil {
+			return errors.Annotate(err, "getting model details")
+		}
+		hasNext, err := client.HasNextGeneration(modelDetails.ModelUUID)
+		if err != nil {
+			return errors.Annotate(err, "checking for next generation")
+		}
+		if !hasNext {
+			return errors.New("this model has no next generation")
+		}
+	}
+
 	if err := c.SetModelGeneration(model.GenerationVersion(c.generation)); err != nil {
 		return err
 	}

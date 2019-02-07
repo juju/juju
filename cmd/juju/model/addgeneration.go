@@ -7,7 +7,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
@@ -50,7 +49,7 @@ type addGenerationCommand struct {
 //go:generate mockgen -package mocks -destination ./mocks/addgeneration_mock.go github.com/juju/juju/cmd/juju/model AddGenerationCommandAPI
 type AddGenerationCommandAPI interface {
 	Close() error
-	AddGeneration(names.ModelTag) error
+	AddGeneration(string) error
 }
 
 // Info implements part of the cmd.Command interface.
@@ -103,8 +102,7 @@ func (c *addGenerationCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting model details")
 	}
 
-	modelTag := names.NewModelTag(modelDetails.ModelUUID)
-	if err = client.AddGeneration(modelTag); err != nil {
+	if err = client.AddGeneration(modelDetails.ModelUUID); err != nil {
 		return err
 	}
 

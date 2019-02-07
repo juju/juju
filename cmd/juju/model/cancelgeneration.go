@@ -7,7 +7,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
@@ -48,7 +47,7 @@ type cancelGenerationCommand struct {
 //go:generate mockgen -package mocks -destination ./mocks/cancelgeneration_mock.go github.com/juju/juju/cmd/juju/model CancelGenerationCommandAPI
 type CancelGenerationCommandAPI interface {
 	Close() error
-	CancelGeneration(names.ModelTag) error
+	CancelGeneration(string) error
 }
 
 // Info implements part of the cmd.Command interface.
@@ -101,8 +100,7 @@ func (c *cancelGenerationCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting model details")
 	}
 
-	modelTag := names.NewModelTag(modelDetails.ModelUUID)
-	if err = client.CancelGeneration(modelTag); err != nil {
+	if err = client.CancelGeneration(modelDetails.ModelUUID); err != nil {
 		return err
 	}
 

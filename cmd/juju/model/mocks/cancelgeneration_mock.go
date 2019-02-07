@@ -6,7 +6,6 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
 )
 
@@ -34,7 +33,7 @@ func (m *MockCancelGenerationCommandAPI) EXPECT() *MockCancelGenerationCommandAP
 }
 
 // CancelGeneration mocks base method
-func (m *MockCancelGenerationCommandAPI) CancelGeneration(arg0 names_v2.ModelTag) error {
+func (m *MockCancelGenerationCommandAPI) CancelGeneration(arg0 string) error {
 	ret := m.ctrl.Call(m, "CancelGeneration", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
