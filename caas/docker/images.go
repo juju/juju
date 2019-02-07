@@ -6,6 +6,8 @@ package docker
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -29,6 +31,16 @@ func InspectImage(c client.ImageAPIClient, imagePath string) (types.ImageInspect
 	return o, err
 }
 
+// PullImage pulls docker image to local.
+func PullImage(c client.ImageAPIClient, imagePath string) error {
+	reader, err := c.ImagePull(context.Background(), "docker.io/library/alpine", types.ImagePullOptions{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	io.Copy(os.Stdout, reader)
+	return nil
+}
+
 func jujuVersionToDockerImagePath(v string) string {
 	return fmt.Sprintf("%s/%s:%s", dockerOrgName, dockerNameSpace, v)
 }
@@ -40,9 +52,14 @@ func GetToolImagePath(c client.ImageAPIClient, toolVersion version.Number) (stri
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if _, err := InspectImage(c, dockerPath); err != nil {
+	// if err := PullImage(c, dockerPath); err != nil {
+	// 	return "", errors.Trace(err)
+	// }
+
+	// image exists if it's pullable.
+	if err := PullImage(c, dockerPath); err != nil {
 		if client.IsErrNotFound(err) {
-			return "", errors.NotFoundf("docker image version %v", toolVersion)
+			return "", errors.NotFoundf("docker image  %v", dockerPath)
 		}
 		return "", errors.Trace(err)
 	}

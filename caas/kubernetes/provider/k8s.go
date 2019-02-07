@@ -20,7 +20,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/names.v2"
+	names "gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -29,7 +29,7 @@ import (
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -208,6 +208,7 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 
 		// TODO(caas): we'll need a different tag type other than machine tag.
 		machineTag := names.NewMachineTag(pcfg.MachineId)
+		var acfg agent.ConfigSetterWriter
 		acfg, err = pcfg.AgentConfig(machineTag)
 		if err != nil {
 			return errors.Trace(err)
@@ -215,39 +216,45 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
+		// create namespace for controller stack.
+		if err = k.CreateNamespace(""); err != nil {
+			// create but not ensure to avoid reuse an existing namespace.
+			return errors.Annotate(err, "creating namespace for controller stack")
+		}
+
 		// create service for controller pod.
 		if err = k.createControllerService(); err != nil {
-			return errors.Annotate(nil, "creating service for controller")
+			return errors.Annotate(err, "creating service for controller")
 		}
 
 		// create shared-secret secret for controller pod.
 		if err = k.createControllerSecretShared(acfg); err != nil {
-			return errors.Annotate(nil, "creating shared-secret secret for controller")
+			return errors.Annotate(err, "creating shared-secret secret for controller")
 		}
 
 		// create server.pem secret for controller pod.
 		if err = k.createControllerSecretServerPem(acfg); err != nil {
-			return errors.Annotate(nil, "creating server.pem secret for controller")
+			return errors.Annotate(err, "creating server.pem secret for controller")
 		}
 
 		// create mongo admin account secret for controller pod.
 		if err = k.createControllerSecretMongoAdmin(acfg); err != nil {
-			return errors.Annotate(nil, "creating mongo admin account secret for controller")
+			return errors.Annotate(err, "creating mongo admin account secret for controller")
 		}
 
 		// create bootstrap-params secret for controller pod.
 		if err = k.createControllerSecretBootstrapParams(pcfg); err != nil {
-			return errors.Annotate(nil, "creating bootstrap-params secret for controller")
+			return errors.Annotate(err, "creating bootstrap-params secret for controller")
 		}
 
 		// create agent config configmap for controller pod.
 		if err = k.createControllerConfigmapAgentConf(acfg); err != nil {
-			return errors.Annotate(nil, "creating agent config configmap for controller")
+			return errors.Annotate(err, "creating agent config configmap for controller")
 		}
 
 		// create statefulset for controller pod.
 		if err = k.createControllerStatefulset(pcfg); err != nil {
-			return errors.Annotate(nil, "creating statefulset for controller")
+			return errors.Annotate(err, "creating statefulset for controller")
 		}
 
 		// TODO(caas): prepare
@@ -268,7 +275,6 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 
 // DestroyController implements the Environ interface.
 func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
-	// TODO(caas): destroy controller and all models
 	logger.Warningf("DestroyController is not supported yet on CAAS.")
 	return nil
 }
@@ -360,6 +366,16 @@ func (k *kubernetesClient) EnsureNamespace() error {
 	return errors.Trace(err)
 }
 
+// CreateNamespace creates this broker's namespace.
+func (k *kubernetesClient) CreateNamespace(name string) error {
+	if name == "" {
+		name = k.namespace
+	}
+	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
+	_, err := k.CoreV1().Namespaces().Create(ns)
+	return errors.Trace(err)
+}
+
 func (k *kubernetesClient) deleteNamespace() error {
 	// deleteNamespace is used as a means to implement Destroy().
 	// All model resources are provisioned in the namespace;
@@ -389,7 +405,12 @@ func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
 }
 
 // EnsureSecret ensures a secret exists for use with retrieving images from private registries
-func (k *kubernetesClient) ensureSecret(imageSecretName, appName string, imageDetails *caas.ImageDetails, resourceTags map[string]string) error {
+func (k *kubernetesClient) ensureSecret(
+	imageSecretName,
+	appName string,
+	imageDetails *caas.ImageDetails,
+	resourceTags map[string]string,
+) error {
 	if imageDetails.Password == "" {
 		return errors.New("attempting to create a secret with no password")
 	}
@@ -417,7 +438,12 @@ func (k *kubernetesClient) ensureSecret(imageSecretName, appName string, imageDe
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) createSecret(secretName string, labels [string]string, secretType core.SecretType, data map[string][]byte) error {
+func (k *kubernetesClient) createSecret(
+	secretName string,
+	labels map[string]string,
+	secretType core.SecretType,
+	data map[string][]byte,
+) error {
 	spec := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      secretName,
@@ -426,6 +452,7 @@ func (k *kubernetesClient) createSecret(secretName string, labels [string]string
 		Type: secretType,
 		Data: data,
 	}
+	logger.Debugf("creating secret: \n%+v", spec)
 	_, err := k.CoreV1().Secrets(k.namespace).Create(spec)
 	return errors.Trace(err)
 }
