@@ -244,9 +244,9 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 			return errors.Annotate(err, "creating mongo admin account secret for controller")
 		}
 
-		// create bootstrap-params secret for controller pod.
-		if err = k.createControllerSecretBootstrapParams(pcfg); err != nil {
-			return errors.Annotate(err, "creating bootstrap-params secret for controller")
+		// create bootstrap-params configmap for controller pod.
+		if err = k.createControllerConfigmapBootstrapParams(pcfg); err != nil {
+			return errors.Annotate(err, "creating bootstrap-params configmap for controller")
 		}
 
 		// create agent config configmap for controller pod.

@@ -115,20 +115,34 @@ func (k *kubernetesClient) createControllerSecretMongoAdmin(agentConfig agent.Co
 	return nil
 }
 
-func (k *kubernetesClient) createControllerSecretBootstrapParams(pcfg *podcfg.ControllerPodConfig) error {
+func (k *kubernetesClient) createControllerConfigmapBootstrapParams(pcfg *podcfg.ControllerPodConfig) error {
 	bootstrapParamsFileContent, err := pcfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
-	return k.createSecret(
-		resourceNameBootstrapParams,
-		stackLabels,
-		core.SecretTypeOpaque,
-		map[string][]byte{
-			fileNameBootstrapParams: bootstrapParamsFileContent,
+	// return k.createSecret(
+	// 	resourceNameBootstrapParams,
+	// 	stackLabels,
+	// 	core.SecretTypeOpaque,
+	// 	map[string][]byte{
+	// 		fileNameBootstrapParams: bootstrapParamsFileContent,
+	// 	},
+	// )
+
+	spec := &core.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      resourceNameBootstrapParams,
+			Labels:    stackLabels,
+			Namespace: k.namespace,
 		},
-	)
+		Data: map[string]string{
+			fileNameBootstrapParams: string(bootstrapParamsFileContent),
+		},
+	}
+	logger.Debugf("creating bootstrap-params configmap: \n%+v", spec)
+	_, err = k.CoreV1().ConfigMaps(k.namespace).Create(spec)
+	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) createControllerConfigmapAgentConf(agentConfig agent.ConfigSetterWriter) error {
