@@ -28,8 +28,7 @@ func NewClient(st base.APICallCloser) *Client {
 // AddGeneration adds a model generation to the config.
 func (c *Client) AddGeneration(modelUUID string) error {
 	var result params.ErrorResult
-	arg := params.Entity{Tag: names.NewModelTag(modelUUID).String()}
-	err := c.facade.FacadeCall("AddGeneration", arg, &result)
+	err := c.facade.FacadeCall("AddGeneration", argForModel(modelUUID), &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -42,8 +41,7 @@ func (c *Client) AddGeneration(modelUUID string) error {
 // CancelGeneration cancels a model generation to the config.
 func (c *Client) CancelGeneration(modelUUID string) error {
 	var result params.ErrorResult
-	arg := params.Entity{Tag: names.NewModelTag(modelUUID).String()}
-	err := c.facade.FacadeCall("CancelGeneration", arg, &result)
+	err := c.facade.FacadeCall("CancelGeneration", argForModel(modelUUID), &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -56,7 +54,7 @@ func (c *Client) CancelGeneration(modelUUID string) error {
 // AdvanceGeneration advances a unit and/or applications to the 'next' generation.
 func (c *Client) AdvanceGeneration(modelUUID string, entities []string) error {
 	var results params.ErrorResults
-	arg := params.AdvanceGenerationArg{Model: params.Entity{Tag: names.NewModelTag(modelUUID).String()}}
+	arg := params.AdvanceGenerationArg{Model: argForModel(modelUUID)}
 	if len(entities) == 0 {
 		return errors.Trace(errors.New("No units or applications to advance"))
 	}
@@ -79,12 +77,11 @@ func (c *Client) AdvanceGeneration(modelUUID string, entities []string) error {
 	return results.Combine()
 }
 
-// HasNextGeneration returns true if the model is a "next" generation that
+// HasNextGeneration returns true if the model has a "next" generation that
 // has not yet been completed.
 func (c *Client) HasNextGeneration(modelUUID string) (bool, error) {
 	var result params.BoolResult
-	arg := params.Entity{Tag: names.NewModelTag(modelUUID).String()}
-	err := c.facade.FacadeCall("HasNextGeneration", arg, &result)
+	err := c.facade.FacadeCall("HasNextGeneration", argForModel(modelUUID), &result)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -92,4 +89,8 @@ func (c *Client) HasNextGeneration(modelUUID string) (bool, error) {
 		return false, errors.Trace(result.Error)
 	}
 	return result.Result, nil
+}
+
+func argForModel(modelUUID string) params.Entity {
+	return params.Entity{Tag: names.NewModelTag(modelUUID).String()}
 }
