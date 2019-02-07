@@ -3,9 +3,7 @@
 package cache_test
 
 import (
-	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
-	"github.com/juju/testing"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	gc "gopkg.in/check.v1"
@@ -17,24 +15,13 @@ import (
 )
 
 type ModelSuite struct {
-	testing.IsolationSuite
-
-	gauges *cache.ControllerGauges
-
-	hub *pubsub.SimpleHub
+	entitySuite
 }
 
 var _ = gc.Suite(&ModelSuite{})
 
 func (s *ModelSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.gauges = cache.CreateControllerGauges()
-	logger := loggo.GetLogger("test")
-	logger.SetLogLevel(loggo.TRACE)
-	s.hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: logger,
-	})
-
+	s.entitySuite.SetUpTest(c)
 }
 
 func (s *ModelSuite) newModel(details cache.ModelChange) *cache.Model {
@@ -46,8 +33,9 @@ func (s *ModelSuite) newModel(details cache.ModelChange) *cache.Model {
 func (s *ModelSuite) TestReport(c *gc.C) {
 	m := s.newModel(modelChange)
 	c.Assert(m.Report(), jc.DeepEquals, map[string]interface{}{
-		"name": "model-owner/test-model",
-		"life": life.Value("alive"),
+		"name":              "model-owner/test-model",
+		"life":              life.Value("alive"),
+		"application-count": 0,
 	})
 }
 
@@ -138,6 +126,12 @@ func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
 
 	m.SetDetails(change)
 	wc.AssertNoChange()
+}
+
+func (s *ModelSuite) TestApplicationNotFoundError(c *gc.C) {
+	m := s.newModel(modelChange)
+	_, err := m.Application("nope")
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 var modelChange = cache.ModelChange{

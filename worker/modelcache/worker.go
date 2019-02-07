@@ -233,7 +233,31 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			Status:    coreStatus(value.Status),
 			// TODO: constraints, sla
 		}
-
+	case "application":
+		if d.Removed {
+			return cache.RemoveApplication{
+				ModelUUID: id.ModelUUID,
+				Name:      id.Id,
+			}
+		}
+		value, ok := d.Entity.(*multiwatcher.ApplicationInfo)
+		if !ok {
+			c.config.Logger.Errorf("unexpected type %T", d.Entity)
+			return nil
+		}
+		return cache.ApplicationChange{
+			ModelUUID:       value.ModelUUID,
+			Name:            value.Name,
+			Exposed:         value.Exposed,
+			CharmURL:        value.CharmURL,
+			Life:            life.Value(value.Life),
+			MinUnits:        value.MinUnits,
+			Constraints:     value.Constraints,
+			Config:          value.Config,
+			Subordinate:     value.Subordinate,
+			Status:          coreStatus(value.Status),
+			WorkloadVersion: value.WorkloadVersion,
+		}
 	default:
 		return nil
 	}

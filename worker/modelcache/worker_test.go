@@ -6,6 +6,8 @@ package modelcache_test
 import (
 	"time"
 
+	"github.com/juju/juju/testing/factory"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -248,6 +250,83 @@ func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
 	// Controller just has the system state again.
 	controller := s.getController(c, w)
 	c.Assert(controller.ModelUUIDs(), jc.SameContents, []string{s.State.ModelUUID()})
+}
+
+func (s *WorkerSuite) captureApplicationEvents(c *gc.C) <-chan interface{} {
+	events := make(chan interface{})
+	s.notify = func(change interface{}) {
+		send := false
+		switch change.(type) {
+		case cache.ApplicationChange:
+			send = true
+		case cache.RemoveApplication:
+			send = true
+		default:
+			// no-op
+		}
+		if send {
+			c.Logf("sending %#v", change)
+			select {
+			case events <- change:
+			case <-time.After(testing.LongWait):
+				c.Fatalf("change not processed by test")
+			}
+		}
+	}
+	return events
+}
+
+func (s *WorkerSuite) TestAddApplication(c *gc.C) {
+	changes := s.captureApplicationEvents(c)
+	w := s.start(c)
+
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{})
+	s.State.StartSync()
+
+	change := s.nextChange(c, changes)
+	obtained, ok := change.(cache.ApplicationChange)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(obtained.Name, gc.Equals, app.Name())
+
+	controller := s.getController(c, w)
+	modUUIDs := controller.ModelUUIDs()
+	c.Check(modUUIDs, gc.HasLen, 1)
+
+	mod, err := controller.Model(modUUIDs[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	cachedApp, err := mod.Application(app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cachedApp, gc.NotNil)
+}
+
+func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
+	changes := s.captureApplicationEvents(c)
+	w := s.start(c)
+
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{})
+	s.State.StartSync()
+	_ = s.nextChange(c, changes)
+
+	controller := s.getController(c, w)
+	modUUID := controller.ModelUUIDs()[0]
+
+	c.Assert(app.Destroy(), jc.ErrorIsNil)
+	s.State.StartSync()
+
+	// We will either get our application event,
+	// or time-out after processing all the changes.
+	for {
+		change := s.nextChange(c, changes)
+		if _, ok := change.(cache.RemoveApplication); ok {
+			mod, err := controller.Model(modUUID)
+			c.Assert(err, jc.ErrorIsNil)
+
+			_, err = mod.Application(app.Name())
+			c.Check(errors.IsNotFound(err), jc.IsTrue)
+			return
+		}
+	}
 }
 
 type noopRegisterer struct {
