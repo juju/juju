@@ -117,13 +117,22 @@ func NewK8sBroker(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	modelUUID := newCfg.UUID()
+	namespace := newCfg.Name()
+	if namespace == "controller" {
+		// namespace format: <controller>-<controllerUUID> for juju controller to achieve:
+		// 1. multi controller running in same k8s cluster;
+		// 2. avoid potential conflict if there is existing namespace named "controller"(warning: an non juju related existing namespace could be destroyed if bootstraping failed due to AlreadyExistedNamespace error);
+		namespace = namespace + "-" + modelUUID
+		// TODO: modelUUID is not right here, controller UUID expected, but it's default model UUID.
+	}
 	return &kubernetesClient{
 		clock:               clock,
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
-		namespace:           newCfg.Name(),
+		namespace:           namespace,
 		envCfg:              newCfg,
-		modelUUID:           newCfg.UUID(),
+		modelUUID:           modelUUID,
 		newWatcher:          newWatcher,
 	}, nil
 }

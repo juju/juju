@@ -51,8 +51,9 @@ func getResourceName(name string) string {
 func (k *kubernetesClient) createControllerService() error {
 	spec := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   stackName,
-			Labels: stackLabels,
+			Name:      stackName,
+			Labels:    stackLabels,
+			Namespace: k.namespace,
 		},
 		Spec: core.ServiceSpec{
 			Selector: stackLabels,
@@ -139,8 +140,9 @@ func (k *kubernetesClient) createControllerConfigmapAgentConf(agentConfig agent.
 
 	spec := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   resourceNameAgentConf,
-			Labels: stackLabels,
+			Name:      resourceNameAgentConf,
+			Labels:    stackLabels,
+			Namespace: k.namespace,
 		},
 		Data: map[string]string{
 			fileNameAgentConf: string(agentConfigFileContent),
@@ -155,8 +157,9 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 	numberOfPods := int32(1) // TODO: HA mode!
 	spec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   stackName,
-			Labels: stackLabels,
+			Name:      stackName,
+			Labels:    stackLabels,
+			Namespace: k.namespace,
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: stackName,
@@ -166,7 +169,8 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: stackLabels,
+					Labels:    stackLabels,
+					Namespace: k.namespace,
 				},
 				Spec: core.PodSpec{
 					// TerminationGracePeriodSeconds: 10,
@@ -209,6 +213,7 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			ObjectMeta: v1.ObjectMeta{
 				Name:   pvcNameMongoStorage,
 				Labels: stackLabels,
+				// Namespace: k.namespace,
 			},
 			Spec: core.PersistentVolumeClaimSpec{
 				StorageClassName: &storageClassName,
@@ -224,6 +229,7 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			ObjectMeta: v1.ObjectMeta{
 				Name:   pvcNameAPIServerStorage,
 				Labels: stackLabels,
+				// Namespace: k.namespace,
 			},
 			Spec: core.PersistentVolumeClaimSpec{
 				StorageClassName: &storageClassName,
@@ -322,7 +328,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 	probCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
-			fmt.Sprintf("--port=%s", string(portMongoDB)),
+			fmt.Sprintf("--port=%d", portMongoDB),
 			"--ssl",
 			"--sslAllowInvalidHostnames",
 			"--sslAllowInvalidCertificates",
@@ -334,7 +340,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 	var containerSpec []core.Container
 	// add container mongoDB.
 	containerSpec = append(containerSpec, core.Container{
-		Name:            "mongoDB",
+		Name:            "mongodb",
 		ImagePullPolicy: core.PullIfNotPresent,
 		Image:           "mongo:3.6.6", // TODO:
 		Command: []string{
@@ -345,7 +351,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 			fmt.Sprintf("--sslPEMKeyFile=%s/server.pem", pcfg.DataDir),
 			"--sslPEMKeyPassword=ignored",
 			"--sslMode=requireSSL",
-			fmt.Sprintf("--port=%s", string(portMongoDB)),
+			fmt.Sprintf("--port=%d", portMongoDB),
 			"--journal",
 			"--replSet=juju", // TODO
 			"--quiet",
@@ -359,7 +365,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 		},
 		Ports: []core.ContainerPort{
 			{
-				Name:          "mongoDB",
+				Name:          "mongodb",
 				ContainerPort: portMongoDB,
 				Protocol:      "TCP",
 			},
