@@ -45,6 +45,17 @@ func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 }
 
+func (s *modelGenerationSuite) TestHasNextGeneration(c *gc.C) {
+	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+		mockModel.EXPECT().HasNextGeneration().Return(true, nil)
+	}).Finish()
+
+	result, err := s.api.HasNextGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Check(result.Result, jc.IsTrue)
+}
+
 func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 	arg := params.AdvanceGenerationArg{
 		Model: params.Entity{Tag: names.NewModelTag(s.modelUUID).String()},

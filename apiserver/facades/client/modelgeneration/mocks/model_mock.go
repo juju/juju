@@ -45,6 +45,19 @@ func (mr *MockGenerationModelMockRecorder) AddGeneration() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddGeneration", reflect.TypeOf((*MockGenerationModel)(nil).AddGeneration))
 }
 
+// HasNextGeneration mocks base method
+func (m *MockGenerationModel) HasNextGeneration() (bool, error) {
+	ret := m.ctrl.Call(m, "HasNextGeneration")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasNextGeneration indicates an expected call of HasNextGeneration
+func (mr *MockGenerationModelMockRecorder) HasNextGeneration() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasNextGeneration", reflect.TypeOf((*MockGenerationModel)(nil).HasNextGeneration))
+}
+
 // NextGeneration mocks base method
 func (m *MockGenerationModel) NextGeneration() (modelgeneration.Generation, error) {
 	ret := m.ctrl.Call(m, "NextGeneration")

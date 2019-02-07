@@ -91,6 +91,27 @@ func (m *ModelGenerationAPI) AddGeneration(arg params.Entity) (params.ErrorResul
 	return result, nil
 }
 
+// HasNextGeneration returns a true result if the input model has a "next"
+// generation that has not yet been completed.
+func (m *ModelGenerationAPI) HasNextGeneration(arg params.Entity) (params.BoolResult, error) {
+	result := params.BoolResult{}
+	modelTag, err := names.ParseModelTag(arg.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	isModelAdmin, err := m.hasAdminAccess(modelTag)
+	if !isModelAdmin && !m.isControllerAdmin {
+		return result, common.ErrPerm
+	}
+
+	if has, err := m.model.HasNextGeneration(); err != nil {
+		result.Error = common.ServerError(m.model.AddGeneration())
+	} else {
+		result.Result = has
+	}
+	return result, nil
+}
+
 // AdvanceGeneration, adds the provided unit(s) and/or application(s) to
 // the "next" generation.  If the generation can auto complete, it is
 // made the "current" generation.

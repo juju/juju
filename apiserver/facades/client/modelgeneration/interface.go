@@ -27,6 +27,7 @@ type ModelGenerationState interface {
 type GenerationModel interface {
 	AddGeneration() error
 	NextGeneration() (Generation, error)
+	HasNextGeneration() (bool, error)
 }
 
 // Generation defines the methods used by a generation.
