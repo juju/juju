@@ -59,6 +59,8 @@ func (g *Generation) AssignedUnits() map[string][]string {
 	return g.doc.AssignedUnits
 }
 
+// IsCompleted returns true if the generation has been completed;
+// i.e it has a completion time-stamp.
 func (g *Generation) IsCompleted() bool {
 	return g.doc.Completed > 0
 }
@@ -393,6 +395,19 @@ func insertGenerationTxnOps(id string) []txn.Op {
 			Insert: doc,
 		},
 	}
+}
+
+// HasNextGeneration returns true if this model has a generation that has not
+// yet been completed.
+func (m *Model) HasNextGeneration() (bool, error) {
+	_, err := m.NextGeneration()
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err = nil
+		}
+		return false, errors.Trace(err)
+	}
+	return true, nil
 }
 
 // NextGeneration returns the model's "next" generation

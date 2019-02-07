@@ -303,3 +303,15 @@ func (s *generationSuite) TestMakeCurrentCanNotCancelError(c *gc.C) {
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.MakeCurrent(), gc.ErrorMatches, "cannot cancel generation, there are units behind a generation: riak/1, riak/2, riak/3")
 }
+
+func (s *generationSuite) TestHasNextGeneration(c *gc.C) {
+	has, err := s.Model.HasNextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(has, jc.IsFalse)
+
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	has, err = s.Model.HasNextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(has, jc.IsTrue)
+}
