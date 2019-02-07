@@ -5,6 +5,7 @@ package modelgeneration_test
 
 import (
 	"github.com/golang/mock/gomock"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -49,7 +50,7 @@ func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
 	s.fCaller.EXPECT().FacadeCall("AddGeneration", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	err := api.AddGeneration(s.tag)
+	err := api.AddGeneration(s.tag.Id())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -73,7 +74,7 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 	s.fCaller.EXPECT().FacadeCall("AdvanceGeneration", arg, gomock.Any()).SetArg(2, resultsSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	err := api.AdvanceGeneration(s.tag, []string{"mysql/0", "mysql"})
+	err := api.AdvanceGeneration(s.tag.Id(), []string{"mysql/0", "mysql"})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -81,7 +82,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationError(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	err := api.AdvanceGeneration(s.tag, []string{"mysql/0", "mysql", "machine-3"})
+	err := api.AdvanceGeneration(s.tag.Id(), []string{"mysql/0", "mysql", "machine-3"})
 	c.Assert(err, gc.ErrorMatches, "Must be application or unit")
 }
 
@@ -94,6 +95,20 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 	s.fCaller.EXPECT().FacadeCall("CancelGeneration", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	err := api.CancelGeneration(s.tag)
+	err := api.CancelGeneration(s.tag.Id())
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *modelGenerationSuite) TestHasNextGeneration(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	resultSource := params.BoolResult{Result: true}
+	arg := params.Entity{Tag: s.tag.String()}
+
+	s.fCaller.EXPECT().FacadeCall("HasNextGeneration", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	api := modelgeneration.NewStateFromCaller(s.fCaller)
+	has, err := api.HasNextGeneration(s.tag.Id())
+	c.Assert(err, gc.IsNil)
+	c.Check(has, jc.IsTrue)
 }
