@@ -863,27 +863,6 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 
 // WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies when
 // the provisioner should update the charm profiles used by a machine.
-func (p *ProvisionerAPIV7) WatchModelMachinesCharmProfiles() (params.StringsWatchResult, error) {
-	result := params.StringsWatchResult{}
-	if !p.authorizer.AuthController() {
-		return result, common.ErrPerm
-	}
-	watch, err := p.st.WatchModelMachinesCharmProfiles()
-	if err != nil {
-		return result, common.ErrPerm
-	}
-	// Consume any initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = p.resources.Register(watch)
-		result.Changes = changes
-	} else {
-		return result, watcher.EnsureErr(watch)
-	}
-	return result, nil
-}
-
-// WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies when
-// the provisioner should update the charm profiles used by a machine.
 func (p *ProvisionerAPI) WatchModelMachinesCharmProfiles() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	if !p.authorizer.AuthController() {

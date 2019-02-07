@@ -801,16 +801,12 @@ func (w *minUnitsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-// WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies of
-// changes to the upgrade charm profile charm url for a machine.
-func (st *State) WatchModelMachinesCharmProfiles() (StringsWatcher, error) {
-	isMachineRegexp := fmt.Sprintf("^%s:%s#%s$", st.ModelUUID(), names.NumberSnippet, names.UnitSnippet)
-	return st.watchCharmProfiles(isMachineRegexp, true)
-}
-
 // WatchContainersCharmProfiles starts a StringsWatcher to notify when
 // the provisioner should update the charm profiles used by any container on
 // the machine.
+//
+// This is needed for compatibility with ProvisionerAPIV7 related to container
+// provisioning on a machine.
 func (m *Machine) WatchContainersCharmProfiles(ctype instance.ContainerType) (StringsWatcher, error) {
 	isChildRegexp := fmt.Sprintf("^%s/%s/%s#%s$", m.doc.DocID, ctype, names.NumberSnippet, names.UnitSnippet)
 	return m.st.watchCharmProfiles(isChildRegexp, true)
@@ -818,9 +814,6 @@ func (m *Machine) WatchContainersCharmProfiles(ctype instance.ContainerType) (St
 
 // WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies of
 // changes to the upgrade charm profile charm url for a machine.
-//
-// TODO - is this needed?  2019-02-01
-// the provisioner calling this lives on the controller
 func (st *State) WatchModelMachinesCharmProfilesNewFormat() (StringsWatcher, error) {
 	isMachineRegexp := fmt.Sprintf("^%s:%s#%s$", st.ModelUUID(), names.NumberSnippet, names.UnitSnippet)
 	return st.watchCharmProfiles(isMachineRegexp, false)
