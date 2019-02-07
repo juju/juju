@@ -105,7 +105,7 @@ func (m *ModelGenerationAPI) HasNextGeneration(arg params.Entity) (params.BoolRe
 	}
 
 	if has, err := m.model.HasNextGeneration(); err != nil {
-		result.Error = common.ServerError(m.model.AddGeneration())
+		result.Error = common.ServerError(err)
 	} else {
 		result.Result = has
 	}
