@@ -120,7 +120,7 @@ type MachineProvisioner interface {
 	WatchContainersCharmProfiles(ctype instance.ContainerType) (watcher.StringsWatcher, error)
 
 	// CharmProfileChangeInfo retrieves the info necessary to change a charm
-	// profile used by a machine, for the give unit.
+	// profile used by a machine, for the given unit.
 	CharmProfileChangeInfo(string) (CharmProfileChangeInfo, error)
 
 	// SetCharmProfiles records the given slice of charm profile names.
@@ -128,7 +128,7 @@ type MachineProvisioner interface {
 
 	// SetUpgradeCharmProfileComplete records the result of updating
 	// the machine's charm profile(s), for the given unit.
-	SetUpgradeCharmProfileComplete(string, string) error
+	SetUpgradeCharmProfileComplete(unitName string, message string) error
 
 	// RemoveUpgradeCharmProfileData completely removes the instance charm profile
 	// data for a machine and the given unit, even if the machine is dead.
