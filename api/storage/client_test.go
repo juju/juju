@@ -908,7 +908,7 @@ func (s *storageMockSuite) TestImportArityMismatch(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
 }
 
-func (s *storageMockSuite) TestDeletePool(c *gc.C) {
+func (s *storageMockSuite) TestRemovePool(c *gc.C) {
 	var called bool
 	poolName := "poolName"
 
@@ -921,7 +921,7 @@ func (s *storageMockSuite) TestDeletePool(c *gc.C) {
 			called = true
 			c.Check(objType, gc.Equals, "Storage")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "DeletePool")
+			c.Check(request, gc.Equals, "RemovePool")
 
 			args, ok := a.(params.StoragePoolDeleteArgs)
 			c.Assert(ok, jc.IsTrue)
@@ -934,12 +934,12 @@ func (s *storageMockSuite) TestDeletePool(c *gc.C) {
 			return nil
 		})
 	storageClient := storage.NewClient(basetesting.BestVersionCaller{BestVersion: 5, APICallerFunc: apiCaller})
-	err := storageClient.DeletePool(poolName)
+	err := storageClient.RemovePool(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *storageMockSuite) TestDeletePoolFacadeCallError(c *gc.C) {
+func (s *storageMockSuite) TestRemovePoolFacadeCallError(c *gc.C) {
 	msg := "facade failure"
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -949,7 +949,7 @@ func (s *storageMockSuite) TestDeletePoolFacadeCallError(c *gc.C) {
 		) error {
 			c.Check(objType, gc.Equals, "Storage")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "DeletePool")
+			c.Check(request, gc.Equals, "RemovePool")
 
 			args, ok := a.(params.StoragePoolDeleteArgs)
 			c.Assert(ok, jc.IsTrue)
@@ -961,7 +961,7 @@ func (s *storageMockSuite) TestDeletePoolFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	storageClient := storage.NewClient(basetesting.BestVersionCaller{BestVersion: 5, APICallerFunc: apiCaller})
-	err := storageClient.DeletePool("")
+	err := storageClient.RemovePool("")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
 

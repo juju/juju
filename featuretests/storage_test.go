@@ -725,7 +725,7 @@ func (s *cmdStorageSuite) TestUpdateNoMatch(c *gc.C) {
 }
 
 func runPoolDelete(c *gc.C, args ...string) (string, string, error) {
-	cmdArgs := append([]string{"delete-storage-pool"}, args...)
+	cmdArgs := append([]string{"remove-storage-pool"}, args...)
 	ctx, err := runJujuCommand(c, cmdArgs...)
 	stdout, stderr := "", ""
 	if ctx != nil {
