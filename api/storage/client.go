@@ -107,10 +107,10 @@ func (c *Client) CreatePool(pname, provider string, attrs map[string]interface{}
 	return results.OneError()
 }
 
-// DeletePool deletes the named pool
-func (c *Client) DeletePool(pname string) error {
+// RemovePool removes the named pool
+func (c *Client) RemovePool(pname string) error {
 	if c.BestAPIVersion() < 5 {
-		return errors.New("deleting storage pools is not supported by this version of Juju")
+		return errors.New("removing storage pools is not supported by this version of Juju")
 	}
 	var results params.ErrorResults
 	args := params.StoragePoolDeleteArgs{
@@ -118,7 +118,7 @@ func (c *Client) DeletePool(pname string) error {
 			Name: pname,
 		}},
 	}
-	if err := c.facade.FacadeCall("DeletePool", args, &results); err != nil {
+	if err := c.facade.FacadeCall("RemovePool", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()

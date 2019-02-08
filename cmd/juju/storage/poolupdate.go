@@ -36,7 +36,7 @@ Example:
 
 See also:
     create-storage-pool
-    delete-storage-pool
+    remove-storage-pool
     storage-pools
 `
 

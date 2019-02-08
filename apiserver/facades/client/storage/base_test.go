@@ -346,7 +346,7 @@ func (s *baseStorageSuite) constructPoolManager() *mockPoolManager {
 			s.pools[name] = pool
 			return pool, err
 		},
-		deletePool: func(name string) error {
+		removePool: func(name string) error {
 			delete(s.pools, name)
 			return nil
 		},
