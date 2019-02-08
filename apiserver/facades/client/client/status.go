@@ -107,7 +107,6 @@ func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status
 
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.StatusHistoryResults {
-
 	results := params.StatusHistoryResults{}
 	// TODO(perrito666) the contents of the loop could be split into
 	// a oneHistory method for clarity.
