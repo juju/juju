@@ -243,6 +243,62 @@ func (s *MachineSuite) TestNextUpgradeCharmProfileUnitNameMoreThanOne(c *gc.C) {
 	c.Assert(name, gc.Equals, s.unit.Name())
 }
 
+func (s *MachineSuite) TestNextRemoveUpgradeCharmProfileData(c *gc.C) {
+	s.assertSetUpUnitSetUpgradeCharmProfile(c)
+
+	unitName, err := s.machine.NextUpgradeCharmProfileUnitName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitName, gc.Equals, s.unit.Name())
+	err = s.machine.NextRemoveUpgradeCharmProfileData()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) TestNextRemoveUpgradeCharmProfileDataNotBeingUsed(c *gc.C) {
+	s.assertSetUpUnitSetUpgradeCharmProfile(c)
+
+	err := s.machine.NextRemoveUpgradeCharmProfileData()
+	c.Assert(err, gc.ErrorMatches, "cannot remove instance charm profile data for machine 1: instance charm profile data for machine 1 not found")
+	unitName, err := s.machine.NextUpgradeCharmProfileUnitName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitName, gc.Equals, s.unit.Name())
+}
+
+func (s *MachineSuite) TestNextSetUpgradeCharmProfileComplete(c *gc.C) {
+	s.assertSetUpUnitSetUpgradeCharmProfile(c)
+
+	charm, _, err := s.application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.AddTestingApplication(c, "lxd-profile-alt", charm)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetUpgradeCharmProfile(unit.Name(), "local:quantal/quantal-lxd-profile-0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	unitName, err := s.machine.NextUpgradeCharmProfileUnitName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitName, gc.Equals, unit.Name())
+
+	msg, err := s.machine.UpgradeCharmProfileComplete(unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(msg, gc.Equals, lxdprofile.EmptyStatus)
+
+	err = s.machine.NextSetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
+	c.Assert(err, jc.ErrorIsNil)
+
+	msg, err = s.machine.UpgradeCharmProfileComplete(unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(msg, gc.Equals, lxdprofile.SuccessStatus)
+}
+
+func (s *MachineSuite) TestNextSetUpgradeCharmProfileCompleteNoBeingUsed(c *gc.C) {
+	s.assertSetUpUnitSetUpgradeCharmProfile(c)
+
+	err := s.machine.NextSetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
+	c.Assert(err, gc.ErrorMatches, "cannot set complete status of instance charm profile data for machine 1: instance charm profile data for machine 1 not found")
+}
+
 func (s *MachineSuite) assertUpgradeCharmProfileNotRequired(c *gc.C, expectedUnitName string) {
 	err := s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
