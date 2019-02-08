@@ -1100,3 +1100,16 @@ type AdvanceGenerationArg struct {
 	Model    Entity   `json:"model"`
 	Entities []Entity `json:"entities"`
 }
+
+// AdvanceGenerationResult contains the results of a call to AdvanceGeneration.
+type AdvanceGenerationResult struct {
+	// AdvanceResults contains the results from advancing each of the supplied
+	// entities to the next generation.
+	AdvanceResults ErrorResults `json:"advance-results"`
+
+	// CompletedResult will be non-empty when advancing units to the next
+	// generation invokes the generation's auto-completion.
+	// The results of rolling the next generation into the current will be
+	// represented here.
+	CompleteResult BoolResult `json:"complete-result,omitempty"`
+}
