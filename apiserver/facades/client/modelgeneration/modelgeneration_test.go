@@ -56,7 +56,7 @@ func (s *modelGenerationSuite) TestHasNextGeneration(c *gc.C) {
 	c.Check(result.Result, jc.IsTrue)
 }
 
-func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
+func (s *modelGenerationSuite) TestAdvanceGenerationErrorNoAutoComplete(c *gc.C) {
 	arg := params.AdvanceGenerationArg{
 		Model: params.Entity{Tag: names.NewModelTag(s.modelUUID).String()},
 		Entities: []params.Entity{
@@ -71,8 +71,7 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
 		gExp.AssignUnit("mysql/0").Return(nil)
-		gExp.CanAutoComplete().Return(true, nil)
-		gExp.AutoComplete().Return(nil)
+		gExp.CanAutoComplete().Return(false, nil)
 		gExp.Refresh().Return(nil).Times(3)
 
 		mExp := mockModel.EXPECT()
@@ -81,11 +80,43 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 
 	result, err := s.api.AdvanceGeneration(arg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.DeepEquals, []params.ErrorResult{
+	c.Check(result.AdvanceResults.Results, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: nil},
 		{Error: &params.Error{Message: "expected names.UnitTag or names.ApplicationTag, got names.MachineTag"}},
 	})
+	c.Check(result.CompleteResult, gc.DeepEquals, params.BoolResult{})
+}
+
+func (s *modelGenerationSuite) TestAdvanceGenerationSuccessAutoComplete(c *gc.C) {
+	arg := params.AdvanceGenerationArg{
+		Model: params.Entity{Tag: names.NewModelTag(s.modelUUID).String()},
+		Entities: []params.Entity{
+			{Tag: names.NewUnitTag("mysql/0").String()},
+			{Tag: names.NewApplicationTag("ghost").String()},
+		},
+	}
+
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+		mockGeneration := mocks.NewMockGeneration(ctrl)
+		gExp := mockGeneration.EXPECT()
+		gExp.AssignAllUnits("ghost").Return(nil)
+		gExp.AssignUnit("mysql/0").Return(nil)
+		gExp.CanAutoComplete().Return(true, nil)
+		gExp.AutoComplete().Return(nil)
+		gExp.Refresh().Return(nil).Times(2)
+
+		mExp := mockModel.EXPECT()
+		mExp.NextGeneration().Return(mockGeneration, nil)
+	}).Finish()
+
+	result, err := s.api.AdvanceGeneration(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.AdvanceResults.Results, gc.DeepEquals, []params.ErrorResult{
+		{Error: nil},
+		{Error: nil},
+	})
+	c.Check(result.CompleteResult, gc.DeepEquals, params.BoolResult{Result: true})
 }
 
 func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {

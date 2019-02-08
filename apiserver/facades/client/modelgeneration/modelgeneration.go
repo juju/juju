@@ -115,19 +115,19 @@ func (m *ModelGenerationAPI) HasNextGeneration(arg params.Entity) (params.BoolRe
 // AdvanceGeneration, adds the provided unit(s) and/or application(s) to
 // the "next" generation.  If the generation can auto complete, it is
 // made the "current" generation.
-func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) (params.ErrorResults, error) {
+func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) (params.AdvanceGenerationResult, error) {
 	modelTag, err := names.ParseModelTag(arg.Model.Tag)
 	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return params.AdvanceGenerationResult{}, errors.Trace(err)
 	}
 	isModelAdmin, err := m.hasAdminAccess(modelTag)
 	if !isModelAdmin && !m.isControllerAdmin {
-		return params.ErrorResults{}, common.ErrPerm
+		return params.AdvanceGenerationResult{}, common.ErrPerm
 	}
 
 	generation, err := m.model.NextGeneration()
 	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return params.AdvanceGenerationResult{}, errors.Trace(err)
 	}
 
 	results := params.ErrorResults{
@@ -145,23 +145,29 @@ func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) 
 		case names.UnitTagKind:
 			results.Results[i].Error = common.ServerError(generation.AssignUnit(tag.Id()))
 		default:
-			results.Results[i].Error = common.ServerError(errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag))
+			results.Results[i].Error = common.ServerError(
+				errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag))
 		}
-		err = generation.Refresh()
-		if err != nil {
-			return results, errors.Trace(err)
+		if err := generation.Refresh(); err != nil {
+			return params.AdvanceGenerationResult{AdvanceResults: results}, errors.Trace(err)
 		}
 	}
+
+	result := params.AdvanceGenerationResult{AdvanceResults: results}
 
 	ok, err := generation.CanAutoComplete()
 	if err != nil {
-		return results, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
 	if ok {
-		return results, generation.AutoComplete()
+		if err := generation.AutoComplete(); err != nil {
+			result.CompleteResult.Error = common.ServerError(err)
+		} else {
+			result.CompleteResult.Result = true
+		}
 	}
 
-	return results, nil
+	return result, nil
 }
 
 // CancelGeneration cancels the 'next' generation if cancel
