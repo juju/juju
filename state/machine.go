@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -2176,7 +2175,15 @@ type instanceCharmProfileData struct {
 	// with a charm profile in play.  Success, Not Required or the Error.
 	UpgradeCharmProfileComplete string `bson:",omitempty"`
 
-	// For backward compat.
+	// For backward compatibility in ProvisionerAPIV7.
+	// Previously there was 1 doc per machine, instead of per unit.  BeingUsed
+	// true indicates that a call to NextUpgradeCharmProfileUnitName has
+	// been made and the unit name for this doc was returned.  If true, don't
+	// return as the unit name when NextUpgradeCharmProfileUnitName is called again
+	// for this machine.
+	//
+	// If BeingUsed is false, the unit name will not be returned for calls to
+	// NextUpgradeCharmProfileUnitName.
 	BeingUsed bool `bson:"being-used"`
 }
 
@@ -2193,90 +2200,6 @@ func getInstanceCharmProfileData(st *State, id string) (instanceCharmProfileData
 		return instanceCharmProfileData{}, errors.Annotatef(err, "cannot get instance charm profile data for machine %v", id)
 	}
 	return instData, nil
-}
-
-func getNextInstanceCharmProfileData(st *State, id string, used bool) (instanceCharmProfileData, error) {
-	logger.Debugf("trying to get next instance charm profile data for machine %s here", id)
-	collection, closer := st.db().GetCollection(instanceCharmProfileDataC)
-	defer closer()
-
-	machineRegExp := fmt.Sprintf("^%s:%s#%s$", st.ModelUUID(), id, names.UnitSnippet)
-	query := bson.D{{"_id", bson.D{{"$regex", machineRegExp}}}, {"being-used", used}}
-	var instData instanceCharmProfileData
-	err := collection.Find(query).One(&instData)
-	if err == mgo.ErrNotFound {
-		return instanceCharmProfileData{}, errors.NotFoundf("instance charm profile data for machine %v", id)
-	}
-	if err != nil {
-		return instanceCharmProfileData{}, errors.Annotatef(err, "cannot get instance charm profile data for machine %v", id)
-	}
-	return instData, nil
-}
-
-// NextUpgradeCharmProfileApplicationName returns an application name for
-// the machine's instanceCharmProfileData doc.
-func (m *Machine) NextUpgradeCharmProfileUnitName() (string, error) {
-	instData, err := getNextInstanceCharmProfileData(m.st, m.Id(), false)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot get instance charm profile data for machine %v", m.Id())
-	}
-	err = m.markBeingUsedUpgradeCharmProfileDataTrue(instData.UpgradeCharmProfileUnit)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot mark delete me. instance charm profile data for machine %v", m.Id())
-	}
-	return instData.UpgradeCharmProfileUnit, nil
-}
-
-func (m *Machine) markBeingUsedUpgradeCharmProfileDataTrue(unitName string) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := m.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		life := m.Life()
-		if life == Dead || life == Dying {
-			return nil, ErrDead
-		}
-		docId := m.instanceCharmProfileDataId(unitName)
-		data, err := getInstanceCharmProfileData(m.st, docId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if data.BeingUsed {
-			return nil, jujutxn.ErrNoOperations
-		}
-		return []txn.Op{
-			{
-				C:      machinesC,
-				Id:     m.doc.DocID,
-				Assert: isAliveDoc,
-			},
-			{
-				C:      instanceCharmProfileDataC,
-				Id:     docId,
-				Assert: bson.D{{"being-used", false}},
-				Update: bson.D{{"$set", bson.D{{"being-used", true}}}},
-			},
-		}, nil
-	}
-	err := m.st.db().Run(buildTxn)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-
-}
-
-func (m *Machine) NextUpgradeCharmProfileCharmURL() (string, error) {
-	instData, err := getNextInstanceCharmProfileData(m.st, m.Id(), true)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return "", nil
-		}
-		return "", err
-	}
-	return instData.UpgradeCharmProfileCharmURL, nil
 }
 
 // TODO (stickupkid): We can no longer cache the information directly on the
@@ -2341,7 +2264,6 @@ func (m *Machine) SetUpgradeCharmProfile(unitName, chURL string) error {
 // previously applied lxd profile for the charm to be removed from
 // the machine.
 func (m *Machine) SetUpgradeCharmProfileTxns(unitName, chURL string) ([]txn.Op, error) {
-	logger.Debugf("upgrade charm profile txns for %q, %q, %q", unitName, chURL, debug.Stack())
 	// Check to see if the doc created in these txn already exists
 	// and has expected data.
 	err := m.verifyInstanceCharmProfileData(unitName, chURL)
@@ -2577,24 +2499,124 @@ func (m *Machine) RemoveUpgradeCharmProfileData(unitName string) error {
 	return nil
 }
 
+// NOTE (hml) 2019-02-07
+//
+// The set of functions matching Next*UpgradeCharmProfile* are put in place for
+// an attempt at backwards compatibility with api/.../ProvisionerAPIV7.
+// V7 can only handle 1 profile change per machine at a time and does not have
+// the unit name to work with from the beginning.
+//
+// The idea is to return the unit name of the first instanceCharmProfileDoc
+// for the machine.  That can be used to determine the related charm URL, with
+// the new code.  Because the V7 api can not pass the unit name, for calls to
+// set upgrade complete status, we add it on the first doc found where we have
+// previously provided a unit name.  Removing the doc is done the same way as
+// adding the complete status.
+//
+// Unfortunately we cannot guarantee that every scenario will add a complete
+// status to a doc when checking to remove one.  This may not work, in which case,
+// a secondary idea is to keep a ref cnt and only delete docs for the machine
+// when a request has been made to delete on all of them.
+
+func getNextInstanceCharmProfileData(st *State, id string, used bool) (instanceCharmProfileData, error) {
+	logger.Debugf("trying to get next instance charm profile data for machine %s here", id)
+	collection, closer := st.db().GetCollection(instanceCharmProfileDataC)
+	defer closer()
+
+	// machineRegExp and query to find one charmInstaceProfileDoc in the current model and machine
+	// where being-used the same as the passed in bool.
+	machineRegExp := fmt.Sprintf("^%s:%s#%s$", st.ModelUUID(), id, names.UnitSnippet)
+	query := bson.D{{"_id", bson.D{{"$regex", machineRegExp}}}, {"being-used", used}}
+	var instData instanceCharmProfileData
+	err := collection.Find(query).One(&instData)
+	if err == mgo.ErrNotFound {
+		return instanceCharmProfileData{}, errors.NotFoundf("instance charm profile data for machine %v", id)
+	}
+	if err != nil {
+		return instanceCharmProfileData{}, errors.Annotatef(err, "cannot get instance charm profile data for machine %v", id)
+	}
+	return instData, nil
+}
+
+// NextUpgradeCharmProfileUnitName returns the first unit name
+// relate to the first instanceCharmProfileData doc for this machine.
+func (m *Machine) NextUpgradeCharmProfileUnitName() (string, error) {
+	instData, err := getNextInstanceCharmProfileData(m.st, m.Id(), false)
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot get instance charm profile data for machine %v", m.Id())
+	}
+	err = m.markBeingUsedUpgradeCharmProfileDataTrue(instData.UpgradeCharmProfileUnit)
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot mark delete me. instance charm profile data for machine %v", m.Id())
+	}
+	return instData.UpgradeCharmProfileUnit, nil
+}
+
+// markBeingUsedUpgradeCharmProfileDataTrue changes BeingUsed to true, so that
+// the application name associated with the instanceCharmProfileDoc for this
+// machine and the given unitName is not returned again with
+// UpgradeCharmApplication
+func (m *Machine) markBeingUsedUpgradeCharmProfileDataTrue(unitName string) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		life := m.Life()
+		if life == Dead || life == Dying {
+			return nil, ErrDead
+		}
+		docId := m.instanceCharmProfileDataId(unitName)
+		data, err := getInstanceCharmProfileData(m.st, docId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if data.BeingUsed {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return []txn.Op{
+			{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Assert: isAliveDoc,
+			},
+			{
+				C:      instanceCharmProfileDataC,
+				Id:     docId,
+				Assert: bson.D{{"being-used", false}},
+				Update: bson.D{{"$set", bson.D{{"being-used", true}}}},
+			},
+		}, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+
+}
+
+// NextRemoveUpgradeCharmProfileData remove the doc for the first found on
+// this machine where the unit name has previously been returned.  This may
+// not match the intended doc.
 func (m *Machine) NextRemoveUpgradeCharmProfileData() error {
 	logger.Debugf("trying deleted instance charm profile data for machine %s here", m.Id())
 	instData, err := getNextInstanceCharmProfileData(m.st, m.Id(), true)
 	if err != nil {
-		return errors.Annotatef(err, "cannot get instance charm profile data for machine %v", m.Id())
+		return errors.Annotatef(err, "cannot remove instance charm profile data for machine %v", m.Id())
 	}
 	return m.RemoveUpgradeCharmProfileData(instData.UpgradeCharmProfileUnit)
 }
 
+// NextSetUpgradeCharmProfileComplete update the complete status in the doc
+// for the first found on this machine where the unit name has previously
+// been returned.  This may not match the intended doc.
 func (m *Machine) NextSetUpgradeCharmProfileComplete(msg string) error {
 	logger.Debugf("trying set complete message on instance charm profile data for machine %s here", m.Id())
 	instData, err := getNextInstanceCharmProfileData(m.st, m.Id(), true)
 	if err != nil {
-		return errors.Annotatef(err, "cannot get instance charm profile data for machine %v", m.Id())
-	}
-	err = m.markBeingUsedUpgradeCharmProfileDataTrue(instData.UpgradeCharmProfileUnit)
-	if err != nil {
-		return errors.Annotatef(err, "cannot mark delete me. instance charm profile data for machine %v", m.Id())
+		return errors.Annotatef(err, "cannot set complete status of instance charm profile data for machine %v", m.Id())
 	}
 	return m.SetUpgradeCharmProfileComplete(instData.UpgradeCharmProfileUnit, msg)
 }
