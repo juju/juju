@@ -1458,7 +1458,7 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "no-credentials", "ctrl")
-	c.Assert(err, gc.ErrorMatches, `detecting credentials for "no-credentials" cloud provider: credentials not found`)
+	c.Assert(err, gc.ErrorMatches, "detecting credentials for \"no-credentials\" cloud provider: credentials not found\nSee `juju add-credential no-credentials --help` for instructions")
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderManyDetectedCredentials(c *gc.C) {
