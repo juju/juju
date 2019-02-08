@@ -149,8 +149,16 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfi
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-
-		watcherId, initial, err := u.watchOneChangeLXDProfileUpgradeNotifications(machine, args.ApplicationName)
+		// WatchLXDProfileUpgradeNotifications now requires a unit name
+		// instead of an application name.  Rather than rev LXDProfileAPI,
+		// ignore the args[i].applicationName and determine the unit name
+		// from the tag
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		watcherId, initial, err := u.watchOneChangeLXDProfileUpgradeNotifications(machine, unit.Name())
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -162,8 +170,8 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfi
 	return result, nil
 }
 
-func (u *LXDProfileAPI) watchOneChangeLXDProfileUpgradeNotifications(machine LXDProfileMachine, applicationName string) (string, []string, error) {
-	watch, err := machine.WatchLXDProfileUpgradeNotifications(applicationName)
+func (u *LXDProfileAPI) watchOneChangeLXDProfileUpgradeNotifications(machine LXDProfileMachine, unitName string) (string, []string, error) {
+	watch, err := machine.WatchLXDProfileUpgradeNotifications(unitName)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -201,6 +209,10 @@ func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (par
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
+		// WatchLXDProfileUpgradeNotifications now requires a unit name
+		// instead of an application name.  Rather than rev LXDProfileAPI,
+		// ignore the args[i].applicationName and determine the unit name
+		// from the tag
 		unit, err := u.getUnit(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)

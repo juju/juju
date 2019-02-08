@@ -78,9 +78,10 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C
 	mockUnit1 := mocks.NewMockLXDProfileUnit(ctrl)
 
 	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine1, nil)
-	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil)
-	mockMachine1.EXPECT().WatchLXDProfileUpgradeNotifications("foo-bar").Return(lxdProfileWatcher, nil)
+	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil).Times(2)
+	mockMachine1.EXPECT().WatchLXDProfileUpgradeNotifications("mysql/1").Return(lxdProfileWatcher, nil)
 	mockUnit1.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil)
+	mockUnit1.EXPECT().Name().Return("mysql/1")
 
 	args := params.LXDProfileUpgrade{
 		Entities: []params.Entity{
@@ -95,38 +96,6 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{StringsWatcherId: "1", Changes: []string{""}, Error: nil},
-		},
-	})
-}
-
-func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsMachineTag(c *gc.C) {
-	api, ctrl, mockBackend := s.assertBackendAPI(c, s.machineTag1)
-	defer ctrl.Finish()
-
-	mockMachine := mocks.NewMockLXDProfileMachine(ctrl)
-
-	lxdProfileWatcher := &mockStringsWatcher{
-		changes: make(chan []string, 1),
-	}
-	lxdProfileWatcher.changes <- []string{lxdprofile.EmptyStatus}
-
-	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine, nil)
-	mockMachine.EXPECT().WatchLXDProfileUpgradeNotifications("foo-bar").Return(lxdProfileWatcher, nil)
-
-	watches, err := api.WatchLXDProfileUpgradeNotifications(
-		params.LXDProfileUpgrade{
-			Entities: []params.Entity{
-				{Tag: s.machineTag1.String()},
-				{Tag: names.NewMachineTag("7").String()},
-			},
-			ApplicationName: "foo-bar",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
-		Results: []params.StringsWatchResult{
-			{StringsWatcherId: "1", Changes: []string{""}},
-			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
