@@ -53,7 +53,7 @@ type provisionerSuite struct {
 
 	authorizer  apiservertesting.FakeAuthorizer
 	resources   *common.Resources
-	provisioner *provisioner.ProvisionerAPIV6
+	provisioner *provisioner.ProvisionerAPIV8
 }
 
 var _ = gc.Suite(&provisionerSuite{})
@@ -94,7 +94,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	s.resources = common.NewResources()
 
 	// Create a provisioner API for the machine.
-	provisionerAPI, err := provisioner.NewProvisionerAPIV6(
+	provisionerAPI, err := provisioner.NewProvisionerAPIV8(
 		s.State,
 		s.resources,
 		s.authorizer,
@@ -437,6 +437,61 @@ func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
 	s.assertStatus(c, 2, status.Error, "again", map[string]interface{}{})
 }
 
+func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.Provisioning,
+		Message: "blah",
+		Since:   &now,
+	}
+	err := s.machines[0].SetModificationStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo = status.StatusInfo{
+		Status:  status.Running,
+		Message: "foo",
+		Since:   &now,
+	}
+	err = s.machines[1].SetModificationStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo = status.StatusInfo{
+		Status:  status.Error,
+		Message: "not really",
+		Since:   &now,
+	}
+	err = s.machines[2].SetModificationStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: s.machines[0].Tag().String(), Status: status.Provisioning.String(), Info: "not really",
+				Data: map[string]interface{}{"foo": "bar"}},
+			{Tag: s.machines[1].Tag().String(), Status: status.Running.String(), Info: "foobar"},
+			{Tag: s.machines[2].Tag().String(), Status: status.ProvisioningError.String(), Info: "again"},
+			{Tag: "machine-42", Status: status.Provisioning.String(), Info: "blah"},
+			{Tag: "unit-foo-0", Status: status.Error.String(), Info: "foobar"},
+			{Tag: "application-bar", Status: status.ProvisioningError.String(), Info: "foobar"},
+		}}
+	result, err := s.provisioner.SetModificationStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{nil},
+			{nil},
+			{apiservertesting.NotFoundError("machine 42")},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the changes.
+	s.assertModificationStatus(c, 0, status.Provisioning, "not really", map[string]interface{}{"foo": "bar"})
+	s.assertModificationStatus(c, 1, status.Running, "foobar", map[string]interface{}{})
+	s.assertModificationStatus(c, 2, status.ProvisioningError, "again", map[string]interface{}{})
+	// ProvisioningError also has a special case which is to set the machine to Error
+	s.assertStatus(c, 2, status.Error, "again", map[string]interface{}{})
+}
+
 func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
@@ -597,6 +652,16 @@ func (s *withoutControllerSuite) assertInstanceStatus(c *gc.C, index int, expect
 	expectData map[string]interface{}) {
 
 	statusInfo, err := s.machines[index].InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, expectStatus)
+	c.Assert(statusInfo.Message, gc.Equals, expectInfo)
+	c.Assert(statusInfo.Data, gc.DeepEquals, expectData)
+}
+
+func (s *withoutControllerSuite) assertModificationStatus(c *gc.C, index int, expectStatus status.Status, expectInfo string,
+	expectData map[string]interface{}) {
+
+	statusInfo, err := s.machines[index].ModificationStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, expectStatus)
 	c.Assert(statusInfo.Message, gc.Equals, expectInfo)
@@ -1132,8 +1197,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 		{Tag: s.machines[3].Tag().String()},
 		{Tag: "machine-5"},
 	}}
-	provisionerV5 := provisioner.ProvisionerAPIV5{s.provisioner}
-	result, err := provisionerV5.DistributionGroupByMachineId(args)
+	result, err := s.provisioner.DistributionGroupByMachineId(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
@@ -1154,8 +1218,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdControllerAuth(
 		{Tag: "unit-foo-0"},
 		{Tag: "application-bar"},
 	}}
-	provisionerV5 := provisioner.ProvisionerAPIV5{s.provisioner}
-	result, err := provisionerV5.DistributionGroupByMachineId(args)
+	result, err := s.provisioner.DistributionGroupByMachineId(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
