@@ -138,6 +138,23 @@ func (s *provisionerSuite) TestGetSetInstanceStatus(c *gc.C) {
 	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }
 
+func (s *provisionerSuite) TestGetSetModificationStatus(c *gc.C) {
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+	modificationStatus, info, err := apiMachine.ModificationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modificationStatus, gc.Equals, status.Pending)
+	c.Assert(info, gc.Equals, "")
+	err = apiMachine.SetModificationStatus(status.Running, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	modificationStatus, info, err = apiMachine.ModificationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modificationStatus, gc.Equals, status.Running)
+	c.Assert(info, gc.Equals, "blah")
+	statusInfo, err := s.machine.ModificationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
+}
+
 func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 	err := apiMachine.SetStatus(status.Error, "blah", map[string]interface{}{"foo": "bar"})
