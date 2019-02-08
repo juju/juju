@@ -617,7 +617,9 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 	// TODO(rogpeppe) We'd like to set Deadline here
 	// but that would break lots of tests that rely on
 	// setting a zero timeout.
-	netDialer := net.Dialer{}
+	netDialer := net.Dialer{
+		KeepAlive: 30 * time.Second,
+	}
 	dialer := &websocket.Dialer{
 		NetDial: func(netw, addr string) (net.Conn, error) {
 			if addr == url.Host {
