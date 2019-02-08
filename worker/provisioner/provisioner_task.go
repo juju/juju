@@ -464,7 +464,7 @@ func processOneProfileChange(
 			// We can remove the instance charm profile data here, knowning that
 			// the ProvisionerAPI will attempt to write it when getting
 			// the machine lxd profile names.
-			if err := m.RemoveUpgradeCharmProfileData(); err != nil {
+			if err := m.RemoveUpgradeCharmProfileData(unitName); err != nil {
 				logger.Tracef("cannot remove machine upgrade charm profile data: %s", err.Error())
 			}
 			// There is nothing we can do with this machine at this point. The
