@@ -389,6 +389,98 @@ func (s *AsyncSuite) TestClaimSlow(c *gc.C) {
 	})
 }
 
+func (s *AsyncSuite) TestClaimTwoErrors(c *gc.C) {
+	oneStarted := make(chan struct{})
+	oneFinish := make(chan struct{})
+	twoStarted := make(chan struct{})
+	twoFinish := make(chan struct{})
+
+	fix := Fixture{
+		expectDirty: true,
+		expectCalls: []call{{
+			method: "ClaimLease",
+			args: []interface{}{
+				key("one"),
+				corelease.Request{"terry", time.Minute},
+			},
+			err: errors.New("terry is bad"),
+			parallelCallback: func(mu *sync.Mutex, leases leaseMap) {
+				close(oneStarted)
+				select {
+				case <-oneFinish:
+				case <-time.After(coretesting.LongWait):
+					c.Errorf("timed out waiting for oneFinish")
+				}
+			},
+		}, {
+			method: "ClaimLease",
+			args: []interface{}{
+				key("two"),
+				corelease.Request{"lance", time.Minute},
+			},
+			err: errors.New("lance is also bad"),
+			parallelCallback: func(mu *sync.Mutex, leases leaseMap) {
+				close(twoStarted)
+				select {
+				case <-twoFinish:
+				case <-time.After(coretesting.LongWait):
+					c.Errorf("timed out waiting for twoFinish")
+				}
+			},
+		}},
+	}
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		claimer, err := manager.Claimer("namespace", "modelUUID")
+		c.Assert(err, jc.ErrorIsNil)
+
+		response1 := make(chan error)
+		go func() {
+			response1 <- claimer.Claim("one", "terry", time.Minute)
+		}()
+		select {
+		case <-oneStarted:
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for oneStarted")
+		}
+
+		response2 := make(chan error)
+		go func() {
+			response2 <- claimer.Claim("two", "lance", time.Minute)
+		}()
+
+		select {
+		case <-twoStarted:
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for twoStarted")
+		}
+
+		// By now, both of the claims have had their processing started
+		// by the store, so the lease manager will have two elements
+		// in the wait group.
+		close(oneFinish)
+		// We should be able to get error responses from both of them.
+		select {
+		case err1 := <-response1:
+			c.Check(err1, gc.ErrorMatches, "lease manager stopped")
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for response2")
+		}
+
+		close(twoFinish)
+		select {
+		case err2 := <-response2:
+			c.Check(err2, gc.ErrorMatches, "lease manager stopped")
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for response2")
+		}
+
+		// Since we unblock one before two, we know the error from
+		// the manager is bad terry
+		err = workertest.CheckKilled(c, manager)
+		c.Assert(err, gc.ErrorMatches, "terry is bad")
+	})
+}
+
 func (s *AsyncSuite) TestClaimTimeout(c *gc.C) {
 	// When a claim times out we retry.
 	claimCalls := make(chan struct{})
