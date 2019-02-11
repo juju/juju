@@ -355,6 +355,11 @@ func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
 	return ns, nil
 }
 
+// GetCurrentNamespace returns current namespace name.
+func (k *kubernetesClient) GetCurrentNamespace() string {
+	return k.namespace
+}
+
 // EnsureNamespace ensures this broker's namespace is created.
 func (k *kubernetesClient) EnsureNamespace() error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: k.namespace}}
@@ -850,6 +855,79 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	return errors.Trace(k.deleteDeployment(operatorName))
 }
 
+func getSvcPort(svc *core.Service, portName string) (int32, error) {
+	choosePort := func(svcType core.ServiceType, p core.ServicePort) int32 {
+		switch svcType {
+		case core.ServiceTypeNodePort:
+			return p.NodePort
+		default:
+			return p.Port
+		}
+	}
+
+	var port int32
+	for _, p := range svc.Spec.Ports {
+		if p.Name == portName {
+			return choosePort(svc.Spec.Type, p), nil
+
+		}
+	}
+	return port, errors.NotFoundf("port %q in service %q", portName, svc.Name)
+}
+
+func getSvcAddresses(svc *core.Service) []network.Address {
+	var addrs []string
+	scope := network.ScopePublic
+
+	switch svc.Spec.Type {
+	case core.ServiceTypeClusterIP:
+		scope = network.ScopeCloudLocal
+		addrs = append(addrs, svc.Spec.ClusterIP)
+	case core.ServiceTypeNodePort:
+		addrs = append(addrs, svc.Spec.ExternalIPs...)
+	case core.ServiceTypeLoadBalancer:
+		addrs = append(addrs, svc.Spec.LoadBalancerIP)
+	case core.ServiceTypeExternalName:
+		scope = network.ScopeCloudLocal
+		addrs = append(addrs, svc.Spec.ExternalName)
+	default:
+		// default to cluster ip for now.
+		addrs = append(addrs, svc.Spec.ClusterIP)
+	}
+	var netAddrs []network.Address
+	for _, v := range addrs {
+		netAddrs = append(netAddrs, network.Address{
+			Value: v,
+			Type:  network.DeriveAddressType(v),
+			Scope: scope,
+		})
+	}
+	return netAddrs
+}
+
+// GetServicePublicAddresses returns the addresses of the service.
+func (k *kubernetesClient) GetServicePublicAddresses(svcName string) ([]network.Address, error) {
+	service, err := k.CoreV1().Services(k.namespace).Get(svcName, v1.GetOptions{IncludeUninitialized: true})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return getSvcAddresses(service), nil
+}
+
+// GetServicePublicHostPorts returns the hostports of the service.
+func (k *kubernetesClient) GetServicePublicHostPorts(svcName, portName string) ([]network.HostPort, error) {
+	service, err := k.CoreV1().Services(k.namespace).Get(svcName, v1.GetOptions{IncludeUninitialized: true})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	p, err := getSvcPort(service, portName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return network.AddressesWithPort(getSvcAddresses(service), int(p)), nil
+}
+
 // Service returns the service for the specified application.
 func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
 	services := k.CoreV1().Services(k.namespace)
@@ -866,27 +944,7 @@ func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
 	result := caas.Service{
 		Id: string(service.UID),
 	}
-	if service.Spec.ClusterIP != "" {
-		result.Addresses = append(result.Addresses, network.Address{
-			Value: service.Spec.ClusterIP,
-			Type:  network.DeriveAddressType(service.Spec.ClusterIP),
-			Scope: network.ScopeCloudLocal,
-		})
-	}
-	if service.Spec.LoadBalancerIP != "" {
-		result.Addresses = append(result.Addresses, network.Address{
-			Value: service.Spec.LoadBalancerIP,
-			Type:  network.DeriveAddressType(service.Spec.LoadBalancerIP),
-			Scope: network.ScopePublic,
-		})
-	}
-	for _, addr := range service.Spec.ExternalIPs {
-		result.Addresses = append(result.Addresses, network.Address{
-			Value: addr,
-			Type:  network.DeriveAddressType(addr),
-			Scope: network.ScopePublic,
-		})
-	}
+	result.Addresses = getSvcAddresses(&servicesList.Items[0])
 	return &result, nil
 }
 

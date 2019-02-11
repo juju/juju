@@ -21,9 +21,9 @@ import (
 )
 
 const (
-	portMongoDB             = 37017
-	portAPIServer           = 17070
-	stackName               = "juju-controller"
+	portMongoDB   = 37017
+	portAPIServer = 17070
+	// stackName               = "juju-controller"
 	storageSizeAPIServerRaw = "10Gi" // TODO: parse from constrains?
 	storageSizeMongoDBRaw   = "10Gi"
 	fileNameSharedSecret    = "shared-secret"
@@ -33,29 +33,33 @@ const (
 )
 
 var (
-	stackLabels                 = map[string]string{"app": stackName}
-	resourceNameSharedSecret    = getResourceName(fileNameSharedSecret)
-	resourceNameSSLKey          = getResourceName(fileNameSSLKey)
-	resourceNameBootstrapParams = getResourceName(fileNameBootstrapParams)
-	resourceNameAgentConf       = getResourceName(fileNameAgentConf)
-	pvcNameMongoStorage         = getResourceName("mongo-storage")
-	pvcNameLogDirStorage        = getResourceName("jujud-log-storage")
-	pvcNameAPIServerStorage     = getResourceName("jujud-storage")
+	stackLabelsGetter                 = func(stackName string) map[string]string { return map[string]string{"app": stackName} }
+	resourceServiceNameGetter         = func(stackName string) string { return stackName }
+	resourceStatefulSetNameGetter     = resourceServiceNameGetter
+	resourceNameSharedSecretGetter    = resourceNameGetter(fileNameSharedSecret)
+	resourceNameSSLKeyGetter          = resourceNameGetter(fileNameSSLKey)
+	resourceNameBootstrapParamsGetter = resourceNameGetter(fileNameBootstrapParams)
+	resourceNameAgentConfGetter       = resourceNameGetter(fileNameAgentConf)
+	pvcNameMongoStorageGetter         = resourceNameGetter("mongo-storage")
+	pvcNameLogDirStorageGetter        = resourceNameGetter("jujud-log-storage")
+	pvcNameAPIServerStorageGetter     = resourceNameGetter("jujud-storage")
 )
 
-func getResourceName(name string) string {
-	return stackName + "-" + strings.Replace(name, ".", "-", -1)
+func resourceNameGetter(name string) func(string) string {
+	return func(stackName string) string {
+		return stackName + "-" + strings.Replace(name, ".", "-", -1)
+	}
 }
 
 func (k *kubernetesClient) createControllerService() error {
 	spec := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      stackName,
-			Labels:    stackLabels,
+			Name:      resourceServiceNameGetter(k.namespace),
+			Labels:    stackLabelsGetter(k.namespace),
 			Namespace: k.namespace,
 		},
 		Spec: core.ServiceSpec{
-			Selector: stackLabels,
+			Selector: stackLabelsGetter(k.namespace),
 			Type:     core.ServiceType("NodePort"), // TODO: NodePort works for single node only like microk8s.
 			Ports: []core.ServicePort{
 				{
@@ -93,8 +97,8 @@ func (k *kubernetesClient) createControllerSecretSharedSecret(agentConfig agent.
 	}
 	logger.Debugf("creating shared secret, StateServingInfo \n%+v", si)
 	return k.createSecret(
-		resourceNameSharedSecret,
-		stackLabels,
+		resourceNameSharedSecretGetter(k.namespace),
+		stackLabelsGetter(k.namespace),
 		core.SecretTypeOpaque,
 		map[string][]byte{
 			fileNameSharedSecret: []byte(si.SharedSecret),
@@ -109,8 +113,8 @@ func (k *kubernetesClient) createControllerSecretServerPem(agentConfig agent.Con
 		return errors.NewNotValid(nil, "certificate is empty")
 	}
 	return k.createSecret(
-		resourceNameSSLKey,
-		stackLabels,
+		resourceNameSSLKeyGetter(k.namespace),
+		stackLabelsGetter(k.namespace),
 		core.SecretTypeOpaque,
 		map[string][]byte{
 			fileNameSSLKey: []byte(mongo.GenerateSSLKey(si.Cert, si.PrivateKey)),
@@ -132,8 +136,8 @@ func (k *kubernetesClient) createControllerConfigmapBootstrapParams(pcfg *podcfg
 
 	spec := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      resourceNameBootstrapParams,
-			Labels:    stackLabels,
+			Name:      resourceNameBootstrapParamsGetter(k.namespace),
+			Labels:    stackLabelsGetter(k.namespace),
 			Namespace: k.namespace,
 		},
 		Data: map[string]string{
@@ -154,8 +158,8 @@ func (k *kubernetesClient) createControllerConfigmapAgentConf(agentConfig agent.
 
 	spec := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      resourceNameAgentConf,
-			Labels:    stackLabels,
+			Name:      resourceNameAgentConfGetter(k.namespace),
+			Labels:    stackLabelsGetter(k.namespace),
 			Namespace: k.namespace,
 		},
 		Data: map[string]string{
@@ -171,19 +175,19 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 	numberOfPods := int32(1) // TODO: HA mode!
 	spec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      stackName,
-			Labels:    stackLabels,
+			Name:      resourceStatefulSetNameGetter(k.namespace),
+			Labels:    stackLabelsGetter(k.namespace),
 			Namespace: k.namespace,
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: stackName,
+			ServiceName: resourceServiceNameGetter(k.namespace),
 			Replicas:    &numberOfPods,
 			Selector: &v1.LabelSelector{
-				MatchLabels: stackLabels,
+				MatchLabels: stackLabelsGetter(k.namespace),
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:    stackLabels,
+					Labels:    stackLabelsGetter(k.namespace),
 					Namespace: k.namespace,
 				},
 				Spec: core.PodSpec{
@@ -197,11 +201,11 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := buildStorageSpecForController(spec, storageclass.GetName()); err != nil {
+	if err := buildStorageSpecForController(spec, storageclass.GetName(), k.namespace); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := buildContainerSpecForController(spec, *pcfg); err != nil {
+	if err := buildContainerSpecForController(spec, *pcfg, k.namespace); err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("creating controller statefulset: \n%+v", spec)
@@ -209,7 +213,7 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 	return errors.Trace(err)
 }
 
-func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassName string) error {
+func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassName, namespace string) error {
 	storageSizeAPIServer, err := resource.ParseQuantity(storageSizeAPIServerRaw)
 	if err != nil {
 		return errors.Trace(err)
@@ -223,8 +227,8 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 	statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
 		{
 			ObjectMeta: v1.ObjectMeta{
-				Name:   pvcNameMongoStorage,
-				Labels: stackLabels,
+				Name:   pvcNameMongoStorageGetter(namespace),
+				Labels: stackLabelsGetter(namespace),
 			},
 			Spec: core.PersistentVolumeClaimSpec{
 				StorageClassName: &storageClassName,
@@ -238,8 +242,8 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 		},
 		{
 			ObjectMeta: v1.ObjectMeta{
-				Name:   pvcNameAPIServerStorage,
-				Labels: stackLabels,
+				Name:   pvcNameAPIServerStorageGetter(namespace),
+				Labels: stackLabelsGetter(namespace),
 			},
 			Spec: core.PersistentVolumeClaimSpec{
 				StorageClassName: &storageClassName,
@@ -258,17 +262,17 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 
 	// add volume log dir.
 	vols = append(vols, core.Volume{
-		Name: pvcNameLogDirStorage,
+		Name: pvcNameLogDirStorageGetter(namespace),
 		VolumeSource: core.VolumeSource{
 			EmptyDir: &core.EmptyDirVolumeSource{}, // TODO: setup log dir.
 		},
 	})
 	// add volume server.pem secret.
 	vols = append(vols, core.Volume{
-		Name: resourceNameSSLKey,
+		Name: resourceNameSSLKeyGetter(namespace),
 		VolumeSource: core.VolumeSource{
 			Secret: &core.SecretVolumeSource{
-				SecretName:  resourceNameSSLKey,
+				SecretName:  resourceNameSSLKeyGetter(namespace),
 				DefaultMode: &fileMode,
 				Items: []core.KeyToPath{
 					{
@@ -281,10 +285,10 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 	})
 	// add volume shared secret.
 	vols = append(vols, core.Volume{
-		Name: resourceNameSharedSecret,
+		Name: resourceNameSharedSecretGetter(namespace),
 		VolumeSource: core.VolumeSource{
 			Secret: &core.SecretVolumeSource{
-				SecretName:  resourceNameSharedSecret,
+				SecretName:  resourceNameSharedSecretGetter(namespace),
 				DefaultMode: &fileMode,
 				Items: []core.KeyToPath{
 					{
@@ -297,7 +301,7 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 	})
 	// add volume agent.conf comfigmap.
 	volAgentConf := core.Volume{
-		Name: resourceNameAgentConf,
+		Name: resourceNameAgentConfGetter(namespace),
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
 				Items: []core.KeyToPath{
@@ -309,11 +313,11 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			},
 		},
 	}
-	volAgentConf.VolumeSource.ConfigMap.Name = resourceNameAgentConf
+	volAgentConf.VolumeSource.ConfigMap.Name = resourceNameAgentConfGetter(namespace)
 	vols = append(vols, volAgentConf)
 	// add volume bootstrap-params comfigmap.
 	volBootstrapParams := core.Volume{
-		Name: resourceNameBootstrapParams,
+		Name: resourceNameBootstrapParamsGetter(namespace),
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
 				Items: []core.KeyToPath{
@@ -325,14 +329,14 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			},
 		},
 	}
-	volBootstrapParams.VolumeSource.ConfigMap.Name = resourceNameBootstrapParams
+	volBootstrapParams.VolumeSource.ConfigMap.Name = resourceNameBootstrapParamsGetter(namespace)
 	vols = append(vols, volBootstrapParams)
 
 	statefulset.Spec.Template.Spec.Volumes = vols
 	return nil
 }
 
-func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.ControllerPodConfig) error {
+func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.ControllerPodConfig, namespace string) error {
 	probCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
@@ -402,26 +406,26 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 		},
 		VolumeMounts: []core.VolumeMount{
 			{
-				Name:      pvcNameLogDirStorage,
+				Name:      pvcNameLogDirStorageGetter(namespace),
 				MountPath: pcfg.LogDir,
 			},
 			{
-				Name:      pvcNameMongoStorage,
+				Name:      pvcNameMongoStorageGetter(namespace),
 				MountPath: filepath.Join(pcfg.DataDir, "db"),
 			},
 			{
-				Name:      resourceNameAgentConf,
+				Name:      resourceNameAgentConfGetter(namespace),
 				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"),
 				SubPath:   "template-agent.conf",
 			},
 			{
-				Name:      resourceNameSSLKey,
+				Name:      resourceNameSSLKeyGetter(namespace),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSSLKey),
 				SubPath:   fileNameSSLKey,
 				ReadOnly:  true,
 			},
 			{
-				Name:      resourceNameSharedSecret,
+				Name:      resourceNameSharedSecretGetter(namespace),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSharedSecret),
 				SubPath:   fileNameSharedSecret,
 				ReadOnly:  true,
@@ -436,32 +440,32 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 		Image:           pcfg.GetTool(),
 		VolumeMounts: []core.VolumeMount{
 			{
-				Name:      pvcNameAPIServerStorage,
+				Name:      pvcNameAPIServerStorageGetter(namespace),
 				MountPath: pcfg.DataDir,
 			},
 			{
-				Name:      pvcNameLogDirStorage,
+				Name:      pvcNameLogDirStorageGetter(namespace),
 				MountPath: pcfg.LogDir,
 			},
 			{
-				Name:      resourceNameAgentConf,
+				Name:      resourceNameAgentConfGetter(namespace),
 				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"),
 				SubPath:   "template-agent.conf",
 			},
 			{
-				Name:      resourceNameSSLKey,
+				Name:      resourceNameSSLKeyGetter(namespace),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSSLKey),
 				SubPath:   fileNameSSLKey,
 				ReadOnly:  true,
 			},
 			{
-				Name:      resourceNameSharedSecret,
+				Name:      resourceNameSharedSecretGetter(namespace),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSharedSecret),
 				SubPath:   fileNameSharedSecret,
 				ReadOnly:  true,
 			},
 			{
-				Name:      resourceNameBootstrapParams,
+				Name:      resourceNameBootstrapParamsGetter(namespace),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameBootstrapParams),
 				SubPath:   fileNameBootstrapParams,
 				ReadOnly:  true,

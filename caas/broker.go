@@ -180,6 +180,9 @@ type Broker interface {
 
 	// ResourceAdopter defines methods for adopting resources.
 	environs.ResourceAdopter
+
+	// ServicePublicAddressesGetter provides the API to get service public addresses.
+	ServicePublicAddressesGetter
 }
 
 // NamespaceWatcher provides the API to watch caas namespace.
@@ -187,6 +190,18 @@ type NamespaceWatcher interface {
 	// WatchNamespace returns a watcher which notifies when there
 	// are changes to current namespace.
 	WatchNamespace() (watcher.NotifyWatcher, error)
+}
+
+// ServicePublicAddressesGetter provides the API to get service public addresses.
+type ServicePublicAddressesGetter interface {
+	// GetServicePublicAddresses returns the addresses of the service.
+	GetServicePublicAddresses(svcName string) ([]network.Address, error)
+
+	// GetServicePublicHostPorts returns the hostports of the service.
+	GetServicePublicHostPorts(svcName, portName string) ([]network.HostPort, error)
+
+	// GetCurrentNamespace returns current namespace name.
+	GetCurrentNamespace() string
 }
 
 // Service represents information about the status of a caas service entity.

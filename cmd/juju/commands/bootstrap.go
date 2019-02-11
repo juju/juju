@@ -332,12 +332,12 @@ var (
 	waitForAgentInitialisation = common.WaitForAgentInitialisation
 )
 
-var ambiguousDetectedCredentialError = errors.New(`
+var errorAmbiguousDetectedCredential = errors.New(`
 more than one credential detected
 run juju autoload-credentials and specify a credential using the --credential argument`[1:],
 )
 
-var ambiguousCredentialError = errors.New(`
+var errorAmbiguousCredential = errors.New(`
 more than one credential is available
 specify a credential using the --credential argument`[1:],
 )
@@ -674,28 +674,26 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if isCAASController {
-		// TODO(caas): wait and fetch controller public endpoint then update juju home.
-		// `juju-controller` Service.clusterIP? LB?.
-		return nil
-	}
-
-	if err = c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
-		return errors.Trace(err)
-	}
-
 	agentVersion := jujuversion.Current
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
 	var addrs []network.Address
 	if env, ok := environ.(environs.InstanceBroker); ok {
+		// IAAS.
 		addrs, err = common.BootstrapEndpointAddresses(env, cloudCallCtx)
 		if err != nil {
 			return errors.Trace(err)
 		}
-	} else {
-		// TODO(caas): this should never happen. but we need enhance here with the above TODO solved together
+	} else if env, ok := environ.(caas.ServicePublicAddressesGetter); ok {
+		// CAAS.
+		addrs, err = env.GetServicePublicAddresses(env.GetCurrentNamespace())
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	else {
+		// TODO(caas): this should never happen.
 		return errors.NewNotValid(nil, "unexpected error happened, IAAS mode should have environs.Environ implemented.")
 	}
 	if err := juju.UpdateControllerDetailsFromLogin(
@@ -709,6 +707,16 @@ See `[1:] + "`juju kill-controller`" + `.`)
 			ControllerMachineCount: newInt(1),
 		}); err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
+	}
+	
+	if isCAASController {
+		// TODO(caas): wait and fetch controller public endpoint then update juju home.
+		// `juju-controller` Service.clusterIP? LB?.
+		return nil
+	}
+
+	if err = c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
+		return errors.Trace(err)
 	}
 
 	// To avoid race conditions when running scripted bootstraps, wait
@@ -903,9 +911,9 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 	switch errors.Cause(err) {
 	case nil:
 	case modelcmd.ErrMultipleCredentials:
-		return bootstrapCredentials{}, "", ambiguousCredentialError
+		return bootstrapCredentials{}, "", errorAmbiguousCredential
 	case common.ErrMultipleDetectedCredentials:
-		return bootstrapCredentials{}, "", ambiguousDetectedCredentialError
+		return bootstrapCredentials{}, "", errorAmbiguousDetectedCredential
 	default:
 		return bootstrapCredentials{}, "", errors.Trace(err)
 	}
