@@ -48,3 +48,30 @@ type RemoveApplication struct {
 	ModelUUID string
 	Name      string
 }
+
+// UnitChange represents either a new unit, or a change
+// to an existing unit in a model.
+type UnitChange struct {
+	ModelUUID      string
+	Name           string
+	Application    string
+	Series         string
+	CharmURL       string
+	PublicAddress  string
+	PrivateAddress string
+	MachineId      string
+	// TODO (manadart 2019-02-11): How should we handle these given that
+	// non-core packages must not be imported in this package.
+	// Ports          []network.Port
+	// PortRanges     []network.PortRange
+	Subordinate    bool
+	WorkloadStatus status.StatusInfo
+	AgentStatus    status.StatusInfo
+}
+
+// RemoveUnit represents the situation when a unit
+// is removed from a model in the database.
+type RemoveUnit struct {
+	ModelUUID string
+	Name      string
+}

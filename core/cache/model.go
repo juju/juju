@@ -22,6 +22,7 @@ func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 		// when many models.
 		hub:          hub,
 		applications: make(map[string]*Application),
+		units:        make(map[string]*Unit),
 	}
 	return m
 }
@@ -37,6 +38,7 @@ type Model struct {
 	configHash   string
 	hashCache    *modelConfigHashCache
 	applications map[string]*Application
+	units        map[string]*Unit
 }
 
 // Report returns information that is used in the dependency engine report.
@@ -48,6 +50,7 @@ func (m *Model) Report() map[string]interface{} {
 		"name":              m.details.Owner + "/" + m.details.Name,
 		"life":              m.details.Life,
 		"application-count": len(m.applications),
+		"unit-count":        len(m.units),
 	}
 }
 
@@ -62,7 +65,19 @@ func (m *Model) Application(appName string) (*Application, error) {
 		return nil, errors.NotFoundf("application %q", appName)
 	}
 	return app, nil
+}
 
+// Unit returns the unit for the input identifier.
+// If the unit is not found, a NotFoundError is returned.
+func (m *Model) Unit(unitId string) (*Unit, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	unit, found := m.units[unitId]
+	if !found {
+		return nil, errors.NotFoundf("unit %q", unitId)
+	}
+	return unit, nil
 }
 
 // updateApplication adds or updates the application in the model.
@@ -83,6 +98,27 @@ func (m *Model) updateApplication(ch ApplicationChange) {
 func (m *Model) removeApplication(ch RemoveApplication) {
 	m.mu.Lock()
 	delete(m.applications, ch.Name)
+	m.mu.Unlock()
+}
+
+// updateUnit adds or updates the unit in the model.
+func (m *Model) updateUnit(ch UnitChange) {
+	m.mu.Lock()
+
+	unit, found := m.units[ch.Name]
+	if !found {
+		unit = newUnit(m.metrics, m.hub)
+		m.units[ch.Name] = unit
+	}
+	unit.setDetails(ch)
+
+	m.mu.Unlock()
+}
+
+// removeUnit removes the unit from the model.
+func (m *Model) removeUnit(ch RemoveUnit) {
+	m.mu.Lock()
+	delete(m.units, ch.Name)
 	m.mu.Unlock()
 }
 

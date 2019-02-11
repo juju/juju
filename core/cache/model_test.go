@@ -36,6 +36,7 @@ func (s *ModelSuite) TestReport(c *gc.C) {
 		"name":              "model-owner/test-model",
 		"life":              life.Value("alive"),
 		"application-count": 0,
+		"unit-count":        0,
 	})
 }
 
