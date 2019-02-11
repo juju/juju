@@ -295,8 +295,8 @@ func (s *ProvisionerTaskSuite) TestProcessProfileChangesWithDeadMachine(c *gc.C)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	// Setup mockMachine0 to successfully change from an
-	// old profile to a new profile.
+	// Setup mockMachine0 to successfully change from an old profile to a new
+	// profile.  Machine number and unit number will be the same.
 	mockMachine0, info0 := setUpSuccessfulMockProfileMachine(ctrl, "0", "juju-default-lxd-profile-0", false)
 	mockMachine0.EXPECT().SetCharmProfiles([]string{info0.NewProfileName, "juju-default-different-0"}).Return(nil)
 
@@ -319,7 +319,7 @@ func (s *ProvisionerTaskSuite) TestProcessProfileChangesWithDeadMachine(c *gc.C)
 	).Return(machineCharmProfiles, nil)
 
 	task := s.newProvisionerTaskWithBroker(c, mockBroker, nil)
-	c.Assert(provisioner.ProcessProfileChanges(task, []string{"0#lxd-profile", "1#lxd-profile"}), jc.ErrorIsNil)
+	c.Assert(provisioner.ProcessProfileChanges(task, []string{"0#lxd-profile/0", "1#lxd-profile/1"}), jc.ErrorIsNil)
 }
 
 func setUpSuccessfulMockProfileMachine(ctrl *gomock.Controller, num, old string, sub bool) (*apiprovisionermock.MockMachineProvisioner, apiprovisioner.CharmProfileChangeInfo) {
