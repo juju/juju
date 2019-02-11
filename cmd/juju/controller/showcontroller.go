@@ -90,6 +90,7 @@ type ControllerAccessAPI interface {
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
 	MongoVersion() (string, error)
+	IdentityProviderURL() (string, error)
 	BestAPIVersion() int
 	Close() error
 }
@@ -180,6 +181,13 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
+		// Fetch identityURL if the apiserver supports it
+		identityURL, err := client.IdentityProviderURL()
+		if err != nil && !errors.IsNotSupported(err) {
+			details.Errors = append(details.Errors, err.Error())
+			continue
+		}
+
 		modelTags := make([]names.ModelTag, len(allModels))
 		var controllerModelUUID string
 		for i, m := range allModels {
@@ -193,7 +201,8 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			details.Errors = append(details.Errors, err.Error())
 			continue
 		}
-		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatusResults, mongoVersion)
+
+		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatusResults, mongoVersion, identityURL)
 		controllers[controllerName] = details
 		machineCount := 0
 		for _, r := range modelStatusResults {
@@ -298,6 +307,10 @@ type ControllerDetails struct {
 	// MongoVersion is the version of the mongo server running on this
 	// controller.
 	MongoVersion string `yaml:"mongo-version,omitempty" json:"mongo-version,omitempty"`
+
+	// IdentityURL contails the address of an external identity provider
+	// if one has been configured for this controller.
+	IdentityURL string `yaml:"identity-url,omitempty" json:"identity-url,omitempty"`
 }
 
 // ModelDetails holds details of a model to show.
@@ -348,6 +361,7 @@ func (c *showControllerCommand) convertControllerForShow(
 	allModels []base.UserModel,
 	modelStatusResults []base.ModelStatus,
 	mongoVersion string,
+	identityURL string,
 ) {
 
 	controller.Details = ControllerDetails{
@@ -359,6 +373,7 @@ func (c *showControllerCommand) convertControllerForShow(
 		CloudRegion:       details.CloudRegion,
 		AgentVersion:      details.AgentVersion,
 		MongoVersion:      mongoVersion,
+		IdentityURL:       identityURL,
 	}
 	c.convertModelsForShow(controllerName, controller, allModels, modelStatusResults)
 	c.convertAccountsForShow(controllerName, controller, access)

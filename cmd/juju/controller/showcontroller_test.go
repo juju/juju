@@ -397,7 +397,6 @@ func (s *ShowControllerSuite) TestShowControllerRefreshesStore(c *gc.C) {
 	store := s.createTestClientStore(c)
 	_, err := s.runShowController(c, "aws-test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(store.Controllers["aws-test"].ControllerMachineCount, gc.Equals, 3)
 	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, gc.Equals, 1)
 	s.fakeController.machines["ghi"][0].HasVote = true
 	_, err = s.runShowController(c, "aws-test")
@@ -444,7 +443,6 @@ mallards:
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     agent-version: 999.99.99
-    mongo-version: 3.5.12
   current-model: admin/my-model
   account:
     user: admin
@@ -455,6 +453,19 @@ mallards:
 	c.Assert(store.Models["mallards"].Models, gc.HasLen, 2)
 	s.setAccess(permission.LoginAccess)
 	s.assertShowController(c, "mallards")
+}
+
+func (s *ShowControllerSuite) TestShowControllerWithIdentityProvider(c *gc.C) {
+	_ = s.createTestClientStore(c)
+	ctx, err := s.runShowController(c, "aws-test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Not(jc.Contains), "identity-url")
+
+	expURL := "https://api.jujucharms.com/identity"
+	s.fakeController.identityURL = expURL
+	ctx, err = s.runShowController(c, "aws-test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, "identity-url: "+expURL)
 }
 
 func (s *ShowControllerSuite) runShowController(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -477,6 +488,7 @@ type fakeController struct {
 	machines       map[string][]base.Machine
 	access         permission.Access
 	bestAPIVersion int
+	identityURL    string
 }
 
 func (c *fakeController) GetControllerAccess(user string) (permission.Access, error) {
@@ -522,6 +534,10 @@ func (c *fakeController) AllModels() (result []base.UserModel, _ error) {
 
 func (c *fakeController) BestAPIVersion() int {
 	return c.bestAPIVersion
+}
+
+func (c *fakeController) IdentityProviderURL() (string, error) {
+	return c.identityURL, nil
 }
 
 func (*fakeController) Close() error {
