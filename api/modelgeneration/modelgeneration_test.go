@@ -6,11 +6,13 @@ package modelgeneration_test
 import (
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
+	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/modelgeneration"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -54,14 +56,14 @@ func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
+func (s *modelGenerationSuite) TestAdvanceGenerationNoAutoComplete(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	resultsSource := params.ErrorResults{
-		Results: []params.ErrorResult{
+	resultsSource := params.AdvanceGenerationResult{
+		AdvanceResults: params.ErrorResults{Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
-		},
+		}},
 	}
 	arg := params.AdvanceGenerationArg{
 		Model: params.Entity{Tag: s.tag.String()},
@@ -74,16 +76,70 @@ func (s *modelGenerationSuite) TestAdvanceGeneration(c *gc.C) {
 	s.fCaller.EXPECT().FacadeCall("AdvanceGeneration", arg, gomock.Any()).SetArg(2, resultsSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	err := api.AdvanceGeneration(s.tag.Id(), []string{"mysql/0", "mysql"})
+	completed, err := api.AdvanceGeneration(s.tag.Id(), []string{"mysql/0", "mysql"})
 	c.Assert(err, gc.IsNil)
+	c.Check(completed, jc.IsFalse)
 }
 
-func (s *modelGenerationSuite) TestAdvanceGenerationError(c *gc.C) {
+func (s *modelGenerationSuite) TestAdvanceGenerationAdvanceError(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	err := api.AdvanceGeneration(s.tag.Id(), []string{"mysql/0", "mysql", "machine-3"})
+	completed, err := api.AdvanceGeneration(s.tag.Id(), []string{"mysql/0", "mysql", "machine-3"})
 	c.Assert(err, gc.ErrorMatches, "Must be application or unit")
+	c.Check(completed, jc.IsFalse)
+}
+
+func (s *modelGenerationSuite) TestAdvanceGenerationAutoComplete(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	resultsSource := params.AdvanceGenerationResult{
+		AdvanceResults: params.ErrorResults{Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: nil},
+		}},
+		CompleteResult: params.BoolResult{Result: true},
+	}
+	arg := params.AdvanceGenerationArg{
+		Model: params.Entity{Tag: s.tag.String()},
+		Entities: []params.Entity{
+			{Tag: "unit-mysql-0"},
+			{Tag: "application-mysql"},
+		},
+	}
+
+	s.fCaller.EXPECT().FacadeCall("AdvanceGeneration", arg, gomock.Any()).SetArg(2, resultsSource).Return(nil)
+
+	api := modelgeneration.NewStateFromCaller(s.fCaller)
+	completed, err := api.AdvanceGeneration(s.tag.Id(), []string{"mysql/0", "mysql"})
+	c.Assert(err, gc.IsNil)
+	c.Check(completed, jc.IsTrue)
+}
+
+func (s *modelGenerationSuite) TestAdvanceGenerationAutoCompleteError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	resultsSource := params.AdvanceGenerationResult{
+		AdvanceResults: params.ErrorResults{Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: nil},
+		}},
+		CompleteResult: params.BoolResult{Error: common.ServerError(errors.New("auto-complete go boom"))},
+	}
+	arg := params.AdvanceGenerationArg{
+		Model: params.Entity{Tag: s.tag.String()},
+		Entities: []params.Entity{
+			{Tag: "unit-mysql-0"},
+			{Tag: "application-mysql"},
+		},
+	}
+
+	s.fCaller.EXPECT().FacadeCall("AdvanceGeneration", arg, gomock.Any()).SetArg(2, resultsSource).Return(nil)
+
+	api := modelgeneration.NewStateFromCaller(s.fCaller)
+	completed, err := api.AdvanceGeneration(s.tag.Id(), []string{"mysql/0", "mysql"})
+	c.Assert(err, gc.ErrorMatches, "auto-complete go boom")
+	c.Check(completed, jc.IsFalse)
 }
 
 func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
