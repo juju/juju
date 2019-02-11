@@ -41,7 +41,8 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 				{Id: "3", InstanceId: "id-3", HasVote: false, WantsVote: false, Status: "active"},
 			},
 		},
-		access: permission.SuperuserAccess,
+		access:         permission.SuperuserAccess,
+		bestAPIVersion: 8,
 	}
 	s.api = func(controllerName string) controller.ControllerAccessAPI {
 		s.fakeController.controllerName = controllerName
@@ -281,6 +282,52 @@ mark-test-prodstack:
 	s.assertShowController(c, "aws-test", "mark-test-prodstack")
 }
 
+func (s *ShowControllerSuite) TestShowOneControllerWithAPIVersionTooLow(c *gc.C) {
+	s.fakeController = &fakeController{
+		machines:       map[string][]base.Machine{},
+		access:         permission.SuperuserAccess,
+		bestAPIVersion: 1,
+	}
+
+	s.controllersYaml = `controllers:
+  mallards:
+    uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+    cloud: mallards
+    agent-version: 999.99.99
+`
+	s.createTestClientStore(c)
+
+	s.expectedOutput = `
+mallards:
+  details:
+    uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+    cloud: mallards
+    agent-version: 999.99.99
+  models:
+    controller:
+      uuid: abc
+      model-uuid: abc
+      machine-count: 2
+      core-count: 4
+    my-model:
+      uuid: def
+      model-uuid: def
+      machine-count: 2
+      core-count: 4
+  current-model: admin/my-model
+  account:
+    user: admin
+    access: superuser
+`[1:]
+
+	s.assertShowController(c, "mallards")
+}
+
 func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.createTestClientStore(c)
 
@@ -429,6 +476,7 @@ type fakeController struct {
 	controllerName string
 	machines       map[string][]base.Machine
 	access         permission.Access
+	bestAPIVersion int
 }
 
 func (c *fakeController) GetControllerAccess(user string) (permission.Access, error) {
@@ -470,6 +518,10 @@ func (c *fakeController) AllModels() (result []base.UserModel, _ error) {
 		return result, nil
 	}
 	return all, nil
+}
+
+func (c *fakeController) BestAPIVersion() int {
+	return c.bestAPIVersion
 }
 
 func (*fakeController) Close() error {
