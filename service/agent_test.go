@@ -61,13 +61,11 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 		"--debug",
 	}
 	c.Check(conf, jc.DeepEquals, common.Conf{
-		Desc:      "juju agent for machine-0",
-		ExecStart: cmd,
-		Logfile:   filepath.Join(logDir, "machine-0.log"),
-		Env:       osenv.FeatureFlags(),
-		Limit: map[string]int{
-			"nofile": 20000,
-		},
+		Desc:          "juju agent for machine-0",
+		ExecStart:     cmd,
+		Logfile:       filepath.Join(logDir, "machine-0.log"),
+		Env:           osenv.FeatureFlags(),
+		Limit:         expectedLimits,
 		Timeout:       300,
 		ServiceBinary: serviceBinary,
 		ServiceArgs:   serviceArgs,
@@ -98,13 +96,11 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 		"--debug",
 	}
 	c.Check(conf, jc.DeepEquals, common.Conf{
-		Desc:      "juju agent for machine-0",
-		ExecStart: cmd,
-		Logfile:   logDir + "/machine-0.log",
-		Env:       osenv.FeatureFlags(),
-		Limit: map[string]int{
-			"nofile": 20000,
-		},
+		Desc:          "juju agent for machine-0",
+		ExecStart:     cmd,
+		Logfile:       logDir + "/machine-0.log",
+		Env:           osenv.FeatureFlags(),
+		Limit:         expectedLimits,
 		Timeout:       300,
 		ServiceBinary: serviceBinary,
 		ServiceArgs:   serviceArgs,
@@ -135,13 +131,11 @@ func (*agentSuite) TestAgentConfMachineWindows(c *gc.C) {
 		"--debug",
 	}
 	c.Check(conf, jc.DeepEquals, common.Conf{
-		Desc:      "juju agent for machine-0",
-		ExecStart: cmd,
-		Logfile:   logDir + `\machine-0.log`,
-		Env:       osenv.FeatureFlags(),
-		Limit: map[string]int{
-			"nofile": 20000,
-		},
+		Desc:          "juju agent for machine-0",
+		ExecStart:     cmd,
+		Logfile:       logDir + `\machine-0.log`,
+		Env:           osenv.FeatureFlags(),
+		Limit:         expectedLimits,
 		Timeout:       300,
 		ServiceBinary: serviceBinary,
 		ServiceArgs:   serviceArgs,
@@ -236,4 +230,8 @@ func (*agentSuite) TestShutdownAfterConfMissingServiceName(c *gc.C) {
 	_, err := service.ShutdownAfterConf("")
 
 	c.Check(err, gc.ErrorMatches, `.*missing "after" service name.*`)
+}
+
+var expectedLimits = map[string]string{
+	"nofile": "64000", // open files
 }

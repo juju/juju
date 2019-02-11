@@ -17,9 +17,6 @@ import (
 )
 
 const (
-	maxFiles = 65000
-	maxProcs = 20000
-
 	ServiceName    = "juju-db"
 	serviceTimeout = 300 // 5 minutes
 
@@ -219,12 +216,18 @@ func newConf(args ConfigArgs) common.Conf {
 		extraScript = fmt.Sprintf(detectMultiNodeScript, multinodeVarName, multinodeVarName)
 		mongoCmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + mongoCmd
 	}
+	// See https://docs.mongodb.com/manual/reference/ulimit/.
+	limits := map[string]string{
+		"fsize":   "unlimited", // file size
+		"cpu":     "unlimited", // cpu time
+		"as":      "unlimited", // virtual memory size
+		"memlock": "unlimited", // locked-in-memory size
+		"nofile":  "64000",     // open files
+		"nproc":   "64000",     // processes/threads
+	}
 	conf := common.Conf{
-		Desc: "juju state database",
-		Limit: map[string]int{
-			"nofile": maxFiles,
-			"nproc":  maxProcs,
-		},
+		Desc:        "juju state database",
+		Limit:       limits,
 		Timeout:     serviceTimeout,
 		ExtraScript: extraScript,
 		ExecStart:   mongoCmd,
