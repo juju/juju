@@ -14,8 +14,6 @@ import (
 )
 
 const (
-	maxAgentFiles = 20000
-
 	agentServiceTimeout = 300 // 5 minutes
 )
 
@@ -34,8 +32,8 @@ func AgentConf(info AgentInfo, renderer shell.Renderer) common.Conf {
 
 	switch info.Kind {
 	case AgentKindMachine:
-		conf.Limit = map[string]int{
-			"nofile": maxAgentFiles,
+		conf.Limit = map[string]string{
+			"nofile": "64000",
 		}
 	case AgentKindUnit:
 		conf.Desc = "juju unit agent for " + info.ID
