@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -51,6 +52,7 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/externalcontrollerupdater"
 	"github.com/juju/juju/worker/fanconfigurer"
+	"github.com/juju/juju/worker/featureflag"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/globalclockupdater"
@@ -502,19 +504,20 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:         migrationminion.NewWorker,
 		}),
 
-		// We run a global clock updater for every controller machine.
+		// We run clock updaters for every controller machine to
+		// ensure the lease clock is updated monotonically and at a
+		// rate no faster than real time.
 		//
-		// The global clock updater is primary for detecting and
-		// preventing concurrent updates, to ensure global time is
-		// monotonic and increases at a rate no faster than real time.
-		globalClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
+		// If the legacy-leases feature flag is set the global clock
+		// updater updates the lease clock in the database.  .
+		globalClockUpdaterName: ifLegacyLeasesEnabled(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
 			ClockName:      clockName,
 			StateName:      stateName,
 			NewWorker:      globalclockupdater.NewWorker,
 			UpdateInterval: globalClockUpdaterUpdateInterval,
 			BackoffDelay:   globalClockUpdaterBackoffDelay,
 			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.mongo"),
-		}),
+		})),
 		// We also run another clock updater to feed time updates into
 		// the lease FSM.
 		leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
@@ -888,6 +891,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
 		}),
+
+		legacyLeasesFlagName: ifController(featureflag.Manifold(featureflag.ManifoldConfig{
+			StateName: stateName,
+			FlagName:  feature.LegacyLeases,
+			Logger:    loggo.GetLogger("juju.worker.legacyleasesenabled"),
+			NewWorker: featureflag.NewWorker,
+		})),
 	}
 
 	manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
@@ -948,6 +958,12 @@ var ifCredentialValid = engine.Housing{
 	},
 }.Decorate
 
+var ifLegacyLeasesEnabled = engine.Housing{
+	Flags: []string{
+		legacyLeasesFlagName,
+	},
+}.Decorate
+
 const (
 	agentName              = "agent"
 	terminationName        = "termination-signal-handler"
@@ -1005,6 +1021,7 @@ const (
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
 	leaseManagerName              = "lease-manager"
+	legacyLeasesFlagName          = "legacy-leases-flag"
 
 	upgradeSeriesEnabledName = "upgrade-series-enabled"
 	upgradeSeriesWorkerName  = "upgrade-series"
