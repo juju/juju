@@ -76,7 +76,6 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 		expireDone: make(chan struct{}),
 		pins:       make(chan pin),
 		unpins:     make(chan pin),
-		errors:     make(chan error),
 		logContext: logContext,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -130,10 +129,6 @@ type Manager struct {
 	// unpins is used to deliver lease unpin requests to the loop.
 	unpins chan pin
 
-	// errors is used to send errors from background claim or expire
-	// goroutines back to the main loop.
-	errors chan error
-
 	// wg is used to ensure that all child goroutines are finished
 	// before we stop.
 	wg sync.WaitGroup
@@ -179,8 +174,6 @@ func (manager *Manager) choose(blocks blocks) error {
 	select {
 	case <-manager.catacomb.Dying():
 		return manager.catacomb.ErrDying()
-	case err := <-manager.errors:
-		return errors.Trace(err)
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
 	case now := <-manager.timer.Chan():
@@ -278,12 +271,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 		manager.ensureNextTimeout(claim.duration)
 	} else {
 		// Stop the main loop because we got an abnormal error
-		err := errors.Trace(err)
-		select {
-		case <-manager.catacomb.Dying():
-			return
-		case manager.errors <- err:
-		}
+		manager.catacomb.Kill(errors.Trace(err))
 	}
 }
 
@@ -491,13 +479,7 @@ func (manager *Manager) retryingExpire(now time.Time) {
 		return
 	}
 	if err != nil {
-		manager.config.Logger.Warningf("[%s] reporting error to main loop: %v", manager.logContext, err)
-		select {
-		case <-manager.catacomb.Dying():
-			return
-		case manager.errors <- err:
-			// We're done.
-		}
+		manager.catacomb.Kill(errors.Trace(err))
 	} else {
 		// If we send back an error, then the main loop won't listen for expireDone
 		select {
