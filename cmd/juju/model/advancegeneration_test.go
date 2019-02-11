@@ -38,7 +38,7 @@ func (s *advanceGenerationSuite) SetUpTest(c *gc.C) {
 	err := s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
 		ModelUUID:       testing.ModelTag.Id(),
 		ModelType:       coremodel.IAAS,
-		ModelGeneration: coremodel.GenerationCurrent,
+		ModelGeneration: coremodel.GenerationNext,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
@@ -81,27 +81,47 @@ func setUpAdvanceMocks(c *gc.C) (*gomock.Controller, *mocks.MockAdvanceGeneratio
 	return mockController, mockAdvanceGenerationCommandAPI
 }
 
-func (s *advanceGenerationSuite) TestRunCommand(c *gc.C) {
-	mockController, mockAdvanceGenerationCommandAPI := setUpAdvanceMocks(c)
+func (s *advanceGenerationSuite) TestRunCommandNotCompleted(c *gc.C) {
+	mockController, api := setUpAdvanceMocks(c)
 	defer mockController.Finish()
 
-	mockAdvanceGenerationCommandAPI.EXPECT().AdvanceGeneration(gomock.Any(), []string{"ubuntu/0", "redis"}).Return(nil)
+	api.EXPECT().AdvanceGeneration(gomock.Any(), []string{"ubuntu/0", "redis"}).Return(false, nil)
 
-	_, err := s.runCommand(c, mockAdvanceGenerationCommandAPI, "ubuntu/0", "redis")
+	_, err := s.runCommand(c, api, "ubuntu/0", "redis")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// ensure the model's store has been updated to 'current'.
-	details, err := s.store.ModelByName(s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
+	// Ensure the generation did not change in the local store.
+	cName := s.store.CurrentControllerName
+	details, err := s.store.ModelByName(cName, s.store.Models[cName].CurrentModel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationNext)
+}
+
+func (s *advanceGenerationSuite) TestRunCommandCompleted(c *gc.C) {
+	mockController, api := setUpAdvanceMocks(c)
+	defer mockController.Finish()
+
+	api.EXPECT().AdvanceGeneration(gomock.Any(), []string{"ubuntu/0", "redis"}).Return(true, nil)
+
+	ctx, err := s.runCommand(c, api, "ubuntu/0", "redis")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the generation was changed to "current" in the local store.
+	cName := s.store.CurrentControllerName
+	details, err := s.store.ModelByName(cName, s.store.Models[cName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationCurrent)
+
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
+		"generation automatically completed; target generation set to \"current\"\n")
 }
 
 func (s *advanceGenerationSuite) TestRunCommandFail(c *gc.C) {
-	mockController, mockAdvanceGenerationCommandAPI := setUpAdvanceMocks(c)
+	mockController, api := setUpAdvanceMocks(c)
 	defer mockController.Finish()
 
-	mockAdvanceGenerationCommandAPI.EXPECT().AdvanceGeneration(gomock.Any(), []string{"ubuntu/0"}).Return(errors.Errorf("failme"))
+	api.EXPECT().AdvanceGeneration(gomock.Any(), []string{"ubuntu/0"}).Return(false, errors.Errorf("failme"))
 
-	_, err := s.runCommand(c, mockAdvanceGenerationCommandAPI, "ubuntu/0")
+	_, err := s.runCommand(c, api, "ubuntu/0")
 	c.Assert(err, gc.ErrorMatches, "failme")
 }

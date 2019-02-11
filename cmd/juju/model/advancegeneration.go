@@ -56,7 +56,7 @@ type advanceGenerationCommand struct {
 //go:generate mockgen -package mocks -destination ./mocks/advancegeneration_mock.go github.com/juju/juju/cmd/juju/model AdvanceGenerationCommandAPI
 type AdvanceGenerationCommandAPI interface {
 	Close() error
-	AdvanceGeneration(string, []string) error
+	AdvanceGeneration(string, []string) (bool, error)
 }
 
 // Info implements part of the cmd.Command interface.
@@ -109,21 +109,25 @@ func (c *advanceGenerationCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	_, modelDetails, err := c.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
 
-	if err := client.AdvanceGeneration(modelDetails.ModelUUID, c.entities); err != nil {
+	completed, err := client.AdvanceGeneration(modelDetails.ModelUUID, c.entities)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Now update the model store with the 'current' generation for this
-	// model.
-	if err = c.SetModelGeneration(model.GenerationCurrent); err != nil {
-		return err
-	}
+	// If the unit advancement caused the generation to be completed,
+	// notify the user and set the local store generation back to "current".
+	if completed {
+		if err = c.SetModelGeneration(model.GenerationCurrent); err == nil {
+			_, err = ctx.Stdout.Write([]byte(
+				"generation automatically completed; target generation set to \"current\"\n"))
+		}
 
-	return nil
+	}
+	return errors.Trace(err)
 }
