@@ -64,7 +64,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	}
 	s.hub = pubsub.NewStructuredHub(nil)
 
-	controller, err := controller.NewControllerAPIv6(
+	controller, err := controller.NewControllerAPIv7(
 		facadetest.Context{
 			State_:     s.State,
 			StatePool_: s.StatePool,
@@ -987,4 +987,30 @@ func (s *controllerSuite) TestMongoVersion(c *gc.C) {
 	// We can't guarantee which version of mongo is running, so let's just
 	// attempt to match it to a very basic version (major.minor.patch)
 	c.Assert(result.Result, gc.Matches, "^([0-9]{1,}).([0-9]{1,}).([0-9]{1,})$")
+}
+
+func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
+	// Preserve default controller config as we will be mutating it just
+	// for this test
+	defer func(orig map[string]interface{}) {
+		s.ControllerConfig = orig
+	}(s.ControllerConfig)
+
+	// Our default test configuration does not specify an IdentityURL
+	urlRes, err := s.controller.IdentityProviderURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(urlRes.Result, gc.Equals, "")
+
+	// IdentityURL cannot be changed after bootstrap; we need to spin up
+	// another controller with IdentityURL pre-configured
+	s.TearDownTest(c)
+	expURL := "https://api.jujucharms.com/identity"
+	s.ControllerConfig = map[string]interface{}{
+		corecontroller.IdentityURL: expURL,
+	}
+	s.SetUpTest(c)
+
+	urlRes, err = s.controller.IdentityProviderURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(urlRes.Result, gc.Equals, expURL)
 }

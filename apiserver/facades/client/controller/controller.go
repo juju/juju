@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	corecontroller "github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/permission"
@@ -45,10 +46,16 @@ type ControllerAPI struct {
 	hub        facade.Hub
 }
 
+// ControllerAPIv6 provides the v6 Controller API. The only difference
+// between this and v7 is that v6 doesn't have the IdentityProviderURL method.
+type ControllerAPIv6 struct {
+	*ControllerAPI
+}
+
 // ControllerAPIv5 provides the v5 Controller API. The only difference
 // between this and v6 is that v5 doesn't have the MongoVersion method.
 type ControllerAPIv5 struct {
-	*ControllerAPI
+	*ControllerAPIv6
 }
 
 // ControllerAPIv4 provides the v4 Controller API. The only difference
@@ -63,8 +70,8 @@ type ControllerAPIv3 struct {
 	*ControllerAPIv4
 }
 
-// NewControllerAPIv6 creates a new ControllerAPIv6
-func NewControllerAPIv6(ctx facade.Context) (*ControllerAPI, error) {
+// NewControllerAPIv7 creates a new ControllerAPIv7.
+func NewControllerAPIv7(ctx facade.Context) (*ControllerAPI, error) {
 	st := ctx.State()
 	authorizer := ctx.Auth()
 	pool := ctx.StatePool()
@@ -80,6 +87,15 @@ func NewControllerAPIv6(ctx facade.Context) (*ControllerAPI, error) {
 		presence,
 		hub,
 	)
+}
+
+// NewControllerAPIv6 creates a new ControllerAPIv6.
+func NewControllerAPIv6(ctx facade.Context) (*ControllerAPIv6, error) {
+	v7, err := NewControllerAPIv7(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ControllerAPIv6{v7}, nil
 }
 
 // NewControllerAPIv5 creates a new ControllerAPIv5.
@@ -161,6 +177,29 @@ func (c *ControllerAPI) checkHasAdmin() error {
 		return common.ServerError(common.ErrPerm)
 	}
 	return nil
+}
+
+// IdentityProviderURL isn't on the v6 API.
+func (c *ControllerAPIv6) IdentityProviderURL() {}
+
+// IdentityProviderURL returns the URL of the configured external identity
+// provider for this controller or an empty string if no external identity
+// provider has been configured when the controller was bootstrapped.
+//
+// NOTE: the implementation intentionally does not check for SuperuserAccess
+// as the URL is known even to users with login access.
+func (c *ControllerAPI) IdentityProviderURL() (params.StringResult, error) {
+	var result params.StringResult
+
+	cfgRes, err := c.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	if cfgRes.Config != nil {
+		result.Result = corecontroller.Config(cfgRes.Config).IdentityURL()
+	}
+	return result, nil
 }
 
 // ModelStatus is a legacy method call to ensure that we preserve
