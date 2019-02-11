@@ -130,7 +130,7 @@ def assess_recovery(bs_manager, strategy, charm_series):
 
     # ha-backup allows us to still backup in HA mode, so allow us to still
     # create a cluster of controllers.
-    if strategy in ('ha-backup'):
+    if strategy == 'ha-backup':
         enable_ha(bs_manager, controller_client)
         backup_file = controller_client.backup()
         # at the moment we can't currently restore a backup in HA without
