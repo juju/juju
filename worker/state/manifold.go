@@ -88,7 +88,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 			if !haveStateConfig {
-				return nil, dependency.ErrMissing
+				return nil, errors.Annotate(dependency.ErrMissing, "no StateServingInfo in config")
 			}
 
 			pool, err := config.OpenStatePool(agent.CurrentConfig())
