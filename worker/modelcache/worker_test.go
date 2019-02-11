@@ -99,30 +99,6 @@ func (s *WorkerSuite) start(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *WorkerSuite) captureModelEvents(c *gc.C) <-chan interface{} {
-	events := make(chan interface{})
-	s.notify = func(change interface{}) {
-		send := false
-		switch change.(type) {
-		case cache.ModelChange:
-			send = true
-		case cache.RemoveModel:
-			send = true
-		default:
-			// no-op
-		}
-		if send {
-			c.Logf("sending %#v", change)
-			select {
-			case events <- change:
-			case <-time.After(testing.LongWait):
-				c.Fatalf("change not processed by test")
-			}
-		}
-	}
-	return events
-}
-
 func (s *WorkerSuite) checkModel(c *gc.C, obtained interface{}, model *state.Model) {
 	change, ok := obtained.(cache.ModelChange)
 	c.Assert(ok, jc.IsTrue)
@@ -150,7 +126,7 @@ func (s *WorkerSuite) nextChange(c *gc.C, changes <-chan interface{}) interface{
 }
 
 func (s *WorkerSuite) TestInitialModel(c *gc.C) {
-	changes := s.captureModelEvents(c)
+	changes := s.captureEvents(c, modelEvents)
 	s.start(c)
 
 	obtained := s.nextChange(c, changes)
@@ -160,7 +136,7 @@ func (s *WorkerSuite) TestInitialModel(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestModelConfigChange(c *gc.C) {
-	changes := s.captureModelEvents(c)
+	changes := s.captureEvents(c, modelEvents)
 	w := s.start(c)
 	// discard initial event
 	s.nextChange(c, changes)
@@ -189,7 +165,7 @@ func (s *WorkerSuite) TestModelConfigChange(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestNewModel(c *gc.C) {
-	changes := s.captureModelEvents(c)
+	changes := s.captureEvents(c, modelEvents)
 	w := s.start(c)
 	// grab and discard the event for the initial model
 	s.nextChange(c, changes)
@@ -208,7 +184,7 @@ func (s *WorkerSuite) TestNewModel(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
-	changes := s.captureModelEvents(c)
+	changes := s.captureEvents(c, modelEvents)
 	w := s.start(c)
 
 	// grab and discard the event for the initial model
@@ -252,32 +228,8 @@ func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
 	c.Assert(controller.ModelUUIDs(), jc.SameContents, []string{s.State.ModelUUID()})
 }
 
-func (s *WorkerSuite) captureApplicationEvents(c *gc.C) <-chan interface{} {
-	events := make(chan interface{})
-	s.notify = func(change interface{}) {
-		send := false
-		switch change.(type) {
-		case cache.ApplicationChange:
-			send = true
-		case cache.RemoveApplication:
-			send = true
-		default:
-			// no-op
-		}
-		if send {
-			c.Logf("sending %#v", change)
-			select {
-			case events <- change:
-			case <-time.After(testing.LongWait):
-				c.Fatalf("change not processed by test")
-			}
-		}
-	}
-	return events
-}
-
 func (s *WorkerSuite) TestAddApplication(c *gc.C) {
-	changes := s.captureApplicationEvents(c)
+	changes := s.captureEvents(c, applicationEvents)
 	w := s.start(c)
 
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{})
@@ -301,7 +253,7 @@ func (s *WorkerSuite) TestAddApplication(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
-	changes := s.captureApplicationEvents(c)
+	changes := s.captureEvents(c, applicationEvents)
 	w := s.start(c)
 
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{})
@@ -327,6 +279,84 @@ func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
 			return
 		}
 	}
+}
+
+func (s *WorkerSuite) TestAddUnit(c *gc.C) {
+	changes := s.captureEvents(c, unitEvents)
+	w := s.start(c)
+
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{})
+	s.State.StartSync()
+
+	change := s.nextChange(c, changes)
+	obtained, ok := change.(cache.UnitChange)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(obtained.Name, gc.Equals, unit.Name())
+	c.Check(obtained.Application, gc.Equals, unit.ApplicationName())
+
+	controller := s.getController(c, w)
+	modUUIDs := controller.ModelUUIDs()
+	c.Check(modUUIDs, gc.HasLen, 1)
+
+	mod, err := controller.Model(modUUIDs[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	cachedApp, err := mod.Application(unit.ApplicationName())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cachedApp, gc.NotNil)
+}
+
+func (s *WorkerSuite) captureEvents(c *gc.C, matchers ...func(interface{}) bool) <-chan interface{} {
+	events := make(chan interface{})
+	s.notify = func(change interface{}) {
+		send := false
+		for _, m := range matchers {
+			if m(change) {
+				send = true
+				break
+			}
+		}
+
+		if send {
+			c.Logf("sending %#v", change)
+			select {
+			case events <- change:
+			case <-time.After(testing.LongWait):
+				c.Fatalf("change not processed by test")
+			}
+		}
+	}
+	return events
+}
+
+var modelEvents = func(change interface{}) bool {
+	switch change.(type) {
+	case cache.ModelChange:
+		return true
+	case cache.RemoveModel:
+		return true
+	}
+	return false
+}
+
+var applicationEvents = func(change interface{}) bool {
+	switch change.(type) {
+	case cache.ApplicationChange:
+		return true
+	case cache.RemoveApplication:
+		return true
+	}
+	return false
+}
+
+var unitEvents = func(change interface{}) bool {
+	switch change.(type) {
+	case cache.UnitChange:
+		return true
+	case cache.RemoveUnit:
+		return true
+	}
+	return false
 }
 
 type noopRegisterer struct {
