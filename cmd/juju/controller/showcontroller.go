@@ -90,6 +90,7 @@ type ControllerAccessAPI interface {
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
 	MongoVersion() (string, error)
+	BestAPIVersion() int
 	Close() error
 }
 
@@ -168,6 +169,17 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
+		var mongoVersion string
+		// Check to see if we can call the mongo version. Older versions of the
+		// api do not support mongo version, so we should even prevent the call.
+		if apiVersion := client.BestAPIVersion(); apiVersion >= 6 {
+			mongoVersion, err = client.MongoVersion()
+			if err != nil {
+				details.Errors = append(details.Errors, err.Error())
+				continue
+			}
+		}
+
 		modelTags := make([]names.ModelTag, len(allModels))
 		var controllerModelUUID string
 		for i, m := range allModels {
@@ -177,12 +189,6 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 		modelStatusResults, err := client.ModelStatus(modelTags...)
-		if err != nil {
-			details.Errors = append(details.Errors, err.Error())
-			continue
-		}
-
-		mongoVersion, err := client.MongoVersion()
 		if err != nil {
 			details.Errors = append(details.Errors, err.Error())
 			continue
@@ -291,7 +297,7 @@ type ControllerDetails struct {
 
 	// MongoVersion is the version of the mongo server running on this
 	// controller.
-	MongoVersion string `yaml:"mongo-version" json:"mongo-version"`
+	MongoVersion string `yaml:"mongo-version,omitempty" json:"mongo-version,omitempty"`
 }
 
 // ModelDetails holds details of a model to show.
