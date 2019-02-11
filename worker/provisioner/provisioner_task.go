@@ -378,7 +378,8 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 		removeDoc, err := processOneMachineProfileChange(m, profileBroker)
 		// The machine is not provisioned yet, therefore we can continue and
 		// the profile will be applied when the machine is provisioned.
-		if err != nil && errors.IsNotProvisioned(err) {
+		if err != nil && (errors.IsNotProvisioned(err) || errors.IsNotValid(err)) {
+			// If the machine is not valid, then continue onwards.
 			continue
 		}
 		if removeDoc {
@@ -428,7 +429,19 @@ func processOneMachineProfileChange(
 	profileBroker environs.LXDProfiler,
 ) (bool, error) {
 	ident := m.Id()
-	logger.Debugf("processOneMachineProfileChange(%s)", ident)
+	logger.Tracef("processOneMachineProfileChange(%s)", ident)
+	// We need to check for the life of the machine here, as the machine
+	// might have been dying when the watcher fired, but is now dead by
+	// the time this is triggered. We still want to clean up dying machines
+	// of the charm profile data, so that the we don't leave any orphan
+	// documents. If the machine is dead, we can't clean up the document
+	// as the machine is dead and we'll return an error doing so.
+	if m.Life() == params.Dead {
+		// Machine is dead, continue onwards as we can't do anything in this
+		// position.
+		logger.Tracef("failed to process profile changes as the machine is dead %q", ident)
+		return false, errors.NotValidf("machine %q", ident)
+	}
 	if machineStatus, _, err := m.InstanceStatus(); err != nil {
 		return false, errors.Annotatef(err, "failed to get machine status %q", ident)
 	} else if machineStatus != status.Running {
