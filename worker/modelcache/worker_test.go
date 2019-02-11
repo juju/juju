@@ -306,6 +306,35 @@ func (s *WorkerSuite) TestAddUnit(c *gc.C) {
 	c.Check(cachedApp, gc.NotNil)
 }
 
+func (s *WorkerSuite) TestRemoveUnit(c *gc.C) {
+	changes := s.captureEvents(c, unitEvents)
+	w := s.start(c)
+
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{})
+	s.State.StartSync()
+	_ = s.nextChange(c, changes)
+
+	controller := s.getController(c, w)
+	modUUID := controller.ModelUUIDs()[0]
+
+	c.Assert(unit.Destroy(), jc.ErrorIsNil)
+	s.State.StartSync()
+
+	// We will either get our unit event,
+	// or time-out after processing all the changes.
+	for {
+		change := s.nextChange(c, changes)
+		if _, ok := change.(cache.RemoveUnit); ok {
+			mod, err := controller.Model(modUUID)
+			c.Assert(err, jc.ErrorIsNil)
+
+			_, err = mod.Unit(unit.Name())
+			c.Check(errors.IsNotFound(err), jc.IsTrue)
+			return
+		}
+	}
+}
+
 func (s *WorkerSuite) captureEvents(c *gc.C, matchers ...func(interface{}) bool) <-chan interface{} {
 	events := make(chan interface{})
 	s.notify = func(change interface{}) {
