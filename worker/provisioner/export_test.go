@@ -75,6 +75,6 @@ func ProcessProfileChanges(p ProvisionerTask, ids []string) error {
 	return p.(*provisionerTask).processProfileChanges(ids)
 }
 
-func ProcessOneProfileChanges(m apiprovisioner.MachineProvisioner, profileBroker environs.LXDProfiler, appName string) (bool, error) {
-	return processOneProfileChange(m, profileBroker, appName)
+func ProcessOneProfileChange(m apiprovisioner.MachineProvisioner, profileBroker environs.LXDProfiler, unitName string) (bool, error) {
+	return processOneProfileChange(m, profileBroker, unitName)
 }
