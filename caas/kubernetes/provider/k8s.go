@@ -230,7 +230,7 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		}
 
 		// create shared-secret secret for controller pod.
-		if err = k.createControllerSecretShared(acfg); err != nil {
+		if err = k.createControllerSecretSharedSecret(acfg); err != nil {
 			return errors.Annotate(err, "creating shared-secret secret for controller")
 		}
 

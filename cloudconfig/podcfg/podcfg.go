@@ -4,6 +4,7 @@
 package podcfg
 
 import (
+	"fmt"
 	"net"
 	"path"
 	"strconv"
@@ -24,6 +25,11 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
+
+const (
+	jujudOCINamespace = "ycliuhw" // TODO(caas): change it to "jujusolutions"
+	jujudOCIName      = "jujud-controller"
+)
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
 type ControllerPodConfig struct {
@@ -196,6 +202,11 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 		}
 	}
 	return nil
+}
+
+// GetTool returns oci image path of jujud.
+func (cfg *ControllerPodConfig) GetTool() string {
+	return fmt.Sprintf("%s/%s:%s", jujudOCINamespace, jujudOCIName, cfg.JujuVersion.String())
 }
 
 func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {

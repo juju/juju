@@ -78,12 +78,22 @@ func (k *kubernetesClient) createControllerService() error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) createControllerSecretShared(agentConfig agent.ConfigSetterWriter) error {
+func (k *kubernetesClient) createControllerSecretSharedSecret(agentConfig agent.ConfigSetterWriter) error {
 	// ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 	si, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return errors.NewNotValid(nil, "agent config has no state serving info")
 	}
+	if si.SharedSecret == "" {
+		// Generate a shared secret for the Mongo replica set, and write it out.
+		sharedSecret, err := mongo.GenerateSharedSecret()
+		if err != nil {
+			return err
+		}
+		si.SharedSecret = sharedSecret
+		agentConfig.SetStateServingInfo(si)
+	}
+	logger.Debugf("creating shared secret, StateServingInfo \n%+v", si)
 	return k.createSecret(
 		resourceNameSharedSecret,
 		stackLabels,
@@ -121,14 +131,6 @@ func (k *kubernetesClient) createControllerConfigmapBootstrapParams(pcfg *podcfg
 		return errors.Trace(err)
 	}
 	logger.Debugf("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
-	// return k.createSecret(
-	// 	resourceNameBootstrapParams,
-	// 	stackLabels,
-	// 	core.SecretTypeOpaque,
-	// 	map[string][]byte{
-	// 		fileNameBootstrapParams: bootstrapParamsFileContent,
-	// 	},
-	// )
 
 	spec := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
@@ -187,7 +189,6 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 					Namespace: k.namespace,
 				},
 				Spec: core.PodSpec{
-					// TerminationGracePeriodSeconds: 10,
 					RestartPolicy: core.RestartPolicyAlways,
 				},
 			},
@@ -227,7 +228,6 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			ObjectMeta: v1.ObjectMeta{
 				Name:   pvcNameMongoStorage,
 				Labels: stackLabels,
-				// Namespace: k.namespace,
 			},
 			Spec: core.PersistentVolumeClaimSpec{
 				StorageClassName: &storageClassName,
@@ -243,7 +243,6 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			ObjectMeta: v1.ObjectMeta{
 				Name:   pvcNameAPIServerStorage,
 				Labels: stackLabels,
-				// Namespace: k.namespace,
 			},
 			Spec: core.PersistentVolumeClaimSpec{
 				StorageClassName: &storageClassName,
@@ -264,7 +263,7 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 	vols = append(vols, core.Volume{
 		Name: pvcNameLogDirStorage,
 		VolumeSource: core.VolumeSource{
-			EmptyDir: &core.EmptyDirVolumeSource{}, // TODO:
+			EmptyDir: &core.EmptyDirVolumeSource{}, // TODO: setup log dir.
 		},
 	})
 	// add volume server.pem secret.
@@ -274,12 +273,12 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			Secret: &core.SecretVolumeSource{
 				SecretName:  resourceNameSSLKey,
 				DefaultMode: &fileMode,
-				// Items: []core.KeyToPath{
-				// 	{
-				// 		Key: fileNameSSLKey,
-				// 		Path: fileNameSSLKey
-				// 	},
-				// },
+				Items: []core.KeyToPath{
+					{
+						Key:  fileNameSSLKey,
+						Path: fileNameSSLKey,
+					},
+				},
 			},
 		},
 	})
@@ -304,11 +303,10 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 		Name: resourceNameAgentConf,
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
-				// Name: resourceNameAgentConf,
 				Items: []core.KeyToPath{
 					{
 						Key:  fileNameAgentConf,
-						Path: "template" + fileNameAgentConf, // TODO:
+						Path: "template" + "-" + fileNameAgentConf,
 					},
 				},
 			},
@@ -321,11 +319,10 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 		Name: resourceNameBootstrapParams,
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
-				// Name: resourceNameBootstrapParams,
 				Items: []core.KeyToPath{
 					{
 						Key:  fileNameBootstrapParams,
-						Path: fileNameBootstrapParams, // TODO:
+						Path: fileNameBootstrapParams,
 					},
 				},
 			},
@@ -353,6 +350,8 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 	}
 	var containerSpec []core.Container
 	// add container mongoDB.
+	// TODO(caas): refactor mongo package to make it usable for IAAS and CAAS,
+	// then generate mongo config from EnsureServerParams.
 	containerSpec = append(containerSpec, core.Container{
 		Name:            "mongodb",
 		ImagePullPolicy: core.PullIfNotPresent,
@@ -367,7 +366,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 			"--sslMode=requireSSL",
 			fmt.Sprintf("--port=%d", portMongoDB),
 			"--journal",
-			"--replSet=juju", // TODO
+			fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName), // TODO
 			"--quiet",
 			"--oplogSize=1024", // TODO
 			"--ipv6",
@@ -436,8 +435,8 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 	containerSpec = append(containerSpec, core.Container{
 		Name: "api-server",
 		// ImagePullPolicy: core.PullIfNotPresent,
-		ImagePullPolicy: core.PullAlways,                      // TODO: for debug
-		Image:           "ycliuhw/jujud-controller:2.6-beta1", // TODO:
+		ImagePullPolicy: core.PullAlways, // TODO: for debug
+		Image:           pcfg.GetTool(),  // TODO:
 		VolumeMounts: []core.VolumeMount{
 			{
 				Name:      pvcNameAPIServerStorage,
