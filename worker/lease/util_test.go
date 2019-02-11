@@ -86,7 +86,13 @@ func (store *Store) Wait(c *gc.C) {
 		default:
 		}
 	case <-time.After(coretesting.LongWait):
-		c.Errorf("Store test took way too long")
+		store.mu.Lock()
+		remaining := make([]string, len(store.expect))
+		for i := range store.expect {
+			remaining[i] = store.expect[i].method
+		}
+		store.mu.Unlock()
+		c.Errorf("Store test took way too long, still expecting %v", remaining)
 	}
 }
 
