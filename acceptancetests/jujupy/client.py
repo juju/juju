@@ -1603,11 +1603,6 @@ class ModelClient:
         reporter = GroupReporter(sys.stdout, desired_state)
         self._wait_for_status(reporter, status_to_ha, VotingNotEnabled,
                               timeout=timeout, start=start)
-        # XXX sinzui 2014-12-04: bug 1399277 happens because
-        # juju claims HA is ready when the monogo replica sets
-        # are not. Juju is not fully usable. The replica set
-        # lag might be 5 minutes.
-        self._backend.pause(300)
 
     def wait_for_deploy_started(self, service_count=1, timeout=1200):
         """Wait until service_count services are 'started'.

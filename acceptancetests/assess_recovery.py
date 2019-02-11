@@ -32,16 +32,6 @@ from utility import (
     until_timeout,
 )
 
-#
-# The following acceptance test has been modifed to remove the HA testing
-# strategy from the test. The CLI no longer supports the following:
-#  - constraints when restoring a backup file
-#  - HA backup and restore
-#
-# Once HA backup and restore are reinstanted in Juju, we should restore the
-# the HA nature of this acceptance test.
-#
-
 __metaclass__ = type
 
 running_instance_pattern = re.compile('\["([^"]+)"\]')
@@ -64,6 +54,15 @@ def deploy_stack(client, charm_series):
     check_token(client, 'One')
     log.info("%s is ready to testing", client.env.environment)
 
+def enable_ha(bs_manager, controller_client):
+    """Enable HA and wait for the controllers to be ready."""
+    log.info("Enabling HA.")
+    controller_client.enable_ha()
+    controller_client.wait_for_ha()
+    show_controller(controller_client)
+    remote_machines = get_remote_machines(
+        controller_client, bs_manager.known_hosts)
+    bs_manager.known_hosts = remote_machines
 
 def show_controller(client):
     controller_info = client.show_controller(format='yaml')
@@ -105,6 +104,9 @@ def parse_args(argv=None):
     strategy.add_argument(
         '--backup', action='store_const', dest='strategy', const='backup',
         help="Test backup/restore.")
+    strategy.add_argument(
+        '--ha-backup', action='store_const', dest='strategy',
+        const='ha-backup', help="Test backup of HA.")
     return parser.parse_args(argv)
 
 @contextmanager
@@ -126,10 +128,19 @@ def assess_recovery(bs_manager, strategy, charm_series):
     log.info("Test started.")
     controller_client = client.get_controller_client()
 
-    backup_file = controller_client.backup()
-    create_tmp_model(client)
-    restore_backup(bs_manager, controller_client, backup_file)
-
+    # ha-backup allows us to still backup in HA mode, so allow us to still
+    # create a cluster of controllers.
+    if strategy in ('ha-backup'):
+        enable_ha(bs_manager, controller_client)
+        backup_file = controller_client.backup()
+        # at the moment we can't currently restore a backup in HA without
+        # removing the controllers and replica set. This test will need to
+        # be fix to accommodate this setup.
+    else:
+        backup_file = controller_client.backup()
+        create_tmp_model(client)
+        restore_backup(bs_manager, controller_client, backup_file)
+    
     log.info("Test complete.")
 
 def main(argv):
