@@ -69,22 +69,6 @@
   revision = "4e5a4a63d9b78757b4891b8de60be2606d8972ee"
 
 [[projects]]
-  digest = "1:c7937d6337f88193ad8aade88c92d7e72b3d5fc6e5002a9515dabca5802624cd"
-  name = "github.com/Microsoft/go-winio"
-  packages = ["."]
-  pruneopts = ""
-  revision = "97e4973ce50b2ff5f09635a57e2b88a037aae829"
-  version = "v0.4.11"
-
-[[projects]]
-  digest = "1:9a3c631555e0351fdc4e696577bb63afd90c399d782a8462dba9d100d7021db3"
-  name = "github.com/Sirupsen/logrus"
-  packages = ["."]
-  pruneopts = ""
-  revision = "e1e72e9de974bd926e5c56f83753fba2df402ce5"
-  version = "v1.3.0"
-
-[[projects]]
   digest = "1:7b42eeb05f45af1cd224ce9c9b1b80d128290a15846826ea447d01126b2728fd"
   name = "github.com/ajstarks/svgo"
   packages = ["."]
@@ -199,63 +183,6 @@
   ]
   pruneopts = ""
   revision = "f0cc927784781fa395c06317c58dea2841ece3a9"
-
-[[projects]]
-  digest = "1:5cfe5235948cd397339690c8569099948365ad478de48b462837061c5db31d7f"
-  name = "github.com/docker/docker"
-  packages = [
-    "api",
-    "api/types",
-    "api/types/blkiodev",
-    "api/types/container",
-    "api/types/events",
-    "api/types/filters",
-    "api/types/image",
-    "api/types/mount",
-    "api/types/network",
-    "api/types/registry",
-    "api/types/strslice",
-    "api/types/swarm",
-    "api/types/time",
-    "api/types/versions",
-    "api/types/volume",
-    "client",
-    "pkg/ioutils",
-    "pkg/longpath",
-    "pkg/system",
-    "pkg/tlsconfig",
-  ]
-  pruneopts = ""
-  revision = "90d35abf7b3535c1c319c872900fbd76374e521c"
-  version = "v17.05.0-ce-rc3"
-
-[[projects]]
-  digest = "1:ebe593d8b65a2947b78b6e164a2dac1a230b977a700b694da3a398b03b7afb04"
-  name = "github.com/docker/go-connections"
-  packages = [
-    "nat",
-    "sockets",
-    "tlsconfig",
-  ]
-  pruneopts = ""
-  revision = "7395e3f8aa162843a74ed6d48e79627d9792ac55"
-  version = "v0.4.0"
-
-[[projects]]
-  digest = "1:582d54fcb7233da8dde1dfd2210a5b9675d0685f84246a8d317b07d680c18b1b"
-  name = "github.com/docker/go-units"
-  packages = ["."]
-  pruneopts = ""
-  revision = "47565b4f722fb6ceae66b95f853feed578a4a51c"
-  version = "v0.3.3"
-
-[[projects]]
-  branch = "master"
-  digest = "1:1d0c4a7f7d52eb8da75993ab0526467360795e9dfdd559020a15bfb53a028809"
-  name = "github.com/docker/libtrust"
-  packages = ["."]
-  pruneopts = ""
-  revision = "aabc10ec26b754e797f9028f4589c5b7bd90dc20"
 
 [[projects]]
   digest = "1:2f78c76767663449b439f940def67b91cc6c589c09e77900c036f3514747d217"
@@ -886,14 +813,6 @@
   revision = "77a895ad01ebc98a4dc95d8355bc825ce80a56f6"
 
 [[projects]]
-  digest = "1:6a874e3ddfb9db2b42bd8c85b6875407c702fa868eed20634ff489bc896ccfd3"
-  name = "github.com/konsorten/go-windows-terminal-sequences"
-  packages = ["."]
-  pruneopts = ""
-  revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
-  version = "v1.0.1"
-
-[[projects]]
   digest = "1:591a2778aa6e896980757ea87e659b3aa13d8c0e790310614028463a31c0998b"
   name = "github.com/kr/pretty"
   packages = ["."]
@@ -1284,10 +1203,8 @@
     "http2",
     "http2/hpack",
     "idna",
-    "internal/socks",
     "internal/timeseries",
     "lex/httplex",
-    "proxy",
     "publicsuffix",
     "trace",
   ]
@@ -1931,8 +1848,6 @@
     "github.com/coreos/go-systemd/unit",
     "github.com/coreos/go-systemd/util",
     "github.com/docker/distribution/reference",
-    "github.com/docker/docker/api/types",
-    "github.com/docker/docker/client",
     "github.com/dustin/go-humanize",
     "github.com/golang/mock/gomock",
     "github.com/google/go-querystring/query",

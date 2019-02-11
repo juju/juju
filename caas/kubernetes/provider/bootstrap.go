@@ -16,7 +16,6 @@ import (
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/agent"
-	// cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/mongo"
 )
@@ -79,7 +78,6 @@ func (k *kubernetesClient) createControllerService() error {
 }
 
 func (k *kubernetesClient) createControllerSecretSharedSecret(agentConfig agent.ConfigSetterWriter) error {
-	// ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 	si, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return errors.NewNotValid(nil, "agent config has no state serving info")
@@ -212,7 +210,6 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 }
 
 func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassName string) error {
-
 	storageSizeAPIServer, err := resource.ParseQuantity(storageSizeAPIServerRaw)
 	if err != nil {
 		return errors.Trace(err)
@@ -414,7 +411,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 			},
 			{
 				Name:      resourceNameAgentConf,
-				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"), // TODO:
+				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"),
 				SubPath:   "template-agent.conf",
 			},
 			{
@@ -436,7 +433,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 		Name: "api-server",
 		// ImagePullPolicy: core.PullIfNotPresent,
 		ImagePullPolicy: core.PullAlways, // TODO: for debug
-		Image:           pcfg.GetTool(),  // TODO:
+		Image:           pcfg.GetTool(),
 		VolumeMounts: []core.VolumeMount{
 			{
 				Name:      pvcNameAPIServerStorage,
@@ -448,7 +445,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 			},
 			{
 				Name:      resourceNameAgentConf,
-				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"), // TODO:
+				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"),
 				SubPath:   "template-agent.conf",
 			},
 			{

@@ -519,7 +519,6 @@ func Bootstrap(
 	callCtx context.ProviderCallContext,
 	args BootstrapParams,
 ) error {
-	isCAASController := jujucloud.CloudIsCAAS(args.Cloud)
 
 	if err := args.Validate(); err != nil {
 		return errors.Annotate(err, "validating bootstrap parameters")
@@ -532,16 +531,12 @@ func Bootstrap(
 		BootstrapSeries:  args.BootstrapSeries,
 		Placement:        args.Placement,
 	}
-
-	var err error
-	if isCAASController {
-		// bootstraping in IAAS mode.
-		err = bootstrapCAAS(ctx, environ, callCtx, args, bootstrapParams)
-	} else {
-		// bootstraping in IAAS mode.
-		err = bootstrapIAAS(ctx, environ, callCtx, args, bootstrapParams)
+	do := bootstrapIAAS
+	if jujucloud.CloudIsCAAS(args.Cloud) {
+		do = bootstrapCAAS
 	}
-	if err != nil {
+
+	if err := do(ctx, environ, callCtx, args, bootstrapParams); err != nil {
 		return errors.Trace(err)
 	}
 	ctx.Infof("Bootstrap agent now started")

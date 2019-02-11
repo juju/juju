@@ -675,7 +675,8 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 
 	if isCAASController {
-		// TODO(caas): wait and fetch controller public endpoint then update juju home
+		// TODO(caas): wait and fetch controller public endpoint then update juju home.
+		// `juju-controller` Service.clusterIP? LB?.
 		return nil
 	}
 
