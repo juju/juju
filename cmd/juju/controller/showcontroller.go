@@ -91,7 +91,6 @@ type ControllerAccessAPI interface {
 	AllModels() ([]base.UserModel, error)
 	MongoVersion() (string, error)
 	IdentityProviderURL() (string, error)
-	BestAPIVersion() int
 	Close() error
 }
 
@@ -142,8 +141,9 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 
 		var (
-			details   ShowControllerDetails
-			allModels []base.UserModel
+			details      ShowControllerDetails
+			allModels    []base.UserModel
+			mongoVersion string
 		)
 
 		// NOTE: this user may have been granted AddModelAccess which
@@ -154,7 +154,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		//
 		// The side-effect to this is that the userAccess() call above
 		// will return LoginAccess even if the user has been granted
-		// AddModelAccess causing the AllModels() call below to fail
+		// AddModelAccess causing the calls in the block below to fail
 		// with a permission error. As a workaround, unless the user
 		// has Superuser access we default to an empty model list which
 		// allows us to display non-model controller details.
@@ -168,14 +168,10 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 				details.Errors = append(details.Errors, err.Error())
 				continue
 			}
-		}
 
-		var mongoVersion string
-		// Check to see if we can call the mongo version. Older versions of the
-		// api do not support mongo version, so we should even prevent the call.
-		if apiVersion := client.BestAPIVersion(); apiVersion >= 6 {
+			// Fetch mongoVersion if the apiserver supports it
 			mongoVersion, err = client.MongoVersion()
-			if err != nil {
+			if err != nil && !errors.IsNotSupported(err) {
 				details.Errors = append(details.Errors, err.Error())
 				continue
 			}

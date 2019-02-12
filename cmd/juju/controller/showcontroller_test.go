@@ -512,6 +512,9 @@ func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.Mo
 }
 
 func (c *fakeController) MongoVersion() (string, error) {
+	if c.bestAPIVersion < 3 {
+		return "", errors.NotSupportedf("requires APIVersion >= 3")
+	}
 	return "3.5.12", nil
 }
 
@@ -530,10 +533,6 @@ func (c *fakeController) AllModels() (result []base.UserModel, _ error) {
 		return result, nil
 	}
 	return all, nil
-}
-
-func (c *fakeController) BestAPIVersion() int {
-	return c.bestAPIVersion
 }
 
 func (c *fakeController) IdentityProviderURL() (string, error) {
