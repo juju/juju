@@ -35,9 +35,8 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v9) of the Uniter API,
-// which adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash
-// and WatchUnitAddressesHash.
+// UniterAPI implements the latest version (v10) of the Uniter API,
+// which adds WatchUnitLXDProfileUpgradeNotifications.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -67,11 +66,18 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
+// UniterAPIV9 adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash,
+// WatchUnitAddressesHash, WatchLXDProfileUpgradeNotifications, and
+// RemoveUpgradeCharmProfileData.
+type UniterAPIV9 struct {
+	UniterAPI
+}
+
 // UniterAPIV8 adds SetContainerSpec, GoalStates, CloudSpec,
 // WatchTrustConfigSettings, WatchActionNotifications,
 // UpgradeSeriesStatus, SetUpgradeSeriesStatus.
 type UniterAPIV8 struct {
-	UniterAPI
+	UniterAPIV9
 }
 
 // UniterAPIV7 adds CMR support to NetworkInfo.
@@ -243,7 +249,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
-		LXDProfileAPI:              NewExternalLXDProfileAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		LXDProfileAPI:              NewExternalLXDProfileAPI(st, resources, authorizer, accessUnit, logger),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		MeterStatus:                msAPI,
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
@@ -264,14 +270,25 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}, nil
 }
 
-// NewUniterAPIV8 creates an instance of the V8 uniter API.
-func NewUniterAPIV8(context facade.Context) (*UniterAPIV8, error) {
+// NewUniterAPIV9 creates an instance of the V9 uniter API.
+func NewUniterAPIV9(context facade.Context) (*UniterAPIV9, error) {
 	uniterAPI, err := NewUniterAPI(context)
 	if err != nil {
 		return nil, err
 	}
-	return &UniterAPIV8{
+	return &UniterAPIV9{
 		UniterAPI: *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV8 creates an instance of the V8 uniter API.
+func NewUniterAPIV8(context facade.Context) (*UniterAPIV8, error) {
+	uniterAPI, err := NewUniterAPIV9(context)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV8{
+		UniterAPIV9: *uniterAPI,
 	}, nil
 }
 
