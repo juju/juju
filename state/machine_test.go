@@ -217,7 +217,7 @@ func (s *MachineSuite) TestNextUpgradeCharmProfileUnitNameZero(c *gc.C) {
 	m := s.machine
 
 	name, err := m.NextUpgradeCharmProfileUnitName()
-	c.Assert(err, gc.ErrorMatches, "cannot get instance charm profile data for machine 1: instance charm profile data for machine 1 not found")
+	c.Assert(err, gc.ErrorMatches, "did not find unused instance charm profile data for machine 1: instance charm profile data for machine 1 not found")
 	c.Assert(name, gc.Equals, "")
 }
 
@@ -297,6 +297,13 @@ func (s *MachineSuite) TestNextSetUpgradeCharmProfileCompleteNoBeingUsed(c *gc.C
 
 	err := s.machine.NextSetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
 	c.Assert(err, gc.ErrorMatches, "cannot set complete status of instance charm profile data for machine 1: instance charm profile data for machine 1 not found")
+}
+
+func (s *MachineSuite) TestLXDProfileUpgradeUnitToWatch(c *gc.C) {
+	s.assertSetUpUnitForLXDProfile(c)
+	unitName, err := s.machine.LXDProfileUpgradeUnitToWatch("lxd-profile")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitName, gc.Equals, "lxd-profile/0")
 }
 
 func (s *MachineSuite) assertUpgradeCharmProfileNotRequired(c *gc.C, expectedUnitName string) {
