@@ -1278,6 +1278,29 @@ func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
 	c.Assert(machineStatus.Message, gc.DeepEquals, "alive")
 }
 
+func (s *MachineSuite) TestMachineSetModificationStatus(c *gc.C) {
+	// Machine needs to be provisioned first.
+	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	now := coretesting.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Applied,
+		Message: "applied",
+		Since:   &now,
+	}
+	err = s.machine.SetModificationStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Reload machine and check result.
+	err = s.machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	machineStatus, err := s.machine.ModificationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machineStatus.Status, gc.DeepEquals, status.Applied)
+	c.Assert(machineStatus.Message, gc.DeepEquals, "applied")
+}
+
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
