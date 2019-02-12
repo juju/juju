@@ -206,6 +206,10 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"modification-status": M{
+			"current": "pending",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
 		"series": "quantal",
 		"network-interfaces": M{
 			"eth0": M{
@@ -229,6 +233,10 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"modification-status": M{
+			"current": "pending",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
 		"series": "quantal",
 		"network-interfaces": M{
 			"eth0": M{
@@ -248,6 +256,10 @@ var (
 		"ip-addresses": []string{"10.0.1.1"},
 		"instance-id":  "controller-1",
 		"machine-status": M{
+			"current": "pending",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"modification-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
@@ -302,6 +314,10 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"modification-status": M{
+			"current": "pending",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
 		"series": "quantal",
 		"network-interfaces": M{
 			"eth0": M{
@@ -325,6 +341,10 @@ var (
 			"message": "I am number three",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"modification-status": M{
+			"current": "pending",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
 		"series": "quantal",
 		"network-interfaces": M{
 			"eth0": M{
@@ -344,6 +364,10 @@ var (
 		"ip-addresses": []string{"10.0.4.1"},
 		"instance-id":  "controller-4",
 		"machine-status": M{
+			"current": "pending",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"modification-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
@@ -381,6 +405,10 @@ var (
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"series": "quantal",
 						"network-interfaces": M{
 							"eth0": M{
@@ -395,6 +423,10 @@ var (
 				"ip-addresses": []string{"10.0.2.1"},
 				"instance-id":  "controller-2",
 				"machine-status": M{
+					"current": "pending",
+					"since":   "01 Apr 15 01:23+10:00",
+				},
+				"modification-status": M{
 					"current": "pending",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
@@ -417,6 +449,10 @@ var (
 					"current": "pending",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
+				"modification-status": M{
+					"current": "pending",
+					"since":   "01 Apr 15 01:23+10:00",
+				},
 				"series": "quantal",
 			},
 		},
@@ -424,6 +460,10 @@ var (
 		"ip-addresses": []string{"10.0.1.1"},
 		"instance-id":  "controller-1",
 		"machine-status": M{
+			"current": "pending",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"modification-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
@@ -514,6 +554,10 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"series":                   "quantal",
 						"controller-member-status": "adding-vote",
 					},
@@ -545,6 +589,10 @@ var statusTests = []testCase{
 						"ip-addresses": []string{"10.0.0.1", "10.0.0.2"},
 						"instance-id":  "controller-0",
 						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"modification-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -591,6 +639,10 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"series": "quantal",
 						"network-interfaces": M{
 							"eth0": M{
@@ -627,6 +679,10 @@ var statusTests = []testCase{
 						"ip-addresses": []string{"10.0.0.1", "10.0.0.2"},
 						"instance-id":  "controller-0",
 						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"modification-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -686,6 +742,10 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"series": "quantal",
 						"network-interfaces": M{
 							"eth0": M{
@@ -732,6 +792,10 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"series":                   "quantal",
 						"constraints":              "cores=2 mem=8192M root-disk=8192M",
 						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
@@ -764,6 +828,10 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"series":                   "quantal",
 						"controller-member-status": "adding-vote",
 					},
@@ -775,7 +843,6 @@ var statusTests = []testCase{
 				},
 			},
 		},
-
 		startMissingMachine{"0"},
 		expect{
 			what: "machine 0 reports missing",
@@ -791,6 +858,10 @@ var statusTests = []testCase{
 						"machine-status": M{
 							"current": "unknown",
 							"message": "missing",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"modification-status": M{
+							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
@@ -992,6 +1063,10 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"juju-status": M{
 							"current": "stopped",
 							"message": "Really?",
@@ -1012,6 +1087,10 @@ var statusTests = []testCase{
 						"ip-addresses": []string{"10.0.4.1"},
 						"instance-id":  "controller-4",
 						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"modification-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -1038,6 +1117,10 @@ var statusTests = []testCase{
 						},
 						"instance-id": "pending",
 						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"modification-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -1558,7 +1641,10 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"series": "quantal",
 					},
 				},
@@ -1618,7 +1704,10 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"series":   "quantal",
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
@@ -1653,7 +1742,6 @@ var statusTests = []testCase{
 			},
 		},
 	),
-
 	// Relation tests
 	test( // 9
 		"complex scenario with multiple related applications",
@@ -1975,7 +2063,6 @@ var statusTests = []testCase{
 			},
 		},
 	),
-
 	// Subordinate tests
 	test( // 11
 		"one application with one subordinate application and leader",
@@ -2439,7 +2526,10 @@ var statusTests = []testCase{
 									"current": "pending",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-
+								"modification-status": M{
+									"current": "pending",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
 								"series": "quantal",
 								"network-interfaces": M{
 									"eth0": M{
@@ -2457,7 +2547,10 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"series": "quantal",
 						"network-interfaces": M{
 							"eth0": M{
@@ -3146,6 +3239,10 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"series": "quantal",
 						"network-interfaces": M{
 							"eth0": M{
@@ -3364,6 +3461,10 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
+						"modification-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
 						"series": "quantal",
 						"network-interfaces": M{
 							"eth0": M{
@@ -3388,6 +3489,10 @@ var statusTests = []testCase{
 						"ip-addresses":             []string{"10.0.0.1"},
 						"instance-id":              "controller-0",
 						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"modification-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -3738,6 +3843,25 @@ func (sm setMachineInstanceStatus) step(c *gc.C, ctx *context) {
 		Since:   &now,
 	}
 	err = m.SetInstanceStatus(s)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type setMachineModificationStatus struct {
+	machineId string
+	Status    status.Status
+	Message   string
+}
+
+func (sm setMachineModificationStatus) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Machine(sm.machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Now()
+	s := status.StatusInfo{
+		Status:  sm.Status,
+		Message: sm.Message,
+		Since:   &now,
+	}
+	err = m.SetModificationStatus(s)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -4786,6 +4910,14 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addRemoteApplication{name: "remote-wordpress", charm: "wordpress", endpoints: []string{"db"}, isConsumerProxy: true},
 		relateApplications{"remote-wordpress", "mysql", ""},
 		addOfferConnection{sourceModelUUID: coretesting.ModelTag.Id(), name: "hosted-mysql", username: "fred", relationKey: "remote-wordpress:db mysql:server"},
+
+		// test modification status
+		addMachine{machineId: "4", job: state.JobHostUnits},
+		setAddresses{"4", network.NewAddresses("10.0.3.1")},
+		startAliveMachine{"4"},
+		setMachineStatus{"4", status.Started, ""},
+		setMachineInstanceStatus{"4", status.Started, "I am number three"},
+		setMachineModificationStatus{"4", status.Error, "I am an error"},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -4823,6 +4955,7 @@ Machine  State    DNS       Inst id       Series   AZ          Message
 1        started  10.0.1.1  controller-1  quantal              
 2        started  10.0.2.1  controller-2  quantal              
 3        started  10.0.3.1  controller-3  quantal              I am number three
+4        error    10.0.3.1  controller-4  quantal              I am an error
 
 Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
 hosted-mysql  mysql        mysql  1    1/1        server    mysql      provider
@@ -5246,6 +5379,9 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"    machine-status:\n" +
 		"      current: pending\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
+		"    modification-status:\n" +
+		"      current: pending\n" +
+		"      since: 01 Apr 15 01:23+10:00\n" +
 		"    series: quantal\n" +
 		"    network-interfaces:\n" +
 		"      eth0:\n" +
@@ -5260,6 +5396,9 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"          since: 01 Apr 15 01:23+10:00\n" +
 		"        instance-id: pending\n" +
 		"        machine-status:\n" +
+		"          current: pending\n" +
+		"          since: 01 Apr 15 01:23+10:00\n" +
+		"        modification-status:\n" +
 		"          current: pending\n" +
 		"          since: 01 Apr 15 01:23+10:00\n" +
 		"        series: quantal\n" +
