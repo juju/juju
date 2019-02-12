@@ -370,12 +370,13 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 
 func (s *MigrationSuite) TestInstanceCharmProfileDataFields(c *gc.C) {
 	ignored := set.NewStrings(
-		// DocID is the model + machine id
+		// DocID is the model + unit name
 		"DocID",
 		"MachineId",
-		"UpgradeCharmProfileApplication",
+		"UpgradeCharmProfileUnit",
 		"UpgradeCharmProfileCharmURL",
 		"UpgradeCharmProfileComplete",
+		"BeingUsed",
 	)
 	migrated := set.NewStrings()
 	s.AssertExportedFields(c, instanceCharmProfileData{}, migrated.Union(ignored))

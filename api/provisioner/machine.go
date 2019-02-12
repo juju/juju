@@ -120,19 +120,19 @@ type MachineProvisioner interface {
 	WatchContainersCharmProfiles(ctype instance.ContainerType) (watcher.StringsWatcher, error)
 
 	// CharmProfileChangeInfo retrieves the info necessary to change a charm
-	// profile used by a machine.
-	CharmProfileChangeInfo() (CharmProfileChangeInfo, error)
+	// profile used by a machine, for the given unit.
+	CharmProfileChangeInfo(string) (CharmProfileChangeInfo, error)
 
 	// SetCharmProfiles records the given slice of charm profile names.
 	SetCharmProfiles([]string) error
 
-	// SetUpgradeCharmProfileComplete recorded that the result of updating
-	// the machine's charm profile(s)
-	SetUpgradeCharmProfileComplete(string) error
+	// SetUpgradeCharmProfileComplete records the result of updating
+	// the machine's charm profile(s), for the given unit.
+	SetUpgradeCharmProfileComplete(unitName string, message string) error
 
 	// RemoveUpgradeCharmProfileData completely removes the instance charm profile
-	// data for a machine, even if the machine is dead.
-	RemoveUpgradeCharmProfileData() error
+	// data for a machine and the given unit, even if the machine is dead.
+	RemoveUpgradeCharmProfileData(string) error
 }
 
 // Machine represents a juju machine as seen by the provisioner worker.
@@ -572,11 +572,16 @@ type CharmProfileChangeInfo struct {
 }
 
 // CharmProfileChangeInfo implements MachineProvisioner.CharmProfileChangeInfo.
-func (m *Machine) CharmProfileChangeInfo() (CharmProfileChangeInfo, error) {
+func (m *Machine) CharmProfileChangeInfo(unitName string) (CharmProfileChangeInfo, error) {
 	var results params.ProfileChangeResults
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: m.tag.String()},
-	}}
+	args := params.ProfileArgs{
+		Args: []params.ProfileArg{
+			{
+				Entity:   params.Entity{Tag: m.tag.String()},
+				UnitName: unitName,
+			},
+		},
+	}
 	err := m.st.facade.FacadeCall("CharmProfileChangeInfo", args, &results)
 	if err != nil {
 		return CharmProfileChangeInfo{}, err
@@ -627,13 +632,14 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 }
 
 // SetUpgradeCharmProfileComplete implements MachineProvisioner.SetUpgradeCharmProfileComplete.
-func (m *Machine) SetUpgradeCharmProfileComplete(message string) error {
+func (m *Machine) SetUpgradeCharmProfileComplete(unitName, message string) error {
 	var results params.ErrorResults
 	args := params.SetProfileUpgradeCompleteArgs{
 		Args: []params.SetProfileUpgradeCompleteArg{
 			{
-				Entity:  params.Entity{Tag: m.tag.String()},
-				Message: message,
+				Entity:   params.Entity{Tag: m.tag.String()},
+				UnitName: unitName,
+				Message:  message,
 			},
 		},
 	}
@@ -652,12 +658,13 @@ func (m *Machine) SetUpgradeCharmProfileComplete(message string) error {
 }
 
 // RemoveUpgradeCharmProfileData implements MachineProvisioner.RemoveUpgradeCharmProfileData.
-func (m *Machine) RemoveUpgradeCharmProfileData() error {
+func (m *Machine) RemoveUpgradeCharmProfileData(unitName string) error {
 	var results params.ErrorResults
-	args := params.Entities{
-		Entities: []params.Entity{
+	args := params.ProfileArgs{
+		Args: []params.ProfileArg{
 			{
-				Tag: m.tag.String(),
+				Entity:   params.Entity{Tag: m.tag.String()},
+				UnitName: unitName,
 			},
 		},
 	}
