@@ -2534,21 +2534,24 @@ func (m *Machine) RemoveUpgradeCharmProfileData(unitName string) error {
 // when a request has been made to delete on all of them.
 
 func getNextInstanceCharmProfileData(st *State, id string, used bool) (instanceCharmProfileData, error) {
-	logger.Debugf("trying to get next instance charm profile data for machine %s here", id)
+	logger.Tracef("trying to get next instance charm profile data for machine %s here", id)
 	collection, closer := st.db().GetCollection(instanceCharmProfileDataC)
 	defer closer()
 
-	// machineRegExp and query to find one charmInstaceProfileDoc in the current model and machine
-	// where being-used the same as the passed in bool.
+	// machineRegExp and query to find one charmInstanceProfileDataDoc
+	// in the current model and machine where being-used the same as
+	// the passed in bool.
 	machineRegExp := fmt.Sprintf("^%s:%s#%s$", st.ModelUUID(), id, names.UnitSnippet)
 	query := bson.D{{"_id", bson.D{{"$regex", machineRegExp}}}, {"being-used", used}}
 	var instData instanceCharmProfileData
 	err := collection.Find(query).One(&instData)
 	if err == mgo.ErrNotFound {
-		return instanceCharmProfileData{}, errors.NotFoundf("instance charm profile data for machine %v", id)
+		return instanceCharmProfileData{},
+			errors.NotFoundf("instance charm profile data for machine %v", id)
 	}
 	if err != nil {
-		return instanceCharmProfileData{}, errors.Annotatef(err, "cannot get instance charm profile data for machine %v", id)
+		return instanceCharmProfileData{},
+			errors.Annotatef(err, "cannot get instance charm profile data for machine %v", id)
 	}
 	return instData, nil
 }
@@ -2556,22 +2559,7 @@ func getNextInstanceCharmProfileData(st *State, id string, used bool) (instanceC
 // NextUpgradeCharmProfileUnitName returns the first unit name
 // relate to the first instanceCharmProfileData doc for this machine.
 func (m *Machine) NextUpgradeCharmProfileUnitName() (string, error) {
-	instData, err := getNextInstanceCharmProfileData(m.st, m.Id(), false)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot get instance charm profile data for machine %v", m.Id())
-	}
-	err = m.markBeingUsedUpgradeCharmProfileDataTrue(instData.UpgradeCharmProfileUnit)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot mark delete me. instance charm profile data for machine %v", m.Id())
-	}
-	return instData.UpgradeCharmProfileUnit, nil
-}
-
-// markBeingUsedUpgradeCharmProfileDataTrue changes BeingUsed to true, so that
-// the application name associated with the instanceCharmProfileDoc for this
-// machine and the given unitName is not returned again with
-// UpgradeCharmApplication
-func (m *Machine) markBeingUsedUpgradeCharmProfileDataTrue(unitName string) error {
+	var unitName string
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2582,14 +2570,14 @@ func (m *Machine) markBeingUsedUpgradeCharmProfileDataTrue(unitName string) erro
 		if life == Dead || life == Dying {
 			return nil, ErrDead
 		}
-		docId := m.instanceCharmProfileDataId(unitName)
-		data, err := getInstanceCharmProfileData(m.st, docId)
+		instData, err := getNextInstanceCharmProfileData(m.st, m.Id(), false)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "did not find unused instance charm profile data for machine %s", m.Id())
 		}
-		if data.BeingUsed {
-			return nil, jujutxn.ErrNoOperations
+		if instData.BeingUsed {
+			return nil, errors.Errorf("received instance charm profile data already being used %q", instData.DocID)
 		}
+		unitName = instData.UpgradeCharmProfileUnit
 		return []txn.Op{
 			{
 				C:      machinesC,
@@ -2598,7 +2586,7 @@ func (m *Machine) markBeingUsedUpgradeCharmProfileDataTrue(unitName string) erro
 			},
 			{
 				C:      instanceCharmProfileDataC,
-				Id:     docId,
+				Id:     instData.DocID,
 				Assert: bson.D{{"being-used", false}},
 				Update: bson.D{{"$set", bson.D{{"being-used", true}}}},
 			},
@@ -2606,10 +2594,9 @@ func (m *Machine) markBeingUsedUpgradeCharmProfileDataTrue(unitName string) erro
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	return nil
-
+	return unitName, nil
 }
 
 // NextRemoveUpgradeCharmProfileData remove the doc for the first found on
@@ -2634,6 +2621,29 @@ func (m *Machine) NextSetUpgradeCharmProfileComplete(msg string) error {
 		return errors.Annotatef(err, "cannot set complete status of instance charm profile data for machine %v", m.Id())
 	}
 	return m.SetUpgradeCharmProfileComplete(instData.UpgradeCharmProfileUnit, msg)
+}
+
+// LXDProfileUpgradeUnitToWatch returns the docID that the call to
+// machine.WatchLXDProfileUpgradeNotifications() should watch based
+// on the current machine and the application name provided.
+//
+// NOTE: This function is for backwards compatibility with UniterAPIV9.
+// If there 2 units of the same application on the machine, only the
+// first found will be returned.  This is a known flaw in the logic
+// and roughly maps to previous broken behavior.
+func (m *Machine) LXDProfileUpgradeUnitToWatch(appName string) (string, error) {
+	units, err := m.Units()
+	if err != nil {
+		return "", err
+	}
+	var unitName string
+	for _, unit := range units {
+		if unit.ApplicationName() == appName {
+			unitName = unit.Name()
+			break
+		}
+	}
+	return unitName, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.
