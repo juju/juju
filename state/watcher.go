@@ -1957,17 +1957,18 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
 // of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
-// upgrade completed field that is specific to the unit.
-func (m *Machine) WatchLXDProfileUpgradeNotifications(unitName string) (StringsWatcher, error) {
-	filter := func(id interface{}) bool {
-		docId, err := m.st.strictLocalID(id.(string))
-		if err != nil {
-			return false
-		}
-		return docId == m.instanceCharmProfileDataId(unitName)
+// upgrade completed field that is specific to an application name.  Used by
+// UniterAPI v9.
+func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (StringsWatcher, error) {
+	unitName, err := m.LXDProfileUpgradeUnitToWatch(applicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	docId := m.instanceCharmProfileDataId(unitName)
-	return newInstanceCharmProfileDataWatcher(m.st, docId, filter), nil
+	watchDocId := m.instanceCharmProfileDataId(unitName)
+	filter := func(id interface{}) bool {
+		return id.(string) == watchDocId
+	}
+	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, filter), nil
 }
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
@@ -1978,7 +1979,11 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return m.WatchLXDProfileUpgradeNotifications(u.Name())
+	watchDocId := m.instanceCharmProfileDataId(u.doc.Name)
+	filter := func(id interface{}) bool {
+		return id.(string) == watchDocId
+	}
+	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, filter), nil
 }
 
 // instanceCharmProfileDataWatcher notifies about any changes to the
@@ -2035,7 +2040,6 @@ func (w *instanceCharmProfileDataWatcher) initial() error {
 }
 
 func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, error) {
-	machineId := change.Id.(string)
 	if change.Revno == -1 {
 		return false, nil
 	}
@@ -2050,7 +2054,7 @@ func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, er
 			logger.Debugf("instanceCharmProfileData NOT mgo err not found")
 			return false, err
 		}
-		logger.Tracef("instanceCharmProfileData for %q: mgo err not found", machineId)
+		logger.Tracef("instanceCharmProfileData for %q: mgo err not found", w.docId)
 		return false, nil
 	}
 
