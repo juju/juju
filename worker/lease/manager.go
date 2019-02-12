@@ -433,10 +433,6 @@ func (manager *Manager) computeNextTimeout(lastTick time.Time, leases map[lease.
 }
 
 func (manager *Manager) setupInitialTimer() {
-	// Create a timer at max timeout, we'll update after refreshing leases
-	manager.muNextTimeout.Lock()
-	manager.timer = manager.config.Clock.NewTimer(manager.config.MaxSleep)
-	manager.muNextTimeout.Unlock()
 	// lastTick has never happened, so pass in the epoch time
 	manager.computeNextTimeout(time.Time{}, manager.config.Store.Leases())
 }
@@ -445,7 +441,22 @@ func (manager *Manager) setNextTimeout(t time.Time) {
 	manager.muNextTimeout.Lock()
 	manager.nextTimeout = t
 	d := t.Sub(manager.config.Clock.Now())
-	manager.timer.Reset(d)
+	if manager.timer == nil {
+		manager.timer = manager.config.Clock.NewTimer(d)
+	} else {
+		// See the docs on Timer.Reset() that says it isn't safe to call
+		// on a non-stopped channel, and if it is stopped, you need to check
+		// if the channel needs to be drained anyway. It isn't safe to drain
+		// unconditionally in case another goroutine has already noticed,
+		// but make an attempt.
+		if !manager.timer.Stop() {
+			select {
+			case <-manager.timer.Chan():
+			default:
+			}
+		}
+		manager.timer.Reset(d)
+	}
 	manager.muNextTimeout.Unlock()
 }
 
