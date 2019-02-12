@@ -236,6 +236,7 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture(c *gc.C) {
 
 func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 	const newLeaseSecs = 63
+	firstRelease := make(chan struct{})
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
@@ -251,6 +252,11 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 			},
 		}, {
 			method: "Refresh",
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				close(firstRelease)
+			},
+		}, {
+			method: "Refresh",
 		}, {
 			method: "ExpireLease",
 			args:   []interface{}{key("redis")},
@@ -263,7 +269,17 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		waitAdvance(c, clock, justAfterSeconds(newLeaseSecs), 1)
+		// Move forward 1 minute, and we should wake up to Refresh, but this doesn't
+		// trigger any expiration. It does cause us to notice that it will expire
+		// in 3 more seconds
+		waitAdvance(c, clock, time.Minute, 1)
+		select {
+		case <-firstRelease:
+		case <-time.After(testing.LongWait):
+			c.Errorf("waited too long")
+		}
+		// Now we move forward the remaining 3 seconds and wake up to refresh and expire
+		waitAdvance(c, clock, 3*time.Second, 1)
 	})
 }
 
@@ -288,6 +304,9 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 					Expiry: offset(newLeaseSecs * time.Second),
 				}
 			},
+		}, {
+			// We do trigger a Refresh, but we don't expire the key.
+			method: "Refresh",
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
@@ -301,6 +320,7 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 
 func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 	const newLeaseSecs = 63
+	firstRelease := make(chan struct{})
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -322,6 +342,11 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 			},
 		}, {
 			method: "Refresh",
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				close(firstRelease)
+			},
+		}, {
+			method: "Refresh",
 		}, {
 			method: "ExpireLease",
 			args:   []interface{}{key("redis")},
@@ -334,7 +359,14 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		waitAdvance(c, clock, justAfterSeconds(newLeaseSecs), 1)
+		// Notice the first wakeup, but no expirations, and queued up a second wakeup
+		waitAdvance(c, clock, time.Minute, 1)
+		select {
+		case <-firstRelease:
+		case <-time.After(testing.LongWait):
+			c.Errorf("waited too long")
+		}
+		waitAdvance(c, clock, 3*time.Second, 1)
 	})
 }
 

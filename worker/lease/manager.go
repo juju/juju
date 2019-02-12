@@ -427,7 +427,7 @@ func (manager *Manager) computeNextTimeout(lastTick time.Time, leases map[lease.
 		}
 		nextTick = info.Expiry
 	}
-	manager.config.Logger.Tracef("[%s] next expire decided on %v %v",
+	manager.config.Logger.Tracef("[%s] next expire in %v %v",
 		manager.logContext, nextTick.Sub(now).Round(time.Millisecond), nextTick)
 	manager.setNextTimeout(nextTick)
 }
