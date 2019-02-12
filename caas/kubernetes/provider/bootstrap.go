@@ -86,7 +86,7 @@ func (k *kubernetesClient) createControllerService() error {
 }
 
 type secretEnsurer interface {
-	ensureSecret(Secret *core.Secret) error
+	createSecret(Secret *core.Secret) error
 	getSecret(secretName string) (*core.Secret, error)
 	GetCurrentNamespace() string
 }
@@ -104,7 +104,7 @@ func getControllerSecret(broker secretEnsurer) (secret *core.Secret, err error) 
 		return secret, nil
 	}
 	if errors.IsNotFound(err) {
-		err = broker.ensureSecret(&core.Secret{
+		err = broker.createSecret(&core.Secret{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      secretName,
 				Labels:    stackLabelsGetter(JujuControllerStackName),
@@ -165,7 +165,7 @@ func (k *kubernetesClient) createControllerSecretMongoAdmin(agentConfig agent.Co
 }
 
 type configMapEnsurer interface {
-	ensureConfigMap(configMap *core.ConfigMap) error
+	createConfigMap(configMap *core.ConfigMap) error
 	getConfigMap(cmName string) (*core.ConfigMap, error)
 	GetCurrentNamespace() string
 }
@@ -183,7 +183,7 @@ func getControllerConfigMap(broker configMapEnsurer) (cm *core.ConfigMap, err er
 		return cm, nil
 	}
 	if errors.IsNotFound(err) {
-		err = broker.ensureConfigMap(&core.ConfigMap{
+		err = broker.createConfigMap(&core.ConfigMap{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      cmName,
 				Labels:    stackLabelsGetter(JujuControllerStackName),

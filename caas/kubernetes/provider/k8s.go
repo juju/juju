@@ -454,22 +454,8 @@ func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
 	return secret, nil
 }
 
-func (k *kubernetesClient) createSecret(
-	secretName string,
-	labels map[string]string,
-	secretType core.SecretType,
-	data map[string][]byte,
-) error {
-	spec := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      secretName,
-			Namespace: k.namespace,
-			Labels:    labels},
-		Type: secretType,
-		Data: data,
-	}
-	logger.Debugf("creating secret: \n%+v", spec)
-	_, err := k.CoreV1().Secrets(k.namespace).Create(spec)
+func (k *kubernetesClient) createSecret(secret *core.Secret) error {
+	_, err := k.CoreV1().Secrets(k.namespace).Create(secret)
 	return errors.Trace(err)
 }
 
@@ -1951,6 +1937,11 @@ func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
 	if k8serrors.IsNotFound(err) {
 		_, err = configMaps.Create(configMap)
 	}
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) createConfigMap(configMap *core.ConfigMap) error {
+	_, err := k.CoreV1().ConfigMaps(k.namespace).Create(configMap)
 	return errors.Trace(err)
 }
 
