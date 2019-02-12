@@ -192,6 +192,20 @@ func (mr *MockMachineProvisionerMockRecorder) ModelAgentVersion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelAgentVersion", reflect.TypeOf((*MockMachineProvisioner)(nil).ModelAgentVersion))
 }
 
+// ModificationStatus mocks base method
+func (m *MockMachineProvisioner) ModificationStatus() (status.Status, string, error) {
+	ret := m.ctrl.Call(m, "ModificationStatus")
+	ret0, _ := ret[0].(status.Status)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ModificationStatus indicates an expected call of ModificationStatus
+func (mr *MockMachineProvisionerMockRecorder) ModificationStatus() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModificationStatus", reflect.TypeOf((*MockMachineProvisioner)(nil).ModificationStatus))
+}
+
 // ProvisioningInfo mocks base method
 func (m *MockMachineProvisioner) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	ret := m.ctrl.Call(m, "ProvisioningInfo")
@@ -275,6 +289,18 @@ func (m *MockMachineProvisioner) SetInstanceStatus(arg0 status.Status, arg1 stri
 // SetInstanceStatus indicates an expected call of SetInstanceStatus
 func (mr *MockMachineProvisionerMockRecorder) SetInstanceStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceStatus", reflect.TypeOf((*MockMachineProvisioner)(nil).SetInstanceStatus), arg0, arg1, arg2)
+}
+
+// SetModificationStatus mocks base method
+func (m *MockMachineProvisioner) SetModificationStatus(arg0 status.Status, arg1 string, arg2 map[string]interface{}) error {
+	ret := m.ctrl.Call(m, "SetModificationStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModificationStatus indicates an expected call of SetModificationStatus
+func (mr *MockMachineProvisionerMockRecorder) SetModificationStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModificationStatus", reflect.TypeOf((*MockMachineProvisioner)(nil).SetModificationStatus), arg0, arg1, arg2)
 }
 
 // SetPassword mocks base method

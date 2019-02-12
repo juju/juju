@@ -343,6 +343,7 @@ func setUpSuccessfulMockProfileMachine(ctrl *gomock.Controller, num, old string,
 	} else {
 		mExp.SetInstanceStatus(status.Running, "Running", nil).Return(nil)
 		mExp.SetStatus(status.Started, "", nil).Return(nil)
+		mExp.SetModificationStatus(status.Applied, "", nil).Return(nil)
 		mExp.SetUpgradeCharmProfileComplete(unitName, lxdprofile.SuccessStatus).Return(nil)
 	}
 
@@ -357,6 +358,7 @@ func setUpFailureMockProfileMachine(ctrl *gomock.Controller, num string) *apipro
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
 	mExp.Life().Return(params.Alive)
 	mExp.SetInstanceStatus(status.Error, gomock.Any(), nil).Return(nil)
+	mExp.SetModificationStatus(status.Error, gomock.Any(), nil).Return(nil)
 	mExp.SetUpgradeCharmProfileComplete(gomock.Any(), gomock.Any()).Return(nil)
 
 	return mockMachine
