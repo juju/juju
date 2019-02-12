@@ -244,12 +244,12 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		}
 
 		// create bootstrap-params configmap for controller pod.
-		if err = k.createControllerConfigmapBootstrapParams(pcfg); err != nil {
+		if err = k.ensureControllerConfigmapBootstrapParams(pcfg); err != nil {
 			return errors.Annotate(err, "creating bootstrap-params configmap for controller")
 		}
 
 		// create agent config configmap for controller pod.
-		if err = k.createControllerConfigmapAgentConf(acfg); err != nil {
+		if err = k.ensureControllerConfigmapAgentConf(acfg); err != nil {
 			return errors.Annotate(err, "creating agent config configmap for controller")
 		}
 
@@ -1938,6 +1938,17 @@ func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
 		_, err = configMaps.Create(configMap)
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) {
+	cm, err := k.CoreV1().ConfigMaps(k.namespace).Get(cmName, v1.GetOptions{IncludeUninitialized: true})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, errors.NotFoundf("configmap %q", cmName)
+		}
+		return nil, errors.Trace(err)
+	}
+	return cm, nil
 }
 
 // operatorPod returns a *core.Pod for the operator pod

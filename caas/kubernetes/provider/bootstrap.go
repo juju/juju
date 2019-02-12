@@ -35,16 +35,17 @@ const (
 )
 
 var (
-	stackLabelsGetter                 = func(stackName string) map[string]string { return map[string]string{labelApplication: stackName} }
-	resourceNameGetterService         = func(stackName string) string { return stackName }
-	resourceNameGetterStatefulSet     = resourceNameGetterService
-	resourceNameGetterSharedSecret    = resourceNameGetter(fileNameSharedSecret)
-	resourceNameGetterSSLKey          = resourceNameGetter(fileNameSSLKey)
-	resourceNameGetterBootstrapParams = resourceNameGetter(fileNameBootstrapParams)
-	resourceNameGetterAgentConf       = resourceNameGetter(fileNameAgentConf)
-	pvcNameGetterMongoStorage         = resourceNameGetter("mongo-storage")
-	pvcNameGetterLogDirStorage        = resourceNameGetter("jujud-log-storage")
-	pvcNameGetterAPIServerStorage     = resourceNameGetter("jujud-storage")
+	stackLabelsGetter                       = func(stackName string) map[string]string { return map[string]string{labelApplication: stackName} }
+	resourceNameGetterService               = func(stackName string) string { return stackName }
+	resourceNameGetterStatefulSet           = resourceNameGetterService
+	resourceNameGetterSharedSecret          = resourceNameGetter(fileNameSharedSecret)
+	resourceNameGetterSSLKey                = resourceNameGetter(fileNameSSLKey)
+	resourceNameGetterVolumeBootstrapParams = resourceNameGetter(fileNameBootstrapParams)
+	resourceNameGetterVolumeAgentConf       = resourceNameGetter(fileNameAgentConf)
+	resourceNameGetterConfigMap             = resourceNameGetter("configmap")
+	pvcNameGetterMongoStorage               = resourceNameGetter("mongo-storage")
+	pvcNameGetterLogDirStorage              = resourceNameGetter("jujud-log-storage")
+	pvcNameGetterAPIServerStorage           = resourceNameGetter("jujud-storage")
 )
 
 func resourceNameGetter(name string) func(string) string {
@@ -129,48 +130,70 @@ func (k *kubernetesClient) createControllerSecretMongoAdmin(agentConfig agent.Co
 	return nil
 }
 
-func (k *kubernetesClient) createControllerConfigmapBootstrapParams(pcfg *podcfg.ControllerPodConfig) error {
+type configMapEnsurer interface {
+	ensureConfigMap(configMap *core.ConfigMap) error
+	getConfigMap(cmName string) (*core.ConfigMap, error)
+	GetCurrentNamespace() string
+}
+
+func getControllerConfigMap(broker configMapEnsurer) (cm *core.ConfigMap, err error) {
+	defer func() {
+		if cm.Data == nil {
+			cm.Data = map[string]string{}
+		}
+	}()
+
+	cmName := resourceNameGetterConfigMap(JujuControllerStackName)
+	cm, err = broker.getConfigMap(cmName)
+	if err == nil {
+		return cm, nil
+	}
+	if errors.IsNotFound(err) {
+		err = broker.ensureConfigMap(&core.ConfigMap{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      cmName,
+				Labels:    stackLabelsGetter(JujuControllerStackName),
+				Namespace: broker.GetCurrentNamespace(),
+			},
+			Data: map[string]string{},
+		})
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return broker.getConfigMap(cmName)
+}
+
+func (k *kubernetesClient) ensureControllerConfigmapBootstrapParams(pcfg *podcfg.ControllerPodConfig) error {
 	bootstrapParamsFileContent, err := pcfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
 
-	spec := &core.ConfigMap{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      resourceNameGetterBootstrapParams(JujuControllerStackName),
-			Labels:    stackLabelsGetter(JujuControllerStackName),
-			Namespace: k.namespace,
-		},
-		Data: map[string]string{
-			fileNameBootstrapParams: string(bootstrapParamsFileContent),
-		},
+	cm, err := getControllerConfigMap(k)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	logger.Debugf("creating bootstrap-params configmap: \n%+v", spec)
-	_, err = k.CoreV1().ConfigMaps(k.namespace).Create(spec)
-	return errors.Trace(err)
+	cm.Data[fileNameBootstrapParams] = string(bootstrapParamsFileContent)
+	logger.Debugf("creating bootstrap-params configmap: \n%+v", cm)
+	return k.ensureConfigMap(cm)
 }
 
-func (k *kubernetesClient) createControllerConfigmapAgentConf(agentConfig agent.ConfigSetterWriter) error {
+func (k *kubernetesClient) ensureControllerConfigmapAgentConf(agentConfig agent.ConfigSetterWriter) error {
 	agentConfigFileContent, err := agentConfig.Render()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("agentConfig file content: \n%s", string(agentConfigFileContent))
 
-	spec := &core.ConfigMap{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      resourceNameGetterAgentConf(JujuControllerStackName),
-			Labels:    stackLabelsGetter(JujuControllerStackName),
-			Namespace: k.namespace,
-		},
-		Data: map[string]string{
-			fileNameAgentConf: string(agentConfigFileContent),
-		},
+	cm, err := getControllerConfigMap(k)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	logger.Debugf("creating agent.conf configmap: \n%+v", spec)
-	_, err = k.CoreV1().ConfigMaps(k.namespace).Create(spec)
-	return errors.Trace(err)
+	cm.Data[fileNameAgentConf] = string(agentConfigFileContent)
+	logger.Debugf("ensuring agent.conf configmap: \n%+v", cm)
+	return k.ensureConfigMap(cm)
 }
 
 func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPodConfig) error {
@@ -301,9 +324,10 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			},
 		},
 	})
+	cmName := resourceNameGetterConfigMap(JujuControllerStackName)
 	// add volume agent.conf comfigmap.
 	volAgentConf := core.Volume{
-		Name: resourceNameGetterAgentConf(JujuControllerStackName),
+		Name: resourceNameGetterVolumeAgentConf(JujuControllerStackName),
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
 				Items: []core.KeyToPath{
@@ -315,11 +339,11 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			},
 		},
 	}
-	volAgentConf.VolumeSource.ConfigMap.Name = resourceNameGetterAgentConf(JujuControllerStackName)
+	volAgentConf.VolumeSource.ConfigMap.Name = cmName
 	vols = append(vols, volAgentConf)
 	// add volume bootstrap-params comfigmap.
 	volBootstrapParams := core.Volume{
-		Name: resourceNameGetterBootstrapParams(JujuControllerStackName),
+		Name: resourceNameGetterVolumeBootstrapParams(JujuControllerStackName),
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
 				Items: []core.KeyToPath{
@@ -331,7 +355,7 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			},
 		},
 	}
-	volBootstrapParams.VolumeSource.ConfigMap.Name = resourceNameGetterBootstrapParams(JujuControllerStackName)
+	volBootstrapParams.VolumeSource.ConfigMap.Name = cmName
 	vols = append(vols, volBootstrapParams)
 
 	statefulset.Spec.Template.Spec.Volumes = vols
@@ -416,7 +440,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 				MountPath: filepath.Join(pcfg.DataDir, "db"),
 			},
 			{
-				Name:      resourceNameGetterAgentConf(JujuControllerStackName),
+				Name:      resourceNameGetterVolumeAgentConf(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"),
 				SubPath:   "template-agent.conf",
 			},
@@ -450,7 +474,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 				MountPath: pcfg.LogDir,
 			},
 			{
-				Name:      resourceNameGetterAgentConf(JujuControllerStackName),
+				Name:      resourceNameGetterVolumeAgentConf(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"),
 				SubPath:   "template-agent.conf",
 			},
@@ -467,7 +491,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 				ReadOnly:  true,
 			},
 			{
-				Name:      resourceNameGetterBootstrapParams(JujuControllerStackName),
+				Name:      resourceNameGetterVolumeBootstrapParams(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameBootstrapParams),
 				SubPath:   fileNameBootstrapParams,
 				ReadOnly:  true,
