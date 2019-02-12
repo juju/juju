@@ -698,9 +698,9 @@ func (s *SlowPeriodSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
 	s.w.Watch("test", "a", s.ch)
 	revno1 := s.insert(c, "test", "a")
 	s.w.StartSync()
-	revno2 := s.remove(c, "test", "a")
 
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno1})
+	revno2 := s.remove(c, "test", "a")
 	s.w.StartSync()
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
 
