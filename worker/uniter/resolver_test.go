@@ -156,6 +156,55 @@ func (s *iaasResolverSuite) TestCharmModifiedTakesPrecedenceOverRelationsChanges
 	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-2")
 }
 
+func (s *iaasResolverSuite) TestCharmModifiedUpgradeProfileWaitsEmptyContinuesSuccess(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+		},
+	}
+
+	// Set the profile upgrade EmptyStatus, indicating incomplete, and
+	// the upgrade will wait.
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.EmptyStatus
+	s.remoteState.CharmURL = charm.MustParseURL("cs:precise/mysql-3")
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.ErrorMatches, "no operations")
+	c.Assert(op, gc.IsNil)
+
+	// Set the profile upgrade to success and watch the upgrade succeed.
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.SuccessStatus
+	op, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-3")
+}
+
+func (s *iaasResolverSuite) TestCharmModifiedUpgradeProfileFailsOnError(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+		},
+	}
+
+	// Set the profile upgrade ErrorStatus, indicating profile upgrade
+	// failure, and the upgrade will remove the profile upgrade doc.
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.ErrorStatus
+	s.remoteState.CharmURL = charm.MustParseURL("cs:precise/mysql-3")
+
+	// Change relation state (to simulate simultaneous change remote state update)
+	s.remoteState.Relations = map[int]remotestate.RelationSnapshot{0: {}}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "finish upgrade charm profile")
+}
+
 func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
