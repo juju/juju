@@ -218,6 +218,10 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture(c *gc.C) {
 					Expiry: offset(newLeaseSecs * time.Second),
 				}
 			},
+		}, {
+			// We should call Refresh at 1 min because that was the requested
+			// time, but we shouldn't expire the lease.
+			method: "Refresh",
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
