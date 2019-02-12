@@ -4,6 +4,8 @@
 package action_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -60,6 +62,12 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
+
+	// Ensure magic/1 is the leader.
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim("magic", "magic/1", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
 
 	notAssigned, err := s.State.AddApplication(state.AddApplicationArgs{Name: "not-assigned", Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
@@ -124,6 +132,14 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 		applications: []string{"magic"},
 		units:        []string{"magic/0"},
 		expected:     []string{"magic/0", "magic/1"},
+	}, {
+		message:  "Asking for an application leader unit",
+		units:    []string{"magic/leader"},
+		expected: []string{"magic/1"},
+	}, {
+		message: "Asking for an application leader unit of an unknown application",
+		units:   []string{"foo/leader"},
+		error:   `could not determine leader for "foo"`,
 	}} {
 		c.Logf("%v: %s", i, test.message)
 		result, err := action.GetAllUnitNames(s.State, test.units, test.applications)
