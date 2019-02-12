@@ -6,7 +6,6 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
 )
 
@@ -34,7 +33,7 @@ func (m *MockAdvanceGenerationCommandAPI) EXPECT() *MockAdvanceGenerationCommand
 }
 
 // AdvanceGeneration mocks base method
-func (m *MockAdvanceGenerationCommandAPI) AdvanceGeneration(arg0 names_v2.ModelTag, arg1 []string) error {
+func (m *MockAdvanceGenerationCommandAPI) AdvanceGeneration(arg0 string, arg1 []string) error {
 	ret := m.ctrl.Call(m, "AdvanceGeneration", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0

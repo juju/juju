@@ -7,7 +7,6 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
-	model "github.com/juju/juju/core/model"
 	reflect "reflect"
 )
 
@@ -46,6 +45,19 @@ func (mr *MockGenerationModelMockRecorder) AddGeneration() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddGeneration", reflect.TypeOf((*MockGenerationModel)(nil).AddGeneration))
 }
 
+// HasNextGeneration mocks base method
+func (m *MockGenerationModel) HasNextGeneration() (bool, error) {
+	ret := m.ctrl.Call(m, "HasNextGeneration")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasNextGeneration indicates an expected call of HasNextGeneration
+func (mr *MockGenerationModelMockRecorder) HasNextGeneration() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasNextGeneration", reflect.TypeOf((*MockGenerationModel)(nil).HasNextGeneration))
+}
+
 // NextGeneration mocks base method
 func (m *MockGenerationModel) NextGeneration() (modelgeneration.Generation, error) {
 	ret := m.ctrl.Call(m, "NextGeneration")
@@ -57,16 +69,4 @@ func (m *MockGenerationModel) NextGeneration() (modelgeneration.Generation, erro
 // NextGeneration indicates an expected call of NextGeneration
 func (mr *MockGenerationModelMockRecorder) NextGeneration() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextGeneration", reflect.TypeOf((*MockGenerationModel)(nil).NextGeneration))
-}
-
-// SwitchGeneration mocks base method
-func (m *MockGenerationModel) SwitchGeneration(arg0 model.GenerationVersion) error {
-	ret := m.ctrl.Call(m, "SwitchGeneration", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SwitchGeneration indicates an expected call of SwitchGeneration
-func (mr *MockGenerationModelMockRecorder) SwitchGeneration(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SwitchGeneration", reflect.TypeOf((*MockGenerationModel)(nil).SwitchGeneration), arg0)
 }

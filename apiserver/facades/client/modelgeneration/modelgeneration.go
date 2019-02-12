@@ -91,6 +91,27 @@ func (m *ModelGenerationAPI) AddGeneration(arg params.Entity) (params.ErrorResul
 	return result, nil
 }
 
+// HasNextGeneration returns a true result if the input model has a "next"
+// generation that has not yet been completed.
+func (m *ModelGenerationAPI) HasNextGeneration(arg params.Entity) (params.BoolResult, error) {
+	result := params.BoolResult{}
+	modelTag, err := names.ParseModelTag(arg.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	isModelAdmin, err := m.hasAdminAccess(modelTag)
+	if !isModelAdmin && !m.isControllerAdmin {
+		return result, common.ErrPerm
+	}
+
+	if has, err := m.model.HasNextGeneration(); err != nil {
+		result.Error = common.ServerError(err)
+	} else {
+		result.Result = has
+	}
+	return result, nil
+}
+
 // AdvanceGeneration, adds the provided unit(s) and/or application(s) to
 // the "next" generation.  If the generation can auto complete, it is
 // made the "current" generation.
@@ -107,9 +128,6 @@ func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) 
 	generation, err := m.model.NextGeneration()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if !generation.Active() {
-		return params.ErrorResults{}, errors.Errorf("next generation is not active")
 	}
 
 	results := params.ErrorResults{
@@ -163,10 +181,6 @@ func (m *ModelGenerationAPI) CancelGeneration(arg params.Entity) (params.ErrorRe
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if !generation.Active() {
-		return result, errors.Errorf("next generation is not active")
-	}
-
 	ok, values, err := generation.CanMakeCurrent()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -178,22 +192,5 @@ func (m *ModelGenerationAPI) CancelGeneration(arg params.Entity) (params.ErrorRe
 	}
 
 	result.Error = common.ServerError(generation.MakeCurrent())
-	return result, nil
-}
-
-// SwitchGeneration switches the given model to using the provided
-// 'current' or 'next' generation.
-func (m *ModelGenerationAPI) SwitchGeneration(arg params.GenerationVersionArg) (params.ErrorResult, error) {
-	result := params.ErrorResult{}
-	modelTag, err := names.ParseModelTag(arg.Model.Tag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	isModelAdmin, err := m.hasAdminAccess(modelTag)
-	if !isModelAdmin && !m.isControllerAdmin {
-		return result, common.ErrPerm
-	}
-
-	result.Error = common.ServerError(m.model.SwitchGeneration(arg.Version))
 	return result, nil
 }

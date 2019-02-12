@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	coremodel "github.com/juju/juju/core/model"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -27,10 +26,9 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // AddGeneration adds a model generation to the config.
-func (c *Client) AddGeneration(model names.ModelTag) error {
+func (c *Client) AddGeneration(modelUUID string) error {
 	var result params.ErrorResult
-	arg := params.Entity{Tag: model.String()}
-	err := c.facade.FacadeCall("AddGeneration", arg, &result)
+	err := c.facade.FacadeCall("AddGeneration", argForModel(modelUUID), &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -41,32 +39,9 @@ func (c *Client) AddGeneration(model names.ModelTag) error {
 }
 
 // CancelGeneration cancels a model generation to the config.
-func (c *Client) CancelGeneration(model names.ModelTag) error {
+func (c *Client) CancelGeneration(modelUUID string) error {
 	var result params.ErrorResult
-	arg := params.Entity{Tag: model.String()}
-	err := c.facade.FacadeCall("CancelGeneration", arg, &result)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if result.Error != nil {
-		return errors.Trace(result.Error)
-	}
-	return nil
-}
-
-// SwitchGeneration switches a model generation to the config.
-func (c *Client) SwitchGeneration(model names.ModelTag, version string) error {
-	var result params.ErrorResult
-	arg := params.GenerationVersionArg{Model: params.Entity{Tag: model.String()}}
-	switch version {
-	case "current":
-		arg.Version = coremodel.GenerationCurrent
-	case "next":
-		arg.Version = coremodel.GenerationNext
-	default:
-		return errors.Trace(errors.New("version must be 'next' or 'current'"))
-	}
-	err := c.facade.FacadeCall("SwitchGeneration", arg, &result)
+	err := c.facade.FacadeCall("CancelGeneration", argForModel(modelUUID), &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -77,9 +52,9 @@ func (c *Client) SwitchGeneration(model names.ModelTag, version string) error {
 }
 
 // AdvanceGeneration advances a unit and/or applications to the 'next' generation.
-func (c *Client) AdvanceGeneration(model names.ModelTag, entities []string) error {
+func (c *Client) AdvanceGeneration(modelUUID string, entities []string) error {
 	var results params.ErrorResults
-	arg := params.AdvanceGenerationArg{Model: params.Entity{Tag: model.String()}}
+	arg := params.AdvanceGenerationArg{Model: argForModel(modelUUID)}
 	if len(entities) == 0 {
 		return errors.Trace(errors.New("No units or applications to advance"))
 	}
@@ -87,10 +62,10 @@ func (c *Client) AdvanceGeneration(model names.ModelTag, entities []string) erro
 		switch {
 		case names.IsValidApplication(entity):
 			arg.Entities = append(arg.Entities,
-				params.Entity{names.NewApplicationTag(entity).String()})
+				params.Entity{Tag: names.NewApplicationTag(entity).String()})
 		case names.IsValidUnit(entity):
 			arg.Entities = append(arg.Entities,
-				params.Entity{names.NewUnitTag(entity).String()})
+				params.Entity{Tag: names.NewUnitTag(entity).String()})
 		default:
 			return errors.Trace(errors.New("Must be application or unit"))
 		}
@@ -100,4 +75,22 @@ func (c *Client) AdvanceGeneration(model names.ModelTag, entities []string) erro
 		return errors.Trace(err)
 	}
 	return results.Combine()
+}
+
+// HasNextGeneration returns true if the model has a "next" generation that
+// has not yet been completed.
+func (c *Client) HasNextGeneration(modelUUID string) (bool, error) {
+	var result params.BoolResult
+	err := c.facade.FacadeCall("HasNextGeneration", argForModel(modelUUID), &result)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return false, errors.Trace(result.Error)
+	}
+	return result.Result, nil
+}
+
+func argForModel(modelUUID string) params.Entity {
+	return params.Entity{Tag: names.NewModelTag(modelUUID).String()}
 }

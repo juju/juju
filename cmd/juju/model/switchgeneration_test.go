@@ -7,12 +7,11 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/juju/model/mocks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/cmd/juju/model/mocks"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
@@ -77,43 +76,38 @@ func setUpSwitchMocks(c *gc.C) (*gomock.Controller, *mocks.MockSwitchGenerationC
 }
 
 func (s *switchGenerationSuite) TestRunCommandCurrent(c *gc.C) {
-	mockController, mockSwitchGenerationCommandAPI := setUpSwitchMocks(c)
-	defer mockController.Finish()
-
-	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "current").Return(nil)
-
-	ctx, err := s.runCommand(c, mockSwitchGenerationCommandAPI, "current")
+	ctx, err := s.runCommand(c, nil, "current")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "target generation set to current\n")
 
-	// ensure the model's store has been updated to 'current'.
-	details, err := s.store.ModelByName(s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
+	cName := s.store.CurrentControllerName
+	details, err := s.store.ModelByName(cName, s.store.Models[cName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationCurrent)
 }
 
-func (s *switchGenerationSuite) TestRunCommandNext(c *gc.C) {
+func (s *switchGenerationSuite) TestRunCommandNextGenExists(c *gc.C) {
 	mockController, mockSwitchGenerationCommandAPI := setUpSwitchMocks(c)
 	defer mockController.Finish()
 
-	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "next").Return(nil)
+	mockSwitchGenerationCommandAPI.EXPECT().HasNextGeneration(gomock.Any()).Return(true, nil)
 
 	ctx, err := s.runCommand(c, mockSwitchGenerationCommandAPI, "next")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "target generation set to next\n")
 
-	// ensure the model's store has been updated to 'next'.
-	details, err := s.store.ModelByName(s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
+	cName := s.store.CurrentControllerName
+	details, err := s.store.ModelByName(cName, s.store.Models[cName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationNext)
 }
 
-func (s *switchGenerationSuite) TestRunCommandFail(c *gc.C) {
+func (s *switchGenerationSuite) TestRunCommandNextNoGenError(c *gc.C) {
 	mockController, mockSwitchGenerationCommandAPI := setUpSwitchMocks(c)
 	defer mockController.Finish()
 
-	mockSwitchGenerationCommandAPI.EXPECT().SwitchGeneration(gomock.Any(), "next").Return(errors.Errorf("failme"))
+	mockSwitchGenerationCommandAPI.EXPECT().HasNextGeneration(gomock.Any()).Return(false, nil)
 
 	_, err := s.runCommand(c, mockSwitchGenerationCommandAPI, "next")
-	c.Assert(err, gc.ErrorMatches, "failme")
+	c.Assert(err, gc.ErrorMatches, "this model has no next generation")
 }

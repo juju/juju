@@ -6,7 +6,6 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
 )
 
@@ -45,14 +44,15 @@ func (mr *MockSwitchGenerationCommandAPIMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockSwitchGenerationCommandAPI)(nil).Close))
 }
 
-// SwitchGeneration mocks base method
-func (m *MockSwitchGenerationCommandAPI) SwitchGeneration(arg0 names_v2.ModelTag, arg1 string) error {
-	ret := m.ctrl.Call(m, "SwitchGeneration", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+// HasNextGeneration mocks base method
+func (m *MockSwitchGenerationCommandAPI) HasNextGeneration(arg0 string) (bool, error) {
+	ret := m.ctrl.Call(m, "HasNextGeneration", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// SwitchGeneration indicates an expected call of SwitchGeneration
-func (mr *MockSwitchGenerationCommandAPIMockRecorder) SwitchGeneration(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SwitchGeneration", reflect.TypeOf((*MockSwitchGenerationCommandAPI)(nil).SwitchGeneration), arg0, arg1)
+// HasNextGeneration indicates an expected call of HasNextGeneration
+func (mr *MockSwitchGenerationCommandAPIMockRecorder) HasNextGeneration(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasNextGeneration", reflect.TypeOf((*MockSwitchGenerationCommandAPI)(nil).HasNextGeneration), arg0)
 }
