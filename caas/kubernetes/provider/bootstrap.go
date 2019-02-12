@@ -38,11 +38,12 @@ var (
 	stackLabelsGetter                       = func(stackName string) map[string]string { return map[string]string{labelApplication: stackName} }
 	resourceNameGetterService               = func(stackName string) string { return stackName }
 	resourceNameGetterStatefulSet           = resourceNameGetterService
-	resourceNameGetterSharedSecret          = resourceNameGetter(fileNameSharedSecret)
-	resourceNameGetterSSLKey                = resourceNameGetter(fileNameSSLKey)
+	resourceNameGetterVolumeSharedSecret    = resourceNameGetter(fileNameSharedSecret)
+	resourceNameGetterVolumeSSLKey          = resourceNameGetter(fileNameSSLKey)
 	resourceNameGetterVolumeBootstrapParams = resourceNameGetter(fileNameBootstrapParams)
 	resourceNameGetterVolumeAgentConf       = resourceNameGetter(fileNameAgentConf)
 	resourceNameGetterConfigMap             = resourceNameGetter("configmap")
+	resourceNameGetterSecret                = resourceNameGetter("secret")
 	pvcNameGetterMongoStorage               = resourceNameGetter("mongo-storage")
 	pvcNameGetterLogDirStorage              = resourceNameGetter("jujud-log-storage")
 	pvcNameGetterAPIServerStorage           = resourceNameGetter("jujud-storage")
@@ -84,6 +85,40 @@ func (k *kubernetesClient) createControllerService() error {
 	return errors.Trace(err)
 }
 
+type secretEnsurer interface {
+	ensureSecret(Secret *core.Secret) error
+	getSecret(secretName string) (*core.Secret, error)
+	GetCurrentNamespace() string
+}
+
+func getControllerSecret(broker secretEnsurer) (secret *core.Secret, err error) {
+	defer func() {
+		if secret.Data == nil {
+			secret.Data = map[string][]byte{}
+		}
+	}()
+
+	secretName := resourceNameGetterSecret(JujuControllerStackName)
+	secret, err = broker.getSecret(secretName)
+	if err == nil {
+		return secret, nil
+	}
+	if errors.IsNotFound(err) {
+		err = broker.ensureSecret(&core.Secret{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      secretName,
+				Labels:    stackLabelsGetter(JujuControllerStackName),
+				Namespace: broker.GetCurrentNamespace(),
+			},
+			Type: core.SecretTypeOpaque,
+		})
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return broker.getSecret(secretName)
+}
+
 func (k *kubernetesClient) createControllerSecretSharedSecret(agentConfig agent.ConfigSetterWriter) error {
 	si, ok := agentConfig.StateServingInfo()
 	if !ok {
@@ -98,15 +133,14 @@ func (k *kubernetesClient) createControllerSecretSharedSecret(agentConfig agent.
 		si.SharedSecret = sharedSecret
 		agentConfig.SetStateServingInfo(si)
 	}
-	logger.Debugf("creating shared secret, StateServingInfo \n%+v", si)
-	return k.createSecret(
-		resourceNameGetterSharedSecret(JujuControllerStackName),
-		stackLabelsGetter(JujuControllerStackName),
-		core.SecretTypeOpaque,
-		map[string][]byte{
-			fileNameSharedSecret: []byte(si.SharedSecret),
-		},
-	)
+
+	secret, err := getControllerSecret(k)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	secret.Data[fileNameSharedSecret] = []byte(si.SharedSecret)
+	logger.Debugf("ensuring shared secret: \n%+v", secret)
+	return k.ensureSecret(secret)
 }
 
 func (k *kubernetesClient) createControllerSecretServerPem(agentConfig agent.ConfigSetterWriter) error {
@@ -115,14 +149,14 @@ func (k *kubernetesClient) createControllerSecretServerPem(agentConfig agent.Con
 		// No certificate information exists yet, nothing to do.
 		return errors.NewNotValid(nil, "certificate is empty")
 	}
-	return k.createSecret(
-		resourceNameGetterSSLKey(JujuControllerStackName),
-		stackLabelsGetter(JujuControllerStackName),
-		core.SecretTypeOpaque,
-		map[string][]byte{
-			fileNameSSLKey: []byte(mongo.GenerateSSLKey(si.Cert, si.PrivateKey)),
-		},
-	)
+
+	secret, err := getControllerSecret(k)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	secret.Data[fileNameSSLKey] = []byte(mongo.GenerateSSLKey(si.Cert, si.PrivateKey))
+	logger.Debugf("ensuring server.pem secret: \n%+v", secret)
+	return k.ensureSecret(secret)
 }
 
 func (k *kubernetesClient) createControllerSecretMongoAdmin(agentConfig agent.ConfigSetterWriter) error {
@@ -155,7 +189,6 @@ func getControllerConfigMap(broker configMapEnsurer) (cm *core.ConfigMap, err er
 				Labels:    stackLabelsGetter(JujuControllerStackName),
 				Namespace: broker.GetCurrentNamespace(),
 			},
-			Data: map[string]string{},
 		})
 	}
 	if err != nil {
@@ -292,12 +325,13 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			EmptyDir: &core.EmptyDirVolumeSource{}, // TODO: setup log dir.
 		},
 	})
+	secretName := resourceNameGetterSecret(JujuControllerStackName)
 	// add volume server.pem secret.
 	vols = append(vols, core.Volume{
-		Name: resourceNameGetterSSLKey(JujuControllerStackName),
+		Name: resourceNameGetterVolumeSSLKey(JujuControllerStackName),
 		VolumeSource: core.VolumeSource{
 			Secret: &core.SecretVolumeSource{
-				SecretName:  resourceNameGetterSSLKey(JujuControllerStackName),
+				SecretName:  secretName,
 				DefaultMode: &fileMode,
 				Items: []core.KeyToPath{
 					{
@@ -310,10 +344,10 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 	})
 	// add volume shared secret.
 	vols = append(vols, core.Volume{
-		Name: resourceNameGetterSharedSecret(JujuControllerStackName),
+		Name: resourceNameGetterVolumeSharedSecret(JujuControllerStackName),
 		VolumeSource: core.VolumeSource{
 			Secret: &core.SecretVolumeSource{
-				SecretName:  resourceNameGetterSharedSecret(JujuControllerStackName),
+				SecretName:  secretName,
 				DefaultMode: &fileMode,
 				Items: []core.KeyToPath{
 					{
@@ -445,13 +479,13 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 				SubPath:   "template-agent.conf",
 			},
 			{
-				Name:      resourceNameGetterSSLKey(JujuControllerStackName),
+				Name:      resourceNameGetterVolumeSSLKey(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSSLKey),
 				SubPath:   fileNameSSLKey,
 				ReadOnly:  true,
 			},
 			{
-				Name:      resourceNameGetterSharedSecret(JujuControllerStackName),
+				Name:      resourceNameGetterVolumeSharedSecret(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSharedSecret),
 				SubPath:   fileNameSharedSecret,
 				ReadOnly:  true,
@@ -479,13 +513,13 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 				SubPath:   "template-agent.conf",
 			},
 			{
-				Name:      resourceNameGetterSSLKey(JujuControllerStackName),
+				Name:      resourceNameGetterVolumeSSLKey(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSSLKey),
 				SubPath:   fileNameSSLKey,
 				ReadOnly:  true,
 			},
 			{
-				Name:      resourceNameGetterSharedSecret(JujuControllerStackName),
+				Name:      resourceNameGetterVolumeSharedSecret(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSharedSecret),
 				SubPath:   fileNameSharedSecret,
 				ReadOnly:  true,

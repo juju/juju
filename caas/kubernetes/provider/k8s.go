@@ -406,8 +406,8 @@ func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
 	return k.newWatcher(w, k.namespace, k.clock)
 }
 
-// EnsureSecret ensures a secret exists for use with retrieving images from private registries
-func (k *kubernetesClient) ensureSecret(
+// ensureOCIImageSecret ensures a secret exists for use with retrieving images from private registries
+func (k *kubernetesClient) ensureOCIImageSecret(
 	imageSecretName,
 	appName string,
 	imageDetails *caas.ImageDetails,
@@ -420,7 +420,6 @@ func (k *kubernetesClient) ensureSecret(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	secrets := k.CoreV1().Secrets(k.namespace)
 
 	newSecret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -432,12 +431,27 @@ func (k *kubernetesClient) ensureSecret(
 			core.DockerConfigJsonKey: secretData,
 		},
 	}
+	return errors.Trace(k.ensureSecret(newSecret))
+}
 
-	_, err = secrets.Update(newSecret)
+func (k *kubernetesClient) ensureSecret(sec *core.Secret) error {
+	secrets := k.CoreV1().Secrets(k.namespace)
+	_, err := secrets.Update(sec)
 	if k8serrors.IsNotFound(err) {
-		_, err = secrets.Create(newSecret)
+		_, err = secrets.Create(sec)
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
+	secret, err := k.CoreV1().Secrets(k.namespace).Get(secretName, v1.GetOptions{IncludeUninitialized: true})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, errors.NotFoundf("secret %q", secretName)
+		}
+		return nil, errors.Trace(err)
+	}
+	return secret, nil
 }
 
 func (k *kubernetesClient) createSecret(
@@ -1110,7 +1124,7 @@ func (k *kubernetesClient) EnsureService(
 			continue
 		}
 		imageSecretName := appSecretName(deploymentName, c.Name)
-		if err := k.ensureSecret(imageSecretName, appName, &c.ImageDetails, resourceTags); err != nil {
+		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, resourceTags); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
