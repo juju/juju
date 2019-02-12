@@ -131,9 +131,6 @@ type Broker interface {
 	// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
 	EnsureCustomResourceDefinition(appName string, podSpec *PodSpec) error
 
-	// Service returns the service for the specified application.
-	Service(appName string) (*Service, error)
-
 	// DeleteService deletes the specified service.
 	DeleteService(appName string) error
 
@@ -181,8 +178,17 @@ type Broker interface {
 	// ResourceAdopter defines methods for adopting resources.
 	environs.ResourceAdopter
 
-	// ServicePublicAddressesGetter provides the API to get service public addresses.
-	ServicePublicAddressesGetter
+	// ServicePublicHostPortsGetter provides the API to get service public addresses with port.
+	ServicePublicHostPortsGetter
+
+	// ServiceGetter provides the API to get service.
+	ServiceGetter
+}
+
+// ServiceGetter provides the API to get service.
+type ServiceGetter interface {
+	// GetService returns the service for the specified application.
+	GetService(appName string) (*Service, error)
 }
 
 // NamespaceWatcher provides the API to watch caas namespace.
@@ -192,16 +198,10 @@ type NamespaceWatcher interface {
 	WatchNamespace() (watcher.NotifyWatcher, error)
 }
 
-// ServicePublicAddressesGetter provides the API to get service public addresses.
-type ServicePublicAddressesGetter interface {
-	// GetServicePublicAddresses returns the addresses of the service.
-	GetServicePublicAddresses(svcName string) ([]network.Address, error)
-
+// ServicePublicHostPortsGetter provides the API to get service public addresses with port.
+type ServicePublicHostPortsGetter interface {
 	// GetServicePublicHostPorts returns the hostports of the service.
 	GetServicePublicHostPorts(svcName, portName string) ([]network.HostPort, error)
-
-	// GetCurrentNamespace returns current namespace name.
-	GetCurrentNamespace() string
 }
 
 // Service represents information about the status of a caas service entity.

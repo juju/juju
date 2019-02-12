@@ -208,13 +208,13 @@ func bootstrapCAAS(
 	}
 
 	// TODO(caas): how to find the best/newest jujud docker image to use.
-	tool := version.MustParseBinary("2.6-beta1-bionic-amd64")
+	tool := jujuversion.Current
 
 	// set agent version before finalizing bootstrap config
-	if err := setBootstrapToolsVersion(environ, tool.Number); err != nil {
+	if err := setBootstrapToolsVersion(environ, tool); err != nil {
 		return errors.Trace(err)
 	}
-	podConfig.JujuVersion = tool.Number
+	podConfig.JujuVersion = tool
 	if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}

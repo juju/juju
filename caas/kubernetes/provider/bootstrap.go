@@ -35,7 +35,7 @@ const (
 )
 
 var (
-	stackLabelsGetter                 = func(stackName string) map[string]string { return map[string]string{"app": stackName} }
+	stackLabelsGetter                 = func(stackName string) map[string]string { return map[string]string{labelApplication: stackName} }
 	resourceNameGetterService         = func(stackName string) string { return stackName }
 	resourceNameGetterStatefulSet     = resourceNameGetterService
 	resourceNameGetterSharedSecret    = resourceNameGetter(fileNameSharedSecret)
@@ -439,7 +439,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 		Name: "api-server",
 		// ImagePullPolicy: core.PullIfNotPresent,
 		ImagePullPolicy: core.PullAlways, // TODO: for debug
-		Image:           pcfg.GetTool(),
+		Image:           pcfg.GetControllerImagePath(),
 		VolumeMounts: []core.VolumeMount{
 			{
 				Name:      pvcNameGetterAPIServerStorage(JujuControllerStackName),

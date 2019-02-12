@@ -687,12 +687,14 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		if err != nil {
 			return errors.Trace(err)
 		}
-	} else if env, ok := environ.(caas.ServicePublicAddressesGetter); ok {
+	} else if env, ok := environ.(caas.ServiceGetter); ok {
 		// CAAS.
-		addrs, err = env.GetServicePublicAddresses(k8sprovider.JujuControllerStackName)
+		var svc *caas.Service
+		svc, err = env.GetService(k8sprovider.JujuControllerStackName)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		addrs = svc.Addresses
 	} else {
 		// TODO(caas): this should never happen.
 		return errors.NewNotValid(nil, "unexpected error happened, IAAS mode should have environs.Environ implemented.")

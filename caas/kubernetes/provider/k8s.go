@@ -218,7 +218,7 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
 		// create namespace for controller stack.
-		if err = k.CreateNamespace(""); err != nil {
+		if err = k.CreateNamespace(k.namespace); err != nil {
 			// create but not ensure to avoid reuse an existing namespace.
 			return errors.Annotate(err, "creating namespace for controller stack")
 		}
@@ -373,9 +373,6 @@ func (k *kubernetesClient) EnsureNamespace() error {
 
 // CreateNamespace creates this broker's namespace.
 func (k *kubernetesClient) CreateNamespace(name string) error {
-	if name == "" {
-		name = k.namespace
-	}
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
 	_, err := k.CoreV1().Namespaces().Create(ns)
 	return errors.Trace(err)
@@ -910,19 +907,13 @@ func getSvcAddresses(svc *core.Service) []network.Address {
 	return netAddrs
 }
 
-// GetServicePublicAddresses returns the addresses of the service.
-func (k *kubernetesClient) GetServicePublicAddresses(svcName string) ([]network.Address, error) {
-	service, err := k.CoreV1().Services(k.namespace).Get(svcName, v1.GetOptions{IncludeUninitialized: true})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return getSvcAddresses(service), nil
-}
-
 // GetServicePublicHostPorts returns the hostports of the service.
 func (k *kubernetesClient) GetServicePublicHostPorts(svcName, portName string) ([]network.HostPort, error) {
 	service, err := k.CoreV1().Services(k.namespace).Get(svcName, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, errors.NotFoundf("service %q", svcName)
+		}
 		return nil, errors.Trace(err)
 	}
 
@@ -933,11 +924,12 @@ func (k *kubernetesClient) GetServicePublicHostPorts(svcName, portName string) (
 	return network.AddressesWithPort(getSvcAddresses(service), int(p)), nil
 }
 
-// Service returns the service for the specified application.
-func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
+// GetService returns the service for the specified application.
+func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 	services := k.CoreV1().Services(k.namespace)
 	servicesList, err := services.List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+		LabelSelector:        applicationSelector(appName),
+		IncludeUninitialized: true,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

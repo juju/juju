@@ -21,7 +21,7 @@ type ServiceBroker interface {
 	Provider() caas.ContainerEnvironProvider
 	EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error
 	EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error
-	Service(appName string) (*caas.Service, error)
+	GetService(appName string) (*caas.Service, error)
 	DeleteService(appName string) error
 	UnexposeService(appName string) error
 }

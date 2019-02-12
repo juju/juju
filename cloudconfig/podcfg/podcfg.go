@@ -204,8 +204,8 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	return nil
 }
 
-// GetTool returns oci image path of jujud.
-func (cfg *ControllerPodConfig) GetTool() string {
+// GetControllerImagePath returns oci image path of jujud.
+func (cfg *ControllerPodConfig) GetControllerImagePath() string {
 	return fmt.Sprintf("%s/%s:%s", jujudOCINamespace, jujudOCIName, cfg.JujuVersion.String())
 }
 
