@@ -20,6 +20,8 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -687,12 +689,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		}
 	} else if env, ok := environ.(caas.ServicePublicAddressesGetter); ok {
 		// CAAS.
-		addrs, err = env.GetServicePublicAddresses(env.GetCurrentNamespace())
+		addrs, err = env.GetServicePublicAddresses(k8sprovider.JujuControllerStackName)
 		if err != nil {
 			return errors.Trace(err)
 		}
-	}
-	else {
+	} else {
 		// TODO(caas): this should never happen.
 		return errors.NewNotValid(nil, "unexpected error happened, IAAS mode should have environs.Environ implemented.")
 	}
@@ -708,7 +709,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		}); err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
-	
+
 	if isCAASController {
 		// TODO(caas): wait and fetch controller public endpoint then update juju home.
 		// `juju-controller` Service.clusterIP? LB?.

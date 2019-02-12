@@ -876,31 +876,36 @@ func getSvcPort(svc *core.Service, portName string) (int32, error) {
 }
 
 func getSvcAddresses(svc *core.Service) []network.Address {
-	var addrs []string
-	scope := network.ScopePublic
-
-	switch svc.Spec.Type {
-	case core.ServiceTypeClusterIP:
-		scope = network.ScopeCloudLocal
-		addrs = append(addrs, svc.Spec.ClusterIP)
-	case core.ServiceTypeNodePort:
-		addrs = append(addrs, svc.Spec.ExternalIPs...)
-	case core.ServiceTypeLoadBalancer:
-		addrs = append(addrs, svc.Spec.LoadBalancerIP)
-	case core.ServiceTypeExternalName:
-		scope = network.ScopeCloudLocal
-		addrs = append(addrs, svc.Spec.ExternalName)
-	default:
-		// default to cluster ip for now.
-		addrs = append(addrs, svc.Spec.ClusterIP)
-	}
 	var netAddrs []network.Address
-	for _, v := range addrs {
-		netAddrs = append(netAddrs, network.Address{
-			Value: v,
-			Type:  network.DeriveAddressType(v),
-			Scope: scope,
-		})
+
+	appendAddrs := func(scope network.Scope, addrs ...string) {
+		for _, v := range addrs {
+			if v != "" {
+				netAddrs = append(netAddrs, network.Address{
+					Value: v,
+					Type:  network.DeriveAddressType(v),
+					Scope: scope,
+				})
+			}
+		}
+	}
+	scope := network.ScopePublic
+	clusterIP := svc.Spec.ClusterIP
+	t := svc.Spec.Type
+	switch t {
+	case core.ServiceTypeClusterIP:
+		appendAddrs(network.ScopeCloudLocal, clusterIP)
+	case core.ServiceTypeExternalName:
+		appendAddrs(network.ScopeCloudLocal, svc.Spec.ExternalName)
+	case core.ServiceTypeNodePort:
+		appendAddrs(scope, svc.Spec.ExternalIPs...)
+	case core.ServiceTypeLoadBalancer:
+		appendAddrs(scope, svc.Spec.LoadBalancerIP)
+	}
+	if len(netAddrs) == 0 && clusterIP != "" {
+		// fallback to ClusterIP, usually it's not empty.
+		logger.Debugf("fallback to clusterIP %q, desired IP was empty for %q type service %q", clusterIP, t, svc.Name)
+		appendAddrs(network.ScopeCloudLocal, clusterIP)
 	}
 	return netAddrs
 }

@@ -21,9 +21,11 @@ import (
 )
 
 const (
-	portMongoDB   = 37017
-	portAPIServer = 17070
-	// stackName               = "juju-controller"
+	// JujuControllerStackName is the juju CAAS controller stack name.
+	JujuControllerStackName = "juju-controller"
+
+	portMongoDB             = 37017
+	portAPIServer           = 17070
 	storageSizeAPIServerRaw = "10Gi" // TODO: parse from constrains?
 	storageSizeMongoDBRaw   = "10Gi"
 	fileNameSharedSecret    = "shared-secret"
@@ -54,12 +56,12 @@ func resourceNameGetter(name string) func(string) string {
 func (k *kubernetesClient) createControllerService() error {
 	spec := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      resourceNameGetterService(k.namespace),
-			Labels:    stackLabelsGetter(k.namespace),
+			Name:      resourceNameGetterService(JujuControllerStackName),
+			Labels:    stackLabelsGetter(JujuControllerStackName),
 			Namespace: k.namespace,
 		},
 		Spec: core.ServiceSpec{
-			Selector: stackLabelsGetter(k.namespace),
+			Selector: stackLabelsGetter(JujuControllerStackName),
 			Type:     core.ServiceType("NodePort"), // TODO: NodePort works for single node only like microk8s.
 			Ports: []core.ServicePort{
 				{
@@ -97,8 +99,8 @@ func (k *kubernetesClient) createControllerSecretSharedSecret(agentConfig agent.
 	}
 	logger.Debugf("creating shared secret, StateServingInfo \n%+v", si)
 	return k.createSecret(
-		resourceNameGetterSharedSecret(k.namespace),
-		stackLabelsGetter(k.namespace),
+		resourceNameGetterSharedSecret(JujuControllerStackName),
+		stackLabelsGetter(JujuControllerStackName),
 		core.SecretTypeOpaque,
 		map[string][]byte{
 			fileNameSharedSecret: []byte(si.SharedSecret),
@@ -113,8 +115,8 @@ func (k *kubernetesClient) createControllerSecretServerPem(agentConfig agent.Con
 		return errors.NewNotValid(nil, "certificate is empty")
 	}
 	return k.createSecret(
-		resourceNameGetterSSLKey(k.namespace),
-		stackLabelsGetter(k.namespace),
+		resourceNameGetterSSLKey(JujuControllerStackName),
+		stackLabelsGetter(JujuControllerStackName),
 		core.SecretTypeOpaque,
 		map[string][]byte{
 			fileNameSSLKey: []byte(mongo.GenerateSSLKey(si.Cert, si.PrivateKey)),
@@ -136,8 +138,8 @@ func (k *kubernetesClient) createControllerConfigmapBootstrapParams(pcfg *podcfg
 
 	spec := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      resourceNameGetterBootstrapParams(k.namespace),
-			Labels:    stackLabelsGetter(k.namespace),
+			Name:      resourceNameGetterBootstrapParams(JujuControllerStackName),
+			Labels:    stackLabelsGetter(JujuControllerStackName),
 			Namespace: k.namespace,
 		},
 		Data: map[string]string{
@@ -158,8 +160,8 @@ func (k *kubernetesClient) createControllerConfigmapAgentConf(agentConfig agent.
 
 	spec := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      resourceNameGetterAgentConf(k.namespace),
-			Labels:    stackLabelsGetter(k.namespace),
+			Name:      resourceNameGetterAgentConf(JujuControllerStackName),
+			Labels:    stackLabelsGetter(JujuControllerStackName),
 			Namespace: k.namespace,
 		},
 		Data: map[string]string{
@@ -175,19 +177,19 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 	numberOfPods := int32(1) // TODO: HA mode!
 	spec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      resourceNameGetterStatefulSet(k.namespace),
-			Labels:    stackLabelsGetter(k.namespace),
+			Name:      resourceNameGetterStatefulSet(JujuControllerStackName),
+			Labels:    stackLabelsGetter(JujuControllerStackName),
 			Namespace: k.namespace,
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: resourceNameGetterService(k.namespace),
+			ServiceName: resourceNameGetterService(JujuControllerStackName),
 			Replicas:    &numberOfPods,
 			Selector: &v1.LabelSelector{
-				MatchLabels: stackLabelsGetter(k.namespace),
+				MatchLabels: stackLabelsGetter(JujuControllerStackName),
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:    stackLabelsGetter(k.namespace),
+					Labels:    stackLabelsGetter(JujuControllerStackName),
 					Namespace: k.namespace,
 				},
 				Spec: core.PodSpec{
@@ -201,11 +203,11 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := buildStorageSpecForController(spec, storageclass.GetName(), k.namespace); err != nil {
+	if err := buildStorageSpecForController(spec, storageclass.GetName()); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := buildContainerSpecForController(spec, *pcfg, k.namespace); err != nil {
+	if err := buildContainerSpecForController(spec, *pcfg); err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("creating controller statefulset: \n%+v", spec)
@@ -213,7 +215,7 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 	return errors.Trace(err)
 }
 
-func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassName, namespace string) error {
+func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassName string) error {
 	storageSizeAPIServer, err := resource.ParseQuantity(storageSizeAPIServerRaw)
 	if err != nil {
 		return errors.Trace(err)
@@ -227,8 +229,8 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 	statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
 		{
 			ObjectMeta: v1.ObjectMeta{
-				Name:   pvcNameGetterMongoStorage(namespace),
-				Labels: stackLabelsGetter(namespace),
+				Name:   pvcNameGetterMongoStorage(JujuControllerStackName),
+				Labels: stackLabelsGetter(JujuControllerStackName),
 			},
 			Spec: core.PersistentVolumeClaimSpec{
 				StorageClassName: &storageClassName,
@@ -242,8 +244,8 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 		},
 		{
 			ObjectMeta: v1.ObjectMeta{
-				Name:   pvcNameGetterAPIServerStorage(namespace),
-				Labels: stackLabelsGetter(namespace),
+				Name:   pvcNameGetterAPIServerStorage(JujuControllerStackName),
+				Labels: stackLabelsGetter(JujuControllerStackName),
 			},
 			Spec: core.PersistentVolumeClaimSpec{
 				StorageClassName: &storageClassName,
@@ -262,17 +264,17 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 
 	// add volume log dir.
 	vols = append(vols, core.Volume{
-		Name: pvcNameGetterLogDirStorage(namespace),
+		Name: pvcNameGetterLogDirStorage(JujuControllerStackName),
 		VolumeSource: core.VolumeSource{
 			EmptyDir: &core.EmptyDirVolumeSource{}, // TODO: setup log dir.
 		},
 	})
 	// add volume server.pem secret.
 	vols = append(vols, core.Volume{
-		Name: resourceNameGetterSSLKey(namespace),
+		Name: resourceNameGetterSSLKey(JujuControllerStackName),
 		VolumeSource: core.VolumeSource{
 			Secret: &core.SecretVolumeSource{
-				SecretName:  resourceNameGetterSSLKey(namespace),
+				SecretName:  resourceNameGetterSSLKey(JujuControllerStackName),
 				DefaultMode: &fileMode,
 				Items: []core.KeyToPath{
 					{
@@ -285,10 +287,10 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 	})
 	// add volume shared secret.
 	vols = append(vols, core.Volume{
-		Name: resourceNameGetterSharedSecret(namespace),
+		Name: resourceNameGetterSharedSecret(JujuControllerStackName),
 		VolumeSource: core.VolumeSource{
 			Secret: &core.SecretVolumeSource{
-				SecretName:  resourceNameGetterSharedSecret(namespace),
+				SecretName:  resourceNameGetterSharedSecret(JujuControllerStackName),
 				DefaultMode: &fileMode,
 				Items: []core.KeyToPath{
 					{
@@ -301,7 +303,7 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 	})
 	// add volume agent.conf comfigmap.
 	volAgentConf := core.Volume{
-		Name: resourceNameGetterAgentConf(namespace),
+		Name: resourceNameGetterAgentConf(JujuControllerStackName),
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
 				Items: []core.KeyToPath{
@@ -313,11 +315,11 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			},
 		},
 	}
-	volAgentConf.VolumeSource.ConfigMap.Name = resourceNameGetterAgentConf(namespace)
+	volAgentConf.VolumeSource.ConfigMap.Name = resourceNameGetterAgentConf(JujuControllerStackName)
 	vols = append(vols, volAgentConf)
 	// add volume bootstrap-params comfigmap.
 	volBootstrapParams := core.Volume{
-		Name: resourceNameGetterBootstrapParams(namespace),
+		Name: resourceNameGetterBootstrapParams(JujuControllerStackName),
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
 				Items: []core.KeyToPath{
@@ -329,14 +331,14 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			},
 		},
 	}
-	volBootstrapParams.VolumeSource.ConfigMap.Name = resourceNameGetterBootstrapParams(namespace)
+	volBootstrapParams.VolumeSource.ConfigMap.Name = resourceNameGetterBootstrapParams(JujuControllerStackName)
 	vols = append(vols, volBootstrapParams)
 
 	statefulset.Spec.Template.Spec.Volumes = vols
 	return nil
 }
 
-func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.ControllerPodConfig, namespace string) error {
+func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.ControllerPodConfig) error {
 	probCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
@@ -406,26 +408,26 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 		},
 		VolumeMounts: []core.VolumeMount{
 			{
-				Name:      pvcNameGetterLogDirStorage(namespace),
+				Name:      pvcNameGetterLogDirStorage(JujuControllerStackName),
 				MountPath: pcfg.LogDir,
 			},
 			{
-				Name:      pvcNameGetterMongoStorage(namespace),
+				Name:      pvcNameGetterMongoStorage(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, "db"),
 			},
 			{
-				Name:      resourceNameGetterAgentConf(namespace),
+				Name:      resourceNameGetterAgentConf(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"),
 				SubPath:   "template-agent.conf",
 			},
 			{
-				Name:      resourceNameGetterSSLKey(namespace),
+				Name:      resourceNameGetterSSLKey(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSSLKey),
 				SubPath:   fileNameSSLKey,
 				ReadOnly:  true,
 			},
 			{
-				Name:      resourceNameGetterSharedSecret(namespace),
+				Name:      resourceNameGetterSharedSecret(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSharedSecret),
 				SubPath:   fileNameSharedSecret,
 				ReadOnly:  true,
@@ -440,32 +442,32 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 		Image:           pcfg.GetTool(),
 		VolumeMounts: []core.VolumeMount{
 			{
-				Name:      pvcNameGetterAPIServerStorage(namespace),
+				Name:      pvcNameGetterAPIServerStorage(JujuControllerStackName),
 				MountPath: pcfg.DataDir,
 			},
 			{
-				Name:      pvcNameGetterLogDirStorage(namespace),
+				Name:      pvcNameGetterLogDirStorage(JujuControllerStackName),
 				MountPath: pcfg.LogDir,
 			},
 			{
-				Name:      resourceNameGetterAgentConf(namespace),
+				Name:      resourceNameGetterAgentConf(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"),
 				SubPath:   "template-agent.conf",
 			},
 			{
-				Name:      resourceNameGetterSSLKey(namespace),
+				Name:      resourceNameGetterSSLKey(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSSLKey),
 				SubPath:   fileNameSSLKey,
 				ReadOnly:  true,
 			},
 			{
-				Name:      resourceNameGetterSharedSecret(namespace),
+				Name:      resourceNameGetterSharedSecret(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameSharedSecret),
 				SubPath:   fileNameSharedSecret,
 				ReadOnly:  true,
 			},
 			{
-				Name:      resourceNameGetterBootstrapParams(namespace),
+				Name:      resourceNameGetterBootstrapParams(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameBootstrapParams),
 				SubPath:   fileNameBootstrapParams,
 				ReadOnly:  true,
