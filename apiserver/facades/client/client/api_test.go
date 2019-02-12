@@ -123,6 +123,10 @@ var scenarioStatus = &params.FullStatus{
 				Status: status.Pending.String(),
 				Data:   make(map[string]interface{}),
 			},
+			ModificationStatus: params.DetailedStatus{
+				Status: status.Pending.String(),
+				Data:   make(map[string]interface{}),
+			},
 			Series:     "quantal",
 			Containers: map[string]params.MachineStatus{},
 			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobManageModel},
@@ -140,6 +144,10 @@ var scenarioStatus = &params.FullStatus{
 				Status: status.Pending.String(),
 				Data:   make(map[string]interface{}),
 			},
+			ModificationStatus: params.DetailedStatus{
+				Status: status.Pending.String(),
+				Data:   make(map[string]interface{}),
+			},
 			Series:     "quantal",
 			Containers: map[string]params.MachineStatus{},
 			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
@@ -154,6 +162,10 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
+				Status: status.Pending.String(),
+				Data:   make(map[string]interface{}),
+			},
+			ModificationStatus: params.DetailedStatus{
 				Status: status.Pending.String(),
 				Data:   make(map[string]interface{}),
 			},
