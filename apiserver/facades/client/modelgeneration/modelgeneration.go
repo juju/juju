@@ -4,9 +4,6 @@
 package modelgeneration
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -15,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.modelgeneration")
@@ -152,21 +150,16 @@ func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) 
 			return params.AdvanceGenerationResult{AdvanceResults: results}, errors.Trace(err)
 		}
 	}
-
 	result := params.AdvanceGenerationResult{AdvanceResults: results}
 
-	ok, err := generation.CanAutoComplete()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if ok {
-		if err := generation.AutoComplete(); err != nil {
+	// Complete the generation if possible.
+	if err := generation.AutoComplete(); err != nil {
+		if errors.Cause(err) != state.ErrGenerationNoAutoComplete {
 			result.CompleteResult.Error = common.ServerError(err)
-		} else {
-			result.CompleteResult.Result = true
 		}
+	} else {
+		result.CompleteResult.Result = true
 	}
-
 	return result, nil
 }
 
@@ -187,16 +180,6 @@ func (m *ModelGenerationAPI) CancelGeneration(arg params.Entity) (params.ErrorRe
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	ok, values, err := generation.CanMakeCurrent()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !ok {
-		msg := fmt.Sprintf("cannot cancel generation, there are units behind a generation: %s", strings.Join(values, ", "))
-		result.Error = &params.Error{Message: msg}
-		return result, nil
-	}
-
 	result.Error = common.ServerError(generation.MakeCurrent())
 	return result, nil
 }

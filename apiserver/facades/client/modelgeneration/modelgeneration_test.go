@@ -5,6 +5,7 @@ package modelgeneration_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration/mocks"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 var _ = gc.Suite(&modelGenerationSuite{})
@@ -71,7 +73,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationErrorNoAutoComplete(c *gc.C)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
 		gExp.AssignUnit("mysql/0").Return(nil)
-		gExp.CanAutoComplete().Return(false, nil)
+		gExp.AutoComplete().Return(state.ErrGenerationNoAutoComplete)
 		gExp.Refresh().Return(nil).Times(3)
 
 		mExp := mockModel.EXPECT()
@@ -102,7 +104,6 @@ func (s *modelGenerationSuite) TestAdvanceGenerationSuccessAutoComplete(c *gc.C)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
 		gExp.AssignUnit("mysql/0").Return(nil)
-		gExp.CanAutoComplete().Return(true, nil)
 		gExp.AutoComplete().Return(nil)
 		gExp.Refresh().Return(nil).Times(2)
 
@@ -123,7 +124,6 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
-		gExp.CanMakeCurrent().Return(true, []string{}, nil)
 		gExp.MakeCurrent().Return(nil)
 
 		mExp := mockModel.EXPECT()
@@ -136,10 +136,12 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 }
 
 func (s *modelGenerationSuite) TestCancelGenerationCanNotMakeCurrent(c *gc.C) {
+	errMsg := "cannot cancel generation, there are units behind a generation: riak/0"
+
 	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
-		gExp.CanMakeCurrent().Return(false, []string{"riak/0"}, nil)
+		gExp.MakeCurrent().Return(errors.New(errMsg))
 
 		mExp := mockModel.EXPECT()
 		mExp.NextGeneration().Return(mockGeneration, nil)
@@ -147,7 +149,7 @@ func (s *modelGenerationSuite) TestCancelGenerationCanNotMakeCurrent(c *gc.C) {
 
 	result, err := s.api.CancelGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: &params.Error{Message: "cannot cancel generation, there are units behind a generation: riak/0"}})
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: &params.Error{Message: errMsg}})
 }
 
 type setupFunc func(*gomock.Controller, *mocks.MockGenerationModel)

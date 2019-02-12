@@ -68,33 +68,6 @@ func (mr *MockGenerationMockRecorder) AutoComplete() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoComplete", reflect.TypeOf((*MockGeneration)(nil).AutoComplete))
 }
 
-// CanAutoComplete mocks base method
-func (m *MockGeneration) CanAutoComplete() (bool, error) {
-	ret := m.ctrl.Call(m, "CanAutoComplete")
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CanAutoComplete indicates an expected call of CanAutoComplete
-func (mr *MockGenerationMockRecorder) CanAutoComplete() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanAutoComplete", reflect.TypeOf((*MockGeneration)(nil).CanAutoComplete))
-}
-
-// CanMakeCurrent mocks base method
-func (m *MockGeneration) CanMakeCurrent() (bool, []string, error) {
-	ret := m.ctrl.Call(m, "CanMakeCurrent")
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].([]string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// CanMakeCurrent indicates an expected call of CanMakeCurrent
-func (mr *MockGenerationMockRecorder) CanMakeCurrent() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanMakeCurrent", reflect.TypeOf((*MockGeneration)(nil).CanMakeCurrent))
-}
-
 // MakeCurrent mocks base method
 func (m *MockGeneration) MakeCurrent() error {
 	ret := m.ctrl.Call(m, "MakeCurrent")
