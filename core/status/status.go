@@ -43,6 +43,12 @@ type InstanceStatusGetter interface {
 	InstanceStatus() (StatusInfo, error)
 }
 
+// ModificationStatusGetter represents a type whose modification status can be
+// read.
+type ModificationStatusGetter interface {
+	ModificationStatus() (StatusInfo, error)
+}
+
 const (
 	// Status values common to machine and unit agents.
 
@@ -221,6 +227,11 @@ const (
 	ProvisioningError Status = "provisioning error"
 )
 
+// ModificationStatus
+const (
+	Applied Status = "applied"
+)
+
 const (
 	MessageWaitForMachine    = "waiting for machine"
 	MessageWaitForContainer  = "waiting for container"
@@ -228,6 +239,19 @@ const (
 	MessageInitializingAgent = "agent initializing"
 	MessageInstallingCharm   = "installing charm software"
 )
+
+// KnownModificationStatus returns true if the status has a known value for
+// a modification of an instance.
+func (status Status) KnownModificationStatus() bool {
+	switch status {
+	case
+		Applied,
+		Error,
+		Unknown:
+		return true
+	}
+	return false
+}
 
 func (status Status) KnownInstanceStatus() bool {
 	switch status {

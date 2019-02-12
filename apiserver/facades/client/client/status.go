@@ -806,8 +806,15 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	status.WantsVote = machine.WantsVote()
 	status.HasVote = machine.HasVote()
-	sInfo, err := c.status.MachineInstance(machineID)
-	populateStatusFromStatusInfoAndErr(&status.InstanceStatus, sInfo, err)
+
+	// Fetch the machine instance information
+	sInstInfo, err := c.status.MachineInstance(machineID)
+	populateStatusFromStatusInfoAndErr(&status.InstanceStatus, sInstInfo, err)
+
+	// Fetch the machine modification information
+	sModInfo, err := c.status.MachineModification(machineID)
+	populateStatusFromStatusInfoAndErr(&status.ModificationStatus, sModInfo, err)
+
 	// TODO: fetch all instance data for machines in one go.
 	instid, err := machine.InstanceId()
 	if err == nil {
