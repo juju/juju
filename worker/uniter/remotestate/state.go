@@ -43,7 +43,7 @@ type Unit interface {
 	WatchConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
-	WatchLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error)
+	WatchUnitLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
 	// WatchRelation returns a watcher that fires when relations
