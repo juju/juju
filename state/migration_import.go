@@ -383,11 +383,19 @@ func (i *importer) machine(m description.Machine) error {
 		StatusData: instStatus.Data(),
 		Updated:    instStatus.Updated().UnixNano(),
 	}
+	modificationStatusDoc := statusDoc{
+		ModelUUID:  i.st.ModelUUID(),
+		Status:     status.Status(instStatus.Value()),
+		StatusInfo: instStatus.Message(),
+		StatusData: instStatus.Data(),
+		Updated:    instStatus.Updated().UnixNano(),
+	}
 	cons := i.constraints(m.Constraints())
 	prereqOps, machineOp := i.st.baseNewMachineOps(
 		mdoc,
 		machineStatusDoc,
 		instanceStatusDoc,
+		modificationStatusDoc,
 		cons,
 	)
 

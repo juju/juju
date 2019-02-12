@@ -59,6 +59,13 @@ type MachineProvisioner interface {
 	// Status returns the status of the machine.
 	Status() (status.Status, string, error)
 
+	// SetModificationStatus sets the status of the machine changes whilst it's
+	// running. Example of this could be LXD profiles being applied.
+	SetModificationStatus(status status.Status, message string, data map[string]interface{}) error
+
+	// ModificationStatus returns the status of the machine changes
+	ModificationStatus() (status.Status, string, error)
+
 	// EnsureDead sets the machine lifecycle to Dead if it is Alive or
 	// Dying. It does nothing otherwise.
 	EnsureDead() error
@@ -276,6 +283,42 @@ func (m *Machine) Status() (status.Status, string, error) {
 		return "", "", result.Error
 	}
 	// TODO(perrito666) add status validation.
+	return status.Status(result.Status), result.Info, nil
+}
+
+// SetModificationStatus implements MachineProvisioner.SetModificationStatus.
+func (m *Machine) SetModificationStatus(status status.Status, info string, data map[string]interface{}) error {
+	var result params.ErrorResults
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: m.tag.String(), Status: status.String(), Info: info, Data: data},
+		},
+	}
+	err := m.st.facade.FacadeCall("SetModificationStatus", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+// ModificationStatus implements MachineProvisioner.ModificationStatus.
+func (m *Machine) ModificationStatus() (status.Status, string, error) {
+	var results params.StatusResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.st.facade.FacadeCall("ModificationStatus", args, &results)
+	if err != nil {
+		return "", "", err
+	}
+	if len(results.Results) != 1 {
+		return "", "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", "", result.Error
+	}
+	// TODO(stickupkid) add status validation.
 	return status.Status(result.Status), result.Info, nil
 }
 

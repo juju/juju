@@ -123,6 +123,11 @@ func (m *ModelStatus) MachineInstance(machineID string) (status.StatusInfo, erro
 	return m.getStatus(machineGlobalInstanceKey(machineID), "instance")
 }
 
+// MachineModification returns the status of the machine modification
+func (m *ModelStatus) MachineModification(machineID string) (status.StatusInfo, error) {
+	return m.getStatus(machineGlobalModificationKey(machineID), "modification")
+}
+
 // FullUnitWorkloadVersion returns the full status info for the workload
 // version of a unit. This is used for selecting the workload version for
 // an application.
