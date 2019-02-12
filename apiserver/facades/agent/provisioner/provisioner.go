@@ -168,6 +168,7 @@ type ProvisionerAPIV7 struct {
 }
 
 // ProvisionerAPIV8 provides v8 of the provisioner facade.
+// Added ModificationStatus and SetModificationStatus
 type ProvisionerAPIV8 struct {
 	*ProvisionerAPI
 }
@@ -1430,6 +1431,98 @@ func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorR
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// ModificationStatus isn't on the v7 or lower API.
+func (p *ProvisionerAPIV7) ModificationStatus(_, _ struct{}) {}
+
+// ModificationStatus returns the modification status for each given entity.
+// Only machine tags are accepted.
+func (p *ProvisionerAPI) ModificationStatus(args params.Entities) (params.StatusResults, error) {
+	result := params.StatusResults{
+		Results: make([]params.StatusResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return result, errors.Trace(err)
+	}
+	for i, arg := range args.Entities {
+		mTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			logger.Warningf("ModificationStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, mTag)
+		if err == nil {
+			var statusInfo status.StatusInfo
+			statusInfo, err = machine.ModificationStatus()
+			result.Results[i].Status = statusInfo.Status.String()
+			result.Results[i].Info = statusInfo.Message
+			result.Results[i].Data = statusInfo.Data
+			result.Results[i].Since = statusInfo.Since
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// SetModificationStatus isn't on the v7 or lower API.
+func (p *ProvisionerAPIV7) SetModificationStatus(_, _ struct{}) {}
+
+// SetModificationStatus updates the instance whilst changes are occurring. This
+// is different from SetStatus and SetInstanceStatus, by the fact this holds
+// information about the ongoing changes that are happening to instances.
+// Consider LXD Profile updates that can modify a instance, but may not cause
+// the instance to be placed into a error state. This modification status
+// serves the purpose of highlighting that to the operator.
+// Only machine tags are accepted.
+func (p *ProvisionerAPI) SetModificationStatus(args params.SetStatus) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return result, errors.Trace(err)
+	}
+	for i, arg := range args.Entities {
+		err = p.setOneModificationStatus(canAccess, arg)
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (p *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
+	logger.Tracef("SetInstanceStatus called with: %#v", arg)
+	mTag, err := names.ParseMachineTag(arg.Tag)
+	if err != nil {
+		logger.Warningf("SetModificationStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+		return common.ErrPerm
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
+		return err
+	}
+
+	// We can use the controller timestamp to get now.
+	since, err := p.st.ControllerTimestamp()
+	if err != nil {
+		return err
+	}
+	s := status.StatusInfo{
+		Status:  status.Status(arg.Status),
+		Message: arg.Info,
+		Data:    arg.Data,
+		Since:   since,
+	}
+	if err = machine.SetModificationStatus(s); err != nil {
+		logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
+		return err
+	}
+	return nil
 }
 
 // MarkMachinesForRemoval indicates that the specified machines are
