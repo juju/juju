@@ -77,7 +77,7 @@ When running add-k8s on JAAS and the cloud/region cannot be detected automatical
 use --region <cloudType/region> to specify the host cloud type and region.
 
 When adding a GKE cluster, you can use the --gke option to interactively be stepped
-through the registration process, you you can supply the necessary parameters directly.
+through the registration process, or you can supply the necessary parameters directly.
 
 Examples:
     juju add-k8s myk8scloud
@@ -103,13 +103,13 @@ type AddCAASCommand struct {
 	// caasName is the name of the caas to add.
 	caasName string
 
-	// caasType is the type of CAAS being added
+	// caasType is the type of CAAS being added.
 	caasType string
 
-	// clusterName is the name of the cluster (k8s) or credential to import
+	// clusterName is the name of the cluster (k8s) or credential to import.
 	clusterName string
 
-	// contextName is the name of the contex to import
+	// contextName is the name of the contex to import.
 	contextName string
 
 	// project is the project id for the cluster.
@@ -119,7 +119,7 @@ type AddCAASCommand struct {
 	credential string
 
 	// hostCloudRegion is the cloud region that the nodes of cluster (k8s) are running in.
-	// The format is <cloudType/region>
+	// The format is <cloudType/region>.
 	hostCloudRegion string
 
 	// brokerGetter returns caas broker instance.

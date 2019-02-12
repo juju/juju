@@ -6,11 +6,9 @@ package caas
 import (
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 )
 
@@ -32,14 +30,6 @@ func getEnv(key string) string {
 		result = os.Getenv(strings.ToLower(key))
 	}
 	return result
-}
-
-func kubeconfig() string {
-	kubeconfig := getEnv("kubeconfig")
-	if kubeconfig == "" {
-		kubeconfig = filepath.Join(utils.Home(), ".kube", "config")
-	}
-	return kubeconfig
 }
 
 var runCommand = func(runner CommandRunner, params []string, kubeconfig string) (*exec.ExecResponse, error) {

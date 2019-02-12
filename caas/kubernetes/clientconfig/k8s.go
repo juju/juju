@@ -267,19 +267,19 @@ func credentialsFromConfig(config *clientcmdapi.Config, credentialName string) (
 	return rv, nil
 }
 
-// getKubeConfigPath - define kubeconfig file path to use
-func getKubeConfigPath() string {
-	envPath := os.Getenv(clientcmd.RecommendedConfigPathEnvVar)
-	if envPath == "" {
-		return clientcmd.RecommendedHomeFile
+// GetKubeConfigPath - define kubeconfig file path to use
+func GetKubeConfigPath() string {
+	kubeconfig := os.Getenv(clientcmd.RecommendedConfigPathEnvVar)
+	if kubeconfig == "" {
+		kubeconfig = clientcmd.RecommendedHomeFile
 	}
-	logger.Debugf("The kubeconfig file path: %q", envPath)
-	return envPath
+	logger.Debugf("The kubeconfig file path: %q", kubeconfig)
+	return kubeconfig
 }
 
 func readKubeConfigFile() (reader io.Reader, err error) {
 	// Try to read from kubeconfig file.
-	filename := getKubeConfigPath()
+	filename := GetKubeConfigPath()
 	reader, err = os.Open(filename)
 	if err != nil {
 		if os.IsNotExist(err) {

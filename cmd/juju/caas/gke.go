@@ -12,6 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cmd/juju/interact"
 )
 
@@ -45,7 +46,7 @@ func (g *gke) getKubeConfig(p *clusterParams) (io.ReadCloser, string, error) {
 	}
 	qualifiedClusterName += p.name
 
-	kubeconfig := kubeconfig()
+	kubeconfig := clientconfig.GetKubeConfigPath()
 	result, err := runCommand(g, cmd, kubeconfig)
 	if err != nil {
 		return nil, "", errors.Trace(err)
