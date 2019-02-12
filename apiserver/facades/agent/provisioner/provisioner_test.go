@@ -440,14 +440,14 @@ func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
 func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.Provisioning,
+		Status:  status.Pending,
 		Message: "blah",
 		Since:   &now,
 	}
 	err := s.machines[0].SetModificationStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.Running,
+		Status:  status.Applied,
 		Message: "foo",
 		Since:   &now,
 	}
@@ -463,13 +463,13 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: s.machines[0].Tag().String(), Status: status.Provisioning.String(), Info: "not really",
+			{Tag: s.machines[0].Tag().String(), Status: status.Pending.String(), Info: "not really",
 				Data: map[string]interface{}{"foo": "bar"}},
-			{Tag: s.machines[1].Tag().String(), Status: status.Running.String(), Info: "foobar"},
-			{Tag: s.machines[2].Tag().String(), Status: status.ProvisioningError.String(), Info: "again"},
-			{Tag: "machine-42", Status: status.Provisioning.String(), Info: "blah"},
+			{Tag: s.machines[1].Tag().String(), Status: status.Applied.String(), Info: "foobar"},
+			{Tag: s.machines[2].Tag().String(), Status: status.Error.String(), Info: "again"},
+			{Tag: "machine-42", Status: status.Pending.String(), Info: "blah"},
 			{Tag: "unit-foo-0", Status: status.Error.String(), Info: "foobar"},
-			{Tag: "application-bar", Status: status.ProvisioningError.String(), Info: "foobar"},
+			{Tag: "application-bar", Status: status.Error.String(), Info: "foobar"},
 		}}
 	result, err := s.provisioner.SetModificationStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -485,11 +485,9 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 	})
 
 	// Verify the changes.
-	s.assertModificationStatus(c, 0, status.Provisioning, "not really", map[string]interface{}{"foo": "bar"})
-	s.assertModificationStatus(c, 1, status.Running, "foobar", map[string]interface{}{})
-	s.assertModificationStatus(c, 2, status.ProvisioningError, "again", map[string]interface{}{})
-	// ProvisioningError also has a special case which is to set the machine to Error
-	s.assertStatus(c, 2, status.Error, "again", map[string]interface{}{})
+	s.assertModificationStatus(c, 0, status.Pending, "not really", map[string]interface{}{"foo": "bar"})
+	s.assertModificationStatus(c, 1, status.Applied, "foobar", map[string]interface{}{})
+	s.assertModificationStatus(c, 2, status.Error, "again", map[string]interface{}{})
 }
 
 func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
