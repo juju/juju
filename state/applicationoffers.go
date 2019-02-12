@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -694,7 +695,28 @@ func (st *State) WatchOfferStatus(offerUUID string) (NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(wallyworld) - for now, the offer status is just the application status
-	appKey := applicationGlobalKey(offer.ApplicationName)
-	return newEntityWatcher(st, statusesC, st.docID(appKey)), nil
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+
+		// Does the app name match?
+		if strings.HasPrefix(k, "a#") && k[2:] == offer.ApplicationName {
+			return true
+		}
+
+		// Maybe it is a status change for a unit of the app.
+		if !strings.HasPrefix(k, "u#") && !strings.HasSuffix(k, "#charm") {
+			return false
+		}
+		k = strings.TrimRight(k[2:], "#charm")
+		if !names.IsValidUnit(k) {
+			return false
+		}
+
+		unitApp, _ := names.UnitApplication(k)
+		return unitApp == offer.ApplicationName
+	}
+	return newNotifyCollWatcher(st, statusesC, filter), nil
 }

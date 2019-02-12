@@ -226,7 +226,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
-	c.Check(result.Result.Token, gc.Equals, "token-offeredapp")
+	c.Check(result.Result.Token, gc.Equals, "token-offered")
 	declared := checkers.InferDeclared(macaroon.Slice{result.Result.Macaroon})
 	c.Assert(declared, jc.DeepEquals, checkers.Declared{
 		"source-model-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -250,7 +250,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	expectedRel.Stub = testing.Stub{} // don't care about api calls
 	c.Check(expectedRel, jc.DeepEquals, &mockRelation{id: 0, key: "offeredapp:local remote-apptoken:remote"})
 	c.Check(s.st.remoteEntities, gc.HasLen, 2)
-	c.Check(s.st.remoteEntities[names.NewApplicationTag("offeredapp")], gc.Equals, "token-offeredapp")
+	c.Check(s.st.remoteEntities[names.NewApplicationTag("offered")], gc.Equals, "token-offered")
 	c.Check(s.st.remoteEntities[names.NewRelationTag("offeredapp:local remote-apptoken:remote")], gc.Equals, "rel-token")
 	c.Assert(s.st.offerConnections, gc.HasLen, 1)
 	offerConnection := s.st.offerConnections[0]

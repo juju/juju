@@ -618,6 +618,20 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	wc.AssertOneChange()
 	wc.AssertNoChange()
 
+	u := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+	err = u.SetStatus(status.StatusInfo{
+		Status: status.Blocked,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+	wc.AssertNoChange()
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+	wc.AssertNoChange()
+
 	err = ao.Remove(offer.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.Destroy()

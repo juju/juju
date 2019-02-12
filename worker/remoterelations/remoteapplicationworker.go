@@ -84,6 +84,7 @@ func (w *remoteApplicationWorker) checkOfferPermissionDenied(err error, appToken
 				"updating remote application %v status from remote model %v: %v",
 				w.applicationName, w.remoteModelUUID, err)
 		}
+		logger.Debugf("discharge required error: app token: %v rel token: %v", appToken, relationToken)
 		// If we know a specific relation, update that too.
 		if relationToken != "" {
 			suspended := true
@@ -495,7 +496,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	applicationTag, relationTag names.Tag, offerUUID string,
 	localEndpointInfo params.RemoteEndpoint, remoteEndpointName string,
 ) (applicationToken, offeringAppToken, relationToken string, _ *macaroon.Macaroon, _ error) {
-	logger.Debugf("register remote relation %v", relationTag.Id())
+	logger.Debugf("register remote relation %v to local application %v", relationTag.Id(), applicationTag.Id())
 
 	fail := func(err error) (string, string, string, *macaroon.Macaroon, error) {
 		return "", "", "", nil, err
