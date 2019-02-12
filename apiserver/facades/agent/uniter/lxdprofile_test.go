@@ -51,21 +51,12 @@ func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*uniter.LXDP
 		}, nil
 	}
 
-	machineAuthFunc := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			if tag.Id() == s.machineTag1.Id() {
-				return true
-			}
-			return false
-		}, nil
-	}
-
 	api := uniter.NewLXDProfileAPI(
-		mockBackend, resources, authorizer, machineAuthFunc, unitAuthFunc, loggo.GetLogger("juju.apiserver.facades.agent.uniter"))
+		mockBackend, resources, authorizer, unitAuthFunc, loggo.GetLogger("juju.apiserver.facades.agent.uniter"))
 	return api, ctrl, mockBackend
 }
 
-func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C) {
+func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 	api, ctrl, mockBackend := s.assertBackendAPI(c, s.unitTag1)
 	defer ctrl.Finish()
 
@@ -78,15 +69,15 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C
 	mockUnit1 := mocks.NewMockLXDProfileUnit(ctrl)
 
 	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine1, nil)
-	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil).Times(2)
-	mockMachine1.EXPECT().WatchLXDProfileUpgradeNotifications("mysql/1").Return(lxdProfileWatcher, nil)
+	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil)
+	mockMachine1.EXPECT().WatchLXDProfileUpgradeNotifications("foo-bar").Return(lxdProfileWatcher, nil)
 	mockUnit1.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil)
-	mockUnit1.EXPECT().Name().Return("mysql/1")
 
 	args := params.LXDProfileUpgrade{
 		Entities: []params.Entity{
 			{Tag: names.NewUnitTag("mysql/2").String()},
 			{Tag: s.unitTag1.String()},
+			{Tag: names.NewMachineTag("2").String()},
 		},
 		ApplicationName: "foo-bar",
 	}
@@ -96,6 +87,38 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{StringsWatcherId: "1", Changes: []string{""}, Error: nil},
+			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+		},
+	})
+}
+
+func (s *lxdProfileSuite) TestWatchUnitLXDProfileUpgradeNotifications(c *gc.C) {
+	api, ctrl, mockBackend := s.assertBackendAPI(c, s.unitTag1)
+	defer ctrl.Finish()
+
+	lxdProfileWatcher := &mockStringsWatcher{
+		changes: make(chan []string, 1),
+	}
+	lxdProfileWatcher.changes <- []string{lxdprofile.EmptyStatus}
+
+	mockUnit1 := mocks.NewMockLXDProfileUnit(ctrl)
+	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil)
+	mockUnit1.EXPECT().WatchLXDProfileUpgradeNotifications().Return(lxdProfileWatcher, nil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewUnitTag("mysql/2").String()},
+			{Tag: s.unitTag1.String()},
+			{Tag: names.NewMachineTag("2").String()},
+		},
+	}
+	watches, err := api.WatchUnitLXDProfileUpgradeNotifications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+			{StringsWatcherId: "1", Changes: []string{""}, Error: nil},
+			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
