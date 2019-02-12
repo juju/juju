@@ -402,16 +402,22 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 			// If Error, SetInstanceStatus in the provisioner api will also call
 			// SetStatus.
 			if err2 := m.SetInstanceStatus(status.Error, "cannot upgrade machine's lxd profile: "+err.Error(), nil); err2 != nil {
+				return errors.Annotatef(err2, "cannot set status for machine %q", m)
+			}
+			if err2 := m.SetModificationStatus(status.Error, "cannot upgrade machine's lxd profile: "+err.Error(), nil); err2 != nil {
 				return errors.Annotatef(err2, "cannot set error status for machine %q", m)
 			}
 		} else {
 			// Clean up any residual errors in the machine status from a previous
 			// upgrade charm profile failure.
 			if err2 := m.SetInstanceStatus(status.Running, "Running", nil); err2 != nil {
-				return errors.Annotatef(err2, "cannot set error status for machine %q", m)
+				return errors.Annotatef(err2, "cannot set status for machine %q", m)
 			}
 			if err2 := m.SetStatus(status.Started, "", nil); err2 != nil {
-				return errors.Annotatef(err2, "cannot set error status for machine %q agent", m)
+				return errors.Annotatef(err2, "cannot set status for machine %q agent", m)
+			}
+			if err2 := m.SetModificationStatus(status.Applied, "", nil); err2 != nil {
+				return errors.Annotatef(err2, "cannot set status for machine %q modification status", m)
 			}
 			if err2 := m.SetUpgradeCharmProfileComplete(unitNames[i], lxdprofile.SuccessStatus); err2 != nil {
 				return errors.Annotatef(err2, "cannot set success status for instance charm profile data for machine %q", m)
