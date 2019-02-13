@@ -341,13 +341,17 @@ export _JUJU_2_cache_TTL=2
 # Detect juju built from source (highest priority)
 if [ -x "$GOPATH/bin/juju" ]; then 
     export _juju_cmd_JUJU_2="$GOPATH/bin/juju"
+elif [ -x "$GOROOT/bin/juju" ]; then
+    export _juju_cmd_JUJU_2="$GOROOT/bin/juju"
 # Detect installed juju-2 binary (next highest priority)
 elif [ -x "/usr/bin/juju-2" ]; then
     export _juju_cmd_JUJU_2="/usr/bin/juju-2"
 # Snap version of juju
 elif [ -x "/snap/bin/juju" ]; then
     export _juju_cmd_JUJU_2="/snap/bin/juju"
-# Use /usr/bin/juju as a last resort.
+# Look for juju in the user's path and fallback to /usr/bin/juju as a last resort.
+elif [ -x "$(which juju)" ]; then
+    export _juju_cmd_JUJU_2=$(which juju)
 else
     export _juju_cmd_JUJU_2="/usr/bin/juju"
 fi
