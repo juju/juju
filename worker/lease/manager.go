@@ -21,11 +21,16 @@ import (
 const (
 	// maxRetries gives the maximum number of attempts we'll try if
 	// there are timeouts.
-	maxRetries = 5
+	maxRetries = 10
 
 	// initialRetryDelay is the starting delay - this will be
 	// increased exponentially up maxRetries.
 	initialRetryDelay = 50 * time.Millisecond
+
+	// retryBackoffFactor is how much longer we wait after a failing retry.
+	// Retrying 10 times starting at 50ms and backing off 1.6x gives us a total
+	// delay time of about 9s.
+	retryBackoffFactor = 1.6
 )
 
 // errStopped is returned to clients when an operation cannot complete because
@@ -255,7 +260,14 @@ func (manager *Manager) retryingClaim(claim claim) {
 
 	if lease.IsTimeout(err) {
 		claim.respond(lease.ErrTimeout)
-		manager.config.Logger.Warningf("[%s] retrying timed out while handling claim", manager.logContext)
+		manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
+			manager.logContext, claim.leaseKey, claim.holderName)
+		return
+	} else if lease.IsInvalid(err) {
+		// we want to see this, but it doesn't indicate something a user can do something about
+		manager.config.Logger.Infof("[%s] got %v after %d retries, denying claim %q for %q",
+			manager.logContext, err, maxRetries, claim.leaseKey, claim.holderName)
+		claim.respond(lease.ErrClaimDenied)
 		return
 	}
 	if err == nil {
@@ -556,6 +568,7 @@ func (manager *Manager) startRetry() *retry.Attempt {
 	return retry.StartWithCancel(
 		retry.LimitCount(maxRetries, retry.Exponential{
 			Initial: initialRetryDelay,
+			Factor:  retryBackoffFactor,
 			Jitter:  true,
 		}),
 		manager.config.Clock,
