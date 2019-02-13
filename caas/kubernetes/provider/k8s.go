@@ -217,44 +217,8 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
-		// create namespace for controller stack.
-		if err = k.CreateNamespace(k.namespace); err != nil {
-			// create but not ensure to avoid reuse an existing namespace.
-			return errors.Annotate(err, "creating namespace for controller stack")
-		}
-
-		// create service for controller pod.
-		if err = k.createControllerService(); err != nil {
-			return errors.Annotate(err, "creating service for controller")
-		}
-
-		// create shared-secret secret for controller pod.
-		if err = k.createControllerSecretSharedSecret(acfg); err != nil {
-			return errors.Annotate(err, "creating shared-secret secret for controller")
-		}
-
-		// create server.pem secret for controller pod.
-		if err = k.createControllerSecretServerPem(acfg); err != nil {
-			return errors.Annotate(err, "creating server.pem secret for controller")
-		}
-
-		// create mongo admin account secret for controller pod.
-		if err = k.createControllerSecretMongoAdmin(acfg); err != nil {
-			return errors.Annotate(err, "creating mongo admin account secret for controller")
-		}
-
-		// create bootstrap-params configmap for controller pod.
-		if err = k.ensureControllerConfigmapBootstrapParams(pcfg); err != nil {
-			return errors.Annotate(err, "creating bootstrap-params configmap for controller")
-		}
-
-		// create agent config configmap for controller pod.
-		if err = k.ensureControllerConfigmapAgentConf(acfg); err != nil {
-			return errors.Annotate(err, "creating agent config configmap for controller")
-		}
-
 		// create statefulset for controller pod.
-		if err = k.createControllerStatefulset(pcfg); err != nil {
+		if err = createControllerStack(k, pcfg, acfg); err != nil {
 			return errors.Annotate(err, "creating statefulset for controller")
 		}
 
@@ -1425,6 +1389,11 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	existing.Spec.Replicas = spec.Spec.Replicas
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
 	_, err = statefulsets.Update(existing)
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) createStatefulSet(spec *apps.StatefulSet) error {
+	_, err := k.AppsV1().StatefulSets(k.namespace).Create(spec)
 	return errors.Trace(err)
 }
 

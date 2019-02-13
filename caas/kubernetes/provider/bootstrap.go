@@ -9,14 +9,17 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/ssh"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
+	k8sstorage "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	config "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 )
 
@@ -26,12 +29,12 @@ const (
 
 	portMongoDB             = 37017
 	portAPIServer           = 17070
-	storageSizeAPIServerRaw = "10Gi" // TODO: parse from constrains?
-	storageSizeMongoDBRaw   = "10Gi"
 	fileNameSharedSecret    = "shared-secret"
 	fileNameSSLKey          = "server.pem"
 	fileNameBootstrapParams = "bootstrap-params"
 	fileNameAgentConf       = "agent.conf"
+
+	storageSizeControllerRaw = "20Gi" // TODO: parse from constrains?
 )
 
 var (
@@ -42,11 +45,11 @@ var (
 	resourceNameGetterVolumeSSLKey          = resourceNameGetter(fileNameSSLKey)
 	resourceNameGetterVolumeBootstrapParams = resourceNameGetter(fileNameBootstrapParams)
 	resourceNameGetterVolumeAgentConf       = resourceNameGetter(fileNameAgentConf)
+	resourceNameGetterVolumeSystemIdentity  = resourceNameGetter(agent.SystemIdentity)
 	resourceNameGetterConfigMap             = resourceNameGetter("configmap")
 	resourceNameGetterSecret                = resourceNameGetter("secret")
-	pvcNameGetterMongoStorage               = resourceNameGetter("mongo-storage")
 	pvcNameGetterLogDirStorage              = resourceNameGetter("jujud-log-storage")
-	pvcNameGetterAPIServerStorage           = resourceNameGetter("jujud-storage")
+	pvcNameGetterControllerPodStorage       = resourceNameGetter("juju-controller-storage")
 )
 
 func resourceNameGetter(name string) func(string) string {
@@ -55,12 +58,12 @@ func resourceNameGetter(name string) func(string) string {
 	}
 }
 
-func (k *kubernetesClient) createControllerService() error {
+func createControllerService(client bootstrapBroker) error {
 	spec := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      resourceNameGetterService(JujuControllerStackName),
 			Labels:    stackLabelsGetter(JujuControllerStackName),
-			Namespace: k.namespace,
+			Namespace: client.GetCurrentNamespace(),
 		},
 		Spec: core.ServiceSpec{
 			Selector: stackLabelsGetter(JujuControllerStackName),
@@ -80,18 +83,11 @@ func (k *kubernetesClient) createControllerService() error {
 			},
 		},
 	}
-	logger.Debugf("creating controller service: \n%+v", spec)
-	_, err := k.CoreV1().Services(k.namespace).Create(spec)
-	return errors.Trace(err)
+	logger.Debugf("ensuring controller service: \n%+v", spec)
+	return errors.Trace(client.ensureService(spec))
 }
 
-type secretEnsurer interface {
-	createSecret(Secret *core.Secret) error
-	getSecret(secretName string) (*core.Secret, error)
-	GetCurrentNamespace() string
-}
-
-func getControllerSecret(broker secretEnsurer) (secret *core.Secret, err error) {
+func getControllerSecret(broker bootstrapBroker) (secret *core.Secret, err error) {
 	defer func() {
 		if secret.Data == nil {
 			secret.Data = map[string][]byte{}
@@ -119,7 +115,7 @@ func getControllerSecret(broker secretEnsurer) (secret *core.Secret, err error) 
 	return broker.getSecret(secretName)
 }
 
-func (k *kubernetesClient) createControllerSecretSharedSecret(agentConfig agent.ConfigSetterWriter) error {
+func createControllerSecretSharedSecret(client bootstrapBroker, agentConfig agent.ConfigSetterWriter) error {
 	si, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return errors.NewNotValid(nil, "agent config has no state serving info")
@@ -128,49 +124,72 @@ func (k *kubernetesClient) createControllerSecretSharedSecret(agentConfig agent.
 		// Generate a shared secret for the Mongo replica set, and write it out.
 		sharedSecret, err := mongo.GenerateSharedSecret()
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		si.SharedSecret = sharedSecret
 		agentConfig.SetStateServingInfo(si)
 	}
 
-	secret, err := getControllerSecret(k)
+	secret, err := getControllerSecret(client)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	secret.Data[fileNameSharedSecret] = []byte(si.SharedSecret)
 	logger.Debugf("ensuring shared secret: \n%+v", secret)
-	return k.ensureSecret(secret)
+	return client.ensureSecret(secret)
 }
 
-func (k *kubernetesClient) createControllerSecretServerPem(agentConfig agent.ConfigSetterWriter) error {
+func createControllerSecretServerPem(client bootstrapBroker, agentConfig agent.ConfigSetterWriter) error {
 	si, ok := agentConfig.StateServingInfo()
 	if !ok || si.CAPrivateKey == "" {
 		// No certificate information exists yet, nothing to do.
 		return errors.NewNotValid(nil, "certificate is empty")
 	}
 
-	secret, err := getControllerSecret(k)
+	secret, err := getControllerSecret(client)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	secret.Data[fileNameSSLKey] = []byte(mongo.GenerateSSLKey(si.Cert, si.PrivateKey))
 	logger.Debugf("ensuring server.pem secret: \n%+v", secret)
-	return k.ensureSecret(secret)
+	return client.ensureSecret(secret)
 }
 
-func (k *kubernetesClient) createControllerSecretMongoAdmin(agentConfig agent.ConfigSetterWriter) error {
+func createControllerSecretSystemIdentity(client bootstrapBroker, agentConfig agent.ConfigSetterWriter, pcfg *podcfg.ControllerPodConfig) error {
+	si, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return errors.NewNotValid(nil, "StateServingInfo is empty")
+	}
+	privateKey, _, err := ssh.GenerateKey(config.JujuSystemKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	si.SystemIdentity = privateKey
+	agentConfig.SetStateServingInfo(si)
+
+	// TODO: should we set to `default` rather than low.?
+	mmprof, err := mongo.NewMemoryProfile(pcfg.Controller.Config.MongoMemoryProfile())
+	if err != nil {
+		logger.Errorf("could not set requested memory profile: %v", err)
+	} else {
+		agentConfig.SetMongoMemoryProfile(mmprof)
+	}
+
+	secret, err := getControllerSecret(client)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	secret.Data[agent.SystemIdentity] = []byte(privateKey)
+	logger.Debugf("ensuring server.pem secret: \n%+v", secret)
+	return client.ensureSecret(secret)
+}
+
+func createControllerSecretMongoAdmin(client bootstrapBroker, agentConfig agent.ConfigSetterWriter) error {
 	// TODO: for mongo side car container, it's currently disabled.
 	return nil
 }
 
-type configMapEnsurer interface {
-	createConfigMap(configMap *core.ConfigMap) error
-	getConfigMap(cmName string) (*core.ConfigMap, error)
-	GetCurrentNamespace() string
-}
-
-func getControllerConfigMap(broker configMapEnsurer) (cm *core.ConfigMap, err error) {
+func getControllerConfigMap(broker bootstrapBroker) (cm *core.ConfigMap, err error) {
 	defer func() {
 		if cm.Data == nil {
 			cm.Data = map[string]string{}
@@ -197,45 +216,113 @@ func getControllerConfigMap(broker configMapEnsurer) (cm *core.ConfigMap, err er
 	return broker.getConfigMap(cmName)
 }
 
-func (k *kubernetesClient) ensureControllerConfigmapBootstrapParams(pcfg *podcfg.ControllerPodConfig) error {
+func ensureControllerConfigmapBootstrapParams(client bootstrapBroker, pcfg *podcfg.ControllerPodConfig) error {
 	bootstrapParamsFileContent, err := pcfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
 
-	cm, err := getControllerConfigMap(k)
+	cm, err := getControllerConfigMap(client)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	cm.Data[fileNameBootstrapParams] = string(bootstrapParamsFileContent)
 	logger.Debugf("creating bootstrap-params configmap: \n%+v", cm)
-	return k.ensureConfigMap(cm)
+	return client.ensureConfigMap(cm)
 }
 
-func (k *kubernetesClient) ensureControllerConfigmapAgentConf(agentConfig agent.ConfigSetterWriter) error {
+func ensureControllerConfigmapAgentConf(client bootstrapBroker, agentConfig agent.ConfigSetterWriter) error {
 	agentConfigFileContent, err := agentConfig.Render()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("agentConfig file content: \n%s", string(agentConfigFileContent))
 
-	cm, err := getControllerConfigMap(k)
+	cm, err := getControllerConfigMap(client)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	cm.Data[fileNameAgentConf] = string(agentConfigFileContent)
 	logger.Debugf("ensuring agent.conf configmap: \n%+v", cm)
-	return k.ensureConfigMap(cm)
+	return client.ensureConfigMap(cm)
 }
 
-func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPodConfig) error {
+type bootstrapBroker interface {
+	createConfigMap(configMap *core.ConfigMap) error
+	getConfigMap(cmName string) (*core.ConfigMap, error)
+	ensureConfigMap(configMap *core.ConfigMap) error
+
+	createSecret(Secret *core.Secret) error
+	getSecret(secretName string) (*core.Secret, error)
+	ensureSecret(sec *core.Secret) error
+
+	ensureService(spec *core.Service) error
+
+	createStatefulSet(spec *apps.StatefulSet) error
+
+	GetCurrentNamespace() string
+	EnsureNamespace() error
+	getDefaultStorageClass() (*k8sstorage.StorageClass, error)
+}
+
+func createControllerStack(client bootstrapBroker, pcfg *podcfg.ControllerPodConfig, agentConfig agent.ConfigSetterWriter) error {
+
+	// create namespace for controller stack.
+	if err := client.EnsureNamespace(); err != nil {
+		// create but not ensure to avoid reuse an existing namespace.
+		return errors.Annotate(err, "creating namespace for controller stack")
+	}
+
+	// create service for controller pod.
+	if err := createControllerService(client); err != nil {
+		return errors.Annotate(err, "creating service for controller")
+	}
+
+	// create shared-secret secret for controller pod.
+	if err := createControllerSecretSharedSecret(client, agentConfig); err != nil {
+		return errors.Annotate(err, "creating shared-secret secret for controller")
+	}
+
+	// create server.pem secret for controller pod.
+	if err := createControllerSecretServerPem(client, agentConfig); err != nil {
+		return errors.Annotate(err, "creating server.pem secret for controller")
+	}
+
+	// create system-identity secret for controller pod.
+	if err := createControllerSecretSystemIdentity(client, agentConfig, pcfg); err != nil {
+		return errors.Annotate(err, "creating system-identity secret for controller")
+	}
+
+	// create mongo admin account secret for controller pod.
+	if err := createControllerSecretMongoAdmin(client, agentConfig); err != nil {
+		return errors.Annotate(err, "creating mongo admin account secret for controller")
+	}
+
+	// create bootstrap-params configmap for controller pod.
+	if err := ensureControllerConfigmapBootstrapParams(client, pcfg); err != nil {
+		return errors.Annotate(err, "creating bootstrap-params configmap for controller")
+	}
+
+	// Note: create agent config configmap for controller pod lastly because agentConfig has been updated in previous steps.
+	if err := ensureControllerConfigmapAgentConf(client, agentConfig); err != nil {
+		return errors.Annotate(err, "creating agent config configmap for controller")
+	}
+
+	// create statefulset to ensure controller stack.
+	return errors.Annotate(
+		createControllerStatefulset(client, pcfg, agentConfig),
+		"creating statefulset for controller",
+	)
+}
+
+func createControllerStatefulset(client bootstrapBroker, pcfg *podcfg.ControllerPodConfig, agentConfig agent.ConfigSetterWriter) error {
 	numberOfPods := int32(1) // TODO: HA mode!
 	spec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      resourceNameGetterStatefulSet(JujuControllerStackName),
 			Labels:    stackLabelsGetter(JujuControllerStackName),
-			Namespace: k.namespace,
+			Namespace: client.GetCurrentNamespace(),
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: resourceNameGetterService(JujuControllerStackName),
@@ -246,7 +333,7 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:    stackLabelsGetter(JujuControllerStackName),
-					Namespace: k.namespace,
+					Namespace: client.GetCurrentNamespace(),
 				},
 				Spec: core.PodSpec{
 					RestartPolicy: core.RestartPolicyAlways,
@@ -255,7 +342,7 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 		},
 	}
 
-	storageclass, err := k.getDefaultStorageClass()
+	storageclass, err := client.getDefaultStorageClass()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -263,20 +350,15 @@ func (k *kubernetesClient) createControllerStatefulset(pcfg *podcfg.ControllerPo
 		return errors.Trace(err)
 	}
 
-	if err := buildContainerSpecForController(spec, *pcfg); err != nil {
+	if err := buildContainerSpecForController(spec, *pcfg, agentConfig); err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("creating controller statefulset: \n%+v", spec)
-	_, err = k.AppsV1().StatefulSets(k.namespace).Create(spec)
-	return errors.Trace(err)
+	return errors.Trace(client.createStatefulSet(spec))
 }
 
 func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassName string) error {
-	storageSizeAPIServer, err := resource.ParseQuantity(storageSizeAPIServerRaw)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	storageSizeMongoDB, err := resource.ParseQuantity(storageSizeMongoDBRaw)
+	storageSizeController, err := resource.ParseQuantity(storageSizeControllerRaw)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -285,7 +367,7 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 	statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
 		{
 			ObjectMeta: v1.ObjectMeta{
-				Name:   pvcNameGetterMongoStorage(JujuControllerStackName),
+				Name:   pvcNameGetterControllerPodStorage(JujuControllerStackName),
 				Labels: stackLabelsGetter(JujuControllerStackName),
 			},
 			Spec: core.PersistentVolumeClaimSpec{
@@ -293,22 +375,7 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 				AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
 				Resources: core.ResourceRequirements{
 					Requests: core.ResourceList{
-						core.ResourceStorage: storageSizeMongoDB,
-					},
-				},
-			},
-		},
-		{
-			ObjectMeta: v1.ObjectMeta{
-				Name:   pvcNameGetterAPIServerStorage(JujuControllerStackName),
-				Labels: stackLabelsGetter(JujuControllerStackName),
-			},
-			Spec: core.PersistentVolumeClaimSpec{
-				StorageClassName: &storageClassName,
-				AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-				Resources: core.ResourceRequirements{
-					Requests: core.ResourceList{
-						core.ResourceStorage: storageSizeAPIServer,
+						core.ResourceStorage: storageSizeController,
 					},
 				},
 			},
@@ -358,6 +425,22 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 			},
 		},
 	})
+	// add volume system-identity.
+	vols = append(vols, core.Volume{
+		Name: resourceNameGetterVolumeSystemIdentity(JujuControllerStackName),
+		VolumeSource: core.VolumeSource{
+			Secret: &core.SecretVolumeSource{
+				SecretName:  secretName,
+				DefaultMode: &fileMode,
+				Items: []core.KeyToPath{
+					{
+						Key:  agent.SystemIdentity,
+						Path: agent.SystemIdentity,
+					},
+				},
+			},
+		},
+	})
 	cmName := resourceNameGetterConfigMap(JujuControllerStackName)
 	// add volume agent.conf comfigmap.
 	volAgentConf := core.Volume{
@@ -396,7 +479,7 @@ func buildStorageSpecForController(statefulset *apps.StatefulSet, storageClassNa
 	return nil
 }
 
-func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.ControllerPodConfig) error {
+func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.ControllerPodConfig, agentConfig agent.ConfigSetterWriter) error {
 	probCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
@@ -470,13 +553,9 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 				MountPath: pcfg.LogDir,
 			},
 			{
-				Name:      pvcNameGetterMongoStorage(JujuControllerStackName),
+				Name:      pvcNameGetterControllerPodStorage(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, "db"),
-			},
-			{
-				Name:      resourceNameGetterVolumeAgentConf(JujuControllerStackName),
-				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"),
-				SubPath:   "template-agent.conf",
+				SubPath:   "db",
 			},
 			{
 				Name:      resourceNameGetterVolumeSSLKey(JujuControllerStackName),
@@ -490,8 +569,15 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 				SubPath:   fileNameSharedSecret,
 				ReadOnly:  true,
 			},
+			{
+				Name:      resourceNameGetterVolumeSystemIdentity(JujuControllerStackName),
+				MountPath: agentConfig.SystemIdentityPath(),
+				SubPath:   agent.SystemIdentity,
+				ReadOnly:  true,
+			},
 		},
 	})
+
 	// add container API server.
 	containerSpec = append(containerSpec, core.Container{
 		Name: "api-server",
@@ -500,7 +586,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 		Image:           pcfg.GetControllerImagePath(),
 		VolumeMounts: []core.VolumeMount{
 			{
-				Name:      pvcNameGetterAPIServerStorage(JujuControllerStackName),
+				Name:      pvcNameGetterControllerPodStorage(JujuControllerStackName),
 				MountPath: pcfg.DataDir,
 			},
 			{
@@ -509,7 +595,7 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 			},
 			{
 				Name:      resourceNameGetterVolumeAgentConf(JujuControllerStackName),
-				MountPath: filepath.Join(pcfg.DataDir, "agents", "machine-"+pcfg.MachineId, "template-agent.conf"),
+				MountPath: filepath.Join(pcfg.DataDir, "agents", ("machine-" + pcfg.MachineId), "template-agent.conf"),
 				SubPath:   "template-agent.conf",
 			},
 			{
@@ -528,6 +614,12 @@ func buildContainerSpecForController(statefulset *apps.StatefulSet, pcfg podcfg.
 				Name:      resourceNameGetterVolumeBootstrapParams(JujuControllerStackName),
 				MountPath: filepath.Join(pcfg.DataDir, fileNameBootstrapParams),
 				SubPath:   fileNameBootstrapParams,
+				ReadOnly:  true,
+			},
+			{
+				Name:      resourceNameGetterVolumeSystemIdentity(JujuControllerStackName),
+				MountPath: agentConfig.SystemIdentityPath(),
+				SubPath:   agent.SystemIdentity,
 				ReadOnly:  true,
 			},
 		},
