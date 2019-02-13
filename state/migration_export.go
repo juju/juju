@@ -1691,7 +1691,7 @@ func (e *exporter) checkUnexportedValues() error {
 	}
 
 	for key := range e.statusHistory {
-		if !e.cfg.SkipInstanceData && (!strings.HasSuffix(key, "#instance") && !strings.HasSuffix(key, "#modification")) {
+		if !e.cfg.SkipInstanceData && !(strings.HasSuffix(key, "#instance") || strings.HasSuffix(key, "#modification")) {
 			missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
 		}
 	}
