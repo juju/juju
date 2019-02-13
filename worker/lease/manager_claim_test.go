@@ -86,7 +86,7 @@ func (s *ClaimSuite) TestClaimLease_Success_SameHolder(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 3), jc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -124,7 +124,7 @@ func (s *ClaimSuite) TestClaimLease_Failure_OtherHolder(c *gc.C) {
 			c.Check(err, gc.Equals, corelease.ErrClaimDenied)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 3), jc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -225,7 +225,7 @@ func (s *ClaimSuite) TestExtendLease_Success_Expired(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 3), jc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
 		wg.Wait()
 	})
 }
@@ -269,7 +269,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
 			c.Check(err, gc.Equals, corelease.ErrClaimDenied)
 			wg.Done()
 		}()
-		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 3), jc.ErrorIsNil)
+		c.Check(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 2), jc.ErrorIsNil)
 		wg.Wait()
 	})
 }

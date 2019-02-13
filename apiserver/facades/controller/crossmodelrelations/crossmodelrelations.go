@@ -271,14 +271,27 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	}
 	logger.Debugf("relation token %v exported for %v ", relation.RelationToken, localRel.Tag().Id())
 
-	// Export the local application from this model so we can tell the caller what the remote id is.
+	// Export the local offer from this model so we can tell the caller what the remote id is.
+	// The offer is exported as an application name since it models the behaviour of an application
+	// as far as the consuming side is concerned, and also needs to be unique.
+	// This allows > 1 offers off the one application to be made.
 	// NB we need to export the application last so that everything else is in place when the worker is
 	// woken up by the watcher.
-	token, err := api.st.ExportLocalEntity(names.NewApplicationTag(localApplicationName))
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return nil, errors.Annotatef(err, "exporting local application %v", localApplicationName)
+
+	// Juju 2.5.1 and earlier exported the local application name so for backwards compatibility
+	// use that if it's there.
+	token, err := api.st.GetToken(names.NewApplicationTag(localApplicationName))
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Annotatef(err, "checking local application token for %v", localApplicationName)
 	}
-	logger.Debugf("local application %v from model %v exported with token %v ", localApplicationName, api.st.ModelUUID(), token)
+	if err != nil {
+		// No token yet so export using the offer name which we prefer.
+		token, err = api.st.ExportLocalEntity(names.NewApplicationTag(appOffer.OfferName))
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return nil, errors.Annotatef(err, "exporting local application offer %v", appOffer.OfferName)
+		}
+	}
+	logger.Debugf("local application offer %v from model %v exported with token %v ", appOffer.OfferName, api.st.ModelUUID(), token)
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.authCtxt.CreateRemoteRelationMacaroon(

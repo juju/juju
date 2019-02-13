@@ -24,9 +24,6 @@ import (
 )
 
 const (
-	maxFiles = 65000
-	maxProcs = 20000
-
 	// ServiceName is the name of the service that Juju's mongod instance
 	// will be named.
 	ServiceName    = "juju-db"
@@ -357,12 +354,18 @@ func (mongoArgs *ConfigArgs) asService() (mongoService, error) {
 
 // asServiceConf returns the init system config for the mongo state service.
 func (mongoArgs *ConfigArgs) asServiceConf() common.Conf {
+	// See https://docs.mongodb.com/manual/reference/ulimit/.
+	limits := map[string]string{
+		"fsize":   "unlimited", // file size
+		"cpu":     "unlimited", // cpu time
+		"as":      "unlimited", // virtual memory size
+		"memlock": "unlimited", // locked-in-memory size
+		"nofile":  "64000",     // open files
+		"nproc":   "64000",     // processes/threads
+	}
 	conf := common.Conf{
-		Desc: "juju state database",
-		Limit: map[string]int{
-			"nofile": maxFiles,
-			"nproc":  maxProcs,
-		},
+		Desc:        "juju state database",
+		Limit:       limits,
 		Timeout:     serviceTimeout,
 		ExecStart:   mongoArgs.startCommand(),
 		ExtraScript: mongoArgs.extraScript(),

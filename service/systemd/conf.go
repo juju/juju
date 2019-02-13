@@ -206,7 +206,7 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    limitMap[k],
-			Value:   strconv.Itoa(v),
+			Value:   v,
 		})
 	}
 
@@ -301,15 +301,11 @@ func deserializeOptions(opts []*unit.UnitOption, renderer shell.Renderer) (commo
 				conf.Env[parts[0]] = parts[1]
 			case strings.HasPrefix(uo.Name, "Limit"):
 				if conf.Limit == nil {
-					conf.Limit = make(map[string]int)
+					conf.Limit = make(map[string]string)
 				}
 				for k, v := range limitMap {
 					if v == uo.Name {
-						n, err := strconv.Atoi(uo.Value)
-						if err != nil {
-							return conf, errors.Trace(err)
-						}
-						conf.Limit[k] = n
+						conf.Limit[k] = uo.Value
 						break
 					}
 				}

@@ -116,7 +116,8 @@ func (s *ManifoldSuite) TestStartNotStateServer(c *gc.C) {
 	s.resources["state-config-watcher"] = dt.NewStubResource(false)
 	w, err := s.startManifold(c)
 	c.Check(w, gc.IsNil)
-	c.Check(err, gc.Equals, dependency.ErrMissing)
+	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(err, gc.ErrorMatches, "no StateServingInfo in config: dependency not available")
 }
 
 func (s *ManifoldSuite) TestStartOpenStateFails(c *gc.C) {

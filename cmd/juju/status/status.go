@@ -214,16 +214,14 @@ var newAPIClientForStorage = func(c *statusCommand) (storage.StorageListAPI, err
 	return c.storageAPI, nil
 }
 
-func (c *statusCommand) close() (err error) {
+func (c *statusCommand) close() {
+	// We really don't care what the errors are if there are some.
+	// The user can't do anything about it.  Just try.
 	if c.statusAPI != nil {
-		if e := c.statusAPI.Close(); e != nil {
-			err = errors.Wrapf(err, e, "closing statusAPI")
-		}
+		c.statusAPI.Close()
 	}
 	if c.storageAPI != nil {
-		if e := c.storageAPI.Close(); e != nil {
-			err = errors.Wrapf(err, e, "closing storageAPI")
-		}
+		c.storageAPI.Close()
 	}
 	return
 }
@@ -253,11 +251,7 @@ func (c *statusCommand) getStorageInfo(ctx *cmd.Context) (*storage.CombinedStora
 }
 
 func (c *statusCommand) Run(ctx *cmd.Context) error {
-	defer func() {
-		if err := c.close(); err != nil {
-			logger.Warningf("closing api sessions failed %v", err)
-		}
-	}()
+	defer c.close()
 
 	// Always attempt to get the status at least once, and retry if it fails.
 	status, err := c.getStatus()

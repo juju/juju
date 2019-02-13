@@ -82,11 +82,17 @@ func (store *Store) Wait(c *gc.C) {
 	case <-store.done:
 		select {
 		case err := <-store.failed:
-			c.Fatalf(err.Error())
+			c.Errorf(err.Error())
 		default:
 		}
 	case <-time.After(coretesting.LongWait):
-		c.Errorf("Store test took way too long")
+		store.mu.Lock()
+		remaining := make([]string, len(store.expect))
+		for i := range store.expect {
+			remaining[i] = store.expect[i].method
+		}
+		store.mu.Unlock()
+		c.Errorf("Store test took way too long, still expecting %v", remaining)
 	}
 }
 
@@ -147,6 +153,11 @@ func (store *Store) call(method string, args []interface{}) error {
 	}
 	defer store.closeIfEmpty()
 
+	if len(store.expect) < 1 {
+		err := errors.Errorf("store.%s called but was not expected", method)
+		store.failed <- err
+		return err
+	}
 	expect := store.expect[0]
 	store.expect = store.expect[1:]
 	if expect.parallelCallback != nil {

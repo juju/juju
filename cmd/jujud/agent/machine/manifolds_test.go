@@ -70,6 +70,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"is-primary-controller-flag",
 		"lease-clock-updater",
 		"lease-manager",
+		"legacy-leases-flag",
 		"log-pruner",
 		"log-sender",
 		"logging-config-updater",
@@ -146,6 +147,7 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"is-primary-controller-flag",
 		"lease-clock-updater",
 		"lease-manager",
+		"legacy-leases-flag",
 		"log-forwarder",
 		"model-cache",
 		"model-worker-manager",
@@ -196,6 +198,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"audit-config-updater",
 		"is-primary-controller-flag",
 		"lease-manager",
+		"legacy-leases-flag",
 		"raft-transport",
 	)
 	primaryControllerWorkers := set.NewStrings(
@@ -389,6 +392,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"global-clock-updater": {
 		"agent",
 		"clock",
+		"is-controller-flag",
+		"legacy-leases-flag",
 		"state",
 		"state-config-watcher"},
 
@@ -465,6 +470,13 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"central-hub",
 		"clock",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+	},
+
+	"legacy-leases-flag": {
+		"agent",
 		"is-controller-flag",
 		"state",
 		"state-config-watcher",

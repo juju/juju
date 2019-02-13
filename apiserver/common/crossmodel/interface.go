@@ -57,6 +57,9 @@ type Backend interface {
 	// GetRemoteEntity returns the tag of the entity associated with the given token.
 	GetRemoteEntity(string) (names.Tag, error)
 
+	// GetToken returns the token associated with the entity with the given tag.
+	GetToken(entity names.Tag) (string, error)
+
 	// ExportLocalEntity adds an entity to the remote entities collection,
 	// returning an opaque token that uniquely identifies the entity within
 	// the model.

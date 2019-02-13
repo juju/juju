@@ -232,11 +232,8 @@ func (s *serviceSuite) TestNewConf36(c *gc.C) {
 	conf := mongo.NewConf(&confArgs)
 
 	expected := common.Conf{
-		Desc: "juju state database",
-		Limit: map[string]int{
-			"nofile": 65000,
-			"nproc":  20000,
-		},
+		Desc:    "juju state database",
+		Limit:   expectedLimits,
 		Timeout: 300,
 		ExecStart: "/usr/bin/mongod" +
 			" --dbpath '/var/lib/juju/db'" +
@@ -277,4 +274,13 @@ func (s *serviceSuite) TestIsServiceInstalledWhenNotInstalled(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isInstalled, jc.IsFalse)
+}
+
+var expectedLimits = map[string]string{
+	"fsize":   "unlimited", // file size
+	"cpu":     "unlimited", // cpu time
+	"as":      "unlimited", // virtual memory size
+	"memlock": "unlimited", // locked-in-memory size
+	"nofile":  "64000",     // open files
+	"nproc":   "64000",     // processes/threads
 }
