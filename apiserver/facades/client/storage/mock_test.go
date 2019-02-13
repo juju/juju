@@ -45,8 +45,8 @@ func (m *mockPoolManager) Replace(name, provider string, attrs map[string]interf
 
 type mockStorageAccessor struct {
 	storageInstance                     func(names.StorageTag) (state.StorageInstance, error)
+	deleteStoragePool                   func(string) error
 	allStorageInstances                 func() ([]state.StorageInstance, error)
-	storagePoolsInUse                   func([]string) (map[string]bool, error)
 	storageInstanceAttachments          func(names.StorageTag) ([]state.StorageAttachment, error)
 	storageInstanceVolume               func(names.StorageTag) (state.Volume, error)
 	volumeAttachment                    func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
@@ -83,11 +83,12 @@ func (st *mockStorageAccessor) StorageInstance(s names.StorageTag) (state.Storag
 	return st.storageInstance(s)
 }
 
+func (st *mockStorageAccessor) DeleteStoragePool(pool string) error {
+	return st.deleteStoragePool(pool)
+}
+
 func (st *mockStorageAccessor) AllStorageInstances() ([]state.StorageInstance, error) {
 	return st.allStorageInstances()
-}
-func (st *mockStorageAccessor) StoragePoolsInUse(pools []string) (map[string]bool, error) {
-	return st.storagePoolsInUse(pools)
 }
 
 func (st *mockStorageAccessor) StorageAttachments(tag names.StorageTag) ([]state.StorageAttachment, error) {
@@ -433,12 +434,11 @@ func (u *mockUnit) AssignedMachineId() (string, error) {
 }
 
 type mockState struct {
-	modelTag         names.ModelTag
-	getBlockForType  func(t state.BlockType) (state.Block, bool, error)
-	unitName         string
-	unitErr          string
-	assignedMachine  string
-	applicationNames []string
+	modelTag        names.ModelTag
+	getBlockForType func(t state.BlockType) (state.Block, bool, error)
+	unitName        string
+	unitErr         string
+	assignedMachine string
 }
 
 func (st *mockState) ControllerTag() names.ControllerTag {
@@ -461,13 +461,4 @@ func (st *mockState) Unit(unitName string) (storage.Unit, error) {
 		return &mockUnit{assignedMachine: st.assignedMachine}, nil
 	}
 	return nil, errors.NotFoundf(unitName)
-}
-
-func (st *mockState) AllApplications() ([]*state.Application, error) {
-	var apps []*state.Application
-	for _ = range st.applicationNames {
-		apps = append(apps, &state.Application{})
-	}
-
-	return apps, nil
 }

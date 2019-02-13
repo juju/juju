@@ -303,6 +303,8 @@ func (sb *storageBackend) DeleteStoragePool(poolName string) error {
 	storageCollection, closer := sb.mb.db().GetCollection(storageInstancesC)
 	defer closer()
 
+	// TODO: Improve the data model to have a count of in use pools so we can
+	// make these checks as an assert and not queries.
 	var inUse bool
 	if sb.modelType == ModelTypeCAAS && poolName == caas.OperatorStoragePoolName {
 		apps, err := sb.allApplications()
@@ -319,11 +321,11 @@ func (sb *storageBackend) DeleteStoragePool(poolName string) error {
 		inUse = pools > 0
 	}
 	if inUse {
-		return errors.New("storage pool in use")
+		return errors.Errorf("storage pool %q in use", poolName)
 	}
 
-	globalPoolName := "pool#" + poolName
-	return sb.settings.RemoveSettings(globalPoolName)
+	pm := poolmanager.New(sb.settings, sb.registry)
+	return pm.Delete(poolName)
 }
 
 func (sb *storageBackend) storageInstances(query bson.D) (storageInstances []*storageInstance, err error) {
