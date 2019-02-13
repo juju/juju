@@ -184,7 +184,7 @@ func (s *AsyncSuite) TestExpiryRepeatedTimeout(c *gc.C) {
 	expireCalls := make(chan struct{})
 
 	var calls []call
-	for i := 0; i < 5; i++ {
+	for i := 0; i < lease.MaxRetries; i++ {
 		calls = append(calls,
 			call{method: "Refresh"},
 			call{
@@ -218,8 +218,8 @@ func (s *AsyncSuite) TestExpiryRepeatedTimeout(c *gc.C) {
 			c.Fatalf("timed out waiting for 1st expireCall")
 		}
 
-		delay := 50 * time.Millisecond
-		for i := 0; i < 4; i++ {
+		delay := lease.InitialRetryDelay
+		for i := 0; i < lease.MaxRetries-1; i++ {
 			c.Logf("retry %d", i+1)
 			// One timer:
 			// - retryingExpiry timers
@@ -232,7 +232,7 @@ func (s *AsyncSuite) TestExpiryRepeatedTimeout(c *gc.C) {
 			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timed out waiting for expireCall")
 			}
-			delay *= 2
+			delay = time.Duration(float64(delay)*lease.RetryBackoffFactor + 1)
 		}
 		workertest.CheckAlive(c, manager)
 	})
@@ -612,7 +612,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 	// When a claim times out too many times we give up.
 	claimCalls := make(chan struct{})
 	var calls []call
-	for i := 0; i < 5; i++ {
+	for i := 0; i < lease.MaxRetries; i++ {
 		calls = append(calls, call{
 			method: "ClaimLease",
 			args: []interface{}{
@@ -641,8 +641,8 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 			result <- claimer.Claim("icecream", "rosie", time.Minute)
 		}()
 
-		duration := 50 * time.Millisecond
-		for i := 0; i < 4; i++ {
+		duration := lease.InitialRetryDelay
+		for i := 0; i < lease.MaxRetries-1; i++ {
 			c.Logf("retry %d", i)
 			select {
 			case <-claimCalls:
@@ -655,9 +655,8 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 			// There should be 2 waiters:
 			//  - nextTick has a timer once things expire
 			//  - retryingClaim has an attempt timer
-			err := clock.WaitAdvance(duration, coretesting.LongWait, 2)
-			c.Assert(err, jc.ErrorIsNil)
-			duration *= 2
+			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), jc.ErrorIsNil)
+			duration = time.Duration(float64(duration)*lease.RetryBackoffFactor + 1)
 		}
 
 		select {
@@ -669,6 +668,74 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 		select {
 		case err := <-result:
 			c.Assert(errors.Cause(err), gc.Equals, corelease.ErrTimeout)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for result")
+		}
+
+		workertest.CheckAlive(c, manager)
+	})
+}
+
+func (s *AsyncSuite) TestClaimRepeatedInvalid(c *gc.C) {
+	// When a claim is invalid for too long, we give up
+	claimCalls := make(chan struct{})
+	var calls []call
+	for i := 0; i < lease.MaxRetries; i++ {
+		calls = append(calls, call{
+			method: "ClaimLease",
+			args: []interface{}{
+				key("icecream"),
+				corelease.Request{"rosie", time.Minute},
+			},
+			err: corelease.ErrInvalid,
+			callback: func(_ leaseMap) {
+				select {
+				case claimCalls <- struct{}{}:
+				case <-time.After(coretesting.LongWait):
+					c.Fatalf("timed out sending claim")
+				}
+			},
+		})
+	}
+	fix := Fixture{
+		expectCalls: calls,
+		expectDirty: true,
+	}
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		result := make(chan error)
+		claimer, err := manager.Claimer("namespace", "modelUUID")
+		c.Assert(err, jc.ErrorIsNil)
+		go func() {
+			result <- claimer.Claim("icecream", "rosie", time.Minute)
+		}()
+
+		duration := lease.InitialRetryDelay
+		for i := 0; i < lease.MaxRetries-1; i++ {
+			c.Logf("retry %d", i)
+			select {
+			case <-claimCalls:
+			case <-result:
+				c.Fatalf("got result too soon")
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for claim call")
+			}
+
+			// There should be 2 waiters:
+			//  - nextTick has a timer once things expire
+			//  - retryingClaim has an attempt timer
+			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), jc.ErrorIsNil)
+			duration = time.Duration(float64(duration)*lease.RetryBackoffFactor + 1)
+		}
+
+		select {
+		case <-claimCalls:
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for final claim call")
+		}
+
+		select {
+		case err := <-result:
+			c.Assert(errors.Cause(err), gc.Equals, corelease.ErrClaimDenied)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for result")
 		}
