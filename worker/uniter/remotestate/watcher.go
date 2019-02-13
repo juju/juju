@@ -291,7 +291,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		upgradeSeriesChanges = upgradeSeriesw.Changes()
 		requiredEvents++
 
-		lxdProfilew, err := w.unit.WatchLXDProfileUpgradeNotifications()
+		lxdProfilew, err := w.unit.WatchUnitLXDProfileUpgradeNotifications()
 		if err != nil {
 			return errors.Trace(err)
 		}

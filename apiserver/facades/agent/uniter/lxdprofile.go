@@ -25,28 +25,25 @@ type LXDProfileBackend interface {
 // LXDProfileMachine describes machine-receiver state methods
 // for executing a lxd profile upgrade.
 type LXDProfileMachine interface {
-	WatchLXDProfileUpgradeNotifications(string) (state.StringsWatcher, error)
-	Units() ([]LXDProfileUnit, error)
 	RemoveUpgradeCharmProfileData(string) error
+	WatchLXDProfileUpgradeNotifications(string) (state.StringsWatcher, error)
 }
 
 // LXDProfileUnit describes unit-receiver state methods
 // for executing a lxd profile upgrade.
 type LXDProfileUnit interface {
-	Tag() names.Tag
 	AssignedMachineId() (string, error)
 	Name() string
+	Tag() names.Tag
+	WatchLXDProfileUpgradeNotifications() (state.StringsWatcher, error)
 }
 
 type LXDProfileAPI struct {
 	backend   LXDProfileBackend
 	resources facade.Resources
 
-	logger loggo.Logger
-
-	accessUnitOrMachine common.GetAuthFunc
-	AccessMachine       common.GetAuthFunc
-	accessUnit          common.GetAuthFunc
+	logger     loggo.Logger
+	accessUnit common.GetAuthFunc
 }
 
 // NewLXDProfileAPI returns a new LXDProfileAPI. Currently both
@@ -55,18 +52,15 @@ func NewLXDProfileAPI(
 	backend LXDProfileBackend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	accessMachine common.GetAuthFunc,
 	accessUnit common.GetAuthFunc,
 	logger loggo.Logger,
 ) *LXDProfileAPI {
 	logger.Tracef("NewLXDProfileAPI called with %s", authorizer.GetAuthTag())
 	return &LXDProfileAPI{
-		backend:             backend,
-		resources:           resources,
-		accessUnitOrMachine: common.AuthAny(accessUnit, accessMachine),
-		AccessMachine:       accessMachine,
-		accessUnit:          accessUnit,
-		logger:              logger,
+		backend:    backend,
+		resources:  resources,
+		accessUnit: accessUnit,
+		logger:     logger,
 	}
 }
 
@@ -89,27 +83,11 @@ type lxdProfileMachine struct {
 	*state.Machine
 }
 
-// Units maintains the LXDProfileMachine indirection by wrapping the call to
-// state.Machine.Units().
-func (m *lxdProfileMachine) Units() ([]LXDProfileUnit, error) {
-	units, err := m.Machine.Units()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	wrapped := make([]LXDProfileUnit, len(units))
-	for i, u := range units {
-		wrapped[i] = u
-	}
-	return wrapped, nil
-}
-
 // NewExternalLXDProfileAPI can be used for API registration.
 func NewExternalLXDProfileAPI(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	accessMachine common.GetAuthFunc,
 	accessUnit common.GetAuthFunc,
 	logger loggo.Logger,
 ) *LXDProfileAPI {
@@ -117,19 +95,72 @@ func NewExternalLXDProfileAPI(
 		LXDProfileState{st},
 		resources,
 		authorizer,
-		accessMachine, accessUnit,
+		accessUnit,
 		logger,
 	)
 }
 
+// WatchUnitLXDProfileUpgradeNotifications returns a StringsWatcher for observing
+// changes to the lxd profile changes for one unit.
+func (u *LXDProfileAPI) WatchUnitLXDProfileUpgradeNotifications(args params.Entities) (params.StringsWatchResults, error) {
+	u.logger.Tracef("Starting WatchUnitLXDProfileUpgradeNotifications with %+v", args)
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.StringsWatchResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		watcherId, initial, err := u.watchOneChangeUnitLXDProfileUpgradeNotifications(unit)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		result.Results[i].StringsWatcherId = watcherId
+		result.Results[i].Changes = initial
+	}
+	return result, nil
+}
+
+func (u *LXDProfileAPI) watchOneChangeUnitLXDProfileUpgradeNotifications(unit LXDProfileUnit) (string, []string, error) {
+	watch, err := unit.WatchLXDProfileUpgradeNotifications()
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+
+	if changes, ok := <-watch.Changes(); ok {
+		return u.resources.Register(watch), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(watch)
+}
+
 // WatchLXDProfileUpgradeNotifications returns a StringsWatcher for observing
 // changes to the lxd profile changes.
+//
+// NOTE: can be removed in juju version 3.
 func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfileUpgrade) (params.StringsWatchResults, error) {
 	u.logger.Tracef("Starting WatchLXDProfileUpgradeNotifications with %+v", args)
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnitOrMachine()
+	canAccess, err := u.accessUnit()
 	if err != nil {
 		return params.StringsWatchResults{}, err
 	}
@@ -149,16 +180,8 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfi
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		// WatchLXDProfileUpgradeNotifications now requires a unit name
-		// instead of an application name.  Rather than rev LXDProfileAPI,
-		// ignore the args[i].applicationName and determine the unit name
-		// from the tag
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		watcherId, initial, err := u.watchOneChangeLXDProfileUpgradeNotifications(machine, unit.Name())
+
+		watcherId, initial, err := u.watchOneChangeLXDProfileUpgradeNotifications(machine, args.ApplicationName)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -170,8 +193,8 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfi
 	return result, nil
 }
 
-func (u *LXDProfileAPI) watchOneChangeLXDProfileUpgradeNotifications(machine LXDProfileMachine, unitName string) (string, []string, error) {
-	watch, err := machine.WatchLXDProfileUpgradeNotifications(unitName)
+func (u *LXDProfileAPI) watchOneChangeLXDProfileUpgradeNotifications(machine LXDProfileMachine, applicationName string) (string, []string, error) {
+	watch, err := machine.WatchLXDProfileUpgradeNotifications(applicationName)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -189,7 +212,7 @@ func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (par
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnitOrMachine()
+	canAccess, err := u.accessUnit()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -209,10 +232,6 @@ func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (par
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		// WatchLXDProfileUpgradeNotifications now requires a unit name
-		// instead of an application name.  Rather than rev LXDProfileAPI,
-		// ignore the args[i].applicationName and determine the unit name
-		// from the tag
 		unit, err := u.getUnit(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
@@ -229,19 +248,16 @@ func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (par
 
 func (u *LXDProfileAPI) getMachine(tag names.Tag) (LXDProfileMachine, error) {
 	var id string
-	switch tag.Kind() {
-	case names.MachineTagKind:
-		id = tag.Id()
-	case names.UnitTagKind:
-		unit, err := u.backend.Unit(tag.Id())
-		if err != nil {
-
-		}
-		id, err = unit.AssignedMachineId()
-		if err != nil {
-			return nil, err
-		}
-	default:
+	if tag.Kind() != names.UnitTagKind {
+		return nil, errors.Errorf("not a unit tag")
+	}
+	unit, err := u.backend.Unit(tag.Id())
+	if err != nil {
+		return nil, err
+	}
+	id, err = unit.AssignedMachineId()
+	if err != nil {
+		return nil, err
 	}
 	return u.backend.Machine(id)
 }

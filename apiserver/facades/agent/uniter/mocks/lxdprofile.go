@@ -96,19 +96,6 @@ func (mr *MockLXDProfileMachineMockRecorder) RemoveUpgradeCharmProfileData(arg0 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUpgradeCharmProfileData", reflect.TypeOf((*MockLXDProfileMachine)(nil).RemoveUpgradeCharmProfileData), arg0)
 }
 
-// Units mocks base method
-func (m *MockLXDProfileMachine) Units() ([]uniter.LXDProfileUnit, error) {
-	ret := m.ctrl.Call(m, "Units")
-	ret0, _ := ret[0].([]uniter.LXDProfileUnit)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Units indicates an expected call of Units
-func (mr *MockLXDProfileMachineMockRecorder) Units() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockLXDProfileMachine)(nil).Units))
-}
-
 // WatchLXDProfileUpgradeNotifications mocks base method
 func (m *MockLXDProfileMachine) WatchLXDProfileUpgradeNotifications(arg0 string) (state.StringsWatcher, error) {
 	ret := m.ctrl.Call(m, "WatchLXDProfileUpgradeNotifications", arg0)
@@ -180,4 +167,17 @@ func (m *MockLXDProfileUnit) Tag() names_v2.Tag {
 // Tag indicates an expected call of Tag
 func (mr *MockLXDProfileUnitMockRecorder) Tag() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockLXDProfileUnit)(nil).Tag))
+}
+
+// WatchLXDProfileUpgradeNotifications mocks base method
+func (m *MockLXDProfileUnit) WatchLXDProfileUpgradeNotifications() (state.StringsWatcher, error) {
+	ret := m.ctrl.Call(m, "WatchLXDProfileUpgradeNotifications")
+	ret0, _ := ret[0].(state.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchLXDProfileUpgradeNotifications indicates an expected call of WatchLXDProfileUpgradeNotifications
+func (mr *MockLXDProfileUnitMockRecorder) WatchLXDProfileUpgradeNotifications() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileUpgradeNotifications", reflect.TypeOf((*MockLXDProfileUnit)(nil).WatchLXDProfileUpgradeNotifications))
 }
