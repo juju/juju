@@ -468,6 +468,10 @@ func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 				Value: "dvportgroup-0",
 			}},
 		},
+		ResourcePool: types.ManagedObjectReference{
+			Type:  "ResourcePool",
+			Value: "FakeResourcePool1",
+		},
 		Metadata:               map[string]string{"k": "v"},
 		Constraints:            constraints.Value{},
 		UpdateProgress:         func(status string) {},

@@ -75,6 +75,10 @@ type CreateVirtualMachineParams struct {
 	// to create the VM.
 	ComputeResource *mo.ComputeResource
 
+	// ResourcePool is a reference to the pool the VM should be
+	// created in.
+	ResourcePool types.ManagedObjectReference
+
 	// Datastore is the name of the datastore in which to create the VM.
 	// If this is empty, any accessible datastore will be used.
 	Datastore string
@@ -161,7 +165,7 @@ func (c *Client) CreateVirtualMachine(
 
 	// Ensure the VMDK is present in the datastore, uploading it if it
 	// doesn't already exist.
-	resourcePool := object.NewResourcePool(c.client.Client, *args.ComputeResource.ResourcePool)
+	resourcePool := object.NewResourcePool(c.client.Client, args.ResourcePool)
 	taskWaiter := &taskWaiter{args.Clock, args.UpdateProgress, args.UpdateProgressInterval}
 	vmdkDatastorePath, releaseVMDK, err := c.ensureVMDK(ctx, args, datastore, datacenter, taskWaiter)
 	if err != nil {
@@ -303,9 +307,7 @@ func (c *Client) createImportSpec(
 	}
 
 	ovfManager := ovf.NewManager(c.client.Client)
-	resourcePool := object.NewReference(c.client.Client, *args.ComputeResource.ResourcePool)
-
-	spec, err := ovfManager.CreateImportSpec(ctx, UbuntuOVF, resourcePool, datastore, cisp)
+	spec, err := ovfManager.CreateImportSpec(ctx, UbuntuOVF, args.ResourcePool, datastore, cisp)
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if spec.Error != nil {
