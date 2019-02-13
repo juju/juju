@@ -338,6 +338,7 @@ func setUpSuccessfulMockProfileMachine(ctrl *gomock.Controller, num, old string,
 	mExp.Life().Return(params.Alive)
 	mExp.InstanceId().Return(instance.Id(num), nil)
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 	if old == "" && sub {
 		mExp.RemoveUpgradeCharmProfileData(unitName).Return(nil)
 	} else {
@@ -357,6 +358,7 @@ func setUpFailureMockProfileMachine(ctrl *gomock.Controller, num string) *apipro
 	mExp.Id().Return(num).AnyTimes()
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
 	mExp.Life().Return(params.Alive)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 	mExp.SetInstanceStatus(status.Error, gomock.Any(), nil).Return(nil)
 	mExp.SetModificationStatus(status.Error, gomock.Any(), nil).Return(nil)
 	mExp.SetUpgradeCharmProfileComplete(gomock.Any(), gomock.Any()).Return(nil)
@@ -404,6 +406,7 @@ func (s *ProvisionerTaskSuite) testProcessOneMachineProfileChangeAddProfile(c *g
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
 	mExp.Life().Return(params.Alive)
 	mExp.InstanceId().Return(instance.Id("0"), nil)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 	differentProfileName := "juju-default-different-0"
 	mExp.SetCharmProfiles([]string{differentProfileName, newProfileName}).Return(nil)
 
@@ -469,6 +472,7 @@ func setUpMocksProcessOneMachineProfileChange(c *gc.C, info apiprovisioner.Charm
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
 	mExp.Life().Return(params.Alive)
 	mExp.InstanceId().Return(instance.Id("0"), nil)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 
 	differentProfileName := "juju-default-different-0"
 	machineCharmProfiles := []string{"default", "juju-default"}
