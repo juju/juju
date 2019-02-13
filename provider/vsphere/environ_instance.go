@@ -119,7 +119,7 @@ func (env *sessionEnviron) parsePlacement(ctx context.ProviderCallContext, place
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return zone.(*vmwareAvailZone), nil
+		return zone, nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }

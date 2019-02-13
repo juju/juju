@@ -4,7 +4,10 @@
 package vsphere
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 
 	"github.com/juju/juju/core/instance"
@@ -13,13 +16,35 @@ import (
 	"github.com/juju/juju/provider/common"
 )
 
+// poolPathPrefixParts is the number of path components to chop off a
+// resource pool's path to get its availability zone path. The paths
+// look like:
+// /<datacenter name>/host/<compute resource name>/Resources/<pool path...>
+// So there are 5 parts to the prefix (counting the
+// blank one from the leading /).
+const poolPathPrefixParts = 5
+
 type vmwareAvailZone struct {
-	r mo.ComputeResource
+	r    mo.ComputeResource
+	pool *object.ResourcePool
 }
 
 // Name implements common.AvailabilityZone
 func (z *vmwareAvailZone) Name() string {
-	return z.r.Name
+	// The name for this zone is the compute resource name and the
+	// path of the pool without the prefix, so for
+	// /QA/host/aron.internal/Resources/High/Child, the name should be
+	// aron.internal/High/Child.
+	path := strings.TrimRight(z.pool.InventoryPath, "/")
+	parts := strings.Split(path, "/")
+	poolPath := ""
+	if len(parts) > poolPathPrefixParts {
+		// This isn't the root pool for this compute resource, include
+		// the pool's path.
+		poolPath = "/" + strings.Join(parts[poolPathPrefixParts:], "/")
+	}
+
+	return z.r.Name + poolPath
 }
 
 // Available implements common.AvailabilityZone
@@ -44,9 +69,24 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 			HandleCredentialError(err, ctx)
 			return nil, errors.Trace(err)
 		}
-		zones := make([]common.AvailabilityZone, len(computeResources))
-		for i, cr := range computeResources {
-			zones[i] = &vmwareAvailZone{*cr}
+		var zones []common.AvailabilityZone
+		for _, cr := range computeResources {
+			if cr.Summary.GetComputeResourceSummary().EffectiveCpu == 0 {
+				logger.Debugf("skipping empty compute resource %q", cr.Name)
+			}
+			pools, err := env.client.ResourcePools(env.ctx, cr.Name+"/...")
+			if err != nil {
+				HandleCredentialError(err, ctx)
+				return nil, errors.Trace(err)
+			}
+			for _, pool := range pools {
+				zone := &vmwareAvailZone{
+					r:    *cr,
+					pool: pool,
+				}
+				logger.Tracef("zone: %q", zone.Name())
+				zones = append(zones, zone)
+			}
 		}
 		env.zones = zones
 	}
@@ -85,9 +125,9 @@ func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCal
 		}
 		vm := inst.(*environInstance).base
 		for _, zone := range zones {
-			cr := &zone.(*vmwareAvailZone).r
-			if cr.ResourcePool.Value == vm.ResourcePool.Value {
-				results[i] = cr.Name
+			pool := zone.(*vmwareAvailZone).pool
+			if pool.Reference().Value == vm.ResourcePool.Value {
+				results[i] = zone.Name()
 				break
 			}
 		}
@@ -119,14 +159,14 @@ func (env *sessionEnviron) DeriveAvailabilityZones(ctx context.ProviderCallConte
 	return nil, nil
 }
 
-func (env *sessionEnviron) availZone(ctx context.ProviderCallContext, name string) (common.AvailabilityZone, error) {
+func (env *sessionEnviron) availZone(ctx context.ProviderCallContext, name string) (*vmwareAvailZone, error) {
 	zones, err := env.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	for _, z := range zones {
 		if z.Name() == name {
-			return z, nil
+			return z.(*vmwareAvailZone), nil
 		}
 	}
 	return nil, errors.NotFoundf("availability zone %q", name)
