@@ -13,6 +13,7 @@ import (
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -346,9 +347,9 @@ func (c *legacyNovaFirewaller) ingressRulesInGroup(ctx context.ProviderCallConte
 		return nil, errors.Trace(err)
 	}
 	// Keep track of all the RemoteIPPrefixes for each port range.
-	portSourceCIDRs := make(map[network.PortRange]*[]string)
+	portSourceCIDRs := make(map[corenetwork.PortRange]*[]string)
 	for _, p := range group.Rules {
-		portRange := network.PortRange{*p.FromPort, *p.ToPort, *p.IPProtocol}
+		portRange := corenetwork.PortRange{*p.FromPort, *p.ToPort, *p.IPProtocol}
 		// Record the RemoteIPPrefix for the port range.
 		remotePrefix := p.IPRange["cidr"]
 		if remotePrefix == "" {

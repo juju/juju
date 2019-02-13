@@ -10,6 +10,7 @@ import (
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -57,7 +58,7 @@ func (s ByIPProtocol) Less(i, j int) bool {
 }
 
 func (s *networkSuite) TestFirewallSpec(c *gc.C) {
-	ports := map[string][]network.PortRange{
+	ports := map[string][]corenetwork.PortRange{
 		"tcp": {{FromPort: 80, ToPort: 81}, {FromPort: 8888, ToPort: 8888}},
 		"udp": {{FromPort: 1234, ToPort: 1234}},
 	}

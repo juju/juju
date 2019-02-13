@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // ErrRestrictedContext indicates a method is not implemented in the given context.

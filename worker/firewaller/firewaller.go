@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -118,7 +119,7 @@ func (cfg Config) Validate() error {
 	return nil
 }
 
-type portRanges map[network.PortRange]bool
+type portRanges map[corenetwork.PortRange]bool
 
 // Firewaller watches the state for port ranges opened or closed on
 // machines and reflects those changes onto the backing environment.
@@ -1174,8 +1175,8 @@ func parsePortsKey(change string) (machineTag names.MachineTag, subnetTag names.
 }
 
 func diffRanges(currentRules, wantedRules []network.IngressRule) (toOpen, toClose []network.IngressRule) {
-	portCidrs := func(rules []network.IngressRule) map[network.PortRange]set.Strings {
-		result := make(map[network.PortRange]set.Strings)
+	portCidrs := func(rules []network.IngressRule) map[corenetwork.PortRange]set.Strings {
+		result := make(map[corenetwork.PortRange]set.Strings)
 		for _, rule := range rules {
 			cidrs, ok := result[rule.PortRange]
 			if !ok {

@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	jujunetwork "github.com/juju/juju/network"
@@ -353,7 +354,7 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
 
 	// Keep track of all the SourceAddressPrefixes for each port range.
-	portSourceCIDRs := make(map[jujunetwork.PortRange]*[]string)
+	portSourceCIDRs := make(map[corenetwork.PortRange]*[]string)
 	for _, rule := range *nsg.SecurityRules {
 		if rule.Direction != network.SecurityRuleDirectionInbound {
 			continue
@@ -368,12 +369,12 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 			continue
 		}
 
-		var portRange jujunetwork.PortRange
+		var portRange corenetwork.PortRange
 		if *rule.DestinationPortRange == "*" {
 			portRange.FromPort = 0
 			portRange.ToPort = 65535
 		} else {
-			portRange, err = jujunetwork.ParsePortRange(
+			portRange, err = corenetwork.ParsePortRange(
 				*rule.DestinationPortRange,
 			)
 			if err != nil {

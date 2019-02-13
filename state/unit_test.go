@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -1505,7 +1506,7 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	checkExpectedError(err)
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
-		c.Check(open, gc.DeepEquals, []network.PortRange{
+		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{80, 80, "tcp"},
 			{100, 200, "udp"},
 		})
@@ -1515,7 +1516,7 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	checkExpectedError(err)
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
-		c.Check(open, gc.DeepEquals, []network.PortRange{
+		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{80, 80, "tcp"},
 			{53, 53, "udp"},
 			{100, 200, "udp"},
@@ -1526,7 +1527,7 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	checkExpectedError(err)
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
-		c.Check(open, gc.DeepEquals, []network.PortRange{
+		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{53, 55, "tcp"},
 			{80, 80, "tcp"},
 			{53, 53, "udp"},
@@ -1538,7 +1539,7 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	checkExpectedError(err)
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
-		c.Check(open, gc.DeepEquals, []network.PortRange{
+		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{53, 55, "tcp"},
 			{80, 80, "tcp"},
 			{443, 443, "tcp"},
@@ -1551,7 +1552,7 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	checkExpectedError(err)
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
-		c.Check(open, gc.DeepEquals, []network.PortRange{
+		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{53, 55, "tcp"},
 			{443, 443, "tcp"},
 			{53, 53, "udp"},
@@ -1563,7 +1564,7 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	checkExpectedError(err)
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
-		c.Check(open, gc.DeepEquals, []network.PortRange{
+		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{53, 55, "tcp"},
 			{443, 443, "tcp"},
 			{53, 53, "udp"},

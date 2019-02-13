@@ -14,6 +14,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	jujunetwork "github.com/juju/juju/network"
@@ -439,7 +440,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 
 		err := firewall.ClosePorts(f.callCtx, []jujunetwork.IngressRule{
 			{
-				PortRange: jujunetwork.PortRange{
+				PortRange: corenetwork.PortRange{
 					FromPort: 0,
 					ToPort:   0,
 				},
@@ -629,7 +630,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 
 		err := firewall.ClosePortsOnInstance(f.callCtx, "0,", []jujunetwork.IngressRule{
 			{
-				PortRange: jujunetwork.PortRange{
+				PortRange: corenetwork.PortRange{
 					FromPort: 0,
 					ToPort:   0,
 				},

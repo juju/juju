@@ -8,7 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/client"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 type filteringUnitTests struct {
