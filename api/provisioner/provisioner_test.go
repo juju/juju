@@ -142,7 +142,7 @@ func (s *provisionerSuite) TestGetSetModificationStatus(c *gc.C) {
 	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 	modificationStatus, info, err := apiMachine.ModificationStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modificationStatus, gc.Equals, status.Pending)
+	c.Assert(modificationStatus, gc.Equals, status.Idle)
 	c.Assert(info, gc.Equals, "")
 	err = apiMachine.SetModificationStatus(status.Running, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)

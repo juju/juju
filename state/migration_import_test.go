@@ -386,7 +386,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	// Test the modification status is set to the initial state.
 	modStatus, err := parent.ModificationStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modStatus.Status, gc.Equals, status.Pending)
+	c.Assert(modStatus.Status, gc.Equals, status.Idle)
 }
 
 func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {

@@ -339,7 +339,7 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 
 	// ensure that a new machine has a modification set to it's initial state.
 	instance := exported.Instance()
-	c.Assert(instance.ModificationStatus().Value(), gc.Equals, "pending")
+	c.Assert(instance.ModificationStatus().Value(), gc.Equals, "idle")
 }
 
 func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
