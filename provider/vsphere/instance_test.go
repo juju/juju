@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
@@ -122,7 +123,7 @@ func (s *InstanceSuite) TestOpenPortNoExternalNetwork(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	// machineID is ignored in per-instance firewallers
 	err = firewaller.OpenPorts(s.callCtx, "", []network.IngressRule{{
-		PortRange: network.PortRange{
+		PortRange: corenetwork.PortRange{
 			Protocol: "tcp",
 			FromPort: 10,
 			ToPort:   10,
@@ -131,7 +132,7 @@ func (s *InstanceSuite) TestOpenPortNoExternalNetwork(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	err = firewaller.ClosePorts(s.callCtx, "", []network.IngressRule{{
-		PortRange: network.PortRange{
+		PortRange: corenetwork.PortRange{
 			Protocol: "tcp",
 			FromPort: 10,
 			ToPort:   10,
