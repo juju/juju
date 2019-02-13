@@ -9,6 +9,7 @@ import (
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
@@ -33,13 +34,13 @@ func (s *RuleSetSuite) TestNewRuleSetFromRules(c *gc.C) {
 		"b42e18366a": &firewall{
 			SourceCIDRs: []string{"0.0.0.0/0"},
 			AllowedPorts: protocolPorts{
-				"tcp": []network.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}},
+				"tcp": []corenetwork.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}},
 			},
 		},
 		"d01a825c13": &firewall{
 			SourceCIDRs: []string{"192.168.1.0/24"},
 			AllowedPorts: protocolPorts{
-				"udp": []network.PortRange{{5123, 8099, "udp"}},
+				"udp": []corenetwork.PortRange{{5123, 8099, "udp"}},
 			},
 		},
 	})
@@ -78,8 +79,8 @@ func (s *RuleSetSuite) TestNewRuleSetFromFirewalls(c *gc.C) {
 			Target:      "somewhere",
 			SourceCIDRs: []string{"0.0.0.0/0"},
 			AllowedPorts: protocolPorts{
-				"tcp": []network.PortRange{{80, 80, "tcp"}, {443, 443, "tcp"}, {17070, 17073, "tcp"}},
-				"udp": []network.PortRange{{123, 123, "udp"}},
+				"tcp": []corenetwork.PortRange{{80, 80, "tcp"}, {443, 443, "tcp"}, {17070, 17073, "tcp"}},
+				"udp": []corenetwork.PortRange{{123, 123, "udp"}},
 			},
 		},
 		"0e3c16a771": &firewall{
@@ -87,34 +88,34 @@ func (s *RuleSetSuite) TestNewRuleSetFromFirewalls(c *gc.C) {
 			Target:      "target",
 			SourceCIDRs: []string{"1.2.3.0/24", "2.3.4.0/24"},
 			AllowedPorts: protocolPorts{
-				"tcp": []network.PortRange{{80, 80, "tcp"}, {443, 443, "tcp"}, {17070, 17073, "tcp"}},
-				"udp": []network.PortRange{{123, 123, "udp"}},
+				"tcp": []corenetwork.PortRange{{80, 80, "tcp"}, {443, 443, "tcp"}, {17070, 17073, "tcp"}},
+				"udp": []corenetwork.PortRange{{123, 123, "udp"}},
 			},
 		},
 	})
 }
 
 func (s *RuleSetSuite) TestProtocolPortsUnion(c *gc.C) {
-	p1 := protocolPorts{"tcp": []network.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}}}
+	p1 := protocolPorts{"tcp": []corenetwork.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}}}
 	p2 := protocolPorts{
-		"tcp": []network.PortRange{{80, 80, "tcp"}, {80, 100, "tcp"}, {443, 443, "tcp"}},
-		"udp": []network.PortRange{{67, 67, "udp"}},
+		"tcp": []corenetwork.PortRange{{80, 80, "tcp"}, {80, 100, "tcp"}, {443, 443, "tcp"}},
+		"udp": []corenetwork.PortRange{{67, 67, "udp"}},
 	}
 	result := p1.union(p2)
 	c.Assert(result, jc.DeepEquals, protocolPorts{
-		"tcp": []network.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}, {80, 100, "tcp"}, {443, 443, "tcp"}},
-		"udp": []network.PortRange{{67, 67, "udp"}},
+		"tcp": []corenetwork.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}, {80, 100, "tcp"}, {443, 443, "tcp"}},
+		"udp": []corenetwork.PortRange{{67, 67, "udp"}},
 	})
 }
 
 func (s *RuleSetSuite) TestProtocolPortsRemove(c *gc.C) {
-	p1 := protocolPorts{"tcp": []network.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}}}
+	p1 := protocolPorts{"tcp": []corenetwork.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}}}
 	p2 := protocolPorts{
-		"tcp": []network.PortRange{{80, 100, "tcp"}, {443, 443, "tcp"}, {80, 80, "tcp"}},
+		"tcp": []corenetwork.PortRange{{80, 100, "tcp"}, {443, 443, "tcp"}, {80, 80, "tcp"}},
 	}
 	result := p1.remove(p2)
 	c.Assert(result, jc.DeepEquals, protocolPorts{
-		"tcp": []network.PortRange{{8000, 8099, "tcp"}, {79, 81, "tcp"}},
+		"tcp": []corenetwork.PortRange{{8000, 8099, "tcp"}, {79, 81, "tcp"}},
 	})
 }
 
@@ -170,7 +171,7 @@ func (s *RuleSetSuite) TestMatchSourceCIDRs(c *gc.C) {
 	c.Assert(fw, gc.DeepEquals, &firewall{
 		SourceCIDRs: []string{"0.0.0.0/0"},
 		AllowedPorts: protocolPorts{
-			"tcp": []network.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}},
+			"tcp": []corenetwork.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}},
 		},
 	})
 	fw, ok = ruleset.matchSourceCIDRs([]string{"1.2.3.0/24"})
@@ -197,7 +198,7 @@ func (s *RuleSetSuite) TestDifferentOrdersForCIDRs(c *gc.C) {
 		c.Assert(fw, gc.DeepEquals, &firewall{
 			SourceCIDRs: []string{"1.2.3.0/24", "4.3.2.0/24"},
 			AllowedPorts: protocolPorts{
-				"tcp": []network.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}},
+				"tcp": []corenetwork.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}},
 			},
 		})
 	}

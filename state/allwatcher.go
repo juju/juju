@@ -12,6 +12,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -305,7 +306,7 @@ func (m *backingMachine) mongoId() string {
 
 type backingUnit unitDoc
 
-func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange, []network.Port, error) {
+func getUnitPortRangesAndPorts(st *State, unitName string) ([]corenetwork.PortRange, []corenetwork.Port, error) {
 	// Get opened port ranges for the unit and convert them to ports,
 	// as older clients/servers do not know about ranges). See bug
 	// http://pad.lv/1418344 for more info.
@@ -313,7 +314,7 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	if errors.IsNotFound(err) {
 		// Empty slices ensure backwards compatibility with older clients.
 		// See Bug #1425435.
-		return []network.PortRange{}, []network.Port{}, nil
+		return []corenetwork.PortRange{}, []corenetwork.Port{}, nil
 	} else if err != nil {
 		return nil, nil, errors.Annotatef(err, "failed to get unit %q", unitName)
 	}
@@ -324,7 +325,7 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 		// Not assigned, so there won't be any ports opened.
 		// Empty slices ensure backwards compatibility with older clients.
 		// See Bug #1425435.
-		return []network.PortRange{}, []network.Port{}, nil
+		return []corenetwork.PortRange{}, []corenetwork.Port{}, nil
 	} else if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to get unit port ranges")
 	}
@@ -332,10 +333,10 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	// empty slice rather than a nil slice. Use a len(portRanges) capacity to
 	// avoid unnecessary allocations, since most of the times only specific
 	// ports are opened by charms.
-	compatiblePorts := make([]network.Port, 0, len(portRanges))
+	compatiblePorts := make([]corenetwork.Port, 0, len(portRanges))
 	for _, portRange := range portRanges {
 		for j := portRange.FromPort; j <= portRange.ToPort; j++ {
-			compatiblePorts = append(compatiblePorts, network.Port{
+			compatiblePorts = append(compatiblePorts, corenetwork.Port{
 				Number:   j,
 				Protocol: portRange.Protocol,
 			})
@@ -1133,7 +1134,7 @@ func (p *backingOpenedPorts) mongoId() string {
 	panic("cannot find mongo id from openedPorts document")
 }
 
-func toMultiwatcherPortRanges(portRanges []network.PortRange) []multiwatcher.PortRange {
+func toMultiwatcherPortRanges(portRanges []corenetwork.PortRange) []multiwatcher.PortRange {
 	result := make([]multiwatcher.PortRange, len(portRanges))
 	for i, pr := range portRanges {
 		result[i] = multiwatcher.PortRange{
@@ -1145,7 +1146,7 @@ func toMultiwatcherPortRanges(portRanges []network.PortRange) []multiwatcher.Por
 	return result
 }
 
-func toMultiwatcherPorts(ports []network.Port) []multiwatcher.Port {
+func toMultiwatcherPorts(ports []corenetwork.Port) []multiwatcher.Port {
 	result := make([]multiwatcher.Port, len(ports))
 	for i, p := range ports {
 		result[i] = multiwatcher.Port{

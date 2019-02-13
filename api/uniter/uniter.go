@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/network"
 )
 
 const uniterFacade = "Uniter"
@@ -351,7 +351,7 @@ func (st *State) Model() (*model.Model, error) {
 // AllMachinePorts returns all port ranges currently open on the given
 // machine, mapped to the tags of the unit that opened them and the
 // relation that applies.
-func (st *State) AllMachinePorts(machineTag names.MachineTag) (map[network.PortRange]params.RelationUnit, error) {
+func (st *State) AllMachinePorts(machineTag names.MachineTag) (map[corenetwork.PortRange]params.RelationUnit, error) {
 	if st.BestAPIVersion() < 1 {
 		// AllMachinePorts() was introduced in UniterAPIV1.
 		return nil, errors.NotImplementedf("AllMachinePorts() (need V1+)")
@@ -371,7 +371,7 @@ func (st *State) AllMachinePorts(machineTag names.MachineTag) (map[network.PortR
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	portsMap := make(map[network.PortRange]params.RelationUnit)
+	portsMap := make(map[corenetwork.PortRange]params.RelationUnit)
 	for _, ports := range result.Ports {
 		portRange := ports.PortRange.NetworkPortRange()
 		portsMap[portRange] = params.RelationUnit{

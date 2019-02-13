@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -395,11 +396,11 @@ func (u *UniterAPI) getOneMachinePorts(canAccess common.AuthFunc, machineTag str
 		// AllPortRanges gives a map, but apis require a stable order
 		// for results, so sort the port ranges.
 		portRangesToUnits := ports.AllPortRanges()
-		portRanges := make([]network.PortRange, 0, len(portRangesToUnits))
+		portRanges := make([]corenetwork.PortRange, 0, len(portRangesToUnits))
 		for portRange := range portRangesToUnits {
 			portRanges = append(portRanges, portRange)
 		}
-		network.SortPortRanges(portRanges)
+		corenetwork.SortPortRanges(portRanges)
 		for _, portRange := range portRanges {
 			unitName := portRangesToUnits[portRange]
 			resultPorts = append(resultPorts, params.MachinePortRange{

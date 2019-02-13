@@ -4,6 +4,7 @@
 package params
 
 import (
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -205,7 +206,7 @@ type Port struct {
 
 // FromNetworkPort is a convenience helper to create a parameter
 // out of the network type, here for Port.
-func FromNetworkPort(p network.Port) Port {
+func FromNetworkPort(p corenetwork.Port) Port {
 	return Port{
 		Protocol: p.Protocol,
 		Number:   p.Number,
@@ -214,8 +215,8 @@ func FromNetworkPort(p network.Port) Port {
 
 // NetworkPort is a convenience helper to return the parameter
 // as network type, here for Port.
-func (p Port) NetworkPort() network.Port {
-	return network.Port{
+func (p Port) NetworkPort() corenetwork.Port {
+	return corenetwork.Port{
 		Protocol: p.Protocol,
 		Number:   p.Number,
 	}
@@ -232,7 +233,7 @@ type PortRange struct {
 
 // FromNetworkPortRange is a convenience helper to create a parameter
 // out of the network type, here for PortRange.
-func FromNetworkPortRange(pr network.PortRange) PortRange {
+func FromNetworkPortRange(pr corenetwork.PortRange) PortRange {
 	return PortRange{
 		FromPort: pr.FromPort,
 		ToPort:   pr.ToPort,
@@ -242,8 +243,8 @@ func FromNetworkPortRange(pr network.PortRange) PortRange {
 
 // NetworkPortRange is a convenience helper to return the parameter
 // as network type, here for PortRange.
-func (pr PortRange) NetworkPortRange() network.PortRange {
-	return network.PortRange{
+func (pr PortRange) NetworkPortRange() corenetwork.PortRange {
+	return corenetwork.PortRange{
 		FromPort: pr.FromPort,
 		ToPort:   pr.ToPort,
 		Protocol: pr.Protocol,

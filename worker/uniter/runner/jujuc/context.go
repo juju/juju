@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 )
 

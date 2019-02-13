@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -136,7 +137,7 @@ func (i instanceSuite) TestOpenPorts(c *gc.C) {
 
 	err = instance.OpenPorts(i.callCtx, "0", []jujunetwork.IngressRule{
 		{
-			PortRange: jujunetwork.PortRange{
+			PortRange: corenetwork.PortRange{
 				FromPort: 0,
 				ToPort:   0,
 			},
@@ -162,7 +163,7 @@ func (i instanceSuite) TestClosePorts(c *gc.C) {
 
 	err = instance.ClosePorts(i.callCtx, "0", []jujunetwork.IngressRule{
 		{
-			PortRange: jujunetwork.PortRange{
+			PortRange: corenetwork.PortRange{
 				FromPort: 0,
 				ToPort:   0,
 			},

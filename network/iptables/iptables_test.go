@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/iptables"
 )
@@ -54,7 +55,7 @@ func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 	assertRender(c,
 		iptables.IngressRuleCommand{
 			Rule: network.IngressRule{
-				PortRange: network.PortRange{Protocol: "icmp"},
+				PortRange: corenetwork.PortRange{Protocol: "icmp"},
 			},
 		},
 		"(sudo iptables -C INPUT -j ACCEPT -p icmp --icmp-type 8 -m comment --comment 'juju ingress') || "+
@@ -66,7 +67,7 @@ func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 	assertRender(c,
 		iptables.IngressRuleCommand{
 			Rule: network.IngressRule{
-				PortRange: network.PortRange{Protocol: "icmp"},
+				PortRange: corenetwork.PortRange{Protocol: "icmp"},
 			},
 			Delete: true,
 		},
@@ -80,7 +81,7 @@ func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 	assertRender(c,
 		iptables.IngressRuleCommand{
 			Rule: network.IngressRule{
-				PortRange:   network.PortRange{Protocol: "icmp"},
+				PortRange:   corenetwork.PortRange{Protocol: "icmp"},
 				SourceCIDRs: []string{"1.2.3.4", "5.6.7.8"},
 			},
 		},
@@ -92,7 +93,7 @@ func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 	assertRender(c,
 		iptables.IngressRuleCommand{
 			Rule: network.IngressRule{
-				PortRange: network.PortRange{
+				PortRange: corenetwork.PortRange{
 					Protocol: "udp",
 					FromPort: 53,
 					ToPort:   53,
@@ -107,7 +108,7 @@ func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 	assertRender(c,
 		iptables.IngressRuleCommand{
 			Rule: network.IngressRule{
-				PortRange: network.PortRange{
+				PortRange: corenetwork.PortRange{
 					Protocol: "tcp",
 					FromPort: 6001,
 					ToPort:   6007,
@@ -141,7 +142,7 @@ ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:53 /* juju
 ACCEPT     udp  --  0.0.0.0/0            0.0.0.0/0            udp dpt:53 /* managed by lxd-bridge */
 ACCEPT     udp  --  0.0.0.0/0            0.0.0.0/0            udp dpt:67
 `[1:], []network.IngressRule{{
-		PortRange: network.PortRange{
+		PortRange: corenetwork.PortRange{
 			Protocol: "tcp",
 			FromPort: 53,
 			ToPort:   53,
@@ -160,28 +161,28 @@ ACCEPT     udp  --  1.2.3.4/20           0.0.0.0/0    udp dpt:12345 /* juju ingr
 ACCEPT     icmp --  0.0.0.0/0            0.0.0.0/0    icmptype 8 /* juju ingress */
 `[1:],
 		[]network.IngressRule{{
-			PortRange: network.PortRange{
+			PortRange: corenetwork.PortRange{
 				Protocol: "tcp",
 				FromPort: 3456,
 				ToPort:   3458,
 			},
 			SourceCIDRs: []string{"0.0.0.0/0"},
 		}, {
-			PortRange: network.PortRange{
+			PortRange: corenetwork.PortRange{
 				Protocol: "tcp",
 				FromPort: 12345,
 				ToPort:   12345,
 			},
 			SourceCIDRs: []string{"1.2.3.4/20"},
 		}, {
-			PortRange: network.PortRange{
+			PortRange: corenetwork.PortRange{
 				Protocol: "udp",
 				FromPort: 12345,
 				ToPort:   12345,
 			},
 			SourceCIDRs: []string{"1.2.3.4/20"},
 		}, {
-			PortRange: network.PortRange{
+			PortRange: corenetwork.PortRange{
 				Protocol: "icmp",
 				FromPort: -1,
 				ToPort:   -1,

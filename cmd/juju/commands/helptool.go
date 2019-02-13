@@ -13,7 +13,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )

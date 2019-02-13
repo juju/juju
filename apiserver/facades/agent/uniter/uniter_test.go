@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -992,7 +993,7 @@ func (s *uniterSuite) TestOpenPorts(c *gc.C) {
 	// Verify the wordpressUnit's port is opened.
 	openedPorts, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
+	c.Assert(openedPorts, gc.DeepEquals, []corenetwork.PortRange{
 		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
 	})
 }
@@ -1003,7 +1004,7 @@ func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	openedPorts, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
+	c.Assert(openedPorts, gc.DeepEquals, []corenetwork.PortRange{
 		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
 	})
 

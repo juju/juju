@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	mgoutils "github.com/juju/juju/mongo/utils"
@@ -1368,7 +1369,7 @@ func (u *Unit) ClosePort(protocol string, number int) error {
 // it must refer to an existing, alive subnet, otherwise an error is returned.
 // Also, when no ports are yet open for the unit on that subnet, no error and
 // empty slice is returned.
-func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]network.PortRange, error) {
+func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]corenetwork.PortRange, error) {
 	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
@@ -1379,7 +1380,7 @@ func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]network.PortRange, error)
 	}
 
 	machinePorts, err := getPorts(u.st, machineID, subnetID)
-	result := []network.PortRange{}
+	var result []corenetwork.PortRange
 	if errors.IsNotFound(err) {
 		return result, nil
 	} else if err != nil {
@@ -1387,13 +1388,13 @@ func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]network.PortRange, error)
 	}
 	ports := machinePorts.PortsForUnit(u.Name())
 	for _, port := range ports {
-		result = append(result, network.PortRange{
+		result = append(result, corenetwork.PortRange{
 			Protocol: port.Protocol,
 			FromPort: port.FromPort,
 			ToPort:   port.ToPort,
 		})
 	}
-	network.SortPortRanges(result)
+	corenetwork.SortPortRanges(result)
 	return result, nil
 }
 
@@ -1402,7 +1403,7 @@ func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]network.PortRange, error)
 //
 // TODO(dimitern): This should be removed once we use OpenedPortsOnSubnet across
 // the board, passing subnet IDs explicitly.
-func (u *Unit) OpenedPorts() ([]network.PortRange, error) {
+func (u *Unit) OpenedPorts() ([]corenetwork.PortRange, error) {
 	return u.OpenedPortsOnSubnet("")
 }
 

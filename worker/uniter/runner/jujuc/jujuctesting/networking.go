@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // NetworkInterface holds the values for the hook context.
