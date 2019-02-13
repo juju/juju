@@ -482,6 +482,11 @@ func processOneProfileChange(
 			return false, errors.NotProvisionedf("machine %q", ident)
 		}
 	}
+	// Set the modification status to idle, that way we have a baseline for
+	// future changes.
+	if err := m.SetModificationStatus(status.Idle, "", nil); err != nil {
+		return false, errors.Annotatef(err, "cannot set status for machine %q modification status", m)
+	}
 	info, err := m.CharmProfileChangeInfo(unitName)
 	if err != nil {
 		return false, err
