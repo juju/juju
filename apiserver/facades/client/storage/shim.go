@@ -33,8 +33,8 @@ type storageInterface interface {
 	// AllStorageInstances is required for storage functionality.
 	AllStorageInstances() ([]state.StorageInstance, error)
 
-	// StoragePoolsInUse is required to sanity check pool deletions
-	StoragePoolsInUse([]string) (map[string]bool, error)
+	// DeleteStoragePool removes a pool only if its not currently in use
+	DeleteStoragePool(poolName string) error
 
 	// StorageAttachments is required for storage functionality.
 	StorageAttachments(names.StorageTag) ([]state.StorageAttachment, error)

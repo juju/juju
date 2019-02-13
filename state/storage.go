@@ -16,6 +16,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
@@ -95,23 +96,25 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 	}
 
 	return &storageBackend{
-		mb:          st,
-		registry:    registry,
-		settings:    NewStateSettings(st),
-		modelType:   m.Type(),
-		config:      m.ModelConfig,
-		application: st.Application,
-		unit:        st.Unit,
-		machine:     st.Machine,
+		mb:              st,
+		registry:        registry,
+		settings:        NewStateSettings(st),
+		modelType:       m.Type(),
+		config:          m.ModelConfig,
+		application:     st.Application,
+		allApplications: st.AllApplications,
+		unit:            st.Unit,
+		machine:         st.Machine,
 	}, nil
 }
 
 type storageBackend struct {
-	mb          modelBackend
-	config      func() (*config.Config, error)
-	application func(string) (*Application, error)
-	unit        func(string) (*Unit, error)
-	machine     func(string) (*Machine, error)
+	mb              modelBackend
+	config          func() (*config.Config, error)
+	application     func(string) (*Application, error)
+	allApplications func() ([]*Application, error)
+	unit            func(string) (*Unit, error)
+	machine         func(string) (*Machine, error)
 
 	modelType ModelType
 	registry  storage.ProviderRegistry
@@ -295,21 +298,32 @@ func (sb *storageBackend) AllStorageInstances() ([]StorageInstance, error) {
 	return out, nil
 }
 
-// StoragePoolsInUse provides a lookup of which pools are actively in use.
-func (sb *storageBackend) StoragePoolsInUse(poolNames []string) (map[string]bool, error) {
-	out := make(map[string]bool)
-	for _, s := range poolNames {
-		out[s] = false
+// DeleteStoragePool removes a pool only if its not currently in use
+func (sb *storageBackend) DeleteStoragePool(poolName string) error {
+	storageCollection, closer := sb.mb.db().GetCollection(storageInstancesC)
+	defer closer()
+
+	var inUse bool
+	if sb.modelType == ModelTypeCAAS && poolName == caas.OperatorStoragePoolName {
+		apps, err := sb.allApplications()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		inUse = len(apps) > 0
+	} else {
+		query := bson.D{{"constraints.pool", bson.D{{"$eq", poolName}}}}
+		pools, err := storageCollection.Find(query).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		inUse = pools > 0
 	}
-	poolFinder := bson.D{{"constraints.pool", bson.D{{"$in", poolNames}}}}
-	storageInstances, err := sb.storageInstances(poolFinder)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if inUse {
+		return errors.New("storage pool in use")
 	}
-	for _, s := range storageInstances {
-		out[s.Pool()] = true
-	}
-	return out, nil
+
+	globalPoolName := "pool#" + poolName
+	return sb.settings.RemoveSettings(globalPoolName)
 }
 
 func (sb *storageBackend) storageInstances(query bson.D) (storageInstances []*storageInstance, err error) {

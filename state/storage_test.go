@@ -33,6 +33,7 @@ type StorageStateSuiteBase struct {
 	series         string
 	st             *state.State
 	storageBackend *state.StorageBackend
+	pm             poolmanager.PoolManager
 }
 
 func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
@@ -60,16 +61,21 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	}
 
 	// Create a default pool for block devices.
-	pm := poolmanager.New(state.NewStateSettings(s.st), registry)
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	s.pm = poolmanager.New(state.NewStateSettings(s.st), registry)
+	_, err := s.pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	if s.series != "kubernetes" {
 		// Create a pool that creates persistent block devices.
-		_, err = pm.Create("persistent-block", "modelscoped-block", map[string]interface{}{
+		_, err = s.pm.Create("persistent-block", "modelscoped-block", map[string]interface{}{
 			"persistent": true,
 		})
 		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		// Create the operator-storage
+		_, err = s.pm.Create("operator-storage", provider.LoopProviderType, map[string]interface{}{})
+		c.Assert(err, jc.ErrorIsNil)
+
 	}
 
 	s.storageBackend, err = state.NewStorageBackend(s.st)
@@ -658,28 +664,32 @@ func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
 	}
 }
 
-func (s *StorageStateSuite) TestStoragePoolsInUse(c *gc.C) {
+func (s *StorageStateSuite) TestDeleteStoragePool(c *gc.C) {
+	poolName := "loop-pool"
+	_, err := s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.storageBackend.DeleteStoragePool(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.pm.Get(poolName)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("pool %q not found", poolName))
+}
+
+func (s *StorageStateSuite) TestDeleteStoragePoolErrors(c *gc.C) {
+	poolName := "loop-pool"
 	s.assertStorageUnitsAdded(c)
-
-	toCheck := []string{"loop-pool", "swimming-pool"}
-	inUse, err := s.storageBackend.StoragePoolsInUse(toCheck)
+	_, err := s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inUse, gc.HasLen, 2)
-	c.Assert(inUse["loop-pool"], jc.IsTrue)
-	c.Assert(inUse["swimming-pool"], jc.IsFalse)
-
-	toCheck = []string{"swimming-pool", "another-pool"}
-	inUse, err = s.storageBackend.StoragePoolsInUse(toCheck)
+	err = s.storageBackend.DeleteStoragePool(poolName)
+	c.Assert(err, gc.ErrorMatches, "storage pool in use")
+	pool, err := s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inUse, gc.HasLen, 2)
-	c.Assert(inUse["another-pool"], jc.IsFalse)
-	c.Assert(inUse["swimming-pool"], jc.IsFalse)
+	c.Assert(pool.Name(), gc.Equals, poolName)
 
-	toCheck = []string{"loop-pool"}
-	inUse, err = s.storageBackend.StoragePoolsInUse(toCheck)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inUse, gc.HasLen, 1)
-	c.Assert(inUse["loop-pool"], jc.IsTrue)
+	// pool does not exist at all
+	err = s.storageBackend.DeleteStoragePool("nope-pool")
+	c.Assert(err, gc.ErrorMatches, "settings not found")
+
 }
 
 func (s *StorageStateSuite) TestStorageAttachments(c *gc.C) {
@@ -1368,6 +1378,54 @@ func (s *StorageStateSuite) TestNewModelDefaultPools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Sort(byStorageConfigName(listed))
 	c.Assert(listed, jc.DeepEquals, []*storage.Config{blackPool, radiancePool})
+}
+
+type StorageStateSuiteCaas struct {
+	StorageStateSuiteBase
+}
+
+var _ = gc.Suite(&StorageStateSuiteCaas{})
+
+func (s *StorageStateSuiteCaas) SetUpTest(c *gc.C) {
+	s.series = "kubernetes"
+	s.StorageStateSuiteBase.SetUpTest(c)
+}
+
+func (s *StorageStateSuiteCaas) TestDeleteStoragePool(c *gc.C) {
+	poolName := "operator-storage"
+	_, err := s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.storageBackend.DeleteStoragePool(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.pm.Get(poolName)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("pool %q not found", poolName))
+}
+
+func (s *StorageStateSuiteCaas) TestDeleteStoragePoolErrors(c *gc.C) {
+	poolName := "operator-storage"
+	_, err := s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	appPoolName := "loop-pool"
+	_, err = s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.setupSingleStorage(c, "filesystem", "loop-pool")
+
+	err = s.storageBackend.DeleteStoragePool(poolName)
+	c.Assert(err, gc.ErrorMatches, "storage pool in use")
+	pool, err := s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pool.Name(), gc.Equals, poolName)
+
+	err = s.storageBackend.DeleteStoragePool(appPoolName)
+	c.Assert(err, gc.ErrorMatches, "storage pool in use")
+	pool, err = s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pool.Name(), gc.Equals, poolName)
 }
 
 type byStorageConfigName []*storage.Config
