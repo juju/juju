@@ -34,6 +34,11 @@ func (s *StatusSuite) TestModification(c *gc.C) {
 			valid:  true,
 		},
 		{
+			name:   "idle",
+			status: status.Idle,
+			valid:  true,
+		},
+		{
 			name:   "pending",
 			status: status.Pending,
 			valid:  false,

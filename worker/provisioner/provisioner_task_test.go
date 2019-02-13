@@ -807,6 +807,7 @@ type testMachine struct {
 	constraints    string
 
 	instStatusMsg string
+	modStatusMsg  string
 }
 
 func (m *testMachine) Id() string {
@@ -853,6 +854,19 @@ func (m *testMachine) InstanceStatus() (status.Status, string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return status.Status(""), m.instStatusMsg, nil
+}
+
+func (m *testMachine) SetModificationStatus(_ status.Status, message string, _ map[string]interface{}) error {
+	m.mu.Lock()
+	m.modStatusMsg = message
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *testMachine) ModificationStatus() (status.Status, string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return status.Status(""), m.modStatusMsg, nil
 }
 
 func (m *testMachine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
