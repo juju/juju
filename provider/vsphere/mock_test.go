@@ -34,6 +34,7 @@ type mockClient struct {
 	testing.Stub
 
 	computeResources      []*mo.ComputeResource
+	resourcePools         map[string][]*object.ResourcePool
 	createdVirtualMachine *mo.VirtualMachine
 	virtualMachines       []*mo.VirtualMachine
 	datastores            []*mo.Datastore
@@ -52,6 +53,13 @@ func (c *mockClient) ComputeResources(ctx context.Context) ([]*mo.ComputeResourc
 	defer c.mu.Unlock()
 	c.MethodCall(c, "ComputeResources", ctx)
 	return c.computeResources, c.NextErr()
+}
+
+func (c *mockClient) ResourcePools(ctx context.Context, path string) ([]*object.ResourcePool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.MethodCall(c, "ResourcePools", ctx, path)
+	return c.resourcePools[path], c.NextErr()
 }
 
 func (c *mockClient) CreateVirtualMachine(ctx context.Context, args vsphereclient.CreateVirtualMachineParams) (*mo.VirtualMachine, error) {
@@ -183,5 +191,26 @@ func newComputeResource(name string) *mo.ComputeResource {
 	cr.ResourcePool = &types.ManagedObjectReference{
 		Value: "rp-" + name,
 	}
+	cr.Summary = &mockSummary{types.ComputeResourceSummary{
+		EffectiveCpu: 20,
+	}}
 	return cr
+}
+
+type mockSummary struct {
+	types.ComputeResourceSummary
+}
+
+func (s *mockSummary) GetComputeResourceSummary() *types.ComputeResourceSummary {
+	return &s.ComputeResourceSummary
+}
+
+func makeResourcePool(ref, path string) *object.ResourcePool {
+	reference := types.ManagedObjectReference{
+		Type:  "ResourcePool",
+		Value: ref,
+	}
+	result := object.NewResourcePool(nil, reference)
+	result.InventoryPath = path
+	return result
 }
