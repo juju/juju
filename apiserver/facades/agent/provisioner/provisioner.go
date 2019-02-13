@@ -1498,7 +1498,6 @@ func (p *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, arg
 	logger.Tracef("SetInstanceStatus called with: %#v", arg)
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
-		logger.Warningf("SetModificationStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
 		return common.ErrPerm
 	}
 	machine, err := p.getMachine(canAccess, mTag)
