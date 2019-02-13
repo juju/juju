@@ -10,6 +10,9 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
+
+	"github.com/juju/juju/feature"
 )
 
 // SearchTools represents the OS functionality we need to find the correct MongoDB executable.
@@ -37,6 +40,14 @@ func NewMongodFinder() *MongodFinder {
 
 // FindBest tries to find the mongo version that best fits what we want to use.
 func (m *MongodFinder) FindBest() (string, Version, error) {
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		v, err := m.findVersion(JujuDbSnapMongodPath)
+		if err != nil {
+			return "", Version{}, errors.NotFoundf("%s snap not installed correctly. Executable %s", JujuDbSnap, JujuDbSnapMongodPath)
+		}
+		return JujuDbSnapMongodPath, v, nil
+	}
+
 	// In Bionic and beyond (and early trusty) we just use the system mongo.
 	// We only use the system mongo if it is at least Mongo 3.4
 	if m.search.Exists(MongodSystemPath) {

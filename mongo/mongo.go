@@ -22,11 +22,15 @@ import (
 	"github.com/juju/packaging/manager"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/snap"
 )
 
 var (
@@ -57,6 +61,13 @@ const (
 	// JujuMongoPackage is the mongo package Juju uses when
 	// installing mongo.
 	JujuMongoPackage = "juju-mongodb3.2"
+
+	// JujuDbSnap is the snap of MongoDB that Juju uses.
+	JujuDbSnap = "juju-db"
+
+	// JujuDbSnapMongodPath is the path that the juju-db snap
+	// makes mongod available at
+	JujuDbSnapMongodPath = "/snap/bin/juju-db.mongod"
 
 	// JujuMongoToolsPackage is the mongo package Juju uses when
 	// installing mongo tools to get mongodump etc.
@@ -433,26 +444,46 @@ func EnsureServer(args EnsureServerParams) (Version, error) {
 	return ensureServer(args, mongoKernelTweaks)
 }
 
+func setupDataDirectory(args EnsureServerParams) error {
+	dbDir := DbDir(args.DataDir)
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return errors.Annotate(err, "cannot create mongo database directory")
+	}
+
+	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
+		return errors.Trace(err)
+	}
+
+	err := utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
+	if err != nil {
+		return errors.Annotatef(err, "cannot write mongod shared secret to %v", sharedSecretPath(args.DataDir))
+	}
+
+	if err := os.MkdirAll(logPath(dbDir), 0644); err != nil {
+		return errors.Annotate(err, "cannot create mongodb logging directory")
+	}
+
+	return nil
+}
+
 func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) (Version, error) {
 	var zeroVersion Version
 	tweakSysctlForMongo(mongoKernelTweaks)
+
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		// TODO(tsm): push this to earlier in the bootstrapping process
+		if args.DataDir != dataPathForJujuDbSnap {
+			logger.Warningf("overwriting args.dataDir (set to %v) to %v", args.DataDir, dataPathForJujuDbSnap)
+			args.DataDir = dataPathForJujuDbSnap
+		}
+	}
+
 	logger.Infof(
 		"Ensuring mongo server is running; data directory %s; port %d",
 		args.DataDir, args.StatePort,
 	)
 
-	dbDir := filepath.Join(args.DataDir, "db")
-	if err := os.MkdirAll(dbDir, 0700); err != nil {
-		return zeroVersion, errors.Errorf("cannot create mongo database directory: %v", err)
-	}
-
-	oplogSizeMB := args.OplogSize
-	if oplogSizeMB == 0 {
-		var err error
-		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
-			return zeroVersion, errors.Trace(err)
-		}
-	}
+	setupDataDirectory(args)
 
 	if err := installMongod(series.MustHostSeries(), args.SetNUMAControlPolicy); err != nil {
 		// This isn't treated as fatal because the Juju MongoDB
@@ -469,13 +500,12 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	}
 	logVersion(mongoPath)
 
-	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
-		return zeroVersion, errors.Trace(err)
-	}
-
-	err = utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
-	if err != nil {
-		return zeroVersion, errors.Errorf("cannot write mongod shared secret: %v", err)
+	oplogSizeMB := args.OplogSize
+	if oplogSizeMB == 0 {
+		oplogSizeMB, err = defaultOplogSize(DbDir(args.DataDir))
+		if err != nil {
+			return zeroVersion, errors.Trace(err)
+		}
 	}
 
 	// Disable the default mongodb installed by the mongodb-server package.
@@ -492,53 +522,50 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		}
 	}
 
-	svcConf := newConf(ConfigArgs{
-		DataDir:       args.DataDir,
-		DBDir:         dbDir,
-		MongoPath:     mongoPath,
-		Port:          args.StatePort,
-		OplogSizeMB:   oplogSizeMB,
-		WantNUMACtl:   args.SetNUMAControlPolicy,
-		Version:       mongodVersion,
-		Auth:          true,
-		IPv6:          network.SupportsIPv6(),
-		MemoryProfile: args.MemoryProfile,
-	})
-	svc, err := newService(ServiceName, svcConf)
+	mongoArgs := generateConfig(mongoPath, args.DataDir, args.StatePort, oplogSizeMB, args.SetNUMAControlPolicy, mongodVersion, args.MemoryProfile)
+	logger.Debugf("creating mongo service configuration for mongo version: %d.%d.%s at %q",
+		mongoArgs.Version.Major, mongoArgs.Version.Minor, mongoArgs.Version.Patch, mongoArgs.MongoPath)
+
+	svc, err := mongoArgs.asService()
 	if err != nil {
 		return zeroVersion, errors.Trace(err)
 	}
-	installed, err := svc.Installed()
-	if err != nil {
-		return zeroVersion, errors.Trace(err)
-	}
-	if installed {
-		exists, err := svc.Exists()
+
+	// TODO(tsm): refactor out to service.Configure
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		err = mongoArgs.writeConfig(configPath(args.DataDir))
 		if err != nil {
 			return zeroVersion, errors.Trace(err)
 		}
-		if exists {
-			logger.Debugf("mongo exists as expected")
-			running, err := svc.Running()
-			if err != nil {
-				return zeroVersion, errors.Trace(err)
-			}
 
-			if !running {
-				return mongodVersion, errors.Trace(svc.Start())
-			}
-			return mongodVersion, nil
+		err := snap.SetSnapConfig(ServiceName, "configpath", configPath(args.DataDir))
+		if err != nil {
+			return zeroVersion, errors.Trace(err)
 		}
+
+		err = service.ManuallyRestart(svc)
+		if err != nil {
+			logger.Criticalf("unable to (re)start mongod service: %v", err)
+			return zeroVersion, errors.Trace(err)
+		}
+
+		return mongodVersion, nil
 	}
 
-	if err := svc.Stop(); err != nil {
-		return zeroVersion, errors.Annotatef(err, "failed to stop mongo")
+	running, err := svc.Running()
+	if err != nil {
+		return zeroVersion, errors.Trace(err)
 	}
+	if running {
+		return mongodVersion, nil
+	}
+
+	dbDir := DbDir(args.DataDir)
 	if err := makeJournalDirs(dbDir); err != nil {
-		return zeroVersion, fmt.Errorf("error creating journal directories: %v", err)
+		return zeroVersion, errors.Errorf("error creating journal directories: %v", err)
 	}
 	if err := preallocOplog(dbDir, oplogSizeMB); err != nil {
-		return zeroVersion, fmt.Errorf("error creating oplog files: %v", err)
+		return zeroVersion, errors.Errorf("error creating oplog files: %v", err)
 	}
 
 	if err := service.InstallAndStart(svc); err != nil {
@@ -610,6 +637,17 @@ func installPackage(pkg string, pacconfer config.PackagingConfigurer, pacman man
 }
 
 func installMongod(operatingsystem string, numaCtl bool) error {
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		prerequisites := []snap.App{snap.NewApp("core")}
+		backgroundServices := []snap.BackgroundService{{"daemon", true}}
+		conf := common.Conf{Desc: ServiceName + " snap"}
+		service, err := snap.NewService(ServiceName, conf, snap.Command, "edge", "jailmode", backgroundServices, prerequisites)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return service.Install()
+	}
+
 	// fetch the packaging configuration manager for the current operating system.
 	pacconfer, err := config.NewPackagingConfigurer(operatingsystem)
 	if err != nil {
@@ -678,7 +716,6 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 			}
 		}
 	}
-
 	return nil
 }
 

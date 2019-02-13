@@ -49,3 +49,7 @@ const LegacyLeases = "legacy-leases"
 
 // Generations will allow for model generation functionality to be used.
 const Generations = "generations"
+
+// MongoDbSnap tells Juju to install MongoDB as a snap, rather than installing
+// it from APT.
+const MongoDbSnap = "mongodb-snap"

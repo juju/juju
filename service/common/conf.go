@@ -81,6 +81,7 @@ func (c Conf) Validate(renderer shell.Renderer) error {
 	if c.ExecStart == "" {
 		return errors.New("missing ExecStart")
 	}
+
 	for field, cmd := range map[string]string{
 		"ExecStart":    c.ExecStart,
 		"ExecStopPost": c.ExecStopPost,
@@ -97,16 +98,12 @@ func (c Conf) Validate(renderer shell.Renderer) error {
 }
 
 func (c Conf) checkExec(name, cmd string, renderer shell.Renderer) error {
-	path := executable(cmd)
-	if !renderer.IsAbs(path) {
-		return errors.NotValidf("relative path in %s (%s)", name, path)
+	executable := strings.Fields(cmd)[0]
+	executable = Unquote(executable)
+	if !renderer.IsAbs(executable) {
+		return errors.NotValidf("relative path in %s (%s)", name, executable)
 	}
 	return nil
-}
-
-func executable(cmd string) string {
-	path := strings.Fields(cmd)[0]
-	return Unquote(path)
 }
 
 // Unquote returns the string embedded between matching quotation marks.
@@ -116,16 +113,10 @@ func Unquote(str string) string {
 	if len(str) < 2 {
 		return str
 	}
-
-	first, last := string(str[0]), string(str[len(str)-1])
-
-	if first == `"` && last == `"` {
-		return str[1 : len(str)-1]
+	for _, quote := range []string{`'`, `"`} {
+		if str[0:1] == quote && str[len(str)-1:] == quote {
+			return strings.Trim(str, quote)
+		}
 	}
-
-	if first == "'" && last == "'" {
-		return str[1 : len(str)-1]
-	}
-
 	return str
 }
