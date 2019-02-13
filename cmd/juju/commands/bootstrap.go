@@ -403,12 +403,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	isCAASController := jujucloud.CloudIsCAAS(cloud)
-
-	if isCAASController && !featureflag.Enabled(feature.DeveloperMode) {
-		return errors.NotSupportedf("bootstrap to kubernetes cluster")
-	}
 
 	// Custom clouds may not have explicitly declared support for any auth-
 	// types, in which case we'll assume that they support everything that
