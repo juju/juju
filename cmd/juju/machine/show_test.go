@@ -141,7 +141,7 @@ func (s *MachineShowCommandSuite) TestShowJsonMachine(c *gc.C) {
 	// Make the test more readable by putting all the JSON in a expanded form.
 	// Then to test it, marshal it back into json, so that map equality ordering
 	// doesn't matter.
-	expectedJSON, err := marshalStringAsJSON("" +
+	expectedJSON, err := unmarshalStringAsJSON("" +
 		"{" +
 		"	\"model\":\"dummyenv\"," +
 		"	\"machines\":{" +
@@ -238,7 +238,7 @@ func (s *MachineShowCommandSuite) TestShowJsonMachine(c *gc.C) {
 		"	}" +
 		" }\n")
 	c.Assert(err, jc.ErrorIsNil)
-	actualJSON, err := marshalStringAsJSON(cmdtesting.Stdout(context))
+	actualJSON, err := unmarshalStringAsJSON(cmdtesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actualJSON, gc.DeepEquals, expectedJSON)
 }
