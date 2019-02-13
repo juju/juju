@@ -90,7 +90,7 @@ type ControllerAccessAPI interface {
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
 	MongoVersion() (string, error)
-	BestAPIVersion() int
+	IdentityProviderURL() (string, error)
 	Close() error
 }
 
@@ -141,8 +141,9 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 
 		var (
-			details   ShowControllerDetails
-			allModels []base.UserModel
+			details      ShowControllerDetails
+			allModels    []base.UserModel
+			mongoVersion string
 		)
 
 		// NOTE: this user may have been granted AddModelAccess which
@@ -153,7 +154,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		//
 		// The side-effect to this is that the userAccess() call above
 		// will return LoginAccess even if the user has been granted
-		// AddModelAccess causing the AllModels() call below to fail
+		// AddModelAccess causing the calls in the block below to fail
 		// with a permission error. As a workaround, unless the user
 		// has Superuser access we default to an empty model list which
 		// allows us to display non-model controller details.
@@ -167,17 +168,20 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 				details.Errors = append(details.Errors, err.Error())
 				continue
 			}
-		}
 
-		var mongoVersion string
-		// Check to see if we can call the mongo version. Older versions of the
-		// api do not support mongo version, so we should even prevent the call.
-		if apiVersion := client.BestAPIVersion(); apiVersion >= 6 {
+			// Fetch mongoVersion if the apiserver supports it
 			mongoVersion, err = client.MongoVersion()
-			if err != nil {
+			if err != nil && !errors.IsNotSupported(err) {
 				details.Errors = append(details.Errors, err.Error())
 				continue
 			}
+		}
+
+		// Fetch identityURL if the apiserver supports it
+		identityURL, err := client.IdentityProviderURL()
+		if err != nil && !errors.IsNotSupported(err) {
+			details.Errors = append(details.Errors, err.Error())
+			continue
 		}
 
 		modelTags := make([]names.ModelTag, len(allModels))
@@ -193,7 +197,8 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			details.Errors = append(details.Errors, err.Error())
 			continue
 		}
-		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatusResults, mongoVersion)
+
+		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatusResults, mongoVersion, identityURL)
 		controllers[controllerName] = details
 		machineCount := 0
 		for _, r := range modelStatusResults {
@@ -298,6 +303,10 @@ type ControllerDetails struct {
 	// MongoVersion is the version of the mongo server running on this
 	// controller.
 	MongoVersion string `yaml:"mongo-version,omitempty" json:"mongo-version,omitempty"`
+
+	// IdentityURL contails the address of an external identity provider
+	// if one has been configured for this controller.
+	IdentityURL string `yaml:"identity-url,omitempty" json:"identity-url,omitempty"`
 }
 
 // ModelDetails holds details of a model to show.
@@ -348,6 +357,7 @@ func (c *showControllerCommand) convertControllerForShow(
 	allModels []base.UserModel,
 	modelStatusResults []base.ModelStatus,
 	mongoVersion string,
+	identityURL string,
 ) {
 
 	controller.Details = ControllerDetails{
@@ -359,6 +369,7 @@ func (c *showControllerCommand) convertControllerForShow(
 		CloudRegion:       details.CloudRegion,
 		AgentVersion:      details.AgentVersion,
 		MongoVersion:      mongoVersion,
+		IdentityURL:       identityURL,
 	}
 	c.convertModelsForShow(controllerName, controller, allModels, modelStatusResults)
 	c.convertAccountsForShow(controllerName, controller, access)
