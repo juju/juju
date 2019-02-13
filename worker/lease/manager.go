@@ -258,18 +258,6 @@ func (manager *Manager) retryingClaim(claim claim) {
 		}
 	}
 
-	if lease.IsTimeout(err) {
-		claim.respond(lease.ErrTimeout)
-		manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
-			manager.logContext, claim.leaseKey, claim.holderName)
-		return
-	} else if lease.IsInvalid(err) {
-		// we want to see this, but it doesn't indicate something a user can do something about
-		manager.config.Logger.Infof("[%s] got %v after %d retries, denying claim %q for %q",
-			manager.logContext, err, maxRetries, claim.leaseKey, claim.holderName)
-		claim.respond(lease.ErrClaimDenied)
-		return
-	}
 	if err == nil {
 		if !success {
 			claim.respond(lease.ErrClaimDenied)
@@ -284,8 +272,20 @@ func (manager *Manager) retryingClaim(claim claim) {
 		// the timer has been updated by the time it gets Claim() to return.
 		claim.respond(nil)
 	} else {
-		// Stop the main loop because we got an abnormal error
-		manager.catacomb.Kill(errors.Trace(err))
+		switch {
+		case lease.IsTimeout(err):
+			claim.respond(lease.ErrTimeout)
+			manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
+				manager.logContext, claim.leaseKey, claim.holderName)
+		case lease.IsInvalid(err):
+			// we want to see this, but it doesn't indicate something a user can do something about
+			manager.config.Logger.Infof("[%s] got %v after %d retries, denying claim %q for %q",
+				manager.logContext, err, maxRetries, claim.leaseKey, claim.holderName)
+			claim.respond(lease.ErrClaimDenied)
+		default:
+			// Stop the main loop because we got an abnormal error
+			manager.catacomb.Kill(errors.Trace(err))
+		}
 	}
 }
 
