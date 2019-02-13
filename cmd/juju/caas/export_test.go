@@ -4,6 +4,9 @@
 package caas
 
 import (
+	"bytes"
+	"io"
+
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -18,6 +21,7 @@ func NewAddCAASCommandForTest(
 	clientStore jujuclient.ClientStore,
 	addCloudAPIFunc func() (AddCloudAPI, error),
 	brokerGetter BrokerGetter,
+	k8sCluster k8sCluster,
 	newClientConfigReaderFunc func(string) (clientconfig.ClientConfigFunc, error),
 	getAllCloudDetails func() (map[string]*jujucmdcloud.CloudDetails, error),
 ) cmd.Command {
@@ -26,6 +30,7 @@ func NewAddCAASCommandForTest(
 		fileCredentialStore:   fileCredentialStore,
 		addCloudAPIFunc:       addCloudAPIFunc,
 		brokerGetter:          brokerGetter,
+		k8sCluster:            k8sCluster,
 		newClientConfigReader: newClientConfigReaderFunc,
 		getAllCloudDetails:    getAllCloudDetails,
 	}
@@ -49,3 +54,34 @@ func NewRemoveCAASCommandForTest(
 }
 
 type K8sBrokerRegionLister = k8sBrokerRegionLister
+
+type fakeCluster struct {
+	CommandRunner
+
+	cloudType string
+	config    string
+}
+
+type readerCloser struct {
+	io.Reader
+}
+
+func (*readerCloser) Close() error {
+	return nil
+}
+
+func (f *fakeCluster) getKubeConfig(p *clusterParams) (io.ReadCloser, string, error) {
+	return &readerCloser{bytes.NewBuffer([]byte(f.config))}, "the-cluster", nil
+}
+
+func (*fakeCluster) interactiveParams(ctx *cmd.Context, p *clusterParams) (*clusterParams, error) {
+	return p, nil
+}
+
+func (f *fakeCluster) cloud() string {
+	return f.cloudType
+}
+
+func FakeCluster(config string) k8sCluster {
+	return &fakeCluster{config: config, cloudType: "gce"}
+}

@@ -32,7 +32,7 @@ func EnsureK8sCredential(config *clientcmdapi.Config, contextName string) (*clie
 }
 
 // NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
-func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver K8sCredentialResolver) (*ClientConfig, error) {
+func NewK8sClientConfig(reader io.Reader, contextName, clusterName string, credentialResolver K8sCredentialResolver) (*ClientConfig, error) {
 	if reader == nil {
 		var err error
 		reader, err = readKubeConfigFile()
@@ -55,16 +55,16 @@ func NewK8sClientConfig(reader io.Reader, clusterName string, credentialResolver
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read contexts from kubernetes config")
 	}
-
-	var contextName string
 	var context Context
+	if contextName == "" {
+		contextName = config.CurrentContext
+	}
 	if clusterName != "" {
 		context, contextName, err = pickContextByClusterName(contexts, clusterName)
 		if err != nil {
 			return nil, errors.Annotatef(err, "picking context by cluster name %q", clusterName)
 		}
-	} else if config.CurrentContext != "" {
-		contextName = config.CurrentContext
+	} else if contextName != "" {
 		context = contexts[contextName]
 		logger.Debugf("no cluster name specified, so use current context %q", config.CurrentContext)
 	}
@@ -267,19 +267,19 @@ func credentialsFromConfig(config *clientcmdapi.Config, credentialName string) (
 	return rv, nil
 }
 
-// getKubeConfigPath - define kubeconfig file path to use
-func getKubeConfigPath() string {
-	envPath := os.Getenv(clientcmd.RecommendedConfigPathEnvVar)
-	if envPath == "" {
-		return clientcmd.RecommendedHomeFile
+// GetKubeConfigPath - define kubeconfig file path to use
+func GetKubeConfigPath() string {
+	kubeconfig := os.Getenv(clientcmd.RecommendedConfigPathEnvVar)
+	if kubeconfig == "" {
+		kubeconfig = clientcmd.RecommendedHomeFile
 	}
-	logger.Debugf("The kubeconfig file path: %q", envPath)
-	return envPath
+	logger.Debugf("The kubeconfig file path: %q", kubeconfig)
+	return kubeconfig
 }
 
 func readKubeConfigFile() (reader io.Reader, err error) {
 	// Try to read from kubeconfig file.
-	filename := getKubeConfigPath()
+	filename := GetKubeConfigPath()
 	reader, err = os.Open(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
