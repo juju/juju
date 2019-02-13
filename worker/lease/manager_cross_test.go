@@ -107,8 +107,8 @@ func (s *CrossSuite) testWaits(c *gc.C, lease1, lease2 corelease.Key) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
-		b1 := newBlockTest(manager, lease1)
-		b2 := newBlockTest(manager, lease2)
+		b1 := newBlockTest(c, manager, lease1)
+		b2 := newBlockTest(c, manager, lease2)
 
 		b1.assertBlocked(c)
 		b2.assertBlocked(c)

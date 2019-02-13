@@ -1137,8 +1137,8 @@ func (a *StorageAPI) importFilesystem(
 	}, nil
 }
 
-// DeletePool deletes the named pool
-func (a *StorageAPI) DeletePool(p params.StoragePoolDeleteArgs) (params.ErrorResults, error) {
+// RemovePool deletes the named pool
+func (a *StorageAPI) RemovePool(p params.StoragePoolDeleteArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
@@ -1177,7 +1177,7 @@ func (a *StorageAPI) UpdatePool(p params.StoragePoolArgs) (params.ErrorResults, 
 // so this removes the method as far as the RPC machinery is concerned.
 
 // Added in current api version
-func (*StorageAPIv4) DeletePool(_, _ struct{}) {}
+func (*StorageAPIv4) RemovePool(_, _ struct{}) {}
 func (*StorageAPIv4) UpdatePool(_, _ struct{}) {}
 
 // Added in v4

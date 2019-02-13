@@ -30,7 +30,7 @@ func (s *poolDeleteSuite) createPools(c *gc.C, num int) {
 	}
 }
 
-func (s *poolDeleteSuite) TestDeletePool(c *gc.C) {
+func (s *poolDeleteSuite) TestRemovePool(c *gc.C) {
 	s.createPools(c, 1)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 
@@ -39,7 +39,7 @@ func (s *poolDeleteSuite) TestDeletePool(c *gc.C) {
 			Name: poolName,
 		}},
 	}
-	results, err := s.api.DeletePool(args)
+	results, err := s.api.RemovePool(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -57,7 +57,7 @@ func (s *poolDeleteSuite) TestDeleteNotExists(c *gc.C) {
 			Name: poolName,
 		}},
 	}
-	results, err := s.api.DeletePool(args)
+	results, err := s.api.RemovePool(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)

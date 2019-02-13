@@ -136,6 +136,11 @@ func (st stateShim) GetRemoteEntity(token string) (names.Tag, error) {
 	return r.GetRemoteEntity(token)
 }
 
+func (st stateShim) GetToken(entity names.Tag) (string, error) {
+	r := st.State.RemoteEntities()
+	return r.GetToken(entity)
+}
+
 func (st stateShim) ExportLocalEntity(entity names.Tag) (string, error) {
 	r := st.State.RemoteEntities()
 	return r.ExportLocalEntity(entity)

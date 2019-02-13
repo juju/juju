@@ -39,6 +39,15 @@ into named resources that can be used during deployment.
 Pools defined at the model level are easily reused across applications.
 Pool creation requires a pool name, the provider type and attributes for
 configuration as space-separated pairs, e.g. tags, size, path, etc.
+
+Examples:
+
+    juju create-storage-pool ebsrotary ebs volume-type=standard
+
+See also:
+    remove-storage-pool
+    update-storage-pool
+    storage-pools
 `
 
 // NewPoolCreateCommand returns a command that creates or defines a storage pool

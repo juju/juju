@@ -419,6 +419,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	credentials, regionName, err := c.credentialsAndRegionName(ctx, provider, cloud)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			err = errors.NewNotFound(nil, fmt.Sprintf("%v\nSee `juju add-credential %s --help` for instructions", err, cloud.Name))
+		}
+
 		if err == cmd.ErrSilent {
 			return err
 		}

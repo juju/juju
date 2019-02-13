@@ -71,7 +71,7 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("application tag for token %+v is %v", change.ApplicationToken, applicationTag)
+	logger.Debugf("application tag for token %+v is %v in model %v", change.ApplicationToken, applicationTag, backend.ModelUUID())
 
 	// If the remote model has destroyed the relation, do it here also.
 	forceCleanUp := change.ForceCleanup != nil && *change.ForceCleanup
@@ -118,7 +118,7 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		logger.Infof("no remote application found for %v", relationTag.Id())
 		return nil
 	}
-	logger.Debugf("remote application for changed relation %v is %v", relationTag.Id(), applicationTag.Id())
+	logger.Debugf("remote application for changed relation %v is %v in model %v", relationTag.Id(), applicationTag.Id(), backend.ModelUUID())
 
 	for _, id := range change.DepartedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), id))

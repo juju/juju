@@ -21,11 +21,16 @@ import (
 const (
 	// maxRetries gives the maximum number of attempts we'll try if
 	// there are timeouts.
-	maxRetries = 5
+	maxRetries = 10
 
 	// initialRetryDelay is the starting delay - this will be
 	// increased exponentially up maxRetries.
 	initialRetryDelay = 50 * time.Millisecond
+
+	// retryBackoffFactor is how much longer we wait after a failing retry.
+	// Retrying 10 times starting at 50ms and backing off 1.6x gives us a total
+	// delay time of about 9s.
+	retryBackoffFactor = 1.6
 )
 
 // errStopped is returned to clients when an operation cannot complete because
@@ -73,9 +78,9 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 		claims:     make(chan claim),
 		checks:     make(chan check),
 		blocks:     make(chan block),
+		expireDone: make(chan struct{}),
 		pins:       make(chan pin),
 		unpins:     make(chan pin),
-		errors:     make(chan error),
 		logContext: logContext,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -101,15 +106,24 @@ type Manager struct {
 	// if supplied
 	logContext string
 
-	// now is the time of the current tick - expiries are done on the
-	// basis of this time.
-	now time.Time
+	// nextTimeout is the next time that has a possible expiry that we would care
+	// about, capped at the maximum time.
+	nextTimeout time.Time
+
+	// timer tracks when nextTimeout would expire and triggers when it does
+	timer clock.Timer
+
+	// muNextTimeout protects accesses to nextTimeout
+	muNextTimeout sync.Mutex
 
 	// claims is used to deliver lease claim requests to the loop.
 	claims chan claim
 
 	// checks is used to deliver lease check requests to the loop.
 	checks chan check
+
+	// expireDone is sent an event when we successfully finish a call to expire()
+	expireDone chan struct{}
 
 	// blocks is used to deliver expiry block requests to the loop.
 	blocks chan block
@@ -119,10 +133,6 @@ type Manager struct {
 
 	// unpins is used to deliver lease unpin requests to the loop.
 	unpins chan pin
-
-	// errors is used to send errors from background claim or tick
-	// goroutines back to the main loop.
-	errors chan error
 
 	// wg is used to ensure that all child goroutines are finished
 	// before we stop.
@@ -150,19 +160,18 @@ func (manager *Manager) loop() error {
 
 	defer manager.wg.Wait()
 	blocks := make(blocks)
+	manager.setupInitialTimer()
 	for {
 		if err := manager.choose(blocks); err != nil {
+			manager.config.Logger.Tracef("[%s] exiting main loop with error: %v", manager.logContext, err)
 			return errors.Trace(err)
 		}
-
-		leases := manager.config.Store.Leases()
-		for leaseName := range blocks {
-			if _, found := leases[leaseName]; !found {
-				manager.config.Logger.Tracef("[%s] unblocking: %s", manager.logContext, leaseName)
-				blocks.unblock(leaseName)
-			}
-		}
 	}
+}
+
+func (manager *Manager) lookupLease(leaseKey lease.Key) (lease.Info, bool) {
+	lease, exists := manager.config.Store.Leases(leaseKey)[leaseKey]
+	return lease, exists
 }
 
 // choose breaks the select out of loop to make the blocking logic clearer.
@@ -170,26 +179,12 @@ func (manager *Manager) choose(blocks blocks) error {
 	select {
 	case <-manager.catacomb.Dying():
 		return manager.catacomb.ErrDying()
-	case err := <-manager.errors:
-		return errors.Trace(err)
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
-	case manager.now = <-manager.nextTick(manager.now):
-		// TODO(jam): 2019-02-03 This retryingTick is being fired off in its own
-		//  goroutine without synchronizing with manager.nextTick above.
-		//  Which means that if handling expiring tokens takes any real length
-		//  of time, then we'll get a backlog of *many* goroutines all trying
-		//  to expire tokens at some previous point in time.
-		//  We might want to stop the ticking while retryingTick is happening,
-		//  *or* tell retryingTick that it should update its time when a new
-		//  nextTick occurs.
-		// If we need to expire leases we should do it, otherwise this
-		// is just an opportunity to check for blocks that need to be
-		// notified.
-		if !manager.config.Store.Autoexpire() {
-			manager.wg.Add(1)
-			go manager.retryingTick(manager.now)
-		}
+	case now := <-manager.timer.Chan():
+		manager.tick(now, blocks)
+	case <-manager.expireDone:
+		manager.checkBlocks(blocks)
 	case claim := <-manager.claims:
 		manager.wg.Add(1)
 		go manager.retryingClaim(claim)
@@ -201,6 +196,11 @@ func (manager *Manager) choose(blocks blocks) error {
 		// TODO(raftlease): Include the other key items.
 		manager.config.Logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
 		blocks.add(block)
+
+		if _, exists := manager.lookupLease(block.leaseKey); !exists {
+			// Nobody holds this lease, so immediately unblock it.
+			blocks.unblock(block.leaseKey)
+		}
 	}
 	return nil
 }
@@ -258,30 +258,34 @@ func (manager *Manager) retryingClaim(claim claim) {
 		}
 	}
 
-	if lease.IsTimeout(err) {
-		claim.respond(lease.ErrTimeout)
-		manager.config.Logger.Warningf("[%s] retrying timed out while handling claim", manager.logContext)
-		return
-	}
 	if err == nil {
 		if !success {
 			claim.respond(lease.ErrClaimDenied)
 			return
 		}
+		// now, this isn't strictly true, as the lease can be given for longer
+		// than the requested duration. However, it cannot be shorter.
+		// Doing it this way, we'll wake up, and then see we can sleep
+		// for a bit longer. But we'll always wake up in time.
+		manager.ensureNextTimeout(claim.duration)
+		// respond after ensuring the timeout, at least for the test suite to be sure
+		// the timer has been updated by the time it gets Claim() to return.
 		claim.respond(nil)
-		// This is pretty subtle - in the success case we send a nil
-		// back on the errors channel. That indicates to the main loop
-		// that some lease state has changed and gives it a chance to
-		// loop back around and determine a new wakeup time based on
-		// new leases.
-	}
-	// Otherwise we allow the fatal error to send errStopped back to
-	// the client.
-
-	select {
-	case <-manager.catacomb.Dying():
-		return
-	case manager.errors <- err:
+	} else {
+		switch {
+		case lease.IsTimeout(err):
+			claim.respond(lease.ErrTimeout)
+			manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
+				manager.logContext, claim.leaseKey, claim.holderName)
+		case lease.IsInvalid(err):
+			// we want to see this, but it doesn't indicate something a user can do something about
+			manager.config.Logger.Infof("[%s] got %v after %d retries, denying claim %q for %q",
+				manager.logContext, err, maxRetries, claim.leaseKey, claim.holderName)
+			claim.respond(lease.ErrClaimDenied)
+		default:
+			// Stop the main loop because we got an abnormal error
+			manager.catacomb.Kill(errors.Trace(err))
+		}
 	}
 }
 
@@ -297,7 +301,7 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	case <-manager.catacomb.Dying():
 		return false, manager.catacomb.ErrDying()
 	default:
-		info, found := store.Leases(claim.leaseKey)[claim.leaseKey]
+		info, found := manager.lookupLease(claim.leaseKey)
 		switch {
 		case !found:
 			manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
@@ -335,18 +339,33 @@ func (manager *Manager) handleCheck(check check) error {
 	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s",
 		manager.logContext, key.Lease, check.holderName)
 
-	info := store.Leases(key)[key]
-	if info.Holder != check.holderName {
-		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing",
-			manager.logContext, key.Lease, check.holderName)
+	info, found := manager.lookupLease(key)
+	if !found || info.Holder != check.holderName {
+		// TODO(jam): 2019-02-05 Currently raftlease.Store.Refresh does nothing.
+		//  We probably shouldn't have this refresh-and-try-again if it is going to be a no-op.
+		//  Instead we should probably just report failure.
+		if found {
+			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, found held by %s, refreshing",
+				manager.logContext, key.Lease, check.holderName, info.Holder)
+		} else {
+			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing",
+				manager.logContext, key.Lease, check.holderName)
+		}
 		if err := store.Refresh(); err != nil {
 			return errors.Trace(err)
 		}
-		info = store.Leases(key)[key]
+		info, found = manager.lookupLease(key)
+		if !found {
+			// Someone thought they were the leader and held a Claim or they wouldn't
+			// have tried to do a mutating operation. However, when they actually
+			// got to this point, we detected that they were, actually, out of
+			// date. Schedule a sync
+			manager.ensureNextTimeout(time.Millisecond)
+		}
 	}
 
 	var response error
-	if info.Holder != check.holderName {
+	if !found || info.Holder != check.holderName {
 		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held",
 			manager.logContext, key.Lease, check.holderName)
 		response = lease.ErrNotHeld
@@ -357,19 +376,49 @@ func (manager *Manager) handleCheck(check check) error {
 	return nil
 }
 
-// nextTick returns a channel that will send a value at some point when
-// we expect to have to do some work; either because at least one lease
-// may be ready to expire, or because enough enough time has passed that
+// tick triggers when we think a lease might be expiring, so we check if there
+// are leases to expire, and then unblock anything that is no longer blocked,
+// and then compute the next time we should wake up.
+func (manager *Manager) tick(now time.Time, blocks blocks) {
+	manager.config.Logger.Tracef("[%s] tick at %v, running expiry checks\n", manager.logContext, now)
+	// If we need to expire leases we should do it, otherwise this
+	// is just an opportunity to check for blocks that need to be
+	// notified.
+	if !manager.config.Store.Autoexpire() {
+		manager.wg.Add(1)
+		go manager.retryingExpire(now)
+		// We wait for manager.retryingExpire to finish before we checkBlocks
+	} else {
+		manager.checkBlocks(blocks)
+	}
+}
+
+func (manager *Manager) checkBlocks(blocks blocks) {
+	now := manager.config.Clock.Now()
+	manager.config.Logger.Tracef("[%s] evaluating %d blocks", manager.logContext, len(blocks))
+	leases := manager.config.Store.Leases()
+	for leaseName := range blocks {
+		if _, found := leases[leaseName]; !found {
+			manager.config.Logger.Tracef("[%s] unblocking: %s", manager.logContext, leaseName)
+			blocks.unblock(leaseName)
+		}
+	}
+	manager.computeNextTimeout(now, leases)
+}
+
+// computeNextTimeout iterates the leases and finds out what the next time we
+// want to wake up, expire any leases and then handle any unblocks that happen.
+// It is based on the MaxSleep time, and on any expire that is going to expire
+// after now but before MaxSleep.
 // it's worth checking for stalled collaborators.
-func (manager *Manager) nextTick(lastTick time.Time) <-chan time.Time {
+func (manager *Manager) computeNextTimeout(lastTick time.Time, leases map[lease.Key]lease.Info) {
 	now := manager.config.Clock.Now()
 	nextTick := now.Add(manager.config.MaxSleep)
-	leases := manager.config.Store.Leases()
 	for _, info := range leases {
 		if !info.Expiry.After(lastTick) {
-			// The previous tick will expire this lease eventually, or
+			// The previous expire will expire this lease eventually, or
 			// the manager will die with an error. Either way, we
-			// don't need to worry about expiries in a previous tick
+			// don't need to worry about expiries in a previous expire
 			// here.
 			continue
 		}
@@ -378,46 +427,95 @@ func (manager *Manager) nextTick(lastTick time.Time) <-chan time.Time {
 		}
 		nextTick = info.Expiry
 	}
-	manager.config.Logger.Tracef("[%s] next tick decided on %v %v", manager.logContext, nextTick.Sub(now), nextTick)
-	return clock.Alarm(manager.config.Clock, nextTick)
+	manager.config.Logger.Tracef("[%s] next expire in %v %v",
+		manager.logContext, nextTick.Sub(now).Round(time.Millisecond), nextTick)
+	manager.setNextTimeout(nextTick)
 }
 
-// retryingTick runs tick and retries any timeouts.
-func (manager *Manager) retryingTick(now time.Time) {
-	manager.config.Logger.Tracef("[%s] tick looking for leases to expire\n", manager.logContext)
+func (manager *Manager) setupInitialTimer() {
+	// lastTick has never happened, so pass in the epoch time
+	manager.computeNextTimeout(time.Time{}, manager.config.Store.Leases())
+}
+
+func (manager *Manager) setNextTimeout(t time.Time) {
+	manager.muNextTimeout.Lock()
+	manager.nextTimeout = t
+	d := t.Sub(manager.config.Clock.Now())
+	if manager.timer == nil {
+		manager.timer = manager.config.Clock.NewTimer(d)
+	} else {
+		// See the docs on Timer.Reset() that says it isn't safe to call
+		// on a non-stopped channel, and if it is stopped, you need to check
+		// if the channel needs to be drained anyway. It isn't safe to drain
+		// unconditionally in case another goroutine has already noticed,
+		// but make an attempt.
+		if !manager.timer.Stop() {
+			select {
+			case <-manager.timer.Chan():
+			default:
+			}
+		}
+		manager.timer.Reset(d)
+	}
+	manager.muNextTimeout.Unlock()
+}
+
+// ensureNextTimeout makes sure that the next timeout happens no-later than
+// duration from now.
+func (manager *Manager) ensureNextTimeout(d time.Duration) {
+	manager.muNextTimeout.Lock()
+	next := manager.nextTimeout
+	proposed := manager.config.Clock.Now().Add(d)
+	if next.After(proposed) {
+		manager.config.Logger.Tracef("[%s] ensuring we wake up before %v at %v\n",
+			manager.logContext, d, proposed)
+		manager.nextTimeout = proposed
+		manager.timer.Reset(d)
+	}
+	manager.muNextTimeout.Unlock()
+}
+
+// retryingExpire runs expire and retries any timeouts.
+func (manager *Manager) retryingExpire(now time.Time) {
+	manager.config.Logger.Tracef("[%s] expire looking for leases to expire\n", manager.logContext)
 	defer manager.wg.Done()
 	var err error
 	for a := manager.startRetry(); a.Next(); {
-		err = manager.tick(now)
+		err = manager.expire(now)
 		if !lease.IsTimeout(err) {
 			break
 		}
 		if a.More() {
-			manager.config.Logger.Tracef("[%s] timed out during tick, retrying...", manager.logContext)
+			manager.config.Logger.Tracef("[%s] timed out during expire, retrying...", manager.logContext)
 		}
 	}
 	// Don't bother sending an error if we're dying - this avoids a
 	// race in the tests.
 	select {
 	case <-manager.catacomb.Dying():
+		manager.config.Logger.Tracef("[%s] expire exiting early do to manager shutdown", manager.logContext)
 		return
 	default:
 	}
 
 	if lease.IsTimeout(err) {
 		// We don't crash on timeouts to avoid bouncing the API server.
-		manager.config.Logger.Warningf("[%s] retrying timed out in tick", manager.logContext)
+		manager.config.Logger.Warningf("[%s] retrying timed out in expire", manager.logContext)
 		return
 	}
-	select {
-	case <-manager.catacomb.Dying():
-		return
-	case manager.errors <- err:
-		// We're done.
+	if err != nil {
+		manager.catacomb.Kill(errors.Trace(err))
+	} else {
+		// If we send back an error, then the main loop won't listen for expireDone
+		select {
+		case <-manager.catacomb.Dying():
+			return
+		case manager.expireDone <- struct{}{}:
+		}
 	}
 }
 
-// tick snapshots recent leases and expires any that it can. There
+// expire snapshots recent leases and expires any that it can. There
 // might be none that need attention; or those that do might already
 // have been extended or expired by someone else; so ErrInvalid is
 // expected, and ignored, comfortable that the store will have been
@@ -425,8 +523,7 @@ func (manager *Manager) retryingTick(now time.Time) {
 // subsequently check nextWake().
 //
 // It will return only unrecoverable errors.
-func (manager *Manager) tick(now time.Time) error {
-	manager.config.Logger.Tracef("[%s] waking up to refresh and expire leases", manager.logContext)
+func (manager *Manager) expire(now time.Time) error {
 	store := manager.config.Store
 	if err := store.Refresh(); err != nil {
 		return errors.Trace(err)
@@ -471,6 +568,7 @@ func (manager *Manager) startRetry() *retry.Attempt {
 	return retry.StartWithCancel(
 		retry.LimitCount(maxRetries, retry.Exponential{
 			Initial: initialRetryDelay,
+			Factor:  retryBackoffFactor,
 			Jitter:  true,
 		}),
 		manager.config.Clock,

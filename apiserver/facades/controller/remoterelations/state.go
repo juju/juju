@@ -33,9 +33,6 @@ type RemoteRelationsState interface {
 	// RemoveRemoteEntity removes the specified entity from the remote entities collection.
 	RemoveRemoteEntity(entity names.Tag) error
 
-	// GetToken returns the token associated with the entity with the given tag.
-	GetToken(names.Tag) (string, error)
-
 	// SaveMacaroon saves the given macaroon for the specified entity.
 	SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error
 }

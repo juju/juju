@@ -5,6 +5,7 @@ package common
 
 import (
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -34,7 +35,8 @@ type Conf struct {
 	// Limit holds the ulimit values that will be set when the command
 	// runs. Each value will be used as both the soft and hard limit.
 	// Currently not used on Windows.
-	Limit map[string]int
+	// Valid values are integers or "infinity"
+	Limit map[string]string
 
 	// Timeout is how many seconds may pass before an exec call (e.g.
 	// ExecStart) times out. Values less than or equal to 0 (the
@@ -91,6 +93,18 @@ func (c Conf) Validate(renderer shell.Renderer) error {
 		}
 		if err := c.checkExec(field, cmd, renderer); err != nil {
 			return errors.Trace(err)
+		}
+	}
+
+	for _, value := range c.Limit {
+		switch value {
+		case "unlimited", "infinity":
+		default:
+			_, err := strconv.Atoi(value)
+			if err != nil {
+				newErr := errors.NotValidf("limit must be \"infinity\", \"unlimited\", or an integer, %q", value)
+				return errors.Wrap(err, newErr)
+			}
 		}
 	}
 

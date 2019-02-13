@@ -115,3 +115,29 @@ func (*confSuite) TestValidateRelativeExecStopPost(c *gc.C) {
 
 	c.Check(err, gc.ErrorMatches, `.*relative path in ExecStopPost \(.*`)
 }
+
+func (*confSuite) TestGoodLimits(c *gc.C) {
+	conf := common.Conf{
+		Desc:      "some service",
+		ExecStart: "/path/to/some-command a b c",
+		Limit: map[string]string{
+			"an-int":    "42",
+			"infinity":  "infinity",
+			"unlimited": "unlimited",
+		},
+	}
+	err := conf.Validate(renderer)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (*confSuite) TestLimitNotInt(c *gc.C) {
+	conf := common.Conf{
+		Desc:      "some service",
+		ExecStart: "/path/to/some-command a b c",
+		Limit: map[string]string{
+			"float": "42.5",
+		},
+	}
+	err := conf.Validate(renderer)
+	c.Check(err, gc.ErrorMatches, `limit must be "infinity", "unlimited", or an integer, "42.5" not valid`)
+}

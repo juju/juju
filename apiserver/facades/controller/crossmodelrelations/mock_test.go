@@ -193,6 +193,19 @@ func (st *mockState) GetRemoteEntity(token string) (names.Tag, error) {
 	return nil, errors.NotFoundf("token %v", token)
 }
 
+func (st *mockState) GetToken(entity names.Tag) (string, error) {
+	st.MethodCall(st, "GetToken", entity)
+	if err := st.NextErr(); err != nil {
+		return "", err
+	}
+	for e, t := range st.remoteEntities {
+		if e.Id() == entity.Id() {
+			return t, nil
+		}
+	}
+	return "", errors.NotFoundf("entity %v", entity)
+}
+
 func (st *mockState) KeyRelation(key string) (commoncrossmodel.Relation, error) {
 	st.MethodCall(st, "KeyRelation", key)
 	if err := st.NextErr(); err != nil {

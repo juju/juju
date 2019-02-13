@@ -13,63 +13,63 @@ import (
 	_ "github.com/juju/juju/provider/dummy"
 )
 
-type PoolDeleteSuite struct {
+type PoolRemoveSuite struct {
 	SubStorageSuite
-	mockAPI *mockPoolDeleteAPI
+	mockAPI *mockPoolRemoveAPI
 }
 
-var _ = gc.Suite(&PoolDeleteSuite{})
+var _ = gc.Suite(&PoolRemoveSuite{})
 
-func (s *PoolDeleteSuite) SetUpTest(c *gc.C) {
+func (s *PoolRemoveSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockPoolDeleteAPI{APIVersion: 5}
+	s.mockAPI = &mockPoolRemoveAPI{APIVersion: 5}
 }
 
-func (s *PoolDeleteSuite) runPoolDelete(c *gc.C, args []string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, storage.NewPoolDeleteCommandForTest(s.mockAPI, s.store), args...)
+func (s *PoolRemoveSuite) runPoolRemove(c *gc.C, args []string) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, storage.NewPoolRemoveCommandForTest(s.mockAPI, s.store), args...)
 }
 
-func (s *PoolDeleteSuite) TestPoolDeleteOneArg(c *gc.C) {
-	_, err := s.runPoolDelete(c, []string{"sunshine"})
+func (s *PoolRemoveSuite) TestPoolRemoveOneArg(c *gc.C) {
+	_, err := s.runPoolRemove(c, []string{"sunshine"})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(s.mockAPI.DeletedPools), gc.Equals, 1)
-	c.Assert(s.mockAPI.DeletedPools[0], gc.Equals, "sunshine")
+	c.Assert(len(s.mockAPI.RemovedPools), gc.Equals, 1)
+	c.Assert(s.mockAPI.RemovedPools[0], gc.Equals, "sunshine")
 }
 
-func (s *PoolDeleteSuite) TestPoolDeleteNoArgs(c *gc.C) {
-	_, err := s.runPoolDelete(c, []string{})
-	c.Check(err, gc.ErrorMatches, "pool deletion requires storage pool name")
-	c.Assert(len(s.mockAPI.DeletedPools), gc.Equals, 0)
+func (s *PoolRemoveSuite) TestPoolRemoveNoArgs(c *gc.C) {
+	_, err := s.runPoolRemove(c, []string{})
+	c.Check(err, gc.ErrorMatches, "pool removal requires storage pool name")
+	c.Assert(len(s.mockAPI.RemovedPools), gc.Equals, 0)
 }
 
-func (s *PoolDeleteSuite) TestPoolDeleteErrorsManyArgs(c *gc.C) {
-	_, err := s.runPoolDelete(c, []string{"sunshine", "lollypop"})
+func (s *PoolRemoveSuite) TestPoolRemoveErrorsManyArgs(c *gc.C) {
+	_, err := s.runPoolRemove(c, []string{"sunshine", "lollypop"})
 	c.Check(err, gc.ErrorMatches, `unrecognized args: \["lollypop"\]`)
-	c.Assert(len(s.mockAPI.DeletedPools), gc.Equals, 0)
+	c.Assert(len(s.mockAPI.RemovedPools), gc.Equals, 0)
 }
 
-func (s *PoolDeleteSuite) TestPoolDeleteUnsupportedAPIVersion(c *gc.C) {
+func (s *PoolRemoveSuite) TestPoolRemoveUnsupportedAPIVersion(c *gc.C) {
 	s.mockAPI.APIVersion = 3
-	_, err := s.runPoolDelete(c, []string{"sunshine"})
-	c.Check(err, gc.ErrorMatches, "deleting storage pools is not supported by this version of Juju")
-	c.Assert(len(s.mockAPI.DeletedPools), gc.Equals, 0)
+	_, err := s.runPoolRemove(c, []string{"sunshine"})
+	c.Check(err, gc.ErrorMatches, "removing storage pools is not supported by this version of Juju")
+	c.Assert(len(s.mockAPI.RemovedPools), gc.Equals, 0)
 }
 
-type mockPoolDeleteAPI struct {
+type mockPoolRemoveAPI struct {
 	APIVersion   int
-	DeletedPools []string
+	RemovedPools []string
 }
 
-func (s *mockPoolDeleteAPI) DeletePool(pname string) error {
-	s.DeletedPools = append(s.DeletedPools, pname)
+func (s *mockPoolRemoveAPI) RemovePool(pname string) error {
+	s.RemovedPools = append(s.RemovedPools, pname)
 	return nil
 }
 
-func (s mockPoolDeleteAPI) Close() error {
+func (s mockPoolRemoveAPI) Close() error {
 	return nil
 }
 
-func (s mockPoolDeleteAPI) BestAPIVersion() int {
+func (s mockPoolRemoveAPI) BestAPIVersion() int {
 	return s.APIVersion
 }
