@@ -36,6 +36,6 @@ type Generation interface {
 	AssignAllUnits(string) error
 	AssignUnit(string) error
 	MakeCurrent() error
-	AutoComplete() error
+	AutoComplete() (bool, error)
 	Refresh() error
 }

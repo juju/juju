@@ -200,10 +200,12 @@ func assignGenerationUnitTxnOps(id, appName, unitName string) []txn.Op {
 
 // AutoComplete marks the generation as completed if there are no applications
 // with changes in this generation that do not have all units advanced to the
-// generation. It then becomes the "current" generation.
-func (g *Generation) AutoComplete() error {
-	err := g.complete(false)
-	return errors.Trace(err)
+// generation. It then becomes the "current" generation, and true is returned.
+// If the criteria above are not met, the generation is not completed and
+// false is returned.
+func (g *Generation) AutoComplete() (bool, error) {
+	completed, err := g.complete(false)
+	return completed, errors.Trace(err)
 }
 
 // MakeCurrent marks the generation as completed if there are no applications
@@ -212,14 +214,14 @@ func (g *Generation) AutoComplete() error {
 // This the operation invoked by an operator "cancelling" a generation.
 // It then becomes the "current" generation.
 func (g *Generation) MakeCurrent() error {
-	err := g.complete(true)
+	_, err := g.complete(true)
 	return errors.Trace(err)
 }
 
 // TODO (hml) 23-jan-2019
 // When implementing change history, review to see if this is
 // still the best course of action.
-func (g *Generation) complete(allowEmpty bool) error {
+func (g *Generation) complete(allowEmpty bool) (bool, error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := g.Refresh(); err != nil {
@@ -253,7 +255,18 @@ func (g *Generation) complete(allowEmpty bool) error {
 		}
 		return ops, nil
 	}
-	return errors.Trace(g.st.db().Run(buildTxn))
+
+	err := g.st.db().Run(buildTxn)
+	completed := true
+	if err != nil {
+		// if we are auto-completing, and criteria are not met, just return
+		// false. This error is not relevant to MakeCurrent (cancel).
+		if errors.Cause(err) == errGenerationNoAutoComplete && !allowEmpty {
+			err = nil
+		}
+		completed = false
+	}
+	return completed, errors.Trace(err)
 }
 
 // checkCanMakeCurrent assesses the generation to determine whether it can be
@@ -264,7 +277,7 @@ func (g *Generation) checkCanMakeCurrent(allowEmpty bool) error {
 	// This will prevent AutoComplete from proceeding when no
 	// changes have been made to the generation.
 	if !allowEmpty && len(g.doc.AssignedUnits) == 0 {
-		return ErrGenerationNoAutoComplete
+		return errGenerationNoAutoComplete
 	}
 
 	unitsBehind := set.NewStrings()
@@ -296,7 +309,7 @@ func (g *Generation) checkCanMakeCurrent(allowEmpty bool) error {
 			return errors.Errorf("cannot cancel generation, there are units behind a generation: %s",
 				strings.Join(unitsBehind.SortedValues(), ", "))
 		} else {
-			return ErrGenerationNoAutoComplete
+			return errGenerationNoAutoComplete
 		}
 	}
 	return nil
@@ -437,6 +450,6 @@ func newGeneration(st *State, doc *generationDoc) *Generation {
 	}
 }
 
-// ErrGenerationNoAutoComplete indicates that the generation can not be
-// automatically completed.
-var ErrGenerationNoAutoComplete = errors.New("generation can not be auto-completed")
+// errGenerationNoAutoComplete indicates that the generation can not be
+// automatically completed. This error should never escape the package.
+var errGenerationNoAutoComplete = errors.New("generation can not be auto-completed")

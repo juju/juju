@@ -187,15 +187,19 @@ func (s *generationSuite) TestAutoCompleteSuccess(c *gc.C) {
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.IsCompleted(), jc.IsFalse)
 
-	c.Assert(gen.AutoComplete(), jc.ErrorIsNil)
+	completed, err := gen.AutoComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(completed, jc.IsTrue)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.IsCompleted(), jc.IsTrue)
+	c.Check(gen.IsCompleted(), jc.IsTrue)
 
 	// Idempotent.
-	c.Assert(gen.AutoComplete(), jc.ErrorIsNil)
+	completed, err = gen.AutoComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(completed, jc.IsTrue)
 }
 
-func (s *generationSuite) TestAutoCompleteGenerationIncompleteError(c *gc.C) {
+func (s *generationSuite) TestAutoCompleteGenerationIncomplete(c *gc.C) {
 	s.setupAssignAllUnits(c)
 
 	gen, err := s.Model.NextGeneration()
@@ -203,7 +207,11 @@ func (s *generationSuite) TestAutoCompleteGenerationIncompleteError(c *gc.C) {
 
 	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(errors.Cause(gen.AutoComplete()), gc.Equals, state.ErrGenerationNoAutoComplete)
+
+	completed, err := gen.AutoComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(completed, jc.IsFalse)
+
 }
 
 func (s *generationSuite) TestMakeCurrentSuccess(c *gc.C) {
@@ -247,7 +255,9 @@ func (s *generationSuite) TestAppNoUnitsAutoCompleteErrorMakeCurrentSuccess(c *g
 
 	// Can not auto-complete.
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(errors.Cause(gen.AutoComplete()), gc.Equals, state.ErrGenerationNoAutoComplete)
+	completed, err := gen.AutoComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(completed, jc.IsFalse)
 
 	// But can cancel.
 	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)

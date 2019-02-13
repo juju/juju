@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration/mocks"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
 )
 
 var _ = gc.Suite(&modelGenerationSuite{})
@@ -73,7 +72,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationErrorNoAutoComplete(c *gc.C)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
 		gExp.AssignUnit("mysql/0").Return(nil)
-		gExp.AutoComplete().Return(state.ErrGenerationNoAutoComplete)
+		gExp.AutoComplete().Return(false, nil)
 		gExp.Refresh().Return(nil).Times(3)
 
 		mExp := mockModel.EXPECT()
@@ -104,7 +103,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationSuccessAutoComplete(c *gc.C)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
 		gExp.AssignUnit("mysql/0").Return(nil)
-		gExp.AutoComplete().Return(nil)
+		gExp.AutoComplete().Return(true, nil)
 		gExp.Refresh().Return(nil).Times(2)
 
 		mExp := mockModel.EXPECT()

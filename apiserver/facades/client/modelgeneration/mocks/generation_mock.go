@@ -57,10 +57,11 @@ func (mr *MockGenerationMockRecorder) AssignUnit(arg0 interface{}) *gomock.Call 
 }
 
 // AutoComplete mocks base method
-func (m *MockGeneration) AutoComplete() error {
+func (m *MockGeneration) AutoComplete() (bool, error) {
 	ret := m.ctrl.Call(m, "AutoComplete")
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AutoComplete indicates an expected call of AutoComplete

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.modelgeneration")
@@ -153,12 +152,10 @@ func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) 
 	result := params.AdvanceGenerationResult{AdvanceResults: results}
 
 	// Complete the generation if possible.
-	if err := generation.AutoComplete(); err != nil {
-		if errors.Cause(err) != state.ErrGenerationNoAutoComplete {
-			result.CompleteResult.Error = common.ServerError(err)
-		}
-	} else {
-		result.CompleteResult.Result = true
+	completed, err := generation.AutoComplete()
+	result.CompleteResult = params.BoolResult{
+		Result: completed,
+		Error:  common.ServerError(err),
 	}
 	return result, nil
 }
