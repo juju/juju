@@ -207,7 +207,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"modification-status": M{
-			"current": "pending",
+			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
@@ -234,7 +234,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"modification-status": M{
-			"current": "pending",
+			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
@@ -260,7 +260,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"modification-status": M{
-			"current": "pending",
+			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
@@ -315,7 +315,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"modification-status": M{
-			"current": "pending",
+			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
@@ -342,7 +342,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"modification-status": M{
-			"current": "pending",
+			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
@@ -368,7 +368,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"modification-status": M{
-			"current": "pending",
+			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
@@ -406,7 +406,7 @@ var (
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
@@ -427,7 +427,7 @@ var (
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"modification-status": M{
-					"current": "pending",
+					"current": "idle",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"series": "quantal",
@@ -450,7 +450,7 @@ var (
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"modification-status": M{
-					"current": "pending",
+					"current": "idle",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"series": "quantal",
@@ -464,7 +464,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"modification-status": M{
-			"current": "pending",
+			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
@@ -555,7 +555,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
@@ -593,7 +593,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
@@ -640,7 +640,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
@@ -683,7 +683,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"juju-status": M{
@@ -743,7 +743,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
@@ -793,7 +793,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
@@ -829,7 +829,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
@@ -861,7 +861,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
@@ -1064,7 +1064,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"juju-status": M{
@@ -1091,7 +1091,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"juju-status": M{
@@ -1121,7 +1121,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
@@ -1642,7 +1642,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
@@ -1705,7 +1705,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":   "quantal",
@@ -2527,7 +2527,7 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"modification-status": M{
-									"current": "pending",
+									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"series": "quantal",
@@ -2548,7 +2548,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
@@ -3240,7 +3240,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
@@ -3462,7 +3462,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
@@ -3493,7 +3493,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"modification-status": M{
-							"current": "pending",
+							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"juju-status": M{
@@ -5373,7 +5373,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"      current: pending\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
 		"    modification-status:\n" +
-		"      current: pending\n" +
+		"      current: idle\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
 		"    series: quantal\n" +
 		"    network-interfaces:\n" +
@@ -5392,7 +5392,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"          current: pending\n" +
 		"          since: 01 Apr 15 01:23+10:00\n" +
 		"        modification-status:\n" +
-		"          current: pending\n" +
+		"          current: idle\n" +
 		"          since: 01 Apr 15 01:23+10:00\n" +
 		"        series: quantal\n" +
 		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
