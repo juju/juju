@@ -245,6 +245,7 @@ const (
 func (status Status) KnownModificationStatus() bool {
 	switch status {
 	case
+		Idle,
 		Applied,
 		Error,
 		Unknown:

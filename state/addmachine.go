@@ -532,7 +532,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		Updated:   now.UnixNano(),
 	}
 	modificationStatusDoc := statusDoc{
-		Status:    status.Pending,
+		Status:    status.Idle,
 		ModelUUID: st.ModelUUID(),
 		Updated:   now.UnixNano(),
 	}
