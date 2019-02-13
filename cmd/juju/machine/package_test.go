@@ -16,7 +16,7 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func marshalStringAsJSON(str string) (interface{}, error) {
+func unmarshalStringAsJSON(str string) (interface{}, error) {
 	var v interface{}
 	if err := json.Unmarshal([]byte(str), &v); err != nil {
 		return struct{}{}, err
