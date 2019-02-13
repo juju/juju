@@ -6,8 +6,6 @@ package modelcache
 import (
 	"sync"
 
-	"github.com/juju/juju/network"
-
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -272,8 +271,8 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			PublicAddress:  value.PublicAddress,
 			PrivateAddress: value.PrivateAddress,
 			MachineId:      value.MachineId,
-			// Ports:          networkPorts(value.Ports),
-			// PortRanges:     networkPortRanges(value.PortRanges),
+			Ports:          coreNetworkPorts(value.Ports),
+			PortRanges:     coreNetworkPortRanges(value.PortRanges),
 			Subordinate:    value.Subordinate,
 			WorkloadStatus: coreStatus(value.WorkloadStatus),
 			AgentStatus:    coreStatus(value.AgentStatus),
@@ -303,7 +302,7 @@ func coreStatus(info multiwatcher.StatusInfo) status.StatusInfo {
 	}
 }
 
-func networkPorts(delta []multiwatcher.Port) []network.Port {
+func coreNetworkPorts(delta []multiwatcher.Port) []network.Port {
 	ports := make([]network.Port, len(delta))
 	for i, d := range delta {
 		ports[i] = network.Port{
@@ -314,7 +313,7 @@ func networkPorts(delta []multiwatcher.Port) []network.Port {
 	return ports
 }
 
-func networkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
+func coreNetworkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
 	ports := make([]network.PortRange, len(delta))
 	for i, d := range delta {
 		ports[i] = network.PortRange{

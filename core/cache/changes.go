@@ -6,6 +6,7 @@ package cache
 import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 )
 
@@ -60,10 +61,8 @@ type UnitChange struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	// TODO (manadart 2019-02-11): How should we handle these given that
-	// non-core packages must not be imported in this package.
-	// Ports          []network.Port
-	// PortRanges     []network.PortRange
+	Ports          []network.Port
+	PortRanges     []network.PortRange
 	Subordinate    bool
 	WorkloadStatus status.StatusInfo
 	AgentStatus    status.StatusInfo
