@@ -33,10 +33,11 @@ func (m *MockAdvanceGenerationCommandAPI) EXPECT() *MockAdvanceGenerationCommand
 }
 
 // AdvanceGeneration mocks base method
-func (m *MockAdvanceGenerationCommandAPI) AdvanceGeneration(arg0 string, arg1 []string) error {
+func (m *MockAdvanceGenerationCommandAPI) AdvanceGeneration(arg0 string, arg1 []string) (bool, error) {
 	ret := m.ctrl.Call(m, "AdvanceGeneration", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AdvanceGeneration indicates an expected call of AdvanceGeneration

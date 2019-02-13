@@ -51,12 +51,14 @@ func (c *Client) CancelGeneration(modelUUID string) error {
 	return nil
 }
 
-// AdvanceGeneration advances a unit and/or applications to the 'next' generation.
-func (c *Client) AdvanceGeneration(modelUUID string, entities []string) error {
-	var results params.ErrorResults
+// AdvanceGeneration advances a unit and/or applications to the 'next'
+// generation. The boolean return indicates whether the generation was
+// automatically completed as a result of unit advancement.
+func (c *Client) AdvanceGeneration(modelUUID string, entities []string) (bool, error) {
+	var result params.AdvanceGenerationResult
 	arg := params.AdvanceGenerationArg{Model: argForModel(modelUUID)}
 	if len(entities) == 0 {
-		return errors.Trace(errors.New("No units or applications to advance"))
+		return false, errors.Trace(errors.New("No units or applications to advance"))
 	}
 	for _, entity := range entities {
 		switch {
@@ -67,14 +69,24 @@ func (c *Client) AdvanceGeneration(modelUUID string, entities []string) error {
 			arg.Entities = append(arg.Entities,
 				params.Entity{Tag: names.NewUnitTag(entity).String()})
 		default:
-			return errors.Trace(errors.New("Must be application or unit"))
+			return false, errors.Trace(errors.New("Must be application or unit"))
 		}
 	}
-	err := c.facade.FacadeCall("AdvanceGeneration", arg, &results)
+	err := c.facade.FacadeCall("AdvanceGeneration", arg, &result)
 	if err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
-	return results.Combine()
+
+	// If there were errors based on the advancing units, return those.
+	// Otherwise check the results of auto-completion.
+	if err := result.AdvanceResults.Combine(); err != nil {
+		return false, errors.Trace(err)
+	}
+	res := result.CompleteResult
+	if res.Error != nil {
+		return false, errors.Trace(res.Error)
+	}
+	return res.Result, nil
 }
 
 // HasNextGeneration returns true if the model has a "next" generation that
