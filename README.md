@@ -162,11 +162,20 @@ Installing bash completion for juju
 
     make install-etc
 
-Will install Bash completion for `juju` cli to `/etc/bash_completion.d/juju`. It does
+Will install Bash completion for `juju` cli to `/usr/share/bash-completion/completions/juju`. It does
 dynamic completion for commands requiring service, unit or machine names (like e.g.
 juju status <service>, juju ssh <instance>, juju terminate-machine <machine#>, etc),
 by parsing cached `juju status` output for speedup. It also does command flags
 completion by parsing `juju help ...` output.
+
+If you are using zsh instead of bash you can follow the steps above and add the
+following lines to the end of your `.zshrc` file:
+
+```bash
+autoload -U +X compinit && compinit
+autoload -U +X bashcompinit && bashcompinit
+[ -f /usr/share/bash-completion/completions/juju ] && source /usr/share/bash-completion/completions/juju
+```
 
 Building Juju as a Snap Package
 ===============================
