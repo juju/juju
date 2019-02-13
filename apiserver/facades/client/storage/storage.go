@@ -26,10 +26,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-const (
-	operatorStorage = "operator-storage"
-)
-
 // StorageAPI implements the latest version (v5) of the Storage API which adds Update and Delete.
 type StorageAPI struct {
 	backend       backend
@@ -1150,11 +1146,10 @@ func (a *StorageAPI) RemovePool(p params.StoragePoolDeleteArgs) (params.ErrorRes
 		return results, errors.Trace(err)
 	}
 	for i, pool := range p.Pools {
-		err := a.poolManager.Delete(pool.Name)
+		err := a.storageAccess.DeleteStoragePool(pool.Name)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
-
 	}
 	return results, nil
 }

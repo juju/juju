@@ -144,7 +144,6 @@ func unitAssignedMachine(backend backend, tag names.UnitTag) (names.MachineTag, 
 }
 
 type backend interface {
-	AllApplications() ([]*state.Application, error)
 	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
