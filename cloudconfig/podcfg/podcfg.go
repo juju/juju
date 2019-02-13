@@ -348,6 +348,7 @@ func PopulateControllerPodConfig(pcfg *ControllerPodConfig, providerType string)
 		pcfg.AgentEnvironment = make(map[string]string)
 	}
 	pcfg.AgentEnvironment[agent.ProviderType] = providerType
+	pcfg.AgentEnvironment[agent.AgentServiceName] = "jujud-" + names.NewMachineTag(pcfg.MachineId).String()
 	return nil
 }
 

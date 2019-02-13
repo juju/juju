@@ -615,7 +615,68 @@ func finalizePodBootstrapConfig(
 	if pcfg.APIInfo != nil || pcfg.Controller.MongoInfo != nil {
 		return errors.New("machine configuration already has api/state info")
 	}
+
 	controllerCfg := pcfg.Controller.Config
+
+	// TODO: remove me. ###################
+	// ####################################
+	controllerCfg[controller.CACertKey] = `
+-----BEGIN CERTIFICATE-----
+MIIDrDCCApSgAwIBAgIUcxEbwMv177lg2pTqqfkuBvE+6rEwDQYJKoZIhvcNAQEL
+BQAwbjENMAsGA1UEChMEanVqdTEuMCwGA1UEAwwlanVqdS1nZW5lcmF0ZWQgQ0Eg
+Zm9yIG1vZGVsICJqdWp1LWNhIjEtMCsGA1UEBRMkZjU5OWNlNDAtNjkyYS00NzAw
+LTg2ZmYtYzkyN2E1ZTlhOTNmMB4XDTE4MDgyNzAyMTE1M1oXDTI4MDkwMzAyMTE1
+MlowbjENMAsGA1UEChMEanVqdTEuMCwGA1UEAwwlanVqdS1nZW5lcmF0ZWQgQ0Eg
+Zm9yIG1vZGVsICJqdWp1LWNhIjEtMCsGA1UEBRMkZjU5OWNlNDAtNjkyYS00NzAw
+LTg2ZmYtYzkyN2E1ZTlhOTNmMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+AQEAr/wI4stwkPIaw+2EVQwHbqeGX4LQPaEJGbwubmAuQPKAIZGqKqWGXdY6+Ixd
+GFLapXORWImw9w+XP7Fc562TXGVB8VNVGGUQRzfUs0FMvjKQ78CM3kxNA0r+mA6P
+IDBU/mrRR2C9U2/PDDMf4zBRUUWbjQQfqGNEm5/F8eGOJDwOompXXnh1puXhucDZ
+Of+xdaatlb9HKwwfK8INboPmkAL0JpF1LXVnOn8AMYnFFYohHBTC+3Wta2Rn4tNX
+Qq6APCSfHYCopVlG0GsrDLeRLHYoreQmiyw1+YatS31MaGiGqnnkeVJPMa9x0Sy5
+SdUoKSDYK3dYo/GzTilVbNyRdQIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAqQwDwYD
+VR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUEZBjiZf5sTTAKkXaBMLbcnEbw8EwDQYJ
+KoZIhvcNAQELBQADggEBAImvg8SmBeFf5u33U+LvfClY63YDwGCT+pzpzUrVI3iJ
+UIqUD+c+7oGSkDbIYESepBqYzDPyhT7zlUJKPaQVwAGqz6BT7MNgImPuAuLFk0ur
+up054Jr+8ozybqKFW89/eHahjdufrNRplHZfcn5cXqbjflxsntk7ptIhy2l3plet
+iDELkvN8bvQ1L9RyFdKxaQnXGLMp8GJ6xPhEuooyWjmfQUZf2QB5+tUfeMfYaD6i
+VR2mo3QJx3nC/Q0BRCfAjpRXxzlX6ws5ynx9H9mbEcCJVIwklkd8/A16A6K+g073
+UyXxQANHHzmA8BaTB7d3p/nYH2xidgWNMtz6rmGrZX8=
+-----END CERTIFICATE-----
+`[1:]
+	// ensure cacert added into bootstrap-param later!
+	args.ControllerConfig = controllerCfg
+	args.CAPrivateKey = `
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEAr/wI4stwkPIaw+2EVQwHbqeGX4LQPaEJGbwubmAuQPKAIZGq
+KqWGXdY6+IxdGFLapXORWImw9w+XP7Fc562TXGVB8VNVGGUQRzfUs0FMvjKQ78CM
+3kxNA0r+mA6PIDBU/mrRR2C9U2/PDDMf4zBRUUWbjQQfqGNEm5/F8eGOJDwOompX
+Xnh1puXhucDZOf+xdaatlb9HKwwfK8INboPmkAL0JpF1LXVnOn8AMYnFFYohHBTC
++3Wta2Rn4tNXQq6APCSfHYCopVlG0GsrDLeRLHYoreQmiyw1+YatS31MaGiGqnnk
+eVJPMa9x0Sy5SdUoKSDYK3dYo/GzTilVbNyRdQIDAQABAoIBAGH/uLcK0Ql2OJ9o
+kauGglEFaxee0fWvylCRcU23s6opIF8RLbCH8nYoyTgFegYEhYti+spSCsDZ5sDq
+NLEzAH+QR5Nqc1WdWd4+4excba7wm7NXB1r3JF+0EGh+mwcywvHWa+oSnftrpOHH
+SneKPY5Dc+aoKDTt6pO6+lDC6ROVjXhKYmKmbvJyKh/1Lotm31ekwYZLvyOi5t9z
+Kskmi6FeuAKDZcSMS8/nlBl4M13rFFQyQ+aq4qNwFngPD8B0QLz5BYJi86Mn+yrF
+doCT4c6BMsXCdQt7T/7lVptWRpXpSwzIwMCS1wUy4bY5WDp/abJc8FqgrUKE2V/V
+JSQjYaECgYEAy2X3evFO1hw8rFPhjrQCQcPx/OfeMgvO7dr1ntZfZZWa/Uo4sXL4
+h6BVT99zLNqtAj3pTyi94rnAFUJnKOTTJagwkSC+tEZSe0w9+OfyRigDCTKrmRAE
+OyWocCxrAHn/2otgh/kF06cPFu/RoK/+ACtbfgmT8vb1JTsPTtAkIg0CgYEA3X8h
+jKQ1OKT6rD8X0Zf1aAQ5wANNRghV/GM2Nh/C/px9zFt2qoSmWwmqRkI4EA9++aAF
+z6NymNalaSK67dQBNekl54mA6E/vBSEjoD7VntcAbmyy7olNXyD2wiuy3NpTplHf
+X9hJV8YDX+NVZaMUzoOMzxOpjhmPBZXqFnwAGwkCgYBA3uaNeYTxWNQpCh+4ScUm
+gH4fcTw2rflzdxA7dpe6aHqkKhXm0opdh09uSBAN0Di5rFFLA+178E5I+YK5UjHd
+osTKpKzuBjesR2bEigWFRqGhP13nVWpkCuCr1h7Sahal9yn0dAHdvTxczmQHYdoa
+57koe5mKNiV9mFaLhmrfyQKBgQCQe6No2JyW7JdP0IA7CkLcrRT2ubCoZDuivRzZ
+xXIvH+m3alpH9OuHKxDVb9CeOV18e/QOc/IG3M1dfXguN0Lq5cEB/eIGqE2kLO/O
+Ue6LBHiVj3ZQv2OnEBumoVa1Vf2G2pU5Mh71kIcW/3XvLKgf5hPt6EeMGAQBgr8G
+F7EB8QKBgGGhHmRO5QDJhL6fqnc6z0DL78O/hGGYPqN7pjCwgyvPWagMrZKENXY5
+gd4hJmPxCBthMswdF9qKm8LRnb/3FrmgBTsbFoDs1qZpuvfkbqFGk/QlvOrAylWA
+ICxEI9P1aFYRyHHMmFC/FQRWx/VniQQAhj854NHoNPy90zYkFd6c
+-----END RSA PRIVATE KEY-----
+`[1:]
+	// ####################################
+
 	caCert, hasCACert := controllerCfg.CACert()
 	if !hasCACert {
 		return errors.New("controller configuration has no ca-cert")

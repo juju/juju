@@ -207,18 +207,10 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 			return errors.Trace(err)
 		}
 
-		// TODO(caas): we'll need a different tag type other than machine tag.
-		machineTag := names.NewMachineTag(pcfg.MachineId)
-		var acfg agent.ConfigSetterWriter
-		acfg, err = pcfg.AgentConfig(machineTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
 		// create statefulset for controller pod.
-		if err = createControllerStack(k, pcfg, acfg); err != nil {
+		if err = createControllerStack(k, pcfg); err != nil {
 			return errors.Annotate(err, "creating statefulset for controller")
 		}
 
