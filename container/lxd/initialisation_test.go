@@ -27,10 +27,24 @@ import (
 	"github.com/lxc/lxd/client"
 )
 
-type InitialiserSuite struct {
+type initialiserTestSuite struct {
 	coretesting.BaseSuite
-	calledCmds []string
 	testing.PatchExecHelper
+}
+
+func (s *initialiserTestSuite) PatchForProxyUpdate(c *gc.C, svr lxd.ContainerServer, lxdIsRunning bool) {
+	s.PatchValue(&ConnectLocal, func() (lxd.ContainerServer, error) {
+		return svr, nil
+	})
+
+	s.PatchValue(&IsRunningLocally, func() (bool, error) {
+		return lxdIsRunning, nil
+	})
+}
+
+type InitialiserSuite struct {
+	initialiserTestSuite
+	calledCmds []string
 }
 
 var _ = gc.Suite(&InitialiserSuite{})
@@ -68,16 +82,6 @@ LXD_IPV6_NAT="true"
 # Proxy server
 LXD_IPV6_PROXY="true"
 `
-
-func (s *InitialiserSuite) PatchForProxyUpdate(c *gc.C, svr lxd.ContainerServer, lxdIsRunning bool) {
-	s.PatchValue(&ConnectLocal, func() (lxd.ContainerServer, error) {
-		return svr, nil
-	})
-
-	s.PatchValue(&IsRunningLocally, func() (bool, error) {
-		return lxdIsRunning, nil
-	})
-}
 
 func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
@@ -211,6 +215,7 @@ func (s *InitialiserSuite) patchDF100GB() {
 
 func (s *InitialiserSuite) TestConfigureProxies(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
 	s.PatchForProxyUpdate(c, cSvr, true)
 
@@ -265,6 +270,7 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 
 func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
 	s.PatchForProxyUpdate(c, cSvr, false)
 
@@ -528,4 +534,105 @@ func (s *InitialiserSuite) TestBridgeConfigurationWithNewSubnet(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	actualValues := parseLXDBridgeConfigValues(result)
 	c.Assert(actualValues, gc.DeepEquals, expectedValues)
+}
+
+type ConfigureInitialiserSuite struct {
+	initialiserTestSuite
+	testing.PatchExecHelper
+}
+
+var _ = gc.Suite(&ConfigureInitialiserSuite{})
+
+func (s *ConfigureInitialiserSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	// Fake the lxc executable for all the tests.
+	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
+	testing.PatchExecutableAsEchoArgs(c, s, "lxd")
+}
+
+func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	s.PatchForProxyUpdate(c, cSvr, true)
+
+	profile := &api.Profile{
+		ProfilePut: api.ProfilePut{
+			Devices: map[string]map[string]string{
+				"eth0": {
+					"type":    "nic",
+					"nictype": "bridged",
+					"parent":  "lxdbr1",
+				},
+			},
+		},
+	}
+	network := &api.Network{
+		Managed: false,
+	}
+	gomock.InOrder(
+		cSvr.EXPECT().GetServer().Return(&api.Server{
+			ServerUntrusted: api.ServerUntrusted{
+				APIExtensions: []string{
+					"network",
+				},
+			},
+		}, lxdtesting.ETag, nil),
+		cSvr.EXPECT().GetProfile(lxdDefaultProfileName).Return(profile, "", nil),
+		cSvr.EXPECT().GetNetwork("lxdbr1").Return(network, "", nil),
+		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
+		cSvr.EXPECT().UpdateServer(gomock.Any(), lxdtesting.ETag).Return(nil),
+	)
+
+	container := NewContainerInitialiser()
+	err := container.Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+
+	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
+}
+
+func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNics(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	s.PatchForProxyUpdate(c, cSvr, true)
+
+	profile := &api.Profile{
+		Name: lxdDefaultProfileName,
+		ProfilePut: api.ProfilePut{
+			Devices: map[string]map[string]string{},
+		},
+	}
+	network := &api.Network{
+		Managed: false,
+	}
+	updatedProfile := api.ProfilePut{
+		Devices: map[string]map[string]string{
+			"eth0": {
+				"type":    "nic",
+				"nictype": "macvlan",
+				"parent":  "lxdbr0",
+			},
+		},
+	}
+	gomock.InOrder(
+		cSvr.EXPECT().GetServer().Return(&api.Server{
+			ServerUntrusted: api.ServerUntrusted{
+				APIExtensions: []string{
+					"network",
+				},
+			},
+		}, lxdtesting.ETag, nil),
+		cSvr.EXPECT().GetProfile(lxdDefaultProfileName).Return(profile, "", nil),
+		cSvr.EXPECT().GetNetwork("lxdbr0").Return(network, "", nil),
+		cSvr.EXPECT().UpdateProfile(lxdDefaultProfileName, updatedProfile, gomock.Any()).Return(nil),
+		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
+		cSvr.EXPECT().UpdateServer(gomock.Any(), lxdtesting.ETag).Return(nil),
+	)
+
+	container := NewContainerInitialiser()
+	err := container.Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+
+	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
 }

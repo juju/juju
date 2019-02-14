@@ -57,7 +57,6 @@ func (ci *containerInitialiser) Initialise() error {
 	if err := ensureDependencies(localSeries); err != nil {
 		return errors.Trace(err)
 	}
-
 	err = configureLXDBridge()
 	if err != nil {
 		return errors.Trace(err)
@@ -154,6 +153,11 @@ var configureLXDBridge = func() error {
 		profile, eTag, err := server.GetProfile(lxdDefaultProfileName)
 		if err != nil {
 			return errors.Trace(err)
+		}
+		// If there are no suitable bridged NICs in the profile,
+		// ensure the bridge is set up and create one.
+		if err := server.verifyNICsWithAPI(getProfileNICs(profile)); err == nil {
+			return nil
 		}
 		return server.ensureDefaultNetworking(profile, eTag)
 	}
