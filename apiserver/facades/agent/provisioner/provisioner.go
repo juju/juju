@@ -4,8 +4,6 @@
 package provisioner
 
 import (
-	"time"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1389,13 +1387,16 @@ func (p *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg par
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	now := time.Now()
+	// We can use the controller timestamp to get now.
+	since, err := p.st.ControllerTimestamp()
+	if err != nil {
+		return err
+	}
 	s := status.StatusInfo{
 		Status:  status.Status(arg.Status),
 		Message: arg.Info,
 		Data:    arg.Data,
-		Since:   &now,
+		Since:   since,
 	}
 
 	// TODO(jam): 2017-01-29 These two status should be set in a single
