@@ -210,19 +210,12 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
 		// create statefulset for controller pod.
-		if err = createControllerStack(k, pcfg); err != nil {
-			return errors.Annotate(err, "creating statefulset for controller")
-		}
-
-		// TODO(caas): prepare
-		// agent.conf, x
-		// bootstrap-params, x
-		// server.pem, x
-		// system-identity, ???
-		// shared-secret, then generate configmap/secret. x
-		// Lastly, create StatefulSet for controller. x
-		return nil
+		return errors.Annotate(
+			createControllerStack(k, pcfg),
+			"creating statefulset for controller",
+		)
 	}
+
 	return &environs.BootstrapResult{
 		Arch:                   Arch,
 		Series:                 Series,

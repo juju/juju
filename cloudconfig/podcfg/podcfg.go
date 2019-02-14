@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
@@ -18,6 +19,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/paths"
@@ -54,6 +57,11 @@ type ControllerPodConfig struct {
 
 	// ControllerTag identifies the controller.
 	ControllerTag names.ControllerTag
+
+	// TODO: remove me later once state.Machine.CheckProvisioned(nonce string) in jujud supports CAAS.
+	// MachineNonce is set at provisioning/bootstrap time and used to
+	// ensure the agent is running on the correct instance.
+	MachineNonce string
 
 	// JujuVersion is the juju version.
 	JujuVersion version.Number
@@ -112,6 +120,7 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		Tag:               tag,
 		UpgradedToVersion: cfg.JujuVersion,
 		Password:          password,
+		Nonce:             cfg.MachineNonce,
 		APIAddresses:      cfg.APIHostAddrs(),
 		CACert:            cacert,
 		Values:            cfg.AgentEnvironment,
@@ -183,6 +192,9 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return errors.New("missing API CA certificate")
+	}
+	if cfg.MachineNonce == "" {
+		return errors.New("missing machine nonce")
 	}
 	if cfg.Controller != nil {
 		if err := cfg.verifyControllerConfig(); err != nil {
@@ -278,7 +290,9 @@ func (cfg *ControllerConfig) VerifyConfig() error {
 // always needed.
 func NewControllerPodConfig(
 	controllerTag names.ControllerTag,
-	machineID, series string,
+	machineID,
+	machineNonce,
+	series string,
 	apiInfo *api.Info,
 ) (*ControllerPodConfig, error) {
 	dataDir, err := paths.DataDir(series)
@@ -306,6 +320,7 @@ func NewControllerPodConfig(
 		// Parameter entries.
 		ControllerTag: controllerTag,
 		MachineId:     machineID,
+		MachineNonce:  machineNonce,
 		APIInfo:       apiInfo,
 	}
 	return pcfg, nil
@@ -317,7 +332,7 @@ func NewControllerPodConfig(
 func NewBootstrapControllerPodConfig(config controller.Config, series string) (*ControllerPodConfig, error) {
 	// For a bootstrap pod, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
-	pcfg, err := NewControllerPodConfig(names.NewControllerTag(config.ControllerUUID()), "0", series, nil)
+	pcfg, err := NewControllerPodConfig(names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, series, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -326,9 +341,23 @@ func NewBootstrapControllerPodConfig(config controller.Config, series string) (*
 	for k, v := range config {
 		pcfg.Controller.Config[k] = v
 	}
+	arch := arch.AMD64
+	var cores uint64 = 2
+	var mem uint64 = 123
+	var rootDisk uint64 = 123
 	pcfg.Bootstrap = &BootstrapConfig{
 		instancecfg.BootstrapConfig{
-			StateInitializationParams: instancecfg.StateInitializationParams{},
+			StateInitializationParams: instancecfg.StateInitializationParams{
+				// TODO: remove me once agentbootstrap.initBootstrapMachine works for CAAS bootstrap in jujud.
+				BootstrapMachineHardwareCharacteristics: &instance.HardwareCharacteristics{
+					Arch:     &arch,
+					CpuCores: &cores,
+					Mem:      &mem,
+					RootDisk: &rootDisk,
+				},
+				BootstrapMachineInstanceId:  "i-0a373a526fcf5c882",
+				BootstrapMachineConstraints: constraints.Value{Mem: &mem},
+			},
 		},
 	}
 	pcfg.Jobs = []multiwatcher.MachineJob{
