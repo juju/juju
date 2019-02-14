@@ -156,7 +156,7 @@ var configureLXDBridge = func() error {
 		}
 		// If there are no suitable bridged NICs in the profile,
 		// ensure the bridge is set up and create one.
-		if err := server.verifyNICsWithAPI(getProfileNICs(profile)); err == nil {
+		if server.verifyNICsWithAPI(getProfileNICs(profile)) == nil {
 			return nil
 		}
 		return server.ensureDefaultNetworking(profile, eTag)
