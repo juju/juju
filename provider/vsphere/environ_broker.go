@@ -236,7 +236,9 @@ func (env *sessionEnviron) newRawInstance(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	createVMArgs.ComputeResource = &availZone.(*vmwareAvailZone).r
+
+	createVMArgs.ComputeResource = &availZone.r
+	createVMArgs.ResourcePool = availZone.pool.Reference()
 
 	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
 	if err != nil {

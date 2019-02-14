@@ -151,6 +151,41 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "z1"},
 			},
 		}},
+		"z0": {{
+			Obj: types.ManagedObjectReference{
+				Type:  "ResourcePool",
+				Value: "FakeResourcePool1",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "Resources"},
+			},
+		}},
+		"FakeResourcePool1": {{
+			Obj: types.ManagedObjectReference{
+				Type:  "ResourcePool",
+				Value: "FakeResourcePoolParent",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "parent"},
+			},
+		}, {
+			Obj: types.ManagedObjectReference{
+				Type:  "ResourcePool",
+				Value: "FakeResourcePoolOther",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "other"},
+			},
+		}},
+		"FakeResourcePoolParent": {{
+			Obj: types.ManagedObjectReference{
+				Type:  "ResourcePool",
+				Value: "FakeResourcePoolChild",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "child"},
+			},
+		}},
 		"FakeDatastoreFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Datastore",
@@ -671,4 +706,29 @@ func (s *clientSuite) TestDeleteDatastoreError(c *gc.C) {
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	err := client.DeleteDatastoreFile(context.Background(), "[datastore1] file/path")
 	c.Assert(err, gc.ErrorMatches, "nope")
+}
+
+func (s *clientSuite) TestResourcePools(c *gc.C) {
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	result, err := client.ResourcePools(context.Background(), "z0/...")
+
+	s.roundTripper.CheckCalls(c, []testing.StubCall{
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeDatacenter"),
+		retrievePropertiesStubCall("FakeHostFolder"),
+		makeStubCall("FindByInventoryPath", "FakeSearchIndex", "/z0"),
+		retrievePropertiesStubCall("z0"),
+		retrievePropertiesStubCall("FakeResourcePool1"),
+		retrievePropertiesStubCall("FakeResourcePoolParent"),
+		retrievePropertiesStubCall("FakeResourcePoolChild"),
+		retrievePropertiesStubCall("FakeResourcePoolOther"),
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 4)
+	c.Check(result[0].InventoryPath, gc.Equals, "/z0/Resources")
+	c.Check(result[1].InventoryPath, gc.Equals, "/z0/Resources/parent")
+	c.Check(result[2].InventoryPath, gc.Equals, "/z0/Resources/parent/child")
+	c.Check(result[3].InventoryPath, gc.Equals, "/z0/Resources/other")
 }

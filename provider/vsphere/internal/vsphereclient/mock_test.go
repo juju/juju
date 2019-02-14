@@ -230,7 +230,19 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 			},
 		}
 
+	case *methods.FindByInventoryPathBody:
+		req := req.(*methods.FindByInventoryPathBody).Req
+		r.MethodCall(r, "FindByInventoryPath", req.This.Value, req.InventoryPath)
+		logger.Criticalf("FindByInventoryPath ref: %q, path: %q", req.This.Value, req.InventoryPath)
+		res.Res = &types.FindByInventoryPathResponse{
+			Returnval: &types.ManagedObjectReference{
+				Type:  "ComputeResource",
+				Value: "z0",
+			},
+		}
+
 	default:
+		logger.Criticalf("mockRoundTripper: unknown res type %T", res)
 		return errors.Errorf("unknown type %T", res)
 	}
 	return nil
@@ -242,8 +254,12 @@ func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *ty
 	for _, obj := range spec.ObjectSet {
 		args = append(args, obj.Obj.Value)
 	}
+	var typeNames []string
+	for _, prop := range spec.PropSet {
+		typeNames = append(typeNames, prop.Type)
+	}
 	r.MethodCall(r, "RetrieveProperties", args...)
-	logger.Debugf("RetrieveProperties for %s", args)
+	logger.Debugf("RetrieveProperties for %s expecting %v", args, typeNames)
 	var contents []types.ObjectContent
 	for _, obj := range spec.ObjectSet {
 		for _, content := range r.contents[obj.Obj.Value] {
@@ -262,12 +278,16 @@ func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *ty
 	return &types.RetrievePropertiesResponse{contents}
 }
 
-func retrievePropertiesStubCall(objs ...string) testing.StubCall {
-	args := make([]interface{}, len(objs))
-	for i, obj := range objs {
-		args[i] = obj
+func retrievePropertiesStubCall(vals ...string) testing.StubCall {
+	return makeStubCall("RetrieveProperties", vals...)
+}
+
+func makeStubCall(method string, vals ...string) testing.StubCall {
+	args := make([]interface{}, len(vals))
+	for i, vals := range vals {
+		args[i] = vals
 	}
-	return testing.StubCall{"RetrieveProperties", args}
+	return testing.StubCall{method, args}
 }
 
 type collector struct {
