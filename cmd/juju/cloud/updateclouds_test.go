@@ -6,11 +6,15 @@ package cloud_test
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
@@ -19,14 +23,24 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
 type updateCloudsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
+	api   *fakeUpdateCloudsAPI
+	store jujuclient.ClientStore
 }
 
 var _ = gc.Suite(&updateCloudsSuite{})
+
+func (s *updateCloudsSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.api = &fakeUpdateCloudsAPI{}
+	s.store = jujuclient.NewMemStore()
+}
 
 func encodeCloudYAML(c *gc.C, yaml string) string {
 	// TODO(wallyworld) - move test signing key elsewhere
@@ -63,14 +77,15 @@ func (s *updateCloudsSuite) setupTestServer(c *gc.C, serverContent string) *http
 	}))
 }
 
-func (s *updateCloudsSuite) TestBadArgs(c *gc.C) {
-	updateCmd := cloud.NewUpdateCloudsCommandForTest("")
-	_, err := cmdtesting.RunCommand(c, updateCmd, "extra")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
-}
+// func (s *updateCloudsSuite) TestBadArgs(c *gc.C) {
+// 	updateCmd := cloud.NewUpdateCloudsCommandForTest("")
+// 	_, err := cmdtesting.RunCommand(c, updateCmd, "extra")
+// 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
+// }
 
 func (s *updateCloudsSuite) run(c *gc.C, url, errMsg string) string {
-	updateCmd := cloud.NewUpdateCloudsCommandForTest(url)
+	fake := newFakeCloudMetadataStore()
+	updateCmd := cloud.NewUpdateCloudsCommandForTest(url, fake, s.store, nil)
 	out, err := cmdtesting.RunCommand(c, updateCmd)
 	if errMsg == "" {
 		c.Assert(err, jc.ErrorIsNil)
@@ -185,4 +200,95 @@ Updated your list of public clouds with 1 cloud region added:
     added cloud region:
         - aws/anotherregion
 `[1:])
+}
+
+func (s *updateCloudsSuite) setupCloudFileScenario(c *gc.C, apiFunc func(controllerName string) (cloud.UpdateCloudsAPI, error)) (*cloud.UpdateCloudsCommand, string) {
+	cloudfile := prepareTestCloudYaml(c, garageMaasYamlFile)
+	s.AddCleanup(func(_ *gc.C) {
+		defer cloudfile.Close()
+		defer os.Remove(cloudfile.Name())
+	})
+	mockCloud, err := jujucloud.ParseCloudMetadataFile(cloudfile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	fake := newFakeCloudMetadataStore()
+	fake.Call("ParseCloudMetadataFile", cloudfile.Name()).Returns(mockCloud, nil)
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
+	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
+	fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
+	cmd := cloud.NewUpdateCloudsCommandForTest("", fake, s.store, apiFunc)
+
+	return cmd, cloudfile.Name()
+}
+
+func (s *updateCloudsSuite) createLocalCacheFile(c *gc.C) {
+	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("public-clouds.yaml"), []byte(garageMaasYamlFile), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *updateCloudsSuite) TestUpdateLocalCacheFromFile(c *gc.C) {
+	cmd, fileName := s.setupCloudFileScenario(c, func(controllerName string) (cloud.UpdateCloudsAPI, error) {
+		return nil, errors.New("")
+	})
+	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.Calls(), gc.HasLen, 0)
+}
+
+func (s *updateCloudsSuite) TestUpdateControllerFromFile(c *gc.C) {
+	var controllerNameCalled string
+	cmd, fileName := s.setupCloudFileScenario(c, func(controllerName string) (cloud.UpdateCloudsAPI, error) {
+		controllerNameCalled = controllerName
+		return s.api, nil
+	})
+	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName, "--controller", "mycontroller")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "UpdateCloud", "Close")
+	c.Assert(controllerNameCalled, gc.Equals, "mycontroller")
+	s.api.CheckCall(c, 0, "UpdateCloud", jujucloud.Cloud{
+		Name:        "garage-maas",
+		Type:        "maas",
+		Description: "Metal As A Service",
+		AuthTypes:   jujucloud.AuthTypes{"oauth1"},
+		Endpoint:    "http://garagemaas",
+	})
+}
+
+func (s *updateCloudsSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
+	s.createLocalCacheFile(c)
+	var controllerNameCalled string
+	cmd, _ := s.setupCloudFileScenario(c, func(controllerName string) (cloud.UpdateCloudsAPI, error) {
+		controllerNameCalled = controllerName
+		return s.api, nil
+	})
+	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "--controller", "mycontroller")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "UpdateCloud", "Close")
+	c.Assert(controllerNameCalled, gc.Equals, "mycontroller")
+	s.api.CheckCall(c, 0, "UpdateCloud", jujucloud.Cloud{
+		Name:        "garage-maas",
+		Type:        "maas",
+		Description: "Metal As A Service",
+		AuthTypes:   jujucloud.AuthTypes{"oauth1"},
+		Endpoint:    "http://garagemaas",
+	})
+}
+
+type fakeUpdateCloudsAPI struct {
+	jujutesting.Stub
+	updatedClouds []jujucloud.Cloud
+	raiseError    error
+}
+
+func (api *fakeUpdateCloudsAPI) Close() error {
+	api.AddCall("Close", nil)
+	return nil
+}
+
+func (api *fakeUpdateCloudsAPI) UpdateCloud(cloud jujucloud.Cloud) error {
+	api.AddCall("UpdateCloud", cloud)
+	if api.raiseError != nil {
+		return api.raiseError
+	}
+	api.updatedClouds = append(api.updatedClouds, cloud)
+	return nil
 }

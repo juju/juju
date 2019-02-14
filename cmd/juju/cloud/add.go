@@ -29,12 +29,16 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+type PersonalCloudMetadataStore interface {
+	PersonalCloudMetadata() (map[string]jujucloud.Cloud, error)
+	WritePersonalCloudMetadata(cloudsMap map[string]jujucloud.Cloud) error
+}
+
 type CloudMetadataStore interface {
 	ParseCloudMetadataFile(path string) (map[string]jujucloud.Cloud, error)
 	ParseOneCloud(data []byte) (jujucloud.Cloud, error)
 	PublicCloudMetadata(searchPaths ...string) (result map[string]jujucloud.Cloud, fallbackUsed bool, _ error)
-	PersonalCloudMetadata() (map[string]jujucloud.Cloud, error)
-	WritePersonalCloudMetadata(cloudsMap map[string]jujucloud.Cloud) error
+	PersonalCloudMetadataStore
 }
 
 var usageAddCloudSummary = `
@@ -125,7 +129,7 @@ type AddCloudCommand struct {
 	// Replace, if true, existing cloud information is overwritten.
 	Replace bool
 
-	// Cloud is the name fo the cloud to add.
+	// Cloud is the name of the cloud to add.
 	Cloud string
 
 	// CloudFile is the name of the cloud YAML file.
@@ -266,46 +270,18 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	var newCloud *jujucloud.Cloud
+	var err error
 	if c.CloudFile != "" {
-		var err error
 		newCloud, err = c.readCloudFromFile(ctxt)
-		if err != nil {
-			return errors.Trace(err)
-		}
 	} else {
 		// No cloud file specified so we try and use a named
 		// cloud that already has been added to the local cache.
-		details, err := listCloudDetails()
-		if err != nil {
-			return err
-		}
-		cloudDetails, ok := details.all()[c.Cloud]
-		if !ok {
-			return errors.NotFoundf("cloud %q", c.Cloud)
-		}
-		newCloud = &jujucloud.Cloud{
-			Name:             c.Cloud,
-			Type:             cloudDetails.CloudType,
-			Description:      cloudDetails.CloudDescription,
-			Endpoint:         cloudDetails.Endpoint,
-			IdentityEndpoint: cloudDetails.IdentityEndpoint,
-			StorageEndpoint:  cloudDetails.StorageEndpoint,
-			CACertificates:   cloudDetails.CACredentials,
-			Config:           cloudDetails.Config,
-			RegionConfig:     cloudDetails.RegionConfig,
-		}
-		for _, at := range cloudDetails.AuthTypes {
-			newCloud.AuthTypes = append(newCloud.AuthTypes, jujucloud.AuthType(at))
-		}
-		for name, r := range cloudDetails.RegionsMap {
-			newCloud.Regions = append(newCloud.Regions, jujucloud.Region{
-				Name:             name,
-				Endpoint:         r.Endpoint,
-				StorageEndpoint:  r.StorageEndpoint,
-				IdentityEndpoint: r.IdentityEndpoint,
-			})
-		}
+		newCloud, err = cloudFromLocal(c.Cloud)
 	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	if c.controllerName == "" {
 		return addLocalCloud(c.cloudMetadataStore, *newCloud)
 	}
@@ -325,43 +301,45 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	return c.addCredentialToController(ctxt, *newCloud, api)
 }
 
-func (c *AddCloudCommand) readCloudFromFile(ctxt *cmd.Context) (*jujucloud.Cloud, error) {
-	specifiedClouds, err := c.cloudMetadataStore.ParseCloudMetadataFile(c.CloudFile)
+func cloudFromLocal(cloudName string) (*jujucloud.Cloud, error) {
+	details, err := listCloudDetails()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
-	if specifiedClouds == nil {
-		return nil, errors.New("no personal clouds are defined")
-	}
-	newCloud, ok := specifiedClouds[c.Cloud]
+	cloudDetails, ok := details.all()[cloudName]
 	if !ok {
-		return nil, errors.Errorf("cloud %q not found in file %q", c.Cloud, c.CloudFile)
+		return nil, errors.NotFoundf("cloud %q", cloudName)
 	}
+	newCloud := &jujucloud.Cloud{
+		Name:             cloudName,
+		Type:             cloudDetails.CloudType,
+		Description:      cloudDetails.CloudDescription,
+		Endpoint:         cloudDetails.Endpoint,
+		IdentityEndpoint: cloudDetails.IdentityEndpoint,
+		StorageEndpoint:  cloudDetails.StorageEndpoint,
+		CACertificates:   cloudDetails.CACredentials,
+		Config:           cloudDetails.Config,
+		RegionConfig:     cloudDetails.RegionConfig,
+	}
+	for _, at := range cloudDetails.AuthTypes {
+		newCloud.AuthTypes = append(newCloud.AuthTypes, jujucloud.AuthType(at))
+	}
+	for name, r := range cloudDetails.RegionsMap {
+		newCloud.Regions = append(newCloud.Regions, jujucloud.Region{
+			Name:             name,
+			Endpoint:         r.Endpoint,
+			StorageEndpoint:  r.StorageEndpoint,
+			IdentityEndpoint: r.IdentityEndpoint,
+		})
+	}
+	return newCloud, nil
+}
 
-	// first validate cloud input
-	data, err := ioutil.ReadFile(c.CloudFile)
-	if err != nil {
-		return nil, errors.Trace(err)
+func (c *AddCloudCommand) readCloudFromFile(ctxt *cmd.Context) (*jujucloud.Cloud, error) {
+	r := cloudFileReader{
+		cloudMetadataStore: c.cloudMetadataStore,
 	}
-	if err = jujucloud.ValidateCloudSet(data); err != nil {
-		ctxt.Warningf(err.Error())
-	}
-
-	// validate cloud data
-	provider, err := environs.Provider(newCloud.Type)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	schemas := provider.CredentialSchemas()
-	for _, authType := range newCloud.AuthTypes {
-		if _, defined := schemas[authType]; !defined {
-			return nil, errors.NotSupportedf("auth type %q", authType)
-		}
-	}
-	if err := c.verifyName(c.Cloud); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &newCloud, nil
+	return r.ReadCloudFromFile(c.Cloud, c.CloudFile, ctxt, c.Replace)
 }
 
 func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
@@ -602,15 +580,68 @@ func queryCloudType(pollster *interact.Pollster) (string, error) {
 	}, cloudVerify)
 }
 
-func (c *AddCloudCommand) verifyName(name string) error {
-	if c.Replace {
-		return nil
-	}
-	public, _, err := c.cloudMetadataStore.PublicCloudMetadata()
+func addLocalCloud(cloudMetadataStore PersonalCloudMetadataStore, newCloud jujucloud.Cloud) error {
+	personalClouds, err := cloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
 		return err
 	}
-	personal, err := c.cloudMetadataStore.PersonalCloudMetadata()
+	if personalClouds == nil {
+		personalClouds = make(map[string]jujucloud.Cloud)
+	}
+	personalClouds[newCloud.Name] = newCloud
+	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
+}
+
+type cloudFileReader struct {
+	cloudMetadataStore CloudMetadataStore
+}
+
+func (p cloudFileReader) ReadCloudFromFile(cloud, cloudFile string, ctxt *cmd.Context, verifyName bool) (*jujucloud.Cloud, error) {
+	specifiedClouds, err := p.cloudMetadataStore.ParseCloudMetadataFile(cloudFile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if specifiedClouds == nil {
+		return nil, errors.New("no personal clouds are defined")
+	}
+	newCloud, ok := specifiedClouds[cloud]
+	if !ok {
+		return nil, errors.Errorf("cloud %q not found in file %q", cloud, cloudFile)
+	}
+
+	// first validate cloud input
+	data, err := ioutil.ReadFile(cloudFile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err = jujucloud.ValidateCloudSet(data); err != nil {
+		ctxt.Warningf(err.Error())
+	}
+
+	// validate cloud data
+	provider, err := environs.Provider(newCloud.Type)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	schemas := provider.CredentialSchemas()
+	for _, authType := range newCloud.AuthTypes {
+		if _, defined := schemas[authType]; !defined {
+			return nil, errors.NotSupportedf("auth type %q", authType)
+		}
+	}
+	if verifyName {
+		if err := p.verifyName(cloud); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return &newCloud, nil
+}
+func (p cloudFileReader) verifyName(name string) error {
+	public, _, err := p.cloudMetadataStore.PublicCloudMetadata()
+	if err != nil {
+		return err
+	}
+	personal, err := p.cloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
 		return err
 	}
@@ -641,16 +672,4 @@ func nameExists(name string, public map[string]jujucloud.Cloud) (string, error) 
 		return fmt.Sprintf("%q is the name of a built-in cloud", name), nil
 	}
 	return "", nil
-}
-
-func addLocalCloud(cloudMetadataStore CloudMetadataStore, newCloud jujucloud.Cloud) error {
-	personalClouds, err := cloudMetadataStore.PersonalCloudMetadata()
-	if err != nil {
-		return err
-	}
-	if personalClouds == nil {
-		personalClouds = make(map[string]jujucloud.Cloud)
-	}
-	personalClouds[newCloud.Name] = newCloud
-	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
 }

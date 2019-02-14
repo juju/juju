@@ -232,6 +232,24 @@ func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
 	return nil
 }
 
+// UpdateCloud updates an existing cloud on a current controller.
+func (c *Client) UpdateCloud(cloud jujucloud.Cloud) error {
+	if c.BestAPIVersion() < 4 {
+		return errors.New("updating controller cloud is not supported by this version of Juju")
+	}
+	args := params.UpdateCloudArgs{
+		Clouds: []params.CloudArgs{{
+			Name:  cloud.Name,
+			Cloud: common.CloudToParams(cloud),
+		}},
+	}
+	var results params.ErrorResults
+	if err := c.facade.FacadeCall("UpdateCloud", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
 // RemoveCloud removes a cloud from the current controller.
 func (c *Client) RemoveCloud(cloud string) error {
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {

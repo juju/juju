@@ -28,6 +28,23 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.cloud")
 
+// CloudV4 defines the methods on the cloud API facade, version 4.
+type CloudV4 interface {
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	DefaultCloud() (params.StringResult, error)
+	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
+}
+
 // CloudV3 defines the methods on the cloud API facade, version 3.
 type CloudV3 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
@@ -82,10 +99,16 @@ type CloudAPI struct {
 	pool                   ModelPoolBackend
 }
 
+// CloudAPIV3 provides a way to wrap the different calls
+// between version 3 and version 4 of the cloud API.
+type CloudAPIV3 struct {
+	*CloudAPI
+}
+
 // CloudAPIV2 provides a way to wrap the different calls
 // between version 2 and version 3 of the cloud API.
 type CloudAPIV2 struct {
-	*CloudAPI
+	*CloudAPIV3
 }
 
 // CloudAPIV1 provides a way to wrap the different calls
@@ -95,17 +118,26 @@ type CloudAPIV1 struct {
 }
 
 var (
-	_ CloudV3 = (*CloudAPI)(nil)
+	_ CloudV4 = (*CloudAPI)(nil)
+	_ CloudV3 = (*CloudAPIV3)(nil)
 	_ CloudV2 = (*CloudAPIV2)(nil)
 	_ CloudV1 = (*CloudAPIV1)(nil)
 )
 
-// NewFacadeV3 is used for API registration.
-func NewFacadeV3(context facade.Context) (*CloudAPI, error) {
+// NewFacadeV4 is used for API registration.
+func NewFacadeV4(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
 	pool := NewModelPoolBackend(context.StatePool())
 	ctlrSt := NewStateBackend(pool.SystemState())
 	return NewCloudAPI(st, ctlrSt, pool, context.Auth(), state.CallContext(context.State()))
+}
+
+func NewFacadeV3(context facade.Context) (*CloudAPIV3, error) {
+	v4, err := NewFacadeV4(context)
+	if err != nil {
+		return nil, err
+	}
+	return &CloudAPIV3{v4}, nil
 }
 
 // NewFacadeV2 is used for API registration.
@@ -895,6 +927,25 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 	}
 	return nil
 }
+
+// UpdateCloud updates an existing cloud that the controller knows about.
+func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(cloudArgs.Clouds)),
+	}
+	for i, cloud := range cloudArgs.Clouds {
+		err := api.backend.UpdateCloud(common.CloudFromParams(cloud.Name, cloud.Cloud))
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+// Mask out new methods from the new older API versions. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is concerned.
+//
+// UpdateCloud did not exist before V4.
+func (*CloudAPIV3) UpdateCloud(_, _ struct{}) {}
 
 // RemoveClouds removes the specified clouds from the controller.
 // If a cloud is in use (has models deployed to it), the removal will fail.

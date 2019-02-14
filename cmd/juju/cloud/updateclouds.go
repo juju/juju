@@ -15,20 +15,41 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
+	"gopkg.in/juju/names.v2"
 
+	cloudapi "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/jujuclient"
 )
 
 type updateCloudsCommand struct {
-	cmd.CommandBase
+	modelcmd.CommandBase
 
 	publicSigningKey string
 	publicCloudURL   string
+
+	cloudMetadataStore CloudMetadataStore
+
+	// Update action to actually perform
+	commandAction func(*cmd.Context) error
+
+	// Cloud is the name of the cloud to update
+	Cloud string
+
+	// CloudFile is the name of the cloud YAML file
+	CloudFile string
+
+	// Used when updating controllers' cloud details
+	controllerName      string
+	store               jujuclient.ClientStore
+	updateCloudsAPIFunc func(controllerName string) (UpdateCloudsAPI, error)
 }
 
 var updateCloudsDoc = `
@@ -44,16 +65,66 @@ See also:
     clouds
 `
 
-// NewUpdateCloudsCommand returns a command to update cloud information.
-var NewUpdateCloudsCommand = func() cmd.Command {
-	return newUpdateCloudsCommand()
+type UpdateCloudsAPI interface {
+	UpdateCloud(jujucloud.Cloud) error
+	Close() error
 }
 
-func newUpdateCloudsCommand() cmd.Command {
-	return &updateCloudsCommand{
-		publicSigningKey: keys.JujuPublicKey,
-		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
+// NewUpdateCloudsCommand returns a command to update cloud information.
+var NewUpdateCloudsCommand = func(cloudMetadataStore CloudMetadataStore) cmd.Command {
+	return newUpdateCloudsCommand(cloudMetadataStore)
+}
+
+func newUpdateCloudsCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
+	c := &updateCloudsCommand{
+		publicSigningKey:   keys.JujuPublicKey,
+		publicCloudURL:     "https://streams.canonical.com/juju/public-clouds.syaml",
+		cloudMetadataStore: cloudMetadataStore,
+		store:              jujuclient.NewFileClientStore(),
 	}
+	c.updateCloudsAPIFunc = c.updateCloudsAPI
+
+	return modelcmd.WrapBase(c)
+}
+
+func (c *updateCloudsCommand) updateCloudsAPI(controllerName string) (UpdateCloudsAPI, error) {
+	root, err := c.NewAPIRoot(c.store, controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cloudapi.NewClient(root), nil
+}
+
+// Init populates the command with the args from the command line.
+func (c *updateCloudsCommand) Init(args []string) error {
+	if len(args) > 0 {
+		c.Cloud = args[0]
+		if ok := names.IsValidCloud(c.Cloud); !ok {
+			return errors.NotValidf("cloud name %q", c.Cloud)
+		}
+	}
+
+	// Condense arguments into an action
+	c.commandAction = c.updateLocalCachePulicClouds
+	if c.controllerName != "" {
+		if c.CloudFile != "" && c.Cloud != "" {
+			c.commandAction = c.updateControllerCacheFromFile
+		} else if c.Cloud != "" {
+			c.commandAction = c.updateControllerCacheFromLocalCache
+		} else {
+			return errors.BadRequestf("cloud name and/or cloud definition file required")
+		}
+	} else if c.Cloud != "" {
+		if c.CloudFile != "" {
+			c.commandAction = c.updateLocalCacheFromFile
+		} else {
+			return errors.BadRequestf("cloud definition file or controller name required")
+		}
+	} else if c.CloudFile != "" {
+		// have only passed cloud yaml file
+		return errors.BadRequestf("cloud name required")
+	}
+	return nil
 }
 
 func (c *updateCloudsCommand) Info() *cmd.Info {
@@ -64,7 +135,18 @@ func (c *updateCloudsCommand) Info() *cmd.Info {
 	})
 }
 
+func (c *updateCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
+	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
+	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
+	f.StringVar(&c.controllerName, "controller", "", "")
+}
+
 func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
+	return c.commandAction(ctxt)
+}
+
+func (c *updateCloudsCommand) updateLocalCachePulicClouds(ctxt *cmd.Context) error {
 	fmt.Fprint(ctxt.Stderr, "Fetching latest public cloud list...\n")
 	client := utils.GetHTTPClient(utils.VerifySSLHostnames)
 	resp, err := client.Get(c.publicCloudURL)
@@ -111,6 +193,45 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 	updateDetails := diffClouds(newPublicClouds, currentPublicClouds)
 	fmt.Fprintln(ctxt.Stderr, fmt.Sprintf("Updated your list of public clouds with %s", updateDetails))
 	return nil
+}
+
+func (c *updateCloudsCommand) updateLocalCacheFromFile(ctxt *cmd.Context) error {
+	r := cloudFileReader{
+		cloudMetadataStore: c.cloudMetadataStore,
+	}
+	newCloud, err := r.ReadCloudFromFile(c.Cloud, c.CloudFile, ctxt, false)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return addLocalCloud(c.cloudMetadataStore, *newCloud)
+}
+
+func (c *updateCloudsCommand) updateControllerCacheFromFile(ctxt *cmd.Context) error {
+	r := cloudFileReader{
+		cloudMetadataStore: c.cloudMetadataStore,
+	}
+	newCloud, err := r.ReadCloudFromFile(c.Cloud, c.CloudFile, ctxt, false)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return c.updateController(newCloud)
+}
+
+func (c *updateCloudsCommand) updateControllerCacheFromLocalCache(ctxt *cmd.Context) error {
+	newCloud, err := cloudFromLocal(c.Cloud)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return c.updateController(newCloud)
+}
+
+func (c updateCloudsCommand) updateController(cloud *jujucloud.Cloud) error {
+	api, err := c.updateCloudsAPIFunc(c.controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer api.Close()
+	return api.UpdateCloud(*cloud)
 }
 
 func decodeCheckSignature(r io.Reader, publicKey string) ([]byte, error) {

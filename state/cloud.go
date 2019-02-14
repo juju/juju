@@ -76,6 +76,40 @@ func createCloudOp(cloud cloud.Cloud) txn.Op {
 	}
 }
 
+// updateCloudOp returns a txn.Op that will update
+// an existing cloud definition for the controller.
+func updateCloudOps(cloud cloud.Cloud) txn.Op {
+	authTypes := make([]string, len(cloud.AuthTypes))
+	for i, authType := range cloud.AuthTypes {
+		authTypes[i] = string(authType)
+	}
+	regions := make(map[string]cloudRegionSubdoc)
+	for _, region := range cloud.Regions {
+		regions[utils.EscapeKey(region.Name)] = cloudRegionSubdoc{
+			region.Endpoint,
+			region.IdentityEndpoint,
+			region.StorageEndpoint,
+		}
+	}
+	updatedCloud := &cloudDoc{
+		DocID:            cloud.Name,
+		Name:             cloud.Name,
+		Type:             cloud.Type,
+		AuthTypes:        authTypes,
+		Endpoint:         cloud.Endpoint,
+		IdentityEndpoint: cloud.IdentityEndpoint,
+		StorageEndpoint:  cloud.StorageEndpoint,
+		Regions:          regions,
+		CACertificates:   cloud.CACertificates,
+	}
+	return txn.Op{
+		C:      cloudsC,
+		Id:     cloud.Name,
+		Assert: txn.DocExists,
+		Update: bson.M{"$set": updatedCloud},
+	}
+}
+
 // cloudModelRefCountKey returns a key for refcounting models
 // for the specified cloud. Each time a model for the cloud is created,
 // the refcount is incremented, and the opposite happens on removal.
@@ -200,6 +234,23 @@ func (st *State) AddCloud(c cloud.Cloud, owner string) error {
 		return errors.Annotatef(err, "granting %s permission to the cloud owner", permission.AdminAccess)
 	}
 
+	return nil
+}
+
+// UpdateCloud updates an existing cloud with the given name and details.
+// Note that the Config is deliberately ignored - it's only
+// relevant when bootstrapping.
+func (st *State) UpdateCloud(c cloud.Cloud) error {
+	if err := validateCloud(c); err != nil {
+		return errors.Annotate(err, "invalid cloud")
+	}
+
+	if err := st.db().RunTransaction([]txn.Op{updateCloudOps(c)}); err != nil {
+		if err == txn.ErrAborted {
+			err = errors.NotFoundf("cloud %q", c.Name)
+		}
+		return errors.Trace(err)
+	}
 	return nil
 }
 
