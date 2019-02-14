@@ -127,18 +127,19 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		units:    []string{"wordpress/0", "wordpress/1", "mysql/0"},
 	}, {
 		message: "bad unit names",
-		args:    []string{"--unit", "foo,2,foo/0", "sudo reboot"},
+		args:    []string{"--unit", "foo,2,foo/0,foo/$leader", "sudo reboot"},
 		errMatch: "" +
 			"The following run targets are not valid:\n" +
 			"  \"foo\" is not a valid unit name\n" +
-			"  \"2\" is not a valid unit name",
+			"  \"2\" is not a valid unit name\n" +
+			"  \"foo/\\$leader\" is not a valid unit name",
 	}, {
 		message:      "command to mixed valid targets",
-		args:         []string{"--machine=0", "--unit=wordpress/0,wordpress/1", "--application=mysql", "sudo reboot"},
+		args:         []string{"--machine=0", "--unit=wordpress/0,wordpress/1,consul/leader", "--application=mysql", "sudo reboot"},
 		commands:     "sudo reboot",
 		machines:     []string{"0"},
 		applications: []string{"mysql"},
-		units:        []string{"wordpress/0", "wordpress/1"},
+		units:        []string{"wordpress/0", "wordpress/1", "consul/leader"},
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
@@ -408,6 +409,24 @@ func (s *RunSuite) TestTimeout(c *gc.C) {
 	})
 }
 
+func (s *RunSuite) TestUnitLeaderSyntaxWithUnsupportedAPIVersion(c *gc.C) {
+	var (
+		clock mockClock
+		mock  = s.setupMockAPI()
+	)
+
+	mock.bestAPIVersion = 2
+	_, err := cmdtesting.RunCommand(
+		c, newTestRunCommand(&clock),
+		"--unit", "foo/leader", "hostname",
+	)
+
+	expErr := fmt.Sprintf("unable to determine leader for application %q"+
+		"\nleader determination is unsupported by this API"+
+		"\neither upgrade your controller, or explicitly specify a unit", "foo")
+	c.Assert(err, gc.ErrorMatches, expErr)
+}
+
 type mockClock struct {
 	gitjujutesting.Stub
 	clock.Clock
@@ -533,6 +552,8 @@ type mockRunAPI struct {
 	actionResponses map[string]params.ActionResult
 	receiverIdMap   map[string]string
 	block           bool
+	//
+	bestAPIVersion int
 }
 
 type mockResponse struct {
@@ -679,6 +700,10 @@ func (m *mockRunAPI) Actions(actionTags params.Entities) (params.ActionResults, 
 	}
 
 	return results, nil
+}
+
+func (m *mockRunAPI) BestAPIVersion() int {
+	return m.bestAPIVersion
 }
 
 // validUUID is a UUID used in tests

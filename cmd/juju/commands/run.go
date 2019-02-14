@@ -6,6 +6,7 @@ package commands
 import (
 	"encoding/base64"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,12 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
+
+// leaderSnippet is a regular expression for unit ID-like syntax that is used
+// to indicate the current leader for an application.
+const leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
+
+var validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
 
 func newDefaultRunCommand(store jujuclient.ClientStore) cmd.Command {
 	return newRunCommand(store, time.After)
@@ -67,6 +74,10 @@ the remote machine.
 Some options are shortened for usabilty purpose in CLI
 --application can also be specified as --app and -a
 --unit can also be specified as -u
+
+Valid unit identifiers are: 
+  a standard unit ID, such as mysql/0 or;
+  leader syntax of the form <application>/leader, such as mysql/leader.
 
 If the target is an application, the command is run on all units for that
 application. For example, if there was an application "mysql" and that application
@@ -162,6 +173,10 @@ func (c *runCommand) Init(args []string) error {
 		}
 	}
 	for _, unit := range c.units {
+		if validLeader.MatchString(unit) {
+			continue
+		}
+
 		if !names.IsValidUnit(unit) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid unit name", unit))
 		}
@@ -233,6 +248,16 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	if c.all {
 		runResults, err = client.RunOnAllMachines(c.commands, c.timeout)
 	} else {
+		// Make sure the server supports <application>/leader syntax
+		for _, unit := range c.units {
+			if validLeader.MatchString(unit) && client.BestAPIVersion() < 3 {
+				app := strings.Split(unit, "/")[0]
+				return errors.Errorf("unable to determine leader for application %q"+
+					"\nleader determination is unsupported by this API"+
+					"\neither upgrade your controller, or explicitly specify a unit", app)
+			}
+		}
+
 		params := params.RunParams{
 			Commands:     c.commands,
 			Timeout:      c.timeout,
