@@ -28,10 +28,32 @@ import (
 	"github.com/lxc/lxd/client"
 )
 
-type InitialiserSuite struct {
+type initialiserTestSuite struct {
 	coretesting.BaseSuite
-	calledCmds []string
 	testing.PatchExecHelper
+}
+
+func (s *initialiserTestSuite) PatchForProxyUpdate(c *gc.C, svr lxd.ContainerServer, lxdIsRunning bool) {
+	s.PatchValue(&ConnectLocal, func() (lxd.ContainerServer, error) {
+		return svr, nil
+	})
+
+	s.PatchValue(&IsRunningLocally, func() (bool, error) {
+		return lxdIsRunning, nil
+	})
+}
+
+// patchDF100GB ensures that df always returns 100GB.
+func (s *initialiserTestSuite) patchDF100GB() {
+	df100 := func(path string) (uint64, error) {
+		return 100 * 1024 * 1024 * 1024, nil
+	}
+	s.PatchValue(&df, df100)
+}
+
+type InitialiserSuite struct {
+	initialiserTestSuite
+	calledCmds []string
 }
 
 var _ = gc.Suite(&InitialiserSuite{})
@@ -70,18 +92,8 @@ LXD_IPV6_NAT="true"
 LXD_IPV6_PROXY="true"
 `
 
-func (s *InitialiserSuite) PatchForProxyUpdate(c *gc.C, svr lxd.ContainerServer, lxdIsRunning bool) {
-	s.PatchValue(&ConnectLocal, func() (lxd.ContainerServer, error) {
-		return svr, nil
-	})
-
-	s.PatchValue(&IsRunningLocally, func() (bool, error) {
-		return lxdIsRunning, nil
-	})
-}
-
 func (s *InitialiserSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.initialiserTestSuite.SetUpTest(c)
 	s.calledCmds = []string{}
 	s.PatchValue(&manager.RunCommandWithRetry, getMockRunCommandWithRetry(&s.calledCmds))
 	s.PatchValue(&configureLXDBridge, func() error { return nil })
@@ -197,16 +209,9 @@ error: You have existing containers or images. lxd init requires an empty LXD.`,
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// patchDF100GB ensures that df always returns 100GB.
-func (s *InitialiserSuite) patchDF100GB() {
-	df100 := func(path string) (uint64, error) {
-		return 100 * 1024 * 1024 * 1024, nil
-	}
-	s.PatchValue(&df, df100)
-}
-
 func (s *InitialiserSuite) TestConfigureProxies(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
 	s.PatchForProxyUpdate(c, cSvr, true)
 
@@ -259,6 +264,7 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 
 func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
 	s.PatchForProxyUpdate(c, cSvr, false)
 
@@ -522,4 +528,117 @@ func (s *InitialiserSuite) TestBridgeConfigurationWithNewSubnet(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	actualValues := parseLXDBridgeConfigValues(result)
 	c.Assert(actualValues, gc.DeepEquals, expectedValues)
+}
+
+type ConfigureInitialiserSuite struct {
+	initialiserTestSuite
+	testing.PatchExecHelper
+}
+
+var _ = gc.Suite(&ConfigureInitialiserSuite{})
+
+func (s *ConfigureInitialiserSuite) SetUpTest(c *gc.C) {
+	s.initialiserTestSuite.SetUpTest(c)
+	// Fake the lxc executable for all the tests.
+	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
+	testing.PatchExecutableAsEchoArgs(c, s, "lxd")
+}
+
+func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
+	s.patchDF100GB()
+	PatchLXDViaSnap(s, true)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	s.PatchForProxyUpdate(c, cSvr, true)
+
+	// The following nic is found, so we don't create a default nic and so
+	// don't update the profile with the nic.
+	profile := &api.Profile{
+		ProfilePut: api.ProfilePut{
+			Devices: map[string]map[string]string{
+				"eth0": {
+					"type":    "nic",
+					"nictype": "bridged",
+					"parent":  "lxdbr1",
+				},
+			},
+		},
+	}
+	network := &api.Network{
+		Managed: false,
+	}
+	gomock.InOrder(
+		cSvr.EXPECT().GetServer().Return(&api.Server{
+			ServerUntrusted: api.ServerUntrusted{
+				APIExtensions: []string{
+					"network",
+				},
+			},
+		}, lxdtesting.ETag, nil),
+		cSvr.EXPECT().GetProfile(lxdDefaultProfileName).Return(profile, "", nil),
+		cSvr.EXPECT().GetNetwork("lxdbr1").Return(network, "", nil),
+		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
+		cSvr.EXPECT().UpdateServer(gomock.Any(), lxdtesting.ETag).Return(nil),
+	)
+
+	container := NewContainerInitialiser("xenial")
+	err := container.Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+
+	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
+}
+
+func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNicsCreatesANewOne(c *gc.C) {
+	s.patchDF100GB()
+	PatchLXDViaSnap(s, true)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	s.PatchForProxyUpdate(c, cSvr, true)
+
+	// If no nics are found in the profile, then the configureLXDBridge will
+	// create a default nic for you.
+	profile := &api.Profile{
+		Name: lxdDefaultProfileName,
+		ProfilePut: api.ProfilePut{
+			Devices: map[string]map[string]string{},
+		},
+	}
+	network := &api.Network{
+		Managed: false,
+	}
+	updatedProfile := api.ProfilePut{
+		Devices: map[string]map[string]string{
+			"eth0": {
+				"type":    "nic",
+				"nictype": "macvlan",
+				"parent":  "lxdbr0",
+			},
+		},
+	}
+	gomock.InOrder(
+		cSvr.EXPECT().GetServer().Return(&api.Server{
+			ServerUntrusted: api.ServerUntrusted{
+				APIExtensions: []string{
+					"network",
+				},
+			},
+		}, lxdtesting.ETag, nil),
+		cSvr.EXPECT().GetProfile(lxdDefaultProfileName).Return(profile, "", nil),
+		cSvr.EXPECT().GetNetwork("lxdbr0").Return(network, "", nil),
+		// Because no nic was found, we create the nic info and then update the
+		// update profile with that nic information.
+		cSvr.EXPECT().UpdateProfile(lxdDefaultProfileName, updatedProfile, gomock.Any()).Return(nil),
+		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
+		cSvr.EXPECT().UpdateServer(gomock.Any(), lxdtesting.ETag).Return(nil),
+	)
+
+	container := NewContainerInitialiser("xenial")
+	err := container.Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+
+	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
 }
