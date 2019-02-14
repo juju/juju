@@ -42,6 +42,14 @@ func (s *initialiserTestSuite) PatchForProxyUpdate(c *gc.C, svr lxd.ContainerSer
 	})
 }
 
+// patchDF100GB ensures that df always returns 100GB.
+func (s *initialiserTestSuite) patchDF100GB() {
+	df100 := func(path string) (uint64, error) {
+		return 100 * 1024 * 1024 * 1024, nil
+	}
+	s.PatchValue(&df, df100)
+}
+
 type InitialiserSuite struct {
 	initialiserTestSuite
 	calledCmds []string
@@ -203,14 +211,6 @@ error: You have existing containers or images. lxd init requires an empty LXD.`,
 	// the above error should be ignored by the code that calls lxd init.
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-// patchDF100GB ensures that df always returns 100GB.
-func (s *InitialiserSuite) patchDF100GB() {
-	df100 := func(path string) (uint64, error) {
-		return 100 * 1024 * 1024 * 1024, nil
-	}
-	s.PatchValue(&df, df100)
 }
 
 func (s *InitialiserSuite) TestConfigureProxies(c *gc.C) {
@@ -551,6 +551,10 @@ func (s *ConfigureInitialiserSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
+	s.patchDF100GB()
+	PatchLXDViaSnap(s, true)
+	PatchHostSeries(s, "bionic")
+
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
@@ -594,6 +598,10 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
 }
 
 func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNicsCreatesANewOne(c *gc.C) {
+	s.patchDF100GB()
+	PatchLXDViaSnap(s, true)
+	PatchHostSeries(s, "bionic")
+
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
