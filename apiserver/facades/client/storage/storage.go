@@ -122,6 +122,13 @@ func (a *StorageAPI) checkCanRead() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Controller admins should have implicit read access to all models
+	// in the controller, even the ones they do not own.
+	if !canRead {
+		canRead, _ = a.authorizer.HasPermission(permission.SuperuserAccess, a.backend.ControllerTag())
+	}
+
 	if !canRead {
 		return common.ErrPerm
 	}
