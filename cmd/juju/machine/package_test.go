@@ -4,6 +4,7 @@
 package machine_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	gc "gopkg.in/check.v1"
@@ -13,4 +14,12 @@ import (
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
+}
+
+func unmarshalStringAsJSON(str string) (interface{}, error) {
+	var v interface{}
+	if err := json.Unmarshal([]byte(str), &v); err != nil {
+		return struct{}{}, err
+	}
+	return v, nil
 }

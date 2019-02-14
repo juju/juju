@@ -531,11 +531,17 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		ModelUUID: st.ModelUUID(),
 		Updated:   now.UnixNano(),
 	}
+	modificationStatusDoc := statusDoc{
+		Status:    status.Idle,
+		ModelUUID: st.ModelUUID(),
+		Updated:   now.UnixNano(),
+	}
 
 	prereqOps, machineOp = st.baseNewMachineOps(
 		mdoc,
 		machineStatusDoc,
 		instanceStatusDoc,
+		modificationStatusDoc,
 		template.Constraints,
 	)
 
@@ -568,10 +574,14 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	// them cleanly.
 	probablyUpdateStatusHistory(st.db(), machineGlobalKey(mdoc.Id), machineStatusDoc)
 	probablyUpdateStatusHistory(st.db(), machineGlobalInstanceKey(mdoc.Id), instanceStatusDoc)
+	probablyUpdateStatusHistory(st.db(), machineGlobalModificationKey(mdoc.Id), modificationStatusDoc)
 	return prereqOps, machineOp, nil
 }
 
-func (st *State) baseNewMachineOps(mdoc *machineDoc, machineStatusDoc, instanceStatusDoc statusDoc, cons constraints.Value) (prereqOps []txn.Op, machineOp txn.Op) {
+func (st *State) baseNewMachineOps(mdoc *machineDoc,
+	machineStatusDoc, instanceStatusDoc, modificationStatusDoc statusDoc,
+	cons constraints.Value,
+) (prereqOps []txn.Op, machineOp txn.Op) {
 	machineOp = txn.Op{
 		C:      machinesC,
 		Id:     mdoc.DocID,
@@ -581,11 +591,13 @@ func (st *State) baseNewMachineOps(mdoc *machineDoc, machineStatusDoc, instanceS
 
 	globalKey := machineGlobalKey(mdoc.Id)
 	globalInstanceKey := machineGlobalInstanceKey(mdoc.Id)
+	globalModificationKey := machineGlobalModificationKey(mdoc.Id)
 
 	prereqOps = []txn.Op{
 		createConstraintsOp(globalKey, cons),
 		createStatusOp(st, globalKey, machineStatusDoc),
 		createStatusOp(st, globalInstanceKey, instanceStatusDoc),
+		createStatusOp(st, globalModificationKey, modificationStatusDoc),
 		createMachineBlockDevicesOp(mdoc.Id),
 		addModelMachineRefOp(st, mdoc.Id),
 	}

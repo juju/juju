@@ -248,6 +248,10 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 			logger.Errorf("cannot reset instance status of machine %q: %v", machine.Id(), err)
 			continue
 		}
+		if err := machine.SetModificationStatus(status.Idle, "", nil); err != nil {
+			logger.Errorf("cannot reset modification status of machine %q: %v", machine.Id(), err)
+			continue
+		}
 		task.machinesMutex.Lock()
 		task.machines[machine.Tag().String()] = machine
 		task.machinesMutex.Unlock()
@@ -401,21 +405,30 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 			}
 			// If Error, SetInstanceStatus in the provisioner api will also call
 			// SetStatus.
-			if err2 := m.SetInstanceStatus(status.Error, "cannot upgrade machine's lxd profile: "+err.Error(), nil); err2 != nil {
+			errMsg := fmt.Sprintf("cannot upgrade machine's lxd profile: %s", err.Error())
+			if err2 := m.SetInstanceStatus(status.Error, errMsg, nil); err2 != nil {
+				return errors.Annotatef(err2, "cannot set status for machine %q", m)
+			}
+			if err2 := m.SetModificationStatus(status.Error, errMsg, nil); err2 != nil {
 				return errors.Annotatef(err2, "cannot set error status for machine %q", m)
 			}
 		} else {
-			// Clean up any residual errors in the machine status from a previous
-			// upgrade charm profile failure.
-			if err2 := m.SetInstanceStatus(status.Running, "Running", nil); err2 != nil {
-				return errors.Annotatef(err2, "cannot set error status for machine %q", m)
-			}
-			if err2 := m.SetStatus(status.Started, "", nil); err2 != nil {
-				return errors.Annotatef(err2, "cannot set error status for machine %q agent", m)
-			}
 			if err2 := m.SetUpgradeCharmProfileComplete(unitNames[i], lxdprofile.SuccessStatus); err2 != nil {
 				return errors.Annotatef(err2, "cannot set success status for instance charm profile data for machine %q", m)
 			}
+
+			// Clean up any residual errors in the machine status from a previous
+			// upgrade charm profile failure.
+			if err2 := m.SetInstanceStatus(status.Running, "Running", nil); err2 != nil {
+				return errors.Annotatef(err2, "cannot set status for machine %q", m)
+			}
+			if err2 := m.SetStatus(status.Started, "", nil); err2 != nil {
+				return errors.Annotatef(err2, "cannot set status for machine %q agent", m)
+			}
+			if err2 := m.SetModificationStatus(status.Applied, "", nil); err2 != nil {
+				return errors.Annotatef(err2, "cannot set status for machine %q modification status", m)
+			}
+
 		}
 	}
 	return nil
@@ -471,6 +484,11 @@ func processOneProfileChange(
 			// profiles will be applied when the machine is provisioned.
 			return false, errors.NotProvisionedf("machine %q", ident)
 		}
+	}
+	// Set the modification status to idle, that way we have a baseline for
+	// future changes.
+	if err := m.SetModificationStatus(status.Idle, "", nil); err != nil {
+		return false, errors.Annotatef(err, "cannot set status for machine %q modification status", m)
 	}
 	info, err := m.CharmProfileChangeInfo(unitName)
 	if err != nil {

@@ -391,11 +391,29 @@ func printMachine(w output.Wrapper, m machineStatus) {
 		az = *hw.AvailabilityZone
 	}
 	w.Print(m.Id)
-	w.PrintStatus(m.JujuStatus.Current)
-	w.Println(m.DNSName, m.InstanceId, m.Series, az, m.MachineStatus.Message)
+
+	status, message := getStatusAndMessageFromMachineStatus(m)
+
+	w.PrintStatus(status)
+	w.Println(m.DNSName, m.InstanceId, m.Series, az, message)
 	for _, name := range naturalsort.Sort(stringKeysFromMap(m.Containers)) {
 		printMachine(w, m.Containers[name])
 	}
+}
+
+// Apply some rules around what we show in the tabular format
+// Rules:
+//  - if the modification-status is in error mode, then show that over the
+//    juju status and machine status message
+func getStatusAndMessageFromMachineStatus(m machineStatus) (status.Status, string) {
+	currentStatus := m.JujuStatus.Current
+	currentMessage := m.MachineStatus.Message
+	if m.ModificationStatus.Current == status.Error {
+		currentStatus = m.ModificationStatus.Current
+		currentMessage = m.ModificationStatus.Message
+	}
+
+	return currentStatus, currentMessage
 }
 
 // FormatMachineTabular writes a tabular summary of machine

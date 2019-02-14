@@ -337,11 +337,13 @@ func setUpSuccessfulMockProfileMachine(ctrl *gomock.Controller, num, old string,
 	mExp.Life().Return(params.Alive)
 	mExp.InstanceId().Return(instance.Id(num), nil)
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 	if old == "" && sub {
 		mExp.RemoveUpgradeCharmProfileData(unitName).Return(nil)
 	} else {
 		mExp.SetInstanceStatus(status.Running, "Running", nil).Return(nil)
 		mExp.SetStatus(status.Started, "", nil).Return(nil)
+		mExp.SetModificationStatus(status.Applied, "", nil).Return(nil)
 		mExp.SetUpgradeCharmProfileComplete(unitName, lxdprofile.SuccessStatus).Return(nil)
 	}
 
@@ -355,7 +357,9 @@ func setUpFailureMockProfileMachine(ctrl *gomock.Controller, num string) *apipro
 	mExp.Id().Return(num).AnyTimes()
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
 	mExp.Life().Return(params.Alive)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 	mExp.SetInstanceStatus(status.Error, gomock.Any(), nil).Return(nil)
+	mExp.SetModificationStatus(status.Error, gomock.Any(), nil).Return(nil)
 	mExp.SetUpgradeCharmProfileComplete(gomock.Any(), gomock.Any()).Return(nil)
 
 	return mockMachine
@@ -401,6 +405,7 @@ func (s *ProvisionerTaskSuite) testProcessOneMachineProfileChangeAddProfile(c *g
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
 	mExp.Life().Return(params.Alive)
 	mExp.InstanceId().Return(instance.Id("0"), nil)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 	differentProfileName := "juju-default-different-0"
 	mExp.SetCharmProfiles([]string{differentProfileName, newProfileName}).Return(nil)
 
@@ -466,6 +471,7 @@ func setUpMocksProcessOneMachineProfileChange(c *gc.C, info apiprovisioner.Charm
 	mExp.InstanceStatus().Return(status.Running, "Running", nil)
 	mExp.Life().Return(params.Alive)
 	mExp.InstanceId().Return(instance.Id("0"), nil)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 
 	differentProfileName := "juju-default-different-0"
 	machineCharmProfiles := []string{"default", "juju-default"}
@@ -805,6 +811,7 @@ type testMachine struct {
 	constraints    string
 
 	instStatusMsg string
+	modStatusMsg  string
 }
 
 func (m *testMachine) Id() string {
@@ -851,6 +858,19 @@ func (m *testMachine) InstanceStatus() (status.Status, string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return status.Status(""), m.instStatusMsg, nil
+}
+
+func (m *testMachine) SetModificationStatus(_ status.Status, message string, _ map[string]interface{}) error {
+	m.mu.Lock()
+	m.modStatusMsg = message
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *testMachine) ModificationStatus() (status.Status, string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return status.Status(""), m.modStatusMsg, nil
 }
 
 func (m *testMachine) SetStatus(status status.Status, info string, data map[string]interface{}) error {

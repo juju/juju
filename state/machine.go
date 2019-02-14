@@ -190,14 +190,27 @@ func machineGlobalKey(id string) string {
 	return "m#" + id
 }
 
-// machineGlobalInstanceKey returns the global database key for the identified machine's instance.
+// machineGlobalInstanceKey returns the global database key for the identified
+// machine's instance.
 func machineGlobalInstanceKey(id string) string {
 	return machineGlobalKey(id) + "#instance"
 }
 
-// globalInstanceKey returns the global database key for the machinei's instance.
+// globalInstanceKey returns the global database key for the machine's instance.
 func (m *Machine) globalInstanceKey() string {
 	return machineGlobalInstanceKey(m.doc.Id)
+}
+
+// machineGlobalModificationKey returns the global database key for the
+// identified machine's modification changes.
+func machineGlobalModificationKey(id string) string {
+	return machineGlobalKey(id) + "#modification"
+}
+
+// globalModificationKey returns the global database key for the machine's
+// modification changes.
+func (m *Machine) globalModificationKey() string {
+	return machineGlobalModificationKey(m.doc.Id)
 }
 
 // globalKey returns the global database key for the machine.
@@ -1005,6 +1018,7 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeStatusOp(m.st, m.globalInstanceKey()),
+		removeStatusOp(m.st, m.globalModificationKey()),
 		removeConstraintsOp(m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
@@ -1184,7 +1198,6 @@ func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 		rawData:   sInfo.Data,
 		updated:   timeOrNow(sInfo.Since, m.st.clock()),
 	})
-
 }
 
 // InstanceStatusHistory returns a slice of at most filter.Size StatusInfo items
@@ -1199,6 +1212,30 @@ func (m *Machine) InstanceStatusHistory(filter status.StatusHistoryFilter) ([]st
 		filter:    filter,
 	}
 	return statusHistory(args)
+}
+
+// ModificationStatus returns the provider specific modification status for
+// this machine or NotProvisionedError if instance is not yet provisioned.
+func (m *Machine) ModificationStatus() (status.StatusInfo, error) {
+	machineStatus, err := getStatus(m.st.db(), m.globalModificationKey(), "modification")
+	if err != nil {
+		logger.Warningf("error when retrieving instance status for machine: %s, %v", m.Id(), err)
+		return status.StatusInfo{}, err
+	}
+	return machineStatus, nil
+}
+
+// SetModificationStatus sets the provider specific modification status for a
+// machine.
+func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
+	return setStatus(m.st.db(), setStatusParams{
+		badge:     "modification",
+		globalKey: m.globalModificationKey(),
+		status:    sInfo.Status,
+		message:   sInfo.Message,
+		rawData:   sInfo.Data,
+		updated:   timeOrNow(sInfo.Since, m.st.clock()),
+	})
 }
 
 // AvailabilityZone returns the provier-specific instance availability
