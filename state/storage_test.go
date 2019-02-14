@@ -664,23 +664,23 @@ func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
 	}
 }
 
-func (s *StorageStateSuite) TestDeleteStoragePool(c *gc.C) {
+func (s *StorageStateSuite) TestRemoveStoragePool(c *gc.C) {
 	poolName := "loop-pool"
 	_, err := s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.storageBackend.DeleteStoragePool(poolName)
+	err = s.storageBackend.RemoveStoragePool(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.pm.Get(poolName)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("pool %q not found", poolName))
 }
 
-func (s *StorageStateSuite) TestDeleteStoragePoolInUse(c *gc.C) {
+func (s *StorageStateSuite) TestRemoveStoragePoolInUse(c *gc.C) {
 	poolName := "loop-pool"
 	s.assertStorageUnitsAdded(c)
 	_, err := s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DeleteStoragePool(poolName)
+	err = s.storageBackend.RemoveStoragePool(poolName)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
 	pool, err := s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -689,7 +689,7 @@ func (s *StorageStateSuite) TestDeleteStoragePoolInUse(c *gc.C) {
 	// pool does not exist at all, poolmanager swallows NotFound errors.
 	_, err = s.pm.Get("nope-pool")
 	c.Assert(err, gc.ErrorMatches, `pool "nope-pool" not found`)
-	err = s.storageBackend.DeleteStoragePool("nope-pool")
+	err = s.storageBackend.RemoveStoragePool("nope-pool")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.pm.Get("nope-pool")
 	c.Assert(err, gc.ErrorMatches, `pool "nope-pool" not found`)
@@ -1394,12 +1394,12 @@ func (s *StorageStateSuiteCaas) SetUpTest(c *gc.C) {
 	s.StorageStateSuiteBase.SetUpTest(c)
 }
 
-func (s *StorageStateSuiteCaas) TestDeleteStoragePool(c *gc.C) {
+func (s *StorageStateSuiteCaas) TestRemoveStoragePool(c *gc.C) {
 	poolName := "operator-storage"
 	_, err := s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.storageBackend.DeleteStoragePool(poolName)
+	err = s.storageBackend.RemoveStoragePool(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -1407,7 +1407,7 @@ func (s *StorageStateSuiteCaas) TestDeleteStoragePool(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("pool %q not found", poolName))
 }
 
-func (s *StorageStateSuiteCaas) TestDeleteStoragePoolInUse(c *gc.C) {
+func (s *StorageStateSuiteCaas) TestRemoveStoragePoolInUse(c *gc.C) {
 	poolName := "operator-storage"
 	_, err := s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1418,13 +1418,13 @@ func (s *StorageStateSuiteCaas) TestDeleteStoragePoolInUse(c *gc.C) {
 
 	s.setupSingleStorage(c, "filesystem", "loop-pool")
 
-	err = s.storageBackend.DeleteStoragePool(poolName)
+	err = s.storageBackend.RemoveStoragePool(poolName)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
 	pool, err := s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Name(), gc.Equals, poolName)
 
-	err = s.storageBackend.DeleteStoragePool(appPoolName)
+	err = s.storageBackend.RemoveStoragePool(appPoolName)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", appPoolName))
 	pool, err = s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)

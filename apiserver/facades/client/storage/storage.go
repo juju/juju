@@ -1146,7 +1146,7 @@ func (a *StorageAPI) RemovePool(p params.StoragePoolDeleteArgs) (params.ErrorRes
 		return results, errors.Trace(err)
 	}
 	for i, pool := range p.Pools {
-		err := a.storageAccess.DeleteStoragePool(pool.Name)
+		err := a.storageAccess.RemoveStoragePool(pool.Name)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}

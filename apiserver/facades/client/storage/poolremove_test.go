@@ -14,13 +14,13 @@ import (
 	"github.com/juju/juju/storage/provider"
 )
 
-type poolDeleteSuite struct {
+type poolRemoveSuite struct {
 	baseStorageSuite
 }
 
-var _ = gc.Suite(&poolDeleteSuite{})
+var _ = gc.Suite(&poolRemoveSuite{})
 
-func (s *poolDeleteSuite) createPools(c *gc.C, num int) {
+func (s *poolRemoveSuite) createPools(c *gc.C, num int) {
 	var err error
 	for i := 0; i < num; i++ {
 		poolName := fmt.Sprintf("%v%v", tstName, i)
@@ -30,7 +30,7 @@ func (s *poolDeleteSuite) createPools(c *gc.C, num int) {
 	}
 }
 
-func (s *poolDeleteSuite) TestRemovePool(c *gc.C) {
+func (s *poolRemoveSuite) TestRemovePool(c *gc.C) {
 	s.createPools(c, 1)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 
@@ -49,7 +49,7 @@ func (s *poolDeleteSuite) TestRemovePool(c *gc.C) {
 	c.Assert(pools, gc.HasLen, 0)
 }
 
-func (s *poolDeleteSuite) TestDeleteNotExists(c *gc.C) {
+func (s *poolRemoveSuite) TestRemoveNotExists(c *gc.C) {
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 
 	args := params.StoragePoolDeleteArgs{
@@ -67,7 +67,7 @@ func (s *poolDeleteSuite) TestDeleteNotExists(c *gc.C) {
 	c.Assert(pools, gc.HasLen, 0)
 }
 
-func (s *poolDeleteSuite) TestDeleteInUse(c *gc.C) {
+func (s *poolRemoveSuite) TestRemoveInUse(c *gc.C) {
 	s.createPools(c, 1)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 	s.poolsInUse = []string{poolName}
@@ -86,7 +86,7 @@ func (s *poolDeleteSuite) TestDeleteInUse(c *gc.C) {
 	c.Assert(pools, gc.HasLen, 1)
 }
 
-func (s *poolDeleteSuite) TestDeleteSomeInUse(c *gc.C) {
+func (s *poolRemoveSuite) TestRemoveSomeInUse(c *gc.C) {
 	s.createPools(c, 2)
 	poolNameInUse := fmt.Sprintf("%v%v", tstName, 0)
 	poolNameNotInUse := fmt.Sprintf("%v%v", tstName, 1)

@@ -86,7 +86,7 @@ func (s *baseStorageSuite) assertCalls(c *gc.C, expectedCalls []string) {
 
 const (
 	allStorageInstancesCall                 = "allStorageInstances"
-	deleteStoragePoolCall                   = "deleteStoragePool"
+	removeStoragePoolCall                   = "removeStoragePool"
 	storageInstanceAttachmentsCall          = "storageInstanceAttachments"
 	storageInstanceCall                     = "StorageInstance"
 	storageInstanceFilesystemCall           = "StorageInstanceFilesystem"
@@ -174,8 +174,8 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 			s.stub.AddCall(allStorageInstancesCall)
 			return []state.StorageInstance{s.storageInstance}, nil
 		},
-		deleteStoragePool: func(poolName string) error {
-			s.stub.AddCall(deleteStoragePoolCall)
+		removeStoragePool: func(poolName string) error {
+			s.stub.AddCall(removeStoragePoolCall)
 			for _, p := range s.poolsInUse {
 				if p == poolName {
 					return errors.Errorf("storage pool %q in use", poolName)

@@ -298,8 +298,8 @@ func (sb *storageBackend) AllStorageInstances() ([]StorageInstance, error) {
 	return out, nil
 }
 
-// DeleteStoragePool removes a pool only if its not currently in use
-func (sb *storageBackend) DeleteStoragePool(poolName string) error {
+// RemoveStoragePool removes a pool only if its not currently in use
+func (sb *storageBackend) RemoveStoragePool(poolName string) error {
 	storageCollection, closer := sb.mb.db().GetCollection(storageInstancesC)
 	defer closer()
 
