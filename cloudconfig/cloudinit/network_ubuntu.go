@@ -325,17 +325,17 @@ if [ ! -f /sbin/ifup ]; then
     echo "No /sbin/ifup, applying netplan configuration."
     netplan generate
     netplan apply
-    exit 0
-fi
-if [ -f /usr/bin/python ]; then
-    python %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
 else
-    python3 %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
+  if [ -f /usr/bin/python ]; then
+      python %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
+  else
+      python3 %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
+  fi
+  ifdown -a
+  sleep 1.5
+  mv %[1]s.out %[1]s
+  ifup -a
 fi
-ifdown -a
-sleep 1.5
-mv %[1]s.out %[1]s
-ifup -a
 `
 	return fmt.Sprintf(s, networkFile)
 }
