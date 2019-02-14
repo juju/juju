@@ -84,7 +84,7 @@ LXD_IPV6_PROXY="true"
 `
 
 func (s *InitialiserSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.initialiserTestSuite.SetUpTest(c)
 	s.calledCmds = []string{}
 	s.PatchValue(&manager.RunCommandWithRetry, getMockRunCommandWithRetry(&s.calledCmds))
 	s.PatchValue(&configureLXDBridge, func() error { return nil })
@@ -544,7 +544,7 @@ type ConfigureInitialiserSuite struct {
 var _ = gc.Suite(&ConfigureInitialiserSuite{})
 
 func (s *ConfigureInitialiserSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.initialiserTestSuite.SetUpTest(c)
 	// Fake the lxc executable for all the tests.
 	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
 	testing.PatchExecutableAsEchoArgs(c, s, "lxd")
@@ -556,6 +556,8 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
 	s.PatchForProxyUpdate(c, cSvr, true)
 
+	// The following nic is found, so we don't create a default nic and so
+	// don't update the profile with the nic.
 	profile := &api.Profile{
 		ProfilePut: api.ProfilePut{
 			Devices: map[string]map[string]string{
@@ -591,12 +593,14 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
 	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
 }
 
-func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNics(c *gc.C) {
+func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNicsCreatesANewOne(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
 	s.PatchForProxyUpdate(c, cSvr, true)
 
+	// If no nics are found in the profile, then the configureLXDBridge will
+	// create a default nic for you.
 	profile := &api.Profile{
 		Name: lxdDefaultProfileName,
 		ProfilePut: api.ProfilePut{
@@ -625,6 +629,8 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNics(c *gc.C) {
 		}, lxdtesting.ETag, nil),
 		cSvr.EXPECT().GetProfile(lxdDefaultProfileName).Return(profile, "", nil),
 		cSvr.EXPECT().GetNetwork("lxdbr0").Return(network, "", nil),
+		// Because no nic was found, we create the nic info and then update the
+		// update profile with that nic information.
 		cSvr.EXPECT().UpdateProfile(lxdDefaultProfileName, updatedProfile, gomock.Any()).Return(nil),
 		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
 		cSvr.EXPECT().UpdateServer(gomock.Any(), lxdtesting.ETag).Return(nil),
