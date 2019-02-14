@@ -153,6 +153,11 @@ var configureLXDBridge = func() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		// If there are no suitable bridged NICs in the profile,
+		// ensure the bridge is set up and create one.
+		if server.verifyNICsWithAPI(getProfileNICs(profile)) == nil {
+			return nil
+		}
 		return server.ensureDefaultNetworking(profile, eTag)
 	}
 	return configureLXDBridgeForOlderLXD()
