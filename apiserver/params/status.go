@@ -146,6 +146,7 @@ type ApplicationStatus struct {
 	Status           DetailedStatus         `json:"status"`
 	WorkloadVersion  string                 `json:"workload-version"`
 	CharmVersion     string                 `json:"charm-verion"`
+	CharmProfile     string                 `json:"charm-profile"`
 	EndpointBindings map[string]string      `json:"endpoint-bindings"`
 
 	// The following are for CAAS models.
