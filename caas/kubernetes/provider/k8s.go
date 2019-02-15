@@ -5,7 +5,9 @@ package provider
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
+	"io"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -54,11 +56,12 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider")
 
 const (
-	labelOperator    = "juju-operator"
-	labelStorage     = "juju-storage"
-	labelVersion     = "juju-version"
-	labelApplication = "juju-application"
-	labelModel       = "juju-model"
+	labelOperator        = "juju-operator"
+	labelStorage         = "juju-storage"
+	labelVersion         = "juju-version"
+	labelApplication     = "juju-application"
+	labelApplicationUUID = "juju-application-uuid"
+	labelModel           = "juju-model"
 
 	defaultOperatorStorageClassName = "juju-operator-storage"
 
@@ -822,18 +825,6 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteDeployment(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
-	pods := k.CoreV1().Pods(k.namespace)
-	podsList, err := pods.List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, p := range podsList.Items {
-		if _, err := k.deleteVolumeClaims(appName, &p); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	secrets := k.CoreV1().Secrets(k.namespace)
 	secretList, err := secrets.List(v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
@@ -982,21 +973,37 @@ func (k *kubernetesClient) EnsureService(
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
 	// Defensively check to see if a stateful set is already used.
 	useStatefulSet := len(params.Filesystems) > 0
+	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	existingStatefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
 	if !useStatefulSet {
-		statefulsets := k.AppsV1().StatefulSets(k.namespace)
-		_, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
 		useStatefulSet = err == nil
 		if useStatefulSet {
 			logger.Debugf("no updated filesystems but already using stateful set for %v", appName)
 		}
 	}
+	var randPrefix string
+	if useStatefulSet {
+		// Include a random snippet in the pvc name so that if the same app
+		// is deleted and redeployed again, the pvc retains a unique name.
+		// Only generate it once, and record it on the stateful set.
+		if existingStatefulSet != nil {
+			randPrefix = existingStatefulSet.Annotations[labelApplicationUUID]
+		}
+		if randPrefix == "" {
+			var randPrefixBytes [4]byte
+			if _, err := io.ReadFull(rand.Reader, randPrefixBytes[0:4]); err != nil {
+				return errors.Trace(err)
+			}
+			randPrefix = fmt.Sprintf("%x", randPrefixBytes)
+		}
+	}
 
 	numPods := int32(numUnits)
 	if useStatefulSet {
-		if err := k.configureStatefulSet(appName, deploymentName, resourceTags, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, resourceTags, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -1066,13 +1073,13 @@ func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 }
 
 func (k *kubernetesClient) configureStorage(
-	podSpec *core.PodSpec, statefulSet *apps.StatefulSetSpec, appName string, legacy bool, filesystems []storage.KubernetesFilesystemParams,
+	podSpec *core.PodSpec, statefulSet *apps.StatefulSetSpec, appName, randPrefix string, legacy bool, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	baseDir, err := paths.StorageDir("kubernetes")
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("configuring pod filesystems: %+v", filesystems)
+	logger.Debugf("configuring pod filesystems: %+v with rand %v", filesystems, randPrefix)
 	for i, fs := range filesystems {
 		if fs.Provider != K8s_ProviderType {
 			return errors.Errorf("invalid storage provider type %q for %v", fs.Provider, fs.StorageName)
@@ -1084,9 +1091,9 @@ func (k *kubernetesClient) configureStorage(
 		if mountPath == "" {
 			mountPath = fmt.Sprintf("%s/fs/%s/%s/%d", baseDir, appName, fs.StorageName, i)
 		}
-		pvcNamePrefix := fmt.Sprintf("%s-%d", fs.StorageName, i)
+		pvcNamePrefix := fmt.Sprintf("%s-%s", fs.StorageName, randPrefix)
 		if legacy {
-			pvcNamePrefix = "juju-" + pvcNamePrefix
+			pvcNamePrefix = fmt.Sprintf("juju-%s-%d", fs.StorageName, i)
 		}
 		params := volumeParams{
 			storageLabels:       caas.UnitStorageClassLabels(appName, k.namespace),
@@ -1241,7 +1248,7 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func (k *kubernetesClient) configureStatefulSet(
-	appName, deploymentName string, labels map[string]string, unitSpec *unitSpec,
+	appName, deploymentName, randPrefix string, labels map[string]string, unitSpec *unitSpec,
 	containers []caas.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
@@ -1252,8 +1259,9 @@ func (k *kubernetesClient) configureStatefulSet(
 	}
 	statefulset := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   deploymentName,
-			Labels: labels},
+			Name:        deploymentName,
+			Annotations: map[string]string{labelApplicationUUID: randPrefix},
+			Labels:      labels},
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
@@ -1275,7 +1283,7 @@ func (k *kubernetesClient) configureStatefulSet(
 
 	// Create a new stateful set with the necessary storage config.
 	legacy := isLegacyName(deploymentName)
-	if err := k.configureStorage(&podSpec, &statefulset.Spec, appName, legacy, filesystems); err != nil {
+	if err := k.configureStorage(&podSpec, &statefulset.Spec, appName, randPrefix, legacy, filesystems); err != nil {
 		return errors.Annotatef(err, "configuring storage for %s", appName)
 	}
 	statefulset.Spec.Template.Spec = podSpec
@@ -1546,7 +1554,7 @@ var legacyJujuPVNameRegexp = regexp.MustCompile(`^juju-(?P<storageName>\D+)-\d+$
 
 // jujuPVNameRegexp matches how Juju labels persistent volumes.
 // The pattern is: <storagename>-<digit>
-var jujuPVNameRegexp = regexp.MustCompile(`^(?P<storageName>\D+)-\d+$`)
+var jujuPVNameRegexp = regexp.MustCompile(`^(?P<storageName>\D+)-\w+$`)
 
 // Units returns all units and any associated filesystems of the specified application.
 // Filesystems are mounted via volumes bound to the unit.
@@ -1573,11 +1581,23 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		providerId := string(p.UID)
+		stateful := false
+
+		// Pods managed by a stateful set use the pod name
+		// as the provider id as this is stable across pod restarts.
+		for _, ref := range p.OwnerReferences {
+			if stateful = ref.Kind == "StatefulSet"; stateful {
+				providerId = p.Name
+				break
+			}
+		}
 		unitInfo := caas.Unit{
-			Id:      string(p.UID),
-			Address: p.Status.PodIP,
-			Ports:   ports,
-			Dying:   terminated,
+			Id:       providerId,
+			Address:  p.Status.PodIP,
+			Ports:    ports,
+			Dying:    terminated,
+			Stateful: stateful,
 			Status: status.StatusInfo{
 				Status:  unitStatus,
 				Message: statusMessage,
@@ -1661,7 +1681,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, caas.FilesystemInfo{
 				StorageName:  storageName,
 				Size:         uint64(vol.PersistentVolumeClaim.Size()),
-				FilesystemId: pvc.Name,
+				FilesystemId: string(pvc.UID),
 				MountPoint:   volMount.MountPath,
 				ReadOnly:     volMount.ReadOnly,
 				Status: status.StatusInfo{

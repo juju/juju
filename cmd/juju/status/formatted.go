@@ -229,6 +229,9 @@ func (s *formattedStatus) applicationScale(name string) (string, bool) {
 	app := s.Applications[name]
 	match := func(u unitStatus) {
 		desiredUnitCount++
+		if u.WorkloadStatusInfo.Current == status.Terminated {
+			return
+		}
 		switch u.JujuStatusInfo.Current {
 		case status.Executing, status.Idle, status.Running:
 			currentUnitCount++

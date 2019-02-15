@@ -229,6 +229,18 @@ func (v *volumeSource) DestroyVolumes(ctx context.ProviderCallContext, volIds []
 	logger.Debugf("destroy k8s volumes: %v", volIds)
 	pVolumes := v.client.CoreV1().PersistentVolumes()
 	return foreachVolume(volIds, func(volumeId string) error {
+		vol, err := pVolumes.Get(volumeId, v1.GetOptions{IncludeUninitialized: true})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Annotatef(err, "getting volume %v to delete", volumeId)
+		}
+		if err == nil && vol.Spec.ClaimRef != nil {
+			claimRef := vol.Spec.ClaimRef
+			pClaims := v.client.CoreV1().PersistentVolumeClaims(claimRef.Namespace)
+			err := pClaims.Delete(claimRef.Name, &v1.DeleteOptions{PropagationPolicy: &defaultPropagationPolicy})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return errors.Annotatef(err, "destroying volume claim %v", claimRef.Name)
+			}
+		}
 		if err := pVolumes.Delete(
 			volumeId,
 			&v1.DeleteOptions{PropagationPolicy: &defaultPropagationPolicy},
