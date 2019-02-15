@@ -131,6 +131,75 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 	})
 }
 
+func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
+	podSpec := caas.PodSpec{
+		Containers: []caas.ContainerSpec{{
+			Name:  "test",
+			Ports: []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image: "juju/image",
+			ProviderContainer: &provider.K8sContainerSpec{
+				ImagePullPolicy: core.PullAlways,
+				ReadinessProbe: &core.Probe{
+					InitialDelaySeconds: 10,
+					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+				},
+				LivenessProbe: &core.Probe{
+					SuccessThreshold: 20,
+					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				},
+			},
+		}, {
+			Name:  "test2",
+			Ports: []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
+			Image: "juju/image2",
+		}},
+		InitContainers: []caas.ContainerSpec{{
+			Name:       "test-init",
+			Ports:      []caas.ContainerPort{{ContainerPort: 90, Protocol: "TCP"}},
+			Image:      "juju/image-init",
+			WorkingDir: "/path/to/here",
+			Command:    []string{"sh", "ls"},
+			ProviderContainer: &provider.K8sContainerSpec{
+				ImagePullPolicy: core.PullAlways,
+			},
+		}},
+	}
+	spec, err := provider.MakeUnitSpec("app-name", "app-name", &podSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
+		Containers: []core.Container{
+			{
+				Name:            "test",
+				Image:           "juju/image",
+				Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+				ImagePullPolicy: core.PullAlways,
+				ReadinessProbe: &core.Probe{
+					InitialDelaySeconds: 10,
+					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+				},
+				LivenessProbe: &core.Probe{
+					SuccessThreshold: 20,
+					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				},
+			}, {
+				Name:  "test2",
+				Image: "juju/image2",
+				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
+			},
+		},
+		InitContainers: []core.Container{
+			{
+				Name:            "test-init",
+				Image:           "juju/image-init",
+				Ports:           []core.ContainerPort{{ContainerPort: int32(90), Protocol: core.ProtocolTCP}},
+				WorkingDir:      "/path/to/here",
+				Command:         []string{"sh", "ls"},
+				ImagePullPolicy: core.PullAlways,
+			},
+		},
+	})
+}
+
 var basicPodspec = &caas.PodSpec{
 	Containers: []caas.ContainerSpec{{
 		Name:         "test",
