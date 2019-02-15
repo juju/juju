@@ -1096,6 +1096,21 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 	if !params.PodSpec.OmitServiceFrontend {
+		// Merge any service annotations from the charm.
+		if unitSpec.Service != nil && len(unitSpec.Service.Annotations) > 0 {
+			annotations := make(map[string]string)
+			for k, v := range unitSpec.Service.Annotations {
+				annotations[k] = v
+			}
+			deployAnnotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
+			if err != nil {
+				return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
+			}
+			for k, v := range deployAnnotations {
+				annotations[k] = v
+			}
+			config[serviceAnnotationsKey] = annotations
+		}
 		if err := k.configureService(appName, deploymentName, ports, resourceTags, config); err != nil {
 			return errors.Annotatef(err, "creating or updating service for %v", appName)
 		}
@@ -1990,13 +2005,11 @@ func operatorConfigMap(appName, operatorName string, config *caas.OperatorConfig
 }
 
 type unitSpec struct {
-	Pod core.PodSpec `json:"pod"`
+	Pod     core.PodSpec `json:"pod"`
+	Service *K8sServiceSpec
 }
 
-var defaultPodTemplate = `
-pod:
-  containers:
-  {{- range .Containers }}
+var containerTemplate = `
   - name: {{.Name}}
     {{if .Ports}}
     ports:
@@ -2022,8 +2035,21 @@ pod:
           value: {{$v}}
     {{- end}}
     {{end}}
+`
+
+var defaultPodTemplate = fmt.Sprintf(`
+pod:
+  containers:
+  {{- range .Containers }}
+%s
   {{- end}}
-`[1:]
+  {{if .InitContainers}}
+  initContainers:
+  {{- range .InitContainers }}
+%s
+  {{- end}}
+  {{end}}
+`[1:], containerTemplate, containerTemplate)
 
 func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 	// Fill out the easy bits using a template.
@@ -2041,35 +2067,14 @@ func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitS
 		return nil, errors.Trace(err)
 	}
 
-	var imageSecretNames []core.LocalObjectReference
 	// Now fill in the hard bits progamatically.
-	for i, c := range podSpec.Containers {
-		if c.Image != "" {
-			logger.Warningf("Image parameter deprecated, use ImageDetails")
-			unitSpec.Pod.Containers[i].Image = c.Image
-		} else {
-			unitSpec.Pod.Containers[i].Image = c.ImageDetails.ImagePath
-		}
-		if c.ImageDetails.Password != "" {
-			imageSecretNames = append(imageSecretNames, core.LocalObjectReference{Name: appSecretName(deploymentName, c.Name)})
-		}
-
-		if c.ProviderContainer == nil {
-			continue
-		}
-		spec, ok := c.ProviderContainer.(*K8sContainerSpec)
-		if !ok {
-			return nil, errors.Errorf("unexpected kubernetes container spec type %T", c.ProviderContainer)
-		}
-		unitSpec.Pod.Containers[i].ImagePullPolicy = spec.ImagePullPolicy
-		if spec.LivenessProbe != nil {
-			unitSpec.Pod.Containers[i].LivenessProbe = spec.LivenessProbe
-		}
-		if spec.ReadinessProbe != nil {
-			unitSpec.Pod.Containers[i].ReadinessProbe = spec.ReadinessProbe
-		}
+	if err := populateContainerDetails(deploymentName, &unitSpec.Pod, unitSpec.Pod.Containers, podSpec.Containers); err != nil {
+		return nil, errors.Trace(err)
 	}
-	unitSpec.Pod.ImagePullSecrets = imageSecretNames
+	if err := populateContainerDetails(deploymentName, &unitSpec.Pod, unitSpec.Pod.InitContainers, podSpec.InitContainers); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if podSpec.ProviderPod != nil {
 		spec, ok := podSpec.ProviderPod.(*K8sPodSpec)
 		if !ok {
@@ -2088,8 +2093,39 @@ func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitS
 		unitSpec.Pod.RestartPolicy = spec.RestartPolicy
 		unitSpec.Pod.AutomountServiceAccountToken = spec.AutomountServiceAccountToken
 		unitSpec.Pod.ReadinessGates = spec.ReadinessGates
+		unitSpec.Service = spec.Service
 	}
 	return &unitSpec, nil
+}
+
+func populateContainerDetails(deploymentName string, pod *core.PodSpec, podContainers []core.Container, containers []caas.ContainerSpec) error {
+	for i, c := range containers {
+		if c.Image != "" {
+			logger.Warningf("Image parameter deprecated, use ImageDetails")
+			podContainers[i].Image = c.Image
+		} else {
+			podContainers[i].Image = c.ImageDetails.ImagePath
+		}
+		if c.ImageDetails.Password != "" {
+			pod.ImagePullSecrets = append(pod.ImagePullSecrets, core.LocalObjectReference{Name: appSecretName(deploymentName, c.Name)})
+		}
+
+		if c.ProviderContainer == nil {
+			continue
+		}
+		spec, ok := c.ProviderContainer.(*K8sContainerSpec)
+		if !ok {
+			return errors.Errorf("unexpected kubernetes container spec type %T", c.ProviderContainer)
+		}
+		podContainers[i].ImagePullPolicy = spec.ImagePullPolicy
+		if spec.LivenessProbe != nil {
+			podContainers[i].LivenessProbe = spec.LivenessProbe
+		}
+		if spec.ReadinessProbe != nil {
+			podContainers[i].ReadinessProbe = spec.ReadinessProbe
+		}
+	}
+	return nil
 }
 
 // legacyAppName returns true if there are any artifacts for
