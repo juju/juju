@@ -107,6 +107,13 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
+		s.mockPersistentVolumes.EXPECT().Get("vol-1", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(&core.PersistentVolume{
+				Spec: core.PersistentVolumeSpec{
+					ClaimRef: &core.ObjectReference{Namespace: "test", Name: "vol-1-pvc"},
+				}}, nil),
+		s.mockPersistentVolumeClaims.EXPECT().Delete("vol-1-pvc", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(s.k8sNotFoundError()),
 		s.mockPersistentVolumes.EXPECT().Delete("vol-1", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(nil),
 	)
@@ -125,6 +132,13 @@ func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
+		s.mockPersistentVolumes.EXPECT().Get("vol-1", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(&core.PersistentVolume{
+				Spec: core.PersistentVolumeSpec{
+					ClaimRef: &core.ObjectReference{Namespace: "test", Name: "vol-1-pvc"},
+				}}, nil),
+		s.mockPersistentVolumeClaims.EXPECT().Delete("vol-1-pvc", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(s.k8sNotFoundError()),
 		s.mockPersistentVolumes.EXPECT().Delete("vol-1", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 	)

@@ -212,8 +212,8 @@ func (s *ApplicationStatusSuite) TestDeriveStatus(c *gc.C) {
 	checkAndRemove(blockedUnit, status.Blocked)
 	checkAndRemove(waitingUnit, status.Waiting)
 	checkAndRemove(maintenanceUnit, status.Maintenance)
-	checkAndRemove(terminatedUnit, status.Terminated)
 	checkAndRemove(activeUnit, status.Active)
+	checkAndRemove(terminatedUnit, status.Terminated)
 	checkAndRemove(unknownUnit, status.Unknown)
 }
 

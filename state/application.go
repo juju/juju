@@ -2513,8 +2513,8 @@ var statusServerities = map[status.Status]int{
 	status.Blocked:     90,
 	status.Waiting:     80,
 	status.Maintenance: 70,
-	status.Terminated:  60,
-	status.Active:      50,
+	status.Active:      60,
+	status.Terminated:  50,
 	status.Unknown:     40,
 }
 
