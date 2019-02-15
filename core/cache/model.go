@@ -67,15 +67,15 @@ func (m *Model) Application(appName string) (*Application, error) {
 	return app, nil
 }
 
-// Unit returns the unit for the input identifier.
+// Unit returns the unit with the input name.
 // If the unit is not found, a NotFoundError is returned.
-func (m *Model) Unit(unitId string) (*Unit, error) {
+func (m *Model) Unit(unitName string) (*Unit, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	unit, found := m.units[unitId]
+	unit, found := m.units[unitName]
 	if !found {
-		return nil, errors.NotFoundf("unit %q", unitId)
+		return nil, errors.NotFoundf("unit %q", unitName)
 	}
 	return unit, nil
 }
