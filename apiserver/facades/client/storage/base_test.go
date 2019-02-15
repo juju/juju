@@ -49,6 +49,7 @@ type baseStorageSuite struct {
 	registry    jujustorage.StaticProviderRegistry
 	poolManager *mockPoolManager
 	pools       map[string]*jujustorage.Config
+	poolsInUse  []string
 
 	blocks      map[state.BlockType]state.Block
 	callContext context.ProviderCallContext
@@ -65,6 +66,7 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.registry = jujustorage.StaticProviderRegistry{map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.pools = make(map[string]*jujustorage.Config)
 	s.poolManager = s.constructPoolManager()
+	s.poolsInUse = []string{}
 
 	s.callContext = context.NewCloudCallContext()
 	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
@@ -84,6 +86,7 @@ func (s *baseStorageSuite) assertCalls(c *gc.C, expectedCalls []string) {
 
 const (
 	allStorageInstancesCall                 = "allStorageInstances"
+	removeStoragePoolCall                   = "removeStoragePool"
 	storageInstanceAttachmentsCall          = "storageInstanceAttachments"
 	storageInstanceCall                     = "StorageInstance"
 	storageInstanceFilesystemCall           = "StorageInstanceFilesystem"
@@ -170,6 +173,15 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 		allStorageInstances: func() ([]state.StorageInstance, error) {
 			s.stub.AddCall(allStorageInstancesCall)
 			return []state.StorageInstance{s.storageInstance}, nil
+		},
+		removeStoragePool: func(poolName string) error {
+			s.stub.AddCall(removeStoragePoolCall)
+			for _, p := range s.poolsInUse {
+				if p == poolName {
+					return errors.Errorf("storage pool %q in use", poolName)
+				}
+			}
+			return s.poolManager.Delete(poolName)
 		},
 		storageInstance: func(sTag names.StorageTag) (state.StorageInstance, error) {
 			s.stub.AddCall(storageInstanceCall, sTag)
