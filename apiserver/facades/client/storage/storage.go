@@ -122,6 +122,13 @@ func (a *StorageAPI) checkCanRead() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Controller admins should have implicit read access to all models
+	// in the controller, even the ones they do not own.
+	if !canRead {
+		canRead, _ = a.authorizer.HasPermission(permission.SuperuserAccess, a.backend.ControllerTag())
+	}
+
 	if !canRead {
 		return common.ErrPerm
 	}
@@ -143,7 +150,7 @@ func (a *StorageAPI) checkCanWrite() error {
 // storage identified by supplied tags. If specified storage cannot be
 // retrieved, individual error is returned instead of storage information.
 func (a *StorageAPI) StorageDetails(entities params.Entities) (params.StorageDetailsResults, error) {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanRead(); err != nil {
 		return params.StorageDetailsResults{}, errors.Trace(err)
 	}
 	results := make([]params.StorageDetailsResult, len(entities.Entities))
