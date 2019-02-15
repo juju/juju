@@ -35,6 +35,13 @@ func NewAddCloudCommandForTest(
 	}
 }
 
+func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(string) (ListCloudsAPI, error)) *listCloudsCommand {
+	return &listCloudsCommand{
+		store:             store,
+		listCloudsAPIFunc: cloudAPI,
+	}
+}
+
 func NewUpdateCloudsCommandForTest(publicCloudURL string) *updateCloudsCommand {
 	return &updateCloudsCommand{
 		// TODO(wallyworld) - move testing key elsewhere
