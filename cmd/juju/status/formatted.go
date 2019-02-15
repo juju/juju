@@ -111,6 +111,7 @@ type applicationStatus struct {
 	CharmName        string                `json:"charm-name" yaml:"charm-name"`
 	CharmRev         int                   `json:"charm-rev" yaml:"charm-rev"`
 	CharmVersion     string                `json:"charm-version,omitempty" yaml:"charm-version,omitempty"`
+	CharmProfile     string                `json:"charm-profile,omitempty" yaml:"charm-profile,omitempty"`
 	CanUpgradeTo     string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
 	Scale            int                   `json:"scale,omitempty" yaml:"scale,omitempty"`
 	Placement        string                `json:"placement,omitempty" yaml:"placement,omitempty"`
