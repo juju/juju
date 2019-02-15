@@ -24,7 +24,8 @@ type k8sContainer struct {
 }
 
 type k8sContainers struct {
-	Containers []k8sContainer `json:"containers"`
+	Containers     []k8sContainer `json:"containers"`
+	InitContainers []k8sContainer `json:"initContainers"`
 }
 
 // K8sContainerSpec is a subset of v1.Container which defines
@@ -47,6 +48,12 @@ type k8sPod struct {
 	*K8sPodSpec `json:",inline"`
 }
 
+// K8sServiceSpec contains attributes to be set on v1.Service when
+// the application is deployed.
+type K8sServiceSpec struct {
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
 // K8sPodSpec is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
 type K8sPodSpec struct {
@@ -63,6 +70,7 @@ type K8sPodSpec struct {
 	Priority                      *int32                   `json:"priority,omitempty"`
 	DNSConfig                     *core.PodDNSConfig       `json:"dnsConfig,omitempty"`
 	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty"`
+	Service                       *K8sServiceSpec          `json:"service,omitempty"`
 }
 
 // Validate is defined on ProviderPod.
@@ -103,9 +111,30 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 	if len(containers.Containers) == 0 {
 		return nil, errors.New("require at least one container spec")
 	}
+	quoteBoolStrings(containers.Containers)
+	quoteBoolStrings(containers.InitContainers)
 
+	// Compose the result.
+	spec.Containers = make([]caas.ContainerSpec, len(containers.Containers))
+	for i, c := range containers.Containers {
+		if err := c.Validate(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		spec.Containers[i] = containerFromK8sSpec(c)
+	}
+	spec.InitContainers = make([]caas.ContainerSpec, len(containers.InitContainers))
+	for i, c := range containers.InitContainers {
+		if err := c.Validate(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		spec.InitContainers[i] = containerFromK8sSpec(c)
+	}
+	return &spec, nil
+}
+
+func quoteBoolStrings(containers []k8sContainer) {
 	// Any string config values that could be interpreted as bools need to be quoted.
-	for _, container := range containers.Containers {
+	for _, container := range containers {
 		for k, v := range container.Config {
 			strValue, ok := v.(string)
 			if !ok {
@@ -116,27 +145,22 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 			}
 		}
 	}
+}
 
-	// Compose the result.
-	spec.Containers = make([]caas.ContainerSpec, len(containers.Containers))
-	for i, c := range containers.Containers {
-		if err := c.Validate(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		spec.Containers[i] = caas.ContainerSpec{
-			ImageDetails: c.ImageDetails,
-			Name:         c.Name,
-			Image:        c.Image,
-			Ports:        c.Ports,
-			Command:      c.Command,
-			Args:         c.Args,
-			WorkingDir:   c.WorkingDir,
-			Config:       c.Config,
-			Files:        c.Files,
-		}
-		if c.K8sContainerSpec != nil {
-			spec.Containers[i].ProviderContainer = c.K8sContainerSpec
-		}
+func containerFromK8sSpec(c k8sContainer) caas.ContainerSpec {
+	result := caas.ContainerSpec{
+		ImageDetails: c.ImageDetails,
+		Name:         c.Name,
+		Image:        c.Image,
+		Ports:        c.Ports,
+		Command:      c.Command,
+		Args:         c.Args,
+		WorkingDir:   c.WorkingDir,
+		Config:       c.Config,
+		Files:        c.Files,
 	}
-	return &spec, nil
+	if c.K8sContainerSpec != nil {
+		result.ProviderContainer = c.K8sContainerSpec
+	}
+	return result
 }

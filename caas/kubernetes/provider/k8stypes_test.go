@@ -36,6 +36,7 @@ hostname: host
 subdomain: sub
 priorityClassName: top
 priority: 30
+dnsPolicy: ClusterFirstWithHostNet
 dnsConfig: 
   nameservers: [ns1, ns2]
 readinessGates:
@@ -88,6 +89,26 @@ containers:
   - name: just-image-details
     imageDetails:
         imagePath: testing/no-secrets-needed@sha256:deed-beef
+initContainers:
+  - name: gitlab-init
+    image: gitlab-init/latest
+    imagePullPolicy: Always
+    command: ["sh", "-c"]
+    args: ["doIt", "--debug"]
+    workingDir: "/path/to/here"
+    ports:
+    - containerPort: 80
+      name: fred
+      protocol: TCP
+    - containerPort: 443
+      name: mary
+    config:
+      foo: bar
+      restricted: 'yes'
+      switch: on
+service:
+  annotations:
+    foo: bar
 customResourceDefinition:
   - group: kubeflow.org
     version: v1alpha2
@@ -140,8 +161,12 @@ foo: bar
 			DNSConfig: &core.PodDNSConfig{
 				Nameservers: []string{"ns1", "ns2"},
 			},
+			DNSPolicy: "ClusterFirstWithHostNet",
 			ReadinessGates: []core.PodReadinessGate{
 				{ConditionType: core.PodScheduled},
+			},
+			Service: &provider.K8sServiceSpec{
+				Annotations: map[string]string{"foo": "bar"},
 			},
 		},
 		Containers: []caas.ContainerSpec{{
@@ -207,6 +232,25 @@ foo: bar
 			Name: "just-image-details",
 			ImageDetails: caas.ImageDetails{
 				ImagePath: "testing/no-secrets-needed@sha256:deed-beef",
+			},
+		}},
+		InitContainers: []caas.ContainerSpec{{
+			Name:       "gitlab-init",
+			Image:      "gitlab-init/latest",
+			Command:    []string{"sh", "-c"},
+			Args:       []string{"doIt", "--debug"},
+			WorkingDir: "/path/to/here",
+			Ports: []caas.ContainerPort{
+				{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
+				{ContainerPort: 443, Name: "mary"},
+			},
+			Config: map[string]interface{}{
+				"foo":        "bar",
+				"restricted": "'yes'",
+				"switch":     true,
+			},
+			ProviderContainer: &provider.K8sContainerSpec{
+				ImagePullPolicy: "Always",
 			},
 		}},
 		CustomResourceDefinitions: []caas.CustomResourceDefinition{
