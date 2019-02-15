@@ -708,11 +708,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 
 	if isCAASController {
-		// TODO(caas): wait and fetch controller public endpoint then update juju home.
-		// `juju-controller` Service.clusterIP? LB?.
+		// TODO(caas): wait/ping/ensure controller public endpoint is healthy/functioning(bootstrap state done, agent starts, ELB provisioned, etc).
 		return nil
 	}
 
+	// only IAAS has hosted model.
 	if err = c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
 		return errors.Trace(err)
 	}
@@ -1082,6 +1082,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing bootstrap config")
 	}
 
+	// TODO(bootstrap): remove me.
 	if jujucloud.CloudIsCAAS(cloud) {
 		bootstrapConfig.AdminSecret = "dbacffbe75cd8c70d81fe7738d9e8493"
 		bootstrapConfig.CACert = `

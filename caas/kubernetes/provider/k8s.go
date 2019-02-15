@@ -120,11 +120,12 @@ func NewK8sBroker(
 	modelUUID := newCfg.UUID()
 	namespace := newCfg.Name()
 	if namespace == "controller" {
-		// namespace format: <controller>-<controllerUUID> for juju controller to achieve:
+		// namespace format: <controller>-<controller-model-UUID> for juju controller to achieve:
 		// 1. multi controller running in same k8s cluster;
-		// 2. avoid potential conflict if there is existing namespace named "controller"(warning: an non juju related existing namespace could be destroyed if bootstraping failed due to AlreadyExistedNamespace error);
+		// 2. avoid potential conflict if there is existing namespace named "controller"(warning:
+		//    an non juju related existing namespace could be destroyed if bootstraping failed due
+		//    to AlreadyExistedNamespace error);
 		namespace = namespace + "-" + modelUUID
-		// TODO: modelUUID is not right here, controller UUID expected, but it's default model UUID.
 	}
 	return &kubernetesClient{
 		clock:               clock,
@@ -209,10 +210,10 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
-		// create statefulset for controller pod.
+		// create configmap, secret, volume, statefulset, etc resources for controller stack.
 		return errors.Annotate(
 			createControllerStack(k, pcfg),
-			"creating statefulset for controller",
+			"creating controller stack for controller",
 		)
 	}
 
@@ -408,9 +409,9 @@ func (k *kubernetesClient) createSecret(secret *core.Secret) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteSecret(imageSecretName string) error {
+func (k *kubernetesClient) deleteSecret(secretName string) error {
 	secrets := k.CoreV1().Secrets(k.namespace)
-	err := secrets.Delete(imageSecretName, &v1.DeleteOptions{
+	err := secrets.Delete(secretName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -835,18 +836,17 @@ func getSvcAddresses(svc *core.Service) []network.Address {
 			}
 		}
 	}
-	scope := network.ScopePublic
-	clusterIP := svc.Spec.ClusterIP
 	t := svc.Spec.Type
+	clusterIP := svc.Spec.ClusterIP
 	switch t {
 	case core.ServiceTypeClusterIP:
 		appendAddrs(network.ScopeCloudLocal, clusterIP)
 	case core.ServiceTypeExternalName:
 		appendAddrs(network.ScopeCloudLocal, svc.Spec.ExternalName)
 	case core.ServiceTypeNodePort:
-		appendAddrs(scope, svc.Spec.ExternalIPs...)
+		appendAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)
 	case core.ServiceTypeLoadBalancer:
-		appendAddrs(scope, svc.Spec.LoadBalancerIP)
+		appendAddrs(network.ScopePublic, svc.Spec.LoadBalancerIP)
 	}
 	if len(netAddrs) == 0 && clusterIP != "" {
 		// fallback to ClusterIP, usually it's not empty.
@@ -1390,6 +1390,7 @@ func (k *kubernetesClient) deleteStatefulSet(name string) error {
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
+
 	return errors.Trace(err)
 }
 
@@ -1890,6 +1891,16 @@ func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
 	_, err := configMaps.Update(configMap)
 	if k8serrors.IsNotFound(err) {
 		_, err = configMaps.Create(configMap)
+	}
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteConfigMap(configMapName string) error {
+	err := k.CoreV1().ConfigMaps(k.namespace).Delete(configMapName, &v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
 	}
 	return errors.Trace(err)
 }

@@ -30,7 +30,7 @@ import (
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
 
 const (
-	jujudOCINamespace = "ycliuhw" // TODO(caas): change it to "jujusolutions"
+	jujudOCINamespace = "ycliuhw" // TODO(bootstrap): change it to "jujusolutions" and also consolidate caas operator and caas conroller to one image.
 	jujudOCIName      = "jujud-controller"
 )
 
@@ -58,7 +58,6 @@ type ControllerPodConfig struct {
 	// ControllerTag identifies the controller.
 	ControllerTag names.ControllerTag
 
-	// TODO: remove me later once state.Machine.CheckProvisioned(nonce string) in jujud supports CAAS.
 	// MachineNonce is set at provisioning/bootstrap time and used to
 	// ensure the agent is running on the correct instance.
 	MachineNonce string
@@ -341,6 +340,7 @@ func NewBootstrapControllerPodConfig(config controller.Config, series string) (*
 	for k, v := range config {
 		pcfg.Controller.Config[k] = v
 	}
+	// TODO(bootstrap): remove me.
 	arch := arch.AMD64
 	var cores uint64 = 2
 	var mem uint64 = 123
@@ -348,7 +348,7 @@ func NewBootstrapControllerPodConfig(config controller.Config, series string) (*
 	pcfg.Bootstrap = &BootstrapConfig{
 		instancecfg.BootstrapConfig{
 			StateInitializationParams: instancecfg.StateInitializationParams{
-				// TODO: remove me once agentbootstrap.initBootstrapMachine works for CAAS bootstrap in jujud.
+				// TODO(bootstrap): remove me once agentbootstrap.initBootstrapMachine works for CAAS bootstrap in jujud.
 				BootstrapMachineHardwareCharacteristics: &instance.HardwareCharacteristics{
 					Arch:     &arch,
 					CpuCores: &cores,
