@@ -3627,26 +3627,21 @@ func mysqlCharm(extras M) M {
 		"os":           "ubuntu",
 		"exposed":      false,
 	}
-	for key, value := range extras {
-		charm[key] = value
-	}
-	return charm
+	return composeCharms(charm, extras)
 }
 
 func lxdProfileCharm(extras M) M {
 	charm := M{
-		"charm":        "cs:quantal/lxd-profile-0",
-		"charm-origin": "jujucharms",
-		"charm-name":   "lxd-profile",
-		"charm-rev":    1,
-		"series":       "quantal",
-		"os":           "ubuntu",
-		"exposed":      false,
+		"charm":         "cs:quantal/lxd-profile-0",
+		"charm-origin":  "jujucharms",
+		"charm-name":    "lxd-profile",
+		"charm-rev":     1,
+		"charm-profile": "juju-controller-lxd-profile-1",
+		"series":        "quantal",
+		"os":            "ubuntu",
+		"exposed":       false,
 	}
-	for key, value := range extras {
-		charm[key] = value
-	}
-	return charm
+	return composeCharms(charm, extras)
 }
 
 func meteredCharm(extras M) M {
@@ -3659,10 +3654,7 @@ func meteredCharm(extras M) M {
 		"os":           "ubuntu",
 		"exposed":      false,
 	}
-	for key, value := range extras {
-		charm[key] = value
-	}
-	return charm
+	return composeCharms(charm, extras)
 }
 
 func dummyCharm(extras M) M {
@@ -3675,10 +3667,7 @@ func dummyCharm(extras M) M {
 		"os":           "ubuntu",
 		"exposed":      false,
 	}
-	for key, value := range extras {
-		charm[key] = value
-	}
-	return charm
+	return composeCharms(charm, extras)
 }
 
 func wordpressCharm(extras M) M {
@@ -3691,10 +3680,18 @@ func wordpressCharm(extras M) M {
 		"os":           "ubuntu",
 		"exposed":      false,
 	}
-	for key, value := range extras {
-		charm[key] = value
+	return composeCharms(charm, extras)
+}
+
+func composeCharms(origin, extras M) M {
+	result := make(M, len(origin))
+	for key, value := range origin {
+		result[key] = value
 	}
-	return charm
+	for key, value := range extras {
+		result[key] = value
+	}
+	return result
 }
 
 // TODO(dfc) test failing components by destructively mutating the state under the hood

@@ -45,3 +45,13 @@ func ValidateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
 	}
 	return nil
 }
+
+// IsEmpty will return true if the profiler containers a profile, that is
+// empty. If the profile isn't empty, we'll return false.
+// If there is no valid profile in the profiler, it will return true
+func IsEmpty(profiler charm.LXDProfiler) bool {
+	if profile := profiler.LXDProfile(); profile != nil {
+		return len(profile.Devices) == 0 && len(profile.Config) == 0 && len(profile.Description) == 0
+	}
+	return true
+}
