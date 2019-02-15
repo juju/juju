@@ -150,7 +150,7 @@ func (a *StorageAPI) checkCanWrite() error {
 // storage identified by supplied tags. If specified storage cannot be
 // retrieved, individual error is returned instead of storage information.
 func (a *StorageAPI) StorageDetails(entities params.Entities) (params.StorageDetailsResults, error) {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanRead(); err != nil {
 		return params.StorageDetailsResults{}, errors.Trace(err)
 	}
 	results := make([]params.StorageDetailsResult, len(entities.Entities))
