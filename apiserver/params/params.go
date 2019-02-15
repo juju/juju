@@ -383,6 +383,7 @@ type ApplicationUnitParams struct {
 	UnitTag        string                     `json:"unit-tag"`
 	Address        string                     `json:"address"`
 	Ports          []string                   `json:"ports"`
+	Stateful       bool                       `json:"stateful,omitempty"`
 	FilesystemInfo []KubernetesFilesystemInfo `json:"filesystem-info,omitempty"`
 	Status         string                     `json:"status"`
 	Info           string                     `json:"info"`

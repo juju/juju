@@ -3993,7 +3993,6 @@ type setApplicationCharm struct {
 }
 
 func (ssc setApplicationCharm) step(c *gc.C, ctx *context) {
-	fmt.Println("HERE")
 	ch, err := ctx.st.Charm(charm.MustParseURL(ssc.charm))
 	c.Assert(err, jc.ErrorIsNil)
 	s, err := ctx.st.Application(ssc.name)
@@ -4776,6 +4775,12 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 			"mysql/0",
 			status.Maintenance,
 			"installing all the things", nil},
+		addAliveUnit{"mysql", "1"},
+		setAgentStatus{"mysql/1", status.Idle, "", nil},
+		setUnitStatus{
+			"mysql/1",
+			status.Terminated,
+			"gooooone", nil},
 		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-trusty-ppc")},
 		addApplication{name: "logging", charm: "logging"},
 		setApplicationExposed{"logging", true},
@@ -4826,12 +4831,13 @@ hosted-riak  unknown  local  me/model.riak
 
 App        Version          Status       Scale  Charm      Store       Rev  OS      Notes
 logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  exposed
-mysql      5.7.13           maintenance      1  mysql      jujucharms    1  ubuntu  exposed
+mysql      5.7.13           maintenance    1/2  mysql      jujucharms    1  ubuntu  exposed
 wordpress  4.5.3            active           1  wordpress  jujucharms    3  ubuntu  exposed
 
 Unit          Workload     Agent  Machine  Public address  Ports  Message
 mysql/0*      maintenance  idle   2        10.0.2.1               installing all the things
   logging/1*  error        idle            10.0.2.1               somehow lost in all those logs
+mysql/1       terminated   idle   1        10.0.1.1               gooooone
 wordpress/0*  active       idle   1        10.0.1.1               
   logging/0   active       idle            10.0.1.1               
 
