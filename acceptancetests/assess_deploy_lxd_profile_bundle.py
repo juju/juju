@@ -20,23 +20,48 @@ from utility import (
     configure_logging,
     JujuAssertionError,
 )
+from jujupy.wait_condition import (
+    AgentsIdle,
+    WaitForLXDProfilesConditions,
+)
 
 __metaclass__ = type
 
 log = logging.getLogger("assess_lxdprofile_charm")
+
+default_bundle = 'bundles-lxd-profile.yaml'
 
 def deploy_bundle(client, charm_bundle):
     """Deploy the given charm bundle
     :param client: Jujupy ModelClient object
     :param charm_bundle: Optional charm bundle string
     """
-    bundle = local_charm_path(
-        charm=charm_bundle,
-        juju_ver=client.version,
-        repository=os.environ['JUJU_REPOSITORY']
-    )
+    if not charm_bundle:
+        bundle = local_charm_path(
+            charm=default_bundle,
+            juju_ver=client.version,
+            repository=os.environ['JUJU_REPOSITORY']
+        )
+    else:
+        bundle = charm_bundle
     _, primary = client.deploy(bundle)
     client.wait_for(primary)
+
+def assess_profile_machines(client):
+    """Assess the machines
+    """
+    charm_profiles = []
+    status = client.get_status()
+    apps = status.get_applications()
+    for _, info in apps.items():
+        charm_profile = info['charm-profile']
+        if charm_profile:
+            charm_profiles.append(charm_profile)
+
+    if len(charm_profiles) == 0:
+        client.wait_for(AgentsIdle)
+    else:
+        client.wait_for(WaitForLXDProfilesConditions(charm_profiles))
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test juju lxd profile bundle deploys.")
@@ -55,6 +80,7 @@ def main(argv=None):
         client = bs_manager.client
 
         deploy_bundle(client, charm_bundle=args.charm_bundle)
+        assess_profile_machines(client)
 
 if __name__ == '__main__':
     sys.exit(main())
