@@ -164,7 +164,7 @@ func (cfg *ControllerPodConfig) APIHosts() []string {
 
 // VerifyConfig verifies that the ControllerPodConfig is valid.
 func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
-	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
+	defer errors.DeferredAnnotatef(&err, "invalid controller pod configuration")
 	if !names.IsValidMachine(cfg.MachineId) {
 		return errors.New("invalid machine id")
 	}

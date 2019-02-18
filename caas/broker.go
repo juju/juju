@@ -9,7 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
+	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
+	k8sstorage "k8s.io/api/storage/v1"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
@@ -104,16 +106,6 @@ type Broker interface {
 	// Destroy terminates all containers and other resources in this broker's namespace.
 	Destroy(context.ProviderCallContext) error
 
-	// Namespaces returns name names of the namespaces on the cluster.
-	Namespaces() ([]string, error)
-
-	// EnsureNamespace ensures this broker's namespace is created.
-	EnsureNamespace() error
-
-	// GetStorageClassName returns the name of a storage class with the specified
-	// labels, or else the cluster default storage class, or else a NotFound error.
-	GetStorageClassName(labels ...string) (string, error)
-
 	// EnsureOperator creates or updates an operator pod for running
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
@@ -125,17 +117,8 @@ type Broker interface {
 	// DeleteOperator deletes the specified operator.
 	DeleteOperator(appName string) error
 
-	// EnsureService creates or updates a service for pods with the given params.
-	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
-
 	// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
 	EnsureCustomResourceDefinition(appName string, podSpec *PodSpec) error
-
-	// DeleteService deletes the specified service.
-	DeleteService(appName string) error
-
-	// ExposeService sets up external access to the specified service.
-	ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error
 
 	// UnexposeService removes external access to the specified service.
 	UnexposeService(appName string) error
@@ -152,9 +135,6 @@ type Broker interface {
 	// WatchOperator returns a watcher which notifies when there
 	// are changes to the operator of the specified application.
 	WatchOperator(string) (watcher.NotifyWatcher, error)
-
-	// GetNamespace returns the namespace for the specified name or current namespace.
-	GetNamespace(name string) (*core.Namespace, error)
 
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
@@ -178,17 +158,83 @@ type Broker interface {
 	// ResourceAdopter defines methods for adopting resources.
 	environs.ResourceAdopter
 
-	// ServicePublicHostPortsGetter provides the API to get service public addresses with port.
-	ServicePublicHostPortsGetter
+	// SecretGetterSetter provides the API to get/set secret.
+	SecretGetterSetter
 
-	// ServiceGetter provides the API to get service.
-	ServiceGetter
+	// ConfigMapGetterSetter provides the API to get/set configmap.
+	ConfigMapGetterSetter
+
+	// NamespaceGetterSetter provides the API to get/set namespace.
+	NamespaceGetterSetter
+
+	// StorageclassGetterSetter provides the API to get/set storageclass.
+	StorageclassGetterSetter
+
+	// ServiceGetterSetter provides the API to get/set service.
+	ServiceGetterSetter
+
+	// StatefulSetGetterSetter provides the API to get/set statefulset.
+	StatefulSetGetterSetter
 }
 
-// ServiceGetter provides the API to get service.
-type ServiceGetter interface {
+// StorageclassGetterSetter provides the API to get/set storageclass.
+type StorageclassGetterSetter interface {
+	// GetDefaultStorageClass returns the default storageclass in k8s cluster.
+	GetDefaultStorageClass() (*k8sstorage.StorageClass, error)
+	// GetStorageClassName returns the name of a storage class with the specified
+	// labels, or else the cluster default storage class, or else a NotFound error.
+	GetStorageClassName(labels ...string) (string, error)
+}
+
+// StatefulSetGetterSetter provides the API to get/set statefulset.
+type StatefulSetGetterSetter interface {
+	CreateStatefulSet(spec *apps.StatefulSet) error
+	DeleteStatefulSet(name string) error
+}
+
+// ConfigMapGetterSetter provides the API to get/set configmap.
+type ConfigMapGetterSetter interface {
+	CreateConfigMap(configMap *core.ConfigMap) error
+	GetConfigMap(cmName string) (*core.ConfigMap, error)
+	EnsureConfigMap(configMap *core.ConfigMap) error
+	DeleteConfigMap(configMapName string) error
+}
+
+// SecretGetterSetter provides the API to get/set secret.
+type SecretGetterSetter interface {
+	CreateSecret(Secret *core.Secret) error
+	GetSecret(secretName string) (*core.Secret, error)
+	UpdateSecret(sec *core.Secret) error
+	DeleteSecret(secretName string) error
+}
+
+// ServiceGetterSetter provides the API to get/set service.
+type ServiceGetterSetter interface {
+	EnsureService(spec *core.Service) error
+	// EnsureServiceForApplication creates or updates a service for pods with the given params.
+	EnsureServiceForApplication(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
+	// DeleteServiceForApplication deletes the specified service with all related resources.
+	DeleteServiceForApplication(appName string) error
+	// DeleteService deletes a service resource.
+	DeleteService(deploymentName string) error
+	// ExposeService sets up external access to the specified service.
+	ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error
 	// GetService returns the service for the specified application.
 	GetService(appName string) (*Service, error)
+}
+
+// NamespaceGetterSetter provides the API to get/set namespace.
+type NamespaceGetterSetter interface {
+	// Namespaces returns name names of the namespaces on the cluster.
+	Namespaces() ([]string, error)
+	// EnsureNamespace ensures this broker's namespace is created.
+	EnsureNamespace() error
+	// CreateNamespace creates a named namespace.
+	CreateNamespace(name string) error
+	// GetNamespace returns the namespace for the specified name or current namespace.
+	GetNamespace(name string) (*core.Namespace, error)
+	// GetCurrentNamespace returns current namespace name.
+	GetCurrentNamespace() string
 }
 
 // NamespaceWatcher provides the API to watch caas namespace.
@@ -196,12 +242,6 @@ type NamespaceWatcher interface {
 	// WatchNamespace returns a watcher which notifies when there
 	// are changes to current namespace.
 	WatchNamespace() (watcher.NotifyWatcher, error)
-}
-
-// ServicePublicHostPortsGetter provides the API to get service public addresses with port.
-type ServicePublicHostPortsGetter interface {
-	// GetServicePublicHostPorts returns the hostports of the service.
-	GetServicePublicHostPorts(svcName, portName string) ([]network.HostPort, error)
 }
 
 // Service represents information about the status of a caas service entity.

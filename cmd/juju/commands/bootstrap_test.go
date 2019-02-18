@@ -1464,7 +1464,7 @@ func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapProviderManyDetectedCredentials(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "many-credentials", "ctrl")
-	c.Assert(err, gc.ErrorMatches, ambiguousDetectedCredentialError.Error())
+	c.Assert(err, gc.ErrorMatches, errorAmbiguousDetectedCredential.Error())
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {

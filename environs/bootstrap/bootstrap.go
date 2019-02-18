@@ -188,10 +188,10 @@ func bootstrapCAAS(
 	bootstrapParams environs.BootstrapParams,
 ) error {
 	if args.BuildAgent {
-		return errors.NewNotSupported(nil, "build agent in CAAS")
+		return errors.NewNotSupported(nil, "--build-agent when bootstrapping a k8s controller")
 	}
 	if args.BootstrapImage != "" {
-		return errors.NewNotSupported(nil, "specify bootstrap image in CAAS")
+		return errors.NewNotSupported(nil, "--bootstrap-image when bootstrapping a k8s controller")
 	}
 
 	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
@@ -208,13 +208,13 @@ func bootstrapCAAS(
 	}
 
 	// TODO(caas): how to find the best/newest jujud docker image to use.
-	tool := jujuversion.Current
+	jujuVersion := jujuversion.Current
 
 	// set agent version before finalizing bootstrap config
-	if err := setBootstrapToolsVersion(environ, tool); err != nil {
+	if err := setBootstrapToolsVersion(environ, jujuVersion); err != nil {
 		return errors.Trace(err)
 	}
-	podConfig.JujuVersion = tool
+	podConfig.JujuVersion = jujuVersion
 	if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
@@ -531,12 +531,12 @@ func Bootstrap(
 		BootstrapSeries:  args.BootstrapSeries,
 		Placement:        args.Placement,
 	}
-	do := bootstrapIAAS
+	doBootstrap := bootstrapIAAS
 	if jujucloud.CloudIsCAAS(args.Cloud) {
-		do = bootstrapCAAS
+		doBootstrap = bootstrapCAAS
 	}
 
-	if err := do(ctx, environ, callCtx, args, bootstrapParams); err != nil {
+	if err := doBootstrap(ctx, environ, callCtx, args, bootstrapParams); err != nil {
 		return errors.Trace(err)
 	}
 	ctx.Infof("Bootstrap agent now started")

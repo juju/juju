@@ -4,10 +4,14 @@
 package provider
 
 import (
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
+	// "github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/storage"
 )
 
@@ -21,9 +25,27 @@ var (
 	NewKubernetesWatcher     = newKubernetesWatcher
 	CompileK8sCloudCheckers  = compileK8sCloudCheckers
 	CloudSpecToK8sRestConfig = cloudSpecToK8sRestConfig
+
+	LabelApplication = labelApplication
 )
 
 type KubernetesWatcher = kubernetesWatcher
+
+type ControllerStackerForTest interface {
+	controllerStacker
+	GetAgentConfigContent(c *gc.C) string
+}
+
+func (cs controllerStack) GetAgentConfigContent(c *gc.C) string {
+	agentCfg, err := cs.agentConfig.Render()
+	c.Assert(err, jc.ErrorIsNil)
+	return string(agentCfg)
+}
+
+func NewcontrollerStackForTest(stackName string, broker bootstrapBroker, pcfg *podcfg.ControllerPodConfig) (ControllerStackerForTest, error) {
+	cs, err := newcontrollerStack(stackName, broker, pcfg)
+	return cs.(controllerStack), err
+}
 
 func PodSpec(u *unitSpec) core.PodSpec {
 	return u.Pod

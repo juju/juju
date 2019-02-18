@@ -52,8 +52,8 @@ func (m *mockServiceBroker) ParsePodSpec(in string) (*caas.PodSpec, error) {
 	return m.podSpec, nil
 }
 
-func (m *mockServiceBroker) EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error {
-	m.MethodCall(m, "EnsureService", appName, params, numUnits, config)
+func (m *mockServiceBroker) EnsureServiceForApplication(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error {
+	m.MethodCall(m, "EnsureServiceForApplication", appName, params, numUnits, config)
 	statusCallback(appName, status.Waiting, "ensuring", map[string]interface{}{"foo": "bar"})
 	m.ensured <- struct{}{}
 	return m.NextErr()
@@ -69,8 +69,8 @@ func (m *mockServiceBroker) GetService(appName string) (*caas.Service, error) {
 	return &caas.Service{Id: "id", Addresses: []network.Address{{Value: "10.0.0.1"}}}, m.NextErr()
 }
 
-func (m *mockServiceBroker) DeleteService(appName string) error {
-	m.MethodCall(m, "DeleteService", appName)
+func (m *mockServiceBroker) DeleteServiceForApplication(appName string) error {
+	m.MethodCall(m, "DeleteServiceForApplication", appName)
 	m.deleted <- struct{}{}
 	return m.NextErr()
 }

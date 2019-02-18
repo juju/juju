@@ -211,8 +211,12 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
+		controllerStack, err := newcontrollerStack(JujuControllerStackName, k, pcfg)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return errors.Annotate(
-			createControllerStack(k, pcfg),
+			controllerStack.Deploy(),
 			"creating controller stack for controller",
 		)
 	}
@@ -263,7 +267,7 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error 
 			return nil
 		case <-watcher.Changes():
 			// ensure namespace has been deleted - notfound error expected.
-			_, err := k.GetNamespace("")
+			_, err := k.GetNamespace(k.namespace)
 			if errors.IsNotFound(err) {
 				// namespace ha been deleted.
 				return nil
@@ -292,9 +296,6 @@ func (k *kubernetesClient) Namespaces() ([]string, error) {
 
 // GetNamespace returns the namespace for the specified name or current namespace.
 func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
-	if name == "" {
-		name = k.namespace
-	}
 	ns, err := k.CoreV1().Namespaces().Get(name, v1.GetOptions{IncludeUninitialized: true})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("namespace %q", name)
@@ -321,10 +322,13 @@ func (k *kubernetesClient) EnsureNamespace() error {
 	return errors.Trace(err)
 }
 
-// CreateNamespace creates this broker's namespace.
+// CreateNamespace creates a named namespace.
 func (k *kubernetesClient) CreateNamespace(name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
 	_, err := k.CoreV1().Namespaces().Create(ns)
+	if k8serrors.IsAlreadyExists(err) {
+		return errors.AlreadyExistsf("namespace %q already exists", name)
+	}
 	return errors.Trace(err)
 }
 
@@ -393,7 +397,14 @@ func (k *kubernetesClient) ensureSecret(sec *core.Secret) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
+// UpdateSecret updates a secret resource.
+func (k *kubernetesClient) UpdateSecret(sec *core.Secret) error {
+	_, err := k.CoreV1().Secrets(k.namespace).Update(sec)
+	return errors.Trace(err)
+}
+
+// GetSecret return a secret resource.
+func (k *kubernetesClient) GetSecret(secretName string) (*core.Secret, error) {
 	secret, err := k.CoreV1().Secrets(k.namespace).Get(secretName, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -404,12 +415,14 @@ func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
 	return secret, nil
 }
 
-func (k *kubernetesClient) createSecret(secret *core.Secret) error {
+// CreateSecret creates a secret resource.
+func (k *kubernetesClient) CreateSecret(secret *core.Secret) error {
 	_, err := k.CoreV1().Secrets(k.namespace).Create(secret)
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteSecret(secretName string) error {
+// DeleteSecret deletes a secret resource.
+func (k *kubernetesClient) DeleteSecret(secretName string) error {
 	secrets := k.CoreV1().Secrets(k.namespace)
 	err := secrets.Delete(secretName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
@@ -456,7 +469,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			return errors.Annotatef(err, "config map for %q should already exist", appName)
 		}
 	} else {
-		if err := k.ensureConfigMap(operatorConfigMap(appName, operatorName, config)); err != nil {
+		if err := k.EnsureConfigMap(operatorConfigMap(appName, operatorName, config)); err != nil {
 			return errors.Annotate(err, "creating or updating ConfigMap")
 		}
 	}
@@ -553,7 +566,8 @@ func (k *kubernetesClient) GetStorageClassName(labels ...string) (string, error)
 	return sc.Name, nil
 }
 
-func (k *kubernetesClient) getDefaultStorageClass() (*k8sstorage.StorageClass, error) {
+// GetDefaultStorageClass returns the default storageclass in k8s cluster.
+func (k *kubernetesClient) GetDefaultStorageClass() (*k8sstorage.StorageClass, error) {
 	storageClasses, err := k.StorageV1().StorageClasses().List(v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing storage classes")
@@ -601,7 +615,7 @@ func (k *kubernetesClient) maybeGetStorageClass(labels ...string) (*k8sstorage.S
 	}
 
 	// Second look for the cluster default storage class, if defined.
-	if storageClass, err := k.getDefaultStorageClass(); err == nil {
+	if storageClass, err := k.GetDefaultStorageClass(); err == nil {
 		return storageClass, nil
 	}
 
@@ -758,7 +772,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	}
 
 	// Finally the operator itself.
-	if err := k.deleteStatefulSet(operatorName); err != nil {
+	if err := k.DeleteStatefulSet(operatorName); err != nil {
 		return errors.Trace(err)
 	}
 	pods := k.CoreV1().Pods(k.namespace)
@@ -778,7 +792,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		// Delete secrets.
 		for _, c := range p.Spec.Containers {
 			secretName := appSecretName(deploymentName, c.Name)
-			if err := k.deleteSecret(secretName); err != nil {
+			if err := k.DeleteSecret(secretName); err != nil {
 				return errors.Annotatef(err, "deleting %s secret for container %s", appName, c.Name)
 			}
 		}
@@ -894,15 +908,15 @@ func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 	return &result, nil
 }
 
-// DeleteService deletes the specified service.
-func (k *kubernetesClient) DeleteService(appName string) (err error) {
+// DeleteServiceForApplication deletes the specified service with all related resources.
+func (k *kubernetesClient) DeleteServiceForApplication(appName string) (err error) {
 	logger.Debugf("deleting application %s", appName)
 
 	deploymentName := k.deploymentName(appName)
-	if err := k.deleteService(deploymentName); err != nil {
+	if err := k.DeleteService(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteStatefulSet(deploymentName); err != nil {
+	if err := k.DeleteStatefulSet(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
 	if err := k.deleteDeployment(deploymentName); err != nil {
@@ -928,7 +942,7 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 		return errors.Trace(err)
 	}
 	for _, s := range secretList.Items {
-		if err := k.deleteSecret(s.Name); err != nil {
+		if err := k.DeleteSecret(s.Name); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -986,8 +1000,8 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(t *caas.Custom
 	return
 }
 
-// EnsureService creates or updates a service for pods with the given params.
-func (k *kubernetesClient) EnsureService(
+// EnsureServiceForApplication creates or updates a service for pods with the given params.
+func (k *kubernetesClient) EnsureServiceForApplication(
 	appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes,
 ) (err error) {
 	defer func() {
@@ -1062,7 +1076,7 @@ func (k *kubernetesClient) EnsureService(
 		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, resourceTags); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
-		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
+		cleanups = append(cleanups, func() { k.DeleteSecret(imageSecretName) })
 	}
 
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
@@ -1238,7 +1252,7 @@ func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers [
 		for _, fileSet := range container.Files {
 			cfgName := cfgMapName(fileSet.Name)
 			vol := core.Volume{Name: cfgName}
-			if err := k.ensureConfigMap(filesetConfigMap(cfgName, &fileSet)); err != nil {
+			if err := k.EnsureConfigMap(filesetConfigMap(cfgName, &fileSet)); err != nil {
 				return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
 			}
 			vol.ConfigMap = &core.ConfigMapVolumeSource{
@@ -1377,12 +1391,14 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) createStatefulSet(spec *apps.StatefulSet) error {
+// CreateStatefulSet deletes a statefulset resource.
+func (k *kubernetesClient) CreateStatefulSet(spec *apps.StatefulSet) error {
 	_, err := k.AppsV1().StatefulSets(k.namespace).Create(spec)
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteStatefulSet(name string) error {
+// DeleteStatefulSet deletes a statefulset resource.
+func (k *kubernetesClient) DeleteStatefulSet(name string) error {
 	deployments := k.AppsV1().StatefulSets(k.namespace)
 	err := deployments.Delete(name, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
@@ -1469,10 +1485,11 @@ func (k *kubernetesClient) configureService(
 			ExternalName:             config.GetString(serviceExternalNameKey, ""),
 		},
 	}
-	return k.ensureService(service)
+	return k.EnsureService(service)
 }
 
-func (k *kubernetesClient) ensureService(spec *core.Service) error {
+// EnsureService ensures a service resource.
+func (k *kubernetesClient) EnsureService(spec *core.Service) error {
 	services := k.CoreV1().Services(k.namespace)
 	// Set any immutable fields if the service already exists.
 	existing, err := services.Get(spec.Name, v1.GetOptions{IncludeUninitialized: true})
@@ -1487,7 +1504,8 @@ func (k *kubernetesClient) ensureService(spec *core.Service) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteService(deploymentName string) error {
+// DeleteService deletes a service resource.
+func (k *kubernetesClient) DeleteService(deploymentName string) error {
 	services := k.CoreV1().Services(k.namespace)
 	err := services.Delete(deploymentName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
@@ -1886,7 +1904,8 @@ func filesetConfigMap(configMapName string, files *caas.FileSet) *core.ConfigMap
 	return result
 }
 
-func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
+// EnsureConfigMap ensures a ConfigMap resource.
+func (k *kubernetesClient) EnsureConfigMap(configMap *core.ConfigMap) error {
 	configMaps := k.CoreV1().ConfigMaps(k.namespace)
 	_, err := configMaps.Update(configMap)
 	if k8serrors.IsNotFound(err) {
@@ -1895,7 +1914,8 @@ func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteConfigMap(configMapName string) error {
+// DeleteConfigMap deletes a ConfigMap resource.
+func (k *kubernetesClient) DeleteConfigMap(configMapName string) error {
 	err := k.CoreV1().ConfigMaps(k.namespace).Delete(configMapName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
@@ -1905,12 +1925,14 @@ func (k *kubernetesClient) deleteConfigMap(configMapName string) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) createConfigMap(configMap *core.ConfigMap) error {
+// CreateConfigMap creates a ConfigMap resource.
+func (k *kubernetesClient) CreateConfigMap(configMap *core.ConfigMap) error {
 	_, err := k.CoreV1().ConfigMaps(k.namespace).Create(configMap)
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) {
+// GetConfigMap returns a ConfigMap resource.
+func (k *kubernetesClient) GetConfigMap(cmName string) (*core.ConfigMap, error) {
 	cm, err := k.CoreV1().ConfigMaps(k.namespace).Get(cmName, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
