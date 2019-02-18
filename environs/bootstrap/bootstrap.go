@@ -143,6 +143,14 @@ type BootstrapParams struct {
 
 	// DialOpts contains the bootstrap dial options.
 	DialOpts environs.BootstrapDialOpts
+
+	// JujuDbSnapPath is the path to a local .snap file that will be used
+	// to run the juju-db service.
+	JujuDbSnapPath string
+
+	// JujuDbSnapAssertionsPath is the path to a local .assertfile that
+	// will be used to test the contents of the .snap at JujuDbSnap.
+	JujuDbSnapAssertionsPath string
 }
 
 // Validate validates the bootstrap parameters.
@@ -498,6 +506,11 @@ func bootstrapIAAS(
 	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 		return errors.Trace(err)
 	}
+
+	if err := instanceConfig.SetSnapSource(args.JujuDbSnapPath, args.JujuDbSnapAssertionsPath); err != nil {
+		return errors.Trace(err)
+	}
+
 	var environVersion int
 	if e, ok := environ.(environs.Environ); ok {
 		environVersion = e.Provider().Version()
@@ -608,6 +621,8 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
 		ctx.Infof(msg)
 	})
+	icfg.Bootstrap.JujuDbSnapPath = args.JujuDbSnapPath
+	icfg.Bootstrap.JujuDbSnapAssertionsPath = args.JujuDbSnapAssertionsPath
 	return nil
 }
 

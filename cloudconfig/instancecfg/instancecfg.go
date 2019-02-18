@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"path"
 	"reflect"
 	"strconv"
@@ -214,6 +215,14 @@ type BootstrapConfig struct {
 	// subsequently will acquire their serving info from another
 	// server.
 	StateServingInfo params.StateServingInfo
+
+	// JujuDbSnapPath is the path to a .snap file that will be used as the juju-db
+	// service.
+	JujuDbSnapPath string
+
+	// JujuDbSnapAssertions is a path to a .assert file that will be used
+	// to verify the .snap at JujuDbSnapPath
+	JujuDbSnapAssertionsPath string
 }
 
 // SSHHostKeys contains the SSH host keys to configure for a bootstrap host.
@@ -451,6 +460,11 @@ func (cfg *InstanceConfig) JujuTools() string {
 	return agenttools.SharedToolsDir(cfg.DataDir, cfg.AgentVersion())
 }
 
+// SnapDir returns the directory where snaps should be uploaded to.
+func (cfg *InstanceConfig) SnapDir() string {
+	return path.Join(cfg.DataDir, "snap")
+}
+
 // GUITools returns the directory where the Juju GUI release is stored.
 func (cfg *InstanceConfig) GUITools() string {
 	return agenttools.SharedGUIDir(cfg.DataDir)
@@ -556,6 +570,30 @@ func copyToolsList(in coretools.List) coretools.List {
 		out[i] = &copied
 	}
 	return out
+}
+
+// SetSnapSource annotates the instance configuration
+// with the location of a local .snap to upload during
+// the instance's provisioning.
+func (cfg *InstanceConfig) SetSnapSource(snapPath string, snapAssertionsPath string) error {
+	if snapPath == "" {
+		return nil
+	}
+
+	_, err := os.Stat(snapPath)
+	if err != nil {
+		return errors.Annotatef(err, "unable set local snap (at %s)", snapPath)
+	}
+
+	_, err = os.Stat(snapAssertionsPath)
+	if err != nil {
+		return errors.Annotatef(err, "unable set local snap .assert (at %s)", snapAssertionsPath)
+	}
+
+	cfg.Bootstrap.JujuDbSnapPath = snapPath
+	cfg.Bootstrap.JujuDbSnapAssertionsPath = snapAssertionsPath
+
+	return nil
 }
 
 type requiresError string
