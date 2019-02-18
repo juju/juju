@@ -81,6 +81,10 @@ func (c *Controller) loop() error {
 				c.updateApplication(ch)
 			case RemoveApplication:
 				c.removeApplication(ch)
+			case UnitChange:
+				c.updateUnit(ch)
+			case RemoveUnit:
+				c.removeUnit(ch)
 			}
 			if c.config.Notify != nil {
 				c.config.Notify(change)
@@ -142,14 +146,7 @@ func (c *Controller) Model(uuid string) (*Model, error) {
 // described in the ModelChange.
 func (c *Controller) updateModel(ch ModelChange) {
 	c.mu.Lock()
-
-	model, found := c.models[ch.ModelUUID]
-	if !found {
-		model = newModel(c.metrics, c.hub)
-		c.models[ch.ModelUUID] = model
-	}
-	model.setDetails(ch)
-
+	c.ensureModel(ch.ModelUUID).setDetails(ch)
 	c.mu.Unlock()
 }
 
@@ -163,18 +160,7 @@ func (c *Controller) removeModel(ch RemoveModel) {
 // updateApplication adds or updates the application in the specified model.
 func (c *Controller) updateApplication(ch ApplicationChange) {
 	c.mu.Lock()
-
-	// While it is likely that we will receive a change update for the model
-	// before we get an update for the application for that model, but the
-	// cache needs to be resilient enough to make sure that we can handle
-	// the situation where this is not the case.
-	model, found := c.models[ch.ModelUUID]
-	if !found {
-		model = newModel(c.metrics, c.hub)
-		c.models[ch.ModelUUID] = model
-	}
-	model.updateApplication(ch)
-
+	c.ensureModel(ch.ModelUUID).updateApplication(ch)
 	c.mu.Unlock()
 }
 
@@ -183,11 +169,40 @@ func (c *Controller) updateApplication(ch ApplicationChange) {
 // then it will not have the application cached.
 func (c *Controller) removeApplication(ch RemoveApplication) {
 	c.mu.Lock()
-
-	model, found := c.models[ch.ModelUUID]
-	if found {
+	if model, ok := c.models[ch.ModelUUID]; ok {
 		model.removeApplication(ch)
 	}
-
 	c.mu.Unlock()
+}
+
+// updateApplication adds or updates the application in the specified model.
+func (c *Controller) updateUnit(ch UnitChange) {
+	c.mu.Lock()
+	c.ensureModel(ch.ModelUUID).updateUnit(ch)
+	c.mu.Unlock()
+}
+
+// removeUnit removes the unit from the cached model.
+// If the cache does not have the model loaded for the unit yet,
+// then it will not have the unit cached.
+func (c *Controller) removeUnit(ch RemoveUnit) {
+	c.mu.Lock()
+	if model, ok := c.models[ch.ModelUUID]; ok {
+		model.removeUnit(ch)
+	}
+	c.mu.Unlock()
+}
+
+// ensureModel retrieves the cached model for the input UUID,
+// or adds it if not found.
+// It is likely that we will receive a change update for the model before we
+// get an update for one of its entities, but the cache needs to be resilient
+// enough to make sure that we can handle when this is not the case.
+func (c *Controller) ensureModel(modelUUID string) *Model {
+	model, found := c.models[modelUUID]
+	if !found {
+		model = newModel(c.metrics, c.hub)
+		c.models[modelUUID] = model
+	}
+	return model
 }

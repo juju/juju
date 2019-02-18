@@ -58,12 +58,13 @@ func (s *ControllerSuite) TestAddModel(c *gc.C) {
 	controller, events := s.new(c)
 	s.processChange(c, modelChange, events)
 
-	c.Check(controller.ModelUUIDs(), jc.SameContents, []string{"model-uuid"})
+	c.Check(controller.ModelUUIDs(), jc.SameContents, []string{modelChange.ModelUUID})
 	c.Check(controller.Report(), gc.DeepEquals, map[string]interface{}{
 		"model-uuid": map[string]interface{}{
 			"name":              "model-owner/test-model",
 			"life":              life.Value("alive"),
 			"application-count": 0,
+			"unit-count":        0,
 		}})
 }
 
@@ -71,7 +72,7 @@ func (s *ControllerSuite) TestRemoveModel(c *gc.C) {
 	controller, events := s.new(c)
 	s.processChange(c, modelChange, events)
 
-	remove := cache.RemoveModel{ModelUUID: "model-uuid"}
+	remove := cache.RemoveModel{ModelUUID: modelChange.ModelUUID}
 	s.processChange(c, remove, events)
 
 	c.Check(controller.ModelUUIDs(), gc.HasLen, 0)
@@ -80,32 +81,58 @@ func (s *ControllerSuite) TestRemoveModel(c *gc.C) {
 
 func (s *ControllerSuite) TestAddApplication(c *gc.C) {
 	controller, events := s.new(c)
-	s.processChange(c, modelChange, events)
 	s.processChange(c, appChange, events)
 
-	mod, err := controller.Model("model-uuid")
+	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["application-count"], gc.Equals, 1)
 
-	app, err := mod.Application("application-name")
+	app, err := mod.Application(appChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(app, gc.NotNil)
 }
 
 func (s *ControllerSuite) TestRemoveApplication(c *gc.C) {
 	controller, events := s.new(c)
-	s.processChange(c, modelChange, events)
 	s.processChange(c, appChange, events)
 
 	remove := cache.RemoveApplication{
-		ModelUUID: "model-uuid",
-		Name:      "application-name",
+		ModelUUID: modelChange.ModelUUID,
+		Name:      appChange.Name,
 	}
 	s.processChange(c, remove, events)
 
-	mod, err := controller.Model("model-uuid")
+	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["application-count"], gc.Equals, 0)
+}
+
+func (s *ControllerSuite) TestAddUnit(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, unitChange, events)
+
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod.Report()["unit-count"], gc.Equals, 1)
+
+	app, err := mod.Unit(unitChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(app, gc.NotNil)
+}
+
+func (s *ControllerSuite) TestRemoveUnit(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, unitChange, events)
+
+	remove := cache.RemoveUnit{
+		ModelUUID: modelChange.ModelUUID,
+		Name:      unitChange.Name,
+	}
+	s.processChange(c, remove, events)
+
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod.Report()["unit-count"], gc.Equals, 0)
 }
 
 func (s *ControllerSuite) new(c *gc.C) (*cache.Controller, <-chan interface{}) {
@@ -128,6 +155,10 @@ func (s *ControllerSuite) captureEvents(c *gc.C) <-chan interface{} {
 		case cache.ApplicationChange:
 			send = true
 		case cache.RemoveApplication:
+			send = true
+		case cache.UnitChange:
+			send = true
+		case cache.RemoveUnit:
 			send = true
 		default:
 			// no-op

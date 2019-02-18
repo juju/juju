@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -102,8 +103,8 @@ func (c *cacheWorker) loop() error {
 	})
 
 	collector := cache.NewMetricsCollector(c.controller)
-	c.config.PrometheusRegisterer.Register(collector)
-	c.config.PrometheusRegisterer.Register(allWatcherStarts)
+	_ = c.config.PrometheusRegisterer.Register(collector)
+	_ = c.config.PrometheusRegisterer.Register(allWatcherStarts)
 	defer c.config.PrometheusRegisterer.Unregister(allWatcherStarts)
 	defer c.config.PrometheusRegisterer.Unregister(collector)
 
@@ -127,7 +128,7 @@ func (c *cacheWorker) loop() error {
 		// If we have been stopped before we have properly been started
 		// there may not be a watcher yet.
 		if c.watcher != nil {
-			c.watcher.Stop()
+			_ = c.watcher.Stop()
 		}
 		c.mu.Unlock()
 		wg.Wait()
@@ -152,11 +153,11 @@ func (c *cacheWorker) loop() error {
 			err := c.processWatcher(watcher, watcherChanges)
 			if err == nil {
 				// We are done, so exit
-				watcher.Stop()
+				_ = watcher.Stop()
 				return
 			}
 			c.config.Logger.Errorf("watcher error, %v, getting new watcher", err)
-			watcher.Stop()
+			_ = watcher.Stop()
 		}
 	}()
 
@@ -198,15 +199,6 @@ func (c *cacheWorker) processWatcher(w *state.Multiwatcher, watcherChanges chan<
 			return nil
 		case watcherChanges <- deltas:
 		}
-	}
-}
-
-func coreStatus(info multiwatcher.StatusInfo) status.StatusInfo {
-	return status.StatusInfo{
-		Status:  info.Current,
-		Message: info.Message,
-		Data:    info.Data,
-		Since:   info.Since,
 	}
 }
 
@@ -258,6 +250,34 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			Status:          coreStatus(value.Status),
 			WorkloadVersion: value.WorkloadVersion,
 		}
+	case "unit":
+		if d.Removed {
+			return cache.RemoveUnit{
+				ModelUUID: id.ModelUUID,
+				Name:      id.Id,
+			}
+		}
+		value, ok := d.Entity.(*multiwatcher.UnitInfo)
+		if !ok {
+			c.config.Logger.Errorf("unexpected type %T", d.Entity)
+			return nil
+		}
+		return cache.UnitChange{
+			ModelUUID:      value.ModelUUID,
+			Name:           value.Name,
+			Application:    value.Application,
+			Series:         value.Series,
+			CharmURL:       value.CharmURL,
+			PublicAddress:  value.PublicAddress,
+			PrivateAddress: value.PrivateAddress,
+			MachineId:      value.MachineId,
+			Ports:          coreNetworkPorts(value.Ports),
+			PortRanges:     coreNetworkPortRanges(value.PortRanges),
+			Subordinate:    value.Subordinate,
+			WorkloadStatus: coreStatus(value.WorkloadStatus),
+			AgentStatus:    coreStatus(value.AgentStatus),
+		}
+
 	default:
 		return nil
 	}
@@ -271,4 +291,36 @@ func (c *cacheWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (c *cacheWorker) Wait() error {
 	return c.catacomb.Wait()
+}
+
+func coreStatus(info multiwatcher.StatusInfo) status.StatusInfo {
+	return status.StatusInfo{
+		Status:  info.Current,
+		Message: info.Message,
+		Data:    info.Data,
+		Since:   info.Since,
+	}
+}
+
+func coreNetworkPorts(delta []multiwatcher.Port) []network.Port {
+	ports := make([]network.Port, len(delta))
+	for i, d := range delta {
+		ports[i] = network.Port{
+			Protocol: d.Protocol,
+			Number:   d.Number,
+		}
+	}
+	return ports
+}
+
+func coreNetworkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
+	ports := make([]network.PortRange, len(delta))
+	for i, d := range delta {
+		ports[i] = network.PortRange{
+			Protocol: d.Protocol,
+			FromPort: d.FromPort,
+			ToPort:   d.ToPort,
+		}
+	}
+	return ports
 }
