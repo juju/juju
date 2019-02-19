@@ -202,10 +202,16 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 }
 
 func (s *charmsSuite) TestUploadVersion(c *gc.C) {
-	// Add the dummy charm with version "juju-2.4-beta3-146-g725cfd3-dirty".
-	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-
 	expectedVersion := "dummy-146-g725cfd3-dirty"
+
+	// Add the dummy charm with version "juju-2.4-beta3-146-g725cfd3-dirty".
+	pathToArchive := testcharms.Repo.CharmArchivePath(c.MkDir(), "dummy")
+	err := testcharms.InjectFilesToCharmArchive(pathToArchive, map[string]string{
+		"version": expectedVersion,
+	})
+	c.Assert(err, gc.IsNil)
+	ch, err := charm.ReadCharmArchive(pathToArchive)
+	c.Assert(err, gc.IsNil)
 
 	f, err := os.Open(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
