@@ -58,9 +58,10 @@ type ControllerPodConfig struct {
 	// ControllerTag identifies the controller.
 	ControllerTag names.ControllerTag
 
-	// MachineNonce is set at provisioning/bootstrap time and used to
+	// TODO(bootstrap): remove me.
+	// PodNonce is set at provisioning/bootstrap time and used to
 	// ensure the agent is running on the correct instance.
-	MachineNonce string
+	PodNonce string
 
 	// JujuVersion is the juju version.
 	JujuVersion version.Number
@@ -119,7 +120,7 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		Tag:               tag,
 		UpgradedToVersion: cfg.JujuVersion,
 		Password:          password,
-		Nonce:             cfg.MachineNonce,
+		Nonce:             cfg.PodNonce,
 		APIAddresses:      cfg.APIHostAddrs(),
 		CACert:            cacert,
 		Values:            cfg.AgentEnvironment,
@@ -192,8 +193,8 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	if len(cfg.APIInfo.CACert) == 0 {
 		return errors.New("missing API CA certificate")
 	}
-	if cfg.MachineNonce == "" {
-		return errors.New("missing machine nonce")
+	if cfg.PodNonce == "" {
+		return errors.New("missing pod nonce")
 	}
 	if cfg.Controller != nil {
 		if err := cfg.verifyControllerConfig(); err != nil {
@@ -289,8 +290,8 @@ func (cfg *ControllerConfig) VerifyConfig() error {
 // always needed.
 func NewControllerPodConfig(
 	controllerTag names.ControllerTag,
-	machineID,
-	machineNonce,
+	podID,
+	podNonce,
 	series string,
 	apiInfo *api.Info,
 ) (*ControllerPodConfig, error) {
@@ -318,8 +319,8 @@ func NewControllerPodConfig(
 		Tags: map[string]string{},
 		// Parameter entries.
 		ControllerTag: controllerTag,
-		MachineId:     machineID,
-		MachineNonce:  machineNonce,
+		MachineId:     podID,
+		PodNonce:      podNonce,
 		APIInfo:       apiInfo,
 	}
 	return pcfg, nil

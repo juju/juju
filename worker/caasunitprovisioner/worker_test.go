@@ -268,8 +268,8 @@ func (s *WorkerSuite) TestScaleChanged(c *gc.C) {
 	s.podSpecGetter.CheckCall(c, 2, "ProvisioningInfo", "gitlab")
 	s.lifeGetter.CheckCallNames(c, "Life")
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
-	s.serviceBroker.CheckCallNames(c, "EnsureServiceForApplication", "Service")
-	s.serviceBroker.CheckCall(c, 0, "EnsureServiceForApplication",
+	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
+	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", expectedServiceParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 	s.serviceBroker.CheckCall(c, 1, "Service", "gitlab")
 
@@ -290,8 +290,8 @@ func (s *WorkerSuite) TestScaleChanged(c *gc.C) {
 
 	newExpectedParams := *expectedServiceParams
 	newExpectedParams.PodSpec = &parsedSpec
-	s.serviceBroker.CheckCallNames(c, "EnsureServiceForApplication")
-	s.serviceBroker.CheckCall(c, 0, "EnsureServiceForApplication",
+	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", &newExpectedParams, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 
 	s.serviceBroker.ResetCalls()
@@ -309,8 +309,8 @@ func (s *WorkerSuite) TestScaleChanged(c *gc.C) {
 		c.Fatal("timed out waiting for service to be ensured")
 	}
 
-	s.serviceBroker.CheckCallNames(c, "EnsureServiceForApplication")
-	s.serviceBroker.CheckCall(c, 0, "EnsureServiceForApplication",
+	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", &newExpectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
@@ -362,8 +362,8 @@ containers:
 		PodSpec:      &anotherParsedSpec,
 		ResourceTags: map[string]string{"foo": "bar"},
 	}
-	s.serviceBroker.CheckCallNames(c, "EnsureServiceForApplication")
-	s.serviceBroker.CheckCall(c, 0, "EnsureServiceForApplication",
+	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", expectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
@@ -445,7 +445,7 @@ crd:
 		c.Fatal("timed out waiting for service to be ensured")
 	}
 
-	s.serviceBroker.CheckCallNames(c, "EnsureCustomResourceDefinition", "EnsureServiceForApplication")
+	s.serviceBroker.CheckCallNames(c, "EnsureCustomResourceDefinition", "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureCustomResourceDefinition", "gitlab", &anotherParsedSpec)
 }
 
@@ -482,8 +482,8 @@ func (s *WorkerSuite) TestScaleZero(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for service to be ensured")
 	}
-	s.serviceBroker.CheckCallNames(c, "EnsureServiceForApplication")
-	s.serviceBroker.CheckCall(c, 0, "EnsureServiceForApplication",
+	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", &caas.ServiceParams{}, 0, application.ConfigAttributes(nil))
 }
 
@@ -519,8 +519,8 @@ func (s *WorkerSuite) TestUnitAllRemoved(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for service to be ensured")
 	}
-	s.serviceBroker.CheckCallNames(c, "EnsureServiceForApplication")
-	s.serviceBroker.CheckCall(c, 0, "EnsureServiceForApplication",
+	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", &caas.ServiceParams{}, 0, application.ConfigAttributes(nil))
 }
 
@@ -544,9 +544,9 @@ func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
 		c.Fatal("timed out waiting for service to be deleted")
 	}
 
-	s.serviceBroker.CheckCallNames(c, "UnexposeService", "DeleteServiceForApplication")
+	s.serviceBroker.CheckCallNames(c, "UnexposeService", "DeleteService")
 	s.serviceBroker.CheckCall(c, 0, "UnexposeService", "gitlab")
-	s.serviceBroker.CheckCall(c, 1, "DeleteServiceForApplication", "gitlab")
+	s.serviceBroker.CheckCall(c, 1, "DeleteService", "gitlab")
 }
 
 func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {

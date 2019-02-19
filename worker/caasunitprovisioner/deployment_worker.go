@@ -126,7 +126,7 @@ func (w *deploymentWorker) loop() error {
 				specChan = nil
 			}
 			logger.Debugf("no units for %v", w.application)
-			err = w.broker.EnsureServiceForApplication(w.application, w.provisioningStatusSetter.SetOperatorStatus, &caas.ServiceParams{}, 0, nil)
+			err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, &caas.ServiceParams{}, 0, nil)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -165,7 +165,7 @@ func (w *deploymentWorker) loop() error {
 			Filesystems:  info.Filesystems,
 			Devices:      info.Devices,
 		}
-		err = w.broker.EnsureServiceForApplication(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, currentScale, appConfig)
+		err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, currentScale, appConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}

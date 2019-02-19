@@ -32,7 +32,10 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -278,6 +281,52 @@ func (s *K8sBrokerSuite) TestConfig(c *gc.C) {
 	c.Assert(s.broker.Config(), jc.DeepEquals, s.cfg)
 }
 
+func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	err := s.broker.SetConfig(s.cfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestControllerNamespaceRenaming(c *gc.C) {
+	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
+		config.NameKey: "controller",
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	s.cfg = cfg
+
+	ctrl := s.setupBroker(c)
+	defer func() {
+		ctrl.Finish()
+		// reset s.cfg
+		s.SetUpSuite(c)
+	}()
+
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller"+"-"+s.cfg.UUID())
+
+}
+
+func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	ctx := envtesting.BootstrapContext(c)
+	callCtx := &context.CloudCallContext{}
+	bootstrapParams := environs.BootstrapParams{
+		ControllerConfig:     testing.FakeControllerConfig(),
+		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+	}
+	result, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Arch, gc.Equals, "amd64")
+	c.Assert(result.CaasBootstrapFinalizer, gc.NotNil)
+
+	bootstrapParams.BootstrapSeries = "bionic"
+	result, err = s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
 type hostRegionTestcase struct {
 	expectedOut set.Strings
 	nodes       *core.NodeList
@@ -382,14 +431,6 @@ func (s *K8sBrokerSuite) TestListHostCloudRegions(c *gc.C) {
 	}
 }
 
-func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	err := s.broker.SetConfig(s.cfg)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *K8sBrokerSuite) TestEnsureNamespace(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
@@ -456,7 +497,7 @@ func (s *K8sBrokerSuite) TestNamespaces(c *gc.C) {
 	c.Assert(result, jc.SameContents, []string{"test", "test2"})
 }
 
-func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
+func (s *K8sBrokerSuite) assertDestroy(c *gc.C, destroyFunc func() error) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -499,6 +540,20 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
 	c.Assert(namespaceWatcher.IsStopped(), jc.IsTrue)
+}
+
+func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
+	s.assertDestroy(c, func() error { return s.broker.DestroyController(context.NewCloudCallContext(), s.cfg.UUID()) })
+}
+
+func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
+	s.assertDestroy(c, func() error { return s.broker.Destroy(context.NewCloudCallContext()) })
+}
+
+func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.namespace)
 }
 
 func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
@@ -748,7 +803,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 			Return(s.k8sNotFoundError()),
 	)
 
-	err := s.broker.DeleteServiceForApplication("test")
+	err := s.broker.DeleteService("test")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -773,7 +828,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{}
-	err := s.broker.EnsureServiceForApplication("app-name", nil, params, 0, nil)
+	err := s.broker.EnsureService("app-name", nil, params, 0, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -854,7 +909,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 		PodSpec:      basicPodspec,
 		ResourceTags: map[string]string{"fred": "mary"},
 	}
-	err = s.broker.EnsureServiceForApplication("app-name", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -1118,7 +1173,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
 	}
-	err = s.broker.EnsureServiceForApplication("app-name", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -1194,7 +1249,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			},
 		},
 	}
-	err = s.broker.EnsureServiceForApplication("app-name", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -1266,7 +1321,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			},
 		},
 	}
-	err = s.broker.EnsureServiceForApplication("app-name", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -1329,7 +1384,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		}},
 		Constraints: constraints.MustParse("mem=64 cpu-power=500"),
 	}
-	err = s.broker.EnsureServiceForApplication("app-name", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -1385,7 +1440,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 		}},
 		Placement: "a=b",
 	}
-	err = s.broker.EnsureServiceForApplication("app-name", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",

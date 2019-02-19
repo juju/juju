@@ -422,7 +422,7 @@ there is no default cloud defined, please specify one using:
 	return cloudTag, cloud, nil
 }
 
-var ambiguousDetectedCredentialError = errors.New(`
+var errorAmbiguousDetectedCredential = errors.New(`
 more than one credential detected. Add all detected credentials
 to the client with:
 
@@ -431,7 +431,7 @@ to the client with:
 and then run the add-model command again with the --credential option.`[1:],
 )
 
-var ambiguousCredentialError = errors.New(`
+var errorAmbiguousCredential = errors.New(`
 more than one credential is available. List credentials with:
 
     juju credentials
@@ -578,9 +578,9 @@ func (c *addModelCommand) findLocalCredential(ctx *cmd.Context, p *findCredentia
 	}
 	switch errors.Cause(err) {
 	case modelcmd.ErrMultipleCredentials:
-		return fail(ambiguousCredentialError)
+		return fail(errorAmbiguousCredential)
 	case common.ErrMultipleDetectedCredentials:
-		return fail(ambiguousDetectedCredentialError)
+		return fail(errorAmbiguousDetectedCredential)
 	}
 	return fail(errors.Trace(err))
 }

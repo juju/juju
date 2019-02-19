@@ -145,7 +145,7 @@ func (p *provisioner) loop() error {
 					if err := p.config.ServiceBroker.UnexposeService(appId); err != nil {
 						return errors.Trace(err)
 					}
-					if err := p.config.ServiceBroker.DeleteServiceForApplication(appId); err != nil {
+					if err := p.config.ServiceBroker.DeleteService(appId); err != nil {
 						return errors.Trace(err)
 					}
 					w, ok := p.getApplicationWorker(appId)

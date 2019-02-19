@@ -193,6 +193,12 @@ func bootstrapCAAS(
 	if args.BootstrapImage != "" {
 		return errors.NewNotSupported(nil, "--bootstrap-image when bootstrapping a k8s controller")
 	}
+	if args.BootstrapSeries != "" {
+		return errors.NewNotSupported(nil, "--bootstrap-series when bootstrapping a k8s controller")
+	}
+	if !constraints.IsEmpty(&args.BootstrapConstraints) {
+		return errors.NewNotSupported(nil, "--bootstrap-constraints when bootstrapping a k8s controller")
+	}
 
 	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
 	if err != nil {
@@ -207,7 +213,6 @@ func bootstrapCAAS(
 		return errors.Trace(err)
 	}
 
-	// TODO(caas): how to find the best/newest jujud docker image to use.
 	jujuVersion := jujuversion.Current
 
 	// set agent version before finalizing bootstrap config

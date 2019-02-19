@@ -9,9 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
-	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
-	k8sstorage "k8s.io/api/storage/v1"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
@@ -120,9 +118,6 @@ type Broker interface {
 	// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
 	EnsureCustomResourceDefinition(appName string, podSpec *PodSpec) error
 
-	// UnexposeService removes external access to the specified service.
-	UnexposeService(appName string) error
-
 	// WatchUnits returns a watcher which notifies when there
 	// are changes to units of the specified application.
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)
@@ -158,12 +153,6 @@ type Broker interface {
 	// ResourceAdopter defines methods for adopting resources.
 	environs.ResourceAdopter
 
-	// SecretGetterSetter provides the API to get/set secret.
-	SecretGetterSetter
-
-	// ConfigMapGetterSetter provides the API to get/set configmap.
-	ConfigMapGetterSetter
-
 	// NamespaceGetterSetter provides the API to get/set namespace.
 	NamespaceGetterSetter
 
@@ -172,53 +161,29 @@ type Broker interface {
 
 	// ServiceGetterSetter provides the API to get/set service.
 	ServiceGetterSetter
-
-	// StatefulSetGetterSetter provides the API to get/set statefulset.
-	StatefulSetGetterSetter
 }
 
 // StorageclassGetterSetter provides the API to get/set storageclass.
 type StorageclassGetterSetter interface {
-	// GetDefaultStorageClass returns the default storageclass in k8s cluster.
-	GetDefaultStorageClass() (*k8sstorage.StorageClass, error)
 	// GetStorageClassName returns the name of a storage class with the specified
 	// labels, or else the cluster default storage class, or else a NotFound error.
 	GetStorageClassName(labels ...string) (string, error)
 }
 
-// StatefulSetGetterSetter provides the API to get/set statefulset.
-type StatefulSetGetterSetter interface {
-	CreateStatefulSet(spec *apps.StatefulSet) error
-	DeleteStatefulSet(name string) error
-}
-
-// ConfigMapGetterSetter provides the API to get/set configmap.
-type ConfigMapGetterSetter interface {
-	CreateConfigMap(configMap *core.ConfigMap) error
-	GetConfigMap(cmName string) (*core.ConfigMap, error)
-	EnsureConfigMap(configMap *core.ConfigMap) error
-	DeleteConfigMap(configMapName string) error
-}
-
-// SecretGetterSetter provides the API to get/set secret.
-type SecretGetterSetter interface {
-	CreateSecret(Secret *core.Secret) error
-	GetSecret(secretName string) (*core.Secret, error)
-	UpdateSecret(sec *core.Secret) error
-	DeleteSecret(secretName string) error
-}
-
 // ServiceGetterSetter provides the API to get/set service.
 type ServiceGetterSetter interface {
-	EnsureService(spec *core.Service) error
-	// EnsureServiceForApplication creates or updates a service for pods with the given params.
-	EnsureServiceForApplication(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
-	// DeleteServiceForApplication deletes the specified service with all related resources.
-	DeleteServiceForApplication(appName string) error
-	// DeleteService deletes a service resource.
-	DeleteService(deploymentName string) error
+	// EnsureService creates or updates a service for pods with the given params.
+	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
+
+	// DeleteService deletes the specified service with all related resources.
+	DeleteService(appName string) error
+
 	// ExposeService sets up external access to the specified service.
 	ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error
+
+	// UnexposeService removes external access to the specified service.
+	UnexposeService(appName string) error
+
 	// GetService returns the service for the specified application.
 	GetService(appName string) (*Service, error)
 }
@@ -227,12 +192,13 @@ type ServiceGetterSetter interface {
 type NamespaceGetterSetter interface {
 	// Namespaces returns name names of the namespaces on the cluster.
 	Namespaces() ([]string, error)
+
 	// EnsureNamespace ensures this broker's namespace is created.
 	EnsureNamespace() error
-	// CreateNamespace creates a named namespace.
-	CreateNamespace(name string) error
+
 	// GetNamespace returns the namespace for the specified name or current namespace.
 	GetNamespace(name string) (*core.Namespace, error)
+
 	// GetCurrentNamespace returns current namespace name.
 	GetCurrentNamespace() string
 }
