@@ -153,7 +153,7 @@ func (r *MachineInitReader) getMachineCloudCfgDirData() (map[string]interface{},
 
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot determine files in CloudInitCfgDir for the machine")
+		return nil, errors.Annotate(err, "determining files in CloudInitCfgDir for the machine")
 	}
 	sortedFiles := sortableFileInfos(files)
 	sort.Sort(sortedFiles)
@@ -182,6 +182,9 @@ func (r *MachineInitReader) unmarshallConfigFile(file string) (map[string]interf
 	raw, config, err := fileAsConfigMap(file)
 	if err == nil {
 		return config, nil
+	}
+	if !errors.IsNotValid(err) {
+		return nil, errors.Trace(err)
 	}
 
 	// The data maybe be gzipped, base64 encoded, both, or neither.
@@ -231,7 +234,10 @@ func fileAsConfigMap(file string) ([]byte, map[string]interface{}, error) {
 	}
 
 	cfg, err := bytesAsConfigMap(raw)
-	return raw, cfg, errors.Annotatef(err, "converting %q contents to map", file)
+	if err != nil {
+		return raw, cfg, errors.NotValidf("converting %q contents to map: %s", file, err.Error())
+	}
+	return raw, cfg, nil
 }
 
 // extractPropertiesFromConfig filters the input config based on the
