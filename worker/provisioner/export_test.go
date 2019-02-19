@@ -6,6 +6,8 @@ package provisioner
 import (
 	"sort"
 
+	"github.com/juju/juju/cloudconfig"
+
 	"github.com/juju/version"
 
 	"github.com/juju/juju/api/common"
@@ -77,4 +79,14 @@ func ProcessProfileChanges(p ProvisionerTask, ids []string) error {
 
 func ProcessOneProfileChange(m apiprovisioner.MachineProvisioner, profileBroker environs.LXDProfiler, unitName string) (bool, error) {
 	return processOneProfileChange(m, profileBroker, unitName)
+}
+
+type patcher interface {
+	PatchValue(interface{}, interface{})
+}
+
+// PatchNewMachineInitReader replaces the local init reader factory method
+// with the supplied one.
+func PatchNewMachineInitReader(patcher patcher, factory func(string) (cloudconfig.InitReader, error)) {
+	patcher.PatchValue(&newMachineInitReader, factory)
 }
