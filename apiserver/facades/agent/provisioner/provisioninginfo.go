@@ -338,9 +338,13 @@ func (p *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs.E
 			continue
 		}
 		pName := lxdprofile.Name(p.m.Name(), app.Name(), ch.Revision())
+		// Lock here, we get a new env for every call to ProvisioningInfo().
+		p.mu.Lock()
 		if err := profileEnv.MaybeWriteLXDProfile(pName, profile); err != nil {
+			p.mu.Unlock()
 			return nil, errors.Trace(err)
 		}
+		p.mu.Unlock()
 		names = append(names, pName)
 	}
 	return names, nil
