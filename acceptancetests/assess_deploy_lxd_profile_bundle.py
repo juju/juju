@@ -50,17 +50,19 @@ def deploy_bundle(client, charm_bundle):
 def assess_profile_machines(client):
     """Assess the machines
     """
+    # Ensure we wait for everything to start before checking the profiles,
+    # that way we can ensure that things have been installed.
+    client.wait_for_started()
+
     charm_profiles = []
     status = client.get_status()
     apps = status.get_applications()
     for _, info in apps.items():
-        charm_profile = info['charm-profile']
-        if charm_profile:
-            charm_profiles.append(charm_profile)
-
-    if len(charm_profiles) == 0:
-        client.wait_for(AgentsIdle)
-    else:
+        if 'charm-profile' in info:
+            charm_profile = info['charm-profile']
+            if charm_profile:
+                charm_profiles.append(charm_profile)
+    if len(charm_profiles) > 0:
         client.wait_for(WaitForLXDProfilesConditions(charm_profiles))
 
 def parse_args(argv):
