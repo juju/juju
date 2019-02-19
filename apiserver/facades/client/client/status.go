@@ -1013,12 +1013,18 @@ func (context *statusContext) processApplication(application *state.Application)
 		return params.ApplicationStatus{Err: common.ServerError(err)}
 	}
 
+	var charmProfileName string
+	if lxdprofile.NotEmpty(applicationCharm) {
+		charmProfileName = lxdprofile.Name(context.model.Name(), application.Name(), applicationCharm.Revision())
+	}
+
 	var processedStatus = params.ApplicationStatus{
 		Charm:        applicationCharm.URL().String(),
 		Series:       application.Series(),
 		Exposed:      application.IsExposed(),
 		Life:         processLife(application),
 		CharmVersion: applicationCharm.Version(),
+		CharmProfile: charmProfileName,
 	}
 
 	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*applicationCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {

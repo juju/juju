@@ -6,6 +6,7 @@ package lxdprofile_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charm "gopkg.in/juju/charm.v6"
 
@@ -67,4 +68,51 @@ func (*LXDProfileSuite) TestValidateCharmInfoWithInvalidConfig(c *gc.C) {
 
 	err := lxdprofile.ValidateCharmInfoLXDProfile(info)
 	c.Assert(err, gc.NotNil)
+}
+
+func (*LXDProfileSuite) TestNotEmpty(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	profile := &charm.LXDProfile{}
+
+	lxdprofiler := NewMockLXDProfiler(ctrl)
+	lxdprofiler.EXPECT().LXDProfile().Return(profile)
+
+	result := lxdprofile.NotEmpty(lxdprofiler)
+	c.Assert(result, jc.IsFalse)
+}
+
+func (*LXDProfileSuite) TestNotEmptyWithConfigProfiles(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	profile := &charm.LXDProfile{
+		Config: map[string]string{
+			"boot": "foobar",
+		},
+	}
+
+	lxdprofiler := NewMockLXDProfiler(ctrl)
+	lxdprofiler.EXPECT().LXDProfile().Return(profile)
+
+	result := lxdprofile.NotEmpty(lxdprofiler)
+	c.Assert(result, jc.IsTrue)
+}
+
+func (*LXDProfileSuite) TestNotEmptyWithDescription(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Having a description doesn't imply changes, so a description alone
+	// will cause it to be considered empty.
+	profile := &charm.LXDProfile{
+		Description: "lxd profile",
+	}
+
+	lxdprofiler := NewMockLXDProfiler(ctrl)
+	lxdprofiler.EXPECT().LXDProfile().Return(profile)
+
+	result := lxdprofile.NotEmpty(lxdprofiler)
+	c.Assert(result, jc.IsFalse)
 }
