@@ -224,7 +224,14 @@ func (s *CharmStoreSuite) TestAddVersionedCharmWithAuthorization(c *gc.C) {
 	mockStorage := mocks.NewMockStorage(ctrl)
 	mockInterface := mocks.NewMockInterface(ctrl)
 
-	charm := testcharms.Repo.CharmArchive(cacheDir, "versioned")
+	expVersion := "929903d"
+	pathToArchive := testcharms.Repo.CharmArchivePath(cacheDir, "versioned")
+	err = testcharms.InjectFilesToCharmArchive(pathToArchive, map[string]string{
+		"version": expVersion,
+	})
+	c.Assert(err, gc.IsNil)
+	charm, err := charm.ReadCharmArchive(pathToArchive)
+	c.Assert(err, gc.IsNil)
 
 	// inject the mock as a back handed dependency
 	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
@@ -235,7 +242,7 @@ func (s *CharmStoreSuite) TestAddVersionedCharmWithAuthorization(c *gc.C) {
 	sExp.PrepareStoreCharmUpload(charmURL).Return(mockStateCharm, nil)
 	sExp.ModelUUID().Return("model-id")
 	sExp.MongoSession().Return(&mgo.Session{})
-	sExp.UpdateUploadedCharm(charmVersionMatcher{"929903d"}).Return(nil, nil)
+	sExp.UpdateUploadedCharm(charmVersionMatcher{expVersion}).Return(nil, nil)
 
 	cExp := mockStateCharm.EXPECT()
 	cExp.IsUploaded().Return(false)
