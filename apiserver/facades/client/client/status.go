@@ -1015,8 +1015,7 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 
 	var charmProfileName string
-	// Ensure the profile isn't empty.
-	if !lxdprofile.IsEmpty(applicationCharm) {
+	if lxdprofile.NotEmpty(applicationCharm) {
 		charmProfileName = lxdprofile.Name(context.model.Name(), application.Name(), applicationCharm.Revision())
 	}
 

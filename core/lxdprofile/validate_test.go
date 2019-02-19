@@ -70,7 +70,7 @@ func (*LXDProfileSuite) TestValidateCharmInfoWithInvalidConfig(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-func (*LXDProfileSuite) TestIsEmpty(c *gc.C) {
+func (*LXDProfileSuite) TestNotEmpty(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -79,11 +79,11 @@ func (*LXDProfileSuite) TestIsEmpty(c *gc.C) {
 	lxdprofiler := NewMockLXDProfiler(ctrl)
 	lxdprofiler.EXPECT().LXDProfile().Return(profile)
 
-	result := lxdprofile.IsEmpty(lxdprofiler)
-	c.Assert(result, jc.IsTrue)
+	result := lxdprofile.NotEmpty(lxdprofiler)
+	c.Assert(result, jc.IsFalse)
 }
 
-func (*LXDProfileSuite) TestIsEmptyWithConfigProfiles(c *gc.C) {
+func (*LXDProfileSuite) TestNotEmptyWithConfigProfiles(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -96,14 +96,16 @@ func (*LXDProfileSuite) TestIsEmptyWithConfigProfiles(c *gc.C) {
 	lxdprofiler := NewMockLXDProfiler(ctrl)
 	lxdprofiler.EXPECT().LXDProfile().Return(profile)
 
-	result := lxdprofile.IsEmpty(lxdprofiler)
-	c.Assert(result, jc.IsFalse)
+	result := lxdprofile.NotEmpty(lxdprofiler)
+	c.Assert(result, jc.IsTrue)
 }
 
-func (*LXDProfileSuite) TestIsEmptyWithDescription(c *gc.C) {
+func (*LXDProfileSuite) TestNotEmptyWithDescription(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	// Having a description doesn't imply changes, so a description alone
+	// will cause it to be considered empty.
 	profile := &charm.LXDProfile{
 		Description: "lxd profile",
 	}
@@ -111,6 +113,6 @@ func (*LXDProfileSuite) TestIsEmptyWithDescription(c *gc.C) {
 	lxdprofiler := NewMockLXDProfiler(ctrl)
 	lxdprofiler.EXPECT().LXDProfile().Return(profile)
 
-	result := lxdprofile.IsEmpty(lxdprofiler)
+	result := lxdprofile.NotEmpty(lxdprofiler)
 	c.Assert(result, jc.IsFalse)
 }
