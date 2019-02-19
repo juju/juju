@@ -43,6 +43,8 @@ type containerManager struct {
 	imageMetadataURL string
 	imageStream      string
 	imageMutex       sync.Mutex
+
+	profileMutex sync.Mutex
 }
 
 // containerManager implements container.Manager.
@@ -289,6 +291,8 @@ func (m *containerManager) networkDevicesFromConfig(netConfig *container.Network
 
 // MaybeWriteLXDProfile implements container.LXDProfileManager.
 func (m *containerManager) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	m.profileMutex.Lock()
+	defer m.profileMutex.Unlock()
 	hasProfile, err := m.server.HasProfile(pName)
 	if err != nil {
 		return errors.Trace(err)

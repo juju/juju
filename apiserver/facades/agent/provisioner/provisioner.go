@@ -4,6 +4,8 @@
 package provisioner
 
 import (
+	"sync"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -62,6 +64,9 @@ type ProvisionerAPI struct {
 	getAuthFunc             common.GetAuthFunc
 	getCanModify            common.GetAuthFunc
 	providerCallContext     context.ProviderCallContext
+
+	// Used for MaybeWriteLXDProfile()
+	mu sync.Mutex
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
