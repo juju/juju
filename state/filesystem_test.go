@@ -185,7 +185,7 @@ func (s *FilesystemStateSuite) maybeAssignUnit(c *gc.C, u *state.Unit) names.Tag
 }
 
 func (s *FilesystemStateSuite) TestSetFilesystemInfoNoFilesystemId(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "loop-pool")
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "tmpfs-pool")
 	s.maybeAssignUnit(c, u)
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
 	filesystemTag := filesystem.FilesystemTag()

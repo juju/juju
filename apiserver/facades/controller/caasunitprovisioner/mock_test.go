@@ -259,6 +259,7 @@ type mockStorage struct {
 	storageFilesystems map[names.StorageTag]names.FilesystemTag
 	storageVolumes     map[names.StorageTag]names.VolumeTag
 	storageAttachments map[names.UnitTag]names.StorageTag
+	backingVolume      names.VolumeTag
 }
 
 func (m *mockStorage) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
@@ -273,7 +274,7 @@ func (m *mockStorage) AllFilesystems() ([]state.Filesystem, error) {
 	m.MethodCall(m, "AllFilesystems")
 	var result []state.Filesystem
 	for _, fsTag := range m.storageFilesystems {
-		result = append(result, &mockFilesystem{Stub: &m.Stub, tag: fsTag})
+		result = append(result, &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume})
 	}
 	return result, nil
 }
@@ -295,7 +296,7 @@ func (m *mockStorage) DestroyVolume(tag names.VolumeTag) (err error) {
 
 func (m *mockStorage) Filesystem(fsTag names.FilesystemTag) (state.Filesystem, error) {
 	m.MethodCall(m, "Filesystem", fsTag)
-	return &mockFilesystem{Stub: &m.Stub, tag: fsTag}, nil
+	return &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume}, nil
 }
 
 func (m *mockStorage) FilesystemAttachment(hostTag names.Tag, fsTag names.FilesystemTag) (state.FilesystemAttachment, error) {
@@ -304,7 +305,7 @@ func (m *mockStorage) FilesystemAttachment(hostTag names.Tag, fsTag names.Filesy
 }
 
 func (m *mockStorage) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
-	return &mockFilesystem{Stub: &m.Stub, tag: m.storageFilesystems[tag]}, nil
+	return &mockFilesystem{Stub: &m.Stub, tag: m.storageFilesystems[tag], volTag: m.backingVolume}, nil
 }
 
 func (m *mockStorage) UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error) {
@@ -400,7 +401,8 @@ func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
 type mockFilesystem struct {
 	*testing.Stub
 	state.Filesystem
-	tag names.FilesystemTag
+	tag    names.FilesystemTag
+	volTag names.VolumeTag
 }
 
 func (f *mockFilesystem) Tag() names.Tag {
@@ -412,7 +414,10 @@ func (f *mockFilesystem) FilesystemTag() names.FilesystemTag {
 }
 
 func (f *mockFilesystem) Volume() (names.VolumeTag, error) {
-	return names.NewVolumeTag("66"), nil
+	if f.volTag.Id() == "" {
+		return f.volTag, state.ErrNoBackingVolume
+	}
+	return f.volTag, nil
 }
 
 func (f *mockFilesystem) Params() (state.FilesystemParams, bool) {
