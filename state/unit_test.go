@@ -633,16 +633,99 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfile(c *gc.C) {
 
 	// Set a profile name on the machine, destroyHostOps will only
 	// set up to remove a profile from the machine it if it exists.
-	profileName := lxdprofile.Name("default", target.Name(), charmWithProfile.Revision())
+	profileName := lxdprofile.Name("default", colocated.Name(), charmWithProfile.Revision())
 	host.SetCharmProfiles([]string{profileName})
 	c.Assert(colocated.Destroy(), gc.IsNil)
 	assertLife(c, host, state.Alive)
 
-	chCharmURL, err := host.UpgradeCharmProfileCharmURL(target.Name())
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL(colocated.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(chCharmURL, gc.Equals, "")
 
 	c.Assert(host.Destroy(), gc.NotNil)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfileErrorToIdle(c *gc.C) {
+	charmWithProfile := s.AddTestingCharm(c, "lxd-profile")
+	applicationWithProfile := s.AddTestingApplication(c, "lxd-profile", charmWithProfile)
+
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	target, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+
+	colocated, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
+
+	// Set a machine modification status of failed so we can check that it's cleared
+	// when the unit is removed from the machine.
+	now := coretesting.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Error,
+		Message: "failme",
+		Since:   &now,
+	}
+	c.Assert(host.SetModificationStatus(sInfo), jc.ErrorIsNil)
+
+	c.Assert(colocated.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
+
+	machineStatus, err := host.ModificationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machineStatus.Status, gc.DeepEquals, status.Idle)
+	c.Assert(machineStatus.Message, gc.DeepEquals, "")
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfileErrorToApplied(c *gc.C) {
+	charmWithProfile := s.AddTestingCharm(c, "lxd-profile")
+	applicationWithProfile := s.AddTestingApplication(c, "lxd-profile", charmWithProfile)
+	applicationWithProfile2 := s.AddTestingApplication(c, "lxd-profile-alt", charmWithProfile)
+
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	target, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+
+	colocated, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
+
+	colocated2, err := applicationWithProfile2.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(colocated2.AssignToMachine(host), gc.IsNil)
+
+	// Set a machine modification status of failed so we can check that it's cleared
+	// when the unit is removed from the machine.
+	now := coretesting.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Error,
+		Message: "failme",
+		Since:   &now,
+	}
+	c.Assert(host.SetModificationStatus(sInfo), jc.ErrorIsNil)
+
+	// Set a profile name on the machine, destroyHostOps will only
+	// set up to remove a profile from the machine it if it exists.
+	// And so the machine modification status is set to Applied.
+	profileName := lxdprofile.Name("default", colocated2.Name(), charmWithProfile.Revision())
+	host.SetCharmProfiles([]string{profileName})
+
+	c.Assert(colocated.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
+
+	machineStatus, err := host.ModificationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machineStatus.Status, gc.DeepEquals, status.Applied)
+	c.Assert(machineStatus.Message, gc.DeepEquals, "")
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
