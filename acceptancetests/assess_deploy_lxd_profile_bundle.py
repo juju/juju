@@ -54,16 +54,37 @@ def assess_profile_machines(client):
     # that way we can ensure that things have been installed.
     client.wait_for_started()
 
-    charm_profiles = []
+    machine_profiles = []
     status = client.get_status()
     apps = status.get_applications()
     for _, info in apps.items():
         if 'charm-profile' in info:
             charm_profile = info['charm-profile']
             if charm_profile:
-                charm_profiles.append(charm_profile)
-    if len(charm_profiles) > 0:
-        client.wait_for(WaitForLXDProfilesConditions(charm_profiles))
+                machines = application_machines(info)
+                machine_profiles.append((charm_profile, machines))
+    if len(machine_profiles) > 0:
+        aligned_machine_profiles = align_machine_profiles(machine_profiles)
+        client.wait_for(WaitForLXDProfilesConditions(aligned_machine_profiles))
+
+def application_machines(app_data):
+    """Get all the machines used to host the given application."""
+    machines = [unit_data['machine'] for unit_data in
+                app_data['units'].values()]
+    return machines
+
+def align_machine_profiles(machine_profiles):
+    result = {}
+    for items in machine_profiles:
+        charm_profile = items[0]
+        if charm_profile in result:
+            # drop duplicates using set difference
+            a = set(result[charm_profile])
+            b = set(items[1])
+            result[charm_profile].extend(b.difference(a))
+        else:
+            result[charm_profile] = items[1].copy()
+    return result
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test juju lxd profile bundle deploys.")
