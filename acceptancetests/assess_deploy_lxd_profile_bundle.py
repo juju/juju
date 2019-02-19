@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """ Assess using bundle that have various charms with lxd-profiles, testing
     different deployment scenarios.
