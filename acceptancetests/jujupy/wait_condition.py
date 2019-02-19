@@ -479,25 +479,18 @@ class WaitForLXDProfilesConditions(BaseCondition):
     def iter_blocking_state(self, status):
         """Wait until 'profiles' listed in machine lxd-profiles from status.
         """
-        states = {}
-        for _, status in status.iter_machines(containers=True):
-            if not 'lxd-profiles' in status:
-               continue
-            lxd_profile_names = self.profile_names(status['lxd-profiles'])
-            union = self.intersection(lxd_profile_names, self.profiles)
-            for key in union:
-                states[key] = key
+        matched = 0
+        for machine_name, status in status.iter_machines(containers=True):
+            for profile_name, machines in self.profiles.items():
+                if machine_name in machines:
+                    if not 'lxd-profiles' in status:
+                        yield ('lxd-profile ({})'.format(self.profiles), 'no lxd profile')
+                    if not profile_name in self.profile_names(status['lxd-profiles']):
+                        yield ('lxd-profile ({})'.format(self.profiles), 'missing profile')
+                    matched += 1
+        if matched < self.profile_total():
+            yield ('lxd-profile ({})'.format(self.profiles), 'not matched')
 
-        # check to see if all profiles exist in the states dict
-        cond_met = True
-        for profile_name in self.profiles:
-            if not profile_name in states:
-                cond_met = False
-                break
-        if not cond_met:
-            yield ('lxd-profiles ({})'.format(self.profiles),
-                    'not on machines ({})'.format(states))
-    
     def do_raise(self, model_name, status):
         raise LXDProfilesNotAvailable(self.profiles)
 
@@ -512,13 +505,9 @@ class WaitForLXDProfilesConditions(BaseCondition):
             names.append(name)
         return names
 
-    def intersection(self, profiles, names):
-        """intersection checks the intersection of the profiles vs the profile
-           names being offered.
-        
-        :param profiles: profile configurations applied to machines
-        :param names: profile names expected to be applied
-        """
-        a = set(profiles)
-        b = set(names)
-        return a.intersection(b)
+    def profile_total(self):
+        """profile total returns the number of profiles to match against"""
+        result = 0
+        for profile_names in self.profiles.values():
+            result += len(profile_names)
+        return result
