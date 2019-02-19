@@ -480,13 +480,14 @@ class WaitForLXDProfilesConditions(BaseCondition):
         """Wait until 'profiles' listed in machine lxd-profiles from status.
         """
         states = {}
-        for _, status in status.iter_machines():
-            if not status['lxd-profiles']:
+        for _, status in status.iter_machines(containers=True):
+            if not 'lxd-profiles' in status:
                continue
             lxd_profile_names = self.profile_names(status['lxd-profiles'])
             union = self.intersection(lxd_profile_names, self.profiles)
-            states.update(union)
-        
+            for key in union:
+                states[key] = key
+
         # check to see if all profiles exist in the states dict
         cond_met = True
         for profile_name in self.profiles:
