@@ -49,7 +49,18 @@ func (s *MachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 
 func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.st = &mockState{machines: make(map[string]*mockMachine)}
+	s.st = &mockState{
+		machines: make(map[string]*mockMachine),
+		unitStorageAttachmentsF: func(tag names.UnitTag) ([]state.StorageAttachment, error) {
+			if tag.Id() == "foo/0" {
+				return []state.StorageAttachment{
+					&mockStorageAttachment{unit: tag, storage: names.NewStorageTag("disks/0")},
+					&mockStorageAttachment{unit: tag, storage: names.NewStorageTag("disks/1")},
+				}, nil
+			}
+			return nil, nil
+		},
+	}
 	s.pool = &mockPool{}
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.callContext = context.NewCloudCallContext()
@@ -154,6 +165,157 @@ func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
 			},
 		}},
 	})
+}
+
+func (s *MachineManagerSuite) assertMachinesDestroyed(c *gc.C, in []params.Entity, out params.DestroyMachineResults, expectedCalls ...string) {
+	results, err := s.api.DestroyMachine(params.Entities{in})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.st.CheckCallNames(c, expectedCalls...)
+	c.Assert(results, jc.DeepEquals, out)
+
+}
+
+func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.C) {
+	s.st.machines["0"] = &mockMachine{}
+	s.st.unitStorageAttachmentsF = func(tag names.UnitTag) ([]state.StorageAttachment, error) {
+		return nil, errors.New("kaboom")
+	}
+	s.assertMachinesDestroyed(c,
+		[]params.Entity{{Tag: "machine-0"}},
+		params.DestroyMachineResults{
+			Results: []params.DestroyMachineResult{{
+				Error: common.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
+			}},
+		},
+		"ModelTag",
+		"GetBlockForType",
+		"GetBlockForType",
+		"Machine",
+		"UnitStorageAttachments",
+		"UnitStorageAttachments",
+		"UnitStorageAttachments",
+	)
+}
+
+func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageClassification(c *gc.C) {
+	s.st.machines["0"] = &mockMachine{}
+	s.st.SetErrors(
+		errors.New("boom"),
+	)
+	s.assertMachinesDestroyed(c,
+		[]params.Entity{{Tag: "machine-0"}},
+		params.DestroyMachineResults{
+			Results: []params.DestroyMachineResult{{
+				Error: common.ServerError(errors.New("classifying storage for destruction for unit foo/0: boom")),
+			}},
+		},
+		"ModelTag",
+		"GetBlockForType",
+		"GetBlockForType",
+		"Machine",
+		"UnitStorageAttachments",
+		"StorageInstance",
+		"StorageInstance",
+		"VolumeAccess",
+		"FilesystemAccess",
+		"StorageInstanceVolume",
+		"UnitStorageAttachments",
+		"VolumeAccess",
+		"FilesystemAccess",
+		"UnitStorageAttachments",
+		"VolumeAccess",
+		"FilesystemAccess",
+	)
+}
+
+func (s *MachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c *gc.C) {
+	s.st.machines["0"] = &mockMachine{}
+	s.st.unitStorageAttachmentsF = func(tag names.UnitTag) ([]state.StorageAttachment, error) {
+		if tag.Id() == "foo/1" {
+			return nil, errors.New("kaboom")
+		}
+		return nil, nil
+	}
+
+	s.assertMachinesDestroyed(c,
+		[]params.Entity{{Tag: "machine-0"}},
+		params.DestroyMachineResults{
+			Results: []params.DestroyMachineResult{{
+				Error: common.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
+			}},
+		},
+		"ModelTag",
+		"GetBlockForType",
+		"GetBlockForType",
+		"Machine",
+		"UnitStorageAttachments",
+		"VolumeAccess",
+		"FilesystemAccess",
+		"UnitStorageAttachments",
+		"UnitStorageAttachments",
+		"VolumeAccess",
+		"FilesystemAccess",
+	)
+}
+
+func (s *MachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMachines(c *gc.C) {
+	s.st.machines["0"] = &mockMachine{}
+	s.st.machines["1"] = &mockMachine{
+		unitsF: func() ([]machinemanager.Unit, error) {
+			return []machinemanager.Unit{
+				&mockUnit{tag: names.NewUnitTag("bar/0")},
+			}, nil
+		},
+	}
+	s.st.unitStorageAttachmentsF = func(tag names.UnitTag) ([]state.StorageAttachment, error) {
+		if tag.Id() == "foo/1" {
+			return nil, errors.New("kaboom")
+		}
+		if tag.Id() == "bar/0" {
+			return []state.StorageAttachment{
+				&mockStorageAttachment{unit: tag, storage: names.NewStorageTag("disks/0")},
+			}, nil
+		}
+		return nil, nil
+	}
+
+	s.assertMachinesDestroyed(c,
+		[]params.Entity{
+			{Tag: "machine-0"},
+			{Tag: "machine-1"},
+		},
+		params.DestroyMachineResults{
+			Results: []params.DestroyMachineResult{
+				{Error: common.ServerError(errors.New("getting storage for unit foo/1: kaboom"))},
+				{Info: &params.DestroyMachineInfo{
+					DestroyedUnits: []params.Entity{
+						{"unit-bar-0"},
+					},
+					DetachedStorage: []params.Entity{
+						{"storage-disks-0"},
+					},
+				}},
+			},
+		},
+		"ModelTag",
+		"GetBlockForType",
+		"GetBlockForType",
+		"Machine",
+		"UnitStorageAttachments",
+		"VolumeAccess",
+		"FilesystemAccess",
+		"UnitStorageAttachments",
+		"UnitStorageAttachments",
+		"VolumeAccess",
+		"FilesystemAccess",
+		"Machine",
+		"UnitStorageAttachments",
+		"StorageInstance",
+		"VolumeAccess",
+		"FilesystemAccess",
+		"StorageInstanceVolume",
+	)
 }
 
 func (s *MachineManagerSuite) TestDestroyMachineWithParams(c *gc.C) {
@@ -525,6 +687,7 @@ func (s *MachineManagerSuite) TestIsSeriesLessThan(c *gc.C) {
 }
 
 type mockState struct {
+	jtesting.Stub
 	machinemanager.Backend
 	calls            int
 	machineTemplates []state.MachineTemplate
@@ -532,6 +695,8 @@ type mockState struct {
 	err              error
 	blockMsg         string
 	block            state.BlockType
+
+	unitStorageAttachmentsF func(tag names.UnitTag) ([]state.StorageAttachment, error)
 }
 
 type mockVolumeAccess struct {
@@ -540,6 +705,10 @@ type mockVolumeAccess struct {
 }
 
 func (st *mockVolumeAccess) StorageInstanceVolume(tag names.StorageTag) (state.Volume, error) {
+	st.MethodCall(st, "StorageInstanceVolume", tag)
+	if err := st.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &mockVolume{
 		detachable: tag.Id() == "disks/0",
 	}, nil
@@ -550,15 +719,26 @@ type mockFilesystemAccess struct {
 	*mockState
 }
 
+func (st *mockFilesystemAccess) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
+	st.MethodCall(st, "StorageInstanceFilesystem", tag)
+	if err := st.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return nil, nil
+}
+
 func (st *mockState) VolumeAccess() storagecommon.VolumeAccess {
+	st.MethodCall(st, "VolumeAccess")
 	return &mockVolumeAccess{mockState: st}
 }
 
 func (st *mockState) FilesystemAccess() storagecommon.FilesystemAccess {
+	st.MethodCall(st, "FilesystemAccess")
 	return &mockFilesystemAccess{mockState: st}
 }
 
 func (st *mockState) AddOneMachine(template state.MachineTemplate) (*state.Machine, error) {
+	st.MethodCall(st, "AddOneMachine", template)
 	st.calls++
 	st.machineTemplates = append(st.machineTemplates, template)
 	m := state.Machine{}
@@ -566,6 +746,7 @@ func (st *mockState) AddOneMachine(template state.MachineTemplate) (*state.Machi
 }
 
 func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
+	st.MethodCall(st, "GetBlockForType", t)
 	if st.block == t {
 		return &mockBlock{t: t, m: st.blockMsg}, true, nil
 	} else {
@@ -574,22 +755,27 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 }
 
 func (st *mockState) ModelTag() names.ModelTag {
+	st.MethodCall(st, "ModelTag")
 	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
 }
 
 func (st *mockState) Model() (machinemanager.Model, error) {
+	st.MethodCall(st, "Model")
 	return &mockModel{}, nil
 }
 
 func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
+	st.MethodCall(st, "CloudCredential", tag)
 	return state.Credential{}, nil
 }
 
-func (st *mockState) Cloud(string) (cloud.Cloud, error) {
+func (st *mockState) Cloud(s string) (cloud.Cloud, error) {
+	st.MethodCall(st, "Cloud", s)
 	return cloud.Cloud{}, nil
 }
 
 func (st *mockState) Machine(id string) (machinemanager.Machine, error) {
+	st.MethodCall(st, "Machine", id)
 	if m, ok := st.machines[id]; !ok {
 		return nil, errors.NotFoundf("machine %v", id)
 	} else {
@@ -598,6 +784,7 @@ func (st *mockState) Machine(id string) (machinemanager.Machine, error) {
 }
 
 func (st *mockState) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
+	st.MethodCall(st, "StorageInstance", tag)
 	return &mockStorage{
 		tag:  tag,
 		kind: state.StorageKindBlock,
@@ -605,13 +792,8 @@ func (st *mockState) StorageInstance(tag names.StorageTag) (state.StorageInstanc
 }
 
 func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
-	if tag.Id() == "foo/0" {
-		return []state.StorageAttachment{
-			&mockStorageAttachment{unit: tag, storage: names.NewStorageTag("disks/0")},
-			&mockStorageAttachment{unit: tag, storage: names.NewStorageTag("disks/1")},
-		}, nil
-	}
-	return nil, nil
+	st.MethodCall(st, "UnitStorageAttachments", tag)
+	return st.unitStorageAttachmentsF(tag)
 }
 
 type mockBlock struct {
@@ -650,13 +832,17 @@ type mockMachine struct {
 	unitAgentState status.Status
 	unitState      status.Status
 	isManager      bool
+
+	unitsF func() ([]machinemanager.Unit, error)
 }
 
 func (m *mockMachine) Destroy() error {
+	m.MethodCall(m, "Destroy")
 	return nil
 }
 
 func (m *mockMachine) ForceDestroy() error {
+	m.MethodCall(m, "ForceDestroy")
 	return nil
 }
 
@@ -666,6 +852,7 @@ func (m *mockMachine) Principals() []string {
 }
 
 func (m *mockMachine) SetKeepInstance(keep bool) error {
+	m.MethodCall(m, "SetKeepInstance", keep)
 	m.keep = keep
 	return nil
 }
@@ -676,6 +863,10 @@ func (m *mockMachine) Series() string {
 }
 
 func (m *mockMachine) Units() ([]machinemanager.Unit, error) {
+	m.MethodCall(m, "Units")
+	if m.unitsF != nil {
+		return m.unitsF()
+	}
 	return []machinemanager.Unit{
 		&mockUnit{tag: names.NewUnitTag("foo/0")},
 		&mockUnit{tag: names.NewUnitTag("foo/1")},
@@ -712,6 +903,7 @@ func (m *mockMachine) CompleteUpgradeSeries() error {
 }
 
 func (m *mockMachine) IsManager() bool {
+	m.MethodCall(m, "IsManager")
 	return m.isManager
 }
 
