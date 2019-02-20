@@ -270,7 +270,7 @@ func (u *mockUnit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) erro
 	return nil
 }
 
-func (u *mockUnit) WatchLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error) {
+func (u *mockUnit) WatchUnitLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error) {
 	return u.upgradeLXDProfileUpgradeWatcher, nil
 }
 

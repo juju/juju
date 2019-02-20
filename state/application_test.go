@@ -2073,14 +2073,14 @@ func (s *ApplicationSuite) TestAddSubordinateUnitCharmProfile(c *gc.C) {
 func (s *ApplicationSuite) TestSetCharmProfile(c *gc.C) {
 	machine, profileApp, subApp := s.assertCharmProfileSubordinate(c)
 
-	err := machine.RemoveUpgradeCharmProfileData()
+	err := machine.RemoveUpgradeCharmProfileData(profileApp.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = profileApp.SetCharmProfile("local:quantal/quantal-lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
 	assertUpgradeCharmProfile(c, machine, profileApp.Name(), "local:quantal/quantal-lxd-profile-0")
 
-	err = machine.RemoveUpgradeCharmProfileData()
+	err = machine.RemoveUpgradeCharmProfileData(subApp.Name() + "/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = subApp.SetCharmProfile("local:quantal/quantal-lxd-profile-subordinate-0")
@@ -2119,10 +2119,7 @@ func assertUpgradeCharmProfile(c *gc.C, m *state.Machine, appName, charmURL stri
 	err := m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	chAppName, err := m.UpgradeCharmProfileApplication()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chAppName, gc.Equals, appName)
-	chCharmURL, err := m.UpgradeCharmProfileCharmURL()
+	chCharmURL, err := m.UpgradeCharmProfileCharmURL(appName + "/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(chCharmURL, gc.Equals, charmURL)
 }

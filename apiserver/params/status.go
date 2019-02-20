@@ -73,9 +73,11 @@ type NetworkInterface struct {
 
 // MachineStatus holds status info about a machine.
 type MachineStatus struct {
-	AgentStatus    DetailedStatus `json:"agent-status"`
-	InstanceStatus DetailedStatus `json:"instance-status"`
-	DNSName        string         `json:"dns-name"`
+	AgentStatus        DetailedStatus `json:"agent-status"`
+	InstanceStatus     DetailedStatus `json:"instance-status"`
+	ModificationStatus DetailedStatus `json:"modification-status"`
+
+	DNSName string `json:"dns-name"`
 
 	// IPAddresses holds the IP addresses known for this machine. It is
 	// here for backwards compatibility. It should be similar to its
@@ -141,6 +143,7 @@ type ApplicationStatus struct {
 	Status           DetailedStatus         `json:"status"`
 	WorkloadVersion  string                 `json:"workload-version"`
 	CharmVersion     string                 `json:"charm-verion"`
+	CharmProfile     string                 `json:"charm-profile"`
 	EndpointBindings map[string]string      `json:"endpoint-bindings"`
 
 	// The following are for CAAS models.

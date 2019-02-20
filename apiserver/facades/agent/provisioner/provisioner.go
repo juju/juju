@@ -4,7 +4,7 @@
 package provisioner
 
 import (
-	"time"
+	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -64,6 +64,9 @@ type ProvisionerAPI struct {
 	getAuthFunc             common.GetAuthFunc
 	getCanModify            common.GetAuthFunc
 	providerCallContext     context.ProviderCallContext
+
+	// Used for MaybeWriteLXDProfile()
+	mu sync.Mutex
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
@@ -164,6 +167,12 @@ type ProvisionerAPIV6 struct {
 
 // ProvisionerAPIV7 provides v7 of the provisioner facade.
 type ProvisionerAPIV7 struct {
+	*ProvisionerAPIV8
+}
+
+// ProvisionerAPIV8 provides v8 of the provisioner facade.
+// Added ModificationStatus and SetModificationStatus
+type ProvisionerAPIV8 struct {
 	*ProvisionerAPI
 }
 
@@ -196,11 +205,20 @@ func NewProvisionerAPIV6(st *state.State, resources facade.Resources, authorizer
 
 // NewProvisionerAPIV7 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV7(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV7, error) {
-	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	provisionerAPI, err := NewProvisionerAPIV8(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ProvisionerAPIV7{provisionerAPI}, nil
+}
+
+// NewProvisionerAPIV8 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV8(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV8, error) {
+	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV8{provisionerAPI}, nil
 }
 
 func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
@@ -269,7 +287,22 @@ func (p *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params
 	return p.WatchContainers(args)
 }
 
-func (p *ProvisionerAPI) watchOneMachineContainersCharmProfiles(arg params.WatchContainer) (params.StringsWatchResult, error) {
+// WatchContainersCharmProfiles starts a StringsWatcher to  notifies when
+// the provisioner should update the charm profiles used by a container on
+// the given machine.
+func (p *ProvisionerAPIV7) WatchContainersCharmProfiles(args params.WatchContainers) (params.StringsWatchResults, error) {
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Params)),
+	}
+	for i, arg := range args.Params {
+		watcherResult, err := p.watchOneMachineContainersCharmProfiles(arg)
+		result.Results[i] = watcherResult
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (p *ProvisionerAPIV7) watchOneMachineContainersCharmProfiles(arg params.WatchContainer) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
 	canAccess, err := p.getAuthFunc()
 	if err != nil {
@@ -318,6 +351,42 @@ func (p *ProvisionerAPI) WatchContainersCharmProfiles(args params.WatchContainer
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+func (p *ProvisionerAPI) watchOneMachineContainersCharmProfiles(arg params.WatchContainer) (params.StringsWatchResult, error) {
+	nothing := params.StringsWatchResult{}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return nothing, common.ErrPerm
+	}
+	tag, err := names.ParseMachineTag(arg.MachineTag)
+	if err != nil {
+		return nothing, common.ErrPerm
+	}
+	if !canAccess(tag) {
+		return nothing, common.ErrPerm
+	}
+	machine, err := p.st.Machine(tag.Id())
+	if err != nil {
+		return nothing, err
+	}
+	var watch state.StringsWatcher
+	if arg.ContainerType != "" {
+		watch, err = machine.WatchContainersCharmProfilesNewFormat(instance.ContainerType(arg.ContainerType))
+		if err != nil {
+			return nothing, common.ErrPerm
+		}
+	} else {
+		return nothing, errors.BadRequestf("ContainerType not specified")
+	}
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: p.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return nothing, watcher.EnsureErr(watch)
 }
 
 // SetSupportedContainers updates the list of containers supported by the machines passed in args.
@@ -803,7 +872,7 @@ func (p *ProvisionerAPI) WatchModelMachinesCharmProfiles() (params.StringsWatchR
 	if !p.authorizer.AuthController() {
 		return result, common.ErrPerm
 	}
-	watch, err := p.st.WatchModelMachinesCharmProfiles()
+	watch, err := p.st.WatchModelMachinesCharmProfilesNewFormat()
 	if err != nil {
 		return result, common.ErrPerm
 	}
@@ -1314,7 +1383,6 @@ func (p *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResu
 }
 
 func (p *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
-	logger.Debugf("SetInstanceStatus called with: %#v", arg)
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
 		logger.Warningf("SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
@@ -1322,16 +1390,18 @@ func (p *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg par
 	}
 	machine, err := p.getMachine(canAccess, mTag)
 	if err != nil {
-		logger.Debugf("SetInstanceStatus unable to get machine %q", mTag)
+		return errors.Trace(err)
+	}
+	// We can use the controller timestamp to get now.
+	since, err := p.st.ControllerTimestamp()
+	if err != nil {
 		return err
 	}
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	now := time.Now()
 	s := status.StatusInfo{
 		Status:  status.Status(arg.Status),
 		Message: arg.Info,
 		Data:    arg.Data,
-		Since:   &now,
+		Since:   since,
 	}
 
 	// TODO(jam): 2017-01-29 These two status should be set in a single
@@ -1344,7 +1414,6 @@ func (p *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg par
 	if status.Status(arg.Status) == status.ProvisioningError ||
 		status.Status(arg.Status) == status.Error {
 		s.Status = status.Error
-		logger.Debugf("SetInstanceStatus triggering SetStatus for %#v", s)
 		if err = machine.SetStatus(s); err != nil {
 			return err
 		}
@@ -1368,6 +1437,97 @@ func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorR
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// ModificationStatus isn't on the v7 or lower API.
+func (p *ProvisionerAPIV7) ModificationStatus(_, _ struct{}) {}
+
+// ModificationStatus returns the modification status for each given entity.
+// Only machine tags are accepted.
+func (p *ProvisionerAPI) ModificationStatus(args params.Entities) (params.StatusResults, error) {
+	result := params.StatusResults{
+		Results: make([]params.StatusResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return result, errors.Trace(err)
+	}
+	for i, arg := range args.Entities {
+		mTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			logger.Warningf("ModificationStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, mTag)
+		if err == nil {
+			var statusInfo status.StatusInfo
+			statusInfo, err = machine.ModificationStatus()
+			result.Results[i].Status = statusInfo.Status.String()
+			result.Results[i].Info = statusInfo.Message
+			result.Results[i].Data = statusInfo.Data
+			result.Results[i].Since = statusInfo.Since
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// SetModificationStatus isn't on the v7 or lower API.
+func (p *ProvisionerAPIV7) SetModificationStatus(_, _ struct{}) {}
+
+// SetModificationStatus updates the instance whilst changes are occurring. This
+// is different from SetStatus and SetInstanceStatus, by the fact this holds
+// information about the ongoing changes that are happening to instances.
+// Consider LXD Profile updates that can modify a instance, but may not cause
+// the instance to be placed into a error state. This modification status
+// serves the purpose of highlighting that to the operator.
+// Only machine tags are accepted.
+func (p *ProvisionerAPI) SetModificationStatus(args params.SetStatus) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return result, errors.Trace(err)
+	}
+	for i, arg := range args.Entities {
+		err = p.setOneModificationStatus(canAccess, arg)
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (p *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
+	logger.Tracef("SetInstanceStatus called with: %#v", arg)
+	mTag, err := names.ParseMachineTag(arg.Tag)
+	if err != nil {
+		return common.ErrPerm
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
+		return err
+	}
+
+	// We can use the controller timestamp to get now.
+	since, err := p.st.ControllerTimestamp()
+	if err != nil {
+		return err
+	}
+	s := status.StatusInfo{
+		Status:  status.Status(arg.Status),
+		Message: arg.Info,
+		Data:    arg.Data,
+		Since:   since,
+	}
+	if err = machine.SetModificationStatus(s); err != nil {
+		logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
+		return err
+	}
+	return nil
 }
 
 // MarkMachinesForRemoval indicates that the specified machines are
@@ -1413,8 +1573,9 @@ func (a *ProvisionerAPI) CACert() (params.BytesResult, error) {
 }
 
 // CharmProfileChangeInfo retrieves the info necessary to change a charm
-// profile used by a machine.
-func (p *ProvisionerAPI) CharmProfileChangeInfo(machines params.Entities) (params.ProfileChangeResults, error) {
+// profile used by a machine. If there is more than 1 set of data,
+// an error is returned.  Required for 2.5.0 agents to interact with 2.5.2+
+func (p *ProvisionerAPIV7) CharmProfileChangeInfo(machines params.Entities) (params.ProfileChangeResults, error) {
 	results := make([]params.ProfileChangeResult, len(machines.Entities))
 	canAccess, err := p.getAuthFunc()
 	if err != nil {
@@ -1432,7 +1593,12 @@ func (p *ProvisionerAPI) CharmProfileChangeInfo(machines params.Entities) (param
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		result, err := machineChangeProfileChangeInfo(&profileMachineShim{Machine: machine}, &profileBackendShim{p.st})
+		unitName, err := machine.NextUpgradeCharmProfileUnitName()
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		result, err := machineChangeProfileChangeInfo(&profileMachineShim{Machine: machine}, &profileBackendShim{p.st}, unitName)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -1442,13 +1608,43 @@ func (p *ProvisionerAPI) CharmProfileChangeInfo(machines params.Entities) (param
 	return params.ProfileChangeResults{Results: results}, nil
 }
 
-func machineChangeProfileChangeInfo(machine ProfileMachine, st ProfileBackend) (params.ProfileChangeResult, error) {
-	nothing := params.ProfileChangeResult{}
+// CharmProfileChangeInfo retrieves the info necessary to change a charm
+// profile used by a machine.
+func (p *ProvisionerAPI) CharmProfileChangeInfo(args params.ProfileArgs) (params.ProfileChangeResults, error) {
+	results := make([]params.ProfileChangeResult, len(args.Args))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ProfileChangeResults{}, errors.Trace(err)
+	}
+	for i, arg := range args.Args {
+		mTag, err := names.ParseMachineTag(arg.Entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, mTag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		result, err := machineChangeProfileChangeInfo(&profileMachineShim{Machine: machine}, &profileBackendShim{p.st}, arg.UnitName)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i] = result
+	}
+	return params.ProfileChangeResults{Results: results}, nil
+}
 
-	appName, err := machine.UpgradeCharmProfileApplication()
+func machineChangeProfileChangeInfo(machine ProfileMachine, st ProfileBackend, unitName string) (params.ProfileChangeResult, error) {
+	nothing := params.ProfileChangeResult{}
+	appName, err := names.UnitApplication(unitName)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
+
 	if appName == "" {
 		return nothing, errors.Trace(errors.New("no appname for profile charm upgrade"))
 	}
@@ -1463,7 +1659,7 @@ func machineChangeProfileChangeInfo(machine ProfileMachine, st ProfileBackend) (
 		return nothing, errors.Trace(err)
 	}
 
-	url, err := machine.UpgradeCharmProfileCharmURL()
+	url, err := machine.UpgradeCharmProfileCharmURL(unitName)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
@@ -1549,7 +1745,7 @@ func (p *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profiles 
 
 // SetUpgradeCharmProfileComplete recorded that the result of updating
 // the machine's charm profile(s)
-func (p *ProvisionerAPI) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
+func (p *ProvisionerAPIV7) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(args.Args))
 	canAccess, err := p.getAuthFunc()
 	if err != nil {
@@ -1562,7 +1758,7 @@ func (p *ProvisionerAPI) SetUpgradeCharmProfileComplete(args params.SetProfileUp
 	return params.ErrorResults{Results: results}, nil
 }
 
-func (p *ProvisionerAPI) oneUpgradeCharmProfileComplete(machineTag string, msg string, canAccess common.AuthFunc) error {
+func (p *ProvisionerAPIV7) oneUpgradeCharmProfileComplete(machineTag, msg string, canAccess common.AuthFunc) error {
 	mTag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -1571,12 +1767,40 @@ func (p *ProvisionerAPI) oneUpgradeCharmProfileComplete(machineTag string, msg s
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return machine.SetUpgradeCharmProfileComplete(msg)
+	return machine.NextSetUpgradeCharmProfileComplete(msg)
 }
 
-// RemoveUpgradeCharmProfileData completely removes the instance charm profile
-// data for a machine, even if the machine is dead.
-func (p *ProvisionerAPI) RemoveUpgradeCharmProfileData(args params.Entities) (params.ErrorResults, error) {
+// SetUpgradeCharmProfileComplete recorded that the result of updating
+// the machine's charm profile(s)
+func (p *ProvisionerAPI) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Args))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Args {
+		results[i].Error = common.ServerError(p.oneUpgradeCharmProfileComplete(a.Entity.Tag, a.UnitName, a.Message, canAccess))
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+func (p *ProvisionerAPI) oneUpgradeCharmProfileComplete(machineTag, unitName, msg string, canAccess common.AuthFunc) error {
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.SetUpgradeCharmProfileComplete(unitName, msg)
+}
+
+// RemoveUpgradeCharmProfileData completely removes the single instance charm profile
+// data for a machine, even if the machine is dead.  If there is more than 1 set of data,
+// an error is returned.  Required for 2.5.0 agents to interact with 2.5.2+
+func (p *ProvisionerAPIV7) RemoveUpgradeCharmProfileData(args params.Entities) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(args.Entities))
 	canAccess, err := p.getAuthFunc()
 	if err != nil {
@@ -1589,7 +1813,7 @@ func (p *ProvisionerAPI) RemoveUpgradeCharmProfileData(args params.Entities) (pa
 	return params.ErrorResults{Results: results}, nil
 }
 
-func (p *ProvisionerAPI) oneRemoveUpgradeCharmProfileData(machineTag string, canAccess common.AuthFunc) error {
+func (p *ProvisionerAPIV7) oneRemoveUpgradeCharmProfileData(machineTag string, canAccess common.AuthFunc) error {
 	mTag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -1598,5 +1822,33 @@ func (p *ProvisionerAPI) oneRemoveUpgradeCharmProfileData(machineTag string, can
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return machine.RemoveUpgradeCharmProfileData()
+	return machine.NextRemoveUpgradeCharmProfileData()
+}
+
+// RemoveUpgradeCharmProfileData completely removes the instance charm profile
+// data for a machine, even if the machine is dead.
+func (p *ProvisionerAPI) RemoveUpgradeCharmProfileData(args params.ProfileArgs) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Args))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Args {
+		results[i].Error = common.ServerError(p.oneRemoveUpgradeCharmProfileData(a.Entity.Tag, a.UnitName, canAccess))
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+func (p *ProvisionerAPI) oneRemoveUpgradeCharmProfileData(machineTag, appName string, canAccess common.AuthFunc) error {
+
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.RemoveUpgradeCharmProfileData(appName)
 }

@@ -21,9 +21,11 @@ import (
 
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
+	apiprovisionermock "github.com/juju/juju/api/provisioner/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -38,6 +40,7 @@ import (
 	"github.com/juju/juju/provider/common/mocks"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/provisioner"
+	provisionermocks "github.com/juju/juju/worker/provisioner/mocks"
 )
 
 type ProvisionerTaskSuite struct {
@@ -205,6 +208,287 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
 	s.machineGetter.CheckCallNames(c, "MachinesWithTransientErrors")
 	s.auth.CheckCallNames(c, "SetupAuthentication")
 	s.instanceBroker.CheckCallNames(c, "StartInstance", "StartInstance")
+}
+
+func (s *ProvisionerTaskSuite) TestProcessProfileChanges(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Setup mockMachine0 to successfully change from an old profile to a new
+	// profile.  Machine number and unit number will be the same.
+	mockMachine0, info0 := setUpSuccessfulMockProfileMachine(ctrl, "0", "juju-default-lxd-profile-0", false)
+	mockMachine0.EXPECT().SetCharmProfiles([]string{info0.NewProfileName, "juju-default-different-0"}).Return(nil)
+
+	// Setup mockMachine1 to successfully change from an old profile to a new
+	// profile.  Machine number and unit number will be the same.
+	mockMachine1, info1 := setUpSuccessfulMockProfileMachine(ctrl, "1", "juju-default-lxd-profile-0", true)
+	mockMachine1.EXPECT().SetCharmProfiles([]string{info1.NewProfileName, "juju-default-different-0"}).Return(nil)
+
+	// Setup mockMachine2 to have a failure from CharmProfileChangeInfo()
+	mockMachine2 := setUpFailureMockProfileMachine(ctrl, "2")
+
+	// Setup mockMachine3 to successfully change from an old profile to a new
+	// profile.  Machine number and unit number will be the same.
+	mockMachine3, info3 := setUpSuccessfulMockProfileMachine(ctrl, "3", "", true)
+	mockMachine3.EXPECT().SetCharmProfiles([]string{"juju-default-different-0", info3.NewProfileName}).Return(nil)
+
+	s.machinesResults = []apiprovisioner.MachineResult{
+		{Machine: mockMachine0, Err: nil},
+		{Machine: mockMachine1, Err: nil},
+		{Machine: mockMachine2, Err: nil},
+		{Machine: mockMachine3, Err: nil},
+	}
+
+	mockBroker := provisionermocks.NewMockLXDProfileInstanceBroker(ctrl)
+	lExp := mockBroker.EXPECT()
+	machineCharmProfiles := []string{"default", "juju-default", info0.NewProfileName, "juju-default-different-0"}
+	lExp.ReplaceOrAddInstanceProfile(
+		"0", info0.OldProfileName, info0.NewProfileName, info0.LXDProfile,
+	).Return(machineCharmProfiles, nil)
+	lExp.ReplaceOrAddInstanceProfile(
+		"1", info1.OldProfileName, info1.NewProfileName, info1.LXDProfile,
+	).Return(machineCharmProfiles, nil)
+	lExp.ReplaceOrAddInstanceProfile(
+		"3", info3.OldProfileName, info3.NewProfileName, info3.LXDProfile,
+	).Return([]string{"default", "juju-default", "juju-default-different-0", info3.NewProfileName}, nil)
+
+	task := s.newProvisionerTaskWithBroker(c, mockBroker, nil)
+	c.Assert(provisioner.ProcessProfileChanges(task, []string{"0#lxd-profile/0", "1#lxd-profile/1", "2#lxd-profile/2", "3#lxd-profile/3"}), jc.ErrorIsNil)
+}
+
+func (s *ProvisionerTaskSuite) TestProcessProfileChangesNotProvisioned(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Setup mockMachine0 to successfully change from an old profile to a new
+	// profile.  Machine number and unit number will be the same.
+	mockMachine0, info0 := setUpSuccessfulMockProfileMachine(ctrl, "0", "juju-default-lxd-profile-0", false)
+	mockMachine0.EXPECT().SetCharmProfiles([]string{info0.NewProfileName, "juju-default-different-0"}).Return(nil)
+
+	// Setup mockMachine1 to have a failure from CharmProfileChangeInfo()
+	mockMachine1 := apiprovisionermock.NewMockMachineProvisioner(ctrl)
+	mExp := mockMachine1.EXPECT()
+	mExp.Id().Return("1").AnyTimes()
+	mExp.Life().Return(params.Alive)
+	mExp.InstanceId().Return(instance.Id("1"), params.Error{Code: params.CodeNotProvisioned})
+	mExp.InstanceStatus().Return(status.Error, "Error", nil)
+	mExp.RemoveUpgradeCharmProfileData("lxd-profile/1").Return(nil)
+
+	s.machinesResults = []apiprovisioner.MachineResult{
+		{Machine: mockMachine0, Err: nil},
+		{Machine: mockMachine1, Err: nil},
+	}
+
+	mockBroker := provisionermocks.NewMockLXDProfileInstanceBroker(ctrl)
+	lExp := mockBroker.EXPECT()
+	machineCharmProfiles := []string{"default", "juju-default", info0.NewProfileName, "juju-default-different-0"}
+	lExp.ReplaceOrAddInstanceProfile(
+		"0", info0.OldProfileName, info0.NewProfileName, info0.LXDProfile,
+	).Return(machineCharmProfiles, nil)
+
+	task := s.newProvisionerTaskWithBroker(c, mockBroker, nil)
+	c.Assert(provisioner.ProcessProfileChanges(task, []string{"0#lxd-profile/0", "1#lxd-profile/1"}), jc.ErrorIsNil)
+}
+
+func (s *ProvisionerTaskSuite) TestProcessProfileChangesWithDeadMachine(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Setup mockMachine0 to successfully change from an old profile to a new
+	// profile.  Machine number and unit number will be the same.
+	mockMachine0, info0 := setUpSuccessfulMockProfileMachine(ctrl, "0", "juju-default-lxd-profile-0", false)
+	mockMachine0.EXPECT().SetCharmProfiles([]string{info0.NewProfileName, "juju-default-different-0"}).Return(nil)
+
+	// Setup mockMachine1 to have a failure from CharmProfileChangeInfo()
+	mockMachine1 := apiprovisionermock.NewMockMachineProvisioner(ctrl)
+	mExp := mockMachine1.EXPECT()
+	mExp.Id().Return("1")
+	mExp.Life().Return(params.Dead)
+
+	s.machinesResults = []apiprovisioner.MachineResult{
+		{Machine: mockMachine0, Err: nil},
+		{Machine: mockMachine1, Err: nil},
+	}
+
+	mockBroker := provisionermocks.NewMockLXDProfileInstanceBroker(ctrl)
+	lExp := mockBroker.EXPECT()
+	machineCharmProfiles := []string{"default", "juju-default", info0.NewProfileName, "juju-default-different-0"}
+	lExp.ReplaceOrAddInstanceProfile(
+		"0", info0.OldProfileName, info0.NewProfileName, info0.LXDProfile,
+	).Return(machineCharmProfiles, nil)
+
+	task := s.newProvisionerTaskWithBroker(c, mockBroker, nil)
+	c.Assert(provisioner.ProcessProfileChanges(task, []string{"0#lxd-profile/0", "1#lxd-profile/1"}), jc.ErrorIsNil)
+}
+
+func setUpSuccessfulMockProfileMachine(ctrl *gomock.Controller, num, old string, sub bool) (*apiprovisionermock.MockMachineProvisioner, apiprovisioner.CharmProfileChangeInfo) {
+	mockMachine := apiprovisionermock.NewMockMachineProvisioner(ctrl)
+	mExp := mockMachine.EXPECT()
+	newProfileName := "juju-default-lxd-profile-1"
+	info := apiprovisioner.CharmProfileChangeInfo{
+		OldProfileName: old,
+		NewProfileName: newProfileName,
+		LXDProfile:     nil,
+		Subordinate:    sub,
+	}
+	unitName := fmt.Sprintf("lxd-profile/%s", num)
+	mExp.CharmProfileChangeInfo(unitName).Return(info, nil)
+	mExp.Id().Return(num).AnyTimes()
+	mExp.Life().Return(params.Alive)
+	mExp.InstanceId().Return(instance.Id(num), nil)
+	mExp.InstanceStatus().Return(status.Running, "Running", nil)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
+	if old == "" && sub {
+		mExp.RemoveUpgradeCharmProfileData(unitName).Return(nil)
+	} else {
+		mExp.SetInstanceStatus(status.Running, "Running", nil).Return(nil)
+		mExp.SetStatus(status.Started, "", nil).Return(nil)
+		mExp.SetModificationStatus(status.Applied, "", nil).Return(nil)
+		mExp.SetUpgradeCharmProfileComplete(unitName, lxdprofile.SuccessStatus).Return(nil)
+	}
+
+	return mockMachine, info
+}
+
+func setUpFailureMockProfileMachine(ctrl *gomock.Controller, num string) *apiprovisionermock.MockMachineProvisioner {
+	mockMachine := apiprovisionermock.NewMockMachineProvisioner(ctrl)
+	mExp := mockMachine.EXPECT()
+	mExp.CharmProfileChangeInfo(gomock.Any()).Return(apiprovisioner.CharmProfileChangeInfo{}, errors.New("fail me"))
+	mExp.Id().Return(num).AnyTimes()
+	mExp.InstanceStatus().Return(status.Running, "Running", nil)
+	mExp.Life().Return(params.Alive)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
+	mExp.SetInstanceStatus(status.Error, gomock.Any(), nil).Return(nil)
+	mExp.SetModificationStatus(status.Error, gomock.Any(), nil).Return(nil)
+	mExp.SetUpgradeCharmProfileComplete(gomock.Any(), gomock.Any()).Return(nil)
+
+	return mockMachine
+}
+
+func (s *ProvisionerTaskSuite) TestProcessProfileChangesNoLXDBroker(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockMachine := apiprovisionermock.NewMockMachineProvisioner(ctrl)
+	mExp := mockMachine.EXPECT()
+	mExp.SetUpgradeCharmProfileComplete("lxd-profile/1", lxdprofile.NotSupportedStatus).Return(nil)
+
+	s.machinesResults = []apiprovisioner.MachineResult{
+		{Machine: mockMachine, Err: nil},
+	}
+
+	task := s.newProvisionerTask(c,
+		config.HarvestAll,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+	)
+	defer workertest.CleanKill(c, task)
+
+	c.Assert(provisioner.ProcessProfileChanges(task, []string{"0#lxd-profile/1"}), jc.ErrorIsNil)
+}
+
+func (s *ProvisionerTaskSuite) testProcessOneMachineProfileChangeAddProfile(c *gc.C, sub bool) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockMachineProvisioner := apiprovisionermock.NewMockMachineProvisioner(ctrl)
+	mExp := mockMachineProvisioner.EXPECT()
+	newProfileName := "juju-default-lxd-profile-0"
+	info := apiprovisioner.CharmProfileChangeInfo{
+		OldProfileName: "",
+		NewProfileName: newProfileName,
+		LXDProfile:     nil,
+		Subordinate:    sub,
+	}
+	mExp.CharmProfileChangeInfo("lxd-profile/0").Return(info, nil)
+	mExp.Id().Return("0").AnyTimes()
+	mExp.InstanceStatus().Return(status.Running, "Running", nil)
+	mExp.Life().Return(params.Alive)
+	mExp.InstanceId().Return(instance.Id("0"), nil)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
+	differentProfileName := "juju-default-different-0"
+	mExp.SetCharmProfiles([]string{differentProfileName, newProfileName}).Return(nil)
+
+	mockLXDProfiler := provisionermocks.NewMockLXDProfileInstanceBroker(ctrl)
+	lExp := mockLXDProfiler.EXPECT()
+	machineCharmProfiles := []string{"default", "juju-default", differentProfileName, newProfileName}
+	lExp.ReplaceOrAddInstanceProfile(
+		"0", info.OldProfileName, info.NewProfileName, info.LXDProfile,
+	).Return(machineCharmProfiles, nil)
+
+	remove, err := provisioner.ProcessOneProfileChange(mockMachineProvisioner, mockLXDProfiler, "lxd-profile/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remove, gc.Equals, sub)
+}
+
+func (s *ProvisionerTaskSuite) TestProcessOneMachineProfileChangeAddProfile(c *gc.C) {
+	s.testProcessOneMachineProfileChangeAddProfile(c, false)
+}
+
+func (s *ProvisionerTaskSuite) TestProcessOneMachineProfileChangeAddProfileSubordinate(c *gc.C) {
+	s.testProcessOneMachineProfileChangeAddProfile(c, true)
+}
+
+func (s *ProvisionerTaskSuite) TestProcessOneMachineProfileChangeRemoveProfileSubordinate(c *gc.C) {
+	info := apiprovisioner.CharmProfileChangeInfo{
+		OldProfileName: "juju-default-lxd-profile-0",
+		NewProfileName: "",
+		LXDProfile:     nil,
+		Subordinate:    true,
+	}
+
+	ctrl, mockMachineProvisioner, mockLXDProfiler := setUpMocksProcessOneMachineProfileChange(c, info)
+	defer ctrl.Finish()
+
+	remove, err := provisioner.ProcessOneProfileChange(mockMachineProvisioner, mockLXDProfiler, "lxd-profile")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remove, gc.Equals, false)
+}
+
+func (s *ProvisionerTaskSuite) TestProcessOneMachineProfileChangeChangeProfile(c *gc.C) {
+	info := apiprovisioner.CharmProfileChangeInfo{
+		OldProfileName: "juju-default-lxd-profile-0",
+		NewProfileName: "juju-default-lxd-profile-1",
+		LXDProfile:     nil,
+		Subordinate:    true,
+	}
+
+	ctrl, mockMachineProvisioner, mockLXDProfiler := setUpMocksProcessOneMachineProfileChange(c, info)
+	defer ctrl.Finish()
+
+	remove, err := provisioner.ProcessOneProfileChange(mockMachineProvisioner, mockLXDProfiler, "lxd-profile")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remove, gc.Equals, false)
+}
+
+func setUpMocksProcessOneMachineProfileChange(c *gc.C, info apiprovisioner.CharmProfileChangeInfo) (*gomock.Controller, *apiprovisionermock.MockMachineProvisioner, *provisionermocks.MockLXDProfileInstanceBroker) {
+	ctrl := gomock.NewController(c)
+
+	mockMachineProvisioner := apiprovisionermock.NewMockMachineProvisioner(ctrl)
+	mExp := mockMachineProvisioner.EXPECT()
+	mExp.CharmProfileChangeInfo("lxd-profile").Return(info, nil)
+	mExp.Id().Return("0").AnyTimes()
+	mExp.InstanceStatus().Return(status.Running, "Running", nil)
+	mExp.Life().Return(params.Alive)
+	mExp.InstanceId().Return(instance.Id("0"), nil)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
+
+	differentProfileName := "juju-default-different-0"
+	machineCharmProfiles := []string{"default", "juju-default"}
+	if info.NewProfileName != "" {
+		mExp.SetCharmProfiles([]string{info.NewProfileName, differentProfileName}).Return(nil)
+		machineCharmProfiles = append(machineCharmProfiles, info.NewProfileName)
+	} else {
+		mExp.SetCharmProfiles([]string{differentProfileName}).Return(nil)
+	}
+	machineCharmProfiles = append(machineCharmProfiles, differentProfileName)
+
+	mockLXDProfiler := provisionermocks.NewMockLXDProfileInstanceBroker(ctrl)
+	mockLXDProfiler.EXPECT().ReplaceOrAddInstanceProfile(
+		"0", info.OldProfileName, info.NewProfileName, info.LXDProfile,
+	).Return(machineCharmProfiles, nil)
+
+	return ctrl, mockMachineProvisioner, mockLXDProfiler
 }
 
 func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
@@ -527,6 +811,7 @@ type testMachine struct {
 	constraints    string
 
 	instStatusMsg string
+	modStatusMsg  string
 }
 
 func (m *testMachine) Id() string {
@@ -573,6 +858,19 @@ func (m *testMachine) InstanceStatus() (status.Status, string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return status.Status(""), m.instStatusMsg, nil
+}
+
+func (m *testMachine) SetModificationStatus(_ status.Status, message string, _ map[string]interface{}) error {
+	m.mu.Lock()
+	m.modStatusMsg = message
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *testMachine) ModificationStatus() (status.Status, string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return status.Status(""), m.modStatusMsg, nil
 }
 
 func (m *testMachine) SetStatus(status status.Status, info string, data map[string]interface{}) error {

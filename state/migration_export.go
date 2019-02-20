@@ -421,6 +421,13 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		}
 		instance.SetStatus(statusArgs)
 		instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
+		// Extract the modification status from the status dataset
+		modificationInstanceKey := machine.globalModificationKey()
+		modificationStatusArgs, err := e.statusArgs(modificationInstanceKey)
+		if err != nil {
+			return nil, errors.Annotatef(err, "modification status for machine instance %s", machine.Id())
+		}
+		instance.SetModificationStatus(modificationStatusArgs)
 	}
 
 	// We don't rely on devices being there. If they aren't, we get an empty slice,
@@ -1684,7 +1691,7 @@ func (e *exporter) checkUnexportedValues() error {
 	}
 
 	for key := range e.statusHistory {
-		if !e.cfg.SkipInstanceData && !strings.HasSuffix(key, "#instance") {
+		if !e.cfg.SkipInstanceData && !(strings.HasSuffix(key, "#instance") || strings.HasSuffix(key, "#modification")) {
 			missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
 		}
 	}

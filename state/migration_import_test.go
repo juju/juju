@@ -381,6 +381,11 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Can't test the constraints directly, so go through the string repr.
 	c.Assert(newCons.String(), gc.Equals, cons.String())
+
+	// Test the modification status is set to the initial state.
+	modStatus, err := parent.ModificationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modStatus.Status, gc.Equals, status.Idle)
 }
 
 func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {

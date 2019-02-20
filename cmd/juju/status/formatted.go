@@ -61,20 +61,21 @@ type networkInterface struct {
 }
 
 type machineStatus struct {
-	Err               error                         `json:"-" yaml:",omitempty"`
-	JujuStatus        statusInfoContents            `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
-	DNSName           string                        `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
-	IPAddresses       []string                      `json:"ip-addresses,omitempty" yaml:"ip-addresses,omitempty"`
-	InstanceId        instance.Id                   `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
-	MachineStatus     statusInfoContents            `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
-	Series            string                        `json:"series,omitempty" yaml:"series,omitempty"`
-	Id                string                        `json:"-" yaml:"-"`
-	NetworkInterfaces map[string]networkInterface   `json:"network-interfaces,omitempty" yaml:"network-interfaces,omitempty"`
-	Containers        map[string]machineStatus      `json:"containers,omitempty" yaml:"containers,omitempty"`
-	Constraints       string                        `json:"constraints,omitempty" yaml:"constraints,omitempty"`
-	Hardware          string                        `json:"hardware,omitempty" yaml:"hardware,omitempty"`
-	HAStatus          string                        `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
-	LXDProfiles       map[string]lxdProfileContents `json:"lxd-profiles,omitempty" yaml:"lxd-profiles,omitempty"`
+	Err                error                         `json:"-" yaml:",omitempty"`
+	JujuStatus         statusInfoContents            `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
+	DNSName            string                        `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	IPAddresses        []string                      `json:"ip-addresses,omitempty" yaml:"ip-addresses,omitempty"`
+	InstanceId         instance.Id                   `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
+	MachineStatus      statusInfoContents            `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
+	ModificationStatus statusInfoContents            `json:"modification-status,omitempty" yaml:"modification-status,omitempty"`
+	Series             string                        `json:"series,omitempty" yaml:"series,omitempty"`
+	Id                 string                        `json:"-" yaml:"-"`
+	NetworkInterfaces  map[string]networkInterface   `json:"network-interfaces,omitempty" yaml:"network-interfaces,omitempty"`
+	Containers         map[string]machineStatus      `json:"containers,omitempty" yaml:"containers,omitempty"`
+	Constraints        string                        `json:"constraints,omitempty" yaml:"constraints,omitempty"`
+	Hardware           string                        `json:"hardware,omitempty" yaml:"hardware,omitempty"`
+	HAStatus           string                        `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
+	LXDProfiles        map[string]lxdProfileContents `json:"lxd-profiles,omitempty" yaml:"lxd-profiles,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types
@@ -111,6 +112,7 @@ type applicationStatus struct {
 	CharmName        string                `json:"charm-name" yaml:"charm-name"`
 	CharmRev         int                   `json:"charm-rev" yaml:"charm-rev"`
 	CharmVersion     string                `json:"charm-version,omitempty" yaml:"charm-version,omitempty"`
+	CharmProfile     string                `json:"charm-profile,omitempty" yaml:"charm-profile,omitempty"`
 	CanUpgradeTo     string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
 	Scale            int                   `json:"scale,omitempty" yaml:"scale,omitempty"`
 	Placement        string                `json:"placement,omitempty" yaml:"placement,omitempty"`
