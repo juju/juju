@@ -19,7 +19,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -173,33 +172,6 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 // PrepareForBootstrap prepares for bootstraping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	return nil
-}
-
-const regionLabelName = "failure-domain.beta.kubernetes.io/region"
-
-// ListHostCloudRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
-func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {
-	// we only check 5 worker nodes as of now just run in the one region and
-	// we are just looking for a running worker to sniff its region.
-	nodes, err := k.CoreV1().Nodes().List(v1.ListOptions{Limit: 5})
-	if err != nil {
-		return nil, errors.Annotate(err, "listing nodes")
-	}
-	result := set.NewStrings()
-	for _, n := range nodes.Items {
-		var cloudRegion, v string
-		var ok bool
-		if v = getCloudProviderFromNodeMeta(n); v == "" {
-			continue
-		}
-		cloudRegion += v
-		if v, ok = n.Labels[regionLabelName]; !ok || v == "" {
-			continue
-		}
-		cloudRegion += "/" + v
-		result.Add(cloudRegion)
-	}
-	return result, nil
 }
 
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
@@ -679,7 +651,13 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 	// If a specific storage class has been requested, make sure it exists.
 	if storageClassName != "" && !haveStorageClass {
 		params.storageConfig.storageClass = storageClassName
-		sc, err := k.ensureStorageClass(params.storageConfig)
+		sc, err := k.EnsureStorageProvisioner(caas.StorageProvisioner{
+			Name:          params.storageConfig.storageClass,
+			Namespace:     k.namespace,
+			Provisioner:   params.storageConfig.storageProvisioner,
+			Parameters:    params.storageConfig.parameters,
+			ReclaimPolicy: string(params.storageConfig.reclaimPolicy),
+		})
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
@@ -727,35 +705,55 @@ func (k *kubernetesClient) getStorageClass(name string) (*k8sstorage.StorageClas
 	return storageClasses.Get(name, v1.GetOptions{})
 }
 
-func (k *kubernetesClient) ensureStorageClass(cfg *storageConfig) (*k8sstorage.StorageClass, error) {
+// EnsureStorageProvisioner creates a storage class with the specified config, or returns an existing one.
+func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, error) {
 	// First see if the named storage class exists.
-	sc, err := k.getStorageClass(cfg.storageClass)
+	sc, err := k.getStorageClass(cfg.Name)
 	if err == nil {
-		return sc, nil
+		return &caas.StorageProvisioner{
+			Name:        sc.Name,
+			Provisioner: sc.Provisioner,
+			Parameters:  sc.Parameters,
+		}, nil
 	}
 	if !k8serrors.IsNotFound(err) {
-		return nil, errors.Annotatef(err, "getting storage class %q", cfg.storageClass)
+		return nil, errors.Annotatef(err, "getting storage class %q", cfg.Name)
 	}
 	// If it's not found but there's no provisioner specified, we can't
 	// create it so just return not found.
-	if err != nil && cfg.storageProvisioner == "" {
+	if cfg.Provisioner == "" {
 		return nil, errors.NewNotFound(nil,
 			fmt.Sprintf("storage class %q doesn't exist, but no storage provisioner has been specified",
-				cfg.storageClass))
+				cfg.Name))
 	}
 
 	// Create the storage class with the specified provisioner.
+	var reclaimPolicy *core.PersistentVolumeReclaimPolicy
+	if cfg.ReclaimPolicy != "" {
+		policy := core.PersistentVolumeReclaimPolicy(cfg.ReclaimPolicy)
+		reclaimPolicy = &policy
+	}
 	storageClasses := k.StorageV1().StorageClasses()
-	sc, err = storageClasses.Create(&k8sstorage.StorageClass{
+	sc = &k8sstorage.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   qualifiedStorageClassName(k.namespace, cfg.storageClass),
-			Labels: map[string]string{labelModel: k.namespace},
+			Name: qualifiedStorageClassName(cfg.Namespace, cfg.Name),
 		},
-		Provisioner:   cfg.storageProvisioner,
-		ReclaimPolicy: &cfg.reclaimPolicy,
-		Parameters:    cfg.parameters,
-	})
-	return sc, errors.Annotatef(err, "creating storage class %q", cfg.storageClass)
+		Provisioner:   cfg.Provisioner,
+		ReclaimPolicy: reclaimPolicy,
+		Parameters:    cfg.Parameters,
+	}
+	if cfg.Namespace != "" {
+		sc.Labels = map[string]string{labelModel: k.namespace}
+	}
+	_, err = storageClasses.Create(sc)
+	if err != nil {
+		return nil, errors.Annotatef(err, "creating storage class %q", cfg.Name)
+	}
+	return &caas.StorageProvisioner{
+		Name:        sc.Name,
+		Provisioner: sc.Provisioner,
+		Parameters:  sc.Parameters,
+	}, nil
 }
 
 // DeleteOperator deletes the specified operator.
@@ -2133,6 +2131,9 @@ func appSecretName(deploymentName, containerName string) string {
 }
 
 func qualifiedStorageClassName(namespace, storageClass string) string {
+	if namespace == "" {
+		return storageClass
+	}
 	return namespace + "-" + storageClass
 }
 

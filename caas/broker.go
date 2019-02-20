@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	core "k8s.io/api/core/v1"
 
@@ -134,8 +133,8 @@ type Broker interface {
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
 
-	// ListHostCloudRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
-	ListHostCloudRegions() (set.Strings, error)
+	// ClusterMetadataChecker provides an API to query cluster metadata.
+	ClusterMetadataChecker
 
 	// NamespaceWatcher provides the API to watch caas namespace.
 	NamespaceWatcher
@@ -201,6 +200,19 @@ type NamespaceGetterSetter interface {
 
 	// GetCurrentNamespace returns current namespace name.
 	GetCurrentNamespace() string
+}
+
+// ClusterMetadataChecker provides an API to query cluster metadata.
+type ClusterMetadataChecker interface {
+	// GetClusterMetadata returns metadata about host cloud and storage for the cluster.
+	GetClusterMetadata(storageClass string) (result *ClusterMetadata, err error)
+
+	// CheckDefaultWorkloadStorage returns an error if the opinionated storage defined for
+	// the cluster does not match the specified storage.
+	CheckDefaultWorkloadStorage(cluster string, storageProvisioner *StorageProvisioner) error
+
+	// EnsureStorageProvisioner creates a storage provisioner with the specified config, or returns an existing one.
+	EnsureStorageProvisioner(cfg StorageProvisioner) (*StorageProvisioner, error)
 }
 
 // NamespaceWatcher provides the API to watch caas namespace.
