@@ -133,6 +133,11 @@ func NewK8sBroker(
 		// We probally have to limit one controller controllers one cluster always, or we may get a situation
 		// that one namespace has workloads deployed by different cluster and the applications have same
 		// application name will get overwritten by the different controllers!
+		// Solution(potential): we SHOULD label all namespaces(controller ns + model ns) with controller ID,
+		// and always check if the controller owns(created) the namespace whenever it tries to
+		// CRUD any resources inside the namespace.
+		// Note: we should consider above `Solution` even we always run single controller per cluster, because
+		// we should NEVER allow juju controller to touch any namespace that was NOT created by JUJU.
 		namespace += "-" + modelUUID
 		logger.Debugf("found config name %q, so construct namespace name to %q", newCfg.Name(), namespace)
 	}
