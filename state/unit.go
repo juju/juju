@@ -746,7 +746,7 @@ func (u *Unit) keepMachineRemoveProfileOps(m *Machine) ([]txn.Op, error) {
 	var ops []txn.Op
 	modStatus, err := m.ModificationStatus()
 	if err != nil {
-		return ops, err
+		return ops, errors.Trace(err)
 	}
 	if modStatus.Status == status.Idle {
 		// no profiles applied or attempts failed, return early
@@ -757,16 +757,16 @@ func (u *Unit) keepMachineRemoveProfileOps(m *Machine) ([]txn.Op, error) {
 	// applied to the machine for this unit?
 	machineProfiles, err := m.CharmProfiles()
 	if err != nil {
-		return ops, err
+		return ops, errors.Trace(err)
 	}
 	profileName, err := lxdprofile.MatchProfileNameByAppName(machineProfiles, u.ApplicationName())
 	if err != nil {
-		return ops, err
+		return ops, errors.Trace(err)
 	}
 
 	ch, err := u.charm()
 	if err != nil {
-		return ops, err
+		return ops, errors.Trace(err)
 	}
 
 	switch {
@@ -775,7 +775,7 @@ func (u *Unit) keepMachineRemoveProfileOps(m *Machine) ([]txn.Op, error) {
 		// machine modification status when the unit is removed.
 		since, err := u.st.ControllerTimestamp()
 		if err != nil {
-			return ops, err
+			return ops, errors.Trace(err)
 		}
 		// Assume no other profiles on machine, so set to Idle.
 		sDoc := statusDoc{
