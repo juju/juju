@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
@@ -2048,12 +2049,12 @@ func (a *Application) CharmConfig() (charm.Settings, error) {
 
 // UpdateCharmConfig changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
-func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
-	charm, _, err := a.Charm()
+func (a *Application) UpdateCharmConfig(generation model.GenerationVersion, changes charm.Settings) error {
+	ch, _, err := a.Charm()
 	if err != nil {
 		return err
 	}
-	changes, err = charm.Config().ValidateSettings(changes)
+	changes, err = ch.Config().ValidateSettings(changes)
 	if err != nil {
 		return err
 	}

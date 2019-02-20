@@ -375,7 +375,7 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.config != nil {
-			err := app.UpdateCharmConfig(t.config)
+			err := app.UpdateCharmConfig(model.GenerationCurrent, t.config)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		expect := t.expect
@@ -403,7 +403,7 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "test-application", ch)
 
-	err := app.UpdateCharmConfig(map[string]interface{}{"skill-level": nonFloatInt})
+	err := app.UpdateCharmConfig(model.GenerationCurrent, map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, jc.ErrorIsNil)
 	client := apiapplication.NewClient(s.APIState)
 	got, err := client.Get(model.GenerationCurrent, app.Name())

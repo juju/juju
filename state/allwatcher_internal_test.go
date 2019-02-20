@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -509,7 +510,7 @@ func applicationCharmURL(app *Application) *charm.URL {
 }
 
 func setApplicationConfigAttr(c *gc.C, app *Application, attr string, val interface{}) {
-	err := app.UpdateCharmConfig(charm.Settings{attr: val})
+	err := app.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{attr: val})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1217,7 +1218,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				app, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = app.UpdateCharmConfig(charm.Settings{"blog-title": "boring"})
+				err = app.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"blog-title": "boring"})
 				c.Assert(err, jc.ErrorIsNil)
 				return 1
 			},

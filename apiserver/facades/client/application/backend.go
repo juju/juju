@@ -4,6 +4,7 @@
 package application
 
 import (
+	"github.com/juju/juju/core/model"
 	"github.com/juju/schema"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -84,7 +85,7 @@ type Application interface {
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
-	UpdateCharmConfig(charm.Settings) error
+	UpdateCharmConfig(model.GenerationVersion, charm.Settings) error
 	UpdateApplicationConfig(application.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 }
 

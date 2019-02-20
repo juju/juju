@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -650,7 +651,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				app, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = app.UpdateCharmConfig(charm.Settings{"blog-title": "awesome"})
+				err = app.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"blog-title": "awesome"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {

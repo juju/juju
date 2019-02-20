@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -590,7 +591,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 
 		origCh := charms[t.startconfig]
 		app := s.AddTestingApplication(c, "wordpress", origCh)
-		err := app.UpdateCharmConfig(t.startvalues)
+		err := app.UpdateCharmConfig(model.GenerationCurrent, t.startvalues)
 		c.Assert(err, jc.ErrorIsNil)
 
 		newCh := charms[t.endconfig]
@@ -802,7 +803,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 
 	defer state.SetBeforeHooks(c, s.State,
 		func() {
-			err := s.mysql.UpdateCharmConfig(charm.Settings{"key": "value"})
+			err := s.mysql.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"key": "value"})
 			c.Assert(err, jc.ErrorIsNil)
 		},
 		nil, // Ensure there will be a retry.
@@ -843,7 +844,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				assertNoSettingsRef(c, s.State, "mysql", oldCh)
 				// Update newCh settings, switch to oldCh and update its
 				// settings as well.
-				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value1"})
+				err = s.mysql.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"key": "value1"})
 				c.Assert(err, jc.ErrorIsNil)
 				cfg = state.SetCharmConfig{Charm: oldCh}
 
@@ -855,7 +856,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
-				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value2"})
+				err = s.mysql.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"key": "value2"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
@@ -881,7 +882,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 2)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
-				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value3"})
+				err = s.mysql.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"key": "value3"})
 				c.Assert(err, jc.ErrorIsNil)
 
 				cfg = state.SetCharmConfig{Charm: oldCh}
@@ -889,7 +890,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
-				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value4"})
+				err = s.mysql.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"key": "value4"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
@@ -1059,10 +1060,10 @@ func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 		c.Logf("test %d. %s", i, t.about)
 		app := s.AddTestingApplication(c, "dummy-application", sch)
 		if t.initial != nil {
-			err := app.UpdateCharmConfig(t.initial)
+			err := app.UpdateCharmConfig(model.GenerationCurrent, t.initial)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		err := app.UpdateCharmConfig(t.update)
+		err := app.UpdateCharmConfig(model.GenerationCurrent, t.update)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -3445,20 +3446,14 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
-	err = app.UpdateCharmConfig(charm.Settings{
-		"blog-title": "superhero paparazzi",
-	})
+	err = app.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"blog-title": "superhero paparazzi"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.UpdateCharmConfig(charm.Settings{
-		"blog-title": "sauceror central",
-	})
+	err = app.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"blog-title": "sauceror central"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
-	err = app.UpdateCharmConfig(charm.Settings{
-		"blog-title": "sauceror central",
-	})
+	err = app.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"blog-title": "sauceror central"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -3469,7 +3464,7 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change application config for new charm; nothing detected.
-	err = app.UpdateCharmConfig(charm.Settings{"key": "value"})
+	err = app.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"key": "value"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
