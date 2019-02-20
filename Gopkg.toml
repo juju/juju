@@ -335,7 +335,7 @@
 
 [[constraint]]
   name = "github.com/juju/schema"
-  revision = "075de04f9b7d7580d60a1e12a0b3f50bb18e6998"
+  revision = "64a6158e90710d0a16c6bd3cf0a6be6b2e80193c"
 
 [[constraint]]
   name = "github.com/juju/terms-client"
