@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 """ Assess using bundle that have various charms with lxd-profiles, testing
     different deployment scenarios.
@@ -83,7 +83,7 @@ def align_machine_profiles(machine_profiles):
             b = set(items[1])
             result[charm_profile].extend(b.difference(a))
         else:
-            result[charm_profile] = items[1].copy()
+            result[charm_profile] = list(items[1])
     return result
 
 def parse_args(argv):
