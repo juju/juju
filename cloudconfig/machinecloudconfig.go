@@ -248,7 +248,7 @@ func extractPropertiesFromConfig(props []string, cfg map[string]interface{}, log
 	for _, k := range props {
 		key := strings.TrimSpace(k)
 		switch key {
-		case "apt-security", "apt-primary", "apt-sources_list":
+		case "apt-security", "apt-primary", "apt-sources", "apt-sources_list":
 			if val, ok := cfg["apt"]; ok {
 				for k, v := range nestedAptConfig(key, val, log) {
 					// security, sources, and primary all nest under apt, ensure
@@ -265,7 +265,7 @@ func extractPropertiesFromConfig(props []string, cfg map[string]interface{}, log
 				log.Debugf("%s not found in machine cloud-init data", key)
 			}
 		case "ca-certs":
-			// no translation needed, ca-certs the same in both versions of cloudinit
+			// No translation needed, ca-certs the same in both versions of Cloud-Init.
 			if val, ok := cfg[key]; ok {
 				foundDataMap[key] = val
 			} else {
@@ -312,19 +312,23 @@ func extractPropertiesFromConfigLegacy(
 				if val, ok := cfg[aptKey]; ok {
 					foundDataMap[aptKey] = val
 				} else {
-					log.Debugf("%s not found in machine init data", key)
+					log.Debugf("%s not found in machine init data", aptKey)
 				}
 			}
 			aptProcessed = true
 		case "apt-sources_list":
-			// TODO (manadart 2018-02-18): Test whether this key is handled in
-			// legacy cloud-init versions.
-
+			// Testing series trusty on MAAS 2.5+ shows that this could be
+			// treated in the same way as the non-legacy property
+			// extraction, but we would then be mixing techniques.
+			// Legacy handling is left unchanged here under the assumption
+			// that provisioning trusty machines on much newer MAAS
+			// versions is highly unlikely.
+			log.Debugf("%q ignored for this machine series", key)
 		case "apt-security":
 			// Translation for apt-security unknown at this time.
-			log.Debugf("%s not found in machine init data", key)
+			log.Debugf("%q ignored for this machine series", key)
 		case "ca-certs":
-			// no translation needed, ca-certs the same in both versions of cloudinit
+			// No translation needed, ca-certs the same in both versions of Cloud-Init.
 			if val, ok := cfg[key]; ok {
 				foundDataMap[key] = val
 			} else {

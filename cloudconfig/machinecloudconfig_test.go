@@ -32,7 +32,7 @@ func (s *fromHostSuite) SetUpTest(c *gc.C) {
 
 	// Pre-seed /etc/cloud/cloud.cfg.d replacement for testing
 	s.tempCloudCfgDir = c.MkDir() // will clean up
-	seedData(c, s.tempCloudCfgDir, "90_dpkg_local_cloud_config.cfg", dpkgLocalCloudConfig078)
+	seedData(c, s.tempCloudCfgDir, "90_dpkg_local_cloud_config.cfg", dpkgLocalCloudConfig)
 	seedData(c, s.tempCloudCfgDir, "50-curtin-networking.cfg", curtinNetworking)
 	seedData(c, s.tempCloudCfgDir, "10_random.cfg", otherConfig)
 	seedData(c, s.tempCloudCfgDir, "Readme", readmeFile)
@@ -50,7 +50,7 @@ func (s *fromHostSuite) SetUpTest(c *gc.C) {
 func (s *fromHostSuite) TestGetMachineCloudInitData(c *gc.C) {
 	obtained, err := s.newMachineInitReader("xenial").GetInitConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(obtained, gc.DeepEquals, expectedResult078)
+	c.Assert(obtained, gc.DeepEquals, expectedResult)
 }
 
 type cloudinitDataVerifyTest struct {
@@ -66,13 +66,13 @@ var cloudinitDataVerifyTests = []cloudinitDataVerifyTest{
 		description:     "xenial on xenial",
 		machineSeries:   "xenial",
 		containerSeries: "xenial",
-		result:          expectedResult078,
+		result:          expectedResult,
 	},
 	{
 		description:     "trusty on trusty",
 		machineSeries:   "trusty",
 		containerSeries: "trusty",
-		result:          expectedResult078,
+		result:          expectedResult,
 	},
 	{
 		description:     "xenial on trusty",
@@ -83,13 +83,13 @@ var cloudinitDataVerifyTests = []cloudinitDataVerifyTest{
 		description:     "opensuseleap on opensuseleap",
 		machineSeries:   "opensuseleap",
 		containerSeries: "opensuseleap",
-		result:          expectedResult078,
+		result:          expectedResult,
 	},
 	{
 		description:     "centos7 on centos7",
 		machineSeries:   "centos7",
 		containerSeries: "centos7",
-		result:          expectedResult078,
+		result:          expectedResult,
 	},
 	{
 		description:     "win2012 on win2012",
@@ -110,7 +110,7 @@ func (s *fromHostSuite) TestGetMachineCloudInitDataVerifySeries(c *gc.C) {
 		obtained, err := s.newMachineInitReader(test.containerSeries).GetInitConfig()
 		c.Assert(err, gc.IsNil)
 		if test.result != nil {
-			c.Assert(obtained, gc.DeepEquals, expectedResult078)
+			c.Assert(obtained, gc.DeepEquals, expectedResult)
 		} else {
 			c.Assert(obtained, gc.IsNil)
 		}
@@ -149,7 +149,7 @@ func (s *fromHostSuite) TestCloudConfigVersionV078(c *gc.C) {
 	reader := s.newMachineInitReader("xenial")
 	obtained, err := reader.GetInitConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(obtained, gc.DeepEquals, expectedResult078)
+	c.Assert(obtained, gc.DeepEquals, expectedResult)
 
 	resultMap := reader.ExtractPropertiesFromConfig(
 		[]string{"apt-primary", "ca-certs", "apt-security"}, obtained, loggo.GetLogger("juju.machinecloudconfig"))
@@ -184,7 +184,7 @@ func (s *fromHostSuite) TestCloudConfigVersionNoContainerInheritProperties(c *gc
 
 func (s *fromHostSuite) TestCloudConfigVersionV077(c *gc.C) {
 	s.PatchValue(&utilsseries.MustHostSeries, func() string { return "trusty" })
-	seedData(c, s.tempCloudCfgDir, "90_dpkg_local_cloud_config.cfg", dpkgLocalCloudConfig077)
+	seedData(c, s.tempCloudCfgDir, "90_dpkg_local_cloud_config.cfg", dpkgLocalCloudConfigLegacy)
 
 	reader := s.newMachineInitReader("trusty")
 	obtained, err := reader.GetInitConfig()
@@ -196,16 +196,55 @@ func (s *fromHostSuite) TestCloudConfigVersionV077(c *gc.C) {
 	// Can't compare map-to-map equality directly due to one of the values
 	// being a slice - it fails intermittently.
 	c.Assert(resultMap, gc.HasLen, 5)
-	c.Assert(resultMap["apt_mirror"], gc.Equals, expectedResult077["apt_mirror"])
-	c.Assert(resultMap["apt_mirror_search_dns"], gc.Equals, expectedResult077["apt_mirror_search_dns"])
-	c.Assert(resultMap["apt_mirror_search"], jc.SameContents, expectedResult077["apt_mirror_search"])
-	c.Assert(resultMap["apt_sources"], gc.DeepEquals, expectedResult077["apt_sources"])
+	c.Assert(resultMap["apt_mirror"], gc.Equals, expectedResultLegacy["apt_mirror"])
+	c.Assert(resultMap["apt_mirror_search_dns"], gc.Equals, expectedResultLegacy["apt_mirror_search_dns"])
+	c.Assert(resultMap["apt_mirror_search"], jc.SameContents, expectedResultLegacy["apt_mirror_search"])
+	c.Assert(resultMap["apt_sources"], gc.DeepEquals, expectedResultLegacy["apt_sources"])
 }
 
 func (s *fromHostSuite) TestCloudConfigVersionNoContainerInheritPropertiesLegacy(c *gc.C) {
 	reader := s.newMachineInitReader("trusty")
 	resultMap := reader.ExtractPropertiesFromConfig(nil, nil, loggo.GetLogger("juju.machinecloudconfig"))
 	c.Assert(resultMap, gc.HasLen, 0)
+}
+
+func (s *fromHostSuite) TestCurtinConfigAptProperties(c *gc.C) {
+	s.PatchValue(&utilsseries.MustHostSeries, func() string { return "bionic" })
+
+	// Seed the curtin install config as for MAAS 2.5+
+	curtinDir := c.MkDir()
+	curtinFile := "curtin-install-cfg.yaml"
+	seedData(c, curtinDir, curtinFile, curtinConfig)
+	s.tempCurtinCfgFile = filepath.Join(curtinDir, curtinFile)
+
+	// Remove the data for prior MAAS versions.
+	seedData(c, s.tempCloudCfgDir, "90_dpkg_local_cloud_config.cfg", "")
+
+	expectedSources := `deb http://us.archive.ubuntu.com/ubuntu $RELEASE universe main multiverse restricted
+# deb-src http://us.archive.ubuntu.com/ubuntu $RELEASE universe main multiverse restricted
+deb http://us.archive.ubuntu.com/ubuntu $RELEASE-updates universe main multiverse restricted
+# deb-src http://us.archive.ubuntu.com/ubuntu $RELEASE-updates universe main multiverse restricted
+deb http://us.archive.ubuntu.com/ubuntu $RELEASE-security universe main multiverse restricted
+# deb-src http://us.archive.ubuntu.com/ubuntu $RELEASE-security universe main multiverse restricted
+deb http://us.archive.ubuntu.com/ubuntu $RELEASE-backports universe main multiverse restricted
+# deb-src http://us.archive.ubuntu.com/ubuntu $RELEASE-backports universe main multiverse restricted
+`
+	expected := map[interface{}]interface{}{
+		"proxy":                 "http://10-0-0-0--24.maas-internal:8000/",
+		"sources_list":          expectedSources,
+		"preserve_sources_list": false,
+	}
+
+	reader := s.newMachineInitReader("bionic")
+	obtained, err := reader.GetInitConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained["apt"], gc.DeepEquals, expected)
+
+	resultMap := reader.ExtractPropertiesFromConfig(
+		[]string{"apt-sources_list"}, obtained, loggo.GetLogger("juju.machinecloudconfig"))
+
+	c.Assert(resultMap["apt"], gc.HasLen, 1)
+	c.Assert(resultMap["apt"].(map[string]interface{})["sources_list"], gc.Equals, expectedSources)
 }
 
 func (s *fromHostSuite) newMachineInitReader(series string) cloudconfig.InitReader {
@@ -222,7 +261,36 @@ func seedData(c *gc.C, dir, name, data string) {
 	c.Assert(ioutil.WriteFile(path.Join(dir, name), []byte(data), 0644), jc.ErrorIsNil)
 }
 
-var dpkgLocalCloudConfig077 = `
+var dpkgLocalCloudConfig = `
+# cloud-init/local-cloud-config
+apt:
+  preserve_sources_list: false
+  primary:
+  - arches: [default]
+    uri: http://archive.ubuntu.com/ubuntu
+  security:
+  - arches: [default]
+    uri: http://archive.ubuntu.com/ubuntu
+apt_preserve_sources_list: true
+reporting:
+  maas: {consumer_key: mpU9YZLWDG7ZQubksN, endpoint: 'http://10.10.101.2/MAAS/metadata/status/cmfcxx',
+    token_key: tgEn5v5TcakKwWKwCf, token_secret: jzLdPTuh7hHqHTG9kGEHSG7F25GMAmzJ,
+    type: webhook}
+system_info:
+  package_mirrors:
+  - arches: [i386, amd64]
+    failsafe: {primary: 'http://archive.ubuntu.com/ubuntu', security: 'http://security.ubuntu.com/ubuntu'}
+    search:
+      primary: ['http://archive.ubuntu.com/ubuntu']
+      security: ['http://archive.ubuntu.com/ubuntu']
+  - arches: [default]
+    failsafe: {primary: 'http://ports.ubuntu.com/ubuntu-ports', security: 'http://ports.ubuntu.com/ubuntu-ports'}
+    search:
+      primary: ['http://ports.ubuntu.com/ubuntu-ports']
+      security: ['http://ports.ubuntu.com/ubuntu-ports']
+`[1:]
+
+var dpkgLocalCloudConfigLegacy = `
 # cloud-init/local-cloud-config
 apt_mirror: http://archive.ubuntu.com/ubuntu
 apt_mirror_search:
@@ -254,33 +322,37 @@ system_info:
       security: ['http://ports.ubuntu.com/ubuntu-ports']
 `[1:]
 
-var dpkgLocalCloudConfig078 = `
-# cloud-init/local-cloud-config
+var curtinConfig = `
+apply_net_commands:
+  builtin: []
 apt:
   preserve_sources_list: false
-  primary:
-  - arches: [default]
-    uri: http://archive.ubuntu.com/ubuntu
-  security:
-  - arches: [default]
-    uri: http://archive.ubuntu.com/ubuntu
-apt_preserve_sources_list: true
-reporting:
-  maas: {consumer_key: mpU9YZLWDG7ZQubksN, endpoint: 'http://10.10.101.2/MAAS/metadata/status/cmfcxx',
-    token_key: tgEn5v5TcakKwWKwCf, token_secret: jzLdPTuh7hHqHTG9kGEHSG7F25GMAmzJ,
-    type: webhook}
-system_info:
-  package_mirrors:
-  - arches: [i386, amd64]
-    failsafe: {primary: 'http://archive.ubuntu.com/ubuntu', security: 'http://security.ubuntu.com/ubuntu'}
-    search:
-      primary: ['http://archive.ubuntu.com/ubuntu']
-      security: ['http://archive.ubuntu.com/ubuntu']
-  - arches: [default]
-    failsafe: {primary: 'http://ports.ubuntu.com/ubuntu-ports', security: 'http://ports.ubuntu.com/ubuntu-ports'}
-    search:
-      primary: ['http://ports.ubuntu.com/ubuntu-ports']
-      security: ['http://ports.ubuntu.com/ubuntu-ports']
+  proxy: http://10-0-0-0--24.maas-internal:8000/
+  sources_list: 'deb http://us.archive.ubuntu.com/ubuntu $RELEASE universe main multiverse
+    restricted
+
+    # deb-src http://us.archive.ubuntu.com/ubuntu $RELEASE universe main multiverse
+    restricted
+
+    deb http://us.archive.ubuntu.com/ubuntu $RELEASE-updates universe main multiverse
+    restricted
+
+    # deb-src http://us.archive.ubuntu.com/ubuntu $RELEASE-updates universe main multiverse
+    restricted
+
+    deb http://us.archive.ubuntu.com/ubuntu $RELEASE-security universe main multiverse
+    restricted
+
+    # deb-src http://us.archive.ubuntu.com/ubuntu $RELEASE-security universe main
+    multiverse restricted
+
+    deb http://us.archive.ubuntu.com/ubuntu $RELEASE-backports universe main multiverse
+    restricted
+
+    # deb-src http://us.archive.ubuntu.com/ubuntu $RELEASE-backports universe main
+    multiverse restricted
+
+    '
 `[1:]
 
 var curtinNetworking = `
@@ -335,7 +407,7 @@ var readmeFile = `
 # earlier files.
 `[1:]
 
-var expectedResult078 = map[string]interface{}{
+var expectedResult = map[string]interface{}{
 	"apt": map[interface{}]interface{}{
 		"preserve_sources_list": false,
 		"primary": []interface{}{
@@ -380,7 +452,7 @@ var expectedResult078 = map[string]interface{}{
 	"network": expectedNetworkCommon,
 }
 
-var expectedResult077 = map[string]interface{}{
+var expectedResultLegacy = map[string]interface{}{
 	"apt_mirror": "http://archive.ubuntu.com/ubuntu",
 	"apt_mirror_search": []interface{}{
 		"http://local-mirror.mydomain",
