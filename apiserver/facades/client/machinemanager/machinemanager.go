@@ -292,7 +292,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 				if !force {
 					return fail(err)
 				}
-				logger.Warningf("error destroying machine %v but keep instance: %v", machineTag.Id(), err)
+				result.Error = common.ServerError(err)
 			}
 		}
 		var info params.DestroyMachineInfo
