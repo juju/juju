@@ -118,6 +118,23 @@ credentials:
 	return credsFile
 }
 
+func (s *addCredentialSuite) TestAddFromFileWithInvalidCredentialNames(c *gc.C) {
+	dir := c.MkDir()
+	sourceFile := filepath.Join(dir, "cred.yaml")
+	err := ioutil.WriteFile(sourceFile, []byte(`
+credentials:
+  somecloud:
+    credential with spaces:
+      auth-type: interactive
+      trust-password: "123"
+`), 0644)
+	c.Assert(err, gc.IsNil)
+
+	s.authTypes = []jujucloud.AuthType{jujucloud.InteractiveAuthType}
+	_, err = s.run(c, nil, "somecloud", "-f", sourceFile)
+	c.Assert(err, gc.ErrorMatches, `"credential with spaces" is not a valid credential name`)
+}
+
 func (s *addCredentialSuite) TestAddFromFileNoCredentialsFound(c *gc.C) {
 	sourceFile := s.createTestCredentialData(c)
 	_, err := s.run(c, nil, "anothercloud", "-f", sourceFile)
@@ -303,6 +320,23 @@ Credential "bobscreds" added locally for cloud "somecloud".
 			},
 		},
 	})
+}
+
+func (s *addCredentialSuite) TestAddInvalidCredentialInteractive(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{"interactive"}
+	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		"interactive": {{"username", jujucloud.CredentialAttr{}}},
+	}
+
+	stdin := strings.NewReader("credential name with spaces\n")
+	ctx, err := s.run(c, stdin, "somecloud")
+	c.Assert(err, gc.NotNil)
+
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+Enter credential name: Invalid credential name: "credential name with spaces"
+
+Enter credential name: 
+`[1:])
 }
 
 func (s *addCredentialSuite) TestAddCredentialCredSchemaInteractive(c *gc.C) {
