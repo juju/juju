@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-""" Assess using bundle that have various charms with lxd-profiles, testing
-    different deployment scenarios.
+""" Assess upgrading charms with lxd-profiles in different deployment scenarios.
 """
 
 import argparse
@@ -32,23 +31,22 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_lxdprofile_charm")
 
-default_bundle = 'bundles-lxd-profile.yaml'
+default_bundle = 'bundles-lxd-profile-upgrade.yaml'
 
-def deploy_bundle(client, charm_bundle):
+def deploy_bundle(client):
     """Deploy the given charm bundle
     :param client: Jujupy ModelClient object
-    :param charm_bundle: Optional charm bundle string
     """
-    if not charm_bundle:
-        bundle = local_charm_path(
-            charm=default_bundle,
-            juju_ver=client.version,
-            repository=os.environ['JUJU_REPOSITORY']
-        )
-    else:
-        bundle = charm_bundle
+    bundle = local_charm_path(
+        charm=default_bundle,
+        juju_ver=client.version,
+        repository=os.environ['JUJU_REPOSITORY']
+    )
     _, primary = client.deploy(bundle)
     client.wait_for(primary)
+
+def upgrade_charm(client):
+    client.upgrade_charm("lxd-profile", resvision='1')
 
 def assess_profile_machines(client):
     """Assess the machines
@@ -75,10 +73,6 @@ def assess_profile_machines(client):
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test juju lxd profile bundle deploys.")
-    parser.add_argument(
-        '--charm-bundle',
-        help="Override the charm bundle to deploy",
-    )
     add_basic_testing_arguments(parser)
     return parser.parse_args(argv)
 
@@ -89,7 +83,9 @@ def main(argv=None):
     with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
 
-        deploy_bundle(client, charm_bundle=args.charm_bundle)
+        deploy_bundle(client)
+        assess_profile_machines(client)
+        upgrade_charm(client)
         assess_profile_machines(client)
 
 if __name__ == '__main__':

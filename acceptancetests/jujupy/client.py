@@ -1270,10 +1270,12 @@ class ModelClient:
                     'ResourceId: {} Service or Unit: {} Timeout: {}'.format(
                         resource_id, service_or_unit, timeout))
 
-    def upgrade_charm(self, service, charm_path=None):
+    def upgrade_charm(self, service, charm_path=None, resvision=None):
         args = (service,)
         if charm_path is not None:
             args = args + ('--path', charm_path)
+        if resvision is not None:
+            args = args + ('--revision', resvision)
         self.juju('upgrade-charm', args)
 
     def remove_service(self, service):
