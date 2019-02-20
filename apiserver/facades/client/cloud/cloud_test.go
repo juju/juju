@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/juju/errors"
@@ -203,6 +204,50 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 			Error: &params.Error{Message: `"machine-0" is not a valid cloud tag`},
 		},
 	})
+}
+
+func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
+	updatedCloud := cloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
+	}
+	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
+		[]params.CloudArgs{{
+			Name: "dummy",
+			Cloud: common.CloudToParams(updatedCloud),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "UpdateCloud")
+	s.backend.CheckCall(c, 0, "UpdateCloud", updatedCloud)
+
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *cloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
+	updatedCloud := cloud.Cloud{
+		Name:      "nope",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
+	}
+	s.backend.SetErrors(errors.NotFoundf("cloud %q", updatedCloud.Name))
+	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
+		[]params.CloudArgs{{
+			Name: "nope",
+			Cloud: common.CloudToParams(updatedCloud),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.backend.CheckCallNames(c, "UpdateCloud")
+	s.backend.CheckCall(c, 0, "UpdateCloud", updatedCloud)
+
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("cloud %q not found", updatedCloud.Name))
 }
 
 func (s *cloudSuite) TestListCloudInfo(c *gc.C) {
@@ -1106,6 +1151,14 @@ func (st *mockBackend) RemoveCloudCredential(tag names.CloudCredentialTag) error
 func (st *mockBackend) AddCloud(cloud cloud.Cloud, user string) error {
 	st.MethodCall(st, "AddCloud", cloud, user)
 	return errors.NewNotImplemented(nil, "This mock is used for v1, so AddCloud")
+}
+
+func (st *mockBackend) UpdateCloud(cloud cloud.Cloud) error {
+	st.MethodCall(st, "UpdateCloud", cloud)
+	if cloud.Name == st.cloud.Name {
+		return nil
+	}
+	return st.NextErr()
 }
 
 func (st *mockBackend) RemoveCloud(name string) error {

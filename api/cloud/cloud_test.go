@@ -643,6 +643,48 @@ func (s *cloudSuite) TestAddCloudV2API(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
+func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
+
+	updatedCloud := cloud.Cloud{
+		Name:      "foo",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+	}
+
+	var called bool
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "UpdateCloud")
+				c.Assert(a, jc.DeepEquals, params.UpdateCloudArgs{Clouds: []params.CloudArgs{{
+					Name:  "foo",
+					Cloud: common.CloudToParams(updatedCloud),
+				}}})
+				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+				*result.(*params.ErrorResults) = params.ErrorResults{
+					Results: []params.ErrorResult{{}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 4,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	err := client.UpdateCloud(updatedCloud)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
 func (s *cloudSuite) TestAddCredentialNotInV1API(c *gc.C) {
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
