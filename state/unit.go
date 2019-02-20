@@ -713,20 +713,13 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
-		// Remove any charm profile applied to the machine for this unit,
-		// if this is a unit removal from a machine which will not be
-		// destroyed.
-		machineProfiles, err := m.CharmProfiles()
+		// Remove any charm profile applied to the machine for this unit.
+		profileOps, err := u.keepMachineRemoveProfileOps(m)
 		if err != nil {
 			return nil, err
 		}
-		profile, err := lxdprofile.MatchProfileNameByAppName(machineProfiles, u.ApplicationName())
-		if err != nil {
-			return nil, err
-		}
-		if profile != "" {
-			logger.Tracef("Setup to remove charm profile %q, removing unit from machine %s", profile, m.Id())
-			ops = append(ops, m.SetUpgradeCharmProfileOp(u.Name(), "", lxdprofile.EmptyStatus))
+		if len(profileOps) > 0 {
+			ops = append(ops, profileOps...)
 		}
 	}
 
@@ -746,6 +739,64 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 	})
 	ops = append(ops, cleanupOps...)
 
+	return ops, nil
+}
+
+func (u *Unit) keepMachineRemoveProfileOps(m *Machine) ([]txn.Op, error) {
+	var ops []txn.Op
+	modStatus, err := m.ModificationStatus()
+	if err != nil {
+		return ops, errors.Trace(err)
+	}
+	if modStatus.Status == status.Idle {
+		// no profiles applied or attempts failed, return early
+		return ops, nil
+	}
+
+	// What's the name of the charm's LXD Profile which was
+	// applied to the machine for this unit?
+	machineProfiles, err := m.CharmProfiles()
+	if err != nil {
+		return ops, errors.Trace(err)
+	}
+	profileName, err := lxdprofile.MatchProfileNameByAppName(machineProfiles, u.ApplicationName())
+	if err != nil {
+		return ops, errors.Trace(err)
+	}
+
+	ch, err := u.charm()
+	if err != nil {
+		return ops, errors.Trace(err)
+	}
+
+	switch {
+	case lxdprofile.NotEmpty(ch) && profileName == "" && modStatus.Status == status.Error:
+		// There was an error applying the profile for this unit.  Reset the
+		// machine modification status when the unit is removed.
+		since, err := u.st.ControllerTimestamp()
+		if err != nil {
+			return ops, errors.Trace(err)
+		}
+		// Assume no other profiles on machine, so set to Idle.
+		sDoc := statusDoc{
+			Status:     status.Idle,
+			StatusInfo: "",
+			Updated:    timeOrNow(since, m.st.clock()).UnixNano(),
+		}
+		if len(machineProfiles) > 0 {
+			// Oops, there are other profiles, set Applied instead.
+			sDoc.Status = status.Applied
+		}
+		// By not calling setStatus(), a few checks are not made, related
+		// to leadership and updating a status that has not changed.  As
+		// the alternative is to call machine.SetModificationStatus(), we
+		// know there is no leadership question.  We also do not add the
+		// txn unless there is a change to be made.
+		return statusSetOps(m.st.db(), sDoc, m.globalModificationKey())
+	case profileName != "":
+		// remove the profile for this unit from the machine.
+		ops = append(ops, m.SetUpgradeCharmProfileOp(u.Name(), "", lxdprofile.EmptyStatus))
+	}
 	return ops, nil
 }
 
