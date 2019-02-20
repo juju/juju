@@ -921,7 +921,13 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 
 // AddCloud adds a new cloud, different from the one managed by the controller.
 func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
-	err := api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud), api.apiUser.Name())
+	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	} else if !isAdmin {
+		return common.ServerError(common.ErrPerm)
+	}
+	err = api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud), api.apiUser.Name())
 	if err != nil {
 		return err
 	}
@@ -932,6 +938,12 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(cloudArgs.Clouds)),
+	}
+	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil {
+		return results, errors.Trace(err)
+	} else if !isAdmin {
+		return results, common.ServerError(common.ErrPerm)
 	}
 	for i, cloud := range cloudArgs.Clouds {
 		err := api.backend.UpdateCloud(common.CloudFromParams(cloud.Name, cloud.Cloud))

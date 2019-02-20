@@ -232,8 +232,9 @@ func (s *cloudSuiteV2) TestAddCloudInV2(c *gc.C) {
 		}}
 	err := s.apiv2.AddCloud(paramsCloud)
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "AddCloud")
-	s.backend.CheckCall(c, 0, "AddCloud", cloud.Cloud{
+	s.backend.CheckCallNames(c, "ControllerTag", "AddCloud")
+	s.backend.CheckCall(c, 0, "ControllerTag")
+	s.backend.CheckCall(c, 1, "AddCloud", cloud.Cloud{
 		Name:      "newcloudname",
 		Type:      "fake",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},

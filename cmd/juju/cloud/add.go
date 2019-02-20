@@ -49,7 +49,7 @@ Juju needs to know how to connect to clouds. A cloud definition
 describes a cloud's endpoints and authentication requirements. Each
 definition is stored and accessed later as <cloud name>.
 
-If you are accessing a public cloud, running add-cloud unlikely to be 
+If you are accessing a public cloud, running add-cloud is unlikely to be 
 necessary.  Juju already contains definitions for the public cloud 
 providers it supports.
 
