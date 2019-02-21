@@ -114,8 +114,8 @@ func (m *mockApplication) CharmURL() (curl *charm.URL, force bool) {
 	return m.curl, true
 }
 
-func (m *mockApplication) CharmConfig() (charm.Settings, error) {
-	m.MethodCall(m, "CharmConfig")
+func (m *mockApplication) CharmConfig(gen model.GenerationVersion) (charm.Settings, error) {
+	m.MethodCall(m, "CharmConfig", gen)
 	return m.charm.config.DefaultSettings(), m.NextErr()
 }
 

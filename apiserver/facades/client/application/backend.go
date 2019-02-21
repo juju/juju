@@ -67,7 +67,7 @@ type Application interface {
 	ChangeScale(int) (int, error)
 	Channel() csparams.Channel
 	ClearExposed() error
-	CharmConfig() (charm.Settings, error)
+	CharmConfig(model.GenerationVersion) (charm.Settings, error)
 	Constraints() (constraints.Value, error)
 	Destroy() error
 	DestroyOperation() *state.DestroyApplicationOperation

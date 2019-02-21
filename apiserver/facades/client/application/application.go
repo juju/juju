@@ -1938,7 +1938,7 @@ func (api *APIBase) CharmConfig(args params.ApplicationGetArgs) (params.Applicat
 		Results: make([]params.ConfigResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		config, err := api.getCharmConfig(arg.ApplicationName)
+		config, err := api.getCharmConfig(arg.Generation, arg.ApplicationName)
 		results.Results[i].Config = config
 		results.Results[i].Error = common.ServerError(err)
 	}
@@ -1965,19 +1965,19 @@ func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfig
 			continue
 		}
 
-		config, err := api.getCharmConfig(tag.Id())
+		config, err := api.getCharmConfig(model.GenerationCurrent, tag.Id())
 		results.Results[i].Config = config
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
 }
 
-func (api *APIBase) getCharmConfig(appName string) (map[string]interface{}, error) {
+func (api *APIBase) getCharmConfig(gen model.GenerationVersion, appName string) (map[string]interface{}, error) {
 	app, err := api.backend.Application(appName)
 	if err != nil {
 		return nil, err
 	}
-	settings, err := app.CharmConfig()
+	settings, err := app.CharmConfig(gen)
 	if err != nil {
 		return nil, err
 	}
