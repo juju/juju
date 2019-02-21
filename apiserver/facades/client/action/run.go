@@ -4,12 +4,14 @@
 package action
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/state"
@@ -18,7 +20,39 @@ import (
 // getAllUnitNames returns a sequence of valid Unit objects from state. If any
 // of the application names or unit names are not found, an error is returned.
 func getAllUnitNames(st *state.State, units, services []string) (result []names.Tag, err error) {
-	unitsSet := set.NewStrings(units...)
+	var leaders map[string]string
+	getLeader := func(appName string) (string, error) {
+		if leaders == nil {
+			var err error
+			leaders, err = st.ApplicationLeaders()
+			if err != nil {
+				return "", err
+			}
+		}
+		if leader, ok := leaders[appName]; ok {
+			return leader, nil
+		}
+		return "", errors.Errorf("could not determine leader for %q", appName)
+	}
+
+	// Replace units matching $app/leader with the appropriate unit for
+	// the leader.
+	unitsSet := set.NewStrings()
+	for _, unit := range units {
+		if !strings.HasSuffix(unit, "leader") {
+			unitsSet.Add(unit)
+			continue
+		}
+
+		app := strings.Split(unit, "/")[0]
+		leaderUnit, err := getLeader(app)
+		if err != nil {
+			return nil, common.ServerError(err)
+		}
+
+		unitsSet.Add(leaderUnit)
+	}
+
 	for _, name := range services {
 		service, err := st.Application(name)
 		if err != nil {
