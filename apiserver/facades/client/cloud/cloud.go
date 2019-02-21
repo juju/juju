@@ -132,6 +132,7 @@ func NewFacadeV4(context facade.Context) (*CloudAPI, error) {
 	return NewCloudAPI(st, ctlrSt, pool, context.Auth(), state.CallContext(context.State()))
 }
 
+// NewFacadeV3 is used for API registration.
 func NewFacadeV3(context facade.Context) (*CloudAPIV3, error) {
 	v4, err := NewFacadeV4(context)
 	if err != nil {
@@ -922,7 +923,7 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 // AddCloud adds a new cloud, different from the one managed by the controller.
 func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	} else if !isAdmin {
 		return common.ServerError(common.ErrPerm)
@@ -940,7 +941,7 @@ func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.Error
 		Results: make([]params.ErrorResult, len(cloudArgs.Clouds)),
 	}
 	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return results, errors.Trace(err)
 	} else if !isAdmin {
 		return results, common.ServerError(common.ErrPerm)

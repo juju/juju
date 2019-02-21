@@ -339,7 +339,7 @@ func (c *AddCloudCommand) readCloudFromFile(ctxt *cmd.Context) (*jujucloud.Cloud
 	r := cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,
 	}
-	return r.ReadCloudFromFile(c.Cloud, c.CloudFile, ctxt, c.Replace)
+	return r.readCloudFromFile(c.Cloud, c.CloudFile, ctxt, c.Replace)
 }
 
 func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
@@ -596,7 +596,7 @@ type cloudFileReader struct {
 	cloudMetadataStore CloudMetadataStore
 }
 
-func (p cloudFileReader) ReadCloudFromFile(cloud, cloudFile string, ctxt *cmd.Context, verifyName bool) (*jujucloud.Cloud, error) {
+func (p cloudFileReader) readCloudFromFile(cloud, cloudFile string, ctxt *cmd.Context, verifyName bool) (*jujucloud.Cloud, error) {
 	specifiedClouds, err := p.cloudMetadataStore.ParseCloudMetadataFile(cloudFile)
 	if err != nil {
 		return nil, errors.Trace(err)

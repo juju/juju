@@ -238,7 +238,7 @@ func (c *Client) UpdateCloud(cloud jujucloud.Cloud) error {
 		return errors.New("updating controller cloud is not supported by this version of Juju")
 	}
 	args := params.UpdateCloudArgs{
-		Clouds: []params.CloudArgs{{
+		Clouds: []params.AddCloudArgs{{
 			Name:  cloud.Name,
 			Cloud: common.CloudToParams(cloud),
 		}},

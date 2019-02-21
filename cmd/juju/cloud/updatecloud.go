@@ -1,4 +1,4 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloud
@@ -33,7 +33,7 @@ type updateCloudCommand struct {
 	// Used when updating controllers' cloud details
 	controllerName     string
 	store              jujuclient.ClientStore
-	updateCloudAPIFunc func(controllerName string) (UpdateCloudAPI, error)
+	updateCloudAPIFunc func(controllerName string) (updateCloudAPI, error)
 }
 
 var updateCloudDoc = `
@@ -44,10 +44,10 @@ cloud details.
 
 To update a cloud on the controller you can provide just the <cloud name> which
 will use the cloud defined in the local cache or you can provide a cloud
-definition yaml file from which to retrieve the cloud details from.
+definition yaml file from which to retrieve the cloud details.
 
-When <cloud definition file> is provided with <cloud name>, 
-Juju stores that definition its internal cache directly after 
+When <cloud definition file> is provided with <cloud name> but --controller is
+not specified, Juju stores that definition in its internal cache directly after
 validating the contents.
 
 Examples:
@@ -61,7 +61,7 @@ See also:
     list-clouds
 `
 
-type UpdateCloudAPI interface {
+type updateCloudAPI interface {
 	UpdateCloud(jujucloud.Cloud) error
 	Close() error
 }
@@ -81,7 +81,7 @@ func newUpdateCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	return modelcmd.WrapBase(c)
 }
 
-func (c *updateCloudCommand) updateCloudAPI(controllerName string) (UpdateCloudAPI, error) {
+func (c *updateCloudCommand) updateCloudAPI(controllerName string) (updateCloudAPI, error) {
 	root, err := c.NewAPIRoot(c.store, controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -107,7 +107,7 @@ func (c *updateCloudCommand) Init(args []string) error {
 	c.commandAction = c.updateLocalCacheFromFile
 	if c.controllerName != "" {
 		if c.CloudFile != "" && c.Cloud != "" {
-			c.commandAction = c.updateControllerCacheFromFile
+			c.commandAction = c.updateControllerFromFile
 		} else if c.Cloud != "" {
 			c.commandAction = c.updateControllerCacheFromLocalCache
 		} else {
@@ -143,18 +143,18 @@ func (c *updateCloudCommand) updateLocalCacheFromFile(ctxt *cmd.Context) error {
 	r := cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,
 	}
-	newCloud, err := r.ReadCloudFromFile(c.Cloud, c.CloudFile, ctxt, false)
+	newCloud, err := r.readCloudFromFile(c.Cloud, c.CloudFile, ctxt, false)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return addLocalCloud(c.cloudMetadataStore, *newCloud)
 }
 
-func (c *updateCloudCommand) updateControllerCacheFromFile(ctxt *cmd.Context) error {
+func (c *updateCloudCommand) updateControllerFromFile(ctxt *cmd.Context) error {
 	r := cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,
 	}
-	newCloud, err := r.ReadCloudFromFile(c.Cloud, c.CloudFile, ctxt, false)
+	newCloud, err := r.readCloudFromFile(c.Cloud, c.CloudFile, ctxt, false)
 	if err != nil {
 		return errors.Trace(err)
 	}

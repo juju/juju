@@ -664,7 +664,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 				c.Check(objType, gc.Equals, "Cloud")
 				c.Check(id, gc.Equals, "")
 				c.Check(request, gc.Equals, "UpdateCloud")
-				c.Assert(a, jc.DeepEquals, params.UpdateCloudArgs{Clouds: []params.CloudArgs{{
+				c.Assert(a, jc.DeepEquals, params.UpdateCloudArgs{Clouds: []params.AddCloudArgs{{
 					Name:  "foo",
 					Cloud: common.CloudToParams(updatedCloud),
 				}}})

@@ -1,4 +1,4 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloud_test
@@ -37,6 +37,12 @@ func (s *updateCloudSuite) SetUpTest(c *gc.C) {
 func (s *updateCloudSuite) TestBadArgs(c *gc.C) {
 	cmd := cloud.NewUpdateCloudCommandForTest(newFakeCloudMetadataStore(), s.store, nil)
 	_, err := cmdtesting.RunCommand(c, cmd)
+	c.Assert(err, gc.ErrorMatches, "cloud name required")
+
+	_, err = cmdtesting.RunCommand(c, cmd, "--controller", "blah")
+	c.Assert(err, gc.ErrorMatches, "cloud name required")
+
+	_, err = cmdtesting.RunCommand(c, cmd, "--controller", "blah", "-f", "file/path")
 	c.Assert(err, gc.ErrorMatches, "cloud name required")
 
 	_, err = cmdtesting.RunCommand(c, cmd, "-f", "file/path")
@@ -142,8 +148,6 @@ func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
 
 type fakeUpdateCloudAPI struct {
 	jujutesting.Stub
-	updatedClouds []jujucloud.Cloud
-	raiseError    error
 }
 
 func (api *fakeUpdateCloudAPI) Close() error {
@@ -153,9 +157,5 @@ func (api *fakeUpdateCloudAPI) Close() error {
 
 func (api *fakeUpdateCloudAPI) UpdateCloud(cloud jujucloud.Cloud) error {
 	api.AddCall("UpdateCloud", cloud)
-	if api.raiseError != nil {
-		return api.raiseError
-	}
-	api.updatedClouds = append(api.updatedClouds, cloud)
-	return nil
+	return api.NextErr()
 }

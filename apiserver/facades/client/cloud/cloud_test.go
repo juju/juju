@@ -250,7 +250,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 		Regions:   []cloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
-		[]params.CloudArgs{{
+		[]params.AddCloudArgs{{
 			Name:  "dummy",
 			Cloud: common.CloudToParams(updatedCloud),
 		}},
@@ -272,7 +272,7 @@ func (s *cloudSuite) TestUpdateCloudNonAdminPerm(c *gc.C) {
 		Regions:   []cloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
-		[]params.CloudArgs{{
+		[]params.AddCloudArgs{{
 			Name:  "dummy",
 			Cloud: common.CloudToParams(updatedCloud),
 		}},
@@ -293,7 +293,7 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
 	}
 	s.backend.SetErrors(errors.NotFoundf("cloud %q", updatedCloud.Name))
 	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
-		[]params.CloudArgs{{
+		[]params.AddCloudArgs{{
 			Name:  "nope",
 			Cloud: common.CloudToParams(updatedCloud),
 		}},

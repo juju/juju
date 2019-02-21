@@ -242,7 +242,7 @@ func (st *State) AddCloud(c cloud.Cloud, owner string) error {
 // relevant when bootstrapping.
 func (st *State) UpdateCloud(c cloud.Cloud) error {
 	if err := validateCloud(c); err != nil {
-		return errors.Annotate(err, "invalid cloud")
+		return errors.Trace(err)
 	}
 
 	if err := st.db().RunTransaction([]txn.Op{updateCloudOps(c)}); err != nil {

@@ -20,6 +20,7 @@ var (
 
 type (
 	UpdateCloudCommand = updateCloudCommand
+	UpdateCloudAPI     = updateCloudAPI
 )
 
 func NewAddCloudCommandForTest(
@@ -46,12 +47,11 @@ func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(stri
 	}
 }
 
-
 func NewUpdatePublicCloudsCommandForTest(publicCloudURL string) *updatePublicCloudsCommand {
 	return &updatePublicCloudsCommand{
 		// TODO(wallyworld) - move testing key elsewhere
-		publicSigningKey:    sstesting.SignedMetadataPublicKey,
-		publicCloudURL:      publicCloudURL,
+		publicSigningKey: sstesting.SignedMetadataPublicKey,
+		publicCloudURL:   publicCloudURL,
 	}
 }
 
@@ -61,9 +61,9 @@ func NewUpdateCloudCommandForTest(
 	cloudAPI func(string) (UpdateCloudAPI, error),
 ) *updateCloudCommand {
 	return &updateCloudCommand{
-		cloudMetadataStore:  cloudMetadataStore,
+		cloudMetadataStore: cloudMetadataStore,
 		updateCloudAPIFunc: cloudAPI,
-		store:               store,
+		store:              store,
 	}
 }
 
