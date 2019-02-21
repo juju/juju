@@ -123,23 +123,21 @@ func NewK8sBroker(
 	namespace := newCfg.Name()
 	if namespace == environsbootstrap.ControllerModelName {
 		// namespace format: <controller>-<controller-model-UUID> for juju controller to achieve:
-		// 1. multi controller running in same k8s cluster;
+		// 1. multi controllers running in same k8s cluster;
 		// 2. avoid potential conflict if there is existing namespace named "controller"(warning:
 		//    an non juju related existing namespace could be destroyed if bootstraping failed due
 		//    to AlreadyExistedNamespace error);
 
 		// IMPORTANT!
 		// TODO(bootstrap): do we want to run multi controller in same k8s cluster or always run one?
-		// We probally have to limit one controller controllers one cluster always, or we may get a situation
-		// that one namespace has workloads deployed by different cluster and the applications have same
-		// application name will get overwritten by the different controllers!
-		// Solution(potential): we SHOULD label all namespaces(controller ns + model ns) with controller ID,
+		// Solution(potential): we SHOULD label all namespaces(controller ns, model ns) with controller ID,
 		// and always check if the controller owns(created) the namespace whenever it tries to
 		// CRUD any resources inside the namespace.
 		// Note: we should consider above `Solution` even we always run single controller per cluster, because
 		// we should NEVER allow juju controller to touch any namespace that was NOT created by JUJU.
-		namespace += "-" + modelUUID
-		logger.Debugf("found config name %q, so construct namespace name to %q", newCfg.Name(), namespace)
+		// namespace += "-" + modelUUID
+		namespace = "controller-operator"
+		logger.Debugf("found config name %q, so naming namespace to %q", newCfg.Name(), namespace)
 	}
 	return &kubernetesClient{
 		clock:               clock,

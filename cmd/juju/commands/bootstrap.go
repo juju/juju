@@ -334,12 +334,12 @@ var (
 	waitForAgentInitialisation = common.WaitForAgentInitialisation
 )
 
-var errorAmbiguousDetectedCredential = errors.New(`
+var ambiguousDetectedCredentialError = errors.New(`
 more than one credential detected
 run juju autoload-credentials and specify a credential using the --credential argument`[1:],
 )
 
-var errorAmbiguousCredential = errors.New(`
+var ambiguousCredentialError = errors.New(`
 more than one credential is available
 specify a credential using the --credential argument`[1:],
 )
@@ -909,9 +909,9 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 	switch errors.Cause(err) {
 	case nil:
 	case modelcmd.ErrMultipleCredentials:
-		return bootstrapCredentials{}, "", errorAmbiguousCredential
+		return bootstrapCredentials{}, "", ambiguousCredentialError
 	case common.ErrMultipleDetectedCredentials:
-		return bootstrapCredentials{}, "", errorAmbiguousDetectedCredential
+		return bootstrapCredentials{}, "", ambiguousDetectedCredentialError
 	default:
 		return bootstrapCredentials{}, "", errors.Trace(err)
 	}

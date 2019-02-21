@@ -303,7 +303,7 @@ func (s *K8sBrokerSuite) TestControllerNamespaceRenaming(c *gc.C) {
 		s.SetUpSuite(c)
 	}()
 
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller"+"-"+s.cfg.UUID())
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-operator")
 
 }
 
@@ -536,8 +536,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, destroyFunc func() error) {
 		}
 	}(namespaceWatcher, s.clock)
 
-	err := s.broker.Destroy(context.NewCloudCallContext())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(destroyFunc(), jc.ErrorIsNil)
 	c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
 	c.Assert(namespaceWatcher.IsStopped(), jc.IsTrue)
 }

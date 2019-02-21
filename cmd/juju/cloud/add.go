@@ -212,7 +212,7 @@ func (c *AddCloudCommand) Init(args []string) (err error) {
 	return nil
 }
 
-var errorAmbiguousCredential = errors.New(`
+var ambiguousCredentialError = errors.New(`
 more than one credential is available
 specify a credential using the --credential argument`[1:],
 )
@@ -228,7 +228,7 @@ func (c *AddCloudCommand) findLocalCredential(ctx *cmd.Context, cloud jujucloud.
 
 	switch errors.Cause(err) {
 	case modelcmd.ErrMultipleCredentials:
-		return nil, "", errorAmbiguousCredential
+		return nil, "", ambiguousCredentialError
 	}
 	return nil, "", errors.Trace(err)
 }
