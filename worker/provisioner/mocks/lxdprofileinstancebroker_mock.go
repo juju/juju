@@ -6,9 +6,10 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
 	context "github.com/juju/juju/environs/context"
-	instance "github.com/juju/juju/instance"
+	instances "github.com/juju/juju/environs/instances"
 	charm_v6 "gopkg.in/juju/charm.v6"
 	reflect "reflect"
 )
@@ -37,9 +38,9 @@ func (m *MockLXDProfileInstanceBroker) EXPECT() *MockLXDProfileInstanceBrokerMoc
 }
 
 // AllInstances mocks base method
-func (m *MockLXDProfileInstanceBroker) AllInstances(arg0 context.ProviderCallContext) ([]instance.Instance, error) {
+func (m *MockLXDProfileInstanceBroker) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
-	ret0, _ := ret[0].([]instance.Instance)
+	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
