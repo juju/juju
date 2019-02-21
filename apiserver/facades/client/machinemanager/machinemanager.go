@@ -271,26 +271,41 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 	if err := mm.check.RemoveAllowed(); err != nil {
 		return params.DestroyMachineResults{}, err
 	}
-	destroyMachine := func(entity params.Entity) (*params.DestroyMachineInfo, error) {
+	destroyMachine := func(entity params.Entity) params.DestroyMachineResult {
+		result := params.DestroyMachineResult{}
+		fail := func(e error) params.DestroyMachineResult {
+			result.Error = common.ServerError(e)
+			return result
+		}
+
 		machineTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			return nil, err
+			return fail(err)
 		}
 		machine, err := mm.st.Machine(machineTag.Id())
 		if err != nil {
-			return nil, err
+			return fail(err)
 		}
 		if keep {
 			logger.Infof("destroy machine %v but keep instance", machineTag.Id())
 			if err := machine.SetKeepInstance(keep); err != nil {
-				return nil, err
+				if !force {
+					return fail(err)
+				}
+				logger.Warningf("could not keep instance for machine %v: %v", machineTag.Id(), err)
 			}
 		}
 		var info params.DestroyMachineInfo
 		units, err := machine.Units()
 		if err != nil {
-			return nil, err
+			return fail(err)
 		}
+
+		var storageErrors []params.ErrorResult
+		storageError := func(e error) {
+			storageErrors = append(storageErrors, params.ErrorResult{common.ServerError(e)})
+		}
+
 		storageSeen := names.NewSet()
 		for _, unit := range units {
 			info.DestroyedUnits = append(
@@ -299,7 +314,8 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 			)
 			storage, err := storagecommon.UnitStorage(mm.storageAccess, unit.UnitTag())
 			if err != nil {
-				return nil, err
+				storageError(errors.Annotatef(err, "getting storage for unit %v", unit.UnitTag().Id()))
+				continue
 			}
 
 			// Filter out storage we've already seen. Shared
@@ -318,28 +334,34 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 			destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
 				mm.storageAccess.VolumeAccess(), mm.storageAccess.FilesystemAccess(), storage)
 			if err != nil {
-				return nil, err
+				storageError(errors.Annotatef(err, "classifying storage for destruction for unit %v", unit.UnitTag().Id()))
+				continue
 			}
 			info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
 			info.DetachedStorage = append(info.DetachedStorage, detached...)
 		}
+
+		if len(storageErrors) != 0 {
+			all := params.ErrorResults{storageErrors}
+			if !force {
+				return fail(all.Combine())
+			}
+			logger.Warningf("could not deal with units' storage on machine %v: %v", machineTag.Id(), all.Combine())
+		}
+
 		destroy := machine.Destroy
 		if force {
 			destroy = machine.ForceDestroy
 		}
 		if err := destroy(); err != nil {
-			return nil, err
+			return fail(err)
 		}
-		return &info, nil
+		result.Info = &info
+		return result
 	}
 	results := make([]params.DestroyMachineResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		info, err := destroyMachine(entity)
-		if err != nil {
-			results[i].Error = common.ServerError(err)
-			continue
-		}
-		results[i].Info = info
+		results[i] = destroyMachine(entity)
 	}
 	return params.DestroyMachineResults{results}, nil
 }
