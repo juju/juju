@@ -297,8 +297,11 @@ func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCre
 		return errors.Trace(err)
 	}
 
-	cloudCredTag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s",
-		c.caasName, currentAccountDetails.User, credentialName))
+	id := fmt.Sprintf("%s/%s/%s", c.caasName, currentAccountDetails.User, credentialName)
+	if !names.IsValidCloudCredential(id) {
+		return errors.NotValidf("cloud credential ID %q", id)
+	}
+	cloudCredTag := names.NewCloudCredentialTag(id)
 
 	if err := apiClient.AddCredential(cloudCredTag.String(), newCredential); err != nil {
 		return errors.Trace(err)

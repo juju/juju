@@ -287,6 +287,9 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 
 	}
 	if apiSummary.CloudCredential != "" {
+		if !names.IsValidCloudCredential(apiSummary.CloudCredential) {
+			return ModelSummary{}, errors.NotValidf("cloud credential ID %q", apiSummary.CloudCredential)
+		}
 		credTag := names.NewCloudCredentialTag(apiSummary.CloudCredential)
 		summary.CloudCredential = &common.ModelCredential{
 			Name:  credTag.Name(),

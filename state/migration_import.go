@@ -88,7 +88,7 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 		// tag in the names package from the cloud, owner and name.
 		credID := fmt.Sprintf("%s/%s/%s", creds.Cloud(), creds.Owner(), creds.Name())
 		if !names.IsValidCloudCredential(credID) {
-			return nil, nil, errors.Errorf("model credentials id not valid: %q", credID)
+			return nil, nil, errors.NotValidf("cloud credential ID %q", credID)
 		}
 		credTag := names.NewCloudCredentialTag(credID)
 

@@ -59,6 +59,9 @@ func (c *Facade) ModelCredential() (base.StoredCredential, bool, error) {
 // WatchCredential provides a notify watcher that is responsive to changes
 // to a given cloud credential.
 func (c *Facade) WatchCredential(credentialID string) (watcher.NotifyWatcher, error) {
+	if !names.IsValidCloudCredential(credentialID) {
+		return nil, errors.NotValidf("cloud credential ID %q", credentialID)
+	}
 	in := names.NewCloudCredentialTag(credentialID).String()
 	var result params.NotifyWatchResult
 	err := c.facade.FacadeCall("WatchCredential", params.Entity{in}, &result)
