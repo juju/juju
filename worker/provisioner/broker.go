@@ -4,9 +4,12 @@
 package provisioner
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
@@ -176,7 +179,7 @@ func releaseContainerAddresses(
 		log.Warningf("not releasing all addresses for container %q: %v", containerTag.Id(), err)
 	default:
 		log.Warningf(
-			"unexpected error trying to release container %q addreses: %v",
+			"unexpected error trying to release container %q addresses: %v",
 			containerTag.Id(), err,
 		)
 	}
@@ -197,8 +200,7 @@ func matchHostArchTools(allTools tools.List) (tools.List, error) {
 	return archTools, nil
 }
 
-// GetMachineCloudInitData is for testing purposes.
-var GetMachineCloudInitData = cloudconfig.GetMachineCloudInitData
+var newMachineInitReader = cloudconfig.NewMachineInitReader
 
 // combinedCloudInitData returns a combined map of the given cloudInitData
 // and instance cloud init properties provided.
@@ -210,9 +212,15 @@ func combinedCloudInitData(
 	if containerInheritProperties == "" {
 		return cloudInitData, nil
 	}
-	machineData, err := GetMachineCloudInitData(series)
+
+	reader, err := newMachineInitReader(series)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
+	}
+
+	machineData, err := reader.GetInitConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	if machineData == nil {
 		return cloudInitData, nil
@@ -222,7 +230,23 @@ func combinedCloudInitData(
 		cloudInitData = make(map[string]interface{})
 	}
 
-	resultsMap := cloudconfig.CloudConfigByVersionFunc(series)(containerInheritProperties, machineData, log)
+	props := strings.Split(containerInheritProperties, ",")
+	for i, p := range props {
+		props[i] = strings.TrimSpace(p)
+	}
+
+	// MAAS versions 2.5 and later no longer write repository settings as apt
+	// config in cloud-init data.
+	// These settings are now represented in curtin data and are a single key,
+	// "sources_list" with a value equal to what the content of
+	// /etc/apt/sources.list will be.
+	// If apt-sources is being inherited, automatically search for the new
+	// setting, so new MAAS versions keep working with inherited apt sources.
+	if set.NewStrings(props...).Contains("apt-sources") {
+		props = append(props, "apt-sources_list")
+	}
+
+	resultsMap := reader.ExtractPropertiesFromConfig(props, machineData, log)
 	for k, v := range resultsMap {
 		cloudInitData[k] = v
 	}

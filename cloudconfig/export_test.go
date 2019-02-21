@@ -3,8 +3,4 @@
 
 package cloudconfig
 
-var (
-	ToolsDownloadCommand      = toolsDownloadCommand
-	GetMachineCloudCfgDirData = getMachineCloudCfgDirData
-	GetMachineData            = getMachineData
-)
+var ToolsDownloadCommand = toolsDownloadCommand
