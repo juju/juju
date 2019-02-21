@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
@@ -100,7 +101,8 @@ func (s *SettingsSuite) TestConflictOnSet(c *gc.C) {
 
 	optionsOld := map[string]interface{}{"alpha": "beta", "one": 1}
 	nodeOne.Update(optionsOld)
-	nodeOne.Write()
+	_, err = nodeOne.Write()
+	c.Assert(err, jc.ErrorIsNil)
 
 	nodeTwo.Update(optionsOld)
 	changes, err := nodeTwo.Write()
@@ -269,7 +271,7 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 	c.Assert(mgoData.Settings, gc.DeepEquals, mgoOptions)
 }
 
-func (s *SettingsSuite) TestcreateSettingsEscape(c *gc.C) {
+func (s *SettingsSuite) TestCreateSettingsEscape(c *gc.C) {
 	// Check that createSettings works as expected.
 	options := map[string]interface{}{"$baz": 1, "foo.bar": "beta"}
 	node, err := s.createSettings(s.key, options)
@@ -538,6 +540,34 @@ func (s *SettingsSuite) TestReplaceSettingsNotFound(c *gc.C) {
 	options := map[string]interface{}{"alpha": "beta", "foo2": "zap100"}
 	err := replaceSettings(s.state.db(), s.collection, s.key, options)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *SettingsSuite) TestReadSettingsWithFallback(c *gc.C) {
+	s1, err := s.createSettings(s.key, map[string]interface{}{"foo1": []interface{}{"bar1"}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	nextGenKey := model.NextGenerationKey(s.key)
+
+	// Without a fallback, we get a not found error.
+	_, err = readSettingsWithFallback(s.state.db(), s.collection, nextGenKey, "")
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	// Next generation settings do not exist; fallback should create them.
+	s2, err := readSettingsWithFallback(s.state.db(), s.collection, nextGenKey, s.key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s2.key, gc.DeepEquals, nextGenKey)
+	c.Check(s2.Map(), gc.DeepEquals, s1.Map())
+
+	// If they exist, writing is successful.
+	s2.Set("new", "value")
+	_, err = s2.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Original settings are unchanged.
+	s1, err = s.readSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s1.Map(), gc.DeepEquals, map[string]interface{}{"foo1": []interface{}{"bar1"}})
+
 }
 
 func (s *SettingsSuite) TestUpdatingInterfaceSliceValue(c *gc.C) {
