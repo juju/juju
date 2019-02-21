@@ -36,6 +36,8 @@ type BaseSuite struct {
 	cfg           *config.Config
 	k8sRestConfig *rest.Config
 
+	namespace string
+
 	k8sClient                  *mocks.MockInterface
 	mockNamespaces             *mocks.MockNamespaceInterface
 	mockApps                   *mocks.MockAppsV1Interface
@@ -60,10 +62,10 @@ type BaseSuite struct {
 	watcher *provider.KubernetesWatcher
 }
 
-const testNamespace = "test"
-
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
+
+	s.namespace = "test"
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":              "fred",
@@ -79,14 +81,15 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	var err error
 	s.k8sRestConfig, err = provider.CloudSpecToK8sRestConfig(cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
-}
 
-func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
-		config.NameKey: testNamespace,
+		config.NameKey: s.namespace,
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
+}
+
+func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 
 	ctrl := gomock.NewController(c)
 	s.k8sClient = mocks.NewMockInterface(ctrl)
@@ -101,22 +104,22 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
 
 	s.mockPods = mocks.NewMockPodInterface(ctrl)
-	mockCoreV1.EXPECT().Pods(testNamespace).AnyTimes().Return(s.mockPods)
+	mockCoreV1.EXPECT().Pods(s.namespace).AnyTimes().Return(s.mockPods)
 
 	s.mockServices = mocks.NewMockServiceInterface(ctrl)
-	mockCoreV1.EXPECT().Services(testNamespace).AnyTimes().Return(s.mockServices)
+	mockCoreV1.EXPECT().Services(s.namespace).AnyTimes().Return(s.mockServices)
 
 	s.mockConfigMaps = mocks.NewMockConfigMapInterface(ctrl)
-	mockCoreV1.EXPECT().ConfigMaps(testNamespace).AnyTimes().Return(s.mockConfigMaps)
+	mockCoreV1.EXPECT().ConfigMaps(s.namespace).AnyTimes().Return(s.mockConfigMaps)
 
 	s.mockPersistentVolumes = mocks.NewMockPersistentVolumeInterface(ctrl)
 	mockCoreV1.EXPECT().PersistentVolumes().AnyTimes().Return(s.mockPersistentVolumes)
 
 	s.mockPersistentVolumeClaims = mocks.NewMockPersistentVolumeClaimInterface(ctrl)
-	mockCoreV1.EXPECT().PersistentVolumeClaims(testNamespace).AnyTimes().Return(s.mockPersistentVolumeClaims)
+	mockCoreV1.EXPECT().PersistentVolumeClaims(s.namespace).AnyTimes().Return(s.mockPersistentVolumeClaims)
 
 	s.mockSecrets = mocks.NewMockSecretInterface(ctrl)
-	mockCoreV1.EXPECT().Secrets(testNamespace).AnyTimes().Return(s.mockSecrets)
+	mockCoreV1.EXPECT().Secrets(s.namespace).AnyTimes().Return(s.mockSecrets)
 
 	s.mockNodes = mocks.NewMockNodeInterface(ctrl)
 	mockCoreV1.EXPECT().Nodes().AnyTimes().Return(s.mockNodes)
@@ -128,9 +131,9 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	s.mockIngressInterface = mocks.NewMockIngressInterface(ctrl)
 	s.k8sClient.EXPECT().ExtensionsV1beta1().AnyTimes().Return(s.mockExtensions)
 	s.k8sClient.EXPECT().AppsV1().AnyTimes().Return(s.mockApps)
-	s.mockApps.EXPECT().StatefulSets(testNamespace).AnyTimes().Return(s.mockStatefulSets)
-	s.mockApps.EXPECT().Deployments(testNamespace).AnyTimes().Return(s.mockDeployments)
-	s.mockExtensions.EXPECT().Ingresses(testNamespace).AnyTimes().Return(s.mockIngressInterface)
+	s.mockApps.EXPECT().StatefulSets(s.namespace).AnyTimes().Return(s.mockStatefulSets)
+	s.mockApps.EXPECT().Deployments(s.namespace).AnyTimes().Return(s.mockDeployments)
+	s.mockExtensions.EXPECT().Ingresses(s.namespace).AnyTimes().Return(s.mockIngressInterface)
 
 	s.mockStorage = mocks.NewMockStorageV1Interface(ctrl)
 	s.mockStorageClass = mocks.NewMockStorageClassInterface(ctrl)
@@ -163,7 +166,8 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		s.watcher = w
 		return s.watcher, err
 	}
-	s.broker, err = provider.NewK8sBroker(s.k8sRestConfig, cfg, newClient, newK8sWatcherForTest, s.clock)
+	var err error
+	s.broker, err = provider.NewK8sBroker(s.k8sRestConfig, s.cfg, newClient, newK8sWatcherForTest, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }

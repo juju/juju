@@ -935,7 +935,7 @@ func (a *MachineAgent) initController(agentConfig agent.Config) (*state.Controll
 	}
 	defer session.Close()
 
-	ctlr, err := state.OpenController(state.OpenParams{
+	ctrl, err := state.OpenController(state.OpenParams{
 		Clock:                  clock.WallClock,
 		ControllerTag:          agentConfig.Controller(),
 		ControllerModelTag:     agentConfig.Model(),
@@ -943,7 +943,7 @@ func (a *MachineAgent) initController(agentConfig agent.Config) (*state.Controll
 		NewPolicy:              stateenvirons.GetNewPolicyFunc(),
 		RunTransactionObserver: a.mongoTxnCollector.AfterRunTransaction,
 	})
-	return ctlr, nil
+	return ctrl, nil
 }
 
 func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, error) {

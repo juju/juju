@@ -4,12 +4,14 @@
 package podcfg
 
 import (
+	"fmt"
 	"net"
 	"path"
 	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
@@ -17,6 +19,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/paths"
@@ -24,6 +28,11 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
+
+const (
+	jujudOCINamespace = "ycliuhw" // TODO(bootstrap): change it to "jujusolutions" and also consolidate caas operator and caas conroller to one image.
+	jujudOCIName      = "jujud-controller"
+)
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
 type ControllerPodConfig struct {
@@ -48,6 +57,11 @@ type ControllerPodConfig struct {
 
 	// ControllerTag identifies the controller.
 	ControllerTag names.ControllerTag
+
+	// TODO(bootstrap): remove me.
+	// PodNonce is set at provisioning/bootstrap time and used to
+	// ensure the agent is running on the correct instance.
+	PodNonce string
 
 	// JujuVersion is the juju version.
 	JujuVersion version.Number
@@ -106,6 +120,7 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		Tag:               tag,
 		UpgradedToVersion: cfg.JujuVersion,
 		Password:          password,
+		Nonce:             cfg.PodNonce,
 		APIAddresses:      cfg.APIHostAddrs(),
 		CACert:            cacert,
 		Values:            cfg.AgentEnvironment,
@@ -150,7 +165,7 @@ func (cfg *ControllerPodConfig) APIHosts() []string {
 
 // VerifyConfig verifies that the ControllerPodConfig is valid.
 func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
-	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
+	defer errors.DeferredAnnotatef(&err, "invalid controller pod configuration")
 	if !names.IsValidMachine(cfg.MachineId) {
 		return errors.New("invalid machine id")
 	}
@@ -178,6 +193,9 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	if len(cfg.APIInfo.CACert) == 0 {
 		return errors.New("missing API CA certificate")
 	}
+	if cfg.PodNonce == "" {
+		return errors.New("missing pod nonce")
+	}
 	if cfg.Controller != nil {
 		if err := cfg.verifyControllerConfig(); err != nil {
 			return errors.Trace(err)
@@ -196,6 +214,11 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 		}
 	}
 	return nil
+}
+
+// GetControllerImagePath returns oci image path of jujud.
+func (cfg *ControllerPodConfig) GetControllerImagePath() string {
+	return fmt.Sprintf("%s/%s:%s", jujudOCINamespace, jujudOCIName, cfg.JujuVersion.String())
 }
 
 func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {
@@ -267,7 +290,9 @@ func (cfg *ControllerConfig) VerifyConfig() error {
 // always needed.
 func NewControllerPodConfig(
 	controllerTag names.ControllerTag,
-	machineID, series string,
+	podID,
+	podNonce,
+	series string,
 	apiInfo *api.Info,
 ) (*ControllerPodConfig, error) {
 	dataDir, err := paths.DataDir(series)
@@ -294,7 +319,8 @@ func NewControllerPodConfig(
 		Tags: map[string]string{},
 		// Parameter entries.
 		ControllerTag: controllerTag,
-		MachineId:     machineID,
+		MachineId:     podID,
+		PodNonce:      podNonce,
 		APIInfo:       apiInfo,
 	}
 	return pcfg, nil
@@ -306,7 +332,7 @@ func NewControllerPodConfig(
 func NewBootstrapControllerPodConfig(config controller.Config, series string) (*ControllerPodConfig, error) {
 	// For a bootstrap pod, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
-	pcfg, err := NewControllerPodConfig(names.NewControllerTag(config.ControllerUUID()), "0", series, nil)
+	pcfg, err := NewControllerPodConfig(names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, series, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -315,9 +341,24 @@ func NewBootstrapControllerPodConfig(config controller.Config, series string) (*
 	for k, v := range config {
 		pcfg.Controller.Config[k] = v
 	}
+	// TODO(bootstrap): remove me.
+	arch := arch.AMD64
+	var cores uint64 = 2
+	var mem uint64 = 123
+	var rootDisk uint64 = 123
 	pcfg.Bootstrap = &BootstrapConfig{
 		instancecfg.BootstrapConfig{
-			StateInitializationParams: instancecfg.StateInitializationParams{},
+			StateInitializationParams: instancecfg.StateInitializationParams{
+				// TODO(bootstrap): remove me once agentbootstrap.initBootstrapMachine works for CAAS bootstrap in jujud.
+				BootstrapMachineHardwareCharacteristics: &instance.HardwareCharacteristics{
+					Arch:     &arch,
+					CpuCores: &cores,
+					Mem:      &mem,
+					RootDisk: &rootDisk,
+				},
+				BootstrapMachineInstanceId:  "i-0a373a526fcf5c882",
+				BootstrapMachineConstraints: constraints.Value{Mem: &mem},
+			},
 		},
 	}
 	pcfg.Jobs = []multiwatcher.MachineJob{
@@ -337,6 +378,7 @@ func PopulateControllerPodConfig(pcfg *ControllerPodConfig, providerType string)
 		pcfg.AgentEnvironment = make(map[string]string)
 	}
 	pcfg.AgentEnvironment[agent.ProviderType] = providerType
+	pcfg.AgentEnvironment[agent.AgentServiceName] = "jujud-" + names.NewMachineTag(pcfg.MachineId).String()
 	return nil
 }
 

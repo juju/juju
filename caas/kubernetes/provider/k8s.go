@@ -45,9 +45,11 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/paths"
+	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 )
@@ -117,13 +119,33 @@ func NewK8sBroker(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	modelUUID := newCfg.UUID()
+	namespace := newCfg.Name()
+	if namespace == environsbootstrap.ControllerModelName {
+		// namespace format: <controller>-<controller-model-UUID> for juju controller to achieve:
+		// 1. multi controllers running in same k8s cluster;
+		// 2. avoid potential conflict if there is existing namespace named "controller"(warning:
+		//    an non juju related existing namespace could be destroyed if bootstraping failed due
+		//    to AlreadyExistedNamespace error);
+
+		// IMPORTANT!
+		// TODO(bootstrap): do we want to run multi controller in same k8s cluster or always run one?
+		// Solution(potential): we SHOULD label all namespaces(controller ns, model ns) with controller ID,
+		// and always check if the controller owns(created) the namespace whenever it tries to
+		// CRUD any resources inside the namespace.
+		// Note: we should consider above `Solution` even we always run single controller per cluster, because
+		// we should NEVER allow juju controller to touch any namespace that was NOT created by JUJU.
+		// namespace += "-" + modelUUID
+		namespace = "controller-operator"
+		logger.Debugf("found config name %q, so naming namespace to %q", newCfg.Name(), namespace)
+	}
 	return &kubernetesClient{
 		clock:               clock,
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
-		namespace:           newCfg.Name(),
+		namespace:           namespace,
 		envCfg:              newCfg,
-		modelUUID:           newCfg.UUID(),
+		modelUUID:           modelUUID,
 		newWatcher:          newWatcher,
 	}, nil
 }
@@ -181,63 +203,50 @@ func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {
 }
 
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
-func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	const (
-		// TODO(caas): how to get these from oci path.
-		Series = "bionic"
-		Arch   = arch.AMD64
-	)
+func (k *kubernetesClient) Bootstrap(
+	ctx environs.BootstrapContext,
+	callCtx context.ProviderCallContext,
+	args environs.BootstrapParams,
+) (*environs.BootstrapResult, error) {
 
-	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) error {
-		envConfig := k.Config()
-		if err := podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
-			return errors.Trace(err)
-		}
-
-		if err := pcfg.VerifyConfig(); err != nil {
-			return errors.Trace(err)
-		}
-
-		// prepare bootstrapParamsFile
-		bootstrapParamsFileContent, err := pcfg.Bootstrap.StateInitializationParams.Marshal()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Debugf("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
-
-		// TODO(caas): we'll need a different tag type other than machine tag.
-		machineTag := names.NewMachineTag(pcfg.MachineId)
-		acfg, err := pcfg.AgentConfig(machineTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		agentConfigFileContent, err := acfg.Render()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Debugf("agentConfig file content: \n%s", string(agentConfigFileContent))
-
-		// TODO(caas): prepare
-		// agent.conf,
-		// bootstrap-params,
-		// server.pem,
-		// system-identity,
-		// shared-secret, then generate configmap/secret.
-		// Lastly, create StatefulSet for controller.
-		return nil
+	if args.BootstrapSeries != "" {
+		return nil, errors.NotSupportedf("set series for bootstrapping to kubernetes")
 	}
+
+	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) (err error) {
+		envConfig := k.Config()
+		if err = podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err = pcfg.VerifyConfig(); err != nil {
+			return errors.Trace(err)
+		}
+
+		logger.Debugf("controller pod config: \n%+v", pcfg)
+
+		// create configmap, secret, volume, statefulset, etc resources for controller stack.
+		controllerStack, err := newcontrollerStack(JujuControllerStackName, k, pcfg)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return errors.Annotate(
+			controllerStack.Deploy(),
+			"creating controller stack for controller",
+		)
+	}
+
 	return &environs.BootstrapResult{
-		Arch:                   Arch,
-		Series:                 Series,
+		// TODO(bootstrap): review this default arch and series(required for determining DataDir etc.) later.
+		Arch:                   arch.AMD64,
+		Series:                 jujuversion.SupportedLTS(),
 		CaasBootstrapFinalizer: finalizer,
 	}, nil
 }
 
 // DestroyController implements the Environ interface.
 func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
-	// TODO(caas): destroy controller and all models
-	logger.Warningf("DestroyController is not supported yet on CAAS.")
-	return nil
+	return k.Destroy(ctx)
 }
 
 // Provider is part of the Broker interface.
@@ -274,7 +283,7 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error 
 			return nil
 		case <-watcher.Changes():
 			// ensure namespace has been deleted - notfound error expected.
-			_, err := k.GetNamespace("")
+			_, err := k.GetNamespace(k.namespace)
 			if errors.IsNotFound(err) {
 				// namespace ha been deleted.
 				return nil
@@ -303,9 +312,6 @@ func (k *kubernetesClient) Namespaces() ([]string, error) {
 
 // GetNamespace returns the namespace for the specified name or current namespace.
 func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
-	if name == "" {
-		name = k.namespace
-	}
 	ns, err := k.CoreV1().Namespaces().Get(name, v1.GetOptions{IncludeUninitialized: true})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("namespace %q", name)
@@ -316,6 +322,11 @@ func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
 	return ns, nil
 }
 
+// GetCurrentNamespace returns current namespace name.
+func (k *kubernetesClient) GetCurrentNamespace() string {
+	return k.namespace
+}
+
 // EnsureNamespace ensures this broker's namespace is created.
 func (k *kubernetesClient) EnsureNamespace() error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: k.namespace}}
@@ -323,6 +334,16 @@ func (k *kubernetesClient) EnsureNamespace() error {
 	_, err := namespaces.Update(ns)
 	if k8serrors.IsNotFound(err) {
 		_, err = namespaces.Create(ns)
+	}
+	return errors.Trace(err)
+}
+
+// createNamespace creates a named namespace.
+func (k *kubernetesClient) createNamespace(name string) error {
+	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
+	_, err := k.CoreV1().Namespaces().Create(ns)
+	if k8serrors.IsAlreadyExists(err) {
+		return errors.AlreadyExistsf("namespace %q already exists", name)
 	}
 	return errors.Trace(err)
 }
@@ -355,8 +376,13 @@ func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
 	return k.newWatcher(w, k.namespace, k.clock)
 }
 
-// EnsureSecret ensures a secret exists for use with retrieving images from private registries
-func (k *kubernetesClient) ensureSecret(imageSecretName, appName string, imageDetails *caas.ImageDetails, resourceTags map[string]string) error {
+// ensureOCIImageSecret ensures a secret exists for use with retrieving images from private registries
+func (k *kubernetesClient) ensureOCIImageSecret(
+	imageSecretName,
+	appName string,
+	imageDetails *caas.ImageDetails,
+	resourceTags map[string]string,
+) error {
 	if imageDetails.Password == "" {
 		return errors.New("attempting to create a secret with no password")
 	}
@@ -364,7 +390,6 @@ func (k *kubernetesClient) ensureSecret(imageSecretName, appName string, imageDe
 	if err != nil {
 		return errors.Trace(err)
 	}
-	secrets := k.CoreV1().Secrets(k.namespace)
 
 	newSecret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -376,17 +401,46 @@ func (k *kubernetesClient) ensureSecret(imageSecretName, appName string, imageDe
 			core.DockerConfigJsonKey: secretData,
 		},
 	}
+	return errors.Trace(k.ensureSecret(newSecret))
+}
 
-	_, err = secrets.Update(newSecret)
+func (k *kubernetesClient) ensureSecret(sec *core.Secret) error {
+	secrets := k.CoreV1().Secrets(k.namespace)
+	_, err := secrets.Update(sec)
 	if k8serrors.IsNotFound(err) {
-		_, err = secrets.Create(newSecret)
+		_, err = secrets.Create(sec)
 	}
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteSecret(imageSecretName string) error {
+// updateSecret updates a secret resource.
+func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
+	_, err := k.CoreV1().Secrets(k.namespace).Update(sec)
+	return errors.Trace(err)
+}
+
+// getSecret return a secret resource.
+func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
+	secret, err := k.CoreV1().Secrets(k.namespace).Get(secretName, v1.GetOptions{IncludeUninitialized: true})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, errors.NotFoundf("secret %q", secretName)
+		}
+		return nil, errors.Trace(err)
+	}
+	return secret, nil
+}
+
+// createSecret creates a secret resource.
+func (k *kubernetesClient) createSecret(secret *core.Secret) error {
+	_, err := k.CoreV1().Secrets(k.namespace).Create(secret)
+	return errors.Trace(err)
+}
+
+// deleteSecret deletes a secret resource.
+func (k *kubernetesClient) deleteSecret(secretName string) error {
 	secrets := k.CoreV1().Secrets(k.namespace)
-	err := secrets.Delete(imageSecretName, &v1.DeleteOptions{
+	err := secrets.Delete(secretName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -528,6 +582,21 @@ func (k *kubernetesClient) GetStorageClassName(labels ...string) (string, error)
 	return sc.Name, nil
 }
 
+// getDefaultStorageClass returns the default storageclass in k8s cluster.
+func (k *kubernetesClient) getDefaultStorageClass() (*k8sstorage.StorageClass, error) {
+	storageClasses, err := k.StorageV1().StorageClasses().List(v1.ListOptions{})
+	if err != nil {
+		return nil, errors.Annotate(err, "listing storage classes")
+	}
+	for _, sc := range storageClasses.Items {
+		if v, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && v != "false" {
+			logger.Debugf("using default storage class: %v", sc.Name)
+			return &sc, nil
+		}
+	}
+	return nil, errors.NewNotFound(nil, "default storage class")
+}
+
 // maybeGetStorageClass looks for a storage class to use when creating
 // a persistent volume, using the specified name (if supplied), or a class
 // matching the specified labels.
@@ -562,16 +631,10 @@ func (k *kubernetesClient) maybeGetStorageClass(labels ...string) (*k8sstorage.S
 	}
 
 	// Second look for the cluster default storage class, if defined.
-	storageClasses, err = k.StorageV1().StorageClasses().List(v1.ListOptions{})
-	if err != nil {
-		return nil, errors.Annotate(err, "listing storage classes")
+	if storageClass, err := k.getDefaultStorageClass(); err == nil {
+		return storageClass, nil
 	}
-	for _, sc := range storageClasses.Items {
-		if v, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && v != "false" {
-			logger.Debugf("using default storage class: %v", sc.Name)
-			return &sc, nil
-		}
-	}
+
 	return nil, errors.NotFoundf("storage class for any %q", labels)
 }
 
@@ -769,11 +832,46 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	return errors.Trace(k.deleteDeployment(operatorName))
 }
 
-// Service returns the service for the specified application.
-func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
+func getSvcAddresses(svc *core.Service) []network.Address {
+	var netAddrs []network.Address
+
+	appendAddrs := func(scope network.Scope, addrs ...string) {
+		for _, v := range addrs {
+			if v != "" {
+				netAddrs = append(netAddrs, network.Address{
+					Value: v,
+					Type:  network.DeriveAddressType(v),
+					Scope: scope,
+				})
+			}
+		}
+	}
+	t := svc.Spec.Type
+	clusterIP := svc.Spec.ClusterIP
+	switch t {
+	case core.ServiceTypeClusterIP:
+		appendAddrs(network.ScopeCloudLocal, clusterIP)
+	case core.ServiceTypeExternalName:
+		appendAddrs(network.ScopeCloudLocal, svc.Spec.ExternalName)
+	case core.ServiceTypeNodePort:
+		appendAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)
+	case core.ServiceTypeLoadBalancer:
+		appendAddrs(network.ScopePublic, svc.Spec.LoadBalancerIP)
+	}
+	if len(netAddrs) == 0 && clusterIP != "" {
+		// fallback to ClusterIP, usually it's not empty.
+		logger.Debugf("fallback to clusterIP %q, desired IP was empty for %q type service %q", clusterIP, t, svc.Name)
+		appendAddrs(network.ScopeCloudLocal, clusterIP)
+	}
+	return netAddrs
+}
+
+// GetService returns the service for the specified application.
+func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 	services := k.CoreV1().Services(k.namespace)
 	servicesList, err := services.List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+		LabelSelector:        applicationSelector(appName),
+		IncludeUninitialized: true,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -785,31 +883,11 @@ func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
 	result := caas.Service{
 		Id: string(service.UID),
 	}
-	if service.Spec.ClusterIP != "" {
-		result.Addresses = append(result.Addresses, network.Address{
-			Value: service.Spec.ClusterIP,
-			Type:  network.DeriveAddressType(service.Spec.ClusterIP),
-			Scope: network.ScopeCloudLocal,
-		})
-	}
-	if service.Spec.LoadBalancerIP != "" {
-		result.Addresses = append(result.Addresses, network.Address{
-			Value: service.Spec.LoadBalancerIP,
-			Type:  network.DeriveAddressType(service.Spec.LoadBalancerIP),
-			Scope: network.ScopePublic,
-		})
-	}
-	for _, addr := range service.Spec.ExternalIPs {
-		result.Addresses = append(result.Addresses, network.Address{
-			Value: addr,
-			Type:  network.DeriveAddressType(addr),
-			Scope: network.ScopePublic,
-		})
-	}
+	result.Addresses = getSvcAddresses(&servicesList.Items[0])
 	return &result, nil
 }
 
-// DeleteService deletes the specified service.
+// DeleteService deletes the specified service with all related resources.
 func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	logger.Debugf("deleting application %s", appName)
 
@@ -974,7 +1052,7 @@ func (k *kubernetesClient) EnsureService(
 			continue
 		}
 		imageSecretName := appSecretName(deploymentName, c.Name)
-		if err := k.ensureSecret(imageSecretName, appName, &c.ImageDetails, resourceTags); err != nil {
+		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, resourceTags); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
@@ -1292,6 +1370,13 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	return errors.Trace(err)
 }
 
+// createStatefulSet deletes a statefulset resource.
+func (k *kubernetesClient) createStatefulSet(spec *apps.StatefulSet) error {
+	_, err := k.AppsV1().StatefulSets(k.namespace).Create(spec)
+	return errors.Trace(err)
+}
+
+// deleteStatefulSet deletes a statefulset resource.
 func (k *kubernetesClient) deleteStatefulSet(name string) error {
 	deployments := k.AppsV1().StatefulSets(k.namespace)
 	err := deployments.Delete(name, &v1.DeleteOptions{
@@ -1300,6 +1385,7 @@ func (k *kubernetesClient) deleteStatefulSet(name string) error {
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
+
 	return errors.Trace(err)
 }
 
@@ -1381,6 +1467,7 @@ func (k *kubernetesClient) configureService(
 	return k.ensureService(service)
 }
 
+// ensureService ensures a service resource.
 func (k *kubernetesClient) ensureService(spec *core.Service) error {
 	services := k.CoreV1().Services(k.namespace)
 	// Set any immutable fields if the service already exists.
@@ -1396,6 +1483,7 @@ func (k *kubernetesClient) ensureService(spec *core.Service) error {
 	return errors.Trace(err)
 }
 
+// deleteService deletes a service resource.
 func (k *kubernetesClient) deleteService(deploymentName string) error {
 	services := k.CoreV1().Services(k.namespace)
 	err := services.Delete(deploymentName, &v1.DeleteOptions{
@@ -1795,6 +1883,7 @@ func filesetConfigMap(configMapName string, files *caas.FileSet) *core.ConfigMap
 	return result
 }
 
+// ensureConfigMap ensures a ConfigMap resource.
 func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
 	configMaps := k.CoreV1().ConfigMaps(k.namespace)
 	_, err := configMaps.Update(configMap)
@@ -1802,6 +1891,35 @@ func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
 		_, err = configMaps.Create(configMap)
 	}
 	return errors.Trace(err)
+}
+
+// deleteConfigMap deletes a ConfigMap resource.
+func (k *kubernetesClient) deleteConfigMap(configMapName string) error {
+	err := k.CoreV1().ConfigMaps(k.namespace).Delete(configMapName, &v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
+// createConfigMap creates a ConfigMap resource.
+func (k *kubernetesClient) createConfigMap(configMap *core.ConfigMap) error {
+	_, err := k.CoreV1().ConfigMaps(k.namespace).Create(configMap)
+	return errors.Trace(err)
+}
+
+// getConfigMap returns a ConfigMap resource.
+func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) {
+	cm, err := k.CoreV1().ConfigMaps(k.namespace).Get(cmName, v1.GetOptions{IncludeUninitialized: true})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, errors.NotFoundf("configmap %q", cmName)
+		}
+		return nil, errors.Trace(err)
+	}
+	return cm, nil
 }
 
 // operatorPod returns a *core.Pod for the operator pod

@@ -187,6 +187,19 @@ func bootstrapCAAS(
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
+	if args.BuildAgent {
+		return errors.NewNotSupported(nil, "--build-agent when bootstrapping a k8s controller")
+	}
+	if args.BootstrapImage != "" {
+		return errors.NewNotSupported(nil, "--bootstrap-image when bootstrapping a k8s controller")
+	}
+	if args.BootstrapSeries != "" {
+		return errors.NewNotSupported(nil, "--bootstrap-series when bootstrapping a k8s controller")
+	}
+	if !constraints.IsEmpty(&args.BootstrapConstraints) {
+		return errors.NewNotSupported(nil, "--bootstrap-constraints when bootstrapping a k8s controller")
+	}
+
 	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
 	if err != nil {
 		return errors.Trace(err)
@@ -199,13 +212,14 @@ func bootstrapCAAS(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(caas): how to find the best/newest jujud docker image to use
-	newestTool := version.MustParseBinary("2.5-beta1-bionic-amd64")
+
+	jujuVersion := jujuversion.Current
+
 	// set agent version before finalizing bootstrap config
-	if err := setBootstrapToolsVersion(environ, newestTool.Number); err != nil {
+	if err := setBootstrapToolsVersion(environ, jujuVersion); err != nil {
 		return errors.Trace(err)
 	}
-	podConfig.JujuVersion = newestTool.Number
+	podConfig.JujuVersion = jujuVersion
 	if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
@@ -510,7 +524,6 @@ func Bootstrap(
 	callCtx context.ProviderCallContext,
 	args BootstrapParams,
 ) error {
-	isCAASController := jujucloud.CloudIsCAAS(args.Cloud)
 
 	if err := args.Validate(); err != nil {
 		return errors.Annotate(err, "validating bootstrap parameters")
@@ -523,16 +536,12 @@ func Bootstrap(
 		BootstrapSeries:  args.BootstrapSeries,
 		Placement:        args.Placement,
 	}
-
-	var err error
-	if isCAASController {
-		// bootstraping in IAAS mode.
-		err = bootstrapCAAS(ctx, environ, callCtx, args, bootstrapParams)
-	} else {
-		// bootstraping in IAAS mode.
-		err = bootstrapIAAS(ctx, environ, callCtx, args, bootstrapParams)
+	doBootstrap := bootstrapIAAS
+	if jujucloud.CloudIsCAAS(args.Cloud) {
+		doBootstrap = bootstrapCAAS
 	}
-	if err != nil {
+
+	if err := doBootstrap(ctx, environ, callCtx, args, bootstrapParams); err != nil {
 		return errors.Trace(err)
 	}
 	ctx.Infof("Bootstrap agent now started")
@@ -611,6 +620,7 @@ func finalizePodBootstrapConfig(
 	if pcfg.APIInfo != nil || pcfg.Controller.MongoInfo != nil {
 		return errors.New("machine configuration already has api/state info")
 	}
+
 	controllerCfg := pcfg.Controller.Config
 	caCert, hasCACert := controllerCfg.CACert()
 	if !hasCACert {

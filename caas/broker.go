@@ -104,16 +104,6 @@ type Broker interface {
 	// Destroy terminates all containers and other resources in this broker's namespace.
 	Destroy(context.ProviderCallContext) error
 
-	// Namespaces returns name names of the namespaces on the cluster.
-	Namespaces() ([]string, error)
-
-	// EnsureNamespace ensures this broker's namespace is created.
-	EnsureNamespace() error
-
-	// GetStorageClassName returns the name of a storage class with the specified
-	// labels, or else the cluster default storage class, or else a NotFound error.
-	GetStorageClassName(labels ...string) (string, error)
-
 	// EnsureOperator creates or updates an operator pod for running
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
@@ -125,23 +115,8 @@ type Broker interface {
 	// DeleteOperator deletes the specified operator.
 	DeleteOperator(appName string) error
 
-	// EnsureService creates or updates a service for pods with the given params.
-	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
-
 	// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
 	EnsureCustomResourceDefinition(appName string, podSpec *PodSpec) error
-
-	// Service returns the service for the specified application.
-	Service(appName string) (*Service, error)
-
-	// DeleteService deletes the specified service.
-	DeleteService(appName string) error
-
-	// ExposeService sets up external access to the specified service.
-	ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error
-
-	// UnexposeService removes external access to the specified service.
-	UnexposeService(appName string) error
 
 	// WatchUnits returns a watcher which notifies when there
 	// are changes to units of the specified application.
@@ -155,9 +130,6 @@ type Broker interface {
 	// WatchOperator returns a watcher which notifies when there
 	// are changes to the operator of the specified application.
 	WatchOperator(string) (watcher.NotifyWatcher, error)
-
-	// GetNamespace returns the namespace for the specified name or current namespace.
-	GetNamespace(name string) (*core.Namespace, error)
 
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
@@ -180,6 +152,55 @@ type Broker interface {
 
 	// ResourceAdopter defines methods for adopting resources.
 	environs.ResourceAdopter
+
+	// NamespaceGetterSetter provides the API to get/set namespace.
+	NamespaceGetterSetter
+
+	// StorageclassGetterSetter provides the API to get/set storageclass.
+	StorageclassGetterSetter
+
+	// ServiceGetterSetter provides the API to get/set service.
+	ServiceGetterSetter
+}
+
+// StorageclassGetterSetter provides the API to get/set storageclass.
+type StorageclassGetterSetter interface {
+	// GetStorageClassName returns the name of a storage class with the specified
+	// labels, or else the cluster default storage class, or else a NotFound error.
+	GetStorageClassName(labels ...string) (string, error)
+}
+
+// ServiceGetterSetter provides the API to get/set service.
+type ServiceGetterSetter interface {
+	// EnsureService creates or updates a service for pods with the given params.
+	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
+
+	// DeleteService deletes the specified service with all related resources.
+	DeleteService(appName string) error
+
+	// ExposeService sets up external access to the specified service.
+	ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error
+
+	// UnexposeService removes external access to the specified service.
+	UnexposeService(appName string) error
+
+	// GetService returns the service for the specified application.
+	GetService(appName string) (*Service, error)
+}
+
+// NamespaceGetterSetter provides the API to get/set namespace.
+type NamespaceGetterSetter interface {
+	// Namespaces returns name names of the namespaces on the cluster.
+	Namespaces() ([]string, error)
+
+	// EnsureNamespace ensures this broker's namespace is created.
+	EnsureNamespace() error
+
+	// GetNamespace returns the namespace for the specified name or current namespace.
+	GetNamespace(name string) (*core.Namespace, error)
+
+	// GetCurrentNamespace returns current namespace name.
+	GetCurrentNamespace() string
 }
 
 // NamespaceWatcher provides the API to watch caas namespace.

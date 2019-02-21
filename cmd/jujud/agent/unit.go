@@ -125,9 +125,7 @@ func (a *UnitAgent) Init(args []string) error {
 			MaxBackups: 2,
 			Compress:   true,
 		}
-
 	}
-
 	return nil
 }
 

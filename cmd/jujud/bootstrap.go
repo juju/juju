@@ -245,7 +245,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Create system-identity file
 	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if err := c.startMongo(addrs, agentConfig); err != nil {

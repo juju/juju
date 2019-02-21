@@ -32,7 +32,10 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -278,6 +281,52 @@ func (s *K8sBrokerSuite) TestConfig(c *gc.C) {
 	c.Assert(s.broker.Config(), jc.DeepEquals, s.cfg)
 }
 
+func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	err := s.broker.SetConfig(s.cfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestControllerNamespaceRenaming(c *gc.C) {
+	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
+		config.NameKey: "controller",
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	s.cfg = cfg
+
+	ctrl := s.setupBroker(c)
+	defer func() {
+		ctrl.Finish()
+		// reset s.cfg
+		s.SetUpSuite(c)
+	}()
+
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-operator")
+
+}
+
+func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	ctx := envtesting.BootstrapContext(c)
+	callCtx := &context.CloudCallContext{}
+	bootstrapParams := environs.BootstrapParams{
+		ControllerConfig:     testing.FakeControllerConfig(),
+		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+	}
+	result, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Arch, gc.Equals, "amd64")
+	c.Assert(result.CaasBootstrapFinalizer, gc.NotNil)
+
+	bootstrapParams.BootstrapSeries = "bionic"
+	result, err = s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
 type hostRegionTestcase struct {
 	expectedOut set.Strings
 	nodes       *core.NodeList
@@ -382,14 +431,6 @@ func (s *K8sBrokerSuite) TestListHostCloudRegions(c *gc.C) {
 	}
 }
 
-func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	err := s.broker.SetConfig(s.cfg)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *K8sBrokerSuite) TestEnsureNamespace(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
@@ -456,7 +497,7 @@ func (s *K8sBrokerSuite) TestNamespaces(c *gc.C) {
 	c.Assert(result, jc.SameContents, []string{"test", "test2"})
 }
 
-func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
+func (s *K8sBrokerSuite) assertDestroy(c *gc.C, destroyFunc func() error) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -495,10 +536,23 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 		}
 	}(namespaceWatcher, s.clock)
 
-	err := s.broker.Destroy(context.NewCloudCallContext())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(destroyFunc(), jc.ErrorIsNil)
 	c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
 	c.Assert(namespaceWatcher.IsStopped(), jc.IsTrue)
+}
+
+func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
+	s.assertDestroy(c, func() error { return s.broker.DestroyController(context.NewCloudCallContext(), s.cfg.UUID()) })
+}
+
+func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
+	s.assertDestroy(c, func() error { return s.broker.Destroy(context.NewCloudCallContext()) })
+}
+
+func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.namespace)
 }
 
 func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
@@ -724,7 +778,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `config map for "test" should already exist:  "test" not found`)
 }
 
-func (s *K8sBrokerSuite) TestDeleteService(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
