@@ -470,21 +470,35 @@ def list_models(client):
 def is_subordinate(app_data):
     return (not 'unit' in app_data) and ('subordinate-to' in app_data)
 
-def application_machines(app_data):
-    """Get all the machines used to host the given application."""
+def application_machines_from_app_info(app_data):
+    """Get all the machines used to host the given application from the
+       application info in status.
+
+    :param app_data: application info from status
+    """
     machines = [unit_data['machine'] for unit_data in
                 app_data['units'].values()]
     return machines
 
-def subordinate_machines(app_data, apps):
+def subordinate_machines_from_app_info(app_data, apps):
+    """Get the subordinate machines from a given application from the
+       application info in status.
+
+    :param app_data: application info from status
+    """
     machines = []
     for sub_name in app_data['subordinate-to']:
         for app_name, prim_app_data in apps.items():
             if sub_name == app_name:
-                machines.extend(application_machines(prim_app_data))
+                machines.extend(application_machines_from_app_info(prim_app_data))
     return machines
 
 def align_machine_profiles(machine_profiles):
+    """Align machine profiles will create a dict from a list of machine
+       ensuring that the machines are unique to each charm profile name.
+
+    :param machine_profiles: is a list of machine profiles tuple
+    """
     result = {}
     for items in machine_profiles:
         charm_profile = items[0]

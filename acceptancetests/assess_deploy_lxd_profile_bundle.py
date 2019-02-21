@@ -20,8 +20,8 @@ from utility import (
     configure_logging,
     JujuAssertionError,
     is_subordinate,
-    subordinate_machines,
-    application_machines,
+    subordinate_machines_from_app_info,
+    application_machines_from_app_info,
     align_machine_profiles,
 )
 from jujupy.wait_condition import (
@@ -65,9 +65,9 @@ def assess_profile_machines(client):
             charm_profile = info['charm-profile']
             if charm_profile:
                 if is_subordinate(info):
-                    machines = subordinate_machines(info, apps)
+                    machines = subordinate_machines_from_app_info(info, apps)
                 else:
-                    machines = application_machines(info)
+                    machines = application_machines_from_app_info(info)
                 machine_profiles.append((charm_profile, machines))
     if len(machine_profiles) > 0:
         aligned_machine_profiles = align_machine_profiles(machine_profiles)
