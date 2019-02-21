@@ -596,7 +596,7 @@ type cloudFileReader struct {
 	cloudMetadataStore CloudMetadataStore
 }
 
-func (p cloudFileReader) readCloudFromFile(cloud, cloudFile string, ctxt *cmd.Context, verifyName bool) (*jujucloud.Cloud, error) {
+func (p cloudFileReader) readCloudFromFile(cloud, cloudFile string, ctxt *cmd.Context, ignoreExisting bool) (*jujucloud.Cloud, error) {
 	specifiedClouds, err := p.cloudMetadataStore.ParseCloudMetadataFile(cloudFile)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -629,7 +629,7 @@ func (p cloudFileReader) readCloudFromFile(cloud, cloudFile string, ctxt *cmd.Co
 			return nil, errors.NotSupportedf("auth type %q", authType)
 		}
 	}
-	if verifyName {
+	if !ignoreExisting {
 		if err := p.verifyName(cloud); err != nil {
 			return nil, errors.Trace(err)
 		}

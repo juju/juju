@@ -143,7 +143,7 @@ func (c *updateCloudCommand) updateLocalCacheFromFile(ctxt *cmd.Context) error {
 	r := cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,
 	}
-	newCloud, err := r.readCloudFromFile(c.Cloud, c.CloudFile, ctxt, false)
+	newCloud, err := r.readCloudFromFile(c.Cloud, c.CloudFile, ctxt, true)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -154,7 +154,7 @@ func (c *updateCloudCommand) updateControllerFromFile(ctxt *cmd.Context) error {
 	r := cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,
 	}
-	newCloud, err := r.readCloudFromFile(c.Cloud, c.CloudFile, ctxt, false)
+	newCloud, err := r.readCloudFromFile(c.Cloud, c.CloudFile, ctxt, true)
 	if err != nil {
 		return errors.Trace(err)
 	}
