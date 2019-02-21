@@ -251,6 +251,36 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	}))
 }
 
+func (s *ApplicationSuite) TestGenerationCharmCharmSettings(c *gc.C) {
+	newCh := s.AddConfigCharm(c, "mysql", stringConfig, 2)
+	err := s.mysql.SetCharm(state.SetCharmConfig{
+		Charm:          newCh,
+		ConfigSettings: charm.Settings{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings, err := s.mysql.CharmConfig(model.GenerationCurrent)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Update the next generation settings.
+	settings["key"] = "next-gen-value"
+	c.Assert(s.mysql.UpdateCharmConfig(model.GenerationNext, settings), jc.ErrorIsNil)
+
+	// Settings for the next generation reflect the change.
+	settings, err = s.mysql.CharmConfig(model.GenerationNext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
+		"key": "next-gen-value",
+	}))
+
+	// Settings for the current generation are as set with charm.
+	settings, err = s.mysql.CharmConfig(model.GenerationCurrent)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
+		"key": "value",
+	}))
+}
+
 func (s *ApplicationSuite) TestSetCharmCharmSettingsInvalid(c *gc.C) {
 	newCh := s.AddConfigCharm(c, "mysql", stringConfig, 2)
 	err := s.mysql.SetCharm(state.SetCharmConfig{
@@ -3380,7 +3410,7 @@ func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C)
 	s.assertApplicationRemovedWithItsBindings(c, application)
 }
 
-func (s *ApplicationSuite) setupAppicationWithUnitsForUpgradeCharmScenario(c *gc.C, numOfUnits int) (deployedV int, err error) {
+func (s *ApplicationSuite) setupApplicationWithUnitsForUpgradeCharmScenario(c *gc.C, numOfUnits int) (deployedV int, err error) {
 	originalCharmMeta := mysqlBaseMeta + `
 peers:
   replication:
@@ -3412,7 +3442,7 @@ peers:
 }
 
 func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithOneUnit(c *gc.C) {
-	obtainedV, err := s.setupAppicationWithUnitsForUpgradeCharmScenario(c, 1)
+	obtainedV, err := s.setupApplicationWithUnitsForUpgradeCharmScenario(c, 1)
 
 	// ensure upgrade happened
 	c.Assert(err, jc.ErrorIsNil)
@@ -3420,7 +3450,7 @@ func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithOneUnit(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithMoreThanOneUnit(c *gc.C) {
-	obtainedV, err := s.setupAppicationWithUnitsForUpgradeCharmScenario(c, 2)
+	obtainedV, err := s.setupApplicationWithUnitsForUpgradeCharmScenario(c, 2)
 
 	// ensure upgrade did not happen
 	c.Assert(err, gc.ErrorMatches, `*would break relation "mysql:replication"*`)
