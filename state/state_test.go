@@ -1526,7 +1526,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	outsettings, err := wordpress.CharmConfig()
+	outsettings, err := wordpress.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {
@@ -1576,7 +1576,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
 	c.Assert(gitlab.GetScale(), gc.Equals, 0)
 	c.Assert(gitlab.GetPlacement(), gc.Equals, "a=b")
-	outsettings, err := gitlab.CharmConfig()
+	outsettings, err := gitlab.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {
@@ -1631,7 +1631,7 @@ func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {
 
 	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings})
 	c.Assert(err, jc.ErrorIsNil)
-	outsettings, err := wordpress.CharmConfig()
+	outsettings, err := wordpress.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {
@@ -1675,7 +1675,7 @@ func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
 }
 
-func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
+func (s *StateSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	// Check that a application with a name conflict cannot be added if
 	// there is no conflict initially but a remote application is added

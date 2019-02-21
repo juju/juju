@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
@@ -483,9 +484,9 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
 
-	exportedCharmConfig, err := exported.CharmConfig()
+	exportedCharmConfig, err := exported.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
-	importedCharmConfig, err := imported.CharmConfig()
+	importedCharmConfig, err := imported.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedCharmConfig, jc.DeepEquals, exportedCharmConfig)
 

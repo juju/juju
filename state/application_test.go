@@ -232,7 +232,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err := s.mysql.CharmConfig()
+	settings, err := s.mysql.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{"key": "value"}))
 
@@ -243,7 +243,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err = s.mysql.CharmConfig()
+	settings, err = s.mysql.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
 		"key":   "value",
@@ -612,7 +612,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 		sch, _, err := app.Charm()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(sch.URL(), gc.DeepEquals, expectCh.URL())
-		settings, err := app.CharmConfig()
+		settings, err := app.CharmConfig(model.GenerationCurrent)
 		c.Assert(err, jc.ErrorIsNil)
 		expected := s.combinedSettings(sch, expectVals)
 		if len(expected) == 0 {
@@ -1068,7 +1068,7 @@ func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			settings, err := app.CharmConfig()
+			settings, err := app.CharmConfig(model.GenerationCurrent)
 			c.Assert(err, jc.ErrorIsNil)
 			appConfig := t.expect
 			expected := s.combinedSettings(sch, appConfig)
