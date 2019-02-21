@@ -4934,7 +4934,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		// test modification status
 		addMachine{machineId: "4", job: state.JobHostUnits},
 		setAddresses{"4", network.NewAddresses("10.0.3.1")},
-		startAliveMachine{"4"},
+		startAliveMachine{"4", ""},
 		setMachineStatus{"4", status.Started, ""},
 		setMachineInstanceStatus{"4", status.Started, "I am number four"},
 		setMachineModificationStatus{"4", status.Error, "I am an error"},
