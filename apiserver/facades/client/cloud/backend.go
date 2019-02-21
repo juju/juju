@@ -25,6 +25,7 @@ type Backend interface {
 	UpdateCloudCredential(names.CloudCredentialTag, cloud.Credential) error
 	RemoveCloudCredential(names.CloudCredentialTag) error
 	AddCloud(cloud.Cloud, string) error
+	UpdateCloud(cloud.Cloud) error
 	RemoveCloud(string) error
 	AllCloudCredentials(user names.UserTag) ([]state.Credential, error)
 	CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]state.CredentialOwnerModelAccess, error)
