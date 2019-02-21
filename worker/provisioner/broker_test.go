@@ -8,8 +8,6 @@ import (
 	"net"
 	"path/filepath"
 
-	"github.com/juju/juju/cloudconfig"
-
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +19,7 @@ import (
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"

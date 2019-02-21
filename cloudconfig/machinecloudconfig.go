@@ -262,14 +262,14 @@ func extractPropertiesFromConfig(props []string, cfg map[string]interface{}, log
 					}
 				}
 			} else {
-				log.Debugf("%s not found in machine cloud-init data", key)
+				log.Debugf("%s not found in machine init data", key)
 			}
 		case "ca-certs":
 			// No translation needed, ca-certs the same in both versions of Cloud-Init.
 			if val, ok := cfg[key]; ok {
 				foundDataMap[key] = val
 			} else {
-				log.Debugf("%s not found in machine cloud-init data", key)
+				log.Debugf("%s not found in machine init data", key)
 			}
 		}
 	}

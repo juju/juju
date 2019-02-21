@@ -9,8 +9,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/juju/juju/cloudconfig"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
@@ -21,6 +19,7 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"

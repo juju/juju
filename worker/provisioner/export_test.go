@@ -6,13 +6,12 @@ package provisioner
 import (
 	"sort"
 
-	"github.com/juju/juju/cloudconfig"
-
 	"github.com/juju/version"
 
 	"github.com/juju/juju/api/common"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
