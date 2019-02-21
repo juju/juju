@@ -53,8 +53,6 @@ func NewRemoveCAASCommandForTest(
 	return modelcmd.WrapController(cmd)
 }
 
-type K8sBrokerRegionLister = k8sBrokerRegionLister
-
 type fakeCluster struct {
 	CommandRunner
 

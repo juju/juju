@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v2"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
@@ -55,11 +55,7 @@ type AddCloudAPI interface {
 }
 
 // BrokerGetter returns caas broker instance.
-type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8sBrokerRegionLister, error)
-
-type k8sBrokerRegionLister interface {
-	ListHostCloudRegions() (set.Strings, error)
-}
+type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error)
 
 var usageAddCAASSummary = `
 Adds a k8s endpoint and credential to Juju.`[1:]
@@ -122,6 +118,9 @@ type AddCAASCommand struct {
 	// The format is <cloudType/region>.
 	hostCloudRegion string
 
+	// workloadStorage is a storage class specified by the user.
+	workloadStorage string
+
 	// brokerGetter returns caas broker instance.
 	brokerGetter BrokerGetter
 
@@ -153,7 +152,7 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		return cloudapi.NewClient(root), nil
 	}
 
-	cmd.brokerGetter = newK8sBrokerGetter(cmd.NewAPIRoot)
+	cmd.brokerGetter = newK8sBrokerGetter(cmd.NewModelAPIRoot)
 	cmd.getAllCloudDetails = jujucmdcloud.GetAllCloudDetails
 	return modelcmd.WrapController(cmd)
 }
@@ -174,6 +173,7 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
 	f.StringVar(&c.contextName, "context-name", "", "Specify the k8s context to import")
 	f.StringVar(&c.hostCloudRegion, "region", "", "kubernetes cluster cloud and/or region")
+	f.StringVar(&c.workloadStorage, "storage", "", "kubernetes storage class for workload storage")
 	f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	f.StringVar(&c.credential, "credential", "", "the credential to use when accessing the cluster")
 	f.BoolVar(&c.gke, "gke", false, "used when adding a GKE cluster")
@@ -293,6 +293,28 @@ func (c *AddCAASCommand) getConfigReader(ctx *cmd.Context) (io.Reader, string, e
 	return cluster.getKubeConfig(p)
 }
 
+var clusterQueryErrMsg = `
+	Juju needs to query the k8s cluster to ensure that the recommended
+	storage defaults are available and to detect the cluster's cloud/region.
+	This was not possible in this case so run add-k8s again, using
+	--storage=<name> to specify the storage class to use and
+	--region=<cloud>/<region> to specify the cloud/region.
+`[1:]
+
+var unknownClusterErrMsg = `
+	Juju needs to query the k8s cluster to ensure that the recommended
+	storage defaults are available and to detect the cluster's cloud/region.
+	This was not possible in this case because the cloud %q is not known to Juju.
+	Run add-k8s again, using --storage=<name> to specify the storage class to use.
+`[1:]
+
+var noRecommendedStorageErrMsg = `
+	No recommended storage configuration is defined on this cluster.
+	Run add-k8s again with --storage=<name> and Juju will use the
+	specified storage class or create a storage-class using the recommended
+	%q provisioner.
+`[1:]
+
 // Run is defined on the Command interface.
 func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	if err := c.verifyName(c.caasName); err != nil {
@@ -316,24 +338,68 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	}
 	defer cloudClient.Close()
 
+	// Get the cluster metadata so we can see if there's suitable storage available.
+	clusterMetadata, broker, err := c.getClusterMetadata(ctx, newCloud, credential)
+	if err != nil || clusterMetadata == nil {
+		return errors.Annotate(err, clusterQueryErrMsg)
+	}
+
+	if c.hostCloudRegion == "" && clusterMetadata.Regions != nil && clusterMetadata.Regions.Size() > 0 {
+		c.hostCloudRegion = clusterMetadata.Regions.SortedValues()[0]
+	}
+	if c.hostCloudRegion == "" {
+		return errors.New(clusterQueryErrMsg)
+	}
+
+	// If the user has not specified storage, check that the cluster has Juju's opinionated defaults.
+	cloudType := strings.Split(c.hostCloudRegion, "/")[0]
+	err = broker.CheckDefaultWorkloadStorage(cloudType, clusterMetadata.NominatedStorageClass)
+	if errors.IsNotFound(err) {
+		return errors.Errorf(unknownClusterErrMsg, cloudType)
+	}
+	if c.workloadStorage == "" && caas.IsNonPreferredStorageError(err) {
+		npse := err.(*caas.NonPreferredStorageError)
+		return errors.Errorf(noRecommendedStorageErrMsg, npse.Name)
+	}
+	if err != nil && !caas.IsNonPreferredStorageError(err) {
+		return errors.Trace(err)
+	}
+
+	// If no storage class exists, we need to create one with the opinionated defaults.
+	var storageMsg string
+	if c.workloadStorage != "" && caas.IsNonPreferredStorageError(err) {
+		preferredStorage := errors.Cause(err).(*caas.NonPreferredStorageError).PreferredStorage
+		sp, err := broker.EnsureStorageProvisioner(caas.StorageProvisioner{
+			Name:        c.workloadStorage,
+			Provisioner: preferredStorage.Provisioner,
+			Parameters:  preferredStorage.Parameters,
+		})
+		if err != nil {
+			return errors.Annotatef(err, "creating storage class %q", c.workloadStorage)
+		}
+		if sp.Provisioner == preferredStorage.Provisioner {
+			storageMsg = fmt.Sprintf(" with %s default storage", preferredStorage.Name)
+			if c.workloadStorage != "" {
+				storageMsg = fmt.Sprintf("%s provisioned\nby the existing %q storage class", storageMsg, c.workloadStorage)
+			}
+		} else {
+			storageMsg = fmt.Sprintf(" with storage provisioned\nby the existing %q storage class", c.workloadStorage)
+		}
+	}
+
 	if err := c.addCloudToControllerWithRegion(cloudClient, newCloud); err != nil {
 		if !params.IsCodeCloudRegionRequired(err) {
 			return errors.Trace(err)
 		}
-		// try to fetch cloud and region then retry.
-		cloudRegion, err := c.getClusterRegion(ctx, newCloud, credential)
 		errMsg := `
 	JAAS requires cloud and region information. But it's
 	not possible to fetch cluster region in this case,
 	please use --region to specify the cloud/region manually.
 	`[1:]
-		if err != nil {
-			return errors.Annotate(err, errMsg)
-		}
-		if cloudRegion == "" {
+		if c.hostCloudRegion == "" {
 			return errors.NewNotValid(nil, errMsg)
 		}
-		newCloud.HostCloudRegion = cloudRegion
+		newCloud.HostCloudRegion = c.hostCloudRegion
 		if err := c.addCloudToControllerWithRegion(cloudClient, newCloud); err != nil {
 			return errors.Trace(err)
 		}
@@ -350,7 +416,11 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	if err := c.addCredentialToController(cloudClient, credential, context.CredentialName); err != nil {
 		return errors.Trace(err)
 	}
-	fmt.Fprintf(ctx.Stdout, "k8s substrate %q added as cloud %q\n", clusterName, c.caasName)
+	if clusterName == "" {
+		clusterName = c.hostCloudRegion
+	}
+	successMsg := fmt.Sprintf("k8s substrate %q added as cloud %q%s", clusterName, c.caasName, storageMsg)
+	fmt.Fprintln(ctx.Stdout, successMsg)
 
 	return nil
 }
@@ -369,9 +439,9 @@ func (c *AddCAASCommand) addCloudToControllerWithRegion(apiClient AddCloudAPI, n
 	return nil
 }
 
-func newK8sBrokerGetter(rootAPIGetter func() (api.Connection, error)) BrokerGetter {
-	return func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8sBrokerRegionLister, error) {
-		conn, err := rootAPIGetter()
+func newK8sBrokerGetter(rootAPIGetter func(string) (api.Connection, error)) BrokerGetter {
+	return func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error) {
+		conn, err := rootAPIGetter(bootstrap.ControllerModelName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -398,10 +468,14 @@ func newK8sBrokerGetter(rootAPIGetter func() (api.Connection, error)) BrokerGett
 
 func parseCloudRegion(cloudRegion string) (string, string, error) {
 	fields := strings.SplitN(cloudRegion, "/", 2)
-	if len(fields) != 2 || fields[0] == "" || fields[1] == "" {
+	if len(fields) >= 2 && (fields[0] == "" || fields[1] == "") {
 		return "", "", errors.NotValidf("cloud region %s", cloudRegion)
 	}
-	return fields[0], fields[1], nil
+	region := ""
+	if len(fields) > 1 {
+		region = fields[1]
+	}
+	return fields[0], region, nil
 }
 
 func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (_ string, err error) {
@@ -419,6 +493,9 @@ func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (_ string, err 
 	for name, details := range clouds {
 		// User may have specified cloud name or type so match on both.
 		if name == cloudNameOrType || details.CloudType == cloudNameOrType {
+			if region == "" && len(details.RegionsMap) == 0 {
+				return details.CloudType, nil
+			}
 			for k := range details.RegionsMap {
 				if k == region {
 					logger.Debugf("cloud region %q is valid", cloudRegion)
@@ -427,17 +504,17 @@ func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (_ string, err 
 			}
 		}
 	}
-	return "", errors.NotValidf("cloud region %s", cloudRegion)
+	return "", errors.NotValidf("cloud region %q", cloudRegion)
 }
 
-func (c *AddCAASCommand) getClusterRegion(
+func (c *AddCAASCommand) getClusterMetadata(
 	ctx *cmd.Context,
 	cloud jujucloud.Cloud,
 	credential jujucloud.Credential,
-) (string, error) {
+) (*caas.ClusterMetadata, caas.ClusterMetadataChecker, error) {
 	broker, err := c.brokerGetter(cloud, credential)
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	interrupted := make(chan os.Signal, 1)
@@ -445,19 +522,14 @@ func (c *AddCAASCommand) getClusterRegion(
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
 
-	result := make(chan string, 1)
+	result := make(chan *caas.ClusterMetadata, 1)
 	errChan := make(chan error, 1)
 	go func() {
-		cloudRegions, err := broker.ListHostCloudRegions()
+		clusterMetadata, err := broker.GetClusterMetadata(c.workloadStorage)
 		if err != nil {
 			errChan <- err
 		}
-		if cloudRegions == nil || cloudRegions.Size() == 0 {
-			result <- ""
-		} else {
-			// we currently assume it's always a single region cluster.
-			result <- cloudRegions.SortedValues()[0]
-		}
+		result <- clusterMetadata
 	}()
 
 	timeout := 30 * time.Second
@@ -468,13 +540,13 @@ func (c *AddCAASCommand) getClusterRegion(
 			fmt.Fprintf(ctx.Stdout, ".")
 		case <-interrupted:
 			ctx.Infof("ctrl+c detected, aborting...")
-			return "", nil
+			return nil, nil, nil
 		case <-time.After(timeout):
-			return "", errors.Timeoutf("timeout after %v", timeout)
+			return nil, nil, errors.Timeoutf("timeout after %v", timeout)
 		case err := <-errChan:
-			return "", err
-		case cloudRegion := <-result:
-			return cloudRegion, nil
+			return nil, nil, err
+		case clusterMetadata := <-result:
+			return clusterMetadata, broker, nil
 		}
 	}
 }

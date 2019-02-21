@@ -15,6 +15,7 @@ const (
 )
 
 var k8sCloudCheckers map[string]k8slabels.Selector
+var clusterPreferredWorkloadStorage map[string]caas.PreferredStorage
 
 func init() {
 	caas.RegisterContainerProvider(providerType, providerInstance)
@@ -22,6 +23,27 @@ func init() {
 	// k8sCloudCheckers is a collection of k8s node selector requirement definitions
 	// used for detecting cloud provider from node labels.
 	k8sCloudCheckers = compileK8sCloudCheckers()
+
+	// clusterPreferredWorkloadStorage defines the opinionated storage
+	// that Juju requires to be available on supported clusters.
+	clusterPreferredWorkloadStorage = map[string]caas.PreferredStorage{
+		"microk8s": {
+			Name:        "hostpath",
+			Provisioner: "microk8s.io/hostpath",
+		},
+		"gce": {
+			Name:        "GCE Persistent Disk",
+			Provisioner: "kubernetes.io/gce-pd",
+		},
+		"azure": {
+			Name:        "Azure Disk",
+			Provisioner: "kubernetes.io/azure-disk",
+		},
+		"ec2": {
+			Name:        "EBS Volume",
+			Provisioner: "kubernetes.io/aws-ebs",
+		},
+	}
 }
 
 // compileK8sCloudCheckers compiles/validates the collection of
