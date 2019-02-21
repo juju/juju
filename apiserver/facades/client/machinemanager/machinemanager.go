@@ -292,7 +292,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 				if !force {
 					return fail(err)
 				}
-				result.Error = common.ServerError(err)
+				logger.Warningf("could not keep instance for machine %v: %v", machineTag.Id(), err)
 			}
 		}
 		var info params.DestroyMachineInfo
@@ -346,7 +346,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 			if !force {
 				return fail(all.Combine())
 			}
-			result.Error = common.ServerError(all.Combine())
+			logger.Warningf("could not deal with units' storage on machine %v: %v", machineTag.Id(), all.Combine())
 		}
 
 		destroy := machine.Destroy
