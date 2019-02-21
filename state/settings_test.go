@@ -5,11 +5,12 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/model"
 )
 
 type SettingsSuite struct {
