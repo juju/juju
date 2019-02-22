@@ -1298,7 +1298,7 @@ func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
 
 func (s *MachineSuite) TestMachineSetModificationStatus(c *gc.C) {
 	// Machine needs to be provisioned first.
-	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
+	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := coretesting.ZeroTime()

@@ -651,7 +651,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfileErrorToIdle(c *gc.
 
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	target, err := s.application.AddUnit(state.AddUnitParams{})
@@ -688,7 +688,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfileErrorToApplied(c *
 
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	target, err := s.application.AddUnit(state.AddUnitParams{})
