@@ -56,6 +56,18 @@ func (mr *MockGenerationMockRecorder) AssignUnit(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignUnit", reflect.TypeOf((*MockGeneration)(nil).AssignUnit), arg0)
 }
 
+// AssignedUnits mocks base method
+func (m *MockGeneration) AssignedUnits() map[string][]string {
+	ret := m.ctrl.Call(m, "AssignedUnits")
+	ret0, _ := ret[0].(map[string][]string)
+	return ret0
+}
+
+// AssignedUnits indicates an expected call of AssignedUnits
+func (mr *MockGenerationMockRecorder) AssignedUnits() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedUnits", reflect.TypeOf((*MockGeneration)(nil).AssignedUnits))
+}
+
 // AutoComplete mocks base method
 func (m *MockGeneration) AutoComplete() (bool, error) {
 	ret := m.ctrl.Call(m, "AutoComplete")

@@ -35,6 +35,7 @@ type GenerationModel interface {
 type Generation interface {
 	AssignAllUnits(string) error
 	AssignUnit(string) error
+	AssignedUnits() map[string][]string
 	MakeCurrent() error
 	AutoComplete() (bool, error)
 	Refresh() error
