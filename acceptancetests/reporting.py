@@ -49,10 +49,10 @@ class InfluxClient(_Reporting):
                     },
                 }
                 series.append(pointValue)
-        self.client.write_points(series, retention_policy=POLICYNAME)
+        self.client.write_points(series, retention_policy=POLICYNAME, time_precision='s')
 
 def construct_metrics(total_time, total_num_txns, max_time, test_duration):
-    """Make metrics creates a dictionary of items to pass to the 
+    """Make metrics creates a dictionary of items to pass to the
        reporting client.
     """
 
@@ -69,10 +69,10 @@ def get_reporting_client(uri):
 
     :param uri: URI to connect to the client.
     """
-    # Extract the uri 
+    # Extract the uri
     parsed_uri = urlparse.urlsplit(uri)
     client = InfluxDBClient(
-        host=parsed_uri.hostname, 
+        host=parsed_uri.hostname,
         port=parsed_uri.port,
         username=parsed_uri.username,
         password=parsed_uri.password,
