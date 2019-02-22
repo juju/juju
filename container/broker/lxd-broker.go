@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner
+package broker
 
 import (
 	"github.com/juju/errors"
@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/provider/common"
 )
 
-var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
+var lxdLogger = loggo.GetLogger("juju.container.broker.lxd")
 
 type PrepareHostFunc func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error
 

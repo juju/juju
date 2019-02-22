@@ -1,7 +1,7 @@
 // Copyright 2013-2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner_test
+package broker_test
 
 import (
 	"fmt"
@@ -22,6 +22,8 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/broker"
+	"github.com/juju/juju/container/broker/mocks"
 	"github.com/juju/juju/container/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
@@ -31,8 +33,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/provisioner"
-	"github.com/juju/juju/worker/provisioner/mocks"
 )
 
 type lxdBrokerSuite struct {
@@ -53,7 +53,7 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 	// To isolate the tests from the host's architecture, we override it here.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
-	s.PatchValue(&provisioner.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
+	s.PatchValue(&broker.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
 		return nil, nil
 	})
 
@@ -80,7 +80,7 @@ func (s *lxdBrokerSuite) startInstance(c *gc.C, broker environs.InstanceBroker, 
 }
 
 func (s *lxdBrokerSuite) newLXDBroker(c *gc.C) (environs.InstanceBroker, error) {
-	return provisioner.NewLXDBroker(s.api.PrepareHost, s.api, s.manager, s.agentConfig)
+	return broker.NewLXDBroker(s.api.PrepareHost, s.api, s.manager, s.agentConfig)
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *gc.C) {
@@ -182,7 +182,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithCloudInitUserData(c *gc.C) {
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *gc.C) {
-	s.PatchValue(&provisioner.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
+	s.PatchValue(&broker.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"packages":   []interface{}{"python-novaclient"},
 			"fake-entry": []interface{}{"testing-garbage"},
@@ -277,7 +277,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(&inst, &hw, nil)
 
-	broker, err := provisioner.NewLXDBroker(
+	broker, err := broker.NewLXDBroker(
 		func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error { return nil },
 		mockApi, mockManager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
@@ -309,7 +309,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *gc.C) {
 
 	mockManager := testing.NewMockTestLXDManager(ctlr)
 
-	broker, err := provisioner.NewLXDBroker(
+	broker, err := broker.NewLXDBroker(
 		func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error { return nil },
 		mockApi, mockManager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
@@ -330,7 +330,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfileReturnsLXDProfileNames(c
 		lxdprofile.Name("foo", "bar", 1),
 	}, nil)
 
-	broker, err := provisioner.NewLXDBroker(
+	broker, err := broker.NewLXDBroker(
 		func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error { return nil },
 		mockApi, mockManager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
