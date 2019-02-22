@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -1032,9 +1033,7 @@ func (s *uniterSuite) TestClosePorts(c *gc.C) {
 func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpress.UpdateCharmConfig(charm.Settings{
-		"blog-title": "sauceror central",
-	})
+	err = s.wordpress.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"blog-title": "sauceror central"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.resources.Count(), gc.Equals, 0)
