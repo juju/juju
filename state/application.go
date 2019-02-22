@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
@@ -118,6 +119,24 @@ func applicationGlobalOperatorKey(appName string) string {
 
 func applicationCharmConfigKey(appName string, curl *charm.URL) string {
 	return fmt.Sprintf("a#%s#%s", appName, curl)
+}
+
+// charmConfigKeyGeneration returns the charm-version-specific settings
+// collection key and possibly a fallback for the application, based on the
+// input generation.
+// If the next generation is requested, the fallback is the standard key.
+// If the current generation is requested, there is no fallback.
+// TODO (manadart 2019-02-21) This will eventually strangle out usage of the
+// standard charmConfigKey at which point it should replace it.
+func (a *Application) charmConfigKeyGeneration(gen model.GenerationVersion) (string, string) {
+	key := applicationCharmConfigKey(a.doc.Name, a.doc.CharmURL)
+	if gen == model.GenerationCurrent {
+		return key, ""
+	}
+	// TODO (manadart 2019-02-21) If specific generation version tracking is
+	// required in future, here we will retrieve the generation document and
+	// suffix the key with some pattern including the generation ID.
+	return model.NextGenerationKey(key), key
 }
 
 // charmConfigKey returns the charm-version-specific settings collection
@@ -2016,8 +2035,8 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 	return relations, nil
 }
 
-func charmSettingsWithDefaults(st *State, curl *charm.URL, key string) (charm.Settings, error) {
-	settings, err := readSettings(st.db(), settingsC, key)
+func charmSettingsWithDefaults(st *State, curl *charm.URL, requestKey, fallbackKey string) (charm.Settings, error) {
+	settings, err := readSettingsOrCreateFromFallback(st.db(), settingsC, requestKey, fallbackKey)
 	if err != nil {
 		return nil, err
 	}
@@ -2035,11 +2054,12 @@ func charmSettingsWithDefaults(st *State, curl *charm.URL, key string) (charm.Se
 }
 
 // CharmConfig returns the raw user configuration for the application's charm.
-func (a *Application) CharmConfig() (charm.Settings, error) {
+func (a *Application) CharmConfig(gen model.GenerationVersion) (charm.Settings, error) {
 	if a.doc.CharmURL == nil {
 		return nil, fmt.Errorf("application charm not set")
 	}
-	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.charmConfigKey())
+	k1, k2 := a.charmConfigKeyGeneration(gen)
+	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, k1, k2)
 	if err != nil {
 		return nil, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
 	}
@@ -2048,20 +2068,23 @@ func (a *Application) CharmConfig() (charm.Settings, error) {
 
 // UpdateCharmConfig changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
-func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
-	charm, _, err := a.Charm()
+func (a *Application) UpdateCharmConfig(gen model.GenerationVersion, changes charm.Settings) error {
+	ch, _, err := a.Charm()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	changes, err = charm.Config().ValidateSettings(changes)
+	changes, err = ch.Config().ValidateSettings(changes)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+
 	// TODO(fwereade) state.Settings is itself really problematic in just
 	// about every use case. This needs to be resolved some time; but at
 	// least the settings docs are keyed by charm url as well as application
 	// name, so the actual impact of a race is non-threatening.
-	node, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
+
+	k1, k2 := a.charmConfigKeyGeneration(gen)
+	node, err := readSettingsOrCreateFromFallback(a.st.db(), settingsC, k1, k2)
 	if err != nil {
 		return errors.Annotatef(err, "charm config for application %q", a.doc.Name)
 	}
@@ -2073,7 +2096,7 @@ func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
 		}
 	}
 	_, err = node.Write()
-	return err
+	return errors.Trace(err)
 }
 
 // ApplicationConfig returns the configuration for the application itself.

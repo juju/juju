@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -1293,7 +1294,9 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 			ApplicationName: "postgresql",
 			Config: map[string]string{
 				"juju-external-hostname": "value",
-				"stringOption":           "stringVal"},
+				"stringOption":           "stringVal",
+			},
+			Generation: model.GenerationNext,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
@@ -1310,7 +1313,7 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes{
 		"juju-external-hostname": "value",
 	}, []string(nil), schema, defaults)
-	app.CheckCall(c, 2, "UpdateCharmConfig", charm.Settings{"stringOption": "stringVal"})
+	app.CheckCall(c, 2, "UpdateCharmConfig", model.GenerationNext, charm.Settings{"stringOption": "stringVal"})
 }
 
 func (s *ApplicationSuite) TestBlockSetApplicationConfig(c *gc.C) {
@@ -1337,6 +1340,7 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
 			Options:         []string{"juju-external-hostname", "stringVal"},
+			Generation:      model.GenerationNext,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
@@ -1353,7 +1357,7 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 
 	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes(nil),
 		[]string{"juju-external-hostname"}, schema, defaults)
-	app.CheckCall(c, 1, "UpdateCharmConfig", charm.Settings{"stringVal": nil})
+	app.CheckCall(c, 1, "UpdateCharmConfig", model.GenerationNext, charm.Settings{"stringVal": nil})
 }
 
 func (s *ApplicationSuite) TestBlockUnsetApplicationConfig(c *gc.C) {

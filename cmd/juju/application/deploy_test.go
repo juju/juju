@@ -303,11 +303,11 @@ func (s *DeploySuite) TestSingleConfigFile(c *gc.C) {
 	path := setupConfigFile(c, c.MkDir())
 	err := runDeploy(c, ch, "dummy-application", "--config", path, "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := s.State.Application("dummy-application")
+	app, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := application.CharmConfig()
+	settings, err := app.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
-	appCh, _, err := application.Charm()
+	appCh, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, s.combinedSettings(appCh, charm.Settings{
 		"skill-level": int64(9000),
@@ -327,11 +327,11 @@ func (s *DeploySuite) TestConfigValues(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "dummy-application", "--config", "skill-level=9000", "--config", "outlook=good", "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := s.State.Application("dummy-application")
+	app, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := application.CharmConfig()
+	settings, err := app.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
-	appCh, _, err := application.Charm()
+	appCh, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, s.combinedSettings(appCh, charm.Settings{
 		"outlook":     "good",
@@ -345,11 +345,11 @@ func (s *DeploySuite) TestConfigValuesWithFile(c *gc.C) {
 	path := setupConfigFile(c, c.MkDir())
 	err := runDeploy(c, ch, "dummy-application", "--config", path, "--config", "outlook=good", "--config", "skill-level=8000", "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := s.State.Application("dummy-application")
+	app, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := application.CharmConfig()
+	settings, err := app.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
-	appCh, _, err := application.Charm()
+	appCh, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, s.combinedSettings(appCh, charm.Settings{
 		"outlook":     "good",
@@ -1150,32 +1150,32 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]ap
 	applications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	deployed := make(map[string]applicationInfo, len(applications))
-	for _, application := range applications {
-		curl, _ := application.CharmURL()
+	for _, app := range applications {
+		curl, _ := app.CharmURL()
 		c.Assert(err, jc.ErrorIsNil)
-		config, err := application.CharmConfig()
+		config, err := app.CharmConfig(model.GenerationCurrent)
 		c.Assert(err, jc.ErrorIsNil)
-		constraints, err := application.Constraints()
+		constraints, err := app.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
-		storage, err := application.StorageConstraints()
+		storage, err := app.StorageConstraints()
 		c.Assert(err, jc.ErrorIsNil)
 		if len(storage) == 0 {
 			storage = nil
 		}
-		devices, err := application.DeviceConstraints()
+		devices, err := app.DeviceConstraints()
 		c.Assert(err, jc.ErrorIsNil)
 		if len(devices) == 0 {
 			devices = nil
 		}
-		deployed[application.Name()] = applicationInfo{
+		deployed[app.Name()] = applicationInfo{
 			charm:       curl.String(),
 			config:      config,
 			constraints: constraints,
-			exposed:     application.IsExposed(),
-			scale:       application.GetScale(),
+			exposed:     app.IsExposed(),
+			scale:       app.GetScale(),
 			storage:     storage,
 			devices:     devices,
-			placement:   application.GetPlacement(),
+			placement:   app.GetPlacement(),
 		}
 	}
 	c.Assert(deployed, jc.DeepEquals, info)
@@ -1207,20 +1207,6 @@ func (s *charmStoreSuite) assertUnitsCreated(c *gc.C, expectedUnits map[string]s
 		}
 	}
 	c.Assert(created, jc.DeepEquals, expectedUnits)
-}
-
-type testMetricCredentialsSetter struct {
-	assert func(string, []byte)
-	err    error
-}
-
-func (t *testMetricCredentialsSetter) SetMetricCredentials(applicationName string, data []byte) error {
-	t.assert(applicationName, data)
-	return t.err
-}
-
-func (t *testMetricCredentialsSetter) Close() error {
-	return nil
 }
 
 func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {

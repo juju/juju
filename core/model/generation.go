@@ -20,3 +20,11 @@ const (
 func (g GenerationVersion) String() string {
 	return string(g)
 }
+
+const generationKeySuffix = "#next"
+
+// NextGenerationKey adds a suffix to the input key that designates it as being
+// for "next" generation config, and returns the result.
+func NextGenerationKey(key string) string {
+	return key + generationKeySuffix
+}

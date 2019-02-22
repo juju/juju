@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -113,8 +114,8 @@ func (m *mockApplication) CharmURL() (curl *charm.URL, force bool) {
 	return m.curl, true
 }
 
-func (m *mockApplication) CharmConfig() (charm.Settings, error) {
-	m.MethodCall(m, "CharmConfig")
+func (m *mockApplication) CharmConfig(gen model.GenerationVersion) (charm.Settings, error) {
+	m.MethodCall(m, "CharmConfig", gen)
 	return m.charm.config.DefaultSettings(), m.NextErr()
 }
 
@@ -221,8 +222,8 @@ func (a *mockApplication) UpdateApplicationConfig(
 	return a.NextErr()
 }
 
-func (a *mockApplication) UpdateCharmConfig(settings charm.Settings) error {
-	a.MethodCall(a, "UpdateCharmConfig", settings)
+func (a *mockApplication) UpdateCharmConfig(gen model.GenerationVersion, settings charm.Settings) error {
+	a.MethodCall(a, "UpdateCharmConfig", gen, settings)
 	return a.NextErr()
 }
 

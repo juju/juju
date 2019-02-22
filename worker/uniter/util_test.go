@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
@@ -958,7 +959,7 @@ func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
 type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *gc.C, ctx *context) {
-	err := ctx.application.UpdateCharmConfig(corecharm.Settings(s))
+	err := ctx.application.UpdateCharmConfig(model.GenerationCurrent, corecharm.Settings(s))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

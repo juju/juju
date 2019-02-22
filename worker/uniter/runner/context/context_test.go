@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -219,9 +220,7 @@ func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// Change remote config.
-	err = s.application.UpdateCharmConfig(charm.Settings{
-		"blog-title": "Something Else",
-	})
+	err = s.application.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"blog-title": "Something Else"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local view is not changed.

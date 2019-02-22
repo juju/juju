@@ -15,6 +15,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/state"
@@ -80,7 +81,7 @@ func (s *cmdJujuSuite) TestApplicationSet(c *gc.C) {
 		"outlook":  "hello@world.tld",
 	}
 
-	settings, err := app.CharmConfig()
+	settings, err := app.CharmConfig(coremodel.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, expect))
 }
@@ -94,7 +95,7 @@ func (s *cmdJujuSuite) TestApplicationUnset(c *gc.C) {
 		"outlook":  "hello@world.tld",
 	}
 
-	err := app.UpdateCharmConfig(settings)
+	err := app.UpdateCharmConfig(coremodel.GenerationCurrent, settings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application", "--reset", "username")
@@ -103,7 +104,7 @@ func (s *cmdJujuSuite) TestApplicationUnset(c *gc.C) {
 	expect := charm.Settings{
 		"outlook": "hello@world.tld",
 	}
-	settings, err = app.CharmConfig()
+	settings, err = app.CharmConfig(coremodel.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, expect))
 }

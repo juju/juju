@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/juju/core/model"
+
 	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -351,25 +353,25 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]ap
 	applications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	deployed := make(map[string]applicationInfo, len(applications))
-	for _, application := range applications {
-		charm, _ := application.CharmURL()
-		config, err := application.CharmConfig()
+	for _, app := range applications {
+		ch, _ := app.CharmURL()
+		config, err := app.CharmConfig(model.GenerationCurrent)
 		c.Assert(err, jc.ErrorIsNil)
 		if len(config) == 0 {
 			config = nil
 		}
-		constraints, err := application.Constraints()
+		cons, err := app.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
-		storage, err := application.StorageConstraints()
+		storage, err := app.StorageConstraints()
 		c.Assert(err, jc.ErrorIsNil)
 		if len(storage) == 0 {
 			storage = nil
 		}
-		deployed[application.Name()] = applicationInfo{
-			charm:       charm.String(),
+		deployed[app.Name()] = applicationInfo{
+			charm:       ch.String(),
 			config:      config,
-			constraints: constraints,
-			exposed:     application.IsExposed(),
+			constraints: cons,
+			exposed:     app.IsExposed(),
 			storage:     storage,
 		}
 	}

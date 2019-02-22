@@ -517,7 +517,7 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	})
 
 	// Update the config and check we get the changes on the next call.
-	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
+	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -545,14 +545,14 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	// Initial event - this is the sha-256 hash of an empty bson.D.
 	wc.AssertChange("e8d7e8dfff0eed1e77b15638581672f7b25ecc1163cc5fd5a52d29d51d096c00")
 
-	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
+	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("7ed6151e9c3d5144faf0946d20c283c466b4885dded6a6122ff3fdac7ee2334f")
 
 	// Non-change is not reported.
-	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
+	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -572,7 +572,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 
 	// Update application config and see if it is reported
 	trustFieldKey := "trust"
-	s.wordpressApplication.UpdateApplicationConfig(application.ConfigAttributes{
+	err = s.wordpressApplication.UpdateApplicationConfig(application.ConfigAttributes{
 		trustFieldKey: true,
 	},
 		[]string{},
@@ -585,6 +585,8 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 			trustFieldKey: false,
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	stringsWatcher.AssertChange("2f1368bde39be8106dcdca15e35cc3b5f7db5b8e429806369f621a47fb938519")
 }
 
