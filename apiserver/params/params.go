@@ -1113,3 +1113,30 @@ type AdvanceGenerationResult struct {
 	// represented here.
 	CompleteResult BoolResult `json:"complete-result,omitempty"`
 }
+
+// GenerationApplication represents changes to an application
+// made under a generation.
+type GenerationApplication struct {
+	// ApplicationsName is the name of the application.
+	ApplicationName string `json:"application"`
+
+	// Units are the names of units of the application that have been
+	// moved to the generation.
+	Units []string `json:"units"`
+
+	// Config changes are the differing configuration values between this
+	// generation and the current.
+	// TODO (manadart 2018-02-22) This data-type will evolve as more aspects
+	// of the application are made generational.
+	ConfigChanges map[string]string `json:"config"`
+}
+
+// GenerationResult transports the result of the show-generation command.
+type GenerationResult struct {
+	// Applications holds the collection of application changes
+	// made under this generation.
+	Applications []GenerationApplication `json:"applications"`
+
+	// Error holds the value of any error that occurred processing the request.
+	Error *Error `json:"error,omitempty"`
+}
