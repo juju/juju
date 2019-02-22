@@ -122,8 +122,8 @@ func applicationCharmConfigKey(appName string, curl *charm.URL) string {
 }
 
 // charmConfigKeyGeneration returns the charm-version-specific settings
-// collection key and possibly a fallback, for the application based on the
-// input generation. I
+// collection key and possibly a fallback for the application, based on the
+// input generation.
 // If the next generation is requested, the fallback is the standard key.
 // If the current generation is requested, there is no fallback.
 // TODO (manadart 2019-02-21) This will eventually strangle out usage of the
@@ -2036,7 +2036,7 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 }
 
 func charmSettingsWithDefaults(st *State, curl *charm.URL, requestKey, fallbackKey string) (charm.Settings, error) {
-	settings, err := readSettingsWithFallback(st.db(), settingsC, requestKey, fallbackKey)
+	settings, err := readSettingsOrCreateFromFallback(st.db(), settingsC, requestKey, fallbackKey)
 	if err != nil {
 		return nil, err
 	}
@@ -2084,7 +2084,7 @@ func (a *Application) UpdateCharmConfig(gen model.GenerationVersion, changes cha
 	// name, so the actual impact of a race is non-threatening.
 
 	k1, k2 := a.charmConfigKeyGeneration(gen)
-	node, err := readSettingsWithFallback(a.st.db(), settingsC, k1, k2)
+	node, err := readSettingsOrCreateFromFallback(a.st.db(), settingsC, k1, k2)
 	if err != nil {
 		return errors.Annotatef(err, "charm config for application %q", a.doc.Name)
 	}

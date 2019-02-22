@@ -315,10 +315,10 @@ func (st *State) ReadSettings(collection, key string) (*Settings, error) {
 	return readSettings(st.db(), collection, key)
 }
 
-// readSettingsWithFallback attempts to retrieve settings first for the
+// readSettingsOrCreateFromFallback attempts to retrieve settings first for the
 // requested key, then if not found, a non-empty fallback key.
 // If the fallback is used, the settings are created for the requested key.
-func readSettingsWithFallback(db Database, collection, requestKey, fallbackKey string) (*Settings, error) {
+func readSettingsOrCreateFromFallback(db Database, collection, requestKey, fallbackKey string) (*Settings, error) {
 	s, err := readSettings(db, collection, requestKey)
 	if err == nil {
 		return s, nil

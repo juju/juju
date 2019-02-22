@@ -550,11 +550,11 @@ func (s *SettingsSuite) TestReadSettingsWithFallback(c *gc.C) {
 	nextGenKey := model.NextGenerationKey(s.key)
 
 	// Without a fallback, we get a not found error.
-	_, err = readSettingsWithFallback(s.state.db(), s.collection, nextGenKey, "")
+	_, err = readSettingsOrCreateFromFallback(s.state.db(), s.collection, nextGenKey, "")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 
 	// Next generation settings do not exist; fallback should create them.
-	s2, err := readSettingsWithFallback(s.state.db(), s.collection, nextGenKey, s.key)
+	s2, err := readSettingsOrCreateFromFallback(s.state.db(), s.collection, nextGenKey, s.key)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s2.key, gc.DeepEquals, nextGenKey)
 	c.Check(s2.Map(), gc.DeepEquals, s1.Map())
