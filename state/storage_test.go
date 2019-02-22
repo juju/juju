@@ -64,6 +64,8 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	s.pm = poolmanager.New(state.NewStateSettings(s.st), registry)
 	_, err := s.pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.pm.Create("tmpfs-pool", provider.TmpfsProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	if s.series != "kubernetes" {
 		// Create a pool that creates persistent block devices.
@@ -1412,11 +1414,11 @@ func (s *StorageStateSuiteCaas) TestRemoveStoragePoolInUse(c *gc.C) {
 	_, err := s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appPoolName := "loop-pool"
+	appPoolName := "tmpfs-pool"
 	_, err = s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.setupSingleStorage(c, "filesystem", "loop-pool")
+	s.setupSingleStorage(c, "filesystem", "tmpfs-pool")
 
 	err = s.storageBackend.RemoveStoragePool(poolName)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
@@ -1429,6 +1431,20 @@ func (s *StorageStateSuiteCaas) TestRemoveStoragePoolInUse(c *gc.C) {
 	pool, err = s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Name(), gc.Equals, poolName)
+}
+
+func (s *StorageStateSuiteCaas) TestDeployWrongStorageType(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-filesystem")
+	args := state.AddApplicationArgs{
+		Name:     "foo",
+		Charm:    ch,
+		NumUnits: 1,
+		Storage: map[string]state.StorageConstraints{
+			"data": {Pool: "loop"},
+		},
+	}
+	_, err := s.st.AddApplication(args)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "foo": invalid storage config: storage provider type "loop" not valid`)
 }
 
 type byStorageConfigName []*storage.Config

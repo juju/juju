@@ -10,8 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
 
+	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 // PoolCreateAPI defines the API methods that pool create command uses.
@@ -40,9 +42,13 @@ Pools defined at the model level are easily reused across applications.
 Pool creation requires a pool name, the provider type and attributes for
 configuration as space-separated pairs, e.g. tags, size, path, etc.
 
+For Kubernetes models, the provider type defaults to "kubernetes"
+unless otherwise specified.
+
 Examples:
 
     juju create-storage-pool ebsrotary ebs volume-type=standard
+    juju create-storage-pool storage-provisioner=kubernetes.io/gce-pd parameters.type=pd-standard
 
 See also:
     remove-storage-pool
@@ -72,6 +78,19 @@ type poolCreateCommand struct {
 
 // Init implements Command.Init.
 func (c *poolCreateCommand) Init(args []string) (err error) {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if modelType == model.CAAS && len(args) > 0 {
+		if len(args) == 1 {
+			args = []string{args[0], string(provider.K8s_ProviderType)}
+		}
+		if strings.Contains(args[1], "=") {
+			newArgs := []string{args[0], string(provider.K8s_ProviderType)}
+			args = append(newArgs, args[1:]...)
+		}
+	}
 	if len(args) < 2 {
 		return errors.New("pool creation requires names, provider type and optional attributes for configuration")
 	}

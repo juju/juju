@@ -1049,6 +1049,18 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
+	}, {
+		Name:      "logs-1",
+		MountPath: "path/to/there",
+	}}
+	size, err := resource.ParseQuantity("200Mi")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec.Volumes = []core.Volume{{
+		Name: "logs-1",
+		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
+			SizeLimit: &size,
+			Medium:    "Memory",
+		}},
 	}}
 	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
 
@@ -1085,6 +1097,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 				Path: "path/to/here",
 			},
 			ResourceTags: map[string]string{"foo": "bar"},
+		}, {
+			StorageName: "logs",
+			Size:        200,
+			Provider:    "tmpfs",
+			Attributes:  map[string]interface{}{"storage-medium": "Memory"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/there",
+			},
 		}},
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{

@@ -51,6 +51,7 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider")
@@ -456,11 +457,15 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		operatorVolumeClaim = fmt.Sprintf("%v-operator-volume", appName)
 	}
 
+	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", config.CharmStorage.Size))
+	if err != nil {
+		return errors.Annotatef(err, "invalid volume size %v", config.CharmStorage.Size)
+	}
 	params := volumeParams{
 		storageConfig:       &storageConfig{existingStorageClass: defaultOperatorStorageClassName},
 		storageLabels:       caas.OperatorStorageClassLabels(appName, k.namespace),
 		pvcName:             operatorVolumeClaim,
-		requestedVolumeSize: fmt.Sprintf("%dMi", config.CharmStorage.Size),
+		requestedVolumeSize: fsSize,
 	}
 	if config.CharmStorage.Provider != K8s_ProviderType {
 		return errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, config.CharmStorage.Provider)
@@ -468,7 +473,6 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	if storageLabel, ok := config.CharmStorage.Attributes[storageLabel]; ok {
 		params.storageLabels = append([]string{fmt.Sprintf("%v", storageLabel)}, params.storageLabels...)
 	}
-	var err error
 	params.storageConfig, err = newStorageConfig(config.CharmStorage.Attributes, defaultOperatorStorageClassName)
 	if err != nil {
 		return errors.Annotatef(err, "invalid storage configuration for %v operator", appName)
@@ -581,7 +585,7 @@ type volumeParams struct {
 	storageLabels       []string
 	storageConfig       *storageConfig
 	pvcName             string
-	requestedVolumeSize string
+	requestedVolumeSize resource.Quantity
 	accessMode          core.PersistentVolumeAccessMode
 }
 
@@ -636,15 +640,11 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 	if accessMode == "" {
 		accessMode = core.ReadWriteOnce
 	}
-	fsSize, err := resource.ParseQuantity(params.requestedVolumeSize)
-	if err != nil {
-		return nil, errors.Annotatef(err, "invalid volume size %v", params.requestedVolumeSize)
-	}
 	return &core.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClassName,
 		Resources: core.ResourceRequirements{
 			Requests: core.ResourceList{
-				core.ResourceStorage: fsSize,
+				core.ResourceStorage: params.requestedVolumeSize,
 			},
 		},
 		AccessModes: []core.PersistentVolumeAccessMode{accessMode},
@@ -1081,9 +1081,6 @@ func (k *kubernetesClient) configureStorage(
 	}
 	logger.Debugf("configuring pod filesystems: %+v with rand %v", filesystems, randPrefix)
 	for i, fs := range filesystems {
-		if fs.Provider != K8s_ProviderType {
-			return errors.Errorf("invalid storage provider type %q for %v", fs.Provider, fs.StorageName)
-		}
 		var mountPath string
 		if fs.Attachment != nil {
 			mountPath = fs.Attachment.Path
@@ -1091,6 +1088,48 @@ func (k *kubernetesClient) configureStorage(
 		if mountPath == "" {
 			mountPath = fmt.Sprintf("%s/fs/%s/%s/%d", baseDir, appName, fs.StorageName, i)
 		}
+		fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", fs.Size))
+		if err != nil {
+			return errors.Annotatef(err, "invalid volume size %v", fs.Size)
+		}
+
+		var volumeSource *core.VolumeSource
+		switch fs.Provider {
+		case K8s_ProviderType:
+		case provider.RootfsProviderType:
+			volumeSource = &core.VolumeSource{
+				EmptyDir: &core.EmptyDirVolumeSource{
+					SizeLimit: &fsSize,
+				},
+			}
+		case provider.TmpfsProviderType:
+			medium, ok := fs.Attributes[storageMedium]
+			if !ok {
+				medium = core.StorageMediumMemory
+			}
+			volumeSource = &core.VolumeSource{
+				EmptyDir: &core.EmptyDirVolumeSource{
+					Medium:    core.StorageMedium(fmt.Sprintf("%v", medium)),
+					SizeLimit: &fsSize,
+				},
+			}
+		default:
+			return errors.NotValidf("charm storage provider type %q for %v", fs.Provider, fs.StorageName)
+		}
+		if volumeSource != nil {
+			logger.Debugf("using emptyDir for %s filesystem %s", appName, fs.StorageName)
+			volName := fmt.Sprintf("%s-%d", fs.StorageName, i)
+			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
+				Name:      volName,
+				MountPath: mountPath,
+			})
+			podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+				Name:         volName,
+				VolumeSource: *volumeSource,
+			})
+			continue
+		}
+
 		pvcNamePrefix := fmt.Sprintf("%s-%s", fs.StorageName, randPrefix)
 		if legacy {
 			pvcNamePrefix = fmt.Sprintf("juju-%s-%d", fs.StorageName, i)
@@ -1098,7 +1137,7 @@ func (k *kubernetesClient) configureStorage(
 		params := volumeParams{
 			storageLabels:       caas.UnitStorageClassLabels(appName, k.namespace),
 			pvcName:             pvcNamePrefix,
-			requestedVolumeSize: fmt.Sprintf("%dMi", fs.Size),
+			requestedVolumeSize: fsSize,
 		}
 		if storageLabel, ok := fs.Attributes[storageLabel]; ok {
 			params.storageLabels = append([]string{fmt.Sprintf("%v", storageLabel)}, params.storageLabels...)
@@ -1609,7 +1648,6 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 		for _, pv := range p.Spec.Volumes {
 			volumesByName[pv.Name] = pv
 		}
-		pVolumes := k.CoreV1().PersistentVolumes()
 
 		// Gather info about how filesystems are attached/mounted to the pod.
 		// The mount name represents the filesystem tag name used by Juju.
@@ -1619,91 +1657,139 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 				logger.Warningf("volume for volume mount %q not found", volMount.Name)
 				continue
 			}
-			if vol.PersistentVolumeClaim == nil || vol.PersistentVolumeClaim.ClaimName == "" {
+			var fsInfo *caas.FilesystemInfo
+			if vol.PersistentVolumeClaim != nil && vol.PersistentVolumeClaim.ClaimName != "" {
+				fsInfo, err = k.volumeInfoForPVC(vol, volMount, vol.PersistentVolumeClaim.ClaimName, now)
+			} else if vol.EmptyDir != nil {
+				fsInfo, err = k.volumeInfoForEmptyDir(vol, volMount, now)
+			} else {
 				// Ignore volumes which are not Juju managed filesystems.
-				logger.Debugf("Ignoring blank PersistentVolumeClaim or ClaimName")
-				continue
-			}
-			pvClaims := k.CoreV1().PersistentVolumeClaims(k.namespace)
-			pvc, err := pvClaims.Get(vol.PersistentVolumeClaim.ClaimName, v1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				// Ignore claims which don't exist (yet).
+				logger.Debugf("Ignoring blank EmptyDir, PersistentVolumeClaim or ClaimName")
 				continue
 			}
 			if err != nil {
-				return nil, errors.Annotate(err, "unable to get persistent volume claim")
+				return nil, errors.Annotatef(err, "finding filesystem info for %v", volMount.Name)
 			}
-
-			if pvc.Status.Phase == core.ClaimPending {
-				logger.Debugf(fmt.Sprintf("PersistentVolumeClaim for %v is pending", vol.PersistentVolumeClaim.ClaimName))
+			if fsInfo == nil {
 				continue
 			}
-			pv, err := pVolumes.Get(pvc.Spec.VolumeName, v1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				// Ignore volumes which don't exist (yet).
-				continue
-			}
-			if err != nil {
-				return nil, errors.Annotate(err, "unable to get persistent volume")
-			}
-
-			storageName := pvc.Labels[labelStorage]
-			if storageName == "" {
+			if fsInfo.StorageName == "" {
 				if valid := legacyJujuPVNameRegexp.MatchString(volMount.Name); valid {
-					storageName = legacyJujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
+					fsInfo.StorageName = legacyJujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				} else if valid := jujuPVNameRegexp.MatchString(volMount.Name); valid {
-					storageName = jujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
+					fsInfo.StorageName = jujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				}
 			}
-			statusMessage := ""
-			since = now
-			if len(pvc.Status.Conditions) > 0 {
-				statusMessage = pvc.Status.Conditions[0].Message
-				since = pvc.Status.Conditions[0].LastProbeTime.Time
-			}
-			if statusMessage == "" {
-				// If there are any events for this pvc we can use the
-				// most recent to set the status.
-				events := k.CoreV1().Events(k.namespace)
-				eventList, err := events.List(v1.ListOptions{
-					IncludeUninitialized: true,
-					FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", pvc.Name).String(),
-				})
-				if err != nil {
-					return nil, errors.Annotate(err, "unable to get events for PVC")
-				}
-				// Take the most recent event.
-				if count := len(eventList.Items); count > 0 {
-					statusMessage = eventList.Items[count-1].Message
-				}
-			}
-
-			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, caas.FilesystemInfo{
-				StorageName:  storageName,
-				Size:         uint64(vol.PersistentVolumeClaim.Size()),
-				FilesystemId: string(pvc.UID),
-				MountPoint:   volMount.MountPath,
-				ReadOnly:     volMount.ReadOnly,
-				Status: status.StatusInfo{
-					Status:  k.jujuFilesystemStatus(pvc.Status.Phase),
-					Message: statusMessage,
-					Since:   &since,
-				},
-				Volume: caas.VolumeInfo{
-					VolumeId:   pv.Name,
-					Size:       uint64(pv.Size()),
-					Persistent: pv.Spec.PersistentVolumeReclaimPolicy == core.PersistentVolumeReclaimRetain,
-					Status: status.StatusInfo{
-						Status:  k.jujuVolumeStatus(pv.Status.Phase),
-						Message: pv.Status.Message,
-						Since:   &since,
-					},
-				},
-			})
+			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, *fsInfo)
 		}
 		units = append(units, unitInfo)
 	}
 	return units, nil
+}
+
+func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.VolumeMount, now time.Time) (*caas.FilesystemInfo, error) {
+	size := uint64(vol.EmptyDir.SizeLimit.Size())
+	return &caas.FilesystemInfo{
+		Size:         size,
+		FilesystemId: vol.Name,
+		MountPoint:   volMount.MountPath,
+		ReadOnly:     volMount.ReadOnly,
+		Status: status.StatusInfo{
+			Status: status.Attached,
+			Since:  &now,
+		},
+		Volume: caas.VolumeInfo{
+			VolumeId:   vol.Name,
+			Size:       size,
+			Persistent: false,
+			Status: status.StatusInfo{
+				Status: status.Attached,
+				Since:  &now,
+			},
+		},
+	}, nil
+}
+
+func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.VolumeMount, claimName string, now time.Time) (*caas.FilesystemInfo, error) {
+	pvClaims := k.CoreV1().PersistentVolumeClaims(k.namespace)
+	pvc, err := pvClaims.Get(claimName, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		// Ignore claims which don't exist (yet).
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get persistent volume claim")
+	}
+
+	if pvc.Status.Phase == core.ClaimPending {
+		logger.Debugf(fmt.Sprintf("PersistentVolumeClaim for %v is pending", claimName))
+		return nil, nil
+	}
+
+	storageName := pvc.Labels[labelStorage]
+	if storageName == "" {
+		if valid := legacyJujuPVNameRegexp.MatchString(volMount.Name); valid {
+			storageName = legacyJujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
+		} else if valid := jujuPVNameRegexp.MatchString(volMount.Name); valid {
+			storageName = jujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
+		}
+	}
+
+	statusMessage := ""
+	since := now
+	if len(pvc.Status.Conditions) > 0 {
+		statusMessage = pvc.Status.Conditions[0].Message
+		since = pvc.Status.Conditions[0].LastProbeTime.Time
+	}
+	if statusMessage == "" {
+		// If there are any events for this pvc we can use the
+		// most recent to set the status.
+		events := k.CoreV1().Events(k.namespace)
+		eventList, err := events.List(v1.ListOptions{
+			IncludeUninitialized: true,
+			FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", pvc.Name).String(),
+		})
+		if err != nil {
+			return nil, errors.Annotate(err, "unable to get events for PVC")
+		}
+		// Take the most recent event.
+		if count := len(eventList.Items); count > 0 {
+			statusMessage = eventList.Items[count-1].Message
+		}
+	}
+
+	pVolumes := k.CoreV1().PersistentVolumes()
+	pv, err := pVolumes.Get(vol.Name, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		// Ignore volumes which don't exist (yet).
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get persistent volume")
+	}
+
+	return &caas.FilesystemInfo{
+		StorageName:  storageName,
+		Size:         uint64(vol.PersistentVolumeClaim.Size()),
+		FilesystemId: string(pvc.UID),
+		MountPoint:   volMount.MountPath,
+		ReadOnly:     volMount.ReadOnly,
+		Status: status.StatusInfo{
+			Status:  k.jujuFilesystemStatus(pvc.Status.Phase),
+			Message: statusMessage,
+			Since:   &since,
+		},
+		Volume: caas.VolumeInfo{
+			VolumeId:   pv.Name,
+			Size:       uint64(pv.Size()),
+			Persistent: pv.Spec.PersistentVolumeReclaimPolicy == core.PersistentVolumeReclaimRetain,
+			Status: status.StatusInfo{
+				Status:  k.jujuVolumeStatus(pv.Status.Phase),
+				Message: pv.Status.Message,
+				Since:   &since,
+			},
+		},
+	}, nil
 }
 
 // Operator returns an Operator with current status and life details.

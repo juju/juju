@@ -845,24 +845,27 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 					Data:    fsInfo.Data,
 				}
 
-				vol, err := a.storage.StorageInstanceVolume(sa.StorageInstance())
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if fsInfo.Volume.Status != status.Pending.String() {
-					volumeUpdates[vol.VolumeTag().String()] = volumeInfo{
-						unitTag:    unitTag,
-						providerId: unitParams.ProviderId,
-						size:       fsInfo.Volume.Size,
-						volumeId:   fsInfo.Volume.VolumeId,
-						persistent: fsInfo.Volume.Persistent,
-						readOnly:   fsInfo.ReadOnly,
+				// If the filesystem has a backing volume, get that info also.
+				if _, err := fs.Volume(); err == nil {
+					vol, err := a.storage.StorageInstanceVolume(sa.StorageInstance())
+					if err != nil {
+						return errors.Trace(err)
 					}
-				}
-				volumeStatus[vol.VolumeTag().String()] = status.StatusInfo{
-					Status:  status.Status(fsInfo.Volume.Status),
-					Message: fsInfo.Volume.Info,
-					Data:    fsInfo.Volume.Data,
+					if fsInfo.Volume.Status != status.Pending.String() {
+						volumeUpdates[vol.VolumeTag().String()] = volumeInfo{
+							unitTag:    unitTag,
+							providerId: unitParams.ProviderId,
+							size:       fsInfo.Volume.Size,
+							volumeId:   fsInfo.Volume.VolumeId,
+							persistent: fsInfo.Volume.Persistent,
+							readOnly:   fsInfo.ReadOnly,
+						}
+					}
+					volumeStatus[vol.VolumeTag().String()] = status.StatusInfo{
+						Status:  status.Status(fsInfo.Volume.Status),
+						Message: fsInfo.Volume.Info,
+						Data:    fsInfo.Volume.Data,
+					}
 				}
 
 				infos = infos[1:]
