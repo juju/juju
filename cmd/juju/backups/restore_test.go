@@ -47,7 +47,7 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 
 	controllerName := "test-master"
 	s.store = jujuclient.NewMemStore()
-	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
+	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{
 		ControllerUUID: controllerUUID,
 		CACert:         testing.CACert,
 		Cloud:          "mycloud",

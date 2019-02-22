@@ -102,7 +102,7 @@ type CredentialContentAPI interface {
 }
 
 func (c *showCredentialCommand) NewCredentialAPI() (CredentialContentAPI, error) {
-	currentController, err := c.store.CurrentController()
+	currentController, err := modelcmd.DetermineCurrentController(c.store)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.New("there is no active controller")

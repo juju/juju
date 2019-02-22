@@ -84,7 +84,7 @@ func formatWhoAmITabular(writer io.Writer, value interface{}) error {
 
 // Run implements Command.Run
 func (c *whoAmICommand) Run(ctx *cmd.Context) error {
-	controllerName, err := c.store.CurrentController()
+	controllerName, err := modelcmd.DetermineCurrentController(c.store)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}

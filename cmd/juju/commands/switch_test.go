@@ -101,6 +101,7 @@ func (s *SwitchSimpleSuite) TestSwitchWritesCurrentController(c *gc.C) {
 
 func (s *SwitchSimpleSuite) TestSwitchWithCurrentController(c *gc.C) {
 	s.store.CurrentControllerName = "old"
+	s.addController(c, "old")
 	s.addController(c, "new")
 	context, err := s.run(c, "new")
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,6 +110,7 @@ func (s *SwitchSimpleSuite) TestSwitchWithCurrentController(c *gc.C) {
 
 func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrent(c *gc.C) {
 	s.store.CurrentControllerName = "old"
+	s.addController(c, "old")
 	s.addController(c, "new")
 	context, err := s.run(c, "new")
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,6 +119,7 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrent(c *gc.C) {
 
 func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrentExplicit(c *gc.C) {
 	s.store.CurrentControllerName = "old"
+	s.addController(c, "old")
 	s.addController(c, "new")
 	context, err := s.run(c, "new:")
 	c.Assert(err, jc.ErrorIsNil)
@@ -131,6 +134,7 @@ func (s *SwitchSimpleSuite) TestSwitchSameController(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "same (controller) (no change)\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
+		{"ControllerByName", []interface{}{"same"}},
 		{"CurrentModel", []interface{}{"same"}},
 		{"ControllerByName", []interface{}{"same"}},
 	})
@@ -147,6 +151,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModel(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "ctrl (controller) -> ctrl:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
+		{"ControllerByName", []interface{}{"ctrl"}},
 		{"CurrentModel", []interface{}{"ctrl"}},
 		{"ControllerByName", []interface{}{"mymodel"}},
 		{"AccountDetails", []interface{}{"ctrl"}},
@@ -157,6 +162,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModel(c *gc.C) {
 
 func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc.C) {
 	s.store.CurrentControllerName = "old"
+	s.addController(c, "old")
 	s.addController(c, "new")
 	s.store.Models["new"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{"admin/mymodel": {}},
@@ -166,6 +172,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
+		{"ControllerByName", []interface{}{"old"}},
 		{"CurrentModel", []interface{}{"old"}},
 		{"ControllerByName", []interface{}{"new:mymodel"}},
 		{"ControllerByName", []interface{}{"new"}},
@@ -210,6 +217,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModelExplicitModel(c *
 
 func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(c *gc.C) {
 	s.store.CurrentControllerName = "old"
+	s.addController(c, "old")
 	s.addController(c, "new")
 	s.store.Models["new"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{"admin/mymodel": {}},
@@ -219,6 +227,7 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
+		{"ControllerByName", []interface{}{"old"}},
 		{"CurrentModel", []interface{}{"old"}},
 		{"ControllerByName", []interface{}{"new:mymodel"}},
 		{"ControllerByName", []interface{}{"new"}},
@@ -231,6 +240,7 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(
 
 func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentModel(c *gc.C) {
 	s.store.CurrentControllerName = "old"
+	s.addController(c, "old")
 	s.addController(c, "new")
 	s.store.Models["new"] = &jujuclient.ControllerModels{
 		Models:       map[string]jujuclient.ModelDetails{"admin/mymodel": {}},
@@ -241,6 +251,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentMode
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
+		{"ControllerByName", []interface{}{"old"}},
 		{"CurrentModel", []interface{}{"old"}},
 		{"ControllerByName", []interface{}{"new:mymodel"}},
 		{"ControllerByName", []interface{}{"new"}},
@@ -344,6 +355,7 @@ func (s *SwitchSimpleSuite) TestSwitchCurrentModelInStore(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "same:admin/mymodel (no change)\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
+		{"ControllerByName", []interface{}{"same"}},
 		{"CurrentModel", []interface{}{"same"}},
 		{"ControllerByName", []interface{}{"mymodel"}},
 		{"AccountDetails", []interface{}{"same"}},
