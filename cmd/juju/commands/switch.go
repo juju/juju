@@ -80,7 +80,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Get the current name for logging the transition or printing
 	// the current controller/model.
-	currentControllerName, err := store.CurrentController()
+	currentControllerName, err := modelcmd.DetermineCurrentController(store)
 	if errors.IsNotFound(err) {
 		currentControllerName = ""
 	} else if err != nil {

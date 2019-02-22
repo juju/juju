@@ -149,7 +149,7 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 	store := c.ClientStore()
 	switch {
 	case c.controllerName == "" && c.domain == "":
-		current, err := store.CurrentController()
+		current, err := modelcmd.DetermineCurrentController(store)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "cannot get current controller")
 		}

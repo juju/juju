@@ -88,9 +88,15 @@ var modelCommandModelTests = []struct {
 	expectController: "bar",
 	expectModel:      "adminbar/currentbar",
 }, {
-	about:            "explicit overrides env var",
-	modelEnvVar:      "bar:noncurrentbar",
+	about:            "explicit overrides model env var",
+	modelEnvVar:      "foo:noncurrentbar",
 	args:             []string{"-m", "noncurrentfoo"},
+	expectController: "foo",
+	expectModel:      "noncurrentfoo",
+}, {
+	about:            "explicit overrides controller & store env var",
+	modelEnvVar:      "bar:noncurrentbar",
+	args:             []string{"-m", "foo:noncurrentfoo"},
 	expectController: "foo",
 	expectModel:      "noncurrentfoo",
 }}

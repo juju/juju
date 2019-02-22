@@ -107,7 +107,7 @@ func (c *showControllerCommand) getAPI(controllerName string) (ControllerAccessA
 func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 	controllerNames := c.controllerNames
 	if len(controllerNames) == 0 {
-		currentController, err := c.store.CurrentController()
+		currentController, err := modelcmd.DetermineCurrentController(c.store)
 		if errors.IsNotFound(err) {
 			return errors.New("there is no active controller")
 		} else if err != nil {
