@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -988,7 +989,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleO
 	// Now check the blog-title of the wordpress.	le")
 	wordpress, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := wordpress.CharmConfig()
+	settings, err := wordpress.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings["blog-title"], gc.Equals, "magic bundle config")
 }
