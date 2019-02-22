@@ -21,7 +21,7 @@ var _ = gc.Suite(&modelGenerationSuite{})
 type modelGenerationSuite struct {
 	modelUUID string
 
-	api *modelgeneration.ModelGenerationAPI
+	api *modelgeneration.API
 }
 
 func (s *modelGenerationSuite) SetUpSuite(c *gc.C) {
@@ -36,7 +36,7 @@ func (s *modelGenerationSuite) TearDownTest(c *gc.C) {
 // Add more explicit permissions tests once that requirement is ironed out.
 
 func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, mockModel *mocks.MockModel) {
 		mExp := mockModel.EXPECT()
 		mExp.AddGeneration().Return(nil)
 	}).Finish()
@@ -47,7 +47,7 @@ func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
 }
 
 func (s *modelGenerationSuite) TestHasNextGeneration(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, mockModel *mocks.MockModel) {
 		mockModel.EXPECT().HasNextGeneration().Return(true, nil)
 	}).Finish()
 
@@ -67,7 +67,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationErrorNoAutoComplete(c *gc.C)
 		},
 	}
 
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
@@ -98,7 +98,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationSuccessAutoComplete(c *gc.C)
 		},
 	}
 
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
@@ -120,7 +120,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationSuccessAutoComplete(c *gc.C)
 }
 
 func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.MakeCurrent().Return(nil)
@@ -137,7 +137,7 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 func (s *modelGenerationSuite) TestCancelGenerationCanNotMakeCurrent(c *gc.C) {
 	errMsg := "cannot cancel generation, there are units behind a generation: riak/0"
 
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockGenerationModel) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.MakeCurrent().Return(errors.New(errMsg))
@@ -151,16 +151,16 @@ func (s *modelGenerationSuite) TestCancelGenerationCanNotMakeCurrent(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: &params.Error{Message: errMsg}})
 }
 
-type setupFunc func(*gomock.Controller, *mocks.MockGenerationModel)
+type setupFunc func(*gomock.Controller, *mocks.MockModel)
 
 func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	mockState := mocks.NewMockModelGenerationState(ctrl)
+	mockState := mocks.NewMockState(ctrl)
 	sExp := mockState.EXPECT()
 	sExp.ControllerTag().Return(names.NewControllerTag(s.modelUUID))
 
-	mockModel := mocks.NewMockGenerationModel(ctrl)
+	mockModel := mocks.NewMockModel(ctrl)
 
 	mockAuthorizer := facademocks.NewMockAuthorizer(ctrl)
 	aExp := mockAuthorizer.EXPECT()

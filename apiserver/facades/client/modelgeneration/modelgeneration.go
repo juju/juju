@@ -16,18 +16,19 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelgeneration")
 
-// ModelGenerationAPI implements the ModelGeneration interface and is the concrete implementation
+// API implements the ModelGenerationAPI interface and is the concrete implementation
 // of the API endpoint.
-type ModelGenerationAPI struct {
+type API struct {
 	check             *common.BlockChecker
 	authorizer        facade.Authorizer
 	apiUser           names.UserTag
 	isControllerAdmin bool
-	model             GenerationModel
+	st                State
+	model             Model
 }
 
 // NewModelGenerationFacade provides the signature required for facade registration.
-func NewModelGenerationFacade(ctx facade.Context) (*ModelGenerationAPI, error) {
+func NewModelGenerationFacade(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	st := &modelGenerationStateShim{State: ctx.State()}
 	model, err := st.Model()
@@ -39,10 +40,10 @@ func NewModelGenerationFacade(ctx facade.Context) (*ModelGenerationAPI, error) {
 
 // NewModelGenerationAPI creates a new API endpoint for dealing with model generations.
 func NewModelGenerationAPI(
-	st ModelGenerationState,
+	st State,
 	authorizer facade.Authorizer,
-	m GenerationModel,
-) (*ModelGenerationAPI, error) {
+	m Model,
+) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -56,15 +57,16 @@ func NewModelGenerationAPI(
 		return nil, errors.Trace(err)
 	}
 
-	return &ModelGenerationAPI{
+	return &API{
 		authorizer:        authorizer,
 		isControllerAdmin: isAdmin,
 		apiUser:           apiUser,
+		st:                st,
 		model:             m,
 	}, nil
 }
 
-func (m *ModelGenerationAPI) hasAdminAccess(modelTag names.ModelTag) (bool, error) {
+func (m *API) hasAdminAccess(modelTag names.ModelTag) (bool, error) {
 	canWrite, err := m.authorizer.HasPermission(permission.AdminAccess, modelTag)
 	if errors.IsNotFound(err) {
 		return false, nil
@@ -72,8 +74,8 @@ func (m *ModelGenerationAPI) hasAdminAccess(modelTag names.ModelTag) (bool, erro
 	return canWrite, err
 }
 
-// AddGeneration adds a 'next' generation to the given model.
-func (m *ModelGenerationAPI) AddGeneration(arg params.Entity) (params.ErrorResult, error) {
+// AddGeneration adds a "next" generation to the given model.
+func (m *API) AddGeneration(arg params.Entity) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
 	modelTag, err := names.ParseModelTag(arg.Tag)
 	if err != nil {
@@ -90,7 +92,7 @@ func (m *ModelGenerationAPI) AddGeneration(arg params.Entity) (params.ErrorResul
 
 // HasNextGeneration returns a true result if the input model has a "next"
 // generation that has not yet been completed.
-func (m *ModelGenerationAPI) HasNextGeneration(arg params.Entity) (params.BoolResult, error) {
+func (m *API) HasNextGeneration(arg params.Entity) (params.BoolResult, error) {
 	result := params.BoolResult{}
 	modelTag, err := names.ParseModelTag(arg.Tag)
 	if err != nil {
@@ -112,7 +114,7 @@ func (m *ModelGenerationAPI) HasNextGeneration(arg params.Entity) (params.BoolRe
 // AdvanceGeneration, adds the provided unit(s) and/or application(s) to
 // the "next" generation.  If the generation can auto complete, it is
 // made the "current" generation.
-func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) (params.AdvanceGenerationResult, error) {
+func (m *API) AdvanceGeneration(arg params.AdvanceGenerationArg) (params.AdvanceGenerationResult, error) {
 	modelTag, err := names.ParseModelTag(arg.Model.Tag)
 	if err != nil {
 		return params.AdvanceGenerationResult{}, errors.Trace(err)
@@ -160,9 +162,8 @@ func (m *ModelGenerationAPI) AdvanceGeneration(arg params.AdvanceGenerationArg) 
 	return result, nil
 }
 
-// CancelGeneration cancels the 'next' generation if cancel
-// criteria are met.
-func (m *ModelGenerationAPI) CancelGeneration(arg params.Entity) (params.ErrorResult, error) {
+// CancelGeneration cancels the "next" generation if cancel criteria are met.
+func (m *API) CancelGeneration(arg params.Entity) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
 	modelTag, err := names.ParseModelTag(arg.Tag)
 	if err != nil {

@@ -4,34 +4,37 @@
 package modelgeneration
 
 import (
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
-// ModelGeneration defines the methods exported by the model generation API facade.
-type ModelGeneration interface {
+//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration APIFacade,State,Model,Generation,Application
+
+// APIFacade defines the methods exported by the model generation API facade.
+type APIFacade interface {
 	AddGeneration() (params.ErrorResult, error)
 	AdvanceGeneration(args params.Entities) (params.ErrorResults, error)
 	SwitchGeneration(arg params.GenerationVersionArg) (params.ErrorResult, error)
 }
 
-// ModelGenerationState represents the state of an model required by the ModelGeneration.
-//go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration ModelGenerationState
-type ModelGenerationState interface {
+// State represents the state of a model required by the model generation API.
+type State interface {
 	ControllerTag() names.ControllerTag
-	Model() (GenerationModel, error)
+	Model() (Model, error)
+	Application(string) (Application, error)
 }
 
-//go:generate mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration GenerationModel
-type GenerationModel interface {
+// Model describes model state used by the model generation API.
+type Model interface {
 	AddGeneration() error
 	NextGeneration() (Generation, error)
 	HasNextGeneration() (bool, error)
 }
 
 // Generation defines the methods used by a generation.
-//go:generate mockgen -package mocks -destination mocks/generation_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration Generation
 type Generation interface {
 	AssignAllUnits(string) error
 	AssignUnit(string) error
@@ -39,4 +42,9 @@ type Generation interface {
 	MakeCurrent() error
 	AutoComplete() (bool, error)
 	Refresh() error
+}
+
+// Application describes application state used by the model generation API.
+type Application interface {
+	CharmConfig(model.GenerationVersion) (charm.Settings, error)
 }

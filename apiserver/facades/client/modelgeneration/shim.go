@@ -9,12 +9,16 @@ type modelGenerationStateShim struct {
 	*state.State
 }
 
-func (m *modelGenerationStateShim) Model() (GenerationModel, error) {
+func (m *modelGenerationStateShim) Model() (Model, error) {
 	model, err := m.State.Model()
 	if err != nil {
 		return nil, err
 	}
 	return &generationModelShim{Model: model}, nil
+}
+
+func (m *modelGenerationStateShim) Application(name string) (Application, error) {
+	return m.State.Application(name)
 }
 
 type generationModelShim struct {
