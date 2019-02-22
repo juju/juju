@@ -19,6 +19,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
+	containerbroker "github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxd"
@@ -287,9 +288,9 @@ func (cs *ContainerSetup) getContainerBroker(
 		return nil, errors.Trace(err)
 	}
 
-	newBroker := NewKVMBroker
+	newBroker := containerbroker.NewKVMBroker
 	if containerType == instance.LXD {
-		newBroker = NewLXDBroker
+		newBroker = containerbroker.NewLXDBroker
 	}
 	broker, err := newBroker(cs.prepareHost, cs.provisioner, manager, cs.config)
 	if err != nil {
