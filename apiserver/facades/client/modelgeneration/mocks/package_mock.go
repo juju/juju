@@ -38,22 +38,22 @@ func (m *MockAPIFacade) EXPECT() *MockAPIFacadeMockRecorder {
 }
 
 // AddGeneration mocks base method
-func (m *MockAPIFacade) AddGeneration() (params.ErrorResult, error) {
-	ret := m.ctrl.Call(m, "AddGeneration")
+func (m *MockAPIFacade) AddGeneration(arg0 params.Entity) (params.ErrorResult, error) {
+	ret := m.ctrl.Call(m, "AddGeneration", arg0)
 	ret0, _ := ret[0].(params.ErrorResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddGeneration indicates an expected call of AddGeneration
-func (mr *MockAPIFacadeMockRecorder) AddGeneration() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddGeneration", reflect.TypeOf((*MockAPIFacade)(nil).AddGeneration))
+func (mr *MockAPIFacadeMockRecorder) AddGeneration(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddGeneration", reflect.TypeOf((*MockAPIFacade)(nil).AddGeneration), arg0)
 }
 
 // AdvanceGeneration mocks base method
-func (m *MockAPIFacade) AdvanceGeneration(arg0 params.Entities) (params.ErrorResults, error) {
+func (m *MockAPIFacade) AdvanceGeneration(arg0 params.AdvanceGenerationArg) (params.AdvanceGenerationResult, error) {
 	ret := m.ctrl.Call(m, "AdvanceGeneration", arg0)
-	ret0, _ := ret[0].(params.ErrorResults)
+	ret0, _ := ret[0].(params.AdvanceGenerationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -61,6 +61,45 @@ func (m *MockAPIFacade) AdvanceGeneration(arg0 params.Entities) (params.ErrorRes
 // AdvanceGeneration indicates an expected call of AdvanceGeneration
 func (mr *MockAPIFacadeMockRecorder) AdvanceGeneration(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdvanceGeneration", reflect.TypeOf((*MockAPIFacade)(nil).AdvanceGeneration), arg0)
+}
+
+// CancelGeneration mocks base method
+func (m *MockAPIFacade) CancelGeneration(arg0 params.Entity) (params.ErrorResult, error) {
+	ret := m.ctrl.Call(m, "CancelGeneration", arg0)
+	ret0, _ := ret[0].(params.ErrorResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CancelGeneration indicates an expected call of CancelGeneration
+func (mr *MockAPIFacadeMockRecorder) CancelGeneration(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelGeneration", reflect.TypeOf((*MockAPIFacade)(nil).CancelGeneration), arg0)
+}
+
+// GenerationInfo mocks base method
+func (m *MockAPIFacade) GenerationInfo(arg0 params.Entity) (params.GenerationResult, error) {
+	ret := m.ctrl.Call(m, "GenerationInfo", arg0)
+	ret0, _ := ret[0].(params.GenerationResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GenerationInfo indicates an expected call of GenerationInfo
+func (mr *MockAPIFacadeMockRecorder) GenerationInfo(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerationInfo", reflect.TypeOf((*MockAPIFacade)(nil).GenerationInfo), arg0)
+}
+
+// HasNextGeneration mocks base method
+func (m *MockAPIFacade) HasNextGeneration(arg0 params.Entity) (params.BoolResult, error) {
+	ret := m.ctrl.Call(m, "HasNextGeneration", arg0)
+	ret0, _ := ret[0].(params.BoolResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasNextGeneration indicates an expected call of HasNextGeneration
+func (mr *MockAPIFacadeMockRecorder) HasNextGeneration(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasNextGeneration", reflect.TypeOf((*MockAPIFacade)(nil).HasNextGeneration), arg0)
 }
 
 // SwitchGeneration mocks base method

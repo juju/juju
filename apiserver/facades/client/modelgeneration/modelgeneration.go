@@ -5,6 +5,7 @@ package modelgeneration
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
@@ -31,11 +32,11 @@ type API struct {
 func NewModelGenerationFacade(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	st := &modelGenerationStateShim{State: ctx.State()}
-	model, err := st.Model()
+	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewModelGenerationAPI(st, authorizer, model)
+	return NewModelGenerationAPI(st, authorizer, m)
 }
 
 // NewModelGenerationAPI creates a new API endpoint for dealing with model generations.
@@ -180,4 +181,62 @@ func (m *API) CancelGeneration(arg params.Entity) (params.ErrorResult, error) {
 	}
 	result.Error = common.ServerError(generation.MakeCurrent())
 	return result, nil
+}
+
+// GenerationInfo will return details of the "next" generation,
+// including units on the generation and the configuration disjoint with the
+// current generation.
+// An error is returned if there is no active "next" generation.
+func (m *API) GenerationInfo(arg params.Entity) (params.GenerationResult, error) {
+	modelTag, err := names.ParseModelTag(arg.Tag)
+	if err != nil {
+		return params.GenerationResult{}, errors.Trace(err)
+	}
+	isModelAdmin, err := m.hasAdminAccess(modelTag)
+	if !isModelAdmin && !m.isControllerAdmin {
+		return params.GenerationResult{}, common.ErrPerm
+	}
+
+	gen, err := m.model.NextGeneration()
+	if err != nil {
+		return generationInfoError(err)
+	}
+
+	var apps []params.GenerationApplication
+	for appName, units := range gen.AssignedUnits() {
+		app, err := m.st.Application(appName)
+		if err != nil {
+			return generationInfoError(err)
+		}
+
+		// TODO (manadart 2019-02-22): As more aspects are made generational,
+		// each should go into its own method - charm, resources etc.
+		cfgCurrent, err := app.CharmConfig(model.GenerationCurrent)
+		if err != nil {
+			return generationInfoError(err)
+		}
+		cfgNext, err := app.CharmConfig(model.GenerationNext)
+		if err != nil {
+			return generationInfoError(err)
+		}
+		cfgDelta := make(map[string]interface{})
+		for k, v := range cfgNext {
+			if cfgCurrent[k] != v {
+				cfgDelta[k] = v
+			}
+		}
+
+		genAppDelta := params.GenerationApplication{
+			ApplicationName: appName,
+			Units:           units,
+			ConfigChanges:   cfgDelta,
+		}
+		apps = append(apps, genAppDelta)
+	}
+
+	return params.GenerationResult{Applications: apps}, nil
+}
+
+func generationInfoError(err error) (params.GenerationResult, error) {
+	return params.GenerationResult{Error: common.ServerError(err)}, nil
 }

@@ -15,9 +15,12 @@ import (
 
 // APIFacade defines the methods exported by the model generation API facade.
 type APIFacade interface {
-	AddGeneration() (params.ErrorResult, error)
-	AdvanceGeneration(args params.Entities) (params.ErrorResults, error)
-	SwitchGeneration(arg params.GenerationVersionArg) (params.ErrorResult, error)
+	AddGeneration(entity params.Entity) (params.ErrorResult, error)
+	AdvanceGeneration(params.AdvanceGenerationArg) (params.AdvanceGenerationResult, error)
+	SwitchGeneration(params.GenerationVersionArg) (params.ErrorResult, error)
+	CancelGeneration(entity params.Entity) (params.ErrorResult, error)
+	HasNextGeneration(params.Entity) (params.BoolResult, error)
+	GenerationInfo(params.Entity) (params.GenerationResult, error)
 }
 
 // State represents the state of a model required by the model generation API.

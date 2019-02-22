@@ -1128,7 +1128,7 @@ type GenerationApplication struct {
 	// generation and the current.
 	// TODO (manadart 2018-02-22) This data-type will evolve as more aspects
 	// of the application are made generational.
-	ConfigChanges map[string]string `json:"config"`
+	ConfigChanges map[string]interface{} `json:"config"`
 }
 
 // GenerationResult transports the result of the show-generation command.

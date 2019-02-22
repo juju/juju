@@ -6,6 +6,7 @@ package modelgeneration_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -36,22 +37,22 @@ func (s *modelGenerationSuite) TearDownTest(c *gc.C) {
 // Add more explicit permissions tests once that requirement is ironed out.
 
 func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, mockModel *mocks.MockModel) {
+	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mExp := mockModel.EXPECT()
 		mExp.AddGeneration().Return(nil)
 	}).Finish()
 
-	result, err := s.api.AddGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
+	result, err := s.api.AddGeneration(s.modelArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 }
 
 func (s *modelGenerationSuite) TestHasNextGeneration(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, mockModel *mocks.MockModel) {
+	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mockModel.EXPECT().HasNextGeneration().Return(true, nil)
 	}).Finish()
 
-	result, err := s.api.HasNextGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
+	result, err := s.api.HasNextGeneration(s.modelArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Check(result.Result, jc.IsTrue)
@@ -67,7 +68,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationErrorNoAutoComplete(c *gc.C)
 		},
 	}
 
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockModel) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
@@ -98,7 +99,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationSuccessAutoComplete(c *gc.C)
 		},
 	}
 
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockModel) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
@@ -120,7 +121,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationSuccessAutoComplete(c *gc.C)
 }
 
 func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockModel) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.MakeCurrent().Return(nil)
@@ -129,7 +130,7 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 		mExp.NextGeneration().Return(mockGeneration, nil)
 	}).Finish()
 
-	result, err := s.api.CancelGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
+	result, err := s.api.CancelGeneration(s.modelArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
 }
@@ -137,7 +138,7 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 func (s *modelGenerationSuite) TestCancelGenerationCanNotMakeCurrent(c *gc.C) {
 	errMsg := "cannot cancel generation, there are units behind a generation: riak/0"
 
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, mockModel *mocks.MockModel) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
 		gExp.MakeCurrent().Return(errors.New(errMsg))
@@ -146,12 +147,48 @@ func (s *modelGenerationSuite) TestCancelGenerationCanNotMakeCurrent(c *gc.C) {
 		mExp.NextGeneration().Return(mockGeneration, nil)
 	}).Finish()
 
-	result, err := s.api.CancelGeneration(params.Entity{Tag: names.NewModelTag(s.modelUUID).String()})
+	result, err := s.api.CancelGeneration(s.modelArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: &params.Error{Message: errMsg}})
 }
 
-type setupFunc func(*gomock.Controller, *mocks.MockModel)
+func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
+	units := []string{"redis/0", "redis/1", "redis/2"}
+
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, st *mocks.MockState, mod *mocks.MockModel) {
+		gen := mocks.NewMockGeneration(ctrl)
+		gen.EXPECT().AssignedUnits().Return(map[string][]string{
+			"redis": units,
+		})
+
+		mod.EXPECT().NextGeneration().Return(gen, nil)
+
+		app := mocks.NewMockApplication(ctrl)
+		app.EXPECT().CharmConfig(model.GenerationCurrent).Return(map[string]interface{}{
+			"databases": 16,
+			"password":  "current",
+		}, nil)
+		app.EXPECT().CharmConfig(model.GenerationNext).Return(map[string]interface{}{
+			"databases": 16,
+			"password":  "next",
+		}, nil)
+
+		st.EXPECT().Application("redis").Return(app, nil)
+
+	}).Finish()
+
+	result, err := s.api.GenerationInfo(s.modelArg())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Applications, gc.HasLen, 1)
+
+	app := result.Applications[0]
+	c.Assert(app.ApplicationName, gc.Equals, "redis")
+	c.Assert(app.Units, jc.SameContents, units)
+	c.Assert(app.ConfigChanges, gc.DeepEquals, map[string]interface{}{"password": "next"})
+}
+
+type setupFunc func(*gomock.Controller, *mocks.MockState, *mocks.MockModel)
 
 func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) *gomock.Controller {
 	ctrl := gomock.NewController(c)
@@ -168,11 +205,15 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) *g
 	aExp.GetAuthTag().Return(names.NewUserTag("testing"))
 	aExp.AuthClient().Return(true)
 
-	fn(ctrl, mockModel)
+	fn(ctrl, mockState, mockModel)
 
 	var err error
 	s.api, err = modelgeneration.NewModelGenerationAPI(mockState, mockAuthorizer, mockModel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
+}
+
+func (s *modelGenerationSuite) modelArg() params.Entity {
+	return params.Entity{Tag: names.NewModelTag(s.modelUUID).String()}
 }
