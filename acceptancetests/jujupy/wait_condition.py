@@ -23,6 +23,7 @@ from jujupy.exceptions import (
     AgentsNotStarted,
     StatusNotMet,
     LXDProfileNotAvailable,
+    LXDProfilesNotAvailable,
     )
 from jujupy.status import (
     Status,
@@ -462,3 +463,51 @@ class WaitForLXDProfileCondition(BaseCondition):
 
     def do_raise(self, model_name, status):
         raise LXDProfileNotAvailable(self.machine, self.profile)
+
+class WaitForLXDProfilesConditions(BaseCondition):
+
+    def __init__(self, profiles, *args, **kwargs):
+        """WaitForLXDProfilesConditions attempts to test if the profile at least
+           shows up in at least one machine, as there isn't currently a way to
+           know where the profile should be applied, just that it should.
+
+        :param profiles: names of the LXD profiles to find.
+        """
+        self.profiles = profiles
+        super(WaitForLXDProfilesConditions, self).__init__(*args, **kwargs)
+    
+    def iter_blocking_state(self, status):
+        """Wait until 'profiles' listed in machine lxd-profiles from status.
+        """
+        matched = 0
+        for machine_name, status in status.iter_machines(containers=True):
+            for profile_name, machines in self.profiles.items():
+                if machine_name in machines:
+                    if not 'lxd-profiles' in status:
+                        yield ('lxd-profile ({})'.format(self.profiles), 'no lxd profile')
+                    if not profile_name in self.profile_names(status['lxd-profiles']):
+                        yield ('lxd-profile ({})'.format(self.profiles), 'missing profile')
+                    matched += 1
+        if matched < self.profile_total():
+            yield ('lxd-profile ({})'.format(self.profiles), 'not matched')
+
+    def do_raise(self, model_name, status):
+        raise LXDProfilesNotAvailable(self.profiles)
+
+    def profile_names(self, profiles):
+        """profile names returns all the profile names from applied machines 
+           status
+        
+        :param profiles: profile configurations applied to machines
+        """
+        names = []
+        for name in profiles.keys():
+            names.append(name)
+        return names
+
+    def profile_total(self):
+        """profile total returns the number of profiles to match against"""
+        result = 0
+        for profile_names in self.profiles.values():
+            result += len(profile_names)
+        return result

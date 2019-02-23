@@ -255,6 +255,7 @@ type Unit struct {
 	Address        string
 	Ports          []string
 	Dying          bool
+	Stateful       bool
 	Status         status.StatusInfo
 	FilesystemInfo []FilesystemInfo
 }

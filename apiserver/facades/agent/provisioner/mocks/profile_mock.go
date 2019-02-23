@@ -72,30 +72,17 @@ func (mr *MockProfileMachineMockRecorder) ModelName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelName", reflect.TypeOf((*MockProfileMachine)(nil).ModelName))
 }
 
-// UpgradeCharmProfileApplication mocks base method
-func (m *MockProfileMachine) UpgradeCharmProfileApplication() (string, error) {
-	ret := m.ctrl.Call(m, "UpgradeCharmProfileApplication")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpgradeCharmProfileApplication indicates an expected call of UpgradeCharmProfileApplication
-func (mr *MockProfileMachineMockRecorder) UpgradeCharmProfileApplication() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeCharmProfileApplication", reflect.TypeOf((*MockProfileMachine)(nil).UpgradeCharmProfileApplication))
-}
-
 // UpgradeCharmProfileCharmURL mocks base method
-func (m *MockProfileMachine) UpgradeCharmProfileCharmURL() (string, error) {
-	ret := m.ctrl.Call(m, "UpgradeCharmProfileCharmURL")
+func (m *MockProfileMachine) UpgradeCharmProfileCharmURL(arg0 string) (string, error) {
+	ret := m.ctrl.Call(m, "UpgradeCharmProfileCharmURL", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpgradeCharmProfileCharmURL indicates an expected call of UpgradeCharmProfileCharmURL
-func (mr *MockProfileMachineMockRecorder) UpgradeCharmProfileCharmURL() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeCharmProfileCharmURL", reflect.TypeOf((*MockProfileMachine)(nil).UpgradeCharmProfileCharmURL))
+func (mr *MockProfileMachineMockRecorder) UpgradeCharmProfileCharmURL(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeCharmProfileCharmURL", reflect.TypeOf((*MockProfileMachine)(nil).UpgradeCharmProfileCharmURL), arg0)
 }
 
 // MockProfileBackend is a mock of ProfileBackend interface

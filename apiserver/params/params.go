@@ -383,6 +383,7 @@ type ApplicationUnitParams struct {
 	UnitTag        string                     `json:"unit-tag"`
 	Address        string                     `json:"address"`
 	Ports          []string                   `json:"ports"`
+	Stateful       bool                       `json:"stateful,omitempty"`
 	FilesystemInfo []KubernetesFilesystemInfo `json:"filesystem-info,omitempty"`
 	Status         string                     `json:"status"`
 	Info           string                     `json:"info"`
@@ -1057,6 +1058,15 @@ type UpgradeSeriesUnitsResult struct {
 	UnitNames []string `json:"unit-names"`
 }
 
+type ProfileArg struct {
+	Entity   Entity `json:"entity"`
+	UnitName string `json:"unit-name"`
+}
+
+type ProfileArgs struct {
+	Args []ProfileArg `json:"args"`
+}
+
 type ProfileChangeResult struct {
 	OldProfileName string           `json:"old-profile-name,omitempty"`
 	NewProfileName string           `json:"new-profile-name,omitempty"`
@@ -1083,8 +1093,9 @@ type SetProfileUpgradeCompleteArgs struct {
 }
 
 type SetProfileUpgradeCompleteArg struct {
-	Entity  Entity `json:"entity"`
-	Message string `json:"message"`
+	Entity   Entity `json:"entity"`
+	UnitName string `json:"unit-name"`
+	Message  string `json:"message"`
 }
 
 // GenerationVersionArg contains a Model Entity to act in and the

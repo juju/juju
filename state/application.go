@@ -892,12 +892,20 @@ func (a *Application) changeCharmOps(
 // If the application is a subordinate, the charm profile is applied
 // to the machine of the principal's unit.
 func (a *Application) SetCharmProfile(charmURL string) error {
-	machines, err := a.DeployedMachines()
+	units, err := a.AllUnits()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, m := range machines {
-		if err := m.SetUpgradeCharmProfile(a.Name(), charmURL); err != nil {
+	for _, u := range units {
+		id, err := u.AssignedMachineId()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		m, err := a.st.Machine(id)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := m.SetUpgradeCharmProfile(u.Name(), charmURL); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1641,7 +1649,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 			}),
 			Update: bson.D{{"$addToSet", bson.D{{"subordinates", name}}}},
 		})
-		subCharmProfileOps, err := a.addUnitSubordinateCharmProfileOp(args.principalName, charm.LXDProfile())
+		subCharmProfileOps, err := a.addUnitSubordinateCharmProfileOp(name, args.principalName, charm.LXDProfile())
 		if err != nil && err != jujutxn.ErrNoOperations {
 			return "", nil, errors.Trace(err)
 		}
@@ -1668,7 +1676,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 
 // addUnitSubordinateCharmProfileOp returns a transaction to an LXD profile
 // to the principal's machine if the charm has a non-empty charm profile.
-func (a *Application) addUnitSubordinateCharmProfileOp(principalName string, profile *charm.LXDProfile) ([]txn.Op, error) {
+func (a *Application) addUnitSubordinateCharmProfileOp(subName, principalName string, profile *charm.LXDProfile) ([]txn.Op, error) {
 	// Because this is not part of a charm upgrade path, it is okay to
 	// short circuit here.
 	if profile == nil || (profile != nil && profile.Empty()) {
@@ -1686,8 +1694,8 @@ func (a *Application) addUnitSubordinateCharmProfileOp(principalName string, pro
 		return nil, err
 	}
 
-	logger.Tracef("Set up to add new subordinate charm profile to existing machine %s for %s", machine.Id(), unit.Name())
-	return machine.SetUpgradeCharmProfileTxns(a.doc.Name, a.doc.CharmURL.String())
+	logger.Tracef("Set up to add new subordinate charm profile to existing machine %s for %s", machine.Id(), subName)
+	return machine.SetUpgradeCharmProfileTxns(subName, a.doc.CharmURL.String())
 }
 
 func (a *Application) addUnitStorageOps(
@@ -2536,8 +2544,8 @@ var statusServerities = map[status.Status]int{
 	status.Blocked:     90,
 	status.Waiting:     80,
 	status.Maintenance: 70,
-	status.Terminated:  60,
-	status.Active:      50,
+	status.Active:      60,
+	status.Terminated:  50,
 	status.Unknown:     40,
 }
 

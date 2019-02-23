@@ -647,8 +647,8 @@ func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason s
 
 // WatchLXDProfileUpgradeNotifications returns a StringsWatcher for observing the
 // state of a lxd profile upgrade
-func (u *Unit) WatchLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error) {
-	return u.st.WatchLXDProfileUpgradeNotifications(u.ApplicationName())
+func (u *Unit) WatchUnitLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error) {
+	return u.st.WatchUnitLXDProfileUpgradeNotifications()
 }
 
 // RemoveUpgradeCharmProfileData removes the upgrade charm profile data

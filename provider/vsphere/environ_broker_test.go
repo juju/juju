@@ -14,8 +14,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
+	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
@@ -48,6 +50,10 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.client.computeResources = []*mo.ComputeResource{
 		newComputeResource("z1"),
 		newComputeResource("z2"),
+	}
+	s.client.resourcePools = map[string][]*object.ResourcePool{
+		"z1/...": {makeResourcePool("pool-1", "/z1/Resources")},
+		"z2/...": {makeResourcePool("pool-2", "/z2/Resources")},
 	}
 
 	s.client.createdVirtualMachine = buildVM("new-vm").vm()
@@ -108,8 +114,8 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(result.Instance, gc.NotNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("new-vm"))
 
-	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[1]
+	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[3]
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
@@ -125,13 +131,17 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	createVMArgs.ReadOVA = nil
 	createVMArgs.NetworkDevices = []vsphereclient.NetworkDevice{}
 	c.Assert(createVMArgs, jc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
-		Name:                   "juju-f75cba-0",
-		Folder:                 `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
-		VMDKDirectory:          "juju-vmdks/deadbeef-1bad-500d-9000-4b1d0d06f00d",
-		Series:                 startInstArgs.Tools.OneSeries(),
-		OVASHA256:              ovatest.FakeOVASHA256(),
-		Metadata:               startInstArgs.InstanceConfig.Tags,
-		ComputeResource:        s.client.computeResources[0],
+		Name:            "juju-f75cba-0",
+		Folder:          `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
+		VMDKDirectory:   "juju-vmdks/deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		Series:          startInstArgs.Tools.OneSeries(),
+		OVASHA256:       ovatest.FakeOVASHA256(),
+		Metadata:        startInstArgs.InstanceConfig.Tags,
+		ComputeResource: s.client.computeResources[0],
+		ResourcePool: types.ManagedObjectReference{
+			Type:  "ResourcePool",
+			Value: "pool-1",
+		},
 		UpdateProgressInterval: 5 * time.Second,
 		EnableDiskUUID:         true,
 	})
@@ -163,7 +173,7 @@ func (s *environBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	call := s.client.Calls()[1]
+	call := s.client.Calls()[3]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.NetworkDevices, gc.HasLen, 2)
 	c.Assert(createVMArgs.NetworkDevices[0].Network, gc.Equals, "foo")
@@ -182,7 +192,7 @@ func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err = env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	call := s.client.Calls()[1]
+	call := s.client.Calls()[3]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	// The model name in the folder name should be truncated
 	// so that the final part of the model name is 80 characters.
@@ -206,7 +216,7 @@ func (s *environBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	call := s.client.Calls()[1]
+	call := s.client.Calls()[3]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.EnableDiskUUID, gc.Equals, false)
 }
@@ -309,8 +319,8 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[1]
+	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[3]
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
@@ -320,13 +330,13 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C) {
-	s.client.SetErrors(nil, errors.New("nope"))
+	s.client.SetErrors(nil, nil, nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 
-	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
-	createVMCall1 := s.client.Calls()[1]
+	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
+	createVMCall1 := s.client.Calls()[3]
 	createVMArgs1 := createVMCall1.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0])
 }
@@ -343,7 +353,7 @@ func (s *environBrokerSuite) TestStartInstanceDatastore(c *gc.C) {
 	_, err = s.env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	call := s.client.Calls()[1]
+	call := s.client.Calls()[3]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.Datastore, gc.Equals, "datastore0")
 }

@@ -12,9 +12,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
+	facadestorage "github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/dummy"
@@ -696,6 +700,50 @@ func (s *storageSuite) TestImportValidationErrors(c *gc.C) {
 		{Error: &params.Error{Message: `storage kind "block" not supported`, Code: "not supported"}},
 		{Error: &params.Error{Message: `pool name "123" not valid`}},
 	})
+}
+
+func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
+	s.state.modelTag = names.NewModelTag("foo")
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("superuserfoo"),
+	}
+	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
+
+	// Sanity check before running test:
+	// Ensure that the user has NO read access to the model but SuperuserAccess
+	// to the controller it belongs to.
+	res, err := s.authorizer.HasPermission(permission.ReadAccess, s.state.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.Equals, false)
+	res, err = s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.Equals, true)
+
+	// ListStorageDetails should not fail
+	_, err = s.api.ListStorageDetails(params.StorageFilters{})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
+	s.state.modelTag = names.NewModelTag("foo")
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("userfoo"),
+	}
+	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
+
+	// Sanity check before running test:
+	// Ensure that the user has NO read access to the model and NO SuperuserAccess
+	// to the controller it belongs to.
+	res, err := s.authorizer.HasPermission(permission.ReadAccess, s.state.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.Equals, false)
+	res, err = s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.Equals, false)
+
+	// ListStorageDetails should fail with perm error
+	_, err = s.api.ListStorageDetails(params.StorageFilters{})
+	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
 
 type filesystemImporter struct {

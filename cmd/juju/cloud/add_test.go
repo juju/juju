@@ -362,7 +362,7 @@ func (s *addSuite) TestAddToController(c *gc.C) {
 	_, err := cmdtesting.RunCommand(
 		c, cmd, "garage-maas", cloudFileName, "-c", "mycontroller")
 	c.Assert(err, jc.ErrorIsNil)
-	api.CheckCallNames(c, "AddCloud", "AddCredential")
+	api.CheckCallNames(c, "AddCloud", "AddCredential", "Close")
 	api.CheckCall(c, 0, "AddCloud", jujucloud.Cloud{
 		Name:        "garage-maas",
 		Type:        "maas",

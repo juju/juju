@@ -133,6 +133,16 @@ class LXDProfileNotAvailable(Exception):
     def __str__(self):
         return self._fmt.format(env=self.profile_name)
 
+class LXDProfilesNotAvailable(Exception):
+
+    _fmt = 'Timed out waiting for LXDProfiles {profile_names}'
+
+    def __init__(self, profile_names):
+        self.profile_names = profile_names
+
+    def __str__(self):
+        return self._fmt.format(env=self.profile_names)
+
 class StatusError(Exception):
     """Generic error for Status."""
 

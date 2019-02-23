@@ -25,15 +25,14 @@ func (s *lxdProfileSuite) SetUpTest(c *gc.C) {
 	s.tag = names.NewMachineTag("0")
 }
 
-func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
+func (s *lxdProfileSuite) TestWatchUnitLXDProfileUpgradeNotifications(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "WatchLXDProfileUpgradeNotifications")
-		c.Assert(args, jc.DeepEquals, params.LXDProfileUpgrade{
+		c.Assert(name, gc.Equals, "WatchUnitLXDProfileUpgradeNotifications")
+		c.Assert(args, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{
 				{Tag: s.tag.String()},
 			},
-			ApplicationName: "foo-bar",
 		})
 		*(response.(*params.StringsWatchResults)) = params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{
@@ -59,6 +58,6 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 	facadeCaller.ReturnRawAPICaller = apitesting.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 
 	api := uniter.NewLXDProfileAPI(&facadeCaller, s.tag)
-	_, err := api.WatchLXDProfileUpgradeNotifications("foo-bar")
+	_, err := api.WatchUnitLXDProfileUpgradeNotifications()
 	c.Assert(err, jc.ErrorIsNil)
 }

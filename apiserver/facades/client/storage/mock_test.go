@@ -45,6 +45,7 @@ func (m *mockPoolManager) Replace(name, provider string, attrs map[string]interf
 
 type mockStorageAccessor struct {
 	storageInstance                     func(names.StorageTag) (state.StorageInstance, error)
+	removeStoragePool                   func(string) error
 	allStorageInstances                 func() ([]state.StorageInstance, error)
 	storageInstanceAttachments          func(names.StorageTag) ([]state.StorageAttachment, error)
 	storageInstanceVolume               func(names.StorageTag) (state.Volume, error)
@@ -80,6 +81,10 @@ func (st *mockStorageAccessor) FilesystemAccess() storage.StorageFile {
 
 func (st *mockStorageAccessor) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
 	return st.storageInstance(s)
+}
+
+func (st *mockStorageAccessor) RemoveStoragePool(pool string) error {
+	return st.removeStoragePool(pool)
 }
 
 func (st *mockStorageAccessor) AllStorageInstances() ([]state.StorageInstance, error) {

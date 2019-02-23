@@ -747,6 +747,7 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expected status.Status
 			ApplicationTag: names.NewApplicationTag("gitlab").String(),
 			Units: []params.ApplicationUnitParams{
 				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: expected.String(),
+					Stateful: true,
 					FilesystemInfo: []params.KubernetesFilesystemInfo{
 						{StorageName: "database", MountPoint: "/path-to-here", ReadOnly: true,
 							FilesystemId: "fs-id", Size: 100, Pool: "",

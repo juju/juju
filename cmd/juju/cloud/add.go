@@ -316,6 +316,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	defer api.Close()
 	err = api.AddCloud(*newCloud)
 	if err != nil && params.ErrCode(err) != params.CodeAlreadyExists {
 		return err

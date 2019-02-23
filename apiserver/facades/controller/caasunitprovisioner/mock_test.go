@@ -110,6 +110,7 @@ type mockApplication struct {
 	scaleWatcher *statetesting.MockNotifyWatcher
 
 	tag        names.Tag
+	scale      int
 	units      []caasunitprovisioner.Unit
 	ops        *state.UpdateUnitsOperation
 	providerId string
@@ -137,7 +138,7 @@ func (a *mockApplication) WatchScale() state.NotifyWatcher {
 
 func (a *mockApplication) GetScale() int {
 	a.MethodCall(a, "GetScale")
-	return 5
+	return a.scale
 }
 
 func (a *mockApplication) GetPlacement() string {

@@ -59,6 +59,7 @@ type ContainerSpec struct {
 // a pod on the CAAS substrate.
 type PodSpec struct {
 	Containers                []ContainerSpec            `yaml:"-"`
+	InitContainers            []ContainerSpec            `yaml:"-"`
 	OmitServiceFrontend       bool                       `yaml:"omitServiceFrontend"`
 	CustomResourceDefinitions []CustomResourceDefinition `yaml:"customResourceDefinition,omitempty"`
 
@@ -105,6 +106,11 @@ func (crd *CustomResourceDefinition) Validate() error {
 // Validate returns an error if the spec is not valid.
 func (spec *PodSpec) Validate() error {
 	for _, c := range spec.Containers {
+		if err := c.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	for _, c := range spec.InitContainers {
 		if err := c.Validate(); err != nil {
 			return errors.Trace(err)
 		}

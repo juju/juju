@@ -211,6 +211,25 @@ func (c *Client) Datastores(ctx context.Context) ([]*mo.Datastore, error) {
 	return datastores, nil
 }
 
+// ResourcePools returns a list of all of the resource pools (possibly
+// nested) under the given path.
+func (c *Client) ResourcePools(ctx context.Context, path string) ([]*object.ResourcePool, error) {
+	finder, _, err := c.finder(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.logger.Tracef("listing resource pools under %q", path)
+	items, err := finder.ResourcePoolList(ctx, path)
+	if err != nil {
+		if _, ok := err.(*find.NotFoundError); ok {
+			c.logger.Debugf("no resource pools for path %q", path)
+			return nil, nil
+		}
+		return nil, errors.Annotate(err, "listing resource pools")
+	}
+	return items, nil
+}
+
 // EnsureVMFolder creates the a VM folder with the given path if it doesn't
 // already exist.
 func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) (*object.Folder, error) {

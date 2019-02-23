@@ -33,6 +33,7 @@ type StorageStateSuiteBase struct {
 	series         string
 	st             *state.State
 	storageBackend *state.StorageBackend
+	pm             poolmanager.PoolManager
 }
 
 func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
@@ -60,16 +61,21 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	}
 
 	// Create a default pool for block devices.
-	pm := poolmanager.New(state.NewStateSettings(s.st), registry)
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	s.pm = poolmanager.New(state.NewStateSettings(s.st), registry)
+	_, err := s.pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	if s.series != "kubernetes" {
 		// Create a pool that creates persistent block devices.
-		_, err = pm.Create("persistent-block", "modelscoped-block", map[string]interface{}{
+		_, err = s.pm.Create("persistent-block", "modelscoped-block", map[string]interface{}{
 			"persistent": true,
 		})
 		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		// Create the operator-storage
+		_, err = s.pm.Create("operator-storage", provider.LoopProviderType, map[string]interface{}{})
+		c.Assert(err, jc.ErrorIsNil)
+
 	}
 
 	s.storageBackend, err = state.NewStorageBackend(s.st)
@@ -656,6 +662,37 @@ func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(ownerSet.Contains(owner.String()), jc.IsTrue)
 	}
+}
+
+func (s *StorageStateSuite) TestRemoveStoragePool(c *gc.C) {
+	poolName := "loop-pool"
+	_, err := s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.storageBackend.RemoveStoragePool(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.pm.Get(poolName)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("pool %q not found", poolName))
+}
+
+func (s *StorageStateSuite) TestRemoveStoragePoolInUse(c *gc.C) {
+	poolName := "loop-pool"
+	s.assertStorageUnitsAdded(c)
+	_, err := s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.storageBackend.RemoveStoragePool(poolName)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
+	pool, err := s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pool.Name(), gc.Equals, poolName)
+
+	// pool does not exist at all, poolmanager swallows NotFound errors.
+	_, err = s.pm.Get("nope-pool")
+	c.Assert(err, gc.ErrorMatches, `pool "nope-pool" not found`)
+	err = s.storageBackend.RemoveStoragePool("nope-pool")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.pm.Get("nope-pool")
+	c.Assert(err, gc.ErrorMatches, `pool "nope-pool" not found`)
 }
 
 func (s *StorageStateSuite) TestStorageAttachments(c *gc.C) {
@@ -1344,6 +1381,54 @@ func (s *StorageStateSuite) TestNewModelDefaultPools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Sort(byStorageConfigName(listed))
 	c.Assert(listed, jc.DeepEquals, []*storage.Config{blackPool, radiancePool})
+}
+
+type StorageStateSuiteCaas struct {
+	StorageStateSuiteBase
+}
+
+var _ = gc.Suite(&StorageStateSuiteCaas{})
+
+func (s *StorageStateSuiteCaas) SetUpTest(c *gc.C) {
+	s.series = "kubernetes"
+	s.StorageStateSuiteBase.SetUpTest(c)
+}
+
+func (s *StorageStateSuiteCaas) TestRemoveStoragePool(c *gc.C) {
+	poolName := "operator-storage"
+	_, err := s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.storageBackend.RemoveStoragePool(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.pm.Get(poolName)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("pool %q not found", poolName))
+}
+
+func (s *StorageStateSuiteCaas) TestRemoveStoragePoolInUse(c *gc.C) {
+	poolName := "operator-storage"
+	_, err := s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	appPoolName := "loop-pool"
+	_, err = s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.setupSingleStorage(c, "filesystem", "loop-pool")
+
+	err = s.storageBackend.RemoveStoragePool(poolName)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
+	pool, err := s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pool.Name(), gc.Equals, poolName)
+
+	err = s.storageBackend.RemoveStoragePool(appPoolName)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", appPoolName))
+	pool, err = s.pm.Get(poolName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pool.Name(), gc.Equals, poolName)
 }
 
 type byStorageConfigName []*storage.Config

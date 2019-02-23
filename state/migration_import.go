@@ -383,11 +383,24 @@ func (i *importer) machine(m description.Machine) error {
 		StatusData: instStatus.Data(),
 		Updated:    instStatus.Updated().UnixNano(),
 	}
+	// importing without a modification-status shouldn't cause a panic, so we
+	// should check if it's nil or not.
+	var modificationStatusDoc statusDoc
+	if modStatus := instance.ModificationStatus(); modStatus != nil {
+		modificationStatusDoc = statusDoc{
+			ModelUUID:  i.st.ModelUUID(),
+			Status:     status.Status(modStatus.Value()),
+			StatusInfo: modStatus.Message(),
+			StatusData: modStatus.Data(),
+			Updated:    modStatus.Updated().UnixNano(),
+		}
+	}
 	cons := i.constraints(m.Constraints())
 	prereqOps, machineOp := i.st.baseNewMachineOps(
 		mdoc,
 		machineStatusDoc,
 		instanceStatusDoc,
+		modificationStatusDoc,
 		cons,
 	)
 

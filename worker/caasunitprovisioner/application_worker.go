@@ -169,6 +169,7 @@ func (aw *applicationWorker) loop() error {
 					ProviderId: u.Id,
 					Address:    u.Address,
 					Ports:      u.Ports,
+					Stateful:   u.Stateful,
 					Status:     unitStatus.Status.String(),
 					Info:       unitStatus.Message,
 					Data:       unitStatus.Data,
