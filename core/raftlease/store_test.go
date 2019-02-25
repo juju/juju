@@ -85,6 +85,44 @@ func (s *storeSuite) TestClaim(c *gc.C) {
 	)
 }
 
+func (s *storeSuite) TestClaimAborted(c *gc.C) {
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			stopChan := make(chan struct{})
+			go func() {
+				errChan <- s.store.ClaimLeaseAbort(
+					lease.Key{"warframe", "vauban", "prime"},
+					lease.Request{"vor", time.Second},
+					stopChan,
+				)
+			}()
+			// Without allowing the time to move forward, abort the request
+			close(stopChan)
+
+			select {
+			case err := <-errChan:
+				c.Check(err, gc.ErrorMatches, `command "claim" on "prime" for "vor" aborted`)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for claim error")
+			}
+		},
+
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationClaim,
+			Namespace: "warframe",
+			ModelUUID: "vauban",
+			Lease:     "prime",
+			Holder:    "vor",
+			Duration:  time.Second,
+		},
+		func(req raftlease.ForwardRequest) {
+			// We never send a response, to allow abort to trigger
+		},
+	)
+}
+
 func (s *storeSuite) TestClaimTimeout(c *gc.C) {
 	s.handleHubRequest(c,
 		func() {

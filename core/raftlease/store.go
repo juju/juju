@@ -99,7 +99,21 @@ func (s *Store) ClaimLease(key lease.Key, req lease.Request) error {
 		Lease:     key.Lease,
 		Holder:    req.Holder,
 		Duration:  req.Duration,
-	})
+	}, nil)
+	return errors.Trace(err)
+}
+
+// ClaimLeaseAbort is like ClaimLease but allows cancelling the request early
+func (s *Store) ClaimLeaseAbort(key lease.Key, req lease.Request, stop <-chan struct{}) error {
+	err := s.runOnLeader(&Command{
+		Version:   CommandVersion,
+		Operation: OperationClaim,
+		Namespace: key.Namespace,
+		ModelUUID: key.ModelUUID,
+		Lease:     key.Lease,
+		Holder:    req.Holder,
+		Duration:  req.Duration,
+	}, stop)
 	return errors.Trace(err)
 }
 
@@ -113,7 +127,7 @@ func (s *Store) ExtendLease(key lease.Key, req lease.Request) error {
 		Lease:     key.Lease,
 		Holder:    req.Holder,
 		Duration:  req.Duration,
-	}))
+	}, nil))
 }
 
 // ExpireLease is part of lease.Store.
@@ -162,7 +176,7 @@ func (s *Store) pinOp(operation string, key lease.Key, entity string) error {
 		ModelUUID: key.ModelUUID,
 		Lease:     key.Lease,
 		PinEntity: entity,
-	}))
+	}, nil))
 }
 
 // Advance is part of globalclock.Updater.
@@ -175,7 +189,7 @@ func (s *Store) Advance(duration time.Duration) error {
 		Operation: OperationSetTime,
 		OldTime:   s.prevTime,
 		NewTime:   newTime,
-	})
+	}, nil)
 	if globalclock.IsConcurrentUpdate(err) {
 		// Someone else updated before us - get the new time.
 		s.prevTime = s.fsm.GlobalTime()
@@ -189,7 +203,7 @@ func (s *Store) Advance(duration time.Duration) error {
 	return errors.Trace(err)
 }
 
-func (s *Store) runOnLeader(command *Command) error {
+func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 	bytes, err := command.Marshal()
 	if err != nil {
 		return errors.Trace(err)
@@ -246,6 +260,8 @@ func (s *Store) runOnLeader(command *Command) error {
 		}
 		s.record(command.Operation, result, start)
 		return err
+	case <-stop:
+		return errors.Errorf("command %q on %q for %q aborted", command.Operation, command.Lease, command.Holder)
 	}
 }
 
