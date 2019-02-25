@@ -1,13 +1,12 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner
+package broker
 
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
-	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -16,10 +15,12 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/tools"
+	coretools "github.com/juju/juju/tools"
 )
 
-//go:generate mockgen -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/worker/provisioner APICalls
+var logger = loggo.GetLogger("juju.container.broker")
+
+//go:generate mockgen -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/container/broker APICalls
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
@@ -28,16 +29,6 @@ type APICalls interface {
 	ReleaseContainerAddresses(names.MachineTag) error
 	SetHostMachineNetworkConfig(names.MachineTag, []params.NetworkConfig) error
 	HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, int, error)
-}
-
-type hostArchToolsFinder struct {
-	f ToolsFinder
-}
-
-// FindTools is defined on the ToolsFinder interface.
-func (h hostArchToolsFinder) FindTools(v version.Number, series, _ string) (tools.List, error) {
-	// Override the arch constraint with the arch of the host.
-	return h.f.FindTools(v, series, arch.HostArch())
 }
 
 // resolvConf contains the full path to common resolv.conf files on the local
@@ -183,10 +174,10 @@ func releaseContainerAddresses(
 }
 
 // matchHostArchTools filters the given list of tools to the host architecture.
-func matchHostArchTools(allTools tools.List) (tools.List, error) {
+func matchHostArchTools(allTools coretools.List) (coretools.List, error) {
 	arch := arch.HostArch()
-	archTools, err := allTools.Match(tools.Filter{Arch: arch})
-	if err == tools.ErrNoMatches {
+	archTools, err := allTools.Match(coretools.Filter{Arch: arch})
+	if err == coretools.ErrNoMatches {
 		return nil, errors.Errorf(
 			"need agent binaries for arch %s, only found %s",
 			arch, allTools.Arches(),

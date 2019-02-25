@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner
+package broker
 
 import (
 	"github.com/juju/errors"
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/network"
 )
 
-var kvmLogger = loggo.GetLogger("juju.provisioner.kvm")
+var kvmLogger = loggo.GetLogger("juju.container.broker.kvm")
 
 // NewKVMBroker creates a Broker that can be used to start KVM guests in a
 // similar fashion to normal StartInstance requests.

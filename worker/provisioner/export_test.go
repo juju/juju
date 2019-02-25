@@ -38,10 +38,8 @@ func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
 var (
 	GetContainerInitialiser = &getContainerInitialiser
 	GetToolsFinder          = &getToolsFinder
-	ResolvConfFiles         = &resolvConfFiles
 	RetryStrategyDelay      = &retryStrategyDelay
 	RetryStrategyCount      = &retryStrategyCount
-	CombinedCloudInitData   = combinedCloudInitData
 )
 
 var ClassifyMachine = classifyMachine

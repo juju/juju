@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner_test
+package broker_test
 
 import (
 	"io/ioutil"
@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/worker/provisioner"
 )
 
 type brokerSuite struct {
@@ -43,7 +43,7 @@ var _ = gc.Suite(&brokerSuite{})
 
 func (s *brokerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	s.PatchValue(&provisioner.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
+	s.PatchValue(&broker.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"packages":   []interface{}{"python-novaclient"},
 			"fake-entry": []interface{}{"testing-garbage"},
@@ -70,7 +70,7 @@ func (s *brokerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
-	obtained, err := provisioner.CombinedCloudInitData(nil, "ca-certs,apt-primary", "xenial", loggo.Logger{})
+	obtained, err := broker.CombinedCloudInitData(nil, "ca-certs,apt-primary", "xenial", loggo.Logger{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCloudInitUserData(obtained, map[string]interface{}{
@@ -91,7 +91,7 @@ func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
 
 func (s *brokerSuite) TestCombinedCloudInitDataNoContainerInheritProperties(c *gc.C) {
 	containerConfig := fakeContainerConfig()
-	obtained, err := provisioner.CombinedCloudInitData(containerConfig.CloudInitUserData, "", "xenial", loggo.Logger{})
+	obtained, err := broker.CombinedCloudInitData(containerConfig.CloudInitUserData, "", "xenial", loggo.Logger{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertCloudInitUserData(obtained, containerConfig.CloudInitUserData, c)
 }
@@ -115,10 +115,10 @@ type fakeAPI struct {
 	fakeInterfaceInfo   network.InterfaceInfo
 	fakeDeviceToBridge  network.DeviceToBridge
 	fakeBridger         network.Bridger
-	fakePreparer        provisioner.PrepareHostFunc
+	fakePreparer        broker.PrepareHostFunc
 }
 
-var _ provisioner.APICalls = (*fakeAPI)(nil)
+var _ broker.APICalls = (*fakeAPI)(nil)
 
 var fakeInterfaceInfo network.InterfaceInfo = network.InterfaceInfo{
 	DeviceIndex:    0,
@@ -311,7 +311,7 @@ nameserver ns2.dummy
 	fakeResolvConf := filepath.Join(c.MkDir(), "fakeresolv.conf")
 	err := ioutil.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(provisioner.ResolvConfFiles, []string{fakeResolvConf})
+	s.PatchValue(broker.ResolvConfFiles, []string{fakeResolvConf})
 }
 
 func instancesFromResults(results ...*environs.StartInstanceResult) []instances.Instance {
