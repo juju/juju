@@ -9,9 +9,12 @@ import (
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/testing"
@@ -49,6 +52,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	sort.Strings(keys)
 	expectedKeys := []string{
 		"agent",
+		"agent-config-updater",
 		"api-address-updater",
 		"api-caller",
 		"api-config-watcher",
@@ -93,7 +97,6 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"raft-transport",
 		"reboot-executor",
 		"restore-watcher",
-		"serving-info-setter",
 		"ssh-authkeys-updater",
 		"ssh-identity-writer",
 		"state",
@@ -286,6 +289,17 @@ func (s *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
 var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"agent": {},
+
+	"agent-config-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
 
 	"api-address-updater": {
 		"agent",
@@ -720,17 +734,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"restore-watcher": {"agent", "state", "state-config-watcher"},
 
-	"serving-info-setter": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
-
 	"ssh-authkeys-updater": {
 		"agent",
 		"api-caller",
@@ -859,4 +862,48 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"api-config-watcher",
 	},
+}
+
+type mockAgent struct {
+	agent.Agent
+	conf mockConfig
+}
+
+func (ma *mockAgent) CurrentConfig() agent.Config {
+	return &ma.conf
+}
+
+func (ma *mockAgent) ChangeConfig(f agent.ConfigMutator) error {
+	return f(&ma.conf)
+}
+
+type mockConfig struct {
+	agent.ConfigSetter
+	tag    names.Tag
+	ssiSet bool
+	ssi    params.StateServingInfo
+}
+
+func (mc *mockConfig) Tag() names.Tag {
+	if mc.tag == nil {
+		return names.NewMachineTag("99")
+	}
+	return mc.tag
+}
+
+func (mc *mockConfig) Controller() names.ControllerTag {
+	return testing.ControllerTag
+}
+
+func (mc *mockConfig) StateServingInfo() (params.StateServingInfo, bool) {
+	return mc.ssi, mc.ssiSet
+}
+
+func (mc *mockConfig) SetStateServingInfo(info params.StateServingInfo) {
+	mc.ssiSet = true
+	mc.ssi = info
+}
+
+func (mc *mockConfig) LogDir() string {
+	return "log-dir"
 }
