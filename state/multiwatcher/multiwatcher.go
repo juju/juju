@@ -456,6 +456,7 @@ type ModelInfo struct {
 	Life           Life                   `json:"life"`
 	Owner          string                 `json:"owner"`
 	ControllerUUID string                 `json:"controller-uuid"`
+	IsController   bool                   `json:"is-controller"`
 	Config         map[string]interface{} `json:"config,omitempty"`
 	Status         StatusInfo             `json:"status"`
 	Constraints    constraints.Value      `json:"constraints"`

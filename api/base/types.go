@@ -56,6 +56,7 @@ type ModelInfo struct {
 	UUID            string
 	Type            model.ModelType
 	ControllerUUID  string
+	IsController    bool
 	ProviderType    string
 	DefaultSeries   string
 	Cloud           string
@@ -109,6 +110,7 @@ type UserModelSummary struct {
 	UUID               string
 	Type               model.ModelType
 	ControllerUUID     string
+	IsController       bool
 	ProviderType       string
 	DefaultSeries      string
 	Cloud              string

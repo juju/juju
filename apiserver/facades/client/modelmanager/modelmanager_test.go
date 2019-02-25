@@ -283,6 +283,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"Close",
 		"GetBackend",
 		"Model",
+		"IsController",
 		"AllMachines",
 		"LatestMigration",
 	)
@@ -449,6 +450,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"Close",
 		"GetBackend",
 		"Model",
+		"IsController",
 		"AllMachines",
 		"LatestMigration",
 	)
