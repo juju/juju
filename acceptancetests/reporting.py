@@ -78,9 +78,11 @@ def get_reporting_client(uri):
         password=parsed_uri.password,
         database=DBNAME,
     )
-    try:
-        client.switch_database(DBNAME)
-    except InfluxDBClientError:
-        client.create_database(DBNAME)
-        client.create_retention_policy(POLICYNAME, 'INF', '1', DBNAME)
+
+    # Create DB/retention schema and switch to it. If the
+    # DB already exists then the following calls are no-ops.
+    client.create_database(DBNAME)
+    client.create_retention_policy(POLICYNAME, 'INF', '1', DBNAME)
+
+    client.switch_database(DBNAME)
     return InfluxClient(client)
