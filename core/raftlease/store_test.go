@@ -92,7 +92,7 @@ func (s *storeSuite) TestClaimAborted(c *gc.C) {
 			stopChan := make(chan struct{})
 			go func() {
 				errChan <- s.store.ClaimLeaseAbort(
-					lease.Key{"warframe", "vauban", "prime"},
+					lease.Key{"warframe", "vaubanist", "prime"},
 					lease.Request{"vor", time.Second},
 					stopChan,
 				)
@@ -102,7 +102,8 @@ func (s *storeSuite) TestClaimAborted(c *gc.C) {
 
 			select {
 			case err := <-errChan:
-				c.Check(err, gc.ErrorMatches, `command "claim" on "prime" for "vor" aborted`)
+				c.Check(err, jc.Satisfies, raftlease.IsErrAborted)
+				c.Check(err, gc.ErrorMatches, `command "claim" on "vauban:prime" for "vor" aborted`)
 			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timed out waiting for claim error")
 			}
@@ -112,7 +113,7 @@ func (s *storeSuite) TestClaimAborted(c *gc.C) {
 			Version:   1,
 			Operation: raftlease.OperationClaim,
 			Namespace: "warframe",
-			ModelUUID: "vauban",
+			ModelUUID: "vaubanist",
 			Lease:     "prime",
 			Holder:    "vor",
 			Duration:  time.Second,
@@ -222,6 +223,83 @@ func (s *storeSuite) TestExtend(c *gc.C) {
 	)
 }
 
+func (s *storeSuite) TestExtendLeaseAborted(c *gc.C) {
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			stopChan := make(chan struct{})
+			go func() {
+				errChan <- s.store.ExtendLeaseAbort(
+					lease.Key{"warframe", "frost", "prime"},
+					lease.Request{"konzu", time.Second},
+					stopChan,
+				)
+			}()
+			// Without allowing the time to move forward, abort the request
+			close(stopChan)
+
+			select {
+			case err := <-errChan:
+				c.Check(err, jc.Satisfies, raftlease.IsErrAborted)
+				c.Check(err, gc.ErrorMatches, `command "extend" on "frost:prime" for "konzu" aborted`)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for extend error")
+			}
+		},
+
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationExtend,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+			Holder:    "konzu",
+			Duration:  time.Second,
+		},
+		func(req raftlease.ForwardRequest) {
+			// No response here, as we want it hung waiting to be cancelled
+		},
+	)
+}
+
+func (s *storeSuite) TestExtendLeaseTimeout(c *gc.C) {
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			go func() {
+				errChan <- s.store.ExtendLease(
+					lease.Key{"warframe", "frost", "prime"},
+					lease.Request{"konzu", time.Second},
+				)
+			}()
+
+			// Jump time forward further than the 1-second forward
+			// timeout.
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+
+			select {
+			case err := <-errChan:
+				c.Assert(err, jc.Satisfies, lease.IsTimeout)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for extend timeout error")
+			}
+		},
+
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationExtend,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+			Holder:    "konzu",
+			Duration:  time.Second,
+		},
+		func(req raftlease.ForwardRequest) {
+			// No response here, as we want it hung waiting to be cancelled
+		},
+	)
+}
+
 func (s *storeSuite) TestExpire(c *gc.C) {
 	err := s.store.ExpireLease(
 		lease.Key{"warframe", "oberon", "prime"},
@@ -301,6 +379,79 @@ func (s *storeSuite) TestPin(c *gc.C) {
 	)
 }
 
+func (s *storeSuite) TestPinAborted(c *gc.C) {
+	machine := names.NewMachineTag("0").String()
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			stopChan := make(chan struct{})
+			go func() {
+				errChan <- s.store.PinLeaseAbort(
+					lease.Key{"warframe", "frost", "prime"},
+					machine,
+					stopChan,
+				)
+			}()
+
+			close(stopChan)
+
+			select {
+			case err := <-errChan:
+				c.Check(err, jc.Satisfies, raftlease.IsErrAborted)
+				c.Check(err, gc.ErrorMatches, `command "pin" on "frost:prime" for "" aborted`)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for PinLease timeout error")
+			}
+		},
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationPin,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+			PinEntity: machine,
+		},
+		func(req raftlease.ForwardRequest) {
+			// No response because we abort
+		},
+	)
+}
+
+func (s *storeSuite) TestPinTimeout(c *gc.C) {
+	machine := names.NewMachineTag("0").String()
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			go func() {
+				errChan <- s.store.PinLease(
+					lease.Key{"warframe", "frost", "prime"},
+					machine,
+				)
+			}()
+			// Move time forward so the request is timed out
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+
+			select {
+			case err := <-errChan:
+				c.Assert(err, jc.Satisfies, lease.IsTimeout)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for PinLease timeout error")
+			}
+		},
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationPin,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+			PinEntity: machine,
+		},
+		func(req raftlease.ForwardRequest) {
+			// No response because we timeout
+		},
+	)
+}
+
 func (s *storeSuite) TestUnpin(c *gc.C) {
 	machine := names.NewMachineTag("0").String()
 	s.handleHubRequest(c,
@@ -325,6 +476,77 @@ func (s *storeSuite) TestUnpin(c *gc.C) {
 				raftlease.ForwardResponse{},
 			)
 			c.Check(err, jc.ErrorIsNil)
+		},
+	)
+}
+
+func (s *storeSuite) TestUnpinAborted(c *gc.C) {
+	machine := names.NewMachineTag("0").String()
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			stopChan := make(chan struct{})
+			go func() {
+				errChan <- s.store.UnpinLeaseAbort(
+					lease.Key{"warframe", "frost", "prime"},
+					machine,
+					stopChan,
+				)
+			}()
+
+			close(stopChan)
+
+			select {
+			case err := <-errChan:
+				c.Check(err, jc.Satisfies, raftlease.IsErrAborted)
+				c.Check(err, gc.ErrorMatches, `command "unpin" on "frost:prime" for "" aborted`)
+			case <-time.After(coretesting.LongWait):
+				c.Errorf("timed out waiting for UnpinLease error")
+			}
+		},
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationUnpin,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+			PinEntity: machine,
+		},
+		func(req raftlease.ForwardRequest) {
+		},
+	)
+}
+
+func (s *storeSuite) TestUnpinTimeout(c *gc.C) {
+	machine := names.NewMachineTag("0").String()
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			go func() {
+				errChan <- s.store.UnpinLease(
+					lease.Key{"warframe", "frost", "prime"},
+					machine,
+				)
+			}()
+			// Move time forward so the request is timed out
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+
+			select {
+			case err := <-errChan:
+				c.Check(err, jc.Satisfies, lease.IsTimeout)
+			case <-time.After(coretesting.LongWait):
+				c.Errorf("timed out waiting for UnpinLease timeout error")
+			}
+		},
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationUnpin,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+			PinEntity: machine,
+		},
+		func(req raftlease.ForwardRequest) {
 		},
 	)
 }
@@ -481,6 +703,38 @@ func (s *storeSuite) TestAdvanceTimeout(c *gc.C) {
 			select {
 			case err := <-errChan:
 				c.Assert(err, jc.Satisfies, globalclock.IsTimeout)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for advance error")
+			}
+		},
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationSetTime,
+			OldTime:   fromTime,
+			NewTime:   fromTime.Add(10 * time.Second),
+		},
+		func(raftlease.ForwardRequest) {
+			// No response sent, to trigger the timeout.
+		})
+}
+
+func (s *storeSuite) TestAdvanceAborted(c *gc.C) {
+	fromTime := s.clock.Now()
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			stopChan := make(chan struct{})
+			go func() {
+				errChan <- s.store.AdvanceAbort(10*time.Second, stopChan)
+			}()
+
+			// close the abort channel to stop the request
+			close(stopChan)
+
+			select {
+			case err := <-errChan:
+				c.Check(err, jc.Satisfies, raftlease.IsErrAborted)
+				c.Check(err, gc.ErrorMatches, `command "setTime" aborted`)
 			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timed out waiting for advance error")
 			}

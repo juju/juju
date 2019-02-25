@@ -4,6 +4,7 @@
 package raftlease
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,6 +20,26 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.core.raftlease")
+
+// ErrAborted is returned when a command like ClaimLease is aborted
+type ErrAborted struct {
+	Command Command
+}
+
+func (e *ErrAborted) Error() string {
+	if e.Command.Operation == OperationSetTime {
+		return fmt.Sprintf(`command "setTime" aborted`)
+	}
+	leaseId := fmt.Sprintf("%.6s:%s", e.Command.ModelUUID, e.Command.Lease)
+	return fmt.Sprintf("command %q on %q for %q aborted",
+		e.Command.Operation, leaseId, e.Command.Holder)
+}
+
+func IsErrAborted(err error) bool {
+	err = errors.Cause(err)
+	_, ok := err.(*ErrAborted)
+	return ok
+}
 
 // NotifyTarget defines methods needed to keep an external database
 // updated with who holds leases. (In non-test code the notify target
@@ -91,21 +112,12 @@ func (*Store) Autoexpire() bool { return true }
 
 // ClaimLease is part of lease.Store.
 func (s *Store) ClaimLease(key lease.Key, req lease.Request) error {
-	err := s.runOnLeader(&Command{
-		Version:   CommandVersion,
-		Operation: OperationClaim,
-		Namespace: key.Namespace,
-		ModelUUID: key.ModelUUID,
-		Lease:     key.Lease,
-		Holder:    req.Holder,
-		Duration:  req.Duration,
-	}, nil)
-	return errors.Trace(err)
+	return errors.Trace(s.ClaimLeaseAbort(key, req, nil))
 }
 
 // ClaimLeaseAbort is like ClaimLease but allows cancelling the request early
 func (s *Store) ClaimLeaseAbort(key lease.Key, req lease.Request, stop <-chan struct{}) error {
-	err := s.runOnLeader(&Command{
+	return errors.Trace(s.runOnLeader(&Command{
 		Version:   CommandVersion,
 		Operation: OperationClaim,
 		Namespace: key.Namespace,
@@ -113,12 +125,15 @@ func (s *Store) ClaimLeaseAbort(key lease.Key, req lease.Request, stop <-chan st
 		Lease:     key.Lease,
 		Holder:    req.Holder,
 		Duration:  req.Duration,
-	}, stop)
-	return errors.Trace(err)
+	}, stop))
 }
 
 // ExtendLease is part of lease.Store.
 func (s *Store) ExtendLease(key lease.Key, req lease.Request) error {
+	return errors.Trace(s.ExtendLeaseAbort(key, req, nil))
+}
+
+func (s *Store) ExtendLeaseAbort(key lease.Key, req lease.Request, stop <-chan struct{}) error {
 	return errors.Trace(s.runOnLeader(&Command{
 		Version:   CommandVersion,
 		Operation: OperationExtend,
@@ -127,7 +142,7 @@ func (s *Store) ExtendLease(key lease.Key, req lease.Request) error {
 		Lease:     key.Lease,
 		Holder:    req.Holder,
 		Duration:  req.Duration,
-	}, nil))
+	}, stop))
 }
 
 // ExpireLease is part of lease.Store.
@@ -155,12 +170,20 @@ func (s *Store) Refresh() error {
 
 // PinLease is part of lease.Store.
 func (s *Store) PinLease(key lease.Key, entity string) error {
-	return errors.Trace(s.pinOp(OperationPin, key, entity))
+	return errors.Trace(s.pinOp(OperationPin, key, entity, nil))
+}
+
+func (s *Store) PinLeaseAbort(key lease.Key, entity string, stop <-chan struct{}) error {
+	return errors.Trace(s.pinOp(OperationPin, key, entity, stop))
 }
 
 // UnpinLease is part of lease.Store.
 func (s *Store) UnpinLease(key lease.Key, entity string) error {
-	return errors.Trace(s.pinOp(OperationUnpin, key, entity))
+	return errors.Trace(s.pinOp(OperationUnpin, key, entity, nil))
+}
+
+func (s *Store) UnpinLeaseAbort(key lease.Key, entity string, stop <-chan struct{}) error {
+	return errors.Trace(s.pinOp(OperationUnpin, key, entity, stop))
 }
 
 // Pinned is part of the Store interface.
@@ -168,7 +191,7 @@ func (s *Store) Pinned() map[lease.Key][]string {
 	return s.fsm.Pinned()
 }
 
-func (s *Store) pinOp(operation string, key lease.Key, entity string) error {
+func (s *Store) pinOp(operation string, key lease.Key, entity string, stop <-chan struct{}) error {
 	return errors.Trace(s.runOnLeader(&Command{
 		Version:   CommandVersion,
 		Operation: operation,
@@ -176,11 +199,15 @@ func (s *Store) pinOp(operation string, key lease.Key, entity string) error {
 		ModelUUID: key.ModelUUID,
 		Lease:     key.Lease,
 		PinEntity: entity,
-	}, nil))
+	}, stop))
 }
 
 // Advance is part of globalclock.Updater.
 func (s *Store) Advance(duration time.Duration) error {
+	return errors.Trace(s.AdvanceAbort(duration, nil))
+}
+
+func (s *Store) AdvanceAbort(duration time.Duration, stop <-chan struct{}) error {
 	s.prevTimeMu.Lock()
 	defer s.prevTimeMu.Unlock()
 	newTime := s.prevTime.Add(duration)
@@ -189,7 +216,7 @@ func (s *Store) Advance(duration time.Duration) error {
 		Operation: OperationSetTime,
 		OldTime:   s.prevTime,
 		NewTime:   newTime,
-	}, nil)
+	}, stop)
 	if globalclock.IsConcurrentUpdate(err) {
 		// Someone else updated before us - get the new time.
 		s.prevTime = s.fsm.GlobalTime()
@@ -261,7 +288,7 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 		s.record(command.Operation, result, start)
 		return err
 	case <-stop:
-		return errors.Errorf("command %q on %q for %q aborted", command.Operation, command.Lease, command.Holder)
+		return &ErrAborted{Command: *command}
 	}
 }
 
