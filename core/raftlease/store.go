@@ -21,24 +21,19 @@ import (
 
 var logger = loggo.GetLogger("juju.core.raftlease")
 
-// ErrAborted is returned when a command like ClaimLease is aborted
-type ErrAborted struct {
-	Command Command
-}
-
-func (e *ErrAborted) Error() string {
-	if e.Command.Operation == OperationSetTime {
-		return fmt.Sprintf(`command "setTime" aborted`)
+func aborted(command *Command) error {
+	switch command.Operation {
+	case OperationSetTime:
+		return errors.Annotatef(lease.ErrAborted, "setTime")
+	case OperationPin, OperationUnpin:
+		leaseId := fmt.Sprintf("%.6s:%s", command.ModelUUID, command.Lease)
+		return errors.Annotatef(lease.ErrAborted, "%q on %q",
+			command.Operation, leaseId)
+	default:
+		leaseId := fmt.Sprintf("%.6s:%s", command.ModelUUID, command.Lease)
+		return errors.Annotatef(lease.ErrAborted, "%q on %q for %q",
+			command.Operation, leaseId, command.Holder)
 	}
-	leaseId := fmt.Sprintf("%.6s:%s", e.Command.ModelUUID, e.Command.Lease)
-	return fmt.Sprintf("command %q on %q for %q aborted",
-		e.Command.Operation, leaseId, e.Command.Holder)
-}
-
-func IsErrAborted(err error) bool {
-	err = errors.Cause(err)
-	_, ok := err.(*ErrAborted)
-	return ok
 }
 
 // NotifyTarget defines methods needed to keep an external database
@@ -111,12 +106,7 @@ type Store struct {
 func (*Store) Autoexpire() bool { return true }
 
 // ClaimLease is part of lease.Store.
-func (s *Store) ClaimLease(key lease.Key, req lease.Request) error {
-	return errors.Trace(s.ClaimLeaseAbort(key, req, nil))
-}
-
-// ClaimLeaseAbort is like ClaimLease but allows cancelling the request early
-func (s *Store) ClaimLeaseAbort(key lease.Key, req lease.Request, stop <-chan struct{}) error {
+func (s *Store) ClaimLease(key lease.Key, req lease.Request, stop <-chan struct{}) error {
 	return errors.Trace(s.runOnLeader(&Command{
 		Version:   CommandVersion,
 		Operation: OperationClaim,
@@ -129,11 +119,7 @@ func (s *Store) ClaimLeaseAbort(key lease.Key, req lease.Request, stop <-chan st
 }
 
 // ExtendLease is part of lease.Store.
-func (s *Store) ExtendLease(key lease.Key, req lease.Request) error {
-	return errors.Trace(s.ExtendLeaseAbort(key, req, nil))
-}
-
-func (s *Store) ExtendLeaseAbort(key lease.Key, req lease.Request, stop <-chan struct{}) error {
+func (s *Store) ExtendLease(key lease.Key, req lease.Request, stop <-chan struct{}) error {
 	return errors.Trace(s.runOnLeader(&Command{
 		Version:   CommandVersion,
 		Operation: OperationExtend,
@@ -169,20 +155,12 @@ func (s *Store) Refresh() error {
 }
 
 // PinLease is part of lease.Store.
-func (s *Store) PinLease(key lease.Key, entity string) error {
-	return errors.Trace(s.pinOp(OperationPin, key, entity, nil))
-}
-
-func (s *Store) PinLeaseAbort(key lease.Key, entity string, stop <-chan struct{}) error {
+func (s *Store) PinLease(key lease.Key, entity string, stop <-chan struct{}) error {
 	return errors.Trace(s.pinOp(OperationPin, key, entity, stop))
 }
 
 // UnpinLease is part of lease.Store.
-func (s *Store) UnpinLease(key lease.Key, entity string) error {
-	return errors.Trace(s.pinOp(OperationUnpin, key, entity, nil))
-}
-
-func (s *Store) UnpinLeaseAbort(key lease.Key, entity string, stop <-chan struct{}) error {
+func (s *Store) UnpinLease(key lease.Key, entity string, stop <-chan struct{}) error {
 	return errors.Trace(s.pinOp(OperationUnpin, key, entity, stop))
 }
 
@@ -203,11 +181,7 @@ func (s *Store) pinOp(operation string, key lease.Key, entity string, stop <-cha
 }
 
 // Advance is part of globalclock.Updater.
-func (s *Store) Advance(duration time.Duration) error {
-	return errors.Trace(s.AdvanceAbort(duration, nil))
-}
-
-func (s *Store) AdvanceAbort(duration time.Duration, stop <-chan struct{}) error {
+func (s *Store) Advance(duration time.Duration, stop <-chan struct{}) error {
 	s.prevTimeMu.Lock()
 	defer s.prevTimeMu.Unlock()
 	newTime := s.prevTime.Add(duration)
@@ -288,7 +262,7 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 		s.record(command.Operation, result, start)
 		return err
 	case <-stop:
-		return &ErrAborted{Command: *command}
+		return aborted(command)
 	}
 }
 

@@ -19,13 +19,13 @@ type Store interface {
 	// it succeeds, the claim is guaranteed until at least the supplied duration
 	// after the call to ClaimLease was initiated. If it returns ErrInvalid,
 	// check Leases() for updated state.
-	ClaimLease(lease Key, request Request) error
+	ClaimLease(lease Key, request Request, stop <-chan struct{}) error
 
 	// ExtendLease records the supplied holder's continued claim to the supplied
 	// lease, if necessary. If it succeeds, the claim is guaranteed until at
 	// least the supplied duration after the call to ExtendLease was initiated.
 	// If it returns ErrInvalid, check Leases() for updated state.
-	ExtendLease(lease Key, request Request) error
+	ExtendLease(lease Key, request Request, stop <-chan struct{}) error
 
 	// ExpireLease records the vacation of the supplied lease. It will fail if
 	// we cannot verify that the lease's writer considers the expiry time to
@@ -46,12 +46,12 @@ type Store interface {
 	// the recipient of the pin behaviour.
 	// The input entity denotes the party responsible for the
 	// pinning operation.
-	PinLease(lease Key, entity string) error
+	PinLease(lease Key, entity string, stop <-chan struct{}) error
 
 	// Unpin reverses a Pin operation for the same key and entity.
 	// Normal expiry behaviour is restored when no entities remain with
 	// pins for the application.
-	UnpinLease(lease Key, entity string) error
+	UnpinLease(lease Key, entity string, stop <-chan struct{}) error
 
 	// Pinned returns a snapshot of pinned leases.
 	// The return consists of each pinned lease and the collection of entities
@@ -151,6 +151,10 @@ var (
 	// a transient error due to changes in the cluster, and indicates that
 	// the operation should be retried.
 	ErrTimeout = errors.New("lease operation timed out")
+
+	// ErrAborted indicates that the stop channel returned before the operation
+	// succeeded or failed.
+	ErrAborted = errors.New("lease operation aborted")
 )
 
 // IsInvalid returns whether the specified error represents ErrInvalid
@@ -163,4 +167,10 @@ func IsInvalid(err error) bool {
 // (even if it's wrapped).
 func IsTimeout(err error) bool {
 	return errors.Cause(err) == ErrTimeout
+}
+
+// IsAborted returns whether the specified error represents ErrAborted
+// (even if it's wrapped).
+func IsAborted(err error) bool {
+	return errors.Cause(err) == ErrAborted
 }

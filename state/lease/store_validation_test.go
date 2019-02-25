@@ -63,37 +63,37 @@ func (s *StoreValidationSuite) TestNewStoreGlobalClock(c *gc.C) {
 
 func (s *StoreValidationSuite) TestClaimLeaseName(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Store.ClaimLease(key("$name"), corelease.Request{"holder", time.Minute})
+	err := fix.Store.ClaimLease(key("$name"), corelease.Request{"holder", time.Minute}, nil)
 	c.Check(err, gc.ErrorMatches, "invalid name: string contains forbidden characters")
 }
 
 func (s *StoreValidationSuite) TestClaimLeaseHolder(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Store.ClaimLease(key("name"), corelease.Request{"$holder", time.Minute})
+	err := fix.Store.ClaimLease(key("name"), corelease.Request{"$holder", time.Minute}, nil)
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid holder: string contains forbidden characters")
 }
 
 func (s *StoreValidationSuite) TestClaimLeaseDuration(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Store.ClaimLease(key("name"), corelease.Request{"holder", 0})
+	err := fix.Store.ClaimLease(key("name"), corelease.Request{"holder", 0}, nil)
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid duration")
 }
 
 func (s *StoreValidationSuite) TestExtendLeaseName(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Store.ExtendLease(key("$name"), corelease.Request{"holder", time.Minute})
+	err := fix.Store.ExtendLease(key("$name"), corelease.Request{"holder", time.Minute}, nil)
 	c.Check(err, gc.ErrorMatches, "invalid name: string contains forbidden characters")
 }
 
 func (s *StoreValidationSuite) TestExtendLeaseHolder(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Store.ExtendLease(key("name"), corelease.Request{"$holder", time.Minute})
+	err := fix.Store.ExtendLease(key("name"), corelease.Request{"$holder", time.Minute}, nil)
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid holder: string contains forbidden characters")
 }
 
 func (s *StoreValidationSuite) TestExtendLeaseDuration(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Store.ExtendLease(key("name"), corelease.Request{"holder", 0})
+	err := fix.Store.ExtendLease(key("name"), corelease.Request{"holder", 0}, nil)
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid duration")
 }
 

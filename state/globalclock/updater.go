@@ -59,7 +59,7 @@ type Updater struct {
 // should obtain a new Updater. Failing to do so could lead
 // to non-monotonic time, since there is no way of knowing in
 // general whether or not the database was updated.
-func (u *Updater) Advance(d time.Duration) error {
+func (u *Updater) Advance(d time.Duration, _ <-chan struct{}) error {
 	if d < 0 {
 		return errors.NotValidf("duration %s", d)
 	}
