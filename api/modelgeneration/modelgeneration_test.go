@@ -5,6 +5,7 @@ package modelgeneration_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
@@ -167,4 +168,30 @@ func (s *modelGenerationSuite) TestHasNextGeneration(c *gc.C) {
 	has, err := api.HasNextGeneration(s.tag.Id())
 	c.Assert(err, gc.IsNil)
 	c.Check(has, jc.IsTrue)
+}
+
+func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	resultSource := params.GenerationResult{
+		Applications: []params.GenerationApplication{
+			{
+				ApplicationName: "redis",
+				Units:           []string{"redis/0"},
+				ConfigChanges:   map[string]interface{}{"databases": 8},
+			},
+		},
+	}
+	arg := params.Entity{Tag: s.tag.String()}
+
+	s.fCaller.EXPECT().FacadeCall("GenerationInfo", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	api := modelgeneration.NewStateFromCaller(s.fCaller)
+	apps, err := api.GenerationInfo(s.tag.Id())
+	c.Assert(err, gc.IsNil)
+	c.Check(apps, jc.DeepEquals, []model.GenerationApplication{{
+		ApplicationName: "redis",
+		Units:           []string{"redis/0"},
+		ConfigChanges:   map[string]interface{}{"databases": 8},
+	}})
 }

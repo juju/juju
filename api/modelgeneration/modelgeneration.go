@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -103,6 +104,33 @@ func (c *Client) HasNextGeneration(modelUUID string) (bool, error) {
 	return result.Result, nil
 }
 
+// GenerationInfo returns a list of application with changes in the "next"
+// generation, with units moved to the generation, and any generational
+// configuration changes.
+func (c *Client) GenerationInfo(modelUUID string) ([]model.GenerationApplication, error) {
+	var result params.GenerationResult
+	err := c.facade.FacadeCall("GenerationInfo", argForModel(modelUUID), &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	return generationApplicationFromDTO(result.Applications), nil
+}
+
 func argForModel(modelUUID string) params.Entity {
 	return params.Entity{Tag: names.NewModelTag(modelUUID).String()}
+}
+
+func generationApplicationFromDTO(apps []params.GenerationApplication) []model.GenerationApplication {
+	results := make([]model.GenerationApplication, len(apps))
+	for i, a := range apps {
+		results[i] = model.GenerationApplication{
+			ApplicationName: a.ApplicationName,
+			Units:           a.Units,
+			ConfigChanges:   a.ConfigChanges,
+		}
+	}
+	return results
 }
