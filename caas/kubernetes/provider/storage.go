@@ -22,7 +22,7 @@ import (
 const (
 	// K8s_ProviderType defines the Juju storage type which can be used
 	// to provision storage on k8s models.
-	K8s_ProviderType = storage.ProviderType("kubernetes")
+	K8s_ProviderType = storage.ProviderType(CAASProviderType)
 
 	// K8s storage pool attributes.
 	storageClass       = "storage-class"

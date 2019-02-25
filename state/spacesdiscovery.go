@@ -31,7 +31,7 @@ func (st *State) getModelSubnets() (set.Strings, error) {
 
 // ReloadSpaces loads spaces and subnets from provider specified by environ into state.
 // Currently it's an append-only operation, no spaces/subnets are deleted.
-func (st *State) ReloadSpaces(environ environs.Environ) error {
+func (st *State) ReloadSpaces(environ environs.BootstrapEnviron) error {
 	netEnviron, ok := environs.SupportsNetworking(environ)
 	if !ok {
 		return errors.NotSupportedf("spaces discovery in a non-networking environ")

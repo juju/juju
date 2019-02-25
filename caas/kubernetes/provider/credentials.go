@@ -88,7 +88,7 @@ func (environProviderCredentials) supportedAuthTypes() cloud.AuthTypes {
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
-	clientConfigFunc, err := clientconfig.NewClientConfigReader("kubernetes")
+	clientConfigFunc, err := clientconfig.NewClientConfigReader(CAASProviderType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

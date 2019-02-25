@@ -253,6 +253,9 @@ type Config interface {
 	// the key is not found.
 	Value(key string) string
 
+	// ProviderType returns the value associated with PROVIDER_TYPE.
+	ProviderType() string
+
 	// Model returns the tag for the model that the agent belongs to.
 	Model() names.ModelTag
 
@@ -671,6 +674,10 @@ func (c *configInternal) CACert() string {
 
 func (c *configInternal) Value(key string) string {
 	return c.values[key]
+}
+
+func (c *configInternal) ProviderType() string {
+	return c.Value(ProviderType)
 }
 
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {

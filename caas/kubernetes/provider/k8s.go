@@ -1248,7 +1248,7 @@ func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 func (k *kubernetesClient) configureStorage(
 	podSpec *core.PodSpec, statefulSet *apps.StatefulSetSpec, appName, randPrefix string, legacy bool, filesystems []storage.KubernetesFilesystemParams,
 ) error {
-	baseDir, err := paths.StorageDir("kubernetes")
+	baseDir, err := paths.StorageDir(CAASProviderType)
 	if err != nil {
 		return errors.Trace(err)
 	}

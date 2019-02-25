@@ -26,6 +26,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/caas"
+	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
@@ -100,8 +102,12 @@ func (c *BootstrapCommand) Init(args []string) error {
 	return c.AgentConf.CheckArgs(args[1:])
 }
 
-// EnvironsNew defines function used to get reference to an underlying cloud provider.
-var EnvironsNew = environs.New
+var (
+	// EnvironsNewIAAS defines function used to get reference to an underlying IAAS cloud provider.
+	EnvironsNewIAAS = environs.New
+	// EnvironsNewCAAS defines function used to get reference to an underlying CAAS cloud provider.
+	EnvironsNewCAAS = caas.New
+)
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
@@ -113,6 +119,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err := args.Unmarshal(bootstrapParamsData); err != nil {
 		return errors.Trace(err)
 	}
+	isCAASController := args.ControllerCloud.Type == caasprovider.CAASProviderType
 
 	err = c.ReadConfig("machine-0")
 	if err != nil {
@@ -140,19 +147,33 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	env, err := EnvironsNew(environs.OpenParams{
+
+	openParams := environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: args.ControllerModelConfig,
-	})
-	if err != nil {
-		return errors.Annotate(err, "new environ")
 	}
+	var env environs.BootstrapEnviron
+	if isCAASController {
+		env, err = EnvironsNewCAAS(openParams)
+	} else {
+		env, err = EnvironsNewIAAS(openParams)
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	newConfigAttrs := make(map[string]interface{})
 
 	// Check to see if a newer agent version has been requested
 	// by the bootstrap client.
 	desiredVersion, ok := args.ControllerModelConfig.AgentVersion()
 	if ok && desiredVersion != jujuversion.Current {
+		if isCAASController {
+			// For CAAS, the agent-version in controller config should
+			// always equals to current juju version.
+			return errors.NotSupportedf("desired juju version for CAAS")
+		}
+
 		// If we have been asked for a newer version, ensure the newer
 		// tools can actually be found, or else bootstrap won't complete.
 		streams := envtools.PreferredStreams(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
@@ -189,26 +210,34 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		logger.Errorf("Cloud credential %q is not accepted by cloud provider: %v", args.ControllerCloudCredentialName, reason)
 		return nil
 	}
+	addrs := []network.Address{network.NewAddress("127.0.0.1")}
+	if !isCAASController {
+		instanceLister, ok := env.(environs.InstanceLister)
+		if !ok {
+			// this should never happend.
+			return errors.NotValidf("InstanceLister missing for IAAS controller provider")
+		}
+		instances, err := instanceLister.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
+		if err != nil {
+			return errors.Annotate(err, "getting bootstrap instance")
+		}
+		addrs, err = instances[0].Addresses(callCtx)
+		if err != nil {
+			return errors.Annotate(err, "bootstrap instance addresses")
+		}
 
-	instances, err := env.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
-	if err != nil {
-		return errors.Annotate(err, "getting bootstrap instance")
+		// When machine addresses are reported from state, they have
+		// duplicates removed.  We should do the same here so that
+		// there is not unnecessary churn in the mongo replicaset.
+		// TODO (cherylj) Add explicit unit tests for this - tracked
+		// by bug #1544158.
+		addrs = network.MergedAddresses([]network.Address{}, addrs)
 	}
-	addrs, err := instances[0].Addresses(callCtx)
-	if err != nil {
-		return errors.Annotate(err, "bootstrap instance addresses")
-	}
-
-	// When machine addresses are reported from state, they have
-	// duplicates removed.  We should do the same here so that
-	// there is not unnecessary churn in the mongo replicaset.
-	// TODO (cherylj) Add explicit unit tests for this - tracked
-	// by bug #1544158.
-	addrs = network.MergedAddresses([]network.Address{}, addrs)
 
 	// Generate a private SSH key for the controllers, and add
 	// the public key to the environment config. We'll add the
 	// private key to StateServingInfo below.
+	// TODO(bootstrap): review why we removed config.JujuSystemKey in cli for CAAS?
 	privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
 	if err != nil {
 		return errors.Annotate(err, "failed to generate system key")
@@ -248,7 +277,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.startMongo(addrs, agentConfig); err != nil {
+	if err := c.startMongo(isCAASController, addrs, agentConfig); err != nil {
 		return errors.Annotate(err, "failed to start mongo")
 	}
 
@@ -321,9 +350,17 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	// Populate the tools catalogue.
-	if err := c.populateTools(st, env); err != nil {
-		return err
+	if !isCAASController {
+		// Populate the tools catalogue.
+		if err := c.populateTools(st, env); err != nil {
+			return errors.Trace(err)
+		}
+		// Add custom image metadata to environment storage.
+		if len(args.CustomImageMetadata) > 0 {
+			if err := c.saveCustomImageMetadata(st, env, args.CustomImageMetadata); err != nil {
+				return err
+			}
+		}
 	}
 
 	// Populate the GUI archive catalogue.
@@ -334,18 +371,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		logger.Debugf("Juju GUI successfully set up")
 	}
 
-	// Add custom image metadata to environment storage.
-	if len(args.CustomImageMetadata) > 0 {
-		if err := c.saveCustomImageMetadata(st, env, args.CustomImageMetadata); err != nil {
-			return err
-		}
-	}
-
 	// bootstrap machine always gets the vote
 	return m.SetHasVote(true)
 }
 
-func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent.Config) error {
+func (c *BootstrapCommand) startMongo(isCAASController bool, addrs []network.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
 	info, ok := agentConfig.MongoInfo()
@@ -374,19 +404,25 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 		net.JoinHostPort("localhost", fmt.Sprint(servingInfo.StatePort)),
 	}
 
-	logger.Debugf("calling ensureMongoServer")
-	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
-	if err != nil {
-		return err
-	}
-	_, err = cmdutil.EnsureMongoServer(ensureServerParams)
-	if err != nil {
-		return err
+	if !isCAASController {
+		// TODO(bootstrap): recheck if the cert, keys, etc have been updated after k8s template generated.
+		logger.Debugf("calling ensureMongoServer")
+		ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
+		if err != nil {
+			return err
+		}
+		_, err = cmdutil.EnsureMongoServer(ensureServerParams)
+		if err != nil {
+			return err
+		}
 	}
 
-	peerAddr := mongo.SelectPeerAddress(addrs)
-	if peerAddr == "" {
-		return fmt.Errorf("no appropriate peer address found in %q", addrs)
+	peerAddr := "127.0.0.1"
+	if !isCAASController {
+		peerAddr = mongo.SelectPeerAddress(addrs)
+		if peerAddr == "" {
+			return fmt.Errorf("no appropriate peer address found in %q", addrs)
+		}
 	}
 	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
@@ -402,7 +438,7 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 
 // populateTools stores uploaded tools in provider storage
 // and updates the tools metadata.
-func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) error {
+func (c *BootstrapCommand) populateTools(st *state.State, env environs.BootstrapEnviron) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
@@ -468,7 +504,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 
 // populateGUIArchive stores the uploaded Juju GUI archive in provider storage,
 // updates the GUI metadata and set the current Juju GUI version.
-func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Environ) error {
+func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.BootstrapEnviron) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 	guistorage, err := st.GUIStorage()
@@ -502,13 +538,13 @@ func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Envi
 var seriesFromVersion = series.VersionSeries
 
 // saveCustomImageMetadata stores the custom image metadata to the database,
-func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ, imageMetadata []*imagemetadata.ImageMetadata) error {
+func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.BootstrapEnviron, imageMetadata []*imagemetadata.ImageMetadata) error {
 	logger.Debugf("saving custom image metadata")
 	return storeImageMetadataInState(st, env, "custom", simplestreams.CUSTOM_CLOUD_DATA, imageMetadata)
 }
 
 // storeImageMetadataInState writes image metadata into state store.
-func storeImageMetadataInState(st *state.State, env environs.Environ, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
+func storeImageMetadataInState(st *state.State, env environs.BootstrapEnviron, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
 	if len(existingMetadata) == 0 {
 		return nil
 	}

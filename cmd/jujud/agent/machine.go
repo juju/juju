@@ -99,9 +99,11 @@ var (
 	useMultipleCPUs   = utils.UseMultipleCPUs
 	reportOpenedState = func(*state.State) {}
 
-	caasModelManifolds = model.CAASManifolds
-	iaasModelManifolds = model.IAASManifolds
-	machineManifolds   = machine.Manifolds
+	caasModelManifolds   = model.CAASManifolds
+	iaasModelManifolds   = model.IAASManifolds
+	machineManifolds     = machine.Manifolds
+	caasMachineManifolds = machine.CAASManifolds
+	iaasMachineManifolds = machine.IAASManifolds
 )
 
 // Variable to override in tests, default is true

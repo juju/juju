@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -110,29 +111,40 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	}
 	model, err := st.Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	configGetter := stateenvirons.EnvironConfigGetter{st, model}
-	env, err := environs.GetEnviron(configGetter, environs.New)
-	if err != nil {
-		return nil, err
-	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
+	var storageProviderRegistry storage.ProviderRegistry
+	if model.Type() == state.ModelTypeCAAS {
+		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		storageProviderRegistry = stateenvirons.NewStorageProviderRegistry(broker)
+	} else {
+		env, err := environs.GetEnviron(configGetter, environs.New)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		storageProviderRegistry = stateenvirons.NewStorageProviderRegistry(env)
+	}
+
+	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	callCtx := state.CallContext(st)
 	return &ProvisionerAPI{
-		Remover:                 common.NewRemover(st, false, getAuthFunc),
-		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
-		StatusGetter:            common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:             common.NewDeadEnsurer(st, getAuthFunc),
-		PasswordChanger:         common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
-		StateAddresser:          common.NewStateAddresser(st),
-		APIAddresser:            common.NewAPIAddresser(st, resources),
-		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
-		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
-		ControllerConfigAPI:     common.NewStateControllerConfig(st),
+		Remover:              common.NewRemover(st, false, getAuthFunc),
+		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
+		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
+		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc),
+		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
+		StateAddresser:       common.NewStateAddresser(st),
+		APIAddresser:         common.NewAPIAddresser(st, resources),
+		ModelWatcher:         common.NewModelWatcher(model, resources, authorizer),
+		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
+		ControllerConfigAPI:  common.NewStateControllerConfig(st),
+		// TODO(bootstrap): should we disable InstanceIdGetter, ToolsFinder, ToolsGetter etc for CAAS?
 		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
 		ToolsFinder:             common.NewToolsFinder(configGetter, st, urlGetter),
 		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),

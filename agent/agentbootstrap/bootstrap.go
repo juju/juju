@@ -120,10 +120,18 @@ func InitializeState(
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	ctlr, err := state.Initialize(state.InitializeParams{
+
+	modelType := state.ModelTypeIAAS
+	hasHostedModel := true
+	if cloud.CloudIsCAAS(args.ControllerCloud) {
+		modelType = state.ModelTypeCAAS
+		// CAAS controller does NOT have hosted model.
+		hasHostedModel = false
+	}
+	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
-			Type:                    state.ModelTypeIAAS,
+			Type:                    modelType,
 			Owner:                   adminUser,
 			Config:                  args.ControllerModelConfig,
 			Constraints:             args.ModelConstraints,
@@ -148,7 +156,7 @@ func InitializeState(
 	logger.Debugf("connected to initial state")
 	defer func() {
 		if resultErr != nil {
-			ctlr.Close()
+			ctrl.Close()
 		}
 	}()
 	servingInfo.SharedSecret = args.SharedSecret
@@ -156,7 +164,7 @@ func InitializeState(
 
 	// Filter out any LXC or LXD bridge addresses from the machine addresses.
 	args.BootstrapMachineAddresses = network.FilterBridgeAddresses(args.BootstrapMachineAddresses)
-	st := ctlr.SystemState()
+	st := ctrl.SystemState()
 	if err = initAPIHostPorts(c, st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
 	}
@@ -169,6 +177,22 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "cannot initialize bootstrap machine")
 	}
 
+	if hasHostedModel {
+		if err := ensureHostedModel(args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
+			return nil, nil, errors.Annotate(err, "ensuring hosted model")
+		}
+	}
+	return ctrl, m, nil
+}
+
+// ensureHostedModel ensures hosted model (IAAS controller only).
+func ensureHostedModel(
+	args InitializeStateParams,
+	st *state.State,
+	ctrl *state.Controller,
+	adminUser names.UserTag,
+	cloudCredentialTag names.CloudCredentialTag,
+) error {
 	// Create the initial hosted model, with the model config passed to
 	// bootstrap, which contains the UUID, name for the hosted model,
 	// and any user supplied config. We also copy the authorized-keys
@@ -186,7 +210,7 @@ func InitializeState(
 		args.ControllerCloudCredential,
 	)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	controllerUUID := args.ControllerConfig.ControllerUUID()
@@ -195,18 +219,18 @@ func InitializeState(
 		cloudSpec, args.ControllerModelConfig, attrs,
 	)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "creating hosted model config")
+		return errors.Annotate(err, "creating hosted model config")
 	}
 	provider, err := args.Provider(cloudSpec.Type)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting environ provider")
+		return errors.Annotate(err, "getting environ provider")
 	}
 	hostedModelEnv, err := environs.Open(provider, environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: hostedModelConfig,
 	})
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "opening hosted model environment")
+		return errors.Annotate(err, "opening hosted model environment")
 	}
 
 	if err := hostedModelEnv.Create(
@@ -214,10 +238,10 @@ func InitializeState(
 		environs.CreateParams{
 			ControllerUUID: controllerUUID,
 		}); err != nil {
-		return nil, nil, errors.Annotate(err, "creating hosted model environment")
+		return errors.Annotate(err, "creating hosted model environment")
 	}
 
-	model, hostedModelState, err := ctlr.NewModel(state.ModelArgs{
+	model, hostedModelState, err := ctrl.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		Owner:                   adminUser,
 		Config:                  hostedModelConfig,
@@ -229,13 +253,13 @@ func InitializeState(
 		EnvironVersion:          hostedModelEnv.Provider().Version(),
 	})
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "creating hosted model")
+		return errors.Annotate(err, "creating hosted model")
 	}
 
 	defer hostedModelState.Close()
 
 	if err := model.AutoConfigureContainerNetworking(hostedModelEnv); err != nil {
-		return nil, nil, errors.Annotate(err, "autoconfiguring container networking")
+		return errors.Annotate(err, "autoconfiguring container networking")
 	}
 
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
@@ -243,11 +267,10 @@ func InitializeState(
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
-			return nil, nil, errors.Annotate(err, "fetching hosted model spaces")
+			return errors.Annotate(err, "fetching hosted model spaces")
 		}
 	}
-
-	return ctlr, m, nil
+	return nil
 }
 
 func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
@@ -292,7 +315,11 @@ func initMongo(info mongo.Info, dialOpts mongo.DialOpts, password string) (*mgo.
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
 func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args InitializeStateParams) (*state.Machine, error) {
-	logger.Infof("initialising bootstrap machine with config: %+v", args)
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Infof("initialising bootstrap machine for %q model with config: %+v", model.Type(), args)
 
 	jobs := make([]state.MachineJob, len(args.BootstrapMachineJobs))
 	for i, job := range args.BootstrapMachineJobs {

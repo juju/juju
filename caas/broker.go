@@ -140,9 +140,6 @@ type Broker interface {
 	// NamespaceWatcher provides the API to watch caas namespace.
 	NamespaceWatcher
 
-	// ProviderRegistry is an interface for obtaining storage providers.
-	storage.ProviderRegistry
-
 	// InstancePrechecker provides a means of "prechecking" placement
 	// arguments before recording them in state.
 	environs.InstancePrechecker
