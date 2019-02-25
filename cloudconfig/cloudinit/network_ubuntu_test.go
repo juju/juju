@@ -203,17 +203,17 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
       echo "No /sbin/ifup, applying netplan configuration."
       netplan generate
       netplan apply
-      exit 0
-  fi
-  if [ -f /usr/bin/python ]; then
-      python %[2]s --interfaces-file %[1]s --output-file %[1]s.out
   else
-      python3 %[2]s --interfaces-file %[1]s --output-file %[1]s.out
+    if [ -f /usr/bin/python ]; then
+        python %[2]s --interfaces-file %[1]s --output-file %[1]s.out
+    else
+        python3 %[2]s --interfaces-file %[1]s --output-file %[1]s.out
+    fi
+    ifdown -a
+    sleep 1.5
+    mv %[1]s.out %[1]s
+    ifup -a
   fi
-  ifdown -a
-  sleep 1.5
-  mv %[1]s.out %[1]s
-  ifup -a
 `[1:]
 	s.expectedFullNetplanYaml = `
 - install -D -m 644 /dev/null '%[1]s'
