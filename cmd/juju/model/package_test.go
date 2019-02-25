@@ -6,7 +6,13 @@ package model_test
 import (
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/jujuclient"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 // None of the tests in this package require mongo.
@@ -14,4 +20,27 @@ import (
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
+}
+
+type generationBaseSuite struct {
+	jujutesting.FakeJujuXDGDataHomeSuite
+	store *jujuclient.MemStore
+}
+
+func (s *generationBaseSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.Generations)
+	s.store = jujuclient.NewMemStore()
+	s.store.CurrentControllerName = "testing"
+	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
+	s.store.Accounts["testing"] = jujuclient.AccountDetails{
+		User: "admin",
+	}
+	err := s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
+		ModelUUID:       jujutesting.ModelTag.Id(),
+		ModelType:       model.IAAS,
+		ModelGeneration: model.GenerationCurrent,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.store.Models["testing"].CurrentModel = "admin/mymodel"
 }
