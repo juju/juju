@@ -133,6 +133,7 @@ type ModelInfo struct {
 	Type               string `json:"type"`
 	UUID               string `json:"uuid"`
 	ControllerUUID     string `json:"controller-uuid"`
+	IsController       bool   `json:"is-controller"`
 	ProviderType       string `json:"provider-type,omitempty"`
 	DefaultSeries      string `json:"default-series,omitempty"`
 	CloudTag           string `json:"cloud-tag"`
@@ -175,6 +176,7 @@ type ModelSummary struct {
 	UUID               string `json:"uuid"`
 	Type               string `json:"type"`
 	ControllerUUID     string `json:"controller-uuid"`
+	IsController       bool   `json:"is-controller"`
 	ProviderType       string `json:"provider-type,omitempty"`
 	DefaultSeries      string `json:"default-series,omitempty"`
 	CloudTag           string `json:"cloud-tag"`

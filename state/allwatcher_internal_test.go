@@ -1413,6 +1413,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						Life:           multiwatcher.Life("alive"),
 						Owner:          model.Owner().Id(),
 						ControllerUUID: model.ControllerUUID(),
+						IsController:   model.IsControllerModel(),
 						Config:         cfg.AllAttrs(),
 						Constraints:    cons,
 						Status: multiwatcher.StatusInfo{
@@ -1443,6 +1444,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						Life:           multiwatcher.Life("alive"),
 						Owner:          model.Owner().Id(),
 						ControllerUUID: model.ControllerUUID(),
+						IsController:   model.IsControllerModel(),
 						Config:         cfg.AllAttrs(),
 						Status: multiwatcher.StatusInfo{
 							Current: status.Status,
@@ -1466,6 +1468,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						Life:           multiwatcher.Life("alive"),
 						Owner:          model.Owner().Id(),
 						ControllerUUID: model.ControllerUUID(),
+						IsController:   model.IsControllerModel(),
 						Config:         cfg.AllAttrs(),
 						Status: multiwatcher.StatusInfo{
 							Current: status.Status,
@@ -1558,6 +1561,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 			Life:           multiwatcher.Life("alive"),
 			Owner:          model.Owner().Id(),
 			ControllerUUID: model.ControllerUUID(),
+			IsController:   model.IsControllerModel(),
 			Config:         cfg.AllAttrs(),
 			Status: multiwatcher.StatusInfo{
 				Current: status.Status,
@@ -1575,6 +1579,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 			Life:           multiwatcher.Life("alive"),
 			Owner:          model1.Owner().Id(),
 			ControllerUUID: model1.ControllerUUID(),
+			IsController:   model1.IsControllerModel(),
 			Config:         cfg1.AllAttrs(),
 			Status: multiwatcher.StatusInfo{
 				Current: status1.Status,
@@ -1716,6 +1721,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Life:           "alive",
 			Owner:          model0.Owner().Id(),
 			ControllerUUID: model0.ControllerUUID(),
+			IsController:   model0.IsControllerModel(),
 			Config:         cfg0.AllAttrs(),
 			Status: multiwatcher.StatusInfo{
 				Current: status0.Status,
@@ -1734,6 +1740,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Life:           "alive",
 			Owner:          model1.Owner().Id(),
 			ControllerUUID: model1.ControllerUUID(),
+			IsController:   model1.IsControllerModel(),
 			Config:         cfg1.AllAttrs(),
 			Status: multiwatcher.StatusInfo{
 				Current: status1.Status,
@@ -1966,6 +1973,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Life:           "alive",
 			Owner:          model2.Owner().Id(),
 			ControllerUUID: model2.ControllerUUID(),
+			IsController:   model2.IsControllerModel(),
 			Config:         cfg2.AllAttrs(),
 			Status: multiwatcher.StatusInfo{
 				Current: "available",
