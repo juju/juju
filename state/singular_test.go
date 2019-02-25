@@ -76,7 +76,7 @@ func (s *SingularSuite) TestExpire(c *gc.C) {
 
 	g, err := s.State.GlobalClockUpdater()
 	c.Assert(err, jc.ErrorIsNil)
-	err = g.Advance(coretesting.ShortWait)
+	err = g.Advance(coretesting.ShortWait, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Clock.Advance(coretesting.ShortWait)
 	select {
@@ -85,7 +85,7 @@ func (s *SingularSuite) TestExpire(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 	}
 
-	err = g.Advance(time.Hour)
+	err = g.Advance(time.Hour, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Clock.Advance(time.Hour)
 	select {
