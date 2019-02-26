@@ -230,6 +230,7 @@ func (s *firewallerBaseSuite) testWatch(
 	allowUnits bool,
 ) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
