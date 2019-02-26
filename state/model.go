@@ -1351,14 +1351,25 @@ func checkModelEntityRefsEmpty(doc *modelEntityRefsDoc) ([]txn.Op, error) {
 		return nil, err
 	}
 
+	isEmpty := func(attribute string) bson.DocElem {
+		// We consider it empty if the array has no entries, or if the attribute doesn't exist
+		return bson.DocElem{
+			"$or", []bson.M{{
+				attribute: bson.M{"$exists": false},
+			}, {
+				attribute: bson.M{"$size": 0},
+			}},
+		}
+	}
+
 	return []txn.Op{{
 		C:  modelEntityRefsC,
 		Id: doc.UUID,
 		Assert: bson.D{
-			{"machines", bson.D{{"$size", 0}}},
-			{"applications", bson.D{{"$size", 0}}},
-			{"volumes", bson.D{{"$size", 0}}},
-			{"filesystems", bson.D{{"$size", 0}}},
+			isEmpty("machines"),
+			isEmpty("applications"),
+			isEmpty("volumes"),
+			isEmpty("filesystems"),
 		},
 	}}, nil
 }

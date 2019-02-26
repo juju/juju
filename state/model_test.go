@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
@@ -54,6 +55,22 @@ func (s *ModelSuite) TestModelDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
+}
+
+func (s *ModelSuite) TestModelDestroyWithoutVolumes(c *gc.C) {
+	//https://bugs.launchpad.net/juju/+bug/1800872
+	// Models introduced in 2.1 and then upgraded to 2.2 don't have Volumes or Filesystem attributes
+	// on their modelEntitiesRefs documents
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	modelEntities, closer := state.GetCollection(s.State, state.ModelEntityRefsC)
+	defer closer()
+	rawModelEntities := modelEntities.Writeable().Underlying()
+	err = rawModelEntities.Update(bson.M{"_id": model.UUID()}, bson.M{"$unset": bson.M{"volumes": 1, "filesystems": 1}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 }
 

@@ -38,6 +38,7 @@ import (
 
 const (
 	MachinesC         = machinesC
+	ModelEntityRefsC  = modelEntityRefsC
 	ApplicationsC     = applicationsC
 	EndpointBindingsC = endpointBindingsC
 	ControllersC      = controllersC
