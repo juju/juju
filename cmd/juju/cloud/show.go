@@ -9,20 +9,29 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
+	cloudapi "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 type showCloudCommand struct {
-	cmd.CommandBase
+	modelcmd.CommandBase
 	out cmd.Output
 
 	CloudName string
 
 	includeConfig bool
+
+	// Used when querying a controller for its cloud details
+	controllerName   string
+	store            jujuclient.ClientStore
+	showCloudAPIFunc func(controllerName string) (showCloudAPI, error)
 }
 
 var showCloudDoc = `
@@ -33,19 +42,40 @@ options.
 If ‘--include-config’ is used, additional configuration (key, type, and
 description) specific to the cloud are displayed if available.
 
+If you supply a controller name the cloud information will be queried from the
+controller.
+
 Examples:
 
     juju show-cloud google
     juju show-cloud azure-china --output ~/azure_cloud_details.txt
+    juju show-cloud myopenstack --controller mycontroller
 
 See also:
     clouds
     update-clouds
 `
 
+type showCloudAPI interface {
+	Cloud(tag names.CloudTag) (jujucloud.Cloud, error)
+	Close() error
+}
+
 // NewShowCloudCommand returns a command to list cloud information.
 func NewShowCloudCommand() cmd.Command {
-	return &showCloudCommand{}
+	c := &showCloudCommand{
+		store: jujuclient.NewFileClientStore(),
+	}
+	c.showCloudAPIFunc = c.cloudAPI
+	return modelcmd.WrapBase(c)
+}
+
+func (c *showCloudCommand) cloudAPI(controllerName string) (showCloudAPI, error) {
+	root, err := c.NewAPIRoot(c.store, controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cloudapi.NewClient(root), nil
 }
 
 func (c *showCloudCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -55,6 +85,8 @@ func (c *showCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.includeConfig, "include-config", false, "Print available config option details specific to the specified cloud")
+	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
+	f.StringVar(&c.controllerName, "controller", "", "")
 }
 
 func (c *showCloudCommand) Init(args []string) error {
@@ -77,15 +109,12 @@ func (c *showCloudCommand) Info() *cmd.Info {
 }
 
 func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
-	details, err := getCloudDetails()
+	cloud, err := c.getCloud()
 	if err != nil {
 		return err
 	}
-	cloud, ok := details[c.CloudName]
-	if !ok {
-		return errors.NotFoundf("cloud %q", c.CloudName)
-	}
-	if err = c.out.Write(ctxt, cloud); err != nil {
+
+	if err := c.out.Write(ctxt, cloud); err != nil {
 		return err
 	}
 	if c.includeConfig {
@@ -96,6 +125,32 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 	return nil
+}
+
+func (c *showCloudCommand) getCloud() (*cloudDetails, error) {
+	if c.controllerName == "" {
+		details, err := getCloudDetails()
+		if err != nil {
+			return nil, err
+		}
+		cloud, ok := details[c.CloudName]
+		if !ok {
+			return nil, errors.NotFoundf("cloud %q", c.CloudName)
+		}
+		return cloud, nil
+	}
+
+	api, err := c.showCloudAPIFunc(c.controllerName)
+	if err != nil {
+		return nil, err
+	}
+	defer api.Close()
+	controllerCloud, err := api.Cloud(names.NewCloudTag(c.CloudName))
+	if err != nil {
+		return nil, err
+	}
+	cloud := makeCloudDetails(controllerCloud)
+	return cloud, nil
 }
 
 type regionDetails struct {

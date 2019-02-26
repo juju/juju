@@ -8,20 +8,32 @@ import (
 	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/testing"
 )
 
 type showSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
+	api   *fakeShowCloudAPI
+	store jujuclient.ClientStore
 }
 
 var _ = gc.Suite(&showSuite{})
+
+func (s *showSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.api = &fakeShowCloudAPI{}
+	s.store = jujuclient.NewMemStore()
+}
 
 func (s *showSuite) TestShowBadArgs(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand())
@@ -29,8 +41,16 @@ func (s *showSuite) TestShowBadArgs(c *gc.C) {
 }
 
 func (s *showSuite) TestShow(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "aws-china")
+	var controllerAPICalled string
+	cmd := cloud.NewShowCloudCommandForTest(
+		s.store,
+		func(controllerName string) (cloud.ShowCloudAPI, error) {
+			controllerAPICalled = controllerName
+			return s.api, nil
+		})
+	ctx, err := cmdtesting.RunCommand(c, cmd, "aws-china")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerAPICalled, gc.Equals, "")
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
 defined: public
@@ -42,6 +62,44 @@ regions:
     endpoint: https://ec2.cn-north-1.amazonaws.com.cn
   cn-northwest-1:
     endpoint: https://ec2.cn-northwest-1.amazonaws.com.cn
+`[1:])
+}
+
+func (s *showSuite) TestShowController(c *gc.C) {
+	var controllerAPICalled string
+	s.api.cloud = jujucloud.Cloud{
+		Name:        "beehive",
+		Type:        "openstack",
+		Description: "Bumble Bees",
+		AuthTypes:   []jujucloud.AuthType{"userpass", "access-key"},
+		Endpoint:    "http://myopenstack",
+		Regions: []jujucloud.Region{
+			{
+				Name:     "regionone",
+				Endpoint: "http://boston/1.0",
+			},
+		},
+	}
+	cmd := cloud.NewShowCloudCommandForTest(
+		s.store,
+		func(controllerName string) (cloud.ShowCloudAPI, error) {
+			controllerAPICalled = controllerName
+			return s.api, nil
+		})
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "beehive")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "Cloud", "Close")
+	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, gc.Equals, `
+defined: public
+type: openstack
+description: Bumble Bees
+auth-types: [userpass, access-key]
+endpoint: http://myopenstack
+regions:
+  regionone:
+    endpoint: http://boston/1.0
 `[1:])
 }
 
@@ -74,6 +132,48 @@ endpoint: http://homestack
 regions:
   london:
     endpoint: http://london/1.0
+config:
+  bootstrap-timeout: 1800
+  use-default-secgroup: true
+`[1:])
+}
+
+func (s *showSuite) TestShowWithConfigController(c *gc.C) {
+	var controllerAPICalled string
+	s.api.cloud = jujucloud.Cloud{
+		Name:        "beehive",
+		Type:        "openstack",
+		Description: "Bumble Bees",
+		AuthTypes:   []jujucloud.AuthType{"userpass", "access-key"},
+		Endpoint:    "http://myopenstack",
+		Regions: []jujucloud.Region{
+			{
+				Name:     "regionone",
+				Endpoint: "http://boston/1.0",
+			},
+		},
+		Config: map[string]interface{}{"bootstrap-timeout": 1800, "use-default-secgroup": true},
+	}
+	cmd := cloud.NewShowCloudCommandForTest(
+		s.store,
+		func(controllerName string) (cloud.ShowCloudAPI, error) {
+			controllerAPICalled = controllerName
+			return s.api, nil
+		})
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "beehive")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "Cloud", "Close")
+	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, gc.Equals, `
+defined: public
+type: openstack
+description: Bumble Bees
+auth-types: [userpass, access-key]
+endpoint: http://myopenstack
+regions:
+  regionone:
+    endpoint: http://boston/1.0
 config:
   bootstrap-timeout: 1800
   use-default-secgroup: true
@@ -242,4 +342,19 @@ func (s *showSuite) TestShowWithCACertificate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, resultWithCert)
+}
+
+type fakeShowCloudAPI struct {
+	jujutesting.Stub
+	cloud jujucloud.Cloud
+}
+
+func (api *fakeShowCloudAPI) Close() error {
+	api.AddCall("Close", nil)
+	return api.NextErr()
+}
+
+func (api *fakeShowCloudAPI) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
+	api.AddCall("Cloud", tag)
+	return api.cloud, api.NextErr()
 }
