@@ -189,9 +189,11 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	apps, err := api.GenerationInfo(s.tag.Id())
 	c.Assert(err, gc.IsNil)
-	c.Check(apps, jc.DeepEquals, []model.GenerationApplication{{
-		ApplicationName: "redis",
-		Units:           []string{"redis/0"},
-		ConfigChanges:   map[string]interface{}{"databases": 8},
-	}})
+	c.Check(apps, jc.DeepEquals, map[model.GenerationVersion][]model.GenerationApplication{
+		"next": {{
+			ApplicationName: "redis",
+			Units:           []string{"redis/0"},
+			ConfigChanges:   map[string]interface{}{"databases": 8},
+		}},
+	})
 }
