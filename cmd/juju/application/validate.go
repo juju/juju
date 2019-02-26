@@ -7,9 +7,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/core/lxdprofile"
-
+	charm "gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+
+	apicharms "github.com/juju/juju/api/charms"
+	"github.com/juju/juju/core/lxdprofile"
 )
 
 // ValidateLXDProfileCharm implements the DeployStep interface.
@@ -30,7 +32,9 @@ func (r *ValidateLXDProfileCharm) RunPre(api DeployStepAPI, bakeryClient *httpba
 	// if the charm info is not empty, we should use that to validate the
 	// lxd profile.
 	if charmInfo := deployInfo.CharmInfo; charmInfo != nil {
-		if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
+		if err := lxdprofile.ValidateLXDProfile(lxdCharmInfoProfiler{
+			CharmInfo: charmInfo,
+		}); err != nil {
 			// The force flag was provided, but we should let the user know that
 			// this could deliver some unexpected results.
 			if deployInfo.Force {
@@ -46,4 +50,31 @@ func (r *ValidateLXDProfileCharm) RunPre(api DeployStepAPI, bakeryClient *httpba
 // RunPost sends credentials obtained during the call to RunPre to the controller.
 func (r *ValidateLXDProfileCharm) RunPost(api DeployStepAPI, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
 	return nil
+}
+
+type lxdCharmProfiler struct {
+	Charm charm.Charm
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.Charm == nil {
+		return nil
+	}
+	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
+		return profiler.LXDProfile()
+	}
+	return nil
+}
+
+type lxdCharmInfoProfiler struct {
+	CharmInfo *apicharms.CharmInfo
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p lxdCharmInfoProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.CharmInfo == nil || p.CharmInfo.LXDProfile == nil {
+		return nil
+	}
+	return p.CharmInfo.LXDProfile
 }

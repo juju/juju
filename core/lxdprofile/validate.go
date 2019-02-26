@@ -5,41 +5,42 @@ package lxdprofile
 
 import (
 	"github.com/juju/errors"
-	apicharms "github.com/juju/juju/api/charms"
-	charm "gopkg.in/juju/charm.v6"
 )
 
-//go:generate mockgen -package lxdprofile_test -destination lxdprofile_mock_test.go gopkg.in/juju/charm.v6 LXDProfiler
+//go:generate mockgen -package mocks -destination mocks/lxdprofile_mock.go github.com/juju/juju/core/lxdprofile LXDProfiler,LXDProfile
 
-// ValidateCharmLXDProfile will attempt to validate a charm.Charm
-// lxd profile. The LXDProfile is an optional method on the charm.Charm, so
-// testing to check that it conforms to a LXDProfiler first is required.
-// Failure to conform to the LXDProfiler will return no error.
-func ValidateCharmLXDProfile(ch charm.Charm) error {
-	// Check if the charm conforms to the LXDProfiler, as it's optional and in
-	// theory the charm.Charm doesn't have to provide a LXDProfile method we
-	// can ignore it if it's missing and assume it is therefore valid.
-	if profiler, ok := ch.(charm.LXDProfiler); ok {
-		return ValidateLXDProfile(profiler)
-	}
-	return nil
+// LXDProfiler represents a local implementation of a charm profile.
+type LXDProfiler interface {
+	// LXDProfile returns a charm LXDProfile
+	LXDProfile() LXDProfile
+}
+
+// LXDProfile represents a local implementation of a charm profile.
+type LXDProfile interface {
+
+	// ValidateConfigDevices validates the Config and Devices properties of the LXDProfile.
+	// WhiteList devices: unix-char, unix-block, gpu, usb.
+	// BlackList config: boot*, limits* and migration*.
+	// An empty profile will not return an error.
+	ValidateConfigDevices() error
+
+	// Empty returns true if there are no configrations or devices to be
+	// applied for the LXD profile.
+	// Having a description but having values in the configurations/devices
+	// will still return empty, as it's what should be applied.
+	Empty() bool
 }
 
 // ValidateLXDProfile will validate the profile to determin if the configuration
 // is valid or not before passing continuing on.
-func ValidateLXDProfile(profiler charm.LXDProfiler) error {
+func ValidateLXDProfile(profiler LXDProfiler) error {
+	// if profiler is nil, there is no available profiler to call LXDProfile
+	// then return out early
+	if profiler == nil {
+		return nil
+	}
 	// Profile from the api could be nil, so check that it isn't
 	if profile := profiler.LXDProfile(); profile != nil {
-		err := profile.ValidateConfigDevices()
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// ValidateCharmInfoLXDProfile will validate the charm info to determin if the
-// information provided is valid or not.
-func ValidateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
-	if profile := info.LXDProfile; profile != nil {
 		err := profile.ValidateConfigDevices()
 		return errors.Trace(err)
 	}
@@ -49,7 +50,7 @@ func ValidateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
 // NotEmpty will return false if the profiler containers a profile, that is
 // empty. If the profile is empty, we'll return false.
 // If there is no valid profile in the profiler, it will return false
-func NotEmpty(profiler charm.LXDProfiler) bool {
+func NotEmpty(profiler LXDProfiler) bool {
 	if profile := profiler.LXDProfile(); profile != nil {
 		return !profile.Empty()
 	}

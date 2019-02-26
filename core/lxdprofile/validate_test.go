@@ -5,13 +5,13 @@ package lxdprofile_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charm "gopkg.in/juju/charm.v6"
 
-	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/lxdprofile/mocks"
 )
 
 type LXDProfileSuite struct {
@@ -20,13 +20,19 @@ type LXDProfileSuite struct {
 
 var _ = gc.Suite(&LXDProfileSuite{})
 
+func (*LXDProfileSuite) TestValidateWithNoProfiler(c *gc.C) {
+	err := lxdprofile.ValidateLXDProfile(nil)
+	c.Assert(err, gc.IsNil)
+}
+
 func (*LXDProfileSuite) TestValidateWithEmptyConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	profile := &charm.LXDProfile{}
+	profile := mocks.NewMockLXDProfile(ctrl)
+	profile.EXPECT().ValidateConfigDevices().Return(nil)
 
-	lxdprofiler := NewMockLXDProfiler(ctrl)
+	lxdprofiler := mocks.NewMockLXDProfiler(ctrl)
 	lxdprofiler.EXPECT().LXDProfile().Return(profile)
 
 	err := lxdprofile.ValidateLXDProfile(lxdprofiler)
@@ -37,36 +43,13 @@ func (*LXDProfileSuite) TestValidateWithInvalidConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	profile := &charm.LXDProfile{
-		Config: map[string]string{
-			"boot": "foobar",
-		},
-	}
+	profile := mocks.NewMockLXDProfile(ctrl)
+	profile.EXPECT().ValidateConfigDevices().Return(errors.New("bad"))
 
-	lxdprofiler := NewMockLXDProfiler(ctrl)
+	lxdprofiler := mocks.NewMockLXDProfiler(ctrl)
 	lxdprofiler.EXPECT().LXDProfile().Return(profile)
 
 	err := lxdprofile.ValidateLXDProfile(lxdprofiler)
-	c.Assert(err, gc.NotNil)
-}
-
-func (*LXDProfileSuite) TestValidateCharmInfoWithEmptyConfig(c *gc.C) {
-	info := &apicharms.CharmInfo{}
-
-	err := lxdprofile.ValidateCharmInfoLXDProfile(info)
-	c.Assert(err, gc.IsNil)
-}
-
-func (*LXDProfileSuite) TestValidateCharmInfoWithInvalidConfig(c *gc.C) {
-	info := &apicharms.CharmInfo{
-		LXDProfile: &charm.LXDProfile{
-			Config: map[string]string{
-				"boot": "foobar",
-			},
-		},
-	}
-
-	err := lxdprofile.ValidateCharmInfoLXDProfile(info)
 	c.Assert(err, gc.NotNil)
 }
 
@@ -74,43 +57,10 @@ func (*LXDProfileSuite) TestNotEmpty(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	profile := &charm.LXDProfile{}
+	profile := mocks.NewMockLXDProfile(ctrl)
+	profile.EXPECT().Empty().Return(true)
 
-	lxdprofiler := NewMockLXDProfiler(ctrl)
-	lxdprofiler.EXPECT().LXDProfile().Return(profile)
-
-	result := lxdprofile.NotEmpty(lxdprofiler)
-	c.Assert(result, jc.IsFalse)
-}
-
-func (*LXDProfileSuite) TestNotEmptyWithConfigProfiles(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	profile := &charm.LXDProfile{
-		Config: map[string]string{
-			"boot": "foobar",
-		},
-	}
-
-	lxdprofiler := NewMockLXDProfiler(ctrl)
-	lxdprofiler.EXPECT().LXDProfile().Return(profile)
-
-	result := lxdprofile.NotEmpty(lxdprofiler)
-	c.Assert(result, jc.IsTrue)
-}
-
-func (*LXDProfileSuite) TestNotEmptyWithDescription(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	// Having a description doesn't imply changes, so a description alone
-	// will cause it to be considered empty.
-	profile := &charm.LXDProfile{
-		Description: "lxd profile",
-	}
-
-	lxdprofiler := NewMockLXDProfiler(ctrl)
+	lxdprofiler := mocks.NewMockLXDProfiler(ctrl)
 	lxdprofiler.EXPECT().LXDProfile().Return(profile)
 
 	result := lxdprofile.NotEmpty(lxdprofiler)
