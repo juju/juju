@@ -10,7 +10,11 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 )
 
-type InstanceGetter interface {
+//go:generate mockgen -package mocks -destination mocks/instancebroker_mock.go github.com/juju/juju/worker/instancemutater InstanceBroker
+//go:generate mockgen -package mocks -destination mocks/logger_mock.go github.com/juju/juju/worker/instancemutater Logger
+//go:generate mockgen -package mocks -destination mocks/namestag_mock.go gopkg.in/juju/names.v2 Tag
+
+type InstanceBroker interface {
 }
 
 // Logger represents the logging methods called.
@@ -19,8 +23,10 @@ type Logger interface {
 	Errorf(message string, args ...interface{})
 }
 
+// Config represents the configuration required to run a new instance mutater
+// worker.
 type Config struct {
-	Environ InstanceGetter
+	Broker InstanceBroker
 
 	// Logger is the logger for this worker.
 	Logger Logger
@@ -29,12 +35,14 @@ type Config struct {
 	Tag names.Tag
 }
 
+// Validate checks for missing values from the configuration and checks that
+// they conform to a given type.
 func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if config.Environ == nil {
-		return errors.NotValidf("nil Environ")
+	if config.Broker == nil {
+		return errors.NotValidf("nil InstanceBroker")
 	}
 	if config.Tag == nil {
 		return errors.NotValidf("nil tag")

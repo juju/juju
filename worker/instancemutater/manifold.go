@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/environs"
 )
 
+//go:generate mockgen -package mocks -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
+
 // ManifoldConfig describes the resources used by the instancemuter worker.
 type ManifoldConfig struct {
 	AgentName     string
@@ -43,7 +45,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	w, err := NewWorker(Config{
-		Environ: environ,
+		Broker: environ,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
