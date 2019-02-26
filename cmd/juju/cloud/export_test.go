@@ -22,6 +22,7 @@ type (
 	UpdateCloudCommand = updateCloudCommand
 	UpdateCloudAPI     = updateCloudAPI
 	ShowCloudAPI       = showCloudAPI
+	RemoveCloudAPI     = removeCloudAPI
 )
 
 func NewAddCloudCommandForTest(
@@ -52,6 +53,13 @@ func NewShowCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(stri
 	return &showCloudCommand{
 		store:            store,
 		showCloudAPIFunc: cloudAPI,
+	}
+}
+
+func NewRemoveCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(string) (removeCloudAPI, error)) *removeCloudCommand {
+	return &removeCloudCommand{
+		store:              store,
+		removeCloudAPIFunc: cloudAPI,
 	}
 }
 
