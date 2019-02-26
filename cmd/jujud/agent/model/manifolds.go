@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/loggo"
+	utilsfeatureflag "github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -22,6 +24,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/worker/actionpruner"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
@@ -41,6 +44,7 @@ import (
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/instancemutater"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
 	"github.com/juju/juju/worker/logforwarder"
@@ -396,6 +400,16 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		})),
 	}
+
+	if utilsfeatureflag.Enabled(feature.InstanceMutater) {
+		manifolds[instanceMutaterName] = ifNotMigrating(instancemutater.Manifold(instancemutater.ManifoldConfig{
+			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
+			NewWorker:     instancemutater.NewWorker,
+			Logger:        loggo.GetLogger("juju.worker.instancemutater"),
+		}))
+	}
+
 	result := commonManifolds(config)
 	for name, manifold := range manifolds {
 		result[name] = manifold
@@ -587,6 +601,7 @@ const (
 	machineUndertakerName    = "machine-undertaker"
 	remoteRelationsName      = "remote-relations"
 	logForwarderName         = "log-forwarder"
+	instanceMutaterName      = "instance-mutater"
 
 	caasFirewallerName          = "caas-firewaller"
 	caasOperatorProvisionerName = "caas-operator-provisioner"
