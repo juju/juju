@@ -1137,7 +1137,7 @@ type GenerationApplication struct {
 
 	// Config changes are the differing configuration values between this
 	// generation and the current.
-	ConfigChanges map[string]interface{} `json:"config-changes"`
+	ConfigChanges map[string]interface{} `json:"config"`
 }
 
 // GenerationResult transports the result of the show-generation command.

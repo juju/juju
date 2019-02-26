@@ -380,6 +380,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(model.NewCancelGenerationCommand())
 		r.Register(model.NewAdvanceGenerationCommand())
 		r.Register(model.NewSwitchGenerationCommand())
+		r.Register(model.NewShowGenerationCommand())
 	}
 
 	r.Register(newMigrateCommand())

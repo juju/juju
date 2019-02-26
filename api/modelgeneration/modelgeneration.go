@@ -107,7 +107,7 @@ func (c *Client) HasNextGeneration(modelUUID string) (bool, error) {
 // GenerationInfo returns a list of application with changes in the "next"
 // generation, with units moved to the generation, and any generational
 // configuration changes.
-func (c *Client) GenerationInfo(modelUUID string) ([]model.GenerationApplication, error) {
+func (c *Client) GenerationInfo(modelUUID string) (model.GenerationSummaries, error) {
 	var result params.GenerationResult
 	err := c.facade.FacadeCall("GenerationInfo", argForModel(modelUUID), &result)
 	if err != nil {
@@ -116,21 +116,25 @@ func (c *Client) GenerationInfo(modelUUID string) ([]model.GenerationApplication
 	if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	return generationApplicationFromDTO(result.Applications), nil
+	return generationInfoFromDTO(result.Applications), nil
 }
 
 func argForModel(modelUUID string) params.Entity {
 	return params.Entity{Tag: names.NewModelTag(modelUUID).String()}
 }
 
-func generationApplicationFromDTO(apps []params.GenerationApplication) []model.GenerationApplication {
-	results := make([]model.GenerationApplication, len(apps))
+func generationInfoFromDTO(apps []params.GenerationApplication) model.GenerationSummaries {
+	appDeltas := make([]model.GenerationApplication, len(apps))
 	for i, a := range apps {
-		results[i] = model.GenerationApplication{
+		appDeltas[i] = model.GenerationApplication{
 			ApplicationName: a.ApplicationName,
 			Units:           a.Units,
 			ConfigChanges:   a.ConfigChanges,
 		}
 	}
-	return results
+
+	// TODO (manadart 2019-02-25): Always deal with the "next" generation.
+	// As generations evolve, this command will allow requesting specific
+	// generation IDs at which time this type should be represented in the DTO.
+	return map[model.GenerationVersion][]model.GenerationApplication{model.GenerationNext: appDeltas}
 }

@@ -43,5 +43,9 @@ type GenerationApplication struct {
 	// generation and the current.
 	// TODO (manadart 2018-02-22) This data-type will evolve as more aspects
 	// of the application are made generational.
-	ConfigChanges map[string]interface{} `yaml:"config-changes"`
+	ConfigChanges map[string]interface{} `yaml:"config"`
 }
+
+// GenerationSummaries is a type alias for a representation
+// of changes-by-generation.
+type GenerationSummaries = map[GenerationVersion][]GenerationApplication
