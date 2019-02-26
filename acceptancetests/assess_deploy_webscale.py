@@ -13,9 +13,7 @@ import argparse
 import logging
 import sys
 import os
-import subprocess
 import re
-import requests
 import functools
 import time
 
@@ -28,13 +26,11 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
-    get_current_model,
 )
 
 from jujucharm import (
     local_charm_path,
 )
-from jujupy.utility import until_timeout
 from reporting import (
     construct_metrics,
     get_reporting_client,
@@ -175,6 +171,11 @@ def parse_args(argv):
         help="Stack type to use when deploying <iaas|caas>",
         default="caas",
     )
+    parser.add_argument(
+        '--juju-version',
+        help="Help the reporting metrics by supplying a target juju version",
+        default="",
+    )
     add_basic_testing_arguments(parser, existing=False)
     # Override the default logging_config default value set by adding basic
     # testing arguments. This way we can have a default value for all tests,
@@ -218,6 +219,7 @@ def main(argv=None):
                 "charm-bundle": args.charm_bundle,
                 "charm-urls": charm_urls,
                 "mongo-version": mongo_version,
+                "juju-version": args.juju_version,
             })
         except:
             raise JujuAssertionError("Error reporting metrics")
