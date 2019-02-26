@@ -5,21 +5,20 @@ package instancemutater
 
 import (
 	"github.com/juju/errors"
-	names "gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/environs"
 )
 
 //go:generate mockgen -package mocks -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
+//go:generate mockgen -package mocks -destination mocks/dependency_mock.go gopkg.in/juju/worker.v1/dependency Context
+//go:generate mockgen -package mocks -destination mocks/environs_mock.go github.com/juju/juju/environs Environ
+//go:generate mockgen -package mocks -destination mocks/base_mock.go github.com/juju/juju/api/base APICaller
 
 // ManifoldConfig describes the resources used by the instancemuter worker.
 type ManifoldConfig struct {
-	AgentName     string
 	APICallerName string
 	EnvironName   string
 
@@ -38,35 +37,12 @@ func (config ManifoldConfig) Validate() error {
 	return nil
 }
 
-func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
-	var environ environs.Environ
-	if err := context.Get(config.EnvironName, &environ); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	w, err := NewWorker(Config{
-		Broker: environ,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return w, nil
-}
-
-func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func (config ManifoldConfig) newWorker(environ environs.Environ, apiCaller base.APICaller) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// Grab the tag and ensure that it's for a machine.
-	agentCfg := a.CurrentConfig()
-	tag, ok := agentCfg.Tag().(names.MachineTag)
-	if !ok {
-		return nil, errors.New("agent's tag is not a machine tag")
-	}
-
 	cfg := Config{
-		Tag:    tag,
 		Logger: config.Logger,
 	}
 
@@ -79,9 +55,43 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 
 // Manifold returns a Manifold that encapsulates the instancepoller worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentAPIManifoldConfig{
-		AgentName:     config.AgentName,
+	typedConfig := EnvironAPIConfig{
+		EnvironName:   config.EnvironName,
 		APICallerName: config.APICallerName,
 	}
-	return engine.AgentAPIManifold(typedConfig, config.newWorker)
+	return EnvironAPIManifold(typedConfig, config.newWorker)
+}
+
+// EnvironAPIConfig represents a typed manifold starter func, that handles
+// getting resources from the configuration.
+type EnvironAPIConfig struct {
+	EnvironName   string
+	APICallerName string
+}
+
+// EnvironAPIStartFunc encapsulates creation of a worker based on the environ
+// and APICaller.
+type EnvironAPIStartFunc func(environs.Environ, base.APICaller) (worker.Worker, error)
+
+// EnvironAPIManifold returns a dependency.Manifold that calls the supplied
+// start func with the API and envrion resources defined in the config
+// (once those resources are present).
+func EnvironAPIManifold(config EnvironAPIConfig, start EnvironAPIStartFunc) dependency.Manifold {
+	return dependency.Manifold{
+		Inputs: []string{
+			config.EnvironName,
+			config.APICallerName,
+		},
+		Start: func(context dependency.Context) (worker.Worker, error) {
+			var environ environs.Environ
+			if err := context.Get(config.EnvironName, &environ); err != nil {
+				return nil, errors.Trace(err)
+			}
+			var apiCaller base.APICaller
+			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+				return nil, errors.Trace(err)
+			}
+			return start(environ, apiCaller)
+		},
+	}
 }
