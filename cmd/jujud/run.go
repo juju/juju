@@ -124,7 +124,7 @@ func (c *RunCommand) socketPath() string {
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	unitDir := agent.Dir(cmdutil.DataDir, c.unit)
-	logger.Debugf("looking for unit dir %s", unitDir)
+	log.Debugf("looking for unit dir %s", unitDir)
 	// make sure the unit exists
 	_, err := os.Stat(unitDir)
 	if os.IsNotExist(err) {

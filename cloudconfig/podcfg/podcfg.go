@@ -30,7 +30,7 @@ import (
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
 
 const (
-	jujudOCINamespace = "ycliuhw" // TODO(bootstrap): change it to "jujusolutions" and also consolidate caas operator and caas conroller to one image.
+	jujudOCINamespace = "jujusolutions" // TODO(bootstrap): change it to "jujusolutions" and also consolidate caas operator and caas conroller to one image.
 	jujudOCIName      = "jujud-controller"
 )
 

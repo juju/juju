@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package agent
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
+	// "github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/ssh"
@@ -30,11 +30,11 @@ import (
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	jujucmd "github.com/juju/juju/cmd"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	// agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
+	// "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -56,7 +56,6 @@ var (
 	agentInitializeState = agentbootstrap.InitializeState
 	sshGenerateKey       = ssh.GenerateKey
 	minSocketTimeout     = 1 * time.Minute
-	logger               = loggo.GetLogger("juju.cmd.jujud")
 )
 
 const adminUserName = "admin"
@@ -64,7 +63,7 @@ const adminUserName = "admin"
 // BootstrapCommand represents a jujud bootstrap command.
 type BootstrapCommand struct {
 	cmd.CommandBase
-	agentcmd.AgentConf
+	AgentConf
 	BootstrapParamsFile string
 	Timeout             time.Duration
 }
@@ -72,7 +71,7 @@ type BootstrapCommand struct {
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
 func NewBootstrapCommand() *BootstrapCommand {
 	return &BootstrapCommand{
-		AgentConf: agentcmd.NewAgentConf(""),
+		AgentConf: NewAgentConf(""),
 	}
 }
 
@@ -120,6 +119,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	isCAASController := args.ControllerCloud.Type == caasprovider.CAASProviderType
+	logger.Criticalf("isCAASController -> %v", isCAASController)
 
 	err = c.ReadConfig("machine-0")
 	if err != nil {
@@ -134,7 +134,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if len(jobs) == 0 {
 		jobs = []multiwatcher.MachineJob{
 			multiwatcher.JobManageModel,
-			multiwatcher.JobHostUnits,
+		}
+		if !isCAASController {
+			jobs = append(jobs, multiwatcher.JobHostUnits)
 		}
 	}
 
@@ -234,16 +236,17 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		addrs = network.MergedAddresses([]network.Address{}, addrs)
 	}
 
-	// Generate a private SSH key for the controllers, and add
-	// the public key to the environment config. We'll add the
-	// private key to StateServingInfo below.
-	// TODO(bootstrap): review why we removed config.JujuSystemKey in cli for CAAS?
-	privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
-	if err != nil {
-		return errors.Annotate(err, "failed to generate system key")
-	}
-	authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
-	newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
+	// TODO(bootstrap): enable me later.
+	// // Generate a private SSH key for the controllers, and add
+	// // the public key to the environment config. We'll add the
+	// // private key to StateServingInfo below.
+	// // TODO(bootstrap): review why we removed config.JujuSystemKey in cli for CAAS?
+	// privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
+	// if err != nil {
+	// 	return errors.Annotate(err, "failed to generate system key")
+	// }
+	// authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
+	// newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
 	sharedSecret, err := mongo.GenerateSharedSecret()
@@ -255,7 +258,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
 	info.SharedSecret = sharedSecret
-	info.SystemIdentity = privateKey
+	// info.SystemIdentity = privateKey
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
 		mmprof, err := mongo.NewMemoryProfile(args.ControllerConfig.MongoMemoryProfile())

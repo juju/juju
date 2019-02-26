@@ -39,6 +39,8 @@ import (
 
 const TemplateAgentConfigFileName = "template-agent.conf"
 
+var caasOperatorManifolds = caasoperator.Manifolds
+
 // CaasOperatorAgent is a cmd.Command responsible for running a CAAS operator agent.
 type CaasOperatorAgent struct {
 	cmd.CommandBase
@@ -200,7 +202,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		})
 	}
 
-	manifolds := CaasOperatorManifolds(caasoperator.ManifoldsConfig{
+	manifolds := caasOperatorManifolds(caasoperator.ManifoldsConfig{
 		Agent:                agent.APIHostPortsSetter{op},
 		AgentConfigChanged:   op.configChangedVal,
 		Clock:                clock.WallClock,

@@ -230,7 +230,7 @@ func (u *UpgradeMongoCommand) run() (err error) {
 		return errors.Annotate(err, "could not create a temporary directory for the migration")
 	}
 
-	logger.Infof("begin migration to mongo 3")
+	log.Infof("begin migration to mongo 3")
 
 	if err := u.satisfyPrerequisites(u.series); err != nil {
 		return errors.Annotate(err, "cannot satisfy pre-requisites for the migration")
@@ -245,9 +245,9 @@ func (u *UpgradeMongoCommand) run() (err error) {
 				if u.backupPath == "" {
 					return
 				}
-				logger.Infof("will roll back after failed 2.6 upgrade")
+				log.Infof("will roll back after failed 2.6 upgrade")
 				if err := u.rollbackCopyBackup(dataDir, u.backupPath); err != nil {
-					logger.Errorf("could not rollback the upgrade: %v", err)
+					log.Errorf("could not rollback the upgrade: %v", err)
 				}
 			}()
 			return errors.Annotate(err, "cannot upgrade from mongo 2.4 to 2.6")
@@ -260,9 +260,9 @@ func (u *UpgradeMongoCommand) run() (err error) {
 				if u.backupPath == "" {
 					return
 				}
-				logger.Infof("will roll back after failed 3.0 upgrade")
+				log.Infof("will roll back after failed 3.0 upgrade")
 				if err := u.rollbackCopyBackup(dataDir, u.backupPath); err != nil {
-					logger.Errorf("could not rollback the upgrade: %v", err)
+					log.Errorf("could not rollback the upgrade: %v", err)
 				}
 			}()
 			return errors.Annotate(err, "cannot upgrade from mongo 2.6 to 3")
@@ -365,14 +365,14 @@ func (u *UpgradeMongoCommand) UpdateService(auth bool) error {
 }
 
 func (u *UpgradeMongoCommand) maybeUpgrade24to26(dataDir string) error {
-	logger.Infof("backing up 2.4 MongoDB")
+	log.Infof("backing up 2.4 MongoDB")
 	var err error
 	u.backupPath, err = u.copyBackupMongo("24", dataDir)
 	if err != nil {
 		return errors.Annotate(err, "could not do pre migration backup")
 	}
 
-	logger.Infof("stopping 2.4 MongoDB")
+	log.Infof("stopping 2.4 MongoDB")
 	if err := u.mongoStop(); err != nil {
 		return errors.Annotate(err, "cannot stop mongo to perform 2.6 upgrade step")
 	}
@@ -391,7 +391,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade24to26(dataDir string) error {
 		return errors.Annotate(err, "cannot update mongo service to use mongo 2.6")
 	}
 
-	logger.Infof("starting 2.6 MongoDB")
+	log.Infof("starting 2.6 MongoDB")
 	if err := u.mongoStart(); err != nil {
 		return errors.Annotate(err, "cannot start mongo 2.6 to upgrade auth schema")
 	}
@@ -431,18 +431,18 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 	port := ssi.StatePort
 	current := u.agentConfig.MongoVersion()
 
-	logger.Infof("backing up 2.6 MongoDB")
+	log.Infof("backing up 2.6 MongoDB")
 	if current == mongo.Mongo26 {
 		// TODO(perrito666) dont ignore out if debug-log was used.
 		_, err := u.mongoDump(jujuMongoPath, password, "30", port)
 		if err != nil {
 			return errors.Annotate(err, "could not do pre migration backup")
 		}
-		logger.Infof("pre 3.x migration dump ready.")
+		log.Infof("pre 3.x migration dump ready.")
 		if err := u.mongoStop(); err != nil {
 			return errors.Annotate(err, "cannot stop mongo to update to mongo 3")
 		}
-		logger.Infof("mongo stopped")
+		log.Infof("mongo stopped")
 
 		// Initially, mongo 3, no wired tiger so we can do a pre-migration dump.
 		mongoNoWiredTiger := mongo.Mongo32wt
@@ -451,17 +451,17 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 		if err := u.agentConfig.Write(); err != nil {
 			return errors.Annotate(err, "could not update mongo version in agent.config")
 		}
-		logger.Infof("new mongo version set-up to %q", mongoNoWiredTiger.String())
+		log.Infof("new mongo version set-up to %q", mongoNoWiredTiger.String())
 
 		if err := u.UpdateService(true); err != nil {
 			return errors.Annotate(err, "cannot update service script")
 		}
-		logger.Infof("service startup scripts up to date")
+		log.Infof("service startup scripts up to date")
 
 		if err := u.mongoStart(); err != nil {
 			return errors.Annotate(err, "cannot start mongo 3 to do a pre-tiger migration dump")
 		}
-		logger.Infof("started mongo")
+		log.Infof("started mongo")
 		current = mongo.Mongo32wt
 	}
 
@@ -471,35 +471,35 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "could not do the tiger migration export")
 		}
-		logger.Infof("dumped to change storage")
+		log.Infof("dumped to change storage")
 
 		if err := u.mongoStop(); err != nil {
 			return errors.Annotate(err, "cannot stop mongo to update to wired tiger")
 		}
-		logger.Infof("mongo stopped before storage migration")
+		log.Infof("mongo stopped before storage migration")
 		if err := u.removeOldDb(u.agentConfig.DataDir()); err != nil {
 			return errors.Annotate(err, "cannot prepare the new db location for wired tiger")
 		}
-		logger.Infof("old db files removed")
+		log.Infof("old db files removed")
 
 		// Mongo, with wired tiger
 		u.agentConfig.SetMongoVersion(mongo.Mongo32wt)
 		if err := u.agentConfig.Write(); err != nil {
 			return errors.Annotate(err, "could not update mongo version in agent.config")
 		}
-		logger.Infof("wired tiger set in agent.config")
+		log.Infof("wired tiger set in agent.config")
 
 		if err := u.UpdateService(false); err != nil {
 			return errors.Annotate(err, "cannot update service script to use wired tiger")
 		}
-		logger.Infof("service startup script up to date")
+		log.Infof("service startup script up to date")
 
 		info, ok := u.agentConfig.MongoInfo()
 		if !ok {
 			return errors.New("cannot get mongo info from agent config")
 		}
 
-		logger.Infof("will create dialinfo for new mongo")
+		log.Infof("will create dialinfo for new mongo")
 		//TODO(perrito666) make this into its own function
 		dialOpts := mongo.DialOpts{}
 		dialInfo, err := u.mongoDialInfo(info.Info, dialOpts)
@@ -510,7 +510,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 		if err := u.mongoStart(); err != nil {
 			return errors.Annotate(err, "cannot start mongo 3 to restart replicaset")
 		}
-		logger.Infof("mongo started")
+		log.Infof("mongo started")
 
 		// perhaps statehost port?
 		// we need localhost, since there is no admin user
@@ -522,7 +522,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "cannot initiate replicaset")
 		}
-		logger.Infof("mongo initiated")
+		log.Infof("mongo initiated")
 
 		// blobstorage might fail to restore in certain versions of
 		// mongorestore because of a bug in mongorestore
@@ -531,17 +531,17 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "cannot restore the db.")
 		}
-		logger.Infof("mongo restored into the new storage")
+		log.Infof("mongo restored into the new storage")
 
 		if err := u.UpdateService(true); err != nil {
 			return errors.Annotate(err, "cannot update service script post wired tiger migration")
 		}
-		logger.Infof("service scripts up to date")
+		log.Infof("service scripts up to date")
 
 		if err := u.mongoRestart(); err != nil {
 			return errors.Annotate(err, "cannot restart mongo service after upgrade")
 		}
-		logger.Infof("mongo restarted")
+		log.Infof("mongo restarted")
 	}
 	return nil
 }
@@ -558,7 +558,7 @@ func dialAndLogin(mongoInfo *mongo.MongoInfo, callArgs retry.CallArgs) (mgoSessi
 		if err == nil {
 			return nil
 		}
-		logger.Errorf("cannot open mongo connection: %v", err)
+		log.Errorf("cannot open mongo connection: %v", err)
 		return err
 	}
 	if err := retry.Call(callArgs); err != nil {
@@ -580,7 +580,7 @@ func dialAndLogin(mongoInfo *mongo.MongoInfo, callArgs retry.CallArgs) (mgoSessi
 func mongo26UpgradeStepCall(runCommand utilsRun, dataDir string) error {
 	updateArgs := []string{"--dbpath", mongo.DbDir(dataDir), "--replSet", "juju", "--upgrade"}
 	out, err := runCommand(mongo.JujuMongod24Path, updateArgs...)
-	logger.Infof(out)
+	log.Infof(out)
 	if err != nil {
 		return errors.Annotate(err, "cannot upgrade mongo 2.4 data")
 	}
@@ -662,11 +662,11 @@ func mongoDumpCall(
 		if err == nil {
 			return nil
 		}
-		logger.Errorf("cannot dump db %v: %s", err, out)
+		log.Errorf("cannot dump db %v: %s", err, out)
 		return err
 	}
 	if err := retry.Call(callArgs); err != nil {
-		logger.Errorf(out)
+		log.Errorf(out)
 		return out, errors.Annotate(err, "cannot dump mongo db")
 	}
 	return out, nil
@@ -704,12 +704,12 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 			if err == nil {
 				return nil
 			}
-			logger.Errorf("cannot restore %v: %s", err, out)
+			log.Errorf("cannot restore %v: %s", err, out)
 			return err
 		}
 		if err := retry.Call(restoreCallArgs); err != nil {
 			err := errors.Annotatef(err, "cannot restore dbs got: %s", out)
-			logger.Errorf("%#v", err)
+			log.Errorf("%#v", err)
 			return err
 		}
 	}
@@ -724,13 +724,13 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 			if err == nil {
 				return nil
 			}
-			logger.Errorf("cannot restore db %q: %v: got %s", dbs[i], err, out)
+			log.Errorf("cannot restore db %q: %v: got %s", dbs[i], err, out)
 			return err
 		}
 		if err := retry.Call(restoreCallArgs); err != nil {
 			return errors.Annotatef(err, "cannot restore db %q got: %s", dbs[i], out)
 		}
-		logger.Infof("Successfully restored db %q", dbs[i])
+		log.Infof("Successfully restored db %q", dbs[i])
 	}
 	return nil
 }
@@ -818,11 +818,11 @@ func (u *UpgradeMongoCommand) upgradeSlave(dataDir string) error {
 	if err := u.agentConfig.Write(); err != nil {
 		return errors.Annotate(err, "could not update mongo version in agent.config")
 	}
-	logger.Infof("wired tiger set in agent.config")
+	log.Infof("wired tiger set in agent.config")
 
 	if err := u.UpdateService(false); err != nil {
 		return errors.Annotate(err, "cannot update service script to use wired tiger")
 	}
-	logger.Infof("service startup script up to date")
+	log.Infof("service startup script up to date")
 	return nil
 }

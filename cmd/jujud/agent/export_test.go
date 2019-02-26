@@ -9,5 +9,5 @@ import "github.com/juju/juju/cmd/jujud/agent/caasoperator"
 var (
 	// Should be an explicit dependency, can't do it cleanly yet.
 	// Exported for testing.
-	CaasOperatorManifolds = caasoperator.Manifolds
+	CaasOperatorManifolds = caasOperatorManifolds
 )

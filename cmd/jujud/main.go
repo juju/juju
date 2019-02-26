@@ -43,7 +43,7 @@ var log = loggo.GetLogger("juju.cmd.jujud")
 
 func init() {
 	if err := components.RegisterForServer(); err != nil {
-		log.Criticalf("unabled to register server components: %v", err)
+		log.Criticalf("unable to register server components: %v", err)
 		os.Exit(1)
 	}
 }
@@ -143,7 +143,7 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
-	defer logger.Debugf("jujud complete, code %d, err %v", code, err)
+	defer log.Debugf("jujud complete, code %d, err %v", code, err)
 	bufferedLogger, err := logsender.InstallBufferedLogWriter(1048576)
 	if err != nil {
 		return 1, errors.Trace(err)
@@ -164,10 +164,12 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	})
 
 	jujud.Log.NewWriter = func(target io.Writer) loggo.Writer {
+		// TODO(bootstrap) remove me
+		// return &jujudWriter{target: os.Stdout}
 		return &jujudWriter{target: target}
 	}
 
-	jujud.Register(NewBootstrapCommand())
+	jujud.Register(agentcmd.NewBootstrapCommand())
 
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the separate concerns; the
@@ -201,7 +203,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	return code, nil
 }
 
-// This function exists to preserve test functionality.
+// MainWrapper exists to preserve test functionality.
 // On windows we need to catch the return code from main for
 // service functionality purposes, but on unix we can just os.Exit
 func MainWrapper(args []string) {
@@ -215,7 +217,7 @@ func Main(args []string) int {
 		if r := recover(); r != nil {
 			buf := make([]byte, 4096)
 			buf = buf[:runtime.Stack(buf, false)]
-			logger.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
+			log.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
 			os.Exit(exit_panic)
 		}
 	}()

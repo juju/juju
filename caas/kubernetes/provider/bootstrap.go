@@ -238,7 +238,7 @@ func newcontrollerStack(stackName string, broker *kubernetesClient, pcfg *podcfg
 	cs.resourceNameVolBootstrapParams = cs.getResourceName(cs.fileNameBootstrapParams)
 	cs.resourceNameVolAgentConf = cs.getResourceName(cs.fileNameAgentConf)
 
-	cs.pvcNameControllerPodStorage = cs.getResourceName("pod-storage")
+	cs.pvcNameControllerPodStorage = "storage"
 	return cs, nil
 }
 
@@ -712,10 +712,10 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 
 	// add container API server.
 	containerSpec = append(containerSpec, core.Container{
-		Name: "api-server",
-		// ImagePullPolicy: core.PullIfNotPresent,
-		ImagePullPolicy: core.PullAlways, // TODO(bootstrap): for debug
-		Image:           c.pcfg.GetControllerImagePath(),
+		Name:            "api-server",
+		ImagePullPolicy: core.PullIfNotPresent,
+		// ImagePullPolicy: core.PullAlways, // TODO(bootstrap): for debug
+		Image: c.pcfg.GetControllerImagePath(),
 		VolumeMounts: []core.VolumeMount{
 			{
 				Name:      c.pvcNameControllerPodStorage,
