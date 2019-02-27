@@ -10,9 +10,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-type unit interface {
-}
-
 type machine interface {
 	CharmProfiles() ([]string, error)
 	SetUpgradeCharmProfileComplete(unitName string, message string) error
@@ -36,11 +33,12 @@ type machineContext interface {
 type mutaterContext interface {
 	lifetimeContext
 	newMachineContext() machineContext
-	getMachine(tag names.MachineTag) (machine, error)
+	//getMachine(tag names.MachineTag) (machine, error)
 }
 
 type mutater struct {
 	context     mutaterContext
+	logger      Logger
 	machines    map[names.MachineTag]chan struct{}
 	machineDead chan machine
 }
@@ -82,16 +80,17 @@ func watchMachinesLoop(context mutaterContext, machinesWatcher watcher.StringsWa
 func (m *mutater) startMachines(tags []names.MachineTag) error {
 	for _, tag := range tags {
 		if c := m.machines[tag]; c == nil {
+			m.logger.Warningf("received tag %q", tag.String())
 			// We don't know about the machine - start
 			// a goroutine to deal with it.
-			machine, err := m.context.getMachine(tag)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			c = make(chan struct{})
-			m.machines[tag] = c
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			go runMachine(m.context.newMachineContext(), machine, c, m.machineDead)
+			//machine, err := m.context.getMachine(tag)
+			//if err != nil {
+			//	return errors.Trace(err)
+			//}
+			//c = make(chan struct{})
+			//m.machines[tag] = c
+			//// TODO(fwereade): 2016-03-17 lp:1558657
+			//go runMachine(m.context.newMachineContext(), machine, c, m.machineDead)
 		} else {
 			select {
 			case <-m.context.dying():

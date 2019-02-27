@@ -5,11 +5,13 @@ package instancemutater
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
+	"gopkg.in/juju/worker.v1/dependency"
 )
 
 //go:generate mockgen -package mocks -destination mocks/instancebroker_mock.go github.com/juju/juju/worker/instancemutater InstanceBroker
@@ -18,7 +20,7 @@ import (
 
 type InstanceAPI interface {
 	WatchModelMachines() (watcher.StringsWatcher, error)
-	Machine(tag names.MachineTag) (machine, error)
+	Machine(tag names.MachineTag) (*instancemutater.Machine, error)
 }
 
 // Logger represents the logging methods called.
@@ -35,6 +37,8 @@ type Config struct {
 	// Logger is the logger for this worker.
 	Logger Logger
 
+	Environ environs.Environ
+
 	// Tag is the current machine tag
 	Tag names.Tag
 }
@@ -46,14 +50,17 @@ func (config Config) Validate() error {
 		return errors.NotValidf("nil Logger")
 	}
 	if config.Facade == nil {
+		return errors.NotValidf("nil Facade")
+	}
+	if config.Environ == nil {
 		return errors.NotValidf("nil Environ")
 	}
-	if config.Tag == nil {
-		return errors.NotValidf("nil tag")
-	}
-	if _, ok := config.Tag.(names.MachineTag); !ok {
-		return errors.NotValidf("tag")
-	}
+	//if config.Tag == nil {
+	//	return errors.NotValidf("nil tag")
+	//}
+	//if _, ok := config.Tag.(names.MachineTag); !ok {
+	//	return errors.NotValidf("tag")
+	//}
 	return nil
 }
 
@@ -64,12 +71,15 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	broker, ok := config.Facade.(environs.LXDProfiler)
+	broker, ok := config.Environ.(environs.LXDProfiler)
 	if !ok {
-
+		// If we don't have an LXDProfiler broker, there is no need to
+		// run this worker.
+		return nil, dependency.ErrUninstall
 	}
 	w := &mutaterWorker{
 		logger:     config.Logger,
+		facade:     config.Facade,
 		broker:     broker,
 		machineTag: config.Tag.(names.MachineTag),
 	}
@@ -126,9 +136,9 @@ func (w *mutaterWorker) newMachineContext() machineContext {
 }
 
 // getMachine is part of the machineContext interface.
-func (w *mutaterWorker) getMachine(tag names.MachineTag) (machine, error) {
-	return w.facade.Machine(tag)
-}
+//func (w *mutaterWorker) getMachine(tag names.MachineTag) (machine, error) {
+//return w.facade.Machine(tag)
+//}
 
 // kill is part of the lifetimeContext interface.
 func (w *mutaterWorker) kill(err error) {
