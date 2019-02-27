@@ -6,8 +6,6 @@ package client
 import (
 	"fmt"
 
-	"github.com/juju/juju/core/leadership"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os"
@@ -19,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
