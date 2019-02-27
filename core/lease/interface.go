@@ -100,10 +100,17 @@ type Token interface {
 	Check(attempt int, trapdoorKey interface{}) error
 }
 
+// Reader describes retrieval of all leases and holders
+// for a known namespace and model.
+type Reader interface {
+	Leases() map[string]string
+}
+
 // Manager describes methods for acquiring objects that manipulate and query
 // leases for different models.
 type Manager interface {
 	Checker(namespace string, modelUUID string) (Checker, error)
 	Claimer(namespace string, modelUUID string) (Claimer, error)
 	Pinner(namespace string, modelUUID string) (Pinner, error)
+	Reader(namespace string, modelUUID string) (Reader, error)
 }
