@@ -147,5 +147,5 @@ func watchUnitLoop(context machineContext, logger Logger, m machine, unitWatcher
 }
 
 func unitsChanged(logger Logger, m machine, names []string) {
-	logger.Warningf("Recieved change on %s.%s", m.Tag(), names)
+	logger.Warningf("Received change on %s.%s", m.Tag(), names)
 }
