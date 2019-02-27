@@ -334,13 +334,13 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			closer = session.Close
 		}
 		observer := func(t jujutxn.Transaction) {
-			txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
-				t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
+			txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
+				t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
 		}
 		if db.runTransactionObserver != nil {
 			observer = func(t jujutxn.Transaction) {
-				txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
-					t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
+				txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
+					t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
 				db.runTransactionObserver(
 					db.raw.Name, db.modelUUID,
 					t.Ops, t.Error,

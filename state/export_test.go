@@ -125,8 +125,8 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 		Database: db.raw,
 		Clock:    st.stateClock,
 		RunTransactionObserver: func(t jujutxn.Transaction) {
-			txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
-				t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
+			txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
+				t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
 		},
 	})
 	db.runner = runner
