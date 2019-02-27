@@ -862,6 +862,8 @@ func (s *JujuConnSuite) SetAgentPresence(agent string, status presence.Status) {
 	s.Environ.(agentStatusSetter).SetAgentStatus(agent, status)
 }
 
+// lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the
+// core package.
 type lxdCharmProfiler struct {
 	Charm charm.Charm
 }

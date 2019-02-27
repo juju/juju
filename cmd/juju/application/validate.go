@@ -52,6 +52,8 @@ func (r *ValidateLXDProfileCharm) RunPost(api DeployStepAPI, bakeryClient *httpb
 	return nil
 }
 
+// lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the
+// core package.
 type lxdCharmProfiler struct {
 	Charm charm.Charm
 }
@@ -67,6 +69,8 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 	return nil
 }
 
+// lxdCharmInfoProfiler massages a *apicharms.CharmInfo into a LXDProfiler
+// inside of the core package.
 type lxdCharmInfoProfiler struct {
 	CharmInfo *apicharms.CharmInfo
 }

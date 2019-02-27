@@ -443,6 +443,8 @@ func (s csStateModelShim) ModelConfig() (*config.Config, error) {
 	return s.Model.ModelConfig()
 }
 
+// lxdCharmArchiveProfiler massages a *charm.CharmArchive into a LXDProfiler
+// inside of the core package.
 type lxdCharmArchiveProfiler struct {
 	CharmArchive *charm.CharmArchive
 }

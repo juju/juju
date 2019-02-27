@@ -10,6 +10,13 @@ import (
 //go:generate mockgen -package mocks -destination mocks/lxdprofile_mock.go github.com/juju/juju/core/lxdprofile LXDProfiler,LXDProfile
 
 // LXDProfiler represents a local implementation of a charm profile.
+// This point of use interface normalises a LXDProfiler, so that we can
+// validate configuration devices in one location, without having to roll
+// your own implementation of what is valid for a LXDProfile. With this in
+// mind shims from your existing types (charm.Charm, state.Charm,
+// params.CharmInfo) will probably require a shim to massage the type into
+// a LXDProfiler. This cleans up the interface for validation and keeps the
+// core cleaner.
 type LXDProfiler interface {
 	// LXDProfile returns a charm LXDProfile
 	LXDProfile() LXDProfile

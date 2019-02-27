@@ -663,6 +663,8 @@ func (c *Client) WatchDebugLog(args common.DebugLogParams) (<-chan common.LogMes
 	return common.StreamDebugLog(c.st, args)
 }
 
+// lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the
+// core package.
 type lxdCharmProfiler struct {
 	Charm charm.Charm
 }

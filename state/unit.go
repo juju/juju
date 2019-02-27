@@ -3084,6 +3084,8 @@ func (u *Unit) RemoveUpgradeCharmProfileData() error {
 	return machine.RemoveUpgradeCharmProfileData(u.doc.Application)
 }
 
+// lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the
+// core package.
 type lxdCharmProfiler struct {
 	Charm charm.Charm
 }
