@@ -170,7 +170,7 @@ func (c *ModelCommandBase) initModel0() error {
 	}
 	controllerName, modelName := SplitModelName(c._modelName)
 	if controllerName == "" {
-		currentController, err := c.store.CurrentController()
+		currentController, err := DetermineCurrentController(c.store)
 		if err != nil {
 			return errors.Trace(translateControllerError(c.store, err))
 		}

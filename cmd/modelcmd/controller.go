@@ -103,22 +103,43 @@ func (c *ControllerCommandBase) initController() error {
 	return c.initControllerError
 }
 
+// DetermineCurrentController returns current controller on this client.
+// The returned result corresponds to, in order of precedence:
+// 1. if JUJU_MODEL env variable exists and its value contains a controller prefix, that controller name;
+// 2. if JUJU_CONTROLLER env variable exists, its value;
+// 3. current controller specified in local controllers.yaml file.
+func DetermineCurrentController(store jujuclient.ClientStore) (string, error) {
+	controllerName, _ := SplitModelName(os.Getenv(osenv.JujuModelEnvKey))
+	if controllerName == "" {
+		controllerName = os.Getenv(osenv.JujuControllerEnvKey)
+	}
+	if controllerName == "" {
+		// 3. Current controller is specified in local controllers.yaml file.
+		var err error
+		controllerName, err = store.CurrentController()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+
+	if _, err := store.ControllerByName(controllerName); err != nil {
+		return "", errors.Trace(err)
+	}
+	return controllerName, nil
+}
+
 func (c *ControllerCommandBase) initController0() error {
 	if c._controllerName == "" && !c.allowDefaultController {
 		return errors.New("no controller specified")
 	}
 	if c._controllerName == "" {
-		c._controllerName = os.Getenv(osenv.JujuControllerEnvKey)
-	}
-	store := c.ClientStore()
-	if c._controllerName == "" {
-		currentController, err := store.CurrentController()
+		controllerName, err := DetermineCurrentController(c.store)
 		if err != nil {
-			return errors.Trace(translateControllerError(store, err))
+			return errors.Trace(translateControllerError(c.store, err))
 		}
-		c._controllerName = currentController
+		c._controllerName = controllerName
 	}
-	if _, err := store.ControllerByName(c._controllerName); err != nil {
+	if _, err := c.store.ControllerByName(c._controllerName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

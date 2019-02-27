@@ -456,7 +456,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Read existing current controller so we can clean up on error.
 	var oldCurrentController string
 	store := c.ClientStore()
-	oldCurrentController, err = store.CurrentController()
+	oldCurrentController, err = modelcmd.DetermineCurrentController(store)
 	if errors.IsNotFound(err) {
 		oldCurrentController = ""
 	} else if err != nil {
