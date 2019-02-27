@@ -58,8 +58,11 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	if len(results.Results) != 1 {
 		return jujucloud.Cloud{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
-	if results.Results[0].Error != nil {
-		return jujucloud.Cloud{}, results.Results[0].Error
+	if err := results.Results[0].Error; err != nil {
+		if params.IsCodeNotFound(err) {
+			return jujucloud.Cloud{}, errors.NotFoundf("cloud %s", tag.Id())
+		}
+		return jujucloud.Cloud{}, err
 	}
 	return common.CloudFromParams(tag.Id(), *results.Results[0].Cloud), nil
 }
@@ -71,6 +74,33 @@ func (c *Client) DefaultCloud() (names.CloudTag, error) {
 	if err := c.facade.FacadeCall("DefaultCloud", nil, &result); err != nil {
 		return names.CloudTag{}, errors.Trace(err)
 	}
+	if result.Error != nil {
+		return names.CloudTag{}, result.Error
+	}
+	cloudTag, err := names.ParseCloudTag(result.Result)
+	if err != nil {
+		return names.CloudTag{}, errors.Trace(err)
+	}
+	return cloudTag, nil
+}
+
+// ModelCloud returns the tag of the cloud for the specified model UUID.
+func (c *Client) ModelCloud(modelUUID string) (names.CloudTag, error) {
+	if c.BestAPIVersion() < 5 {
+		return names.CloudTag{}, errors.New("ModelCloud not supported for this version of Juju")
+
+	}
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewModelTag(modelUUID).String()}},
+	}
+	if err := c.facade.FacadeCall("ModelsCloud", args, &results); err != nil {
+		return names.CloudTag{}, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return names.CloudTag{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
 	if result.Error != nil {
 		return names.CloudTag{}, result.Error
 	}
@@ -221,8 +251,12 @@ func (c *Client) AddCredential(tag string, credential jujucloud.Credential) erro
 
 // AddCloud adds a new cloud to current controller.
 func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
-	if bestVer := c.BestAPIVersion(); bestVer < 2 {
+	bestVer := c.BestAPIVersion()
+	if bestVer < 2 {
 		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)
+	}
+	if len(cloud.Config) > 0 && bestVer < 5 {
+		return errors.New("adding a cloud with config parameters is not supported by this version of Juju")
 	}
 	args := params.AddCloudArgs{Name: cloud.Name, Cloud: common.CloudToParams(cloud)}
 	err := c.facade.FacadeCall("AddCloud", args, nil)

@@ -128,6 +128,50 @@ func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, names.NewCloudTag("foo"))
 }
 
+func (s *cloudSuite) TestModelCloud(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "ModelsCloud")
+				c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+				results := result.(*params.StringResults)
+				results.Results = []params.StringResult{{Result: "cloud-foo"}}
+				return nil
+			},
+		), BestVersion: 5,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	result, err := client.ModelCloud(coretesting.ModelTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, names.NewCloudTag("foo"))
+}
+
+func (s *cloudSuite) TestModelCloudOldVersion(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Fail()
+				return nil
+			},
+		), BestVersion: 4,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	_, err := client.ModelCloud(coretesting.ModelTag.Id())
+	c.Assert(err, gc.ErrorMatches, "ModelCloud not supported for this version of Juju")
+}
+
 func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,

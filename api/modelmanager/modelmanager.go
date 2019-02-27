@@ -469,8 +469,47 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 }
 
 // ModelDefaults returns the default values for various sources used when
-// creating a new model.
-func (c *Client) ModelDefaults() (config.ModelDefaultAttributes, error) {
+// creating a new model on the specified cloud.
+func (c *Client) ModelDefaults(cloud string) (config.ModelDefaultAttributes, error) {
+	if c.BestAPIVersion() < 6 {
+		if cloud != "" {
+			return nil, errors.Errorf("model defaults for cloud %s not supported for this version of Juju", cloud)
+		}
+		return c.legacyModelDefaults()
+	}
+
+	results := params.ModelDefaultsResults{}
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewCloudTag(cloud).String()}},
+	}
+	err := c.facade.FacadeCall("ModelDefaultsForClouds", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	values := make(config.ModelDefaultAttributes)
+	for name, val := range result.Config {
+		setting := config.AttributeDefaultValues{
+			Default:    val.Default,
+			Controller: val.Controller,
+		}
+		for _, region := range val.Regions {
+			setting.Regions = append(setting.Regions, config.RegionDefaultValue{
+				Name:  region.RegionName,
+				Value: region.Value})
+		}
+		values[name] = setting
+	}
+	return values, nil
+}
+
+func (c *Client) legacyModelDefaults() (config.ModelDefaultAttributes, error) {
 	result := params.ModelDefaultsResult{}
 	err := c.facade.FacadeCall("ModelDefaults", nil, &result)
 	if err != nil {

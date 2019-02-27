@@ -28,6 +28,12 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.cloud")
 
+// CloudV5 defines the methods on the cloud API facade, version 5.
+type CloudV5 interface {
+	CloudV4
+	ModelsCloud(args params.Entities) (params.StringResults, error)
+}
+
 // CloudV4 defines the methods on the cloud API facade, version 4.
 type CloudV4 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
@@ -99,10 +105,16 @@ type CloudAPI struct {
 	pool                   ModelPoolBackend
 }
 
+// CloudAPIV4 provides a way to wrap the different calls
+// between version 4 and version 5 of the cloud API.
+type CloudAPIV4 struct {
+	*CloudAPI
+}
+
 // CloudAPIV3 provides a way to wrap the different calls
 // between version 3 and version 4 of the cloud API.
 type CloudAPIV3 struct {
-	*CloudAPI
+	*CloudAPIV4
 }
 
 // CloudAPIV2 provides a way to wrap the different calls
@@ -118,18 +130,28 @@ type CloudAPIV1 struct {
 }
 
 var (
-	_ CloudV4 = (*CloudAPI)(nil)
+	_ CloudV5 = (*CloudAPI)(nil)
+	_ CloudV4 = (*CloudAPIV4)(nil)
 	_ CloudV3 = (*CloudAPIV3)(nil)
 	_ CloudV2 = (*CloudAPIV2)(nil)
 	_ CloudV1 = (*CloudAPIV1)(nil)
 )
 
-// NewFacadeV4 is used for API registration.
-func NewFacadeV4(context facade.Context) (*CloudAPI, error) {
+// NewFacadeV5 is used for API registration.
+func NewFacadeV5(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
 	pool := NewModelPoolBackend(context.StatePool())
 	ctlrSt := NewStateBackend(pool.SystemState())
 	return NewCloudAPI(st, ctlrSt, pool, context.Auth(), state.CallContext(context.State()))
+}
+
+// NewFacadeV3 is used for API registration.
+func NewFacadeV4(context facade.Context) (*CloudAPIV4, error) {
+	v5, err := NewFacadeV5(context)
+	if err != nil {
+		return nil, err
+	}
+	return &CloudAPIV4{v5}, nil
 }
 
 // NewFacadeV3 is used for API registration.
@@ -429,6 +451,33 @@ func (api *CloudAPI) DefaultCloud() (params.StringResult, error) {
 	}, nil
 }
 
+// ModelsCloud returns the tag of the cloud for the given models..
+func (api *CloudAPI) ModelsCloud(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		modelTag, err := names.ParseModelTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		pm, err := api.pool.Get(modelTag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		defer pm.Release()
+		m, err := pm.Model().Model()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = names.NewCloudTag(m.Cloud()).String()
+	}
+	return result, nil
+}
+
 // UserCredentials returns the cloud credentials for a set of users.
 func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResults, error) {
 	results := params.StringsResults{
@@ -663,6 +712,9 @@ func (*CloudAPI) UpdateCredentials(_, _ struct{}) {}
 //
 // CheckCredentialsModels did not exist before V3.
 func (*CloudAPIV2) CheckCredentialsModels(_, _ struct{}) {}
+
+// ModelsCloud did not exist before V5.
+func (*CloudAPIV4) ModelsCloud(_, _ struct{}) {}
 
 // UpdateCredentials updates a set of cloud credentials' content.
 func (api *CloudAPIV2) UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
@@ -933,10 +985,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 		return common.ServerError(common.ErrPerm)
 	}
 	err = api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud), api.apiUser.Name())
-	if err != nil {
-		return err
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // UpdateCloud updates an existing cloud that the controller knows about.

@@ -124,7 +124,7 @@ func (s *cloudSuiteV2) setTestAPIForUser(c *gc.C, user names.UserTag) {
 	}
 	client, err := cloudfacade.NewCloudAPI(s.backend, s.backend, s.statePool, s.authorizer, context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiv2 = &cloudfacade.CloudAPIV2{&cloudfacade.CloudAPIV3{client}}
+	s.apiv2 = &cloudfacade.CloudAPIV2{&cloudfacade.CloudAPIV3{&cloudfacade.CloudAPIV4{client}}}
 }
 
 func (s *cloudSuiteV2) TestCredentialContentsAllNoSecrets(c *gc.C) {
