@@ -66,7 +66,9 @@ func (s *CloudSuite) TestClouds(c *gc.C) {
 }
 
 func (s *CloudSuite) TestAddCloud(c *gc.C) {
-	err := s.State.AddCloud(lowCloud, s.Owner.Name())
+	cloudToAdd := lowCloud
+	cloudToAdd.Config = map[string]interface{}{"foo": "bar"}
+	err := s.State.AddCloud(cloudToAdd, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	cloud, err := s.State.Cloud("stratus")
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,6 +76,10 @@ func (s *CloudSuite) TestAddCloud(c *gc.C) {
 	access, err := s.State.GetCloudAccess(lowCloud.Name, s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.AdminAccess)
+
+	settings, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey(lowCloud.Name))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings.Map(), jc.DeepEquals, cloudToAdd.Config)
 }
 
 func (s *CloudSuite) TestAddCloudDuplicate(c *gc.C) {
@@ -134,16 +140,22 @@ func (s *CloudSuite) TestUpdateCloud(c *gc.C) {
 		StorageEndpoint:  "updatedregion2-storage",
 	}
 	updatedCloud.CACertificates[0] = "updatedcert1"
+	updatedCloud.Config = map[string]interface{}{"foo": "bar"}
 
 	err = s.State.UpdateCloud(updatedCloud)
 	c.Assert(err, jc.ErrorIsNil)
 
+	updatedCloud.Config = nil
 	cloud, err := s.State.Cloud("stratus")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, jc.DeepEquals, updatedCloud)
 	access, err := s.State.GetCloudAccess(updatedCloud.Name, s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.AdminAccess)
+
+	settings, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey(updatedCloud.Name))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings.Map(), jc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
 func (s *CloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
@@ -159,11 +171,26 @@ func (s *CloudSuite) TestRemoveNonExistentCloud(c *gc.C) {
 }
 
 func (s *CloudSuite) TestRemoveCloud(c *gc.C) {
-	err := s.State.AddCloud(lowCloud, s.Owner.Name())
+	cloudToAdd := lowCloud
+	cloudToAdd.Config = map[string]interface{}{"foo": "bar"}
+	err := s.State.AddCloud(cloudToAdd, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add some region serrings to ensure they're removed also.
+	settings := state.NewStateSettingsForCollection(s.State, state.GlobalSettingsC)
+	err = settings.CreateSettings(
+		state.RegionSettingsGlobalKey(lowCloud.Name, "someregion"),
+		map[string]interface{}{"fred": "mary"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.State.RemoveCloud(lowCloud.Name)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.Cloud(lowCloud.Name)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey(lowCloud.Name))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.ReadSettings(state.GlobalSettingsC, state.RegionSettingsGlobalKey(lowCloud.Name, "someregion"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

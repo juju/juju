@@ -93,10 +93,6 @@ type State struct {
 	newPolicy              NewPolicyFunc
 	runTransactionObserver RunTransactionObserverFunc
 
-	// cloudName is the name of the cloud on which the model
-	// represented by this state runs.
-	cloudName string
-
 	// leaseStoreId is used by the lease infrastructure to
 	// differentiate between machines whose clocks may be
 	// relatively-skewed.

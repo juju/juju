@@ -15,6 +15,9 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/permission"
 )
@@ -234,7 +237,7 @@ func (st *State) AddCloud(c cloud.Cloud, owner string) error {
 		return errors.Annotatef(err, "granting %s permission to the cloud owner", permission.AdminAccess)
 	}
 
-	return nil
+	return st.updateConfigefaults(c.Name, c.Config)
 }
 
 // UpdateCloud updates an existing cloud with the given name and details.
@@ -251,7 +254,22 @@ func (st *State) UpdateCloud(c cloud.Cloud) error {
 		}
 		return errors.Trace(err)
 	}
-	return nil
+	return st.updateConfigefaults(c.Name, c.Config)
+}
+
+func (st *State) updateConfigefaults(cloudName string, config map[string]interface{}) error {
+	cfg := make(map[string]interface{})
+	for k, v := range config {
+		if bootstrap.IsBootstrapAttribute(k) || controller.ControllerOnlyAttribute(k) {
+			continue
+		}
+		cfg[k] = v
+	}
+	regionSpec, err := environs.NewCloudRegionSpec(cloudName, "")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.UpdateModelConfigDefaultValues(cfg, nil, regionSpec)
 }
 
 // validateCloud checks that the supplied cloud is valid.
@@ -327,7 +345,15 @@ func (st *State) removeCloudOps(name string) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	ops = append(ops, permOps...)
+
+	settingsPattern := bson.M{
+		"_id": bson.M{"$regex": "^" + cloudGlobalKey(name) + "|" + name + "#"},
+	}
+	settingsOps, err := st.removeInCollectionOps(globalSettingsC, settingsPattern)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, settingsOps...)
 	return ops, nil
 }

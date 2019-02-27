@@ -5,8 +5,8 @@ package stateenvirons
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -62,15 +62,6 @@ func (p environStatePolicy) ConfigValidator() (config.Validator, error) {
 
 // ProviderConfigSchemaSource implements state.Policy.
 func (p environStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {
-	model, err := p.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if model.Type() != state.ModelTypeIAAS {
-		// TODO(caas) CAAS providers should also provide
-		// a config schema.
-		return nil, errors.NotImplementedf("ProviderConfigSchemaSource")
-	}
 	provider, err := environProvider(p.st)
 	if err != nil {
 		return nil, errors.Trace(err)
