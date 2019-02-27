@@ -5,6 +5,7 @@ package featuretests
 
 import (
 	gc "gopkg.in/check.v1"
+	"regexp"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -52,8 +53,11 @@ func (s *cmdCurrentControllerSuite) writeStoreFiles(c *gc.C) {
 func (s *cmdCurrentControllerSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	context := cmdtesting.Context(c)
 	command := commands.NewJujuCommand(context)
-	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
-	err := command.Run(context)
+	err := cmdtesting.InitCommand(command, args)
+	if err != nil {
+		return context, err
+	}
+	err = command.Run(context)
 	loggo.RemoveWriter("warning")
 	return context, err
 }
@@ -76,15 +80,16 @@ kontroll    controller  admin  superuser  dummy/dummy-region       1         -  
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
-// TestControllerLevelCommandModelEnvVarPrecedence ensures that
+// TestControllerLevelCommandModelEnvVarConflict ensures that
 // when $JUJU_CONTROLLER and $JUJU_MODEL point to different controllers,
 // $JUJU_MODEL takes precedence for controller-level commands.
-func (s *cmdCurrentControllerSuite) TestControllerLevelCommandModelEnvVarPrecedence(c *gc.C) {
+func (s *cmdCurrentControllerSuite) TestControllerLevelCommandModelEnvVarConflict(c *gc.C) {
 	s.PatchEnvironment("JUJU_CONTROLLER", "ctrlTwo")
 	s.PatchEnvironment("JUJU_MODEL", "kontroll:")
-	context, _ := s.run(c, "models")
-	c.Assert(cmdtesting.Stdout(context), jc.Contains, "Controller: kontroll\n")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	context, err := s.run(c, "models")
+	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "")
+	c.Assert(cmdtesting.Stderr(context), jc.Contains, "ERROR controller name from JUJU_MODEL (kontroll) conflicts with value in JUJU_CONTROLLER (ctrlTwo)\n")
 }
 
 // TestControllerLevelCommandOptionPrecedence ensures that
@@ -94,7 +99,112 @@ func (s *cmdCurrentControllerSuite) TestControllerLevelCommandModelEnvVarPrecede
 func (s *cmdCurrentControllerSuite) TestControllerLevelCommandOptionPrecedence(c *gc.C) {
 	s.PatchEnvironment("JUJU_CONTROLLER", "ctrlOne")
 	s.PatchEnvironment("JUJU_MODEL", "ctrlOne:")
-	context, _ := s.run(c, "models", "-c", "kontroll")
+	context, err := s.run(c, "models", "-c", "kontroll")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, "Controller: kontroll\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+}
+
+// TestControllerLevelCommandOptionEnvConflict ensures that
+// when $JUJU_CONTROLLER and $JUJU_MODEL point to the same controller
+// but a different controller is specified with -c on the command line,
+// controller-level commands use command option.
+func (s *cmdCurrentControllerSuite) TestControllerLevelCommandOptionEnvConflict(c *gc.C) {
+	s.PatchEnvironment("JUJU_CONTROLLER", "ctrlOne")
+	s.PatchEnvironment("JUJU_MODEL", "ctrlTwo:")
+	context, err := s.run(c, "models", "-c", "kontroll")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "Controller: kontroll\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+}
+
+// TestModelLevelCommandOptionPrecedenceControllerVar ensures that
+// when $JUJU_CONTROLLER is set but $JUJU_MODEL is not and
+// a different controller is specified with -m on the command line,
+// model level commands use command option.
+func (s *cmdCurrentControllerSuite) TestModelLevelCommandOptionPrecedenceControllerVar(c *gc.C) {
+	s.PatchEnvironment("JUJU_CONTROLLER", "ctrlTwo")
+	context, err := s.run(c, "status", "-m", "kontroll:controller")
+	c.Assert(err, jc.ErrorIsNil)
+	// No need to check this whole output which will be of the form...
+	//    Model       Controller  Cloud/Region        Version  SLA          Timestamp
+	//    controller  kontroll    dummy/dummy-region  2.5.2    unsupported  15:22:42+01:00
+	// It's enough to check that the model and expected controller appear.
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "controller  kontroll")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "Model \"controller\" is empty.\n")
+}
+
+// TestModelLevelCommandOptionPrecedenceModelVar ensures that
+// when $JUJU_MODEL is set but $JUJU_CONTROLLER is not and
+// a different controller is specified with -m on the command line,
+// model level commands use command option.
+func (s *cmdCurrentControllerSuite) TestModelLevelCommandOptionPrecedenceModelVar(c *gc.C) {
+	s.PatchEnvironment("JUJU_MODEL", "ctrlTwo:controller")
+	context, err := s.run(c, "status", "-m", "kontroll:controller")
+	c.Assert(err, jc.ErrorIsNil)
+	// No need to check this whole output which will be of the form...
+	//    Model       Controller  Cloud/Region        Version  SLA          Timestamp
+	//    controller  kontroll    dummy/dummy-region  2.5.2    unsupported  15:22:42+01:00
+	// It's enough to check that the model and expected controller appear.
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "controller  kontroll")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "Model \"controller\" is empty.\n")
+}
+
+// TestModelLevelCommandOptionPrecedence ensures that
+// when $JUJU_CONTROLLER and $JUJU_MODEL point to different controllers and
+// -m is specified on the command line with the controller being included,
+// model level command uses command option.
+func (s *cmdCurrentControllerSuite) TestModelLevelCommandOptionPrecedence(c *gc.C) {
+	s.PatchEnvironment("JUJU_CONTROLLER", "ctrlOne")
+	s.PatchEnvironment("JUJU_MODEL", "ctrlTwo:controller")
+	context, err := s.run(c, "status", "-m", "kontroll:controller")
+	c.Assert(err, jc.ErrorIsNil)
+	// No need to check this whole output which will be of the form...
+	//    Model       Controller  Cloud/Region        Version  SLA          Timestamp
+	//    controller  kontroll    dummy/dummy-region  2.5.2    unsupported  15:22:42+01:00
+	// It's enough to check that the model and expected controller appear.
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "controller  kontroll")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "Model \"controller\" is empty.\n")
+}
+
+// TestModelLevelCommandOptionOnly ensures that
+// when -m is specified on the command line with the controller being included,
+// model level command uses command option.
+func (s *cmdCurrentControllerSuite) TestModelLevelCommandOptionOnly(c *gc.C) {
+	context, err := s.run(c, "status", "-m", "kontroll:controller")
+	c.Assert(err, jc.ErrorIsNil)
+	// No need to check this whole output which will be of the form...
+	//    Model       Controller  Cloud/Region        Version  SLA          Timestamp
+	//    controller  kontroll    dummy/dummy-region  2.5.2    unsupported  15:22:42+01:00
+	// It's enough to check that the model and expected controller appear.
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "controller  kontroll")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "Model \"controller\" is empty.\n")
+}
+
+// TestModelLevelCommandWithNoControllerInModelOptionAndNoEnvVar ensures that
+// when -m is specified on the command line without the controller being included,
+// model level command uses controller from latest 'switch' call.
+func (s *cmdCurrentControllerSuite) TestModelLevelCommandWithNoControllerInModelOptionAndNoEnvVar(c *gc.C) {
+	s.ControllerStore.SetCurrentController("kontroll")
+	context, err := s.run(c, "status", "-m", "controller")
+	c.Assert(err, jc.ErrorIsNil)
+	// No need to check this whole output which will be of the form...
+	//    Model       Controller  Cloud/Region        Version  SLA          Timestamp
+	//    controller  kontroll    dummy/dummy-region  2.5.2    unsupported  15:22:42+01:00
+	// It's enough to check that the model and expected controller appear.
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "controller  kontroll")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "Model \"controller\" is empty.\n")
+}
+
+// TestModelLevelCommandWithEnvVarsConflict ensures that
+// when $JUJU_CONTROLLER and $JUJU_MODEL point to different controllers and
+// -m is specified on the command line without the controller being included,
+// model level command uses command option.
+func (s *cmdCurrentControllerSuite) TestModelLevelCommandWithEnvVarsConflict(c *gc.C) {
+	s.PatchEnvironment("JUJU_CONTROLLER", "ctrlOne")
+	s.PatchEnvironment("JUJU_MODEL", "ctrlTwo:controller")
+	context, err := s.run(c, "status", "-m", "controller")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("controller name from JUJU_MODEL (ctrlTwo) conflicts with value in JUJU_CONTROLLER (ctrlOne)"))
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }

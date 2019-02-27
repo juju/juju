@@ -4,6 +4,7 @@
 package modelcmd
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 
@@ -109,9 +110,18 @@ func (c *ControllerCommandBase) initController() error {
 // 2. if JUJU_CONTROLLER env variable exists, its value;
 // 3. current controller specified in local controllers.yaml file.
 func DetermineCurrentController(store jujuclient.ClientStore) (string, error) {
-	controllerName, _ := SplitModelName(os.Getenv(osenv.JujuModelEnvKey))
+	modelController, _ := SplitModelName(os.Getenv(osenv.JujuModelEnvKey))
+	envController := os.Getenv(osenv.JujuControllerEnvKey)
+	if modelController != "" && envController != "" && modelController != envController {
+		return "", errors.Trace(errors.New(
+			fmt.Sprintf("controller name from %v (%v) conflicts with value in %v (%v)",
+				osenv.JujuModelEnvKey, modelController,
+				osenv.JujuControllerEnvKey, envController,
+			)))
+	}
+	controllerName := modelController
 	if controllerName == "" {
-		controllerName = os.Getenv(osenv.JujuControllerEnvKey)
+		controllerName = envController
 	}
 	if controllerName == "" {
 		// 3. Current controller is specified in local controllers.yaml file.
