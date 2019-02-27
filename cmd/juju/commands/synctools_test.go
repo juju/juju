@@ -45,6 +45,7 @@ func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	})
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
+	s.store.Controllers["ctrl"] = jujuclient.ControllerDetails{}
 	s.store.Models["ctrl"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{"admin/test-target": {ModelType: "iaas"}}}
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{

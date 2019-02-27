@@ -115,7 +115,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 	if len(errs) > 0 {
 		fmt.Fprintln(ctx.Stderr, strings.Join(errs, "\n"))
 	}
-	currentController, err := c.store.CurrentController()
+	currentController, err := modelcmd.DetermineCurrentController(c.store)
 	if errors.IsNotFound(err) {
 		currentController = ""
 	} else if err != nil {
