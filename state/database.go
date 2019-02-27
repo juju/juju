@@ -333,12 +333,12 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			raw = raw.With(session)
 			closer = session.Close
 		}
-		observer := func(t jujutxn.ObservedTransaction) {
+		observer := func(t jujutxn.Transaction) {
 			txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
 				t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
 		}
 		if db.runTransactionObserver != nil {
-			observer = func(t jujutxn.ObservedTransaction) {
+			observer = func(t jujutxn.Transaction) {
 				txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
 					t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
 				db.runTransactionObserver(
@@ -365,7 +365,7 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 func (db *database) RunTransaction(ops []txn.Op) error {
 	runner, closer := db.TransactionRunner()
 	defer closer()
-	return runner.RunTransaction(ops)
+	return runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 }
 
 // RunTransactionFor is part of the Database interface.
@@ -374,7 +374,7 @@ func (db *database) RunTransactionFor(modelUUID string, ops []txn.Op) error {
 	defer dbcloser()
 	runner, closer := newDB.TransactionRunner()
 	defer closer()
-	return runner.RunTransaction(ops)
+	return runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 }
 
 // RunRawTransaction is part of the Database interface.
@@ -384,7 +384,7 @@ func (db *database) RunRawTransaction(ops []txn.Op) error {
 	if multiRunner, ok := runner.(*multiModelRunner); ok {
 		runner = multiRunner.rawRunner
 	}
-	return runner.RunTransaction(ops)
+	return runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 }
 
 // Run is part of the Database interface.
