@@ -109,7 +109,15 @@ func (c *showCloudCommand) Info() *cmd.Info {
 }
 
 func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
-	cloud, err := c.getCloud()
+	var (
+		cloud *cloudDetails
+		err   error
+	)
+	if c.controllerName == "" {
+		cloud, err = c.getLocalCloud()
+	} else {
+		cloud, err = c.getControllerCloud()
+	}
 	if err != nil {
 		return err
 	}
@@ -127,19 +135,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	return nil
 }
 
-func (c *showCloudCommand) getCloud() (*cloudDetails, error) {
-	if c.controllerName == "" {
-		details, err := getCloudDetails()
-		if err != nil {
-			return nil, err
-		}
-		cloud, ok := details[c.CloudName]
-		if !ok {
-			return nil, errors.NotFoundf("cloud %q", c.CloudName)
-		}
-		return cloud, nil
-	}
-
+func (c *showCloudCommand) getControllerCloud() (*cloudDetails, error) {
 	api, err := c.showCloudAPIFunc(c.controllerName)
 	if err != nil {
 		return nil, err
@@ -150,6 +146,18 @@ func (c *showCloudCommand) getCloud() (*cloudDetails, error) {
 		return nil, err
 	}
 	cloud := makeCloudDetails(controllerCloud)
+	return cloud, nil
+}
+
+func (c *showCloudCommand) getLocalCloud() (*cloudDetails, error) {
+	details, err := getCloudDetails()
+	if err != nil {
+		return nil, err
+	}
+	cloud, ok := details[c.CloudName]
+	if !ok {
+		return nil, errors.NotFoundf("cloud %q", c.CloudName)
+	}
 	return cloud, nil
 }
 
