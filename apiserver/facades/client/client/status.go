@@ -1015,7 +1015,9 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 
 	var charmProfileName string
-	if lxdprofile.NotEmpty(applicationCharm) {
+	if lxdprofile.NotEmpty(lxdStateCharmProfiler{
+		Charm: applicationCharm,
+	}) {
 		charmProfileName = lxdprofile.Name(context.model.Name(), application.Name(), applicationCharm.Revision())
 	}
 
@@ -1457,3 +1459,17 @@ func (s bySinceDescending) Swap(a, b int) { s[a], s[b] = s[b], s[a] }
 
 // Less implements sort.Interface.
 func (s bySinceDescending) Less(a, b int) bool { return s[a].Since.After(*s[b].Since) }
+
+// lxdStateCharmProfiler massages a *state.Charm into a LXDProfiler
+// inside of the core package.
+type lxdStateCharmProfiler struct {
+	Charm *state.Charm
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p lxdStateCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.Charm == nil {
+		return nil
+	}
+	return p.Charm.LXDProfile()
+}

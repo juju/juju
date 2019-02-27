@@ -457,7 +457,9 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 		}
 		if err == nil {
-			if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
+			if err := lxdprofile.ValidateLXDProfile(lxdCharmProfiler{
+				Charm: ch,
+			}); err != nil {
 				return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 			}
 			if curl, err = h.api.AddLocalCharm(curl, ch, false); err != nil {
@@ -587,7 +589,9 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
-	if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
+	if err := lxdprofile.ValidateLXDProfile(lxdCharmInfoProfiler{
+		CharmInfo: charmInfo,
+	}); err != nil {
 		return errors.Trace(err)
 	}
 
