@@ -56,7 +56,13 @@ import (
 	"github.com/juju/juju/storage/provider"
 )
 
-var logger = loggo.GetLogger("juju.kubernetes.provider")
+var (
+	logger         = loggo.GetLogger("juju.kubernetes.provider")
+	jujudStartUpSh = `
+test -e ./jujud || ln -s $(which jujud) $(pwd)/jujud
+./jujud %s
+`[1:]
+)
 
 const (
 	labelOperator        = "juju-operator"
@@ -69,6 +75,8 @@ const (
 	defaultOperatorStorageClassName = "juju-operator-storage"
 
 	gpuAffinityNodeSelectorKey = "gpu"
+
+	jujudToolDir = "/var/lib/juju/tools"
 )
 
 var defaultPropagationPolicy = v1.DeletePropagationForeground
@@ -2189,6 +2197,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 		podLabels[k] = v
 	}
 	podLabels[labelVersion] = version
+	jujudArgs := fmt.Sprintf("caasoperator --application-name=%s --debug", appName)
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   podName,
@@ -2199,6 +2208,14 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				Name:            "juju-operator",
 				ImagePullPolicy: core.PullIfNotPresent,
 				Image:           operatorImagePath,
+				WorkingDir:      jujudToolDir,
+				Command: []string{
+					"/bin/sh",
+				},
+				Args: []string{
+					"-c",
+					fmt.Sprintf(jujudStartUpSh, jujudArgs),
+				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
 				},

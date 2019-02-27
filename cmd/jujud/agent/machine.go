@@ -666,11 +666,9 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			ControllerSupportsSpaces:          controllerSupportsSpaces,
 			MuxShutdownWait:                   1 * time.Minute,
 		}
-		var manifolds dependency.Manifolds
+		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasMachineAgent {
 			manifolds = caasMachineManifolds(manifoldsCfg)
-		} else {
-			manifolds = iaasMachineManifolds(manifoldsCfg)
 		}
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {

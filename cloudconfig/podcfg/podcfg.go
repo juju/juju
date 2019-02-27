@@ -30,8 +30,8 @@ import (
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
 
 const (
-	jujudOCINamespace = "jujusolutions" // TODO(bootstrap): change it to "jujusolutions" and also consolidate caas operator and caas conroller to one image.
-	jujudOCIName      = "jujud-controller"
+	jujudOCINamespace = "jujusolutions"
+	jujudOCIName      = "caas-jujud-operator"
 )
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
@@ -218,7 +218,12 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 
 // GetControllerImagePath returns oci image path of jujud.
 func (cfg *ControllerPodConfig) GetControllerImagePath() string {
-	return fmt.Sprintf("%s/%s:%s", jujudOCINamespace, jujudOCIName, cfg.JujuVersion.String())
+	return GetJujuOCIImagePath(cfg.JujuVersion)
+}
+
+// GetJujuOCIImagePath returns jujud oci image path.
+func GetJujuOCIImagePath(ver version.Number) string {
+	return fmt.Sprintf("%s/%s:%s", jujudOCINamespace, jujudOCIName, ver.String())
 }
 
 func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {

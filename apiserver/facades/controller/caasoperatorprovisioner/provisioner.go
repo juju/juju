@@ -4,8 +4,6 @@
 package caasoperatorprovisioner
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -15,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -101,7 +100,7 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 	vers := version.Current
 	vers.Build = 0
 	if imagePath == "" {
-		imagePath = fmt.Sprintf("%s/caas-jujud-operator:%s", "jujusolutions", vers.String())
+		imagePath = podcfg.GetJujuOCIImagePath(vers)
 	}
 	charmStorageParams, err := charmStorageParams(a.storagePoolManager, a.storageProviderRegistry)
 	if err != nil {

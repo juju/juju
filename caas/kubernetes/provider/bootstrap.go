@@ -711,11 +711,20 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 	})
 
 	// add container API server.
+	jujudArgs := fmt.Sprintf("machine --data-dir /var/lib/juju --machine-id %s --debug", "0")
 	containerSpec = append(containerSpec, core.Container{
 		Name:            "api-server",
 		ImagePullPolicy: core.PullIfNotPresent,
 		// ImagePullPolicy: core.PullAlways, // TODO(bootstrap): for debug
 		Image: c.pcfg.GetControllerImagePath(),
+		Command: []string{
+			"/bin/sh",
+		},
+		Args: []string{
+			"-c",
+			fmt.Sprintf(jujudStartUpSh, jujudArgs),
+		},
+		WorkingDir: jujudToolDir,
 		VolumeMounts: []core.VolumeMount{
 			{
 				Name:      c.pvcNameControllerPodStorage,

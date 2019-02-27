@@ -102,10 +102,8 @@ func (c *BootstrapCommand) Init(args []string) error {
 }
 
 var (
-	// EnvironsNewIAAS defines function used to get reference to an underlying IAAS cloud provider.
-	EnvironsNewIAAS = environs.New
-	// EnvironsNewCAAS defines function used to get reference to an underlying CAAS cloud provider.
-	EnvironsNewCAAS = caas.New
+	environsNewIAAS = environs.New
+	environsNewCAAS = caas.New
 )
 
 // Run initializes state for an environment.
@@ -156,9 +154,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	var env environs.BootstrapEnviron
 	if isCAASController {
-		env, err = EnvironsNewCAAS(openParams)
+		env, err = environsNewCAAS(openParams)
 	} else {
-		env, err = EnvironsNewIAAS(openParams)
+		env, err = environsNewIAAS(openParams)
 	}
 	if err != nil {
 		return errors.Trace(err)

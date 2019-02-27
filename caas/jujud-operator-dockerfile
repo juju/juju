@@ -1,13 +1,16 @@
 FROM ubuntu:18.04
 
 # Some Python dependencies.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
     python3-yaml \
     python3-pip \
     python3-distutils \
- && pip3 install --upgrade pip setuptools \
- && rm -rf /var/lib/apt/lists/* \
- && rm -rf /root/.cache
+    # below apt dependencies required by controller pod.
+    iproute2 \ 
+    && pip3 install --upgrade pip setuptools \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /root/.cache
 
 # Install the standard charm dependencies.
 ENV WHEELHOUSE=/tmp/wheelhouse
@@ -20,7 +23,6 @@ RUN pip3 install -r /tmp/wheelhouse/jujud-operator-requirements.txt
 # Finally jujud
 ARG JUJUD_DIR=/var/lib/juju/tools
 WORKDIR $JUJUD_DIR
-COPY jujud $JUJUD_DIR
+COPY jujud /usr/local/bin/
 
 ENTRYPOINT ["sh", "-c"]
-CMD ["./jujud caasoperator --debug --application-name ${JUJU_APPLICATION}"]
