@@ -6,12 +6,11 @@ package apiserver
 import (
 	"time"
 
-	"github.com/juju/juju/state"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/state"
 )
 
 // leadershipChecker implements leadership.Checker by wrapping a lease.Checker.
