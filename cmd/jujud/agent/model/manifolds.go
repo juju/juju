@@ -403,6 +403,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 	if utilsfeatureflag.Enabled(feature.InstanceMutater) {
 		manifolds[instanceMutaterName] = ifNotMigrating(instancemutater.Manifold(instancemutater.ManifoldConfig{
+			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 			NewWorker:     instancemutater.NewWorker,

@@ -8,7 +8,9 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/environs"
 )
 
@@ -21,6 +23,7 @@ import (
 type ManifoldConfig struct {
 	APICallerName string
 	EnvironName   string
+	AgentName     string
 
 	Logger    Logger
 	NewWorker func(Config) (worker.Worker, error)
@@ -34,16 +37,30 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
+	if config.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if config.EnvironName == "" {
+		return errors.NotValidf("empty EnvironName")
+	}
+	if config.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName")
+	}
 	return nil
 }
 
-func (config ManifoldConfig) newWorker(environ environs.Environ, apiCaller base.APICaller) (worker.Worker, error) {
+func (config ManifoldConfig) newWorker(environ environs.Environ, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	facade := instancemutater.NewClient(apiCaller)
+
 	cfg := Config{
-		Logger: config.Logger,
+		Logger:  config.Logger,
+		Facade:  facade,
+		Environ: environ,
+		//AgentConfig: agent.CurrentConfig(),
 	}
 
 	w, err := config.NewWorker(cfg)
@@ -58,6 +75,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	typedConfig := EnvironAPIConfig{
 		EnvironName:   config.EnvironName,
 		APICallerName: config.APICallerName,
+		AgentName:     config.AgentName,
 	}
 	return EnvironAPIManifold(typedConfig, config.newWorker)
 }
@@ -67,11 +85,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 type EnvironAPIConfig struct {
 	EnvironName   string
 	APICallerName string
+	AgentName     string
 }
 
 // EnvironAPIStartFunc encapsulates creation of a worker based on the environ
 // and APICaller.
-type EnvironAPIStartFunc func(environs.Environ, base.APICaller) (worker.Worker, error)
+type EnvironAPIStartFunc func(environs.Environ, base.APICaller, agent.Agent) (worker.Worker, error)
 
 // EnvironAPIManifold returns a dependency.Manifold that calls the supplied
 // start func with the API and envrion resources defined in the config
@@ -79,10 +98,15 @@ type EnvironAPIStartFunc func(environs.Environ, base.APICaller) (worker.Worker, 
 func EnvironAPIManifold(config EnvironAPIConfig, start EnvironAPIStartFunc) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			config.APICallerName,
 			config.EnvironName,
 			config.APICallerName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
+			var agent agent.Agent
+			if err := context.Get(config.AgentName, &agent); err != nil {
+				return nil, errors.Trace(err)
+			}
 			var environ environs.Environ
 			if err := context.Get(config.EnvironName, &environ); err != nil {
 				return nil, errors.Trace(err)
@@ -91,7 +115,7 @@ func EnvironAPIManifold(config EnvironAPIConfig, start EnvironAPIStartFunc) depe
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
-			return start(environ, apiCaller)
+			return start(environ, apiCaller, agent)
 		},
 	}
 }
