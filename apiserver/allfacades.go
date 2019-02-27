@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
 	"github.com/juju/juju/apiserver/facades/agent/hostkeyreporter"
+	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
 	"github.com/juju/juju/apiserver/facades/agent/leadership"
 	loggerapi "github.com/juju/juju/apiserver/facades/agent/logger"
@@ -199,6 +200,10 @@ func AllFacades() *facade.Registry {
 
 	if featureflag.Enabled(feature.ImageMetadata) {
 		reg("ImageMetadataManager", 1, imagemetadatamanager.NewAPI)
+	}
+
+	if featureflag.Enabled(feature.InstanceMutater) {
+		reg("InstanceMutater", 1, instancemutater.NewInstanceMutaterFacade)
 	}
 
 	reg("InstancePoller", 3, instancepoller.NewFacade)
