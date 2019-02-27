@@ -32,7 +32,6 @@ func (s *PrecheckSuite) TestSuccess(c *gc.C) {
 	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
 		Series:      "kubernetes",
 		Constraints: constraints.MustParse("mem=4G"),
-		Placement:   "a=b",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -58,7 +57,7 @@ func (s *PrecheckSuite) TestUnsupportedConstraints(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `constraints instance-type not supported`)
 }
 
-func (s *PrecheckSuite) TestBadPlacement(c *gc.C) {
+func (s *PrecheckSuite) TestPlacementNotAllowed(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -67,4 +66,20 @@ func (s *PrecheckSuite) TestBadPlacement(c *gc.C) {
 		Placement: "a",
 	})
 	c.Assert(err, gc.ErrorMatches, `placement directive "a" not valid`)
+}
+
+func (s *PrecheckSuite) TestInvalidConstraints(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
+		Series:      "kubernetes",
+		Constraints: constraints.MustParse("tags=foo"),
+	})
+	c.Assert(err, gc.ErrorMatches, `invalid node affinity constraints: foo`)
+	err = s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
+		Series:      "kubernetes",
+		Constraints: constraints.MustParse("tags=^=bar"),
+	})
+	c.Assert(err, gc.ErrorMatches, `invalid node affinity constraints: \^=bar`)
 }

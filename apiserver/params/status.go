@@ -148,7 +148,6 @@ type ApplicationStatus struct {
 
 	// The following are for CAAS models.
 	Scale         int    `json:"int,omitempty"`
-	Placement     string `json:"string,omitempty"`
 	ProviderId    string `json:"provider-id,omitempty"`
 	PublicAddress string `json:"public-address"`
 }

@@ -50,7 +50,6 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -70,7 +69,6 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {

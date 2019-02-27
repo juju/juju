@@ -183,7 +183,6 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -204,7 +203,6 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -224,7 +222,6 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
                 django:
                     charm: django
                     scale: 1
-                    placement: foo=bar
                     options:
                         debug: true
                     storage:
@@ -258,7 +255,6 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			1,
-			"foo=bar",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -279,7 +275,6 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -329,7 +324,6 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -349,7 +343,6 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -391,7 +384,6 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 					map[string]string{"url": "public"},
 					map[string]int{},
 					0,
-					"",
 				},
 				Requires: []string{"addCharm-0"},
 			})
@@ -508,16 +500,13 @@ applications:
 
 func (s *bundleSuite) addApplicationToModel(model description.Model, name string, numUnits int) description.Application {
 	series := "xenial"
-	placement := ""
 	if model.Type() == "caas" {
 		series = "kubernetes"
-		placement = "foo=bar"
 	}
 	application := model.AddApplication(description.ApplicationArgs{
 		Tag:                names.NewApplicationTag(name),
 		CharmURL:           "cs:" + name,
 		Series:             series,
-		Placement:          placement,
 		CharmConfig:        map[string]interface{}{},
 		LeadershipSettings: map[string]interface{}{},
 	})
@@ -1129,11 +1118,9 @@ applications:
   mysql:
     charm: cs:mysql
     scale: 1
-    placement: foo=bar
   wordpress:
     charm: cs:wordpress
     scale: 2
-    placement: foo=bar
 relations:
 - - wordpress:db
   - mysql:mysql

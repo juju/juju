@@ -793,14 +793,8 @@ func (c *DeployCommand) validatePlacementByModelType() error {
 	if modelType == model.IAAS {
 		return nil
 	}
-	if len(c.Placement) > 1 {
-		return errors.Errorf("only 1 placement directive is supported, got %d", len(c.Placement))
-	}
-	if len(c.Placement) == 0 {
-		return nil
-	}
-	if c.Placement[0].Scope == instance.MachineScope || c.Placement[0].Directive == "" {
-		return errors.NotSupportedf("placement directive %q", c.PlacementSpec)
+	if len(c.Placement) > 0 {
+		return errors.New("--to cannot be used on kubernetes models")
 	}
 	return nil
 }

@@ -1330,7 +1330,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -1341,7 +1341,27 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
 	}}
-	podSpec.NodeSelector = map[string]string{"a": "b"}
+	podSpec.Affinity = &core.Affinity{
+		NodeAffinity: &core.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+				NodeSelectorTerms: []core.NodeSelectorTerm{{
+					MatchExpressions: []core.NodeSelectorRequirement{{
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
+					}, {
+						Key:      "bar",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"d", "e", "f"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"g", "h"},
+					}},
+				}},
+			},
+		},
+	}
 	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
 
 	gomock.InOrder(
@@ -1378,7 +1398,77 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 			},
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
-		Placement: "a=b",
+		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+	}
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(unitSpec)
+	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
+		Name:      "database-appuuid",
+		MountPath: "path/to/here",
+	}}
+	podSpec.Affinity = &core.Affinity{
+		NodeAffinity: &core.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+				NodeSelectorTerms: []core.NodeSelectorTerm{{
+					MatchExpressions: []core.NodeSelectorRequirement{{
+						Key:      "failure-domain.beta.kubernetes.io/zone",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
+					}},
+				}},
+			},
+		},
+	}
+	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
+			Return(nil, nil),
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
+		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}}, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
+			Return(nil, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec: basicPodspec,
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+			ResourceTags: map[string]string{"foo": "bar"},
+		}},
+		Constraints: constraints.MustParse(`zones=a,b,c`),
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",

@@ -81,9 +81,6 @@ type ServiceParams struct {
 	// ResourceTags is a set of tags to set on the created service.
 	ResourceTags map[string]string
 
-	// Placement defines node affinity rules.
-	Placement string
-
 	// Constraints is a set of constraints on
 	// the pod to create.
 	Constraints constraints.Value

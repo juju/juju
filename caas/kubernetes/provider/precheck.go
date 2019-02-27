@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/utils/keyvalues"
 )
 
 // PrecheckInstance performs a preflight check on the specified
@@ -40,16 +39,25 @@ func (k *kubernetesClient) PrecheckInstance(ctx context.ProviderCallContext, par
 		return errors.NotValidf("series %q", params.Series)
 	}
 
-	if params.Placement == "" {
+	if params.Placement != "" {
+		return errors.NotValidf("placement directive %q", params.Placement)
+	}
+	if params.Constraints.Tags == nil {
 		return nil
 	}
-
-	// Check placement is valid.
-	// TODO(caas) - check for valid node labels?
-	// Placement is a comma separated list of key-value pairs (node labels).
-	_, err = keyvalues.Parse(strings.Split(params.Placement, ","), false)
-	if err != nil {
-		return errors.NotValidf("placement directive %q", params.Placement)
+	affinityLabels := *params.Constraints.Tags
+	labelsString := strings.Join(affinityLabels, ",")
+	for _, labelPair := range affinityLabels {
+		parts := strings.Split(labelPair, "=")
+		if len(parts) != 2 {
+			return errors.Errorf("invalid node affinity constraints: %v", labelsString)
+		}
+		key := strings.Trim(parts[0], " ")
+		if strings.HasPrefix(key, "^") {
+			if len(key) == 1 {
+				return errors.Errorf("invalid node affinity constraints: %v", labelsString)
+			}
+		}
 	}
 	return nil
 }

@@ -513,10 +513,8 @@ var caasTests = []struct {
 }{
 	{[]string{"-m", "caas-model", "some-application-name", "--attach-storage", "foo/0"},
 		"--attach-storage cannot be used on kubernetes models"},
-	{[]string{"-m", "caas-model", "some-application-name", "--to", "a=b,c=d"},
-		"only 1 placement directive is supported, got 2"},
-	{[]string{"-m", "caas-model", "some-application-name", "--to", "#:2"},
-		regexp.QuoteMeta(`placement directive "#:2" not supported`)},
+	{[]string{"-m", "caas-model", "some-application-name", "--to", "a=b"},
+		regexp.QuoteMeta(`--to cannot be used on kubernetes models`)},
 }
 
 func (s *CAASDeploySuite) TestCaasModelValidatedAtRun(c *gc.C) {
@@ -565,38 +563,6 @@ func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
 
 	err = runDeploy(c, ch, "-m", m.Name(), "--resource", "mysql_image=abc", "--resource", "another_image=zxc")
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *CAASDeploySuite) TestPlacement(c *gc.C) {
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
-	storagePoolManager := poolmanager.New(state.NewStateSettings(s.State), storageProviderRegistry)
-	_, err = storagePoolManager.Create("operator-storage", provider.K8s_ProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	otherModels := map[string]jujuclient.ModelDetails{
-		"admin/" + m.Name(): {ModelUUID: m.UUID(), ModelType: model.CAAS},
-	}
-	err = s.ControllerStore.SetModels("kontroll", otherModels)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/gitlab-1", "gitlab", "kubernetes")
-	err = runDeploy(c, "gitlab", "-m", m.Name(), "--to", "a=b")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertApplicationsDeployed(c, map[string]applicationInfo{
-		"gitlab": {
-			charm:     "cs:kubernetes/gitlab-1",
-			config:    ch.Config().DefaultSettings(),
-			scale:     1,
-			placement: "a=b",
-		},
-	})
-	s.assertUnitsCreated(c, map[string]string{
-		"gitlab/0": "",
-	})
 }
 
 func (s *CAASDeploySuite) TestDevices(c *gc.C) {
@@ -1115,7 +1081,6 @@ type applicationInfo struct {
 	charm            string
 	config           charm.Settings
 	constraints      constraints.Value
-	placement        string
 	scale            int
 	exposed          bool
 	storage          map[string]state.StorageConstraints
@@ -1175,7 +1140,6 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]ap
 			scale:       application.GetScale(),
 			storage:     storage,
 			devices:     devices,
-			placement:   application.GetPlacement(),
 		}
 	}
 	c.Assert(deployed, jc.DeepEquals, info)
