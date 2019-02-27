@@ -14,34 +14,25 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/model/mocks"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
 type advanceGenerationSuite struct {
-	testing.FakeJujuXDGDataHomeSuite
-	store *jujuclient.MemStore
+	generationBaseSuite
 }
 
 var _ = gc.Suite(&advanceGenerationSuite{})
 
 func (s *advanceGenerationSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.Generations)
-	s.store = jujuclient.NewMemStore()
-	s.store.CurrentControllerName = "testing"
-	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
-	s.store.Accounts["testing"] = jujuclient.AccountDetails{
-		User: "admin",
-	}
-	err := s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
+	s.generationBaseSuite.SetUpTest(c)
+
+	// Update the local store to indicate we are on the "next" generation.
+	c.Assert(s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
 		ModelUUID:       testing.ModelTag.Id(),
 		ModelType:       coremodel.IAAS,
 		ModelGeneration: coremodel.GenerationNext,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.store.Models["testing"].CurrentModel = "admin/mymodel"
+	}), jc.ErrorIsNil)
 }
 
 func (s *advanceGenerationSuite) runInit(args ...string) error {

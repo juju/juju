@@ -1137,8 +1137,6 @@ type GenerationApplication struct {
 
 	// Config changes are the differing configuration values between this
 	// generation and the current.
-	// TODO (manadart 2018-02-22) This data-type will evolve as more aspects
-	// of the application are made generational.
 	ConfigChanges map[string]interface{} `json:"config"`
 }
 
