@@ -13,8 +13,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	cloudapi "github.com/juju/juju/api/cloud"
@@ -26,6 +24,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs/config"
+	"gopkg.in/juju/names.v2"
 )
 
 const (
@@ -37,20 +36,28 @@ supplied key to the supplied value. This can be repeated for multiple keys.
 You can also specify a yaml file containing key values.
 By default, the model is the current model.
 
+Model default configuration settings are relevant to the cloud on which the model runs.
+If no cloud is specified as the first argument, the cloud of the current model is used.
+It's also possible to get or set model defaults for other clouds managed by the controller
+by explicitly specifying cloud and/or region.'
+
 
 Examples:
     juju model-defaults
     juju model-defaults http-proxy
+    juju model-defaults aws http-proxy
     juju model-defaults aws/us-east-1 http-proxy
     juju model-defaults us-east-1 http-proxy
     juju model-defaults -m mymodel type
     juju model-defaults ftp-proxy=10.0.0.1:8000
+    juju model-defaults aws ftp-proxy=10.0.0.1:8000
     juju model-defaults aws/us-east-1 ftp-proxy=10.0.0.1:8000
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000 path/to/file.yaml
     juju model-defaults us-east-1 path/to/file.yaml    
     juju model-defaults -m othercontroller:mymodel default-series=yakkety test-mode=false
     juju model-defaults --reset default-series test-mode
+    juju model-defaults aws --reset http-proxy
     juju model-defaults aws/us-east-1 --reset http-proxy
     juju model-defaults us-east-1 --reset http-proxy
 
@@ -88,6 +95,7 @@ type defaultsCommand struct {
 	// they've been parsed.
 	args []string
 
+	modelUUID             string
 	action                func(defaultsCommandAPI, *cmd.Context) error // The function handling the input, set in Init.
 	key                   string
 	resetKeys             []string // Holds the keys to be reset once parsed.
@@ -100,16 +108,22 @@ type defaultsCommand struct {
 type cloudAPI interface {
 	Close() error
 	DefaultCloud() (names.CloudTag, error)
+	ModelCloud(string) (names.CloudTag, error)
 	Cloud(names.CloudTag) (jujucloud.Cloud, error)
+	BestAPIVersion() int
 }
 
 // defaultsCommandAPI defines an API to be used during testing.
 type defaultsCommandAPI interface {
+	// BestAPIVersion returns the API version that we were able to
+	// determine is supported by both the client and the API Server.
+	BestAPIVersion() int
+
 	// Close closes the api connection.
 	Close() error
 
 	// ModelDefaults returns the default config values used when creating a new model.
-	ModelDefaults() (config.ModelDefaultAttributes, error)
+	ModelDefaults(cloud string) (config.ModelDefaultAttributes, error)
 
 	// SetModelDefaults sets the default config values to use
 	// when creating new models.
@@ -155,6 +169,21 @@ func (c *defaultsCommand) Init(args []string) error {
 
 // Run implements part of the cmd.Command interface.
 func (c *defaultsCommand) Run(ctx *cmd.Context) error {
+	// Get the UUID of the current model.
+	controllerName, err := c.ClientStore().CurrentController()
+	if err != nil {
+		return err
+	}
+	modelName, err := c.ClientStore().CurrentModel(controllerName)
+	if err != nil {
+		return err
+	}
+	uuids, err := c.ModelUUIDs([]string{modelName})
+	if err != nil {
+		return err
+	}
+	c.modelUUID = uuids[0]
+
 	if err := c.parseArgs(c.args); err != nil {
 		return errors.Trace(err)
 	}
@@ -162,10 +191,27 @@ func (c *defaultsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	client := c.newDefaultsAPI(root)
-	if err != nil {
-		return errors.Trace(err)
+
+	// If the user hasn't specified a cloud name,
+	// use the cloud belonging to the current model
+	// if we are on a supported Juju version.
+	if c.cloudName == "" {
+		cc := c.newCloudAPI(root)
+		defer cc.Close()
+
+		var cloudTag names.CloudTag
+		if cc.BestAPIVersion() < 5 {
+			cloudTag, err = cc.DefaultCloud()
+		} else {
+			cloudTag, err = cc.ModelCloud(c.modelUUID)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		c.cloudName = cloudTag.Id()
 	}
+
+	client := c.newDefaultsAPI(root)
 	defer client.Close()
 
 	if len(c.resetKeys) > 0 {
@@ -338,23 +384,29 @@ func (c *defaultsCommand) parseArgsForRegion(args []string) ([]string, error) {
 // region. If not it returns the full args slice. If it is then it sets cloud
 // and/or region on the object and sends the remaining args back to the caller.
 func (c *defaultsCommand) parseCloudRegion(args []string) ([]string, error) {
-	var cloud, region string
+	var cloud, maybeRegion string
 	cr := args[0]
 	// Must have no more than one slash and it must not be at the beginning or end.
 	if strings.Count(cr, "/") == 1 && !strings.HasPrefix(cr, "/") && !strings.HasSuffix(cr, "/") {
 		elems := strings.Split(cr, "/")
-		cloud, region = elems[0], elems[1]
+		cloud, maybeRegion = elems[0], elems[1]
 	} else {
-		region = cr
+		// The arg may be either a cloud name or region or yaml file.
+		// We will see below if the value corresponds to a
+		// cloud on the controller, in which case it is interpretted
+		// as a cloud, else it is considered a region.
+		maybeRegion = cr
 	}
 
+	// Ensure we exit early when we have a settings file or key=value.
+	_, err := os.Stat(maybeRegion)
 	// TODO(redir) 2016-10-05 #1627162
 	// We don't disallow "=" in region names, but probably should.
-	if strings.Contains(region, "=") {
+	if err == nil || strings.Contains(maybeRegion, "=") {
 		return args, nil
 	}
 
-	valid, err := c.validCloudRegion(cloud, region)
+	valid, err := c.validCloudRegion(cloud, maybeRegion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -364,16 +416,9 @@ func (c *defaultsCommand) parseCloudRegion(args []string) ([]string, error) {
 	return args[1:], nil
 }
 
-// validCloudRegion checks that region is a valid region in cloud, or default cloud
-// if cloud is not specified.
-func (c *defaultsCommand) validCloudRegion(cloudName, region string) (bool, error) {
-	var (
-		isCloudRegion bool
-		cloud         jujucloud.Cloud
-		cTag          names.CloudTag
-		err           error
-	)
-
+// validCloudRegion checks that region is a valid region in cloud, or cloud
+// for the current model if cloud is not specified.
+func (c *defaultsCommand) validCloudRegion(cloudName, maybeRegion string) (bool, error) {
 	root, err := c.newAPIRoot()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -381,8 +426,34 @@ func (c *defaultsCommand) validCloudRegion(cloudName, region string) (bool, erro
 	cc := c.newCloudAPI(root)
 	defer cc.Close()
 
+	// We have a single value - it may be a cloud or a region.
+	if cloudName == "" && maybeRegion != "" {
+		// First try and interpret as a cloud.
+		maybeCloud := maybeRegion
+		if !names.IsValidCloud(maybeCloud) {
+			return false, errors.NotValidf("cloud %q", maybeCloud)
+		}
+		// Ensure that the cloud actually exists on the controller.
+		cTag := names.NewCloudTag(maybeCloud)
+		_, err := cc.Cloud(cTag)
+		if err != nil && !errors.IsNotFound(err) {
+			return false, errors.Trace(err)
+		}
+		if err == nil {
+			c.cloudName = maybeCloud
+			return true, nil
+		}
+	}
+
+	var cTag names.CloudTag
+	// If a cloud is not specified, use the
+	// cloud of the current model.
 	if cloudName == "" {
-		cTag, err = cc.DefaultCloud()
+		if cc.BestAPIVersion() < 5 {
+			cTag, err = cc.DefaultCloud()
+		} else {
+			cTag, err = cc.ModelCloud(c.modelUUID)
+		}
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -392,15 +463,16 @@ func (c *defaultsCommand) validCloudRegion(cloudName, region string) (bool, erro
 		}
 		cTag = names.NewCloudTag(cloudName)
 	}
-	cloud, err = cc.Cloud(cTag)
+	cloud, err := cc.Cloud(cTag)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 
+	isCloudRegion := false
 	for _, r := range cloud.Regions {
-		if r.Name == region {
+		if r.Name == maybeRegion {
 			c.cloudName = cTag.Id()
-			c.regionName = region
+			c.regionName = maybeRegion
 			isCloudRegion = true
 			break
 		}
@@ -416,8 +488,8 @@ func (c *defaultsCommand) handleSetArgs(args []string) error {
 	// If an invalid region was specified, the first positional arg won't have
 	// an "=". If we see one here we know it is invalid.
 	switch {
-	case argZeroKeyOnly && c.regionName == "":
-		return errors.Errorf("invalid region specified: %q", args[0])
+	case argZeroKeyOnly && c.regionName == "" && c.cloudName == "":
+		return errors.Errorf("invalid cloud or region specified: %q", args[0])
 	case argZeroKeyOnly && c.regionName != "":
 		return errors.New("cannot set and retrieve default values simultaneously")
 	default:
@@ -504,7 +576,11 @@ func (c *defaultsCommand) handleExtraArgs(args []string) error {
 // getDefaults writes out the value for a single key or the full tree of
 // defaults.
 func (c *defaultsCommand) getDefaults(client defaultsCommandAPI, ctx *cmd.Context) error {
-	attrs, err := client.ModelDefaults()
+	cloudName := c.cloudName
+	if client.BestAPIVersion() < 6 {
+		cloudName = ""
+	}
+	attrs, err := client.ModelDefaults(cloudName)
 	if err != nil {
 		return err
 	}
@@ -599,7 +675,11 @@ func (c *defaultsCommand) resetDefaults(client defaultsCommandAPI, ctx *cmd.Cont
 // verifyKnownKeys is a helper to validate the keys we are operating with
 // against the set of known attributes from the model.
 func (c *defaultsCommand) verifyKnownKeys(client defaultsCommandAPI, keys []string) error {
-	known, err := client.ModelDefaults()
+	cloudName := c.cloudName
+	if client.BestAPIVersion() < 6 {
+		cloudName = ""
+	}
+	known, err := client.ModelDefaults(cloudName)
 	if err != nil {
 		return errors.Trace(err)
 	}
