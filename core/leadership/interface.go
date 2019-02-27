@@ -137,3 +137,13 @@ type Tracker interface {
 	// until the tracker's future leadership can no longer be guaranteed.
 	WaitMinion() Ticket
 }
+
+// Reader describes the capability to read the current state of leadership.
+type Reader interface {
+
+	// Leaders returns all application leaders in the current model.
+	// TODO (manadart 2019-02-27): The return in this signature includes error
+	// in order to support state.ApplicationLeaders for legacy leases.
+	// When legacy leases are removed, so can the error return.
+	Leaders() (map[string]string, error)
+}

@@ -6,6 +6,8 @@ package apiserver
 import (
 	"time"
 
+	"github.com/juju/juju/state"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/leadership"
@@ -88,4 +90,27 @@ func (m leadershipPinner) UnpinLeadership(applicationName string, entity string)
 // pinned behaviour.
 func (m leadershipPinner) PinnedLeadership() map[string][]string {
 	return m.pinner.Pinned()
+}
+
+// leadershipReader implements leadership.Reader by wrapping a lease.Reader.
+type leadershipReader struct {
+	reader lease.Reader
+}
+
+// Leaders (leadership.Reader) returns all application leaders in the
+// current model.
+func (r leadershipReader) Leaders() (map[string]string, error) {
+	return r.reader.Leases(), nil
+}
+
+// legacyLeadershipReader implements leadership.Reader by wrapping state.
+type legacyLeadershipReader struct {
+	st *state.State
+}
+
+// Leaders (leadership.Reader) returns all application leaders in the
+// current model according to state.
+func (r legacyLeadershipReader) Leaders() (map[string]string, error) {
+	l, err := r.st.ApplicationLeaders()
+	return l, errors.Trace(err)
 }
