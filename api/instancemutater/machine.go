@@ -4,11 +4,14 @@
 package instancemutater
 
 import (
-	"github.com/juju/juju/core/watcher"
+	"fmt"
+
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Machine represents a juju machine as seen by an instancemutater
@@ -33,5 +36,21 @@ func (m *Machine) Tag() names.MachineTag {
 }
 
 func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
-	return nil, nil
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.facade.FacadeCall("WatchUnits", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(m.facade.RawAPICaller(), result)
+	return w, nil
 }
