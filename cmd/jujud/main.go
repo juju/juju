@@ -39,11 +39,11 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-var log = loggo.GetLogger("juju.cmd.jujud")
+var logger = loggo.GetLogger("juju.cmd.jujud")
 
 func init() {
 	if err := components.RegisterForServer(); err != nil {
-		log.Criticalf("unable to register server components: %v", err)
+		logger.Criticalf("unable to register server components: %v", err)
 		os.Exit(1)
 	}
 }
@@ -143,7 +143,7 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
-	defer log.Debugf("jujud complete, code %d, err %v", code, err)
+	defer logger.Debugf("jujud complete, code %d, err %v", code, err)
 	bufferedLogger, err := logsender.InstallBufferedLogWriter(1048576)
 	if err != nil {
 		return 1, errors.Trace(err)
@@ -217,7 +217,7 @@ func Main(args []string) int {
 		if r := recover(); r != nil {
 			buf := make([]byte, 4096)
 			buf = buf[:runtime.Stack(buf, false)]
-			log.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
+			logger.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
 			os.Exit(exit_panic)
 		}
 	}()

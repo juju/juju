@@ -368,6 +368,7 @@ func NewBootstrapControllerPodConfig(config controller.Config, series string) (*
 	}
 	pcfg.Jobs = []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
+		multiwatcher.JobHostUnits,
 	}
 	return pcfg, nil
 }

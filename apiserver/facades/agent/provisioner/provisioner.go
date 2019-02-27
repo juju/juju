@@ -114,40 +114,33 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		return nil, errors.Trace(err)
 	}
 	configGetter := stateenvirons.EnvironConfigGetter{st, model}
+	isCaasModel := model.Type() == state.ModelTypeCAAS
 
-	var storageProviderRegistry storage.ProviderRegistry
-	if model.Type() == state.ModelTypeCAAS {
-		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		storageProviderRegistry = stateenvirons.NewStorageProviderRegistry(broker)
+	var env storage.ProviderRegistry
+	if isCaasModel {
+		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
 	} else {
-		env, err := environs.GetEnviron(configGetter, environs.New)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		storageProviderRegistry = stateenvirons.NewStorageProviderRegistry(env)
+		env, err = environs.GetEnviron(configGetter, environs.New)
 	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	callCtx := state.CallContext(st)
-	return &ProvisionerAPI{
-		Remover:              common.NewRemover(st, false, getAuthFunc),
-		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
-		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc),
-		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
-		StateAddresser:       common.NewStateAddresser(st),
-		APIAddresser:         common.NewAPIAddresser(st, resources),
-		ModelWatcher:         common.NewModelWatcher(model, resources, authorizer),
-		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
-		ControllerConfigAPI:  common.NewStateControllerConfig(st),
-		// TODO(bootstrap): should we disable InstanceIdGetter, ToolsFinder, ToolsGetter etc for CAAS?
-		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
-		ToolsFinder:             common.NewToolsFinder(configGetter, st, urlGetter),
-		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
+	api := &ProvisionerAPI{
+		Remover:                 common.NewRemover(st, false, getAuthFunc),
+		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
+		StatusGetter:            common.NewStatusGetter(st, getAuthFunc),
+		DeadEnsurer:             common.NewDeadEnsurer(st, getAuthFunc),
+		PasswordChanger:         common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
+		StateAddresser:          common.NewStateAddresser(st),
+		APIAddresser:            common.NewAPIAddresser(st, resources),
+		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
+		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
+		ControllerConfigAPI:     common.NewStateControllerConfig(st),
 		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, callCtx, getCanModify),
 		st:                      st,
 		m:                       model,
@@ -159,7 +152,13 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,
 		providerCallContext:     callCtx,
-	}, nil
+	}
+	if !isCaasModel {
+		api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
+		api.ToolsFinder = common.NewToolsFinder(configGetter, st, urlGetter)
+		api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner)
+	}
+	return api, nil
 }
 
 // ProvisionerAPIV4 provides v4 (and v3 for some reason) of the provisioner facade.

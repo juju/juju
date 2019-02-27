@@ -122,11 +122,8 @@ func InitializeState(
 	logger.Debugf("initializing address %v", info.Addrs)
 
 	modelType := state.ModelTypeIAAS
-	hasHostedModel := true
 	if cloud.CloudIsCAAS(args.ControllerCloud) {
 		modelType = state.ModelTypeCAAS
-		// CAAS controller does NOT have hosted model.
-		hasHostedModel = false
 	}
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
@@ -177,10 +174,8 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "cannot initialize bootstrap machine")
 	}
 
-	if hasHostedModel {
-		if err := ensureHostedModel(args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
-			return nil, nil, errors.Annotate(err, "ensuring hosted model")
-		}
+	if err := ensureHostedModel(args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
+		return nil, nil, errors.Annotate(err, "ensuring hosted model")
 	}
 	return ctrl, m, nil
 }
@@ -241,8 +236,13 @@ func ensureHostedModel(
 		return errors.Annotate(err, "creating hosted model environment")
 	}
 
+	ctrlModel, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	model, hostedModelState, err := ctrl.NewModel(state.ModelArgs{
-		Type:                    state.ModelTypeIAAS,
+		Type:                    ctrlModel.Type(),
 		Owner:                   adminUser,
 		Config:                  hostedModelConfig,
 		Constraints:             args.ModelConstraints,

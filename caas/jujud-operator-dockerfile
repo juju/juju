@@ -23,6 +23,6 @@ RUN pip3 install -r /tmp/wheelhouse/jujud-operator-requirements.txt
 # Finally jujud
 ARG JUJUD_DIR=/var/lib/juju/tools
 WORKDIR $JUJUD_DIR
-COPY jujud /usr/local/bin/
+COPY jujud /opt/
 
 ENTRYPOINT ["sh", "-c"]

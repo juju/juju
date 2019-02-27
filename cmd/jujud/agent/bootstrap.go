@@ -132,9 +132,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if len(jobs) == 0 {
 		jobs = []multiwatcher.MachineJob{
 			multiwatcher.JobManageModel,
-		}
-		if !isCAASController {
-			jobs = append(jobs, multiwatcher.JobHostUnits)
+			multiwatcher.JobHostUnits,
 		}
 	}
 

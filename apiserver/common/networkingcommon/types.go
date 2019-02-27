@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
@@ -291,7 +292,7 @@ func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get cloudspec")
 	}
-	if cloudSpec.Type == "kubernetes" {
+	if cloudSpec.Type == cloud.CloudTypeCAAS {
 		return nil, errors.NotSupportedf("CAAS model %q networking", modelConfig.Name())
 	}
 

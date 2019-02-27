@@ -59,7 +59,7 @@ import (
 var (
 	logger         = loggo.GetLogger("juju.kubernetes.provider")
 	jujudStartUpSh = `
-test -e ./jujud || ln -s $(which jujud) $(pwd)/jujud
+test -e ./jujud || cp /opt/jujud $(pwd)/jujud
 ./jujud %s
 `[1:]
 )
