@@ -182,6 +182,10 @@ func (s *CloudSuite) TestRemoveCloud(c *gc.C) {
 		state.RegionSettingsGlobalKey(lowCloud.Name, "someregion"),
 		map[string]interface{}{"fred": "mary"})
 	c.Assert(err, jc.ErrorIsNil)
+	err = settings.CreateSettings(
+		state.CloudGlobalKey("another"),
+		map[string]interface{}{"fred": "mary2"})
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.RemoveCloud(lowCloud.Name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,6 +196,9 @@ func (s *CloudSuite) TestRemoveCloud(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.State.ReadSettings(state.GlobalSettingsC, state.RegionSettingsGlobalKey(lowCloud.Name, "someregion"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	stateSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey("another"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateSettings.Map(), jc.DeepEquals, map[string]interface{}{"fred": "mary2"})
 }
 
 func (s *CloudSuite) TestRemoveCloudAlsoRemovesCredentials(c *gc.C) {

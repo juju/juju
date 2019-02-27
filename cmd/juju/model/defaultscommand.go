@@ -36,7 +36,7 @@ supplied key to the supplied value. This can be repeated for multiple keys.
 You can also specify a yaml file containing key values.
 By default, the model is the current model.
 
-Model default configuration settings are relevant to the cloud on which the model runs.
+Model default configuration settings are specific to the cloud on which the model runs.
 If no cloud is specified as the first argument, the cloud of the current model is used.
 It's also possible to get or set model defaults for other clouds managed by the controller
 by explicitly specifying cloud and/or region.'

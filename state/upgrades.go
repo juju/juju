@@ -1845,7 +1845,7 @@ func SetEnableDiskUUIDOnVsphere(pool *StatePool) error {
 }
 
 // UpdateInheritedControllerConfig migrates the existing global
-// settings doc ley on "controller" to be keyed on the cloud name.
+// settings doc keyed on "controller" to be keyed on the cloud name.
 func UpdateInheritedControllerConfig(pool *StatePool) error {
 	st := pool.SystemState()
 	model, err := st.Model()

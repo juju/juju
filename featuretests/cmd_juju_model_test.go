@@ -130,7 +130,7 @@ func (s *cmdModelSuite) TestModelConfigReset(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelDefaultsGet(c *gc.C) {
-	err := s.Model.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, nil)
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	context := s.run(c, "model-defaults", "special")
@@ -141,8 +141,20 @@ special    -        known
 `[1:])
 }
 
+func (s *cmdModelSuite) TestModelDefaultsGetCloud(c *gc.C) {
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.CloudRegionSpec{Cloud: "dummy"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	context := s.run(c, "model-defaults", "dummy", "special")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+Attribute  Default  Controller
+special    -        known
+
+`[1:])
+}
+
 func (s *cmdModelSuite) TestModelDefaultsGetRegion(c *gc.C) {
-	err := s.Model.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.CloudRegionSpec{"dummy", "dummy-region"})
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.CloudRegionSpec{"dummy", "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	context := s.run(c, "model-defaults", "dummy-region", "special")
@@ -156,16 +168,26 @@ special         -        -
 
 func (s *cmdModelSuite) TestModelDefaultsSet(c *gc.C) {
 	s.run(c, "model-defaults", "special=known")
-	defaults, err := s.Model.ModelConfigDefaultValues()
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := defaults["special"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(value.Controller, gc.Equals, "known")
 }
 
+func (s *cmdModelSuite) TestModelDefaultsSetCloud(c *gc.C) {
+	s.run(c, "model-defaults", "dummy", "special=known")
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	c.Assert(err, jc.ErrorIsNil)
+	value, found := defaults["special"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(value.Controller, gc.Equals, "known")
+	c.Assert(value.Regions, gc.HasLen, 0)
+}
+
 func (s *cmdModelSuite) TestModelDefaultsSetRegion(c *gc.C) {
 	s.run(c, "model-defaults", "dummy/dummy-region", "special=known")
-	defaults, err := s.Model.ModelConfigDefaultValues()
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := defaults["special"]
 	c.Assert(found, jc.IsTrue)
@@ -174,22 +196,33 @@ func (s *cmdModelSuite) TestModelDefaultsSetRegion(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelDefaultsReset(c *gc.C) {
-	err := s.Model.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, nil)
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-defaults", "--reset", "special")
-	defaults, err := s.Model.ModelConfigDefaultValues()
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	c.Assert(err, jc.ErrorIsNil)
+	_, found := defaults["special"]
+	c.Assert(found, jc.IsFalse)
+}
+
+func (s *cmdModelSuite) TestModelDefaultsResetCloud(c *gc.C) {
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.CloudRegionSpec{Cloud: "dummy"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.run(c, "model-defaults", "dummy", "--reset", "special")
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := defaults["special"]
 	c.Assert(found, jc.IsFalse)
 }
 
 func (s *cmdModelSuite) TestModelDefaultsResetRegion(c *gc.C) {
-	err := s.Model.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.CloudRegionSpec{"dummy", "dummy-region"})
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.CloudRegionSpec{"dummy", "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-defaults", "dummy-region", "--reset", "special")
-	defaults, err := s.Model.ModelConfigDefaultValues()
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := defaults["special"]
 	c.Assert(found, jc.IsFalse)

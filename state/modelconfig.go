@@ -141,10 +141,10 @@ func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, re
 	var key string
 
 	if regionSpec != nil {
-		if regionSpec.Region != "" {
-			key = regionSettingsGlobalKey(regionSpec.Cloud, regionSpec.Region)
-		} else {
+		if regionSpec.Region == "" {
 			key = cloudGlobalKey(regionSpec.Cloud)
+		} else {
+			key = regionSettingsGlobalKey(regionSpec.Cloud, regionSpec.Region)
 		}
 	} else {
 		// For backwards compatibility default to the model's cloud.

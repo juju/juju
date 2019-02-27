@@ -245,7 +245,7 @@ func (s *modelmanagerSuite) TestModelDefaults(c *gc.C) {
 			) error {
 				c.Check(objType, gc.Equals, "ModelManager")
 				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "ModelDefaults")
+				c.Check(request, gc.Equals, "ModelDefaultsForClouds")
 				c.Check(a, jc.DeepEquals, params.Entities{
 					Entities: []params.Entity{{Tag: names.NewCloudTag("aws").String()}},
 				})

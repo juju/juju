@@ -237,7 +237,7 @@ func (st *State) AddCloud(c cloud.Cloud, owner string) error {
 		return errors.Annotatef(err, "granting %s permission to the cloud owner", permission.AdminAccess)
 	}
 
-	return st.updateConfigefaults(c.Name, c.Config)
+	return st.updateConfigDefaults(c.Name, c.Config)
 }
 
 // UpdateCloud updates an existing cloud with the given name and details.
@@ -254,10 +254,10 @@ func (st *State) UpdateCloud(c cloud.Cloud) error {
 		}
 		return errors.Trace(err)
 	}
-	return st.updateConfigefaults(c.Name, c.Config)
+	return st.updateConfigDefaults(c.Name, c.Config)
 }
 
-func (st *State) updateConfigefaults(cloudName string, config map[string]interface{}) error {
+func (st *State) updateConfigDefaults(cloudName string, config map[string]interface{}) error {
 	cfg := make(map[string]interface{})
 	for k, v := range config {
 		if bootstrap.IsBootstrapAttribute(k) || controller.ControllerOnlyAttribute(k) {
@@ -348,7 +348,7 @@ func (st *State) removeCloudOps(name string) ([]txn.Op, error) {
 	ops = append(ops, permOps...)
 
 	settingsPattern := bson.M{
-		"_id": bson.M{"$regex": "^" + cloudGlobalKey(name) + "|" + name + "#"},
+		"_id": bson.M{"$regex": "^(" + cloudGlobalKey(name) + "|" + name + "#.*)"},
 	}
 	settingsOps, err := st.removeInCollectionOps(globalSettingsC, settingsPattern)
 	if err != nil {
