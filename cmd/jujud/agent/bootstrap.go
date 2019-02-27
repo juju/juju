@@ -101,6 +101,31 @@ func (c *BootstrapCommand) Init(args []string) error {
 	return c.AgentConf.CheckArgs(args[1:])
 }
 
+// Tag returns current machine tag.
+func (c *BootstrapCommand) Tag() names.Tag {
+	// bootstrap-state command always runs on machine-0.
+	return names.NewMachineTag("machine-0")
+}
+
+func (c *BootstrapCommand) ensureAgentConfig() error {
+	err := c.AgentConf.ReadConfig(c.Tag().String())
+	if os.IsNotExist(errors.Cause(err)) {
+		cfgPath := agent.ConfigPath(c.AgentConf.DataDir(), c.Tag())
+		templateFile := filepath.Join(
+			agent.Dir(c.AgentConf.DataDir(), c.Tag()),
+			TemplateAgentConfigFileName,
+		)
+		logger.Criticalf("1st run to copy templateFile %q", templateFile)
+		if err := copyFile(cfgPath, templateFile); err != nil {
+			logger.Errorf("copying agent config file template: %v", err)
+			return errors.Trace(err)
+		}
+	} else if err != nil {
+		return errors.Annotate(err, "cannot read agent configuration")
+	}
+	return c.AgentConf.ReadConfig(c.Tag().String())
+}
+
 var (
 	environsNewIAAS = environs.New
 	environsNewCAAS = caas.New
@@ -108,6 +133,10 @@ var (
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
+	if err := c.ensureAgentConfig(); err != nil {
+		return errors.Trace(err)
+	}
+
 	bootstrapParamsData, err := ioutil.ReadFile(c.BootstrapParamsFile)
 	if err != nil {
 		return errors.Annotate(err, "reading bootstrap params file")
@@ -117,9 +146,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	isCAASController := args.ControllerCloud.Type == caasprovider.CAASProviderType
-	logger.Criticalf("isCAASController -> %v", isCAASController)
+	logger.Criticalf("isCAASController ------> %v", isCAASController)
 
-	err = c.ReadConfig("machine-0")
+	err = c.ReadConfig(c.Tag().String())
 	if err != nil {
 		return errors.Annotate(err, "cannot read config")
 	}

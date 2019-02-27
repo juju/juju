@@ -276,6 +276,9 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if cfg.StateServingInfo.APIPort == 0 {
 		return errors.New("missing API port")
 	}
+	if len(cfg.HostedModelConfig) == 0 {
+		return errors.New("missing hosted model config")
+	}
 	return nil
 }
 

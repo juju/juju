@@ -210,10 +210,6 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return err
 	}
 
-	if err := a.ensureThenReadAgentConfig(); err != nil {
-		return errors.Annotate(err, "cannot read agent configuration")
-	}
-
 	config := a.currentConfig.CurrentConfig()
 	a.isCaasMachineAgent = checkIsCaasMachineAgent(config)
 	if a.isCaasMachineAgent {
@@ -245,47 +241,8 @@ func (a *machineAgentCmd) Tag() names.Tag {
 	return names.NewMachineTag(a.machineId)
 }
 
-func (a *machineAgentCmd) ensureThenReadAgentConfig() error {
-	err := a.currentConfig.ReadConfig(a.Tag().String())
-	if os.IsNotExist(errors.Cause(err)) {
-		// this needs to be enhanced later for k8s HA mode
-		isFirstRun = true
-		templateFile := filepath.Join(
-			agent.Dir(a.agentInitializer.DataDir(), a.Tag()),
-			TemplateAgentConfigFileName,
-		)
-		logger.Criticalf("1st run to copy templateFile %q", templateFile)
-		if err := copyFile(agent.ConfigPath(a.agentInitializer.DataDir(), a.Tag()), templateFile); err != nil {
-			logger.Errorf("copying agent config file template: %v", err)
-			return errors.Trace(err)
-		}
-	} else if err != nil {
-		return errors.Annotate(err, "cannot read agent configuration")
-	}
-	return a.currentConfig.ReadConfig(a.Tag().String())
-}
-
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-	// TODO(bootstrap): move bootstrap-state cmd to init container.
-	if err := a.ensureThenReadAgentConfig(); err != nil {
-		return errors.Annotate(err, "cannot read agent configuration")
-	}
-
-	if isFirstRun && a.isCaasMachineAgent {
-		// Run bootstrap-state
-		// bootstrapCmd := &BootstrapCommand{
-		// 	AgentConf: NewAgentConf(a.agentInitializer.DataDir()),
-		// }
-		bootstrapCmd := NewBootstrapCommand()
-		bootstrapCmd.AgentConf = NewAgentConf(a.agentInitializer.DataDir())
-		bootstrapCmd.BootstrapParamsFile = filepath.Join(a.agentInitializer.DataDir(), "bootstrap-params")
-		logger.Criticalf("1st run, exec bootstrapCmd, DataDir is %q", a.agentInitializer.DataDir())
-		if err := bootstrapCmd.Run(c); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	machineAgent, err := a.machineAgentFactory(a.machineId, a.isCaasMachineAgent)
 	if err != nil {
 		return errors.Trace(err)

@@ -7,6 +7,8 @@ agent contains jujud's machine agent.
 package agent
 
 import (
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -88,36 +90,36 @@ func (c *agentConf) DataDir() string {
 func (c *agentConf) ReadConfig(tag string) error {
 	t, err := names.ParseTag(tag)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	conf, err := agent.ReadConfig(agent.ConfigPath(c.dataDir, t))
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	c._config = conf
 	return nil
 }
 
 // ChangeConfig modifies this configuration using the given mutator.
-func (ch *agentConf) ChangeConfig(change agent.ConfigMutator) error {
-	ch.mu.Lock()
-	defer ch.mu.Unlock()
-	if err := change(ch._config); err != nil {
+func (c *agentConf) ChangeConfig(change agent.ConfigMutator) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := change(c._config); err != nil {
 		return errors.Trace(err)
 	}
-	if err := ch._config.Write(); err != nil {
+	if err := c._config.Write(); err != nil {
 		return errors.Annotate(err, "cannot write agent configuration")
 	}
 	return nil
 }
 
 // CurrentConfig returns the agent config for this agent.
-func (ch *agentConf) CurrentConfig() agent.Config {
-	ch.mu.Lock()
-	defer ch.mu.Unlock()
-	return ch._config.Clone()
+func (c *agentConf) CurrentConfig() agent.Config {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c._config.Clone()
 }
 
 func setupAgentLogging(config agent.Config) {

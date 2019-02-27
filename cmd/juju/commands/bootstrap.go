@@ -563,49 +563,44 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	if isCAASController {
-		if !c.noSwitch {
-			if err := store.SetCurrentController(c.controllerName); err != nil {
-				return errors.Trace(err)
-			}
-		}
-	} else {
-
-		// only IAAS has hosted model.
-		hostedModelUUID, err := utils.NewUUID()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// Set the current model to the initial hosted model.
-		modelDetails := jujuclient.ModelDetails{
-			ModelUUID: hostedModelUUID.String(),
-			ModelType: model.IAAS,
-		}
-		if featureflag.Enabled(feature.Generations) {
-			modelDetails.ModelGeneration = model.GenerationCurrent
-		}
-		if err := store.UpdateModel(
-			c.controllerName,
-			c.hostedModelName,
-			modelDetails,
-		); err != nil {
-			return errors.Trace(err)
-		}
-
-		if !c.noSwitch {
-			if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
-				return errors.Trace(err)
-			}
-			if err := store.SetCurrentController(c.controllerName); err != nil {
-				return errors.Trace(err)
-			}
-		}
-
-		bootstrapParams.HostedModelConfig = c.hostedModelConfig(
-			hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ,
-		)
+	hostedModelUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
 	}
+
+	// Set the current model to the initial hosted model.
+	hostedModelType := model.IAAS
+	if isCAASController {
+		hostedModelType = model.CAAS
+	}
+	modelDetails := jujuclient.ModelDetails{
+		ModelUUID: hostedModelUUID.String(),
+		ModelType: hostedModelType,
+	}
+
+	if featureflag.Enabled(feature.Generations) {
+		modelDetails.ModelGeneration = model.GenerationCurrent
+	}
+	if err := store.UpdateModel(
+		c.controllerName,
+		c.hostedModelName,
+		modelDetails,
+	); err != nil {
+		return errors.Trace(err)
+	}
+
+	if !c.noSwitch {
+		if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
+			return errors.Trace(err)
+		}
+		if err := store.SetCurrentController(c.controllerName); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	bootstrapParams.HostedModelConfig = c.hostedModelConfig(
+		hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ,
+	)
 
 	cloudRegion := c.Cloud
 	if region.Name != "" {
@@ -745,14 +740,13 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
+	if err = c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
+		return errors.Trace(err)
+	}
+
 	if isCAASController {
 		// TODO(caas): wait/ping/ensure controller public endpoint is healthy/functioning(bootstrap state done, agent starts, ELB provisioned, etc).
 		return nil
-	}
-
-	// only IAAS has hosted model.
-	if err = c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
-		return errors.Trace(err)
 	}
 
 	// To avoid race conditions when running scripted bootstraps, wait

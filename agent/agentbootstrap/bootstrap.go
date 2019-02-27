@@ -314,7 +314,11 @@ func initMongo(info mongo.Info, dialOpts mongo.DialOpts, password string) (*mgo.
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
-func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args InitializeStateParams) (*state.Machine, error) {
+func initBootstrapMachine(
+	c agent.ConfigSetter,
+	st *state.State,
+	args InitializeStateParams,
+) (*state.Machine, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)

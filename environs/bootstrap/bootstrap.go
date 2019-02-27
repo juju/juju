@@ -676,6 +676,7 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
 	pcfg.Bootstrap.ControllerConfig = args.ControllerConfig
 	pcfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
+	pcfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	pcfg.Bootstrap.Timeout = args.DialOpts.Timeout
 	return nil
 }
