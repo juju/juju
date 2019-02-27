@@ -6,6 +6,7 @@ package instancemutater
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/watcher"
 )
@@ -21,6 +22,7 @@ type machine interface {
 // the benefits of the catacomb encapsulating everything that should happen
 // here. A clean implementation would almost certainly not need this.
 type lifetimeContext interface {
+	add(worker.Worker) error
 	kill(error)
 	dying() <-chan struct{}
 	errDying() error
@@ -33,7 +35,7 @@ type machineContext interface {
 type mutaterContext interface {
 	lifetimeContext
 	newMachineContext() machineContext
-	//getMachine(tag names.MachineTag) (machine, error)
+	getMachine(tag names.MachineTag) (machine, error)
 }
 
 type mutater struct {
@@ -45,6 +47,7 @@ type mutater struct {
 
 func watchMachinesLoop(context mutaterContext, machinesWatcher watcher.StringsWatcher) (err error) {
 	m := &mutater{
+		context:     context,
 		machines:    make(map[names.MachineTag]chan struct{}),
 		machineDead: make(chan machine),
 	}
@@ -81,16 +84,15 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 	for _, tag := range tags {
 		if c := m.machines[tag]; c == nil {
 			m.logger.Warningf("received tag %q", tag.String())
-			// We don't know about the machine - start
-			// a goroutine to deal with it.
-			//machine, err := m.context.getMachine(tag)
-			//if err != nil {
-			//	return errors.Trace(err)
-			//}
-			//c = make(chan struct{})
-			//m.machines[tag] = c
-			//// TODO(fwereade): 2016-03-17 lp:1558657
-			//go runMachine(m.context.newMachineContext(), machine, c, m.machineDead)
+
+			machine, err := m.context.getMachine(tag)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			c = make(chan struct{})
+			m.machines[tag] = c
+
+			go runMachine(m.context.newMachineContext(), m.logger, machine, c, m.machineDead)
 		} else {
 			select {
 			case <-m.context.dying():
@@ -102,9 +104,9 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 	return nil
 }
 
-func runMachine(context machineContext, m machine, changed <-chan struct{}, died chan<- machine) {
+func runMachine(context machineContext, logger Logger, m machine, changed <-chan struct{}, died chan<- machine) {
 	defer func() {
-		// We can't just send on the died channel because the
+		// We can't just send on the dead channel because the
 		// central loop might be trying to write to us on the
 		// changed channel.
 		for {
@@ -116,17 +118,34 @@ func runMachine(context machineContext, m machine, changed <-chan struct{}, died
 		}
 	}()
 
-	//watcher, err := machine.WatchUnits()
-	//if err != nil {
-	//
-	//}
-	//if err := context.catacomb.Add(unitw); err != nil {
-	//	return errors.Trace(err)
-	//}
-	//if err := machineLoop(context, m, watcher, changed); err != nil {
-	//	context.kill(err)
-	//}
+	unitWatcher, err := m.WatchUnits()
+	if err != nil {
+		logger.Errorf(err.Error())
+		return
+	}
+	if err := context.add(unitWatcher); err != nil {
+		return
+	}
+
+	if err := watchUnitLoop(context, logger, m, unitWatcher); err != nil {
+		context.kill(err)
+	}
 }
 
-//func machineLoop(context machineContext, m machine, watcher, lifeChanged <-chan struct{}) error {
-//}
+func watchUnitLoop(context machineContext, logger Logger, m machine, unitWatcher watcher.StringsWatcher) error {
+	for {
+		select {
+		case <-context.dying():
+			return context.errDying()
+		case unitNames, ok := <-unitWatcher.Changes():
+			if !ok {
+				return errors.New("unit watcher closed")
+			}
+			unitsChanged(logger, m, unitNames)
+		}
+	}
+}
+
+func unitsChanged(logger Logger, m machine, names []string) {
+	logger.Warningf("Recieved change on %s.%s", m.Tag(), names)
+}

@@ -50,6 +50,7 @@ func (config ManifoldConfig) Validate() error {
 }
 
 func (config ManifoldConfig) newWorker(environ environs.Environ, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
+	config.Logger.Errorf("heather: newWorker()")
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -57,10 +58,10 @@ func (config ManifoldConfig) newWorker(environ environs.Environ, apiCaller base.
 	facade := instancemutater.NewClient(apiCaller)
 
 	cfg := Config{
-		Logger:  config.Logger,
-		Facade:  facade,
-		Environ: environ,
-		//AgentConfig: agent.CurrentConfig(),
+		Logger:      config.Logger,
+		Facade:      facade,
+		Environ:     environ,
+		AgentConfig: agent.CurrentConfig(),
 	}
 
 	w, err := config.NewWorker(cfg)
@@ -98,9 +99,9 @@ type EnvironAPIStartFunc func(environs.Environ, base.APICaller, agent.Agent) (wo
 func EnvironAPIManifold(config EnvironAPIConfig, start EnvironAPIStartFunc) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			config.AgentName,
 			config.APICallerName,
 			config.EnvironName,
-			config.APICallerName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			var agent agent.Agent

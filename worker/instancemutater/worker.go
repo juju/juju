@@ -5,6 +5,7 @@ package instancemutater
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -39,6 +40,8 @@ type Config struct {
 
 	Environ environs.Environ
 
+	AgentConfig agent.Config
+
 	// Tag is the current machine tag
 	Tag names.Tag
 }
@@ -55,6 +58,9 @@ func (config Config) Validate() error {
 	if config.Environ == nil {
 		return errors.NotValidf("nil Environ")
 	}
+	if config.AgentConfig == nil {
+		return errors.NotValidf("nil AgentConfig")
+	}
 	//if config.Tag == nil {
 	//	return errors.NotValidf("nil tag")
 	//}
@@ -68,6 +74,7 @@ func (config Config) Validate() error {
 // the machines/containers in the state and polls their instance
 // for any changes.
 func NewWorker(config Config) (worker.Worker, error) {
+	config.Logger.Errorf("heather: NewWorker(%#v)", config)
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -81,7 +88,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		logger:     config.Logger,
 		facade:     config.Facade,
 		broker:     broker,
-		machineTag: config.Tag.(names.MachineTag),
+		machineTag: config.AgentConfig.Tag().(names.MachineTag),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -103,6 +110,7 @@ type mutaterWorker struct {
 }
 
 func (w *mutaterWorker) loop() error {
+	w.logger.Errorf("heather: mutaterWorker loop()")
 	watcher, err := w.facade.WatchModelMachines()
 	if err != nil {
 		return errors.Trace(err)
@@ -136,9 +144,9 @@ func (w *mutaterWorker) newMachineContext() machineContext {
 }
 
 // getMachine is part of the machineContext interface.
-//func (w *mutaterWorker) getMachine(tag names.MachineTag) (machine, error) {
-//return w.facade.Machine(tag)
-//}
+func (w *mutaterWorker) getMachine(tag names.MachineTag) (machine, error) {
+	return w.facade.Machine(tag)
+}
 
 // kill is part of the lifetimeContext interface.
 func (w *mutaterWorker) kill(err error) {
@@ -153,4 +161,9 @@ func (w *mutaterWorker) dying() <-chan struct{} {
 // errDying is part of the lifetimeContext interface.
 func (w *mutaterWorker) errDying() error {
 	return w.catacomb.ErrDying()
+}
+
+// add is part of the lifetimeContext interface.
+func (w *mutaterWorker) add(new worker.Worker) error {
+	return w.catacomb.Add(new)
 }
