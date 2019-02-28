@@ -37,7 +37,8 @@ type controllerStack struct {
 	storageSize                resource.Quantity
 	portMongoDB, portAPIServer int
 
-	fileNameSharedSecret, fileNameSSLKey, fileNameBootstrapParams, fileNameAgentConf, fileNameAgentConfMount     string
+	fileNameSharedSecret, fileNameSSLKey, fileNameSSLKeyMount,
+	fileNameBootstrapParams, fileNameAgentConf, fileNameAgentConfMount string
 	resourceNameStatefulSet, resourceNameService                                                                 string
 	resourceNameConfigMap, resourceNameSecret                                                                    string
 	pvcNameControllerPodStorage                                                                                  string
@@ -99,6 +100,7 @@ func newcontrollerStack(stackName string, broker *kubernetesClient, pcfg *podcfg
 
 		fileNameSharedSecret:    "shared-secret",
 		fileNameSSLKey:          "server.pem",
+		fileNameSSLKeyMount:     "template" + "-" + "server.pem",
 		fileNameBootstrapParams: "bootstrap-params",
 		fileNameAgentConf:       "agent.conf",
 		fileNameAgentConfMount:  "template" + "-" + "agent.conf",
@@ -436,7 +438,7 @@ func (c controllerStack) buildStorageSpecForController(statefulset *apps.Statefu
 				Items: []core.KeyToPath{
 					{
 						Key:  c.fileNameSSLKey,
-						Path: c.fileNameSSLKey,
+						Path: c.fileNameSSLKeyMount,
 					},
 				},
 			},
@@ -567,13 +569,17 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 			VolumeMounts: []core.VolumeMount{
 				{
 					Name:      c.pvcNameControllerPodStorage,
+					MountPath: c.pcfg.DataDir,
+				},
+				{
+					Name:      c.pvcNameControllerPodStorage,
 					MountPath: filepath.Join(c.pcfg.DataDir, "db"),
 					SubPath:   "db",
 				},
 				{
 					Name:      c.resourceNameVolSSLKey,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKey),
-					SubPath:   c.fileNameSSLKey,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKeyMount),
+					SubPath:   c.fileNameSSLKeyMount,
 					ReadOnly:  true,
 				},
 				{
@@ -616,8 +622,8 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 				},
 				{
 					Name:      c.resourceNameVolSSLKey,
-					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKey),
-					SubPath:   c.fileNameSSLKey,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKeyMount),
+					SubPath:   c.fileNameSSLKeyMount,
 					ReadOnly:  true,
 				},
 				{

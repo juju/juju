@@ -857,7 +857,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: featureflag.NewWorker,
 		})),
 
-		// TODO(bootstrap): enable me later for caas!
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AgentName:                agentName,
 			StateName:                stateName,
