@@ -107,21 +107,34 @@ func (c *BootstrapCommand) Tag() names.Tag {
 	return names.NewMachineTag("0")
 }
 
-func (c *BootstrapCommand) ensureAgentConfig() error {
-	err := c.AgentConf.ReadConfig(c.Tag().String())
-	if os.IsNotExist(errors.Cause(err)) {
-		cfgPath := agent.ConfigPath(c.AgentConf.DataDir(), c.Tag())
-		templateFile := filepath.Join(
-			agent.Dir(c.AgentConf.DataDir(), c.Tag()),
-			TemplateAgentConfigFileName,
-		)
-		logger.Criticalf("1st run to copy templateFile %q", templateFile)
-		if err := copyFile(cfgPath, templateFile); err != nil {
-			logger.Errorf("copying agent config file template: %v", err)
+func (c *BootstrapCommand) ensureServerPEM() error {
+	return copyFileFromTemplate(
+		filepath.Join(c.AgentConf.DataDir(), "server.pem"),
+		filepath.Join(c.AgentConf.DataDir(), "template-server.pem"),
+	)
+}
+
+func copyFileFromTemplate(to, from string) (err error) {
+	if _, err := os.Stat(to); os.IsNotExist(err) {
+		logger.Criticalf("copying file from %q to %s", from, to)
+		if err := copyFile(to, from); err != nil {
 			return errors.Trace(err)
 		}
 	} else if err != nil {
-		return errors.Annotate(err, "cannot read agent configuration")
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (c *BootstrapCommand) ensureAgentConfig() error {
+	if err := copyFileFromTemplate(
+		agent.ConfigPath(c.AgentConf.DataDir(), c.Tag()),
+		filepath.Join(
+			agent.Dir(c.AgentConf.DataDir(), c.Tag()),
+			TemplateAgentConfigFileName,
+		),
+	); err != nil {
+		return errors.Trace(err)
 	}
 	return c.AgentConf.ReadConfig(c.Tag().String())
 }
@@ -134,6 +147,10 @@ var (
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err := c.ensureAgentConfig(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := c.ensureServerPEM(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -266,7 +283,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// by bug #1544158.
 		addrs = network.MergedAddresses([]network.Address{}, addrs)
 
-		// TODO(bootstrap): enable me later.
 		// Generate a private SSH key for the controllers, and add
 		// the public key to the environment config. We'll add the
 		// private key to StateServingInfo below.

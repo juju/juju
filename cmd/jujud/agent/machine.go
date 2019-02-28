@@ -476,14 +476,13 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 	// have dependencies on a central hub worker.
 	a.centralHub = centralhub.New(a.Tag().(names.MachineTag))
 
-	// TODO(bootstrap): enable me later.
-	// // Before doing anything else, we need to make sure the certificate generated for
-	// // use by mongo to validate controller connections is correct. This needs to be done
-	// // before any possible restart of the mongo service.
-	// // See bug http://pad.lv/1434680
-	// if err := a.AgentConfigWriter.ChangeConfig(upgradeCertificateDNSNames); err != nil {
-	// 	return errors.Annotate(err, "error upgrading server certificate")
-	// }
+	// Before doing anything else, we need to make sure the certificate generated for
+	// use by mongo to validate controller connections is correct. This needs to be done
+	// before any possible restart of the mongo service.
+	// See bug http://pad.lv/1434680
+	if err := a.AgentConfigWriter.ChangeConfig(upgradeCertificateDNSNames); err != nil {
+		return errors.Annotate(err, "error upgrading server certificate")
+	}
 
 	// moved from NewMachineAgent here because the agent config could not be ready yet there.
 	if err := a.registerPrometheusCollectors(); err != nil {
