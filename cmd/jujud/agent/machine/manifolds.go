@@ -856,6 +856,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:    loggo.GetLogger("juju.worker.legacyleasesenabled"),
 			NewWorker: featureflag.NewWorker,
 		})),
+
+		// TODO(bootstrap): enable me later for caas!
+		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
+			AgentName:                agentName,
+			StateName:                stateName,
+			NewWorker:                certupdater.NewCertificateUpdater,
+			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
+		})),
 	}
 
 	manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
@@ -885,14 +893,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-		})),
-
-		// TODO(bootstrap): enable me later for caas!
-		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
-			AgentName:                agentName,
-			StateName:                stateName,
-			NewWorker:                certupdater.NewCertificateUpdater,
-			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
 		})),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc

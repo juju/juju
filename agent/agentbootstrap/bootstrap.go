@@ -224,11 +224,11 @@ func ensureHostedModel(
 		return errors.Annotate(err, "getting environ provider")
 	}
 
-	var hostedModelEnv environs.BootstrapEnviron
 	openParams := environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: hostedModelConfig,
 	}
+	var hostedModelEnv environs.BootstrapEnviron
 	if isCAAS {
 		hostedModelEnv, err = caas.Open(provider, openParams)
 	} else {
