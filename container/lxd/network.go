@@ -234,15 +234,7 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 // It checks the LXD bridge configuration file and ensure that one of the input
 // devices is suitable for LXD to work with Juju.
 func (s *Server) verifyNICsWithConfigFile(nics map[string]device, reader func(string) ([]byte, error)) error {
-	paths := []string{BridgeConfigFile, SnapBridgeConfigFile}
-	var netName string
-	var err error
-	for _, filePath := range paths {
-		netName, err = checkBridgeConfigFile(filePath, reader)
-		if err == nil {
-			break
-		}
-	}
+	netName, err := checkBridgeConfigFile(reader)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -336,11 +328,15 @@ const SnapBridgeConfigFile = "/var/snap/lxd/common/lxd-bridge/config"
 // installations that pre-date the network API support and that were installed
 // via Snap. The question of the correct user action was posed on the #lxd IRC
 // channel, but has not be answered to-date.
-func checkBridgeConfigFile(fileName string, reader func(string) ([]byte, error)) (string, error) {
+func checkBridgeConfigFile(reader func(string) ([]byte, error)) (string, error) {
 	// installed via snap is used to customise the error message, so that if
 	// you're running apt install on older series than bionic then it will
 	// still show the older messages.
 	installedViaSnap := lxdViaSnap()
+	fileName := BridgeConfigFile
+	if installedViaSnap {
+		fileName = SnapBridgeConfigFile
+	}
 	bridgeConfig, err := reader(fileName)
 	if os.IsNotExist(err) {
 		return "", bridgeConfigError("no config file found at "+fileName, installedViaSnap)

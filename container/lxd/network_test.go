@@ -349,7 +349,7 @@ func (s *networkSuite) TestInterfaceInfoFromDevices(c *gc.C) {
 func (s *networkSuite) TestCheckAptLXDBridgeConfiguration(c *gc.C) {
 	lxd.PatchLXDViaSnap(s, false)
 
-	bridgeName, err := lxd.CheckBridgeConfigFile(lxd.BridgeConfigFile, validBridgeConfig)
+	bridgeName, err := lxd.CheckBridgeConfigFile(validBridgeConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(bridgeName, gc.Equals, "lxdbr0")
 
@@ -358,7 +358,7 @@ func (s *networkSuite) TestCheckAptLXDBridgeConfiguration(c *gc.C) {
 USE_LXD_BRIDGE="false"
 `), nil
 	}
-	_, err = lxd.CheckBridgeConfigFile(lxd.BridgeConfigFile, noBridge)
+	_, err = lxd.CheckBridgeConfigFile(noBridge)
 	c.Assert(err.Error(), gc.Equals, lxd.BridgeConfigFile+` has USE_LXD_BRIDGE set to false
 It looks like your LXD bridge has not yet been configured. Configure it via:
 
@@ -372,7 +372,7 @@ USE_LXD_BRIDGE="true"
 LXD_BRIDGE="br0"
 `), nil
 	}
-	_, err = lxd.CheckBridgeConfigFile(lxd.BridgeConfigFile, noSubnets)
+	_, err = lxd.CheckBridgeConfigFile(noSubnets)
 	c.Assert(err.Error(), gc.Equals, `br0 has no ipv4 or ipv6 subnet enabled
 It looks like your LXD bridge has not yet been configured. Configure it via:
 
@@ -388,7 +388,7 @@ LXD_IPV6_ADDR="2001:470:b368:4242::1"
 `), nil
 	}
 
-	_, err = lxd.CheckBridgeConfigFile(lxd.BridgeConfigFile, ipv6)
+	_, err = lxd.CheckBridgeConfigFile(ipv6)
 	c.Assert(err.Error(), gc.Equals, lxd.BridgeConfigFile+` has IPv6 enabled.
 Juju doesn't currently support IPv6.
 Disable IPv6 via:
@@ -401,7 +401,7 @@ and run the command again.`)
 func (s *networkSuite) TestCheckSnapLXDBridgeConfiguration(c *gc.C) {
 	lxd.PatchLXDViaSnap(s, true)
 
-	bridgeName, err := lxd.CheckBridgeConfigFile(lxd.SnapBridgeConfigFile, validBridgeConfig)
+	bridgeName, err := lxd.CheckBridgeConfigFile(validBridgeConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(bridgeName, gc.Equals, "lxdbr0")
 
@@ -410,7 +410,7 @@ func (s *networkSuite) TestCheckSnapLXDBridgeConfiguration(c *gc.C) {
 USE_LXD_BRIDGE="false"
 `), nil
 	}
-	_, err = lxd.CheckBridgeConfigFile(lxd.SnapBridgeConfigFile, noBridge)
+	_, err = lxd.CheckBridgeConfigFile(noBridge)
 	c.Assert(err.Error(), gc.Equals, lxd.SnapBridgeConfigFile+` has USE_LXD_BRIDGE set to false
 It looks like your LXD bridge has not yet been configured.`)
 
@@ -420,7 +420,7 @@ USE_LXD_BRIDGE="true"
 LXD_BRIDGE="br0"
 `), nil
 	}
-	_, err = lxd.CheckBridgeConfigFile(lxd.SnapBridgeConfigFile, noSubnets)
+	_, err = lxd.CheckBridgeConfigFile(noSubnets)
 	c.Assert(err.Error(), gc.Equals, `br0 has no ipv4 or ipv6 subnet enabled
 It looks like your LXD bridge has not yet been configured.`)
 
@@ -432,7 +432,7 @@ LXD_IPV6_ADDR="2001:470:b368:4242::1"
 `), nil
 	}
 
-	_, err = lxd.CheckBridgeConfigFile(lxd.SnapBridgeConfigFile, ipv6)
+	_, err = lxd.CheckBridgeConfigFile(ipv6)
 	c.Assert(err.Error(), gc.Equals, lxd.SnapBridgeConfigFile+` has IPv6 enabled.
 Juju doesn't currently support IPv6.`)
 }
