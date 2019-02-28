@@ -16,16 +16,16 @@ import (
 
 type AuthFuncSuite struct {
 	coretesting.IsolationSuite
+
+	authorizer common.Authorizer
 }
 
 var _ = gc.Suite(&AuthFuncSuite{})
 
-func (s *AuthFuncSuite) TestAuthFuncForMachineAgent(c *gc.C) {
+func (s *AuthFuncSuite) setup(c *gc.C, machineTag names.Tag) func() {
 	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
 
 	authorizer := mocks.NewMockAuthorizer(ctrl)
-	machineTag := names.NewMachineTag("machine-test/0")
 
 	gomock.InOrder(
 		authorizer.EXPECT().AuthController().Return(true),
@@ -33,9 +33,45 @@ func (s *AuthFuncSuite) TestAuthFuncForMachineAgent(c *gc.C) {
 		authorizer.EXPECT().GetAuthTag().Return(machineTag),
 	)
 
-	authFunc := common.AuthFuncForMachineAgent(authorizer)
+	s.authorizer = authorizer
+
+	return ctrl.Finish
+}
+
+func (s *AuthFuncSuite) TestAuthFuncForMachineAgent(c *gc.C) {
+	machineTag := names.NewMachineTag("machine-test/0")
+	finish := s.setup(c, machineTag)
+	defer finish()
+
+	authFunc := common.AuthFuncForMachineAgent(s.authorizer)
 
 	fn, err := authFunc()
 	c.Assert(err, gc.IsNil)
 	c.Assert(fn(machineTag), jc.IsTrue)
+}
+
+func (s *AuthFuncSuite) TestAuthFuncForMachineAgentInvalidMachineTag(c *gc.C) {
+	machineTag := names.NewMachineTag("machine-test/0")
+	finish := s.setup(c, machineTag)
+	defer finish()
+
+	authFunc := common.AuthFuncForMachineAgent(s.authorizer)
+	invalidTag := names.NewUserTag("user-bob@foo")
+
+	fn, err := authFunc()
+	c.Assert(err, gc.IsNil)
+	c.Assert(fn(invalidTag), jc.IsFalse)
+}
+
+func (s *AuthFuncSuite) TestAuthFuncForMachineAgentInvalidAuthTag(c *gc.C) {
+	invalidTag := names.NewUserTag("user-bob@foo")
+	finish := s.setup(c, invalidTag)
+	defer finish()
+
+	authFunc := common.AuthFuncForMachineAgent(s.authorizer)
+	machineTag := names.NewMachineTag("machine-test/0")
+
+	fn, err := authFunc()
+	c.Assert(err, gc.IsNil)
+	c.Assert(fn(machineTag), jc.IsFalse)
 }
