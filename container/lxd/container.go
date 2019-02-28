@@ -6,13 +6,13 @@ package lxd
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
+	"github.com/lxc/lxd/shared/version"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
@@ -51,13 +51,13 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 	if cons.HasMem() {
 		// Ensure that for LXD versions 3.10+, we use the correct "MiB" suffix.
 		template := "%dMB"
-		version := strings.Split(serverVersion, ".")
-		if major, _ := strconv.Atoi(version[0]); major > 2 {
-			if minor, _ := strconv.Atoi(version[1]); minor >= 9 || major > 3 {
-				template = "%dMiB"
+		if current, err := version.Parse(serverVersion); err == nil {
+			if min, err := version.NewDottedVersion("3.10"); err == nil {
+				if current.Compare(min) >= 0 {
+					template = "%dMiB"
+				}
 			}
 		}
-
 		c.Config["limits.memory"] = fmt.Sprintf(template, *cons.Mem)
 	}
 }
