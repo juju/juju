@@ -230,7 +230,7 @@ func (m *containerManager) getContainerSpec(
 		Profiles: instanceConfig.Profiles,
 		Devices:  nics,
 	}
-	spec.ApplyConstraints(cons)
+	spec.ApplyConstraints(m.server.serverVersion, cons)
 
 	return spec, nil
 }

@@ -34,6 +34,7 @@ import (
 type Server interface {
 	FindImage(string, string, []lxd.ServerSpec, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 	GetServer() (server *lxdapi.Server, ETag string, err error)
+	ServerVersion() string
 	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)
 	UpdateServerConfig(map[string]string) error
 	UpdateContainerConfig(string, map[string]string) error

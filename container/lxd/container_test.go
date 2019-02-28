@@ -466,13 +466,20 @@ func (s *managerSuite) TestSpecApplyConstraints(c *gc.C) {
 	spec := lxd.ContainerSpec{
 		Config: map[string]string{lxd.AutoStartKey: "true"},
 	}
-	spec.ApplyConstraints(cons)
 
+	// Uses the "MiB" suffix.
 	exp := map[string]string{
 		lxd.AutoStartKey: "true",
 		"limits.memory":  "2046MiB",
 		"limits.cpu":     "4",
 	}
+	spec.ApplyConstraints("3.10", cons)
+	c.Check(spec.Config, gc.DeepEquals, exp)
+	c.Check(spec.InstanceType, gc.Equals, instType)
+
+	// Uses the "MB" suffix.
+	exp["limits.memory"] = "2046MB"
+	spec.ApplyConstraints("2.0.11", cons)
 	c.Check(spec.Config, gc.DeepEquals, exp)
 	c.Check(spec.InstanceType, gc.Equals, instType)
 }

@@ -496,6 +496,18 @@ func (mr *MockServerMockRecorder) ServerCertificate() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerCertificate", reflect.TypeOf((*MockServer)(nil).ServerCertificate))
 }
 
+// ServerVersion mocks base method
+func (m *MockServer) ServerVersion() string {
+	ret := m.ctrl.Call(m, "ServerVersion")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ServerVersion indicates an expected call of ServerVersion
+func (mr *MockServerMockRecorder) ServerVersion() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerVersion", reflect.TypeOf((*MockServer)(nil).ServerVersion))
+}
+
 // StorageSupported mocks base method
 func (m *MockServer) StorageSupported() bool {
 	ret := m.ctrl.Call(m, "StorageSupported")

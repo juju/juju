@@ -6,14 +6,16 @@ package lxd
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/network"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
+
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/network"
 )
 
 const (
@@ -39,7 +41,7 @@ type ContainerSpec struct {
 // Note that we pass these through as supplied. If an instance type constraint
 // has been specified along with specific cores/mem constraints,
 // LXD behaviour is to override with the specific ones even when lower.
-func (c *ContainerSpec) ApplyConstraints(cons constraints.Value) {
+func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.Value) {
 	if cons.HasInstanceType() {
 		c.InstanceType = *cons.InstanceType
 	}
@@ -47,7 +49,12 @@ func (c *ContainerSpec) ApplyConstraints(cons constraints.Value) {
 		c.Config["limits.cpu"] = fmt.Sprintf("%d", *cons.CpuCores)
 	}
 	if cons.HasMem() {
-		c.Config["limits.memory"] = fmt.Sprintf("%dMiB", *cons.Mem)
+		// LXD versions < 3 do not recognise the correct "MiB" notation.
+		template := "%dMiB"
+		if v, err := strconv.Atoi(strings.Split(serverVersion, ".")[0]); err == nil && v < 3 {
+			template = "%dMB"
+		}
+		c.Config["limits.memory"] = fmt.Sprintf(template, *cons.Mem)
 	}
 }
 
