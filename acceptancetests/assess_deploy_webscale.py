@@ -51,7 +51,7 @@ def deploy_bundle(client, charm_bundle, stack_type):
         # Depending on the stack type, use a different bundle definition for
         # one that's not already included.
         if stack_type == "iaas":
-            default_charm = "basic-openstack-lxd.yaml"
+            default_charm = "webscale-lxd.yaml"
         elif stack_type == "caas":
             default_charm = "bundles-kubernetes-core-lxd.yaml"
         else:
