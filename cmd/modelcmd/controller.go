@@ -4,7 +4,6 @@
 package modelcmd
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 
@@ -113,11 +112,10 @@ func DetermineCurrentController(store jujuclient.ClientStore) (string, error) {
 	modelController, _ := SplitModelName(os.Getenv(osenv.JujuModelEnvKey))
 	envController := os.Getenv(osenv.JujuControllerEnvKey)
 	if modelController != "" && envController != "" && modelController != envController {
-		return "", errors.Trace(errors.New(
-			fmt.Sprintf("controller name from %v (%v) conflicts with value in %v (%v)",
-				osenv.JujuModelEnvKey, modelController,
-				osenv.JujuControllerEnvKey, envController,
-			)))
+		return "", errors.Errorf("controller name from %v (%v) conflicts with value in %v (%v)",
+			osenv.JujuModelEnvKey, modelController,
+			osenv.JujuControllerEnvKey, envController,
+		)
 	}
 	controllerName := modelController
 	if controllerName == "" {
