@@ -11,7 +11,6 @@ import (
 type KubernetesProvisioningInfo struct {
 	PodSpec     string                       `json:"pod-spec"`
 	Constraints constraints.Value            `json:"constraints"`
-	Placement   string                       `json:"placement,omitempty"`
 	Tags        map[string]string            `json:"tags,omitempty"`
 	Filesystems []KubernetesFilesystemParams `json:"filesystems,omitempty"`
 	Volumes     []KubernetesVolumeParams     `json:"volumes,omitempty"`

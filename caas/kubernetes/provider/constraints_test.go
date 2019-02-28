@@ -76,7 +76,6 @@ func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		"tags",
 		"cores",
 		"virt-type",
 		"arch",

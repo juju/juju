@@ -115,7 +115,6 @@ type applicationStatus struct {
 	CharmProfile     string                `json:"charm-profile,omitempty" yaml:"charm-profile,omitempty"`
 	CanUpgradeTo     string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
 	Scale            int                   `json:"scale,omitempty" yaml:"scale,omitempty"`
-	Placement        string                `json:"placement,omitempty" yaml:"placement,omitempty"`
 	ProviderId       string                `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
 	Address          string                `json:"address,omitempty" yaml:"address,omitempty"`
 	Exposed          bool                  `json:"exposed" yaml:"exposed"`

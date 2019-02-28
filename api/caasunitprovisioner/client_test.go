@@ -48,7 +48,6 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 				Result: &params.KubernetesProvisioningInfo{
 					PodSpec:     "foo",
 					Tags:        map[string]string{"foo": "bar"},
-					Placement:   "a=b,c=d",
 					Constraints: constraints.MustParse("mem=4G"),
 					Filesystems: []params.KubernetesFilesystemParams{{
 						StorageName: "database",
@@ -81,7 +80,6 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, &caasunitprovisioner.ProvisioningInfo{
 		PodSpec:     "foo",
 		Tags:        map[string]string{"foo": "bar"},
-		Placement:   "a=b,c=d",
 		Constraints: constraints.MustParse("mem=4G"),
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName:  "database",

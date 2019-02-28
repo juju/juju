@@ -318,7 +318,6 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		Filesystems: filesystemParams,
 		Devices:     devices,
 		Constraints: cons,
-		Placement:   app.GetPlacement(),
 		Tags:        resourceTags,
 	}, nil
 }

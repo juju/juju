@@ -624,13 +624,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	var placement []*instance.Placement
 	if h.data.Type == "kubernetes" {
 		numUnits = p.NumUnits
-		if p.Placement != "" {
-			p := &instance.Placement{
-				Scope:     h.modelConfig.UUID(),
-				Directive: p.Placement,
-			}
-			placement = []*instance.Placement{p}
-		}
 	}
 	// Deploy the application.
 	if err := h.api.Deploy(application.DeployArgs{
@@ -1469,7 +1462,6 @@ func buildModelRepresentation(
 			Scale:         appStatus.Scale,
 			Exposed:       appStatus.Exposed,
 			Series:        appStatus.Series,
-			Placement:     appStatus.Placement,
 			SubordinateTo: appStatus.SubordinateTo,
 		}
 		for unitName, unit := range appStatus.Units {
