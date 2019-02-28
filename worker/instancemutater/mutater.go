@@ -4,10 +4,11 @@
 package instancemutater
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
-	"strings"
 
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/core/watcher"

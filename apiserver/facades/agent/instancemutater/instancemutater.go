@@ -15,6 +15,10 @@ import (
 	"github.com/juju/juju/state"
 )
 
+//go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Context,Resources,Authorizer
+//go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState
+//go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
+
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
 
 type InstanceMutaterAPIV1 interface {
