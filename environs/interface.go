@@ -307,6 +307,16 @@ type BootstrapEnviron interface {
 	// StorageProviders returned from Environ.StorageProvider will
 	// be scoped specifically to that Environ.
 	storage.ProviderRegistry
+
+	// Create creates the environment for a new hosted model.
+	//
+	// This will be called before any workers begin operating on the
+	// Environ, to give an Environ a chance to perform operations that
+	// are required for further use.
+	//
+	// Create is not called for the initial controller model; it is
+	// the Bootstrap method's job to create the controller model.
+	Create(context.ProviderCallContext, CreateParams) error
 }
 
 // CloudDestroyer provides the API to cleanup cloud resources.
@@ -339,16 +349,6 @@ type Environ interface {
 
 	// CloudDestroyer provides the API to cleanup cloud resources.
 	CloudDestroyer
-
-	// Create creates the environment for a new hosted model.
-	//
-	// This will be called before any workers begin operating on the
-	// Environ, to give an Environ a chance to perform operations that
-	// are required for further use.
-	//
-	// Create is not called for the initial controller model; it is
-	// the Bootstrap method's job to create the controller model.
-	Create(context.ProviderCallContext, CreateParams) error
 
 	// ResourceAdopter defines methods for adopting resources.
 	ResourceAdopter

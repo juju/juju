@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -622,139 +623,196 @@ func (c controllerStack) buildStorageSpecForController(statefulset *apps.Statefu
 }
 
 func (c controllerStack) buildContainerSpecForController(statefulset *apps.StatefulSet) error {
-	probCmds := &core.ExecAction{
-		Command: []string{
-			"mongo",
-			fmt.Sprintf("--port=%d", c.portMongoDB),
-			"--ssl",
-			"--sslAllowInvalidHostnames",
-			"--sslAllowInvalidCertificates",
-			fmt.Sprintf("--sslPEMKeyFile=%s/server.pem", c.pcfg.DataDir),
-			"--eval",
-			"db.adminCommand('ping')",
-		},
-	}
-	var containerSpec []core.Container
-	// add container mongoDB.
-	// TODO(caas): refactor mongo package to make it usable for IAAS and CAAS,
-	// then generate mongo config from EnsureServerParams.
-	containerSpec = append(containerSpec, core.Container{
-		Name:            "mongodb",
-		ImagePullPolicy: core.PullIfNotPresent,
-		Image:           "mongo:3.6.6",
-		Command: []string{
-			"mongod",
-		},
-		Args: []string{
-			fmt.Sprintf("--dbpath=%s/db", c.pcfg.DataDir),
-			fmt.Sprintf("--sslPEMKeyFile=%s/server.pem", c.pcfg.DataDir),
-			"--sslPEMKeyPassword=ignored",
-			"--sslMode=requireSSL",
-			fmt.Sprintf("--port=%d", c.portMongoDB),
-			"--journal",
-			fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
-			"--quiet",
-			"--oplogSize=1024",
-			"--ipv6",
-			"--auth",
-			fmt.Sprintf("--keyFile=%s/shared-secret", c.pcfg.DataDir),
-			"--storageEngine=wiredTiger",
-			"--wiredTigerCacheSizeGB=0.25",
-			"--bind_ip_all",
-		},
-		Ports: []core.ContainerPort{
-			{
-				Name:          "mongodb",
-				ContainerPort: int32(c.portMongoDB),
-				Protocol:      "TCP",
+	generateContainerSpecs := func(isInitContainer bool, jujudCmd string) []core.Container {
+		var containerNamePrefix string
+		if isInitContainer {
+			containerNamePrefix = "init-container-"
+		}
+		var containerSpec []core.Container
+		// add container mongoDB.
+		// TODO(caas): refactor mongo package to make it usable for IAAS and CAAS,
+		// then generate mongo config from EnsureServerParams.
+		mongoContainer := core.Container{
+			Name:            containerNamePrefix + "mongodb",
+			ImagePullPolicy: core.PullIfNotPresent,
+			Image:           "mongo:3.6.6",
+			Command: []string{
+				"mongod",
 			},
-		},
-		ReadinessProbe: &core.Probe{
-			Handler: core.Handler{
-				Exec: probCmds,
+			Args: []string{
+				fmt.Sprintf("--dbpath=%s/db", c.pcfg.DataDir),
+				fmt.Sprintf("--sslPEMKeyFile=%s/%s", c.pcfg.DataDir, c.fileNameSSLKey),
+				"--sslPEMKeyPassword=ignored",
+				"--sslMode=requireSSL",
+				fmt.Sprintf("--port=%d", c.portMongoDB),
+				"--journal",
+				fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
+				"--quiet",
+				"--oplogSize=1024",
+				"--ipv6",
+				"--auth",
+				fmt.Sprintf("--keyFile=%s/%s", c.pcfg.DataDir, c.fileNameSharedSecret),
+				"--storageEngine=wiredTiger",
+				"--wiredTigerCacheSizeGB=0.25",
+				"--bind_ip_all",
 			},
-			FailureThreshold:    3,
-			InitialDelaySeconds: 5,
-			PeriodSeconds:       10,
-			SuccessThreshold:    1,
-			TimeoutSeconds:      1,
-		},
-		LivenessProbe: &core.Probe{
-			Handler: core.Handler{
-				Exec: probCmds,
+			Ports: []core.ContainerPort{
+				{
+					Name:          "mongodb",
+					ContainerPort: int32(c.portMongoDB),
+					Protocol:      "TCP",
+				},
 			},
-			FailureThreshold:    3,
-			InitialDelaySeconds: 30,
-			PeriodSeconds:       10,
-			SuccessThreshold:    1,
-			TimeoutSeconds:      5,
-		},
-		VolumeMounts: []core.VolumeMount{
-			{
-				Name:      c.pvcNameControllerPodStorage,
-				MountPath: filepath.Join(c.pcfg.DataDir, "db"),
-				SubPath:   "db",
+			VolumeMounts: []core.VolumeMount{
+				{
+					Name:      c.pvcNameControllerPodStorage,
+					MountPath: filepath.Join(c.pcfg.DataDir, "db"),
+					SubPath:   "db",
+				},
+				{
+					Name:      c.resourceNameVolSSLKey,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKey),
+					SubPath:   c.fileNameSSLKey,
+					ReadOnly:  true,
+				},
+				{
+					Name:      c.resourceNameVolSharedSecret,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
+					SubPath:   c.fileNameSharedSecret,
+					ReadOnly:  true,
+				},
 			},
-			{
-				Name:      c.resourceNameVolSSLKey,
-				MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKey),
-				SubPath:   c.fileNameSSLKey,
-				ReadOnly:  true,
-			},
-			{
-				Name:      c.resourceNameVolSharedSecret,
-				MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
-				SubPath:   c.fileNameSharedSecret,
-				ReadOnly:  true,
-			},
-		},
-	})
+		}
+		if !isInitContainer {
+			// init containers should not set prob spec.
+			probCmds := &core.ExecAction{
+				Command: []string{
+					"mongo",
+					fmt.Sprintf("--port=%d", c.portMongoDB),
+					"--ssl",
+					"--sslAllowInvalidHostnames",
+					"--sslAllowInvalidCertificates",
+					fmt.Sprintf("--sslPEMKeyFile=%s/%s", c.pcfg.DataDir, c.fileNameSSLKey),
+					"--eval",
+					"db.adminCommand('ping')",
+				},
+			}
+			mongoContainer.ReadinessProbe = &core.Probe{
+				Handler: core.Handler{
+					Exec: probCmds,
+				},
+				FailureThreshold:    3,
+				InitialDelaySeconds: 5,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				TimeoutSeconds:      1,
+			}
+			mongoContainer.LivenessProbe = &core.Probe{
+				Handler: core.Handler{
+					Exec: probCmds,
+				},
+				FailureThreshold:    3,
+				InitialDelaySeconds: 30,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				TimeoutSeconds:      5,
+			}
+		}
+		containerSpec = append(containerSpec, mongoContainer)
 
-	// add container API server.
-	jujudArgs := fmt.Sprintf("machine --data-dir /var/lib/juju --machine-id %s --debug", "0")
-	containerSpec = append(containerSpec, core.Container{
-		Name:            "api-server",
-		ImagePullPolicy: core.PullIfNotPresent,
-		// ImagePullPolicy: core.PullAlways, // TODO(bootstrap): for debug
-		Image: c.pcfg.GetControllerImagePath(),
-		Command: []string{
-			"/bin/sh",
-		},
-		Args: []string{
-			"-c",
-			fmt.Sprintf(jujudStartUpSh, jujudArgs),
-		},
-		WorkingDir: jujudToolDir,
-		VolumeMounts: []core.VolumeMount{
-			{
-				Name:      c.pvcNameControllerPodStorage,
-				MountPath: c.pcfg.DataDir,
+		// add container API server.
+		containerSpec = append(containerSpec, core.Container{
+			Name:            containerNamePrefix + "api-server",
+			ImagePullPolicy: core.PullIfNotPresent,
+			// ImagePullPolicy: core.PullAlways, // TODO(bootstrap): for debug
+			Image: c.pcfg.GetControllerImagePath(),
+			Command: []string{
+				"/bin/sh",
 			},
-			{
-				Name:      c.resourceNameVolAgentConf,
-				MountPath: filepath.Join(c.pcfg.DataDir, "agents", ("machine-" + c.pcfg.MachineId), c.fileNameAgentConfMount),
-				SubPath:   c.fileNameAgentConfMount,
+			Args: []string{
+				"-c",
+				fmt.Sprintf(jujudStartUpSh, jujudCmd),
 			},
-			{
-				Name:      c.resourceNameVolSSLKey,
-				MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKey),
-				SubPath:   c.fileNameSSLKey,
-				ReadOnly:  true,
+			WorkingDir: jujudToolDir,
+			VolumeMounts: []core.VolumeMount{
+				{
+					Name:      c.pvcNameControllerPodStorage,
+					MountPath: c.pcfg.DataDir,
+				},
+				{
+					Name: c.resourceNameVolAgentConf,
+					MountPath: filepath.Join(
+						c.pcfg.DataDir,
+						"agents",
+						"machine-"+c.pcfg.MachineId,
+						c.fileNameAgentConfMount,
+					),
+					SubPath: c.fileNameAgentConfMount,
+				},
+				{
+					Name:      c.resourceNameVolSSLKey,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKey),
+					SubPath:   c.fileNameSSLKey,
+					ReadOnly:  true,
+				},
+				{
+					Name:      c.resourceNameVolSharedSecret,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
+					SubPath:   c.fileNameSharedSecret,
+					ReadOnly:  true,
+				},
+				{
+					Name:      c.resourceNameVolBootstrapParams,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameBootstrapParams),
+					SubPath:   c.fileNameBootstrapParams,
+					ReadOnly:  true,
+				},
 			},
-			{
-				Name:      c.resourceNameVolSharedSecret,
-				MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
-				SubPath:   c.fileNameSharedSecret,
-				ReadOnly:  true,
-			},
-			{
-				Name:      c.resourceNameVolBootstrapParams,
-				MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameBootstrapParams),
-				SubPath:   c.fileNameBootstrapParams,
-				ReadOnly:  true,
-			},
-		},
-	})
-	statefulset.Spec.Template.Spec.Containers = containerSpec
+		})
+		return containerSpec
+	}
+	loggingOption := "--show-log"
+	if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
+		// If the bootstrap command was requested with --debug, then the root
+		// logger will be set to DEBUG. If it is, then we use --debug here too.
+		loggingOption = "--debug"
+	}
+	// statefulset.Spec.Template.Spec.InitContainers = generateContainerSpecs(
+	// 	true, fmt.Sprintf(
+	// 		"./jujud bootstrap-state %s --data-dir %s --machine-id %s %s --timeout %s",
+	// 		filepath.Join(c.pcfg.DataDir, c.fileNameBootstrapParams),
+	// 		c.pcfg.DataDir,
+	// 		c.pcfg.MachineId,
+	// 		loggingOption,
+	// 		c.pcfg.Bootstrap.Timeout.String(),
+	// 	),
+	// )
+
+	agentCfgPath := filepath.Join(
+		c.pcfg.DataDir,
+		"agents",
+		"machine-"+c.pcfg.MachineId,
+		c.fileNameAgentConf,
+	)
+	jujudBootstrapStateCmd := fmt.Sprintf(
+		"test -e %s || ./jujud bootstrap-state %s --data-dir %s %s --timeout %s",
+		agentCfgPath,
+		filepath.Join(c.pcfg.DataDir, c.fileNameBootstrapParams),
+		c.pcfg.DataDir,
+		loggingOption,
+		c.pcfg.Bootstrap.Timeout.String(),
+	)
+	jujudMachineCmd := fmt.Sprintf(
+		"./jujud machine --data-dir %s --machine-id %s %s",
+		c.pcfg.DataDir,
+		c.pcfg.MachineId,
+		loggingOption,
+	)
+	statefulset.Spec.Template.Spec.Containers = generateContainerSpecs(
+		false, fmt.Sprintf("%s\n%s",
+			jujudBootstrapStateCmd,
+			jujudMachineCmd,
+		),
+	)
 	return nil
 }

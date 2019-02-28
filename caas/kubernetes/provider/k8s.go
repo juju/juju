@@ -60,7 +60,7 @@ var (
 	logger         = loggo.GetLogger("juju.kubernetes.provider")
 	jujudStartUpSh = `
 test -e ./jujud || cp /opt/jujud $(pwd)/jujud
-./jujud %s
+%s
 `[1:]
 )
 
@@ -183,6 +183,11 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 
 // PrepareForBootstrap prepares for bootstraping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	return nil
+}
+
+// Create implements environs.BootstrapEnviron.
+func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreateParams) error {
 	return nil
 }
 
@@ -2197,7 +2202,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 		podLabels[k] = v
 	}
 	podLabels[labelVersion] = version
-	jujudArgs := fmt.Sprintf("caasoperator --application-name=%s --debug", appName)
+	jujudCmd := fmt.Sprintf("./jujud caasoperator --application-name=%s --debug", appName)
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   podName,
@@ -2214,7 +2219,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				},
 				Args: []string{
 					"-c",
-					fmt.Sprintf(jujudStartUpSh, jujudArgs),
+					fmt.Sprintf(jujudStartUpSh, jujudCmd),
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},

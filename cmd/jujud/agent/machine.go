@@ -210,6 +210,10 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return err
 	}
 
+	if err := a.currentConfig.ReadConfig(a.Tag().String()); err != nil {
+		return errors.Errorf("cannot read agent configuration: %v", err)
+	}
+
 	config := a.currentConfig.CurrentConfig()
 	a.isCaasMachineAgent = checkIsCaasMachineAgent(config)
 	if a.isCaasMachineAgent {

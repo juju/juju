@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
@@ -121,8 +122,9 @@ func InitializeState(
 
 	logger.Debugf("initializing address %v", info.Addrs)
 
+	isCAAS := cloud.CloudIsCAAS(args.ControllerCloud)
 	modelType := state.ModelTypeIAAS
-	if cloud.CloudIsCAAS(args.ControllerCloud) {
+	if isCAAS {
 		modelType = state.ModelTypeCAAS
 	}
 	ctrl, err := state.Initialize(state.InitializeParams{
@@ -174,7 +176,7 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "cannot initialize bootstrap machine")
 	}
 
-	if err := ensureHostedModel(args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
+	if err := ensureHostedModel(isCAAS, args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
 		return nil, nil, errors.Annotate(err, "ensuring hosted model")
 	}
 	return ctrl, m, nil
@@ -182,6 +184,7 @@ func InitializeState(
 
 // ensureHostedModel ensures hosted model (IAAS controller only).
 func ensureHostedModel(
+	isCAAS bool,
 	args InitializeStateParams,
 	st *state.State,
 	ctrl *state.Controller,
@@ -220,10 +223,17 @@ func ensureHostedModel(
 	if err != nil {
 		return errors.Annotate(err, "getting environ provider")
 	}
-	hostedModelEnv, err := environs.Open(provider, environs.OpenParams{
+
+	var hostedModelEnv environs.BootstrapEnviron
+	openParams := environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: hostedModelConfig,
-	})
+	}
+	if isCAAS {
+		hostedModelEnv, err = caas.Open(provider, openParams)
+	} else {
+		hostedModelEnv, err = environs.Open(provider, openParams)
+	}
 	if err != nil {
 		return errors.Annotate(err, "opening hosted model environment")
 	}
@@ -250,7 +260,7 @@ func ensureHostedModel(
 		CloudRegion:             args.ControllerCloudRegion,
 		CloudCredential:         cloudCredentialTag,
 		StorageProviderRegistry: args.StorageProviderRegistry,
-		EnvironVersion:          hostedModelEnv.Provider().Version(),
+		EnvironVersion:          provider.Version(),
 	})
 	if err != nil {
 		return errors.Annotate(err, "creating hosted model")

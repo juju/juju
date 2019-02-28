@@ -7,8 +7,6 @@ agent contains jujud's machine agent.
 package agent
 
 import (
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 

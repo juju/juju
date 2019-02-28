@@ -104,7 +104,7 @@ func (c *BootstrapCommand) Init(args []string) error {
 // Tag returns current machine tag.
 func (c *BootstrapCommand) Tag() names.Tag {
 	// bootstrap-state command always runs on machine-0.
-	return names.NewMachineTag("machine-0")
+	return names.NewMachineTag("0")
 }
 
 func (c *BootstrapCommand) ensureAgentConfig() error {
