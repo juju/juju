@@ -32,3 +32,10 @@ func (ci *containerInitialiser) Initialise() error {
 func ConfigureLXDProxies(proxies proxy.Settings) error {
 	return nil
 }
+
+// lxdViaSnap interrogates the location of the Snap LXD socket in order
+// to determine if LXD is being provided via that method.
+// Always return false for other arch's
+var lxdViaSnap = func() bool {
+	return false
+}
