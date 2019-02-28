@@ -5,6 +5,7 @@ package modelcmd_test
 
 import (
 	"os"
+	"regexp"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -54,7 +55,7 @@ func (s *ControllerCommandSuite) TestCurrentControllerFromStore(c *gc.C) {
 	testEnsureControllerName(c, store, "foo")
 }
 
-func (s *ControllerCommandSuite) TestCurrentControllerPrecedenceAll(c *gc.C) {
+func (s *ControllerCommandSuite) TestCurrentControllerEnvVarConflict(c *gc.C) {
 	s.PatchEnvironment("JUJU_MODEL", "buzz:bar")
 	s.PatchEnvironment("JUJU_CONTROLLER", "bar")
 	store := jujuclient.NewMemStore()
@@ -62,7 +63,10 @@ func (s *ControllerCommandSuite) TestCurrentControllerPrecedenceAll(c *gc.C) {
 	store.Controllers["buzz"] = jujuclient.ControllerDetails{}
 	store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	store.Controllers["bar"] = jujuclient.ControllerDetails{}
-	testEnsureControllerName(c, store, "buzz")
+	cmd, err := runTestControllerCommand(c, store)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cmd.ControllerName()
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("controller name from JUJU_MODEL (buzz) conflicts with value in JUJU_CONTROLLER (bar)"))
 }
 
 func (s *ControllerCommandSuite) TestCurrentControllerPrecedenceEnvVar(c *gc.C) {
