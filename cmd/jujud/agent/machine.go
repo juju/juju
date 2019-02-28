@@ -104,12 +104,6 @@ var (
 	iaasModelManifolds   = model.IAASManifolds
 	caasMachineManifolds = machine.CAASManifolds
 	iaasMachineManifolds = machine.IAASManifolds
-
-	// TODO(bootstrap): remove me later once init container is ready to run bootstrap-state cmd.
-	// isFirstRun indicates if it is the first run of a new controller which is mostly used
-	// for checking if bootstrap-state should run or not
-	// Rework here for HA!!!!
-	isFirstRun = false
 )
 
 // Variable to override in tests, default is true

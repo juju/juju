@@ -34,7 +34,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	// "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -237,6 +237,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		logger.Errorf("Cloud credential %q is not accepted by cloud provider: %v", args.ControllerCloudCredentialName, reason)
 		return nil
 	}
+
+	info, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return fmt.Errorf("bootstrap machine config has no state serving info")
+	}
+
 	addrs := []network.Address{network.NewAddress("127.0.0.1")}
 	if !isCAASController {
 		instanceLister, ok := env.(environs.InstanceLister)
@@ -259,31 +265,29 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// TODO (cherylj) Add explicit unit tests for this - tracked
 		// by bug #1544158.
 		addrs = network.MergedAddresses([]network.Address{}, addrs)
+
+		// TODO(bootstrap): enable me later.
+		// Generate a private SSH key for the controllers, and add
+		// the public key to the environment config. We'll add the
+		// private key to StateServingInfo below.
+		// TODO(bootstrap): review why we removed config.JujuSystemKey in cli for CAAS?
+		privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
+		if err != nil {
+			return errors.Annotate(err, "failed to generate system key")
+		}
+		info.SystemIdentity = privateKey
+
+		authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
+		newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
+
+		// Generate a shared secret for the Mongo replica set, and write it out.
+		sharedSecret, err := mongo.GenerateSharedSecret()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		info.SharedSecret = sharedSecret
 	}
 
-	// TODO(bootstrap): enable me later.
-	// // Generate a private SSH key for the controllers, and add
-	// // the public key to the environment config. We'll add the
-	// // private key to StateServingInfo below.
-	// // TODO(bootstrap): review why we removed config.JujuSystemKey in cli for CAAS?
-	// privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
-	// if err != nil {
-	// 	return errors.Annotate(err, "failed to generate system key")
-	// }
-	// authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
-	// newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
-
-	// Generate a shared secret for the Mongo replica set, and write it out.
-	sharedSecret, err := mongo.GenerateSharedSecret()
-	if err != nil {
-		return err
-	}
-	info, ok := agentConfig.StateServingInfo()
-	if !ok {
-		return fmt.Errorf("bootstrap machine config has no state serving info")
-	}
-	info.SharedSecret = sharedSecret
-	// info.SystemIdentity = privateKey
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
 		mmprof, err := mongo.NewMemoryProfile(args.ControllerConfig.MongoMemoryProfile())
@@ -341,7 +345,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				StateInitializationParams: args,
 				BootstrapMachineAddresses: addrs,
 				BootstrapMachineJobs:      jobs,
-				SharedSecret:              sharedSecret,
+				SharedSecret:              info.SharedSecret,
 				Provider:                  environs.Provider,
 				StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
 			},
