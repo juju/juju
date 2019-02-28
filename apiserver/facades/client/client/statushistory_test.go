@@ -38,11 +38,11 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		nil, // modelconfig API
 		nil, // resources
 		authorizer,
-		nil, // presence
-		nil, // statusSetter
-		nil, // toolsFinder
-		nil, // newEnviron
-		nil, // blockChecker
+		nil,                           // presence
+		nil,                           // statusSetter
+		nil,                           // toolsFinder
+		nil,                           // newEnviron
+		nil,                           // blockChecker
 		context.NewCloudCallContext(), // ProviderCallContext
 		nil,
 	)
