@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/lease"
+	jujutxn "github.com/juju/txn"
 )
 
 // StoreAssertSuite tests that AssertOp does what it should.
@@ -45,7 +46,7 @@ func (s *StoreAssertSuite) TestPassesWhenLeaseHeld(c *gc.C) {
 	var ops []txn.Op
 	err := info.Trapdoor(0, &ops)
 	c.Check(err, jc.ErrorIsNil)
-	err = s.fix.Runner.RunTransaction(ops)
+	err = s.fix.Runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -59,7 +60,7 @@ func (s *StoreAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *gc
 	var ops []txn.Op
 	err = info.Trapdoor(0, &ops)
 	c.Check(err, jc.ErrorIsNil)
-	err = s.fix.Runner.RunTransaction(ops)
+	err = s.fix.Runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 	c.Check(err, gc.IsNil)
 }
 
@@ -73,7 +74,7 @@ func (s *StoreAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *g
 	var ops []txn.Op
 	err = info.Trapdoor(0, &ops)
 	c.Check(err, jc.ErrorIsNil)
-	err = s.fix.Runner.RunTransaction(ops)
+	err = s.fix.Runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 	c.Check(err, gc.IsNil)
 }
 
@@ -87,6 +88,6 @@ func (s *StoreAssertSuite) TestAbortsWhenLeaseVacant(c *gc.C) {
 	var ops []txn.Op
 	err = info.Trapdoor(0, &ops)
 	c.Check(err, jc.ErrorIsNil)
-	err = s.fix.Runner.RunTransaction(ops)
+	err = s.fix.Runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 	c.Check(err, gc.Equals, txn.ErrAborted)
 }
