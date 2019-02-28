@@ -48,14 +48,15 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 			checkers.DeclaredCaveat("username", s.DischargeUser),
 		}, nil
 	})
-	db := s.Session.DB("juju-testing")
+	//db := s.Session.DB("juju-testing")
 	params := charmstore.ServerParams{
 		AuthUsername:     "test-user",
 		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
 		PublicKeyLocator: s.discharger,
 	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
+	//handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
+	handler, err := NewServer()
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.Srv = httptest.NewServer(handler)
