@@ -7,12 +7,16 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"strings"
 
+	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/core/watcher"
 )
 
 type machine interface {
 	CharmProfiles() ([]string, error)
+	CharmProfilingInfo([]string) (*instancemutater.ProfileInfo, error)
+	SetCharmProfiles(profiles []string) error
 	SetUpgradeCharmProfileComplete(unitName string, message string) error
 	Tag() names.MachineTag
 	WatchUnits() (watcher.StringsWatcher, error)
@@ -45,9 +49,11 @@ type mutater struct {
 	machineDead chan machine
 }
 
-func watchMachinesLoop(context mutaterContext, machinesWatcher watcher.StringsWatcher) (err error) {
+func watchMachinesLoop(context mutaterContext, logger Logger, machinesWatcher watcher.StringsWatcher) (err error) {
+
 	m := &mutater{
 		context:     context,
+		logger:      logger,
 		machines:    make(map[names.MachineTag]chan struct{}),
 		machineDead: make(chan machine),
 	}
@@ -141,11 +147,25 @@ func watchUnitLoop(context machineContext, logger Logger, m machine, unitWatcher
 			if !ok {
 				return errors.New("unit watcher closed")
 			}
-			unitsChanged(logger, m, unitNames)
+			if err := unitsChanged(logger, m, unitNames); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
 
-func unitsChanged(logger Logger, m machine, names []string) {
+func unitsChanged(logger Logger, m machine, names []string) error {
 	logger.Warningf("Received change on %s.%s", m.Tag(), names)
+	info, err := m.CharmProfilingInfo(names)
+	if err != nil {
+		return err
+	}
+	if !info.Changes {
+		// No change is necessary.
+		logger.Tracef("no charm profile changes for %s necessary, based on changes to ", m.Tag().String(),
+			strings.Join(names, ", "))
+		return nil
+	}
+
+	return nil
 }
