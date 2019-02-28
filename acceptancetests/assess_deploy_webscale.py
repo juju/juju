@@ -14,7 +14,7 @@ import logging
 import sys
 import os
 import re
-import functools
+import statistics
 import time
 
 from deploy_stack import (
@@ -32,13 +32,13 @@ from jujucharm import (
     local_charm_path,
 )
 from reporting import (
-    construct_metrics,
     get_reporting_client,
 )
 
 __metaclass__ = type
 
 log = logging.getLogger("assess_deploy_webscale")
+
 
 def deploy_bundle(client, charm_bundle, stack_type):
     """Deploy the given charm bundle
@@ -55,7 +55,8 @@ def deploy_bundle(client, charm_bundle, stack_type):
         elif stack_type == "caas":
             default_charm = "bundles-kubernetes-core-lxd.yaml"
         else:
-            raise JujuAssertionError('invalid stack type {}'.format(stack_type))
+            raise JujuAssertionError(
+                'invalid stack type {}'.format(stack_type))
 
         bundle = local_charm_path(
             charm=default_charm,
@@ -65,7 +66,8 @@ def deploy_bundle(client, charm_bundle, stack_type):
     else:
         bundle = charm_bundle
 
-    stack_client = get_stack_client(stack_type,
+    stack_client = get_stack_client(
+        stack_type,
         path=bundle,
         client=client,
         charm=(not not charm_bundle),
@@ -75,10 +77,12 @@ def deploy_bundle(client, charm_bundle, stack_type):
     if not stack_client.is_cluster_healthy:
         raise JujuAssertionError('cluster is not healthy')
 
+
 def extract_module_logs(client, module):
     """Extract the logs from destination module.
 
-    :param module: string containing the information to extract from the destination module.
+    :param module: string containing the information to extract from the
+    destination module.
     """
     deploy_logs = client.get_juju_output(
         'debug-log', '-m', 'controller',
@@ -87,33 +91,64 @@ def extract_module_logs(client, module):
     )
     return deploy_logs.decode('utf-8')
 
-def extract_txn_timings(logs, module):
-    """Extract the transaction timings (txn) from the deploy logs.
 
-    It's expected that the timings are in seconds to 3 decimal places ("0.042s")
+def extract_txn_metrics(logs, module):
+    """Extract the transaction timings and retry counts from the deploy logs.
+
+    It's expected that the timings are in seconds to 3 decimal places
+    ("0.042s")
 
     :param logs: string containing all the logs from the module
     :param module: string containing the destination module.
     """
-    exp = re.compile(r'{} ran transaction in (?P<seconds>\d+\.\d+)s'.format(module), re.IGNORECASE)
+    exp = "{} ran transaction in " \
+        r"(?P<seconds>\d+\.\d+)s \(retries: (?P<retries>\d+)\)"
+    regex = re.compile(exp.format(module), re.IGNORECASE)
     timings = []
-    for timing in exp.finditer(logs):
-        timings.append(timing.group("seconds"))
-    return list(map(float, timings))
+    retries = []
+    for match in regex.finditer(logs):
+        timings.append(float(match.group("seconds")))
+        retries.append(float(match.group("retries")))
 
-def calculate_total_time(timings):
-    """Accumulate transaction timings (txn) from the timings.
+    return {
+        'timings': timings,
+        'retries': retries,
+    }
 
-    :param timings: expects timings to be floats
+
+def calc_stats(prefix, values):
+    """ Calculate statistics for a list of float values and return them as an
+        object where the keys are prefixed using the provided prefix.
     """
-    return functools.reduce(lambda x, y: x + y, timings)
+    return {
+        prefix+'min': min(values),
+        prefix+'max': max(values),
+        prefix+'total': sum(values),
+        prefix+'mean': statistics.mean(values),
+        prefix+'median': statistics.median(values),
+        prefix+'stdev': statistics.stdev(values),
+    }
 
-def calculate_max_time(timings):
-    """Calculate maximum transaction timing from (txn).
 
-    :param timings: expects timings to be floats
+def merge_dicts(*args):
+    out = {}
+    for d in args:
+        out.update(d)
+
+    return out
+
+
+def construct_metrics(txn_metrics, test_duration):
+    """Make metrics creates a dictionary of items to pass to the
+       reporting client.
     """
-    return functools.reduce(lambda x, y: x if x > y else y, timings)
+
+    return merge_dicts(
+        calc_stats('txn_time_', txn_metrics['timings']),
+        calc_stats('txn_retries_', txn_metrics['retries']),
+        {'test_duration': test_duration},
+    )
+
 
 def extract_charm_urls(client):
     """Extract the bundle with revisions
@@ -125,13 +160,16 @@ def extract_charm_urls(client):
         charms.append(charm["charm"])
     return charms
 
+
 def extract_mongo_version(client):
     """Extract the mongo version from the controller.
     """
 
     ctrl_info = client.get_controllers()
-    ctrl_details = ctrl_info.get_controller(client.env.controller.name).get_details()
+    ctrl = ctrl_info.get_controller(client.env.controller.name)
+    ctrl_details = ctrl.get_details()
     return ctrl_details.mongo_version
+
 
 def get_stack_client(stack_type, path, client, timeout=3600, charm=False):
     """Get the stack client dependant on the type of stack we want to deploy on
@@ -144,9 +182,11 @@ def get_stack_client(stack_type, path, client, timeout=3600, charm=False):
         raise JujuAssertionError('invalid stack type {}'.format(stack_type))
     return fn(path, client, timeout=timeout, charm=charm)
 
+
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="Webscale charm deployment CI test")
+    parser = argparse.ArgumentParser(
+        description="Webscale charm deployment CI test")
     parser.add_argument(
         '--charm-bundle',
         help="Override the charm bundle to deploy",
@@ -180,8 +220,10 @@ def parse_args(argv):
     # Override the default logging_config default value set by adding basic
     # testing arguments. This way we can have a default value for all tests,
     # then override it again just for this test.
-    parser.set_defaults(logging_config="juju.state.txn=TRACE;<root>=INFO;unit=INFO")
+    parser.set_defaults(
+        logging_config="juju.state.txn=TRACE;<root>=INFO;unit=INFO")
     return parser.parse_args(argv)
+
 
 def main(argv=None):
     args = parse_args(argv)
@@ -193,20 +235,16 @@ def main(argv=None):
         mongo_version = extract_mongo_version(client)
         log.info("MongoVersion used for deployment: {}".format(mongo_version))
 
-        deploy_bundle(client,
-            charm_bundle=args.charm_bundle,
-            stack_type=args.stack_type,
+        deploy_bundle(
+                client,
+                charm_bundle=args.charm_bundle,
+                stack_type=args.stack_type,
         )
         raw_logs = extract_module_logs(client, module=args.logging_module)
-        timings = extract_txn_timings(raw_logs, module=args.logging_module)
+        txn_metrics = extract_txn_metrics(raw_logs, module=args.logging_module)
 
         # Calculate the timings to forward to the datastore
-        metrics = construct_metrics(
-            calculate_total_time(timings),
-            len(timings),
-            calculate_max_time(timings),
-            (time.time() - begin),
-        )
+        metrics = construct_metrics(txn_metrics, (time.time() - begin))
         log.info("Metrics for deployment: {}".format(metrics))
 
         # Extract the charm bundle and revision numbers
@@ -221,10 +259,11 @@ def main(argv=None):
                 "mongo-version": mongo_version,
                 "juju-version": args.juju_version,
             })
-        except:
+        except Exception:
             raise JujuAssertionError("Error reporting metrics")
         log.info("Metrics successfully sent to report storage")
     return 0
+
 
 if __name__ == '__main__':
     sys.exit(main())

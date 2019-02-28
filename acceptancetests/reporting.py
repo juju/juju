@@ -42,25 +42,13 @@ class InfluxClient(_Reporting):
                 },
             })
 
-        self.client.write_points(series, retention_policy=POLICYNAME, time_precision='s')
-
-
-def construct_metrics(total_time, total_num_txns, max_time, test_duration):
-    """Make metrics creates a dictionary of items to pass to the
-       reporting client.
-    """
-
-    return {
-        "total_time": total_time,
-        "total_num_txns": total_num_txns,
-        "max_time": max_time,
-        "test_duration": test_duration,
-    }
+        self.client.write_points(
+            series, retention_policy=POLICYNAME, time_precision='s')
 
 
 def get_reporting_client(uri):
-    """Reporting client returns a client for reporting metrics to.
-       It expects that the uri can be parsed and sent to the client constructor.
+    """Reporting client returns a client for reporting metrics to.  It expects
+    that the uri can be parsed and sent to the client constructor.
 
     :param uri: URI to connect to the client.
     """
