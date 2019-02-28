@@ -49,11 +49,15 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 		c.Config["limits.cpu"] = fmt.Sprintf("%d", *cons.CpuCores)
 	}
 	if cons.HasMem() {
-		// LXD versions < 3 do not recognise the correct "MiB" notation.
-		template := "%dMiB"
-		if v, err := strconv.Atoi(strings.Split(serverVersion, ".")[0]); err == nil && v < 3 {
-			template = "%dMB"
+		// Ensure that for LXD versions 3.10+, we use the correct "MiB" suffix.
+		template := "%dMB"
+		version := strings.Split(serverVersion, ".")
+		if major, _ := strconv.Atoi(version[0]); major > 2 {
+			if minor, _ := strconv.Atoi(version[1]); minor >= 9 || major > 3 {
+				template = "%dMiB"
+			}
 		}
+
 		c.Config["limits.memory"] = fmt.Sprintf(template, *cons.Mem)
 	}
 }
