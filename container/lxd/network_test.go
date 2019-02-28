@@ -346,7 +346,9 @@ func (s *networkSuite) TestInterfaceInfoFromDevices(c *gc.C) {
 	c.Check(info, jc.DeepEquals, exp)
 }
 
-func (s *networkSuite) TestCheckLXDBridgeConfiguration(c *gc.C) {
+func (s *networkSuite) TestCheckAptLXDBridgeConfiguration(c *gc.C) {
+	lxd.PatchLXDViaSnap(s, false)
+
 	bridgeName, err := lxd.CheckBridgeConfigFile(validBridgeConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(bridgeName, gc.Equals, "lxdbr0")
@@ -357,7 +359,7 @@ USE_LXD_BRIDGE="false"
 `), nil
 	}
 	_, err = lxd.CheckBridgeConfigFile(noBridge)
-	c.Assert(err.Error(), gc.Equals, `/etc/default/lxd-bridge has USE_LXD_BRIDGE set to false
+	c.Assert(err.Error(), gc.Equals, lxd.BridgeConfigFile+` has USE_LXD_BRIDGE set to false
 It looks like your LXD bridge has not yet been configured. Configure it via:
 
 	sudo dpkg-reconfigure -p medium lxd
@@ -394,6 +396,45 @@ Disable IPv6 via:
 	sudo dpkg-reconfigure -p medium lxd
 
 and run the command again.`)
+}
+
+func (s *networkSuite) TestCheckSnapLXDBridgeConfiguration(c *gc.C) {
+	lxd.PatchLXDViaSnap(s, true)
+
+	bridgeName, err := lxd.CheckBridgeConfigFile(validBridgeConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(bridgeName, gc.Equals, "lxdbr0")
+
+	noBridge := func(string) ([]byte, error) {
+		return []byte(`
+USE_LXD_BRIDGE="false"
+`), nil
+	}
+	_, err = lxd.CheckBridgeConfigFile(noBridge)
+	c.Assert(err.Error(), gc.Equals, lxd.SnapBridgeConfigFile+` has USE_LXD_BRIDGE set to false
+It looks like your LXD bridge has not yet been configured.`)
+
+	noSubnets := func(string) ([]byte, error) {
+		return []byte(`
+USE_LXD_BRIDGE="true"
+LXD_BRIDGE="br0"
+`), nil
+	}
+	_, err = lxd.CheckBridgeConfigFile(noSubnets)
+	c.Assert(err.Error(), gc.Equals, `br0 has no ipv4 or ipv6 subnet enabled
+It looks like your LXD bridge has not yet been configured.`)
+
+	ipv6 := func(string) ([]byte, error) {
+		return []byte(`
+USE_LXD_BRIDGE="true"
+LXD_BRIDGE="lxdbr0"
+LXD_IPV6_ADDR="2001:470:b368:4242::1"
+`), nil
+	}
+
+	_, err = lxd.CheckBridgeConfigFile(ipv6)
+	c.Assert(err.Error(), gc.Equals, lxd.SnapBridgeConfigFile+` has IPv6 enabled.
+Juju doesn't currently support IPv6.`)
 }
 
 func (s *networkSuite) TestVerifyNICsWithConfigFileNICFound(c *gc.C) {
