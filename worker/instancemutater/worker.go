@@ -5,21 +5,22 @@ package instancemutater
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/instancemutater"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/juju/worker.v1/dependency"
+
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/instancemutater"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs"
 )
 
 //go:generate mockgen -package mocks -destination mocks/instancebroker_mock.go github.com/juju/juju/worker/instancemutater InstanceBroker
 //go:generate mockgen -package mocks -destination mocks/logger_mock.go github.com/juju/juju/worker/instancemutater Logger
 //go:generate mockgen -package mocks -destination mocks/namestag_mock.go gopkg.in/juju/names.v2 Tag
 
-type InstanceAPI interface {
+type InstanceMutaterAPI interface {
 	WatchModelMachines() (watcher.StringsWatcher, error)
 	Machine(tag names.MachineTag) (*instancemutater.Machine, error)
 }
@@ -27,13 +28,15 @@ type InstanceAPI interface {
 // Logger represents the logging methods called.
 type Logger interface {
 	Warningf(message string, args ...interface{})
+	Debugf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
+	Tracef(message string, args ...interface{})
 }
 
 // Config represents the configuration required to run a new instance mutater
 // worker.
 type Config struct {
-	Facade InstanceAPI
+	Facade InstanceMutaterAPI
 
 	// Logger is the logger for this worker.
 	Logger Logger
@@ -74,7 +77,6 @@ func (config Config) Validate() error {
 // the machines/containers in the state and polls their instance
 // for any changes.
 func NewWorker(config Config) (worker.Worker, error) {
-	config.Logger.Errorf("heather: NewWorker(%#v)", config)
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -82,6 +84,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if !ok {
 		// If we don't have an LXDProfiler broker, there is no need to
 		// run this worker.
+		config.Logger.Debugf("uninstalling, not an LXD capable broker")
 		return nil, dependency.ErrUninstall
 	}
 	w := &mutaterWorker{
@@ -106,7 +109,7 @@ type mutaterWorker struct {
 	logger     Logger
 	broker     environs.LXDProfiler
 	machineTag names.MachineTag
-	facade     InstanceAPI
+	facade     InstanceMutaterAPI
 }
 
 func (w *mutaterWorker) loop() error {
@@ -118,7 +121,7 @@ func (w *mutaterWorker) loop() error {
 	if err := w.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
-	return watchMachinesLoop(w, watcher)
+	return watchMachinesLoop(w, w.logger, watcher)
 }
 
 // Kill implements worker.Worker.Kill.
