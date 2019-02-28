@@ -337,9 +337,13 @@ const SnapBridgeConfigFile = "/var/snap/lxd/common/lxd-bridge/config"
 // via Snap. The question of the correct user action was posed on the #lxd IRC
 // channel, but has not be answered to-date.
 func checkBridgeConfigFile(fileName string, reader func(string) ([]byte, error)) (string, error) {
+	// installed via snap is used to customise the error message, so that if
+	// you're running apt install on older series than bionic then it will
+	// still show the older messages.
+	installedViaSnap := lxdViaSnap()
 	bridgeConfig, err := reader(fileName)
 	if os.IsNotExist(err) {
-		return "", bridgeConfigError("no config file found at " + fileName)
+		return "", bridgeConfigError("no config file found at "+fileName, installedViaSnap)
 	} else if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -354,12 +358,12 @@ func checkBridgeConfigFile(fileName string, reader func(string) ([]byte, error))
 				continue
 			}
 			if !b {
-				return "", bridgeConfigError(fmt.Sprintf("%s has USE_LXD_BRIDGE set to false", fileName))
+				return "", bridgeConfigError(fmt.Sprintf("%s has USE_LXD_BRIDGE set to false", fileName), installedViaSnap)
 			}
 		} else if strings.HasPrefix(line, "LXD_BRIDGE=") {
 			bridgeName = strings.Trim(line[len("LXD_BRIDGE="):], " \"")
 			if bridgeName == "" {
-				return "", bridgeConfigError(fmt.Sprintf("%s has no LXD_BRIDGE set", fileName))
+				return "", bridgeConfigError(fmt.Sprintf("%s has no LXD_BRIDGE set", fileName), installedViaSnap)
 			}
 		} else if strings.HasPrefix(line, "LXD_IPV4_ADDR=") {
 			contents := strings.Trim(line[len("LXD_IPV4_ADDR="):], " \"")
@@ -369,7 +373,7 @@ func checkBridgeConfigFile(fileName string, reader func(string) ([]byte, error))
 		} else if strings.HasPrefix(line, "LXD_IPV6_ADDR=") {
 			contents := strings.Trim(line[len("LXD_IPV6_ADDR="):], " \"")
 			if len(contents) > 0 {
-				return "", ipv6BridgeConfigError(fileName)
+				return "", ipv6BridgeConfigError(fileName, installedViaSnap)
 			}
 		}
 	}
@@ -377,17 +381,30 @@ func checkBridgeConfigFile(fileName string, reader func(string) ([]byte, error))
 	if !foundSubnetConfig {
 		// TODO (hml) 2018-08-09 Question
 		// Should the error mention ipv6 is not enabled if juju doesn't support it?
-		return "", bridgeConfigError(bridgeName + " has no ipv4 or ipv6 subnet enabled")
+		return "", bridgeConfigError(bridgeName+" has no ipv4 or ipv6 subnet enabled", installedViaSnap)
 	}
 	return bridgeName, nil
 }
 
-func bridgeConfigError(err string) error {
-	return errors.Errorf("%s\nIt looks like your LXD bridge has not yet been configured.", err)
+func bridgeConfigError(err string, installedViaSnap bool) error {
+	errMsg := "%s\nIt looks like your LXD bridge has not yet been configured."
+	if !installedViaSnap {
+		errMsg += " Configure it via:\n\n" +
+			"\tsudo dpkg-reconfigure -p medium lxd\n\n" +
+			"and run the command again."
+	}
+	return errors.Errorf(errMsg, err)
 }
 
-func ipv6BridgeConfigError(fileName string) error {
-	return errors.Errorf("%s has IPv6 enabled.\nJuju doesn't currently support IPv6", fileName)
+func ipv6BridgeConfigError(fileName string, installedViaSnap bool) error {
+	errMsg := "%s has IPv6 enabled.\nJuju doesn't currently support IPv6."
+	if !installedViaSnap {
+		errMsg += "\n" +
+			"Disable IPv6 via:\n\n" +
+			"\tsudo dpkg-reconfigure -p medium lxd\n\n" +
+			"and run the command again."
+	}
+	return errors.Errorf(errMsg, fileName)
 }
 
 // InterfaceInfoFromDevices returns a slice of interface info congruent with the
