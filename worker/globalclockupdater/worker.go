@@ -112,7 +112,7 @@ func (w *updaterWorker) loop() error {
 			// updated the clock.
 			now := w.config.LocalClock.Now()
 			amount := now.Sub(last)
-			err := w.updater.Advance(amount)
+			err := w.updater.Advance(amount, w.tomb.Dying())
 			if globalclock.IsConcurrentUpdate(err) {
 				w.config.Logger.Tracef("concurrent update, backing off for %s", backoff)
 				last = w.config.LocalClock.Now()
@@ -123,7 +123,12 @@ func (w *updaterWorker) loop() error {
 				timer.Reset(interval)
 				continue
 			} else if err != nil {
-				return errors.Annotate(err, "updating global clock")
+				select {
+				case <-w.tomb.Dying():
+					return tomb.ErrDying
+				default:
+					return errors.Annotate(err, "updating global clock")
+				}
 			}
 			w.config.Logger.Tracef("incremented global time by %s", interval)
 			last = w.config.LocalClock.Now()

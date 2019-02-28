@@ -182,12 +182,12 @@ func (store *Store) call(method string, args []interface{}) error {
 }
 
 // ClaimLease is part of the corelease.Store interface.
-func (store *Store) ClaimLease(key lease.Key, request lease.Request) error {
+func (store *Store) ClaimLease(key lease.Key, request lease.Request, stop <-chan struct{}) error {
 	return store.call("ClaimLease", []interface{}{key, request})
 }
 
 // ExtendLease is part of the corelease.Store interface.
-func (store *Store) ExtendLease(key lease.Key, request lease.Request) error {
+func (store *Store) ExtendLease(key lease.Key, request lease.Request, stop <-chan struct{}) error {
 	return store.call("ExtendLease", []interface{}{key, request})
 }
 
@@ -202,12 +202,12 @@ func (store *Store) Refresh() error {
 }
 
 // PinLease is part of the corelease.Store interface.
-func (store *Store) PinLease(key lease.Key, entity string) error {
+func (store *Store) PinLease(key lease.Key, entity string, stop <-chan struct{}) error {
 	return store.call("PinLease", []interface{}{key, entity})
 }
 
 // UnpinLease is part of the corelease.Store interface.
-func (store *Store) UnpinLease(key lease.Key, entity string) error {
+func (store *Store) UnpinLease(key lease.Key, entity string, stop <-chan struct{}) error {
 	return store.call("UnpinLease", []interface{}{key, entity})
 }
 

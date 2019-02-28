@@ -192,7 +192,7 @@ type stubUpdater struct {
 	added chan time.Duration
 }
 
-func (s *stubUpdater) Advance(d time.Duration) error {
+func (s *stubUpdater) Advance(d time.Duration, _ <-chan struct{}) error {
 	s.MethodCall(s, "Advance", d)
 	s.added <- d
 	return s.NextErr()
