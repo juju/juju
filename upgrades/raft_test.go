@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
-	"github.com/hashicorp/raft-boltdb"
+	raftboltdb "github.com/hashicorp/raft-boltdb"
 	"github.com/juju/replicaset"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

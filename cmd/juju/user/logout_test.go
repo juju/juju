@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/persistent-cookiejar"
+	cookiejar "github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

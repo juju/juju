@@ -13,8 +13,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/commands"
 	components "github.com/juju/juju/component/all"
-	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
+	_ "github.com/juju/juju/provider/all" // Import the providers.
 )
 
 var log = loggo.GetLogger("juju.cmd.juju")

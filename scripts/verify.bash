@@ -70,12 +70,12 @@ echo "checking: copyright notices are in place ..."
 echo "checking: dependency files ..."
 dep check
 
-# Allow the ignoring of the gometalinter
-if [ -z "$IGNORE_GOMETALINTER" ]; then
-    echo "checking: gometalinter ..."
-    ./scripts/gometalinter.bash
+# Allow the ignoring of the golinters
+if [ -z "$IGNORE_GOLINTERS" ]; then
+    echo "checking: golinters ..."
+    ./scripts/golinters.bash
 else
-    echo "ignoring: gometalinter ..."
+    echo "ignoring: golinters ..."
 fi
 
 echo "checking: go build ..."

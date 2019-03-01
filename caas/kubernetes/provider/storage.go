@@ -12,7 +12,7 @@ import (
 	"github.com/juju/schema"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"

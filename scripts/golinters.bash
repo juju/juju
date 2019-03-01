@@ -25,13 +25,13 @@ $GOPATH/bin/golangci-lint run \
     --enable=misspell \
     --enable=unconvert \
     --deadline=240s \
-    2>&1 | tee $OUTPUT_FILE
+    &> $OUTPUT_FILE
 
-# go through each gometalinter error and check to see if it's related 
+# go through each golangci-lint error and check to see if it's related 
 # to a mock file.
 invalidLines=`cat $OUTPUT_FILE | grep -v '\(.*\/[^\/]*\.go\):[[:digit:]]*:[[:digit:]]*:.*' | wc -l`
 if [ $invalidLines -ne 0 ]; then
-    # there was a parse error when reading the gometalinter output
+    # there was a parse error when reading the golangci-lint output
     exitstatus=1
     (>&2 cat $OUTPUT_FILE)
 else

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
-	"github.com/juju/persistent-cookiejar"
+	cookiejar "github.com/juju/persistent-cookiejar"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/model"
