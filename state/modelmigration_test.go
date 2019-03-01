@@ -53,6 +53,8 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 			Macaroons:     []macaroon.Slice{{mac}},
 		},
 	}
+	// Before we get into the tests, ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.State2.ModelUUID())
 }
 
 func (s *MigrationSuite) TestCreate(c *gc.C) {
@@ -524,6 +526,8 @@ func (s *MigrationSuite) TestWatchForMigrationInProgress(c *gc.C) {
 	// Create a migration.
 	_, err := s.State2.CreateMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.State2.ModelUUID())
 
 	// Start watching for a migration - the in progress one should be reported.
 	_, wc := s.createMigrationWatcher(c, s.State2)
@@ -538,6 +542,8 @@ func (s *MigrationSuite) TestWatchForMigrationMultiModel(c *gc.C) {
 	// migrations.
 	State3 := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { State3.Close() })
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, State3.ModelUUID())
 	_, wc3 := s.createMigrationWatcher(c, State3)
 	wc3.AssertOneChange()
 
@@ -600,6 +606,9 @@ func (s *MigrationSuite) TestWatchMigrationStatusPreexisting(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
 
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.State2.ModelUUID())
+
 	_, wc := s.createStatusWatcher(c, s.State2)
 	wc.AssertOneChange()
 }
@@ -612,6 +621,9 @@ func (s *MigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 	// migrations.
 	State3 := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { State3.Close() })
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, State3.ModelUUID())
+
 	_, wc3 := s.createStatusWatcher(c, State3)
 	wc3.AssertOneChange() // initial event
 
@@ -807,6 +819,8 @@ func (s *MigrationSuite) createMigAndWatchReports(c *gc.C, st *state.State) (
 ) {
 	mig, err := st.CreateMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, st.ModelUUID())
 
 	w, err := mig.WatchMinionReports()
 	c.Assert(err, jc.ErrorIsNil)

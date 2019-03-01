@@ -345,6 +345,8 @@ func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := info.Watch()
 	defer statetesting.AssertStop(c, w)
