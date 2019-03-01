@@ -279,6 +279,9 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		messageArgs = append(messageArgs, cloudRegion)
 	}
 	if model.CloudCredential != "" {
+		if !names.IsValidCloudCredential(model.CloudCredential) {
+			return errors.NotValidf("cloud credential ID %q", model.CloudCredential)
+		}
 		tag := names.NewCloudCredentialTag(model.CloudCredential)
 		credentialName := tag.Name()
 		if tag.Owner().Id() != modelOwner {

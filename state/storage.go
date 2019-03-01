@@ -479,7 +479,7 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 }
 
 func checkStoragePoolReleasable(im *storageBackend, pool string) error {
-	providerType, provider, err := poolStorageProvider(im, pool)
+	providerType, provider, _, err := poolStorageProvider(im, pool)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1790,7 +1790,7 @@ func validateStoragePool(
 	if poolName == "" {
 		return errors.New("pool name is required")
 	}
-	providerType, provider, err := poolStorageProvider(sb, poolName)
+	providerType, provider, poolConfig, err := poolStorageProvider(sb, poolName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1822,10 +1822,17 @@ func validateStoragePool(
 		}
 	}
 
+	// Validate any k8s config.
+	if sb.modelType == ModelTypeCAAS {
+		if err := k8sprovider.ValidateStorageProvider(providerType, poolConfig); err != nil {
+			return errors.Annotatef(err, "invalid storage config")
+		}
+	}
+
 	return nil
 }
 
-func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, error) {
+func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, map[string]interface{}, error) {
 	poolManager := poolmanager.New(sb.settings, sb.registry)
 	pool, err := poolManager.Get(poolName)
 	if errors.IsNotFound(err) {
@@ -1836,18 +1843,18 @@ func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderT
 		if err1 != nil {
 			// The name can't be resolved as a storage provider type,
 			// so return the original "pool not found" error.
-			return "", nil, errors.Trace(err)
+			return "", nil, nil, errors.Trace(err)
 		}
-		return providerType, provider, nil
+		return providerType, provider, nil, nil
 	} else if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", nil, nil, errors.Trace(err)
 	}
 	providerType := pool.Provider()
 	provider, err := sb.registry.StorageProvider(providerType)
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", nil, nil, errors.Trace(err)
 	}
-	return providerType, provider, nil
+	return providerType, provider, pool.Attrs(), nil
 }
 
 // ErrNoDefaultStoragePool is returned when a storage pool is required but none

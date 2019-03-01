@@ -460,6 +460,10 @@ func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResu
 		}
 		out := make([]string, 0, len(cloudCredentials))
 		for tagId := range cloudCredentials {
+			if !names.IsValidCloudCredential(tagId) {
+				results.Results[i].Error = common.ServerError(errors.NotValidf("cloud credential ID %q", tagId))
+				continue
+			}
 			out = append(out, names.NewCloudCredentialTag(tagId).String())
 		}
 		results.Results[i].Result = out
@@ -1086,6 +1090,12 @@ func (api *CloudAPI) CredentialContents(args params.CloudCredentialArgs) (params
 		result = make([]params.CredentialContentResult, len(args.Credentials))
 		for i, given := range args.Credentials {
 			id := credId(given.CloudName, given.CredentialName)
+			if !names.IsValidCloudCredential(id) {
+				result[i] = params.CredentialContentResult{
+					Error: common.ServerError(errors.NotValidf("cloud credential ID %q", id)),
+				}
+				continue
+			}
 			tag := names.NewCloudCredentialTag(id)
 			credential, err := api.backend.CloudCredential(tag)
 			if err != nil {

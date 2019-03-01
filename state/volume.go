@@ -673,7 +673,7 @@ func detachableVolumeDoc(doc *volumeDoc) bool {
 // pool will create a volume that is not inherently bound to a machine,
 // and therefore can be detached.
 func isDetachableVolumePool(im *storageBackend, pool string) (bool, error) {
-	_, provider, err := poolStorageProvider(im, pool)
+	_, provider, _, err := poolStorageProvider(im, pool)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

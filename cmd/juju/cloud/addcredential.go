@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
+	"gopkg.in/juju/names.v2"
 )
 
 var usageAddCredentialSummary = `
@@ -176,8 +177,12 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		return false
 	}
 
-	var names []string
+	var allNames []string
 	for name, cred := range credentials.AuthCredentials {
+		if !names.IsValidCloudCredentialName(name) {
+			return errors.Errorf("%q is not a valid credential name", name)
+		}
+
 		if !validAuthType(cred.AuthType()) {
 			return errors.Errorf("credential %q contains invalid auth type %q, valid auth types for cloud %q are %v", name, cred.AuthType(), c.CloudName, c.cloud.AuthTypes)
 		}
@@ -200,7 +205,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 			cred = *newCredential
 		}
 		existingCredentials.AuthCredentials[name] = cred
-		names = append(names, name)
+		allNames = append(allNames, name)
 	}
 	err = c.store.UpdateCredential(c.CloudName, *existingCredentials)
 	if err != nil {
@@ -210,7 +215,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	if c.Replace {
 		verb = "updated"
 	}
-	fmt.Fprintf(ctxt.Stdout, "Credentials %q %v for cloud %q.\n", strings.Join(names, ", "), verb, c.CloudName)
+	fmt.Fprintf(ctxt.Stdout, "Credentials %q %v for cloud %q.\n", strings.Join(allNames, ", "), verb, c.CloudName)
 	return nil
 }
 
@@ -231,10 +236,9 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 	errout := interact.NewErrWriter(ctxt.Stdout)
 	pollster := interact.New(ctxt.Stdin, ctxt.Stdout, errout)
 
-	var err error
-	credentialName, err := pollster.Enter("credential name")
+	credentialName, err := c.promptCredentialName(pollster, ctxt.Stdout)
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 
 	// Prompt to overwrite if needed.
@@ -328,6 +332,21 @@ func (c *addCredentialCommand) finalizeProvider(ctxt *cmd.Context, authType juju
 		},
 	)
 	return newCredential, errors.Annotate(err, "finalizing credential")
+}
+
+func (c *addCredentialCommand) promptCredentialName(p *interact.Pollster, out io.Writer) (string, error) {
+	credentialName, err := p.EnterVerify("credential name", func(value string) (ok bool, errmsg string, err error) {
+		if !names.IsValidCloudCredentialName(value) {
+			return false, fmt.Sprintf("Invalid credential name: %q", value), nil
+		}
+
+		return true, "", nil
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return credentialName, nil
 }
 
 func (c *addCredentialCommand) promptAuthType(p *interact.Pollster, authTypes []jujucloud.AuthType, out io.Writer) (jujucloud.AuthType, error) {

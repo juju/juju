@@ -1960,7 +1960,7 @@ func validateDynamicMachineStoragePools(sb *storageBackend, m *Machine, pools se
 // support dynamic storage, then an IsNotSupported error is returned.
 func validateDynamicStoragePools(sb *storageBackend, pools set.Strings) error {
 	for pool := range pools {
-		providerType, provider, err := poolStorageProvider(sb, pool)
+		providerType, provider, _, err := poolStorageProvider(sb, pool)
 		if err != nil {
 			return errors.Trace(err)
 		}

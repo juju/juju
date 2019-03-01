@@ -106,12 +106,16 @@ func InitializeState(
 	cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
 	var cloudCredentialTag names.CloudCredentialTag
 	if args.ControllerCloudCredential != nil && args.ControllerCloudCredentialName != "" {
-		cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
+		id := fmt.Sprintf(
 			"%s/%s/%s",
 			args.ControllerCloud.Name,
 			adminUser.Id(),
 			args.ControllerCloudCredentialName,
-		))
+		)
+		if !names.IsValidCloudCredential(id) {
+			return nil, nil, errors.NotValidf("cloud credential ID %q", id)
+		}
+		cloudCredentialTag = names.NewCloudCredentialTag(id)
 		cloudCredentials[cloudCredentialTag] = *args.ControllerCloudCredential
 	}
 
