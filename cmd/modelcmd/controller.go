@@ -104,12 +104,7 @@ func (c *ControllerCommandBase) initController() error {
 }
 
 // DetermineCurrentController returns current controller on this client.
-// The returned result corresponds to, in order of precedence:
-// 1. if JUJU_MODEL env variable exists and its value contains a controller prefix, that controller name;
-// 2. if JUJU_CONTROLLER env variable exists, its value;
-// 3. current controller specified in local controllers.yaml file.
-// If there is a controller defined in JUJU_MODEL and JUJU_CONTROLLER is set,
-// it is an error if they do not match.
+// It considers commandline flags, environment variables, and current config.
 func DetermineCurrentController(store jujuclient.ClientStore) (string, error) {
 	modelController, _ := SplitModelName(os.Getenv(osenv.JujuModelEnvKey))
 	envController := os.Getenv(osenv.JujuControllerEnvKey)

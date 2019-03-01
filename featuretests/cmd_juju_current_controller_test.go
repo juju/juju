@@ -82,7 +82,7 @@ kontroll    controller  admin  superuser  dummy/dummy-region       1         -  
 
 // TestControllerLevelCommandModelEnvVarConflict ensures that
 // when $JUJU_CONTROLLER and $JUJU_MODEL point to different controllers,
-// $JUJU_MODEL takes precedence for controller-level commands.
+// it is considered an error.
 func (s *cmdCurrentControllerSuite) TestControllerLevelCommandModelEnvVarConflict(c *gc.C) {
 	s.PatchEnvironment("JUJU_CONTROLLER", "ctrlTwo")
 	s.PatchEnvironment("JUJU_MODEL", "kontroll:")
