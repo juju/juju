@@ -15,6 +15,31 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
+type MachineMutater interface {
+	// CharmProfilingInfo returns info to update lxd profiles on the machine
+	// based on the given unit names.
+	CharmProfilingInfo(string) (ProfileInfo, error)
+
+	// SetCharmProfiles records the given slice of charm profile names.
+	SetCharmProfiles([]string) error
+
+	// SetUpgradeCharmProfileComplete records the result of updating
+	// the machine's charm profile(s), for the given unit.
+	SetUpgradeCharmProfileComplete(unitName string, message string) error
+
+	// Tag returns the current machine tag
+	Tag() names.MachineTag
+
+	// RemoveUpgradeCharmProfileData completely removes the instance charm
+	// profile data for a machine and the given unit, even if the machine
+	// is dead.
+	RemoveUpgradeCharmProfileData(string) error
+
+	// WatchUnits returns a watcher.StringsWatcher for watching units of a given
+	// machine.
+	WatchUnits() (watcher.StringsWatcher, error)
+}
+
 // Machine represents a juju machine as seen by an instancemutater
 // worker.
 type Machine struct {
@@ -24,28 +49,12 @@ type Machine struct {
 	life params.Life
 }
 
-// CharmProfiles returns the CharmProfiles for the machine
-func (m *Machine) CharmProfiles() ([]string, error) {
-	var result params.StringsResult
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag.String()}},
-	}
-	err := m.facade.FacadeCall("CharmProfiles", args, &result)
-	if err != nil {
-		return nil, err
-	}
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return result.Result, nil
-}
-
+// SetCharmProfiles implements MachineMutater.SetCharmProfiles.
 func (m *Machine) SetCharmProfiles([]string) error {
 	return nil
 }
 
-// SetUpgradeCharmProfileComplete allows setting the charm profile complete
-// status message for a given unit.
+// SetUpgradeCharmProfileComplete implements MachineMutater.SetUpgradeCharmProfileComplete.
 func (m *Machine) SetUpgradeCharmProfileComplete(unitName string, message string) error {
 	var results params.ErrorResults
 	args := params.SetProfileUpgradeCompleteArgs{
@@ -71,13 +80,12 @@ func (m *Machine) SetUpgradeCharmProfileComplete(unitName string, message string
 	return nil
 }
 
-// Tag returns the current machine tag
+// Tag implements MachineMutater.Tag.
 func (m *Machine) Tag() names.MachineTag {
 	return m.tag
 }
 
-// WatchUnits returns a watcher.StringsWatcher for watching units of a given
-// machine.
+// WatchUnits implements MachineMutater.WatchUnits.
 func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
@@ -117,11 +125,10 @@ type CharmLXDProfile struct {
 	Devices     map[string]map[string]string
 }
 
-// ProfilingInfo returns info to update profiles on the machine based on
-// the given unit names.
+// CharmProfilingInfo implements MachineMutater.CharmProfilingInfo.
 func (m *Machine) CharmProfilingInfo(unitNames []string) (*ProfileInfo, error) {
-	var result params.ProfilingInfoResult
-	args := params.ProfilingInfoArg{
+	var result params.CharmProfilingInfoResult
+	args := params.CharmProfilingInfoArg{
 		Entity:    params.Entity{Tag: m.tag.String()},
 		UnitNames: unitNames,
 	}
@@ -129,24 +136,29 @@ func (m *Machine) CharmProfilingInfo(unitNames []string) (*ProfileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	returnResult := &ProfileInfo{
+		Changes:         result.Changes,
+		CurrentProfiles: result.CurrentProfiles,
+	}
+	if !result.Changes {
+		return returnResult, nil
+	}
 	profileChanges := make([]ProfileChanges, len(result.ProfileChanges))
 	for i, change := range result.ProfileChanges {
 		profileChanges[i].NewProfileName = change.NewProfileName
 		profileChanges[i].OldProfileName = change.OldProfileName
 		profileChanges[i].Subordinate = change.Subordinate
-		profileChanges[i].Profile = &CharmLXDProfile{
-			Config:      change.Profile.Config,
-			Description: change.Profile.Description,
-			Devices:     change.Profile.Devices,
+		if change.Profile != nil {
+			profileChanges[i].Profile = &CharmLXDProfile{
+				Config:      change.Profile.Config,
+				Description: change.Profile.Description,
+				Devices:     change.Profile.Devices,
+			}
 		}
 		if change.Error != nil {
 			return nil, change.Error
 		}
 	}
-	returnResult := &ProfileInfo{
-		Changes:         result.Changes,
-		CurrentProfiles: result.CurrentProfiles,
-		ProfileChanges:  profileChanges,
-	}
+	returnResult.ProfileChanges = profileChanges
 	return returnResult, nil
 }
