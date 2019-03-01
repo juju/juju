@@ -134,7 +134,7 @@ func findDNSServerConfig() (*network.DNSConfig, error) {
 		// access the dnsConfig.Nameservers. So instead, just continue and
 		// exhaust the resolvConfFiles slice.
 		if dnsConfig == nil {
-			logger.Tracef("The DNS configuration from %s returned no dnsConfig")
+			logger.Tracef("The DNS configuration from %s returned no dnsConfig", dnsConfigFile)
 			continue
 		}
 		for _, nameServer := range dnsConfig.Nameservers {

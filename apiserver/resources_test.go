@@ -146,7 +146,7 @@ func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
 
 	_, expected := apiFailure(`incorrect extension on resource upload "different.ext", expected ".tgz"`,
 		"")
-	s.checkResp(c, http.StatusInternalServerError, "application/json", string(expected))
+	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
 func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
@@ -177,7 +177,7 @@ func (s *ResourcesHandlerSuite) TestPutSetResourceFailure(c *gc.C) {
 
 	req, _ := newUploadRequest(c, "spam", "a-application", content)
 	s.handler.ServeHTTP(s.recorder, req)
-	s.checkResp(c, http.StatusInternalServerError, "application/json", string(expected))
+	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
 func (s *ResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body string) {

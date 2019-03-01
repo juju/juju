@@ -12,7 +12,7 @@ set -e
 VERSION=`go version | awk '{print $3}'`
 echo "go version $VERSION"
 
-FILES=`find * -name '*.go' -not -name '.#*' | grep -v vendor/`
+FILES=`find * -name '*.go' -not -name '.#*' | grep -v vendor/ | grep -v acceptancetests/`
 
 echo "checking: go fmt ..."
 BADFMT=`echo "$FILES" | xargs gofmt -l -s`
@@ -58,11 +58,11 @@ UserNotFoundf
 # actually seem to make a difference under 1.6 either don't bother.
 all_prints=`echo $logging_prints $error_prints | tr " " ,`
 
-go tool vet \
+go vet \
    -all \
    -composites=false \
    -printfuncs=$all_prints \
-    $FILES || [ -n "$IGNORE_VET_WARNINGS" ]
+    ./... || [ -n "$IGNORE_VET_WARNINGS" ]
 
 echo "checking: copyright notices are in place ..."
 ./scripts/copyright.bash
