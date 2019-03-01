@@ -9,11 +9,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/network"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
+	"github.com/lxc/lxd/shared/version"
+
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/network"
 )
 
 const (
@@ -34,12 +36,16 @@ type ContainerSpec struct {
 	InstanceType string
 }
 
+// minMiBVersion is the minimum LXD version that we are sure will recognise the
+// MiB suffix for memory constraints. By default we use "MB".
+var minMiBVersion = &version.DottedVersion{Major: 3, Minor: 10}
+
 // ApplyConstraints applies the input constraints as valid LXD container
 // configuration to the container spec.
 // Note that we pass these through as supplied. If an instance type constraint
 // has been specified along with specific cores/mem constraints,
 // LXD behaviour is to override with the specific ones even when lower.
-func (c *ContainerSpec) ApplyConstraints(cons constraints.Value) {
+func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.Value) {
 	if cons.HasInstanceType() {
 		c.InstanceType = *cons.InstanceType
 	}
@@ -47,7 +53,14 @@ func (c *ContainerSpec) ApplyConstraints(cons constraints.Value) {
 		c.Config["limits.cpu"] = fmt.Sprintf("%d", *cons.CpuCores)
 	}
 	if cons.HasMem() {
-		c.Config["limits.memory"] = fmt.Sprintf("%dMiB", *cons.Mem)
+		// Ensure that we use the correct "MB"/"MiB" suffix.
+		template := "%dMB"
+		if current, err := version.Parse(serverVersion); err == nil {
+			if current.Compare(minMiBVersion) >= 0 {
+				template = "%dMiB"
+			}
+		}
+		c.Config["limits.memory"] = fmt.Sprintf(template, *cons.Mem)
 	}
 }
 

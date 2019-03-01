@@ -125,7 +125,7 @@ func (env *environ) newContainer(
 	}
 	cleanupCallback() // Clean out any long line of completed download status
 
-	cSpec, err := env.getContainerSpec(image, args)
+	cSpec, err := env.getContainerSpec(image, target.ServerVersion(), args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -172,7 +172,7 @@ func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
 // Cloud-init config is generated based on the network devices in the default
 // profile and included in the spec config.
 func (env *environ) getContainerSpec(
-	image lxd.SourcedImage, args environs.StartInstanceParams,
+	image lxd.SourcedImage, serverVersion string, args environs.StartInstanceParams,
 ) (lxd.ContainerSpec, error) {
 	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
@@ -184,7 +184,7 @@ func (env *environ) getContainerSpec(
 		Image:    image,
 		Config:   make(map[string]string),
 	}
-	cSpec.ApplyConstraints(args.Constraints)
+	cSpec.ApplyConstraints(serverVersion, args.Constraints)
 
 	cloudCfg, err := cloudinit.New(args.InstanceConfig.Series)
 	if err != nil {
