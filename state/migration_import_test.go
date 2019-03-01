@@ -21,7 +21,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -453,7 +452,6 @@ func (s *MigrationImportSuite) setupSourceApplications(
 			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints:  cons,
 		DesiredScale: 3,
-		Placement:    []*instance.Placement{{Scope: st.ModelUUID(), Directive: "foo=bar"}},
 	})
 	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -635,7 +633,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	c.Assert(cloudService.ProviderId(), gc.Equals, "provider-id")
 	c.Assert(cloudService.Addresses(), jc.DeepEquals, []network.Address{addr})
 	c.Assert(newApp.GetScale(), gc.Equals, 3)
-	c.Assert(newApp.GetPlacement(), gc.Equals, "foo=bar")
+	c.Assert(newApp.GetPlacement(), gc.Equals, "")
 }
 
 func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -426,7 +425,6 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints:  cons,
 		DesiredScale: 3,
-		Placement:    []*instance.Placement{{Scope: st.ModelUUID(), Directive: "foo=bar"}},
 	})
 	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -491,7 +489,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		c.Assert(exported.PodSpec(), gc.Equals, "pod spec")
 		c.Assert(exported.CloudService().ProviderId(), gc.Equals, "provider-id")
 		c.Assert(exported.DesiredScale(), gc.Equals, 3)
-		c.Assert(exported.Placement(), gc.Equals, "foo=bar")
+		c.Assert(exported.Placement(), gc.Equals, "")
 		addresses := exported.CloudService().Addresses()
 		addr := addresses[0]
 		c.Assert(addr.Value(), gc.Equals, "192.168.1.1")

@@ -61,7 +61,7 @@ func (s *StorePersistenceSuite) TestNewStoreExtantClockDoc(c *gc.C) {
 func (s *StorePersistenceSuite) TestClaimLease(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Same store id, same clock, new instance: sees exact same lease.
@@ -73,10 +73,10 @@ func (s *StorePersistenceSuite) TestClaimLease(c *gc.C) {
 
 func (s *StorePersistenceSuite) TestExtendLease(c *gc.C) {
 	fix1 := s.EasyFixture(c)
-	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", time.Second})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", time.Second}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	leaseDuration := time.Minute
-	err = fix1.Store.ExtendLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err = fix1.Store.ExtendLease(key("name"), corelease.Request{"holder", leaseDuration}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Same store id, same clock, new instance: sees exact same lease.
@@ -89,7 +89,7 @@ func (s *StorePersistenceSuite) TestExtendLease(c *gc.C) {
 func (s *StorePersistenceSuite) TestExpireLease(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	fix1.GlobalClock.Advance(leaseDuration + time.Nanosecond)
 	err = fix1.Store.ExpireLease(key("name"))
@@ -103,7 +103,7 @@ func (s *StorePersistenceSuite) TestExpireLease(c *gc.C) {
 func (s *StorePersistenceSuite) TestNamespaceIsolation(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Same store id, same clock, different namespace: sees no lease.
@@ -116,7 +116,7 @@ func (s *StorePersistenceSuite) TestNamespaceIsolation(c *gc.C) {
 func (s *StorePersistenceSuite) TestTimezoneChanges(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Same store can come up in a different timezone and still work correctly.
@@ -131,7 +131,7 @@ func (s *StorePersistenceSuite) TestTimezoneChanges(c *gc.C) {
 func (s *StorePersistenceSuite) TestTimezoneIsolation(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Different store *and* different timezone; but clock agrees perfectly,

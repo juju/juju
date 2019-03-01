@@ -12,6 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
-	"gopkg.in/juju/names.v2"
 )
 
 var usageAddCredentialSummary = `

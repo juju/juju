@@ -3,7 +3,6 @@ applications:
     gitlab:
         charm: gitlab
         scale: 1
-        placement: foo=bar
     mariadb:
         charm: mariadb
 relations:

@@ -1117,7 +1117,6 @@ func (context *statusContext) processApplication(application *state.Application)
 			logger.Debugf("no service details for %v: %v", application.Name(), err)
 		}
 		processedStatus.Scale = application.GetScale()
-		processedStatus.Placement = application.GetPlacement()
 	}
 
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]

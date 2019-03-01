@@ -35,7 +35,7 @@ type Updater interface {
 	// caller should obtain a new Updater. Failing to do so could lead
 	// to non-monotonic time, since there is no way of knowing in
 	// general whether or not the database was updated.
-	Advance(d time.Duration) error
+	Advance(d time.Duration, stop <-chan struct{}) error
 }
 
 // IsConcurrentUpdate returns whether the specified error represents
