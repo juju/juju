@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machine
+package agentconfigupdater
 
 import (
 	"github.com/juju/errors"
@@ -14,18 +14,18 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-// ServingInfoSetterConfig provides the dependencies for the
-// servingInfoSetter manifold.
-type ServingInfoSetterConfig struct {
+// ManifoldConfig provides the dependencies for the
+// agent config updater manifold.
+type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 }
 
-// ServingInfoSetterManifold defines a simple start function which
+// Manifold defines a simple start function which
 // runs after the API connection has come up. If the machine agent is
 // a controller, it grabs the state serving info over the API and
 // records it to agent configuration, and then stops.
-func ServingInfoSetterManifold(config ServingInfoSetterConfig) dependency.Manifold {
+func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
