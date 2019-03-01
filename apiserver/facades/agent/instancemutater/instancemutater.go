@@ -22,7 +22,10 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
 
 type InstanceMutaterAPIV1 interface {
+	CharmProfilingInfo(params.CharmProfilingInfoArg) (params.CharmProfilingInfoResult, error)
 	Life(args params.Entities) (params.LifeResults, error)
+	SetCharmProfiles(params.SetProfileArgs) (params.ErrorResults, error)
+	SetUpgradeCharmProfileComplete(params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error)
 	WatchUnits(args params.Entities) (params.StringsWatchResults, error)
 	WatchModelMachines() (params.StringsWatchResult, error)
 }
@@ -46,13 +49,38 @@ func NewInstanceMutaterAPI(st InstanceMutaterState, resources facade.Resources, 
 		return nil, common.ErrPerm
 	}
 
-	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
-	getCanWatch := func() (common.AuthFunc, error) {
-		return authorizer.AuthOwner, nil
+	getAuthFunc := func() (common.AuthFunc, error) {
+		isModelManager := authorizer.AuthController()
+		isMachineAgent := authorizer.AuthMachineAgent()
+		authEntityTag := authorizer.GetAuthTag()
+
+		return func(tag names.Tag) bool {
+			if isMachineAgent && tag == authEntityTag {
+				// A machine agent can always access its own machine.
+				return true
+			}
+			switch tag := tag.(type) {
+			case names.MachineTag:
+				parentId := state.ParentId(tag.Id())
+				if parentId == "" {
+					// All top-level machines are accessible by the controller.
+					return isModelManager
+				}
+				// All containers with the authenticated machine as a
+				// parent are accessible by it.
+				// TODO(dfc) sometimes authEntity tag is nil, which is fine because nil is
+				// only equal to nil, but it suggests someone is passing an authorizer
+				// with a nil tag.
+				return isMachineAgent && names.NewMachineTag(parentId) == authEntityTag
+			default:
+				return false
+			}
+		}, nil
 	}
+
 	return &InstanceMutaterAPI{
 		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
-		UnitsWatcher:         common.NewUnitsWatcher(st, resources, getCanWatch),
+		UnitsWatcher:         common.NewUnitsWatcher(st, resources, getAuthFunc),
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
 		st:                   st,
 		getAuthFunc:          getAuthFunc,
@@ -72,52 +100,68 @@ func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.M
 	return &machineShim{entity.(*state.Machine)}, nil
 }
 
-func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.ProfilingInfoArg) (params.ProfilingInfoResult, error) {
-	result := params.ProfilingInfoResult{
+// CharmProfilingInfo returns info to update lxd profiles on the machine
+// based on the given unit names.
+func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.CharmProfilingInfoArg) (params.CharmProfilingInfoResult, error) {
+	result := params.CharmProfilingInfoResult{
 		ProfileChanges: make([]params.ProfileChangeResult, len(arg.UnitNames)),
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		return params.ProfilingInfoResult{}, common.ServerError(err)
+		return params.CharmProfilingInfoResult{}, errors.Trace(err)
 	}
-	m, err := api.getMachine(canAccess, names.NewMachineTag(arg.Entity.Tag))
+	tag, err := names.ParseMachineTag(arg.Entity.Tag)
 	if err != nil {
-		return params.ProfilingInfoResult{}, common.ServerError(err)
+		result.Error = common.ServerError(common.ErrPerm)
+		return result, nil
 	}
-	result, err = api.machineLXDProfileInfo(m, arg.UnitNames)
+	m, err := api.getMachine(canAccess, tag)
 	if err != nil {
-		return params.ProfilingInfoResult{}, common.ServerError(err)
+		result.Error = common.ServerError(err)
+		return result, nil
 	}
+	result.ProfileChanges, result.CurrentProfiles, result.Changes, err = api.machineLXDProfileInfo(m, arg.UnitNames)
+	if err != nil {
+		result.Error = common.ServerError(err)
+	}
+
 	return result, nil
 }
 
-func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []string) (params.ProfilingInfoResult, error) {
+func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []string) ([]params.ProfileChangeResult, []string, bool, error) {
+	if instId, err := m.InstanceId(); err != nil && params.IsCodeNotProvisioned(err) {
+		// There is nothing we can do with this machine at this point. The
+		// profiles will be applied when the machine is provisioned.
+		logger.Tracef("Attempting to apply a profile to a machine that isn't provisioned %q", instId)
+		return nil, nil, false, nil
+	}
 	model, err := api.st.Model()
 	if err != nil {
-		return params.ProfilingInfoResult{}, errors.Trace(err)
+		return nil, nil, false, errors.Trace(err)
 	}
 	modelName := model.Name()
+
 	machineProfiles, err := m.CharmProfiles()
 	if err != nil {
-		return params.ProfilingInfoResult{}, errors.Trace(err)
+		return nil, machineProfiles, false, errors.Trace(err)
 	}
-	result := params.ProfilingInfoResult{
-		CurrentProfiles: machineProfiles,
-		ProfileChanges:  make([]params.ProfileChangeResult, len(unitNames)),
-	}
+	changeResults := make([]params.ProfileChangeResult, len(unitNames))
 
 	for i, name := range unitNames {
 		unit, err := api.st.Unit(name)
 		if err != nil {
-			return params.ProfilingInfoResult{}, errors.Trace(err)
+			changeResults[i].Error = common.ServerError(err)
+			continue
 		}
 		app, err := unit.Application()
 		if err != nil {
-			return params.ProfilingInfoResult{}, errors.Trace(err)
+			changeResults[i].Error = common.ServerError(err)
+			continue
 		}
 		ch, err := app.Charm()
 		if err != nil {
-			return params.ProfilingInfoResult{}, errors.Trace(err)
+			changeResults[i].Error = common.ServerError(err)
+			continue
 		}
 		profile := ch.LXDProfile()
 		var noProfile bool
@@ -127,9 +171,12 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []stri
 		appName := app.Name()
 		currentProfile, err := lxdprofile.MatchProfileNameByAppName(machineProfiles, appName)
 		if err != nil {
-			return params.ProfilingInfoResult{}, errors.Trace(err)
+			changeResults[i].Error = common.ServerError(err)
+			continue
 		}
 		newProfile := lxdprofile.Name(modelName, appName, ch.Revision())
+		logger.Tracef("machineLXDProfileInfo noProfile(%t) currentProfile(%q), newProfile(%q)",
+			noProfile, currentProfile, newProfile)
 		// If the unit's charm has no profile, and no profile from the unit's
 		// application is on the machine, or the machine's profile for the unit
 		// matches the profile which would be created based on the unit's revision,
@@ -138,14 +185,66 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []stri
 			currentProfile == newProfile {
 			continue
 		}
-		result.Changes = true
-		result.ProfileChanges[i].OldProfileName = currentProfile
-		result.ProfileChanges[i].NewProfileName = newProfile
-		result.ProfileChanges[i].Profile = &params.CharmLXDProfile{
+		changeResults[i].OldProfileName = currentProfile
+		changeResults[i].NewProfileName = newProfile
+		changeResults[i].Profile = &params.CharmLXDProfile{
 			Config:      profile.Config,
 			Description: profile.Description,
 			Devices:     profile.Devices,
 		}
 	}
-	return result, nil
+	return changeResults, machineProfiles, true, nil
+}
+
+// SetUpgradeCharmProfileComplete recorded that the result of updating
+// the machine's charm profile(s)
+func (api *InstanceMutaterAPI) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Args))
+	canAccess, err := api.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Args {
+		results[i].Error = common.ServerError(api.oneUpgradeCharmProfileComplete(a.Entity.Tag, a.UnitName, a.Message, canAccess))
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+func (api *InstanceMutaterAPI) oneUpgradeCharmProfileComplete(machineTag, unitName, msg string, canAccess common.AuthFunc) error {
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := api.getMachine(canAccess, mTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.SetUpgradeCharmProfileComplete(unitName, msg)
+}
+
+// SetCharmProfiles records the given slice of charm profile names.
+func (api *InstanceMutaterAPI) SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Args))
+	canAccess, err := api.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Args {
+		results[i].Error = common.ServerError(api.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess))
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(machineTag string, profiles []string, canAccess common.AuthFunc) error {
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := api.getMachine(canAccess, mTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.SetCharmProfiles(profiles)
 }
