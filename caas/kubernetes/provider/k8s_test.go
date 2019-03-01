@@ -229,6 +229,17 @@ var operatorPodspec = core.PodSpec{
 		Name:            "juju-operator",
 		ImagePullPolicy: core.PullIfNotPresent,
 		Image:           "/path/to/image",
+		WorkingDir:      "/var/lib/juju/tools",
+		Command: []string{
+			"/bin/sh",
+		},
+		Args: []string{
+			"-c",
+			`
+test -e ./jujud || cp /opt/jujud $(pwd)/jujud
+./jujud caasoperator --application-name=test --debug
+`[1:],
+		},
 		Env: []core.EnvVar{
 			{Name: "JUJU_APPLICATION", Value: "test"},
 		},

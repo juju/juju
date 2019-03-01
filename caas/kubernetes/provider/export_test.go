@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/storage"
 )
 
@@ -31,7 +32,8 @@ type KubernetesWatcher = kubernetesWatcher
 
 type ControllerStackerForTest interface {
 	controllerStacker
-	GetAgentConfigContent(c *gc.C) string
+	GetAgentConfigContent(*gc.C) string
+	GetSharedSecretAndSSLKey(*gc.C) (string, string)
 	GetStorageSize() resource.Quantity
 }
 
@@ -39,6 +41,12 @@ func (cs controllerStack) GetAgentConfigContent(c *gc.C) string {
 	agentCfg, err := cs.agentConfig.Render()
 	c.Assert(err, jc.ErrorIsNil)
 	return string(agentCfg)
+}
+
+func (cs controllerStack) GetSharedSecretAndSSLKey(c *gc.C) (string, string) {
+	si, ok := cs.agentConfig.StateServingInfo()
+	c.Assert(ok, jc.IsTrue)
+	return si.SharedSecret, mongo.GenerateSSLKey(si.Cert, si.PrivateKey)
 }
 
 func (cs controllerStack) GetStorageSize() resource.Quantity {

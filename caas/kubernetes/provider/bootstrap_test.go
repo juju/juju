@@ -83,6 +83,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	defer ctrl.Finish()
 
 	controllerStacker := s.controllerStackerGetter()
+	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
 
 	scName := "default-storageclass"
 	sc := k8sstorage.StorageClass{
@@ -137,7 +138,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
-			"shared-secret": []byte(provider.TmpControllerSharedSecret),
+			"shared-secret": []byte(sharedSecret),
 		},
 	}
 	secretWithServerPEMAdded := &core.Secret{
@@ -148,8 +149,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
-			"shared-secret": []byte(provider.TmpControllerSharedSecret),
-			"server.pem":    []byte(provider.TmpControllerServerPem),
+			"shared-secret": []byte(sharedSecret),
+			"server.pem":    []byte(sslKey),
 		},
 	}
 
@@ -201,7 +202,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{
 				{
 					ObjectMeta: v1.ObjectMeta{
-						Name:   "juju-controller-test-pod-storage",
+						Name:   "storage",
 						Labels: map[string]string{"juju-application": "juju-controller-test"},
 					},
 					Spec: core.PersistentVolumeClaimSpec{
@@ -232,7 +233,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 									Items: []core.KeyToPath{
 										{
 											Key:  "server.pem",
-											Path: "server.pem",
+											Path: "template-server.pem",
 										},
 									},
 								},
@@ -358,14 +359,18 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			},
 			VolumeMounts: []core.VolumeMount{
 				{
-					Name:      "juju-controller-test-pod-storage",
+					Name:      "storage",
+					MountPath: "/var/lib/juju",
+				},
+				{
+					Name:      "storage",
 					MountPath: "/var/lib/juju/db",
 					SubPath:   "db",
 				},
 				{
 					Name:      "juju-controller-test-server-pem",
-					MountPath: "/var/lib/juju/server.pem",
-					SubPath:   "server.pem",
+					MountPath: "/var/lib/juju/template-server.pem",
+					SubPath:   "template-server.pem",
 					ReadOnly:  true,
 				},
 				{
@@ -378,11 +383,24 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 		{
 			Name:            "api-server",
-			ImagePullPolicy: core.PullAlways,
+			ImagePullPolicy: core.PullIfNotPresent,
 			Image:           s.pcfg.GetControllerImagePath(),
+			Command: []string{
+				"/bin/sh",
+			},
+			Args: []string{
+				"-c",
+				`
+test -e ./jujud || cp /opt/jujud $(pwd)/jujud
+
+test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /var/lib/juju/bootstrap-params --data-dir /var/lib/juju --debug --timeout 0s
+./jujud machine --data-dir /var/lib/juju --machine-id 0 --debug
+`[1:],
+			},
+			WorkingDir: "/var/lib/juju/tools",
 			VolumeMounts: []core.VolumeMount{
 				{
-					Name:      "juju-controller-test-pod-storage",
+					Name:      "storage",
 					MountPath: "/var/lib/juju",
 				},
 				{
@@ -392,8 +410,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				},
 				{
 					Name:      "juju-controller-test-server-pem",
-					MountPath: "/var/lib/juju/server.pem",
-					SubPath:   "server.pem",
+					MountPath: "/var/lib/juju/template-server.pem",
+					SubPath:   "template-server.pem",
 					ReadOnly:  true,
 				},
 				{

@@ -32,7 +32,7 @@ func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
 }
 
 func (*ManifoldsSuite) TestStartFuncs(c *gc.C) {
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
 	for name, manifold := range manifolds {
@@ -42,7 +42,7 @@ func (*ManifoldsSuite) TestStartFuncs(c *gc.C) {
 }
 
 func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
 	keys := make([]string, 0, len(manifolds))
@@ -121,7 +121,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 }
 
 func (*ManifoldsSuite) TestUpgradesBlockMigration(c *gc.C) {
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
 	manifold, ok := manifolds["migration-fortress"]
@@ -180,7 +180,7 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"raft-transport",
 		"valid-credential-flag",
 	)
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
 	for name, manifold := range manifolds {
@@ -193,7 +193,7 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 }
 
 func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
 	controllerWorkers := set.NewStrings(
@@ -246,7 +246,7 @@ func checkNotContains(c *gc.C, names []string, seek string) {
 func (*ManifoldsSuite) TestUpgradeGates(c *gc.C) {
 	upgradeStepsLock := gate.NewLock()
 	upgradeCheckLock := gate.NewLock()
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent:            &mockAgent{},
 		UpgradeStepsLock: upgradeStepsLock,
 		UpgradeCheckLock: upgradeCheckLock,
@@ -281,7 +281,7 @@ func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 
 func (s *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		machine.Manifolds(machine.ManifoldsConfig{
+		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent: &mockAgent{},
 		}),
 		expectedMachineManifoldsWithDependencies,
