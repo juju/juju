@@ -10,6 +10,7 @@ import (
 	"io"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1053,6 +1054,7 @@ func (k *kubernetesClient) EnsureService(
 			for k := range tags {
 				keys = append(keys, k)
 			}
+			sort.Strings(keys)
 			for _, tag := range keys {
 				allValues := strings.Split(tags[tag], "|")
 				for i, v := range allValues {

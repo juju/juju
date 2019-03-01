@@ -38,7 +38,7 @@ func (s *StoreRemoteSuite) SetUpTest(c *gc.C) {
 	s.globalOffset = -time.Second
 
 	s.baseline = s.EasyFixture(c)
-	err := s.baseline.Store.ClaimLease(key("name"), lease.Request{"holder", s.lease})
+	err := s.baseline.Store.ClaimLease(key("name"), lease.Request{"holder", s.lease}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remote store, whose local clock is offset significantly from the
@@ -63,7 +63,7 @@ func (s *StoreRemoteSuite) TestExpiryOffset(c *gc.C) {
 }
 
 func (s *StoreRemoteSuite) TestExtendRemoteLeaseNoop(c *gc.C) {
-	err := s.skewed.Store.ExtendLease(key("name"), lease.Request{"holder", 10 * time.Second})
+	err := s.skewed.Store.ExtendLease(key("name"), lease.Request{"holder", 10 * time.Second}, nil)
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(key("name"), s.skewed.Holder(), "holder")
@@ -72,7 +72,7 @@ func (s *StoreRemoteSuite) TestExtendRemoteLeaseNoop(c *gc.C) {
 
 func (s *StoreRemoteSuite) TestExtendRemoteLeaseSimpleExtend(c *gc.C) {
 	leaseDuration := 10 * time.Minute
-	err := s.skewed.Store.ExtendLease(key("name"), lease.Request{"holder", leaseDuration})
+	err := s.skewed.Store.ExtendLease(key("name"), lease.Request{"holder", leaseDuration}, nil)
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(key("name"), s.skewed.Holder(), "holder")

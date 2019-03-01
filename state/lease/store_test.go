@@ -30,7 +30,7 @@ func (s *StoreSuite) TestLookupLeaseNotThere(c *gc.C) {
 
 func (s *StoreSuite) TestLookupLease(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Store.ClaimLease(key("name"), corelease.Request{Holder: "holder", Duration: time.Minute})
+	err := fix.Store.ClaimLease(key("name"), corelease.Request{Holder: "holder", Duration: time.Minute}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	db := NewMongo(s.db)
 	coll, closer := db.GetCollection(defaultCollection)
@@ -45,9 +45,9 @@ func (s *StoreSuite) TestLookupLease(c *gc.C) {
 func (s *StoreSuite) TestLeasesNoFilter(c *gc.C) {
 	fix := s.EasyFixture(c)
 
-	err := fix.Store.ClaimLease(key("duck"), corelease.Request{Holder: "donald", Duration: time.Minute})
+	err := fix.Store.ClaimLease(key("duck"), corelease.Request{Holder: "donald", Duration: time.Minute}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = fix.Store.ClaimLease(key("mouse"), corelease.Request{Holder: "mickey", Duration: time.Minute})
+	err = fix.Store.ClaimLease(key("mouse"), corelease.Request{Holder: "mickey", Duration: time.Minute}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	leases := fix.Store.Leases()
@@ -59,9 +59,9 @@ func (s *StoreSuite) TestLeasesNoFilter(c *gc.C) {
 func (s *StoreSuite) TestLeasesFilter(c *gc.C) {
 	fix := s.EasyFixture(c)
 
-	err := fix.Store.ClaimLease(key("duck"), corelease.Request{Holder: "donald", Duration: time.Minute})
+	err := fix.Store.ClaimLease(key("duck"), corelease.Request{Holder: "donald", Duration: time.Minute}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = fix.Store.ClaimLease(key("mouse"), corelease.Request{Holder: "mickey", Duration: time.Minute})
+	err = fix.Store.ClaimLease(key("mouse"), corelease.Request{Holder: "mickey", Duration: time.Minute}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// One key with an unheld lease, one with an invalid namespace, one with an invalid model.

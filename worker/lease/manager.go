@@ -307,12 +307,12 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 			manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
 			action = "claiming"
-			err = store.ClaimLease(claim.leaseKey, request)
+			err = store.ClaimLease(claim.leaseKey, request, manager.catacomb.Dying())
 		case info.Holder == claim.holderName:
 			manager.config.Logger.Tracef("[%s] %s extending lease %s for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
 			action = "extending"
-			err = store.ExtendLease(claim.leaseKey, request)
+			err = store.ExtendLease(claim.leaseKey, request, manager.catacomb.Dying())
 		default:
 			// Note: (jam) 2017-10-31) We don't check here if the lease has
 			// expired for the current holder. Should we?
@@ -321,6 +321,9 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, info.Holder, remaining)
 			return false, nil
 		}
+	}
+	if lease.IsAborted(err) {
+		return false, manager.catacomb.ErrDying()
 	}
 	if err != nil {
 		return false, errors.Trace(err)
@@ -577,11 +580,11 @@ func (manager *Manager) startRetry() *retry.Attempt {
 }
 
 func (manager *Manager) handlePin(p pin) {
-	p.respond(errors.Trace(manager.config.Store.PinLease(p.leaseKey, p.entity)))
+	p.respond(errors.Trace(manager.config.Store.PinLease(p.leaseKey, p.entity, manager.catacomb.Dying())))
 }
 
 func (manager *Manager) handleUnpin(p pin) {
-	p.respond(errors.Trace(manager.config.Store.UnpinLease(p.leaseKey, p.entity)))
+	p.respond(errors.Trace(manager.config.Store.UnpinLease(p.leaseKey, p.entity, manager.catacomb.Dying())))
 }
 
 // pinned returns lease names and the entities requiring their pinned

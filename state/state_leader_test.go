@@ -206,7 +206,7 @@ func (s *LeadershipSuite) TestApplicationLeaders(c *gc.C) {
 }
 
 func (s *LeadershipSuite) expire(c *gc.C, applicationname string) {
-	err := s.globalClock.Advance(time.Hour)
+	err := s.globalClock.Advance(time.Hour, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The lease manager starts a new timer each time it
