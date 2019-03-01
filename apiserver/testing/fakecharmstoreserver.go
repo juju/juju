@@ -1,16 +1,17 @@
-// Copyright 2019 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
+// // Copyright 2019 Canonical Ltd.
+// // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+// package testing
 
-import (
-	"github.com/lxc/lxd/shared/logger"
-	"gopkg.in/juju/charm.v6"
-	"net/http"
-	"net/http/httptest"
-	//"net/url"
-	//"strings"
-)
+// import (
+// 	"net/http"
+// 	"net/http/httptest"
+
+// 	"github.com/lxc/lxd/shared/logger"
+// 	"gopkg.in/juju/charm.v6"
+// 	//"net/url"
+// 	//"strings"
+// )
 
 //func parseCharmstoreUrl(url *url.URL) (version, series, entity, rest string) {
 //	parsedUrl := charm.MustParseURLParseURL(url)
@@ -27,41 +28,44 @@ import (
 //	return parts[1], parts[2], parts[3], parts[4]
 //}
 
-// HTTPCloseHandler represents a HTTP handler that
-// must be closed after use.
-//
-//( Copied from charmstore.v5)
-type HTTPCloseHandler interface {
-	Close()
-	http.Handler
-}
+// // HTTPCloseHandler represents a HTTP handler that
+// // must be closed after use.
+// //
+// //( Copied from charmstore.v5)
+// type HTTPCloseHandler interface {
+// 	Close()
+// 	http.Handler
+// }
 
-type CharmStoreServer struct {
-	*httptest.Server
-}
+// type CharmStoreServer struct {
+// 	*httptest.Server
+// }
 
-func (c CharmStoreServer) Close() {
-	c.Server.Close()
-}
+// func (c CharmStoreServer) Close() {
+// 	c.Server.Close()
+// }
 
+// func (c CharmStoreServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// 	logger.Infof("%v %v (%#v)", r.Method, r.URL)
 
-func (c CharmStoreServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	//_, _, entity, _ := parseCharmstoreUrl(r.URL)
+// 	if r.URL.Scheme == "http" {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		w.Write([]byte("hey! malformed HTTP response"))
+// 		return
+// 	}
 
-	url := charm.MustParseURL(r.URL.String())
-	logger.Infof("%v %v", r.Method, r.URL)
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Entity-Id", url.User)
-	w.Write([]byte(`{"ok":true}`))
-}
+// 	url := charm.MustParseURL(r.URL.String())
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.Header().Set("Entity-Id", url.User)
+// 	w.Write([]byte(`{"ok":true}`))
+// }
 
-func NewServer() (HTTPCloseHandler, error) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Infof("%v %v (via closure)", r.Method, r.URL)
-	}))
-	return CharmStoreServer{server}, nil
-}
-
+// func NewServer() (HTTPCloseHandler, error) {
+// 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		logger.Infof("%v %v (via closure)", r.Method, r.URL)
+// 	}))
+// 	return CharmStoreServer{server}, nil
+// }
 
 //// https://github.com/juju/charmstore/blob/8ca83bf0934778e98dc1fad8e73ea519ffd740e6/internal/v5/api.go
 ////
