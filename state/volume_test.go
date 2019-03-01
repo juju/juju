@@ -251,6 +251,8 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 
 	volume := s.storageInstanceVolume(c, storageTag)
 	volumeTag := volume.VolumeTag()
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchVolumeAttachment(machineTag, volumeTag)
 	defer testing.AssertStop(c, w)
