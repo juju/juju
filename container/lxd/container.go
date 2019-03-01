@@ -36,6 +36,10 @@ type ContainerSpec struct {
 	InstanceType string
 }
 
+// minMiBVersion is the minimum LXD version that we are sure will recognise the
+// MiB suffix for memory constraints. By default we use "MB".
+var minMiBVersion = &version.DottedVersion{Major: 3, Minor: 10}
+
 // ApplyConstraints applies the input constraints as valid LXD container
 // configuration to the container spec.
 // Note that we pass these through as supplied. If an instance type constraint
@@ -49,13 +53,11 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 		c.Config["limits.cpu"] = fmt.Sprintf("%d", *cons.CpuCores)
 	}
 	if cons.HasMem() {
-		// Ensure that for LXD versions 3.10+, we use the correct "MiB" suffix.
+		// Ensure that we use the correct "MB"/"MiB" suffix.
 		template := "%dMB"
 		if current, err := version.Parse(serverVersion); err == nil {
-			if min, err := version.NewDottedVersion("3.10"); err == nil {
-				if current.Compare(min) >= 0 {
-					template = "%dMiB"
-				}
+			if current.Compare(minMiBVersion) >= 0 {
+				template = "%dMiB"
 			}
 		}
 		c.Config["limits.memory"] = fmt.Sprintf(template, *cons.Mem)
