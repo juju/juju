@@ -352,6 +352,7 @@ Values set as per mongod recommendation (see syslog on default mongod run)
 /sys/kernel/mm/transparent_hugepage/enabled 'always' > 'never'
 /sys/kernel/mm/transparent_hugepage/defrag 'always' > 'never'
 */
+// TODO(bootstrap): tweaks this to mongo OCI image.
 var mongoKernelTweaks = map[string]string{
 	"/sys/kernel/mm/transparent_hugepage/enabled": "never",
 	"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
@@ -452,6 +453,7 @@ func setupDataDirectory(args EnsureServerParams) error {
 		return errors.Annotate(err, "cannot create mongo database directory")
 	}
 
+	// TODO(fix): rather than copy, we should ln -s coz it could be changed later!!!
 	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
 		return errors.Trace(err)
 	}

@@ -37,11 +37,13 @@ type controllerStack struct {
 	storageSize                resource.Quantity
 	portMongoDB, portAPIServer int
 
-	fileNameSharedSecret, fileNameSSLKey, fileNameSSLKeyMount,
-	fileNameBootstrapParams, fileNameAgentConf, fileNameAgentConfMount string
-	resourceNameStatefulSet, resourceNameService                                                                 string
-	resourceNameConfigMap, resourceNameSecret                                                                    string
-	pvcNameControllerPodStorage                                                                                  string
+	fileNameSharedSecret, fileNameBootstrapParams,
+	fileNameSSLKey, fileNameSSLKeyMount,
+	fileNameAgentConf, fileNameAgentConfMount string
+
+	resourceNameStatefulSet, resourceNameService,
+	resourceNameConfigMap, resourceNameSecret,
+	pvcNameControllerPodStorage,
 	resourceNameVolSharedSecret, resourceNameVolSSLKey, resourceNameVolBootstrapParams, resourceNameVolAgentConf string
 
 	cleanUps []func()
@@ -98,7 +100,7 @@ func newcontrollerStack(stackName string, broker *kubernetesClient, pcfg *podcfg
 		portMongoDB:   37017,
 		portAPIServer: 17070,
 
-		fileNameSharedSecret:    "shared-secret",
+		fileNameSharedSecret:    mongo.SharedSecretFile,
 		fileNameSSLKey:          "server.pem",
 		fileNameSSLKeyMount:     "template" + "-" + "server.pem",
 		fileNameBootstrapParams: "bootstrap-params",
@@ -261,11 +263,15 @@ func (c controllerStack) createControllerService() error {
 		},
 	}
 	logger.Debugf("ensuring controller service: \n%+v", spec)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q", svcName)
 		c.broker.deleteService(svcName)
 	})
 	return errors.Trace(c.broker.ensureService(spec))
+}
+
+func (c controllerStack) addCleanUp(cleanUp func()) {
+	c.cleanUps = append(c.cleanUps, cleanUp)
 }
 
 func (c controllerStack) createControllerSecretSharedSecret() error {
@@ -280,7 +286,7 @@ func (c controllerStack) createControllerSecretSharedSecret() error {
 	}
 	secret.Data[c.fileNameSharedSecret] = []byte(si.SharedSecret)
 	logger.Debugf("ensuring shared secret: \n%+v", secret)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q shared-secret", secret.Name)
 		c.broker.deleteSecret(secret.Name)
 	})
@@ -301,7 +307,7 @@ func (c controllerStack) createControllerSecretServerPem() error {
 	secret.Data[c.fileNameSSLKey] = []byte(mongo.GenerateSSLKey(si.Cert, si.PrivateKey))
 
 	logger.Debugf("ensuring server.pem secret: \n%+v", secret)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q server.pem", secret.Name)
 		c.broker.deleteSecret(secret.Name)
 	})
@@ -326,7 +332,7 @@ func (c controllerStack) ensureControllerConfigmapBootstrapParams() error {
 	cm.Data[c.fileNameBootstrapParams] = string(bootstrapParamsFileContent)
 
 	logger.Debugf("creating bootstrap-params configmap: \n%+v", cm)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q bootstrap-params", cm.Name)
 		c.broker.deleteConfigMap(cm.Name)
 	})
@@ -347,7 +353,7 @@ func (c controllerStack) ensureControllerConfigmapAgentConf() error {
 	cm.Data[c.fileNameAgentConf] = string(agentConfigFileContent)
 
 	logger.Debugf("ensuring agent.conf configmap: \n%+v", cm)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q template-agent.conf", cm.Name)
 		c.broker.deleteConfigMap(cm.Name)
 	})
@@ -389,7 +395,7 @@ func (c controllerStack) createControllerStatefulset() error {
 	}
 
 	logger.Debugf("creating controller statefulset: \n%+v", spec)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q statefulset", spec.Name)
 		c.broker.deleteStatefulSet(spec.Name)
 	})

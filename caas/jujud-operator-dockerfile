@@ -6,7 +6,7 @@ RUN apt-get update \
     python3-yaml \
     python3-pip \
     python3-distutils \
-    # below apt dependencies required by controller pod.
+    # below apt dependencies are required by controller pod.
     iproute2 \ 
     && pip3 install --upgrade pip setuptools \
     && rm -rf /var/lib/apt/lists/* \

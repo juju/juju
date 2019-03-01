@@ -476,16 +476,14 @@ func (p *peerGroupChanges) getMachinesVoting() {
 // updateAddresses updates the member addresses in the new replica-set, using
 // the HA space if one is configured.
 func (p *peerGroupChanges) updateAddresses() error {
-	// TODO(bootstrap): !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	return nil
-
-	// var err error
-	// if p.info.haSpace == "" {
-	// 	err = p.updateAddressesFromInternal()
-	// } else {
-	// 	err = p.updateAddressesFromSpace()
-	// }
-	// return errors.Annotate(err, "updating member addresses")
+	var err error
+	logger.Criticalf("updateAddresses p.info.haSpace -> %q", p.info.haSpace)
+	if p.info.haSpace == "" {
+		err = p.updateAddressesFromInternal()
+	} else {
+		err = p.updateAddressesFromSpace()
+	}
+	return errors.Annotate(err, "updating member addresses")
 }
 
 const multiAddressMessage = "multiple usable addresses found" +
@@ -525,6 +523,7 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 
 			if member.Address != addr {
 				member.Address = addr
+				logger.Criticalf("updateAddressesFromInternal new member added: id -> %q, addr -> %q", id, addr)
 				p.desired.isChanged = true
 			}
 			continue
@@ -586,6 +585,7 @@ func (p *peerGroupChanges) updateAddressesFromSpace() error {
 		}
 		if addr != p.desired.members[id].Address {
 			p.desired.members[id].Address = addr
+			logger.Criticalf("updateAddressesFromSpace new member added: id -> %q, addr -> %q", id, addr)
 			p.desired.isChanged = true
 		}
 	}
