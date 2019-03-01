@@ -17,6 +17,9 @@ FILES=`find * -name '*.go' -not -name '.#*' | grep -v vendor/ | grep -v acceptan
 echo "checking: dependency files ..."
 dep check
 
+echo "checking: copyright notices are in place ..."
+./scripts/copyright.bash
+
 echo "checking: go fmt ..."
 BADFMT=`echo "$FILES" | xargs gofmt -l -s`
 if [ -n "$BADFMT" ]; then
@@ -66,9 +69,6 @@ go vet \
    -composites=false \
    -printfuncs=$all_prints \
     ./... || [ -n "$IGNORE_VET_WARNINGS" ]
-
-echo "checking: copyright notices are in place ..."
-./scripts/copyright.bash
 
 # Allow the ignoring of the golinters
 if [ -z "$IGNORE_GOLINTERS" ]; then
