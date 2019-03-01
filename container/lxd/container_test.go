@@ -473,7 +473,7 @@ func (s *managerSuite) TestSpecApplyConstraints(c *gc.C) {
 		"limits.memory":  "2046MiB",
 		"limits.cpu":     "4",
 	}
-	spec.ApplyConstraints("3.10", cons)
+	spec.ApplyConstraints("3.10.0", cons)
 	c.Check(spec.Config, gc.DeepEquals, exp)
 	c.Check(spec.InstanceType, gc.Equals, instType)
 
