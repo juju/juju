@@ -10,7 +10,6 @@ import (
 
 var unsupportedConstraints = []string{
 	constraints.Cores,
-	constraints.Tags,
 	constraints.VirtType,
 	constraints.Container,
 	constraints.Arch,

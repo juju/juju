@@ -20,7 +20,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/keyvalues"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -1023,12 +1022,80 @@ func (k *kubernetesClient) EnsureService(
 			return errors.Annotatef(err, "configuring cpu constraint for %s", appName)
 		}
 	}
-	if params.Placement != "" {
-		affinityLabels, err := keyvalues.Parse(strings.Split(params.Placement, ","), false)
-		if err != nil {
-			return errors.Annotatef(err, "invalid placement directive %q", params.Placement)
+
+	// Translate tags to node affinity.
+	if params.Constraints.Tags != nil {
+		affinityLabels := *params.Constraints.Tags
+		var (
+			affinityTags     = make(map[string]string)
+			antiAffinityTags = make(map[string]string)
+		)
+		for _, labelPair := range affinityLabels {
+			parts := strings.Split(labelPair, "=")
+			if len(parts) != 2 {
+				return errors.Errorf("invalid node affinity constraints: %v", affinityLabels)
+			}
+			key := strings.Trim(parts[0], " ")
+			value := strings.Trim(parts[1], " ")
+			if strings.HasPrefix(key, "^") {
+				if len(key) == 1 {
+					return errors.Errorf("invalid node affinity constraints: %v", affinityLabels)
+				}
+				antiAffinityTags[key[1:]] = value
+			} else {
+				affinityTags[key] = value
+			}
 		}
-		unitSpec.Pod.NodeSelector = affinityLabels
+
+		updateSelectorTerms := func(nodeSelectorTerm *core.NodeSelectorTerm, tags map[string]string, op core.NodeSelectorOperator) {
+			// Sort for stable ordering.
+			var keys []string
+			for k := range tags {
+				keys = append(keys, k)
+			}
+			for _, tag := range keys {
+				allValues := strings.Split(tags[tag], "|")
+				for i, v := range allValues {
+					allValues[i] = strings.Trim(v, " ")
+				}
+				nodeSelectorTerm.MatchExpressions = append(nodeSelectorTerm.MatchExpressions, core.NodeSelectorRequirement{
+					Key:      tag,
+					Operator: op,
+					Values:   allValues,
+				})
+			}
+		}
+		var nodeSelectorTerm core.NodeSelectorTerm
+		updateSelectorTerms(&nodeSelectorTerm, affinityTags, core.NodeSelectorOpIn)
+		updateSelectorTerms(&nodeSelectorTerm, antiAffinityTags, core.NodeSelectorOpNotIn)
+		unitSpec.Pod.Affinity = &core.Affinity{
+			NodeAffinity: &core.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+					NodeSelectorTerms: []core.NodeSelectorTerm{nodeSelectorTerm},
+				},
+			},
+		}
+	}
+	if params.Constraints.Zones != nil {
+		zones := *params.Constraints.Zones
+		affinity := unitSpec.Pod.Affinity
+		if affinity == nil {
+			affinity = &core.Affinity{
+				NodeAffinity: &core.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+						NodeSelectorTerms: []core.NodeSelectorTerm{{}},
+					},
+				},
+			}
+			unitSpec.Pod.Affinity = affinity
+		}
+		nodeSelector := &affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
+		nodeSelector.MatchExpressions = append(nodeSelector.MatchExpressions,
+			core.NodeSelectorRequirement{
+				Key:      "failure-domain.beta.kubernetes.io/zone",
+				Operator: core.NodeSelectorOpIn,
+				Values:   zones,
+			})
 	}
 
 	resourceTags := make(map[string]string)

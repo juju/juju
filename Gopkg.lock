@@ -443,11 +443,11 @@
   revision = "b99631de12cf04a906c1d4e4ec54fb86eae5863d"
 
 [[projects]]
-  digest = "1:16c440010c52d4051e1c9116946759834d55cf98d43fed3c1ddcc47567064c54"
+  digest = "1:9aceaa11417d9c5b31c0e9f47094739723046525efbb932381fe50a674a943f7"
   name = "github.com/juju/bundlechanges"
   packages = ["."]
   pruneopts = ""
-  revision = "b8d279cc30ffcc57dab7a51c4bc39be08fb2b569"
+  revision = "a15b892a41663fc698e6fb81c9e3d9e72fbe5c9c"
 
 [[projects]]
   digest = "1:f720ea29e073a9a7109a5080f32753292dc8616a22a905876d425cc64c21bd8d"
