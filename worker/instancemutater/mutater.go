@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -15,7 +16,6 @@ import (
 )
 
 type machine interface {
-	CharmProfiles() ([]string, error)
 	CharmProfilingInfo([]string) (*instancemutater.ProfileInfo, error)
 	SetCharmProfiles(profiles []string) error
 	SetUpgradeCharmProfileComplete(unitName string, message string) error
@@ -41,6 +41,7 @@ type mutaterContext interface {
 	lifetimeContext
 	newMachineContext() machineContext
 	getMachine(tag names.MachineTag) (machine, error)
+	getBroker() environs.LXDProfiler
 }
 
 type mutater struct {
@@ -96,6 +97,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
+			m.logger.Debugf("startMachines added machine %s", machine.Tag().Id())
 			c = make(chan struct{})
 			m.machines[tag] = c
 
@@ -112,6 +114,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 }
 
 func runMachine(context machineContext, logger Logger, m machine, changed <-chan struct{}, died chan<- machine) {
+	logger.Tracef("runMachine(%s)", m.Tag().Id())
 	defer func() {
 		// We can't just send on the dead channel because the
 		// central loop might be trying to write to us on the
@@ -140,6 +143,7 @@ func runMachine(context machineContext, logger Logger, m machine, changed <-chan
 }
 
 func watchUnitLoop(context machineContext, logger Logger, m machine, unitWatcher watcher.StringsWatcher) error {
+	logger.Tracef("watchUnitLoop(%s)", m.Tag().Id())
 	for {
 		select {
 		case <-context.dying():
@@ -148,9 +152,15 @@ func watchUnitLoop(context machineContext, logger Logger, m machine, unitWatcher
 			if !ok {
 				return errors.New("unit watcher closed")
 			}
-			if err := unitsChanged(logger, m, unitNames); err != nil {
-				return errors.Trace(err)
+			if len(unitNames) == 0 {
+				logger.Tracef("no names reported from unit watcher for %s", m.Tag().String())
+				continue
 			}
+			err := unitsChanged(logger, m, unitNames)
+			if err != nil {
+				logger.Errorf("from unitsChanged: %#v", err)
+			}
+			logger.Debugf("end of case unitWatcher changes for %s", m.Tag().String())
 		}
 	}
 }
@@ -158,15 +168,19 @@ func watchUnitLoop(context machineContext, logger Logger, m machine, unitWatcher
 func unitsChanged(logger Logger, m machine, names []string) error {
 	logger.Warningf("Received change on %s.%s", m.Tag(), names)
 	info, err := m.CharmProfilingInfo(names)
+	logger.Warningf("%#v", info)
 	if err != nil {
 		return err
 	}
+	if info == nil {
+		logger.Debugf("returning due to nil info")
+		return nil
+	}
 	if !info.Changes {
 		// No change is necessary.
-		logger.Tracef("no charm profile changes for %s necessary, based on changes to ", m.Tag().String(),
+		logger.Tracef("no charm profile changes for %s necessary, based on changes to %s", m.Tag().String(),
 			strings.Join(names, ", "))
 		return nil
 	}
-
 	return nil
 }
