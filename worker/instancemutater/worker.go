@@ -151,6 +151,10 @@ func (w *mutaterWorker) getMachine(tag names.MachineTag) (machine, error) {
 	return w.facade.Machine(tag)
 }
 
+func (w *mutaterWorker) getBroker() environs.LXDProfiler {
+	return w.broker
+}
+
 // kill is part of the lifetimeContext interface.
 func (w *mutaterWorker) kill(err error) {
 	w.catacomb.Kill(err)
