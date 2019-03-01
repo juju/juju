@@ -808,6 +808,32 @@ func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
 			Scope: network.ScopePublic,
 		})
 	}
+
+	deploymentName := k.deploymentName(appName)
+	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	ss, err := statefulsets.Get(deploymentName, v1.GetOptions{})
+	if err == nil {
+		scale := 0
+		if ss.Spec.Replicas != nil {
+			scale = int(*ss.Spec.Replicas)
+		}
+		result.Scale = scale
+		return &result, nil
+	}
+	if !k8serrors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+
+	deployments := k.AppsV1().Deployments(k.namespace)
+	deployment, err := deployments.Get(deploymentName, v1.GetOptions{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	scale := 0
+	if deployment.Spec.Replicas != nil {
+		scale = int(*deployment.Spec.Replicas)
+	}
+	result.Scale = scale
 	return &result, nil
 }
 
@@ -1640,6 +1666,41 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 		return nil, errors.Trace(err)
 	}
 	return k.newWatcher(w, appName, k.clock)
+}
+
+// WatchService returns a watcher which notifies when there
+// are changes to the deployment of the specified application.
+func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, error) {
+	// Application may be a statefulset or deployment. It may not have
+	// been set up when the watcher is started so we don't know which it
+	// is ahead of time. So use a multi-watcher to cover both cases.
+	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	sswatcher, err := statefulsets.Watch(v1.ListOptions{
+		LabelSelector: applicationSelector(appName),
+		Watch:         true,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w1, err := k.newWatcher(sswatcher, appName, k.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	deployments := k.AppsV1().Deployments(k.namespace)
+	dwatcher, err := deployments.Watch(v1.ListOptions{
+		LabelSelector: applicationSelector(appName),
+		Watch:         true,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w2, err := k.newWatcher(dwatcher, appName, k.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return watcher.NewMultiNotifyWatcher(w1, w2), nil
 }
 
 // WatchOperator returns a watcher which notifies when there

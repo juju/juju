@@ -46,6 +46,7 @@ type WorkerSuite struct {
 	applicationChanges      chan []string
 	applicationScaleChanges chan struct{}
 	caasUnitsChanges        chan struct{}
+	caasServiceChanges      chan struct{}
 	caasOperatorChanges     chan struct{}
 	containerSpecChanges    chan struct{}
 	serviceDeleted          chan struct{}
@@ -101,6 +102,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.applicationChanges = make(chan []string)
 	s.applicationScaleChanges = make(chan struct{})
 	s.caasUnitsChanges = make(chan struct{})
+	s.caasServiceChanges = make(chan struct{})
 	s.caasOperatorChanges = make(chan struct{})
 	s.containerSpecChanges = make(chan struct{}, 1)
 	s.serviceDeleted = make(chan struct{})
@@ -138,9 +140,10 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.lifeGetter = mockLifeGetter{}
 	s.lifeGetter.setLife(life.Alive)
 	s.serviceBroker = mockServiceBroker{
-		ensured: s.serviceEnsured,
-		deleted: s.serviceDeleted,
-		podSpec: &parsedSpec,
+		ensured:        s.serviceEnsured,
+		deleted:        s.serviceDeleted,
+		podSpec:        &parsedSpec,
+		serviceWatcher: watchertest.NewMockNotifyWatcher(s.caasServiceChanges),
 	}
 	s.statusSetter = mockProvisioningStatusSetter{}
 
@@ -255,7 +258,7 @@ func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *WorkerSuite) TestScaleChanged(c *gc.C) {
+func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
@@ -266,10 +269,10 @@ func (s *WorkerSuite) TestScaleChanged(c *gc.C) {
 	s.podSpecGetter.CheckCall(c, 2, "ProvisioningInfo", "gitlab")
 	s.lifeGetter.CheckCallNames(c, "Life")
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
-	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
-	s.serviceBroker.CheckCall(c, 0, "EnsureService",
+	s.serviceBroker.CheckCallNames(c, "WatchService", "EnsureService", "Service")
+	s.serviceBroker.CheckCall(c, 1, "EnsureService",
 		"gitlab", expectedServiceParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
-	s.serviceBroker.CheckCall(c, 1, "Service", "gitlab")
+	s.serviceBroker.CheckCall(c, 2, "Service", "gitlab")
 
 	s.serviceBroker.ResetCalls()
 	// Add another unit.
@@ -310,6 +313,61 @@ func (s *WorkerSuite) TestScaleChanged(c *gc.C) {
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", &newExpectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+}
+
+func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
+	w := s.setupNewUnitScenario(c)
+	defer workertest.CleanKill(c, w)
+
+	s.containerBroker.ResetCalls()
+	s.serviceBroker.ResetCalls()
+
+	select {
+	case s.caasServiceChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending service change")
+	}
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.containerBroker.Calls()) > 0 {
+			break
+		}
+	}
+	s.containerBroker.CheckCallNames(c, "Units")
+	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.serviceBroker.Calls()) > 0 {
+			break
+		}
+	}
+	s.serviceBroker.CheckCallNames(c, "Service")
+	c.Assert(s.serviceBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.unitUpdater.Calls()) > 0 {
+			break
+		}
+	}
+	s.unitUpdater.CheckCallNames(c, "UpdateUnits")
+	c.Assert(s.unitUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{
+		params.UpdateApplicationUnits{
+			ApplicationTag: names.NewApplicationTag("gitlab").String(),
+			Scale:          4,
+			Units: []params.ApplicationUnitParams{
+				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil),
+					Stateful: true,
+					FilesystemInfo: []params.KubernetesFilesystemInfo{
+						{StorageName: "database", MountPoint: "/path-to-here", ReadOnly: true,
+							FilesystemId: "fs-id", Size: 100, Pool: "",
+							Volume: params.KubernetesVolumeInfo{
+								VolumeId: "vol-id", Size: 200,
+								Persistent: true, Status: "error", Info: "vol not ready"},
+							Status: "attaching", Info: "not ready"},
+					}},
+			},
+		},
+	})
 }
 
 func (s *WorkerSuite) TestNewPodSpecChange(c *gc.C) {
@@ -743,6 +801,7 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expected status.Status
 	c.Assert(s.unitUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{
 		params.UpdateApplicationUnits{
 			ApplicationTag: names.NewApplicationTag("gitlab").String(),
+			Scale:          4,
 			Units: []params.ApplicationUnitParams{
 				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: expected.String(),
 					Stateful: true,

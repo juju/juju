@@ -303,6 +303,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *gc.C) {
 		&mockUnit{name: "gitlab/2", containerInfo: &mockContainerInfo{providerId: "uuid2"}, life: state.Alive},
 		&mockUnit{name: "gitlab/3", life: state.Alive},
 	}
+	s.st.application.scale = 4
 
 	units := []params.ApplicationUnitParams{
 		{ProviderId: "uuid", Address: "address", Ports: []string{"port"},
@@ -316,7 +317,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *gc.C) {
 	}
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: 4},
 			{ApplicationTag: "application-another", Units: []params.ApplicationUnitParams{}},
 		},
 	}
@@ -328,8 +329,8 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *gc.C) {
 			{&params.Error{Message: "application another not found", Code: "not found"}},
 		},
 	})
-	s.st.application.CheckCallNames(c, "GetScale", "Life", "AddOperation", "Name")
-	s.st.application.CheckCall(c, 2, "AddOperation", state.UnitUpdateProperties{
+	s.st.application.CheckCallNames(c, "Life", "AddOperation", "Name", "GetScale")
+	s.st.application.CheckCall(c, 1, "AddOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("really-new-uuid"),
 		Address:    strPtr("really-new-address"), Ports: &[]string{"really-new-port"},
 		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "really new message"},
@@ -365,12 +366,65 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *gc.C) {
 	})
 }
 
+func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
+	s.st.application.units = []caasunitprovisioner.Unit{
+		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
+		&mockUnit{name: "gitlab/1", life: state.Alive},
+		&mockUnit{name: "gitlab/2", containerInfo: &mockContainerInfo{providerId: "uuid2"}, life: state.Alive},
+	}
+	s.st.application.scale = 3
+
+	units := []params.ApplicationUnitParams{
+		{ProviderId: "uuid", Address: "address", Ports: []string{"port"},
+			Status: "allocating", Info: ""},
+		{ProviderId: "another-uuid", Address: "another-address", Ports: []string{"another-port"},
+			Status: "allocating", Info: "another message"},
+	}
+	args := params.UpdateApplicationUnitArgs{
+		Args: []params.UpdateApplicationUnits{
+			{ApplicationTag: "application-gitlab", Units: units, Scale: 2},
+		},
+	}
+	results, err := s.facade.UpdateApplicationsUnits(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+		},
+	})
+	s.st.application.CheckCallNames(c, "Life", "Name", "GetScale", "Scale")
+	s.st.application.CheckCall(c, 3, "Scale", 2)
+
+	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	// CloudContainer message is not overwritten based on agent status
+	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: strPtr("uuid"),
+		Address:    strPtr("address"), Ports: &[]string{"port"},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Waiting, Message: ""},
+		AgentStatus:          &status.StatusInfo{Status: status.Allocating},
+	})
+	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	// CloudContainer message is not overwritten based on agent status
+	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: strPtr("another-uuid"),
+		Address:    strPtr("another-address"), Ports: &[]string{"another-port"},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Waiting, Message: "another message"},
+		AgentStatus:          &status.StatusInfo{Status: status.Allocating, Message: "another message"},
+	})
+	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life", "DestroyOperation", "UpdateOperation")
+	s.st.application.units[2].(*mockUnit).CheckCall(c, 2, "UpdateOperation", state.UnitUpdateProperties{
+		AgentStatus:          &status.StatusInfo{Status: status.Idle},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Terminated, Message: "unit stopped by the cloud"},
+	})
+}
+
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
 		&mockUnit{name: "gitlab/2", containerInfo: &mockContainerInfo{providerId: "uuid2"}, life: state.Alive},
 	}
+	s.st.application.scale = 3
 	s.st.application.life = state.Dying
 
 	units := []params.ApplicationUnitParams{
@@ -381,7 +435,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 	}
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: 3},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
@@ -391,7 +445,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 			{nil},
 		},
 	})
-	s.st.application.CheckCallNames(c, "GetScale", "Life", "Name")
+	s.st.application.CheckCallNames(c, "Life", "Name", "GetScale")
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life")
 	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life")
 	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life")
@@ -441,7 +495,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	s.st.application.scale = 3
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: 3},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
@@ -451,7 +505,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 			{nil},
 		},
 	})
-	s.st.application.CheckCallNames(c, "GetScale", "Life", "Name")
+	s.st.application.CheckCallNames(c, "Life", "Name", "GetScale")
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("uuid"),
@@ -572,7 +626,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVo
 	s.st.application.scale = 1
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: 1},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
@@ -582,7 +636,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVo
 			{nil},
 		},
 	})
-	s.st.application.CheckCallNames(c, "GetScale", "Life", "Name")
+	s.st.application.CheckCallNames(c, "Life", "Name", "GetScale")
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("uuid"),

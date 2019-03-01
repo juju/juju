@@ -97,10 +97,7 @@ func (c NotifyWatcherC) AssertNoChange() {
 	}
 }
 
-// AssertStops Kills the watcher and asserts (1) that Wait completes without
-// error before a long time has passed; and (2) that Changes remains open but
-// no values are being sent.
-func (c NotifyWatcherC) AssertStops() {
+func (c NotifyWatcherC) assertStops(changesClosed bool) {
 	c.Watcher.Kill()
 	wait := make(chan error)
 	go func() {
@@ -117,7 +114,22 @@ func (c NotifyWatcherC) AssertStops() {
 	c.PreAssert()
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		if ok || !changesClosed {
+			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		}
 	default:
 	}
+}
+
+// AssertStops Kills the watcher and asserts (1) that Wait completes without
+// error before a long time has passed; and (2) that Changes remains open but
+// no values are being sent.
+func (c NotifyWatcherC) AssertStops() {
+	c.assertStops(false)
+}
+
+// AssertKilled Kills the watcher and asserts that Wait completes without
+// error before a long time has passed.
+func (c NotifyWatcherC) AssertKilled() {
+	c.assertStops(true)
 }
