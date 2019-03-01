@@ -200,7 +200,7 @@ type SecRulesAPI interface {
 }
 
 // ApplicationsAPI also named protocols in the oracle cloud defines methods
-// for retriving and creating applications rules/protocol rules
+// for retrieving and creating applications rules/protocol rules
 // under the oracle cloud endpoint
 // For more information about sec applications, please see:
 // https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-SecApplications.html

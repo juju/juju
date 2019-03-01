@@ -190,7 +190,7 @@ func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 		"key": "value",
 	}
 	err = writer.ForwardMessage(&params.PubSubMessage{
-		Topic: string(topic),
+		Topic: topic,
 		Data:  first,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -199,7 +199,7 @@ func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 		"key": "other",
 	}
 	err = writer.ForwardMessage(&params.PubSubMessage{
-		Topic: string(topic),
+		Topic: topic,
 		Data:  second,
 	})
 	c.Assert(err, jc.ErrorIsNil)

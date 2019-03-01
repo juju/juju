@@ -1390,7 +1390,7 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 		stringData = strings.Replace(stringData, "\t", " ", -1)
 		stringData = strings.TrimSpace(stringData)
 
-		compareString := strings.Replace(string(test.expectScripts), "\r\n", "\n", -1)
+		compareString := strings.Replace(test.expectScripts, "\r\n", "\n", -1)
 		compareString = strings.Replace(compareString, "\t", " ", -1)
 		compareString = strings.TrimSpace(compareString)
 

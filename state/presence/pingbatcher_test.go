@@ -232,7 +232,7 @@ func (s *PingBatcherSuite) TestBatchFlushesByTime(c *gc.C) {
 		slot2 = slot2 + 30
 		pb.Ping("test-uuid", slot2, "0", 1)
 		waitTime := time.Since(t)
-		if waitTime < time.Duration(35*time.Millisecond) {
+		if waitTime < 35*time.Millisecond {
 			// Officially it should take a minimum of 50*0.8 = 40ms.
 			// make sure the timer hasn't flushed yet
 			c.Assert(err, gc.Equals, mgo.ErrNotFound,

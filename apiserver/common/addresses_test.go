@@ -92,7 +92,7 @@ func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *gc.C) {
 
 func (s *apiAddresserSuite) TestModelUUID(c *gc.C) {
 	result := s.addresser.ModelUUID()
-	c.Assert(string(result.Result), gc.Equals, "the model uuid")
+	c.Assert(result.Result, gc.Equals, "the model uuid")
 }
 
 var _ common.AddressAndCertGetter = fakeAddresses{}

@@ -116,7 +116,7 @@ func (s *metadataSuite) TestBuildMetadata(c *gc.C) {
 	c.Check(meta.ChecksumFormat(), gc.Equals, "SHA-1, base64 encoded")
 	c.Check(meta.Size(), gc.Equals, int64(17))
 	c.Check(meta.Stored(), gc.IsNil)
-	c.Check(meta.Started.Unix(), gc.Equals, int64(testing.ZeroTime().Unix()))
+	c.Check(meta.Started.Unix(), gc.Equals, testing.ZeroTime().Unix())
 	c.Check(meta.Finished.Unix(), gc.Equals, finished)
 	c.Check(meta.Notes, gc.Equals, "")
 	c.Check(meta.Origin.Model, gc.Equals, backups.UnknownString)

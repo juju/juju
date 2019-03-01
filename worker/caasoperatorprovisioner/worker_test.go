@@ -116,7 +116,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists bool) {
 
 	if !exists {
 		agentFile := filepath.Join(c.MkDir(), "agent.config")
-		err := ioutil.WriteFile(agentFile, []byte(config.AgentConf), 0644)
+		err := ioutil.WriteFile(agentFile, config.AgentConf, 0644)
 		c.Assert(err, jc.ErrorIsNil)
 		cfg, err := agent.ReadConfig(agentFile)
 		c.Assert(err, jc.ErrorIsNil)

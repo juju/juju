@@ -435,7 +435,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: .*") // icfg hasn't been finalized
 	c.Assert(
-		string(knownHosts),
+		knownHosts,
 		gc.Equals,
 		"testing.invalid "+innerInstanceConfig.Bootstrap.InitialSSHHostKeys.RSA.Public,
 	)
