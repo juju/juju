@@ -19,11 +19,13 @@ var usageRemoveCAASSummary = `
 Removes a k8s endpoint from Juju.`[1:]
 
 var usageRemoveCAASDetails = `
-Removes the specified k8s cloud from the controller (if it is not in use),
-and user-defined cloud details from this client.
+Removes the specified k8s cloud from this client.
+If --controller is used, also removes the cloud 
+from the specfied controller (if it is not in use).
 
 Examples:
     juju remove-k8s myk8scloud
+    juju remove-k8s --controller mycontroller myk8scloud
     
 See also:
     add-k8s
@@ -37,30 +39,31 @@ type RemoveCloudAPI interface {
 
 // RemoveCAASCommand is the command that allows you to remove a k8s cloud.
 type RemoveCAASCommand struct {
-	modelcmd.ControllerCommandBase
+	modelcmd.CommandBase
 
 	// cloudName is the name of the caas cloud to remove.
 	cloudName string
 
-	cloudMetadataStore  CloudMetadataStore
-	fileCredentialStore jujuclient.CredentialStore
-	apiFunc             func() (RemoveCloudAPI, error)
+	controllerName     string
+	store              jujuclient.ClientStore
+	cloudMetadataStore CloudMetadataStore
+	apiFunc            func() (RemoveCloudAPI, error)
 }
 
 // NewRemoveCAASCommand returns a command to add caas information.
 func NewRemoveCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	cmd := &RemoveCAASCommand{
-		cloudMetadataStore:  cloudMetadataStore,
-		fileCredentialStore: jujuclient.NewFileCredentialStore(),
+		cloudMetadataStore: cloudMetadataStore,
+		store:              jujuclient.NewFileClientStore(),
 	}
 	cmd.apiFunc = func() (RemoveCloudAPI, error) {
-		root, err := cmd.NewAPIRoot()
+		root, err := cmd.NewAPIRoot(cmd.store, cmd.controllerName, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return cloudapi.NewClient(root), nil
 	}
-	return modelcmd.WrapController(cmd)
+	return modelcmd.WrapBase(cmd)
 }
 
 // Info returns help information about the command.
@@ -76,6 +79,8 @@ func (c *RemoveCAASCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *RemoveCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
+	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
+	f.StringVar(&c.controllerName, "controller", "", "")
 }
 
 // Init populates the command with the args from the command line.
@@ -89,6 +94,17 @@ func (c *RemoveCAASCommand) Init(args []string) (err error) {
 
 // Run is defined on the Command interface.
 func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
+	if err := removeCloudFromLocal(c.cloudMetadataStore, c.cloudName); err != nil {
+		return errors.Annotatef(err, "cannot remove cloud from local cache")
+	}
+
+	if err := c.store.UpdateCredential(c.cloudName, cloud.CloudCredential{}); err != nil {
+		return errors.Annotatef(err, "cannot remove credential from local cache")
+	}
+	if c.controllerName == "" {
+		return nil
+	}
+
 	cloudAPI, err := c.apiFunc()
 	if err != nil {
 		return errors.Trace(err)
@@ -98,12 +114,7 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 	if err := cloudAPI.RemoveCloud(c.cloudName); err != nil {
 		return errors.Annotatef(err, "cannot remove k8s cloud from controller")
 	}
-
-	if err := removeCloudFromLocal(c.cloudMetadataStore, c.cloudName); err != nil {
-		return errors.Annotatef(err, "cannot remove cloud from local cache")
-	}
-
-	return c.fileCredentialStore.UpdateCredential(c.cloudName, cloud.CloudCredential{})
+	return nil
 }
 
 func removeCloudFromLocal(cloudMetadataStore CloudMetadataStore, cloudName string) error {

@@ -34,10 +34,10 @@ import (
 type addCAASSuite struct {
 	jujutesting.IsolationSuite
 	dir                           string
+	initialCloudMap               map[string]cloud.Cloud
 	fakeCloudAPI                  *fakeAddCloudAPI
 	fakeK8sClusterMetadataChecker *fakeK8sClusterMetadataChecker
-	store                         *fakeCloudMetadataStore
-	fileCredentialStore           *fakeCredentialStore
+	cloudMetadataStore            *fakeCloudMetadataStore
 	fakeK8SConfigFunc             *clientconfig.ClientConfigFunc
 }
 
@@ -196,24 +196,6 @@ func fakeEmptyNewK8sClientConfig(io.Reader, string, string, clientconfig.K8sCred
 	return &clientconfig.ClientConfig{}, nil
 }
 
-type fakeCredentialStore struct {
-	jujutesting.Stub
-}
-
-func (fcs *fakeCredentialStore) CredentialForCloud(string) (*cloud.CloudCredential, error) {
-	panic("unexpected call to CredentialForCloud")
-}
-
-func (fcs *fakeCredentialStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
-	fcs.AddCall("AllCredentials")
-	return map[string]cloud.CloudCredential{}, nil
-}
-
-func (fcs *fakeCredentialStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
-	fcs.AddCall("UpdateCredential", cloudName, details)
-	return nil
-}
-
 func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.dir = c.MkDir()
@@ -230,22 +212,21 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 			names.NewCloudCredentialTag("aws/other/secrets"),
 		},
 	}
-	s.store = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
+	s.cloudMetadataStore = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
 
 	defaultClusterMetadata := &jujucaas.ClusterMetadata{Regions: set.NewStrings("gce/us-east1")}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{CallMocker: jujutesting.NewCallMocker(logger)}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(nil)
 
-	initialCloudMap := map[string]cloud.Cloud{
+	s.initialCloudMap = map[string]cloud.Cloud{
 		"mrcloud1": {Name: "mrcloud1", Type: "kubernetes"},
 		"mrcloud2": {Name: "mrcloud2", Type: "kubernetes"},
 	}
 
-	s.store.Call("PersonalCloudMetadata").Returns(initialCloudMap, nil)
-
-	s.store.Call("PublicCloudMetadata", []string(nil)).Returns(initialCloudMap, false, nil)
-	s.store.Call("WritePersonalCloudMetadata", initialCloudMap).Returns(nil)
+	s.cloudMetadataStore.Call("PersonalCloudMetadata").Returns(s.initialCloudMap, nil)
+	s.cloudMetadataStore.Call("PublicCloudMetadata", []string(nil)).Returns(s.initialCloudMap, false, nil)
+	s.cloudMetadataStore.Call("WritePersonalCloudMetadata", s.initialCloudMap).Returns(nil)
 }
 
 func (s *addCAASSuite) writeTempKubeConfig(c *gc.C) {
@@ -273,8 +254,7 @@ func NewMockClientStore() *jujuclient.MemStore {
 
 func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, shouldFakeNewK8sClientConfig bool) cmd.Command {
 	return caas.NewAddCAASCommandForTest(
-		s.store,
-		&fakeCredentialStore{},
+		s.cloudMetadataStore,
 		NewMockClientStore(),
 		func() (caas.AddCloudAPI, error) {
 			return s.fakeCloudAPI, nil
@@ -429,8 +409,9 @@ func (s *addCAASSuite) TestRegionFlag(c *gc.C) {
 			expectedErrStr: "",
 		},
 	} {
+		delete(s.initialCloudMap, "myk8s")
 		cmd := s.makeCommand(c, true, false, true)
-		_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2", "--region", ts.regionStr)
+		_, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--region", ts.regionStr)
 		if ts.expectedErrStr == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -441,14 +422,15 @@ func (s *addCAASSuite) TestRegionFlag(c *gc.C) {
 
 func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *gc.C) {
 	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
+	_, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
 	c.Assert(err, jc.ErrorIsNil)
-	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
+	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"mrcloud1": {
 				Name:             "mrcloud1",
 				Type:             "kubernetes",
 				Description:      "",
+				HostCloudRegion:  "",
 				AuthTypes:        cloud.AuthTypes(nil),
 				Endpoint:         "",
 				IdentityEndpoint: "",
@@ -461,6 +443,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				Name:             "mrcloud2",
 				Type:             "kubernetes",
 				Description:      "",
+				HostCloudRegion:  "",
 				AuthTypes:        cloud.AuthTypes(nil),
 				Endpoint:         "",
 				IdentityEndpoint: "",
@@ -473,6 +456,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				Name:             "myk8s",
 				Type:             "kubernetes",
 				Description:      "",
+				HostCloudRegion:  "gce/us-east1",
 				AuthTypes:        cloud.AuthTypes{""},
 				Endpoint:         "fakeendpoint2",
 				IdentityEndpoint: "",
@@ -486,43 +470,29 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 	)
 }
 
-func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion string) {
-	// 1st try failed because region was missing.
-	s.fakeCloudAPI.CheckCall(c, 0, "AddCloud",
-		cloud.Cloud{
-			Name:             "myk8s",
-			HostCloudRegion:  "", // empty cloud region, but isCloudRegionRequired is true
-			Type:             "kubernetes",
-			Description:      "",
-			AuthTypes:        cloud.AuthTypes{""},
-			Endpoint:         "fakeendpoint2",
-			IdentityEndpoint: "",
-			StorageEndpoint:  "",
-			Regions:          []cloud.Region(nil),
-			Config:           map[string]interface{}(nil),
-			RegionConfig:     cloud.RegionConfig(nil),
-			CACertificates:   []string{"fakecadata2"},
-		},
-	)
+func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion string, localOnly bool) {
 	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata")
-	// 2nd try with region fetched from GetClusterMetadata.
-	s.fakeCloudAPI.CheckCall(c, 1, "AddCloud",
-		cloud.Cloud{
-			Name:             "myk8s",
-			HostCloudRegion:  cloudRegion,
-			Type:             "kubernetes",
-			Description:      "",
-			AuthTypes:        cloud.AuthTypes{""},
-			Endpoint:         "fakeendpoint2",
-			IdentityEndpoint: "",
-			StorageEndpoint:  "",
-			Regions:          []cloud.Region(nil),
-			Config:           map[string]interface{}(nil),
-			RegionConfig:     cloud.RegionConfig(nil),
-			CACertificates:   []string{"fakecadata2"},
-		},
-	)
-	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
+	if localOnly {
+		s.fakeCloudAPI.CheckNoCalls(c)
+	} else {
+		s.fakeCloudAPI.CheckCall(c, 0, "AddCloud",
+			cloud.Cloud{
+				Name:             "myk8s",
+				HostCloudRegion:  cloudRegion,
+				Type:             "kubernetes",
+				Description:      "",
+				AuthTypes:        cloud.AuthTypes{""},
+				Endpoint:         "fakeendpoint2",
+				IdentityEndpoint: "",
+				StorageEndpoint:  "",
+				Regions:          []cloud.Region(nil),
+				Config:           map[string]interface{}(nil),
+				RegionConfig:     cloud.RegionConfig(nil),
+				CACertificates:   []string{"fakecadata2"},
+			},
+		)
+	}
+	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"mrcloud1": {
 				Name:             "mrcloud1",
@@ -571,10 +541,10 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c 
 	cloudRegion := "gce/us-east1"
 
 	cmd := s.makeCommand(c, true, false, true)
-	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
+	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(strings.Trim(cmdtesting.Stdout(ctx), "\n"), gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s"`)
-	s.assertAddCloudResult(c, cloudRegion)
+	s.assertAddCloudResult(c, cloudRegion, false)
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
@@ -582,7 +552,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, errors.New("oops"))
 
 	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
+	_, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
 	expectedErr := `
 	Juju needs to query the k8s cluster to ensure that the recommended
 	storage defaults are available and to detect the cluster's cloud/region.
@@ -657,12 +627,12 @@ func (s *addCAASSuite) TestCreateDefaultStorageProvisioner(c *gc.C) {
 	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner").Returns(storageProvisioner, nil)
 
 	cmd := s.makeCommand(c, true, false, true)
-	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2", "--storage", "mystorage")
+	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage")
 	c.Assert(err, jc.ErrorIsNil)
 	result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 	result = strings.Replace(result, "\n", " ", -1)
 	c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with gce disk default storage provisioned by the existing "mystorage" storage class`)
-	s.assertAddCloudResult(c, cloudRegion)
+	s.assertAddCloudResult(c, cloudRegion, false)
 }
 
 func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
@@ -678,12 +648,24 @@ func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
 	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner").Returns(storageProvisioner, nil)
 
 	cmd := s.makeCommand(c, true, false, true)
-	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2", "--storage", "mystorage")
+	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage")
 	c.Assert(err, jc.ErrorIsNil)
 	result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 	result = strings.Replace(result, "\n", " ", -1)
 	c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class`)
-	s.assertAddCloudResult(c, cloudRegion)
+	s.assertAddCloudResult(c, cloudRegion, false)
+}
+
+func (s *addCAASSuite) TestLocalOnly(c *gc.C) {
+	s.fakeCloudAPI.isCloudRegionRequired = true
+	cloudRegion := "gce/us-east1"
+
+	cmd := s.makeCommand(c, true, false, true)
+	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := `k8s substrate "mrcloud2" added as cloud "myk8s"You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`
+	c.Assert(strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1), gc.Equals, expected)
+	s.assertAddCloudResult(c, cloudRegion, true)
 }
 
 func mockStdinPipe(content string) (*os.File, error) {
@@ -703,20 +685,20 @@ func (s *addCAASSuite) TestCorrectParseFromStdIn(c *gc.C) {
 	stdIn, err := mockStdinPipe(kubeConfigStr)
 	defer stdIn.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.runCommand(c, stdIn, cmd, "myk8s")
+	_, err = s.runCommand(c, stdIn, cmd, "myk8s", "-c", "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertStoreClouds(c, "")
+	s.assertStoreClouds(c, "gce/us-east1")
 }
 
 func (s *addCAASSuite) TestAddGkeCluster(c *gc.C) {
 	cmd := s.makeCommand(c, true, true, false)
-	_, err := s.runCommand(c, nil, cmd, "--gke", "myk8s", "--region", "us-east1")
+	_, err := s.runCommand(c, nil, cmd, "-c", "foo", "--gke", "myk8s", "--region", "us-east1")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStoreClouds(c, "gce/us-east1")
 }
 
 func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
-	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
+	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"myk8s": {
 				Name:             "myk8s",
@@ -762,14 +744,15 @@ func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
 
 func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s")
+	_, err := s.runCommand(c, nil, cmd, "-c", "foo", "myk8s")
 	c.Assert(err, jc.ErrorIsNil)
-	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
+	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"mrcloud1": {
 				Name:             "mrcloud1",
 				Type:             "kubernetes",
 				Description:      "",
+				HostCloudRegion:  "",
 				AuthTypes:        cloud.AuthTypes(nil),
 				Endpoint:         "",
 				IdentityEndpoint: "",
@@ -782,6 +765,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 				Name:             "mrcloud2",
 				Type:             "kubernetes",
 				Description:      "",
+				HostCloudRegion:  "",
 				AuthTypes:        cloud.AuthTypes(nil),
 				Endpoint:         "",
 				IdentityEndpoint: "",
@@ -794,6 +778,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 				Name:             "myk8s",
 				Type:             "kubernetes",
 				Description:      "",
+				HostCloudRegion:  "gce/us-east1",
 				AuthTypes:        cloud.AuthTypes{""},
 				Endpoint:         "fakeendpoint1",
 				IdentityEndpoint: "",
@@ -809,15 +794,16 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 
 func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
+	_, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
 	c.Assert(err, jc.ErrorIsNil)
-	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
+	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"mrcloud1": {
 				Name:             "mrcloud1",
 				Type:             "kubernetes",
 				Description:      "",
 				AuthTypes:        cloud.AuthTypes(nil),
+				HostCloudRegion:  "",
 				Endpoint:         "",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
@@ -830,6 +816,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 				Type:             "kubernetes",
 				Description:      "",
 				AuthTypes:        cloud.AuthTypes(nil),
+				HostCloudRegion:  "",
 				Endpoint:         "",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
@@ -841,6 +828,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 				Name:             "myk8s",
 				Type:             "kubernetes",
 				Description:      "",
+				HostCloudRegion:  "gce/us-east1",
 				AuthTypes:        cloud.AuthTypes{""},
 				Endpoint:         "fakeendpoint2",
 				IdentityEndpoint: "",

@@ -11,14 +11,12 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
 
 func NewAddCAASCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
-	fileCredentialStore jujuclient.CredentialStore,
-	clientStore jujuclient.ClientStore,
+	store jujuclient.ClientStore,
 	addCloudAPIFunc func() (AddCloudAPI, error),
 	brokerGetter BrokerGetter,
 	k8sCluster k8sCluster,
@@ -27,30 +25,27 @@ func NewAddCAASCommandForTest(
 ) cmd.Command {
 	cmd := &AddCAASCommand{
 		cloudMetadataStore:    cloudMetadataStore,
-		fileCredentialStore:   fileCredentialStore,
+		store:                 store,
 		addCloudAPIFunc:       addCloudAPIFunc,
 		brokerGetter:          brokerGetter,
 		k8sCluster:            k8sCluster,
 		newClientConfigReader: newClientConfigReaderFunc,
 		getAllCloudDetails:    getAllCloudDetails,
 	}
-	cmd.SetClientStore(clientStore)
-	return modelcmd.WrapController(cmd)
+	return cmd
 }
 
 func NewRemoveCAASCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
-	fileCredentialStore jujuclient.CredentialStore,
-	clientStore jujuclient.ClientStore,
+	store jujuclient.ClientStore,
 	removeCloudAPIFunc func() (RemoveCloudAPI, error),
 ) cmd.Command {
 	cmd := &RemoveCAASCommand{
-		cloudMetadataStore:  cloudMetadataStore,
-		fileCredentialStore: fileCredentialStore,
-		apiFunc:             removeCloudAPIFunc,
+		cloudMetadataStore: cloudMetadataStore,
+		store:              store,
+		apiFunc:            removeCloudAPIFunc,
 	}
-	cmd.SetClientStore(clientStore)
-	return modelcmd.WrapController(cmd)
+	return cmd
 }
 
 type fakeCluster struct {
