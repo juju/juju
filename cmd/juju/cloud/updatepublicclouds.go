@@ -24,47 +24,48 @@ import (
 	"github.com/juju/juju/juju/keys"
 )
 
-type updateCloudsCommand struct {
+type updatePublicCloudsCommand struct {
 	cmd.CommandBase
 
 	publicSigningKey string
 	publicCloudURL   string
 }
 
-var updateCloudsDoc = `
+var updatePublicCloudsDoc = `
 If any new information for public clouds (such as regions and connection
 endpoints) are available this command will update Juju accordingly. It is
 suggested to run this command periodically.
 
 Examples:
 
-    juju update-clouds
+    juju update-public-clouds
 
 See also:
     clouds
 `
 
-// NewUpdateCloudsCommand returns a command to update cloud information.
-var NewUpdateCloudsCommand = func() cmd.Command {
-	return newUpdateCloudsCommand()
+// NewUpdatePublicCloudsCommand returns a command to update cloud information.
+var NewUpdatePublicCloudsCommand = func() cmd.Command {
+	return newUpdatePublicCloudsCommand()
 }
 
-func newUpdateCloudsCommand() cmd.Command {
-	return &updateCloudsCommand{
+func newUpdatePublicCloudsCommand() cmd.Command {
+	return &updatePublicCloudsCommand{
 		publicSigningKey: keys.JujuPublicKey,
 		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
 	}
 }
 
-func (c *updateCloudsCommand) Info() *cmd.Info {
+func (c *updatePublicCloudsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "update-clouds",
+		Name:    "update-public-clouds",
+		Aliases: []string{"update-clouds"},
 		Purpose: "Updates public cloud information available to Juju.",
-		Doc:     updateCloudsDoc,
+		Doc:     updatePublicCloudsDoc,
 	})
 }
 
-func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
+func (c *updatePublicCloudsCommand) Run(ctxt *cmd.Context) error {
 	fmt.Fprint(ctxt.Stderr, "Fetching latest public cloud list...\n")
 	client := utils.GetHTTPClient(utils.VerifySSLHostnames)
 	resp, err := client.Get(c.publicCloudURL)

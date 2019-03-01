@@ -115,6 +115,44 @@ func (s *CloudSuite) TestAddCloudNoAuthTypes(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid cloud: empty auth-types not valid`)
 }
 
+func (s *CloudSuite) TestUpdateCloud(c *gc.C) {
+	err := s.State.AddCloud(lowCloud, s.Owner.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	updatedCloud := lowCloud
+	updatedCloud.Endpoint = "updated-global-endpoint"
+	updatedCloud.Regions[0] = cloud.Region{
+		Name:             "updatedregion1",
+		Endpoint:         "updatedregion1-endpoint",
+		IdentityEndpoint: "updatedregion1-identity",
+		StorageEndpoint:  "updatedregion1-storage",
+	}
+	updatedCloud.Regions[1] = cloud.Region{
+		Name:             "updatedregion2",
+		Endpoint:         "updatedregion2-endpoint",
+		IdentityEndpoint: "updatedregion2-identity",
+		StorageEndpoint:  "updatedregion2-storage",
+	}
+	updatedCloud.CACertificates[0] = "updatedcert1"
+
+	err = s.State.UpdateCloud(updatedCloud)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cloud, err := s.State.Cloud("stratus")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloud, jc.DeepEquals, updatedCloud)
+	access, err := s.State.GetCloudAccess(updatedCloud.Name, s.Owner)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.AdminAccess)
+}
+
+func (s *CloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
+	missNamed := lowCloud
+	missNamed.Name = "nope"
+	err := s.State.UpdateCloud(missNamed)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *CloudSuite) TestRemoveNonExistentCloud(c *gc.C) {
 	err := s.State.RemoveCloud("foo")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

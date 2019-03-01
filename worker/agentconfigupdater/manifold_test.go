@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machine_test
+package agentconfigupdater_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -10,36 +10,36 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
 
-	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/agent"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/agentconfigupdater"
 )
 
-type ServingInfoSetterSuite struct {
+type AgentConfigUpdaterSuite struct {
 	testing.BaseSuite
 	manifold dependency.Manifold
 }
 
-var _ = gc.Suite(&ServingInfoSetterSuite{})
+var _ = gc.Suite(&AgentConfigUpdaterSuite{})
 
-func (s *ServingInfoSetterSuite) SetUpTest(c *gc.C) {
-	s.manifold = machine.ServingInfoSetterManifold(machine.ServingInfoSetterConfig{
+func (s *AgentConfigUpdaterSuite) SetUpTest(c *gc.C) {
+	s.manifold = agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 	})
 }
 
-func (s *ServingInfoSetterSuite) TestInputs(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, []string{
 		"agent",
 		"api-caller",
 	})
 }
 
-func (s *ServingInfoSetterSuite) TestStartAgentMissing(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestStartAgentMissing(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
@@ -48,7 +48,7 @@ func (s *ServingInfoSetterSuite) TestStartAgentMissing(c *gc.C) {
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
-func (s *ServingInfoSetterSuite) TestStartAPICallerMissing(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestStartAPICallerMissing(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"agent":      &mockAgent{},
 		"api-caller": dependency.ErrMissing,
@@ -58,7 +58,7 @@ func (s *ServingInfoSetterSuite) TestStartAPICallerMissing(c *gc.C) {
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
-func (s *ServingInfoSetterSuite) TestNotMachine(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestNotMachine(c *gc.C) {
 	a := &mockAgent{
 		conf: mockConfig{tag: names.NewUnitTag("foo/0")},
 	}
@@ -70,7 +70,7 @@ func (s *ServingInfoSetterSuite) TestNotMachine(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "agent's tag is not a machine tag")
 }
 
-func (s *ServingInfoSetterSuite) TestEntityLookupFailure(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *gc.C) {
 	// Set up a fake Agent and APICaller
 	a := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(
@@ -100,7 +100,7 @@ func (s *ServingInfoSetterSuite) TestEntityLookupFailure(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "checking controller status: boom")
 }
 
-func (s *ServingInfoSetterSuite) startManifold(c *gc.C, a coreagent.Agent, mockAPIPort int) {
+func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIPort int) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
 			c.Assert(objType, gc.Equals, "Agent")
@@ -133,7 +133,7 @@ func (s *ServingInfoSetterSuite) startManifold(c *gc.C, a coreagent.Agent, mockA
 	c.Assert(err, gc.Equals, dependency.ErrUninstall)
 }
 
-func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *gc.C) {
 	// State serving info should be set for machines with JobManageEnviron.
 	const mockAPIPort = 1234
 
@@ -147,7 +147,7 @@ func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
 	c.Assert(a.conf.ssi.PrivateKey, gc.Equals, "key")
 }
 
-func (s *ServingInfoSetterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) {
 	// State serving info should be set for machines with JobManageEnviron.
 	const mockAPIPort = 1234
 
@@ -168,12 +168,12 @@ func (s *ServingInfoSetterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) {
 	c.Assert(a.conf.ssi.PrivateKey, gc.Equals, existingKey)
 }
 
-func (s *ServingInfoSetterSuite) TestJobHostUnits(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestJobHostUnits(c *gc.C) {
 	// State serving info should not be set for JobHostUnits.
 	s.checkNotController(c, multiwatcher.JobHostUnits)
 }
 
-func (s *ServingInfoSetterSuite) checkNotController(c *gc.C, job multiwatcher.MachineJob) {
+func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job multiwatcher.MachineJob) {
 	a := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
@@ -203,20 +203,20 @@ func (s *ServingInfoSetterSuite) checkNotController(c *gc.C, job multiwatcher.Ma
 }
 
 type mockAgent struct {
-	coreagent.Agent
+	agent.Agent
 	conf mockConfig
 }
 
-func (ma *mockAgent) CurrentConfig() coreagent.Config {
+func (ma *mockAgent) CurrentConfig() agent.Config {
 	return &ma.conf
 }
 
-func (ma *mockAgent) ChangeConfig(f coreagent.ConfigMutator) error {
+func (ma *mockAgent) ChangeConfig(f agent.ConfigMutator) error {
 	return f(&ma.conf)
 }
 
 type mockConfig struct {
-	coreagent.ConfigSetter
+	agent.ConfigSetter
 	tag    names.Tag
 	ssiSet bool
 	ssi    params.StateServingInfo

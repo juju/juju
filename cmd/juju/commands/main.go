@@ -155,7 +155,7 @@ func (m main) Run(args []string) int {
 
 	if newInstall {
 		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
-		updateCmd := cloud.NewUpdateCloudsCommand()
+		updateCmd := cloud.NewUpdatePublicCloudsCommand()
 		if err := updateCmd.Run(ctx); err != nil {
 			cmd.WriteError(ctx.Stderr, err)
 		}
@@ -466,7 +466,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(setmeterstatus.New())
 
 	// Manage clouds and credentials
-	r.Register(cloud.NewUpdateCloudsCommand())
+	r.Register(cloud.NewUpdateCloudCommand(&cloudToCommandAdapter{}))
+	r.Register(cloud.NewUpdatePublicCloudsCommand())
 	r.Register(cloud.NewListCloudsCommand())
 	r.Register(cloud.NewListRegionsCommand())
 	r.Register(cloud.NewShowCloudCommand())

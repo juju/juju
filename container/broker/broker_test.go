@@ -19,6 +19,7 @@ import (
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/broker"
@@ -43,30 +44,7 @@ var _ = gc.Suite(&brokerSuite{})
 
 func (s *brokerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	s.PatchValue(&broker.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
-		return map[string]interface{}{
-			"packages":   []interface{}{"python-novaclient"},
-			"fake-entry": []interface{}{"testing-garbage"},
-			"apt": map[interface{}]interface{}{
-				"primary": []interface{}{
-					map[interface{}]interface{}{
-						"arches": []interface{}{"default"},
-						"uri":    "http://archive.ubuntu.com/ubuntu",
-					},
-				},
-				"security": []interface{}{
-					map[interface{}]interface{}{
-						"arches": []interface{}{"default"},
-						"uri":    "http://archive.ubuntu.com/ubuntu",
-					},
-				},
-			},
-			"ca-certs": map[interface{}]interface{}{
-				"remove-defaults": true,
-				"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
-			},
-		}, nil
-	})
+	broker.PatchNewMachineInitReader(s, newFakeMachineInitReader)
 }
 
 func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
@@ -120,7 +98,7 @@ type fakeAPI struct {
 
 var _ broker.APICalls = (*fakeAPI)(nil)
 
-var fakeInterfaceInfo network.InterfaceInfo = network.InterfaceInfo{
+var fakeInterfaceInfo = network.InterfaceInfo{
 	DeviceIndex:    0,
 	MACAddress:     "aa:bb:cc:dd:ee:ff",
 	CIDR:           "0.1.2.0/24",
@@ -132,11 +110,6 @@ var fakeInterfaceInfo network.InterfaceInfo = network.InterfaceInfo{
 	// by patchResolvConf(). See LP bug http://pad.lv/1575940 for more info.
 	DNSServers:       network.NewAddresses("ns1.dummy"),
 	DNSSearchDomains: nil,
-}
-
-var fakeDeviceToBridge network.DeviceToBridge = network.DeviceToBridge{
-	DeviceName: "dummy0",
-	BridgeName: "br-dummy0",
 }
 
 func fakeContainerConfig() params.ContainerConfig {
@@ -388,4 +361,38 @@ func assertCloudInitUserData(obtained, expected map[string]interface{}, c *gc.C)
 			c.Assert(obtainedV, jc.SameContents, expectedV)
 		}
 	}
+}
+
+type fakeMachineInitReader struct {
+	cloudconfig.InitReader
+}
+
+func (r *fakeMachineInitReader) GetInitConfig() (map[string]interface{}, error) {
+	return map[string]interface{}{
+		"packages":   []interface{}{"python-novaclient"},
+		"fake-entry": []interface{}{"testing-garbage"},
+		"apt": map[interface{}]interface{}{
+			"primary": []interface{}{
+				map[interface{}]interface{}{
+					"arches": []interface{}{"default"},
+					"uri":    "http://archive.ubuntu.com/ubuntu",
+				},
+			},
+			"security": []interface{}{
+				map[interface{}]interface{}{
+					"arches": []interface{}{"default"},
+					"uri":    "http://archive.ubuntu.com/ubuntu",
+				},
+			},
+		},
+		"ca-certs": map[interface{}]interface{}{
+			"remove-defaults": true,
+			"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
+		},
+	}, nil
+}
+
+var newFakeMachineInitReader = func(series string) (cloudconfig.InitReader, error) {
+	r, err := cloudconfig.NewMachineInitReader(series)
+	return &fakeMachineInitReader{r}, err
 }

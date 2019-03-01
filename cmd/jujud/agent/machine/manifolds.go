@@ -35,6 +35,7 @@ import (
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
+	"github.com/juju/juju/worker/agentconfigupdater"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
@@ -554,10 +555,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     singular.NewWorker,
 		})),
 
-		// The serving-info-setter manifold sets grabs the state
-		// serving info from the API connection and writes it to the
-		// agent config.
-		servingInfoSetterName: ifNotMigrating(ServingInfoSetterManifold(ServingInfoSetterConfig{
+		// The agent-config-updater manifold sets the state serving info from
+		// the API connection and writes it to the agent config.
+		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -978,6 +978,7 @@ var ifLegacyLeasesEnabled = engine.Housing{
 
 const (
 	agentName              = "agent"
+	agentConfigUpdaterName = "agent-config-updater"
 	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
 	controllerName         = "controller"
@@ -1001,7 +1002,6 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	servingInfoSetterName         = "serving-info-setter"
 	apiWorkersName                = "unconverted-api-workers"
 	rebootName                    = "reboot-executor"
 	loggingConfigUpdaterName      = "logging-config-updater"

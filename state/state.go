@@ -1496,7 +1496,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 					// so it cannot be attached.
 					continue
 				}
-				providerType, _, err := poolStorageProvider(sb, volumeInfo.Pool)
+				providerType, _, _, err := poolStorageProvider(sb, volumeInfo.Pool)
 				if err != nil {
 					return errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
 				}

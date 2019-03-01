@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/juju/errors"
@@ -203,6 +204,107 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 			Error: &params.Error{Message: `"machine-0" is not a valid cloud tag`},
 		},
 	})
+}
+
+func (s *cloudSuite) TestAddCloud(c *gc.C) {
+	paramsCloud := params.AddCloudArgs{
+		Name: "newcloudname",
+		Cloud: params.Cloud{
+			Type:      "fake",
+			AuthTypes: []string{"empty", "userpass"},
+			Endpoint:  "fake-endpoint",
+			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
+		}}
+	err := s.api.AddCloud(paramsCloud)
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "AddCloud")
+	s.backend.CheckCall(c, 0, "AddCloud", cloud.Cloud{
+		Name:      "newcloudname",
+		Type:      "fake",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Endpoint:  "fake-endpoint",
+		Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
+	}, "admin")
+}
+
+func (s *cloudSuite) TestAddCloudNoAdminPerms(c *gc.C) {
+	s.setTestAPIForUser(c, names.NewUserTag("frank"))
+	paramsCloud := params.AddCloudArgs{
+		Name: "newcloudname",
+		Cloud: params.Cloud{
+			Type:      "fake",
+			AuthTypes: []string{"empty", "userpass"},
+			Endpoint:  "fake-endpoint",
+			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
+		}}
+	err := s.api.AddCloud(paramsCloud)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.backend.CheckNoCalls(c)
+}
+
+func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
+	updatedCloud := cloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
+	}
+	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
+		[]params.AddCloudArgs{{
+			Name:  "dummy",
+			Cloud: common.CloudToParams(updatedCloud),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "UpdateCloud")
+	s.backend.CheckCall(c, 0, "UpdateCloud", updatedCloud)
+
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *cloudSuite) TestUpdateCloudNonAdminPerm(c *gc.C) {
+	s.setTestAPIForUser(c, names.NewUserTag("frank"))
+	updatedCloud := cloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
+	}
+	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
+		[]params.AddCloudArgs{{
+			Name:  "dummy",
+			Cloud: common.CloudToParams(updatedCloud),
+		}},
+	})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.backend.CheckNoCalls(c)
+
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *cloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
+	updatedCloud := cloud.Cloud{
+		Name:      "nope",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
+	}
+	s.backend.SetErrors(errors.NotFoundf("cloud %q", updatedCloud.Name))
+	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
+		[]params.AddCloudArgs{{
+			Name:  "nope",
+			Cloud: common.CloudToParams(updatedCloud),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.backend.CheckCallNames(c, "UpdateCloud")
+	s.backend.CheckCall(c, 0, "UpdateCloud", updatedCloud)
+
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("cloud %q not found", updatedCloud.Name))
 }
 
 func (s *cloudSuite) TestListCloudInfo(c *gc.C) {
@@ -1105,7 +1207,15 @@ func (st *mockBackend) RemoveCloudCredential(tag names.CloudCredentialTag) error
 
 func (st *mockBackend) AddCloud(cloud cloud.Cloud, user string) error {
 	st.MethodCall(st, "AddCloud", cloud, user)
-	return errors.NewNotImplemented(nil, "This mock is used for v1, so AddCloud")
+	return st.NextErr()
+}
+
+func (st *mockBackend) UpdateCloud(cloud cloud.Cloud) error {
+	st.MethodCall(st, "UpdateCloud", cloud)
+	if cloud.Name == st.cloud.Name {
+		return nil
+	}
+	return st.NextErr()
 }
 
 func (st *mockBackend) RemoveCloud(name string) error {

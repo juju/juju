@@ -29,6 +29,11 @@ type AddCloudArgs struct {
 	Name  string `json:"name"`
 }
 
+// UpdateCloudArgs holds a cloud to be updated with its name.
+type UpdateCloudArgs struct {
+	Clouds []AddCloudArgs `json:"clouds"`
+}
+
 // CloudResult contains a cloud definition or an error.
 type CloudResult struct {
 	Cloud *Cloud `json:"cloud,omitempty"`

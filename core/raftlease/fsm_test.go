@@ -237,6 +237,66 @@ func (s *fsmSuite) TestSetTimeExpiresLeases(c *gc.C) {
 	)
 }
 
+func (s *fsmSuite) TestSetTimeExpiryRemovingGroup(c *gc.C) {
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationSetTime,
+		OldTime:   zero,
+		NewTime:   offset(2 * time.Second),
+	}).Error(), jc.ErrorIsNil)
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationClaim,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "much-earlier",
+		Holder:    "you",
+		Duration:  time.Second,
+	}).Error(), jc.ErrorIsNil)
+
+	// Advance time by another 2 seconds, and two of the leases are
+	// autoexpired.
+	resp := s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationSetTime,
+		OldTime:   offset(2 * time.Second),
+		NewTime:   offset(4 * time.Second),
+	})
+	c.Assert(resp.Error(), jc.ErrorIsNil)
+	assertExpired(c, resp,
+		lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "much-earlier"},
+	)
+
+	// Using the same local time as global time to keep things clear.
+	c.Assert(s.fsm.Leases(timeDelegate(offset(4*time.Second))), gc.DeepEquals,
+		map[lease.Key]lease.Info{},
+	)
+
+	// There's no way to detect that the group has been removed since
+	// the snapshot doesn't include them. This is just to make sure
+	// that things work ok when the group is removed and re-added.
+
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationClaim,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "later",
+		Holder:    "you",
+		Duration:  time.Second,
+	}).Error(), jc.ErrorIsNil)
+
+	// Using the same local time as global time to keep things clear.
+	c.Assert(s.fsm.Leases(timeDelegate(offset(4*time.Second))), gc.DeepEquals,
+		map[lease.Key]lease.Info{
+			{"ns", "model", "later"}: {
+				Holder: "you",
+				Expiry: offset(5 * time.Second),
+			},
+		},
+	)
+}
+
 func (s *fsmSuite) TestPinUnpin(c *gc.C) {
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,

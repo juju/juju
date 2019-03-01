@@ -22,11 +22,11 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type updateCloudsSuite struct {
+type updatePublicCloudsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&updateCloudsSuite{})
+var _ = gc.Suite(&updatePublicCloudsSuite{})
 
 func encodeCloudYAML(c *gc.C, yaml string) string {
 	// TODO(wallyworld) - move test signing key elsewhere
@@ -47,7 +47,7 @@ func encodeCloudYAML(c *gc.C, yaml string) string {
 	return string(buf.Bytes())
 }
 
-func (s *updateCloudsSuite) setupTestServer(c *gc.C, serverContent string) *httptest.Server {
+func (s *updatePublicCloudsSuite) setupTestServer(c *gc.C, serverContent string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch serverContent {
 		case "404":
@@ -63,14 +63,14 @@ func (s *updateCloudsSuite) setupTestServer(c *gc.C, serverContent string) *http
 	}))
 }
 
-func (s *updateCloudsSuite) TestBadArgs(c *gc.C) {
-	updateCmd := cloud.NewUpdateCloudsCommandForTest("")
+func (s *updatePublicCloudsSuite) TestBadArgs(c *gc.C) {
+	updateCmd := cloud.NewUpdatePublicCloudsCommandForTest("")
 	_, err := cmdtesting.RunCommand(c, updateCmd, "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
-func (s *updateCloudsSuite) run(c *gc.C, url, errMsg string) string {
-	updateCmd := cloud.NewUpdateCloudsCommandForTest(url)
+func (s *updatePublicCloudsSuite) run(c *gc.C, url, errMsg string) string {
+	updateCmd := cloud.NewUpdatePublicCloudsCommandForTest(url)
 	out, err := cmdtesting.RunCommand(c, updateCmd)
 	if errMsg == "" {
 		c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +81,7 @@ func (s *updateCloudsSuite) run(c *gc.C, url, errMsg string) string {
 	return cmdtesting.Stderr(out)
 }
 
-func (s *updateCloudsSuite) Test404(c *gc.C) {
+func (s *updatePublicCloudsSuite) Test404(c *gc.C) {
 	ts := s.setupTestServer(c, "404")
 	defer ts.Close()
 
@@ -89,21 +89,21 @@ func (s *updateCloudsSuite) Test404(c *gc.C) {
 	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, "Fetching latest public cloud list...Public cloud list is unavailable right now.")
 }
 
-func (s *updateCloudsSuite) Test401(c *gc.C) {
+func (s *updatePublicCloudsSuite) Test401(c *gc.C) {
 	ts := s.setupTestServer(c, "401")
 	defer ts.Close()
 
 	s.run(c, ts.URL, "unauthorised access to URL .*")
 }
 
-func (s *updateCloudsSuite) TestUnsignedData(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestUnsignedData(c *gc.C) {
 	ts := s.setupTestServer(c, "unsigned")
 	defer ts.Close()
 
 	s.run(c, ts.URL, "error receiving updated cloud data: no PGP signature embedded in plain text data")
 }
 
-func (s *updateCloudsSuite) TestBadDataOnServer(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestBadDataOnServer(c *gc.C) {
 	ts := s.setupTestServer(c, "bad data")
 	defer ts.Close()
 
@@ -121,7 +121,7 @@ clouds:
         endpoint: http://region/1.0
 `[1:]
 
-func (s *updateCloudsSuite) TestNoNewData(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestNoNewData(c *gc.C) {
 	clouds, err := jujucloud.ParseCloudMetadata([]byte(sampleUpdateCloudData))
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujucloud.WritePublicCloudMetadata(clouds)
@@ -134,7 +134,7 @@ func (s *updateCloudsSuite) TestNoNewData(c *gc.C) {
 	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, "Fetching latest public cloud list...Your list of public clouds is up to date, see `juju clouds`.")
 }
 
-func (s *updateCloudsSuite) TestFirstRun(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestFirstRun(c *gc.C) {
 	// make sure there is nothing
 	err := jujucloud.WritePublicCloudMetadata(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -158,7 +158,7 @@ Updated your list of public clouds with 1 cloud added:
 `[1:])
 }
 
-func (s *updateCloudsSuite) TestNewData(c *gc.C) {
+func (s *updatePublicCloudsSuite) TestNewData(c *gc.C) {
 	clouds, err := jujucloud.ParseCloudMetadata([]byte(sampleUpdateCloudData))
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujucloud.WritePublicCloudMetadata(clouds)

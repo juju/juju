@@ -6,6 +6,7 @@ package storage_test
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -103,6 +104,45 @@ func (s *PoolCreateSuite) TestPoolCreateManyAttrs(c *gc.C) {
 	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, gc.Equals, "lollypop")
 	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "too", "another": "one"})
+}
+
+func (s *PoolCreateSuite) TestCAASPoolCreateDefaultProvider(c *gc.C) {
+	m := s.store.Models["testing"].Models["admin/controller"]
+	m.ModelType = model.CAAS
+	s.store.Models["testing"].Models["admin/controller"] = m
+	_, err := s.runPoolCreate(c, []string{"sunshine"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(len(s.mockAPI.Creates), gc.Equals, 1)
+	createdConfigs := s.mockAPI.Creates[0]
+	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
+	c.Assert(createdConfigs.Provider, gc.Equals, "kubernetes")
+	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{})
+}
+
+func (s *PoolCreateSuite) TestCAASPoolCreateDefaultProviderWithArgs(c *gc.C) {
+	m := s.store.Models["testing"].Models["admin/controller"]
+	m.ModelType = model.CAAS
+	s.store.Models["testing"].Models["admin/controller"] = m
+	_, err := s.runPoolCreate(c, []string{"sunshine", "something=too"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(len(s.mockAPI.Creates), gc.Equals, 1)
+	createdConfigs := s.mockAPI.Creates[0]
+	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
+	c.Assert(createdConfigs.Provider, gc.Equals, "kubernetes")
+	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "too"})
+}
+
+func (s *PoolCreateSuite) TestCAASPoolCreateNonDefaultProvider(c *gc.C) {
+	m := s.store.Models["testing"].Models["admin/controller"]
+	m.ModelType = model.CAAS
+	s.store.Models["testing"].Models["admin/controller"] = m
+	_, err := s.runPoolCreate(c, []string{"sunshine", "tmpfs", "something=too"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(len(s.mockAPI.Creates), gc.Equals, 1)
+	createdConfigs := s.mockAPI.Creates[0]
+	c.Assert(createdConfigs.Name, gc.Equals, "sunshine")
+	c.Assert(createdConfigs.Provider, gc.Equals, "tmpfs")
+	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "too"})
 }
 
 type mockCreateData struct {

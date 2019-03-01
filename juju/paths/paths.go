@@ -26,6 +26,7 @@ const (
 	jujuUpdateSeries
 	instanceCloudInitDir
 	cloudInitCfgDir
+	curtinInstallConfig
 )
 
 const (
@@ -51,6 +52,7 @@ var nixVals = map[osVarType]string{
 	uniterStateDir:       "/var/lib/juju/uniter/state",
 	instanceCloudInitDir: "/var/lib/cloud/instance",
 	cloudInitCfgDir:      "/etc/cloud/cloud.cfg.d",
+	curtinInstallConfig:  "/root/curtin-install-cfg.yaml",
 }
 
 var winVals = map[osVarType]string{
@@ -84,7 +86,7 @@ func osVal(ser string, valname osVarType) (string, error) {
 	}
 }
 
-// TempDir returns the path on disk to the corect tmp directory
+// TempDir returns the path on disk to the correct tmp directory
 // for the series. This value will be the same on virtually
 // all linux systems, but will differ on windows
 func TempDir(series string) (string, error) {
@@ -150,6 +152,12 @@ func JujuIntrospect(series string) (string, error) {
 // cloudinit directory for a particular series.
 func MachineCloudInitDir(series string) (string, error) {
 	return osVal(series, instanceCloudInitDir)
+}
+
+// CurtinInstallConfig returns the absolute path the configuration file
+// written by Curtin during machine provisioning.
+func CurtinInstallConfig(series string) (string, error) {
+	return osVal(series, curtinInstallConfig)
 }
 
 // CloudInitCfgDir returns the absolute path to the instance

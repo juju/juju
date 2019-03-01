@@ -653,23 +653,6 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.IsNil)
 }
 
-func (s *ApplicationSuite) TestDeployCAASModelWrongStorageType(c *gc.C) {
-	application.SetModelType(s.api, state.ModelTypeCAAS)
-	args := params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			ApplicationName: "foo",
-			CharmURL:        "local:foo-0",
-			NumUnits:        1,
-			Storage: map[string]storage.Constraints{
-				"database": {Pool: "db"},
-			},
-		}},
-	}
-	result, err := s.api.Deploy(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.ErrorMatches, `invalid storage provider type "rootfs" for "database"`)
-}
-
 func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	results, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",

@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/broker"
@@ -71,9 +72,8 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		c.Skip("Skipping kvm tests on windows")
 	}
 	s.kvmSuite.SetUpTest(c)
-	s.PatchValue(&broker.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
-		return nil, nil
-	})
+	broker.PatchNewMachineInitReader(s, newBlankMachineInitReader)
+
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -267,30 +267,7 @@ func (s *kvmBrokerSuite) TestStartInstanceWithCloudInitUserData(c *gc.C) {
 }
 
 func (s *kvmBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *gc.C) {
-	s.PatchValue(&broker.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
-		return map[string]interface{}{
-			"packages":   []interface{}{"python-novaclient"},
-			"fake-entry": []interface{}{"testing-garbage"},
-			"apt": map[interface{}]interface{}{
-				"primary": []interface{}{
-					map[interface{}]interface{}{
-						"arches": []interface{}{"default"},
-						"uri":    "http://archive.ubuntu.com/ubuntu",
-					},
-				},
-				"security": []interface{}{
-					map[interface{}]interface{}{
-						"arches": []interface{}{"default"},
-						"uri":    "http://archive.ubuntu.com/ubuntu",
-					},
-				},
-			},
-			"ca-certs": map[interface{}]interface{}{
-				"remove-defaults": true,
-				"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
-			},
-		}, nil
-	})
+	broker.PatchNewMachineInitReader(s, newFakeMachineInitReader)
 	s.api.fakeContainerConfig.ContainerInheritProperties = "ca-certs,apt-security"
 
 	broker, brokerErr := s.newKVMBrokerFakeManager(c)
@@ -321,4 +298,17 @@ func (s *kvmBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *gc.C
 			"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
 		},
 	}, c)
+}
+
+type blankMachineInitReader struct {
+	cloudconfig.InitReader
+}
+
+func (r *blankMachineInitReader) GetInitConfig() (map[string]interface{}, error) {
+	return nil, nil
+}
+
+var newBlankMachineInitReader = func(series string) (cloudconfig.InitReader, error) {
+	r, err := cloudconfig.NewMachineInitReader(series)
+	return &blankMachineInitReader{r}, err
 }

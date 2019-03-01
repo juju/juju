@@ -574,7 +574,7 @@ func (f *filesystem) pool() string {
 // storage pool will create a filesystem that is not inherently
 // bound to a machine, and therefore can be detached.
 func isDetachableFilesystemPool(sb *storageBackend, pool string) (bool, error) {
-	_, provider, err := poolStorageProvider(sb, pool)
+	_, provider, _, err := poolStorageProvider(sb, pool)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -982,7 +982,7 @@ func validateAddExistingFilesystem(
 			)
 		}
 	}
-	_, provider, err := poolStorageProvider(sb, info.Pool)
+	_, provider, _, err := poolStorageProvider(sb, info.Pool)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1068,7 +1068,7 @@ func (sb *storageBackend) addFilesystemOps(params FilesystemParams, hostId strin
 	var volumeId string
 	var volumeTag names.VolumeTag
 	var ops []txn.Op
-	_, provider, err := poolStorageProvider(sb, params.Pool)
+	_, provider, _, err := poolStorageProvider(sb, params.Pool)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}

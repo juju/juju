@@ -471,7 +471,7 @@ func (st *State) machineTemplateVolumeAttachmentParams(t MachineTemplate) ([]sto
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		providerType, _, err := poolStorageProvider(sb, volumeInfo.Pool)
+		providerType, _, _, err := poolStorageProvider(sb, volumeInfo.Pool)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

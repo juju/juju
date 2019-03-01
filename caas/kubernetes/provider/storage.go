@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 )
 
 const (
@@ -26,11 +27,34 @@ const (
 	// K8s storage pool attributes.
 	storageClass       = "storage-class"
 	storageProvisioner = "storage-provisioner"
+	storageMedium      = "storage-medium"
 	storageLabel       = "storage-label"
 
 	// K8s storage pool attribute default values.
 	defaultStorageClass = "juju-unit-storage"
 )
+
+//ValidateStorageProvider returns an error if the storage type and config is not valid
+// for a Kubernetes deployment.
+func ValidateStorageProvider(providerType storage.ProviderType, attributes map[string]interface{}) error {
+	switch providerType {
+	case K8s_ProviderType:
+	case provider.RootfsProviderType:
+	case provider.TmpfsProviderType:
+	default:
+		return errors.NotValidf("storage provider type %q", providerType)
+	}
+	if attributes == nil {
+		return nil
+	}
+	if mediumValue, ok := attributes[storageMedium]; ok {
+		medium := core.StorageMedium(fmt.Sprintf("%v", mediumValue))
+		if medium != core.StorageMediumMemory && medium != core.StorageMediumHugePages {
+			return errors.NotValidf("storage medium %q", mediumValue)
+		}
+	}
+	return nil
+}
 
 // StorageProviderTypes is defined on the storage.ProviderRegistry interface.
 func (k *kubernetesClient) StorageProviderTypes() ([]storage.ProviderType, error) {
