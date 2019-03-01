@@ -4,8 +4,10 @@
 package instancemutater
 
 import (
-	"github.com/juju/juju/state"
 	"gopkg.in/juju/charm.v6"
+
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/state"
 )
 
 type InstanceMutaterState interface {
@@ -22,6 +24,9 @@ type Model interface {
 
 type Machine interface {
 	CharmProfiles() ([]string, error)
+	InstanceId() (instance.Id, error)
+	SetCharmProfiles([]string) error
+	SetUpgradeCharmProfileComplete(unitName, msg string) error
 }
 
 type Unit interface {
