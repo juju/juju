@@ -18,6 +18,11 @@ var (
 	ShouldFinalizeCredential = shouldFinalizeCredential
 )
 
+type (
+	UpdateCloudCommand = updateCloudCommand
+	UpdateCloudAPI     = updateCloudAPI
+)
+
 func NewAddCloudCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
 	store jujuclient.ClientStore,
@@ -42,11 +47,23 @@ func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(stri
 	}
 }
 
-func NewUpdateCloudsCommandForTest(publicCloudURL string) *updateCloudsCommand {
-	return &updateCloudsCommand{
+func NewUpdatePublicCloudsCommandForTest(publicCloudURL string) *updatePublicCloudsCommand {
+	return &updatePublicCloudsCommand{
 		// TODO(wallyworld) - move testing key elsewhere
 		publicSigningKey: sstesting.SignedMetadataPublicKey,
 		publicCloudURL:   publicCloudURL,
+	}
+}
+
+func NewUpdateCloudCommandForTest(
+	cloudMetadataStore CloudMetadataStore,
+	store jujuclient.ClientStore,
+	cloudAPI func(string) (UpdateCloudAPI, error),
+) *updateCloudCommand {
+	return &updateCloudCommand{
+		cloudMetadataStore: cloudMetadataStore,
+		updateCloudAPIFunc: cloudAPI,
+		store:              store,
 	}
 }
 
