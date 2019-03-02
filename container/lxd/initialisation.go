@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/proxy"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/container"
 )
@@ -39,3 +40,7 @@ func ConfigureLXDProxies(proxies proxy.Settings) error {
 var lxdViaSnap = func() bool {
 	return false
 }
+
+// hostSeries is only created because export_test wants to be able to patch it.
+// Patching it has no effect on non-linux
+var hostSeries = series.HostSeries
