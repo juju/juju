@@ -602,6 +602,9 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	w, err := s.State.WatchOfferStatus(offer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	// Initial event.

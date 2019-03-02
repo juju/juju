@@ -127,7 +127,15 @@ func (s *StateSuite) hubWatcherIdleFunc(modelUUID string) {
 	if idleChan == nil {
 		return
 	}
-	idleChan <- modelUUID
+	// There is a very small race condition between when the
+	// idle channel is cleared and when the function exits.
+	// Under normal circumstances, there is a goroutine in a tight loop
+	// reading off the idle channel. If the channel isn't read
+	// within a short wait, we don't send the message.
+	select {
+	case idleChan <- modelUUID:
+	case <-time.After(testing.ShortWait):
+	}
 }
 
 // WaitForNextSync repeatedly advances the testing clock

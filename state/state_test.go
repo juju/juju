@@ -615,6 +615,8 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				m, err := st.AddMachine("trusty", state.JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m.Id(), gc.Equals, "0")
+				// Ensure that all the creation events have flowed through the system.
+				s.WaitForModelWatchersIdle(c, st.ModelUUID())
 				return m.Watch()
 			},
 			setUpState: func(st *state.State) bool {
@@ -2181,6 +2183,9 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	c.Assert(model2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	err = st2.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	// All except the removed model are reported in initial event.
 	w := s.State.WatchModels()

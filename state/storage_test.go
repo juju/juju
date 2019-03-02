@@ -1194,6 +1194,8 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, storage)
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchStorageAttachments(u.UnitTag())
 	defer testing.AssertStop(c, w)
@@ -1216,6 +1218,8 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 	// is necessary to prevent short-circuit removal of the attachment,
 	// so that we can observe the progression from Alive->Dying->Dead->removed.
 	s.provisionStorageVolume(c, u, storageTag)
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchStorageAttachment(storageTag, u.UnitTag())
 	defer testing.AssertStop(c, w)

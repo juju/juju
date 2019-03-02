@@ -912,6 +912,7 @@
     "shared/logger",
     "shared/osarch",
     "shared/simplestreams",
+    "shared/version",
   ]
   pruneopts = ""
   revision = "4c2bbb608e7a90a9f175a566b9e638069424f0f7"
@@ -1974,6 +1975,7 @@
     "github.com/lxc/lxd/shared/api",
     "github.com/lxc/lxd/shared/logger",
     "github.com/lxc/lxd/shared/osarch",
+    "github.com/lxc/lxd/shared/version",
     "github.com/mattn/go-isatty",
     "github.com/oracle/oci-go-sdk/common",
     "github.com/oracle/oci-go-sdk/core",

@@ -30,6 +30,8 @@ func (s *MeterStateSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.metricsManager, err = s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
+	// Before we get into the tests, ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func (s *MeterStateSuite) TestMeterStatus(c *gc.C) {
