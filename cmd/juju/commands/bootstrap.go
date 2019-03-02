@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path"
 	"sort"
 	"strings"
 
@@ -154,21 +155,23 @@ func newBootstrapCommand() cmd.Command {
 type bootstrapCommand struct {
 	modelcmd.ModelCommandBase
 
-	Constraints             constraints.Value
-	ConstraintsStr          string
-	BootstrapConstraints    constraints.Value
-	BootstrapConstraintsStr string
-	BootstrapSeries         string
-	BootstrapImage          string
-	BuildAgent              bool
-	MetadataSource          string
-	Placement               string
-	KeepBrokenEnvironment   bool
-	AutoUpgrade             bool
-	AgentVersionParam       string
-	AgentVersion            *version.Number
-	config                  common.ConfigFlag
-	modelDefaults           common.ConfigFlag
+	Constraints              constraints.Value
+	ConstraintsStr           string
+	BootstrapConstraints     constraints.Value
+	BootstrapConstraintsStr  string
+	BootstrapSeries          string
+	BootstrapImage           string
+	BuildAgent               bool
+	JujuDbSnapPath           string
+	JujuDbSnapAssertionsPath string
+	MetadataSource           string
+	Placement                string
+	KeepBrokenEnvironment    bool
+	AutoUpgrade              bool
+	AgentVersionParam        string
+	AgentVersion             *version.Number
+	config                   common.ConfigFlag
+	modelDefaults            common.ConfigFlag
 
 	showClouds          bool
 	showRegionsForCloud string
@@ -200,6 +203,10 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	}
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		f.StringVar(&c.JujuDbSnapPath, "db-snap", "", "Path to a locally built .snap to use as the internal juju-db service.")
+		f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local .assert file. Requires --juju-db-snap")
+	}
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")
@@ -217,6 +224,31 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
+	if c.JujuDbSnapPath != "" {
+		_, err := os.Stat(c.JujuDbSnapPath)
+		if err != nil {
+			return errors.Annotatef(err, "problem with --db-snap")
+		}
+	}
+
+	// fill in JujuDbSnapAssertionsPath from the same directory as JujuDbSnapPath
+	if c.JujuDbSnapAssertionsPath == "" && c.JujuDbSnapPath != "" {
+		assertionsPath := strings.Replace(c.JujuDbSnapPath, path.Ext(c.JujuDbSnapPath), ".assert", -1)
+		logger.Debugf("--db-snap-asserts unset, assuming %v", assertionsPath)
+		c.JujuDbSnapAssertionsPath = assertionsPath
+	}
+
+	if c.JujuDbSnapAssertionsPath != "" {
+		_, err := os.Stat(c.JujuDbSnapAssertionsPath)
+		if err != nil {
+			return errors.Annotatef(err, "problem with --db-snap-asserts")
+		}
+	}
+
+	if c.JujuDbSnapAssertionsPath != "" && c.JujuDbSnapPath == "" {
+		return errors.New("--db-snap-asserts requires --db-snap")
+	}
+
 	if c.showClouds && c.showRegionsForCloud != "" {
 		return errors.New("--clouds and --regions can't be used together")
 	}
@@ -515,6 +547,8 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		RegionInheritedConfig:     cloud.RegionConfig,
 		AdminSecret:               config.bootstrap.AdminSecret,
 		CAPrivateKey:              config.bootstrap.CAPrivateKey,
+		JujuDbSnapPath:            c.JujuDbSnapPath,
+		JujuDbSnapAssertionsPath:  c.JujuDbSnapAssertionsPath,
 		DialOpts: environs.BootstrapDialOpts{
 			Timeout:        config.bootstrap.BootstrapTimeout,
 			RetryDelay:     config.bootstrap.BootstrapRetryDelay,
