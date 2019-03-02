@@ -557,8 +557,8 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForAddresses(c *gc.C) {
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
 	ctx := cmdtesting.Context(c)
-	interrupted := make(chan os.Signal, 1)
-	interrupted <- os.Interrupt
+	interrupted := make(chan os.Signal)
+	close(interrupted)
 	_, err := common.WaitSSH(
 		ctx.Stderr, interrupted, ssh.DefaultClient, "/bin/true", neverAddresses{}, s.callCtx, testSSHTimeout,
 		common.DefaultHostSSHOptions,
@@ -634,7 +634,10 @@ func (i *interruptOnDial) Addresses(ctx context.ProviderCallContext) ([]network.
 	if !i.returned {
 		i.returned = true
 	} else {
-		i.interrupted <- os.Interrupt
+		if i.interrupted != nil {
+			close(i.interrupted)
+			i.interrupted = nil
+		}
 	}
 	return network.NewAddresses(i.name), nil
 }
@@ -643,7 +646,7 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	timeout := testSSHTimeout
 	timeout.Timeout = 1 * time.Minute
-	interrupted := make(chan os.Signal, 1)
+	interrupted := make(chan os.Signal)
 	_, err := common.WaitSSH(
 		ctx.Stderr, interrupted, ssh.DefaultClient, "", &interruptOnDial{name: "0.1.2.3", interrupted: interrupted}, s.callCtx, timeout,
 		common.DefaultHostSSHOptions,

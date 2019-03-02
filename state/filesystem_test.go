@@ -333,6 +333,8 @@ func (s *FilesystemIAASModelSuite) TestWatchFilesystemAttachment(c *gc.C) {
 
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
 	filesystemTag := filesystem.FilesystemTag()
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchFilesystemAttachment(machineTag, filesystemTag)
 	defer testing.AssertStop(c, w)
@@ -412,6 +414,8 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystems(c *gc.C) {
 		return u
 	}
 	u := addUnit()
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchModelFilesystems()
 	defer testing.AssertStop(c, w)
@@ -454,6 +458,8 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystemAttachments(c *gc.C) 
 		return u
 	}
 	u := addUnit()
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchModelFilesystemAttachments()
 	defer testing.AssertStop(c, w)
@@ -496,6 +502,8 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystems(c *gc.C) {
 		return u
 	}
 	u := addUnit()
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchMachineFilesystems(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
@@ -551,6 +559,8 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystemAttachments(c *gc.C
 		return u, m
 	}
 	_, m0 := addUnit(nil)
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchMachineFilesystemAttachments(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
@@ -600,6 +610,8 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 		return u
 	}
 	u := addUnit(app)
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchUnitFilesystems(app.ApplicationTag())
 	defer testing.AssertStop(c, w)
@@ -656,6 +668,8 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 		return u
 	}
 	addUnit(app)
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.storageBackend.WatchUnitFilesystemAttachments(app.ApplicationTag())
 	defer testing.AssertStop(c, w)

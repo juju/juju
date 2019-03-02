@@ -36,6 +36,7 @@ type Server struct {
 	clustered         bool
 	serverCertificate string
 	hostArch          string
+	serverVersion     string
 
 	networkAPISupport bool
 	clusterAPISupport bool
@@ -114,12 +115,17 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 		networkAPISupport: shared.StringInSlice("network", apiExt),
 		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
 		storageAPISupport: shared.StringInSlice("storage", apiExt),
+		serverVersion:     info.Environment.ServerVersion,
 	}, nil
 }
 
 // Name returns the name of this LXD server.
 func (s *Server) Name() string {
 	return s.name
+}
+
+func (s *Server) ServerVersion() string {
+	return s.serverVersion
 }
 
 // UpdateServerConfig updates the server configuration with the input values.

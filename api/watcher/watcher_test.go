@@ -362,6 +362,9 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
 	assertChange, stop := s.assertSetupRelationStatusWatch(c, rel)
 	defer stop()
 
@@ -386,6 +389,9 @@ func (s *watcherSuite) TestRelationStatusWatcherDeadRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	assertChange, stop := s.assertSetupRelationStatusWatch(c, rel)
 	defer stop()

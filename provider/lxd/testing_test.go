@@ -436,6 +436,7 @@ type StubClient struct {
 	Volumes            map[string][]api.StorageVolume
 	ServerCert         string
 	ServerHostArch     string
+	ServerVer          string
 }
 
 func (conn *StubClient) FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error) {
@@ -497,6 +498,11 @@ func (conn *StubClient) GetServer() (*api.Server, string, error) {
 			Certificate: "server-cert",
 		},
 	}, "etag", nil
+}
+
+func (conn *StubClient) ServerVersion() string {
+	conn.AddCall("ServerVersion")
+	return conn.ServerVer
 }
 
 func (conn *StubClient) GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error) {

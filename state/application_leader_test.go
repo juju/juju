@@ -25,6 +25,8 @@ var _ = gc.Suite(&ApplicationLeaderSuite{})
 func (s *ApplicationLeaderSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.application = s.Factory.MakeApplication(c, nil)
+	// Before we get into the tests, ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func (s *ApplicationLeaderSuite) TestReadEmpty(c *gc.C) {

@@ -55,6 +55,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.charm = s.AddTestingCharm(c, "mysql")
 	s.mysql = s.AddTestingApplication(c, "mysql", s.charm)
+	// Before we get into the tests, ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func (s *ApplicationSuite) assertNeedsCleanup(c *gc.C) {
