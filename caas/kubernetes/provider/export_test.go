@@ -78,6 +78,6 @@ func StorageParameters(cfg *storageConfig) map[string]string {
 	return cfg.parameters
 }
 
-func GetCloudProviderFromNodeMeta(node core.Node) string {
-	return getCloudProviderFromNodeMeta(node)
+func GetCloudProviderFromNodeMeta(node core.Node) (string, string) {
+	return getCloudRegionFromNodeMeta(node)
 }

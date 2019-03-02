@@ -9,6 +9,14 @@ import (
 	"github.com/juju/collections/set"
 )
 
+const (
+	// Microk8s is the nme use dfor microk8s clouds.
+	Microk8s = "microk8s"
+
+	// Microk8sRegion is the single microk8s cloud region.
+	Microk8sRegion = "localhost"
+)
+
 // PreferredStorage defines preferred storage
 // attributes on a given cluster.
 type PreferredStorage struct {
@@ -29,6 +37,7 @@ type StorageProvisioner struct {
 // ClusterMetadata defines metadata about a cluster.
 type ClusterMetadata struct {
 	NominatedStorageClass *StorageProvisioner
+	Cloud                 string
 	Regions               set.Strings
 }
 

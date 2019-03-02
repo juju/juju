@@ -347,12 +347,19 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.hostCloudRegion == "" && clusterMetadata.Regions != nil && clusterMetadata.Regions.Size() > 0 {
-		c.hostCloudRegion = clusterMetadata.Regions.SortedValues()[0]
+		c.hostCloudRegion = clusterMetadata.Cloud + "/" + clusterMetadata.Regions.SortedValues()[0]
 	}
 	if c.hostCloudRegion == "" {
 		return errors.New(clusterQueryErrMsg)
 	}
+	_, region, err := parseCloudRegion(c.hostCloudRegion)
+	if err != nil {
+		return errors.Annotatef(err, "validating cloud region %q", c.hostCloudRegion)
+	}
 	newCloud.HostCloudRegion = c.hostCloudRegion
+	newCloud.Regions = []jujucloud.Region{{
+		Name: region,
+	}}
 
 	// If the user has not specified storage, check that the cluster has Juju's opinionated defaults.
 	cloudType := strings.Split(c.hostCloudRegion, "/")[0]
@@ -468,14 +475,10 @@ func (c *AddCAASCommand) newK8sBrokerGetter() BrokerGetter {
 
 func parseCloudRegion(cloudRegion string) (string, string, error) {
 	fields := strings.SplitN(cloudRegion, "/", 2)
-	if len(fields) >= 2 && (fields[0] == "" || fields[1] == "") {
-		return "", "", errors.NotValidf("cloud region %s", cloudRegion)
+	if len(fields) != 2 || fields[0] == "" || fields[1] == "" {
+		return "", "", errors.NotValidf("cloud region %q", cloudRegion)
 	}
-	region := ""
-	if len(fields) > 1 {
-		region = fields[1]
-	}
-	return fields[0], region, nil
+	return fields[0], fields[1], nil
 }
 
 func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (_ string, err error) {
@@ -484,6 +487,10 @@ func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (_ string, err 
 	cloudNameOrType, region, err := parseCloudRegion(cloudRegion)
 	if err != nil {
 		return "", errors.Annotate(err, "parsing cloud region")
+	}
+	// microk8s is special.
+	if cloudNameOrType == caas.Microk8s && region == caas.Microk8sRegion {
+		return cloudRegion, nil
 	}
 
 	clouds, err := c.getAllCloudDetails()
