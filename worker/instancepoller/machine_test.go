@@ -178,7 +178,7 @@ func (s *machineSuite) TestShortPollBackoffLimit(c *gc.C) {
 	clock := newTestClock()
 	testRunMachine(c, nil, "i1234", "", status.Started, clock, func() {
 		for _, d := range pollDurations {
-			c.Assert(clock.WaitAdvance(time.Duration(d), coretesting.ShortWait, 1), jc.ErrorIsNil)
+			c.Assert(clock.WaitAdvance(d, coretesting.ShortWait, 1), jc.ErrorIsNil)
 		}
 	})
 	for i, d := range pollDurations {

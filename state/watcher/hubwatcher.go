@@ -442,7 +442,7 @@ func (w *HubWatcher) flush() bool {
 	// it was ever needed.
 	w.logger.Tracef("%p syncEvents after flush: len(%d), cap(%d) avg(%.1f)", w, len(w.syncEvents), cap(w.syncEvents), w.averageSyncLen)
 	if cap(w.syncEvents) > 100 && float64(cap(w.syncEvents)) > 10.0*w.averageSyncLen {
-		w.logger.Debugf("syncEvents buffer being reset from peak size", cap(w.syncEvents))
+		w.logger.Debugf("syncEvents buffer being reset from peak size %d", cap(w.syncEvents))
 		w.syncEvents = nil
 	}
 

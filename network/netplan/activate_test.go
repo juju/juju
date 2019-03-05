@@ -138,8 +138,8 @@ func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Assert(result, gc.NotNil)
-	c.Check(string(result.Stdout), gc.DeepEquals, "This is stdout")
-	c.Check(string(result.Stderr), gc.DeepEquals, "This is stderr")
+	c.Check(result.Stdout, gc.DeepEquals, "This is stdout")
+	c.Check(result.Stderr, gc.DeepEquals, "This is stderr")
 	c.Check(result.Code, gc.Equals, 1)
 	c.Check(err, gc.ErrorMatches, "bridge activation error code 1")
 

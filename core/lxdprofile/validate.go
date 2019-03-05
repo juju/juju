@@ -31,7 +31,7 @@ type LXDProfile interface {
 	// An empty profile will not return an error.
 	ValidateConfigDevices() error
 
-	// Empty returns true if there are no configrations or devices to be
+	// Empty returns true if there are no configurations or devices to be
 	// applied for the LXD profile.
 	// Having a description but having values in the configurations/devices
 	// will still return empty, as it's what should be applied.

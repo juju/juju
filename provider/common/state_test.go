@@ -97,7 +97,7 @@ func (suite *StateSuite) setUpSavedState(c *gc.C, dataDir string) common.Bootstr
 	}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(dataDir, common.StateFile), []byte(content), 0644)
+	err = ioutil.WriteFile(filepath.Join(dataDir, common.StateFile), content, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	return state
 }
@@ -133,7 +133,7 @@ func (suite *StateSuite) TestAddStateInstance(c *gc.C) {
 	storage := suite.newStorage(c)
 	for _, str := range []string{"a", "b", "c"} {
 		id := instance.Id(str)
-		err := common.AddStateInstance(storage, instance.Id(id))
+		err := common.AddStateInstance(storage, id)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

@@ -51,7 +51,7 @@ func (m *Model) AddUser(spec UserAccessSpec) (permission.UserAccess, error) {
 	return m.st.addUserAccess(spec, target)
 }
 
-// AddControllerUser adds a new user for the curent controller to the database.
+// AddControllerUser adds a new user for the current controller to the database.
 func (st *State) AddControllerUser(spec UserAccessSpec) (permission.UserAccess, error) {
 	if err := permission.ValidateControllerAccess(spec.Access); err != nil {
 		return permission.UserAccess{}, errors.Annotate(err, "adding controller user")

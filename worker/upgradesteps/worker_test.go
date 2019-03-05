@@ -72,8 +72,8 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion.Minor = 16
 
 	// Don't wait so long in tests.
-	s.PatchValue(&UpgradeStartTimeoutMaster, time.Duration(time.Millisecond*50))
-	s.PatchValue(&UpgradeStartTimeoutSecondary, time.Duration(time.Millisecond*60))
+	s.PatchValue(&UpgradeStartTimeoutMaster, time.Millisecond*50)
+	s.PatchValue(&UpgradeStartTimeoutSecondary, time.Millisecond*60)
 
 	// Allow tests to make the API connection appear to be dead.
 	s.connectionDead = false

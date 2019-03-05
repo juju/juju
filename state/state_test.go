@@ -1868,7 +1868,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithNoExplicitSupportedSeries
 func (s *StateSuite) TestAddApplicationOSIncompatibleWithSupportedSeries(c *gc.C) {
 	charm := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	// A charm with supported series can only be force-deployed to series
-	// of the same operating systems as the suppoted series.
+	// of the same operating systems as the supported series.
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
 		Series: "centos7",

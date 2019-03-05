@@ -13,7 +13,7 @@ import (
 	jujuarch "github.com/juju/utils/arch"
 	jujuos "github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
-	"github.com/lxc/lxd/client"
+	lxd "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 )
 

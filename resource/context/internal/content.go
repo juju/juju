@@ -19,7 +19,7 @@ import (
 // Content holds a reader for the content of a resource along
 // with details about that content.
 type Content struct {
-	// Data holds the resouce content, ready to be read (once).
+	// Data holds the resource content, ready to be read (once).
 	Data io.Reader
 
 	// Size is the byte count of the data.
