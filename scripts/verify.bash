@@ -63,12 +63,13 @@ UserNotFoundf
 # function in "name:N" format. This has changed in Go 1.7 and doesn't
 # actually seem to make a difference under 1.6 either don't bother.
 all_prints=`echo $logging_prints $error_prints | tr " " ,`
+DIRNAMES=$(dirname $FILES | sort -u | xargs -I % echo "github.com/juju/juju/%")
 
 go vet \
    -all \
    -composites=false \
    -printfuncs=$all_prints \
-    ./... || [ -n "$IGNORE_VET_WARNINGS" ]
+    $DIRNAMES || [ -n "$IGNORE_VET_WARNINGS" ]
 
 # Allow the ignoring of the golinters
 if [ -z "$IGNORE_GOLINTERS" ]; then
