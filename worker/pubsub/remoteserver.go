@@ -50,10 +50,11 @@ type remoteServer struct {
 	clock clock.Clock
 	mutex sync.Mutex
 
-	pending        *deque.Deque
-	data           chan struct{}
-	stopConnecting chan struct{}
-	sent           uint64
+	pending         *deque.Deque
+	data            chan struct{}
+	stopConnecting  chan struct{}
+	connectionReset chan struct{}
+	sent            uint64
 
 	unsubscribe func()
 }
@@ -188,7 +189,11 @@ func (r *remoteServer) Publish(message *params.PubSubMessage) {
 		}
 		r.mutex.Unlock()
 		if notifyData {
-			r.data <- struct{}{}
+			select {
+			case r.data <- struct{}{}:
+			case <-r.connectionReset:
+				// The connection was reset while we were queuing this message.
+			}
 		}
 	}
 }
@@ -241,6 +246,7 @@ func (r *remoteServer) connect() bool {
 
 	if connection != nil {
 		r.connection = connection
+		r.connectionReset = make(chan struct{})
 		r.logger.Infof("forwarding connected %s -> %s", r.origin, r.target)
 		_, err := r.hub.Publish(
 			forwarder.ConnectedTopic,
@@ -320,6 +326,7 @@ func (r *remoteServer) resetConnection() {
 	r.logger.Debugf("closing connection and clearing pending")
 	r.connection.Close()
 	r.connection = nil
+	close(r.connectionReset)
 	// Discard all pending messages.
 	r.pending = deque.New()
 	// Tell everyone what we have been disconnected.
