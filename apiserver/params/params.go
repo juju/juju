@@ -1150,18 +1150,19 @@ type GenerationResult struct {
 	Error *Error `json:"error,omitempty"`
 }
 
-// ProfilingInfoArg contains a machine Entity with a slice of unit names
+// CharmProfilingInfoArg contains a machine Entity with a slice of unit names
 // for which to gather info to apply lxd profiles for the machine based
 // on the unit.
-type ProfilingInfoArg struct {
+type CharmProfilingInfoArg struct {
 	Entity    Entity   `json:"entity"`
 	UnitNames []string `json:"unit-names"`
 }
 
-// ProfilingInfoResult contains the result based on ProfileInfoArg values
+// CharmProfilingInfoResult contains the result based on ProfileInfoArg values
 // to update profiles on a machine.
-type ProfilingInfoResult struct {
+type CharmProfilingInfoResult struct {
 	Changes         bool                  `json:"changes"`
 	ProfileChanges  []ProfileChangeResult `json:"profile-changes"`
 	CurrentProfiles []string              `json:"current-profiles"`
+	Error           *Error                `json:"error"`
 }
