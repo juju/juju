@@ -214,7 +214,7 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	}
 	s.cloudMetadataStore = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
 
-	defaultClusterMetadata := &jujucaas.ClusterMetadata{Regions: set.NewStrings("gce/us-east1")}
+	defaultClusterMetadata := &jujucaas.ClusterMetadata{Cloud: "gce", Regions: set.NewStrings("us-east1")}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{CallMocker: jujutesting.NewCallMocker(logger)}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(nil)
@@ -386,12 +386,12 @@ func (s *addCAASSuite) TestRegionFlag(c *gc.C) {
 		{
 			title:          "missing cloud",
 			regionStr:      "/region",
-			expectedErrStr: `validating cloud region "/region": parsing cloud region: cloud region /region not valid`,
+			expectedErrStr: `validating cloud region "/region": cloud region "/region" not valid`,
 		},
 		{
 			title:          "missing region",
 			regionStr:      "cloud/",
-			expectedErrStr: `validating cloud region "cloud/": parsing cloud region: cloud region cloud/ not valid`,
+			expectedErrStr: `validating cloud region "cloud/": cloud region "cloud/" not valid`,
 		},
 		{
 			title:          "not a known juju cloud",
@@ -461,7 +461,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				Endpoint:         "fakeendpoint2",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region(nil),
+				Regions:          []cloud.Region{{Name: "us-east1"}},
 				Config:           map[string]interface{}(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
@@ -485,7 +485,7 @@ func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion string, localOn
 				Endpoint:         "fakeendpoint2",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region(nil),
+				Regions:          []cloud.Region{{Name: "us-east1"}},
 				Config:           map[string]interface{}(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
@@ -527,7 +527,7 @@ func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion string, localOn
 				Endpoint:         "fakeendpoint2",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region(nil),
+				Regions:          []cloud.Region{{Name: "us-east1"}},
 				Config:           map[string]interface{}(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
@@ -581,7 +581,8 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *gc.C) {
 
 func (s *addCAASSuite) TestGatherClusterMetadataUnknownError(c *gc.C) {
 	result := &jujucaas.ClusterMetadata{
-		Regions: set.NewStrings("foo/region"),
+		Cloud:   "foo",
+		Regions: set.NewStrings("region"),
 	}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("foo"))
@@ -709,7 +710,7 @@ func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				HostCloudRegion:  hostCloud,
-				Regions:          []cloud.Region(nil),
+				Regions:          []cloud.Region{{Name: "us-east1"}},
 				Config:           map[string]interface{}(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"A"},
@@ -783,7 +784,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 				Endpoint:         "fakeendpoint1",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region(nil),
+				Regions:          []cloud.Region{{Name: "us-east1"}},
 				Config:           map[string]interface{}(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata1"},
@@ -833,7 +834,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 				Endpoint:         "fakeendpoint2",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region(nil),
+				Regions:          []cloud.Region{{Name: "us-east1"}},
 				Config:           map[string]interface{}(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
