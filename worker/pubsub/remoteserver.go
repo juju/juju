@@ -192,7 +192,7 @@ func (r *remoteServer) Publish(message *params.PubSubMessage) {
 			select {
 			case r.data <- struct{}{}:
 			case <-r.connectionReset:
-				// The connection was reset while we were queuing this message.
+				r.logger.Debugf("connection reset while notifying %q for %s", message.Topic, r.target)
 			}
 		}
 	}
