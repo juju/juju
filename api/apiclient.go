@@ -306,7 +306,9 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 	return t.fallback.RoundTrip(req)
 }
 
-// ConnectStream implements StreamConnector.ConnectStream.
+// ConnectStream implements StreamConnector.ConnectStream. The stream
+// returned will apply a 30-second write deadline, so WriteJSON should
+// only be called from one goroutine.
 func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
 	path, err := apiPath(st.modelTag, path)
 	if err != nil {
@@ -320,7 +322,10 @@ func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, erro
 }
 
 // ConnectControllerStream creates a stream connection to an API path
-// that isn't prefixed with /model/uuid.
+// that isn't prefixed with /model/uuid - the target model (if the
+// endpoint needs one) can be specified in the headers. The stream
+// returned will apply a 30-second write deadline, so WriteJSON should
+// only be called from one goroutine.
 func (st *state) ConnectControllerStream(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	if !strings.HasPrefix(path, "/") {
 		return nil, errors.Errorf("path %q is not absolute", path)
