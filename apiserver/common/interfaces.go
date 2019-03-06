@@ -4,8 +4,6 @@
 package common
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"gopkg.in/juju/names.v2"
@@ -114,7 +112,6 @@ func AuthFuncForMachineAgent(authorizer Authorizer) GetAuthFunc {
 			switch tag := tag.(type) {
 			case names.MachineTag:
 				parentId := state.ParentId(tag.Id())
-				fmt.Println(parentId)
 				if parentId == "" {
 					// All top-level machines are accessible by the controller.
 					return isModelManager

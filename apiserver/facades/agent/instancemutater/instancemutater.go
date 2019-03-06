@@ -12,11 +12,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/state"
 )
 
 //go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Context,Resources,Authorizer
-//go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState
+//go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Model,Machine,Unit,Application,Charm,LXDProfile
 //go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
 
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
@@ -49,35 +48,7 @@ func NewInstanceMutaterAPI(st InstanceMutaterState, resources facade.Resources, 
 		return nil, common.ErrPerm
 	}
 
-	getAuthFunc := func() (common.AuthFunc, error) {
-		isModelManager := authorizer.AuthController()
-		isMachineAgent := authorizer.AuthMachineAgent()
-		authEntityTag := authorizer.GetAuthTag()
-
-		return func(tag names.Tag) bool {
-			if isMachineAgent && tag == authEntityTag {
-				// A machine agent can always access its own machine.
-				return true
-			}
-			switch tag := tag.(type) {
-			case names.MachineTag:
-				parentId := state.ParentId(tag.Id())
-				if parentId == "" {
-					// All top-level machines are accessible by the controller.
-					return isModelManager
-				}
-				// All containers with the authenticated machine as a
-				// parent are accessible by it.
-				// TODO(dfc) sometimes authEntity tag is nil, which is fine because nil is
-				// only equal to nil, but it suggests someone is passing an authorizer
-				// with a nil tag.
-				return isMachineAgent && names.NewMachineTag(parentId) == authEntityTag
-			default:
-				return false
-			}
-		}, nil
-	}
-
+	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
 	return &InstanceMutaterAPI{
 		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
 		UnitsWatcher:         common.NewUnitsWatcher(st, resources, getAuthFunc),
@@ -85,19 +56,6 @@ func NewInstanceMutaterAPI(st InstanceMutaterState, resources facade.Resources, 
 		st:                   st,
 		getAuthFunc:          getAuthFunc,
 	}, nil
-}
-
-func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
-	if !canAccess(tag) {
-		return nil, common.ErrPerm
-	}
-	entity, err := api.st.FindEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	// The authorization function guarantees that the tag represents a
-	// machine.
-	return &machineShim{entity.(*state.Machine)}, nil
 }
 
 // CharmProfilingInfo returns info to update lxd profiles on the machine
@@ -126,6 +84,24 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.CharmProfilingInfoA
 	}
 
 	return result, nil
+}
+
+func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
+	if !canAccess(tag) {
+		return nil, common.ErrPerm
+	}
+	entity, err := api.st.FindEntity(tag)
+	if err != nil {
+		return nil, err
+	}
+	// The authorization function guarantees that the tag represents a
+	// machine.
+	var machine Machine
+	var ok bool
+	if machine, ok = entity.(Machine); !ok {
+		return nil, errors.NotValidf("machine entity")
+	}
+	return machine, nil
 }
 
 func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []string) ([]params.ProfileChangeResult, []string, bool, error) {
@@ -164,10 +140,9 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []stri
 			continue
 		}
 		profile := ch.LXDProfile()
-		var noProfile bool
-		if profile == nil || (profile != nil && profile.Empty()) {
-			noProfile = true
-		}
+		noProfile := !lxdprofile.NotEmpty(lxdCharmProfiler{
+			Charm: ch,
+		})
 		appName := app.Name()
 		currentProfile, err := lxdprofile.MatchProfileNameByAppName(machineProfiles, appName)
 		if err != nil {
@@ -188,9 +163,9 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []stri
 		changeResults[i].OldProfileName = currentProfile
 		changeResults[i].NewProfileName = newProfile
 		changeResults[i].Profile = &params.CharmLXDProfile{
-			Config:      profile.Config,
-			Description: profile.Description,
-			Devices:     profile.Devices,
+			Config:      profile.Config(),
+			Description: profile.Description(),
+			Devices:     profile.Devices(),
 		}
 	}
 	return changeResults, machineProfiles, true, nil

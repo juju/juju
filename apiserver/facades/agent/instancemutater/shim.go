@@ -3,7 +3,11 @@
 
 package instancemutater
 
-import "github.com/juju/juju/state"
+import (
+	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/state"
+	"gopkg.in/juju/charm.v6"
+)
 
 type instanceMutaterStateShim struct {
 	*state.State
@@ -54,9 +58,53 @@ func (a *applicationShim) Charm() (Charm, error) {
 }
 
 type charmShim struct {
-	*state.Charm
+	Charm *state.Charm
 }
 
-type machineShim struct {
-	*state.Machine
+func (c *charmShim) LXDProfile() LXDProfile {
+	return lxdProfileShim{
+		LXDProfile: c.Charm.LXDProfile(),
+	}
+}
+
+func (c *charmShim) Revision() int {
+	return c.Charm.Revision()
+}
+
+type lxdProfileShim struct {
+	LXDProfile *charm.LXDProfile
+}
+
+func (l lxdProfileShim) Config() map[string]string {
+	return l.LXDProfile.Config
+}
+
+func (l lxdProfileShim) Description() string {
+	return l.LXDProfile.Description
+}
+
+func (l lxdProfileShim) Devices() map[string]map[string]string {
+	return l.LXDProfile.Devices
+}
+
+func (l lxdProfileShim) Empty() bool {
+	return l.LXDProfile.Empty()
+}
+
+func (l lxdProfileShim) ValidateConfigDevices() error {
+	return l.LXDProfile.ValidateConfigDevices()
+}
+
+// lxdCharmProfiler massages a *state.Charm into a LXDProfiler
+// inside of the core package.
+type lxdCharmProfiler struct {
+	Charm Charm
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.Charm == nil {
+		return nil
+	}
+	return p.Charm.LXDProfile()
 }
