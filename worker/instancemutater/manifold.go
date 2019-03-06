@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/environs"
 )
 
@@ -18,6 +17,7 @@ import (
 //go:generate mockgen -package mocks -destination mocks/dependency_mock.go gopkg.in/juju/worker.v1/dependency Context
 //go:generate mockgen -package mocks -destination mocks/environs_mock.go github.com/juju/juju/environs Environ
 //go:generate mockgen -package mocks -destination mocks/base_mock.go github.com/juju/juju/api/base APICaller
+//go:generate mockgen -package mocks -destination mocks/agent_mock.go github.com/juju/juju/agent Agent,Config
 
 // ManifoldConfig describes the resources used by the instancemuter worker.
 type ManifoldConfig struct {
@@ -27,6 +27,7 @@ type ManifoldConfig struct {
 
 	Logger    Logger
 	NewWorker func(Config) (worker.Worker, error)
+	NewClient func(base.APICaller) InstanceMutaterAPI
 }
 
 // Validate validates the manifold configuration.
@@ -36,6 +37,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.NewClient == nil {
+		return errors.NotValidf("nil NewClient")
 	}
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
@@ -50,13 +54,11 @@ func (config ManifoldConfig) Validate() error {
 }
 
 func (config ManifoldConfig) newWorker(environ environs.Environ, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
-	config.Logger.Errorf("heather: newWorker()")
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	facade := instancemutater.NewClient(apiCaller)
-
+	facade := config.NewClient(apiCaller)
 	cfg := Config{
 		Logger:      config.Logger,
 		Facade:      facade,

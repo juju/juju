@@ -43,28 +43,28 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			err:         "nil Logger not valid",
 		},
 		{
-			description: "Test no broker",
+			description: "Test no api",
 			config: instancemutater.Config{
 				Logger: mocks.NewMockLogger(ctrl),
 			},
-			err: "nil InstanceBroker not valid",
+			err: "nil Facade not valid",
 		},
 		{
-			description: "Test no tag",
+			description: "Test no environ",
 			config: instancemutater.Config{
 				Logger: mocks.NewMockLogger(ctrl),
-				Broker: mocks.NewMockInstanceBroker(ctrl),
+				Facade: mocks.NewMockInstanceMutaterAPI(ctrl),
 			},
-			err: "nil tag not valid",
+			err: "nil Environ not valid",
 		},
 		{
-			description: "Test invalid machine tag",
+			description: "Test no agent",
 			config: instancemutater.Config{
-				Logger: mocks.NewMockLogger(ctrl),
-				Broker: mocks.NewMockInstanceBroker(ctrl),
-				Tag:    names.ApplicationTag{},
+				Logger:  mocks.NewMockLogger(ctrl),
+				Facade:  mocks.NewMockInstanceMutaterAPI(ctrl),
+				Environ: mocks.NewMockEnviron(ctrl),
 			},
-			err: "tag not valid",
+			err: "nil AgentConfig not valid",
 		},
 	}
 	for i, test := range testcases {
@@ -79,9 +79,11 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 	defer ctrl.Finish()
 
 	config := instancemutater.Config{
-		Logger: mocks.NewMockLogger(ctrl),
-		Broker: mocks.NewMockInstanceBroker(ctrl),
-		Tag:    names.MachineTag{},
+		Facade:      mocks.NewMockInstanceMutaterAPI(ctrl),
+		Logger:      mocks.NewMockLogger(ctrl),
+		Environ:     mocks.NewMockEnviron(ctrl),
+		AgentConfig: mocks.NewMockConfig(ctrl),
+		Tag:         names.MachineTag{},
 	}
 	err := config.Validate()
 	c.Assert(err, gc.IsNil)

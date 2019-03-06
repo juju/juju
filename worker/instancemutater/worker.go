@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-//go:generate mockgen -package mocks -destination mocks/instancebroker_mock.go github.com/juju/juju/worker/instancemutater InstanceBroker
+//go:generate mockgen -package mocks -destination mocks/instancebroker_mock.go github.com/juju/juju/worker/instancemutater InstanceMutaterAPI
 //go:generate mockgen -package mocks -destination mocks/logger_mock.go github.com/juju/juju/worker/instancemutater Logger
 //go:generate mockgen -package mocks -destination mocks/namestag_mock.go gopkg.in/juju/names.v2 Tag
 
