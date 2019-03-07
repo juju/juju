@@ -21,7 +21,7 @@ type facadeVersionSuite struct {
 var _ = gc.Suite(&facadeVersionSuite{})
 
 func (s *facadeVersionSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.ImageMetadata)
+	s.SetInitialFeatureFlags(feature.ImageMetadata, feature.InstanceMutater)
 	s.BaseSuite.SetUpTest(c)
 }
 
