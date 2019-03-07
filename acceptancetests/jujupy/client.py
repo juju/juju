@@ -50,6 +50,7 @@ from jujupy.exceptions import (
     AgentsNotStarted,
     ApplicationsNotStarted,
     AuthNotAccepted,
+    ControllersTimeout,
     InvalidEndpoint,
     NameNotAccepted,
     NoProvider,
@@ -63,6 +64,9 @@ from jujupy.status import (
     AGENTS_READY,
     coalesce_agent_status,
     Status,
+)
+from jujupy.controller import (
+    Controllers,
 )
 from jujupy.utility import (
     _dns_name_for_machine,
@@ -163,10 +167,12 @@ class JujuData:
             self.kvm = (bool(self._config.get('container') == 'kvm'))
             self.maas = bool(provider == 'maas')
             self.joyent = bool(provider == 'joyent')
+            self.logging_config = self._config.get('logging-config')
         else:
             self.kvm = False
             self.maas = False
             self.joyent = False
+            self.logging_config = None
         self.credentials = {}
         self.clouds = {}
         self._cloud_name = cloud_name
@@ -199,6 +205,7 @@ class JujuData:
         result.credentials = deepcopy(self.credentials)
         result.clouds = deepcopy(self.clouds)
         result._cloud_name = self._cloud_name
+        result.logging_config = self.logging_config
         return result
 
     @classmethod
@@ -568,6 +575,8 @@ class ModelClient:
 
     status_class = Status
 
+    controllers_class = Controllers
+
     agent_metadata_url = 'agent-metadata-url'
 
     model_permissions = frozenset(['read', 'write', 'admin'])
@@ -598,6 +607,7 @@ class ModelClient:
                 return container_type
 
     _show_status = 'show-status'
+    _show_controller = 'show-controller'
 
     @classmethod
     def get_version(cls, juju_path=None):
@@ -804,7 +814,8 @@ class ModelClient:
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
             credential=None, auto_upgrade=False, metadata_source=None,
-            no_gui=False, agent_version=None):
+            no_gui=False, agent_version=None, db_snap_path=None,
+            db_snap_asserts_path=None):
         """Return the bootstrap arguments for the substrate."""
         constraints = self._get_substrate_constraints()
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
@@ -836,6 +847,9 @@ class ModelClient:
             args.extend(['--to', self.env.bootstrap_to])
         if no_gui:
             args.append('--no-gui')
+        if db_snap_path and db_snap_asserts_path:
+            args.extend(['--db-snap', db_snap_path,
+                         '--db-snap-asserts', db_snap_asserts_path])
         return tuple(args)
 
     def add_model(self, env, cloud_region=None):
@@ -920,13 +934,15 @@ class ModelClient:
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
-                  no_gui=False, agent_version=None):
+                  no_gui=False, agent_version=None, db_snap_path=None,
+                  db_snap_asserts_path=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series, credential,
-                auto_upgrade, metadata_source, no_gui, agent_version)
+                auto_upgrade, metadata_source, no_gui, agent_version,
+                db_snap_path, db_snap_asserts_path)
             self.update_user_name()
             retvar, ct = self.juju('bootstrap', args, include_e=False)
             ct.actual_completion()
@@ -981,7 +997,7 @@ class ModelClient:
         ct.actual_completion()
         return retvar
 
-    def destroy_controller(self, all_models=False):
+    def destroy_controller(self, all_models=False, destroy_storage=False, release_storage=False):
         """Destroy a controller and its models. Soft kill option.
 
         :param all_models: If true will attempt to destroy all the
@@ -992,6 +1008,10 @@ class ModelClient:
         args = (self.env.controller.name, '-y')
         if all_models:
             args += ('--destroy-all-models',)
+        if destroy_storage:
+            args += ('--destroy-storage',)
+        if release_storage:
+            args += ('--release-storage',)
         retvar, ct = self.juju(
             'destroy-controller', args, include_e=False,
             timeout=get_teardown_timeout(self))
@@ -1005,7 +1025,7 @@ class ModelClient:
         Attempts to use the soft method destroy_controller, if that fails
         it will use the hard kill_controller and raise an error."""
         try:
-            self.destroy_controller(all_models=True)
+            self.destroy_controller(all_models=True, destroy_storage=True)
         except subprocess.CalledProcessError:
             logging.warning('tear_down destroy-controller failed')
             retval = self.kill_controller()
@@ -1036,7 +1056,7 @@ class ModelClient:
         self.juju(self._show_status, ('--format', 'yaml'))
 
     def get_status(self, timeout=60, raw=False, controller=False, *args):
-        """Get the current status as a dict."""
+        """Get the current status as a jujupy.status.Status object."""
         # GZ 2015-12-16: Pass remaining timeout into get_juju_output call.
         for ignored in until_timeout(timeout):
             try:
@@ -1050,6 +1070,21 @@ class ModelClient:
                 pass
         raise StatusTimeout(
             'Timed out waiting for juju status to succeed')
+
+    def get_controllers(self, timeout=60):
+        """Get the current controller information as a dict."""
+        for ignored in until_timeout(timeout):
+            try:
+                return self.controllers_class.from_text(
+                    self.get_juju_output(
+                        self._show_controller, '--format', 'yaml',
+                        include_e=False,
+                    ).decode('utf-8'),
+                )
+            except subprocess.CalledProcessError:
+                pass
+        raise ControllersTimeout(
+            'Timed out waiting for juju show-controllers to succeed')
 
     def show_model(self, model_name=None):
         model_details = self.get_juju_output(
@@ -1270,12 +1305,12 @@ class ModelClient:
                     'ResourceId: {} Service or Unit: {} Timeout: {}'.format(
                         resource_id, service_or_unit, timeout))
 
-    def upgrade_charm(self, service, charm_path=None, revision=None):
+    def upgrade_charm(self, service, charm_path=None, resvision=None):
         args = (service,)
         if charm_path is not None:
             args = args + ('--path', charm_path)
-        if revision is not None:
-            args = args + ('--revision', revision)
+        if resvision is not None:
+            args = args + ('--revision', resvision)
         self.juju('upgrade-charm', args)
 
     def remove_service(self, service):
@@ -1668,7 +1703,8 @@ class ModelClient:
 
     def backup(self):
         try:
-            output = self.get_juju_output('create-backup')
+            # merge_stderr is required for creating a backup
+            output = self.get_juju_output('create-backup', merge_stderr=True)
         except subprocess.CalledProcessError as e:
             log.info(e.output)
             raise
@@ -1687,11 +1723,10 @@ class ModelClient:
     def restore_backup(self, backup_file):
         self.juju(
             'restore-backup',
-            ('-b', '--constraints', 'mem=2G', '--file', backup_file))
+            ('--file', backup_file))
 
     def restore_backup_async(self, backup_file):
-        return self.juju_async('restore-backup', ('-b', '--constraints',
-                                                  'mem=2G', '--file', backup_file))
+        return self.juju_async('restore-backup', ('--file', backup_file))
 
     def enable_ha(self):
         self.juju(
@@ -2130,6 +2165,10 @@ KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
 
 
 class CaasClient:
+    """CaasClient defines a client that can interact with CAAS setup directly.
+       Methods and properties that solely interact with a kubernetes
+       infrastructure can then be added to the following class.
+    """
 
     cloud_name = 'k8cloud'
 
@@ -2193,6 +2232,21 @@ class CaasClient:
         return status.get_machine_dns_name(unit['machine'])
 
 
+class IaasClient:
+    """IaasClient defines a client that can interact with IAAS setup directly.
+    """
+
+    def __init__(self, client):
+        self.client = client
+        self.juju_home = self.client.env.juju_home
+
+    def add_model(self, model_name):
+        return self.client.add_model(env=self.client.env.clone(model_name))
+
+    @property
+    def is_cluster_healthy(self):
+        return True
+
 def register_user_interactively(client, token, controller_name):
     """Register a user with the supplied token and controller name.
 
@@ -2241,6 +2295,9 @@ def make_safe_config(client):
     # Explicitly set 'name', which Juju implicitly sets to env.environment to
     # ensure MAASAccount knows what the name will be.
     config['name'] = unqualified_model_name(client.env.environment)
+    # Pass the logging config into the yaml file
+    if client.env.logging_config is not None:
+        config['logging-config'] = client.env.logging_config
 
     return config
 
