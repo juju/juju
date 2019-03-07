@@ -20,7 +20,8 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
 
-type InstanceMutaterAPIV1 interface {
+// InstanceMutaterV1 defines the methods on the instance mutater API facade, version 1.
+type InstanceMutaterV1 interface {
 	CharmProfilingInfo(params.CharmProfilingInfoArg) (params.CharmProfilingInfoResult, error)
 	Life(args params.Entities) (params.LifeResults, error)
 	SetCharmProfiles(params.SetProfileArgs) (params.ErrorResults, error)
@@ -38,11 +39,19 @@ type InstanceMutaterAPI struct {
 	getAuthFunc common.GetAuthFunc
 }
 
-func NewInstanceMutaterFacade(ctx facade.Context) (*InstanceMutaterAPI, error) {
+// using apiserver/facades/client/cloud as an example.
+var (
+	_ InstanceMutaterV1 = (*InstanceMutaterAPI)(nil)
+)
+
+// NewFacadeV1 is used for API registration.
+func NewFacadeV1(ctx facade.Context) (*InstanceMutaterAPI, error) {
 	st := &instanceMutaterStateShim{State: ctx.State()}
 	return NewInstanceMutaterAPI(st, ctx.Resources(), ctx.Auth())
 }
 
+// NewInstanceMutaterAPI creates a new API server endpoint for managing
+// charm profiles on juju lxd machines and containers.
 func NewInstanceMutaterAPI(st InstanceMutaterState, resources facade.Resources, authorizer facade.Authorizer) (*InstanceMutaterAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, common.ErrPerm
