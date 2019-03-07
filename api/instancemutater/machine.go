@@ -19,7 +19,7 @@ import (
 type MutaterMachine interface {
 	// CharmProfilingInfo returns info to update lxd profiles on the machine
 	// based on the given unit names.
-	CharmProfilingInfo([]string) (ProfileInfo, error)
+	CharmProfilingInfo([]string) (*ProfileInfo, error)
 
 	// SetCharmProfiles records the given slice of charm profile names.
 	SetCharmProfiles([]string) error
@@ -162,4 +162,9 @@ func (m *Machine) CharmProfilingInfo(unitNames []string) (*ProfileInfo, error) {
 	}
 	returnResult.ProfileChanges = profileChanges
 	return returnResult, nil
+}
+
+// RemoveUpgradeCharmProfileData implements MutaterMachine.RemoveUpgradeCharmProfileData.
+func (m *Machine) RemoveUpgradeCharmProfileData(string) error {
+	return nil
 }

@@ -49,7 +49,7 @@ func (c *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
 
 // Machine provides access to methods of a state.Machine through the
 // facade.
-func (c *Client) Machine(tag names.MachineTag) (*Machine, error) {
+func (c *Client) Machine(tag names.MachineTag) (MutaterMachine, error) {
 	life, err := common.OneLife(c.facade, tag)
 	if err != nil {
 		return nil, errors.Trace(err)

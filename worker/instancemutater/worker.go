@@ -22,7 +22,7 @@ import (
 
 type InstanceMutaterAPI interface {
 	WatchModelMachines() (watcher.StringsWatcher, error)
-	Machine(tag names.MachineTag) (*instancemutater.MutaterMachine, error)
+	Machine(tag names.MachineTag) (instancemutater.MutaterMachine, error)
 }
 
 // Logger represents the logging methods called.
@@ -148,7 +148,7 @@ func (w *mutaterWorker) newMachineContext() machineContext {
 // getMachine is part of the machineContext interface.
 func (w *mutaterWorker) getMachine(tag names.MachineTag) (instancemutater.MutaterMachine, error) {
 	m, err := w.facade.Machine(tag)
-	return *m, err
+	return m, err
 }
 
 func (w *mutaterWorker) getBroker() environs.LXDProfiler {
