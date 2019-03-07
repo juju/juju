@@ -208,6 +208,22 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:9ab1b1c637d7c8f49e39d8538a650d7eb2137b076790cff69d160823b505964c"
+  name = "github.com/gobwas/glob"
+  packages = [
+    "compiler",
+    "match",
+    "syntax",
+    "syntax/ast",
+    "syntax/lexer",
+    "util/runes",
+    "util/strings",
+  ]
+  pruneopts = ""
+  revision = "5ccd90ef52e1e632236f7326478d4faa74f99438"
+  version = "v0.2.3"
+
+[[projects]]
   digest = "1:54a4707220eda534720dd6fffa7170a8102fb43068cb4a33abede14da10d27dd"
   name = "github.com/godbus/dbus"
   packages = ["."]
@@ -1371,6 +1387,14 @@
   revision = "442357a80af5c6bf9b6d51ae791a39c3421004f3"
 
 [[projects]]
+  digest = "1:9ab1b1c637d7c8f49e39d8538a650d7eb2137b076790cff69d160823b505964c"
+  name = "gopkg.in/gobwas/glob.v0"
+  packages = ["."]
+  pruneopts = ""
+  revision = "5ccd90ef52e1e632236f7326478d4faa74f99438"
+  version = "v0.2.3"
+
+[[projects]]
   digest = "1:9a9b8033b631d8cf0d16e71fd815a6e90a8133efc81543784127a1e8d8b4687e"
   name = "gopkg.in/goose.v2"
   packages = [
@@ -1429,7 +1453,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "1:718d4426f5c825bb9d321473e3f547643ed33031b03e2d03acb2f571e0a72be4"
+  digest = "1:96b43bfe348be6362e66b0c98dc2fe590d822633da7df13fba644f44e710a57e"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1437,7 +1461,7 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "dd3e82d4f34c956e7c3b20a82e96dc533cc96fb7"
+  revision = "ba56c9482e6c71e9ed79b1551754831bf9af8854"
 
 [[projects]]
   digest = "1:86df7d2874a5250cf64324e2ce4e88fea552aa1f5c1a3f065599bd1f381ce939"

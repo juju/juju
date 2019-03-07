@@ -6,6 +6,10 @@
 package testcharms
 
 import (
+	"archive/zip"
+	"bytes"
+	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -204,4 +208,54 @@ func CheckCharmReady(c *gc.C, charmArchive *charm.CharmArchive) {
 			c.Fatalf("timed out waiting for charm @%v to be ready", charmArchive.Path)
 		}
 	}
+}
+
+// InjectFilesToCharmArchive overwrites the contents of pathToArchive with a
+// new archive containing the original files plus the ones provided in the
+// fileContents map (key: file name, value: file contents).
+func InjectFilesToCharmArchive(pathToArchive string, fileContents map[string]string) error {
+	zr, err := zip.OpenReader(pathToArchive)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = zr.Close() }()
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	defer func() { _ = zw.Close() }()
+
+	// Copy existing files
+	for _, f := range zr.File {
+		w, err := zw.CreateHeader(&f.FileHeader)
+		if err != nil {
+			return err
+		}
+
+		r, err := f.Open()
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(w, r)
+		_ = r.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	// Add new files
+	for name, contents := range fileContents {
+		w, err := zw.Create(name)
+		if err != nil {
+			return err
+		}
+
+		if _, err = w.Write([]byte(contents)); err != nil {
+			return err
+		}
+	}
+
+	// Overwrite original archive with the patched version
+	_, _ = zr.Close(), zw.Close()
+	return ioutil.WriteFile(pathToArchive, buf.Bytes(), 0644)
 }
