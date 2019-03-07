@@ -203,7 +203,7 @@ func AllFacades() *facade.Registry {
 	}
 
 	if featureflag.Enabled(feature.InstanceMutater) {
-		reg("InstanceMutater", 1, instancemutater.NewInstanceMutaterFacade)
+		reg("InstanceMutater", 1, instancemutater.NewFacadeV1)
 	}
 
 	reg("InstancePoller", 3, instancepoller.NewFacade)
