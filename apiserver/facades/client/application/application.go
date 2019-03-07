@@ -1520,7 +1520,7 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 			}
 			info.Scale = newScale
 		} else {
-			if err := app.Scale(arg.Scale); err != nil {
+			if err := app.SetScale(arg.Scale); err != nil {
 				return nil, errors.Trace(err)
 			}
 			info.Scale = arg.Scale

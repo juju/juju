@@ -826,14 +826,16 @@ func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
 
 	deployments := k.AppsV1().Deployments(k.namespace)
 	deployment, err := deployments.Get(deploymentName, v1.GetOptions{})
-	if err != nil {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	scale := 0
-	if deployment.Spec.Replicas != nil {
-		scale = int(*deployment.Spec.Replicas)
+	if err == nil {
+		scale := 0
+		if deployment.Spec.Replicas != nil {
+			scale = int(*deployment.Spec.Replicas)
+		}
+		result.Scale = scale
 	}
-	result.Scale = scale
 	return &result, nil
 }
 

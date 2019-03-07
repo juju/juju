@@ -392,8 +392,8 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 			{nil},
 		},
 	})
-	s.st.application.CheckCallNames(c, "Life", "Name", "GetScale", "Scale")
-	s.st.application.CheckCall(c, 3, "Scale", 2)
+	s.st.application.CheckCallNames(c, "Life", "Name", "GetScale", "SetScale")
+	s.st.application.CheckCall(c, 3, "SetScale", 2)
 
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	// CloudContainer message is not overwritten based on agent status
