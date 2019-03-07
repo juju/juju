@@ -24,4 +24,5 @@ type ServiceBroker interface {
 	Service(appName string) (*caas.Service, error)
 	DeleteService(appName string) error
 	UnexposeService(appName string) error
+	WatchService(appName string) (watcher.NotifyWatcher, error)
 }

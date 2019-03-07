@@ -39,9 +39,10 @@ type fakeClient struct {
 type mockServiceBroker struct {
 	testing.Stub
 	caas.ContainerEnvironProvider
-	ensured chan<- struct{}
-	deleted chan<- struct{}
-	podSpec *caas.PodSpec
+	ensured        chan<- struct{}
+	deleted        chan<- struct{}
+	podSpec        *caas.PodSpec
+	serviceWatcher *watchertest.MockNotifyWatcher
 }
 
 func (m *mockServiceBroker) Provider() caas.ContainerEnvironProvider {
@@ -66,7 +67,12 @@ func (m *mockServiceBroker) EnsureCustomResourceDefinition(appName string, podSp
 
 func (m *mockServiceBroker) Service(appName string) (*caas.Service, error) {
 	m.MethodCall(m, "Service", appName)
-	return &caas.Service{Id: "id", Addresses: []network.Address{{Value: "10.0.0.1"}}}, m.NextErr()
+	return &caas.Service{Id: "id", Scale: 4, Addresses: []network.Address{{Value: "10.0.0.1"}}}, m.NextErr()
+}
+
+func (m *mockServiceBroker) WatchService(appName string) (watcher.NotifyWatcher, error) {
+	m.MethodCall(m, "WatchService", appName)
+	return m.serviceWatcher, m.NextErr()
 }
 
 func (m *mockServiceBroker) DeleteService(appName string) error {

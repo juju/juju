@@ -50,9 +50,10 @@ func (w *kubernetesWatcher) loop() error {
 	defer close(w.out)
 	defer w.k8watcher.Stop()
 
-	var out chan struct{}
-	// Set delayCh now so that initial event is sent.
-	delayCh := w.clock.After(sendDelay)
+	// Set out now so that initial event is sent.
+	out := w.out
+	var delayCh <-chan time.Time
+
 	for {
 		select {
 		case <-w.catacomb.Dying():

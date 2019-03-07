@@ -588,6 +588,7 @@ type UpdateApplicationUnitArgs struct {
 // UpdateApplicationUnits holds unit parameters for a specified application.
 type UpdateApplicationUnits struct {
 	ApplicationTag string                  `json:"application-tag"`
+	Scale          int                     `json:"scale"`
 	Units          []ApplicationUnitParams `json:"units"`
 }
 

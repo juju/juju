@@ -489,7 +489,7 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = a.updateUnitsFromCloud(app, appUpdate.Units)
+		err = a.updateUnitsFromCloud(app, appUpdate.Scale, appUpdate.Units)
 		if err != nil {
 			// Mask any not found errors as the worker (caller) treats them specially
 			// and they are not relevant here.
@@ -548,8 +548,9 @@ func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 // source (typically a cloud update event) and merges that with the existing unit
 // data model in state. The passed in units are the complete set for the cloud, so
 // any existing units in state with provider ids which aren't in the set will be removed.
-func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.ApplicationUnitParams) error {
+func (a *Facade) updateUnitsFromCloud(app Application, scale int, unitUpdates []params.ApplicationUnitParams) error {
 	logger.Debugf("unit updates: %#v", unitUpdates)
+	logger.Debugf("application scale: %v", scale)
 	// Set up the initial data structures.
 	existingStateUnits, err := app.AllUnits()
 	if err != nil {
@@ -633,7 +634,6 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 	}
 	sort.Strings(extraIds)
 	unassociatedUnitCount := len(unitInfo.unassociatedUnits)
-	scale := app.GetScale()
 	extraUnitsInStateCount := len(stateUnitsById) + unassociatedUnitCount - scale
 
 	for _, id := range ids {
@@ -677,7 +677,17 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 		unitInfo.removedUnits = append(unitInfo.removedUnits, u)
 	}
 
-	return a.updateStateUnits(app, unitInfo)
+	if err := a.updateStateUnits(app, unitInfo); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Update the scale last now that the state
+	// model accurately reflects the cluster pods.
+	currentScale := app.GetScale()
+	if currentScale != scale {
+		return app.Scale(scale)
+	}
+	return nil
 }
 
 type stateUnit struct {
