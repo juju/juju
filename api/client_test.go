@@ -773,6 +773,19 @@ func (s *clientSuite) TestWebsocketDialWithErrorsOtherError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "jammy pac")
 }
 
+func (s *clientSuite) TestWebsocketDialWithErrorsSetsDeadline(c *gc.C) {
+	// I haven't been able to find a way to actually test the
+	// websocket deadline stream, so instead test that the stream
+	// returned from websocketDialWithErrors is actually a
+	// DeadlineStream with the expected timeout.
+	d := fakeDialer{}
+	stream, err := api.WebsocketDialWithErrors(&d, "something", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	deadlineStream, ok := stream.(*api.DeadlineStream)
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(deadlineStream.Timeout, gc.Equals, 30*time.Second)
+}
+
 // badReader raises err when Read is called.
 type badReader struct {
 	err error

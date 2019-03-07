@@ -127,6 +127,10 @@ type Broker interface {
 	// are changes to the operator of the specified application.
 	WatchOperator(string) (watcher.NotifyWatcher, error)
 
+	// WatchService returns a watcher which notifies when there
+	// are changes to the deployment of the specified application.
+	WatchService(appName string) (watcher.NotifyWatcher, error)
+
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
 
@@ -223,6 +227,7 @@ type NamespaceWatcher interface {
 type Service struct {
 	Id        string
 	Addresses []network.Address
+	Scale     int
 }
 
 // FilesystemInfo represents information about a filesystem

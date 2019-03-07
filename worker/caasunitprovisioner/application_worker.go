@@ -84,8 +84,9 @@ func (aw *applicationWorker) loop() error {
 	aw.catacomb.Add(deploymentWorker)
 
 	var (
-		brokerUnitsWatcher watcher.NotifyWatcher
-		appOperatorWatcher watcher.NotifyWatcher
+		brokerUnitsWatcher   watcher.NotifyWatcher
+		appOperatorWatcher   watcher.NotifyWatcher
+		appDeploymentWatcher watcher.NotifyWatcher
 	)
 	// The caas watcher can just die from underneath hence it needs to be
 	// restarted all the time. So we don't abuse the catacomb by adding new
@@ -97,11 +98,15 @@ func (aw *applicationWorker) loop() error {
 		if appOperatorWatcher != nil {
 			worker.Stop(appOperatorWatcher)
 		}
+		if appDeploymentWatcher != nil {
+			worker.Stop(appDeploymentWatcher)
+		}
 	}()
 
 	// Cache the last reported status information
 	// so we only report true changes.
 	lastReportedStatus := make(map[string]status.StatusInfo)
+	lastReportedScale := -1
 
 	for {
 		// The caas watcher can just die from underneath so recreate if needed.
@@ -125,6 +130,16 @@ func (aw *applicationWorker) loop() error {
 				return errors.Annotatef(err, "failed to start operator watcher for %q", aw.application)
 			}
 		}
+		if appDeploymentWatcher == nil {
+			appDeploymentWatcher, err = aw.serviceBroker.WatchService(aw.application)
+			if err != nil {
+				if strings.Contains(err.Error(), "unexpected EOF") {
+					logger.Warningf("k8s cloud hosting %q has disappeared", aw.application)
+					return nil
+				}
+				return errors.Annotatef(err, "failed to start deployment watcher for %q", aw.application)
+			}
+		}
 
 		select {
 		// We must handle any processing due to application being removed prior
@@ -139,73 +154,31 @@ func (aw *applicationWorker) loop() error {
 				brokerUnitsWatcher = nil
 				continue
 			}
-			units, err := aw.containerBroker.Units(aw.application)
+			scale, err := aw.getScale()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Debugf("units for %v: %+v", aw.application, units)
-			args := params.UpdateApplicationUnits{
-				ApplicationTag: names.NewApplicationTag(aw.application).String(),
+			if err := aw.clusterChanged(scale, lastReportedStatus); err != nil {
+				return errors.Trace(err)
 			}
-			for _, u := range units {
-				// For pods managed by the substrate, any marked as dying
-				// are treated as non-existing.
-				if u.Dying {
-					continue
-				}
-				unitStatus := u.Status
-				lastStatus, ok := lastReportedStatus[u.Id]
-				lastReportedStatus[u.Id] = unitStatus
-				if ok {
-					// If we've seen the same status value previously,
-					// report as unknown as this value is ignored.
-					if reflect.DeepEqual(lastStatus, unitStatus) {
-						unitStatus = status.StatusInfo{
-							Status: status.Unknown,
-						}
-					}
-				}
-				unitParams := params.ApplicationUnitParams{
-					ProviderId: u.Id,
-					Address:    u.Address,
-					Ports:      u.Ports,
-					Stateful:   u.Stateful,
-					Status:     unitStatus.Status.String(),
-					Info:       unitStatus.Message,
-					Data:       unitStatus.Data,
-				}
-				// Fill in any filesystem info for volumes attached to the unit.
-				// A unit will not become active until all required volumes are
-				// provisioned, so it makes sense to send this information along
-				// with the units to which they are attached.
-				for _, info := range u.FilesystemInfo {
-					unitParams.FilesystemInfo = append(unitParams.FilesystemInfo, params.KubernetesFilesystemInfo{
-						StorageName:  info.StorageName,
-						FilesystemId: info.FilesystemId,
-						Size:         info.Size,
-						MountPoint:   info.MountPoint,
-						ReadOnly:     info.ReadOnly,
-						Status:       info.Status.Status.String(),
-						Info:         info.Status.Message,
-						Data:         info.Status.Data,
-						Volume: params.KubernetesVolumeInfo{
-							VolumeId:   info.Volume.VolumeId,
-							Size:       info.Volume.Size,
-							Persistent: info.Volume.Persistent,
-							Status:     info.Volume.Status.Status.String(),
-							Info:       info.Volume.Status.Message,
-							Data:       info.Volume.Status.Data,
-						},
-					})
-
-				}
-				args.Units = append(args.Units, unitParams)
+		case _, ok := <-appDeploymentWatcher.Changes():
+			logger.Debugf("deployment changed: %#v", ok)
+			if !ok {
+				logger.Debugf("%v", appDeploymentWatcher.Wait())
+				worker.Stop(appDeploymentWatcher)
+				appDeploymentWatcher = nil
+				continue
 			}
-			if err := aw.unitUpdater.UpdateUnits(args); err != nil {
-				// We can ignore not found errors as the worker will get stopped anyway.
-				if !errors.IsNotFound(err) {
-					return errors.Trace(err)
-				}
+			scale, err := aw.getScale()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if scale == lastReportedScale {
+				continue
+			}
+			lastReportedScale = scale
+			if err := aw.clusterChanged(scale, lastReportedStatus); err != nil {
+				return errors.Trace(err)
 			}
 		case _, ok := <-appOperatorWatcher.Changes():
 			if !ok {
@@ -231,4 +204,89 @@ func (aw *applicationWorker) loop() error {
 		}
 
 	}
+}
+
+func (aw *applicationWorker) getScale() (int, error) {
+	service, err := aw.serviceBroker.GetService(aw.application)
+	if errors.IsNotFound(err) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	logger.Debugf("service for %v: %+v", aw.application, service)
+	return service.Scale, nil
+}
+
+func (aw *applicationWorker) clusterChanged(scale int, lastReportedStatus map[string]status.StatusInfo) error {
+	units, err := aw.containerBroker.Units(aw.application)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("units for %v: %+v", aw.application, units)
+	args := params.UpdateApplicationUnits{
+		ApplicationTag: names.NewApplicationTag(aw.application).String(),
+		Scale:          scale,
+	}
+	for _, u := range units {
+		// For pods managed by the substrate, any marked as dying
+		// are treated as non-existing.
+		if u.Dying {
+			continue
+		}
+		unitStatus := u.Status
+		lastStatus, ok := lastReportedStatus[u.Id]
+		lastReportedStatus[u.Id] = unitStatus
+		if ok {
+			// If we've seen the same status value previously,
+			// report as unknown as this value is ignored.
+			if reflect.DeepEqual(lastStatus, unitStatus) {
+				unitStatus = status.StatusInfo{
+					Status: status.Unknown,
+				}
+			}
+		}
+		unitParams := params.ApplicationUnitParams{
+			ProviderId: u.Id,
+			Address:    u.Address,
+			Ports:      u.Ports,
+			Stateful:   u.Stateful,
+			Status:     unitStatus.Status.String(),
+			Info:       unitStatus.Message,
+			Data:       unitStatus.Data,
+		}
+		// Fill in any filesystem info for volumes attached to the unit.
+		// A unit will not become active until all required volumes are
+		// provisioned, so it makes sense to send this information along
+		// with the units to which they are attached.
+		for _, info := range u.FilesystemInfo {
+			unitParams.FilesystemInfo = append(unitParams.FilesystemInfo, params.KubernetesFilesystemInfo{
+				StorageName:  info.StorageName,
+				FilesystemId: info.FilesystemId,
+				Size:         info.Size,
+				MountPoint:   info.MountPoint,
+				ReadOnly:     info.ReadOnly,
+				Status:       info.Status.Status.String(),
+				Info:         info.Status.Message,
+				Data:         info.Status.Data,
+				Volume: params.KubernetesVolumeInfo{
+					VolumeId:   info.Volume.VolumeId,
+					Size:       info.Volume.Size,
+					Persistent: info.Volume.Persistent,
+					Status:     info.Volume.Status.Status.String(),
+					Info:       info.Volume.Status.Message,
+					Data:       info.Volume.Status.Data,
+				},
+			})
+
+		}
+		args.Units = append(args.Units, unitParams)
+	}
+	if err := aw.unitUpdater.UpdateUnits(args); err != nil {
+		// We can ignore not found errors as the worker will get stopped anyway.
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
