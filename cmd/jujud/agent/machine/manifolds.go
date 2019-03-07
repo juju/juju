@@ -554,16 +554,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StartAPIWorkers: config.StartAPIWorkers,
 		})),
 
-		// The reboot manifold manages a worker which will reboot the
-		// machine when requested. It needs an API connection and
-		// waits for upgrades to be complete.
-		rebootName: ifNotMigrating(reboot.Manifold(reboot.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			MachineLock:   config.MachineLock,
-			Clock:         config.Clock,
-		})),
-
 		// The logging config updater is a leaf worker that indirectly
 		// controls the messages sent via the log sender or rsyslog,
 		// according to changes in environment config. We should only need
@@ -590,11 +580,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 
-		fanConfigurerName: ifNotMigrating(fanconfigurer.Manifold(fanconfigurer.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-		})),
-
 		// The machiner Worker will wait for the identified machine to become
 		// Dying and make it Dead; or until the machine becomes Dead by other
 		// means. This worker needs to be launched after fanconfigurer
@@ -617,26 +602,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			LogSource:     config.LogSource,
 		})),
-
-		// The deployer worker is primary for deploying and recalling unit
-		// agents, according to changes in a set of state units; and for the
-		// final removal of its agents' units from state when they are no
-		// longer needed.
-		deployerName: ifNotMigrating(deployer.Manifold(deployer.ManifoldConfig{
-			NewDeployContext: config.NewDeployContext,
-			AgentName:        agentName,
-			APICallerName:    apiCallerName,
-		})),
-
-		// The storageProvisioner worker manages provisioning
-		// (deprovisioning), and attachment (detachment) of first-class
-		// volumes and filesystems.
-		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
-			AgentName:                    agentName,
-			APICallerName:                apiCallerName,
-			Clock:                        config.Clock,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		}))),
 
 		resumerName: ifNotMigrating(resumer.Manifold(resumer.ManifoldConfig{
 			AgentName:     agentName,
@@ -863,15 +828,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                certupdater.NewCertificateUpdater,
 			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
 		})),
-	}
 
-	manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
-		AgentName:     agentName,
-		APICallerName: apiCallerName,
-		Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
-		NewFacade:     upgradeseries.NewFacade,
-		NewWorker:     upgradeseries.NewWorker,
-	}))
+		fanConfigurerName: ifNotMigrating(fanconfigurer.Manifold(fanconfigurer.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+		})),
+	}
 
 	return manifolds
 }
@@ -926,6 +888,44 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PreUpgradeSteps:      config.PreUpgradeSteps,
 			NewAgentStatusSetter: config.NewAgentStatusSetter,
 		}),
+
+		upgradeSeriesWorkerName: ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
+			NewFacade:     upgradeseries.NewFacade,
+			NewWorker:     upgradeseries.NewWorker,
+		})),
+
+		// The deployer worker is primary for deploying and recalling unit
+		// agents, according to changes in a set of state units; and for the
+		// final removal of its agents' units from state when they are no
+		// longer needed.
+		deployerName: ifNotMigrating(deployer.Manifold(deployer.ManifoldConfig{
+			NewDeployContext: config.NewDeployContext,
+			AgentName:        agentName,
+			APICallerName:    apiCallerName,
+		})),
+
+		// The reboot manifold manages a worker which will reboot the
+		// machine when requested. It needs an API connection and
+		// waits for upgrades to be complete.
+		rebootName: ifNotMigrating(reboot.Manifold(reboot.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			MachineLock:   config.MachineLock,
+			Clock:         config.Clock,
+		})),
+
+		// The storageProvisioner worker manages provisioning
+		// (deprovisioning), and attachment (detachment) of first-class
+		// volumes and filesystems.
+		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
+			AgentName:                    agentName,
+			APICallerName:                apiCallerName,
+			Clock:                        config.Clock,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+		}))),
 	})
 }
 

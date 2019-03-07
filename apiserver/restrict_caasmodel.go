@@ -61,16 +61,13 @@ var commonModelFacadeNames = set.NewStrings(
 	// TODO(bootstrap): double check here
 	"Provisioner",
 	"Resumer",
-	"FanConfigurer",
-	"AgentTools",
 	"MachineActions",
 	"ProxyUpdater",
-	"Reboot",
 	"Machiner",
 	"ExternalControllerUpdater",
 	"Upgrader",
-	"VolumeAttachmentPlansWatcher",
-	"UpgradeSeries",
+
+	"FanConfigurer",
 )
 
 // caasModelFacadeNames lists facades that are only used with CAAS
