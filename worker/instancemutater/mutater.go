@@ -15,14 +15,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-type machine interface {
-	CharmProfilingInfo([]string) (*instancemutater.ProfileInfo, error)
-	SetCharmProfiles(profiles []string) error
-	SetUpgradeCharmProfileComplete(unitName string, message string) error
-	Tag() names.MachineTag
-	WatchUnits() (watcher.StringsWatcher, error)
-}
-
 // lifetimeContext was extracted to allow the various context clients to get
 // the benefits of the catacomb encapsulating everything that should happen
 // here. A clean implementation would almost certainly not need this.
@@ -40,7 +32,7 @@ type machineContext interface {
 type mutaterContext interface {
 	lifetimeContext
 	newMachineContext() machineContext
-	getMachine(tag names.MachineTag) (machine, error)
+	getMachine(tag names.MachineTag) (instancemutater.MutaterMachine, error)
 	getBroker() environs.LXDProfiler
 }
 
@@ -48,16 +40,15 @@ type mutater struct {
 	context     mutaterContext
 	logger      Logger
 	machines    map[names.MachineTag]chan struct{}
-	machineDead chan machine
+	machineDead chan instancemutater.MutaterMachine
 }
 
 func watchMachinesLoop(context mutaterContext, logger Logger, machinesWatcher watcher.StringsWatcher) (err error) {
-
 	m := &mutater{
 		context:     context,
 		logger:      logger,
 		machines:    make(map[names.MachineTag]chan struct{}),
-		machineDead: make(chan machine),
+		machineDead: make(chan instancemutater.MutaterMachine),
 	}
 	defer func() {
 		// TODO(fwereade): is this a home-grown sync.WaitGroup or something?
@@ -97,7 +88,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			m.logger.Debugf("startMachines added machine %s", machine.Tag().Id())
+			m.logger.Tracef("startMachines added machine %s", machine.Tag().Id())
 			c = make(chan struct{})
 			m.machines[tag] = c
 
@@ -113,8 +104,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 	return nil
 }
 
-func runMachine(context machineContext, logger Logger, m machine, changed <-chan struct{}, died chan<- machine) {
-	logger.Tracef("runMachine(%s)", m.Tag().Id())
+func runMachine(context machineContext, logger Logger, m instancemutater.MutaterMachine, changed <-chan struct{}, died chan<- instancemutater.MutaterMachine) {
 	defer func() {
 		// We can't just send on the dead channel because the
 		// central loop might be trying to write to us on the
@@ -142,8 +132,8 @@ func runMachine(context machineContext, logger Logger, m machine, changed <-chan
 	}
 }
 
-func watchUnitLoop(context machineContext, logger Logger, m machine, unitWatcher watcher.StringsWatcher) error {
-	logger.Tracef("watchUnitLoop(%s)", m.Tag().Id())
+func watchUnitLoop(context machineContext, logger Logger, m instancemutater.MutaterMachine, unitWatcher watcher.StringsWatcher) error {
+	logger.Tracef("watching units for machine %s", m.Tag().Id())
 	for {
 		select {
 		case <-context.dying():
@@ -160,21 +150,15 @@ func watchUnitLoop(context machineContext, logger Logger, m machine, unitWatcher
 			if err != nil {
 				logger.Errorf("from unitsChanged: %#v", err)
 			}
-			logger.Debugf("end of case unitWatcher changes for %s", m.Tag().String())
 		}
 	}
 }
 
-func unitsChanged(logger Logger, m machine, names []string) error {
-	logger.Warningf("Received change on %s.%s", m.Tag(), names)
+func unitsChanged(logger Logger, m instancemutater.MutaterMachine, names []string) error {
+	logger.Tracef("Received change on %s.%s", m.Tag(), names)
 	info, err := m.CharmProfilingInfo(names)
-	logger.Warningf("%#v", info)
 	if err != nil {
 		return err
-	}
-	if info == nil {
-		logger.Debugf("returning due to nil info")
-		return nil
 	}
 	if !info.Changes {
 		// No change is necessary.
