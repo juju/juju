@@ -201,7 +201,7 @@ func (st *State) ModelConfigDefaultValues(cloudName string) (config.ModelDefault
 
 	result := make(config.ModelDefaultAttributes)
 	// Juju defaults
-	defaultAttrs, err := st.defaultInheritedConfig()
+	defaultAttrs, err := st.defaultInheritedConfig(cloudName)()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -368,34 +368,36 @@ type modelConfigSource struct {
 // overall config values, later values override earlier ones.
 func modelConfigSources(st *State, regionSpec *environs.CloudRegionSpec) []modelConfigSource {
 	return []modelConfigSource{
-		{config.JujuDefaultSource, st.defaultInheritedConfig},
+		{config.JujuDefaultSource, st.defaultInheritedConfig(regionSpec.Cloud)},
 		{config.JujuControllerSource, st.controllerInheritedConfig(regionSpec.Cloud)},
 		{config.JujuRegionSource, st.regionInheritedConfig(regionSpec)},
 	}
 }
 
 // defaultInheritedConfig returns config values which are defined
-// as defaults in either Juju or the state's environ provider.
-func (st *State) defaultInheritedConfig() (attrValues, error) {
-	var defaults = make(map[string]interface{})
-	for k, v := range config.ConfigDefaults() {
-		defaults[k] = v
-	}
-	providerDefaults, err := st.environsProviderConfigSchemaSource()
-	if errors.IsNotImplemented(err) {
-		return defaults, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	fields := schema.FieldMap(providerDefaults.ConfigSchema(), providerDefaults.ConfigDefaults())
-	if coercedAttrs, err := fields.Coerce(defaults, nil); err != nil {
-		return nil, errors.Trace(err)
-	} else {
-		for k, v := range coercedAttrs.(map[string]interface{}) {
+// as defaults in either Juju or the cloud's environ provider.
+func (st *State) defaultInheritedConfig(cloudName string) func() (attrValues, error) {
+	return func() (attrValues, error) {
+		var defaults = make(map[string]interface{})
+		for k, v := range config.ConfigDefaults() {
 			defaults[k] = v
 		}
+		providerDefaults, err := st.environsProviderConfigSchemaSource(cloudName)
+		if errors.IsNotImplemented(err) {
+			return defaults, nil
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		fields := schema.FieldMap(providerDefaults.ConfigSchema(), providerDefaults.ConfigDefaults())
+		if coercedAttrs, err := fields.Coerce(defaults, nil); err != nil {
+			return nil, errors.Trace(err)
+		} else {
+			for k, v := range coercedAttrs.(map[string]interface{}) {
+				defaults[k] = v
+			}
+		}
+		return defaults, nil
 	}
-	return defaults, nil
 }
 
 // controllerInheritedConfig returns the inherited config values

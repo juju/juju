@@ -52,8 +52,8 @@ func (s *ModelConfigSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
-	s.policy.GetProviderConfigSchemaSource = func() (config.ConfigSchemaSource, error) {
-		return &statetesting.MockConfigSchemaSource{}, nil
+	s.policy.GetProviderConfigSchemaSource = func(cloudName string) (config.ConfigSchemaSource, error) {
+		return &statetesting.MockConfigSchemaSource{CloudName: cloudName}, nil
 	}
 }
 
@@ -127,7 +127,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
 	expected["apt-mirror"] = "http://cloud-mirror"
-	expected["providerAttr"] = "vulch"
+	expected["providerAttrdummy"] = "vulch"
 	expected["whimsy-key"] = "whimsy-value"
 	expected["image-stream"] = "dummy-image-stream"
 	expected["no-proxy"] = "dummy-proxy"
@@ -152,7 +152,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
 	expected["apt-mirror"] = "http://cloud-mirror"
-	expected["providerAttr"] = "vulch"
+	expected["providerAttrdummy"] = "vulch"
 	expected["whimsy-key"] = "whimsy-value"
 	expected["no-proxy"] = "dummy-proxy"
 	expected["image-stream"] = "dummy-image-stream"
@@ -178,7 +178,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
 	expected := expectedCfg.AllAttrs()
 	expected["no-proxy"] = "nether-proxy"
 	expected["apt-mirror"] = "http://nether-region-mirror"
-	expected["providerAttr"] = "vulch"
+	expected["providerAttrdummy"] = "vulch"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
@@ -192,21 +192,21 @@ func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C)
 
 func (s *ModelConfigSuite) TestUpdateModelConfigRemoveInherited(c *gc.C) {
 	attrs := map[string]interface{}{
-		"apt-mirror":    "http://different-mirror", // controller
-		"arbitrary-key": "shazam!",
-		"providerAttr":  "beef", // provider
-		"whimsy-key":    "eggs", // region
+		"apt-mirror":        "http://different-mirror", // controller
+		"arbitrary-key":     "shazam!",
+		"providerAttrdummy": "beef", // provider
+		"whimsy-key":        "eggs", // region
 	}
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.Model.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttr", "whimsy-key"})
+	err = s.Model.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttrdummy", "whimsy-key"})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://cloud-mirror")
-	c.Assert(allAttrs["providerAttr"], gc.Equals, "vulch")
+	c.Assert(allAttrs["providerAttrdummy"], gc.Equals, "vulch")
 	c.Assert(allAttrs["whimsy-key"], gc.Equals, "whimsy-value")
 	_, ok := allAttrs["arbitrary-key"]
 	c.Assert(ok, jc.IsFalse)
@@ -238,23 +238,23 @@ func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
 
 func (s *ModelConfigSuite) TestUpdateModelConfigPreferredOverRemove(c *gc.C) {
 	attrs := map[string]interface{}{
-		"apt-mirror":    "http://different-mirror", // controller
-		"arbitrary-key": "shazam!",
-		"providerAttr":  "beef", // provider
+		"apt-mirror":        "http://different-mirror", // controller
+		"arbitrary-key":     "shazam!",
+		"providerAttrdummy": "beef", // provider
 	}
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.Model.UpdateModelConfig(map[string]interface{}{
-		"apt-mirror":   "http://another-mirror",
-		"providerAttr": "pork",
+		"apt-mirror":        "http://another-mirror",
+		"providerAttrdummy": "pork",
 	}, []string{"apt-mirror", "arbitrary-key"})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://another-mirror")
-	c.Assert(allAttrs["providerAttr"], gc.Equals, "pork")
+	c.Assert(allAttrs["providerAttrdummy"], gc.Equals, "pork")
 	_, ok := allAttrs["arbitrary-key"]
 	c.Assert(ok, jc.IsFalse)
 }

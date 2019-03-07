@@ -329,25 +329,6 @@ func (s *cloudSuite) TestListCloudInfo(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
-	result, err := s.api.DefaultCloud()
-	c.Assert(err, jc.ErrorIsNil)
-	s.ctlrBackend.CheckCallNames(c, "Model")
-	c.Assert(result, jc.DeepEquals, params.StringResult{
-		Result: "cloud-dummy",
-	})
-}
-
-func (s *cloudSuite) TestModelsCloud(c *gc.C) {
-	result, err := s.api.ModelsCloud(params.Entities{
-		Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{Result: "cloud-dummy"}},
-	})
-}
-
 func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
 	results, err := s.api.UserCredentials(params.UserClouds{UserClouds: []params.UserCloud{{

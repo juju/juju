@@ -13,6 +13,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	cloudapi "github.com/juju/juju/api/cloud"
@@ -24,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs/config"
-	"gopkg.in/juju/names.v2"
 )
 
 const (
@@ -37,9 +38,7 @@ You can also specify a yaml file containing key values.
 By default, the model is the current model.
 
 Model default configuration settings are specific to the cloud on which the model runs.
-If no cloud is specified as the first argument, the cloud of the current model is used.
-It's also possible to get or set model defaults for other clouds managed by the controller
-by explicitly specifying cloud and/or region.'
+If the controller host more then one cloud, the cloud (and optionally region) must be specified.
 
 
 Examples:
@@ -95,7 +94,6 @@ type defaultsCommand struct {
 	// they've been parsed.
 	args []string
 
-	modelUUID             string
 	action                func(defaultsCommandAPI, *cmd.Context) error // The function handling the input, set in Init.
 	key                   string
 	resetKeys             []string // Holds the keys to be reset once parsed.
@@ -107,10 +105,8 @@ type defaultsCommand struct {
 // cloudAPI defines an API to be passed in for testing.
 type cloudAPI interface {
 	Close() error
-	DefaultCloud() (names.CloudTag, error)
-	ModelCloud(string) (names.CloudTag, error)
+	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	Cloud(names.CloudTag) (jujucloud.Cloud, error)
-	BestAPIVersion() int
 }
 
 // defaultsCommandAPI defines an API to be used during testing.
@@ -169,21 +165,6 @@ func (c *defaultsCommand) Init(args []string) error {
 
 // Run implements part of the cmd.Command interface.
 func (c *defaultsCommand) Run(ctx *cmd.Context) error {
-	// Get the UUID of the current model.
-	controllerName, err := c.ClientStore().CurrentController()
-	if err != nil {
-		return err
-	}
-	modelName, err := c.ClientStore().CurrentModel(controllerName)
-	if err != nil {
-		return err
-	}
-	uuids, err := c.ModelUUIDs([]string{modelName})
-	if err != nil {
-		return err
-	}
-	c.modelUUID = uuids[0]
-
 	if err := c.parseArgs(c.args); err != nil {
 		return errors.Trace(err)
 	}
@@ -199,12 +180,7 @@ func (c *defaultsCommand) Run(ctx *cmd.Context) error {
 		cc := c.newCloudAPI(root)
 		defer cc.Close()
 
-		var cloudTag names.CloudTag
-		if cc.BestAPIVersion() < 5 {
-			cloudTag, err = cc.DefaultCloud()
-		} else {
-			cloudTag, err = cc.ModelCloud(c.modelUUID)
-		}
+		cloudTag, err := c.maybeGetDefaultControllerCloud(cc)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -416,6 +392,40 @@ func (c *defaultsCommand) parseCloudRegion(args []string) ([]string, error) {
 	return args[1:], nil
 }
 
+var noCloudMsg = `
+You don't have access to any clouds on this controller.
+Only controller administrators can set default model values.
+`[1:]
+
+var manyCloudsMsg = `
+You haven't specified a cloud and more than one exists on this controller.
+Specify one of the following clouds for which to process model defaults:
+    %s
+`[1:]
+
+func (c *defaultsCommand) maybeGetDefaultControllerCloud(api cloudAPI) (names.CloudTag, error) {
+	var cTag names.CloudTag
+	clouds, err := api.Clouds()
+	if err != nil {
+		return cTag, errors.Trace(err)
+	}
+	if len(clouds) == 0 {
+		return cTag, errors.New(noCloudMsg)
+	}
+	if len(clouds) != 1 {
+		var cloudNames []string
+		for _, c := range clouds {
+			cloudNames = append(cloudNames, c.Name)
+		}
+		sort.Strings(cloudNames)
+		return cTag, errors.Errorf(manyCloudsMsg, strings.Join(cloudNames, ","))
+	}
+	for cTag = range clouds {
+		// Set cTag to the only cloud in the result.
+	}
+	return cTag, nil
+}
+
 // validCloudRegion checks that region is a valid region in cloud, or cloud
 // for the current model if cloud is not specified.
 func (c *defaultsCommand) validCloudRegion(cloudName, maybeRegion string) (bool, error) {
@@ -446,14 +456,11 @@ func (c *defaultsCommand) validCloudRegion(cloudName, maybeRegion string) (bool,
 	}
 
 	var cTag names.CloudTag
-	// If a cloud is not specified, use the
-	// cloud of the current model.
+	// If a cloud is not specified, use the controller
+	// cloud if that's the only one, else ask the user
+	// which cloud should be used.
 	if cloudName == "" {
-		if cc.BestAPIVersion() < 5 {
-			cTag, err = cc.DefaultCloud()
-		} else {
-			cTag, err = cc.ModelCloud(c.modelUUID)
-		}
+		cTag, err = c.maybeGetDefaultControllerCloud(cc)
 		if err != nil {
 			return false, errors.Trace(err)
 		}

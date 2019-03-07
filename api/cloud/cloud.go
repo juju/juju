@@ -67,50 +67,6 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	return common.CloudFromParams(tag.Id(), *results.Results[0].Cloud), nil
 }
 
-// DefaultCloud returns the tag of the cloud that models will be
-// created in by default.
-func (c *Client) DefaultCloud() (names.CloudTag, error) {
-	var result params.StringResult
-	if err := c.facade.FacadeCall("DefaultCloud", nil, &result); err != nil {
-		return names.CloudTag{}, errors.Trace(err)
-	}
-	if result.Error != nil {
-		return names.CloudTag{}, result.Error
-	}
-	cloudTag, err := names.ParseCloudTag(result.Result)
-	if err != nil {
-		return names.CloudTag{}, errors.Trace(err)
-	}
-	return cloudTag, nil
-}
-
-// ModelCloud returns the tag of the cloud for the specified model UUID.
-func (c *Client) ModelCloud(modelUUID string) (names.CloudTag, error) {
-	if c.BestAPIVersion() < 5 {
-		return names.CloudTag{}, errors.New("ModelCloud not supported for this version of Juju")
-
-	}
-	var results params.StringResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: names.NewModelTag(modelUUID).String()}},
-	}
-	if err := c.facade.FacadeCall("ModelsCloud", args, &results); err != nil {
-		return names.CloudTag{}, errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return names.CloudTag{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return names.CloudTag{}, result.Error
-	}
-	cloudTag, err := names.ParseCloudTag(result.Result)
-	if err != nil {
-		return names.CloudTag{}, errors.Trace(err)
-	}
-	return cloudTag, nil
-}
-
 // UserCredentials returns the tags for cloud credentials available to a user for
 // use with a specific cloud.
 func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {

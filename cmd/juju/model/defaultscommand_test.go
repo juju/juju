@@ -11,8 +11,10 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
@@ -238,6 +240,22 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}
 }
 
+func (s *DefaultsCommandSuite) TestMultiCloudMessage(c *gc.C) {
+	s.fakeCloudAPI.clouds[names.NewCloudTag("another")] = cloud.Cloud{Name: "another"}
+	_, err := s.run(c, "attr")
+	c.Assert(err, gc.NotNil)
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, "You haven't specified a cloud and more than one exists on this controller.*another,dummy")
+}
+
+func (s *DefaultsCommandSuite) TestNoVisibleCloudMessage(c *gc.C) {
+	s.fakeCloudAPI.clouds = nil
+	_, err := s.run(c, "attr")
+	c.Assert(err, gc.NotNil)
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, "You don't have access to any clouds on this controller.Only controller administrators can set default model values.")
+}
+
 func (s *DefaultsCommandSuite) TestResetUnknownValueLogs(c *gc.C) {
 	ctx, err := s.run(c, "--reset", "attr,weird")
 	c.Assert(err, jc.ErrorIsNil)
@@ -249,7 +267,6 @@ func (s *DefaultsCommandSuite) TestResetUnknownValueLogs(c *gc.C) {
 func (s *DefaultsCommandSuite) TestResetAttr(c *gc.C) {
 	ctx, err := s.run(c, "--reset", "attr,unknown")
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(s.fakeCloudAPI.modelUUID, gc.Equals, testing.ModelTag.Id())
 	c.Assert(s.fakeDefaultsAPI.cloud, gc.Equals, "dummy")
 	c.Check(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
@@ -294,7 +311,6 @@ func (s *DefaultsCommandSuite) TestSetUnknownValueLogs(c *gc.C) {
 func (s *DefaultsCommandSuite) TestSet(c *gc.C) {
 	_, err := s.run(c, "special=extra", "attr=baz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeCloudAPI.modelUUID, gc.Equals, testing.ModelTag.Id())
 	c.Assert(s.fakeDefaultsAPI.cloud, gc.Equals, "dummy")
 	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: "baz", Default: nil, Regions: nil},
@@ -384,7 +400,6 @@ func (s *DefaultsCommandSuite) TestGetSingleValue(c *gc.C) {
 	context, err := s.run(c, "attr2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.fakeCloudAPI.modelUUID, gc.Equals, testing.ModelTag.Id())
 	c.Assert(s.fakeDefaultsAPI.cloud, gc.Equals, "dummy")
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := "" +

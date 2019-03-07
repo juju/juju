@@ -30,8 +30,18 @@ var logger = loggo.GetLogger("juju.apiserver.cloud")
 
 // CloudV5 defines the methods on the cloud API facade, version 5.
 type CloudV5 interface {
-	CloudV4
-	ModelsCloud(args params.Entities) (params.StringResults, error)
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
 }
 
 // CloudV4 defines the methods on the cloud API facade, version 4.
@@ -441,7 +451,7 @@ func (api *CloudAPI) ListCloudInfo(req params.ListCloudsRequest) (params.ListClo
 
 // DefaultCloud returns the tag of the cloud that models will be
 // created in by default.
-func (api *CloudAPI) DefaultCloud() (params.StringResult, error) {
+func (api *CloudAPIV4) DefaultCloud() (params.StringResult, error) {
 	controllerModel, err := api.ctlrBackend.Model()
 	if err != nil {
 		return params.StringResult{}, err
@@ -449,33 +459,6 @@ func (api *CloudAPI) DefaultCloud() (params.StringResult, error) {
 	return params.StringResult{
 		Result: names.NewCloudTag(controllerModel.Cloud()).String(),
 	}, nil
-}
-
-// ModelsCloud returns the tag of the cloud for the given models..
-func (api *CloudAPI) ModelsCloud(args params.Entities) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		modelTag, err := names.ParseModelTag(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		pm, err := api.pool.Get(modelTag.Id())
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		defer pm.Release()
-		m, err := pm.Model().Model()
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		result.Results[i].Result = names.NewCloudTag(m.Cloud()).String()
-	}
-	return result, nil
 }
 
 // UserCredentials returns the cloud credentials for a set of users.
@@ -713,8 +696,8 @@ func (*CloudAPI) UpdateCredentials(_, _ struct{}) {}
 // CheckCredentialsModels did not exist before V3.
 func (*CloudAPIV2) CheckCredentialsModels(_, _ struct{}) {}
 
-// ModelsCloud did not exist before V5.
-func (*CloudAPIV4) ModelsCloud(_, _ struct{}) {}
+// DefaultCloud is gone in V5.
+func (*CloudAPI) DefaultCloud(_, _ struct{}) {}
 
 // UpdateCredentials updates a set of cloud credentials' content.
 func (api *CloudAPIV2) UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {

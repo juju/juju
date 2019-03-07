@@ -105,9 +105,8 @@ func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.fakeCloudAPI = &fakeCloudAPI{
-		version: 5,
-		clouds: map[string]jujucloud.Cloud{
-			"cloud-dummy": {
+		clouds: map[names.CloudTag]jujucloud.Cloud{
+			names.NewCloudTag("dummy"): {
 				Name: "dummy",
 				Type: "dummy-cloud",
 				Regions: []jujucloud.Region{
@@ -188,26 +187,19 @@ func (f *fakeModelDefaultsAPI) ModelUnset(keys ...string) error {
 }
 
 type fakeCloudAPI struct {
-	clouds    map[string]jujucloud.Cloud
-	version   int
-	modelUUID string
+	clouds map[names.CloudTag]jujucloud.Cloud
 }
 
-func (f *fakeCloudAPI) BestAPIVersion() int { return f.version }
-func (f *fakeCloudAPI) Close() error        { return nil }
-func (f *fakeCloudAPI) ModelCloud(modelUUID string) (names.CloudTag, error) {
-	f.modelUUID = modelUUID
-	return names.NewCloudTag("dummy"), nil
-}
-func (f *fakeCloudAPI) DefaultCloud() (names.CloudTag, error) {
-	return names.NewCloudTag("dummy"), nil
+func (f *fakeCloudAPI) Close() error { return nil }
+func (f *fakeCloudAPI) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
+	return f.clouds, nil
 }
 func (f *fakeCloudAPI) Cloud(cloud names.CloudTag) (jujucloud.Cloud, error) {
 	var (
 		c  jujucloud.Cloud
 		ok bool
 	)
-	if c, ok = f.clouds[cloud.String()]; !ok {
+	if c, ok = f.clouds[cloud]; !ok {
 		return jujucloud.Cloud{}, errors.NotFoundf("cloud %q", cloud.Id())
 	}
 	return c, nil

@@ -162,7 +162,7 @@ func AllFacades() *facade.Registry {
 	reg("Cloud", 2, cloud.NewFacadeV2) // adds AddCloud, AddCredentials, CredentialContents, RemoveClouds
 	reg("Cloud", 3, cloud.NewFacadeV3) // changes signature of UpdateCredentials, adds ModifyCloudAccess
 	reg("Cloud", 4, cloud.NewFacadeV4) // adds UpdateCloud
-	reg("Cloud", 5, cloud.NewFacadeV5) // Adds ModelCloud
+	reg("Cloud", 5, cloud.NewFacadeV5) // Removes DefaultCloud, handles config in AddCloud
 
 	// CAAS related facades.
 	// Move these to the correct place above once the feature flag disappears.
