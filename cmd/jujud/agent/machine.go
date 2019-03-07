@@ -1082,30 +1082,29 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		}
 	}()
 
-	if !a.isCaasMachineAgent {
-		// TODO(bootstrap): how to report back mongo version back then set it back to agent.cfg
-		// (the version is actually fixed in image, so the mongo version should be immutable
-		// in agent.cfg after generated in bootstrap time? )
-
+	var mongodVersion mongo.Version
+	if a.isCaasMachineAgent {
+		// TODO(bootstrap): make here smarter(we actually should set it in bootstrap cli side).
+		mongodVersion = mongo.Mongo36wt
+	} else {
 		// EnsureMongoServer installs/upgrades the init config as necessary.
 		ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 		if err != nil {
 			return err
 		}
-		var mongodVersion mongo.Version
 		if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
 			return err
 		}
 		logger.Debugf("mongodb service is installed")
-
-		// Mongo is installed, record the version.
-		err = a.ChangeConfig(func(config agent.ConfigSetter) error {
+	}
+	// record Mongo version.
+	if err = a.ChangeConfig(
+		func(config agent.ConfigSetter) error {
 			config.SetMongoVersion(mongodVersion)
 			return nil
-		})
-		if err != nil {
-			return errors.Annotate(err, "cannot set mongo version")
-		}
+		},
+	); err != nil {
+		return errors.Annotate(err, "cannot set mongo version")
 	}
 	return nil
 }

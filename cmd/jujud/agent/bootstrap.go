@@ -295,7 +295,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// Generate a private SSH key for the controllers, and add
 		// the public key to the environment config. We'll add the
 		// private key to StateServingInfo below.
-		// TODO(bootstrap): review why we removed config.JujuSystemKey in cli for CAAS?
 		privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
 		if err != nil {
 			return errors.Annotate(err, "failed to generate system key")
