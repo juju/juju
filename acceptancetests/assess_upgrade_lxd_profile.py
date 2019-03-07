@@ -46,7 +46,7 @@ def deploy_bundle(client):
     client.wait_for(primary)
 
 def upgrade_charm(client):
-    client.upgrade_charm("lxd-profile", resvision='3')
+    client.upgrade_charm("lxd-profile", revision='3')
 
 def assess_profile_machines(client):
     """Assess the machines
