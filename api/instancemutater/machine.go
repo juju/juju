@@ -15,10 +15,11 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-type MachineMutater interface {
+//go:generate mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/instancemutater MutaterMachine
+type MutaterMachine interface {
 	// CharmProfilingInfo returns info to update lxd profiles on the machine
 	// based on the given unit names.
-	CharmProfilingInfo(string) (ProfileInfo, error)
+	CharmProfilingInfo([]string) (ProfileInfo, error)
 
 	// SetCharmProfiles records the given slice of charm profile names.
 	SetCharmProfiles([]string) error
@@ -49,12 +50,12 @@ type Machine struct {
 	life params.Life
 }
 
-// SetCharmProfiles implements MachineMutater.SetCharmProfiles.
+// SetCharmProfiles implements MutaterMachine.SetCharmProfiles.
 func (m *Machine) SetCharmProfiles([]string) error {
 	return nil
 }
 
-// SetUpgradeCharmProfileComplete implements MachineMutater.SetUpgradeCharmProfileComplete.
+// SetUpgradeCharmProfileComplete implements MutaterMachine.SetUpgradeCharmProfileComplete.
 func (m *Machine) SetUpgradeCharmProfileComplete(unitName string, message string) error {
 	var results params.ErrorResults
 	args := params.SetProfileUpgradeCompleteArgs{
@@ -80,12 +81,12 @@ func (m *Machine) SetUpgradeCharmProfileComplete(unitName string, message string
 	return nil
 }
 
-// Tag implements MachineMutater.Tag.
+// Tag implements MutaterMachine.Tag.
 func (m *Machine) Tag() names.MachineTag {
 	return m.tag
 }
 
-// WatchUnits implements MachineMutater.WatchUnits.
+// WatchUnits implements MutaterMachine.WatchUnits.
 func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
@@ -125,7 +126,7 @@ type CharmLXDProfile struct {
 	Devices     map[string]map[string]string
 }
 
-// CharmProfilingInfo implements MachineMutater.CharmProfilingInfo.
+// CharmProfilingInfo implements MutaterMachine.CharmProfilingInfo.
 func (m *Machine) CharmProfilingInfo(unitNames []string) (*ProfileInfo, error) {
 	var result params.CharmProfilingInfoResult
 	args := params.CharmProfilingInfoArg{
