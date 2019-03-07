@@ -1083,7 +1083,10 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	}()
 
 	if !a.isCaasMachineAgent {
-		// TODO(bootstrap): revisit here !!!!
+		// TODO(bootstrap): how to report back mongo version back then set it back to agent.cfg
+		// (the version is actually fixed in image, so the mongo version should be immutable
+		// in agent.cfg after generated in bootstrap time? )
+
 		// EnsureMongoServer installs/upgrades the init config as necessary.
 		ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 		if err != nil {

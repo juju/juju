@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apicaasoperator "github.com/juju/juju/api/caasoperator"
+	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -36,8 +37,6 @@ import (
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/upgradesteps"
 )
-
-const TemplateAgentConfigFileName = "template-agent.conf"
 
 var caasOperatorManifolds = caasoperator.Manifolds
 
@@ -138,7 +137,7 @@ func (op *CaasOperatorAgent) maybeCopyAgentConfig() error {
 		logger.Errorf("reading initial agent config file: %v", err)
 		return errors.Trace(err)
 	}
-	templateFile := filepath.Join(agent.Dir(op.DataDir(), op.Tag()), TemplateAgentConfigFileName)
+	templateFile := filepath.Join(agent.Dir(op.DataDir(), op.Tag()), caasprovider.TemplateFileNameAgentConf)
 	if err := copyFile(agent.ConfigPath(op.DataDir(), op.Tag()), templateFile); err != nil {
 		logger.Errorf("copying agent config file template: %v", err)
 		return errors.Trace(err)
@@ -248,9 +247,9 @@ func (op *CaasOperatorAgent) Tag() names.Tag {
 }
 
 // ChangeConfig implements Agent.
-func (a *CaasOperatorAgent) ChangeConfig(mutate agent.ConfigMutator) error {
-	err := a.AgentConf.ChangeConfig(mutate)
-	a.configChangedVal.Set(true)
+func (op *CaasOperatorAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+	err := op.AgentConf.ChangeConfig(mutate)
+	op.configChangedVal.Set(true)
 	return errors.Trace(err)
 }
 

@@ -477,7 +477,6 @@ func (p *peerGroupChanges) getMachinesVoting() {
 // the HA space if one is configured.
 func (p *peerGroupChanges) updateAddresses() error {
 	var err error
-	logger.Criticalf("updateAddresses p.info.haSpace -> %q", p.info.haSpace)
 	if p.info.haSpace == "" {
 		err = p.updateAddressesFromInternal()
 	} else {
@@ -523,7 +522,6 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 
 			if member.Address != addr {
 				member.Address = addr
-				logger.Criticalf("updateAddressesFromInternal new member added: id -> %q, addr -> %q", id, addr)
 				p.desired.isChanged = true
 			}
 			continue
@@ -585,7 +583,6 @@ func (p *peerGroupChanges) updateAddressesFromSpace() error {
 		}
 		if addr != p.desired.members[id].Address {
 			p.desired.members[id].Address = addr
-			logger.Criticalf("updateAddressesFromSpace new member added: id -> %q, addr -> %q", id, addr)
 			p.desired.isChanged = true
 		}
 	}

@@ -105,13 +105,6 @@ func (c *BootstrapCommand) Tag() names.Tag {
 	return names.NewMachineTag("0")
 }
 
-func (c *BootstrapCommand) ensureServerPEM() error {
-	return copyFileFromTemplate(
-		filepath.Join(c.AgentConf.DataDir(), "server.pem"),
-		filepath.Join(c.AgentConf.DataDir(), "template-server.pem"),
-	)
-}
-
 func copyFileFromTemplate(to, from string) (err error) {
 	if _, err := os.Stat(to); os.IsNotExist(err) {
 		logger.Criticalf("copying file from %q to %s", from, to)
@@ -125,16 +118,32 @@ func copyFileFromTemplate(to, from string) (err error) {
 }
 
 func (c *BootstrapCommand) ensureAgentConfig() error {
-	if err := copyFileFromTemplate(
-		agent.ConfigPath(c.AgentConf.DataDir(), c.Tag()),
-		filepath.Join(
-			agent.Dir(c.AgentConf.DataDir(), c.Tag()),
-			TemplateAgentConfigFileName,
-		),
-	); err != nil {
-		return errors.Trace(err)
-	}
 	return c.AgentConf.ReadConfig(c.Tag().String())
+}
+
+func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
+	for _, v := range []struct {
+		to, from string
+	}{
+		{
+			// ensure agent.conf
+			to: agent.ConfigPath(c.AgentConf.DataDir(), c.Tag()),
+			from: filepath.Join(
+				agent.Dir(c.AgentConf.DataDir(), c.Tag()),
+				caasprovider.TemplateFileNameAgentConf,
+			),
+		},
+		{
+			// ensure server.pem
+			to:   filepath.Join(c.AgentConf.DataDir(), mongo.FileNameDBSSLKey),
+			from: filepath.Join(c.AgentConf.DataDir(), caasprovider.TemplateFileNameServerPEM),
+		},
+	} {
+		if err := copyFileFromTemplate(v.to, v.from); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 var (
@@ -144,13 +153,6 @@ var (
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	if err := c.ensureAgentConfig(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := c.ensureServerPEM(); err != nil {
-		return errors.Trace(err)
-	}
 
 	bootstrapParamsData, err := ioutil.ReadFile(c.BootstrapParamsFile)
 	if err != nil {
@@ -160,11 +162,20 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err := args.Unmarshal(bootstrapParamsData); err != nil {
 		return errors.Trace(err)
 	}
-	isCAASController := args.ControllerCloud.Type == caasprovider.CAASProviderType
-	logger.Criticalf("isCAASController ------> %v", isCAASController)
 
-	err = c.ReadConfig(c.Tag().String())
-	if err != nil {
+	isCAAS := args.ControllerCloud.Type == caasprovider.CAASProviderType
+
+	if isCAAS {
+		if err := c.ensureConfigFilesForCaas(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if err := c.ensureAgentConfig(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := c.ReadConfig(c.Tag().String()); err != nil {
 		return errors.Annotate(err, "cannot read config")
 	}
 	agentConfig := c.CurrentConfig()
@@ -195,7 +206,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		Config: args.ControllerModelConfig,
 	}
 	var env environs.BootstrapEnviron
-	if isCAASController {
+	if isCAAS {
 		env, err = environsNewCAAS(openParams)
 	} else {
 		env, err = environsNewIAAS(openParams)
@@ -210,7 +221,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// by the bootstrap client.
 	desiredVersion, ok := args.ControllerModelConfig.AgentVersion()
 	if ok && desiredVersion != jujuversion.Current {
-		if isCAASController {
+		if isCAAS {
 			// For CAAS, the agent-version in controller config should
 			// always equals to current juju version.
 			return errors.NotSupportedf("desired juju version for CAAS")
@@ -259,10 +270,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	addrs := []network.Address{network.NewAddress("127.0.0.1")}
-	if !isCAASController {
+	if !isCAAS {
 		instanceLister, ok := env.(environs.InstanceLister)
 		if !ok {
-			// this should never happend.
+			// this should never happened.
 			return errors.NotValidf("InstanceLister missing for IAAS controller provider")
 		}
 		instances, err := instanceLister.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
@@ -323,7 +334,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.startMongo(isCAASController, addrs, agentConfig); err != nil {
+	if err := c.startMongo(isCAAS, addrs, agentConfig); err != nil {
 		return errors.Annotate(err, "failed to start mongo")
 	}
 
@@ -396,7 +407,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	if !isCAASController {
+	if !isCAAS {
 		// Populate the tools catalogue.
 		if err := c.populateTools(st, env); err != nil {
 			return errors.Trace(err)
@@ -421,7 +432,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return m.SetHasVote(true)
 }
 
-func (c *BootstrapCommand) startMongo(isCAASController bool, addrs []network.Address, agentConfig agent.Config) error {
+func (c *BootstrapCommand) startMongo(isCAAS bool, addrs []network.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
 	info, ok := agentConfig.MongoInfo()
@@ -450,7 +461,7 @@ func (c *BootstrapCommand) startMongo(isCAASController bool, addrs []network.Add
 		net.JoinHostPort("localhost", fmt.Sprint(servingInfo.StatePort)),
 	}
 
-	if !isCAASController {
+	if !isCAAS {
 		// TODO(bootstrap): recheck if the cert, keys, etc have been updated after k8s template generated.
 		logger.Debugf("calling ensureMongoServer")
 		ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
@@ -464,7 +475,7 @@ func (c *BootstrapCommand) startMongo(isCAASController bool, addrs []network.Add
 	}
 
 	peerAddr := "127.0.0.1"
-	if !isCAASController {
+	if !isCAAS {
 		peerAddr = mongo.SelectPeerAddress(addrs)
 		if peerAddr == "" {
 			return fmt.Errorf("no appropriate peer address found in %q", addrs)

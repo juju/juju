@@ -528,7 +528,7 @@ func Dir(dataDir string, tag names.Tag) string {
 // NOTE: Delete this once all agents accept --config instead
 // of --data-dir - it won't be needed anymore.
 func ConfigPath(dataDir string, tag names.Tag) string {
-	return filepath.Join(Dir(dataDir, tag), agentConfigFilename)
+	return filepath.Join(Dir(dataDir, tag), AgentConfigFilename)
 }
 
 // ReadConfig reads configuration data from the given location.
@@ -799,7 +799,7 @@ func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error
 		return nil, errors.Trace(err)
 	}
 	commands := renderer.MkdirAll(c.Dir())
-	filename := c.File(agentConfigFilename)
+	filename := c.File(AgentConfigFilename)
 	commands = append(commands, renderer.WriteFile(filename, data)...)
 	commands = append(commands, renderer.Chmod(filename, 0600)...)
 	return commands, nil

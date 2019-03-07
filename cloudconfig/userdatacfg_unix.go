@@ -35,6 +35,9 @@ import (
 var logger = loggo.GetLogger("juju.cloudconfig")
 
 const (
+	// FileNameBootstrapParams is the name of bootstrap params file.
+	FileNameBootstrapParams = "bootstrap-params"
+
 	// curlCommand is the base curl command used to download tools.
 	curlCommand = "curl -sSfw 'agent binaries from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 
@@ -418,7 +421,7 @@ func (w *unixConfigure) configureBootstrap() error {
 		defer cleanup()
 	}
 
-	bootstrapParamsFile := path.Join(w.icfg.DataDir, "bootstrap-params")
+	bootstrapParamsFile := path.Join(w.icfg.DataDir, FileNameBootstrapParams)
 	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
 		return errors.Annotate(err, "marshalling bootstrap params")

@@ -18,12 +18,20 @@ import (
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/mongo"
 )
 
 // JujuControllerStackName is the juju CAAS controller stack name.
 const JujuControllerStackName = "juju-controller"
+
+var (
+	// TemplateFileNameServerPEM is the template server.pem file name.
+	TemplateFileNameServerPEM = "template-" + mongo.FileNameDBSSLKey
+	// TemplateFileNameAgentConf is the template agent.conf file name.
+	TemplateFileNameAgentConf = "template-" + agent.AgentConfigFilename
+)
 
 type controllerStack struct {
 	stackName   string
@@ -101,11 +109,11 @@ func newcontrollerStack(stackName string, broker *kubernetesClient, pcfg *podcfg
 		portAPIServer: 17070,
 
 		fileNameSharedSecret:    mongo.SharedSecretFile,
-		fileNameSSLKey:          "server.pem",
-		fileNameSSLKeyMount:     "template" + "-" + "server.pem",
-		fileNameBootstrapParams: "bootstrap-params",
-		fileNameAgentConf:       "agent.conf",
-		fileNameAgentConfMount:  "template" + "-" + "agent.conf",
+		fileNameSSLKey:          mongo.FileNameDBSSLKey,
+		fileNameSSLKeyMount:     TemplateFileNameServerPEM,
+		fileNameBootstrapParams: cloudconfig.FileNameBootstrapParams,
+		fileNameAgentConf:       agent.AgentConfigFilename,
+		fileNameAgentConfMount:  TemplateFileNameAgentConf,
 
 		resourceNameStatefulSet: stackName,
 	}
