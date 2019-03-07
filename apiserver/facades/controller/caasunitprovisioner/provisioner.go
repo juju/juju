@@ -662,7 +662,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale int, unitUpdates []
 	logger.Debugf("alive state ids %v", aliveStateIds.Values())
 	logger.Debugf("extra state ids %v", extraStateIds.Values())
 	logger.Debugf("extra units in state: %v", extraUnitsInStateCount)
-	for _, providerId := range extraStateIds.Values() {
+	for _, providerId := range extraIds {
 		u := stateUnitsById[providerId]
 		logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), providerId)
 		// If the unit in state is surplus to the application scale, remove it from state also.
@@ -685,7 +685,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale int, unitUpdates []
 	// model accurately reflects the cluster pods.
 	currentScale := app.GetScale()
 	if currentScale != scale {
-		return app.Scale(scale)
+		return app.SetScale(scale)
 	}
 	return nil
 }

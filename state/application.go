@@ -1413,9 +1413,9 @@ func (a *Application) ChangeScale(scaleChange int) (int, error) {
 	return newScale, nil
 }
 
-// Scale sets the application's desired scale value.
+// SetScale sets the application's desired scale value.
 // This is used on CAAS models.
-func (a *Application) Scale(scale int) error {
+func (a *Application) SetScale(scale int) error {
 	if scale < 0 {
 		return errors.NotValidf("application scale %d", scale)
 	}
