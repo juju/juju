@@ -830,7 +830,9 @@ func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
+	sync := make(chan struct{})
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		close(sync)
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
@@ -851,6 +853,13 @@ func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
 		})
 		done <- err
 	}()
+	// Before we advance time, ensure that the parallel try mechanism
+	// has entered the dial function.
+	select {
+	case <-sync:
+	case <-time.After(testing.LongWait):
+		c.Errorf("didn't enter dial")
+	}
 	err := clk.WaitAdvance(3*time.Second, time.Second, 2) // Timeout & DialTimeout
 	c.Assert(err, jc.ErrorIsNil)
 	select {
