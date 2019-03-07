@@ -1,7 +1,7 @@
 series: bionic
 applications:
   lxd-profile:
-    charm: cs:~juju-qa/bionic/lxd-profile-without-devices-0
+    charm: cs:~juju-qa/bionic/lxd-profile-without-devices-2
     num_units: 4
     to:
       - "0"
@@ -9,7 +9,7 @@ applications:
       - "2"
       - "3"
   lxd-profile-subordinate:
-    charm: cs:~juju-qa/bionic/lxd-profile-subordinate-1
+    charm: cs:~juju-qa/bionic/lxd-profile-subordinate-2
   ubuntu:
     charm: cs:~jameinel/ubuntu-lite
     num_units: 4
