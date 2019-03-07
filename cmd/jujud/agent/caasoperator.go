@@ -38,7 +38,11 @@ import (
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
-var caasOperatorManifolds = caasoperator.Manifolds
+var (
+	// Should be an explicit dependency, can't do it cleanly yet.
+	// Exported for testing.
+	CaasOperatorManifolds = caasoperator.Manifolds
+)
 
 // CaasOperatorAgent is a cmd.Command responsible for running a CAAS operator agent.
 type CaasOperatorAgent struct {
@@ -201,7 +205,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		})
 	}
 
-	manifolds := caasOperatorManifolds(caasoperator.ManifoldsConfig{
+	manifolds := CaasOperatorManifolds(caasoperator.ManifoldsConfig{
 		Agent:                agent.APIHostPortsSetter{op},
 		AgentConfigChanged:   op.configChangedVal,
 		Clock:                clock.WallClock,

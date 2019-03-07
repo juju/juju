@@ -270,7 +270,7 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 		case <-time.After(coretesting.ShortWait):
 			st.StartSync()
 		case <-timeout:
-			c.Fatalf("time out wating for operation")
+			c.Fatalf("time out waiting for operation")
 		}
 	}
 }

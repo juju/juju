@@ -37,7 +37,15 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 }
 
-func (s *dblogSuite) TestMachineAgentLogsGoToDB(c *gc.C) {
+func (s *dblogSuite) TestMachineAgentLogsGoToDBCAAS(c *gc.C) {
+	s.assertMachineAgentLogsGoToDB(c, true)
+}
+
+func (s *dblogSuite) TestMachineAgentLogsGoToDBIAAS(c *gc.C) {
+	s.assertMachineAgentLogsGoToDB(c, false)
+}
+
+func (s *dblogSuite) assertMachineAgentLogsGoToDB(c *gc.C, isCaas bool) {
 	// Create a machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: agent.BootstrapNonce,
@@ -55,7 +63,7 @@ func (s *dblogSuite) TestMachineAgentLogsGoToDB(c *gc.C) {
 		noPreUpgradeSteps,
 		c.MkDir(),
 	)
-	a, err := machineAgentFactory(m.Id())
+	a, err := machineAgentFactory(m.Id(), isCaas)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.

@@ -117,10 +117,6 @@ func copyFileFromTemplate(to, from string) (err error) {
 	return nil
 }
 
-func (c *BootstrapCommand) ensureAgentConfig() error {
-	return c.AgentConf.ReadConfig(c.Tag().String())
-}
-
 func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
 	for _, v := range []struct {
 		to, from string
@@ -169,10 +165,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		if err := c.ensureConfigFilesForCaas(); err != nil {
 			return errors.Trace(err)
 		}
-	}
-
-	if err := c.ensureAgentConfig(); err != nil {
-		return errors.Trace(err)
 	}
 
 	if err := c.ReadConfig(c.Tag().String()); err != nil {

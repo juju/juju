@@ -129,14 +129,6 @@ func init() {
 
 type machineAgentFactoryFnType func(string, bool) (*MachineAgent, error)
 
-type agentProviderGetter interface {
-	ProviderType() string
-}
-
-func checkIsCaasMachineAgent(cfg agentProviderGetter) bool {
-	return cfg.ProviderType() == k8sprovider.CAASProviderType
-}
-
 // AgentInitializer handles initializing a type for use as a Jujud
 // agent.
 type AgentInitializer interface {
@@ -189,8 +181,6 @@ type machineAgentCmd struct {
 
 	// The following are set via command-line flags.
 	machineId string
-
-	isCaasMachineAgent bool
 }
 
 // Init is called by the cmd system to initialize the structure for
@@ -204,16 +194,6 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return err
 	}
 
-	if err := a.currentConfig.ReadConfig(a.Tag().String()); err != nil {
-		return errors.Errorf("cannot read agent configuration: %v", err)
-	}
-
-	config := a.currentConfig.CurrentConfig()
-	a.isCaasMachineAgent = checkIsCaasMachineAgent(config)
-	if a.isCaasMachineAgent {
-		a.logToStdErr = true
-	}
-
 	// Due to changes in the logging, and needing to care about old
 	// models that have been upgraded, we need to explicitly remove the
 	// file writer if one has been added, otherwise we will get duplicate
@@ -224,6 +204,10 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return nil
 	}
 
+	if err := a.currentConfig.ReadConfig(a.Tag().String()); err != nil {
+		return errors.Errorf("cannot read agent configuration: %v", err)
+	}
+	config := a.currentConfig.CurrentConfig()
 	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
 	a.ctx.Stderr = &lumberjack.Logger{
 		Filename:   agent.LogFilename(config),
@@ -231,7 +215,6 @@ func (a *machineAgentCmd) Init(args []string) error {
 		MaxBackups: 2,
 		Compress:   true,
 	}
-
 	return nil
 }
 
@@ -241,7 +224,9 @@ func (a *machineAgentCmd) Tag() names.Tag {
 
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-	machineAgent, err := a.machineAgentFactory(a.machineId, a.isCaasMachineAgent)
+	config := a.currentConfig.CurrentConfig()
+	isCaasMachineAgent := config.Value(agent.ProviderType) == k8sprovider.CAASProviderType
+	machineAgent, err := a.machineAgentFactory(a.machineId, isCaasMachineAgent)
 	if err != nil {
 		return errors.Trace(err)
 	}

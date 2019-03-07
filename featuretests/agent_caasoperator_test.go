@@ -107,9 +107,9 @@ func (s *CAASOperatorSuite) TestOpenStateFails(c *gc.C) {
 	s.AssertCannotOpenState(c, config.Tag(), config.DataDir())
 }
 
-type CAASOperatorManifoldsFunc func(config caasoperator.ManifoldsConfig) dependency.Manifolds
+type CaasOperatorManifoldsFunc func(config caasoperator.ManifoldsConfig) dependency.Manifolds
 
-func TrackCAASOperator(c *gc.C, tracker *agenttest.EngineTracker, inner CAASOperatorManifoldsFunc) CAASOperatorManifoldsFunc {
+func TrackCAASOperator(c *gc.C, tracker *agenttest.EngineTracker, inner CaasOperatorManifoldsFunc) CaasOperatorManifoldsFunc {
 	return func(config caasoperator.ManifoldsConfig) dependency.Manifolds {
 		raw := inner(config)
 		id := config.Agent.CurrentConfig().Tag().String()
