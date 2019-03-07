@@ -660,10 +660,13 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 
 	// If there are any extra provider ids left over after allocating all the cloud pods,
 	// then consider those state units as terminated.
+	terminatedIds := extraStateIds.Values()
+	// Sort them for consistent test results.
+	sort.Strings(terminatedIds)
 	logger.Debugf("alive state ids %v", aliveStateIds.Values())
-	logger.Debugf("extra state ids %v", extraStateIds.Values())
+	logger.Debugf("extra state ids %v", terminatedIds)
 	logger.Debugf("extra units in state: %v", extraUnitsInStateCount)
-	for _, providerId := range extraStateIds.Values() {
+	for _, providerId := range terminatedIds {
 		u := stateUnitsById[providerId]
 		logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), providerId)
 		// If the unit in state is surplus to the application scale, remove it from state also.
