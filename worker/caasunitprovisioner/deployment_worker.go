@@ -170,7 +170,6 @@ func (w *deploymentWorker) loop() error {
 		}
 		logger.Debugf("created/updated deployment for %s for %v units", w.application, currentScale)
 		if !serviceUpdated && !spec.OmitServiceFrontend {
-			// TODO(caas) - add a service watcher
 			service, err := w.broker.GetService(w.application)
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Annotate(err, "cannot get new service details")

@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
@@ -34,6 +35,10 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
+
+// websocketTimeout is how long we'll wait for a WriteJSON call before
+// timing it out.
+const websocketTimeout = 30 * time.Second
 
 // Client represents the client-accessible part of the state.
 type Client struct {
@@ -654,7 +659,28 @@ func websocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeade
 		}
 		return nil, err
 	}
-	return c, nil
+	result := DeadlineStream{Conn: c, Timeout: websocketTimeout}
+	return &result, nil
+}
+
+// DeadlineStream wraps a websocket connection and applies a write
+// deadline to each WriteJSON call.
+type DeadlineStream struct {
+	*websocket.Conn
+
+	Timeout time.Duration
+}
+
+// WriteJSON is part of base.Stream.
+func (s *DeadlineStream) WriteJSON(v interface{}) error {
+	// This uses a real clock rather than trying to use a clock passed
+	// in because the websocket will use a real clock to determine
+	// whether the deadline has passed anyway.
+	deadline := time.Now().Add(s.Timeout)
+	if err := s.Conn.SetWriteDeadline(deadline); err != nil {
+		return errors.Annotate(err, "setting write deadline")
+	}
+	return errors.Trace(s.Conn.WriteJSON(v))
 }
 
 // WatchDebugLog returns a channel of structured Log Messages. Only log entries

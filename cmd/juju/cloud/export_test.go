@@ -21,6 +21,7 @@ var (
 type (
 	UpdateCloudCommand = updateCloudCommand
 	UpdateCloudAPI     = updateCloudAPI
+	ShowCloudAPI       = showCloudAPI
 )
 
 func NewAddCloudCommandForTest(
@@ -44,6 +45,13 @@ func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(stri
 	return &listCloudsCommand{
 		store:             store,
 		listCloudsAPIFunc: cloudAPI,
+	}
+}
+
+func NewShowCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(string) (showCloudAPI, error)) *showCloudCommand {
+	return &showCloudCommand{
+		store:            store,
+		showCloudAPIFunc: cloudAPI,
 	}
 }
 

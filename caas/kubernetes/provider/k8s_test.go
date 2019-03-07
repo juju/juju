@@ -1570,3 +1570,41 @@ func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
 	_, err := s.broker.Operator("test")
 	c.Assert(err, gc.ErrorMatches, "operator pod for application \"test\" not found")
 }
+
+func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	ssWatcher := watch.NewRaceFreeFake()
+	deployWatcher := watch.NewRaceFreeFake()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Watch(v1.ListOptions{
+			LabelSelector: "juju-application==test",
+			Watch:         true,
+		}).Return(ssWatcher, nil),
+		s.mockDeployments.EXPECT().Watch(v1.ListOptions{
+			LabelSelector: "juju-application==test",
+			Watch:         true,
+		}).Return(deployWatcher, nil),
+	)
+
+	w, err := s.broker.WatchService("test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Send an event to one of the watchers; multi-watcher should fire.
+	ss := &apps.StatefulSet{ObjectMeta: v1.ObjectMeta{Name: "test"}}
+	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
+		if !w.IsStopped() {
+			clk.WaitAdvance(time.Second, testing.LongWait, 1)
+			w.Modify(ss)
+		}
+	}(ssWatcher, s.clock)
+
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+}
