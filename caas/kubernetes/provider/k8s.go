@@ -56,13 +56,7 @@ import (
 	"github.com/juju/juju/storage/provider"
 )
 
-var (
-	logger         = loggo.GetLogger("juju.kubernetes.provider")
-	jujudStartUpSh = `
-test -e ./jujud || cp /opt/jujud $(pwd)/jujud
-%s
-`[1:]
-)
+var logger = loggo.GetLogger("juju.kubernetes.provider")
 
 const (
 	labelOperator        = "juju-operator"
@@ -2219,7 +2213,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				},
 				Args: []string{
 					"-c",
-					fmt.Sprintf(jujudStartUpSh, jujudCmd),
+					fmt.Sprintf(caas.JujudStartUpSh, jujudCmd),
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
