@@ -153,11 +153,12 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		getCanModify:            getCanModify,
 		providerCallContext:     callCtx,
 	}
-	if !isCaasModel {
-		api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
-		api.ToolsFinder = common.NewToolsFinder(configGetter, st, urlGetter)
-		api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner)
+	if isCaasModel {
+		return api, nil
 	}
+	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
+	api.ToolsFinder = common.NewToolsFinder(configGetter, st, urlGetter)
+	api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner)
 	return api, nil
 }
 

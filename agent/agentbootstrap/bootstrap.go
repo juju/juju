@@ -182,7 +182,7 @@ func InitializeState(
 	return ctrl, m, nil
 }
 
-// ensureHostedModel ensures hosted model (IAAS controller only).
+// ensureHostedModel ensures hosted model.
 func ensureHostedModel(
 	isCAAS bool,
 	args InitializeStateParams,

@@ -58,7 +58,8 @@ var commonModelFacadeNames = set.NewStrings(
 	"Uniter",
 	"VolumeAttachmentsWatcher",
 
-	// TODO(bootstrap): double check here
+	// for caas controller.
+	// TODO(bootstrap): revisit here to ensure unneeded items are removed.
 	"Provisioner",
 	"Resumer",
 	"MachineActions",
@@ -66,7 +67,6 @@ var commonModelFacadeNames = set.NewStrings(
 	"Machiner",
 	"ExternalControllerUpdater",
 	"Upgrader",
-
 	"FanConfigurer",
 )
 

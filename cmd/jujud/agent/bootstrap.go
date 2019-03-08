@@ -107,7 +107,7 @@ func (c *BootstrapCommand) Tag() names.Tag {
 
 func copyFileFromTemplate(to, from string) (err error) {
 	if _, err := os.Stat(to); os.IsNotExist(err) {
-		logger.Criticalf("copying file from %q to %s", from, to)
+		logger.Debugf("copying file from %q to %s", from, to)
 		if err := copyFile(to, from); err != nil {
 			return errors.Trace(err)
 		}

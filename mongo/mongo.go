@@ -390,7 +390,7 @@ const (
 	// MemoryProfileLow will use as little memory as possible in mongo.
 	MemoryProfileLow MemoryProfile = "low"
 	// MemoryProfileDefault will use mongo config ootb.
-	MemoryProfileDefault = "default"
+	MemoryProfileDefault MemoryProfile = "default"
 )
 
 // EnsureServerParams is a parameter struct for EnsureServer.

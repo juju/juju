@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -126,6 +127,10 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		Values:            cfg.AgentEnvironment,
 		Controller:        cfg.ControllerTag,
 		Model:             cfg.APIInfo.ModelTag,
+		// TODO(bootstrap): IAAS updates version after mongo installed, but for CAAS, it's predefined.
+		// make mongo version and profile more flexible to modifiable.
+		MongoVersion:       mongo.Mongo36wt,
+		MongoMemoryProfile: mongo.MemoryProfileDefault,
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
 }
