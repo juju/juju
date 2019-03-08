@@ -146,11 +146,7 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		provider, ok := w.broker.Provider().(caas.ContainerEnvironProvider)
-		if !ok {
-			return errors.Annotate(err, "invalid provider")
-		}
-		spec, err := provider.ParsePodSpec(specStr)
+		spec, err := w.broker.Provider().ParsePodSpec(specStr)
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}

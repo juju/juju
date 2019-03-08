@@ -164,8 +164,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	})
 
 	jujud.Log.NewWriter = func(target io.Writer) loggo.Writer {
-		// TODO(bootstrap) remove me
-		// return &jujudWriter{target: os.Stdout}
 		return &jujudWriter{target: target}
 	}
 

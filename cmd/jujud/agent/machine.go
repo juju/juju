@@ -204,7 +204,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return nil
 	}
 
-	if err := a.currentConfig.ReadConfig(a.Tag().String()); err != nil {
+	if err := a.currentConfig.ReadConfig(a.tag().String()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 	config := a.currentConfig.CurrentConfig()
@@ -218,7 +218,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 	return nil
 }
 
-func (a *machineAgentCmd) Tag() names.Tag {
+func (a *machineAgentCmd) tag() names.Tag {
 	return names.NewMachineTag(a.machineId)
 }
 
@@ -1067,26 +1067,27 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		}
 	}()
 
-	if !a.isCaasMachineAgent {
-		// EnsureMongoServer installs/upgrades the init config as necessary.
-		ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
-		if err != nil {
-			return err
-		}
-		var mongodVersion mongo.Version
-		if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
-			return err
-		}
-		logger.Debugf("mongodb service is installed")
-		// update Mongo version.
-		if err = a.ChangeConfig(
-			func(config agent.ConfigSetter) error {
-				config.SetMongoVersion(mongodVersion)
-				return nil
-			},
-		); err != nil {
-			return errors.Annotate(err, "cannot set mongo version")
-		}
+	if a.isCaasMachineAgent {
+		return nil
+	}
+	// EnsureMongoServer installs/upgrades the init config as necessary.
+	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
+	if err != nil {
+		return err
+	}
+	var mongodVersion mongo.Version
+	if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+		return err
+	}
+	logger.Debugf("mongodb service is installed")
+	// update Mongo version.
+	if err = a.ChangeConfig(
+		func(config agent.ConfigSetter) error {
+			config.SetMongoVersion(mongodVersion)
+			return nil
+		},
+	); err != nil {
+		return errors.Annotate(err, "cannot set mongo version")
 	}
 	return nil
 }

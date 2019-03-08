@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -216,7 +217,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		if isCAAS {
 			// For CAAS, the agent-version in controller config should
 			// always equals to current juju version.
-			return errors.NotSupportedf("desired juju version for CAAS")
+			return errors.NotSupportedf("desired juju version for k8s controllers")
 		}
 
 		// If we have been asked for a newer version, ensure the newer
@@ -260,51 +261,15 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if !ok {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
-
-	addrs := []network.Address{network.NewAddress("127.0.0.1")}
-	if !isCAAS {
-		instanceLister, ok := env.(environs.InstanceLister)
-		if !ok {
-			// this should never happened.
-			return errors.NotValidf("InstanceLister missing for IAAS controller provider")
-		}
-		instances, err := instanceLister.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
-		if err != nil {
-			return errors.Annotate(err, "getting bootstrap instance")
-		}
-		addrs, err = instances[0].Addresses(callCtx)
-		if err != nil {
-			return errors.Annotate(err, "bootstrap instance addresses")
-		}
-
-		// When machine addresses are reported from state, they have
-		// duplicates removed.  We should do the same here so that
-		// there is not unnecessary churn in the mongo replicaset.
-		// TODO (cherylj) Add explicit unit tests for this - tracked
-		// by bug #1544158.
-		addrs = network.MergedAddresses([]network.Address{}, addrs)
-
-		// Generate a private SSH key for the controllers, and add
-		// the public key to the environment config. We'll add the
-		// private key to StateServingInfo below.
-		privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
-		if err != nil {
-			return errors.Annotate(err, "failed to generate system key")
-		}
-		info.SystemIdentity = privateKey
-
-		authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
-		newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
-
-		// Generate a shared secret for the Mongo replica set, and write it out.
-		sharedSecret, err := mongo.GenerateSharedSecret()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		info.SharedSecret = sharedSecret
+	if err := ensureKeys(isCAAS, args, &info, newConfigAttrs); err != nil {
+		return errors.Trace(err)
+	}
+	addrs, err := getAddressesForMongo(isCAAS, env, callCtx, args)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
+	if err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
 		mmprof, err := mongo.NewMemoryProfile(args.ControllerConfig.MongoMemoryProfile())
 		if err != nil {
@@ -313,8 +278,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			agentConfig.SetMongoMemoryProfile(mmprof)
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)
 	}
 
@@ -423,6 +387,70 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return m.SetHasVote(true)
 }
 
+func getAddressesForMongo(
+	isCAAS bool,
+	env environs.BootstrapEnviron,
+	callCtx *context.CloudCallContext,
+	args instancecfg.StateInitializationParams,
+) ([]network.Address, error) {
+	addrs := []network.Address{network.NewAddress("localhost")}
+	if isCAAS {
+		return addrs, nil
+	}
+
+	instanceLister, ok := env.(environs.InstanceLister)
+	if !ok {
+		// this should never happened.
+		return nil, errors.NotValidf("InstanceLister missing for IAAS controller provider")
+	}
+	instances, err := instanceLister.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
+	if err != nil {
+		return nil, errors.Annotate(err, "getting bootstrap instance")
+	}
+	addrs, err = instances[0].Addresses(callCtx)
+	if err != nil {
+		return nil, errors.Annotate(err, "bootstrap instance addresses")
+	}
+
+	// When machine addresses are reported from state, they have
+	// duplicates removed.  We should do the same here so that
+	// there is not unnecessary churn in the mongo replicaset.
+	// TODO (cherylj) Add explicit unit tests for this - tracked
+	// by bug #1544158.
+	addrs = network.MergedAddresses([]network.Address{}, addrs)
+	return addrs, nil
+}
+
+func ensureKeys(
+	isCAAS bool,
+	args instancecfg.StateInitializationParams,
+	info *params.StateServingInfo,
+	newConfigAttrs map[string]interface{},
+) error {
+	if isCAAS {
+		return nil
+	}
+	// Generate a private SSH key for the controllers, and add
+	// the public key to the environment config. We'll add the
+	// private key to StateServingInfo below.
+	privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
+	if err != nil {
+		return errors.Annotate(err, "failed to generate system key")
+	}
+	info.SystemIdentity = privateKey
+
+	authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
+	newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
+
+	// Generate a shared secret for the Mongo replica set, and write it out.
+	sharedSecret, err := mongo.GenerateSharedSecret()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	info.SharedSecret = sharedSecret
+	return nil
+}
+
 func (c *BootstrapCommand) startMongo(isCAAS bool, addrs []network.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
@@ -453,7 +481,6 @@ func (c *BootstrapCommand) startMongo(isCAAS bool, addrs []network.Address, agen
 	}
 
 	if !isCAAS {
-		// TODO(bootstrap): recheck if the cert, keys, etc have been updated after k8s template generated.
 		logger.Debugf("calling ensureMongoServer")
 		ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 		if err != nil {
@@ -465,12 +492,9 @@ func (c *BootstrapCommand) startMongo(isCAAS bool, addrs []network.Address, agen
 		}
 	}
 
-	peerAddr := "127.0.0.1"
-	if !isCAAS {
-		peerAddr = mongo.SelectPeerAddress(addrs)
-		if peerAddr == "" {
-			return fmt.Errorf("no appropriate peer address found in %q", addrs)
-		}
+	peerAddr := mongo.SelectPeerAddress(addrs)
+	if peerAddr == "" {
+		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}
 	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 

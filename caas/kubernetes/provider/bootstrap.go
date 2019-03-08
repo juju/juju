@@ -18,6 +18,7 @@ import (
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/mongo"
@@ -609,14 +610,13 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 		containerSpec = append(containerSpec, core.Container{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			// ImagePullPolicy: core.PullAlways, // TODO(bootstrap): for debug
-			Image: c.pcfg.GetControllerImagePath(),
+			Image:           c.pcfg.GetControllerImagePath(),
 			Command: []string{
 				"/bin/sh",
 			},
 			Args: []string{
 				"-c",
-				fmt.Sprintf(jujudStartUpSh, jujudCmd),
+				fmt.Sprintf(caas.JujudStartUpSh, jujudCmd),
 			},
 			WorkingDir: jujudToolDir,
 			VolumeMounts: []core.VolumeMount{
