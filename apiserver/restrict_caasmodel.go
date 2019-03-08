@@ -68,6 +68,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"ExternalControllerUpdater",
 	"Upgrader",
 	"FanConfigurer",
+	"Block",
 )
 
 // caasModelFacadeNames lists facades that are only used with CAAS
