@@ -190,7 +190,7 @@ type NamespaceWatcher interface {
 type Service struct {
 	Id        string
 	Addresses []network.Address
-	Scale     int
+	Scale     *int
 }
 
 // FilesystemInfo represents information about a filesystem

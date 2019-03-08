@@ -296,6 +296,10 @@ func strPtr(s string) *string {
 	return &s
 }
 
+func intPtr(i int) *int {
+	return &i
+}
+
 func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *gc.C) {
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
@@ -317,7 +321,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *gc.C) {
 	}
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units, Scale: 4},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(4)},
 			{ApplicationTag: "application-another", Units: []params.ApplicationUnitParams{}},
 		},
 	}
@@ -382,7 +386,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 	}
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units, Scale: 2},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(2)},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
@@ -418,6 +422,57 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 	})
 }
 
+func (s *CAASProvisionerSuite) TestUpdateApplicationsUnknownScale(c *gc.C) {
+	s.st.application.units = []caasunitprovisioner.Unit{
+		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
+		&mockUnit{name: "gitlab/1", life: state.Alive},
+		&mockUnit{name: "gitlab/2", containerInfo: &mockContainerInfo{providerId: "uuid2"}, life: state.Alive},
+	}
+	s.st.application.scale = 3
+
+	units := []params.ApplicationUnitParams{
+		{ProviderId: "uuid", Address: "address", Ports: []string{"port"},
+			Status: "allocating", Info: ""},
+		{ProviderId: "another-uuid", Address: "another-address", Ports: []string{"another-port"},
+			Status: "allocating", Info: "another message"},
+	}
+	args := params.UpdateApplicationUnitArgs{
+		Args: []params.UpdateApplicationUnits{
+			{ApplicationTag: "application-gitlab", Units: units, Scale: nil},
+		},
+	}
+	results, err := s.facade.UpdateApplicationsUnits(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+		},
+	})
+	s.st.application.CheckCallNames(c, "Life", "Name")
+
+	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	// CloudContainer message is not overwritten based on agent status
+	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: strPtr("uuid"),
+		Address:    strPtr("address"), Ports: &[]string{"port"},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Waiting, Message: ""},
+		AgentStatus:          &status.StatusInfo{Status: status.Allocating},
+	})
+	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	// CloudContainer message is not overwritten based on agent status
+	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: strPtr("another-uuid"),
+		Address:    strPtr("another-address"), Ports: &[]string{"another-port"},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Waiting, Message: "another message"},
+		AgentStatus:          &status.StatusInfo{Status: status.Allocating, Message: "another message"},
+	})
+	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	s.st.application.units[2].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
+		AgentStatus:          &status.StatusInfo{Status: status.Idle},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Terminated, Message: "unit stopped by the cloud"},
+	})
+}
+
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", life: state.Alive},
@@ -435,7 +490,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 	}
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units, Scale: 3},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(3)},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
@@ -495,7 +550,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	s.st.application.scale = 3
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units, Scale: 3},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(3)},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
@@ -626,7 +681,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVo
 	s.st.application.scale = 1
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units, Scale: 1},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(1)},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)

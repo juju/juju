@@ -173,10 +173,10 @@ func (aw *applicationWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if scale == lastReportedScale {
+			if scale == nil || *scale == lastReportedScale {
 				continue
 			}
-			lastReportedScale = scale
+			lastReportedScale = *scale
 			if err := aw.clusterChanged(scale, lastReportedStatus); err != nil {
 				return errors.Trace(err)
 			}
@@ -206,19 +206,19 @@ func (aw *applicationWorker) loop() error {
 	}
 }
 
-func (aw *applicationWorker) getScale() (int, error) {
+func (aw *applicationWorker) getScale() (*int, error) {
 	service, err := aw.serviceBroker.Service(aw.application)
 	if errors.IsNotFound(err) {
-		return 0, nil
+		return nil, nil
 	}
 	if err != nil {
-		return 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("service for %v: %+v", aw.application, service)
 	return service.Scale, nil
 }
 
-func (aw *applicationWorker) clusterChanged(scale int, lastReportedStatus map[string]status.StatusInfo) error {
+func (aw *applicationWorker) clusterChanged(scale *int, lastReportedStatus map[string]status.StatusInfo) error {
 	units, err := aw.containerBroker.Units(aw.application)
 	if err != nil {
 		return errors.Trace(err)

@@ -67,7 +67,8 @@ func (m *mockServiceBroker) EnsureCustomResourceDefinition(appName string, podSp
 
 func (m *mockServiceBroker) Service(appName string) (*caas.Service, error) {
 	m.MethodCall(m, "Service", appName)
-	return &caas.Service{Id: "id", Scale: 4, Addresses: []network.Address{{Value: "10.0.0.1"}}}, m.NextErr()
+	scale := 4
+	return &caas.Service{Id: "id", Scale: &scale, Addresses: []network.Address{{Value: "10.0.0.1"}}}, m.NextErr()
 }
 
 func (m *mockServiceBroker) WatchService(appName string) (watcher.NotifyWatcher, error) {
