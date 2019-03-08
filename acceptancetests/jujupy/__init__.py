@@ -40,6 +40,7 @@ from jujupy.client import (
     Machine,
     ModelClient,
     CaasClient,
+    IaasClient,
     parse_new_state_server_from_error,
     temp_bootstrap_env,
 )
@@ -55,6 +56,9 @@ from jujupy.fake import (
 )
 from jujupy.status import (
     Status,
+)
+from jujupy.controller import (
+    Controllers,
 )
 from jujupy.utility import (
     get_timeout_prefix,
@@ -89,6 +93,7 @@ __all__ = [
     'Machine',
     'ModelClient',
     'CaasClient',
+    'IaasClient',
     'NameNotAccepted',
     'NoProvider',
     'NoSuchEnvironment',

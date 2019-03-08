@@ -33,6 +33,7 @@ from jujupy import (
     JujuData,
     temp_bootstrap_env,
     CaasClient,
+    IaasClient,
 )
 from jujupy.configuration import (
     get_juju_data,
@@ -73,7 +74,7 @@ __metaclass__ = type
 log = logging.getLogger(__name__)
 
 
-LXD_PROFILE = """
+CAAS_LXD_PROFILE = """
 name: juju-{model_name}
 config:
   boot.autostart: "true"
@@ -95,6 +96,15 @@ devices:
     source: /dev/null
     type: disk
 """
+IAAS_LXD_PROFILE = """
+name: juju-{model_name}
+config:
+  boot.autostart: "true"
+  linux.kernel_modules: ip_tables,ip6_tables,netlink_diag,nf_nat,overlay
+  security.nesting: "true"
+  security.privileged: "true"
+description: ""
+"""
 
 
 class NoExistingController(Exception):
@@ -103,7 +113,7 @@ class NoExistingController(Exception):
 
 def deploy_dummy_stack(client, charm_series, use_charmstore=False):
     """"Deploy a dummy stack in the specified environment."""
-    # Centos requires specific machine configuration (i.e. network device
+    # CentOS requires specific machine configuration (i.e. network device
     # order).
     if charm_series.startswith("centos") and client.env.maas:
         client.set_model_constraints({'tags': 'MAAS_NIC_1'})
@@ -137,24 +147,75 @@ def deploy_dummy_stack(client, charm_series, use_charmstore=False):
         client.wait_for_started(3600)
 
 
-def deploy_caas_stack(bundle_path, client, timeout=3600):
+def _deploy_stack(path, client, timeout=3600, charm=False, lxd_profile=None):
     # workaround to ensure lxd profile
-    model_name = client.model_name
-    profile = LXD_PROFILE.format(model_name=model_name)
-    with subprocess.Popen(('echo', profile), stdout=subprocess.PIPE) as echo:
-        o = subprocess.check_output(
-            ('lxc', 'profile', 'edit', 'juju-%s' % model_name),
-            stdin=echo.stdout
-        ).decode('UTF-8').strip()
-        log.debug(o)
+    if lxd_profile is not None:
+        model_name = client.model_name
+        profile = lxd_profile.format(model_name=model_name)
+        with subprocess.Popen(('echo', profile), stdout=subprocess.PIPE) as echo:
+            o = subprocess.check_output(
+                ('lxc', 'profile', 'edit', 'juju-%s' % model_name),
+                stdin=echo.stdout
+            ).decode('UTF-8').strip()
+            log.debug(o)
 
-    client.deploy_bundle(bundle_path, static_bundle=True)
+    # Deploy a charm or a bundle depending on the flag
+    if not charm:
+        client.deploy_bundle(path, static_bundle=True)
+    else:
+        client.deploy(charm=path)
     # Wait for the deployment to finish.
     client.wait_for_started(timeout=timeout)
     # wait for cluster to stabilize
-    client.wait_for_workloads()
+    client.wait_for_workloads(timeout=timeout)
     # get current status with tabular format for better debugging
     client.juju(client._show_status, ('--format', 'tabular'))
+    return client
+
+
+def deploy_iaas_stack(path, client, timeout=3600, charm=False):
+    """deploy a IAAS stack, it assumes that the path to a bundle/charm can be
+       reached.
+
+       When deploying the stack, it will use a LXD profile to inject into the
+       lxc client, so that we can take advantage of nested containers, for
+       example.
+
+    :param path: location/path to the bundle/charm
+    :param client: client used to deploy and watch bundle/charm workloads
+    :param timeout: timeout of when the workload should fail deployment
+    :param charm: deploy a charm or bundle
+    """
+
+    client = _deploy_stack(
+        path, client,
+        timeout=timeout,
+        charm=charm,
+        lxd_profile=IAAS_LXD_PROFILE,
+    )
+    return IaasClient(client)
+
+
+def deploy_caas_stack(path, client, timeout=3600, charm=False):
+    """deploy a CAAS stack, it assumes that the path to a bundle/charm can be
+       reached.
+
+       When deploying the stack, it will use a LXD profile to inject into the
+       lxc client, so that we can take advantage of nested containers, for
+       example.
+
+    :param path: location/path to the bundle/charm
+    :param client: client used to deploy and watch bundle/charm workloads
+    :param timeout: timeout of when the workload should fail deployment
+    :param charm: deploy a charm or bundle
+    """
+
+    client = _deploy_stack(
+        path, client,
+        timeout=timeout,
+        charm=charm,
+        lxd_profile=CAAS_LXD_PROFILE,
+    )
     return CaasClient(client)
 
 
@@ -810,6 +871,8 @@ class BootstrapManager:
                                         soft_deadline=args.deadline)
             if args.to is not None:
                 client.env.bootstrap_to = args.to
+            if args.logging_config is not None:
+                client.env.logging_config = args.logging_config
         return cls.from_client(args, client)
 
     @classmethod
