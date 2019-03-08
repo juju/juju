@@ -744,11 +744,6 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Trace(err)
 	}
 
-	if isCAASController {
-		// TODO(caas): wait/ping/ensure controller public endpoint is healthy/functioning(bootstrap state done, agent starts, ELB provisioned, etc).
-		return nil
-	}
-
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
