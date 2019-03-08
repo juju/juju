@@ -7,20 +7,30 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/cmd/cmdtesting"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
 type removeSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
+	api   *fakeRemoveCloudAPI
+	store jujuclient.ClientStore
 }
 
 var _ = gc.Suite(&removeSuite{})
+
+func (s *removeSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.api = &fakeRemoveCloudAPI{}
+	s.store = jujuclient.NewMemStore()
+}
 
 func (s *removeSuite) TestRemoveBadArgs(c *gc.C) {
 	cmd := cloud.NewRemoveCloudCommand()
@@ -62,12 +72,35 @@ clouds:
 }
 
 func (s *removeSuite) TestRemoveCloud(c *gc.C) {
+	var controllerAPICalled string
+	cmd := cloud.NewRemoveCloudCommandForTest(
+		s.store,
+		func(controllerName string) (cloud.RemoveCloudAPI, error) {
+			controllerAPICalled = controllerName
+			return s.api, nil
+		})
 	s.createTestCloudData(c)
 	assertPersonalClouds(c, "homestack", "homestack2")
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "homestack")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerAPICalled, gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of personal cloud \"homestack\"\n")
 	assertPersonalClouds(c, "homestack2")
+}
+
+func (s *removeSuite) TestRemoveCloudController(c *gc.C) {
+	var controllerAPICalled string
+	cmd := cloud.NewRemoveCloudCommandForTest(
+		s.store,
+		func(controllerName string) (cloud.RemoveCloudAPI, error) {
+			controllerAPICalled = controllerName
+			return s.api, nil
+		})
+	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack", "--controller", "mycontroller")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
+	s.api.CheckCallNames(c, "RemoveCloud", "Close")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"homestack\" on controller \"mycontroller\" removed\n")
 }
 
 func (s *removeSuite) TestCannotRemovePublicCloud(c *gc.C) {
@@ -85,4 +118,18 @@ func assertPersonalClouds(c *gc.C, names ...string) {
 		actual = append(actual, name)
 	}
 	c.Assert(actual, jc.SameContents, names)
+}
+
+type fakeRemoveCloudAPI struct {
+	jujutesting.Stub
+}
+
+func (api *fakeRemoveCloudAPI) Close() error {
+	api.AddCall("Close", nil)
+	return api.NextErr()
+}
+
+func (api *fakeRemoveCloudAPI) RemoveCloud(cloud string) error {
+	api.AddCall("RemoveCloud", cloud)
+	return api.NextErr()
 }
