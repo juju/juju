@@ -31,92 +31,172 @@ func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (*ManifoldsSuite) TestStartFuncs(c *gc.C) {
-	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
+func (ms *ManifoldsSuite) TestStartFuncsIAAS(c *gc.C) {
+	ms.assertStartFuncs(c, machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
-	})
+	}))
+}
+
+func (ms *ManifoldsSuite) TestStartFuncsCAAS(c *gc.C) {
+	ms.assertStartFuncs(c, machine.CAASManifolds(machine.ManifoldsConfig{
+		Agent: &mockAgent{},
+	}))
+}
+
+func (*ManifoldsSuite) assertStartFuncs(c *gc.C, manifolds dependency.Manifolds) {
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
 		c.Check(manifold.Start, gc.NotNil)
 	}
 }
 
-func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
-	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
-		Agent: &mockAgent{},
-	})
+func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
+	ms.assertManifoldNames(c,
+		machine.IAASManifolds(machine.ManifoldsConfig{
+			Agent: &mockAgent{},
+		}),
+		[]string{
+			"agent",
+			"agent-config-updater",
+			"api-address-updater",
+			"api-caller",
+			"api-config-watcher",
+			"api-server",
+			"audit-config-updater",
+			"central-hub",
+			"certificate-updater",
+			"certificate-watcher",
+			"clock",
+			"controller-port",
+			"disk-manager",
+			"external-controller-updater",
+			"fan-configurer",
+			"global-clock-updater",
+			"host-key-reporter",
+			"http-server",
+			"http-server-args",
+			"is-controller-flag",
+			"is-primary-controller-flag",
+			"lease-clock-updater",
+			"lease-manager",
+			"legacy-leases-flag",
+			"log-pruner",
+			"log-sender",
+			"logging-config-updater",
+			"machine-action-runner",
+			"machiner",
+			"mgo-txn-resumer",
+			"migration-fortress",
+			"migration-minion",
+			"migration-inactive-flag",
+			"model-cache",
+			"model-worker-manager",
+			"peer-grouper",
+			"presence",
+			"proxy-config-updater",
+			"pubsub-forwarder",
+			"raft",
+			"raft-backstop",
+			"raft-clusterer",
+			"raft-forwarder",
+			"raft-leader-flag",
+			"raft-transport",
+			"reboot-executor",
+			"restore-watcher",
+			"ssh-authkeys-updater",
+			"ssh-identity-writer",
+			"state",
+			"state-config-watcher",
+			"storage-provisioner",
+			"termination-signal-handler",
+			"tools-version-checker",
+			"transaction-pruner",
+			"unconverted-api-workers",
+			"unit-agent-deployer",
+			"upgrade-check-flag",
+			"upgrade-check-gate",
+			"upgrade-series",
+			"upgrade-steps-flag",
+			"upgrade-steps-gate",
+			"upgrade-steps-runner",
+			"upgrader",
+			"valid-credential-flag",
+		},
+	)
+}
+
+func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
+	ms.assertManifoldNames(c,
+		machine.CAASManifolds(machine.ManifoldsConfig{
+			Agent: &mockAgent{},
+		}),
+		[]string{
+			"agent",
+			"agent-config-updater",
+			"api-address-updater",
+			"api-caller",
+			"api-config-watcher",
+			"api-server",
+			"audit-config-updater",
+			"central-hub",
+			"certificate-updater",
+			"certificate-watcher",
+			"clock",
+			"controller-port",
+			"disk-manager",
+			"external-controller-updater",
+			"fan-configurer",
+			"global-clock-updater",
+			"http-server",
+			"http-server-args",
+			"is-controller-flag",
+			"is-primary-controller-flag",
+			"lease-clock-updater",
+			"lease-manager",
+			"legacy-leases-flag",
+			"log-pruner",
+			"log-sender",
+			"logging-config-updater",
+			"machine-action-runner",
+			"machiner",
+			"mgo-txn-resumer",
+			"migration-fortress",
+			"migration-minion",
+			"migration-inactive-flag",
+			"model-cache",
+			"model-worker-manager",
+			"peer-grouper",
+			"presence",
+			"pubsub-forwarder",
+			"raft",
+			"raft-backstop",
+			"raft-clusterer",
+			"raft-forwarder",
+			"raft-leader-flag",
+			"raft-transport",
+			"restore-watcher",
+			"ssh-identity-writer",
+			"state",
+			"state-config-watcher",
+			"termination-signal-handler",
+			"transaction-pruner",
+			"unconverted-api-workers",
+			"upgrade-check-flag",
+			"upgrade-check-gate",
+			"upgrade-steps-flag",
+			"upgrade-steps-gate",
+			"upgrader",
+			"valid-credential-flag",
+		},
+	)
+}
+
+func (*ManifoldsSuite) assertManifoldNames(c *gc.C, manifolds dependency.Manifolds, expectedKeys []string) {
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	expectedKeys := []string{
-		"agent",
-		"agent-config-updater",
-		"api-address-updater",
-		"api-caller",
-		"api-config-watcher",
-		"api-server",
-		"audit-config-updater",
-		"central-hub",
-		"certificate-updater",
-		"certificate-watcher",
-		"clock",
-		"controller-port",
-		"disk-manager",
-		"external-controller-updater",
-		"fan-configurer",
-		"global-clock-updater",
-		"host-key-reporter",
-		"http-server",
-		"http-server-args",
-		"is-controller-flag",
-		"is-primary-controller-flag",
-		"lease-clock-updater",
-		"lease-manager",
-		"legacy-leases-flag",
-		"log-pruner",
-		"log-sender",
-		"logging-config-updater",
-		"machine-action-runner",
-		"machiner",
-		"mgo-txn-resumer",
-		"migration-fortress",
-		"migration-minion",
-		"migration-inactive-flag",
-		"model-cache",
-		"model-worker-manager",
-		"peer-grouper",
-		"presence",
-		"proxy-config-updater",
-		"pubsub-forwarder",
-		"raft",
-		"raft-backstop",
-		"raft-clusterer",
-		"raft-forwarder",
-		"raft-leader-flag",
-		"raft-transport",
-		"reboot-executor",
-		"restore-watcher",
-		"ssh-authkeys-updater",
-		"ssh-identity-writer",
-		"state",
-		"state-config-watcher",
-		"storage-provisioner",
-		"termination-signal-handler",
-		"tools-version-checker",
-		"transaction-pruner",
-		"unconverted-api-workers",
-		"unit-agent-deployer",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-series",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-		"upgrade-steps-runner",
-		"upgrader",
-		"valid-credential-flag",
-	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
 
