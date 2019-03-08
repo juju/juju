@@ -813,11 +813,10 @@ func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
 	statefulsets := k.AppsV1().StatefulSets(k.namespace)
 	ss, err := statefulsets.Get(deploymentName, v1.GetOptions{})
 	if err == nil {
-		scale := 0
 		if ss.Spec.Replicas != nil {
-			scale = int(*ss.Spec.Replicas)
+			scale := int(*ss.Spec.Replicas)
+			result.Scale = &scale
 		}
-		result.Scale = scale
 		return &result, nil
 	}
 	if !k8serrors.IsNotFound(err) {
@@ -830,11 +829,10 @@ func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
 		return nil, errors.Trace(err)
 	}
 	if err == nil {
-		scale := 0
 		if deployment.Spec.Replicas != nil {
-			scale = int(*deployment.Spec.Replicas)
+			scale := int(*deployment.Spec.Replicas)
+			result.Scale = &scale
 		}
-		result.Scale = scale
 	}
 	return &result, nil
 }
@@ -1812,6 +1810,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 					fsInfo.StorageName = jujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				}
 			}
+			logger.Debugf("filesystem info for %v: %+v", volMount.Name, *fsInfo)
 			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, *fsInfo)
 		}
 		units = append(units, unitInfo)
@@ -1891,7 +1890,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 	}
 
 	pVolumes := k.CoreV1().PersistentVolumes()
-	pv, err := pVolumes.Get(vol.Name, v1.GetOptions{})
+	pv, err := pVolumes.Get(pvc.Spec.VolumeName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// Ignore volumes which don't exist (yet).
 		return nil, nil
