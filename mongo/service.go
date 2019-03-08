@@ -84,11 +84,14 @@ type mongoService interface {
 }
 
 var newService = func(name string, conf common.Conf) (mongoService, error) {
+	if featureflag.Enabled(feature.MongoDbSnap) {
+		return snap.NewServiceFromName(name, conf)
+	}
 	return service.DiscoverService(name, conf)
 }
 
 var discoverService = func(name string) (mongoService, error) {
-	return service.DiscoverService(name, common.Conf{})
+	return newService(name, common.Conf{})
 }
 
 // IsServiceInstalled returns whether the MongoDB init service
