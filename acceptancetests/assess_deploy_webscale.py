@@ -306,8 +306,11 @@ def main(argv=None):
                 "git-sha": args.git_sha,
                 "charm-bundle": args.charm_bundle,
                 "charm-urls": charm_urls,
-                "mongo-version": mongo_version,
                 "juju-version": args.juju_version,
+                "mongo-version": mongo_version,
+                # The following are placeholders for now
+                "mongo-profile": "low",
+                "mongo-ss-txns": "false",
             })
         except Exception:
             raise JujuAssertionError("Error reporting metrics")
