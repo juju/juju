@@ -6,6 +6,7 @@ package instancemutater_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/lxdprofile"
 	coretesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -47,6 +48,10 @@ func (s *instanceMutaterAPISuite) behaviourLife(machineTag names.Tag) {
 		exp.AuthMachineAgent().Return(true),
 		exp.GetAuthTag().Return(machineTag),
 	)
+}
+
+func (s *instanceMutaterAPISuite) behaviourFindEntity(machineTag names.Tag, entity state.Entity) {
+	s.state.EXPECT().FindEntity(machineTag).Return(entity, nil)
 }
 
 type InstanceMutaterAPILifeSuite struct {
@@ -363,10 +368,6 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) behaviourMachine(id instance
 	s.machine.EXPECT().InstanceId().Return(id, nil)
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) behaviourFindEntity(machineTag names.Tag, entity state.Entity) {
-	s.state.EXPECT().FindEntity(machineTag).Return(entity, nil)
-}
-
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) behaviourCharmProfiles() {
 	aExp := s.application.EXPECT()
 	cExp := s.charm.EXPECT()
@@ -425,4 +426,203 @@ type machineEntityShim struct {
 	instancemutater.Machine
 	state.Entity
 	state.Lifer
+}
+
+type InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite struct {
+	instanceMutaterAPISuite
+
+	machine *mocks.MockMachine
+}
+
+var _ = gc.Suite(&InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite{})
+
+func (s *InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := s.instanceMutaterAPISuite.setup(c)
+
+	s.machine = mocks.NewMockMachine(ctrl)
+
+	return ctrl
+}
+
+func (s *InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	machineTag := names.NewMachineTag("0")
+
+	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
+	s.behaviourLife(machineTag)
+	s.behaviourFindEntity(machineTag, machineEntityShim{
+		Machine: s.machine,
+		Entity:  s.entity,
+		Lifer:   s.lifer,
+	})
+	s.behaviourSetProfileMsg(lxdprofile.SuccessStatus, nil)
+
+	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+
+	results, err := facade.SetUpgradeCharmProfileComplete(params.SetProfileUpgradeCompleteArgs{
+		Args: []params.SetProfileUpgradeCompleteArg{
+			{
+				Entity:   params.Entity{Tag: "machine-0"},
+				UnitName: "unit",
+				Message:  lxdprofile.SuccessStatus,
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{{}})
+}
+
+func (s *InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite) TestSetUpgradeCharmProfileCompleteWithError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	machineTag := names.NewMachineTag("0")
+
+	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
+	s.behaviourLife(machineTag)
+	s.behaviourFindEntity(machineTag, machineEntityShim{
+		Machine: s.machine,
+		Entity:  s.entity,
+		Lifer:   s.lifer,
+	})
+	s.behaviourFindEntity(machineTag, machineEntityShim{
+		Machine: s.machine,
+		Entity:  s.entity,
+		Lifer:   s.lifer,
+	})
+	s.behaviourSetProfileMsg(lxdprofile.SuccessStatus, nil)
+	s.behaviourSetProfileMsg(lxdprofile.SuccessStatus, errors.New("Failure"))
+
+	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+
+	results, err := facade.SetUpgradeCharmProfileComplete(params.SetProfileUpgradeCompleteArgs{
+		Args: []params.SetProfileUpgradeCompleteArg{
+			{
+				Entity:   params.Entity{Tag: "machine-0"},
+				UnitName: "unit",
+				Message:  lxdprofile.SuccessStatus,
+			},
+			{
+				Entity:   params.Entity{Tag: "machine-0"},
+				UnitName: "unit",
+				Message:  lxdprofile.SuccessStatus,
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
+		{},
+		{
+			Error: &params.Error{
+				Message: "Failure",
+			},
+		},
+	})
+}
+
+func (s *InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite) behaviourSetProfileMsg(msg string, err error) {
+	s.machine.EXPECT().SetUpgradeCharmProfileComplete("unit", msg).Return(err)
+}
+
+type InstanceMutaterAPISetCharmProfilesSuite struct {
+	instanceMutaterAPISuite
+
+	machine *mocks.MockMachine
+}
+
+var _ = gc.Suite(&InstanceMutaterAPISetCharmProfilesSuite{})
+
+func (s *InstanceMutaterAPISetCharmProfilesSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := s.instanceMutaterAPISuite.setup(c)
+
+	s.machine = mocks.NewMockMachine(ctrl)
+
+	return ctrl
+}
+
+func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfiles(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	machineTag := names.NewMachineTag("0")
+	profiles := []string{"unit-foo-0"}
+
+	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
+	s.behaviourLife(machineTag)
+	s.behaviourFindEntity(machineTag, machineEntityShim{
+		Machine: s.machine,
+		Entity:  s.entity,
+		Lifer:   s.lifer,
+	})
+	s.behaviourSetProfiles(profiles, nil)
+
+	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+
+	results, err := facade.SetCharmProfiles(params.SetProfileArgs{
+		Args: []params.SetProfileArg{
+			{
+				Entity:   params.Entity{Tag: "machine-0"},
+				Profiles: profiles,
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{{}})
+}
+
+func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	machineTag := names.NewMachineTag("0")
+	profiles := []string{"unit-foo-0"}
+
+	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
+	s.behaviourLife(machineTag)
+	s.behaviourFindEntity(machineTag, machineEntityShim{
+		Machine: s.machine,
+		Entity:  s.entity,
+		Lifer:   s.lifer,
+	})
+	s.behaviourSetProfiles(profiles, nil)
+	s.behaviourFindEntity(machineTag, machineEntityShim{
+		Machine: s.machine,
+		Entity:  s.entity,
+		Lifer:   s.lifer,
+	})
+	s.behaviourSetProfiles(profiles, errors.New("Failure"))
+
+	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+
+	results, err := facade.SetCharmProfiles(params.SetProfileArgs{
+		Args: []params.SetProfileArg{
+			{
+				Entity:   params.Entity{Tag: "machine-0"},
+				Profiles: profiles,
+			},
+			{
+				Entity:   params.Entity{Tag: "machine-0"},
+				Profiles: profiles,
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
+		{},
+		{
+			Error: &params.Error{
+				Message: "Failure",
+			},
+		},
+	})
+}
+
+func (s *InstanceMutaterAPISetCharmProfilesSuite) behaviourSetProfiles(profiles []string, err error) {
+	s.machine.EXPECT().SetCharmProfiles(profiles).Return(err)
 }

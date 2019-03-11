@@ -95,6 +95,35 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.CharmProfilingInfoA
 	return result, nil
 }
 
+// SetUpgradeCharmProfileComplete recorded that the result of updating
+// the machine's charm profile(s)
+func (api *InstanceMutaterAPI) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Args))
+	canAccess, err := api.getAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Args {
+		err := api.oneUpgradeCharmProfileComplete(a.Entity.Tag, a.UnitName, a.Message, canAccess)
+		results[i].Error = common.ServerError(err)
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+// SetCharmProfiles records the given slice of charm profile names.
+func (api *InstanceMutaterAPI) SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Args))
+	canAccess, err := api.getAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Args {
+		err := api.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess)
+		results[i].Error = common.ServerError(err)
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
 func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
 	if !canAccess(tag) {
 		return nil, common.ErrPerm
@@ -180,20 +209,6 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []stri
 	return changeResults, machineProfiles, true, nil
 }
 
-// SetUpgradeCharmProfileComplete recorded that the result of updating
-// the machine's charm profile(s)
-func (api *InstanceMutaterAPI) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
-	results := make([]params.ErrorResult, len(args.Args))
-	canAccess, err := api.getAuthFunc()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	for i, a := range args.Args {
-		results[i].Error = common.ServerError(api.oneUpgradeCharmProfileComplete(a.Entity.Tag, a.UnitName, a.Message, canAccess))
-	}
-	return params.ErrorResults{Results: results}, nil
-}
-
 func (api *InstanceMutaterAPI) oneUpgradeCharmProfileComplete(machineTag, unitName, msg string, canAccess common.AuthFunc) error {
 	mTag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
@@ -204,19 +219,6 @@ func (api *InstanceMutaterAPI) oneUpgradeCharmProfileComplete(machineTag, unitNa
 		return errors.Trace(err)
 	}
 	return machine.SetUpgradeCharmProfileComplete(unitName, msg)
-}
-
-// SetCharmProfiles records the given slice of charm profile names.
-func (api *InstanceMutaterAPI) SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error) {
-	results := make([]params.ErrorResult, len(args.Args))
-	canAccess, err := api.getAuthFunc()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	for i, a := range args.Args {
-		results[i].Error = common.ServerError(api.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess))
-	}
-	return params.ErrorResults{Results: results}, nil
 }
 
 func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(machineTag string, profiles []string, canAccess common.AuthFunc) error {
