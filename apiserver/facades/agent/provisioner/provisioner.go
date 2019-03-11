@@ -112,7 +112,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	if err != nil {
 		return nil, err
 	}
-	configGetter := stateenvirons.EnvironConfigGetter{st, model}
+	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
 	env, err := environs.GetEnviron(configGetter, environs.New)
 	if err != nil {
 		return nil, err

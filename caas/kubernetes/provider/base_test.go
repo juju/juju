@@ -38,6 +38,7 @@ type BaseSuite struct {
 	cfg *config.Config
 
 	k8sClient                  *mocks.MockInterface
+	mockRestClient             *mocks.MockRestClientInterface
 	mockNamespaces             *mocks.MockNamespaceInterface
 	mockApps                   *mocks.MockAppsV1Interface
 	mockExtensions             *mocks.MockExtensionsV1beta1Interface
@@ -89,6 +90,8 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	// We make the mock and assign it to the corresponding core getter function.
 	mockCoreV1 := mocks.NewMockCoreV1Interface(ctrl)
 	s.k8sClient.EXPECT().CoreV1().AnyTimes().Return(mockCoreV1)
+	s.mockRestClient = mocks.NewMockRestClientInterface(ctrl)
+	mockCoreV1.EXPECT().RESTClient().AnyTimes().Return(s.mockRestClient)
 
 	s.mockNamespaces = mocks.NewMockNamespaceInterface(ctrl)
 	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)

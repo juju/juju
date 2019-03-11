@@ -11,7 +11,9 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 )
 
 var (
@@ -49,4 +51,47 @@ func CreateUnit(st *State, tag names.UnitTag) *Unit {
 	}
 }
 
-var NewStateV4 = newStateForVersionFn(4)
+func NewStateV2(
+	caller base.APICaller,
+	authTag names.UnitTag,
+) *State {
+	return newStateForVersion(caller, authTag, 2)
+}
+
+func NewStateV4(
+	caller base.APICaller,
+	authTag names.UnitTag,
+) *State {
+	return newStateForVersion(caller, authTag, 4)
+}
+
+func newStateForVersion(
+	caller base.APICaller,
+	authTag names.UnitTag,
+	version int,
+) *State {
+	facadeCaller := base.NewFacadeCallerForVersion(
+		caller,
+		uniterFacade,
+		version,
+	)
+	state := &State{
+		ModelWatcher:     common.NewModelWatcher(facadeCaller),
+		APIAddresser:     common.NewAPIAddresser(facadeCaller),
+		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(facadeCaller, authTag),
+		LXDProfileAPI:    NewLXDProfileAPI(facadeCaller, authTag),
+		StorageAccessor:  NewStorageAccessor(facadeCaller),
+		facade:           facadeCaller,
+		unitTag:          authTag,
+	}
+
+	newWatcher := func(result params.NotifyWatchResult) watcher.NotifyWatcher {
+		return apiwatcher.NewNotifyWatcher(caller, result)
+	}
+	state.LeadershipSettings = NewLeadershipSettingsAccessor(
+		facadeCaller.FacadeCall,
+		newWatcher,
+		ErrIfNotVersionFn(2, state.BestAPIVersion()),
+	)
+	return state
+}

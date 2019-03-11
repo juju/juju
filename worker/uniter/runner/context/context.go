@@ -231,6 +231,9 @@ type HookContext struct {
 
 	// The cloud specification
 	cloudSpec *params.CloudSpec
+
+	// The cloud API version, if available.
+	cloudAPIVersion string
 }
 
 // Component implements hooks.Context.
@@ -648,6 +651,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_PRINCIPAL_UNIT="+context.principal,
 		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
 		"JUJU_VERSION="+version.Current.String(),
+		"CLOUD_API_VERSION="+context.cloudAPIVersion,
 		// Some of these will be empty, but that is fine, better
 		// to explicitly export them as empty.
 		"JUJU_CHARM_HTTP_PROXY="+context.jujuProxySettings.Http,

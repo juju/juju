@@ -77,6 +77,7 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 		"JUJU_MACHINE_ID=42",
 		"JUJU_AVAILABILITY_ZONE=some-zone",
 		"JUJU_VERSION=1.2.3",
+		"CLOUD_API_VERSION=6.66",
 	}
 	if newProxyOnly {
 		expected = append(expected,
