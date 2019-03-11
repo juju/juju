@@ -146,7 +146,7 @@ func NewFacadeV5(ctx facade.Context) (*ModelManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	configGetter := stateenvirons.EnvironConfigGetter{st, model}
+	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
 
 	ctrlModel, err := ctlrSt.Model()
 	if err != nil {

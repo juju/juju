@@ -893,7 +893,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(s.Model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		stateenvirons.EnvironConfigGetter{s.State, s.Model},
+		stateenvirons.EnvironConfigGetter{State: s.State, Model: s.Model},
 		nil,
 		s.authoriser,
 		s.Model,

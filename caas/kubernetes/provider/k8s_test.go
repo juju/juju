@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -24,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -338,6 +340,18 @@ type K8sBrokerSuite struct {
 }
 
 var _ = gc.Suite(&K8sBrokerSuite{})
+
+func (s *K8sBrokerSuite) TestAPIVersion(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	r := rest.NewRequest(nil, "get", &url.URL{Path: "/path/"}, "", rest.ContentConfig{}, rest.Serializers{}, nil, nil, 0)
+	s.mockRestClient.EXPECT().Get().Times(1).Return(r)
+
+	// The fake request results in an error that shows the expected path was accessed.
+	_, err := s.broker.APIVersion()
+	c.Assert(err, gc.ErrorMatches, `get /path/version: unsupported protocol scheme ""`)
+}
 
 func (s *K8sBrokerSuite) TestConfig(c *gc.C) {
 	ctrl := s.setupBroker(c)
