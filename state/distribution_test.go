@@ -74,7 +74,7 @@ func (s *InstanceDistributorSuite) setupScenario(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	for i, m := range s.machines {
 		instId := instance.Id(fmt.Sprintf("i-blah-%d", i))
-		err = m.SetProvisioned(instId, "fake-nonce", nil)
+		err = m.SetProvisioned(instId, "", "fake-nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -109,7 +109,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesNoEmptyMachines(c *gc.
 		m, err := unit.AssignToCleanMachine()
 		c.Assert(err, jc.ErrorIsNil)
 		instId := instance.Id(fmt.Sprintf("i-blah-%d", i))
-		err = m.SetProvisioned(instId, "fake-nonce", nil)
+		err = m.SetProvisioned(instId, "", "fake-nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -204,7 +204,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesWithZoneConstraints(c 
 			hc = nil
 		}
 
-		err = m.SetProvisioned(instId, "fake-nonce", hc)
+		err = m.SetProvisioned(instId, "", "fake-nonce", hc)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

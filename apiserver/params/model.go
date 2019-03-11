@@ -283,13 +283,14 @@ type ModelInfoListResults struct {
 
 // ModelMachineInfo holds information about a machine in a model.
 type ModelMachineInfo struct {
-	Id         string           `json:"id"`
-	Hardware   *MachineHardware `json:"hardware,omitempty"`
-	InstanceId string           `json:"instance-id,omitempty"`
-	Status     string           `json:"status,omitempty"`
-	Message    string           `json:"message,omitempty"`
-	HasVote    bool             `json:"has-vote,omitempty"`
-	WantsVote  bool             `json:"wants-vote,omitempty"`
+	Id          string           `json:"id"`
+	Hardware    *MachineHardware `json:"hardware,omitempty"`
+	InstanceId  string           `json:"instance-id,omitempty"`
+	DisplayName string           `json:"display-name,omitempty"`
+	Status      string           `json:"status,omitempty"`
+	Message     string           `json:"message,omitempty"`
+	HasVote     bool             `json:"has-vote,omitempty"`
+	WantsVote   bool             `json:"wants-vote,omitempty"`
 }
 
 // MachineHardware holds information about a machine's hardware characteristics.

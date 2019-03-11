@@ -179,9 +179,13 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	// Create node 1: it will be used as instance number 1.
 	suite.newNode(c, "node1", "host1", nil)
 	suite.addSubnet(c, 8, 8, "node1")
-	instance, hc := testing.AssertStartInstance(c, env, suite.callCtx, suite.controllerUUID, "1")
+	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
+	err = testing.FillInStartInstanceParams(env, "node1", false, &params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instance, gc.NotNil)
+	result, err := testing.StartInstanceWithParams(env, suite.callCtx, "1", params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.DisplayName, gc.Equals, "host1")
+	hc := result.Hardware
 	c.Assert(hc, gc.NotNil)
 	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
 
@@ -211,7 +215,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Trash the tools and try to start another instance.
 	suite.PatchValue(&envtools.DefaultBaseURL, "")
-	instance, _, _, err = testing.StartInstance(env, suite.callCtx, suite.controllerUUID, "2")
+	instance, _, _, err := testing.StartInstance(env, suite.callCtx, suite.controllerUUID, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }

@@ -111,7 +111,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	for i := 0; i < len(insts)/2; i += 2 {
 		m, err := s.State.Machine(machines[i].Id())
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetProvisioned(insts[i].Id(), "nonce", nil)
+		err = m.SetProvisioned(insts[i].Id(), "", "nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
 		dummy.SetInstanceStatus(insts[i], "running")
@@ -140,7 +140,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 		if i%2 == 0 {
 			m, err := s.State.Machine(machines[i].Id())
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetProvisioned(insts[i].Id(), "nonce", nil)
+			err = m.SetProvisioned(insts[i].Id(), "", "nonce", nil)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
@@ -191,7 +191,7 @@ func (s *workerSuite) setupScenario(c *gc.C) ([]*apiinstancepoller.Machine, []in
 		apiMachine := machines[i]
 		m, err := s.State.Machine(apiMachine.Id())
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetProvisioned(insts[i].Id(), "nonce", nil)
+		err = m.SetProvisioned(insts[i].Id(), "", "nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	// Associate the first half of the instances with an address and status.

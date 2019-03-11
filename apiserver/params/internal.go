@@ -384,11 +384,21 @@ type LifeResults struct {
 	Results []LifeResult `json:"results"`
 }
 
-// InstanceInfo holds a machine tag, provider-specific instance id, a nonce, and
-// network config.
+// InstanceInfo holds information about an instance. Instances are
+// typically virtual machines hosted by a cloud provider but may also
+// be a container.
+//
+// The InstanceInfo struct contains three categories of information:
+//  - interal data, as the machine's tag and the tags of any attached
+//    storage volumes
+//  - naming and other provider-specific information, including the
+//    instance id and display name
+//  - configuration information, including its attached storage volumes,
+//    charm profiles and networking
 type InstanceInfo struct {
 	Tag             string                            `json:"tag"`
 	InstanceId      instance.Id                       `json:"instance-id"`
+	DisplayName     string                            `json:"display-name"`
 	Nonce           string                            `json:"nonce"`
 	Characteristics *instance.HardwareCharacteristics `json:"characteristics"`
 	Volumes         []Volume                          `json:"volumes"`

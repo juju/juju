@@ -51,7 +51,7 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	nonce, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", nonce, nil)
+	err = machine.SetProvisioned("foo", "", nonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

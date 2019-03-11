@@ -158,7 +158,7 @@ func (s *ContextSuite) AddUnit(c *gc.C, svc *state.Application) *state.Unit {
 	hwc := instance.HardwareCharacteristics{
 		AvailabilityZone: &zone,
 	}
-	err = s.machine.SetProvisioned("i-exist", "fake_nonce", &hwc)
+	err = s.machine.SetProvisioned("i-exist", "", "fake_nonce", &hwc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	name := strings.Replace(unit.Name(), "/", "-", 1)

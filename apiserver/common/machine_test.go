@@ -105,7 +105,8 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
 		{
-			Id: "1",
+			Id:          "1",
+			DisplayName: "",
 			Hardware: &params.MachineHardware{
 				Arch:     &amd64,
 				Mem:      &gig,
@@ -113,7 +114,8 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 				CpuPower: &one,
 			},
 		}, {
-			Id: "2",
+			Id:          "2",
+			DisplayName: "",
 		},
 	})
 }
@@ -121,7 +123,21 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 	st := mockState{
 		machines: map[string]*mockMachine{
-			"1": {id: "1", instId: instance.Id("123"), status: status.Down, hasVote: true, wantsVote: true},
+			"1": {
+				id:        "1",
+				instId:    "123",
+				status:    status.Down,
+				hasVote:   true,
+				wantsVote: true,
+			},
+			"2": {
+				id:          "2",
+				instId:      "456",
+				displayName: "two",
+				status:      status.Allocating,
+				hasVote:     false,
+				wantsVote:   true,
+			},
 		},
 	}
 	info, err := common.ModelMachineInfo(&st)
@@ -133,6 +149,68 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 			Status:     "down",
 			HasVote:    true,
 			WantsVote:  true,
+		},
+		{
+			Id:          "2",
+			InstanceId:  "456",
+			DisplayName: "two",
+			Status:      "allocating",
+			HasVote:     false,
+			WantsVote:   true,
+		},
+	})
+}
+
+func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
+	st := mockState{
+		machines: map[string]*mockMachine{
+			"1": {
+				id:          "1",
+				instId:      "123",
+				displayName: "",
+				status:      status.Down,
+				hasVote:     true,
+				wantsVote:   true,
+			},
+		},
+	}
+	info, err := common.ModelMachineInfo(&st)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
+		{
+			Id:          "1",
+			InstanceId:  "123",
+			DisplayName: "",
+			Status:      "down",
+			HasVote:     true,
+			WantsVote:   true,
+		},
+	})
+}
+
+func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
+	st := mockState{
+		machines: map[string]*mockMachine{
+			"1": {
+				id:          "1",
+				instId:      "123",
+				displayName: "snowflake",
+				status:      status.Down,
+				hasVote:     true,
+				wantsVote:   true,
+			},
+		},
+	}
+	info, err := common.ModelMachineInfo(&st)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
+		{
+			Id:          "1",
+			InstanceId:  "123",
+			DisplayName: "snowflake",
+			Status:      "down",
+			HasVote:     true,
+			WantsVote:   true,
 		},
 	})
 }
@@ -169,6 +247,7 @@ type mockMachine struct {
 	containerType      instance.ContainerType
 	hw                 *instance.HardwareCharacteristics
 	instId             instance.Id
+	displayName        string
 	hasVote, wantsVote bool
 	status             status.Status
 	statusErr          error
@@ -190,6 +269,11 @@ func (m *mockMachine) Life() state.Life {
 
 func (m *mockMachine) InstanceId() (instance.Id, error) {
 	return m.instId, nil
+}
+
+func (m *mockMachine) InstanceNames() (instance.Id, string, error) {
+	instId, err := m.InstanceId()
+	return instId, m.displayName, err
 }
 
 func (m *mockMachine) WantsVote() bool {

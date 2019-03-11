@@ -64,7 +64,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetInstanceInfo("i-manager", "fake_nonce", nil, nil, nil, nil, nil, nil)
+	err = s.machine.SetInstanceInfo("i-manager", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
@@ -314,7 +314,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	}
 
 	err = apiMachine.SetInstanceInfo(
-		"i-will", "fake_nonce", &hwChars, nil, volumes, volumeAttachments, nil,
+		"i-will", "", "fake_nonce", &hwChars, nil, volumes, volumeAttachments, nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -323,7 +323,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(instanceId, gc.Equals, instance.Id("i-will"))
 
 	// Try it again - should fail.
-	err = apiMachine.SetInstanceInfo("i-wont", "fake", nil, nil, nil, nil, nil)
+	err = apiMachine.SetInstanceInfo("i-wont", "", "fake", nil, nil, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot record provisioning info for "i-wont": cannot set instance data for machine "1": already set`)
 
 	// Now try to get machine 0's instance id.
@@ -374,7 +374,7 @@ func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
 	hwChars := instance.MustParseHardware(fmt.Sprintf("availability-zone=%s", availabilityZone))
 
 	err = apiMachine.SetInstanceInfo(
-		"azinst", "nonce", &hwChars, nil, nil, nil, nil,
+		"azinst", "", "nonce", &hwChars, nil, nil, nil, nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -403,7 +403,7 @@ func (s *provisionerSuite) TestSetInstanceInfoProfiles(c *gc.C) {
 
 	profiles := []string{"juju-default-profile-0", "juju-default-lxd-2"}
 	err = apiMachine.SetInstanceInfo(
-		"profileinst", "nonce", &hwChars, nil, nil, nil, profiles,
+		"profileinst", "", "nonce", &hwChars, nil, nil, nil, profiles,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -561,7 +561,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	apiMachine = s.assertGetOneMachine(c, machine1.MachineTag())
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	err = apiMachine.SetInstanceInfo("i-d", "fake", nil, nil, nil, nil, nil)
+	err = apiMachine.SetInstanceInfo("i-d", "", "fake", nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	instances, err = apiMachine.DistributionGroup()
 	c.Assert(err, jc.ErrorIsNil)

@@ -228,7 +228,7 @@ func (s *apiserverBaseSuite) OpenAPIAsNewMachine(c *gc.C, srv *apiserver.Server,
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return s.openAPIAs(c, srv, machine.Tag(), password, "fake_nonce", false), machine
 }

@@ -830,6 +830,11 @@ func (m *testMachine) InstanceId() (instance.Id, error) {
 	return m.instance.Id(), nil
 }
 
+func (m *testMachine) InstanceNames() (instance.Id, string, error) {
+	instId, err := m.InstanceId()
+	return instId, "", err
+}
+
 func (m *testMachine) KeepInstance() (bool, error) {
 	return m.keepInstance, nil
 }
@@ -886,7 +891,7 @@ func (m *testMachine) ModelAgentVersion() (*version.Number, error) {
 }
 
 func (m *testMachine) SetInstanceInfo(
-	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+	id instance.Id, displayName string, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
 	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 ) error {
