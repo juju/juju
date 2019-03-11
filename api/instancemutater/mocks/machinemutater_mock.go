@@ -36,9 +36,9 @@ func (m *MockMutaterMachine) EXPECT() *MockMutaterMachineMockRecorder {
 }
 
 // CharmProfilingInfo mocks base method
-func (m *MockMutaterMachine) CharmProfilingInfo(arg0 []string) (instancemutater.ProfileInfo, error) {
+func (m *MockMutaterMachine) CharmProfilingInfo(arg0 []string) (*instancemutater.ProfileInfo, error) {
 	ret := m.ctrl.Call(m, "CharmProfilingInfo", arg0)
-	ret0, _ := ret[0].(instancemutater.ProfileInfo)
+	ret0, _ := ret[0].(*instancemutater.ProfileInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

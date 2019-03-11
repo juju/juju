@@ -36,9 +36,9 @@ func (m *MockInstanceMutaterAPI) EXPECT() *MockInstanceMutaterAPIMockRecorder {
 }
 
 // Machine mocks base method
-func (m *MockInstanceMutaterAPI) Machine(arg0 names_v2.MachineTag) (*instancemutater.MutaterMachine, error) {
+func (m *MockInstanceMutaterAPI) Machine(arg0 names_v2.MachineTag) (instancemutater.MutaterMachine, error) {
 	ret := m.ctrl.Call(m, "Machine", arg0)
-	ret0, _ := ret[0].(*instancemutater.MutaterMachine)
+	ret0, _ := ret[0].(instancemutater.MutaterMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

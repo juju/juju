@@ -36,7 +36,7 @@ func (s *mutaterSuite) TestUnitsChanged(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	unitNames := []string{"ubuntu/0"}
-	info := apiinstancemutater.ProfileInfo{
+	info := &apiinstancemutater.ProfileInfo{
 		Changes:         false,
 		CurrentProfiles: []string{"juju-default-lxd-profile-0"},
 	}

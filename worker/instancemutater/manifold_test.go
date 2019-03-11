@@ -295,7 +295,7 @@ func (s *manifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 	}
 	manifold := instancemutater.Manifold(config)
 	_, err := manifold.Start(s.context)
-	c.Assert(err, gc.ErrorMatches, "cannot start machine upgrade series worker: errored")
+	c.Assert(err, gc.ErrorMatches, "cannot start machine instancemutater worker: errored")
 }
 
 func (s *manifoldSuite) TestConfigValidatesForMissingWorker(c *gc.C) {
