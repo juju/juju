@@ -221,7 +221,7 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	return nil
 }
 
-// GetControllerImagePath returns oci image path of jujud.
+// GetControllerImagePath returns oci image path of jujud for a controller.
 func (cfg *ControllerPodConfig) GetControllerImagePath() string {
 	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion)
 }
