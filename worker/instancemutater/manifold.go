@@ -68,12 +68,12 @@ func (config ManifoldConfig) newWorker(environ environs.Environ, apiCaller base.
 
 	w, err := config.NewWorker(cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot start machine upgrade series worker")
+		return nil, errors.Annotate(err, "cannot start machine instancemutater worker")
 	}
 	return w, nil
 }
 
-// Manifold returns a Manifold that encapsulates the instancepoller worker.
+// Manifold returns a Manifold that encapsulates the instancemutater worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	typedConfig := EnvironAPIConfig{
 		EnvironName:   config.EnvironName,

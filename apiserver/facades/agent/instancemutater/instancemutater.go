@@ -186,7 +186,6 @@ func (api *InstanceMutaterAPI) SetUpgradeCharmProfileComplete(args params.SetPro
 	results := make([]params.ErrorResult, len(args.Args))
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, a := range args.Args {
@@ -212,7 +211,6 @@ func (api *InstanceMutaterAPI) SetCharmProfiles(args params.SetProfileArgs) (par
 	results := make([]params.ErrorResult, len(args.Args))
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		logger.Errorf("failed to get an authorisation function: %v", err)
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, a := range args.Args {

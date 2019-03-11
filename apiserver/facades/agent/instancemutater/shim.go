@@ -4,9 +4,10 @@
 package instancemutater
 
 import (
+	"gopkg.in/juju/charm.v6"
+
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/state"
-	"gopkg.in/juju/charm.v6"
 )
 
 type instanceMutaterStateShim struct {
