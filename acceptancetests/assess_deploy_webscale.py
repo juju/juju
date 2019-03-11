@@ -16,6 +16,10 @@ import os
 import re
 import statistics
 import time
+import shutil
+
+from urllib.parse import urlparse
+from urllib.request import urlretrieve
 
 from deploy_stack import (
     BootstrapManager,
@@ -216,6 +220,13 @@ def parse_args(argv):
         help="Help the reporting metrics by supplying a target juju version",
         default="",
     )
+    parser.add_argument(
+        '--db-snap-path',
+        help="URL to a mongo snap to override the mongo version used for the "
+             "test controller; if a URL is specified, it will be download "
+             "locally before bootstrapping",
+        default="",
+    )
     add_basic_testing_arguments(parser, existing=False)
     # Override the default logging_config default value set by adding basic
     # testing arguments. This way we can have a default value for all tests,
@@ -225,12 +236,51 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
+def mongo_snap_settings(args):
+    if not args.db_snap_path:
+        log.info("Using built-in mongo")
+        return "", ""
+
+    # NOTE(achilleasa): ideally we should be using client.enable_feature()
+    # but it looks like the current implementation does not pass the
+    # enabled features to the backend; the backend however supports
+    # fetching the features through the JUJU_DEV_FEATURE_FLAGS envvar.
+    log.info("Enabling 'mongodb-snap' feature flag")
+    os.environ["JUJU_DEV_FEATURE_FLAGS"] = "mongodb-snap"
+
+    # Fetch snap if using a remote URL. Juju expects the snap file to match
+    # "juju-db_\d+.snap" so we should rename it accordingly.
+    dst_snap_path = "/tmp/juju-db_1.snap"
+
+    if urlparse(args.db_snap_path).scheme != "":
+        log.info("Downloading db snap from {} to {}".format(
+            args.db_snap_path, dst_snap_path))
+        urlretrieve(args.db_snap_path, dst_snap_path)
+    else:
+        log.info("Copying local db snap {} to {}".format(
+            args.db_snap_path, dst_snap_path))
+        shutil.copy2(args.db_snap_path, dst_snap_path)
+
+    # Create empty assert file and enable appropriate feature flags
+    db_snap_asserts_path = "/tmp/juju-db-empty.asserts"
+    os.close(os.open(db_snap_asserts_path, os.O_CREAT | os.O_APPEND))
+
+    return dst_snap_path, db_snap_asserts_path
+
+
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
+
+    db_snap_path, db_snap_asserts_path = mongo_snap_settings(args)
+
     begin = time.time()
     bs_manager = BootstrapManager.from_args(args)
-    with bs_manager.booted_context(args.upload_tools):
+    with bs_manager.booted_context(
+        args.upload_tools,
+        db_snap_path=db_snap_path,
+        db_snap_asserts_path=db_snap_asserts_path
+    ):
         client = bs_manager.client
         mongo_version = extract_mongo_version(client)
         log.info("MongoVersion used for deployment: {}".format(mongo_version))
@@ -256,8 +306,11 @@ def main(argv=None):
                 "git-sha": args.git_sha,
                 "charm-bundle": args.charm_bundle,
                 "charm-urls": charm_urls,
-                "mongo-version": mongo_version,
                 "juju-version": args.juju_version,
+                "mongo-version": mongo_version,
+                # The following are placeholders for now
+                "mongo-profile": "low",
+                "mongo-ss-txns": "false",
             })
         except Exception:
             raise JujuAssertionError("Error reporting metrics")

@@ -72,17 +72,15 @@ func (s *listSuite) TestListController(c *gc.C) {
 		},
 	}
 
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "Close")
 	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 
-	// Check that we are producing the expected fields
-	c.Assert(out, gc.Matches, `Cloud +Regions +Default +Type +Description.*`)
 	// Just check couple of snippets of the output to make sure it looks ok.
-	c.Assert(out, jc.Contains, `cloud-beehive        1  regionone  openstack`)
+	c.Assert(out, gc.Matches, `^beehive:.*type:\ openstack.*`)
 }
 
 func (s *listSuite) TestListPublicAndPersonal(c *gc.C) {

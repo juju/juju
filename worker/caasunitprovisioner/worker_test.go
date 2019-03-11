@@ -350,10 +350,11 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 		}
 	}
 	s.unitUpdater.CheckCallNames(c, "UpdateUnits")
+	scale := 4
 	c.Assert(s.unitUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{
 		params.UpdateApplicationUnits{
 			ApplicationTag: names.NewApplicationTag("gitlab").String(),
-			Scale:          4,
+			Scale:          &scale,
 			Units: []params.ApplicationUnitParams{
 				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil),
 					Stateful: true,
@@ -798,10 +799,11 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expected status.Status
 		}
 	}
 	s.unitUpdater.CheckCallNames(c, "UpdateUnits")
+	scale := 4
 	c.Assert(s.unitUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{
 		params.UpdateApplicationUnits{
 			ApplicationTag: names.NewApplicationTag("gitlab").String(),
-			Scale:          4,
+			Scale:          &scale,
 			Units: []params.ApplicationUnitParams{
 				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: expected.String(),
 					Stateful: true,
