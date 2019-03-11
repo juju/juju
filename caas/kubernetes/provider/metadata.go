@@ -5,6 +5,7 @@ package provider
 
 import (
 	"os"
+	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -52,6 +53,7 @@ func getCloudRegionFromNodeMeta(node core.Node) (string, string) {
 	if err != nil {
 		return "", ""
 	}
+	hostname = strings.ToLower(hostname)
 	hostLabel, _ := node.Labels["kubernetes.io/hostname"]
 	if node.Name == hostname && hostLabel == hostname {
 		return caas.Microk8s, caas.Microk8sRegion
