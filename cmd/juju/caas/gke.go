@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cmd/juju/interact"
@@ -26,6 +27,20 @@ func newGKECluster() k8sCluster {
 
 func (g *gke) cloud() string {
 	return "gce"
+}
+
+func (g *gke) ensureExecutable() error {
+	path := getEnv("path")
+	checkParams := exec.RunParams{
+		Commands:    "which gcloud",
+		Environment: []string{"PATH=" + path},
+	}
+	err := collapseRunError(exec.RunCommands(checkParams))
+	errAnnotationMessage := "gcloud command not found, please 'snap install gcloud' then try again"
+	if err != nil {
+		return errors.Annotate(err, errAnnotationMessage)
+	}
+	return nil
 }
 
 func (g *gke) getKubeConfig(p *clusterParams) (io.ReadCloser, string, error) {
@@ -121,7 +136,7 @@ func (g *gke) queryAccount(pollster *interact.Pollster) (string, error) {
 	}
 	if len(allAccounts) == 0 {
 		return "", errors.New("no accounts have been set up.\n" +
-			"See gcloud help auth.'",
+			"See 'gcloud help auth'.",
 		)
 	}
 	if defaultAccount == "" {
@@ -208,10 +223,11 @@ func (g *gke) queryCluster(pollster *interact.Pollster, account, project, region
 	if len(allClustersByName) == 0 {
 		regionMsg := ""
 		if region != "" {
-			regionMsg = fmt.Sprintf(" in region %v", regionMsg)
+			regionMsg = fmt.Sprintf(" in region %v", region)
 		}
-		return "", "", errors.New("no clusters have been set up%s.\n" +
+		return "", "", errors.Errorf("no clusters have been set up%s.\n"+
 			"You can create a k8s cluster using 'gcloud container cluster create'",
+			regionMsg,
 		)
 	}
 	var clusterNamesAndRegions []string

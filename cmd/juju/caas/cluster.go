@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
 )
 
@@ -32,6 +33,16 @@ func getEnv(key string) string {
 	return result
 }
 
+func collapseRunError(result *exec.ExecResponse, err error) error {
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if result.Code != 0 {
+		return errors.New(string(result.Stderr))
+	}
+	return nil
+}
+
 var runCommand = func(runner CommandRunner, params []string, kubeconfig string) (*exec.ExecResponse, error) {
 	cmd := strings.Join(params, " ")
 
@@ -48,11 +59,15 @@ type clusterParams struct {
 	project    string
 	region     string
 	credential string
+	// used with AKS
+	resourceGroup string
 }
 
 type cluster struct {
 	name   string
 	region string
+	// for AKS
+	resourceGroup string
 }
 
 type k8sCluster interface {
@@ -60,4 +75,5 @@ type k8sCluster interface {
 	getKubeConfig(p *clusterParams) (io.ReadCloser, string, error)
 	interactiveParams(ctx *cmd.Context, p *clusterParams) (*clusterParams, error)
 	cloud() string
+	ensureExecutable() error
 }
