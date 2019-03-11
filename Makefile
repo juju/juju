@@ -11,9 +11,9 @@ PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/)
 
 # Allow the tests to take longer on arm platforms.
 ifeq ($(shell uname -p | sed -E 's/.*(armel|armhf|aarch64).*/golang/'), golang)
-	TEST_TIMEOUT := 2400s
+	TEST_TIMEOUT := 3000s
 else
-	TEST_TIMEOUT := 1500s
+	TEST_TIMEOUT := 1800s
 endif
 
 # Enable verbose testing for reporting.
