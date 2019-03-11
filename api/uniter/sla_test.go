@@ -18,11 +18,6 @@ type slaSuiteV4 struct {
 
 var _ = gc.Suite(&slaSuiteV4{})
 
-func (s *slaSuiteV4) SetUpTest(c *gc.C) {
-	s.uniterSuite.SetUpTest(c)
-	s.PatchValue(&uniter.NewState, uniter.NewStateV4)
-}
-
 func (s *slaSuiteV4) TestSetPodSpecApplication(c *gc.C) {
 	c.Skip("this API not present in V4")
 }
@@ -31,7 +26,7 @@ func (s *slaSuiteV4) TestSLALevelOldFacadeVersion(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	st := uniter.NewState(apiCaller, names.NewUnitTag("wordpress/0"))
+	st := uniter.NewStateV4(apiCaller, names.NewUnitTag("wordpress/0"))
 	level, err := st.SLALevel()
 	c.Assert(err, jc.ErrorIsNil)
 

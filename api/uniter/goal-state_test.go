@@ -89,7 +89,7 @@ func (s *goalStateSuite) testGoalState(c *gc.C, facadeResult params.GoalStateRes
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, expectedVersion)
+		c.Check(version, gc.Equals, 0)
 		c.Check(request, gc.Equals, "GoalStates")
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-mysql-0"}},

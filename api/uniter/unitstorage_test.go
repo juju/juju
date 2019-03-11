@@ -21,11 +21,9 @@ type unitStorageSuite struct {
 
 var _ = gc.Suite(&unitStorageSuite{})
 
-const expectedAPIVersion = 9
-
 func (s *unitStorageSuite) createTestUnit(c *gc.C, t string, apiCaller basetesting.APICallerFunc) *uniter.Unit {
 	tag := names.NewUnitTag(t)
-	st := uniter.NewState(apiCaller, tag)
+	st := uniter.NewStateV2(apiCaller, tag)
 	return uniter.CreateUnit(st, tag)
 }
 
@@ -44,7 +42,7 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, expectedAPIVersion)
+		c.Assert(version, gc.Equals, 2)
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "AddUnitStorage")
 		c.Assert(arg, gc.DeepEquals, expected)
@@ -77,7 +75,7 @@ func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
 	msg := "yoink"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, expectedAPIVersion)
+		c.Assert(version, gc.Equals, 2)
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "AddUnitStorage")
 		c.Assert(arg, gc.DeepEquals, expected)
