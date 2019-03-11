@@ -15,7 +15,7 @@ import (
 
 //go:generate mockgen -package mocks -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
 //go:generate mockgen -package mocks -destination mocks/dependency_mock.go gopkg.in/juju/worker.v1/dependency Context
-//go:generate mockgen -package mocks -destination mocks/environs_mock.go github.com/juju/juju/environs Environ
+//go:generate mockgen -package mocks -destination mocks/environs_mock.go github.com/juju/juju/environs Environ,LXDProfiler
 //go:generate mockgen -package mocks -destination mocks/base_mock.go github.com/juju/juju/api/base APICaller
 //go:generate mockgen -package mocks -destination mocks/agent_mock.go github.com/juju/juju/agent Agent,Config
 
