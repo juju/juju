@@ -5,6 +5,7 @@ package instancemutater_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	coretesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -232,6 +233,130 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 	c.Assert(results.ProfileChanges, gc.HasLen, 1)
 	c.Assert(results.CurrentProfiles, gc.HasLen, 1)
 	c.Assert(results.Changes, jc.IsTrue)
+	c.Assert(results.ProfileChanges, gc.DeepEquals, []params.ProfileChangeResult{
+		{
+			OldProfileName: "",
+			NewProfileName: "juju-foo-app-0",
+			Profile: &params.CharmLXDProfile{
+				Config: map[string]string{
+					"security.nesting": "true",
+				},
+				Description: "dummy profile description",
+				Devices: map[string]map[string]string{
+					"tun": {
+						"path": "/dev/net/tun",
+					},
+				},
+			},
+			Subordinate: false,
+		},
+	})
+	c.Assert(results.CurrentProfiles, gc.DeepEquals, []string{
+		"charm-foo-0",
+	})
+}
+
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNoProfile(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	machineTag := names.NewMachineTag("0")
+	unitNames := []string{"unit", "empty"}
+
+	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
+	s.behaviourLife(machineTag)
+	s.behaviourFindEntity(machineTag, machineEntityShim{
+		Machine: s.machine,
+		Entity:  s.entity,
+		Lifer:   s.lifer,
+	})
+	s.behaviourMachine(instance.Id("0"))
+	s.behaviourCharmProfiles()
+	s.behaviourCharmProfilesWithEmpty()
+
+	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+
+	results, err := facade.CharmProfilingInfo(params.CharmProfilingInfoArg{
+		Entity:    params.Entity{Tag: "machine-0"},
+		UnitNames: unitNames,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Error, gc.IsNil)
+	c.Assert(results.ProfileChanges, gc.HasLen, 2)
+	c.Assert(results.CurrentProfiles, gc.HasLen, 1)
+	c.Assert(results.Changes, jc.IsTrue)
+	c.Assert(results.ProfileChanges, gc.DeepEquals, []params.ProfileChangeResult{
+		{
+			OldProfileName: "",
+			NewProfileName: "juju-foo-app-0",
+			Profile: &params.CharmLXDProfile{
+				Config: map[string]string{
+					"security.nesting": "true",
+				},
+				Description: "dummy profile description",
+				Devices: map[string]map[string]string{
+					"tun": {
+						"path": "/dev/net/tun",
+					},
+				},
+			},
+			Subordinate: false,
+		},
+		{},
+	})
+	c.Assert(results.CurrentProfiles, gc.DeepEquals, []string{
+		"charm-foo-0",
+	})
+}
+
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithInvalidMachine(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	machineTag := names.NewMachineTag("0")
+	unitNames := []string{"unit"}
+
+	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
+	s.behaviourLife(machineTag)
+	s.state.EXPECT().FindEntity(machineTag).Return(s.entity, errors.New("not found"))
+
+	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+
+	results, err := facade.CharmProfilingInfo(params.CharmProfilingInfoArg{
+		Entity:    params.Entity{Tag: "machine-0"},
+		UnitNames: unitNames,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Error, gc.ErrorMatches, "not found")
+}
+
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMachineNotProvisioned(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	machineTag := names.NewMachineTag("0")
+	unitNames := []string{"unit"}
+
+	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
+	s.behaviourLife(machineTag)
+	s.behaviourFindEntity(machineTag, machineEntityShim{
+		Machine: s.machine,
+		Entity:  s.entity,
+		Lifer:   s.lifer,
+	})
+	s.machine.EXPECT().InstanceId().Return(instance.Id("0"), params.Error{Code: params.CodeNotProvisioned})
+
+	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+
+	results, err := facade.CharmProfilingInfo(params.CharmProfilingInfoArg{
+		Entity:    params.Entity{Tag: "machine-0"},
+		UnitNames: unitNames,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Error, gc.IsNil)
+	c.Assert(results.ProfileChanges, gc.HasLen, 0)
+	c.Assert(results.CurrentProfiles, gc.HasLen, 0)
+	c.Assert(results.Changes, jc.IsFalse)
 }
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) behaviourMachine(id instance.Id) {
@@ -276,6 +401,22 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) behaviourCharmProfiles() {
 	lExp.Config().Return(profileConfig)
 	lExp.Description().Return(profileDescription)
 	lExp.Devices().Return(profileDevices)
+	aExp.Name().Return("app")
+	cExp.Revision().Return(0)
+}
+
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) behaviourCharmProfilesWithEmpty() {
+	aExp := s.application.EXPECT()
+	cExp := s.charm.EXPECT()
+	lExp := s.lxdProfile.EXPECT()
+	sExp := s.state.EXPECT()
+	uExp := s.unit.EXPECT()
+
+	sExp.Unit("empty").Return(s.unit, nil)
+	uExp.Application().Return(s.application, nil)
+	aExp.Charm().Return(s.charm, nil)
+	cExp.LXDProfile().Return(s.lxdProfile).Times(2)
+	lExp.Empty().Return(true)
 	aExp.Name().Return("app")
 	cExp.Revision().Return(0)
 }
