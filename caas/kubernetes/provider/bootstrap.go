@@ -255,7 +255,7 @@ func (c controllerStack) createControllerService() error {
 		},
 		Spec: core.ServiceSpec{
 			Selector: c.stackLabels,
-			Type:     core.ServiceType("NodePort"), // TODO(caas): NodePort works for single node only like microk8s.
+			Type:     core.ServiceType(defaultServiceType),
 			Ports: []core.ServicePort{
 				{
 					Name:       "mongodb",
