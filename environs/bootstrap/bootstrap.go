@@ -672,6 +672,7 @@ func finalizePodBootstrapConfig(
 
 	pcfg.Bootstrap.ControllerModelConfig = cfg
 	pcfg.Bootstrap.ControllerCloud = args.Cloud
+	pcfg.Bootstrap.ControllerCloudRegion = args.CloudRegion
 	pcfg.Bootstrap.ControllerCloudCredential = args.CloudCredential
 	pcfg.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
 	pcfg.Bootstrap.ControllerConfig = args.ControllerConfig
