@@ -346,6 +346,10 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if err := w.configureBootstrap(); err != nil {
 			return errors.Trace(err)
 		}
+
+		if err = w.addLocalSnapUpload(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Append cloudinit-userdata packages to the end of the juju created ones.
@@ -441,6 +445,37 @@ func (w *unixConfigure) configureBootstrap() error {
 	}
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
 	w.conf.AddScripts(strings.Join(bootstrapAgentArgs, " "))
+
+	return nil
+}
+
+func (w *unixConfigure) addLocalSnapUpload() error {
+	if w.icfg.Bootstrap == nil {
+		return nil
+	}
+
+	snapPath := w.icfg.Bootstrap.JujuDbSnapPath
+	assertionsPath := w.icfg.Bootstrap.JujuDbSnapAssertionsPath
+
+	if snapPath == "" {
+		return nil
+	}
+
+	logger.Infof("preparing to upload juju-db snap from %v", snapPath)
+	snapData, err := ioutil.ReadFile(snapPath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, snapName := path.Split(snapPath)
+	w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapName), snapData, 0644)
+
+	logger.Infof("preparing to upload juju-db assertions from %v", assertionsPath)
+	snapAssertionsData, err := ioutil.ReadFile(assertionsPath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, snapAssertionsName := path.Split(assertionsPath)
+	w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapAssertionsName), snapAssertionsData, 0644)
 
 	return nil
 }

@@ -75,6 +75,7 @@ func init() {
 	gc.Suite(&CmdExportBundleSuite{})
 	gc.Suite(&cmdDeploySuite{})
 	gc.Suite(&CredentialManagerSuite{})
+	gc.Suite(&cmdCurrentControllerSuite{})
 
 	// TODO (anastasiamac 2016-07-19) Bug#1603585
 	// These tests cannot run on windows - they require a bootstrapped controller.

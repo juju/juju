@@ -19,7 +19,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -1104,6 +1104,18 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
+	}, {
+		Name:      "logs-1",
+		MountPath: "path/to/there",
+	}}
+	size, err := resource.ParseQuantity("200Mi")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec.Volumes = []core.Volume{{
+		Name: "logs-1",
+		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
+			SizeLimit: &size,
+			Medium:    "Memory",
+		}},
 	}}
 	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
 
@@ -1140,6 +1152,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 				Path: "path/to/here",
 			},
 			ResourceTags: map[string]string{"foo": "bar"},
+		}, {
+			StorageName: "logs",
+			Size:        200,
+			Provider:    "tmpfs",
+			Attributes:  map[string]interface{}{"storage-medium": "Memory"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/there",
+			},
 		}},
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
@@ -1365,7 +1385,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -1376,7 +1396,27 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
 	}}
-	podSpec.NodeSelector = map[string]string{"a": "b"}
+	podSpec.Affinity = &core.Affinity{
+		NodeAffinity: &core.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+				NodeSelectorTerms: []core.NodeSelectorTerm{{
+					MatchExpressions: []core.NodeSelectorRequirement{{
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
+					}, {
+						Key:      "bar",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"d", "e", "f"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"g", "h"},
+					}},
+				}},
+			},
+		},
+	}
 	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
 
 	gomock.InOrder(
@@ -1413,7 +1453,77 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 			},
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
-		Placement: "a=b",
+		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+	}
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(unitSpec)
+	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
+		Name:      "database-appuuid",
+		MountPath: "path/to/here",
+	}}
+	podSpec.Affinity = &core.Affinity{
+		NodeAffinity: &core.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+				NodeSelectorTerms: []core.NodeSelectorTerm{{
+					MatchExpressions: []core.NodeSelectorRequirement{{
+						Key:      "failure-domain.beta.kubernetes.io/zone",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
+					}},
+				}},
+			},
+		},
+	}
+	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
+			Return(nil, nil),
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
+		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}}, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
+			Return(nil, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec: basicPodspec,
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+			ResourceTags: map[string]string{"foo": "bar"},
+		}},
+		Constraints: constraints.MustParse(`zones=a,b,c`),
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
@@ -1459,4 +1569,42 @@ func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
 
 	_, err := s.broker.Operator("test")
 	c.Assert(err, gc.ErrorMatches, "operator pod for application \"test\" not found")
+}
+
+func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	ssWatcher := watch.NewRaceFreeFake()
+	deployWatcher := watch.NewRaceFreeFake()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Watch(v1.ListOptions{
+			LabelSelector: "juju-application==test",
+			Watch:         true,
+		}).Return(ssWatcher, nil),
+		s.mockDeployments.EXPECT().Watch(v1.ListOptions{
+			LabelSelector: "juju-application==test",
+			Watch:         true,
+		}).Return(deployWatcher, nil),
+	)
+
+	w, err := s.broker.WatchService("test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Send an event to one of the watchers; multi-watcher should fire.
+	ss := &apps.StatefulSet{ObjectMeta: v1.ObjectMeta{Name: "test"}}
+	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
+		if !w.IsStopped() {
+			clk.WaitAdvance(time.Second, testing.LongWait, 1)
+			w.Modify(ss)
+		}
+	}(ssWatcher, s.clock)
+
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
 }

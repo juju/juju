@@ -205,9 +205,9 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
       netplan apply
   else
     if [ -f /usr/bin/python ]; then
-        python %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
+        python %[2]s --interfaces-file %[1]s --output-file %[1]s.out
     else
-        python3 %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
+        python3 %[2]s --interfaces-file %[1]s --output-file %[1]s.out
     fi
     ifdown -a
     sleep 1.5
@@ -480,7 +480,7 @@ func CloudInitDataExcludingOutputSection(data string) []string {
 
 	var linesToMatch []string
 	seenBootcmd := false
-	for _, line := range strings.Split(string(data), "\n") {
+	for _, line := range strings.Split(data, "\n") {
 		if strings.HasPrefix(line, "#cloud-config") {
 			linesToMatch = append(linesToMatch, line)
 			continue

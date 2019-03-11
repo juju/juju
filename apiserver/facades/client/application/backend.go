@@ -64,7 +64,6 @@ type Application interface {
 	ApplicationConfig() (application.ConfigAttributes, error)
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)
-	ChangeScale(int) (int, error)
 	Channel() csparams.Channel
 	ClearExposed() error
 	CharmConfig(model.GenerationVersion) (charm.Settings, error)
@@ -76,7 +75,6 @@ type Application interface {
 	IsExposed() bool
 	IsPrincipal() bool
 	IsRemote() bool
-	Scale(int) error
 	Series() string
 	SetCharm(state.SetCharmConfig) error
 	SetConstraints(constraints.Value) error
@@ -87,6 +85,8 @@ type Application interface {
 	UpdateApplicationSeries(string, bool) error
 	UpdateCharmConfig(model.GenerationVersion, charm.Settings) error
 	UpdateApplicationConfig(application.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
+	SetScale(int) error
+	ChangeScale(int) (int, error)
 }
 
 // Charm defines a subset of the functionality provided by the

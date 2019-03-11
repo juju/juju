@@ -31,53 +31,6 @@ func newNode(labels map[string]string) core.Node {
 	return n
 }
 
-var nodesTestCases = []struct {
-	expectedOut string
-	node        core.Node
-}{
-	{
-		expectedOut: "",
-		node:        newNode(map[string]string{}),
-	},
-	{
-		expectedOut: "",
-		node: newNode(map[string]string{
-			"cloud.google.com/gke-nodepool": "",
-		}),
-	},
-	{
-		expectedOut: "",
-		node: newNode(map[string]string{
-			"cloud.google.com/gke-os-distribution": "",
-		}),
-	},
-	{
-		expectedOut: "gce",
-		node: newNode(map[string]string{
-			"cloud.google.com/gke-nodepool":        "",
-			"cloud.google.com/gke-os-distribution": "",
-		}),
-	},
-	{
-		expectedOut: "azure",
-		node: newNode(map[string]string{
-			"kubernetes.azure.com/cluster": "",
-		}),
-	},
-	{
-		expectedOut: "ec2",
-		node: newNode(map[string]string{
-			"manufacturer": "amazon_ec2",
-		}),
-	},
-}
-
-func (s *K8sMetadataSuite) TestGetCloudProviderFromNodeMeta(c *gc.C) {
-	for _, v := range nodesTestCases {
-		c.Check(provider.GetCloudProviderFromNodeMeta(v.node), gc.Equals, v.expectedOut)
-	}
-}
-
 func (s *K8sMetadataSuite) TestMicrok8sFromNodeMeta(c *gc.C) {
 	hostaname, err := os.Hostname()
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +40,9 @@ func (s *K8sMetadataSuite) TestMicrok8sFromNodeMeta(c *gc.C) {
 			Labels: map[string]string{"kubernetes.io/hostname": hostaname},
 		},
 	}
-	c.Assert(provider.GetCloudProviderFromNodeMeta(node), gc.Equals, "microk8s")
+	cloud, region := provider.GetCloudProviderFromNodeMeta(node)
+	c.Assert(cloud, gc.Equals, "microk8s")
+	c.Assert(region, gc.Equals, "localhost")
 }
 
 func (s *K8sMetadataSuite) TestK8sCloudCheckersValidationPass(c *gc.C) {
@@ -97,68 +52,73 @@ func (s *K8sMetadataSuite) TestK8sCloudCheckersValidationPass(c *gc.C) {
 }
 
 type hostRegionTestcase struct {
-	expectedOut set.Strings
-	nodes       *core.NodeList
+	expectedCloud   string
+	expectedRegions set.Strings
+	nodes           *core.NodeList
 }
 
 var hostRegionsTestCases = []hostRegionTestcase{
 	{
-		expectedOut: set.NewStrings(),
-		nodes:       newNodeList(map[string]string{}),
+		expectedRegions: set.NewStrings(),
+		nodes:           newNodeList(map[string]string{}),
 	},
 	{
-		expectedOut: set.NewStrings(),
+		expectedRegions: set.NewStrings(),
 		nodes: newNodeList(map[string]string{
 			"cloud.google.com/gke-nodepool": "",
 		}),
 	},
 	{
-		expectedOut: set.NewStrings(),
+		expectedRegions: set.NewStrings(),
 		nodes: newNodeList(map[string]string{
 			"cloud.google.com/gke-os-distribution": "",
 		}),
 	},
 	{
-		expectedOut: set.NewStrings("gce"),
+		expectedCloud:   "gce",
+		expectedRegions: set.NewStrings(""),
 		nodes: newNodeList(map[string]string{
 			"cloud.google.com/gke-nodepool":        "",
 			"cloud.google.com/gke-os-distribution": "",
 		}),
 	},
 	{
-		expectedOut: set.NewStrings("azure"),
+		expectedCloud:   "azure",
+		expectedRegions: set.NewStrings(""),
 		nodes: newNodeList(map[string]string{
 			"kubernetes.azure.com/cluster": "",
 		}),
 	},
 	{
-		expectedOut: set.NewStrings("ec2"),
+		expectedCloud:   "ec2",
+		expectedRegions: set.NewStrings(""),
 		nodes: newNodeList(map[string]string{
 			"manufacturer": "amazon_ec2",
 		}),
 	},
 	{
-		expectedOut: set.NewStrings(),
+		expectedRegions: set.NewStrings(),
 		nodes: newNodeList(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 		}),
 	},
 	{
-		expectedOut: set.NewStrings(),
+		expectedRegions: set.NewStrings(),
 		nodes: newNodeList(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 			"cloud.google.com/gke-nodepool":            "",
 		}),
 	},
 	{
-		expectedOut: set.NewStrings(),
+		expectedRegions: set.NewStrings(),
 		nodes: newNodeList(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 			"cloud.google.com/gke-os-distribution":     "",
 		}),
 	},
 	{
-		expectedOut: set.NewStrings("gce/a-fancy-region"),
+		expectedCloud:   "gce",
+		expectedRegions: set.NewStrings("a-fancy-region"),
 		nodes: newNodeList(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 			"cloud.google.com/gke-nodepool":            "",
@@ -166,14 +126,16 @@ var hostRegionsTestCases = []hostRegionTestcase{
 		}),
 	},
 	{
-		expectedOut: set.NewStrings("azure/a-fancy-region"),
+		expectedCloud:   "azure",
+		expectedRegions: set.NewStrings("a-fancy-region"),
 		nodes: newNodeList(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 			"kubernetes.azure.com/cluster":             "",
 		}),
 	},
 	{
-		expectedOut: set.NewStrings("ec2/a-fancy-region"),
+		expectedCloud:   "ec2",
+		expectedRegions: set.NewStrings("a-fancy-region"),
 		nodes: newNodeList(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
 			"manufacturer": "amazon_ec2",
@@ -199,7 +161,8 @@ func (s *K8sMetadataSuite) TestListHostCloudRegions(c *gc.C) {
 		)
 		metadata, err := s.broker.GetClusterMetadata("")
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(metadata.Regions, jc.DeepEquals, v.expectedOut)
+		c.Check(metadata.Cloud, gc.Equals, v.expectedCloud)
+		c.Check(metadata.Regions, jc.DeepEquals, v.expectedRegions)
 	}
 }
 

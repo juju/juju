@@ -79,7 +79,7 @@ def reboot_machine(client, machine):
     log.info("wait_for_started()")
     client.wait_for_started()
 
-def set_application_series(client, application, series)
+def set_application_series(client, application, series):
     args = (application, series)
     client.juju('set-series', args)
 

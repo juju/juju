@@ -495,7 +495,7 @@ func networkHostPortsToParams(hps []network.HostPort) []params.HostPort {
 func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
 	opts.DNSCache = nil
 	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin"))
-	c.Check(string(apiInfo.CACert), gc.Equals, "certificate")
+	c.Check(apiInfo.CACert, gc.Equals, "certificate")
 	c.Check(apiInfo.Password, gc.Equals, "hunter2")
 	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 }

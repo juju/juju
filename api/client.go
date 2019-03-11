@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
@@ -34,6 +35,10 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
+
+// websocketTimeout is how long we'll wait for a WriteJSON call before
+// timing it out.
+const websocketTimeout = 30 * time.Second
 
 // Client represents the client-accessible part of the state.
 type Client struct {
@@ -310,7 +315,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*ch
 	if err := c.validateCharmVersion(ch); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
+	if err := lxdprofile.ValidateLXDProfile(lxdCharmProfiler{Charm: ch}); err != nil {
 		if !force {
 			return nil, errors.Trace(err)
 		}
@@ -654,11 +659,49 @@ func websocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeade
 		}
 		return nil, err
 	}
-	return c, nil
+	result := DeadlineStream{Conn: c, Timeout: websocketTimeout}
+	return &result, nil
+}
+
+// DeadlineStream wraps a websocket connection and applies a write
+// deadline to each WriteJSON call.
+type DeadlineStream struct {
+	*websocket.Conn
+
+	Timeout time.Duration
+}
+
+// WriteJSON is part of base.Stream.
+func (s *DeadlineStream) WriteJSON(v interface{}) error {
+	// This uses a real clock rather than trying to use a clock passed
+	// in because the websocket will use a real clock to determine
+	// whether the deadline has passed anyway.
+	deadline := time.Now().Add(s.Timeout)
+	if err := s.Conn.SetWriteDeadline(deadline); err != nil {
+		return errors.Annotate(err, "setting write deadline")
+	}
+	return errors.Trace(s.Conn.WriteJSON(v))
 }
 
 // WatchDebugLog returns a channel of structured Log Messages. Only log entries
 // that match the filtering specified in the DebugLogParams are returned.
 func (c *Client) WatchDebugLog(args common.DebugLogParams) (<-chan common.LogMessage, error) {
 	return common.StreamDebugLog(c.st, args)
+}
+
+// lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the
+// core package.
+type lxdCharmProfiler struct {
+	Charm charm.Charm
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.Charm == nil {
+		return nil
+	}
+	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
+		return profiler.LXDProfile()
+	}
+	return nil
 }

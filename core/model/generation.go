@@ -28,3 +28,24 @@ const generationKeySuffix = "#next"
 func NextGenerationKey(key string) string {
 	return key + generationKeySuffix
 }
+
+// GenerationApplication represents changes to an application
+// made under a generation.
+type GenerationApplication struct {
+	// ApplicationsName is the name of the application.
+	ApplicationName string `yaml:"application"`
+
+	// Units are the names of units of the application that have been
+	// moved to the generation.
+	Units []string `yaml:"units"`
+
+	// Config changes are the differing configuration values between this
+	// generation and the current.
+	// TODO (manadart 2018-02-22) This data-type will evolve as more aspects
+	// of the application are made generational.
+	ConfigChanges map[string]interface{} `yaml:"config"`
+}
+
+// GenerationSummaries is a type alias for a representation
+// of changes-by-generation.
+type GenerationSummaries = map[GenerationVersion][]GenerationApplication

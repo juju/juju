@@ -1496,7 +1496,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 					// so it cannot be attached.
 					continue
 				}
-				providerType, _, err := poolStorageProvider(sb, volumeInfo.Pool)
+				providerType, _, _, err := poolStorageProvider(sb, volumeInfo.Pool)
 				if err != nil {
 					return errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
 				}
@@ -1527,30 +1527,15 @@ func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error
 	if err := st.processCommonModelApplicationArgs(args); err != nil {
 		return errors.Trace(err)
 	}
-	if len(args.Placement) > 1 {
-		return errors.Errorf("only 1 placement directive is supported, got %d", len(args.Placement))
+	if len(args.Placement) > 0 {
+		return errors.NotValidf("placement directives on k8s models")
 	}
-	if len(args.Placement) == 0 {
-		return nil
-	}
-	data, err := st.parsePlacement(args.Placement[0])
-	if err != nil {
-		return errors.Trace(err)
-	}
-	switch data.placementType() {
-	case machinePlacement:
-		return errors.NotValidf("machine placement directive %q", args.Placement[0].String())
-	case directivePlacement:
-		if err := st.precheckInstance(
-			args.Series,
-			args.Constraints,
-			data.directive,
-			nil,
-		); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
+	return st.precheckInstance(
+		args.Series,
+		args.Constraints,
+		"",
+		nil,
+	)
 }
 
 // removeNils removes any keys with nil values from the given map.

@@ -24,7 +24,7 @@ import (
 	"github.com/golang/mock/gomock"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/lxc/lxd/client"
+	lxd "github.com/lxc/lxd/client"
 )
 
 type initialiserTestSuite struct {

@@ -55,6 +55,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.charm = s.AddTestingCharm(c, "mysql")
 	s.mysql = s.AddTestingApplication(c, "mysql", s.charm)
+	// Before we get into the tests, ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func (s *ApplicationSuite) assertNeedsCleanup(c *gc.C) {
@@ -3882,12 +3884,12 @@ func (s *CAASApplicationSuite) TestRemoveUnitDeletesServiceInfo(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestInvalidScale(c *gc.C) {
-	err := s.app.Scale(-1)
+	err := s.app.SetScale(-1)
 	c.Assert(err, gc.ErrorMatches, "application scale -1 not valid")
 }
 
-func (s *CAASApplicationSuite) TestScale(c *gc.C) {
-	err := s.app.Scale(5)
+func (s *CAASApplicationSuite) TestSetScale(c *gc.C) {
+	err := s.app.SetScale(5)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3923,16 +3925,16 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.app.Scale(5)
+	err := s.app.SetScale(5)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set to same value, no change.
-	err = s.app.Scale(5)
+	err = s.app.SetScale(5)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	err = s.app.Scale(6)
+	err = s.app.SetScale(6)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

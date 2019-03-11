@@ -790,7 +790,9 @@ func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *gc.C) {
+	sync := make(chan struct{})
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		close(sync)
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
@@ -810,6 +812,13 @@ func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *gc.C) {
 		})
 		done <- err
 	}()
+	// Before we advance time, ensure that the parallel try mechanism
+	// has entered the dial function.
+	select {
+	case <-sync:
+	case <-time.After(testing.LongWait):
+		c.Errorf("didn't enter dial")
+	}
 	err := clk.WaitAdvance(5*time.Second, time.Second, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
@@ -821,7 +830,9 @@ func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
+	sync := make(chan struct{})
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		close(sync)
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
@@ -842,6 +853,13 @@ func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
 		})
 		done <- err
 	}()
+	// Before we advance time, ensure that the parallel try mechanism
+	// has entered the dial function.
+	select {
+	case <-sync:
+	case <-time.After(testing.LongWait):
+		c.Errorf("didn't enter dial")
+	}
 	err := clk.WaitAdvance(3*time.Second, time.Second, 2) // Timeout & DialTimeout
 	c.Assert(err, jc.ErrorIsNil)
 	select {
@@ -853,7 +871,7 @@ func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
-	unblock := make(chan chan struct{}, 1)
+	unblock := make(chan chan struct{})
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) interface{} {
 		return &loginTimeoutAPI{
 			unblock: unblock,
@@ -879,24 +897,29 @@ func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
 	// We should not get a response from api.Open until we
 	// unblock the login.
 	unblocked := make(chan struct{})
-	unblock <- unblocked
+	select {
+	case unblock <- unblocked:
+		// We are now in the Login method of the loginTimeoutAPI.
+	case <-time.After(jtesting.LongWait):
+		c.Fatalf("didn't enter Login")
+	}
+
+	// There should be nothing waiting. Advance the clock to where it
+	// would have triggered the DialTimeout. But this doesn't stop api.Open
+	// as we have already connected and entered Login.
+	err := clk.WaitAdvance(5*time.Second, 0, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure that api.Open doesn't return until we tell it to.
 	select {
 	case <-done:
 		c.Fatalf("unexpected return from api.Open")
 	case <-time.After(jtesting.ShortWait):
 	}
 
-	// There should be nothing waiting.
-	err := clk.WaitAdvance(0, 0, 0)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// unblock the login by sending to "unblocked", and then the
 	// api.Open should return the result of the login.
-	select {
-	case unblocked <- struct{}{}:
-	case <-time.After(jtesting.LongWait):
-		c.Fatalf("timed out waiting for login to be unblocked")
-	}
+	close(unblocked)
 	select {
 	case err := <-done:
 		c.Assert(err, gc.ErrorMatches, "login failed")

@@ -109,12 +109,12 @@ func (store *store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 }
 
 // ClaimLease is part of the lease.Store interface.
-func (store *store) ClaimLease(key lease.Key, request lease.Request) error {
+func (store *store) ClaimLease(key lease.Key, request lease.Request, _ <-chan struct{}) error {
 	return store.request(key.Lease, request, store.claimLeaseOps, "claiming")
 }
 
 // ExtendLease is part of the lease.Store interface.
-func (store *store) ExtendLease(key lease.Key, request lease.Request) error {
+func (store *store) ExtendLease(key lease.Key, request lease.Request, _ <-chan struct{}) error {
 	return store.request(key.Lease, request, store.extendLeaseOps, "extending")
 }
 
@@ -213,12 +213,12 @@ func (store *store) ExpireLease(key lease.Key) error {
 }
 
 // PinLease is part of the Store interface.
-func (store *store) PinLease(key lease.Key, entity string) error {
+func (store *store) PinLease(key lease.Key, entity string, _ <-chan struct{}) error {
 	return errors.NotImplementedf("pinning for legacy leases")
 }
 
 // UnpinLease is part of the Store interface.
-func (store *store) UnpinLease(key lease.Key, entity string) error {
+func (store *store) UnpinLease(key lease.Key, entity string, _ <-chan struct{}) error {
 	return errors.NotImplementedf("unpinning for legacy leases")
 }
 

@@ -132,7 +132,7 @@ func ResolveCloudCredentialTag(user names.UserTag, cloud names.CloudTag, credent
 	}
 	s := fmt.Sprintf("%s/%s", cloud.Id(), credentialName)
 	if !names.IsValidCloudCredential(s) {
-		return names.CloudCredentialTag{}, errors.NotValidf("cloud credential name %q", s)
+		return names.CloudCredentialTag{}, errors.NotValidf("cloud credential ID %q", s)
 	}
 	return names.NewCloudCredentialTag(s), nil
 }

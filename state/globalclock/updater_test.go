@@ -63,7 +63,7 @@ func (s *UpdaterSuite) TestNewUpdaterCreatesEpochDocument(c *gc.C) {
 func (s *UpdaterSuite) TestAdvance(c *gc.C) {
 	u := s.newUpdater(c)
 	for i := 0; i < 2; i++ {
-		err := u.Advance(time.Second + time.Nanosecond)
+		err := u.Advance(time.Second+time.Nanosecond, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		expectedTime := globalEpoch.Add(time.Duration(i+1) * (time.Second + time.Nanosecond))
 		c.Assert(s.readTime(c), gc.Equals, expectedTime)
@@ -72,13 +72,13 @@ func (s *UpdaterSuite) TestAdvance(c *gc.C) {
 
 func (s *UpdaterSuite) TestNewUpdaterPreservesTime(c *gc.C) {
 	u0 := s.newUpdater(c)
-	err := u0.Advance(time.Second)
+	err := u0.Advance(time.Second, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1 := s.newUpdater(c)
 	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(time.Second))
 
-	err = u1.Advance(time.Second)
+	err = u1.Advance(time.Second, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(2*time.Second))
 }
@@ -87,18 +87,18 @@ func (s *UpdaterSuite) TestUpdaterConcurrentAdvance(c *gc.C) {
 	u0 := s.newUpdater(c)
 	u1 := s.newUpdater(c)
 
-	err := u0.Advance(time.Second)
+	err := u0.Advance(time.Second, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(time.Second))
 
-	err = u1.Advance(time.Second)
+	err = u1.Advance(time.Second, nil)
 	c.Assert(err, gc.Equals, coreglobalclock.ErrConcurrentUpdate)
 	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(time.Second)) // no change
 
 	// u1's view of the clock should have been updated when
 	// ErrConcurrentUpdate was returned, so Advance should
 	// now succeed.
-	err = u1.Advance(time.Second)
+	err = u1.Advance(time.Second, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(2*time.Second))
 }

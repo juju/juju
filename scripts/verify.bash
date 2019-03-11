@@ -12,7 +12,13 @@ set -e
 VERSION=`go version | awk '{print $3}'`
 echo "go version $VERSION"
 
-FILES=`find * -name '*.go' -not -name '.#*' | grep -v vendor/`
+FILES=`find * -name '*.go' -not -name '.#*' | grep -v vendor/ | grep -v acceptancetests/`
+
+echo "checking: dependency files ..."
+dep check
+
+echo "checking: copyright notices are in place ..."
+./scripts/copyright.bash
 
 echo "checking: go fmt ..."
 BADFMT=`echo "$FILES" | xargs gofmt -l -s`
@@ -57,25 +63,20 @@ UserNotFoundf
 # function in "name:N" format. This has changed in Go 1.7 and doesn't
 # actually seem to make a difference under 1.6 either don't bother.
 all_prints=`echo $logging_prints $error_prints | tr " " ,`
+DIRNAMES=$(dirname $FILES | sort -u | xargs -I % echo "github.com/juju/juju/%")
 
-go tool vet \
+go vet \
    -all \
    -composites=false \
    -printfuncs=$all_prints \
-    $FILES || [ -n "$IGNORE_VET_WARNINGS" ]
+    $DIRNAMES || [ -n "$IGNORE_VET_WARNINGS" ]
 
-echo "checking: copyright notices are in place ..."
-./scripts/copyright.bash
-
-echo "checking: dependency files ..."
-dep check
-
-# Allow the ignoring of the gometalinter
-if [ -z "$IGNORE_GOMETALINTER" ]; then
-    echo "checking: gometalinter ..."
-    ./scripts/gometalinter.bash
+# Allow the ignoring of the golinters
+if [ -z "$IGNORE_GOLINTERS" ]; then
+    echo "checking: golinters ..."
+    ./scripts/golinters.bash
 else
-    echo "ignoring: gometalinter ..."
+    echo "ignoring: golinters ..."
 fi
 
 echo "checking: go build ..."

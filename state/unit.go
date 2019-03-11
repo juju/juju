@@ -774,7 +774,9 @@ func (u *Unit) keepMachineRemoveProfileOps(m *Machine) ([]txn.Op, error) {
 	}
 
 	switch {
-	case lxdprofile.NotEmpty(ch) && profileName == "" && modStatus.Status == status.Error:
+	case lxdprofile.NotEmpty(lxdCharmProfiler{Charm: ch}) &&
+		profileName == "" &&
+		modStatus.Status == status.Error:
 		// There was an error applying the profile for this unit.  Reset the
 		// machine modification status when the unit is removed.
 		since, err := u.st.ControllerTimestamp()
@@ -1958,7 +1960,7 @@ func validateDynamicMachineStoragePools(sb *storageBackend, m *Machine, pools se
 // support dynamic storage, then an IsNotSupported error is returned.
 func validateDynamicStoragePools(sb *storageBackend, pools set.Strings) error {
 	for pool := range pools {
-		providerType, provider, err := poolStorageProvider(sb, pool)
+		providerType, provider, _, err := poolStorageProvider(sb, pool)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -3080,4 +3082,21 @@ func (u *Unit) RemoveUpgradeCharmProfileData() error {
 	}
 
 	return machine.RemoveUpgradeCharmProfileData(u.doc.Application)
+}
+
+// lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the
+// core package.
+type lxdCharmProfiler struct {
+	Charm charm.Charm
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.Charm == nil {
+		return nil
+	}
+	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
+		return profiler.LXDProfile()
+	}
+	return nil
 }

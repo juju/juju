@@ -185,7 +185,15 @@ func (s *JujuConnSuite) hubWatcherIdleFunc(modelUUID string) {
 	if idleChan == nil {
 		return
 	}
-	idleChan <- modelUUID
+	// There is a very small race condition between when the
+	// idle channel is cleared and when the function exits.
+	// Under normal circumstances, there is a goroutine in a tight loop
+	// reading off the idle channel. If the channel isn't read
+	// within a short wait, we don't send the message.
+	select {
+	case idleChan <- modelUUID:
+	case <-time.After(testing.ShortWait):
+	}
 }
 
 func (s *JujuConnSuite) WaitForNextSync(c *gc.C) {
@@ -684,9 +692,11 @@ func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm, force bool) (*st
 		return nil, err
 	}
 
-	// ValidateCharmLXDProfile is used here to replicate the same flow as the
+	// ValidateLXDProfile is used here to replicate the same flow as the
 	// not testing version.
-	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil && !force {
+	if err := lxdprofile.ValidateLXDProfile(lxdCharmProfiler{
+		Charm: ch,
+	}); err != nil && !force {
 		return nil, err
 	}
 
@@ -858,4 +868,21 @@ type agentStatusSetter interface {
 
 func (s *JujuConnSuite) SetAgentPresence(agent string, status presence.Status) {
 	s.Environ.(agentStatusSetter).SetAgentStatus(agent, status)
+}
+
+// lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the
+// core package.
+type lxdCharmProfiler struct {
+	Charm charm.Charm
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.Charm == nil {
+		return nil
+	}
+	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
+		return profiler.LXDProfile()
+	}
+	return nil
 }

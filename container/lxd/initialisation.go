@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/proxy"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/container"
 )
@@ -32,3 +33,14 @@ func (ci *containerInitialiser) Initialise() error {
 func ConfigureLXDProxies(proxies proxy.Settings) error {
 	return nil
 }
+
+// lxdViaSnap interrogates the location of the Snap LXD socket in order
+// to determine if LXD is being provided via that method.
+// Always return false for other arch's
+var lxdViaSnap = func() bool {
+	return false
+}
+
+// hostSeries is only created because export_test wants to be able to patch it.
+// Patching it has no effect on non-linux
+var hostSeries = series.HostSeries

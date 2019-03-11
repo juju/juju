@@ -59,11 +59,26 @@ type FSMResponse interface {
 	Notify(NotifyTarget)
 }
 
+// groupKey stores the namespace and model uuid that identifies all of
+// the leases for a particular model and lease type.
+type groupKey struct {
+	namespace string
+	modelUUID string
+}
+
+// groupKeyFor builds a group key for the given lease key.
+func groupKeyFor(key lease.Key) groupKey {
+	return groupKey{
+		namespace: key.Namespace,
+		modelUUID: key.ModelUUID,
+	}
+}
+
 // NewFSM returns a new FSM to store lease information.
 func NewFSM() *FSM {
 	return &FSM{
-		entries: make(map[lease.Key]*entry),
-		pinned:  make(map[lease.Key]set.Strings),
+		groups: make(map[groupKey]map[lease.Key]*entry),
+		pinned: make(map[lease.Key]set.Strings),
 	}
 }
 
@@ -71,7 +86,7 @@ func NewFSM() *FSM {
 type FSM struct {
 	mu         sync.Mutex
 	globalTime time.Time
-	entries    map[lease.Key]*entry
+	groups     map[groupKey]map[lease.Key]*entry
 
 	// Pinned leases are denoted by having a non-empty collection of tags
 	// representing the applications requiring pinned behaviour,
@@ -83,11 +98,27 @@ type FSM struct {
 	pinned map[lease.Key]set.Strings
 }
 
+func (f *FSM) getGroup(key lease.Key) (map[lease.Key]*entry, bool) {
+	entries, found := f.groups[groupKeyFor(key)]
+	return entries, found
+}
+
+func (f *FSM) ensureGroup(key lease.Key) map[lease.Key]*entry {
+	result, found := f.getGroup(key)
+	if found {
+		return result
+	}
+	result = make(map[lease.Key]*entry)
+	f.groups[groupKeyFor(key)] = result
+	return result
+}
+
 func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *response {
-	if _, found := f.entries[key]; found {
+	entries := f.ensureGroup(key)
+	if _, found := entries[key]; found {
 		return invalidResponse()
 	}
-	f.entries[key] = &entry{
+	entries[key] = &entry{
 		holder:   holder,
 		start:    f.globalTime,
 		duration: duration,
@@ -96,7 +127,11 @@ func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *respo
 }
 
 func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) *response {
-	entry, found := f.entries[key]
+	entries, groupFound := f.getGroup(key)
+	if !groupFound {
+		return invalidResponse()
+	}
+	entry, found := entries[key]
 	if !found {
 		return invalidResponse()
 	}
@@ -143,11 +178,16 @@ func (f *FSM) setTime(oldTime, newTime time.Time) *response {
 // Any pinned leases are not included in the return.
 func (f *FSM) removeExpired(newTime time.Time) []lease.Key {
 	var expired []lease.Key
-	for key, entry := range f.entries {
-		expiry := entry.start.Add(entry.duration)
-		if expiry.Before(newTime) && !f.isPinned(key) {
-			delete(f.entries, key)
-			expired = append(expired, key)
+	for gKey, entries := range f.groups {
+		for key, entry := range entries {
+			expiry := entry.start.Add(entry.duration)
+			if expiry.Before(newTime) && !f.isPinned(key) {
+				delete(entries, key)
+				expired = append(expired, key)
+			}
+		}
+		if len(entries) == 0 {
+			delete(f.groups, gKey)
 		}
 	}
 	return expired
@@ -175,7 +215,11 @@ func (f *FSM) filteredLeases(getLocalTime func() time.Time, keys []lease.Key) ma
 	f.mu.Lock()
 	localTime := getLocalTime()
 	for _, key := range keys {
-		if entry, ok := f.entries[key]; ok {
+		entries, found := f.getGroup(key)
+		if !found {
+			continue
+		}
+		if entry, ok := entries[key]; ok {
 			results[key] = f.infoFromEntry(localTime, key, entry)
 		}
 	}
@@ -187,8 +231,10 @@ func (f *FSM) allLeases(getLocalTime func() time.Time) map[lease.Key]lease.Info 
 	results := make(map[lease.Key]lease.Info)
 	f.mu.Lock()
 	localTime := getLocalTime()
-	for key, entry := range f.entries {
-		results[key] = f.infoFromEntry(localTime, key, entry)
+	for _, entries := range f.groups {
+		for key, entry := range entries {
+			results[key] = f.infoFromEntry(localTime, key, entry)
+		}
 	}
 	f.mu.Unlock()
 	return results
@@ -308,16 +354,18 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 	f.mu.Lock()
 
-	entries := make(map[SnapshotKey]SnapshotEntry, len(f.entries))
-	for key, entry := range f.entries {
-		entries[SnapshotKey{
-			Namespace: key.Namespace,
-			ModelUUID: key.ModelUUID,
-			Lease:     key.Lease,
-		}] = SnapshotEntry{
-			Holder:   entry.holder,
-			Start:    entry.start,
-			Duration: entry.duration,
+	entries := make(map[SnapshotKey]SnapshotEntry)
+	for _, group := range f.groups {
+		for key, entry := range group {
+			entries[SnapshotKey{
+				Namespace: key.Namespace,
+				ModelUUID: key.ModelUUID,
+				Lease:     key.Lease,
+			}] = SnapshotEntry{
+				Holder:   entry.holder,
+				Start:    entry.start,
+				Duration: entry.duration,
+			}
 		}
 	}
 
@@ -359,8 +407,18 @@ func (f *FSM) Restore(reader io.ReadCloser) error {
 		return errors.NotValidf("nil entries")
 	}
 
-	newEntries := make(map[lease.Key]*entry, len(snapshot.Entries))
+	newGroups := make(map[groupKey]map[lease.Key]*entry, len(snapshot.Entries))
 	for key, ssEntry := range snapshot.Entries {
+		gKey := groupKey{
+			namespace: key.Namespace,
+			modelUUID: key.ModelUUID,
+		}
+		newEntries, found := newGroups[gKey]
+		if !found {
+			newEntries = make(map[lease.Key]*entry)
+			newGroups[gKey] = newEntries
+		}
+
 		newEntries[lease.Key{
 			Namespace: key.Namespace,
 			ModelUUID: key.ModelUUID,
@@ -383,7 +441,7 @@ func (f *FSM) Restore(reader io.ReadCloser) error {
 
 	f.mu.Lock()
 	f.globalTime = snapshot.GlobalTime
-	f.entries = newEntries
+	f.groups = newGroups
 	f.pinned = newPinned
 	f.mu.Unlock()
 

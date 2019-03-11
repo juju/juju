@@ -457,7 +457,9 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 		}
 		if err == nil {
-			if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
+			if err := lxdprofile.ValidateLXDProfile(lxdCharmProfiler{
+				Charm: ch,
+			}); err != nil {
 				return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 			}
 			if curl, err = h.api.AddLocalCharm(curl, ch, false); err != nil {
@@ -587,7 +589,9 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
-	if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
+	if err := lxdprofile.ValidateLXDProfile(lxdCharmInfoProfiler{
+		CharmInfo: charmInfo,
+	}); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -625,13 +629,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	var placement []*instance.Placement
 	if h.data.Type == "kubernetes" {
 		numUnits = p.NumUnits
-		if p.Placement != "" {
-			p := &instance.Placement{
-				Scope:     h.modelConfig.UUID(),
-				Directive: p.Placement,
-			}
-			placement = []*instance.Placement{p}
-		}
 	}
 	// Deploy the application.
 	if err := h.api.Deploy(application.DeployArgs{
@@ -1473,7 +1470,6 @@ func buildModelRepresentation(
 			Scale:         appStatus.Scale,
 			Exposed:       appStatus.Exposed,
 			Series:        appStatus.Series,
-			Placement:     appStatus.Placement,
 			SubordinateTo: appStatus.SubordinateTo,
 		}
 		for unitName, unit := range appStatus.Units {

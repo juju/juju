@@ -19,9 +19,12 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
+    is_subordinate,
+    subordinate_machines_from_app_info,
+    application_machines_from_app_info,
+    align_machine_profiles,
 )
 from jujupy.wait_condition import (
-    AgentsIdle,
     WaitForLXDProfilesConditions,
 )
 
@@ -61,30 +64,14 @@ def assess_profile_machines(client):
         if 'charm-profile' in info:
             charm_profile = info['charm-profile']
             if charm_profile:
-                machines = application_machines(info)
+                if is_subordinate(info):
+                    machines = subordinate_machines_from_app_info(info, apps)
+                else:
+                    machines = application_machines_from_app_info(info)
                 machine_profiles.append((charm_profile, machines))
     if len(machine_profiles) > 0:
         aligned_machine_profiles = align_machine_profiles(machine_profiles)
         client.wait_for(WaitForLXDProfilesConditions(aligned_machine_profiles))
-
-def application_machines(app_data):
-    """Get all the machines used to host the given application."""
-    machines = [unit_data['machine'] for unit_data in
-                app_data['units'].values()]
-    return machines
-
-def align_machine_profiles(machine_profiles):
-    result = {}
-    for items in machine_profiles:
-        charm_profile = items[0]
-        if charm_profile in result:
-            # drop duplicates using set difference
-            a = set(result[charm_profile])
-            b = set(items[1])
-            result[charm_profile].extend(b.difference(a))
-        else:
-            result[charm_profile] = list(items[1])
-    return result
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test juju lxd profile bundle deploys.")

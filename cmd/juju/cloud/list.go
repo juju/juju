@@ -132,10 +132,10 @@ func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
 		return nil, err
 	}
 	details := newCloudList()
-	for name, cloud := range controllerClouds {
+	for _, cloud := range controllerClouds {
 		cloudDetails := makeCloudDetails(cloud)
 		// TODO: Better categorization than public.
-		details.public[name.String()] = cloudDetails
+		details.public[cloud.Name] = cloudDetails
 	}
 	return details, nil
 }
@@ -152,6 +152,7 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 	default:
 		output = details
 	}
+
 	err = c.out.Write(ctxt, output)
 	if err != nil {
 		return err
@@ -174,7 +175,7 @@ func newCloudList() *cloudList {
 }
 
 func (c *cloudList) all() map[string]*CloudDetails {
-	if len(c.personal) == 0 && len(c.builtin) == 0 && len(c.personal) == 0 {
+	if len(c.personal) == 0 && len(c.builtin) == 0 && len(c.public) == 0 {
 		return nil
 	}
 

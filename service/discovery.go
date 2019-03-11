@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/snap"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
@@ -107,13 +106,6 @@ var discoveryFuncs = []discoveryCheck{
 }
 
 func discoverLocalInitSystem() (string, error) {
-	if featureflag.Enabled(feature.MongoDbSnap) {
-		local, err := snap.IsRunning()
-		if err == nil && local {
-			return InitSystemSnap, nil
-		}
-		return "", errors.NotFoundf("snap does not appear to be installed correctly")
-	}
 	for _, check := range discoveryFuncs {
 		local, err := check.isRunning()
 		if err != nil {
@@ -129,7 +121,6 @@ func discoverLocalInitSystem() (string, error) {
 }
 
 const (
-	discoverSnap    = "if [ -x /usr/bin/snap ] || [ -d /snap ]; then  echo -n snap; exit 0; fi"
 	discoverSystemd = "if [ -d /run/systemd/system ]; then echo -n systemd; exit 0; fi"
 	discoverUpstart = "if [ -f /sbin/initctl ] && /sbin/initctl --system list 2>&1 > /dev/null; then echo -n upstart; exit 0; fi"
 )
@@ -143,9 +134,6 @@ func DiscoverInitSystemScript() string {
 		discoverSystemd,
 		discoverUpstart,
 		"exit 1",
-	}
-	if featureflag.Enabled(feature.MongoDbSnap) {
-		tests = append([]string{discoverSnap}, tests...)
 	}
 	data := renderer.RenderScript(tests)
 	return string(data)

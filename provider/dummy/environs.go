@@ -827,12 +827,16 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			adminUser := names.NewUserTag("admin@local")
 			var cloudCredentialTag names.CloudCredentialTag
 			if icfg.Bootstrap.ControllerCloudCredentialName != "" {
-				cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
+				id := fmt.Sprintf(
 					"%s/%s/%s",
 					icfg.Bootstrap.ControllerCloud.Name,
 					adminUser.Id(),
 					icfg.Bootstrap.ControllerCloudCredentialName,
-				))
+				)
+				if !names.IsValidCloudCredential(id) {
+					return errors.NotValidf("cloud credential ID %q", id)
+				}
+				cloudCredentialTag = names.NewCloudCredentialTag(id)
 			}
 
 			cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)

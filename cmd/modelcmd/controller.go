@@ -103,22 +103,47 @@ func (c *ControllerCommandBase) initController() error {
 	return c.initControllerError
 }
 
+// DetermineCurrentController returns current controller on this client.
+// It considers commandline flags, environment variables, and current config.
+func DetermineCurrentController(store jujuclient.ClientStore) (string, error) {
+	modelController, _ := SplitModelName(os.Getenv(osenv.JujuModelEnvKey))
+	envController := os.Getenv(osenv.JujuControllerEnvKey)
+	if modelController != "" && envController != "" && modelController != envController {
+		return "", errors.Errorf("controller name from %v (%v) conflicts with value in %v (%v)",
+			osenv.JujuModelEnvKey, modelController,
+			osenv.JujuControllerEnvKey, envController,
+		)
+	}
+	controllerName := modelController
+	if controllerName == "" {
+		controllerName = envController
+	}
+	if controllerName == "" {
+		var err error
+		controllerName, err = store.CurrentController()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+
+	if _, err := store.ControllerByName(controllerName); err != nil {
+		return "", errors.Trace(err)
+	}
+	return controllerName, nil
+}
+
 func (c *ControllerCommandBase) initController0() error {
 	if c._controllerName == "" && !c.allowDefaultController {
 		return errors.New("no controller specified")
 	}
 	if c._controllerName == "" {
-		c._controllerName = os.Getenv(osenv.JujuControllerEnvKey)
-	}
-	store := c.ClientStore()
-	if c._controllerName == "" {
-		currentController, err := store.CurrentController()
+		controllerName, err := DetermineCurrentController(c.store)
 		if err != nil {
-			return errors.Trace(translateControllerError(store, err))
+			return errors.Trace(translateControllerError(c.store, err))
 		}
-		c._controllerName = currentController
+		c._controllerName = controllerName
 	}
-	if _, err := store.ControllerByName(c._controllerName); err != nil {
+	if _, err := c.store.ControllerByName(c._controllerName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

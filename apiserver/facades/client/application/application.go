@@ -520,15 +520,6 @@ func deployApplication(
 			if cons.Pool == "" && *defaultStorageClass == "" {
 				return errors.Errorf("storage pool for %q must be specified since there's no cluster default storage class", storageName)
 			}
-			if cons.Pool != "" {
-				sp, err := storagePoolManager.Get(cons.Pool)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if sp.Provider() != k8s.K8s_ProviderType {
-					return errors.Errorf("invalid storage provider type %q for %q", sp.Provider(), storageName)
-				}
-			}
 		}
 	}
 
@@ -1508,7 +1499,7 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 			}
 			info.Scale = newScale
 		} else {
-			if err := app.Scale(arg.Scale); err != nil {
+			if err := app.SetScale(arg.Scale); err != nil {
 				return nil, errors.Trace(err)
 			}
 			info.Scale = arg.Scale

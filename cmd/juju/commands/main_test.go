@@ -200,7 +200,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 		Args:   argChan,
 	})
 	stub := &gitjujutesting.Stub{}
-	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+	s.PatchValue(&cloud.NewUpdatePublicCloudsCommand, func() cmd.Command {
 		return &stubCommand{stub: stub}
 	})
 
@@ -250,7 +250,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 		Args:   argChan,
 	})
 	stub := &gitjujutesting.Stub{}
-	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+	s.PatchValue(&cloud.NewUpdatePublicCloudsCommand, func() cmd.Command {
 		return &stubCommand{stub: stub}
 	})
 
@@ -322,7 +322,7 @@ func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 		Args:   argChan,
 	})
 	stub := &gitjujutesting.Stub{}
-	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+	s.PatchValue(&cloud.NewUpdatePublicCloudsCommand, func() cmd.Command {
 		return &stubCommand{stub: stub}
 	})
 
@@ -357,7 +357,7 @@ func (s *MainSuite) assertRunCommandUpdateCloud(c *gc.C, expectedCall string) {
 	})
 
 	stub := &gitjujutesting.Stub{}
-	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+	s.PatchValue(&cloud.NewUpdatePublicCloudsCommand, func() cmd.Command {
 		return &stubCommand{stub: stub}
 
 	})
@@ -589,7 +589,9 @@ var commandNames = []string{
 	"trust",
 	"unexpose",
 	"unregister",
+	"update-cloud",
 	"update-clouds",
+	"update-public-clouds",
 	"update-credential",
 	"update-storage-pool",
 	"upgrade-charm",

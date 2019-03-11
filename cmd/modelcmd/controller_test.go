@@ -5,6 +5,7 @@ package modelcmd_test
 
 import (
 	"os"
+	"regexp"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -33,14 +34,54 @@ func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
 	c.Assert(controllerName, gc.Equals, "")
 }
 
-func (s *ControllerCommandSuite) TestControllerCommandInitCurrentController(c *gc.C) {
+func (s *ControllerCommandSuite) TestCurrentControllerFromControllerEnvVar(c *gc.C) {
+	s.PatchEnvironment("JUJU_CONTROLLER", "bar")
+	store := jujuclient.NewMemStore()
+	store.Controllers["bar"] = jujuclient.ControllerDetails{}
+	testEnsureControllerName(c, store, "bar")
+}
+
+func (s *ControllerCommandSuite) TestCurrentControllerFromModelEnvVar(c *gc.C) {
+	s.PatchEnvironment("JUJU_MODEL", "buzz:bar")
+	store := jujuclient.NewMemStore()
+	store.Controllers["buzz"] = jujuclient.ControllerDetails{}
+	testEnsureControllerName(c, store, "buzz")
+}
+
+func (s *ControllerCommandSuite) TestCurrentControllerFromStore(c *gc.C) {
 	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "foo"
-	store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar",
-	}
 	store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	testEnsureControllerName(c, store, "foo")
+}
+
+func (s *ControllerCommandSuite) TestCurrentControllerEnvVarConflict(c *gc.C) {
+	s.PatchEnvironment("JUJU_MODEL", "buzz:bar")
+	s.PatchEnvironment("JUJU_CONTROLLER", "bar")
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["buzz"] = jujuclient.ControllerDetails{}
+	store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	store.Controllers["bar"] = jujuclient.ControllerDetails{}
+	cmd, err := runTestControllerCommand(c, store)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cmd.ControllerName()
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("controller name from JUJU_MODEL (buzz) conflicts with value in JUJU_CONTROLLER (bar)"))
+}
+
+func (s *ControllerCommandSuite) TestCurrentControllerPrecedenceEnvVar(c *gc.C) {
+	s.PatchEnvironment("JUJU_CONTROLLER", "bar")
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	store.Controllers["bar"] = jujuclient.ControllerDetails{}
+	testEnsureControllerName(c, store, "bar")
+}
+
+func (s *ControllerCommandSuite) TesCurrentControllerDeterminedButNotInStore(c *gc.C) {
+	s.PatchEnvironment("JUJU_CONTROLLER", "bar")
+	_, err := runTestControllerCommand(c, jujuclient.NewMemStore())
+	c.Assert(err, gc.ErrorMatches, "controller bar not found")
 }
 
 func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {

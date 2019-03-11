@@ -814,7 +814,8 @@ class ModelClient:
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
             credential=None, auto_upgrade=False, metadata_source=None,
-            no_gui=False, agent_version=None):
+            no_gui=False, agent_version=None, db_snap_path=None,
+            db_snap_asserts_path=None):
         """Return the bootstrap arguments for the substrate."""
         constraints = self._get_substrate_constraints()
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
@@ -846,6 +847,9 @@ class ModelClient:
             args.extend(['--to', self.env.bootstrap_to])
         if no_gui:
             args.append('--no-gui')
+        if db_snap_path and db_snap_asserts_path:
+            args.extend(['--db-snap', db_snap_path,
+                         '--db-snap-asserts', db_snap_asserts_path])
         return tuple(args)
 
     def add_model(self, env, cloud_region=None):
@@ -930,13 +934,15 @@ class ModelClient:
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
-                  no_gui=False, agent_version=None):
+                  no_gui=False, agent_version=None, db_snap_path=None,
+                  db_snap_asserts_path=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series, credential,
-                auto_upgrade, metadata_source, no_gui, agent_version)
+                auto_upgrade, metadata_source, no_gui, agent_version,
+                db_snap_path, db_snap_asserts_path)
             self.update_user_name()
             retvar, ct = self.juju('bootstrap', args, include_e=False)
             ct.actual_completion()
@@ -1299,10 +1305,12 @@ class ModelClient:
                     'ResourceId: {} Service or Unit: {} Timeout: {}'.format(
                         resource_id, service_or_unit, timeout))
 
-    def upgrade_charm(self, service, charm_path=None):
+    def upgrade_charm(self, service, charm_path=None, resvision=None):
         args = (service,)
         if charm_path is not None:
             args = args + ('--path', charm_path)
+        if resvision is not None:
+            args = args + ('--revision', resvision)
         self.juju('upgrade-charm', args)
 
     def remove_service(self, service):

@@ -269,7 +269,7 @@ func (b *storageDBWrapper) txnOpUpdate(id string, updates ...bson.DocElem) txn.O
 
 // runTransaction runs the DB operations within a single transaction.
 func (b *storageDBWrapper) runTransaction(ops []txn.Op) error {
-	err := b.txnRunner.RunTransaction(ops)
+	err := b.txnRunner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 	return errors.Trace(err)
 }
 

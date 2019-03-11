@@ -52,10 +52,7 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 
 	// To isolate the tests from the host's architecture, we override it here.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-
-	s.PatchValue(&broker.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
-		return nil, nil
-	})
+	broker.PatchNewMachineInitReader(s, newBlankMachineInitReader)
 
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
@@ -182,30 +179,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithCloudInitUserData(c *gc.C) {
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *gc.C) {
-	s.PatchValue(&broker.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
-		return map[string]interface{}{
-			"packages":   []interface{}{"python-novaclient"},
-			"fake-entry": []interface{}{"testing-garbage"},
-			"apt": map[interface{}]interface{}{
-				"primary": []interface{}{
-					map[interface{}]interface{}{
-						"arches": []interface{}{"default"},
-						"uri":    "http://archive.ubuntu.com/ubuntu",
-					},
-				},
-				"security": []interface{}{
-					map[interface{}]interface{}{
-						"arches": []interface{}{"default"},
-						"uri":    "http://archive.ubuntu.com/ubuntu",
-					},
-				},
-			},
-			"ca-certs": map[interface{}]interface{}{
-				"remove-defaults": true,
-				"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
-			},
-		}, nil
-	})
+	broker.PatchNewMachineInitReader(s, newFakeMachineInitReader)
 	s.api.fakeContainerConfig.ContainerInheritProperties = "ca-certs,apt-security"
 
 	broker, brokerErr := s.newLXDBroker(c)

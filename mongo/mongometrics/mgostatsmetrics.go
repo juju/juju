@@ -13,7 +13,7 @@ import (
 // MgoStatsCollector is a prometheus.Collector that collects metrics based
 // on mgo stats.
 type MgoStatsCollector struct {
-	getStats func() (current, previous mgo.Stats)
+	getStats func() (current, previous stats)
 
 	clustersGauge       prometheus.Gauge
 	masterConnsGauge    prometheus.Gauge
@@ -26,17 +26,40 @@ type MgoStatsCollector struct {
 	socketRefsGauge     prometheus.Gauge
 }
 
+type stats struct {
+	Clusters     int
+	MasterConns  int
+	SlaveConns   int
+	SentOps      int
+	ReceivedOps  int
+	ReceivedDocs int
+	SocketsAlive int
+	SocketsInUse int
+	SocketRefs   int
+}
+
 // NewMgoStatsCollector returns a new MgoStatsCollector.
 func NewMgoStatsCollector(getCurrentStats func() mgo.Stats) *MgoStatsCollector {
 	// We need to track previous statistics so we can
 	// compute the delta for counter metrics.
 	var mu sync.Mutex
-	var prevStats mgo.Stats
-	getStats := func() (current, previous mgo.Stats) {
+	var prevStats stats
+	getStats := func() (current, previous stats) {
 		mu.Lock()
 		defer mu.Unlock()
 		previous = prevStats
-		current = getCurrentStats()
+		currentStats := getCurrentStats()
+		current = stats{
+			Clusters:     currentStats.Clusters,
+			MasterConns:  currentStats.MasterConns,
+			SlaveConns:   currentStats.SlaveConns,
+			SentOps:      currentStats.SentOps,
+			ReceivedOps:  currentStats.ReceivedOps,
+			ReceivedDocs: currentStats.ReceivedDocs,
+			SocketsAlive: currentStats.SocketsAlive,
+			SocketsInUse: currentStats.SocketsInUse,
+			SocketRefs:   currentStats.SocketRefs,
+		}
 		prevStats = current
 		return current, previous
 	}

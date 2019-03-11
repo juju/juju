@@ -41,5 +41,5 @@ func (s *modelSuite) TestName(c *gc.C) {
 }
 
 func (s *modelSuite) TestType(c *gc.C) {
-	c.Assert(string(s.apiModel.ModelType.String()), gc.Equals, string(s.stateModel.Type()))
+	c.Assert(s.apiModel.ModelType.String(), gc.Equals, string(s.stateModel.Type()))
 }

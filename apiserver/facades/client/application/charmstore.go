@@ -139,7 +139,9 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 	}
 
 	// Validate the charm lxd profile once we've downloaded it.
-	if err := lxdprofile.ValidateCharmLXDProfile(downloadedCharm); err != nil {
+	if err := lxdprofile.ValidateLXDProfile(lxdCharmArchiveProfiler{
+		CharmArchive: downloadedBundle,
+	}); err != nil {
 		if !args.Force {
 			return errors.Annotate(err, "cannot add charm")
 		}
@@ -439,4 +441,18 @@ type csStateModelShim struct {
 
 func (s csStateModelShim) ModelConfig() (*config.Config, error) {
 	return s.Model.ModelConfig()
+}
+
+// lxdCharmArchiveProfiler massages a *charm.CharmArchive into a LXDProfiler
+// inside of the core package.
+type lxdCharmArchiveProfiler struct {
+	CharmArchive *charm.CharmArchive
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p lxdCharmArchiveProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.CharmArchive == nil {
+		return nil
+	}
+	return p.CharmArchive.LXDProfile()
 }

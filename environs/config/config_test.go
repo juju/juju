@@ -1442,7 +1442,7 @@ var serverKey2 = func() string {
 	if err != nil {
 		panic(err)
 	}
-	return string(key)
+	return key
 }()
 
 var invalidCAKey = `

@@ -81,9 +81,6 @@ type ServiceParams struct {
 	// ResourceTags is a set of tags to set on the created service.
 	ResourceTags map[string]string
 
-	// Placement defines node affinity rules.
-	Placement string
-
 	// Constraints is a set of constraints on
 	// the pod to create.
 	Constraints constraints.Value
@@ -129,6 +126,10 @@ type Broker interface {
 	// WatchOperator returns a watcher which notifies when there
 	// are changes to the operator of the specified application.
 	WatchOperator(string) (watcher.NotifyWatcher, error)
+
+	// WatchService returns a watcher which notifies when there
+	// are changes to the deployment of the specified application.
+	WatchService(appName string) (watcher.NotifyWatcher, error)
 
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
@@ -226,6 +227,7 @@ type NamespaceWatcher interface {
 type Service struct {
 	Id        string
 	Addresses []network.Address
+	Scale     *int
 }
 
 // FilesystemInfo represents information about a filesystem

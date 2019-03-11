@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
@@ -40,29 +40,30 @@ type requirementParams struct {
 	strValues []string
 }
 
-func getCloudProviderFromNodeMeta(node core.Node) string {
+func getCloudRegionFromNodeMeta(node core.Node) (string, string) {
 	for k, checker := range k8sCloudCheckers {
 		if checker.Matches(k8slabels.Set(node.GetLabels())) {
-			return k
+			region := node.Labels[regionLabelName]
+			return k, region
 		}
 	}
 	// TODO - add microk8s node label check when available
 	hostname, err := os.Hostname()
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	hostLabel, _ := node.Labels["kubernetes.io/hostname"]
 	if node.Name == hostname && hostLabel == hostname {
-		return "microk8s"
+		return caas.Microk8s, caas.Microk8sRegion
 	}
-	return ""
+	return "", ""
 }
 
 // GetClusterMetadata implements ClusterMetadataChecker.
 func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.ClusterMetadata, error) {
 	var result caas.ClusterMetadata
 	var err error
-	result.Regions, err = k.listHostCloudRegions()
+	result.Cloud, result.Regions, err = k.listHostCloudRegions()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot determine cluster region")
 	}
@@ -99,27 +100,24 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 const regionLabelName = "failure-domain.beta.kubernetes.io/region"
 
 // listHostCloudRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
-func (k *kubernetesClient) listHostCloudRegions() (set.Strings, error) {
+func (k *kubernetesClient) listHostCloudRegions() (string, set.Strings, error) {
 	// we only check 5 worker nodes as of now just run in the one region and
 	// we are just looking for a running worker to sniff its region.
 	nodes, err := k.CoreV1().Nodes().List(v1.ListOptions{Limit: 5})
 	if err != nil {
-		return nil, errors.Annotate(err, "listing nodes")
+		return "", nil, errors.Annotate(err, "listing nodes")
 	}
 	result := set.NewStrings()
+	var cloudResult string
 	for _, n := range nodes.Items {
-		var cloudRegion, v string
-		var ok bool
-		if v = getCloudProviderFromNodeMeta(n); v == "" {
+		var nodeCloud, region string
+		if nodeCloud, region = getCloudRegionFromNodeMeta(n); nodeCloud == "" {
 			continue
 		}
-		cloudRegion += v
-		if v, ok = n.Labels[regionLabelName]; ok && v != "" {
-			cloudRegion += "/" + v
-		}
-		result.Add(cloudRegion)
+		cloudResult = nodeCloud
+		result.Add(region)
 	}
-	return result, nil
+	return cloudResult, result, nil
 }
 
 // CheckDefaultWorkloadStorage implements ClusterMetadataChecker.

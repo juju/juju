@@ -7,11 +7,13 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -470,8 +472,11 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	var zeroVersion Version
 	tweakSysctlForMongo(mongoKernelTweaks)
 
+	// TODO(tsm): clean up the args.DataDir handling. When using a snap, args.DataDir should be
+	//            set earlier in the bootstrapping process. An extra variable is needed here because
+	//            cloudconfig sends local snaps to /var/lib/juju/
+	dataDir := args.DataDir
 	if featureflag.Enabled(feature.MongoDbSnap) {
-		// TODO(tsm): push this to earlier in the bootstrapping process
 		if args.DataDir != dataPathForJujuDbSnap {
 			logger.Warningf("overwriting args.dataDir (set to %v) to %v", args.DataDir, dataPathForJujuDbSnap)
 			args.DataDir = dataPathForJujuDbSnap
@@ -485,7 +490,7 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 
 	setupDataDirectory(args)
 
-	if err := installMongod(series.MustHostSeries(), args.SetNUMAControlPolicy); err != nil {
+	if err := installMongod(series.MustHostSeries(), args.SetNUMAControlPolicy, dataDir); err != nil {
 		// This isn't treated as fatal because the Juju MongoDB
 		// package is likely to be already installed anyway. There
 		// could just be a temporary issue with apt-get/yum/whatever
@@ -640,12 +645,27 @@ func installPackage(pkg string, pacconfer config.PackagingConfigurer, pacman man
 	return pacman.Install(pkg)
 }
 
-func installMongod(operatingsystem string, numaCtl bool) error {
+func installMongod(operatingsystem string, numaCtl bool, dataDir string) error {
 	if featureflag.Enabled(feature.MongoDbSnap) {
+		snapName := ServiceName
+		jujuDbLocalSnapPattern := regexp.MustCompile(`juju-db_[0-9]+\.snap`)
+
+		// If we're installing a local snap, then provide an absolute path
+		// as a snap <name>. snap install <name> will then do the Right Thing (TM).
+		files, err := ioutil.ReadDir(path.Join(dataDir, "snap"))
+		if err == nil {
+			for _, fullFileName := range files {
+				_, fileName := path.Split(fullFileName.Name())
+				if jujuDbLocalSnapPattern.MatchString(fileName) {
+					snapName = fullFileName.Name()
+				}
+			}
+		}
+
 		prerequisites := []snap.App{snap.NewApp("core")}
 		backgroundServices := []snap.BackgroundService{{"daemon", true}}
 		conf := common.Conf{Desc: ServiceName + " snap"}
-		service, err := snap.NewService(ServiceName, conf, snap.Command, "edge", "jailmode", backgroundServices, prerequisites)
+		service, err := snap.NewService(snapName, ServiceName, conf, snap.Command, "edge", "jailmode", backgroundServices, prerequisites)
 		if err != nil {
 			return errors.Trace(err)
 		}

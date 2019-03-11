@@ -435,7 +435,7 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	// obtained source later.
 	data := makeRandomBytes(10)
 	stor := NewStorage(env)
-	err := stor.Put("tools/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	err := stor.Put("tools/filename", bytes.NewBuffer(data), int64(len(data)))
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := envtools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)

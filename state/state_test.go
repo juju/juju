@@ -615,6 +615,8 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				m, err := st.AddMachine("trusty", state.JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m.Id(), gc.Equals, "0")
+				// Ensure that all the creation events have flowed through the system.
+				s.WaitForModelWatchersIdle(c, st.ModelUUID())
 				return m.Watch()
 			},
 			setUpState: func(st *state.State) bool {
@@ -1569,13 +1571,11 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	placement := []*instance.Placement{instance.MustParsePlacement(st.ModelUUID() + ":a=b")}
 	gitlab, err := st.AddApplication(
-		state.AddApplicationArgs{Name: "gitlab", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig, Placement: placement})
+		state.AddApplicationArgs{Name: "gitlab", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
 	c.Assert(gitlab.GetScale(), gc.Equals, 0)
-	c.Assert(gitlab.GetPlacement(), gc.Equals, "a=b")
 	outsettings, err := gitlab.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
@@ -1600,7 +1600,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 }
 
-func (s *StateSuite) TestAddCAASApplicationBadPlacement(c *gc.C) {
+func (s *StateSuite) TestAddCAASApplicationPlacementNotAllowed(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -1609,20 +1609,7 @@ func (s *StateSuite) TestAddCAASApplicationBadPlacement(c *gc.C) {
 	placement := []*instance.Placement{instance.MustParsePlacement("#:2")}
 	_, err := st.AddApplication(
 		state.AddApplicationArgs{Name: "gitlab", Charm: ch, Placement: placement})
-	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`machine placement directive "#:2" not valid`))
-}
-
-func (s *StateSuite) TestAddCAASApplicationTooManyPlacement(c *gc.C) {
-	st := s.Factory.MakeCAASModel(c, nil)
-	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
-
-	placement := []*instance.Placement{
-		instance.MustParsePlacement("model-uuid:a=b"), instance.MustParsePlacement("model-uuid:c=d")}
-	_, err := st.AddApplication(
-		state.AddApplicationArgs{Name: "gitlab", Charm: ch, Placement: placement})
-	c.Assert(err, gc.ErrorMatches, ".*only 1 placement directive is supported, got 2")
+	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`cannot add application "gitlab": placement directives on k8s models not valid`))
 }
 
 func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {
@@ -1881,7 +1868,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithNoExplicitSupportedSeries
 func (s *StateSuite) TestAddApplicationOSIncompatibleWithSupportedSeries(c *gc.C) {
 	charm := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	// A charm with supported series can only be force-deployed to series
-	// of the same operating systems as the suppoted series.
+	// of the same operating systems as the supported series.
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
 		Series: "centos7",
@@ -2196,6 +2183,9 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	c.Assert(model2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	err = st2.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	// All except the removed model are reported in initial event.
 	w := s.State.WatchModels()

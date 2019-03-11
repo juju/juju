@@ -9,11 +9,12 @@ import (
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
+	storageprovider "github.com/juju/juju/storage/provider"
 )
 
 var _ = gc.Suite(&storageSuite{})
@@ -194,4 +195,32 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{VolumeId: "vol-id", Size: 68, Persistent: true},
 	}})
+}
+
+func (s *storageSuite) TestValidateStorageProvider(c *gc.C) {
+	for _, t := range []struct {
+		providerType storage.ProviderType
+		attrs        map[string]interface{}
+		err          string
+	}{
+		{
+			providerType: storageprovider.RootfsProviderType,
+		}, {
+			providerType: storageprovider.TmpfsProviderType,
+		}, {
+			providerType: storageprovider.LoopProviderType,
+			err:          `storage provider type "loop" not valid`,
+		}, {
+			providerType: storageprovider.TmpfsProviderType,
+			attrs:        map[string]interface{}{"storage-medium": "foo"},
+			err:          `storage medium "foo" not valid`,
+		},
+	} {
+		err := provider.ValidateStorageProvider(t.providerType, t.attrs)
+		if t.err == "" {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err, gc.ErrorMatches, t.err)
+		}
+	}
 }

@@ -106,5 +106,5 @@ func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *coretools.Tools, file
 	// juju-run)
 	info, err := os.Stat(dir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Mode().Perm(), gc.Equals, os.FileMode(agenttools.DirPerm))
+	c.Assert(info.Mode().Perm(), gc.Equals, agenttools.DirPerm)
 }

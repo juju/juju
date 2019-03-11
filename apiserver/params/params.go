@@ -374,6 +374,7 @@ type UpdateApplicationUnitArgs struct {
 // UpdateApplicationUnits holds unit parameters for a specified application.
 type UpdateApplicationUnits struct {
 	ApplicationTag string                  `json:"application-tag"`
+	Scale          *int                    `json:"scale,omitempty"`
 	Units          []ApplicationUnitParams `json:"units"`
 }
 
@@ -1137,8 +1138,6 @@ type GenerationApplication struct {
 
 	// Config changes are the differing configuration values between this
 	// generation and the current.
-	// TODO (manadart 2018-02-22) This data-type will evolve as more aspects
-	// of the application are made generational.
 	ConfigChanges map[string]interface{} `json:"config"`
 }
 
