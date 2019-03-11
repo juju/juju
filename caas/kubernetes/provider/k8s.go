@@ -140,8 +140,7 @@ func NewK8sBroker(
 		// CRUD any resources inside the namespace.
 		// Note: we should consider above `Solution` even we always run single controller per cluster, because
 		// we should NEVER allow juju controller to touch any namespace that was NOT created by JUJU.
-		// namespace += "-" + modelUUID
-		namespace = "controller-operator"
+		namespace += "-" + modelUUID[:8]
 		logger.Debugf("found config name %q, so naming namespace to %q", newCfg.Name(), namespace)
 	}
 	return &kubernetesClient{
