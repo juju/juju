@@ -59,11 +59,13 @@ func (config ManifoldConfig) newWorker(environ environs.Environ, apiCaller base.
 	}
 
 	facade := config.NewClient(apiCaller)
+	agentConfig := agent.CurrentConfig()
 	cfg := Config{
 		Logger:      config.Logger,
 		Facade:      facade,
 		Environ:     environ,
-		AgentConfig: agent.CurrentConfig(),
+		AgentConfig: agentConfig,
+		Tag:         agentConfig.Tag(),
 	}
 
 	w, err := config.NewWorker(cfg)

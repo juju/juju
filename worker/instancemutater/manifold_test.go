@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	names "gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
@@ -343,4 +344,7 @@ func (s *manifoldSuite) behaviourContext() {
 func (s *manifoldSuite) behaviourAgent() {
 	aExp := s.agent.EXPECT()
 	aExp.CurrentConfig().Return(s.agentConfig)
+
+	cExp := s.agentConfig.EXPECT()
+	cExp.Tag().Return(names.MachineTag{})
 }

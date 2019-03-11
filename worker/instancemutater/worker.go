@@ -64,12 +64,12 @@ func (config Config) Validate() error {
 	if config.AgentConfig == nil {
 		return errors.NotValidf("nil AgentConfig")
 	}
-	//if config.Tag == nil {
-	//	return errors.NotValidf("nil tag")
-	//}
-	//if _, ok := config.Tag.(names.MachineTag); !ok {
-	//	return errors.NotValidf("tag")
-	//}
+	if config.Tag == nil {
+		return errors.NotValidf("nil Tag")
+	}
+	if _, ok := config.Tag.(names.MachineTag); !ok {
+		return errors.NotValidf("Tag")
+	}
 	return nil
 }
 
@@ -91,7 +91,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		logger:     config.Logger,
 		facade:     config.Facade,
 		broker:     broker,
-		machineTag: config.AgentConfig.Tag().(names.MachineTag),
+		machineTag: config.Tag.(names.MachineTag),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,

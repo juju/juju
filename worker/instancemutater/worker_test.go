@@ -66,6 +66,16 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			},
 			err: "nil AgentConfig not valid",
 		},
+		{
+			description: "Test no tag",
+			config: instancemutater.Config{
+				Logger:      mocks.NewMockLogger(ctrl),
+				Facade:      mocks.NewMockInstanceMutaterAPI(ctrl),
+				Environ:     mocks.NewMockEnviron(ctrl),
+				AgentConfig: mocks.NewMockConfig(ctrl),
+			},
+			err: "nil Tag not valid",
+		},
 	}
 	for i, test := range testcases {
 		c.Logf("%d %s", i, test.description)
