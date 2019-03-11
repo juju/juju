@@ -194,7 +194,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 	jujud.Register(caasOperatorAgent)
 
-	jujud.Register(NewUpgradeMongoCommand())
 	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 
 	code = cmd.Main(jujud, ctx, args[1:])

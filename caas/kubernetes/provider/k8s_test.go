@@ -381,8 +381,7 @@ func (s *K8sBrokerSuite) TestControllerNamespaceRenaming(c *gc.C) {
 		// reset s.cfg
 		s.SetUpSuite(c)
 	}()
-
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-operator")
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-"+cfg.UUID()[:8])
 
 }
 

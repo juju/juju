@@ -105,7 +105,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-application": "juju-controller-test"},
-			Type:     core.ServiceType("NodePort"), // TODO(caas): NodePort works for single node only like microk8s.
+			Type:     core.ServiceType("ClusterIP"),
 			Ports: []core.ServicePort{
 				{
 					Name:       "mongodb",

@@ -159,14 +159,16 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 
 func (s *CAASModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
-	_, _, err := s.Controller.NewModel(state.ModelArgs{
-		Type:        state.ModelTypeCAAS,
-		CloudName:   "dummy",
-		CloudRegion: "fork",
-		Config:      cfg,
-		Owner:       names.NewUserTag("test@remote"),
+	_, st, err := s.Controller.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeCAAS,
+		CloudName:               "dummy",
+		CloudRegion:             "fork",
+		Config:                  cfg,
+		Owner:                   names.NewUserTag("test@remote"),
+		StorageProviderRegistry: provider.CommonStorageProviders(),
 	})
-	c.Assert(err, gc.ErrorMatches, "CAAS model with CloudRegion not supported")
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
 }
 
 func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
