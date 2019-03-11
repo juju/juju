@@ -24,14 +24,15 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
 
 const (
-	jujudOCINamespace = "ycliuhw" // TODO(bootstrap): change it to "jujusolutions" and also consolidate caas operator and caas conroller to one image.
-	jujudOCIName      = "jujud-controller"
+	jujudOCINamespace = "jujusolutions"
+	jujudOCIName      = "caas-jujud-operator"
 )
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
@@ -126,6 +127,10 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		Values:            cfg.AgentEnvironment,
 		Controller:        cfg.ControllerTag,
 		Model:             cfg.APIInfo.ModelTag,
+		// TODO(bootstrap): IAAS updates version after mongo installed, but for CAAS, it's predefined.
+		// make mongo version and profile more flexible to modifiable.
+		MongoVersion:       mongo.Mongo36wt,
+		MongoMemoryProfile: mongo.MemoryProfileDefault,
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
 }
@@ -216,9 +221,18 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	return nil
 }
 
-// GetControllerImagePath returns oci image path of jujud.
+// GetControllerImagePath returns oci image path of jujud for a controller.
 func (cfg *ControllerPodConfig) GetControllerImagePath() string {
-	return fmt.Sprintf("%s/%s:%s", jujudOCINamespace, jujudOCIName, cfg.JujuVersion.String())
+	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion)
+}
+
+// GetJujuOCIImagePath returns jujud oci image path.
+func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) string {
+	imagePath := controllerCfg.CAASOperatorImagePath()
+	if imagePath == "" {
+		imagePath = fmt.Sprintf("%s/%s:%s", jujudOCINamespace, jujudOCIName, ver.String())
+	}
+	return imagePath
 }
 
 func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {
@@ -270,6 +284,9 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	}
 	if cfg.StateServingInfo.APIPort == 0 {
 		return errors.New("missing API port")
+	}
+	if len(cfg.HostedModelConfig) == 0 {
+		return errors.New("missing hosted model config")
 	}
 	return nil
 }
@@ -363,6 +380,7 @@ func NewBootstrapControllerPodConfig(config controller.Config, series string) (*
 	}
 	pcfg.Jobs = []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
+		multiwatcher.JobHostUnits,
 	}
 	return pcfg, nil
 }

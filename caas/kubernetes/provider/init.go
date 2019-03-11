@@ -10,15 +10,11 @@ import (
 	"github.com/juju/juju/caas"
 )
 
-const (
-	providerType = "kubernetes"
-)
-
 var k8sCloudCheckers map[string]k8slabels.Selector
 var clusterPreferredWorkloadStorage map[string]caas.PreferredStorage
 
 func init() {
-	caas.RegisterContainerProvider(providerType, providerInstance)
+	caas.RegisterContainerProvider(CAASProviderType, providerInstance)
 
 	// k8sCloudCheckers is a collection of k8s node selector requirement definitions
 	// used for detecting cloud provider from node labels.

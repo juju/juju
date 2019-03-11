@@ -1039,8 +1039,8 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	}
 
 	tracker := agenttest.NewEngineTracker()
-	instrumented := TrackMachines(c, tracker, machineManifolds)
-	s.PatchValue(&machineManifolds, instrumented)
+	instrumented := TrackMachines(c, tracker, iaasMachineManifolds)
+	s.PatchValue(&iaasMachineManifolds, instrumented)
 
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)

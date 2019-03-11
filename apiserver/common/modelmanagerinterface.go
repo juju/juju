@@ -64,7 +64,7 @@ type ModelManagerBackend interface {
 	ExportPartial(state.ExportConfig) (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	SetModelMeterStatus(string, string) error
-	ReloadSpaces(environ environs.Environ) error
+	ReloadSpaces(environ environs.BootstrapEnviron) error
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error
@@ -101,7 +101,7 @@ type Model interface {
 	ControllerUUID() string
 	LastModelConnection(user names.UserTag) (time.Time, error)
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
-	AutoConfigureContainerNetworking(environ environs.Environ) error
+	AutoConfigureContainerNetworking(environ environs.BootstrapEnviron) error
 	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
 	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
 }

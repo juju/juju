@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -17,6 +18,8 @@ import (
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/mongo"
 )
@@ -25,116 +28,10 @@ import (
 const JujuControllerStackName = "juju-controller"
 
 var (
-	// TODO(bootstrap): remove me.
-	TmpControllerCert = `
------BEGIN CERTIFICATE-----
-MIIDyzCCArOgAwIBAgIVAMaum/bXkVMByKDmsJZKQ4O23ElWMA0GCSqGSIb3DQEB
-CwUAMG4xDTALBgNVBAoTBGp1anUxLjAsBgNVBAMMJWp1anUtZ2VuZXJhdGVkIENB
-IGZvciBtb2RlbCAianVqdS1jYSIxLTArBgNVBAUTJGY1OTljZTQwLTY5MmEtNDcw
-MC04NmZmLWM5MjdhNWU5YTkzZjAeFw0xODA4MjcwMjE1NDJaFw0yODA5MDMwMjE1
-NDFaMBsxDTALBgNVBAoTBGp1anUxCjAIBgNVBAMMASowggEiMA0GCSqGSIb3DQEB
-AQUAA4IBDwAwggEKAoIBAQCph6PF2WZD/lYNVDqa0iVBplpMfymNrMwpLgEIGVYx
-KsNSMSPuUKhtNVJTRj6yesZDJS6cDwo6TSsBdDCZGcJuR+1H6FMyIAJpg1Pi2D+X
-yCBh9v2QXJftqN7xCGoXQx50GEmHs5aN87U3VaPVE6Ezl2k/Bb5pPZYftNWvHD2e
-ATQ4lG6bIMePYx55g3inNpzTZzM1oakX9BmBakOuBS0SD3fCbUHuo5OSGRByrJ8w
-3oPMV+/s8npjcy9sYhprYXl5hEGonyEyl1yX5+DjEwhD2ZUaNrJ1ScviRhxrOVmE
-/U4LoqNJFZCqoHtXAf+af8VLVULz4MxkdUxHxLGRU1gfAgMBAAGjgbIwga8wDgYD
-VR0PAQH/BAQDAgOoMBMGA1UdJQQMMAoGCCsGAQUFBwMBMB0GA1UdDgQWBBQopMWN
-ZZjJGgG1cZsU/jiKdAaV7DAfBgNVHSMEGDAWgBQRkGOJl/mxNMAqRdoEwttycRvD
-wTBIBgNVHREEQTA/gghhbnl0aGluZ4IOanVqdS1hcGlzZXJ2ZXKCDGp1anUtbW9u
-Z29kYoIJbG9jYWxob3N0hwQN7nT1hwSsHwbJMA0GCSqGSIb3DQEBCwUAA4IBAQA6
-0n/7B4Yqzg5YpbB+yDOV5dbmdqj2Gi2/p0YTUtELTT5N7MDJbki/hjAN3YKiuCnO
-fZBNvZVszzFUJgEYabqfCtNhZMTOTAcjwhcY+J9jNTZJEROccbSg/KvfFJTkRhjj
-h3t6C4n4PPHQDhGBTTBUTdsc44GmEBSR0sqgykxquwOrSxVleqkw2dl0MV41MqaK
-RuP2uoV/Px0rij/lNb+lCF697m6phruy95ZJdx4E9vZiSSrlOHONWR6yCaQ3Hvw3
-BHIl0tbNZZqh3XIzTFv/VRecYz5tE/OsTptYkmc+glw3Zp5pWSOcGacb06Alm4Bj
-YILHEY4tAouuw0cijCAP
------END CERTIFICATE-----
-`[1:]
-	TmpControllerPrivateKey = `
------BEGIN RSA PRIVATE KEY-----
-MIIEoQIBAAKCAQEAqYejxdlmQ/5WDVQ6mtIlQaZaTH8pjazMKS4BCBlWMSrDUjEj
-7lCobTVSU0Y+snrGQyUunA8KOk0rAXQwmRnCbkftR+hTMiACaYNT4tg/l8ggYfb9
-kFyX7aje8QhqF0MedBhJh7OWjfO1N1Wj1ROhM5dpPwW+aT2WH7TVrxw9ngE0OJRu
-myDHj2MeeYN4pzac02czNaGpF/QZgWpDrgUtEg93wm1B7qOTkhkQcqyfMN6DzFfv
-7PJ6Y3MvbGIaa2F5eYRBqJ8hMpdcl+fg4xMIQ9mVGjaydUnL4kYcazlZhP1OC6Kj
-SRWQqqB7VwH/mn/FS1VC8+DMZHVMR8SxkVNYHwIDAQABAoIBAG9tnBO7JSCj12PD
-bRG99ocEFG4bVvCsFzUp67urC6Adf2xSqE9H7Kx7U7Uwgp1FXXNcyRoCOLLBbfby
-q861w7pAxJFy/tv/dhZsH4MGqCXXgJFjip6Mfb/UM1UyNqk7kJS2Mf5j6B09hmrs
-e1beJCKI7sBhwhniRP5qGdmTMlzbU0J31UaZ72DJegC09qpe1GGKGpjx9FjHOVR6
-+c9SfAHZ8WlBEgbc8cvVDKhs0XbXeMtLKoIKht5dLFyRtpFE3Eyl0K8WtliJHjWU
-PgSt0i8myMIgPsLIjXNmKTOq8C8CmFFnCZcwYueFotrQqNUKcYQYD4cYn6ovL6fj
-ph4lVAECgYEA3r7F9ijELsQ8pD9+QtqOFCILi82CGvQusYRgUu+GKXG4b5AWCfos
-VrzyvqiqXl8y0RxJ/ltjXrG6SMxoenhtse59OOPf41scWKtqeQbaDQHcxHo7jtPf
-yg2nFbicxibQxQhsXiTVfEaIibWbm6kjD0PGcOIWcDVbDvs17i3fPZ8CgYEAwtb/
-d0qMY/TFF0xzIqSqQMG43OY00sz1Y6PSKGeDTA6zlJ9L6Euq17PByPkLcRP9JJAI
-regPF0RxQoRQ5Y8vUaATrEpTPLSD48SiLuvFOAltqS6PI1PHbfITsfzHfCGQEoJr
-YfChMwiXlcXkjNge44mm/7d0ydnc993hMUBw1YECgYAUhLRNoaG4wSDo7GRgGive
-VOiFX0/t1bJ7bbtFyISuSqh3tmkhUCdHci5WO8k92j0fICD8ykRUE8EaNaImLfPE
-4Tgtxmf4VIs+68NqFKR/cD1659uWo5PI1AshKBlg83Blxgndfj0gLosjTFRiOWle
-XZrpCRqSCYgy0Bc+soEO9wJ/LCSJvH0nUX4jKSQo8bBc4k8BkwqU7S2CaxCyjHTn
-SlQKW6G7kOWTz0rqnJ3P+c6Ni7sWPFBXGu5muqs/qMLH9bZOvroYIajEONZT6E2C
-YS/BqJLj2x0gEcjGrYyXpYf1HDxwF8BsxSMtNMGhBkfwt5x4OXdW/mRdq8qZOo9f
-AQKBgQCJlpkSmjoFxoabNKUWNmpamXqc01XhmhZMUQJWvvoSbOl/OqeQvb1NkEWf
-ntiELCYCLE3GL4ytEt3C1mJTY3EmcnN/Jf7HXcskTsA1hqaB3S37MVT1Lss//nnF
-Ywhm2dDF4r/Rf2yCJ2mipjkgOumk8lCh8PLlY7TiDzkHWlI3qw==
------END RSA PRIVATE KEY-----
-`[1:]
-	TmpControllerSharedSecret = `
-n7i/pelnObS6ukP/onkSjUtYIL0fBQdPPqH/ckQSK1ykVwneSQDQIw3SN4x0JP55dDmYfKGkq86joT4LbgdojTvDEx7Ki5WKUFBzolYwjQa2oL39nFzWHC41d8MgpUvDRX6xoZX2NZnGY5LlVLw3SPO7KtdLSmZ5MGcUwkIDB9I2nTEHbk3099LsR2SiUX/12pCWszukOmfcZGMFtlxPkjtC1i1O4FRyI8uWabDYm5kbNNzXpewuuFmkAAr4BlQjmZUhWzULSCF62DUKDaruL4I6+vtWldYi4E4jXHGppxSUehox/jG3d4vSdr6E/fpLMlyic4SibOnXoiPIn68/XwOguTKWHjIaBu615VPkiTlAUOVPHFG6ItyvmVjKSnpU5/aAwG9hIbObqcN6+9mTc2KpBaRqtFBpso/dT1edVzRyRki2zcBH1zopNXlVU4MYmNrMTXfGEJ6wmzq2F7AT50mmePhBbGvZFLkRraHGB+bdanhg5XffwvcmXUsIwMylT7m1O4qJlmuQYECWIbzJISmOjmiTAqL26FcAJ295lxv01V6V6x8bOTpMPxDKRUfoGGqId7pGWfhGKl8RvXsu3ofPmfiEA0gHQn4BEJ1f2GlXkLhPjb4Cm4t/NL6EBvOANXtWfGri4CsVA0WVp9N3eeFce0Io96CUn0vmQnmDHMZzjiHM/q+G8kr6SVcrdbgRvWd918MkaHOU/id4coBDlndJXKVB+bi17OEGEtEaSGV3I/f37rRotEd7JzKTjTzImsWMyAVB1mFgU5nIdnqCIWrPQSxxD9q+p4GoqSxzm9oH/wi9JS4qkgWwSaMG5LS1zVBdtULqxOFFWpbdNhCc4WCPDIyia4jOhnkQc+35jWYCTSoYCY6b/Er+uGdo/0+Z1exNoaSZeYdDEj5FkY2sGqWk+fkn7XD3ymzbPIC1Efs5BrTTr2w1X9RvVMvw4JgywwxEskB1UYGmyA+R9+F4kQ9hcTnwLT38r9za7sydbrU/BXr1Ww4yDXhCc1bsPsq3
-`[1:]
-	TmpControllerServerPem = `
------BEGIN CERTIFICATE-----
-MIIDtDCCApygAwIBAgIUWVpWywFVInsZEFBprPbrHpFXDwIwDQYJKoZIhvcNAQEL
-BQAwbjENMAsGA1UEChMEanVqdTEuMCwGA1UEAwwlanVqdS1nZW5lcmF0ZWQgQ0Eg
-Zm9yIG1vZGVsICJqdWp1LWNhIjEtMCsGA1UEBRMkZjU5OWNlNDAtNjkyYS00NzAw
-LTg2ZmYtYzkyN2E1ZTlhOTNmMB4XDTE4MDgyNzAyMTUzOFoXDTI4MDkwMzAyMTUz
-OFowGzENMAsGA1UEChMEanVqdTEKMAgGA1UEAwwBKjCCASIwDQYJKoZIhvcNAQEB
-BQADggEPADCCAQoCggEBALbyAb+z/v8TuAA0IvJjpzpnld7gUyqFvgZ2FAzQjXmC
-i4Kzyt9aN35NR5MEMPWFUFWkNN3ndaOOCqzOkhGY0p4RCXEKBzkF9tGsn6ksp6J5
-fIq0tcqlZVqtupwGAnNa4gj4NsNPUUmFB5mgNQdadGCoIdB+oZ10xp9noMlcO7JU
-t4unyBiVZKyX6CCB96EPQYRYHOqI5oD6cfYeYR3AALqI80TDUp6R+jAirzG5wy66
-PlkABKOZncoqCZWWSYdgnJJn+0vjFIwpIG7MEfvtZY1FhT47NCGloOTgrz2K+9qX
-CD6YYzO6xW8dvaC/sa4Vsao/n+8AOiLfG7Xqnrgv6xMCAwEAAaOBnDCBmTAOBgNV
-HQ8BAf8EBAMCA6gwEwYDVR0lBAwwCgYIKwYBBQUHAwEwHQYDVR0OBBYEFN4dOffD
-oTewv2tVoGHHmtjO6LNDMB8GA1UdIwQYMBaAFBGQY4mX+bE0wCpF2gTC23JxG8PB
-MDIGA1UdEQQrMCmCCWxvY2FsaG9zdIIOanVqdS1hcGlzZXJ2ZXKCDGp1anUtbW9u
-Z29kYjANBgkqhkiG9w0BAQsFAAOCAQEAfJu6/G9fh//qAmUv0reHQhd/jOKX9xPE
-fDMNf2EmeznGfwikXtsNII9SyhnOTCK0Q307Fw4TgewJFnA3Sz75kCWq5G+dplgK
-aK2NHLk/bwmvIZ6GEa3LwFwcIT6Ux8DsGdHIERXEpAdG3ylfPoLasjKb5FDNgNxX
-po1cBBAPK0gZkrV3O9dVzrUkqLlzdsmt1Kqr3AazN6djNXX52FRzqMi6oRevkLOJ
-KMNfwPKiDYBnAtJZOnAv+QsYqDKsFprtJsOmkxCUhErDY4Xm7P+aeWRgd1HaHK75
-4Ctms2Uy/XA5961Eke6ifQ6ds/0bvVYmEEU8hm5HlDHt4lfyzs90Nw==
------END CERTIFICATE-----
-
------BEGIN RSA PRIVATE KEY-----
-MIIEpAIBAAKCAQEAtvIBv7P+/xO4ADQi8mOnOmeV3uBTKoW+BnYUDNCNeYKLgrPK
-31o3fk1HkwQw9YVQVaQ03ed1o44KrM6SEZjSnhEJcQoHOQX20ayfqSynonl8irS1
-yqVlWq26nAYCc1riCPg2w09RSYUHmaA1B1p0YKgh0H6hnXTGn2egyVw7slS3i6fI
-GJVkrJfoIIH3oQ9BhFgc6ojmgPpx9h5hHcAAuojzRMNSnpH6MCKvMbnDLro+WQAE
-o5mdyioJlZZJh2Cckmf7S+MUjCkgbswR++1ljUWFPjs0IaWg5OCvPYr72pcIPphj
-M7rFbx29oL+xrhWxqj+f7wA6It8bteqeuC/rEwIDAQABAoIBACF+t6FAtFxBYPvw
-j8FvS2vfEUqIKdHsQLlwHwWlnXF03FQm1OsF2okuXv9k0g3xxZ6YfPFv8lLqq7ut
-6oJ8R3uXRPJEUsQ2+lSzVVwlB+AwfAPtSCd9Fsx+aF8unn4+Uoov397sg8aBK74N
-3geloQ8dWWuR88cfXUpML90OHQPuPT21nqNVBxEYUaU0zIVVMxxTkwqD91vWSxUU
-EOpNEH3Egt7JpEqT8ohsFcA4iUCF40doES+HbGFP5J8tZwdSCvWT/nRtJq7RRxK4
-y+wxJV5OCfA2RWl27Oy+UstXqXWdJ+VxMX9Ri3DcQY+6YsvqvZck0QNz0bF/EV72
-cK3J2TECgYEA7grcBrTmu1FztLL13wA5TXtFo9FxCwKa7siyzg+lKRFa+uDw8Ii8
-b4J27WIFPIbjM9tDXjtowmsSPHhffH9uCXx6jm3d+GD94h6EGO705r7FCd/iNG5G
-cz94PJ1AA2NKa7YD5T9nkHmmjkavQ+dezoyKmOfW9RdAOiR1AZwNjLsCgYEAxL8Y
-8D4IbmIWoyYQrawrsIqPyaLaleyOFrOoVkN24vNiDpfpRicnNcyoXHET7TDfWDVs
-wjyRoopVWrwudFjOXOcOIZv/BvZSm+kmZiMoYXYUmzzjxToNmxow7B2Ko4ZpqLP+
-vf3ReSMhEUUHZJMHgHGRGIRb9XVtMcmeEp5qoYkCgYEAkyd/cV3vrSjjQHfJazw2
-MGHeYTEektHfeXH0p1Igpcym06SvDeNZqg2a+5C27/3rAqmvcdeEIXwTX/KCBPK5
-0X90PAxLRjqfeGOpAcjm+KZCJKKUshjh0GkSKVaEthNxdDinG9cgbL3natjjjDTB
-9SoInBHmXskq2UakVoRkE/UCgYAwCsXJLCyc36DNd+cMsYT9l+gigXzErT3I91e8
-sL6gDnQ8QgX5Vmgxr+bQo+AMxClVfb4v8+BQA11ySY9CY8kIUHdX56KvjYiAf78b
-o6whmFbRzV2E9HcMD6owjcojwhec1U74D7mNzfEuKV/zxB9J0vFuPivCVUkzphrO
-SxaYmQKBgQDFDr7iv1KxDRj+IzBAZrRRMIORrvNZYtVpnzGf2nPNsvK4Ei1Uf5+2
-liAle2zQUVLIRX6RGm0xsmr0mz5gWaumi4eex3l7Yec1CFxri93SC1DlMfpdkwH6
-FOsMQt6rKnDmZ2ytfKpf8wQwGxcBw0o7Df/ZujbWHx6O6UoVM3cpFA==
------END RSA PRIVATE KEY-----
-`[1:]
+	// TemplateFileNameServerPEM is the template server.pem file name.
+	TemplateFileNameServerPEM = "template-" + mongo.FileNameDBSSLKey
+	// TemplateFileNameAgentConf is the template agent.conf file name.
+	TemplateFileNameAgentConf = "template-" + agent.AgentConfigFilename
 )
 
 type controllerStack struct {
@@ -149,10 +46,13 @@ type controllerStack struct {
 	storageSize                resource.Quantity
 	portMongoDB, portAPIServer int
 
-	fileNameSharedSecret, fileNameSSLKey, fileNameBootstrapParams, fileNameAgentConf, fileNameAgentConfMount     string
-	resourceNameStatefulSet, resourceNameService                                                                 string
-	resourceNameConfigMap, resourceNameSecret                                                                    string
-	pvcNameControllerPodStorage                                                                                  string
+	fileNameSharedSecret, fileNameBootstrapParams,
+	fileNameSSLKey, fileNameSSLKeyMount,
+	fileNameAgentConf, fileNameAgentConfMount string
+
+	resourceNameStatefulSet, resourceNameService,
+	resourceNameConfigMap, resourceNameSecret,
+	pvcNameControllerPodStorage,
 	resourceNameVolSharedSecret, resourceNameVolSSLKey, resourceNameVolBootstrapParams, resourceNameVolAgentConf string
 
 	cleanUps []func()
@@ -178,20 +78,10 @@ func newcontrollerStack(stackName string, broker *kubernetesClient, pcfg *podcfg
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(bootstrap): remove me.
-	agentConfig.SetMongoMemoryProfile(mongo.MemoryProfileDefault)
-	agentConfig.SetMongoVersion(mongo.Mongo36wt)
-	agentConfig.SetOldPassword("dbacffbe75cd8c70d81fe7738d9e8493")
-	agentConfig.SetPassword("izREP7cxnryLX2gwEUe3zl40")
-
 	si, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return nil, errors.NewNotValid(nil, "agent config has no state serving info")
 	}
-
-	// TODO(bootstrap): remove me.
-	si.Cert = TmpControllerCert
-	si.PrivateKey = TmpControllerPrivateKey
 
 	// ensures shared-secret content.
 	if si.SharedSecret == "" {
@@ -202,8 +92,6 @@ func newcontrollerStack(stackName string, broker *kubernetesClient, pcfg *podcfg
 		}
 		si.SharedSecret = sharedSecret
 	}
-	// TODO(bootstrap): remove me.
-	si.SharedSecret = TmpControllerSharedSecret
 
 	agentConfig.SetStateServingInfo(si)
 	pcfg.Bootstrap.StateServingInfo = si
@@ -221,11 +109,12 @@ func newcontrollerStack(stackName string, broker *kubernetesClient, pcfg *podcfg
 		portMongoDB:   37017,
 		portAPIServer: 17070,
 
-		fileNameSharedSecret:    "shared-secret",
-		fileNameSSLKey:          "server.pem",
-		fileNameBootstrapParams: "bootstrap-params",
-		fileNameAgentConf:       "agent.conf",
-		fileNameAgentConfMount:  "template" + "-" + "agent.conf",
+		fileNameSharedSecret:    mongo.SharedSecretFile,
+		fileNameSSLKey:          mongo.FileNameDBSSLKey,
+		fileNameSSLKeyMount:     TemplateFileNameServerPEM,
+		fileNameBootstrapParams: cloudconfig.FileNameBootstrapParams,
+		fileNameAgentConf:       agent.AgentConfigFilename,
+		fileNameAgentConfMount:  TemplateFileNameAgentConf,
 
 		resourceNameStatefulSet: stackName,
 	}
@@ -238,7 +127,7 @@ func newcontrollerStack(stackName string, broker *kubernetesClient, pcfg *podcfg
 	cs.resourceNameVolBootstrapParams = cs.getResourceName(cs.fileNameBootstrapParams)
 	cs.resourceNameVolAgentConf = cs.getResourceName(cs.fileNameAgentConf)
 
-	cs.pvcNameControllerPodStorage = cs.getResourceName("pod-storage")
+	cs.pvcNameControllerPodStorage = "storage"
 	return cs, nil
 }
 
@@ -366,7 +255,7 @@ func (c controllerStack) createControllerService() error {
 		},
 		Spec: core.ServiceSpec{
 			Selector: c.stackLabels,
-			Type:     core.ServiceType("NodePort"), // TODO(caas): NodePort works for single node only like microk8s.
+			Type:     core.ServiceType(defaultServiceType),
 			Ports: []core.ServicePort{
 				{
 					Name:       "mongodb",
@@ -383,11 +272,15 @@ func (c controllerStack) createControllerService() error {
 		},
 	}
 	logger.Debugf("ensuring controller service: \n%+v", spec)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q", svcName)
 		c.broker.deleteService(svcName)
 	})
 	return errors.Trace(c.broker.ensureService(spec))
+}
+
+func (c controllerStack) addCleanUp(cleanUp func()) {
+	c.cleanUps = append(c.cleanUps, cleanUp)
 }
 
 func (c controllerStack) createControllerSecretSharedSecret() error {
@@ -402,7 +295,7 @@ func (c controllerStack) createControllerSecretSharedSecret() error {
 	}
 	secret.Data[c.fileNameSharedSecret] = []byte(si.SharedSecret)
 	logger.Debugf("ensuring shared secret: \n%+v", secret)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q shared-secret", secret.Name)
 		c.broker.deleteSecret(secret.Name)
 	})
@@ -421,11 +314,9 @@ func (c controllerStack) createControllerSecretServerPem() error {
 		return errors.Trace(err)
 	}
 	secret.Data[c.fileNameSSLKey] = []byte(mongo.GenerateSSLKey(si.Cert, si.PrivateKey))
-	// TODO(bootstrap): remove me.
-	secret.Data[c.fileNameSSLKey] = []byte(TmpControllerServerPem)
 
 	logger.Debugf("ensuring server.pem secret: \n%+v", secret)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q server.pem", secret.Name)
 		c.broker.deleteSecret(secret.Name)
 	})
@@ -450,7 +341,7 @@ func (c controllerStack) ensureControllerConfigmapBootstrapParams() error {
 	cm.Data[c.fileNameBootstrapParams] = string(bootstrapParamsFileContent)
 
 	logger.Debugf("creating bootstrap-params configmap: \n%+v", cm)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q bootstrap-params", cm.Name)
 		c.broker.deleteConfigMap(cm.Name)
 	})
@@ -471,7 +362,7 @@ func (c controllerStack) ensureControllerConfigmapAgentConf() error {
 	cm.Data[c.fileNameAgentConf] = string(agentConfigFileContent)
 
 	logger.Debugf("ensuring agent.conf configmap: \n%+v", cm)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q template-agent.conf", cm.Name)
 		c.broker.deleteConfigMap(cm.Name)
 	})
@@ -513,7 +404,7 @@ func (c controllerStack) createControllerStatefulset() error {
 	}
 
 	logger.Debugf("creating controller statefulset: \n%+v", spec)
-	c.cleanUps = append(c.cleanUps, func() {
+	c.addCleanUp(func() {
 		logger.Debugf("deleting %q statefulset", spec.Name)
 		c.broker.deleteStatefulSet(spec.Name)
 	})
@@ -562,7 +453,7 @@ func (c controllerStack) buildStorageSpecForController(statefulset *apps.Statefu
 				Items: []core.KeyToPath{
 					{
 						Key:  c.fileNameSSLKey,
-						Path: c.fileNameSSLKey,
+						Path: c.fileNameSSLKeyMount,
 					},
 				},
 			},
@@ -622,130 +513,181 @@ func (c controllerStack) buildStorageSpecForController(statefulset *apps.Statefu
 }
 
 func (c controllerStack) buildContainerSpecForController(statefulset *apps.StatefulSet) error {
-	probCmds := &core.ExecAction{
-		Command: []string{
-			"mongo",
-			fmt.Sprintf("--port=%d", c.portMongoDB),
-			"--ssl",
-			"--sslAllowInvalidHostnames",
-			"--sslAllowInvalidCertificates",
-			fmt.Sprintf("--sslPEMKeyFile=%s/server.pem", c.pcfg.DataDir),
-			"--eval",
-			"db.adminCommand('ping')",
-		},
-	}
-	var containerSpec []core.Container
-	// add container mongoDB.
-	// TODO(caas): refactor mongo package to make it usable for IAAS and CAAS,
-	// then generate mongo config from EnsureServerParams.
-	containerSpec = append(containerSpec, core.Container{
-		Name:            "mongodb",
-		ImagePullPolicy: core.PullIfNotPresent,
-		Image:           "mongo:3.6.6",
-		Command: []string{
-			"mongod",
-		},
-		Args: []string{
-			fmt.Sprintf("--dbpath=%s/db", c.pcfg.DataDir),
-			fmt.Sprintf("--sslPEMKeyFile=%s/server.pem", c.pcfg.DataDir),
-			"--sslPEMKeyPassword=ignored",
-			"--sslMode=requireSSL",
-			fmt.Sprintf("--port=%d", c.portMongoDB),
-			"--journal",
-			fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
-			"--quiet",
-			"--oplogSize=1024",
-			"--ipv6",
-			"--auth",
-			fmt.Sprintf("--keyFile=%s/shared-secret", c.pcfg.DataDir),
-			"--storageEngine=wiredTiger",
-			"--wiredTigerCacheSizeGB=0.25",
-			"--bind_ip_all",
-		},
-		Ports: []core.ContainerPort{
-			{
-				Name:          "mongodb",
-				ContainerPort: int32(c.portMongoDB),
-				Protocol:      "TCP",
+	generateContainerSpecs := func(jujudCmd string) []core.Container {
+		var containerSpec []core.Container
+		// add container mongoDB.
+		// TODO(caas): refactor mongo package to make it usable for IAAS and CAAS,
+		// then generate mongo config from EnsureServerParams.
+		probCmds := &core.ExecAction{
+			Command: []string{
+				"mongo",
+				fmt.Sprintf("--port=%d", c.portMongoDB),
+				"--ssl",
+				"--sslAllowInvalidHostnames",
+				"--sslAllowInvalidCertificates",
+				fmt.Sprintf("--sslPEMKeyFile=%s/%s", c.pcfg.DataDir, c.fileNameSSLKey),
+				"--eval",
+				"db.adminCommand('ping')",
 			},
-		},
-		ReadinessProbe: &core.Probe{
-			Handler: core.Handler{
-				Exec: probCmds,
+		}
+		containerSpec = append(containerSpec, core.Container{
+			Name:            "mongodb",
+			ImagePullPolicy: core.PullIfNotPresent,
+			Image:           "mongo:3.6.6",
+			Command: []string{
+				"mongod",
 			},
-			FailureThreshold:    3,
-			InitialDelaySeconds: 5,
-			PeriodSeconds:       10,
-			SuccessThreshold:    1,
-			TimeoutSeconds:      1,
-		},
-		LivenessProbe: &core.Probe{
-			Handler: core.Handler{
-				Exec: probCmds,
+			Args: []string{
+				fmt.Sprintf("--dbpath=%s/db", c.pcfg.DataDir),
+				fmt.Sprintf("--sslPEMKeyFile=%s/%s", c.pcfg.DataDir, c.fileNameSSLKey),
+				"--sslPEMKeyPassword=ignored",
+				"--sslMode=requireSSL",
+				fmt.Sprintf("--port=%d", c.portMongoDB),
+				"--journal",
+				fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
+				"--quiet",
+				"--oplogSize=1024",
+				"--ipv6",
+				"--auth",
+				fmt.Sprintf("--keyFile=%s/%s", c.pcfg.DataDir, c.fileNameSharedSecret),
+				"--storageEngine=wiredTiger",
+				"--wiredTigerCacheSizeGB=0.25",
+				"--bind_ip_all",
 			},
-			FailureThreshold:    3,
-			InitialDelaySeconds: 30,
-			PeriodSeconds:       10,
-			SuccessThreshold:    1,
-			TimeoutSeconds:      5,
-		},
-		VolumeMounts: []core.VolumeMount{
-			{
-				Name:      c.pvcNameControllerPodStorage,
-				MountPath: filepath.Join(c.pcfg.DataDir, "db"),
-				SubPath:   "db",
+			Ports: []core.ContainerPort{
+				{
+					Name:          "mongodb",
+					ContainerPort: int32(c.portMongoDB),
+					Protocol:      "TCP",
+				},
 			},
-			{
-				Name:      c.resourceNameVolSSLKey,
-				MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKey),
-				SubPath:   c.fileNameSSLKey,
-				ReadOnly:  true,
+			ReadinessProbe: &core.Probe{
+				Handler: core.Handler{
+					Exec: probCmds,
+				},
+				FailureThreshold:    3,
+				InitialDelaySeconds: 5,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				TimeoutSeconds:      1,
 			},
-			{
-				Name:      c.resourceNameVolSharedSecret,
-				MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
-				SubPath:   c.fileNameSharedSecret,
-				ReadOnly:  true,
+			LivenessProbe: &core.Probe{
+				Handler: core.Handler{
+					Exec: probCmds,
+				},
+				FailureThreshold:    3,
+				InitialDelaySeconds: 30,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				TimeoutSeconds:      5,
 			},
-		},
-	})
+			VolumeMounts: []core.VolumeMount{
+				{
+					Name:      c.pvcNameControllerPodStorage,
+					MountPath: c.pcfg.DataDir,
+				},
+				{
+					Name:      c.pvcNameControllerPodStorage,
+					MountPath: filepath.Join(c.pcfg.DataDir, "db"),
+					SubPath:   "db",
+				},
+				{
+					Name:      c.resourceNameVolSSLKey,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKeyMount),
+					SubPath:   c.fileNameSSLKeyMount,
+					ReadOnly:  true,
+				},
+				{
+					Name:      c.resourceNameVolSharedSecret,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
+					SubPath:   c.fileNameSharedSecret,
+					ReadOnly:  true,
+				},
+			},
+		})
 
-	// add container API server.
-	containerSpec = append(containerSpec, core.Container{
-		Name: "api-server",
-		// ImagePullPolicy: core.PullIfNotPresent,
-		ImagePullPolicy: core.PullAlways, // TODO(bootstrap): for debug
-		Image:           c.pcfg.GetControllerImagePath(),
-		VolumeMounts: []core.VolumeMount{
-			{
-				Name:      c.pvcNameControllerPodStorage,
-				MountPath: c.pcfg.DataDir,
+		// add container API server.
+		containerSpec = append(containerSpec, core.Container{
+			Name:            "api-server",
+			ImagePullPolicy: core.PullIfNotPresent,
+			Image:           c.pcfg.GetControllerImagePath(),
+			Command: []string{
+				"/bin/sh",
 			},
-			{
-				Name:      c.resourceNameVolAgentConf,
-				MountPath: filepath.Join(c.pcfg.DataDir, "agents", ("machine-" + c.pcfg.MachineId), c.fileNameAgentConfMount),
-				SubPath:   c.fileNameAgentConfMount,
+			Args: []string{
+				"-c",
+				fmt.Sprintf(caas.JujudStartUpSh, jujudCmd),
 			},
-			{
-				Name:      c.resourceNameVolSSLKey,
-				MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKey),
-				SubPath:   c.fileNameSSLKey,
-				ReadOnly:  true,
+			WorkingDir: jujudToolDir,
+			VolumeMounts: []core.VolumeMount{
+				{
+					Name:      c.pvcNameControllerPodStorage,
+					MountPath: c.pcfg.DataDir,
+				},
+				{
+					Name: c.resourceNameVolAgentConf,
+					MountPath: filepath.Join(
+						c.pcfg.DataDir,
+						"agents",
+						"machine-"+c.pcfg.MachineId,
+						c.fileNameAgentConfMount,
+					),
+					SubPath: c.fileNameAgentConfMount,
+				},
+				{
+					Name:      c.resourceNameVolSSLKey,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSSLKeyMount),
+					SubPath:   c.fileNameSSLKeyMount,
+					ReadOnly:  true,
+				},
+				{
+					Name:      c.resourceNameVolSharedSecret,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
+					SubPath:   c.fileNameSharedSecret,
+					ReadOnly:  true,
+				},
+				{
+					Name:      c.resourceNameVolBootstrapParams,
+					MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameBootstrapParams),
+					SubPath:   c.fileNameBootstrapParams,
+					ReadOnly:  true,
+				},
 			},
-			{
-				Name:      c.resourceNameVolSharedSecret,
-				MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameSharedSecret),
-				SubPath:   c.fileNameSharedSecret,
-				ReadOnly:  true,
-			},
-			{
-				Name:      c.resourceNameVolBootstrapParams,
-				MountPath: filepath.Join(c.pcfg.DataDir, c.fileNameBootstrapParams),
-				SubPath:   c.fileNameBootstrapParams,
-				ReadOnly:  true,
-			},
-		},
-	})
-	statefulset.Spec.Template.Spec.Containers = containerSpec
+		})
+		return containerSpec
+	}
+
+	loggingOption := "--show-log"
+	if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
+		// If the bootstrap command was requested with --debug, then the root
+		// logger will be set to DEBUG. If it is, then we use --debug here too.
+		loggingOption = "--debug"
+	}
+
+	agentCfgPath := filepath.Join(
+		c.pcfg.DataDir,
+		"agents",
+		"machine-"+c.pcfg.MachineId,
+		c.fileNameAgentConf,
+	)
+	var jujudCmd string
+	if c.pcfg.MachineId == "0" {
+		// only do bootstrap-state on the bootstrap machine - machine-0.
+		jujudCmd += "\n" + fmt.Sprintf(
+			"test -e %s || ./jujud bootstrap-state %s --data-dir %s %s --timeout %s",
+			agentCfgPath,
+			filepath.Join(c.pcfg.DataDir, c.fileNameBootstrapParams),
+			c.pcfg.DataDir,
+			loggingOption,
+			c.pcfg.Bootstrap.Timeout.String(),
+		)
+	}
+	jujudCmd += "\n" + fmt.Sprintf(
+		"./jujud machine --data-dir %s --machine-id %s %s",
+		c.pcfg.DataDir,
+		c.pcfg.MachineId,
+		loggingOption,
+	)
+	statefulset.Spec.Template.Spec.Containers = generateContainerSpecs(jujudCmd)
 	return nil
 }

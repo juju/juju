@@ -5,6 +5,7 @@ package provider_test
 
 import (
 	"os"
+	"strings"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
@@ -32,12 +33,13 @@ func newNode(labels map[string]string) core.Node {
 }
 
 func (s *K8sMetadataSuite) TestMicrok8sFromNodeMeta(c *gc.C) {
-	hostaname, err := os.Hostname()
+	hostname, err := os.Hostname()
 	c.Assert(err, jc.ErrorIsNil)
+	hostname = strings.ToLower(hostname)
 	node := core.Node{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   hostaname,
-			Labels: map[string]string{"kubernetes.io/hostname": hostaname},
+			Name:   hostname,
+			Labels: map[string]string{"kubernetes.io/hostname": hostname},
 		},
 	}
 	cloud, region := provider.GetCloudProviderFromNodeMeta(node)

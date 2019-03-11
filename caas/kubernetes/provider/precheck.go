@@ -11,6 +11,8 @@ import (
 	"github.com/juju/juju/environs/context"
 )
 
+const k8sSeries = CAASProviderType
+
 // PrecheckInstance performs a preflight check on the specified
 // series and constraints, ensuring that they are possibly valid for
 // creating an instance in this model.
@@ -35,7 +37,7 @@ func (k *kubernetesClient) PrecheckInstance(ctx context.ProviderCallContext, par
 		return errors.NotSupportedf("constraints %v", strings.Join(unsupported, ","))
 	}
 
-	if params.Series != "kubernetes" {
+	if params.Series != k8sSeries {
 		return errors.NotValidf("series %q", params.Series)
 	}
 

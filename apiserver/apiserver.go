@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -304,11 +305,19 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	logSinkWriter, err := logsink.NewFileWriter(filepath.Join(srv.logDir, "logsink.log"))
+	model, err := srv.shared.statePool.SystemState().Model()
 	if err != nil {
-		return nil, errors.Annotate(err, "creating logsink writer")
+		return nil, errors.Trace(err)
 	}
-	srv.logSinkWriter = logSinkWriter
+	if model.Type() == state.ModelTypeCAAS {
+		// CAAS controller writes log to stdOut.
+		srv.logSinkWriter = os.Stdout
+	} else {
+		srv.logSinkWriter, err = logsink.NewFileWriter(filepath.Join(srv.logDir, "logsink.log"))
+		if err != nil {
+			return nil, errors.Annotate(err, "creating logsink writer")
+		}
+	}
 
 	unsubscribe, err := cfg.Hub.Subscribe(apiserver.RestartTopic, func(string, map[string]interface{}) {
 		srv.tomb.Kill(dependency.ErrBounce)

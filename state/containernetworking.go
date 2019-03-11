@@ -16,7 +16,7 @@ import (
 
 // AutoConfigureContainerNetworking tries to set up best container networking available
 // for the specific model if user hasn't set anything.
-func (m *Model) AutoConfigureContainerNetworking(environ environs.Environ) error {
+func (m *Model) AutoConfigureContainerNetworking(environ environs.BootstrapEnviron) error {
 	updateAttrs := make(map[string]interface{})
 	modelConfig, err := m.ModelConfig()
 	if err != nil {
@@ -40,7 +40,7 @@ func (m *Model) AutoConfigureContainerNetworking(environ environs.Environ) error
 	return err
 }
 
-func (m *Model) discoverFan(environ environs.Environ, modelConfig *config.Config, updateAttrs map[string]interface{}) (bool, error) {
+func (m *Model) discoverFan(environ environs.BootstrapEnviron, modelConfig *config.Config, updateAttrs map[string]interface{}) (bool, error) {
 	netEnviron, ok := environs.SupportsNetworking(environ)
 	if !ok {
 		// Not a networking environ, nothing to do here

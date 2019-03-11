@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -353,7 +354,7 @@ func (a *StorageAPI) ListPools(
 
 func (a *StorageAPI) ensureStoragePoolFilter(filter params.StoragePoolFilter) params.StoragePoolFilter {
 	if a.modelType == state.ModelTypeCAAS {
-		filter.Providers = append(filter.Providers, "kubernetes")
+		filter.Providers = append(filter.Providers, k8sprovider.CAASProviderType)
 	}
 	return filter
 }

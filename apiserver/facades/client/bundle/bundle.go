@@ -292,7 +292,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 		Machines:     make(map[string]*charm.MachineSpec),
 		Relations:    [][]string{},
 	}
-	isCaas := model.Type() == "caas"
+	isCaas := model.Type() == description.CAAS
 	if isCaas {
 		data.Type = "kubernetes"
 	} else {

@@ -69,6 +69,8 @@ const (
 	defaultOperatorStorageClassName = "juju-operator-storage"
 
 	gpuAffinityNodeSelectorKey = "gpu"
+
+	jujudToolDir = "/var/lib/juju/tools"
 )
 
 var defaultPropagationPolicy = v1.DeletePropagationForeground
@@ -138,8 +140,7 @@ func NewK8sBroker(
 		// CRUD any resources inside the namespace.
 		// Note: we should consider above `Solution` even we always run single controller per cluster, because
 		// we should NEVER allow juju controller to touch any namespace that was NOT created by JUJU.
-		// namespace += "-" + modelUUID
-		namespace = "controller-operator"
+		namespace += "-" + modelUUID[:8]
 		logger.Debugf("found config name %q, so naming namespace to %q", newCfg.Name(), namespace)
 	}
 	return &kubernetesClient{
@@ -175,6 +176,11 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 
 // PrepareForBootstrap prepares for bootstraping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	return nil
+}
+
+// Create implements environs.BootstrapEnviron.
+func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreateParams) error {
 	return nil
 }
 
@@ -1248,7 +1254,7 @@ func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 func (k *kubernetesClient) configureStorage(
 	podSpec *core.PodSpec, statefulSet *apps.StatefulSetSpec, appName, randPrefix string, legacy bool, filesystems []storage.KubernetesFilesystemParams,
 ) error {
-	baseDir, err := paths.StorageDir("kubernetes")
+	baseDir, err := paths.StorageDir(CAASProviderType)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2189,6 +2195,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 		podLabels[k] = v
 	}
 	podLabels[labelVersion] = version
+	jujudCmd := fmt.Sprintf("./jujud caasoperator --application-name=%s --debug", appName)
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   podName,
@@ -2199,13 +2206,21 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				Name:            "juju-operator",
 				ImagePullPolicy: core.PullIfNotPresent,
 				Image:           operatorImagePath,
+				WorkingDir:      jujudToolDir,
+				Command: []string{
+					"/bin/sh",
+				},
+				Args: []string{
+					"-c",
+					fmt.Sprintf(caas.JujudStartUpSh, jujudCmd),
+				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
 				},
 				VolumeMounts: []core.VolumeMount{{
 					Name:      configVolName,
-					MountPath: filepath.Join(agent.Dir(agentPath, appTag), "template-agent.conf"),
-					SubPath:   "template-agent.conf",
+					MountPath: filepath.Join(agent.Dir(agentPath, appTag), TemplateFileNameAgentConf),
+					SubPath:   TemplateFileNameAgentConf,
 				}},
 			}},
 			Volumes: []core.Volume{{
@@ -2217,7 +2232,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 						},
 						Items: []core.KeyToPath{{
 							Key:  appName + "-agent.conf",
-							Path: "template-agent.conf",
+							Path: TemplateFileNameAgentConf,
 						}},
 					},
 				},

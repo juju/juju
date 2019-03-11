@@ -285,9 +285,6 @@ func (m ModelArgs) Validate() error {
 	if !names.IsValidCloud(m.CloudName) {
 		return errors.NotValidf("Cloud Name %q", m.CloudName)
 	}
-	if m.Type == ModelTypeCAAS && m.CloudRegion != "" {
-		return errors.NotSupportedf("CAAS model with CloudRegion")
-	}
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
 	}

@@ -185,11 +185,11 @@ func NewTestMachineAgentFactory(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	rootDir string,
-) func(string) (*MachineAgent, error) {
+) machineAgentFactoryFnType {
 	preUpgradeSteps := func(_ *state.StatePool, _ agent.Config, isController, isMaster bool) error {
 		return nil
 	}
-	return func(machineId string) (*MachineAgent, error) {
+	return func(machineId string, isCAAS bool) (*MachineAgent, error) {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
@@ -203,6 +203,7 @@ func NewTestMachineAgentFactory(
 			DefaultIntrospectionSocketName,
 			preUpgradeSteps,
 			rootDir,
+			isCAAS,
 		)
 	}
 }
@@ -213,7 +214,7 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	logger := s.newBufferedLogWriter()
 	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, logger, c.MkDir())
-	machineAgent, err := machineAgentFactory(m.Id())
+	machineAgent, err := machineAgentFactory(m.Id(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	return machineAgent
 }
@@ -269,7 +270,7 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 		case <-time.After(coretesting.ShortWait):
 			st.StartSync()
 		case <-timeout:
-			c.Fatalf("time out wating for operation")
+			c.Fatalf("time out waiting for operation")
 		}
 	}
 }

@@ -849,7 +849,7 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 	}
 }
 
-func (st *mockState) ReloadSpaces(environ environs.Environ) error {
+func (st *mockState) ReloadSpaces(environ environs.BootstrapEnviron) error {
 	st.MethodCall(st, "ReloadSpaces", environ)
 	return st.NextErr()
 }
@@ -1073,7 +1073,7 @@ func (m *mockModel) LastModelConnection(user names.UserTag) (time.Time, error) {
 	return time.Time{}, m.NextErr()
 }
 
-func (m *mockModel) AutoConfigureContainerNetworking(environ environs.Environ) error {
+func (m *mockModel) AutoConfigureContainerNetworking(environ environs.BootstrapEnviron) error {
 	m.MethodCall(m, "AutoConfigureContainerNetworking", environ)
 	return m.NextErr()
 }

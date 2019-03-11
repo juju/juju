@@ -30,7 +30,7 @@ const (
 	nonceFile    = "nonce.txt"
 	authKeysFile = "authorized_keys"
 
-	dbPEM    = "server.pem"
+	dbPEM    = mongo.FileNameDBSSLKey
 	dbSecret = "shared-secret"
 )
 

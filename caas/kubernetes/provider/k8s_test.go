@@ -229,6 +229,17 @@ var operatorPodspec = core.PodSpec{
 		Name:            "juju-operator",
 		ImagePullPolicy: core.PullIfNotPresent,
 		Image:           "/path/to/image",
+		WorkingDir:      "/var/lib/juju/tools",
+		Command: []string{
+			"/bin/sh",
+		},
+		Args: []string{
+			"-c",
+			`
+test -e ./jujud || cp /opt/jujud $(pwd)/jujud
+./jujud caasoperator --application-name=test --debug
+`[1:],
+		},
 		Env: []core.EnvVar{
 			{Name: "JUJU_APPLICATION", Value: "test"},
 		},
@@ -370,8 +381,7 @@ func (s *K8sBrokerSuite) TestControllerNamespaceRenaming(c *gc.C) {
 		// reset s.cfg
 		s.SetUpSuite(c)
 	}()
-
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-operator")
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-"+cfg.UUID()[:8])
 
 }
 
