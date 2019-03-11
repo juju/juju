@@ -4,6 +4,8 @@
 package modelgeneration_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
@@ -173,7 +175,8 @@ func (s *modelGenerationSuite) TestHasNextGeneration(c *gc.C) {
 func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	resultSource := params.GenerationResult{
+	resultSource := params.GenerationResult{Generation: params.Generation{
+		Created: time.Time{}.Unix(),
 		Applications: []params.GenerationApplication{
 			{
 				ApplicationName: "redis",
@@ -181,7 +184,7 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 				ConfigChanges:   map[string]interface{}{"databases": 8},
 			},
 		},
-	}
+	}}
 	arg := params.Entity{Tag: s.tag.String()}
 
 	s.fCaller.EXPECT().FacadeCall("GenerationInfo", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
@@ -189,11 +192,14 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	apps, err := api.GenerationInfo(s.tag.Id())
 	c.Assert(err, gc.IsNil)
-	c.Check(apps, jc.DeepEquals, map[model.GenerationVersion][]model.GenerationApplication{
-		"next": {{
-			ApplicationName: "redis",
-			Units:           []string{"redis/0"},
-			ConfigChanges:   map[string]interface{}{"databases": 8},
-		}},
+	c.Check(apps, jc.DeepEquals, map[model.GenerationVersion]model.Generation{
+		"next": {
+			Created: time.Time{},
+			Applications: []model.GenerationApplication{{
+				ApplicationName: "redis",
+				Units:           []string{"redis/0"},
+				ConfigChanges:   map[string]interface{}{"databases": 8},
+			}},
+		},
 	})
 }

@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -42,13 +44,14 @@ func (s *showGenerationSuite) TestInitFail(c *gc.C) {
 func (s *showGenerationSuite) TestRunCommandNextGenExists(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	result := map[coremodel.GenerationVersion][]coremodel.GenerationApplication{
+	result := map[coremodel.GenerationVersion]coremodel.Generation{
 		coremodel.GenerationNext: {
-			coremodel.GenerationApplication{
+			Created: time.Time{},
+			Applications: []coremodel.GenerationApplication{{
 				ApplicationName: "redis",
 				Units:           []string{"redis/0"},
 				ConfigChanges:   map[string]interface{}{"databases": 8},
-			},
+			}},
 		},
 	}
 	s.api.EXPECT().GenerationInfo(gomock.Any()).Return(result, nil)
@@ -57,11 +60,13 @@ func (s *showGenerationSuite) TestRunCommandNextGenExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 next:
-- application: redis
-  units:
-  - redis/0
-  config:
-    databases: 8
+  created: 0001-01-01T00:00:00Z
+  applications:
+  - application: redis
+    units:
+    - redis/0
+    config:
+      databases: 8
 `[1:])
 }
 

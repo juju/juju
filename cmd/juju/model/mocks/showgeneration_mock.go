@@ -46,9 +46,9 @@ func (mr *MockShowGenerationCommandAPIMockRecorder) Close() *gomock.Call {
 }
 
 // GenerationInfo mocks base method
-func (m *MockShowGenerationCommandAPI) GenerationInfo(arg0 string) (map[model.GenerationVersion][]model.GenerationApplication, error) {
+func (m *MockShowGenerationCommandAPI) GenerationInfo(arg0 string) (map[model.GenerationVersion]model.Generation, error) {
 	ret := m.ctrl.Call(m, "GenerationInfo", arg0)
-	ret0, _ := ret[0].(map[model.GenerationVersion][]model.GenerationApplication)
+	ret0, _ := ret[0].(map[model.GenerationVersion]model.Generation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

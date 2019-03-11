@@ -3,6 +3,8 @@
 
 package model
 
+import "time"
+
 // GenerationVersion indicates a generation to use for model config.
 type GenerationVersion string
 
@@ -46,6 +48,16 @@ type GenerationApplication struct {
 	ConfigChanges map[string]interface{} `yaml:"config"`
 }
 
+// Generation represents detail of a model generation including config changes.
+type Generation struct {
+	// Created is the time at generation creation.
+	Created time.Time `yaml:"created"`
+
+	// Applications is a collection of applications with changes in this
+	// generation including advanced units and modified configuration.
+	Applications []GenerationApplication `yaml:"applications"`
+}
+
 // GenerationSummaries is a type alias for a representation
 // of changes-by-generation.
-type GenerationSummaries = map[GenerationVersion][]GenerationApplication
+type GenerationSummaries = map[GenerationVersion]Generation

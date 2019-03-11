@@ -4,6 +4,8 @@
 package modelgeneration
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -116,25 +118,29 @@ func (c *Client) GenerationInfo(modelUUID string) (model.GenerationSummaries, er
 	if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	return generationInfoFromDTO(result.Applications), nil
+	return generationInfoFromResult(result.Generation), nil
 }
 
 func argForModel(modelUUID string) params.Entity {
 	return params.Entity{Tag: names.NewModelTag(modelUUID).String()}
 }
 
-func generationInfoFromDTO(apps []params.GenerationApplication) model.GenerationSummaries {
-	appDeltas := make([]model.GenerationApplication, len(apps))
-	for i, a := range apps {
+func generationInfoFromResult(res params.Generation) model.GenerationSummaries {
+	appDeltas := make([]model.GenerationApplication, len(res.Applications))
+	for i, a := range res.Applications {
 		appDeltas[i] = model.GenerationApplication{
 			ApplicationName: a.ApplicationName,
 			Units:           a.Units,
 			ConfigChanges:   a.ConfigChanges,
 		}
 	}
+	gen := model.Generation{
+		Created:      time.Unix(res.Created, 0).Local(),
+		Applications: appDeltas,
+	}
 
 	// TODO (manadart 2019-02-25): Always deal with the "next" generation.
 	// As generations evolve, this command will allow requesting specific
 	// generation IDs at which time this type should be represented in the DTO.
-	return map[model.GenerationVersion][]model.GenerationApplication{model.GenerationNext: appDeltas}
+	return map[model.GenerationVersion]model.Generation{model.GenerationNext: gen}
 }

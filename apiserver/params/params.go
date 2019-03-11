@@ -1141,11 +1141,20 @@ type GenerationApplication struct {
 	ConfigChanges map[string]interface{} `json:"config"`
 }
 
-// GenerationResult transports the result of the show-generation command.
-type GenerationResult struct {
+// Generation represents a model generation's details including config changes.
+type Generation struct {
+	// Created is the Unix timestamp at generation creation.
+	Created int64 `json:"created"`
+
 	// Applications holds the collection of application changes
 	// made under this generation.
 	Applications []GenerationApplication `json:"applications"`
+}
+
+// GenerationResult transports the result of the show-generation command.
+type GenerationResult struct {
+	// Generation holds the details of the requested generation.
+	Generation Generation `json:"generation"`
 
 	// Error holds the value of any error that occurred processing the request.
 	Error *Error `json:"error,omitempty"`
