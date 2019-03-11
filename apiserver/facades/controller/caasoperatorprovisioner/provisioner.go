@@ -96,12 +96,10 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 		return params.OperatorProvisioningInfo{}, err
 	}
 
-	imagePath := cfg.CAASOperatorImagePath()
 	vers := version.Current
 	vers.Build = 0
-	if imagePath == "" {
-		imagePath = podcfg.GetJujuOCIImagePath(vers)
-	}
+
+	imagePath := podcfg.GetJujuOCIImagePath(cfg, vers)
 	charmStorageParams, err := charmStorageParams(a.storagePoolManager, a.storageProviderRegistry)
 	if err != nil {
 		return params.OperatorProvisioningInfo{}, errors.Annotatef(err, "getting operator storage parameters")

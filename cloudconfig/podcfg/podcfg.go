@@ -223,12 +223,16 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 
 // GetControllerImagePath returns oci image path of jujud.
 func (cfg *ControllerPodConfig) GetControllerImagePath() string {
-	return GetJujuOCIImagePath(cfg.JujuVersion)
+	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion)
 }
 
 // GetJujuOCIImagePath returns jujud oci image path.
-func GetJujuOCIImagePath(ver version.Number) string {
-	return fmt.Sprintf("%s/%s:%s", jujudOCINamespace, jujudOCIName, ver.String())
+func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) string {
+	imagePath := controllerCfg.CAASOperatorImagePath()
+	if imagePath == "" {
+		imagePath = fmt.Sprintf("%s/%s:%s", jujudOCINamespace, jujudOCIName, ver.String())
+	}
+	return imagePath
 }
 
 func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {
