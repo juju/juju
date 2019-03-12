@@ -2886,6 +2886,8 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	// Remove application, start new watch, check single event.
 	err = application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.mysql.Watch()
 	defer testing.AssertStop(c, w)
 	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
