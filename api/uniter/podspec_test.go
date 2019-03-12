@@ -31,7 +31,7 @@ func (s *podSpecSuite) TestSetPodSpec(c *gc.C) {
 
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, expectedAPIVersion)
+		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "SetPodSpec")
 		c.Assert(arg, gc.DeepEquals, expected)
@@ -49,7 +49,12 @@ func (s *podSpecSuite) TestSetPodSpec(c *gc.C) {
 }
 
 func (s *podSpecSuite) TestSetPodSpecInvalidApplicationName(c *gc.C) {
-	st := uniter.NewState(nil, names.NewUnitTag("mysql/0"))
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Fail()
+		return nil
+	})
+
+	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	err := st.SetPodSpec("", "spec")
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
@@ -66,7 +71,7 @@ func (s *podSpecSuite) TestSetPodSpecError(c *gc.C) {
 	msg := "yoink"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, expectedAPIVersion)
+		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "SetPodSpec")
 		c.Assert(arg, gc.DeepEquals, expected)

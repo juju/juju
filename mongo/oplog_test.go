@@ -10,6 +10,7 @@ import (
 
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -101,6 +102,15 @@ func (s *oplogSuite) TestHonoursInitialTs(c *gc.C) {
 }
 
 func (s *oplogSuite) TestStops(c *gc.C) {
+	// If we are running the test on xenial on either ppc64le or s390x,
+	// skip this test as it intermittently fails deep in mongo code.
+	// It appears to be just the fake oplogs we create, and not the real
+	// mongo oplog.
+	hostArch := arch.HostArch()
+	if hostArch == arch.PPC64EL || hostArch == arch.S390X {
+		c.Skip("mongo on s390x and ppc64le have occasional errors")
+	}
+
 	_, session := s.startMongo(c)
 
 	oplog := s.makeFakeOplog(c, session)

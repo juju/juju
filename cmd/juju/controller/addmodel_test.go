@@ -6,6 +6,7 @@ package controller_test
 import (
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -67,6 +68,17 @@ func (s *AddModelSuite) SetUpTest(c *gc.C) {
 			names.NewCloudCredentialTag("aws/other/secrets"),
 		},
 	}
+	s.fakeCloudAPI.clouds = map[names.CloudTag]cloud.Cloud{
+		names.NewCloudTag("aws"): {
+			Name:      "aws",
+			AuthTypes: s.fakeCloudAPI.authTypes,
+			Regions: []cloud.Region{
+				{Name: "us-east-1"},
+				{Name: "us-west-1"},
+			},
+		},
+	}
+
 	s.fakeProvider = &fakeProvider{
 		detected: cloud.NewEmptyCloudCredential(),
 	}
@@ -247,15 +259,15 @@ func (s *AddModelSuite) TestCredentialsOtherUserCredentialNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "credential 'other/secrets' not found")
 
 	// There should be no detection or UpdateCredentials call.
-	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud", "UserCredentials")
+	s.fakeCloudAPI.CheckCallNames(c, "Clouds", "Cloud", "UserCredentials")
 }
 
 func (s *AddModelSuite) TestCredentialsNoDefaultCloud(c *gc.C) {
-	s.fakeCloudAPI.SetErrors(&params.Error{Code: params.CodeNotFound})
+	s.fakeCloudAPI.clouds = nil
 	_, err := s.run(c, "test", "--credential", "secrets")
-	c.Assert(err, gc.ErrorMatches, `there is no default cloud defined, please specify one using:
-
-    juju add-model \[options\] \<model-name\> cloud\[/region\]`)
+	c.Assert(err, gc.ErrorMatches, `you do not have add-model access to any clouds on this controller.
+Please ask the controller administrator to grant you add-model permission
+for a particular cloud to which you want to add a model.`)
 }
 
 func (s *AddModelSuite) TestCredentialsOneCached(c *gc.C) {
@@ -298,7 +310,7 @@ func (s *AddModelSuite) TestControllerCredentialsDetected(c *gc.C) {
 	credential.Label = "finalized"
 
 	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, credentialTag)
-	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud", "UserCredentials")
+	s.fakeCloudAPI.CheckCallNames(c, "Clouds", "Cloud", "UserCredentials")
 }
 
 func (s *AddModelSuite) TestControllerCredentialsDetectedAmbiguous(c *gc.C) {
@@ -342,7 +354,7 @@ func (s *AddModelSuite) TestDefaultCloudPassedThrough(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud")
+	s.fakeCloudAPI.CheckCallNames(c, "Clouds", "Cloud")
 	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "aws")
 	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "")
 }
@@ -353,7 +365,7 @@ func (s *AddModelSuite) TestDefaultCloudRegionPassedThrough(c *gc.C) {
 
 	s.fakeCloudAPI.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Cloud", []interface{}{names.NewCloudTag("us-west-1")}},
-		{"DefaultCloud", nil},
+		{"Clouds", nil},
 		{"Cloud", []interface{}{names.NewCloudTag("aws")}},
 	})
 	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "aws")
@@ -361,23 +373,37 @@ func (s *AddModelSuite) TestDefaultCloudRegionPassedThrough(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestNoDefaultCloudRegion(c *gc.C) {
-	s.fakeCloudAPI.SetErrors(
-		&params.Error{Code: params.CodeNotFound}, // no default region
-	)
+	s.fakeCloudAPI.clouds = nil
 	_, err := s.run(c, "test", "us-west-1")
 	c.Assert(err, gc.ErrorMatches, `
-"us-west-1" is not a cloud supported by this controller,
-and there is no default cloud. The clouds/regions supported
-by this controller are:
+you do not have add-model access to any clouds on this controller.
+Please ask the controller administrator to grant you add-model permission
+for a particular cloud to which you want to add a model.`[1:])
+	s.fakeCloudAPI.CheckCalls(c, []gitjujutesting.StubCall{
+		{"Cloud", []interface{}{names.NewCloudTag("us-west-1")}},
+		{"Clouds", nil},
+	})
+}
+
+func (s *AddModelSuite) TestAmbiguousCloud(c *gc.C) {
+	s.fakeCloudAPI.clouds[names.NewCloudTag("lxd")] = cloud.Cloud{}
+	_, err := s.run(c, "test", "us-west-1")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`
+this controller manages more than one cloud.
+Please specify which cloud/region to use:
+
+    juju add-model [options] <model-name> cloud[/region]
+
+The clouds/regions supported by this controller are:
 
 Cloud  Regions
 aws    us-east-1, us-west-1
 lxd    
-`[1:])
+`)[1:])
 	s.fakeCloudAPI.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Cloud", []interface{}{names.NewCloudTag("us-west-1")}},
-		{"DefaultCloud", nil},
 		{"Clouds", nil},
+		{"Cloud", []interface{}{names.NewCloudTag("aws")}},
 	})
 }
 
@@ -436,7 +462,6 @@ The clouds/regions supported by this controller are:
 
 Cloud  Regions
 aws    us-east-1, us-west-1
-lxd    
 `[1:])
 }
 
@@ -638,30 +663,26 @@ func (f *fakeAddClient) CreateModel(name, owner, cloudName, cloudRegion string, 
 
 // TODO(wallyworld) - improve this stub and add test asserts
 type fakeCloudAPI struct {
+	clouds map[names.CloudTag]cloud.Cloud
 	controller.CloudAPI
 	gitjujutesting.Stub
 	authTypes   []cloud.AuthType
 	credentials []names.CloudCredentialTag
 }
 
-func (c *fakeCloudAPI) DefaultCloud() (names.CloudTag, error) {
-	c.MethodCall(c, "DefaultCloud")
-	return names.NewCloudTag("aws"), c.NextErr()
-}
-
 func (c *fakeCloudAPI) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	c.MethodCall(c, "Clouds")
-	return map[names.CloudTag]cloud.Cloud{
-		names.NewCloudTag("aws"): {
-			Name:      "aws",
-			AuthTypes: c.authTypes,
-			Regions: []cloud.Region{
-				{Name: "us-east-1"},
-				{Name: "us-west-1"},
-			},
-		},
-		names.NewCloudTag("lxd"): {},
-	}, c.NextErr()
+	if c.clouds == nil {
+		return c.clouds, c.NextErr()
+	}
+	// Ensure the aws cloud uses the patched auth types.
+	awsTag := names.NewCloudTag("aws")
+	awsCloud, err := c.Cloud(awsTag)
+	if err != nil {
+		return nil, err
+	}
+	c.clouds[awsTag] = awsCloud
+	return c.clouds, c.NextErr()
 }
 
 func (c *fakeCloudAPI) Cloud(tag names.CloudTag) (cloud.Cloud, error) {

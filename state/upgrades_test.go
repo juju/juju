@@ -2900,6 +2900,32 @@ func (s *upgradesSuite) TestSetEnableDiskUUIDOnVsphere(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestUpdateInheritedControllerConfig(c *gc.C) {
+	coll, closer := s.state.db().GetRawCollection(globalSettingsC)
+	defer closer()
+
+	_, err := coll.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = coll.Insert(bson.M{
+		"_id":      "controller",
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	expectedSettings := bsonMById{
+		{
+			"_id":        "cloud#dummy",
+			"model-uuid": "",
+			"settings":   bson.M{"key": "value"},
+		},
+	}
+
+	c.Logf(pretty.Sprint(expectedSettings))
+	s.assertUpgradedData(c, UpdateInheritedControllerConfig,
+		expectUpgradedData{coll, expectedSettings},
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

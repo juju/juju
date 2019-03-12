@@ -39,13 +39,13 @@ type ModelManagerBackend interface {
 	GetModel(string) (Model, func() bool, error)
 	GetBackend(string) (ModelManagerBackend, func() bool, error)
 
-	ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error)
+	ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.CloudRegionSpec) (map[string]interface{}, error)
 	ControllerModelUUID() string
 	ControllerModelTag() names.ModelTag
 	IsController() bool
 	ControllerConfig() (controller.Config, error)
-	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
-	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.RegionSpec) error
+	ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error)
+	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.CloudRegionSpec) error
 	Unit(name string) (*state.Unit, error)
 	Name() string
 	ModelTag() names.ModelTag
@@ -102,7 +102,6 @@ type Model interface {
 	LastModelConnection(user names.UserTag) (time.Time, error)
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 	AutoConfigureContainerNetworking(environ environs.BootstrapEnviron) error
-	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
 	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
 }
 
@@ -130,13 +129,13 @@ func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelMana
 	return modelShim{otherModel}, modelManagerStateShim{otherState, otherModel, st.pool}, nil
 }
 
-func (st modelManagerStateShim) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
-	return st.model.ModelConfigDefaultValues()
+func (st modelManagerStateShim) ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error) {
+	return st.State.ModelConfigDefaultValues(cloudName)
 }
 
 // UpdateModelConfigDefaultValues implements the ModelManagerBackend method.
-func (st modelManagerStateShim) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.RegionSpec) error {
-	return st.model.UpdateModelConfigDefaultValues(update, remove, regionSpec)
+func (st modelManagerStateShim) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.CloudRegionSpec) error {
+	return st.State.UpdateModelConfigDefaultValues(update, remove, regionSpec)
 }
 
 // ControllerTag exposes Model ControllerTag for ModelManagerBackend inteface

@@ -11,8 +11,10 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
@@ -31,6 +33,15 @@ func (s *DefaultsCommandSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "controller"
 	s.store.Controllers["controller"] = jujuclient.ControllerDetails{}
+	s.store.Models["controller"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			"king/fred": {ModelUUID: testing.ModelTag.Id(), ModelType: "iaas"},
+		},
+		CurrentModel: "king/fred",
+	}
+	s.store.Accounts["controller"] = jujuclient.AccountDetails{
+		User: "king",
+	}
 }
 
 func (s *DefaultsCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -148,6 +159,10 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		args:        []string{"dummy-region", "attr2"},
 		nilErr:      true,
 	}, {
+		description: "test valid cloud and no args",
+		args:        []string{"dummy"},
+		nilErr:      true,
+	}, {
 		description: "test valid region and no args",
 		args:        []string{"dummy-region"},
 		nilErr:      true,
@@ -155,18 +170,22 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		// test cloud/region
 		description: "test invalid cloud fails",
 		args:        []string{"invalidCloud/invalidRegion", "one=two"},
-		errorMatch:  "Unknown cloud",
+		errorMatch:  `cloud "invalidCloud" not found`,
 	}, {
 		description: "test valid cloud with invalid region fails",
 		args:        []string{"dummy/invalidRegion", "one=two"},
-		errorMatch:  `invalid region specified: "dummy/invalidRegion"`,
+		errorMatch:  `invalid cloud or region specified: "dummy/invalidRegion"`,
 	}, {
 		description: "test no cloud with invalid region fails",
 		args:        []string{"invalidRegion", "one=two"},
-		errorMatch:  `invalid region specified: "invalidRegion"`,
+		errorMatch:  `invalid cloud or region specified: "invalidRegion"`,
 	}, {
 		description: "test valid region with set arg succeeds",
 		args:        []string{"dummy-region", "one=two"},
+		nilErr:      true,
+	}, {
+		description: "test valid cloud with set and reset succeeds",
+		args:        []string{"dummy", "one=two", "--reset", "three"},
 		nilErr:      true,
 	}, {
 		description: "test valid region with set and reset succeeds",
@@ -175,7 +194,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}, {
 		description: "test reset and set with extra key is interpereted as invalid region",
 		args:        []string{"--reset", "something,else", "invalidRegion", "is=weird"},
-		errorMatch:  `invalid region specified: "invalidRegion"`,
+		errorMatch:  `invalid cloud or region specified: "invalidRegion"`,
 	}, {
 		description: "test reset and set with valid region and extra key fails",
 		args:        []string{"--reset", "something,else", "dummy-region", "invalidkey", "is=weird"},
@@ -188,7 +207,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}, {
 		description: "test too many positional args with invalid region set",
 		args:        []string{"a", "a=b", "b", "c=d"},
-		errorMatch:  `invalid region specified: "a"`,
+		errorMatch:  `invalid cloud or region specified: "a"`,
 	}, {
 		description: "test invalid positional args with set",
 		args:        []string{"a=b", "b", "c=d"},
@@ -221,6 +240,22 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}
 }
 
+func (s *DefaultsCommandSuite) TestMultiCloudMessage(c *gc.C) {
+	s.fakeCloudAPI.clouds[names.NewCloudTag("another")] = cloud.Cloud{Name: "another"}
+	_, err := s.run(c, "attr")
+	c.Assert(err, gc.NotNil)
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, "You haven't specified a cloud and more than one exists on this controller.*another,dummy")
+}
+
+func (s *DefaultsCommandSuite) TestNoVisibleCloudMessage(c *gc.C) {
+	s.fakeCloudAPI.clouds = nil
+	_, err := s.run(c, "attr")
+	c.Assert(err, gc.NotNil)
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, "You don't have access to any clouds on this controller.Only controller administrators can set default model values.")
+}
+
 func (s *DefaultsCommandSuite) TestResetUnknownValueLogs(c *gc.C) {
 	ctx, err := s.run(c, "--reset", "attr,weird")
 	c.Assert(err, jc.ErrorIsNil)
@@ -232,6 +267,7 @@ func (s *DefaultsCommandSuite) TestResetUnknownValueLogs(c *gc.C) {
 func (s *DefaultsCommandSuite) TestResetAttr(c *gc.C) {
 	ctx, err := s.run(c, "--reset", "attr,unknown")
 	c.Check(err, jc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.cloud, gc.Equals, "dummy")
 	c.Check(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
@@ -275,6 +311,7 @@ func (s *DefaultsCommandSuite) TestSetUnknownValueLogs(c *gc.C) {
 func (s *DefaultsCommandSuite) TestSet(c *gc.C) {
 	_, err := s.run(c, "special=extra", "attr=baz")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.cloud, gc.Equals, "dummy")
 	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr": {Controller: "baz", Default: nil, Regions: nil},
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
@@ -334,7 +371,7 @@ func (s *DefaultsCommandSuite) TestSetConveysCloudRegion(c *gc.C) {
 	table := []struct {
 		input, cloud, region string
 	}{
-		{"", "", ""},
+		{"", "dummy", ""},
 		{"dummy-region", "dummy", "dummy-region"},
 		{"dummy/dummy-region", "dummy", "dummy-region"},
 		{"another-region", "dummy", "another-region"},
@@ -363,6 +400,7 @@ func (s *DefaultsCommandSuite) TestGetSingleValue(c *gc.C) {
 	context, err := s.run(c, "attr2")
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(s.fakeDefaultsAPI.cloud, gc.Equals, "dummy")
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := "" +
 		"Attribute         Default        Controller\n" +

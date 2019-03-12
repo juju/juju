@@ -83,6 +83,86 @@ func (s *listSuite) TestListController(c *gc.C) {
 	c.Assert(out, gc.Matches, `^beehive:.*type:\ openstack.*`)
 }
 
+func (s *listSuite) TestListKubernetes(c *gc.C) {
+	var controllerAPICalled string
+	cmd := cloud.NewListCloudCommandForTest(
+		s.store,
+		func(controllerName string) (cloud.ListCloudsAPI, error) {
+			controllerAPICalled = controllerName
+			return s.api, nil
+		})
+	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
+	s.api.controllerClouds[names.NewCloudTag("beehive")] = jujucloud.Cloud{
+		Name:      "beehive",
+		Type:      "kubernetes",
+		AuthTypes: []jujucloud.AuthType{"userpass"},
+		Endpoint:  "http://cluster",
+		Regions: []jujucloud.Region{
+			{
+				Name:     "default",
+				Endpoint: "http://cluster/default",
+			},
+		},
+	}
+
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "Clouds", "Close")
+	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
+	out := cmdtesting.Stdout(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+
+	// Just check couple of snippets of the output to make sure it looks ok.
+	c.Assert(out, gc.Matches, `^beehive:.*type:\ k8s.*`)
+}
+
+func (s *listSuite) TestListTabular(c *gc.C) {
+	var controllerAPICalled string
+	cmd := cloud.NewListCloudCommandForTest(
+		s.store,
+		func(controllerName string) (cloud.ListCloudsAPI, error) {
+			controllerAPICalled = controllerName
+			return s.api, nil
+		})
+	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
+	s.api.controllerClouds[names.NewCloudTag("beehive")] = jujucloud.Cloud{
+		Name:      "beehive",
+		Type:      "kubernetes",
+		AuthTypes: []jujucloud.AuthType{"userpass"},
+		Endpoint:  "http://cluster",
+		Regions: []jujucloud.Region{
+			{
+				Name:     "default",
+				Endpoint: "http://cluster/default",
+			},
+		},
+	}
+	s.api.controllerClouds[names.NewCloudTag("antnest")] = jujucloud.Cloud{
+		Name:      "antnest",
+		Type:      "openstack",
+		AuthTypes: []jujucloud.AuthType{"userpass"},
+		Endpoint:  "http://endpoint",
+		Regions: []jujucloud.Region{
+			{
+				Name:     "default",
+				Endpoint: "http://endpoint/default",
+			},
+		},
+	}
+
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "tabular")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "Clouds", "Close")
+	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, jc.DeepEquals, `
+Cloud    Regions  Default  Type       Description
+antnest        1  default  openstack  
+beehive        1  default  k8s        
+
+`[1:])
+}
+
 func (s *listSuite) TestListPublicAndPersonal(c *gc.C) {
 	data := `
 clouds:

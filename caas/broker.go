@@ -97,6 +97,9 @@ type Broker interface {
 	// Provider returns the ContainerEnvironProvider that created this Broker.
 	Provider() ContainerEnvironProvider
 
+	// APIVersion returns the master kubelet API version.
+	APIVersion() (string, error)
+
 	// Destroy terminates all containers and other resources in this broker's namespace.
 	Destroy(context.ProviderCallContext) error
 

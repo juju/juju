@@ -161,6 +161,7 @@ func NewModelHookContext(
 		availabilityzone:   availZone,
 		slaLevel:           slaLevel,
 		principal:          unitName,
+		cloudAPIVersion:    "6.66",
 	}
 }
 

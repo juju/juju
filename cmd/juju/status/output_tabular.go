@@ -391,10 +391,9 @@ func printMachine(w output.Wrapper, m machineStatus) {
 		az = *hw.AvailabilityZone
 	}
 
-	w.Print(m.Id)
-
 	status, message := getStatusAndMessageFromMachineStatus(m)
 
+	w.Print(m.Id)
 	w.PrintStatus(status)
 	w.Println(m.DNSName, m.machineName(), m.Series, az, message)
 
