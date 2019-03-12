@@ -230,6 +230,11 @@ def parse_args(argv):
              "locally before bootstrapping",
         default="",
     )
+    parser.add_argument(
+        '--mongo-memory-profile',
+        help="the name of a mongo profile to use when bootstrapping",
+        default="",
+    )
     add_basic_testing_arguments(parser, existing=False)
     # Override the default logging_config default value set by adding basic
     # testing arguments. This way we can have a default value for all tests,
@@ -282,7 +287,8 @@ def main(argv=None):
     with bs_manager.booted_context(
         args.upload_tools,
         db_snap_path=db_snap_path,
-        db_snap_asserts_path=db_snap_asserts_path
+        db_snap_asserts_path=db_snap_asserts_path,
+        mongo_memory_profile=args.mongo_memory_profile,
     ):
         client = bs_manager.client
         mongo_version, mongo_profile = extract_mongo_details(client)
