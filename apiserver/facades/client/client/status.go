@@ -219,7 +219,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not fetch relations")
 	}
 	if len(context.allAppsUnitsCharmBindings.applications) > 0 {
-		if context.leaders, err = c.api.stateAccessor.ApplicationLeaders(); err != nil {
+		if context.leaders, err = c.api.leadershipReader.Leaders(); err != nil {
 			return noStatus, errors.Annotate(err, "could not fetch leaders")
 		}
 	}

@@ -233,6 +233,11 @@ func (manager *Manager) Pinner(namespace, modelUUID string) (lease.Pinner, error
 	return manager.bind(namespace, modelUUID)
 }
 
+// Reader returns a lease.Reader for the specified namespace and model.
+func (manager *Manager) Reader(namespace, modelUUID string) (lease.Reader, error) {
+	return manager.bind(namespace, modelUUID)
+}
+
 // retryingClaim handles timeouts when claiming, and responds to the
 // claiming party when it eventually succeeds or fails, or if it times
 // out after a number of retries.
@@ -597,6 +602,14 @@ func (manager *Manager) pinned(namespace, modelUUID string) map[string][]string 
 		}
 	}
 	return pinned
+}
+
+func (manager *Manager) leases(namespace, modelUUID string) map[string]string {
+	leases := make(map[string]string)
+	for key, lease := range manager.config.Store.Leases() {
+		leases[key.Lease] = lease.Holder
+	}
+	return leases
 }
 
 func keysLess(a, b lease.Key) bool {

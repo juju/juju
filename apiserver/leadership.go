@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/state"
 )
 
 // leadershipChecker implements leadership.Checker by wrapping a lease.Checker.
@@ -88,4 +89,27 @@ func (m leadershipPinner) UnpinLeadership(applicationName string, entity string)
 // pinned behaviour.
 func (m leadershipPinner) PinnedLeadership() map[string][]string {
 	return m.pinner.Pinned()
+}
+
+// leadershipReader implements leadership.Reader by wrapping a lease.Reader.
+type leadershipReader struct {
+	reader lease.Reader
+}
+
+// Leaders (leadership.Reader) returns all application leaders in the
+// current model.
+func (r leadershipReader) Leaders() (map[string]string, error) {
+	return r.reader.Leases(), nil
+}
+
+// legacyLeadershipReader implements leadership.Reader by wrapping state.
+type legacyLeadershipReader struct {
+	st *state.State
+}
+
+// Leaders (leadership.Reader) returns all application leaders in the
+// current model according to state.
+func (r legacyLeadershipReader) Leaders() (map[string]string, error) {
+	l, err := r.st.ApplicationLeaders()
+	return l, errors.Trace(err)
 }

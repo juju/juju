@@ -239,7 +239,7 @@ type environProvider struct {
 	state                  map[string]*environState
 }
 
-// APIPort returns the randon api port used by the given provider instance.
+// APIPort returns the random api port used by the given provider instance.
 func APIPort(p environs.EnvironProvider) int {
 	return p.(*environProvider).apiPort
 }

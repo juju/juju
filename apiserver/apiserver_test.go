@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/lease"
 )
 
 const (
@@ -84,7 +83,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 		LogDir:          c.MkDir(),
 		Hub:             centralhub.New(machineTag),
 		Presence:        presence.New(clock.WallClock),
-		LeaseManager:    &lease.Manager{},
+		LeaseManager:    apitesting.StubLeaseManager{},
 		Mux:             s.mux,
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),

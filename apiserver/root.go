@@ -488,6 +488,23 @@ func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner,
 	return leadershipPinner{pinner}, nil
 }
 
+// LeadershipReader is part of the facade.Context interface.
+// It returns a reader that can be used to return all application leaders
+// in the model.
+func (ctx *facadeContext) LeadershipReader(modelUUID string) (leadership.Reader, error) {
+	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+		return legacyLeadershipReader{ctx.State()}, nil
+	}
+	reader, err := ctx.r.shared.leaseManager.Reader(
+		lease.ApplicationLeadershipNamespace,
+		modelUUID,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipReader{reader}, nil
+}
+
 // SingularClaimer is part of the facade.Context interface.
 func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
 	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
