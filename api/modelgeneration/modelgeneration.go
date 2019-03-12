@@ -109,7 +109,9 @@ func (c *Client) HasNextGeneration(modelUUID string) (bool, error) {
 // GenerationInfo returns a list of application with changes in the "next"
 // generation, with units moved to the generation, and any generational
 // configuration changes.
-func (c *Client) GenerationInfo(modelUUID string) (model.GenerationSummaries, error) {
+func (c *Client) GenerationInfo(
+	modelUUID string, formatTime func(time.Time) string,
+) (model.GenerationSummaries, error) {
 	var result params.GenerationResult
 	err := c.facade.FacadeCall("GenerationInfo", argForModel(modelUUID), &result)
 	if err != nil {
@@ -118,14 +120,14 @@ func (c *Client) GenerationInfo(modelUUID string) (model.GenerationSummaries, er
 	if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	return generationInfoFromResult(result.Generation), nil
+	return generationInfoFromResult(result.Generation, formatTime), nil
 }
 
 func argForModel(modelUUID string) params.Entity {
 	return params.Entity{Tag: names.NewModelTag(modelUUID).String()}
 }
 
-func generationInfoFromResult(res params.Generation) model.GenerationSummaries {
+func generationInfoFromResult(res params.Generation, formatTime func(time.Time) string) model.GenerationSummaries {
 	appDeltas := make([]model.GenerationApplication, len(res.Applications))
 	for i, a := range res.Applications {
 		appDeltas[i] = model.GenerationApplication{
@@ -135,7 +137,7 @@ func generationInfoFromResult(res params.Generation) model.GenerationSummaries {
 		}
 	}
 	gen := model.Generation{
-		Created:      time.Unix(res.Created, 0).Local(),
+		Created:      formatTime(time.Unix(res.Created, 0)),
 		Applications: appDeltas,
 	}
 

@@ -4,18 +4,16 @@
 package model_test
 
 import (
-	"time"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	coremodel "github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/model/mocks"
+	coremodel "github.com/juju/juju/core/model"
 )
 
 type showGenerationSuite struct {
@@ -46,7 +44,7 @@ func (s *showGenerationSuite) TestRunCommandNextGenExists(c *gc.C) {
 
 	result := map[coremodel.GenerationVersion]coremodel.Generation{
 		coremodel.GenerationNext: {
-			Created: time.Time{},
+			Created: "0001-01-01 00:00:00Z",
 			Applications: []coremodel.GenerationApplication{{
 				ApplicationName: "redis",
 				Units:           []string{"redis/0"},
@@ -54,13 +52,13 @@ func (s *showGenerationSuite) TestRunCommandNextGenExists(c *gc.C) {
 			}},
 		},
 	}
-	s.api.EXPECT().GenerationInfo(gomock.Any()).Return(result, nil)
+	s.api.EXPECT().GenerationInfo(gomock.Any(), gomock.Any()).Return(result, nil)
 
 	ctx, err := s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 next:
-  created: 0001-01-01T00:00:00Z
+  created: 0001-01-01 00:00:00Z
   applications:
   - application: redis
     units:
@@ -73,7 +71,8 @@ next:
 func (s *showGenerationSuite) TestRunCommandNextNoGenError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.api.EXPECT().GenerationInfo(gomock.Any()).Return(nil, errors.New("this model has no next generation"))
+	s.api.EXPECT().GenerationInfo(gomock.Any(), gomock.Any()).Return(
+		nil, errors.New("this model has no next generation"))
 
 	_, err := s.runCommand(c)
 	c.Assert(err, gc.ErrorMatches, "this model has no next generation")

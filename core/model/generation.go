@@ -3,8 +3,6 @@
 
 package model
 
-import "time"
-
 // GenerationVersion indicates a generation to use for model config.
 type GenerationVersion string
 
@@ -50,8 +48,8 @@ type GenerationApplication struct {
 
 // Generation represents detail of a model generation including config changes.
 type Generation struct {
-	// Created is the time at generation creation.
-	Created time.Time `yaml:"created"`
+	// Created is the formatted time at generation creation.
+	Created string `yaml:"created"`
 
 	// Applications is a collection of applications with changes in this
 	// generation including advanced units and modified configuration.
