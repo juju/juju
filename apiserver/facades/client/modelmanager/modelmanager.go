@@ -40,6 +40,13 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
+// ModelManagerV6 defines the methods on the version 6 facade for the
+// modelmanager API endpoint.
+type ModelManagerV6 interface {
+	ModelManagerV5
+	ModelDefaultsForClouds(args params.Entities) (params.ModelDefaultsResults, error)
+}
+
 // ModelManagerV5 defines the methods on the version 5 facade for the
 // modelmanager API endpoint.
 type ModelManagerV5 interface {
@@ -108,10 +115,16 @@ type ModelManagerAPI struct {
 	callContext context.ProviderCallContext
 }
 
+// ModelManagerAPIV5 provides a way to wrap the different calls between
+// version 5 and version 6 of the model manager API
+type ModelManagerAPIV5 struct {
+	*ModelManagerAPI
+}
+
 // ModelManagerAPIV4 provides a way to wrap the different calls between
 // version 4 and version 5 of the model manager API
 type ModelManagerAPIV4 struct {
-	*ModelManagerAPI
+	*ModelManagerAPIV5
 }
 
 // ModelManagerAPIV3 provides a way to wrap the different calls between
@@ -127,14 +140,15 @@ type ModelManagerAPIV2 struct {
 }
 
 var (
-	_ ModelManagerV5 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV6 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV5 = (*ModelManagerAPIV5)(nil)
 	_ ModelManagerV4 = (*ModelManagerAPIV4)(nil)
 	_ ModelManagerV3 = (*ModelManagerAPIV3)(nil)
 	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
 )
 
-// NewFacadeV5 is used for API registration.
-func NewFacadeV5(ctx facade.Context) (*ModelManagerAPI, error) {
+// NewFacadeV6 is used for API registration.
+func NewFacadeV6(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 	ctlrSt := pool.SystemState()
@@ -146,7 +160,7 @@ func NewFacadeV5(ctx facade.Context) (*ModelManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	configGetter := stateenvirons.EnvironConfigGetter{st, model}
+	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
 
 	ctrlModel, err := ctlrSt.Model()
 	if err != nil {
@@ -162,6 +176,15 @@ func NewFacadeV5(ctx facade.Context) (*ModelManagerAPI, error) {
 		model,
 		state.CallContext(st),
 	)
+}
+
+// NewFacadeV5 is used for API registration.
+func NewFacadeV5(ctx facade.Context) (*ModelManagerAPIV5, error) {
+	v6, err := NewFacadeV6(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelManagerAPIV5{v6}, nil
 }
 
 // NewFacadeV4 is used for API registration.
@@ -289,7 +312,7 @@ func (m *ModelManagerAPI) newModelConfig(
 		return nil, errors.Trace(err)
 	}
 
-	regionSpec := &environs.RegionSpec{Cloud: cloudSpec.Name, Region: cloudSpec.Region}
+	regionSpec := &environs.CloudRegionSpec{Cloud: cloudSpec.Name, Region: cloudSpec.Region}
 	if joint, err = m.state.ComposeNewModelConfig(joint, regionSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1279,16 +1302,39 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 	}
 }
 
+// ModelDefaults returns the default config values for the specified clouds.
+func (m *ModelManagerAPI) ModelDefaultsForClouds(args params.Entities) (params.ModelDefaultsResults, error) {
+	result := params.ModelDefaultsResults{}
+	if !m.isAdmin {
+		return result, common.ErrPerm
+	}
+	result.Results = make([]params.ModelDefaultsResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		cloudTag, err := names.ParseCloudTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		result.Results[i] = m.modelDefaults(cloudTag.Id())
+	}
+	return result, nil
+}
+
 // ModelDefaults returns the default config values used when creating a new model.
-func (m *ModelManagerAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
+func (m *ModelManagerAPIV5) ModelDefaults() (params.ModelDefaultsResult, error) {
 	result := params.ModelDefaultsResult{}
 	if !m.isAdmin {
 		return result, common.ErrPerm
 	}
+	return m.modelDefaults(m.model.Cloud()), nil
+}
 
-	values, err := m.model.ModelConfigDefaultValues()
+func (m *ModelManagerAPI) modelDefaults(cloud string) params.ModelDefaultsResult {
+	result := params.ModelDefaultsResult{}
+	values, err := m.ctlrState.ModelConfigDefaultValues(cloud)
 	if err != nil {
-		return result, errors.Trace(err)
+		result.Error = common.ServerError(err)
+		return result
 	}
 	result.Config = make(map[string]params.ModelDefaults)
 	for attr, val := range values {
@@ -1304,7 +1350,7 @@ func (m *ModelManagerAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
 		}
 		result.Config[attr] = settings
 	}
-	return result, nil
+	return result
 }
 
 // SetModelDefaults writes new values for the specified default model settings.
@@ -1334,15 +1380,15 @@ func (m *ModelManagerAPI) setModelDefaults(args params.ModelDefaultValues) error
 		return errors.New("agent-version cannot have a default value")
 	}
 
-	var rspec *environs.RegionSpec
-	if args.CloudRegion != "" {
+	var rspec *environs.CloudRegionSpec
+	if args.CloudTag != "" {
 		spec, err := m.makeRegionSpec(args.CloudTag, args.CloudRegion)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		rspec = spec
 	}
-	return m.state.UpdateModelConfigDefaultValues(args.Config, nil, rspec)
+	return m.ctlrState.UpdateModelConfigDefaultValues(args.Config, nil, rspec)
 }
 
 // UnsetModelDefaults removes the specified default model settings.
@@ -1357,8 +1403,8 @@ func (m *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (pa
 	}
 
 	for i, arg := range args.Keys {
-		var rspec *environs.RegionSpec
-		if arg.CloudRegion != "" {
+		var rspec *environs.CloudRegionSpec
+		if arg.CloudTag != "" {
 			spec, err := m.makeRegionSpec(arg.CloudTag, arg.CloudRegion)
 			if err != nil {
 				results.Results[i].Error = common.ServerError(
@@ -1368,7 +1414,7 @@ func (m *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (pa
 			rspec = spec
 		}
 		results.Results[i].Error = common.ServerError(
-			m.state.UpdateModelConfigDefaultValues(nil, arg.Keys, rspec),
+			m.ctlrState.UpdateModelConfigDefaultValues(nil, arg.Keys, rspec),
 		)
 	}
 	return results, nil
@@ -1376,12 +1422,12 @@ func (m *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (pa
 
 // makeRegionSpec is a helper method for methods that call
 // state.UpdateModelConfigDefaultValues.
-func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environs.RegionSpec, error) {
+func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environs.CloudRegionSpec, error) {
 	cTag, err := names.ParseCloudTag(cloudTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	rspec, err := environs.NewRegionSpec(cTag.Id(), r)
+	rspec, err := environs.NewCloudRegionSpec(cTag.Id(), r)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1487,3 +1533,6 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 //
 // ChangeModelCredential did not exist prior to v5.
 func (*ModelManagerAPIV4) ChangeModelCredential(_, _ struct{}) {}
+
+// ModelDefaultsForClouds did not exist prior to v6.
+func (*ModelManagerAPIV5) ModelDefaultsForClouds(_, _ struct{}) {}

@@ -28,6 +28,22 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.cloud")
 
+// CloudV5 defines the methods on the cloud API facade, version 5.
+type CloudV5 interface {
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
+}
+
 // CloudV4 defines the methods on the cloud API facade, version 4.
 type CloudV4 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
@@ -99,10 +115,16 @@ type CloudAPI struct {
 	pool                   ModelPoolBackend
 }
 
+// CloudAPIV4 provides a way to wrap the different calls
+// between version 4 and version 5 of the cloud API.
+type CloudAPIV4 struct {
+	*CloudAPI
+}
+
 // CloudAPIV3 provides a way to wrap the different calls
 // between version 3 and version 4 of the cloud API.
 type CloudAPIV3 struct {
-	*CloudAPI
+	*CloudAPIV4
 }
 
 // CloudAPIV2 provides a way to wrap the different calls
@@ -118,18 +140,28 @@ type CloudAPIV1 struct {
 }
 
 var (
-	_ CloudV4 = (*CloudAPI)(nil)
+	_ CloudV5 = (*CloudAPI)(nil)
+	_ CloudV4 = (*CloudAPIV4)(nil)
 	_ CloudV3 = (*CloudAPIV3)(nil)
 	_ CloudV2 = (*CloudAPIV2)(nil)
 	_ CloudV1 = (*CloudAPIV1)(nil)
 )
 
-// NewFacadeV4 is used for API registration.
-func NewFacadeV4(context facade.Context) (*CloudAPI, error) {
+// NewFacadeV5 is used for API registration.
+func NewFacadeV5(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
 	pool := NewModelPoolBackend(context.StatePool())
 	ctlrSt := NewStateBackend(pool.SystemState())
 	return NewCloudAPI(st, ctlrSt, pool, context.Auth(), state.CallContext(context.State()))
+}
+
+// NewFacadeV3 is used for API registration.
+func NewFacadeV4(context facade.Context) (*CloudAPIV4, error) {
+	v5, err := NewFacadeV5(context)
+	if err != nil {
+		return nil, err
+	}
+	return &CloudAPIV4{v5}, nil
 }
 
 // NewFacadeV3 is used for API registration.
@@ -419,7 +451,7 @@ func (api *CloudAPI) ListCloudInfo(req params.ListCloudsRequest) (params.ListClo
 
 // DefaultCloud returns the tag of the cloud that models will be
 // created in by default.
-func (api *CloudAPI) DefaultCloud() (params.StringResult, error) {
+func (api *CloudAPIV4) DefaultCloud() (params.StringResult, error) {
 	controllerModel, err := api.ctlrBackend.Model()
 	if err != nil {
 		return params.StringResult{}, err
@@ -663,6 +695,9 @@ func (*CloudAPI) UpdateCredentials(_, _ struct{}) {}
 //
 // CheckCredentialsModels did not exist before V3.
 func (*CloudAPIV2) CheckCredentialsModels(_, _ struct{}) {}
+
+// DefaultCloud is gone in V5.
+func (*CloudAPI) DefaultCloud(_, _ struct{}) {}
 
 // UpdateCredentials updates a set of cloud credentials' content.
 func (api *CloudAPIV2) UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
@@ -933,10 +968,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 		return common.ServerError(common.ErrPerm)
 	}
 	err = api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud), api.apiUser.Name())
-	if err != nil {
-		return err
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // UpdateCloud updates an existing cloud that the controller knows about.

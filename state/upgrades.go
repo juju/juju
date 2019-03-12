@@ -1843,3 +1843,44 @@ func SetEnableDiskUUIDOnVsphere(pool *StatePool) error {
 		return true, nil
 	}))
 }
+
+// UpdateInheritedControllerConfig migrates the existing global
+// settings doc keyed on "controller" to be keyed on the cloud name.
+func UpdateInheritedControllerConfig(pool *StatePool) error {
+	st := pool.SystemState()
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	key := cloudGlobalKey(model.Cloud())
+
+	var ops []txn.Op
+	coll, closer := st.db().GetRawCollection(globalSettingsC)
+	defer closer()
+	iter := coll.FindId("controller").Iter()
+	defer iter.Close()
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      globalSettingsC,
+			Id:     doc.DocID,
+			Remove: true,
+			Assert: txn.DocExists,
+		})
+		doc.DocID = key
+		ops = append(ops, txn.Op{
+			C:      globalSettingsC,
+			Id:     key,
+			Insert: doc,
+			Assert: txn.DocMissing,
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(ops) > 0 {
+		err = errors.Trace(st.runRawTransaction(ops))
+		return err
+	}
+	return nil
+}

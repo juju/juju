@@ -113,7 +113,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	configGetter := stateenvirons.EnvironConfigGetter{st, model}
+	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
 	isCaasModel := model.Type() == state.ModelTypeCAAS
 
 	var env storage.ProviderRegistry

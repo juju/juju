@@ -85,7 +85,7 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		g := stateenvirons.EnvironConfigGetter{st.State, model}
+		g := stateenvirons.EnvironConfigGetter{State: st.State, Model: model}
 		env, err := environs.GetEnviron(g, environs.New)
 		if err != nil {
 			return nil, errors.Trace(err)

@@ -83,7 +83,7 @@ func NewUpgraderAPI(
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
-	configGetter := stateenvirons.EnvironConfigGetter{st, model}
+	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
 	return &UpgraderAPI{
 		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),

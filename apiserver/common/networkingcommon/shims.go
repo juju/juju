@@ -88,7 +88,7 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &stateShim{stateenvirons.EnvironConfigGetter{st, m}, st, m}, nil
+	return &stateShim{stateenvirons.EnvironConfigGetter{State: st, Model: m}, st, m}, nil
 }
 
 // stateShim forwards and adapts state.State methods to Backing

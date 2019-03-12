@@ -40,10 +40,17 @@ type HostedModelConfigsResults struct {
 	Models []HostedModelConfig `json:"models"`
 }
 
+// ModelDefaultsResults contains the result of client API calls to get the
+// model default values.
+type ModelDefaultsResults struct {
+	Results []ModelDefaultsResult `json:"results"`
+}
+
 // ModelDefaultsResult contains the result of client API calls to get the
 // model default values.
 type ModelDefaultsResult struct {
 	Config map[string]ModelDefaults `json:"config"`
+	Error  *Error                   `json:"error,omitempty"`
 }
 
 // ModelSequencesResult holds the map of sequence names to next value.

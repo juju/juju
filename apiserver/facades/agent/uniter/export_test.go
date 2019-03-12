@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/caas"
 )
 
 var (
@@ -30,4 +31,8 @@ func NewStorageAPI(
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {
 	return newStorageAPI(backend, storage, resources, accessUnit)
+}
+
+func SetNewContainerBrokerFunc(api *UniterAPI, newBroker caas.NewContainerBrokerFunc) {
+	api.containerBrokerFunc = newBroker
 }

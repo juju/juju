@@ -6,6 +6,7 @@ package machine_test
 import (
 	"time"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -248,6 +249,9 @@ func (s *machinerSuite) TestJobs(c *gc.C) {
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {
+	loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
+
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{

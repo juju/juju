@@ -144,7 +144,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 	}
 
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
-	configGetter := stateenvirons.EnvironConfigGetter{st, model}
+	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
 	newEnviron := func() (environs.Environ, error) {

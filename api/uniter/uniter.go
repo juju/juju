@@ -37,17 +37,14 @@ type State struct {
 	unitTag names.UnitTag
 }
 
-// newStateForVersion creates a new client-side Uniter facade for the
-// given version.
-func newStateForVersion(
+// NewState creates a new client-side Uniter facade.
+func NewState(
 	caller base.APICaller,
 	authTag names.UnitTag,
-	version int,
 ) *State {
-	facadeCaller := base.NewFacadeCallerForVersion(
+	facadeCaller := base.NewFacadeCaller(
 		caller,
 		uniterFacade,
-		version,
 	)
 	state := &State{
 		ModelWatcher:     common.NewModelWatcher(facadeCaller),
@@ -69,19 +66,6 @@ func newStateForVersion(
 	)
 	return state
 }
-
-func newStateForVersionFn(version int) func(base.APICaller, names.UnitTag) *State {
-	return func(caller base.APICaller, authTag names.UnitTag) *State {
-		return newStateForVersion(caller, authTag, version)
-	}
-}
-
-// newStateV9 creates a new client-side Uniter facade, version 9
-var newStateV9 = newStateForVersionFn(9)
-
-// NewState creates a new client-side Uniter facade.
-// Defined like this to allow patching during tests.
-var NewState = newStateV9
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.
@@ -429,6 +413,22 @@ func (st *State) SLALevel() (string, error) {
 	}
 	var result params.StringResult
 	err := st.facade.FacadeCall("SLALevel", nil, &result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if err := result.Error; err != nil {
+		return "", errors.Trace(err)
+	}
+	return result.Result, nil
+}
+
+// CloudAPIVersion returns the API version of the cloud, if known.
+func (st *State) CloudAPIVersion() (string, error) {
+	if st.BestAPIVersion() < 11 {
+		return "", nil
+	}
+	var result params.StringResult
+	err := st.facade.FacadeCall("CloudAPIVersion", nil, &result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

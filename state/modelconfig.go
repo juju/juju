@@ -137,23 +137,32 @@ func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues,
 }
 
 // UpdateModelConfigDefaultValues updates the inherited settings used when creating a new model.
-func (model *Model) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string, regionSpec *environs.RegionSpec) error {
+func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string, regionSpec *environs.CloudRegionSpec) error {
 	var key string
 
 	if regionSpec != nil {
-		key = regionSettingsGlobalKey(regionSpec.Cloud, regionSpec.Region)
+		if regionSpec.Region == "" {
+			key = cloudGlobalKey(regionSpec.Cloud)
+		} else {
+			key = regionSettingsGlobalKey(regionSpec.Cloud, regionSpec.Region)
+		}
 	} else {
-		key = controllerInheritedSettingsGlobalKey
+		// For backwards compatibility default to the model's cloud.
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		key = cloudGlobalKey(model.Cloud())
 	}
-	settings, err := readSettings(model.st.db(), globalSettingsC, key)
+	settings, err := readSettings(st.db(), globalSettingsC, key)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return errors.Annotatef(err, "model %q", model.UUID())
+			return errors.Annotatef(err, "model %q", st.ModelUUID())
 		}
 		// We haven't created settings for this region yet.
-		_, err := createSettings(model.st.db(), globalSettingsC, key, attrs)
+		_, err := createSettings(st.db(), globalSettingsC, key, attrs)
 		if err != nil {
-			return errors.Annotatef(err, "model %q", model.UUID())
+			return errors.Annotatef(err, "model %q", st.ModelUUID())
 		}
 		return nil
 	}
@@ -184,16 +193,15 @@ func (model *Model) ModelConfigValues() (config.ConfigValues, error) {
 
 // ModelConfigDefaultValues returns the default config values to be used
 // when creating a new model, and the origin of those values.
-func (model *Model) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
-	cloudName := model.Cloud()
-	cloud, err := model.State().Cloud(cloudName)
+func (st *State) ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error) {
+	cloud, err := st.Cloud(cloudName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	result := make(config.ModelDefaultAttributes)
 	// Juju defaults
-	defaultAttrs, err := model.State().defaultInheritedConfig()
+	defaultAttrs, err := st.defaultInheritedConfig(cloudName)()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -201,7 +209,7 @@ func (model *Model) ModelConfigDefaultValues() (config.ModelDefaultAttributes, e
 		result[k] = config.AttributeDefaultValues{Default: v}
 	}
 	// Controller config
-	ciCfg, err := model.State().controllerInheritedConfig()
+	ciCfg, err := st.controllerInheritedConfig(cloudName)()
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 
@@ -216,8 +224,8 @@ func (model *Model) ModelConfigDefaultValues() (config.ModelDefaultAttributes, e
 	}
 	// Region config
 	for _, region := range cloud.Regions {
-		rspec := &environs.RegionSpec{Cloud: cloudName, Region: region.Name}
-		riCfg, err := model.State().regionInheritedConfig(rspec)()
+		rspec := &environs.CloudRegionSpec{Cloud: cloudName, Region: region.Name}
+		riCfg, err := st.regionInheritedConfig(rspec)()
 		if err != nil {
 			if errors.IsNotFound(err) {
 				continue
@@ -358,60 +366,59 @@ type modelConfigSource struct {
 // sources, in hierarchical order. Starting from the first source,
 // config is retrieved and each subsequent source adds to the
 // overall config values, later values override earlier ones.
-func modelConfigSources(st *State, regionSpec *environs.RegionSpec) []modelConfigSource {
+func modelConfigSources(st *State, regionSpec *environs.CloudRegionSpec) []modelConfigSource {
 	return []modelConfigSource{
-		{config.JujuDefaultSource, st.defaultInheritedConfig},
-		{config.JujuControllerSource, st.controllerInheritedConfig},
+		{config.JujuDefaultSource, st.defaultInheritedConfig(regionSpec.Cloud)},
+		{config.JujuControllerSource, st.controllerInheritedConfig(regionSpec.Cloud)},
 		{config.JujuRegionSource, st.regionInheritedConfig(regionSpec)},
 	}
 }
 
-const (
-	// controllerInheritedSettingsGlobalKey is the key for default settings shared across models.
-	controllerInheritedSettingsGlobalKey = "controller"
-)
-
 // defaultInheritedConfig returns config values which are defined
-// as defaults in either Juju or the state's environ provider.
-func (st *State) defaultInheritedConfig() (attrValues, error) {
-	var defaults = make(map[string]interface{})
-	for k, v := range config.ConfigDefaults() {
-		defaults[k] = v
-	}
-	providerDefaults, err := st.environsProviderConfigSchemaSource()
-	if errors.IsNotImplemented(err) {
-		return defaults, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	fields := schema.FieldMap(providerDefaults.ConfigSchema(), providerDefaults.ConfigDefaults())
-	if coercedAttrs, err := fields.Coerce(defaults, nil); err != nil {
-		return nil, errors.Trace(err)
-	} else {
-		for k, v := range coercedAttrs.(map[string]interface{}) {
+// as defaults in either Juju or the cloud's environ provider.
+func (st *State) defaultInheritedConfig(cloudName string) func() (attrValues, error) {
+	return func() (attrValues, error) {
+		var defaults = make(map[string]interface{})
+		for k, v := range config.ConfigDefaults() {
 			defaults[k] = v
 		}
+		providerDefaults, err := st.environsProviderConfigSchemaSource(cloudName)
+		if errors.IsNotImplemented(err) {
+			return defaults, nil
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		fields := schema.FieldMap(providerDefaults.ConfigSchema(), providerDefaults.ConfigDefaults())
+		if coercedAttrs, err := fields.Coerce(defaults, nil); err != nil {
+			return nil, errors.Trace(err)
+		} else {
+			for k, v := range coercedAttrs.(map[string]interface{}) {
+				defaults[k] = v
+			}
+		}
+		return defaults, nil
 	}
-	return defaults, nil
 }
 
 // controllerInheritedConfig returns the inherited config values
 // sourced from the local cloud config.
-func (st *State) controllerInheritedConfig() (attrValues, error) {
-	settings, err := readSettings(st.db(), globalSettingsC, controllerInheritedSettingsGlobalKey)
-	if err != nil {
-		return nil, errors.Annotatef(err, "controller %q", st.ControllerUUID())
+func (st *State) controllerInheritedConfig(cloudName string) func() (attrValues, error) {
+	return func() (attrValues, error) {
+		settings, err := readSettings(st.db(), globalSettingsC, cloudGlobalKey(cloudName))
+		if err != nil {
+			return nil, errors.Annotatef(err, "controller %q", st.ControllerUUID())
+		}
+		return settings.Map(), nil
 	}
-	return settings.Map(), nil
 }
 
 // regionInheritedConfig returns the configuration attributes for the region in
 // the cloud where the model is targeted.
-func (st *State) regionInheritedConfig(regionSpec *environs.RegionSpec) func() (attrValues, error) {
+func (st *State) regionInheritedConfig(regionSpec *environs.CloudRegionSpec) func() (attrValues, error) {
 	if regionSpec == nil {
 		return func() (attrValues, error) {
 			return nil, errors.New(
-				"no environs.RegionSpec provided")
+				"no environs.CloudRegionSpec provided")
 		}
 	}
 	if regionSpec.Region == "" {
@@ -433,14 +440,14 @@ func (st *State) regionInheritedConfig(regionSpec *environs.RegionSpec) func() (
 	}
 }
 
-// regionSpec returns a suitable environs.RegionSpec for use in
+// regionSpec returns a suitable environs.CloudRegionSpec for use in
 // regionInheritedConfig.
-func (st *State) regionSpec() (*environs.RegionSpec, error) {
+func (st *State) regionSpec() (*environs.CloudRegionSpec, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	rspec := &environs.RegionSpec{
+	rspec := &environs.CloudRegionSpec{
 		Cloud:  model.Cloud(),
 		Region: model.CloudRegion(),
 	}
@@ -478,7 +485,7 @@ func composeModelConfigAttributes(
 
 // ComposeNewModelConfig returns a complete map of config attributes suitable for
 // creating a new model, by combining user specified values with system defaults.
-func (st *State) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error) {
+func (st *State) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.CloudRegionSpec) (map[string]interface{}, error) {
 	configSources := modelConfigSources(st, regionSpec)
 	return composeModelConfigAttributes(modelAttr, configSources...)
 }

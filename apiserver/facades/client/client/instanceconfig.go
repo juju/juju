@@ -53,7 +53,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		return nil, errors.New("no agent version set in model configuration")
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
-	configGetter := stateenvirons.EnvironConfigGetter{st, model}
+	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
 	findToolsResult, err := toolsFinder.FindTools(params.FindToolsParams{
 		Number:       agentVersion,

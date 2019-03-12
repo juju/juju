@@ -236,30 +236,83 @@ func (s *modelmanagerSuite) TestDestroyModelV3DestroyStorageNotTrue(c *gc.C) {
 }
 
 func (s *modelmanagerSuite) TestModelDefaults(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ModelManager")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ModelDefaults")
-			c.Check(a, gc.IsNil)
-			c.Assert(result, gc.FitsTypeOf, &params.ModelDefaultsResult{})
-			results := result.(*params.ModelDefaultsResult)
-			results.Config = map[string]params.ModelDefaults{
-				"foo": {"bar", "model", []params.RegionDefaults{{
-					"dummy-region",
-					"dummy-value"}}},
-			}
-			return nil
-		},
-	)
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(objType, gc.Equals, "ModelManager")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "ModelDefaultsForClouds")
+				c.Check(a, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{{Tag: names.NewCloudTag("aws").String()}},
+				})
+				c.Assert(result, gc.FitsTypeOf, &params.ModelDefaultsResults{})
+				results := result.(*params.ModelDefaultsResults)
+				results.Results = []params.ModelDefaultsResult{{Config: map[string]params.ModelDefaults{
+					"foo": {"bar", "model", []params.RegionDefaults{{
+						"dummy-region",
+						"dummy-value"}}},
+				}}}
+				return nil
+			},
+		), BestVersion: 6}
 	client := modelmanager.NewClient(apiCaller)
-	result, err := client.ModelDefaults()
+	result, err := client.ModelDefaults("aws")
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(result, jc.DeepEquals, config.ModelDefaultAttributes{
+		"foo": {"bar", "model", []config.RegionDefaultValue{{
+			"dummy-region",
+			"dummy-value"}}},
+	})
+}
+
+func (s *modelmanagerSuite) TestModelDefaultsOldVersionFails(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Fail()
+				return nil
+			},
+		), BestVersion: 5}
+	client := modelmanager.NewClient(apiCaller)
+	_, err := client.ModelDefaults("aws")
+	c.Assert(err, gc.ErrorMatches, "model defaults for cloud aws not supported for this version of Juju")
+}
+
+func (s *modelmanagerSuite) TestModelDefaultsOldVersion(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(objType, gc.Equals, "ModelManager")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "ModelDefaults")
+				c.Check(a, gc.IsNil)
+				c.Assert(result, gc.FitsTypeOf, &params.ModelDefaultsResult{})
+				results := result.(*params.ModelDefaultsResult)
+				results.Config = map[string]params.ModelDefaults{
+					"foo": {"bar", "model", []params.RegionDefaults{{
+						"dummy-region",
+						"dummy-value"}},
+					}}
+				return nil
+			},
+		), BestVersion: 5,
+	}
+	client := modelmanager.NewClient(apiCaller)
+	result, err := client.ModelDefaults("")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, config.ModelDefaultAttributes{
 		"foo": {"bar", "model", []config.RegionDefaultValue{{
 			"dummy-region",

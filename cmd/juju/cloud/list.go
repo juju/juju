@@ -182,7 +182,9 @@ func (c *cloudList) all() map[string]*CloudDetails {
 	result := make(map[string]*CloudDetails)
 	addAll := func(someClouds map[string]*CloudDetails) {
 		for name, cloud := range someClouds {
-			result[name] = cloud
+			displayCloud := cloud
+			displayCloud.CloudType = displayCloudType(displayCloud.CloudType)
+			result[name] = displayCloud
 		}
 	}
 
@@ -266,7 +268,7 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 				description = description[:39]
 			}
 			w.PrintColor(color, name)
-			w.Println(len(info.Regions), defaultRegion, info.CloudType, description)
+			w.Println(len(info.Regions), defaultRegion, displayCloudType(info.CloudType), description)
 		}
 	}
 	printClouds(clouds.public, nil)
@@ -275,4 +277,11 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 
 	tw.Flush()
 	return nil
+}
+
+func displayCloudType(in string) string {
+	if in == "kubernetes" {
+		return "k8s"
+	}
+	return in
 }

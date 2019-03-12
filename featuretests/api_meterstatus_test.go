@@ -34,6 +34,8 @@ func (s *meterStatusIntegrationSuite) SetUpTest(c *gc.C) {
 	state := s.OpenAPIAs(c, s.unit.UnitTag(), password)
 	s.status = meterstatus.NewClient(state, s.unit.UnitTag())
 	c.Assert(s.status, gc.NotNil)
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func (s *meterStatusIntegrationSuite) TestMeterStatus(c *gc.C) {

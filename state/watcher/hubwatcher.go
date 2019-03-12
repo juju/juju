@@ -365,7 +365,7 @@ func (w *HubWatcher) loop() error {
 	var idle <-chan time.Time
 	if w.idleFunc != nil {
 		w.logger.Tracef("%p set idle timeout to %s", w, HubWatcherIdleTime)
-		idle = w.clock.After(HubWatcherIdleTime)
+		idle = time.After(HubWatcherIdleTime)
 	}
 	for {
 		select {
@@ -373,12 +373,15 @@ func (w *HubWatcher) loop() error {
 			return errors.Trace(tomb.ErrDying)
 		case inChange := <-w.changes:
 			w.queueChange(inChange)
+			if w.idleFunc != nil {
+				idle = time.After(HubWatcherIdleTime)
+			}
 		case req := <-w.request:
 			w.handle(req)
 		case <-idle:
 			w.logger.Tracef("%p notify %s idle", w, w.modelUUID)
 			w.idleFunc(w.modelUUID)
-			idle = w.clock.After(HubWatcherIdleTime)
+			idle = time.After(HubWatcherIdleTime)
 		}
 		for len(w.syncEvents) > 0 {
 			select {
@@ -387,8 +390,7 @@ func (w *HubWatcher) loop() error {
 			default:
 				if w.flush() {
 					if w.idleFunc != nil {
-						w.logger.Tracef("%p set idle timeout to %s", w, HubWatcherIdleTime)
-						idle = w.clock.After(HubWatcherIdleTime)
+						idle = time.After(HubWatcherIdleTime)
 					}
 				}
 			}
