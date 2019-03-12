@@ -303,7 +303,10 @@ func (k *kubernetesClient) APIVersion() (string, error) {
 	if err != nil {
 		return "", errors.Annotatef(err, "got '%s' querying API version", string(body))
 	}
-	return fmt.Sprintf("%s.%s", info.Major, info.Minor), nil
+	version := info.GitVersion
+	// git version is "vX.Y.Z", strip the "v"
+	version = strings.Trim(version, "v")
+	return version, nil
 }
 
 // Namespaces returns names of the namespaces on the cluster.

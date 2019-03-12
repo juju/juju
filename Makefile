@@ -152,7 +152,10 @@ operator-image: install caas/jujud-operator-dockerfile caas/jujud-operator-requi
 	rm -rf ${JUJUD_STAGING_DIR}
 
 push-operator-image: operator-image
-	docker push ${DOCKER_USERNAME}/caas-jujud-operator
+	docker push ${DOCKER_USERNAME}/caas-jujud-operator:${OPERATOR_IMAGE_TAG}
+
+microk8s-operator-update: operator-image
+	docker save ${DOCKER_USERNAME}/caas-jujud-operator:${OPERATOR_IMAGE_TAG} | microk8s.docker load
 
 check-k8s-model:
 	@:$(if $(value JUJU_K8S_MODEL),, $(error Undefined JUJU_K8S_MODEL))
@@ -160,7 +163,7 @@ check-k8s-model:
 
 local-operator-update: check-k8s-model operator-image
 	$(eval kubeworkers != juju status -m ${JUJU_K8S_MODEL} kubernetes-worker --format json | jq -c '.machines | keys' | tr  -c '[:digit:]' ' ' 2>&1)
-	docker save ${DOCKER_USERNAME}/caas-jujud-operator | gzip > /tmp/caas-jujud-operator-image.tar.gz
+	docker save ${DOCKER_USERNAME}/caas-jujud-operator:${OPERATOR_IMAGE_TAG} | gzip > /tmp/caas-jujud-operator-image.tar.gz
 	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} /tmp/caas-jujud-operator-image.tar.gz $(wm):/tmp/caas-jujud-operator-image.tar.gz ; )
 	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/caas-jujud-operator-image.tar.gz | docker load" ; )
 
