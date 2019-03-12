@@ -16,6 +16,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	gitjujutesting "github.com/juju/testing"
@@ -211,7 +212,9 @@ func (s *JujuConnSuite) WaitForNextSync(c *gc.C) {
 }
 
 func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
-	c.Logf("waiting for model %s to be idle", modelUUID)
+	// Use a logger rather than c.Log so we get timestamps.
+	logger := loggo.GetLogger("test")
+	logger.Infof("waiting for model %s to be idle", modelUUID)
 	s.WaitForNextSync(c)
 	s.modelWatcherMutex.Lock()
 	idleChan := make(chan string)
@@ -239,7 +242,7 @@ func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 			if uuid == modelUUID {
 				return
 			} else {
-				c.Logf("model %s is idle", uuid)
+				logger.Infof("model %s is idle", uuid)
 			}
 		case <-timeout:
 			c.Fatal("no sync event sent, is the watcher dead?")
