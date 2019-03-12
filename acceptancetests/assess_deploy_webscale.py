@@ -120,11 +120,11 @@ def extract_txn_metrics(logs, module):
     }
 
 
-def calc_stats(prefix, values):
+def calc_stats(prefix, values, include_count=False):
     """ Calculate statistics for a list of float values and return them as an
         object where the keys are prefixed using the provided prefix.
     """
-    return {
+    stats = {
         prefix+'min': min(values),
         prefix+'max': max(values),
         prefix+'total': sum(values),
@@ -132,6 +132,11 @@ def calc_stats(prefix, values):
         prefix+'median': statistics.median(values),
         prefix+'stdev': statistics.stdev(values),
     }
+
+    if include_count:
+        stats[prefix+'count'] = len(values)
+
+    return stats
 
 
 def merge_dicts(*args):
@@ -148,7 +153,7 @@ def construct_metrics(txn_metrics, test_duration):
     """
 
     return merge_dicts(
-        calc_stats('txn_time_', txn_metrics['timings']),
+        calc_stats('txn_time_', txn_metrics['timings'], include_count=True),
         calc_stats('txn_retries_', txn_metrics['retries']),
         {'test_duration': test_duration},
     )
