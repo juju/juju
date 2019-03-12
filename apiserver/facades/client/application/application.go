@@ -2045,8 +2045,10 @@ func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error 
 		if err := app.UpdateCharmConfig(arg.Generation, charmConfigChanges); err != nil {
 			return errors.Annotate(err, "updating application charm settings")
 		}
-		if err := api.addAppToGeneration(arg.ApplicationName); err != nil {
-			return errors.Trace(err)
+		if arg.Generation == model.GenerationNext {
+			if err := api.addAppToGeneration(arg.ApplicationName); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	return nil
