@@ -150,6 +150,6 @@ func (internalStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, 
 	}, nil
 }
 
-func (internalStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {
+func (internalStatePolicy) ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {
 	return nil, errors.NotImplementedf("ConfigSchemaSource")
 }

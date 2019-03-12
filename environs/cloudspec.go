@@ -81,11 +81,10 @@ func MakeCloudSpec(cloud jujucloud.Cloud, cloudRegionName string, credential *ju
 	return cloudSpec, nil
 }
 
-// RegionSpec contains the information needed to lookup specific region
-// configuration. This is for use in calling
-// state/modelconfig.(ComposeNewModelConfig) so there is no need to serialize
-// it.
-type RegionSpec struct {
+// CloudRegionSpec contains the information needed to lookup specific
+// cloud or cloud region configuration. This is for use in calling
+// state/modelconfig.(ComposeNewModelConfig) so there is no need to serialize it.
+type CloudRegionSpec struct {
 	// Cloud is the name of the cloud.
 	Cloud string
 
@@ -93,10 +92,10 @@ type RegionSpec struct {
 	Region string
 }
 
-// NewRegionSpec returns a RegionSpec ensuring neither arg is empty.
-func NewRegionSpec(cloud, region string) (*RegionSpec, error) {
-	if cloud == "" || region == "" {
-		return nil, errors.New("cloud and region are required to be non empty strings")
+// NewCloudRegionSpec returns a CloudRegionSpec ensuring cloud arg is not empty.
+func NewCloudRegionSpec(cloud, region string) (*CloudRegionSpec, error) {
+	if cloud == "" {
+		return nil, errors.New("cloud is required to be non empty")
 	}
-	return &RegionSpec{Cloud: cloud, Region: region}, nil
+	return &CloudRegionSpec{Cloud: cloud, Region: region}, nil
 }

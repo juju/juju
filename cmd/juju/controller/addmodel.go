@@ -152,7 +152,6 @@ type AddModelAPI interface {
 }
 
 type CloudAPI interface {
-	DefaultCloud() (names.CloudTag, error)
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	Cloud(names.CloudTag) (jujucloud.Cloud, error)
 	UserCredentials(names.UserTag, names.CloudTag) ([]names.CloudCredentialTag, error)
@@ -207,7 +206,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 	} else {
-		if cloudTag, cloud, err = defaultCloud(cloudClient); err != nil {
+		if cloudTag, cloud, err = maybeGetControllerCloud(cloudClient); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -302,17 +301,21 @@ before "juju ssh", "juju scp", or "juju debug-hooks" will work.`)
 }
 
 func (c *addModelCommand) getCloudRegion(cloudClient CloudAPI) (cloudTag names.CloudTag, cloud jujucloud.Cloud, cloudRegion string, err error) {
+	fail := func(err error) (names.CloudTag, jujucloud.Cloud, string, error) {
+		return names.CloudTag{}, jujucloud.Cloud{}, "", err
+	}
+
 	var cloudName string
 	sep := strings.IndexRune(c.CloudRegion, '/')
 	if sep >= 0 {
 		// User specified "cloud/region".
 		cloudName, cloudRegion = c.CloudRegion[:sep], c.CloudRegion[sep+1:]
 		if !names.IsValidCloud(cloudName) {
-			return names.CloudTag{}, jujucloud.Cloud{}, "", errors.NotValidf("cloud name %q", cloudName)
+			return fail(errors.NotValidf("cloud name %q", cloudName))
 		}
 		cloudTag = names.NewCloudTag(cloudName)
 		if cloud, err = cloudClient.Cloud(cloudTag); err != nil {
-			return names.CloudTag{}, jujucloud.Cloud{}, "", errors.Trace(err)
+			return fail(errors.Trace(err))
 		}
 	} else {
 		// User specified "cloud" or "region". We'll try first
@@ -333,13 +336,13 @@ func (c *addModelCommand) getCloudRegion(cloudClient CloudAPI) (cloudTag names.C
 				// the default cloud.
 				cloudRegion, cloudName = cloudName, ""
 			} else if err != nil {
-				return names.CloudTag{}, jujucloud.Cloud{}, "", errors.Trace(err)
+				return fail(errors.Trace(err))
 			}
 		}
 		if cloudName == "" {
-			cloudTag, cloud, err = defaultCloud(cloudClient)
-			if err != nil && !errors.IsNotFound(err) {
-				return names.CloudTag{}, jujucloud.Cloud{}, "", errors.Trace(err)
+			cloudTag, cloud, err = maybeGetControllerCloud(cloudClient)
+			if err != nil {
+				return fail(errors.Trace(err))
 			}
 		}
 	}
@@ -349,22 +352,21 @@ func (c *addModelCommand) getCloudRegion(cloudClient CloudAPI) (cloudTag names.C
 			if cloudRegion == c.CloudRegion {
 				// The string is not in the format cloud/region,
 				// so we should tell that the user that it is
-				// neither a cloud nor a region in the default
-				// cloud (or that there is no default cloud).
-				err := c.unsupportedCloudOrRegionError(cloudClient, cloudTag)
-				return names.CloudTag{}, jujucloud.Cloud{}, "", errors.Trace(err)
+				// neither a cloud nor a region in the
+				// controller's cloud.
+				clouds, err := cloudClient.Clouds()
+				if err != nil {
+					return fail(errors.Annotate(err, "querying supported clouds"))
+				}
+				return fail(unsupportedCloudOrRegionError(clouds, c.CloudRegion))
 			}
-			return names.CloudTag{}, jujucloud.Cloud{}, "", errors.Trace(err)
+			return fail(errors.Trace(err))
 		}
 	}
 	return cloudTag, cloud, cloudRegion, nil
 }
 
-func (c *addModelCommand) unsupportedCloudOrRegionError(cloudClient CloudAPI, defaultCloudTag names.CloudTag) (err error) {
-	clouds, err := cloudClient.Clouds()
-	if err != nil {
-		return errors.Annotate(err, "querying supported clouds")
-	}
+func unsupportedCloudOrRegionError(clouds map[names.CloudTag]jujucloud.Cloud, cloudRegion string) (err error) {
 	cloudNames := make([]string, 0, len(clouds))
 	for tag := range clouds {
 		cloudNames = append(cloudNames, tag.Id())
@@ -385,37 +387,42 @@ func (c *addModelCommand) unsupportedCloudOrRegionError(cloudClient CloudAPI, de
 	tw.Flush()
 
 	var prefix string
-	if defaultCloudTag != (names.CloudTag{}) {
-		prefix = fmt.Sprintf(`
+	switch len(clouds) {
+	case 0:
+		return errors.New(`
+you do not have add-model access to any clouds on this controller.
+Please ask the controller administrator to grant you add-model permission
+for a particular cloud to which you want to add a model.`[1:])
+	case 1:
+		for cloudTag := range clouds {
+			prefix = fmt.Sprintf(`
 %q is neither a cloud supported by this controller,
-nor a region in the controller's default cloud %q.
-The clouds/regions supported by this controller are:`[1:],
-			c.CloudRegion, defaultCloudTag.Id())
-	} else {
-		prefix = fmt.Sprintf(`
-%q is not a cloud supported by this controller,
-and there is no default cloud. The clouds/regions supported
-by this controller are:`[1:], c.CloudRegion)
+nor a region in the controller's default cloud %q.`[1:],
+				cloudRegion, cloudTag.Id())
+		}
+	default:
+		prefix = `
+this controller manages more than one cloud.
+Please specify which cloud/region to use:
+
+    juju add-model [options] <model-name> cloud[/region]
+`[1:]
 	}
-	return errors.Errorf("%s\n\n%s", prefix, buf.String())
+	return errors.Errorf("%s\nThe clouds/regions supported by this controller are:\n\n%s", prefix, buf.String())
 }
 
-func defaultCloud(cloudClient CloudAPI) (names.CloudTag, jujucloud.Cloud, error) {
-	cloudTag, err := cloudClient.DefaultCloud()
-	if err != nil {
-		if params.IsCodeNotFound(err) {
-			return names.CloudTag{}, jujucloud.Cloud{}, errors.NewNotFound(nil, `
-there is no default cloud defined, please specify one using:
-
-    juju add-model [options] <model-name> cloud[/region]`[1:])
-		}
-		return names.CloudTag{}, jujucloud.Cloud{}, errors.Trace(err)
-	}
-	cloud, err := cloudClient.Cloud(cloudTag)
+func maybeGetControllerCloud(cloudClient CloudAPI) (names.CloudTag, jujucloud.Cloud, error) {
+	clouds, err := cloudClient.Clouds()
 	if err != nil {
 		return names.CloudTag{}, jujucloud.Cloud{}, errors.Trace(err)
 	}
-	return cloudTag, cloud, nil
+	if len(clouds) != 1 {
+		return names.CloudTag{}, jujucloud.Cloud{}, unsupportedCloudOrRegionError(clouds, "")
+	}
+	for cloudTag, cloud := range clouds {
+		return cloudTag, cloud, nil
+	}
+	panic("unreachable")
 }
 
 var ambiguousDetectedCredentialError = errors.New(`

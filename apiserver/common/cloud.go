@@ -22,6 +22,13 @@ func CloudToParams(cloud jujucloud.Cloud) params.Cloud {
 			StorageEndpoint:  region.StorageEndpoint,
 		}
 	}
+	var regionConfig map[string]map[string]interface{}
+	for r, attr := range cloud.RegionConfig {
+		if regionConfig == nil {
+			regionConfig = make(map[string]map[string]interface{})
+		}
+		regionConfig[r] = attr
+	}
 	return params.Cloud{
 		Type:             cloud.Type,
 		AuthTypes:        authTypes,
@@ -30,6 +37,8 @@ func CloudToParams(cloud jujucloud.Cloud) params.Cloud {
 		StorageEndpoint:  cloud.StorageEndpoint,
 		Regions:          regions,
 		CACertificates:   cloud.CACertificates,
+		Config:           cloud.Config,
+		RegionConfig:     regionConfig,
 	}
 }
 
@@ -47,6 +56,13 @@ func CloudFromParams(cloudName string, p params.Cloud) jujucloud.Cloud {
 			StorageEndpoint:  region.StorageEndpoint,
 		}
 	}
+	var regionConfig map[string]jujucloud.Attrs
+	for r, attr := range p.RegionConfig {
+		if regionConfig == nil {
+			regionConfig = make(map[string]jujucloud.Attrs)
+		}
+		regionConfig[r] = attr
+	}
 	return jujucloud.Cloud{
 		Name:             cloudName,
 		Type:             p.Type,
@@ -56,5 +72,7 @@ func CloudFromParams(cloudName string, p params.Cloud) jujucloud.Cloud {
 		StorageEndpoint:  p.StorageEndpoint,
 		Regions:          regions,
 		CACertificates:   p.CACertificates,
+		Config:           p.Config,
+		RegionConfig:     regionConfig,
 	}
 }

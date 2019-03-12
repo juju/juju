@@ -19,7 +19,7 @@ import (
 type MockPolicy struct {
 	GetPrechecker                 func() (environs.InstancePrechecker, error)
 	GetConfigValidator            func() (config.Validator, error)
-	GetProviderConfigSchemaSource func() (config.ConfigSchemaSource, error)
+	GetProviderConfigSchemaSource func(cloudName string) (config.ConfigSchemaSource, error)
 	GetConstraintsValidator       func() (constraints.Validator, error)
 	GetInstanceDistributor        func() (instance.Distributor, error)
 	GetStorageProviderRegistry    func() (storage.ProviderRegistry, error)
@@ -60,18 +60,20 @@ func (p *MockPolicy) StorageProviderRegistry() (storage.ProviderRegistry, error)
 	return nil, errors.NotImplementedf("StorageProviderRegistry")
 }
 
-func (p *MockPolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {
+func (p *MockPolicy) ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {
 	if p.GetProviderConfigSchemaSource != nil {
-		return p.GetProviderConfigSchemaSource()
+		return p.GetProviderConfigSchemaSource(cloudName)
 	}
 	return nil, errors.NotImplementedf("ProviderConfigSchemaSource")
 }
 
-type MockConfigSchemaSource struct{}
+type MockConfigSchemaSource struct {
+	CloudName string
+}
 
 func (m *MockConfigSchemaSource) ConfigSchema() schema.Fields {
 	configSchema := environschema.Fields{
-		"providerAttr": {
+		"providerAttr" + m.CloudName: {
 			Type: environschema.Tstring,
 		},
 	}
@@ -84,6 +86,6 @@ func (m *MockConfigSchemaSource) ConfigSchema() schema.Fields {
 
 func (m *MockConfigSchemaSource) ConfigDefaults() schema.Defaults {
 	return schema.Defaults{
-		"providerAttr": "vulch",
+		"providerAttr" + m.CloudName: "vulch",
 	}
 }

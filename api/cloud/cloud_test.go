@@ -105,29 +105,6 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 	})
 }
 
-func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Cloud")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "DefaultCloud")
-			c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
-			results := result.(*params.StringResult)
-			results.Result = "cloud-foo"
-			return nil
-		},
-	)
-
-	client := cloudapi.NewClient(apiCaller)
-	result, err := client.DefaultCloud()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, names.NewCloudTag("foo"))
-}
-
 func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,

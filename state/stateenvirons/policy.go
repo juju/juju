@@ -5,8 +5,8 @@ package stateenvirons
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -52,26 +52,20 @@ func (p environStatePolicy) ConfigValidator() (config.Validator, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() != state.ModelTypeIAAS {
-		// TODO(caas) CAAS providers should also support
-		// config validation.
-		return nil, errors.NotImplementedf("ConfigValidator")
+	cloud, err := p.st.Cloud(model.Cloud())
+	if err != nil {
+		return nil, errors.Annotate(err, "getting cloud")
 	}
-	return environProvider(p.st)
+	return environProvider(cloud.Type)
 }
 
 // ProviderConfigSchemaSource implements state.Policy.
-func (p environStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {
-	model, err := p.st.Model()
+func (p environStatePolicy) ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {
+	cloud, err := p.st.Cloud(cloudName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() != state.ModelTypeIAAS {
-		// TODO(caas) CAAS providers should also provide
-		// a config schema.
-		return nil, errors.NotImplementedf("ProviderConfigSchemaSource")
-	}
-	provider, err := environProvider(p.st)
+	provider, err := environProvider(cloud.Type)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -157,15 +151,6 @@ func NewStorageProviderRegistry(reg storage.ProviderRegistry) storage.ProviderRe
 	return storage.ChainedProviderRegistry{reg, provider.CommonStorageProviders()}
 }
 
-func environProvider(st *state.State) (environs.EnvironProvider, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting model")
-	}
-	cloud, err := st.Cloud(model.Cloud())
-	if err != nil {
-		return nil, errors.Annotate(err, "getting cloud")
-	}
-	// EnvironProvider implements state.ConfigValidator.
-	return environs.Provider(cloud.Type)
+func environProvider(cloudType string) (environs.EnvironProvider, error) {
+	return environs.Provider(cloudType)
 }

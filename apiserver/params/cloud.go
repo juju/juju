@@ -5,13 +5,15 @@ package params
 
 // Cloud holds information about a cloud.
 type Cloud struct {
-	Type             string        `json:"type"`
-	AuthTypes        []string      `json:"auth-types,omitempty"`
-	Endpoint         string        `json:"endpoint,omitempty"`
-	IdentityEndpoint string        `json:"identity-endpoint,omitempty"`
-	StorageEndpoint  string        `json:"storage-endpoint,omitempty"`
-	Regions          []CloudRegion `json:"regions,omitempty"`
-	CACertificates   []string      `json:"ca-certificates,omitempty"`
+	Type             string                            `json:"type"`
+	AuthTypes        []string                          `json:"auth-types,omitempty"`
+	Endpoint         string                            `json:"endpoint,omitempty"`
+	IdentityEndpoint string                            `json:"identity-endpoint,omitempty"`
+	StorageEndpoint  string                            `json:"storage-endpoint,omitempty"`
+	Regions          []CloudRegion                     `json:"regions,omitempty"`
+	CACertificates   []string                          `json:"ca-certificates,omitempty"`
+	Config           map[string]interface{}            `json:"config,omitempty"`
+	RegionConfig     map[string]map[string]interface{} `json:"region-config,omitempty"`
 }
 
 // CloudRegion holds information about a cloud region.

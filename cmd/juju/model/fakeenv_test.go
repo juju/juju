@@ -4,8 +4,7 @@
 package model_test
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -86,6 +85,7 @@ func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAPIRoot = &fakeAPIConnection{}
 	s.fakeDefaultsAPI = &fakeModelDefaultsAPI{
+		version: 6,
 		values: map[string]interface{}{
 			"name":    "test-model",
 			"special": "special value",
@@ -105,8 +105,8 @@ func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.fakeCloudAPI = &fakeCloudAPI{
-		clouds: map[string]jujucloud.Cloud{
-			"cloud-dummy": {
+		clouds: map[names.CloudTag]jujucloud.Cloud{
+			names.NewCloudTag("dummy"): {
 				Name: "dummy",
 				Type: "dummy-cloud",
 				Regions: []jujucloud.Region{
@@ -132,6 +132,11 @@ type fakeModelDefaultsAPI struct {
 	defaults      config.ModelDefaultAttributes
 	err           error
 	keys          []string
+	version       int
+}
+
+func (f *fakeModelDefaultsAPI) BestAPIVersion() int {
+	return f.version
 }
 
 func (f *fakeModelDefaultsAPI) Close() error {
@@ -142,7 +147,8 @@ func (f *fakeModelDefaultsAPI) ModelGet() (map[string]interface{}, error) {
 	return f.values, nil
 }
 
-func (f *fakeModelDefaultsAPI) ModelDefaults() (config.ModelDefaultAttributes, error) {
+func (f *fakeModelDefaultsAPI) ModelDefaults(cloud string) (config.ModelDefaultAttributes, error) {
+	f.cloud = cloud
 	return f.defaults, nil
 }
 
@@ -181,20 +187,20 @@ func (f *fakeModelDefaultsAPI) ModelUnset(keys ...string) error {
 }
 
 type fakeCloudAPI struct {
-	clouds map[string]jujucloud.Cloud
+	clouds map[names.CloudTag]jujucloud.Cloud
 }
 
 func (f *fakeCloudAPI) Close() error { return nil }
-func (f *fakeCloudAPI) DefaultCloud() (names.CloudTag, error) {
-	return names.NewCloudTag("dummy"), nil
+func (f *fakeCloudAPI) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
+	return f.clouds, nil
 }
-func (f *fakeCloudAPI) Cloud(name names.CloudTag) (jujucloud.Cloud, error) {
+func (f *fakeCloudAPI) Cloud(cloud names.CloudTag) (jujucloud.Cloud, error) {
 	var (
 		c  jujucloud.Cloud
 		ok bool
 	)
-	if c, ok = f.clouds[name.String()]; !ok {
-		return jujucloud.Cloud{}, errors.New("Unknown cloud")
+	if c, ok = f.clouds[cloud]; !ok {
+		return jujucloud.Cloud{}, errors.NotFoundf("cloud %q", cloud.Id())
 	}
 	return c, nil
 }

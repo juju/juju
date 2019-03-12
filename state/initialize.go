@@ -256,7 +256,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 			Insert: &hostedModelCountDoc{},
 		},
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
-		createSettingsOp(globalSettingsC, controllerInheritedSettingsGlobalKey, args.ControllerInheritedConfig),
+		createSettingsOp(globalSettingsC, cloudGlobalKey(args.Cloud.Name), args.ControllerInheritedConfig),
 	)
 	for k, v := range args.Cloud.RegionConfig {
 		// Create an entry keyed on cloudname#<key>, value for each region in
@@ -362,7 +362,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 				})},
 		}
 	} else {
-		rspec := &environs.RegionSpec{Cloud: args.CloudName, Region: args.CloudRegion}
+		rspec := &environs.CloudRegionSpec{Cloud: args.CloudName, Region: args.CloudRegion}
 		configSources = modelConfigSources(st, rspec)
 	}
 	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
