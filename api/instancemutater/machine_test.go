@@ -4,14 +4,15 @@
 package instancemutater_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/base/mocks"
-	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/instancemutater"
+	"github.com/juju/juju/api/instancemutater/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lxdprofile"
 	jujutesting "github.com/juju/juju/testing"
@@ -25,7 +26,8 @@ type instanceMutaterMachineSuite struct {
 	tag      names.MachineTag
 	unitName string
 
-	fCaller *mocks.MockFacadeCaller
+	fCaller   *mocks.MockFacadeCaller
+	apiCaller *mocks.MockAPICaller
 }
 
 var _ = gc.Suite(&instanceMutaterMachineSuite{})
@@ -39,7 +41,7 @@ func (s *instanceMutaterMachineSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteSuccess(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setup(c).Finish()
 
 	results := params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
 	args := s.setUpSetProfileUpgradeCompleteArgs()
@@ -47,12 +49,12 @@ func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteSuccess(
 	fExp := s.fCaller.EXPECT()
 	fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
 
-	err := s.setUpMachine().SetUpgradeCharmProfileComplete(s.unitName, s.message)
+	err := s.setupMachine().SetUpgradeCharmProfileComplete(s.unitName, s.message)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteError(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setup(c).Finish()
 
 	results := params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "failed"}}}}
 	args := s.setUpSetProfileUpgradeCompleteArgs()
@@ -60,12 +62,12 @@ func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteError(c 
 	fExp := s.fCaller.EXPECT()
 	fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
 
-	err := s.setUpMachine().SetUpgradeCharmProfileComplete(s.unitName, s.message)
+	err := s.setupMachine().SetUpgradeCharmProfileComplete(s.unitName, s.message)
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
 func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteErrorExpectedOne(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setup(c).Finish()
 
 	message := lxdprofile.SuccessStatus
 	results := params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}}
@@ -74,41 +76,41 @@ func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteErrorExp
 	fExp := s.fCaller.EXPECT()
 	fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
 
-	err := s.setUpMachine().SetUpgradeCharmProfileComplete(s.unitName, message)
+	err := s.setupMachine().SetUpgradeCharmProfileComplete(s.unitName, message)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
 func (s *instanceMutaterMachineSuite) TestWatchUnitsSuccess(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setup(c).Finish()
 
 	results := params.StringsWatchResults{Results: []params.StringsWatchResult{{
 		StringsWatcherId: "1",
 		Error:            nil,
 	}}}
-	apiCaller := apitesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "StringsWatcher")
-			c.Check(id, gc.Equals, "1")
-			c.Check(request, gc.Equals, "Next")
-			c.Check(a, gc.IsNil)
-			return nil
-		},
-	)
-	rawAPICaller := apitesting.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
+
+	aExp := s.apiCaller.EXPECT()
+	aExp.BestFacadeVersion("StringsWatcher").Return(1)
+	aExp.APICall("StringsWatcher", 1, "1", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
+
 	fExp := s.fCaller.EXPECT()
 	fExp.FacadeCall("WatchUnits", s.args, gomock.Any()).SetArg(2, results).Return(nil)
-	fExp.RawAPICaller().Return(rawAPICaller)
+	fExp.RawAPICaller().Return(s.apiCaller)
 
-	_, err := s.setUpMachine().WatchUnits()
+	ch, err := s.setupMachine().WatchUnits()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// watch for the changes
+	for i := 0; i < 2; i++ {
+		select {
+		case <-ch.Changes():
+		case <-time.After(jujutesting.LongWait):
+			c.Fail()
+		}
+	}
 }
 
 func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setup(c).Finish()
 
 	args := params.CharmProfilingInfoArg{
 		Entity:    params.Entity{Tag: s.tag.String()},
@@ -131,7 +133,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 	fExp := s.fCaller.EXPECT()
 	fExp.FacadeCall("CharmProfilingInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
 
-	info, err := s.setUpMachine().CharmProfilingInfo([]string{s.unitName})
+	info, err := s.setupMachine().CharmProfilingInfo([]string{s.unitName})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Changes, jc.IsTrue)
 	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
@@ -142,7 +144,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 }
 
 func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessNoChanges(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setup(c).Finish()
 
 	args := params.CharmProfilingInfoArg{
 		Entity:    params.Entity{Tag: s.tag.String()},
@@ -160,17 +162,18 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessNoChanges(c *
 	fExp := s.fCaller.EXPECT()
 	fExp.FacadeCall("CharmProfilingInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
 
-	info, err := s.setUpMachine().CharmProfilingInfo([]string{s.unitName})
+	info, err := s.setupMachine().CharmProfilingInfo([]string{s.unitName})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Changes, jc.IsFalse)
 	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
 	c.Assert(info.ProfileChanges, gc.HasLen, 0)
 }
 
-func (s *instanceMutaterMachineSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *instanceMutaterMachineSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.fCaller = mocks.NewMockFacadeCaller(ctrl)
+	s.apiCaller = mocks.NewMockAPICaller(ctrl)
 
 	return ctrl
 }
@@ -187,6 +190,6 @@ func (s *instanceMutaterMachineSuite) setUpSetProfileUpgradeCompleteArgs() param
 	}
 }
 
-func (s *instanceMutaterMachineSuite) setUpMachine() *instancemutater.Machine {
+func (s *instanceMutaterMachineSuite) setupMachine() *instancemutater.Machine {
 	return instancemutater.NewMachine(s.fCaller, s.tag, params.Alive)
 }

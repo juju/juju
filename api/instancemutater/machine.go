@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
+//go:generate mockgen -package mocks -destination mocks/caller_mock.go github.com/juju/juju/api/base APICaller,FacadeCaller
 //go:generate mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/instancemutater MutaterMachine
 type MutaterMachine interface {
 	// CharmProfilingInfo returns info to update lxd profiles on the machine
