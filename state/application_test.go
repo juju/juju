@@ -3605,7 +3605,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 	// Consume the initial construction events from the watchers.
-	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func strPtr(s string) *string {
