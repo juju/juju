@@ -12,13 +12,22 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/mongo"
+	jworker "github.com/juju/juju/worker"
 )
+
+// Logger defines the logging methods used by the worker.
+type Logger interface {
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
+}
 
 // ManifoldConfig provides the dependencies for the
 // agent config updater manifold.
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
+	Logger        Logger
 }
 
 // Manifold defines a simple start function which
@@ -39,7 +48,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// Grab the tag and ensure that it's for a machine.
-			tag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
+			currentConfig := agent.CurrentConfig()
+			tag, ok := currentConfig.Tag().(names.MachineTag)
 			if !ok {
 				return nil, errors.New("agent's tag is not a machine tag")
 			}
@@ -63,6 +73,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrUninstall
 			}
 
+			controllerConfig, err := apiState.ControllerConfig()
+			if err != nil {
+				return nil, errors.Annotate(err, "getting controller config")
+			}
+			// If the mongo memory profile from the controller config
+			// is different from the one in the agent config we need to
+			// restart the agent to apply the memory profile to the mongo
+			// service.
+			logger := config.Logger
+			mongoProfile := mongo.MemoryProfile(controllerConfig.MongoMemoryProfile())
+			mongoProfileChanged := mongoProfile != currentConfig.MongoMemoryProfile()
 			info, err := apiState.StateServingInfo()
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
@@ -81,10 +102,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					info.PrivateKey = existing.PrivateKey
 				}
 				config.SetStateServingInfo(info)
+				if mongoProfileChanged {
+					logger.Debugf("setting agent config mongo memory profile: %s", mongoProfile)
+					config.SetMongoMemoryProfile(mongoProfile)
+				}
 				return nil
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
+			}
+			// If we need a restart, return the fatal error.
+			if mongoProfileChanged {
+				logger.Infof("Restarting agent for new mongo memory profile")
+				return nil, jworker.ErrRestartAgent
 			}
 
 			// All is well - we're done (no actual worker is actually returned).
