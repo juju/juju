@@ -67,6 +67,7 @@ from jujupy.status import (
 )
 from jujupy.controller import (
     Controllers,
+    ControllerConfig,
 )
 from jujupy.utility import (
     _dns_name_for_machine,
@@ -577,6 +578,8 @@ class ModelClient:
 
     controllers_class = Controllers
 
+    controller_config_class = ControllerConfig
+
     agent_metadata_url = 'agent-metadata-url'
 
     model_permissions = frozenset(['read', 'write', 'admin'])
@@ -1085,6 +1088,23 @@ class ModelClient:
                 pass
         raise ControllersTimeout(
             'Timed out waiting for juju show-controllers to succeed')
+
+    def get_controller_config(self, controller_name, timeout=60):
+        """Get controller config."""
+        for ignored in until_timeout(timeout):
+            try:
+                return self.controller_config_class.from_text(
+                    self.get_juju_output(
+                        'controller-config',
+                        '--controller', controller_name,
+                        '--format', 'yaml',
+                        include_e=False,
+                    ).decode('utf-8'),
+                )
+            except subprocess.CalledProcessError:
+                pass
+        raise ControllersTimeout(
+            'Timed out waiting for juju controller-config to succeed')
 
     def show_model(self, model_name=None):
         model_details = self.get_juju_output(
