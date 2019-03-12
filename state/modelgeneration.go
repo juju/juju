@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -31,6 +32,9 @@ type generationDoc struct {
 	// which indicates that it has configuration changes applied in the
 	// generation, but no units currently set to be in it.
 	AssignedUnits map[string][]string `bson:"assigned-units"`
+
+	// Created is a Unix timestamp indicating when this generation was created.
+	Created int64 `bson:"created"`
 
 	// Completed, if set, indicates when this generation was completed and
 	// effectively became the current model generation.
@@ -57,6 +61,11 @@ func (g *Generation) ModelUUID() string {
 // that have been assigned to this generation.
 func (g *Generation) AssignedUnits() map[string][]string {
 	return g.doc.AssignedUnits
+}
+
+// Created returns the Unix timestamp at generation creation.
+func (g *Generation) Created() int64 {
+	return g.doc.Created
 }
 
 // IsCompleted returns true if the generation has been completed;
@@ -234,7 +243,7 @@ func (g *Generation) complete(allowEmpty bool) (bool, error) {
 		if err := g.checkCanMakeCurrent(allowEmpty); err != nil {
 			return nil, errors.Trace(err)
 		}
-		time, err := g.st.ControllerTimestamp()
+		now, err := g.st.ControllerTimestamp()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -249,7 +258,7 @@ func (g *Generation) complete(allowEmpty bool) (bool, error) {
 				Id:     g.doc.Id,
 				Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
 				Update: bson.D{
-					{"$set", bson.D{{"completed", time.Unix()}}},
+					{"$set", bson.D{{"completed", now.Unix()}}},
 				},
 			},
 		}
@@ -368,7 +377,11 @@ func (st *State) AddGeneration() error {
 			return nil, errors.Errorf("model has a next generation that is not completed")
 		}
 
-		return insertGenerationTxnOps(strconv.Itoa(seq)), nil
+		now, err := st.ControllerTimestamp()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return insertGenerationTxnOps(strconv.Itoa(seq), now), nil
 	}
 	err = st.db().Run(buildTxn)
 	if err != nil {
@@ -378,10 +391,11 @@ func (st *State) AddGeneration() error {
 	return err
 }
 
-func insertGenerationTxnOps(id string) []txn.Op {
+func insertGenerationTxnOps(id string, now *time.Time) []txn.Op {
 	doc := &generationDoc{
 		Id:            id,
 		AssignedUnits: map[string][]string{},
+		Created:       now.Unix(),
 	}
 
 	return []txn.Op{

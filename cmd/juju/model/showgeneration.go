@@ -4,15 +4,21 @@
 package model
 
 import (
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/juju/osenv"
 )
 
 const (
@@ -23,7 +29,8 @@ generation, with any units that have been advanced, and any changed config
 values made to the generations.
 
 Examples:
-    juju add-generation
+    juju show-generation
+    juju show-generation --utc
 
 See also:
     add-generation
@@ -37,7 +44,7 @@ See also:
 //go:generate mockgen -package mocks -destination ./mocks/showgeneration_mock.go github.com/juju/juju/cmd/juju/model ShowGenerationCommandAPI
 type ShowGenerationCommandAPI interface {
 	Close() error
-	GenerationInfo(string) (model.GenerationSummaries, error)
+	GenerationInfo(string, func(time.Time) string) (model.GenerationSummaries, error)
 }
 
 // addGenerationCommand is the simplified command for accessing and setting
@@ -45,8 +52,9 @@ type ShowGenerationCommandAPI interface {
 type showGenerationCommand struct {
 	modelcmd.ModelCommandBase
 
-	api ShowGenerationCommandAPI
-	out cmd.Output
+	isoTime bool
+	api     ShowGenerationCommandAPI
+	out     cmd.Output
 }
 
 // NewShowGenerationCommand wraps showGenerationCommand with sane model settings.
@@ -67,6 +75,7 @@ func (c *showGenerationCommand) Info() *cmd.Info {
 // SetFlags implements part of the cmd.Command interface.
 func (c *showGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
@@ -74,6 +83,16 @@ func (c *showGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *showGenerationCommand) Init(args []string) error {
 	if len(args) != 0 {
 		return errors.Errorf("No arguments allowed")
+	}
+	// If use of ISO time not specified on command line, check env var.
+	if !c.isoTime {
+		var err error
+		envVarValue := os.Getenv(osenv.JujuStatusIsoTimeEnvKey)
+		if envVarValue != "" {
+			if c.isoTime, err = strconv.ParseBool(envVarValue); err != nil {
+				return errors.Annotatef(err, "invalid %s env var, expected true|false", osenv.JujuStatusIsoTimeEnvKey)
+			}
+		}
 	}
 	return nil
 }
@@ -105,7 +124,12 @@ func (c *showGenerationCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting model details")
 	}
 
-	deltas, err := client.GenerationInfo(modelDetails.ModelUUID)
+	// Partially apply our time format
+	formatTime := func(t time.Time) string {
+		return common.FormatTime(&t, c.isoTime)
+	}
+
+	deltas, err := client.GenerationInfo(modelDetails.ModelUUID, formatTime)
 	if err != nil {
 		return errors.Trace(err)
 	}

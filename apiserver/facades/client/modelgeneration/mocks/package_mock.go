@@ -309,6 +309,18 @@ func (mr *MockGenerationMockRecorder) AutoComplete() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoComplete", reflect.TypeOf((*MockGeneration)(nil).AutoComplete))
 }
 
+// Created mocks base method
+func (m *MockGeneration) Created() int64 {
+	ret := m.ctrl.Call(m, "Created")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// Created indicates an expected call of Created
+func (mr *MockGenerationMockRecorder) Created() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Created", reflect.TypeOf((*MockGeneration)(nil).Created))
+}
+
 // MakeCurrent mocks base method
 func (m *MockGeneration) MakeCurrent() error {
 	ret := m.ctrl.Call(m, "MakeCurrent")

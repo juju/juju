@@ -27,6 +27,8 @@ func (s *generationSuite) TestNextGenerationNotFound(c *gc.C) {
 }
 
 func (s *generationSuite) TestNextGenerationSuccess(c *gc.C) {
+	s.setupTestingClock(c)
+
 	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
 
 	gen, err := s.Model.NextGeneration()
@@ -34,6 +36,7 @@ func (s *generationSuite) TestNextGenerationSuccess(c *gc.C) {
 	c.Assert(gen, gc.NotNil)
 	c.Check(gen.ModelUUID(), gc.Equals, s.Model.UUID())
 	c.Check(gen.Id(), gc.Not(gc.Equals), "")
+	c.Check(gen.Created(), gc.Not(gc.Equals), 0)
 }
 
 func (s *generationSuite) TestNextGenerationExistsError(c *gc.C) {
@@ -46,7 +49,7 @@ func (s *generationSuite) TestNextGenerationExistsError(c *gc.C) {
 }
 
 func (s *generationSuite) TestAssignApplicationGenCompletedError(c *gc.C) {
-	s.setupClockForComplete(c)
+	s.setupTestingClock(c)
 	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
 
 	gen, err := s.Model.NextGeneration()
@@ -74,7 +77,7 @@ func (s *generationSuite) TestAssignApplicationSuccess(c *gc.C) {
 }
 
 func (s *generationSuite) TestAssignUnitGenCompletedError(c *gc.C) {
-	s.setupClockForComplete(c)
+	s.setupTestingClock(c)
 	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
 
 	gen, err := s.Model.NextGeneration()
@@ -157,7 +160,7 @@ func (s *generationSuite) TestAssignAllUnitsSuccessRemaining(c *gc.C) {
 }
 
 func (s *generationSuite) TestAssignAllUnitsGenCompletedError(c *gc.C) {
-	s.setupClockForComplete(c)
+	s.setupTestingClock(c)
 	s.setupAssignAllUnits(c)
 
 	gen, err := s.Model.NextGeneration()
@@ -167,18 +170,9 @@ func (s *generationSuite) TestAssignAllUnitsGenCompletedError(c *gc.C) {
 	c.Assert(gen.AssignAllUnits("riak"), gc.ErrorMatches, "generation has been completed")
 }
 
-func (s *generationSuite) setupClockForComplete(c *gc.C) {
-	now := testing.NonZeroTime()
-	clock := testclock.NewClock(now)
-	clock.Advance(400000 * time.Hour)
-
-	err := s.State.SetClockForTesting(clock)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *generationSuite) TestAutoCompleteSuccess(c *gc.C) {
 	s.setupAssignAllUnits(c)
-	s.setupClockForComplete(c)
+	s.setupTestingClock(c)
 
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
@@ -215,7 +209,7 @@ func (s *generationSuite) TestAutoCompleteGenerationIncomplete(c *gc.C) {
 }
 
 func (s *generationSuite) TestMakeCurrentSuccess(c *gc.C) {
-	s.setupClockForComplete(c)
+	s.setupTestingClock(c)
 	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
 
 	gen, err := s.Model.NextGeneration()
@@ -273,4 +267,10 @@ func (s *generationSuite) TestHasNextGeneration(c *gc.C) {
 	has, err = s.Model.HasNextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(has, jc.IsTrue)
+}
+
+func (s *generationSuite) setupTestingClock(c *gc.C) {
+	clock := testclock.NewClock(testing.NonZeroTime())
+	clock.Advance(400000 * time.Hour)
+	c.Assert(s.State.SetClockForTesting(clock), jc.ErrorIsNil)
 }

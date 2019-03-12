@@ -157,9 +157,8 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 
 	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, st *mocks.MockState, mod *mocks.MockModel) {
 		gen := mocks.NewMockGeneration(ctrl)
-		gen.EXPECT().AssignedUnits().Return(map[string][]string{
-			"redis": units,
-		})
+		gen.EXPECT().AssignedUnits().Return(map[string][]string{"redis": units})
+		gen.EXPECT().Created().Return(int64(666))
 
 		mod.EXPECT().NextGeneration().Return(gen, nil)
 
@@ -180,9 +179,12 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 	result, err := s.api.GenerationInfo(s.modelArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Applications, gc.HasLen, 1)
 
-	app := result.Applications[0]
+	gen := result.Generation
+	c.Assert(gen.Created, gc.Equals, int64(666))
+	c.Assert(gen.Applications, gc.HasLen, 1)
+
+	app := gen.Applications[0]
 	c.Assert(app.ApplicationName, gc.Equals, "redis")
 	c.Assert(app.Units, jc.SameContents, units)
 	c.Assert(app.ConfigChanges, gc.DeepEquals, map[string]interface{}{"password": "next"})

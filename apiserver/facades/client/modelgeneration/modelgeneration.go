@@ -234,7 +234,10 @@ func (m *API) GenerationInfo(arg params.Entity) (params.GenerationResult, error)
 		apps = append(apps, genAppDelta)
 	}
 
-	return params.GenerationResult{Applications: apps}, nil
+	return params.GenerationResult{Generation: params.Generation{
+		Created:      gen.Created(),
+		Applications: apps,
+	}}, nil
 }
 
 func generationInfoError(err error) (params.GenerationResult, error) {
