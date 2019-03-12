@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -165,12 +166,16 @@ func (s *StateSuite) WaitForNextSync(c *gc.C) {
 // all pending changes, then waits for the hub watcher on the state object
 // to have finished processing all those events.
 func (s *StateSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
-	c.Logf("waiting for model %s to be idle", modelUUID)
+	// Use a logger rather than c.Log so we get timestamps.
+	logger := loggo.GetLogger("test")
+	logger.Infof("waiting for model %s to be idle", modelUUID)
+	s.WaitForNextSync(c)
+	// Create idle channel after the sync so as to be sure that at least
+	// one sync is complete before signalling the idle timer.
 	s.modelWatcherMutex.Lock()
 	idleChan := make(chan string)
 	s.modelWatcherIdle = idleChan
 	s.modelWatcherMutex.Unlock()
-	s.WaitForNextSync(c)
 
 	defer func() {
 		s.modelWatcherMutex.Lock()
@@ -196,7 +201,7 @@ func (s *StateSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 			if uuid == modelUUID {
 				return
 			} else {
-				c.Logf("model %s is idle", uuid)
+				logger.Infof("model %s is idle", uuid)
 			}
 		case <-timeout:
 			c.Fatal("no sync event sent, is the watcher dead?")
