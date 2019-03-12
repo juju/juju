@@ -330,6 +330,7 @@ type mockBackend struct {
 	storageInstanceFilesystems map[string]*mockFilesystem
 	controllers                map[string]crossmodel.ControllerInfo
 	machines                   map[string]*mockMachine
+	generation                 *mockGeneration
 }
 
 type mockFilesystemAccess struct {
@@ -588,6 +589,18 @@ func (m *mockBackend) ApplyOperation(op state.ModelOperation) error {
 	return m.NextErr()
 }
 
+func (m *mockBackend) SaveController(controllerInfo crossmodel.ControllerInfo, modelUUID string) (application.ExternalController, error) {
+	m.controllers[modelUUID] = controllerInfo
+	return &mockExternalController{controllerInfo.ControllerTag.Id(), controllerInfo}, nil
+}
+
+func (m *mockBackend) NextGeneration() (application.Generation, error) {
+	if m.generation == nil {
+		m.generation = &mockGeneration{}
+	}
+	return m.generation, nil
+}
+
 type mockExternalController struct {
 	uuid string
 	info crossmodel.ControllerInfo
@@ -599,11 +612,6 @@ func (m *mockExternalController) Id() string {
 
 func (m *mockExternalController) ControllerInfo() crossmodel.ControllerInfo {
 	return m.info
-}
-
-func (m *mockBackend) SaveController(controllerInfo crossmodel.ControllerInfo, modelUUID string) (application.ExternalController, error) {
-	m.controllers[modelUUID] = controllerInfo
-	return &mockExternalController{controllerInfo.ControllerTag.Id(), controllerInfo}, nil
 }
 
 type mockBlockChecker struct {
@@ -844,4 +852,13 @@ func (m *mockCaasBroker) GetStorageClassName(labels ...string) (string, error) {
 		return "", err
 	}
 	return m.storageClassName, m.NextErr()
+}
+
+type mockGeneration struct {
+	jtesting.Stub
+}
+
+func (g *mockGeneration) AssignApplication(appName string) error {
+	g.MethodCall(g, "AssignApplication", appName)
+	return g.NextErr()
 }

@@ -1297,6 +1297,8 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 		"juju-external-hostname": "value",
 	}, []string(nil), schema, defaults)
 	app.CheckCall(c, 2, "UpdateCharmConfig", model.GenerationNext, charm.Settings{"stringOption": "stringVal"})
+
+	s.backend.generation.CheckCall(c, 0, "AssignApplication", "postgresql")
 }
 
 func (s *ApplicationSuite) TestBlockSetApplicationConfig(c *gc.C) {
