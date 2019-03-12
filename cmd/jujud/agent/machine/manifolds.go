@@ -549,6 +549,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.agentconfigupdater"),
 		})),
 
 		// The apiworkers manifold starts workers which rely on the

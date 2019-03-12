@@ -872,7 +872,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertURLKey:          schema.Omit,
 	AutocertDNSNameKey:      schema.Omit,
 	AllowModelAccessKey:     schema.Omit,
-	MongoMemoryProfile:      schema.Omit,
+	MongoMemoryProfile:      MongoProfLow,
 	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
 	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
