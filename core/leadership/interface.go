@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 )
 
-// TODO (manadart 2010-10-05) Add interfaces to the end of this line,
+// TODO (manadart 2018-10-05) Add interfaces to the end of this line,
 // separated by commas, as they become required for mocking in tests.
 //go:generate mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership Pinner
 
