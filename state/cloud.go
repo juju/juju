@@ -236,8 +236,7 @@ func (st *State) AddCloud(c cloud.Cloud, owner string) error {
 	if err != nil {
 		return errors.Annotatef(err, "granting %s permission to the cloud owner", permission.AdminAccess)
 	}
-
-	return st.updateConfigDefaults(c.Name, c.Config)
+	return st.updateConfigDefaults(c.Name, c.Config, c.RegionConfig)
 }
 
 // UpdateCloud updates an existing cloud with the given name and details.
@@ -254,10 +253,10 @@ func (st *State) UpdateCloud(c cloud.Cloud) error {
 		}
 		return errors.Trace(err)
 	}
-	return st.updateConfigDefaults(c.Name, c.Config)
+	return st.updateConfigDefaults(c.Name, c.Config, c.RegionConfig)
 }
 
-func (st *State) updateConfigDefaults(cloudName string, config map[string]interface{}) error {
+func (st *State) updateConfigDefaults(cloudName string, config cloud.Attrs, regionConfig cloud.RegionConfig) error {
 	cfg := make(map[string]interface{})
 	for k, v := range config {
 		if bootstrap.IsBootstrapAttribute(k) || controller.ControllerOnlyAttribute(k) {
@@ -269,7 +268,19 @@ func (st *State) updateConfigDefaults(cloudName string, config map[string]interf
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return st.UpdateModelConfigDefaultValues(cfg, nil, regionSpec)
+	if err := st.UpdateModelConfigDefaultValues(cfg, nil, regionSpec); err != nil {
+		return errors.Trace(err)
+	}
+	for r, regionConfig := range regionConfig {
+		regionSpec, err := environs.NewCloudRegionSpec(cloudName, r)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := st.UpdateModelConfigDefaultValues(regionConfig, nil, regionSpec); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // validateCloud checks that the supplied cloud is valid.

@@ -211,7 +211,7 @@ func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
 	if bestVer < 2 {
 		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)
 	}
-	if len(cloud.Config) > 0 && bestVer < 5 {
+	if (len(cloud.Config) > 0 || len(cloud.RegionConfig) > 0) && bestVer < 5 {
 		return errors.New("adding a cloud with config parameters is not supported by this version of Juju")
 	}
 	args := params.AddCloudArgs{Name: cloud.Name, Cloud: common.CloudToParams(cloud)}

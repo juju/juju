@@ -68,6 +68,7 @@ func (s *CloudSuite) TestClouds(c *gc.C) {
 func (s *CloudSuite) TestAddCloud(c *gc.C) {
 	cloudToAdd := lowCloud
 	cloudToAdd.Config = map[string]interface{}{"foo": "bar"}
+	cloudToAdd.RegionConfig = cloud.RegionConfig{"us-east": {"foo": "baz"}}
 	err := s.State.AddCloud(cloudToAdd, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	cloud, err := s.State.Cloud("stratus")
@@ -80,6 +81,9 @@ func (s *CloudSuite) TestAddCloud(c *gc.C) {
 	settings, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey(lowCloud.Name))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings.Map(), jc.DeepEquals, cloudToAdd.Config)
+	settings, err = s.State.ReadSettings(state.GlobalSettingsC, state.RegionSettingsGlobalKey(lowCloud.Name, "us-east"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings.Map(), jc.DeepEquals, map[string]interface{}{"foo": "baz"})
 }
 
 func (s *CloudSuite) TestAddCloudDuplicate(c *gc.C) {
@@ -141,11 +145,13 @@ func (s *CloudSuite) TestUpdateCloud(c *gc.C) {
 	}
 	updatedCloud.CACertificates[0] = "updatedcert1"
 	updatedCloud.Config = map[string]interface{}{"foo": "bar"}
+	updatedCloud.RegionConfig = cloud.RegionConfig{"us-east": {"foo": "baz"}}
 
 	err = s.State.UpdateCloud(updatedCloud)
 	c.Assert(err, jc.ErrorIsNil)
 
 	updatedCloud.Config = nil
+	updatedCloud.RegionConfig = nil
 	cloud, err := s.State.Cloud("stratus")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, jc.DeepEquals, updatedCloud)
@@ -156,6 +162,9 @@ func (s *CloudSuite) TestUpdateCloud(c *gc.C) {
 	settings, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey(updatedCloud.Name))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings.Map(), jc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	settings, err = s.State.ReadSettings(state.GlobalSettingsC, state.RegionSettingsGlobalKey(updatedCloud.Name, "us-east"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings.Map(), jc.DeepEquals, map[string]interface{}{"foo": "baz"})
 }
 
 func (s *CloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
