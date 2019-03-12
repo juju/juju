@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charmstore.v5"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
+	// "github.com/juju/juju/apiserver/testing"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -45,7 +46,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 		AuthUsername: "test-user",
 		AuthPassword: "test-password",
 	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstoreVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Handler = handler
 	s.Server = httptest.NewServer(handler)
