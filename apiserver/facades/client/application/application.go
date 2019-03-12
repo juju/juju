@@ -763,17 +763,28 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 			return errors.Trace(err)
 		}
 	}
+
 	// Set up application's settings.
+	// If the config change is generational, add the app to the generation.
+	configChange := false
 	if args.SettingsYAML != "" {
 		err = applicationSetCharmConfigYAML(args.ApplicationName, app, args.Generation, args.SettingsYAML)
 		if err != nil {
 			return errors.Annotate(err, "setting configuration from YAML")
 		}
+		configChange = true
 	} else if len(args.SettingsStrings) > 0 {
 		if err = applicationSetSettingsStrings(app, args.Generation, args.SettingsStrings); err != nil {
 			return errors.Trace(err)
 		}
+		configChange = true
 	}
+	if configChange && args.Generation == model.GenerationNext {
+		if err := api.addAppToGeneration(args.ApplicationName); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	// Update application's constraints.
 	if args.Constraints != nil {
 		return app.SetConstraints(*args.Constraints)
@@ -1276,7 +1287,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			for _, s := range storage {
 				info.DestroyedStorage = append(
 					info.DestroyedStorage,
-					params.Entity{s.StorageTag().String()},
+					params.Entity{Tag: s.StorageTag().String()},
 				)
 			}
 		} else {
@@ -2024,18 +2035,30 @@ func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error 
 	if len(charmConfig) > 0 {
 		ch, _, err := app.Charm()
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		// Validate the charm and application config.
 		charmConfigChanges, err := ch.Config().ParseSettingsStrings(charmConfig)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		if err := app.UpdateCharmConfig(arg.Generation, charmConfigChanges); err != nil {
 			return errors.Annotate(err, "updating application charm settings")
 		}
+		if err := api.addAppToGeneration(arg.ApplicationName); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
+}
+
+func (api *APIBase) addAppToGeneration(appName string) error {
+	gen, err := api.backend.NextGeneration()
+	if err != nil {
+		return errors.Annotate(err, "retrieving next generation")
+	}
+	err = gen.AssignApplication(appName)
+	return errors.Annotatef(err, "adding %q to next generation", appName)
 }
 
 // UnsetApplicationsConfig isn't on the v5 API.
