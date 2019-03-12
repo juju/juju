@@ -120,11 +120,11 @@ def extract_txn_metrics(logs, module):
     }
 
 
-def calc_stats(prefix, values):
+def calc_stats(prefix, values, include_count=False):
     """ Calculate statistics for a list of float values and return them as an
         object where the keys are prefixed using the provided prefix.
     """
-    return {
+    stats = {
         prefix+'min': min(values),
         prefix+'max': max(values),
         prefix+'total': sum(values),
@@ -132,6 +132,11 @@ def calc_stats(prefix, values):
         prefix+'median': statistics.median(values),
         prefix+'stdev': statistics.stdev(values),
     }
+
+    if include_count:
+        stats[prefix+'count'] = len(values)
+
+    return stats
 
 
 def merge_dicts(*args):
@@ -148,7 +153,7 @@ def construct_metrics(txn_metrics, test_duration):
     """
 
     return merge_dicts(
-        calc_stats('txn_time_', txn_metrics['timings']),
+        calc_stats('txn_time_', txn_metrics['timings'], include_count=True),
         calc_stats('txn_retries_', txn_metrics['retries']),
         {'test_duration': test_duration},
     )
@@ -165,14 +170,17 @@ def extract_charm_urls(client):
     return charms
 
 
-def extract_mongo_version(client):
-    """Extract the mongo version from the controller.
+def extract_mongo_details(client):
+    """Extract the mongo version and profile from the controller.
     """
 
     ctrl_info = client.get_controllers()
     ctrl = ctrl_info.get_controller(client.env.controller.name)
     ctrl_details = ctrl.get_details()
-    return ctrl_details.mongo_version
+
+    ctrl_config = client.get_controller_config(client.env.controller.name)
+
+    return ctrl_details.mongo_version, ctrl_config.mongo_memory_profile
 
 
 def get_stack_client(stack_type, path, client, timeout=3600, charm=False):
@@ -227,6 +235,11 @@ def parse_args(argv):
              "locally before bootstrapping",
         default="",
     )
+    parser.add_argument(
+        '--mongo-memory-profile',
+        help="the name of a mongo profile to use when bootstrapping",
+        default="",
+    )
     add_basic_testing_arguments(parser, existing=False)
     # Override the default logging_config default value set by adding basic
     # testing arguments. This way we can have a default value for all tests,
@@ -279,11 +292,13 @@ def main(argv=None):
     with bs_manager.booted_context(
         args.upload_tools,
         db_snap_path=db_snap_path,
-        db_snap_asserts_path=db_snap_asserts_path
+        db_snap_asserts_path=db_snap_asserts_path,
+        mongo_memory_profile=args.mongo_memory_profile,
     ):
         client = bs_manager.client
-        mongo_version = extract_mongo_version(client)
-        log.info("MongoVersion used for deployment: {}".format(mongo_version))
+        mongo_version, mongo_profile = extract_mongo_details(client)
+        log.info("MongoVersion used for deployment: {} (profile: {})".format(
+            mongo_version, mongo_profile))
 
         deploy_bundle(
                 client,
@@ -308,8 +323,8 @@ def main(argv=None):
                 "charm-urls": charm_urls,
                 "juju-version": args.juju_version,
                 "mongo-version": mongo_version,
+                "mongo-profile": mongo_profile,
                 # The following are placeholders for now
-                "mongo-profile": "low",
                 "mongo-ss-txns": "false",
             })
         except Exception:
