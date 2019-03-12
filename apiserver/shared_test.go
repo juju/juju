@@ -129,7 +129,7 @@ func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
 	ctx := s.newContext(c)
 
 	msg := controller.ConfigChangedMessage{
-		corecontroller.Config{
+		Config: corecontroller.Config{
 			corecontroller.Features: []string{"foo", "bar"},
 		},
 	}
@@ -157,7 +157,7 @@ func (s *sharedServerContextSuite) TestAddingOldPresenceFeature(c *gc.C) {
 	s.newContext(c)
 
 	msg := controller.ConfigChangedMessage{
-		corecontroller.Config{
+		Config: corecontroller.Config{
 			corecontroller.Features: []string{"foo", "bar", feature.OldPresence},
 		},
 	}
@@ -185,7 +185,7 @@ func (s *sharedServerContextSuite) TestRemovingOldPresenceFeature(c *gc.C) {
 	s.newContext(c)
 
 	msg := controller.ConfigChangedMessage{
-		corecontroller.Config{
+		Config: corecontroller.Config{
 			corecontroller.Features: []string{"foo", "bar"},
 		},
 	}
