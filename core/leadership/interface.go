@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 )
 
-// TODO (manadart 2010-10-05) Add interfaces to the end of this line,
+// TODO (manadart 2018-10-05) Add interfaces to the end of this line,
 // separated by commas, as they become required for mocking in tests.
 //go:generate mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership Pinner
 
@@ -136,4 +136,14 @@ type Tracker interface {
 	// WaitMinion will return a Ticket which, when Wait()ed for, will block
 	// until the tracker's future leadership can no longer be guaranteed.
 	WaitMinion() Ticket
+}
+
+// Reader describes the capability to read the current state of leadership.
+type Reader interface {
+
+	// Leaders returns all application leaders in the current model.
+	// TODO (manadart 2019-02-27): The return in this signature includes error
+	// in order to support state.ApplicationLeaders for legacy leases.
+	// When legacy leases are removed, so can the error return.
+	Leaders() (map[string]string, error)
 }

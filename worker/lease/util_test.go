@@ -212,7 +212,7 @@ func (store *Store) UnpinLease(key lease.Key, entity string, stop <-chan struct{
 }
 
 func (store *Store) Pinned() map[lease.Key][]string {
-	store.call("Pinned", nil)
+	_ = store.call("Pinned", nil)
 	return map[lease.Key][]string{
 		{
 			Namespace: "namespace",

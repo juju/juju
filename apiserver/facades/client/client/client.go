@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -41,8 +42,9 @@ type API struct {
 
 	client *Client
 	// statusSetter provides common methods for updating an entity's provisioning status.
-	statusSetter *common.StatusSetter
-	toolsFinder  *common.ToolsFinder
+	statusSetter     *common.StatusSetter
+	toolsFinder      *common.ToolsFinder
+	leadershipReader leadership.Reader
 }
 
 // TODO(wallyworld) - remove this method
@@ -158,6 +160,11 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
+	leadershipReader, err := ctx.LeadershipReader(model.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewClient(
 		&stateShim{st, model},
 		&poolShim{ctx.StatePool()},
@@ -170,6 +177,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		newEnviron,
 		blockChecker,
 		state.CallContext(st),
+		leadershipReader,
 	)
 }
 
@@ -186,6 +194,7 @@ func NewClient(
 	newEnviron func() (environs.Environ, error),
 	blockChecker *common.BlockChecker,
 	callCtx context.ProviderCallContext,
+	leadershipReader leadership.Reader,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -193,13 +202,14 @@ func NewClient(
 	client := &Client{
 		ModelConfigAPIV1: modelConfigAPI,
 		api: &API{
-			stateAccessor: backend,
-			pool:          pool,
-			auth:          authorizer,
-			resources:     resources,
-			presence:      presence,
-			statusSetter:  statusSetter,
-			toolsFinder:   toolsFinder,
+			stateAccessor:    backend,
+			pool:             pool,
+			auth:             authorizer,
+			resources:        resources,
+			presence:         presence,
+			statusSetter:     statusSetter,
+			toolsFinder:      toolsFinder,
+			leadershipReader: leadershipReader,
 		},
 		newEnviron:  newEnviron,
 		check:       blockChecker,
