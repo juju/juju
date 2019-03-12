@@ -9,6 +9,7 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
@@ -122,6 +123,8 @@ func (s *UnitSuite) TestWatchConfigSettingsNeedsCharmURL(c *gc.C) {
 func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w, err := s.unit.WatchConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w)
@@ -181,6 +184,7 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w, err := s.unit.WatchConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w)
@@ -2056,6 +2060,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	// TODO(mjs) - ModelUUID - test with multiple models with
 	// identically named units and ensure there's no leakage.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
@@ -2121,6 +2126,10 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 }
 
 func (s *UnitSuite) TestWatchUnit(c *gc.C) {
+	loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.unit.Watch()
 	defer testing.AssertStop(c, w)
 
@@ -2151,6 +2160,7 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.unit.Watch()
 	defer testing.AssertStop(c, w)
 	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
@@ -2550,6 +2560,7 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := unit.WatchContainerAddresses()
 	defer w.Stop()
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
@@ -2620,6 +2631,7 @@ func (s *CAASUnitSuite) TestWatchContainerAddressesHash(c *gc.C) {
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := unit.WatchContainerAddressesHash()
 	defer w.Stop()
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)

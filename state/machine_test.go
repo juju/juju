@@ -1473,6 +1473,7 @@ func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchMachine(c *gc.C) {
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.machine.Watch()
 	defer testing.AssertStop(c, w)
 
@@ -1503,6 +1504,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.machine.Watch()
 	defer testing.AssertStop(c, w)
 	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
@@ -1533,6 +1535,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	// TODO(mjs) - MODELUUID - test with multiple models with
 	// identically named units and ensure there's no leakage.
 
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
@@ -1613,6 +1616,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// Start a fresh watcher; check both principals reported.
 	w = s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
@@ -1650,6 +1654,7 @@ func (s *MachineSuite) TestWatchPrincipalUnitsDiesOnStateClose(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchUnits(c *gc.C) {
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
@@ -1765,6 +1770,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchUnitsHandlesDeletedEntries(c *gc.C) {
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
@@ -3010,6 +3016,7 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := machine.WatchAddresses()
 	defer w.Stop()
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
