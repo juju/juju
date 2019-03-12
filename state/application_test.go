@@ -2886,7 +2886,9 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	// Remove application, start new watch, check single event.
 	err = application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-
+	// The destruction needs to have been processed by the txn watcher before the
+	// watcher in the test is started or the destroy notification may come through
+	// as an additional event.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.mysql.Watch()
 	defer testing.AssertStop(c, w)
