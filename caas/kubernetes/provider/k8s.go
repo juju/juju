@@ -185,8 +185,17 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 
 // PrepareForBootstrap prepares for bootstrapping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
-	_, err := k.validateOperatorStorage()
-	return err
+	// checking no existing namespace has the same name.
+	_, err := k.GetNamespace(k.namespace)
+	if err == nil {
+		return errors.AlreadyExistsf("namespace %q, choose another namespace name then try again", k.namespace)
+	}
+	if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
+	_, err = k.validateOperatorStorage()
+	return errors.Trace(err)
 }
 
 // Create implements environs.BootstrapEnviron.
