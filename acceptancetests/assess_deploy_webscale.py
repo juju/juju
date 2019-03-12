@@ -165,14 +165,17 @@ def extract_charm_urls(client):
     return charms
 
 
-def extract_mongo_version(client):
-    """Extract the mongo version from the controller.
+def extract_mongo_details(client):
+    """Extract the mongo version and profile from the controller.
     """
 
     ctrl_info = client.get_controllers()
     ctrl = ctrl_info.get_controller(client.env.controller.name)
     ctrl_details = ctrl.get_details()
-    return ctrl_details.mongo_version
+
+    ctrl_config = client.get_controller_config(client.env.controller.name)
+
+    return ctrl_details.mongo_version, ctrl_config.mongo_memory_profile
 
 
 def get_stack_client(stack_type, path, client, timeout=3600, charm=False):
@@ -282,8 +285,9 @@ def main(argv=None):
         db_snap_asserts_path=db_snap_asserts_path
     ):
         client = bs_manager.client
-        mongo_version = extract_mongo_version(client)
-        log.info("MongoVersion used for deployment: {}".format(mongo_version))
+        mongo_version, mongo_profile = extract_mongo_details(client)
+        log.info("MongoVersion used for deployment: {} (profile: {})".format(
+            mongo_version, mongo_profile))
 
         deploy_bundle(
                 client,
@@ -308,8 +312,8 @@ def main(argv=None):
                 "charm-urls": charm_urls,
                 "juju-version": args.juju_version,
                 "mongo-version": mongo_version,
+                "mongo-profile": mongo_profile,
                 # The following are placeholders for now
-                "mongo-profile": "low",
                 "mongo-ss-txns": "false",
             })
         except Exception:

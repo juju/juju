@@ -14,17 +14,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-import re
 import yaml
 
 __metaclass__ = type
+
 
 class Controllers:
 
     def __init__(self, info, text):
         self.info = info
         self.text = text
-    
+
     @classmethod
     def from_text(cls, text):
         try:
@@ -34,7 +34,7 @@ class Controllers:
         except ValueError:
             info = yaml.safe_load(text)
         return cls(info, text)
-    
+
     def get_controller(self, name):
         """Controller returns the controller associated with the name provided
 
@@ -42,13 +42,15 @@ class Controllers:
         """
         return Controller(self.info[name])
 
+
 class Controller:
 
     def __init__(self, info):
         self.info = info
-    
+
     def get_details(self):
         return ControllerDetails(self.info["details"])
+
 
 class ControllerDetails:
 
@@ -58,7 +60,29 @@ class ControllerDetails:
     @property
     def agent_version(self):
         return self.info["agent-version"]
-    
+
     @property
     def mongo_version(self):
         return self.info["mongo-version"]
+
+
+class ControllerConfig:
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+
+    @classmethod
+    def from_text(cls, text):
+        try:
+            # Parsing as JSON is much faster than parsing as YAML, so try
+            # parsing as JSON first and fall back to YAML.
+            cfg = json.loads(text)
+        except ValueError:
+            cfg = yaml.safe_load(text)
+        return cls(cfg)
+
+    @property
+    def mongo_memory_profile(self):
+        if 'mongo-memory-profile' in self.cfg:
+            return self.cfg["mongo-memory-profile"]
+        return "low"
