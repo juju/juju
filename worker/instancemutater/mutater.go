@@ -86,6 +86,12 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 
 			machine, err := m.context.getMachine(tag)
 			if err != nil {
+				// If the machine is not found, don't fail in hard way and
+				// continue onwards until a machine is found for a subsequent
+				// tag.
+				if errors.IsNotFound(err) {
+					continue
+				}
 				return errors.Trace(err)
 			}
 			m.logger.Tracef("startMachines added machine %s", machine.Tag().Id())

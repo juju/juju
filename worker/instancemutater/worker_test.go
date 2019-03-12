@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,6 +16,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	instancemutaterapi "github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/instancemutater"
 	"github.com/juju/juju/worker/instancemutater/mocks"
@@ -115,6 +117,7 @@ type workerSuite struct {
 	environ        environShim
 	agentConfig    *mocks.MockConfig
 	machine        *mocks.MockMutaterMachine
+	machineTag     names.Tag
 	machinesWorker *workermocks.MockWorker
 	unitsWorker    *workermocks.MockWorker
 
@@ -129,6 +132,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.done = make(chan struct{})
+	s.machineTag = names.NewMachineTag("0")
 }
 
 // TestFullWorkflow uses the the expectation scenarios from each of the tests
@@ -141,12 +145,27 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 		s.ignoreLogging(c),
 		s.notifyMachines([][]string{
 			{"0"},
-		}),
+		}, s.noopDone),
 		s.expectFacadeMachineTag,
 		s.notifyUnits([][]string{
 			{"unit"},
-		}),
+		}, s.closeDone),
 		s.expectMachineTag,
+		s.expectCharmProfileInfo,
+	)
+
+	s.cleanKill(c, w)
+}
+
+func (s *workerSuite) TestNoMachineFound(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	w := s.workerForScenario(c,
+		s.ignoreLogging(c),
+		s.notifyMachines([][]string{
+			{"0"},
+		}, s.closeDone),
+		s.expectFacadeReturnsNoMachine,
 	)
 
 	s.cleanKill(c, w)
@@ -169,6 +188,14 @@ func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *workerSuite) noopDone() {
+	// do nothing with the done channel
+}
+
+func (s *workerSuite) closeDone() {
+	close(s.done)
+}
+
 // workerForScenario creates worker config based on the suite's mocks.
 // Any supplied behaviour functions are executed,
 // then a new worker is started and returned.
@@ -178,7 +205,7 @@ func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Wo
 		Logger:      s.logger,
 		Environ:     s.environ,
 		AgentConfig: s.agentConfig,
-		Tag:         names.NewMachineTag("0"),
+		Tag:         s.machineTag,
 	}
 
 	for _, b := range behaviours {
@@ -191,20 +218,28 @@ func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Wo
 }
 
 func (s *workerSuite) expectFacadeMachineTag() {
-	tag := names.NewMachineTag("0")
-	s.facade.EXPECT().Machine(tag).Return(s.machine, nil)
-	s.machine.EXPECT().Tag().Return(tag)
+	s.facade.EXPECT().Machine(s.machineTag).Return(s.machine, nil)
+	s.machine.EXPECT().Tag().Return(s.machineTag)
+}
+
+func (s *workerSuite) expectFacadeReturnsNoMachine() {
+	s.facade.EXPECT().Machine(s.machineTag).Return(nil, errors.NewNotFound(nil, "machine"))
 }
 
 func (s *workerSuite) expectMachineTag() {
-	tag := names.NewMachineTag("0")
-	s.machine.EXPECT().Tag().Return(tag).AnyTimes()
+	s.machine.EXPECT().Tag().Return(s.machineTag).AnyTimes()
+}
+
+func (s *workerSuite) expectCharmProfileInfo() {
+	s.machine.EXPECT().CharmProfilingInfo([]string{"unit"}).Return(&instancemutaterapi.ProfileInfo{
+		Changes: true,
+	}, nil)
 }
 
 // notifyMachines returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
-func (s *workerSuite) notifyMachines(values [][]string) func() {
+func (s *workerSuite) notifyMachines(values [][]string, doneFn func()) func() {
 	ch := make(chan []string)
 
 	return func() {
@@ -212,7 +247,7 @@ func (s *workerSuite) notifyMachines(values [][]string) func() {
 			for _, v := range values {
 				ch <- v
 			}
-			close(s.done)
+			doneFn()
 		}()
 
 		s.machinesWorker.EXPECT().Kill().AnyTimes()
@@ -229,7 +264,7 @@ func (s *workerSuite) notifyMachines(values [][]string) func() {
 // notifyUnits returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
-func (s *workerSuite) notifyUnits(values [][]string) func() {
+func (s *workerSuite) notifyUnits(values [][]string, doneFn func()) func() {
 	ch := make(chan []string)
 
 	return func() {
@@ -237,6 +272,7 @@ func (s *workerSuite) notifyUnits(values [][]string) func() {
 			for _, v := range values {
 				ch <- v
 			}
+			doneFn()
 		}()
 
 		s.unitsWorker.EXPECT().Kill().AnyTimes()
