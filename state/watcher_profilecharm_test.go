@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/mocks"
 	"github.com/juju/juju/state/watcher"
@@ -41,6 +42,7 @@ type watcherCharmProfileSuite struct {
 var _ = gc.Suite(&watcherCharmProfileSuite{})
 
 func (s *watcherCharmProfileSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.InstanceMutater)
 	s.BaseSuite.SetUpTest(c)
 
 	s.done = make(chan struct{})
@@ -163,6 +165,10 @@ func (s *watcherCharmProfileSuite) expectLoop() {
 func (s *watcherCharmProfileSuite) noopCloser() {
 }
 
+// channelMatcher is used here, to not only match on the channel, but also to
+// apply values on to the private channel. This isn't pretty, because we don't
+// have access to the channel inside the watcher, but serves as an example of
+// getting information to private channels.
 type channelMatcher struct {
 	changes []watcher.Change
 }

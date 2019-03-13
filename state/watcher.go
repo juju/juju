@@ -16,6 +16,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
 
@@ -2031,7 +2033,11 @@ func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (S
 	filter := func(id interface{}) bool {
 		return id.(string) == watchDocId
 	}
-	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, lxdprofile.NotRequiredStatus, filter), nil
+	returnStatus := ""
+	if featureflag.Enabled(feature.InstanceMutater) {
+		returnStatus = lxdprofile.NotRequiredStatus
+	}
+	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, returnStatus, filter), nil
 }
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
@@ -2046,7 +2052,11 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
 	filter := func(id interface{}) bool {
 		return id.(string) == watchDocId
 	}
-	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, lxdprofile.NotRequiredStatus, filter), nil
+	returnStatus := ""
+	if featureflag.Enabled(feature.InstanceMutater) {
+		returnStatus = lxdprofile.NotRequiredStatus
+	}
+	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, returnStatus, filter), nil
 }
 
 // instanceCharmProfileDataWatcher notifies about any changes to the
@@ -2168,7 +2178,7 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 			if isChanged {
 				out = w.out
 			}
-		case out <- []string{w.returnStatus}:
+		case out <- w.state():
 			out = nil
 		}
 	}
@@ -2176,6 +2186,13 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 
 func (w *instanceCharmProfileDataWatcher) Changes() <-chan []string {
 	return w.out
+}
+
+func (w *instanceCharmProfileDataWatcher) state() []string {
+	if w.returnStatus != "" {
+		return []string{w.returnStatus}
+	}
+	return []string{w.known}
 }
 
 // WatchUpgradeSeriesNotifications returns a watcher that observes the status of
