@@ -49,7 +49,7 @@ func new{{ $key }}FieldWatcher(comparitors []func(*{{ $key }}Delta) bool) *{{ $k
 func (w *{{ $key }}FieldWatcher) detailsChange(topic string, value interface{}) {
 	delta, ok := value.(*{{ $key }}Delta)
 	if !ok {
-		logger.Errorf("programming error, value not of type *{{ $key }}Change")
+		logger.Errorf("programming error, value not of type *{{ $key }}Delta")
 	}
 
 	// If no comparitors were specified, notify for any change.

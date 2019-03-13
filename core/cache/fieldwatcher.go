@@ -27,7 +27,7 @@ func newApplicationFieldWatcher(comparitors []func(*ApplicationDelta) bool) *App
 func (w *ApplicationFieldWatcher) detailsChange(topic string, value interface{}) {
 	delta, ok := value.(*ApplicationDelta)
 	if !ok {
-		logger.Errorf("programming error, value not of type *ApplicationChange")
+		logger.Errorf("programming error, value not of type *ApplicationDelta")
 	}
 
 	// If no comparitors were specified, notify for any change.
@@ -92,7 +92,7 @@ func newUnitFieldWatcher(comparitors []func(*UnitDelta) bool) *UnitFieldWatcher 
 func (w *UnitFieldWatcher) detailsChange(topic string, value interface{}) {
 	delta, ok := value.(*UnitDelta)
 	if !ok {
-		logger.Errorf("programming error, value not of type *UnitChange")
+		logger.Errorf("programming error, value not of type *UnitDelta")
 	}
 
 	// If no comparitors were specified, notify for any change.
