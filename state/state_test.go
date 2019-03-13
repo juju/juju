@@ -96,6 +96,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.model = model
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func (s *StateSuite) TestOpenController(c *gc.C) {
@@ -2253,6 +2254,7 @@ func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
 	err = gone.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// All except gone are reported in initial event.
 	w := s.State.WatchApplications()
 	defer statetesting.AssertStop(c, w)
@@ -2341,6 +2343,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	err = gone.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	// All except gone machine are reported in initial event.
 	w := s.State.WatchModelMachines()
 	defer statetesting.AssertStop(c, w)
@@ -2580,6 +2583,7 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	// Add a machine: reported.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := machine.WatchHardwareCharacteristics()
 	defer statetesting.AssertStop(c, w)
 
@@ -2600,9 +2604,6 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-
 	w := s.State.WatchControllerConfig()
 	defer statetesting.AssertStop(c, w)
 
@@ -3026,6 +3027,7 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	cur := jujuversion.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.model.WatchForModelConfigChanges()
 	defer statetesting.AssertStop(c, w)
 
@@ -4561,6 +4563,7 @@ func (s *StateSuite) setUpWatchRelationNetworkScenario(c *gc.C) *state.Relation 
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	return rel
 }
 
