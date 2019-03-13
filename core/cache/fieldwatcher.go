@@ -61,8 +61,16 @@ var ApplicationCharmURLChanged = func(delta *ApplicationDelta) bool {
 	return delta.new.CharmURL != delta.old.CharmURL
 }
 
+var ApplicationLifeChanged = func(delta *ApplicationDelta) bool {
+	return delta.new.Life != delta.old.Life
+}
+
 var ApplicationMinUnitsChanged = func(delta *ApplicationDelta) bool {
 	return delta.new.MinUnits != delta.old.MinUnits
+}
+
+var ApplicationConstraintsChanged = func(delta *ApplicationDelta) bool {
+	return delta.new.Constraints != delta.old.Constraints
 }
 
 var ApplicationSubordinateChanged = func(delta *ApplicationDelta) bool {

@@ -9,8 +9,6 @@ import (
 	"reflect"
 	"text/template"
 
-	"github.com/juju/utils/set"
-
 	"github.com/juju/juju/core/cache"
 )
 
@@ -100,14 +98,10 @@ func main() {
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
 
-			// TODO (manadart 2019-03-13): Check that the field is exported.
-
 			// TODO (manadart 2019-03-13): Accommodate the other types;
 			// maybe use nested templates to generate reflection-less
 			// comparitors for the different types we deal with.
-
-			direct := set.NewStrings("string", "int", "int64", "bool")
-			if direct.Contains(f.Type.String()) {
+			if f.Type.Comparable() {
 				fields = append(fields, f.Name)
 			}
 		}
