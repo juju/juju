@@ -29,9 +29,13 @@ var tmpl = `
  */
 
 package cache
-{{ range $key, $fields := . }}{{ range $idx, $field := $fields }}
-var {{ $key }}{{ $field }}Changed = func(new, old {{ $key }}Change) bool {
-	return new.{{ $field }} != old.{{ $field }}
+{{ range $key, $fields := . }}
+type {{ $key }}Delta struct {
+	old, new {{ $key }}Change
+}
+{{ range $idx, $field := $fields }}
+var {{ $key }}{{ $field }}Changed = func(delta *{{ $key }}Delta) bool {
+	return delta.new.{{ $field }} != delta.old.{{ $field }}
 }
 {{ end }}{{ end }}`[1:]
 

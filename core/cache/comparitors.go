@@ -8,66 +8,74 @@
 
 package cache
 
-var ApplicationModelUUIDChanged = func(new, old ApplicationChange) bool {
-	return new.ModelUUID != old.ModelUUID
+type ApplicationDelta struct {
+	old, new ApplicationChange
 }
 
-var ApplicationNameChanged = func(new, old ApplicationChange) bool {
-	return new.Name != old.Name
+var ApplicationModelUUIDChanged = func(delta *ApplicationDelta) bool {
+	return delta.new.ModelUUID != delta.old.ModelUUID
 }
 
-var ApplicationExposedChanged = func(new, old ApplicationChange) bool {
-	return new.Exposed != old.Exposed
+var ApplicationNameChanged = func(delta *ApplicationDelta) bool {
+	return delta.new.Name != delta.old.Name
 }
 
-var ApplicationCharmURLChanged = func(new, old ApplicationChange) bool {
-	return new.CharmURL != old.CharmURL
+var ApplicationExposedChanged = func(delta *ApplicationDelta) bool {
+	return delta.new.Exposed != delta.old.Exposed
 }
 
-var ApplicationMinUnitsChanged = func(new, old ApplicationChange) bool {
-	return new.MinUnits != old.MinUnits
+var ApplicationCharmURLChanged = func(delta *ApplicationDelta) bool {
+	return delta.new.CharmURL != delta.old.CharmURL
 }
 
-var ApplicationSubordinateChanged = func(new, old ApplicationChange) bool {
-	return new.Subordinate != old.Subordinate
+var ApplicationMinUnitsChanged = func(delta *ApplicationDelta) bool {
+	return delta.new.MinUnits != delta.old.MinUnits
 }
 
-var ApplicationWorkloadVersionChanged = func(new, old ApplicationChange) bool {
-	return new.WorkloadVersion != old.WorkloadVersion
+var ApplicationSubordinateChanged = func(delta *ApplicationDelta) bool {
+	return delta.new.Subordinate != delta.old.Subordinate
 }
 
-var UnitModelUUIDChanged = func(new, old UnitChange) bool {
-	return new.ModelUUID != old.ModelUUID
+var ApplicationWorkloadVersionChanged = func(delta *ApplicationDelta) bool {
+	return delta.new.WorkloadVersion != delta.old.WorkloadVersion
 }
 
-var UnitNameChanged = func(new, old UnitChange) bool {
-	return new.Name != old.Name
+type UnitDelta struct {
+	old, new UnitChange
 }
 
-var UnitApplicationChanged = func(new, old UnitChange) bool {
-	return new.Application != old.Application
+var UnitModelUUIDChanged = func(delta *UnitDelta) bool {
+	return delta.new.ModelUUID != delta.old.ModelUUID
 }
 
-var UnitSeriesChanged = func(new, old UnitChange) bool {
-	return new.Series != old.Series
+var UnitNameChanged = func(delta *UnitDelta) bool {
+	return delta.new.Name != delta.old.Name
 }
 
-var UnitCharmURLChanged = func(new, old UnitChange) bool {
-	return new.CharmURL != old.CharmURL
+var UnitApplicationChanged = func(delta *UnitDelta) bool {
+	return delta.new.Application != delta.old.Application
 }
 
-var UnitPublicAddressChanged = func(new, old UnitChange) bool {
-	return new.PublicAddress != old.PublicAddress
+var UnitSeriesChanged = func(delta *UnitDelta) bool {
+	return delta.new.Series != delta.old.Series
 }
 
-var UnitPrivateAddressChanged = func(new, old UnitChange) bool {
-	return new.PrivateAddress != old.PrivateAddress
+var UnitCharmURLChanged = func(delta *UnitDelta) bool {
+	return delta.new.CharmURL != delta.old.CharmURL
 }
 
-var UnitMachineIdChanged = func(new, old UnitChange) bool {
-	return new.MachineId != old.MachineId
+var UnitPublicAddressChanged = func(delta *UnitDelta) bool {
+	return delta.new.PublicAddress != delta.old.PublicAddress
 }
 
-var UnitSubordinateChanged = func(new, old UnitChange) bool {
-	return new.Subordinate != old.Subordinate
+var UnitPrivateAddressChanged = func(delta *UnitDelta) bool {
+	return delta.new.PrivateAddress != delta.old.PrivateAddress
+}
+
+var UnitMachineIdChanged = func(delta *UnitDelta) bool {
+	return delta.new.MachineId != delta.old.MachineId
+}
+
+var UnitSubordinateChanged = func(delta *UnitDelta) bool {
+	return delta.new.Subordinate != delta.old.Subordinate
 }
