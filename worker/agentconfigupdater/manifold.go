@@ -5,6 +5,7 @@ package agentconfigupdater
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/pubsub"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -12,22 +13,24 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/mongo"
-	jworker "github.com/juju/juju/worker"
 )
 
 // Logger defines the logging methods used by the worker.
 type Logger interface {
+	Criticalf(string, ...interface{})
+	Warningf(string, ...interface{})
 	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
 }
 
 // ManifoldConfig provides the dependencies for the
 // agent config updater manifold.
 type ManifoldConfig struct {
-	AgentName     string
-	APICallerName string
-	Logger        Logger
+	AgentName      string
+	APICallerName  string
+	CentralHubName string
+	Logger         Logger
 }
 
 // Manifold defines a simple start function which
@@ -39,6 +42,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.APICallerName,
+			config.CentralHubName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			// Get the agent.
@@ -48,8 +52,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// Grab the tag and ensure that it's for a machine.
-			currentConfig := agent.CurrentConfig()
-			tag, ok := currentConfig.Tag().(names.MachineTag)
+			tag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
 			if !ok {
 				return nil, errors.New("agent's tag is not a machine tag")
 			}
@@ -73,52 +76,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrUninstall
 			}
 
-			controllerConfig, err := apiState.ControllerConfig()
-			if err != nil {
-				return nil, errors.Annotate(err, "getting controller config")
-			}
-			// If the mongo memory profile from the controller config
-			// is different from the one in the agent config we need to
-			// restart the agent to apply the memory profile to the mongo
-			// service.
-			logger := config.Logger
-			mongoProfile := mongo.MemoryProfile(controllerConfig.MongoMemoryProfile())
-			mongoProfileChanged := mongoProfile != currentConfig.MongoMemoryProfile()
-			info, err := apiState.StateServingInfo()
-			if err != nil {
-				return nil, errors.Annotate(err, "getting state serving info")
-			}
-			err = agent.ChangeConfig(func(config coreagent.ConfigSetter) error {
-				existing, hasInfo := config.StateServingInfo()
-				if hasInfo {
-					// Use the existing cert and key as they appear to
-					// have been already updated by the cert updater
-					// worker to have this machine's IP address as
-					// part of the cert. This changed cert is never
-					// put back into the database, so it isn't
-					// reflected in the copy we have got from
-					// apiState.
-					info.Cert = existing.Cert
-					info.PrivateKey = existing.PrivateKey
-				}
-				config.SetStateServingInfo(info)
-				if mongoProfileChanged {
-					logger.Debugf("setting agent config mongo memory profile: %s", mongoProfile)
-					config.SetMongoMemoryProfile(mongoProfile)
-				}
-				return nil
-			})
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// If we need a restart, return the fatal error.
-			if mongoProfileChanged {
-				logger.Infof("Restarting agent for new mongo memory profile")
-				return nil, jworker.ErrRestartAgent
+			// Only get the hub if we are a controller.
+			var hub *pubsub.StructuredHub
+			if err := context.Get(config.CentralHubName, &hub); err != nil {
+				config.Logger.Tracef("hub dependency not available")
+				return nil, err
 			}
 
-			// All is well - we're done (no actual worker is actually returned).
-			return nil, dependency.ErrUninstall
+			info, err := apiState.StateServingInfo()
+
+			return NewWorker(WorkerConfig{
+				Agent:        agent,
+				ConfigGetter: apiState,
+				Hub:          hub,
+				Logger:       config.Logger,
+			})
 		},
 	}
 }
