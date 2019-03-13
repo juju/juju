@@ -12,6 +12,39 @@ type ApplicationDelta struct {
 	old, new ApplicationChange
 }
 
+type ApplicationFieldWatcher struct {
+	*notifyWatcherBase
+	comparitors []func(*ApplicationDelta) bool
+}
+
+func newApplicationFieldWatcher(comparitors []func(*ApplicationDelta) bool) *ApplicationFieldWatcher {
+	return &ApplicationFieldWatcher{
+		notifyWatcherBase: newNotifyWatcherBase(),
+		comparitors:       comparitors,
+	}
+}
+
+func (w *ApplicationFieldWatcher) detailsChange(topic string, value interface{}) {
+	delta, ok := value.(*ApplicationDelta)
+	if !ok {
+		logger.Errorf("programming error, value not of type *ApplicationChange")
+	}
+
+	// If no comparitors were specified, notify for any change.
+	if len(w.comparitors) == 0 {
+		w.notify()
+		return
+	}
+
+	// Otherwise notify if any of the articles we are interested in change.
+	for _, c := range w.comparitors {
+		if c(delta) {
+			w.notify()
+			return
+		}
+	}
+}
+
 var ApplicationModelUUIDChanged = func(delta *ApplicationDelta) bool {
 	return delta.new.ModelUUID != delta.old.ModelUUID
 }
@@ -42,6 +75,39 @@ var ApplicationWorkloadVersionChanged = func(delta *ApplicationDelta) bool {
 
 type UnitDelta struct {
 	old, new UnitChange
+}
+
+type UnitFieldWatcher struct {
+	*notifyWatcherBase
+	comparitors []func(*UnitDelta) bool
+}
+
+func newUnitFieldWatcher(comparitors []func(*UnitDelta) bool) *UnitFieldWatcher {
+	return &UnitFieldWatcher{
+		notifyWatcherBase: newNotifyWatcherBase(),
+		comparitors:       comparitors,
+	}
+}
+
+func (w *UnitFieldWatcher) detailsChange(topic string, value interface{}) {
+	delta, ok := value.(*UnitDelta)
+	if !ok {
+		logger.Errorf("programming error, value not of type *UnitChange")
+	}
+
+	// If no comparitors were specified, notify for any change.
+	if len(w.comparitors) == 0 {
+		w.notify()
+		return
+	}
+
+	// Otherwise notify if any of the articles we are interested in change.
+	for _, c := range w.comparitors {
+		if c(delta) {
+			w.notify()
+			return
+		}
+	}
 }
 
 var UnitModelUUIDChanged = func(delta *UnitDelta) bool {

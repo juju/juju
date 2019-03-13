@@ -33,7 +33,7 @@ type Application struct {
 	configHash string
 }
 
-func (a *Application) WatchFields(comparitors ...func(*ApplicationDelta) bool) *applicationFieldWatcher {
+func (a *Application) WatchFields(comparitors ...func(*ApplicationDelta) bool) *ApplicationFieldWatcher {
 	w := newApplicationFieldWatcher(comparitors)
 
 	unsub := a.hub.Subscribe(a.topic(applicationFieldChange), w.detailsChange)
@@ -72,39 +72,4 @@ func (a *Application) setDetails(details ApplicationChange) {
 // topic prefixes the input string with the application name.
 func (a *Application) topic(suffix string) string {
 	return a.details.Name + ":" + suffix
-}
-
-type applicationFieldWatcher struct {
-	*notifyWatcherBase
-
-	comparitors []func(*ApplicationDelta) bool
-}
-
-func newApplicationFieldWatcher(comparitors []func(*ApplicationDelta) bool) *applicationFieldWatcher {
-	return &applicationFieldWatcher{
-		notifyWatcherBase: newNotifyWatcherBase(),
-
-		comparitors: comparitors,
-	}
-}
-
-func (w *applicationFieldWatcher) detailsChange(topic string, value interface{}) {
-	delta, ok := value.(*ApplicationDelta)
-	if !ok {
-		logger.Errorf("programming error, value not of type *ApplicationChange")
-	}
-
-	// If no comparitors were specified, notify for any change.
-	if len(w.comparitors) == 0 {
-		w.notify()
-		return
-	}
-
-	// Otherwise notify if any of the articles we are interested in change.
-	for _, c := range w.comparitors {
-		if c(delta) {
-			w.notify()
-			return
-		}
-	}
 }

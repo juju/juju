@@ -33,6 +33,39 @@ package cache
 type {{ $key }}Delta struct {
 	old, new {{ $key }}Change
 }
+
+type {{ $key }}FieldWatcher struct {
+	*notifyWatcherBase
+	comparitors []func(*{{ $key }}Delta) bool
+}
+
+func new{{ $key }}FieldWatcher(comparitors []func(*{{ $key }}Delta) bool) *{{ $key }}FieldWatcher {
+	return &{{ $key }}FieldWatcher{
+		notifyWatcherBase: newNotifyWatcherBase(),
+		comparitors:       comparitors,
+	}
+}
+
+func (w *{{ $key }}FieldWatcher) detailsChange(topic string, value interface{}) {
+	delta, ok := value.(*{{ $key }}Delta)
+	if !ok {
+		logger.Errorf("programming error, value not of type *{{ $key }}Change")
+	}
+
+	// If no comparitors were specified, notify for any change.
+	if len(w.comparitors) == 0 {
+		w.notify()
+		return
+	}
+
+	// Otherwise notify if any of the articles we are interested in change.
+	for _, c := range w.comparitors {
+		if c(delta) {
+			w.notify()
+			return
+		}
+	}
+}
 {{ range $idx, $field := $fields }}
 var {{ $key }}{{ $field }}Changed = func(delta *{{ $key }}Delta) bool {
 	return delta.new.{{ $field }} != delta.old.{{ $field }}
@@ -41,7 +74,7 @@ var {{ $key }}{{ $field }}Changed = func(delta *{{ $key }}Delta) bool {
 
 var out = flag.String("o", "", "output file")
 
-//go:generate go run main.go -o ../../core/cache/comparitors.go
+//go:generate go run main.go -o ../../core/cache/fieldwatcher.go
 
 func main() {
 	flag.Parse()
