@@ -170,7 +170,7 @@ func New() *Client {
 	return &Client{version: charmstoreVersion, url: charmstoreURL}
 }
 
-func (c *Client) GetCharm(charmId *charm.URL) (charm.Charm, error) {
+func (c *Client) Get(charmId *charm.URL) (charm.Charm, error) {
 	charmData := c.charms[*charmId]
 	if charmData == nil {
 		return charmData, NotFoundError(charmId.String())

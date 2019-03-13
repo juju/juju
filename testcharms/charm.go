@@ -30,13 +30,17 @@ const defaultSeries = "quantal"
 // Repo provides access to the test charm repository.
 var Repo = testing.NewRepo("charm-repo", defaultSeries)
 
-// RawCharmstoreServer encapsulates HTTP methods
+// RawCharmstoreOperations encapsulates HTTP methods
 // that are used for interacting with a charmstore
-type RawCharmstoreServer interface {
-	// Get retrieves data from path.
-	Get(path string, data interface{}) error
+type RawCharmstoreOperations interface {
+	// Get retrieves data from path. It emulates the HTTP GET method.
+	//
+	// Be wary of similar methods
+	//  - Get(*charm.URL) (macaroon.Slice, error)
+	//  - Get(id *charm.URL) (charm.Charm, error)
+	Get(path string, data interface{}) error 
 
-	// Put sends raw data to the charm store at path. It emulated the HTTP PUT method.
+	// Put sends raw data to the charm store at path. It emulates the HTTP PUT method.
 	Put(path string, data []string) error
 }
 
@@ -50,67 +54,61 @@ type MinimalCharmstoreClient interface {
 	// charm-related methods
 	// TODO(tsm): replace Get with GetCharm
 
-	// GetCharm retrieves a charm. Requesting a missing charm returns an error.
+	// Get retrieves a charm. Requesting a missing charm returns an error.
 	Get(id *charm.URL) (charm.Charm, error)
 
 	// UploadCharm stores a charm.Charm for later retrieval via Get
 	UploadCharm(id *charm.URL, charmData charm.Charm) (*charm.URL, error)
 	UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
-
 	// UploadCharmMultiSeries
-	// UploadCharmWithRevision
 	// UploadCharmWithMeta
-	Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error
 
 	// GetArchive(id *charm.URL) (r io.ReadCloser, eid *charm.URL, hash string, size int64, err error)
-
 	// GetResource(id *charm.URL, name string, revision int) (result ResourceData, err error)
 	ListResources(id *charm.URL) ([]params.Resource, error)
 	UploadResource(id *charm.URL, name, path string, file io.ReaderAt, size int64, progress csclient.Progress) (revision int, err error)
+	UploadBundleWithRevision(id *charm.URL, b charm.Bundle, promulgatedRevision int) error
 	// ResourceMeta(id *charm.URL, name string, revision int) (params.Resource, error)
 	// ResumeUploadResource(uploadId string, id *charm.URL, name, path string, file io.ReaderAt, size int64, progress Progress) (revision int, err error)
 
+
 	// DockerResourceUploadInfo(id *charm.URL, resourceName string) (*params.DockerInfoResponse, error)
 	// DockerResourceDownloadInfo(id *charm.URL, resourceName string) (*params.DockerInfoResponse, error)
-	AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error)
+	// AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error)
+
+	/// revisions
 
 	Latest(channel params.Channel, ids []*charm.URL, headers map[string][]string) ([]charmstore.CharmRevision, error)
+	Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error
 
 	/// internal methods
 
 	// WithChannel
 	WithChannel(channel params.Channel) MinimalCharmstoreClient
 
-	// StatsUpdate(req params.StatsUpdateRequest) error)
-
-	// http-related
-	//Get(path string, result interface{}) error
-	//Put(path string, val interface{}) error
-
-	// PutWithResponse // unnecessary?
-	// DoWithResponse // unnecessary?
-
-	//PutExtraInfo(id *charm.URL, info map[string]interface{}) error
-	//PutCommonInfo(id *charm.URL, info map[string]interface{}) error
 
 	// looks hard
 	// Meta(id *charm.URL, result interface{}) (*charm.URL, error)
-
-	UploadBundleWithRevision(id *charm.URL, b charm.Bundle, promulgatedRevision int) error
-	Put(path string, data []string) error
-
-	//Get(*charm.URL) (macaroon.Slice, error)
 }
 
 type CharmstoreOperations interface {
-	RawCharmstoreServer
+	//RawCharmstoreOperations
 
 	Login() error
+
+	PutExtraInfo(id *charm.URL, info map[string]interface{}) error
+
+	PutCommonInfo(id *charm.URL, info map[string]interface{}) error
+
+	StatsUpdate(req params.StatsUpdateRequest) error)
 }
 
-type CharmstoreClientWithBundles interface {
-	MinimalCharmstoreClient
+type CharmstoreBundleOperations interface {
+	GetBundle(id *charm.URL) (charm.Bundle, error)
+	UploadBundle(id *charm.URL, b charm.Bundle) (*charm.URL, error)
+}
 
+type CharmstoreBundleOperations interface {
 	GetBundle(id *charm.URL) (charm.Bundle, error)
 	UploadBundle(id *charm.URL, b charm.Bundle) (*charm.URL, error)
 }
