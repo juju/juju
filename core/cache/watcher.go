@@ -144,3 +144,76 @@ func (w *ConfigWatcher) configChanged(topic string, value interface{}) {
 	}
 	w.notify()
 }
+
+// StringsWatcher will return what has changed.
+type StringsWatcher interface {
+	Watcher
+	Changes() <-chan struct{}
+}
+
+type stringsWatcherBase struct {
+	tomb    tomb.Tomb
+	changes chan []string
+	// We can't send down a closed channel, so protect the sending
+	// with a mutex and bool. Since you can't really even ask a channel
+	// if it is closed.
+	closed bool
+	mu     sync.Mutex
+}
+
+func newStringsWatcherBase() *stringsWatcherBase {
+	// We use a single entry buffered channel for the changes.
+	// This allows the config changed handler to send a value when there
+	// is a change, but if that value hasn't been consumed before the
+	// next change, the second change is discarded.
+	ch := make(chan []string, 1)
+
+	// Send initial event down the channel. We know that this will
+	// execute immediately because it is a buffered channel.
+	ch <- []string{}
+
+	return &stringsWatcherBase{changes: ch}
+}
+
+// Changes is part of the core watcher definition.
+// The changes channel is never closed.
+func (w *stringsWatcherBase) Changes() <-chan []string {
+	return w.changes
+}
+
+// Kill is part of the worker.Worker interface.
+func (w *stringsWatcherBase) Kill() {
+	w.mu.Lock()
+	w.closed = true
+	close(w.changes)
+	w.mu.Unlock()
+	w.tomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (w *stringsWatcherBase) Wait() error {
+	return w.tomb.Wait()
+}
+
+// Stop is currently required by the Resources wrapper in the apiserver.
+func (w *stringsWatcherBase) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *stringsWatcherBase) notify(values []string) {
+	w.mu.Lock()
+
+	if w.closed {
+		w.mu.Unlock()
+		return
+	}
+
+	select {
+	case w.changes <- values:
+	default:
+		// Already a pending change, so do nothing.
+	}
+
+	w.mu.Unlock()
+}
