@@ -81,6 +81,10 @@ func (c *Controller) loop() error {
 				c.updateApplication(ch)
 			case RemoveApplication:
 				c.removeApplication(ch)
+			case CharmChange:
+				c.updateCharm(ch)
+			case RemoveCharm:
+				c.removeCharm(ch)
 			case MachineChange:
 				c.updateMachine(ch)
 			case RemoveMachine:
@@ -175,6 +179,20 @@ func (c *Controller) removeApplication(ch RemoveApplication) {
 	c.mu.Lock()
 	if model, ok := c.models[ch.ModelUUID]; ok {
 		model.removeApplication(ch)
+	}
+	c.mu.Unlock()
+}
+
+func (c *Controller) updateCharm(ch CharmChange) {
+	c.mu.Lock()
+	c.ensureModel(ch.ModelUUID).updateCharm(ch)
+	c.mu.Unlock()
+}
+
+func (c *Controller) removeCharm(ch RemoveCharm) {
+	c.mu.Lock()
+	if model, ok := c.models[ch.ModelUUID]; ok {
+		model.removeCharm(ch)
 	}
 	c.mu.Unlock()
 }

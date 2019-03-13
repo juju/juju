@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 )
@@ -49,6 +50,22 @@ type ApplicationChange struct {
 type RemoveApplication struct {
 	ModelUUID string
 	Name      string
+}
+
+// CharmChange represents either a new charm, or a change
+// to an existing charm in a model.
+type CharmChange struct {
+	ModelUUID    string
+	CharmURL     string
+	CharmVersion string
+	LXDProfiler  lxdprofile.LXDProfiler
+}
+
+// RemoveCharm represents the situation when an charm
+// is removed from a model in the database.
+type RemoveCharm struct {
+	ModelUUID string
+	CharmURL  string
 }
 
 // UnitChange represents either a new unit, or a change

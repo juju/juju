@@ -20,6 +20,7 @@ func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 		// when many models.
 		hub:          hub,
 		applications: make(map[string]*Application),
+		charms:       make(map[string]*Charm),
 		machines:     make(map[string]*Machine),
 		units:        make(map[string]*Unit),
 	}
@@ -37,6 +38,7 @@ type Model struct {
 	configHash   string
 	hashCache    *hashCache
 	applications map[string]*Application
+	charms       map[string]*Charm
 	machines     map[string]*Machine
 	units        map[string]*Unit
 }
@@ -67,6 +69,7 @@ func (m *Model) Report() map[string]interface{} {
 		"name":              m.details.Owner + "/" + m.details.Name,
 		"life":              m.details.Life,
 		"application-count": len(m.applications),
+		"charm-count":       len(m.charms),
 		"machine-count":     len(m.machines),
 		"unit-count":        len(m.units),
 	}
@@ -81,6 +84,19 @@ func (m *Model) Application(appName string) (*Application, error) {
 	app, found := m.applications[appName]
 	if !found {
 		return nil, errors.NotFoundf("application %q", appName)
+	}
+	return app, nil
+}
+
+// Charm returns the charm for the input charmURL.
+// If the charm is not found, a NotFoundError is returned.
+func (m *Model) Charm(charmURL string) (*Charm, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	app, found := m.charms[charmURL]
+	if !found {
+		return nil, errors.NotFoundf("charm %q", charmURL)
 	}
 	return app, nil
 }
@@ -152,6 +168,27 @@ func (m *Model) updateApplication(ch ApplicationChange) {
 func (m *Model) removeApplication(ch RemoveApplication) {
 	m.mu.Lock()
 	delete(m.applications, ch.Name)
+	m.mu.Unlock()
+}
+
+// updateCharm adds or updates the charm in the model.
+func (m *Model) updateCharm(ch CharmChange) {
+	m.mu.Lock()
+
+	charm, found := m.charms[ch.CharmURL]
+	if !found {
+		charm = newCharm(m.metrics, m.hub)
+		m.charms[ch.CharmURL] = charm
+	}
+	charm.setDetails(ch)
+
+	m.mu.Unlock()
+}
+
+// removeCharm removes the charm from the model.
+func (m *Model) removeCharm(ch RemoveCharm) {
+	m.mu.Lock()
+	delete(m.charms, ch.CharmURL)
 	m.mu.Unlock()
 }
 

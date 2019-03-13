@@ -339,6 +339,59 @@ func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
 	}
 }
 
+func (s *WorkerSuite) TestAddCharm(c *gc.C) {
+	changes := s.captureEvents(c, charmEvents)
+	w := s.start(c)
+
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{})
+	s.State.StartSync()
+
+	change := s.nextChange(c, changes)
+	obtained, ok := change.(cache.CharmChange)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(obtained.CharmURL, gc.Equals, charm.URL().String())
+
+	controller := s.getController(c, w)
+	modUUIDs := controller.ModelUUIDs()
+	c.Check(modUUIDs, gc.HasLen, 1)
+
+	mod, err := controller.Model(modUUIDs[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	cachedCharm, err := mod.Charm(charm.URL().String())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cachedCharm, gc.NotNil)
+}
+
+func (s *WorkerSuite) TestRemoveCharm(c *gc.C) {
+	changes := s.captureEvents(c, charmEvents)
+	w := s.start(c)
+
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{})
+	s.State.StartSync()
+	_ = s.nextChange(c, changes)
+
+	controller := s.getController(c, w)
+	modUUID := controller.ModelUUIDs()[0]
+
+	c.Assert(charm.Destroy(), jc.ErrorIsNil)
+	s.State.StartSync()
+
+	// We will either get our charm event,
+	// or time-out after processing all the changes.
+	for {
+		change := s.nextChange(c, changes)
+		if _, ok := change.(cache.RemoveCharm); ok {
+			mod, err := controller.Model(modUUID)
+			c.Assert(err, jc.ErrorIsNil)
+
+			_, err = mod.Charm(charm.URL().String())
+			c.Check(errors.IsNotFound(err), jc.IsTrue)
+			return
+		}
+	}
+}
+
 func (s *WorkerSuite) TestAddUnit(c *gc.C) {
 	changes := s.captureEvents(c, unitEvents)
 	w := s.start(c)
@@ -441,6 +494,16 @@ var machineEvents = func(change interface{}) bool {
 	case cache.MachineChange:
 		return true
 	case cache.RemoveMachine:
+		return true
+	}
+	return false
+}
+
+var charmEvents = func(change interface{}) bool {
+	switch change.(type) {
+	case cache.CharmChange:
+		return true
+	case cache.RemoveCharm:
 		return true
 	}
 	return false

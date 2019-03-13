@@ -205,6 +205,26 @@ func (i *ApplicationInfo) EntityId() EntityId {
 	}
 }
 
+// CharmInfo holds the information about a charm that is tracked by the
+// multiwatcher.
+type CharmInfo struct {
+	ModelUUID    string            `json:"model-uuid"`
+	CharmURL     string            `json:"charm-url"`
+	CharmVersion string            `bson:"charm-version"`
+	Life         Life              `bson:"life"`
+	LXDProfile   *charm.LXDProfile `bson:"lxd-profile"`
+}
+
+// EntityId returns a unique identifier for an application across
+// models.
+func (i *CharmInfo) EntityId() EntityId {
+	return EntityId{
+		Kind:      "charm",
+		ModelUUID: i.ModelUUID,
+		Id:        i.CharmURL,
+	}
+}
+
 // RemoteApplicationInfo holds the information about a remote application that is
 // tracked by multiwatcherStore.
 type RemoteApplicationInfo struct {

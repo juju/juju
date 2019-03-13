@@ -9,11 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -305,7 +307,35 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			WorkloadStatus: coreStatus(value.WorkloadStatus),
 			AgentStatus:    coreStatus(value.AgentStatus),
 		}
-
+	case "charm":
+		if d.Removed {
+			return cache.RemoveCharm{
+				ModelUUID: id.ModelUUID,
+				CharmURL:  id.Id,
+			}
+		}
+		value, ok := d.Entity.(*multiwatcher.CharmInfo)
+		if !ok {
+			c.config.Logger.Errorf("unexpected type %T", d.Entity)
+			return nil
+		}
+		charmChange := cache.CharmChange{
+			ModelUUID: value.ModelUUID,
+			CharmURL:  value.CharmURL,
+		}
+		profile := value.LXDProfile
+		if profile != nil {
+			charmChange.LXDProfiler = lxdprofile.NewLXDCharmProfiler(
+				lxdprofile.Profile{
+					Config:      profile.Config,
+					Description: profile.Description,
+					Devices:     profile.Devices,
+				},
+			)
+		} else {
+			charmChange.LXDProfiler = lxdprofile.NewLXDCharmProfiler(lxdprofile.Profile{})
+		}
+		return charmChange
 	default:
 		return nil
 	}
@@ -365,4 +395,21 @@ func coreNetworkAddresses(delta []multiwatcher.Address) []network.Address {
 		}
 	}
 	return addresses
+}
+
+// lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the
+// core package.
+type lxdCharmProfiler struct {
+	Charm charm.Charm
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.Charm == nil {
+		return nil
+	}
+	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
+		return profiler.LXDProfile()
+	}
+	return nil
 }
