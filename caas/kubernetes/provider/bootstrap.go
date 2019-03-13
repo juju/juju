@@ -24,8 +24,13 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
-// JujuControllerStackName is the juju CAAS controller stack name.
-const JujuControllerStackName = "juju-controller"
+const (
+	// JujuControllerStackName is the juju CAAS controller stack name.
+	JujuControllerStackName = "juju-controller"
+
+	// annotationsControllerIsControllerKey is the juju controller annotation key for is-controller.
+	annotationsControllerIsControllerKey = "is-controller"
+)
 
 var (
 	// TemplateFileNameServerPEM is the template server.pem file name.
@@ -64,15 +69,20 @@ type controllerStacker interface {
 	Deploy() error
 }
 
-func newcontrollerStack(stackName string, storageClass string, broker *kubernetesClient, pcfg *podcfg.ControllerPodConfig) (controllerStacker, error) {
-	// TODO(caas): parse from constrains?
+func newcontrollerStack(
+	stackName string,
+	storageClass string,
+	broker *kubernetesClient,
+	pcfg *podcfg.ControllerPodConfig,
+) (controllerStacker, error) {
+	// TODO(caas): parse from constrains?\
 	storageSizeControllerRaw := "20Gi"
 	storageSize, err := resource.ParseQuantity(storageSizeControllerRaw)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(caas): we'll need a different tag type other than machine tag.
+	// TODO(bootstrap): we'll need a different tag type other than machine tag.
 	var agentConfig agent.ConfigSetterWriter
 	agentConfig, err = pcfg.AgentConfig(names.NewMachineTag(pcfg.MachineId))
 	if err != nil {
@@ -96,6 +106,11 @@ func newcontrollerStack(stackName string, storageClass string, broker *kubernete
 
 	agentConfig.SetStateServingInfo(si)
 	pcfg.Bootstrap.StateServingInfo = si
+
+	// we use controller name to name controller namespace in bootstrap time.
+	if err = broker.setCurrentNamespace(pcfg.ControllerName); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	cs := controllerStack{
 		stackName:   stackName,
@@ -513,7 +528,7 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 	generateContainerSpecs := func(jujudCmd string) []core.Container {
 		var containerSpec []core.Container
 		// add container mongoDB.
-		// TODO(caas): refactor mongo package to make it usable for IAAS and CAAS,
+		// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
 		// then generate mongo config from EnsureServerParams.
 		probCmds := &core.ExecAction{
 			Command: []string{
