@@ -157,7 +157,6 @@ type Client struct {
 	bundles   map[charm.URL]charm.Bundle
 	resources map[charm.URL][]params.Resource
 	revisions map[charm.URL]int
-	rawstore  map[string][]string
 	version   string
 	url       string
 
@@ -166,11 +165,11 @@ type Client struct {
 
 var _ testcharms.MinimalCharmstoreClient = (*Client)(nil)
 
-func New() *Client {
-	return &Client{version: charmstoreVersion, url: charmstoreURL}
+func NewCharmstoreClient() Client {
+	return Client{version: charmstoreVersion, url: charmstoreURL}
 }
 
-func (c *Client) Get(charmId *charm.URL) (charm.Charm, error) {
+func (c Client) Get(charmId *charm.URL) (charm.Charm, error) {
 	charmData := c.charms[*charmId]
 	if charmData == nil {
 		return charmData, NotFoundError(charmId.String())
@@ -178,7 +177,7 @@ func (c *Client) Get(charmId *charm.URL) (charm.Charm, error) {
 	return charmData, nil
 }
 
-func (c *Client) GetBundle(bundleId *charm.URL) (charm.Bundle, error) {
+func (c Client) GetBundle(bundleId *charm.URL) (charm.Bundle, error) {
 	bundleData := c.bundles[*bundleId]
 	if bundleData == nil {
 		return bundleData, NotFoundError(bundleId.String())
@@ -186,25 +185,26 @@ func (c *Client) GetBundle(bundleId *charm.URL) (charm.Bundle, error) {
 	return bundleData, nil
 }
 
-func (c *Client) UploadCharm(charmId *charm.URL, charmData charm.Charm) (*charm.URL, error) {
+func (c Client) UploadCharm(charmId *charm.URL, charmData charm.Charm) (*charm.URL, error) {
 	c.charms[*charmId] = charmData
 	return charmId, nil
 }
 
-func (c *Client) UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error {
+func (c Client) UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error {
 	_, err := c.UploadCharm(id, ch)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	c.revisions[*id] = promulgatedRevision
+	return nil
 }
 
-func (c *Client) UploadBundle(bundleLocation *charm.URL, bundleData charm.Bundle) (*charm.URL, error) {
+func (c Client) UploadBundle(bundleLocation *charm.URL, bundleData charm.Bundle) (*charm.URL, error) {
 	c.bundles[*bundleLocation] = bundleData
 	return bundleLocation, nil
 }
 
-func (c *Client) UploadBundleWithRevision(id *charm.URL, bundleData charm.Bundle, promulgatedRevision int) error {
+func (c Client) UploadBundleWithRevision(id *charm.URL, bundleData charm.Bundle, promulgatedRevision int) error {
 	_, err := c.UploadBundle(id, bundleData)
 	if err != nil {
 		return errors.Trace(err)
@@ -213,37 +213,47 @@ func (c *Client) UploadBundleWithRevision(id *charm.URL, bundleData charm.Bundle
 	return nil
 }
 
+func (c Client) GetResource(id *charm.URL, name string, revision int) (result csclient.ResourceData, err error) {
+	return csclient.ResourceData{}, nil
+}
+
+func (c Client) ResourceMeta(id *charm.URL, name string, revision int) (params.Resource, error) {
+	resources := c.resources[*id]
+	if len(resources) == 0 {
+		return params.Resource{}, NotFoundError("unable to find any resources for " + name)
+	}
+	return resources[len(resources)-1], nil
+}
+
 // ListResources returns Resourc metadata that have been generated
 // by UploadResource
-func (c *Client) ListResources(id *charm.URL) ([]params.Resource, error) {
-	return c.resources[id], nil
+func (c Client) ListResources(id *charm.URL) ([]params.Resource, error) {
+	return c.resources[*id], nil
 }
 
 func signature(r io.ReadSeeker) (hash []byte, err error) {
 	h := sha512.New384()
 	_, err = io.Copy(h, r)
 	if err != nil {
-		return "", 0, errors.Trace(err, "cannot calculate hash")
+		return []byte(""), errors.Trace(err)
 	}
 	_, err = r.Seek(0, 0)
 	if err != nil {
-		return "", 0, errors.Trace(err, "cannot seek")
+		return []byte(""), errors.Trace(err)
 	}
 	hash = []byte(fmt.Sprintf("%x", h.Sum(nil)))
 	return hash, nil
 }
 
 // UploadResource "uploads" data from file and stores a
-func (c *Client) UploadResource(id *charm.URL, name, path string, file io.ReaderAt, size int64, progress csclient.Progress) (revision int, err error) {
-	resources := c.resources[id]
+func (c Client) UploadResource(id *charm.URL, name, path string, file io.ReadSeeker, size int64, progress csclient.Progress) (revision int, err error) {
+	resources := c.resources[*id]
 	revision = len(resources)
-	result := params.ResourceUploadResponse{Revision: revision}
 	//progress.Start() // ignoring progress for now, hoping that it's not material to the tests
 	hash, err := signature(file)
 	if err != nil {
-		//progress.Error(err)
-		result.Revision = -1
-		return result, errors.Trace(err)
+		// progress.Error(err)
+		return -1, errors.Trace(err)
 	}
 	resource := params.Resource{
 		Name:        name,
@@ -253,25 +263,30 @@ func (c *Client) UploadResource(id *charm.URL, name, path string, file io.Reader
 		Fingerprint: hash,
 	}
 	resources = append(resources, resource)
-	c.resources[id] = resources
-	//progress.Transferred() // it looks like this method is never used by csclient anyway?
-	//progress.Finalizing()
-	return result, nil
+	c.resources[*id] = resources
+	// progress.Transferred() // it looks like this method is never used by csclient anyway?
+	// progress.Finalizing()
+	return revision, nil
 }
 
-func (c *Client) AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error) {
+func (c Client) AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error) {
 	return -1, nil
 }
 
-func (c *Client) Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error {
+func (c Client) DockerResourceUploadInfo(id *charm.URL, resourceName string) (*params.DockerInfoResponse, error) {
+	result := params.DockerInfoResponse{}
+	return &result, nil
+}
+
+func (c Client) Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error {
 	return nil
 }
 
-func (c *Client) WithChannel(channel params.Channel) Client {
-	return c
+func (c Client) WithChannel(channel params.Channel) testcharms.MinimalCharmstoreClient {
+	return &c
 }
 
-func (c *Client) Latest(channel params.Channel, ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error) {
+func (c Client) Latest(channel params.Channel, ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error) {
 	result := make([]params.CharmRevision, len(ids))
 
 	for i, id := range ids {
@@ -283,20 +298,20 @@ func (c *Client) Latest(channel params.Channel, ids []*charm.URL, headers map[st
 }
 
 // Put puts data into a location for later retrieval.
-func (c *Client) Put(path string, data []string) error {
-	c.rawstore[path] = data // clobber pre-existing data
+func (c Client) Put(path string, data interface{}) error {
+	// into the void
 	return nil
 }
 
-// Put puts data into a location for later retrieval.
-func (c *Client) Get(path string, result interface{}) error {
-	data := c.rawstore[path]
-	if len(data) == 0 {
-		return nil
-	}
-	result = *data[len(data)]
-	return nil
-}
+// // Put puts data into a location for later retrieval.
+// func (c *Client) Get(path string, result interface{}) error {
+// 	data := c.rawstore[path]
+// 	if len(data) == 0 {
+// 		return nil
+// 	}
+// 	result = *data[len(data)]
+// 	return nil
+// }
 
 // currentCharmURL := charm.MustParseURL("cs:quantal/foo-1")
 
@@ -310,19 +325,15 @@ func (c *Client) Get(path string, result interface{}) error {
 
 type CharmStoreSuite struct {
 	testing.CleanupSuite
-	Client *testcharms.MinimalCharmstoreClient
+	Client testcharms.StatefulCharmstoreClient
 }
 
 func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
-
-	s.Client = client{}
+	s.Client = NewCharmstoreClient()
 }
 
 func (s *CharmStoreSuite) TearDownTest(c *gc.C) {
-	// s.discharger.Close()
-	// //s.handler.Close()
-	// s.Srv.Close()
 	s.CleanupSuite.TearDownTest(c)
 }
 

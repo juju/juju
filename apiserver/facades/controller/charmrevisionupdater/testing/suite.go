@@ -10,13 +10,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmstore.v5"
 
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	// "github.com/juju/juju/apiserver/testing"
-	jujucharmstore "github.com/juju/juju/charmstore"
+
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -30,8 +28,9 @@ type CharmSuite struct {
 
 	Handler charmstore.HTTPCloseHandler
 	Server  *httptest.Server
-	Client  *csclient.Client
-	charms  map[string]*state.Charm
+	//Client  *csclient.Client
+	Client apiservertesting.Client
+	charms map[string]*state.Charm
 }
 
 func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
@@ -41,20 +40,8 @@ func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
 func (s *CharmSuite) TearDownSuite(c *gc.C) {}
 
 func (s *CharmSuite) SetUpTest(c *gc.C) {
-	db := s.jcSuite.Session.DB("juju-testing")
-	params := charmstore.ServerParams{
-		AuthUsername: "test-user",
-		AuthPassword: "test-password",
-	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstoreVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	s.Handler = handler
-	s.Server = httptest.NewServer(handler)
-	s.Client = csclient.New(csclient.Params{
-		URL:      s.Server.URL,
-		User:     params.AuthUsername,
-		Password: params.AuthPassword,
-	})
+
+	s.Client = apiservertesting.NewCharmstoreClient()
 	urls := map[string]string{
 		"mysql":     "quantal/mysql-23",
 		"dummy":     "quantal/dummy-24",
@@ -65,12 +52,12 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	for name, url := range urls {
 		testcharms.UploadCharm(c, s.Client, url, name)
 	}
-	s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	// Patch the charm repo initializer function: it is replaced with a charm
-	// store repo pointing to the testing server.
-	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (jujucharmstore.Client, error) {
-		return jujucharmstore.NewCachingClient(state.MacaroonCache{st}, s.Server.URL)
-	})
+	// s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
+	// // Patch the charm repo initializer function: it is replaced with a charm
+	// // store repo pointing to the testing server.
+	// s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (jujucharmstore.Client, error) {
+	// 	return jujucharmstore.NewCachingClient(state.MacaroonCache{st}, s.Server.URL)
+	// })
 	s.charms = make(map[string]*state.Charm)
 }
 
