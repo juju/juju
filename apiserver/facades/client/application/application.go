@@ -1272,23 +1272,34 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			return nil, errors.Trace(err)
 		}
 
+		var destroyStorage []string
+		var detachStorage []string
 		if arg.DestroyStorage {
 			for _, s := range storage {
-				info.DestroyedStorage = append(
-					info.DestroyedStorage,
-					params.Entity{s.StorageTag().String()},
-				)
+				info.DestroyedStorage = append(info.DestroyedStorage, params.Entity{s.StorageTag().String()})
+				destroyStorage = append(destroyStorage, s.StorageTag().String())
 			}
 		} else {
-			info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
+			destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
 				api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), storage,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			for _, tag := range destroyed {
+				info.DestroyedStorage = append(info.DestroyedStorage, params.Entity{tag.String()})
+				destroyStorage = append(destroyStorage, tag.String())
+			}
+			for _, tag := range detached {
+				info.DetachedStorage = append(info.DetachedStorage, params.Entity{tag.String()})
+				detachStorage = append(detachStorage, tag.String())
+			}
 		}
+		fmt.Printf("\n apiserver unit detach %v destroy %v\n", detachStorage, destroyStorage)
 		op := unit.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
+		op.StorageToDetach = detachStorage
+		op.StorageToDestroy = destroyStorage
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1371,6 +1382,8 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 			return nil, err
 		}
 		storageSeen := names.NewSet()
+		var destroyStorage []string
+		var detachStorage []string
 		for _, unit := range units {
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,
@@ -1400,6 +1413,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 						info.DestroyedStorage,
 						params.Entity{s.StorageTag().String()},
 					)
+					destroyStorage = append(destroyStorage, s.StorageTag().String())
 				}
 			} else {
 				destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
@@ -1408,12 +1422,21 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				if err != nil {
 					return nil, err
 				}
-				info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
-				info.DetachedStorage = append(info.DetachedStorage, detached...)
+				for _, tag := range destroyed {
+					info.DestroyedStorage = append(info.DestroyedStorage, params.Entity{tag.String()})
+					destroyStorage = append(destroyStorage, tag.String())
+				}
+				for _, tag := range detached {
+					info.DetachedStorage = append(info.DetachedStorage, params.Entity{tag.String()})
+					detachStorage = append(detachStorage, tag.String())
+				}
 			}
 		}
+		fmt.Printf("\n apiserver application detach %v destroy %v\n", detachStorage, destroyStorage)
 		op := app.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
+		op.StorageToDestroy = destroyStorage
+		op.StorageToDetach = detachStorage
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, err
 		}

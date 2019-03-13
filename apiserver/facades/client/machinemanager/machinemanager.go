@@ -337,8 +337,14 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 				storageError(errors.Annotatef(err, "classifying storage for destruction for unit %v", unit.UnitTag().Id()))
 				continue
 			}
-			info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
-			info.DetachedStorage = append(info.DetachedStorage, detached...)
+			for _, tag := range destroyed {
+				info.DestroyedStorage = append(info.DestroyedStorage, params.Entity{tag.String()})
+			}
+			for _, tag := range detached {
+				info.DetachedStorage = append(info.DetachedStorage, params.Entity{tag.String()})
+			}
+			// TODO (me) These collections need to be passsed to cleanup, collections of storage to destroy/detach
+			fmt.Printf("\n apiserver machine detach %v destroy %v\n", info.DetachedStorage, info.DestroyedStorage)
 		}
 
 		if len(storageErrors) != 0 {

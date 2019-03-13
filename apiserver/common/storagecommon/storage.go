@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -311,7 +310,9 @@ func ClassifyDetachedStorage(
 	stVolume VolumeAccess,
 	stFile FilesystemAccess,
 	storage []state.StorageInstance,
-) (destroyed, detached []params.Entity, _ error) {
+) (destroyed, detached []names.StorageTag, _ error) {
+	// If anything changes here, the code in state/cleanup.go ClassifyDetachedStorage needs to be
+	// updated too...
 	for _, storage := range storage {
 		var detachable bool
 		switch storage.Kind() {
@@ -340,11 +341,10 @@ func ClassifyDetachedStorage(
 		default:
 			return nil, nil, errors.NotValidf("storage kind %s", storage.Kind())
 		}
-		entity := params.Entity{storage.StorageTag().String()}
 		if detachable {
-			detached = append(detached, entity)
+			detached = append(detached, storage.StorageTag())
 		} else {
-			destroyed = append(destroyed, entity)
+			destroyed = append(destroyed, storage.StorageTag())
 		}
 	}
 	return destroyed, detached, nil
