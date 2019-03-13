@@ -493,7 +493,7 @@ func (c Config) CharmStoreURL() string {
 	return url
 }
 
-// ControllerUUID returns the uuid for the model's controller.
+// ControllerUUID returns the uuid for the controller.
 func (c Config) ControllerUUID() string {
 	return c.mustString(ControllerUUIDKey)
 }
