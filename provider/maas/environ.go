@@ -144,7 +144,7 @@ func (env *maasEnviron) usingMAAS2() bool {
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (env *maasEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (env *maasEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(env, nil); err != nil {
 			return err

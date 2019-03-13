@@ -9,7 +9,7 @@ import (
 	"github.com/juju/loggo"
 )
 
-const jujuAnnotationPrefix = "juju.io/"
+const jujuAnnotationPrefix = "juju.io"
 
 var (
 	logger = loggo.GetLogger("juju.kubernetes.provider.annotations")
@@ -35,7 +35,8 @@ func NewAnnotation(as map[string]string) Annotation {
 
 // Exist check if the provided key value pair exists in this annotation or not.
 func (a Annotation) Exist(key, expectedValue string) bool {
-	return a.getVal(key) == expectedValue
+	v, ok := a.getVal(key)
+	return ok && v == expectedValue
 }
 
 // ExistAll check if all the provided key value pairs exist in this annotation or not.
@@ -77,7 +78,7 @@ func (a Annotation) Merge(as Annotation) Annotation {
 	return a
 }
 
-// ToMap returns the map format of the value.
+// ToMap returns the map format of the annotation.
 func (a Annotation) ToMap() map[string]string {
 	return a.vals
 }
@@ -89,6 +90,7 @@ func (a Annotation) getKey(key string) string {
 	return a.prefix + "/" + key
 }
 
-func (a Annotation) getVal(key string) string {
-	return a.vals[a.getKey(key)]
+func (a Annotation) getVal(key string) (string, bool) {
+	v, ok := a.vals[a.getKey(key)]
+	return v, ok
 }

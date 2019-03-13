@@ -183,7 +183,7 @@ func (env *environ) Config() *config.Config {
 }
 
 // PrepareForBootstrap implements environs.Environ.
-func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	if ctx.ShouldVerifyCredentials() {
 		if err := env.gce.VerifyCredentials(); err != nil {
 			return errors.Trace(err)

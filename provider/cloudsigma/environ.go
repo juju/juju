@@ -66,7 +66,7 @@ func (env *environ) Config() *config.Config {
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	logger.Infof("preparing model %q", env.name)
 	return nil
 }

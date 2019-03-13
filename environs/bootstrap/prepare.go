@@ -125,8 +125,7 @@ func PrepareController(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	if err := env.PrepareForBootstrap(ctx); err != nil {
+	if err := env.PrepareForBootstrap(ctx, args.ControllerName); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := do(); err != nil {

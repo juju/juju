@@ -158,15 +158,15 @@ func (k *kubernetesClient) decideFacts() error {
 		_ = k.annotations.Add(annotationsControllerIsControllerKey, "true")
 
 		ns, err := k.getOneNamespaceByAnnotations()
-		if k8serrors.IsNotFound(err) {
-			// We are still all good, it must be a new controller bootstrapping.
-			// The namespace will be set to controller-name in newcontrollerStack.
+		if errors.IsNotFound(err) {
+			// No existing controller found on the cluster.
+			// A controller must be bootstrapping now.
 			return nil
 		}
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// all good, we found it's an existing controller.
+		// Found it's an existing controller.
 		// Now, link it back.
 		namespace = ns.Namespace
 		logger.Debugf("found config name %q, so naming namespace to %q", k.envCfg.Name(), namespace)
@@ -204,26 +204,28 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 	return storageClass, errors.Trace(err)
 }
 
-// PrepareForBootstrap prepares for bootstrapping a controller.
-func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
-	// checking no existing namespace has the same name.
+// PrepareForBootstrap prepares for bootstraping a controller.
+func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
+	k.namespace = controllerName
+	alreadyExistErr := errors.AlreadyExistsf("namespace %q, choose another namespace name then try again", k.namespace)
+	// ensure no existing namespace has the same name.
 	_, err := k.GetNamespace(k.namespace)
 	if err == nil {
-		return errors.AlreadyExistsf("namespace %q, choose another namespace name then try again", k.namespace)
+		return alreadyExistErr
+	}
+	if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	// Good, no existing namespace has the same name.
+	// Now, try to find if there is any existing controller running in this cluster.
+	// Note: we have to do this check before we are confident to support multi controllers running in same k8s cluster.
+	_, err = k.getOneNamespaceByAnnotations()
+	if err == nil {
+		return alreadyExistErr
 	}
 	if errors.IsNotFound(err) {
-		// Good, no existing namespace has the same name.
-		// Now, double check annotations to ensure NO existing controller running in same cluster.
-		// Note: we have to do this check before we are confident to support multi controllers for same k8s cluster.
-		_, err := k.getOneNamespaceByAnnotations()
-		if errors.IsNotFound(err) {
-			// All good, it must be a new controller bootstrapping.
-			// The namespace will be set to controller-name in newcontrollerStack.
-			return nil
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
+		// All good, no existing controller found on the cluster.
+		// The namespace will be set to controller-name in newcontrollerStack.
 		return nil
 	}
 	if !errors.IsNotFound(err) {

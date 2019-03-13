@@ -90,7 +90,7 @@ func (e *manualEnviron) Config() *config.Config {
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	if err := ensureBootstrapUbuntuUser(ctx, e.host, e.user, e.envConfig()); err != nil {
 		return err
 	}

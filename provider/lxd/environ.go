@@ -136,7 +136,7 @@ func (env *environ) Config() *config.Config {
 }
 
 // PrepareForBootstrap implements environs.Environ.
-func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	return nil
 }
 
