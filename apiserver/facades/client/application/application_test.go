@@ -1832,6 +1832,33 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
+func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsNextGen(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy", ch)
+
+	c.Assert(s.State.AddGeneration(), jc.ErrorIsNil)
+
+	// Update settings for the application.
+	args := params.ApplicationUpdate{
+		ApplicationName: "dummy",
+		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
+		Generation:      model.GenerationNext,
+	}
+	err := s.applicationAPI.Update(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the settings have been correctly updated.
+	expected := charm.Settings{"title": "s-title", "username": "s-user"}
+	obtained, err := app.CharmConfig(model.GenerationNext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
+
+	// Check that the application is recorded against the generation.
+	gen, err := s.State.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), jc.DeepEquals, map[string][]string{"dummy": {}})
+}
+
 func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
@@ -1850,6 +1877,33 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 	obtained, err := app.CharmConfig(model.GenerationCurrent)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
+}
+
+func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLNextGen(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy", ch)
+
+	c.Assert(s.State.AddGeneration(), jc.ErrorIsNil)
+
+	// Update settings for the application.
+	args := params.ApplicationUpdate{
+		ApplicationName: "dummy",
+		SettingsYAML:    "dummy:\n  title: y-title\n  username: y-user",
+		Generation:      model.GenerationNext,
+	}
+	err := s.applicationAPI.Update(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the settings have been correctly updated.
+	expected := charm.Settings{"title": "y-title", "username": "y-user"}
+	obtained, err := app.CharmConfig(model.GenerationNext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
+
+	// Check that the application is recorded against the generation.
+	gen, err := s.State.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), jc.DeepEquals, map[string][]string{"dummy": {}})
 }
 
 func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C) {

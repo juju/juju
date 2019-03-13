@@ -44,6 +44,7 @@ type Backend interface {
 	Resources() (Resources, error)
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
+	NextGeneration() (Generation, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -158,6 +159,10 @@ type Model interface {
 // the state.Resources type for details on the methods.
 type Resources interface {
 	RemovePendingAppResources(string, map[string]string) error
+}
+
+type Generation interface {
+	AssignApplication(string) error
 }
 
 type stateShim struct {
@@ -340,6 +345,14 @@ func (s stateShim) OfferConnectionForRelation(key string) (OfferConnection, erro
 	return s.State.OfferConnectionForRelation(key)
 }
 
+func (s stateShim) NextGeneration() (Generation, error) {
+	gen, err := s.State.NextGeneration()
+	if err != nil {
+		return nil, err
+	}
+	return Generation(gen), nil
+}
+
 type stateApplicationShim struct {
 	*state.Application
 	st *state.State
@@ -405,15 +418,7 @@ type Subnet interface {
 	ProviderNetworkId() network.Id
 }
 
-type subnetShim struct {
-	*state.Subnet
-}
-
 type Space interface {
 	Name() string
 	ProviderId() network.Id
-}
-
-type spaceShim struct {
-	*state.Space
 }
