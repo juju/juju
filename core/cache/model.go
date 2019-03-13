@@ -4,8 +4,6 @@
 package cache
 
 import (
-	"sort"
-	"strings"
 	"sync"
 
 	"github.com/juju/errors"
@@ -35,7 +33,7 @@ type Model struct {
 
 	details      ModelChange
 	configHash   string
-	hashCache    *modelConfigHashCache
+	hashCache    *hashCache
 	applications map[string]*Application
 	units        map[string]*Unit
 }
@@ -130,7 +128,7 @@ func (m *Model) setDetails(details ModelChange) {
 	m.mu.Lock()
 
 	m.details = details
-	hashCache, configHash := newModelConfigHashCache(m.metrics, details.Config)
+	hashCache, configHash := newHashCache(details.Config, m.metrics.ModelHashCacheHit, m.metrics.ModelHashCacheMiss)
 	if configHash != m.configHash {
 		m.configHash = configHash
 		m.hashCache = hashCache
@@ -149,11 +147,8 @@ func (m *Model) Config() map[string]interface{} {
 }
 
 // WatchConfig creates a watcher for the model config.
-// If keys are specified, the watcher is only signals a change when
-// those keys change values. If no keys are specified, any change in the
-// config will trigger the watcher.
-func (m *Model) WatchConfig(keys ...string) *modelConfigWatcher {
-	w := newModelConfigWatcher(keys, m.hashCache.getHash(keys))
+func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
+	w := newConfigWatcher(keys, m.hashCache.getHash(keys))
 
 	unsub := m.hub.Subscribe(m.modelTopic(modelConfigChange), w.configChanged)
 
@@ -164,92 +159,4 @@ func (m *Model) WatchConfig(keys ...string) *modelConfigWatcher {
 	})
 
 	return w
-}
-
-type modelConfigHashCache struct {
-	metrics *ControllerGauges
-	config  map[string]interface{}
-	// The key to the hash map is the stringified keys of the watcher.
-	// They should be sorted and comma delimited.
-	hash map[string]string
-	mu   sync.Mutex
-}
-
-func newModelConfigHashCache(metrics *ControllerGauges, config map[string]interface{}) (*modelConfigHashCache, string) {
-	configCache := &modelConfigHashCache{
-		metrics: metrics,
-		config:  config,
-		hash:    make(map[string]string),
-	}
-	// Generate the hash for the entire config.
-	allHash := configCache.generateHash(nil)
-	configCache.hash[""] = allHash
-	return configCache, allHash
-}
-
-func (c *modelConfigHashCache) getHash(keys []string) string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	key := strings.Join(keys, ",")
-	value, found := c.hash[key]
-	if found {
-		c.metrics.ModelHashCacheHit.Inc()
-		return value
-	}
-	value = c.generateHash(keys)
-	c.hash[key] = value
-	return value
-}
-
-func (c *modelConfigHashCache) generateHash(keys []string) string {
-	// We are generating a hash, so call it a miss.
-	c.metrics.ModelHashCacheMiss.Inc()
-
-	interested := c.config
-	if len(keys) > 0 {
-		interested = make(map[string]interface{})
-		for _, key := range keys {
-			if value, found := c.config[key]; found {
-				interested[key] = value
-			}
-		}
-	}
-	h, err := hash(interested)
-	if err != nil {
-		logger.Errorf("invariant error - model config should be yaml serializable and hashable, %v", err)
-		return ""
-	}
-	return h
-}
-
-type modelConfigWatcher struct {
-	*notifyWatcherBase
-
-	keys []string
-	hash string
-}
-
-func newModelConfigWatcher(keys []string, keyHash string) *modelConfigWatcher {
-	sort.Strings(keys)
-
-	return &modelConfigWatcher{
-		notifyWatcherBase: newNotifyWatcherBase(),
-
-		keys: keys,
-		hash: keyHash,
-	}
-}
-
-func (w *modelConfigWatcher) configChanged(topic string, value interface{}) {
-	hashCache, ok := value.(*modelConfigHashCache)
-	if !ok {
-		logger.Errorf("programming error, value not of type *modelConfigHashCache")
-	}
-	hash := hashCache.getHash(w.keys)
-	if hash == w.hash {
-		// Nothing that we care about has changed, so we're done.
-		return
-	}
-	w.notify()
 }

@@ -4,6 +4,7 @@
 package cache
 
 import (
+	"sort"
 	"sync"
 
 	"gopkg.in/juju/worker.v1"
@@ -94,4 +95,39 @@ func (w *notifyWatcherBase) notify() {
 	}
 
 	w.mu.Unlock()
+}
+
+// ConfigWatcher watches a single entity's configuration.
+// If keys are specified the watcher is only signals a change when at lest one
+// of those keys change values. If no keys are specified,
+// any change in the config will trigger the watcher to notify.
+type ConfigWatcher struct {
+	*notifyWatcherBase
+
+	keys []string
+	hash string
+}
+
+func newConfigWatcher(keys []string, keyHash string) *ConfigWatcher {
+	sort.Strings(keys)
+
+	return &ConfigWatcher{
+		notifyWatcherBase: newNotifyWatcherBase(),
+
+		keys: keys,
+		hash: keyHash,
+	}
+}
+
+func (w *ConfigWatcher) configChanged(topic string, value interface{}) {
+	hashCache, ok := value.(*hashCache)
+	if !ok {
+		logger.Errorf("programming error, value not of type *hashCache")
+	}
+	hash := hashCache.getHash(w.keys)
+	if hash == w.hash {
+		// Nothing that we care about has changed, so we're done.
+		return
+	}
+	w.notify()
 }
