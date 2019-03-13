@@ -114,12 +114,13 @@ func PrepareController(
 	}
 
 	var env environs.BootstrapEnviron
+	openParams := environs.OpenParams{Cloud: args.Cloud, Config: cfg}
 	if isCAASController {
 		details.ModelType = model.CAAS
-		env, err = caas.Open(p, environs.OpenParams{Cloud: args.Cloud, Config: cfg})
+		env, err = caas.Open(p, openParams)
 	} else {
 		details.ModelType = model.IAAS
-		env, err = environs.Open(p, environs.OpenParams{Cloud: args.Cloud, Config: cfg})
+		env, err = environs.Open(p, openParams)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)

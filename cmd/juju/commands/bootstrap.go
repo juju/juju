@@ -534,6 +534,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		AdminSecret:    config.bootstrap.AdminSecret,
 	}
 	bootstrapParams := bootstrap.BootstrapParams{
+		ControllerName:            c.controllerName,
 		BootstrapSeries:           c.BootstrapSeries,
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
@@ -1110,7 +1111,9 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	}
 
 	controllerConfig, err := controller.NewConfig(
-		controllerUUID.String(), bootstrapConfig.CACert, controllerConfigAttrs,
+		controllerUUID.String(),
+		bootstrapConfig.CACert,
+		controllerConfigAttrs,
 	)
 	if err != nil {
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing controller config")

@@ -60,6 +60,9 @@ type ControllerPodConfig struct {
 	// ControllerTag identifies the controller.
 	ControllerTag names.ControllerTag
 
+	// ControllerName is the controller name.
+	ControllerName string
+
 	// TODO(bootstrap): remove me.
 	// PodNonce is set at provisioning/bootstrap time and used to
 	// ensure the agent is running on the correct instance.
@@ -202,6 +205,10 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	if cfg.PodNonce == "" {
 		return errors.New("missing pod nonce")
 	}
+	if cfg.ControllerName == "" {
+		return errors.New("missing controller name")
+	}
+
 	if cfg.Controller != nil {
 		if err := cfg.verifyControllerConfig(); err != nil {
 			return errors.Trace(err)
@@ -325,6 +332,7 @@ func NewControllerPodConfig(
 	controllerTag names.ControllerTag,
 	podID,
 	podNonce,
+	controllerName,
 	series string,
 	apiInfo *api.Info,
 ) (*ControllerPodConfig, error) {
@@ -351,10 +359,11 @@ func NewControllerPodConfig(
 		},
 		Tags: map[string]string{},
 		// Parameter entries.
-		ControllerTag: controllerTag,
-		MachineId:     podID,
-		PodNonce:      podNonce,
-		APIInfo:       apiInfo,
+		ControllerTag:  controllerTag,
+		MachineId:      podID,
+		PodNonce:       podNonce,
+		ControllerName: controllerName,
+		APIInfo:        apiInfo,
 	}
 	return pcfg, nil
 }
@@ -362,10 +371,12 @@ func NewControllerPodConfig(
 // NewBootstrapControllerPodConfig sets up a basic pod configuration for a
 // bootstrap pod.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapControllerPodConfig(config controller.Config, series string) (*ControllerPodConfig, error) {
+func NewBootstrapControllerPodConfig(config controller.Config, controllerName, series string) (*ControllerPodConfig, error) {
 	// For a bootstrap pod, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
-	pcfg, err := NewControllerPodConfig(names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, series, nil)
+	pcfg, err := NewControllerPodConfig(
+		names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, controllerName, series, nil,
+	)
 	if err != nil {
 		return nil, err
 	}
