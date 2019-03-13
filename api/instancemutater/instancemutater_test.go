@@ -4,14 +4,17 @@
 package instancemutater_test
 
 import (
+	"time"
+
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/instancemutater"
+	"github.com/juju/juju/api/instancemutater/mocks"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/testing"
 )
@@ -20,6 +23,9 @@ type instanceMutaterSuite struct {
 	jujutesting.BaseSuite
 
 	tag names.Tag
+
+	fCaller   *mocks.MockFacadeCaller
+	apiCaller *mocks.MockAPICaller
 }
 
 var _ = gc.Suite(&instanceMutaterSuite{})
@@ -30,41 +36,26 @@ func (s *instanceMutaterSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *instanceMutaterSuite) TestWatchModelMachines(c *gc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
-	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "WatchModelMachines")
-		c.Assert(args, jc.DeepEquals, params.Entities{
-			Entities: []params.Entity{
-				{Tag: s.tag.String()},
-			},
-		})
-		*(response.(*params.StringsWatchResults)) = params.StringsWatchResults{
-			Results: []params.StringsWatchResult{{
-				StringsWatcherId: "4",
-				Changes:          []string{"0"},
-				Error:            nil,
-			}},
-		}
-		return nil
-	}
-	apiCaller := apitesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "InstanceMutater")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "WatchModelMachines")
-			c.Check(a, gc.IsNil)
-			return nil
-		},
-	)
-	facadeCaller.ReturnRawAPICaller = apitesting.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
+	defer s.setup(c).Finish()
 
-	api := instancemutater.NewClient(apiCaller)
-	_, err := api.WatchModelMachines()
+	aExp := s.apiCaller.EXPECT()
+	aExp.BestFacadeVersion("InstanceMutater").Return(1)
+	aExp.APICall("InstanceMutater", 1, "", "WatchModelMachines", nil, gomock.Any()).Return(nil)
+	aExp.BestFacadeVersion("StringsWatcher").Return(1)
+	aExp.APICall("StringsWatcher", 1, "", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
+
+	api := instancemutater.NewClient(s.apiCaller)
+	ch, err := api.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// watch for the changes
+	for i := 0; i < 2; i++ {
+		select {
+		case <-ch.Changes():
+		case <-time.After(jujutesting.LongWait):
+			c.Fail()
+		}
+	}
 }
 
 func (s *instanceMutaterSuite) TestWatchModelMachinesServerError(c *gc.C) {
@@ -93,6 +84,15 @@ func (s *instanceMutaterSuite) TestMachineCallsLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(m.Tag().String(), gc.Equals, s.tag.String())
+}
+
+func (s *instanceMutaterSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.fCaller = mocks.NewMockFacadeCaller(ctrl)
+	s.apiCaller = mocks.NewMockAPICaller(ctrl)
+
+	return ctrl
 }
 
 func clientErrorAPICaller(c *gc.C, method string, expectArgs interface{}) *apitesting.CallChecker {
