@@ -487,6 +487,12 @@ type DestroyUnitOperation struct {
 	// to the unit is destroyed. If this is false, then detachable
 	// storage will be detached and left in the model.
 	DestroyStorage bool
+
+	// StorageToDestroy contains storage tags of storage instances to be destroyed.
+	StorageToDestroy []string
+
+	// StorageToDetach contains storage tags of storage instances to be detached.
+	StorageToDetach []string
 }
 
 // Build is part of the ModelOperation interface.
@@ -498,7 +504,7 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 			return nil, err
 		}
 	}
-	switch ops, err := op.unit.destroyOps(op.DestroyStorage); err {
+	switch ops, err := op.unit.destroyOps(op.DestroyStorage, op.StorageToDetach, op.StorageToDestroy); err {
 	case errRefresh:
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
@@ -537,7 +543,7 @@ func (u *Unit) eraseHistory() error {
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
 // operations recalculated.
-func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
+func (u *Unit) destroyOps(isDestroyStorage bool, detachStorage []string, destroyStorage []string) ([]txn.Op, error) {
 	if u.doc.Life != Alive {
 		return nil, errAlreadyDying
 	}
@@ -564,7 +570,9 @@ func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ApplicationName())
-	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name, destroyStorage)
+	fmt.Printf("\n state unit detach %v destroy %v\n", detachStorage, destroyStorage)
+
+	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name, isDestroyStorage, detachStorage, destroyStorage)
 	setDyingOp := txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,

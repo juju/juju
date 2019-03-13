@@ -231,6 +231,12 @@ type DestroyApplicationOperation struct {
 	// then detachable storage will be detached and left in the model.
 	DestroyStorage bool
 
+	// StorageToDestroy contains storage tags of storage instances to be destroyed.
+	StorageToDestroy []string
+
+	// StorageToDetach contains storage tags of storage instances to be detached.
+	StorageToDetach []string
+
 	// RemoveOffers controls whether or not application offers
 	// are removed. If this is false, then the operation will
 	// fail if there are any offers remaining.
@@ -246,7 +252,7 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 			return nil, err
 		}
 	}
-	ops, err := op.app.destroyOps(op.DestroyStorage, op.RemoveOffers)
+	ops, err := op.app.destroyOps(op.DestroyStorage, op.StorageToDetach, op.StorageToDestroy, op.RemoveOffers)
 	switch err {
 	case errRefresh:
 		return nil, jujutxn.ErrTransientFailure
@@ -266,7 +272,7 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 // destroyOps returns the operations required to destroy the application. If it
 // returns errRefresh, the application should be refreshed and the destruction
 // operations recalculated.
-func (a *Application) destroyOps(destroyStorage, removeOffers bool) ([]txn.Op, error) {
+func (a *Application) destroyOps(isDestroyStorage bool, detachStorage []string, destroyStorage []string, removeOffers bool) ([]txn.Op, error) {
 	if a.doc.Life == Dying {
 		return nil, errAlreadyDying
 	}
@@ -341,10 +347,13 @@ func (a *Application) destroyOps(destroyStorage, removeOffers bool) ([]txn.Op, e
 	// as the count's equality with zero does not change, because all we care
 	// about is that *some* unit is, or is not, keeping the application from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
+	fmt.Printf("\n detach %v destroy %v\n", detachStorage, destroyStorage)
 	if a.doc.UnitCount > 0 {
 		cleanupOp := newCleanupOp(
 			cleanupUnitsForDyingApplication,
 			a.doc.Name,
+			isDestroyStorage,
+			detachStorage,
 			destroyStorage,
 		)
 		ops = append(ops, cleanupOp)

@@ -1325,7 +1325,7 @@ func (sb *storageBackend) storageHostAttachment(
 	}
 }
 
-// Remove removes the storage attachment from state, and may remove its storage
+// RemoveStorageAttachment removes the storage attachment from state, and may remove its storage
 // instance as well, if the storage instance is Dying and no other references to
 // it exist. It will fail if the storage attachment is not Dying.
 func (sb *storageBackend) RemoveStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {

@@ -4,6 +4,8 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
@@ -74,6 +76,7 @@ func newCleanupOp(kind cleanupKind, prefix string, args ...interface{}) txn.Op {
 	if len(args) > 0 {
 		cleanupArgs = make([]*cleanupArg, len(args))
 		for i, arg := range args {
+			fmt.Printf("\n ARGS in CLEAN up %d %v\n", i, arg)
 			cleanupArgs[i] = &cleanupArg{arg}
 		}
 	}
@@ -94,6 +97,13 @@ func newCleanupOp(kind cleanupKind, prefix string, args ...interface{}) txn.Op {
 func (st *State) NeedsCleanup() (bool, error) {
 	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
+	var doc cleanupDoc
+	iter := cleanups.Find(nil).Iter()
+	index := 0
+	for iter.Next(&doc) {
+		fmt.Printf("\n CLEAN UP %d %+v\n", index, doc)
+		index++
+	}
 	count, err := cleanups.Count()
 	if err != nil {
 		return false, err
@@ -347,6 +357,7 @@ func (st *State) removeApplicationsForDyingModel() (err error) {
 	for iter.Next(&application.doc) {
 		op := application.DestroyOperation()
 		op.RemoveOffers = true
+		// TODO (me) should not we also set 'destroy storage' to true here?
 		if err := st.ApplyOperation(op); err != nil {
 			return errors.Trace(err)
 		}
@@ -365,6 +376,7 @@ func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
 	iter := remoteApps.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading remote application document")
 	for iter.Next(&remoteApp.doc) {
+		// TODO (me) should not we also worry about storage here?
 		if err := remoteApp.Destroy(); err != nil {
 			return errors.Trace(err)
 		}
@@ -377,15 +389,30 @@ func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
 // application is destroyed.
 func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
 	var destroyStorage bool
+	var storageToDestroy []string
+	var storageToDetach []string
+
 	switch n := len(cleanupArgs); n {
 	case 0:
-		// Old cleanups have no args, so follow the old behaviour.
+		// Ancient cleanups have no args, so follow the old behaviour.
 	case 1:
+		// Old behavior - one global destroy-all-storage- flag was passed
 		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
 			return errors.Annotate(err, "unmarshalling cleanup args")
 		}
+	case 3:
+		// Old behavior - one global destroy-all-storage flag was passed
+		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args (one global destroy-all-storage flag)")
+		}
+		if err := cleanupArgs[1].Unmarshal(&storageToDetach); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args (storage to detach)")
+		}
+		if err := cleanupArgs[2].Unmarshal(&storageToDestroy); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args (storage to destroy)")
+		}
 	default:
-		return errors.Errorf("expected 0-1 arguments, got %d", n)
+		return errors.Errorf("expected none, 1 or 3 arguments, got %d", n)
 	}
 
 	// This won't miss units, because a Dying application cannot have units
@@ -401,6 +428,8 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 	for iter.Next(&unit.doc) {
 		op := unit.DestroyOperation()
 		op.DestroyStorage = destroyStorage
+		op.StorageToDestroy = storageToDestroy
+		op.StorageToDetach = storageToDetach
 		if err := st.ApplyOperation(op); err != nil {
 			return errors.Trace(err)
 		}
@@ -445,15 +474,30 @@ func (st *State) cleanupCharm(charmURL string) error {
 // they are cleaned up as well.
 func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	var destroyStorage bool
+	var storageToDestroy []string
+	var storageToDetach []string
+
 	switch n := len(cleanupArgs); n {
 	case 0:
-		// Old cleanups have no args, so follow the old behaviour.
+		// Ancient cleanups have no args, so follow the old behaviour.
 	case 1:
+		// Old behavior - one global destroy-all-storage- flag was passed
 		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
 			return errors.Annotate(err, "unmarshalling cleanup args")
 		}
+	case 3:
+		// Old behavior - one global destroy-all-storage flag was passed
+		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args (one global destroy-all-storage flag)")
+		}
+		if err := cleanupArgs[1].Unmarshal(&storageToDetach); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args (storage to detach)")
+		}
+		if err := cleanupArgs[2].Unmarshal(&storageToDestroy); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args (storage to destroy)")
+		}
 	default:
-		return errors.Errorf("expected 0-1 arguments, got %d", n)
+		return errors.Errorf("expected none, 1 or 3 arguments, got %d", n)
 	}
 
 	unit, err := st.Unit(name)
@@ -481,16 +525,155 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 			return err
 		}
 	}
-
-	if destroyStorage {
-		// Detach and mark storage instances as dying, allowing the
-		// unit to terminate.
-		return st.cleanupUnitStorageInstances(unit.UnitTag())
-	} else {
-		// Mark storage attachments as dying, so that they are detached
-		// and removed from state, allowing the unit to terminate.
-		return st.cleanupUnitStorageAttachments(unit.UnitTag(), false)
+	// TODO (Me) fix up and what to do with original bool of 'destroyStorage'?
+	// default is alwyas detach and if destroy == true, then we should also try to destroy
+	if len(storageToDetach) == 0 && len(storageToDestroy) == 0 {
+		// This can happen if we are destroying bypassing apiserver,
+		// i.e. by calling app.Destroy() directly.
+		// This happens in cleanup.removeApplicationsForDyingModel() or app.Destroy()
+		storageToDetach, storageToDestroy, err = st.ClassifyDetachedStorage(unit.UnitTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		fmt.Printf("\n obscure logic? unit/app destroy %v detach %v\n", storageToDestroy, storageToDetach)
 	}
+	return st.cleanupUnitStorage(unit.UnitTag(), storageToDetach, false, storageToDestroy)
+}
+
+// ClassifyDetachedStorage classifies storage instances into those that will
+// be destroyed, and those that will be detached, when their attachment is
+// removed. Any storage that is not found will be omitted.
+func (st *State) ClassifyDetachedStorage(unitTag names.UnitTag) (destroyed, detached []string, _ error) {
+	// If anything changes here, the code in apiserver/storagecommon/storage.go ClassifyDetachedStorage needs to be
+	// updated too...
+	sb, err := NewStorageBackend(st)
+	if err != nil {
+		return nil, nil, err
+	}
+	storageAttachments, err := sb.UnitStorageAttachments(unitTag)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, s := range storageAttachments {
+		fmt.Printf("\n storage attachement %v\n", s.StorageInstance())
+		storage, err := sb.storageInstance(s.StorageInstance())
+		if err != nil {
+			return nil, nil, err
+		}
+		fmt.Printf("\n storage kind %v\n", storage.Kind())
+
+		var detachable bool
+		switch storage.Kind() {
+		case StorageKindFilesystem:
+			f, err := sb.StorageInstanceFilesystem(s.StorageInstance())
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					return nil, nil, err
+				}
+			} else {
+				detachable = f.Detachable()
+			}
+		case StorageKindBlock:
+			v, err := sb.StorageInstanceVolume(s.StorageInstance())
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					return nil, nil, err
+				}
+			} else {
+				detachable = v.Detachable()
+			}
+		default:
+			return nil, nil, errors.NotValidf("storage kind %s", storage.Kind())
+		}
+		if detachable {
+			fmt.Printf("\n detachable\n")
+			detached = append(detached, s.StorageInstance().String())
+		} else {
+			fmt.Printf("\n not detachable\n")
+			destroyed = append(destroyed, s.StorageInstance().String())
+		}
+	}
+	fmt.Printf("\n classified %v detach %v\n", destroyed, detached)
+	return destroyed, detached, nil
+}
+
+func (st *State) cleanupUnitStorage(unitTag names.UnitTag, storageToDetach []string, removeAttachment bool, storageToDestroy []string) error {
+	sb, err := NewStorageBackend(st)
+	if err != nil {
+		return err
+	}
+	storageAttachments, err := sb.UnitStorageAttachments(unitTag)
+	if err != nil {
+		return err
+	}
+
+	// TODO (me) When forcing removal, need to keep going despite individual errors... amalgamate them?
+	// Mark storage attachments as dying, so that they are detached
+	// and removed from state.
+	for _, s := range storageToDetach {
+		// TODO (me) swallowing feels fine here since there can never be invalid tags arsed at this stage... right?
+		storageTag, _ := names.ParseStorageTag(s)
+
+		// DetachStorage ensures that the storage attachment will be removed at some point.
+		err := sb.DetachStorage(storageTag, unitTag)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+
+		// **** Previously this remove was not done for dying unit when 'destroyStorage' == false
+		// but was done for obliterate unit - which was also called  at force machine removal for principal applications only. ***
+		// TODO (me) I do not understand why it was not done for all detachments...
+		//
+		if !removeAttachment {
+			continue
+		}
+		// RemoveStorageAttachment removes the storage attachment from state, and may remove its storage
+		// instance as well, if the storage instance is Dying and no other references to it exist.
+		err = sb.RemoveStorageAttachment(storageTag, unitTag)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+	}
+
+	// Detach and mark storage instances as dying.
+	for _, s := range storageToDestroy {
+		// TODO (me) swallowing feels fine here since there can never be invalid tags arsed at this stage... right?
+		storageTag, _ := names.ParseStorageTag(s)
+
+		// DestroyStorageInstance ensures that the storage instance will be removed at
+		// some point, after the cloud storage resources have been destroyed.
+		err = sb.DestroyStorageInstance(storageTag, true)
+		if errors.IsNotFound(err) {
+			// TODO (ME) should this attachment be deleted if storage is not found?
+			continue
+		} else if err != nil {
+			return err
+		}
+	}
+	// To be sure, to be sure
+	if len(storageAttachments) != (len(storageToDetach) + len(storageToDestroy)) {
+		return errors.Errorf("could not determine what to do with some storage attachments for unit %v, "+
+			"all attached storage %d from which %d detaching and %d destroying",
+			unitTag.Id(),
+			len(storageAttachments),
+			len(storageToDetach),
+			len(storageToDestroy),
+		)
+	}
+	return nil
+}
+
+func (st *State) detachUnitStorage(unitTag names.UnitTag) error {
+	toDestroy, toDetach, err := st.ClassifyDetachedStorage(unitTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.cleanupUnitStorage(unitTag, toDetach, true, toDestroy)
 }
 
 func (st *State) cleanupDyingUnitResources(unitId string) error {
@@ -509,57 +692,6 @@ func (st *State) cleanupDyingUnitResources(unitId string) error {
 	}
 
 	return cleanupDyingEntityStorage(sb, unitTag, false, filesystemAttachments, volumeAttachments)
-}
-
-func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) error {
-	sb, err := NewStorageBackend(st)
-	if err != nil {
-		return err
-	}
-	storageAttachments, err := sb.UnitStorageAttachments(unitTag)
-	if err != nil {
-		return err
-	}
-	for _, storageAttachment := range storageAttachments {
-		storageTag := storageAttachment.StorageInstance()
-		err := sb.DetachStorage(storageTag, unitTag)
-		if errors.IsNotFound(err) {
-			continue
-		} else if err != nil {
-			return err
-		}
-		if !remove {
-			continue
-		}
-		err = sb.RemoveStorageAttachment(storageTag, unitTag)
-		if errors.IsNotFound(err) {
-			continue
-		} else if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag) error {
-	sb, err := NewStorageBackend(st)
-	if err != nil {
-		return err
-	}
-	storageAttachments, err := sb.UnitStorageAttachments(unitTag)
-	if err != nil {
-		return err
-	}
-	for _, storageAttachment := range storageAttachments {
-		storageTag := storageAttachment.StorageInstance()
-		err := sb.DestroyStorageInstance(storageTag, true)
-		if errors.IsNotFound(err) {
-			continue
-		} else if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // cleanupRemovedUnit takes care of all the final cleanup required when
@@ -877,7 +1009,7 @@ func (st *State) obliterateUnit(unitName string) error {
 		return err
 	}
 	// Destroy and remove all storage attachments for the unit.
-	if err := st.cleanupUnitStorageAttachments(unit.UnitTag(), true); err != nil {
+	if err := st.detachUnitStorage(unit.UnitTag()); err != nil {
 		return errors.Annotatef(err, "cannot destroy storage for unit %q", unitName)
 	}
 	for _, subName := range unit.SubordinateNames() {
