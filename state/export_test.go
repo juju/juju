@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time" // Only used for time types.
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/version"
 )
@@ -851,4 +853,58 @@ func CaasApplicationDisplayStatus(appStatus status.StatusInfo, operatorStatus st
 
 func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, error) {
 	return getStatus(st.db(), applicationGlobalOperatorKey(appName), "operator")
+}
+
+type (
+	InstanceCharmProfileData = instanceCharmProfileData
+)
+
+func NewInstanceCharmProfileDataWatcher(backend ModelBackendShim, memberId, returnStatus string, filter func(interface{}) bool) StringsWatcher {
+	return newInstanceCharmProfileDataWatcher(backend, memberId, returnStatus, filter)
+}
+
+type ModelBackendShim struct {
+	Clock    clock.Clock
+	Database Database
+	Watcher  watcher.BaseWatcher
+}
+
+func (s ModelBackendShim) docID(id string) string {
+	return ""
+}
+
+func (s ModelBackendShim) localID(id string) string {
+	return ""
+}
+
+func (s ModelBackendShim) strictLocalID(id string) (string, error) {
+	return "", nil
+}
+
+func (s ModelBackendShim) nowToTheSecond() time.Time {
+	return s.Clock.Now().Round(time.Second).UTC()
+}
+
+func (s ModelBackendShim) clock() clock.Clock {
+	return s.Clock
+}
+
+func (s ModelBackendShim) db() Database {
+	return s.Database
+}
+
+func (s ModelBackendShim) modelUUID() string {
+	return ""
+}
+
+func (s ModelBackendShim) modelName() (string, error) {
+	return "", nil
+}
+
+func (s ModelBackendShim) isController() bool {
+	return false
+}
+
+func (s ModelBackendShim) txnLogWatcher() watcher.BaseWatcher {
+	return s.Watcher
 }

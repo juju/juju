@@ -2031,7 +2031,7 @@ func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (S
 	filter := func(id interface{}) bool {
 		return id.(string) == watchDocId
 	}
-	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, filter), nil
+	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, lxdprofile.NotRequiredStatus, filter), nil
 }
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
@@ -2046,7 +2046,7 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
 	filter := func(id interface{}) bool {
 		return id.(string) == watchDocId
 	}
-	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, filter), nil
+	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, lxdprofile.NotRequiredStatus, filter), nil
 }
 
 // instanceCharmProfileDataWatcher notifies about any changes to the
@@ -2059,22 +2059,33 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
 // usage of the not know status.
 // Events are generated when there are changes to a instance charm profile
 // data document.
+//
+// - Watcher DEPRECATED -
+// * The following watcher is deprecated and shouldn't be used, it watches for
+// * changes in the instanceCharmProfileData collection, but instead of
+// * returning the status of the status field, it instead always returns the
+// * the supplied return status.
+// This is to retain backwards compatibility for the new LXD profile watcher,
+// where by the uniter resolver will be treated as a no-op based on the
+// supplied return status field.
 type instanceCharmProfileDataWatcher struct {
 	commonWatcher
 	// docId is used to select the initial interesting entities.
-	docId  string
-	known  string
-	filter func(interface{}) bool
-	out    chan []string
+	docId        string
+	known        string
+	returnStatus string
+	filter       func(interface{}) bool
+	out          chan []string
 }
 
 var _ Watcher = (*instanceCharmProfileDataWatcher)(nil)
 
-func newInstanceCharmProfileDataWatcher(backend modelBackend, memberId string, filter func(interface{}) bool) StringsWatcher {
+func newInstanceCharmProfileDataWatcher(backend modelBackend, memberId, returnStatus string, filter func(interface{}) bool) StringsWatcher {
 	w := &instanceCharmProfileDataWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		docId:         memberId,
 		filter:        filter,
+		returnStatus:  returnStatus,
 		out:           make(chan []string),
 	}
 	w.tomb.Go(func() error {
@@ -2157,7 +2168,7 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 			if isChanged {
 				out = w.out
 			}
-		case out <- []string{w.known}:
+		case out <- []string{w.returnStatus}:
 			out = nil
 		}
 	}
