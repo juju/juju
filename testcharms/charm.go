@@ -30,87 +30,111 @@ const defaultSeries = "quantal"
 // Repo provides access to the test charm repository.
 var Repo = testing.NewRepo("charm-repo", defaultSeries)
 
-// RawCharmstoreOperations encapsulates HTTP methods
-// that are used for interacting with a charmstore
-type RawCharmstoreOperations interface {
-	// Get retrieves data from path. It emulates the HTTP GET method.
-	//
-	// Be wary of similar methods
-	//  - Get(*charm.URL) (macaroon.Slice, error)
-	//  - Get(id *charm.URL) (charm.Charm, error)
-	Get(path string, data interface{}) error 
+// // RawCharmstoreOperations encapsulates HTTP methods
+// // that are used for interacting with a charmstore
+// type RawCharmstoreOperations interface {
+// 	// Get retrieves data from path. It emulates the HTTP GET method.
+// 	//
+// 	// Be wary of similar methods
+// 	//  - Get(*charm.URL) (macaroon.Slice, error)
+// 	//  - Get(id *charm.URL) (charm.Charm, error)
+// 	Get(path string, data interface{}) error
 
-	// Put sends raw data to the charm store at path. It emulates the HTTP PUT method.
-	Put(path string, data []string) error
-}
+// 	// Put sends raw data to the charm store at path. It emulates the HTTP PUT method.
+// 	Put(path string, data []string) error
+// }
 
-// MinimalCharmstoreClient represents the essential methods of the
-// charm store that enable tests to pass.
-//
-// It has been extracted from a few places, primarily charmrepo.v3 &
-// charmrepo.v3/csclient, See also the charmstore/client.go  csWrapper
-//  interface.
-type MinimalCharmstoreClient interface {
-	// charm-related methods
-	// TODO(tsm): replace Get with GetCharm
-
-	// Get retrieves a charm. Requesting a missing charm returns an error.
-	Get(id *charm.URL) (charm.Charm, error)
-
-	// UploadCharm stores a charm.Charm for later retrieval via Get
-	UploadCharm(id *charm.URL, charmData charm.Charm) (*charm.URL, error)
-	UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
-	// UploadCharmMultiSeries
-	// UploadCharmWithMeta
-
-	// GetArchive(id *charm.URL) (r io.ReadCloser, eid *charm.URL, hash string, size int64, err error)
-	// GetResource(id *charm.URL, name string, revision int) (result ResourceData, err error)
-	ListResources(id *charm.URL) ([]params.Resource, error)
-	UploadResource(id *charm.URL, name, path string, file io.ReaderAt, size int64, progress csclient.Progress) (revision int, err error)
-	UploadBundleWithRevision(id *charm.URL, b charm.Bundle, promulgatedRevision int) error
-	// ResourceMeta(id *charm.URL, name string, revision int) (params.Resource, error)
-	// ResumeUploadResource(uploadId string, id *charm.URL, name, path string, file io.ReaderAt, size int64, progress Progress) (revision int, err error)
-
-
-	// DockerResourceUploadInfo(id *charm.URL, resourceName string) (*params.DockerInfoResponse, error)
-	// DockerResourceDownloadInfo(id *charm.URL, resourceName string) (*params.DockerInfoResponse, error)
-	// AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error)
-
-	/// revisions
-
-	Latest(channel params.Channel, ids []*charm.URL, headers map[string][]string) ([]charmstore.CharmRevision, error)
-	Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error
-
-	/// internal methods
-
-	// WithChannel
-	WithChannel(channel params.Channel) MinimalCharmstoreClient
-
-
-	// looks hard
-	// Meta(id *charm.URL, result interface{}) (*charm.URL, error)
-}
-
-type CharmstoreOperations interface {
-	//RawCharmstoreOperations
-
+// MinimalCharmstoreClient represents the essential methods of
+// interacting with a charm store.
+type CharmstoreAuthentication interface {
 	Login() error
 
+	WhoAmI() (*params.WhoAmIResponse, error)
+}
+
+type CharmstoreClientState interface {
+	// WithChannel returns a charmstore client that
+	// has the channel selected.
+	WithChannel(channel params.Channel) MinimalCharmstoreClient
+}
+
+type CharmstoreWriteOperations interface {
+	Log(logType params.LogType, level params.LogLevel, message string, urls ...*charm.URL) error
+}
+
+type CharmExtraReadOperations interface {
+	Meta(id *charm.URL, result interface{}) (*charm.URL, error)
+}
+
+type CharmExtraWriteOperations interface {
 	PutExtraInfo(id *charm.URL, info map[string]interface{}) error
 
 	PutCommonInfo(id *charm.URL, info map[string]interface{}) error
 
-	StatsUpdate(req params.StatsUpdateRequest) error)
+	StatsUpdate(request params.StatsUpdateRequest) error
 }
 
-type CharmstoreBundleOperations interface {
-	GetBundle(id *charm.URL) (charm.Bundle, error)
-	UploadBundle(id *charm.URL, b charm.Bundle) (*charm.URL, error)
+type CharmReadOperations interface {
+	// Get retrieves a charm. Requesting a missing charm returns an error.
+	Get(id *charm.URL) (charm.Charm, error)
 }
 
-type CharmstoreBundleOperations interface {
+type CharmWriteOperations interface {
+	// UploadCharm stores a charm.Charm for later retrieval via Get
+	UploadCharm(id *charm.URL, charmData charm.Charm) (*charm.URL, error)
+
+	UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
+
+	// Publish marks the charm `id` as published.
+	Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error
+}
+
+type BundleReadOperations interface {
 	GetBundle(id *charm.URL) (charm.Bundle, error)
+}
+
+type BundleWriteOperations interface {
 	UploadBundle(id *charm.URL, b charm.Bundle) (*charm.URL, error)
+	UploadBundleWithRevision(id *charm.URL, b charm.Bundle, promulgatedRevision int) error
+}
+
+type ResourceReadOperations interface {
+	// GetResource returns a result that can be read from to construct the resource
+	// that has been uploaded with the charm.
+	//
+	// Note: callers are expected to close the result.
+	GetResource(id *charm.URL, name string, revision int) (result csclient.ResourceData, err error)
+
+	// ListResources
+	ListResources(id *charm.URL) ([]params.Resource, error)
+
+	// ResourceMeta returns metadata associated with the resource indicated by
+	// name and revision. To access the resource's data, call GetResource.
+	ResourceMeta(id *charm.URL, name string, revision int) (params.Resource, error)
+}
+
+type ResourceWriteOperations interface {
+	UploadResource(id *charm.URL, name, path string, file io.ReaderAt, size int64, progress csclient.Progress) (revision int, err error)
+}
+
+type LargeResourceWriteOperations interface {
+	ResumeUploadResource(uploadId string, id *charm.URL, name, path string, file io.ReaderAt, size int64, progress Progress) (revision int, err error)
+}
+
+type DockerResourceReadOperations interface {
+	DockerResourceDownloadInfo(id *charm.URL, resourceName string) (*params.DockerInfoResponse, error)
+}
+
+type DockerResourceWriteOperations interface {
+	DockerResourceUploadInfo(id *charm.URL, resourceName string) (*params.DockerInfoResponse, error)
+	AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error)
+}
+
+type RevisionReadOperations interface {
+	Latest(channel params.Channel, ids []*charm.URL, headers map[string][]string) ([]charmstore.CharmRevision, error)
+}
+
+type RevisionWriteOperations interface {
 }
 
 // RepoForSeries returns a new charm repository for the specified series.
@@ -123,6 +147,16 @@ func RepoForSeries(series string) *testing.Repo {
 	return testing.NewRepo("charm-repo", series)
 }
 
+type MinimalCharmstoreClient interface {
+	CharmstoreClientState
+	CharmWriteOperations
+	BundleWriteOperations
+	ResourceReadOperations
+	ResourceWriteOperations
+	DockerResourceReadOperations
+	DockerResourceWriteOperations
+}
+
 // UploadCharmWithMeta pushes a new charm to the charmstore.
 // The uploaded charm takes the supplied charmURL with metadata.yaml and metrics.yaml
 // to define the charm, rather than relying on the charm to exist on disk.
@@ -130,7 +164,7 @@ func RepoForSeries(series string) *testing.Repo {
 // here for us in tests.
 //
 // For convenience the charm is also made public
-func UploadCharmWithMeta(c *gc.C, client MinimalCharmstoreClient, charmURL, meta, metrics string, revision int) (*charm.URL, charm.Charm) {
+func UploadCharmWithMeta(c *gc.C, client CharmstoreClient, charmURL, meta, metrics string, revision int) (*charm.URL, charm.Charm) {
 	ch := testing.NewCharm(c, testing.CharmSpec{
 		Meta:     meta,
 		Metrics:  metrics,

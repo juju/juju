@@ -311,51 +311,7 @@ func (c *Client) Get(path string, result interface{}) error {
 type CharmStoreSuite struct {
 	testing.CleanupSuite
 	Client *testcharms.MinimalCharmstoreClient
-
-	// Session *mgo.Session
-	// // DischargeUser holds the identity of the user
-	// // that the 3rd party caveat discharger will issue
-	// // macaroons for. If it is empty, no caveats will be discharged.
-	// DischargeUser string
-
-	// discharger *bakerytest.Discharger
-	// //handler    charmstore.HTTPCloseHandler
-	// Srv    *httptest.Server
-	// Client *csclient.Client
 }
-
-// func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
-// 	s.CleanupSuite.SetUpTest(c)
-
-// 	s.discharger = bakerytest.NewDischarger(nil, func(_ *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
-// 		if s.DischargeUser == "" {
-// 			return nil, fmt.Errorf("discharge denied")
-// 		}
-// 		return []checkers.Caveat{
-// 			checkers.DeclaredCaveat("username", s.DischargeUser),
-// 		}, nil
-// 	})
-// 	db := s.Session.DB("juju-testing")
-// 	params := charmstore.ServerParams{
-// 		AuthUsername:     "test-user",
-// 		AuthPassword:     "test-password",
-// 		IdentityLocation: s.discharger.Location(),
-// 		PublicKeyLocator: s.discharger,
-// 	}
-// 	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
-// 	//handler, err := NewServer()
-// 	c.Assert(err, jc.ErrorIsNil)
-// 	//s.handler = handler
-// 	s.Srv = httptest.NewServer(handler)
-// 	s.Client = csclient.New(csclient.Params{
-// 		URL:      s.Srv.URL,
-// 		User:     params.AuthUsername,
-// 		Password: params.AuthPassword,
-// 	})
-
-// 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-// 	s.PatchValue(&csclient.ServerURL, s.Srv.URL)
-// }
 
 func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
