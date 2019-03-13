@@ -52,6 +52,7 @@ var facadeVersions = map[string]int{
 	"ImageManager":                 2,
 	"ImageMetadata":                3,
 	"ImageMetadataManager":         1,
+	"InstanceMutater":              1,
 	"InstancePoller":               3,
 	"KeyManager":                   1,
 	"KeyUpdater":                   1,
