@@ -8,16 +8,21 @@ import (
 
 	// "net/http"
 	// "net/http/httptest"
+	"crypto/sha512"
+	"fmt"
+	"io"
 	"time"
 
 	"github.com/juju/testing"
 	// jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 
+	"github.com/juju/errors"
+
 	// "gopkg.in/juju/charmrepo.v3"
-	// "gopkg.in/juju/charmrepo.v3/csclient"
 
 	// "gopkg.in/juju/charmstore.v5"
 	// "gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
@@ -148,11 +153,13 @@ const charmstoreURL = "https://api.staging.jujucharms.com/charmstore"
 
 type Client struct {
 	//params csclient.Params // might be useful?
-	charms  map[charm.URL]charm.Charm
-	bundles map[charm.URL]charm.Bundle
-	store   map[string][]string
-	version string
-	url     string
+	charms    map[charm.URL]charm.Charm
+	bundles   map[charm.URL]charm.Bundle
+	resources map[charm.URL][]params.Resource
+	revisions map[charm.URL]int
+	rawstore  map[string][]string
+	version   string
+	url       string
 
 	//resources map[params.Channel]map[string][]string
 }
@@ -163,7 +170,7 @@ func New() *Client {
 	return &Client{version: charmstoreVersion, url: charmstoreURL}
 }
 
-func (c *Client) Get(charmId *charm.URL) (charm.Charm, error) {
+func (c *Client) GetCharm(charmId *charm.URL) (charm.Charm, error) {
 	charmData := c.charms[*charmId]
 	if charmData == nil {
 		return charmData, NotFoundError(charmId.String())
@@ -184,13 +191,72 @@ func (c *Client) UploadCharm(charmId *charm.URL, charmData charm.Charm) (*charm.
 	return charmId, nil
 }
 
+func (c *Client) UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error {
+	_, err := c.UploadCharm(id, ch)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.revisions[*id] = promulgatedRevision
+}
+
 func (c *Client) UploadBundle(bundleLocation *charm.URL, bundleData charm.Bundle) (*charm.URL, error) {
 	c.bundles[*bundleLocation] = bundleData
 	return bundleLocation, nil
 }
 
-func (c *Client) UploadResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error) {
-	return -1, nil
+func (c *Client) UploadBundleWithRevision(id *charm.URL, bundleData charm.Bundle, promulgatedRevision int) error {
+	_, err := c.UploadBundle(id, bundleData)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.revisions[*id] = promulgatedRevision
+	return nil
+}
+
+// ListResources returns Resourc metadata that have been generated
+// by UploadResource
+func (c *Client) ListResources(id *charm.URL) ([]params.Resource, error) {
+	return c.resources[id], nil
+}
+
+func signature(r io.ReadSeeker) (hash []byte, err error) {
+	h := sha512.New384()
+	_, err = io.Copy(h, r)
+	if err != nil {
+		return "", 0, errors.Trace(err, "cannot calculate hash")
+	}
+	_, err = r.Seek(0, 0)
+	if err != nil {
+		return "", 0, errors.Trace(err, "cannot seek")
+	}
+	hash = []byte(fmt.Sprintf("%x", h.Sum(nil)))
+	return hash, nil
+}
+
+// UploadResource "uploads" data from file and stores a
+func (c *Client) UploadResource(id *charm.URL, name, path string, file io.ReaderAt, size int64, progress csclient.Progress) (revision int, err error) {
+	resources := c.resources[id]
+	revision = len(resources)
+	result := params.ResourceUploadResponse{Revision: revision}
+	//progress.Start() // ignoring progress for now, hoping that it's not material to the tests
+	hash, err := signature(file)
+	if err != nil {
+		//progress.Error(err)
+		result.Revision = -1
+		return result, errors.Trace(err)
+	}
+	resource := params.Resource{
+		Name:        name,
+		Path:        path,
+		Revision:    revision,
+		Size:        size,
+		Fingerprint: hash,
+	}
+	resources = append(resources, resource)
+	c.resources[id] = resources
+	//progress.Transferred() // it looks like this method is never used by csclient anyway?
+	//progress.Finalizing()
+	return result, nil
 }
 
 func (c *Client) AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error) {
@@ -201,16 +267,34 @@ func (c *Client) Publish(id *charm.URL, channels []params.Channel, resources map
 	return nil
 }
 
-func (c *Client) WithChannel(channel params.Channel) *Client {
+func (c *Client) WithChannel(channel params.Channel) Client {
 	return c
 }
 
 func (c *Client) Latest(channel params.Channel, ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error) {
-	return []params.CharmRevision{}, nil
+	result := make([]params.CharmRevision, len(ids))
+
+	for i, id := range ids {
+		revision := c.revisions[*id]
+		result[i] = params.CharmRevision{Revision: revision}
+	}
+
+	return result, nil
 }
 
+// Put puts data into a location for later retrieval.
 func (c *Client) Put(path string, data []string) error {
-	c.store[path] = data // clobber pre-existing data for now
+	c.rawstore[path] = data // clobber pre-existing data
+	return nil
+}
+
+// Put puts data into a location for later retrieval.
+func (c *Client) Get(path string, result interface{}) error {
+	data := c.rawstore[path]
+	if len(data) == 0 {
+		return nil
+	}
+	result = *data[len(data)]
 	return nil
 }
 
@@ -226,7 +310,7 @@ func (c *Client) Put(path string, data []string) error {
 
 type CharmStoreSuite struct {
 	testing.CleanupSuite
-	Client *MinimalCharmstoreClient
+	Client *testcharms.MinimalCharmstoreClient
 
 	// Session *mgo.Session
 	// // DischargeUser holds the identity of the user
