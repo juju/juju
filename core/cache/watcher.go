@@ -98,8 +98,8 @@ func (w *notifyWatcherBase) notify() {
 }
 
 // ConfigWatcher watches a single entity's configuration.
-// If keys are specified the watcher is only signals a change when at lest one
-// of those keys change values. If no keys are specified,
+// If keys are specified the watcher only signals a change when at least one
+// of those keys changes value. If no keys are specified,
 // any change in the config will trigger the watcher to notify.
 type ConfigWatcher struct {
 	*notifyWatcherBase

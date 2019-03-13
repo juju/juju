@@ -38,6 +38,29 @@ type Model struct {
 	units        map[string]*Unit
 }
 
+// Config returns the current model config.
+func (m *Model) Config() map[string]interface{} {
+	m.mu.Lock()
+	m.metrics.ModelConfigReads.Inc()
+	m.mu.Unlock()
+	return m.details.Config
+}
+
+// WatchConfig creates a watcher for the model config.
+func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
+	w := newConfigWatcher(keys, m.hashCache.getHash(keys))
+
+	unsub := m.hub.Subscribe(m.modelTopic(modelConfigChange), w.configChanged)
+
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		unsub()
+		return nil
+	})
+
+	return w
+}
+
 // Report returns information that is used in the dependency engine report.
 func (m *Model) Report() map[string]interface{} {
 	m.mu.Lock()
@@ -136,27 +159,4 @@ func (m *Model) setDetails(details ModelChange) {
 	}
 
 	m.mu.Unlock()
-}
-
-// Config returns the current model config.
-func (m *Model) Config() map[string]interface{} {
-	m.mu.Lock()
-	m.metrics.ModelConfigReads.Inc()
-	m.mu.Unlock()
-	return m.details.Config
-}
-
-// WatchConfig creates a watcher for the model config.
-func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
-	w := newConfigWatcher(keys, m.hashCache.getHash(keys))
-
-	unsub := m.hub.Subscribe(m.modelTopic(modelConfigChange), w.configChanged)
-
-	w.tomb.Go(func() error {
-		<-w.tomb.Dying()
-		unsub()
-		return nil
-	})
-
-	return w
 }
