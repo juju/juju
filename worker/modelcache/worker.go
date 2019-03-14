@@ -319,23 +319,11 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			c.config.Logger.Errorf("unexpected type %T", d.Entity)
 			return nil
 		}
-		charmChange := cache.CharmChange{
-			ModelUUID: value.ModelUUID,
-			CharmURL:  value.CharmURL,
+		return cache.CharmChange{
+			ModelUUID:  value.ModelUUID,
+			CharmURL:   value.CharmURL,
+			LXDProfile: coreLXDProfile(value.LXDProfile),
 		}
-		profile := value.LXDProfile
-		if profile != nil {
-			charmChange.LXDProfiler = lxdprofile.NewLXDCharmProfiler(
-				lxdprofile.Profile{
-					Config:      profile.Config,
-					Description: profile.Description,
-					Devices:     profile.Devices,
-				},
-			)
-		} else {
-			charmChange.LXDProfiler = lxdprofile.NewLXDCharmProfiler(lxdprofile.Profile{})
-		}
-		return charmChange
 	default:
 		return nil
 	}
@@ -397,19 +385,13 @@ func coreNetworkAddresses(delta []multiwatcher.Address) []network.Address {
 	return addresses
 }
 
-// lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the
-// core package.
-type lxdCharmProfiler struct {
-	Charm charm.Charm
-}
-
-// LXDProfile implements core.lxdprofile.LXDProfiler
-func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
-	if p.Charm == nil {
-		return nil
+func coreLXDProfile(delta *charm.LXDProfile) lxdprofile.Profile {
+	if delta == nil {
+		return lxdprofile.Profile{}
 	}
-	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
-		return profiler.LXDProfile()
+	return lxdprofile.Profile{
+		Config:      delta.Config,
+		Description: delta.Description,
+		Devices:     delta.Devices,
 	}
-	return nil
 }
