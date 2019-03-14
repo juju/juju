@@ -48,7 +48,7 @@ func (m *Model) Config() map[string]interface{} {
 
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
-	w := newConfigWatcher(keys, m.hashCache.getHash(keys))
+	w := newConfigWatcher(keys, m.hashCache)
 
 	unsub := m.hub.Subscribe(m.modelTopic(modelConfigChange), w.configChanged)
 
