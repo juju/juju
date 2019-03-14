@@ -1,0 +1,56 @@
+// Copyright 2019 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package lxdprofile
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/juju/utils/set"
+)
+
+func NewLXDCharmProfiler(profile Profile) LXDProfiler {
+	return LXDProfiles{Profile: profile}
+}
+
+type LXDProfiles struct {
+	Profile Profile
+}
+
+// Implements LXDProfiler interface.
+func (p LXDProfiles) LXDProfile() LXDProfile {
+	return p.Profile
+}
+
+// Profile is a representation of charm.v6 LXDProfile
+type Profile struct {
+	Config      map[string]string
+	Description string
+	Devices     map[string]map[string]string
+}
+
+// Implements LXDProfile interface.
+func (p Profile) Empty() bool {
+	return len(p.Devices) < 1 && len(p.Config) < 1
+}
+
+// Implements LXDProfile interface.
+func (p Profile) ValidateConfigDevices() error {
+	for _, val := range p.Devices {
+		goodDevs := set.NewStrings("unix-char", "unix-block", "gpu", "usb")
+		if devType, ok := val["type"]; ok {
+			if !goodDevs.Contains(devType) {
+				return fmt.Errorf("invalid lxd-profile: contains device type %q", devType)
+			}
+		}
+	}
+	for key := range p.Config {
+		if strings.HasPrefix(key, "boot") ||
+			strings.HasPrefix(key, "limits") ||
+			strings.HasPrefix(key, "migration") {
+			return fmt.Errorf("invalid lxd-profile: contains config value %q", key)
+		}
+	}
+	return nil
+}
