@@ -27,6 +27,10 @@ var tmpl = `
  */
 
 package cache
+
+import (
+	"github.com/juju/pubsub"
+)
 {{ range $key, $fields := . }}
 type {{ $key }}Delta struct {
 	old, new {{ $key }}Change
@@ -37,11 +41,22 @@ type {{ $key }}FieldWatcher struct {
 	comparitors []func(*{{ $key }}Delta) bool
 }
 
-func new{{ $key }}FieldWatcher(comparitors []func(*{{ $key }}Delta) bool) *{{ $key }}FieldWatcher {
-	return &{{ $key }}FieldWatcher{
+func new{{ $key }}FieldWatcher(
+	hub *pubsub.SimpleHub, topic string, comparitors []func(*{{ $key }}Delta) bool,
+) *{{ $key }}FieldWatcher {
+	w := &{{ $key }}FieldWatcher{
 		notifyWatcherBase: newNotifyWatcherBase(),
 		comparitors:       comparitors,
 	}
+
+	unsub := hub.Subscribe(topic, w.detailsChange)
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		unsub()
+		return nil
+	})
+
+	return w
 }
 
 func (w *{{ $key }}FieldWatcher) detailsChange(topic string, value interface{}) {

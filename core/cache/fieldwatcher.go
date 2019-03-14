@@ -8,6 +8,10 @@
 
 package cache
 
+import (
+	"github.com/juju/pubsub"
+)
+
 type ApplicationDelta struct {
 	old, new ApplicationChange
 }
@@ -17,11 +21,22 @@ type ApplicationFieldWatcher struct {
 	comparitors []func(*ApplicationDelta) bool
 }
 
-func newApplicationFieldWatcher(comparitors []func(*ApplicationDelta) bool) *ApplicationFieldWatcher {
-	return &ApplicationFieldWatcher{
+func newApplicationFieldWatcher(
+	hub *pubsub.SimpleHub, topic string, comparitors []func(*ApplicationDelta) bool,
+) *ApplicationFieldWatcher {
+	w := &ApplicationFieldWatcher{
 		notifyWatcherBase: newNotifyWatcherBase(),
 		comparitors:       comparitors,
 	}
+
+	unsub := hub.Subscribe(topic, w.detailsChange)
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		unsub()
+		return nil
+	})
+
+	return w
 }
 
 func (w *ApplicationFieldWatcher) detailsChange(topic string, value interface{}) {
@@ -90,11 +105,22 @@ type UnitFieldWatcher struct {
 	comparitors []func(*UnitDelta) bool
 }
 
-func newUnitFieldWatcher(comparitors []func(*UnitDelta) bool) *UnitFieldWatcher {
-	return &UnitFieldWatcher{
+func newUnitFieldWatcher(
+	hub *pubsub.SimpleHub, topic string, comparitors []func(*UnitDelta) bool,
+) *UnitFieldWatcher {
+	w := &UnitFieldWatcher{
 		notifyWatcherBase: newNotifyWatcherBase(),
 		comparitors:       comparitors,
 	}
+
+	unsub := hub.Subscribe(topic, w.detailsChange)
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		unsub()
+		return nil
+	})
+
+	return w
 }
 
 func (w *UnitFieldWatcher) detailsChange(topic string, value interface{}) {

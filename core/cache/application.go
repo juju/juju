@@ -34,17 +34,7 @@ type Application struct {
 }
 
 func (a *Application) WatchFields(comparitors ...func(*ApplicationDelta) bool) *ApplicationFieldWatcher {
-	w := newApplicationFieldWatcher(comparitors)
-
-	unsub := a.hub.Subscribe(a.topic(applicationFieldChange), w.detailsChange)
-
-	w.tomb.Go(func() error {
-		<-w.tomb.Dying()
-		unsub()
-		return nil
-	})
-
-	return w
+	return newApplicationFieldWatcher(a.hub, a.topic(applicationFieldChange), comparitors)
 }
 
 // TODO (manadart 2018-03-13) Should we change this up and down the call stack
@@ -69,7 +59,9 @@ func (a *Application) setDetails(details ApplicationChange) {
 	a.hub.Publish(a.topic(applicationFieldChange), delta)
 }
 
-// topic prefixes the input string with the application name.
+// topic prefixes the input string with the model ID and application name.
+// TODO (manadart 2019-03-14) The model ID will not be necessary when there is
+// one hub per model.
 func (a *Application) topic(suffix string) string {
-	return a.details.Name + ":" + suffix
+	return a.details.ModelUUID + ":" + a.details.Name + ":" + suffix
 }
