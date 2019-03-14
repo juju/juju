@@ -124,9 +124,9 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var charms []charmstore.CharmID
-	var resultsIndexedApps []*state.Application
-	for _, application := range applications {
+	resultsIndexedApps := make([]*state.Application, len(applications))
+	charms := make([]charmstore.CharmID, len(applications))
+	for i, application := range applications {
 		curl, _ := application.CharmURL()
 		if curl.Schema == "local" {
 			continue
@@ -145,8 +145,8 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 				"arch":   strings.Join(archs, ","),
 			},
 		}
-		charms = append(charms, cid)
-		resultsIndexedApps = append(resultsIndexedApps, application)
+		charms[i] = cid
+		resultsIndexedApps[i] = application
 	}
 
 	metadata := map[string]string{
@@ -169,17 +169,17 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		return nil, err
 	}
 
-	var latest []latestCharmInfo
+	latest := make([]latestCharmInfo, len(results))
 	for i, result := range results {
 		if result.Error != nil {
 			logger.Errorf("retrieving charm info for %s: %v", charms[i].URL, result.Error)
 			continue
 		}
 		application := resultsIndexedApps[i]
-		latest = append(latest, latestCharmInfo{
+		latest[i] = latestCharmInfo{
 			CharmInfo:   result.CharmInfo,
 			application: application,
-		})
+		}
 	}
 	return latest, nil
 }

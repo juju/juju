@@ -5,16 +5,17 @@ package testing
 
 import (
 	"fmt"
-	"net/http/httptest"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmstore.v5"
+	"gopkg.in/juju/charmrepo.v3"
 
 	// "github.com/juju/juju/apiserver/testing"
 
+	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -26,9 +27,6 @@ import (
 type CharmSuite struct {
 	jcSuite *jujutesting.JujuConnSuite
 
-	Handler charmstore.HTTPCloseHandler
-	Server  *httptest.Server
-	//Client  *csclient.Client
 	Client apiservertesting.Client
 	charms map[string]*state.Charm
 }
@@ -40,7 +38,6 @@ func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
 func (s *CharmSuite) TearDownSuite(c *gc.C) {}
 
 func (s *CharmSuite) SetUpTest(c *gc.C) {
-
 	s.Client = apiservertesting.NewCharmstoreClient()
 	urls := map[string]string{
 		"mysql":     "quantal/mysql-23",
@@ -52,19 +49,17 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	for name, url := range urls {
 		testcharms.UploadCharm(c, s.Client, url, name)
 	}
-	// s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	// // Patch the charm repo initializer function: it is replaced with a charm
-	// // store repo pointing to the testing server.
-	// s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (jujucharmstore.Client, error) {
-	// 	return jujucharmstore.NewCachingClient(state.MacaroonCache{st}, s.Server.URL)
-	// })
 	s.charms = make(map[string]*state.Charm)
+	s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
+
+	// Patch the charm repo initializer function: it is replaced with a charm
+	// store repo pointing to the testing server.
+	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (charmstore.CharmstoreWrapper, error) {
+		return apiservertesting.InternalClientFromClient(s.Client), nil
+	})
 }
 
-func (s *CharmSuite) TearDownTest(c *gc.C) {
-	s.Handler.Close()
-	s.Server.Close()
-}
+func (s *CharmSuite) TearDownTest(c *gc.C) {}
 
 // AddMachine adds a new machine to state.
 func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {

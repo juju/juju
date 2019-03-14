@@ -45,7 +45,7 @@ func NewCachingClient(cache MacaroonCache, server string) (Client, error) {
 func newCachingClient(
 	cache MacaroonCache,
 	server string,
-	makeWrapper func(*httpbakery.Client, string) (csWrapper, error),
+	makeWrapper func(*httpbakery.Client, string) (CharmstoreWrapper, error),
 ) (Client, error) {
 	bakeryClient := &httpbakery.Client{
 		Client: httpbakery.NewHTTPClient(),
@@ -80,16 +80,16 @@ func NewCustomClient(bakeryClient *httpbakery.Client, server string) (Client, er
 func newCustomClient(
 	bakeryClient *httpbakery.Client,
 	server string,
-	makeWrapper func(*httpbakery.Client, string) (csWrapper, error),
+	makeWrapper func(*httpbakery.Client, string) (CharmstoreWrapper, error),
 ) (Client, error) {
 	client, err := makeWrapper(bakeryClient, server)
 	if err != nil {
 		return Client{}, errors.Trace(err)
 	}
-	return Client{csWrapper: client}, nil
+	return Client{CharmstoreWrapper: client}, nil
 }
 
-func makeWrapper(bakeryClient *httpbakery.Client, server string) (csWrapper, error) {
+func makeWrapper(bakeryClient *httpbakery.Client, server string) (CharmstoreWrapper, error) {
 	if server == "" {
 		return csclientImpl{}, errors.NotValidf("empty charmstore URL")
 	}
@@ -103,7 +103,7 @@ func makeWrapper(bakeryClient *httpbakery.Client, server string) (csWrapper, err
 // Client wraps charmrepo/csclient (the charm store's API client
 // library) in a higher level API.
 type Client struct {
-	csWrapper
+	CharmstoreWrapper
 	jar *macaroonJar
 }
 
@@ -126,7 +126,7 @@ func (c Client) LatestRevisions(charms []CharmID, modelMetadata map[string]strin
 	// underlying csclient.
 	results := make([]CharmRevision, len(charms))
 	for i, cid := range charms {
-		revisions, err := c.csWrapper.Latest(
+		revisions, err := c.CharmstoreWrapper.Latest(
 			cid.Channel, []*charm.URL{cid.URL}, makeMetadataHeader(modelMetadata, cid.Metadata))
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -198,7 +198,7 @@ func (c Client) GetResource(req ResourceRequest) (data ResourceData, err error) 
 		return ResourceData{}, errors.Trace(err)
 	}
 	defer c.jar.Deactivate()
-	meta, err := c.csWrapper.ResourceMeta(req.Channel, req.Charm, req.Name, req.Revision)
+	meta, err := c.CharmstoreWrapper.ResourceMeta(req.Channel, req.Charm, req.Name, req.Revision)
 
 	if err != nil {
 		return ResourceData{}, errors.Trace(err)
@@ -207,7 +207,7 @@ func (c Client) GetResource(req ResourceRequest) (data ResourceData, err error) 
 	if err != nil {
 		return ResourceData{}, errors.Trace(err)
 	}
-	resData, err := c.csWrapper.GetResource(req.Channel, req.Charm, req.Name, req.Revision)
+	resData, err := c.CharmstoreWrapper.GetResource(req.Channel, req.Charm, req.Name, req.Revision)
 	if err != nil {
 		return ResourceData{}, errors.Trace(err)
 	}
@@ -233,7 +233,7 @@ func (c Client) ResourceInfo(req ResourceRequest) (charmresource.Resource, error
 		return charmresource.Resource{}, errors.Trace(err)
 	}
 	defer c.jar.Deactivate()
-	meta, err := c.csWrapper.ResourceMeta(req.Channel, req.Charm, req.Name, req.Revision)
+	meta, err := c.CharmstoreWrapper.ResourceMeta(req.Channel, req.Charm, req.Name, req.Revision)
 	if err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
 	}
@@ -267,16 +267,16 @@ func (c Client) listResources(ch CharmID) ([]charmresource.Resource, error) {
 		return nil, errors.Trace(err)
 	}
 	defer c.jar.Deactivate()
-	resources, err := c.csWrapper.ListResources(ch.Channel, ch.URL)
+	resources, err := c.CharmstoreWrapper.ListResources(ch.Channel, ch.URL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return api2resources(resources)
 }
 
-// csWrapper is a type that abstracts away the low-level implementation details
+// CharmstoreWrapper is a type that abstracts away the low-level implementation details
 // of the charmstore client.
-type csWrapper interface {
+type CharmstoreWrapper interface {
 	Latest(channel csparams.Channel, ids []*charm.URL, headers map[string][]string) ([]csparams.CharmRevision, error)
 	ListResources(channel csparams.Channel, id *charm.URL) ([]csparams.Resource, error)
 	GetResource(channel csparams.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error)
@@ -284,7 +284,7 @@ type csWrapper interface {
 	ServerURL() string
 }
 
-// csclientImpl is an implementation of csWrapper that uses csclient.Client.
+// csclientImpl is an implementation of CharmstoreWrapper that uses csclient.Client.
 // It exists for testing purposes to hide away the hard-to-mock parts of
 // csclient.Client.
 type csclientImpl struct {

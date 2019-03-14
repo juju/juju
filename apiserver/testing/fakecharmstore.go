@@ -28,6 +28,8 @@ import (
 	// "gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	// "gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
 	// "gopkg.in/mgo.v2"
+
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -148,9 +150,6 @@ func (p fakeProgress) Finalizing() {}
 // 	return chURL, ch
 // }
 
-const charmstoreVersion = "v5"
-const charmstoreURL = "https://api.staging.jujucharms.com/charmstore"
-
 type Client struct {
 	//params csclient.Params // might be useful?
 	charms    map[charm.URL]charm.Charm
@@ -160,74 +159,99 @@ type Client struct {
 	version   string
 	url       string
 
+	//	testing.Stub
+
 	//resources map[params.Channel]map[string][]string
 }
 
 var _ testcharms.MinimalCharmstoreClient = (*Client)(nil)
 
 func NewCharmstoreClient() Client {
-	return Client{version: charmstoreVersion, url: charmstoreURL}
+	return Client{
+		charms:    make(map[charm.URL]charm.Charm),
+		bundles:   make(map[charm.URL]charm.Bundle),
+		resources: make(map[charm.URL][]params.Resource),
+		revisions: make(map[charm.URL]int),
+	}
 }
 
-func (c Client) Get(charmId *charm.URL) (charm.Charm, error) {
-	charmData := c.charms[*charmId]
+func (c Client) Get(id *charm.URL) (charm.Charm, error) {
+	//	c.MethodCall(c, "Get", id)
+	charmData := c.charms[*id]
 	if charmData == nil {
-		return charmData, NotFoundError(charmId.String())
+		return charmData, NotFoundError(id.String()) //? m.NextErr()
 	}
+	//	return charmData, c.NextErr()
 	return charmData, nil
 }
 
-func (c Client) GetBundle(bundleId *charm.URL) (charm.Bundle, error) {
-	bundleData := c.bundles[*bundleId]
+func (c Client) GetBundle(id *charm.URL) (charm.Bundle, error) {
+	//c.MethodCall(c, "GetBundle", id)
+	bundleData := c.bundles[*id]
 	if bundleData == nil {
-		return bundleData, NotFoundError(bundleId.String())
+		return bundleData, NotFoundError(id.String()) //? m.NextErr()
 	}
+	//return bundleData, c.NextErr()
 	return bundleData, nil
 }
 
-func (c Client) UploadCharm(charmId *charm.URL, charmData charm.Charm) (*charm.URL, error) {
-	c.charms[*charmId] = charmData
-	return charmId, nil
+func (c Client) UploadCharm(id *charm.URL, charmData charm.Charm) (*charm.URL, error) {
+	//c.MethodCall(c, "UploadCharm", charmId, charmData)
+	c.charms[*id] = charmData
+	// return id, c.NextErr()
+	return id, nil
 }
 
-func (c Client) UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error {
-	_, err := c.UploadCharm(id, ch)
+func (c Client) UploadCharmWithRevision(id *charm.URL, charmData charm.Charm, promulgatedRevision int) error {
+	// c.MethodCall(c, "UploadCharmWithRevision", id, charmData, promulgatedRevision)
+	_, err := c.UploadCharm(id, charmData)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	c.revisions[*id] = promulgatedRevision
+	//return c.NextErr()
 	return nil
 }
 
-func (c Client) UploadBundle(bundleLocation *charm.URL, bundleData charm.Bundle) (*charm.URL, error) {
-	c.bundles[*bundleLocation] = bundleData
-	return bundleLocation, nil
+func (c Client) UploadBundle(id *charm.URL, bundleData charm.Bundle) (*charm.URL, error) {
+	// c.MethodCall(c, "UploadBundle", id, bundleData)
+	c.bundles[*id] = bundleData
+	//return id, c.NextErr()
+	return id, nil
 }
 
 func (c Client) UploadBundleWithRevision(id *charm.URL, bundleData charm.Bundle, promulgatedRevision int) error {
+	//c.MethodCall(c, "UploadBundleWithRevision", id, bundleData, promulgatedRevision)
 	_, err := c.UploadBundle(id, bundleData)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	c.revisions[*id] = promulgatedRevision
+	//return c.NextErr()
 	return nil
 }
 
 func (c Client) GetResource(id *charm.URL, name string, revision int) (result csclient.ResourceData, err error) {
+	//c.MethodCall(c, "GetResource", name, revision)
+	//return csclient.ResourceData{}, c.NextErr()
 	return csclient.ResourceData{}, nil
 }
 
 func (c Client) ResourceMeta(id *charm.URL, name string, revision int) (params.Resource, error) {
+	//c.MethodCall(c, "ResourceMeta", id, name)
 	resources := c.resources[*id]
 	if len(resources) == 0 {
 		return params.Resource{}, NotFoundError("unable to find any resources for " + name)
 	}
+	// return resources[len(resources)-1], c.NextErr()
 	return resources[len(resources)-1], nil
 }
 
 // ListResources returns Resourc metadata that have been generated
 // by UploadResource
 func (c Client) ListResources(id *charm.URL) ([]params.Resource, error) {
+	//	c.MethodCall(c, "ListResources", id)
+	//	return c.resources[*id], c.NextErr()
 	return c.resources[*id], nil
 }
 
@@ -247,6 +271,7 @@ func signature(r io.ReadSeeker) (hash []byte, err error) {
 
 // UploadResource "uploads" data from file and stores a
 func (c Client) UploadResource(id *charm.URL, name, path string, file io.ReadSeeker, size int64, progress csclient.Progress) (revision int, err error) {
+	// c.MethodCall(c, "UploadResource", id, name, path, file, size, progress)
 	resources := c.resources[*id]
 	revision = len(resources)
 	//progress.Start() // ignoring progress for now, hoping that it's not material to the tests
@@ -266,40 +291,62 @@ func (c Client) UploadResource(id *charm.URL, name, path string, file io.ReadSee
 	c.resources[*id] = resources
 	// progress.Transferred() // it looks like this method is never used by csclient anyway?
 	// progress.Finalizing()
+	// return revision, c.NextErr()
 	return revision, nil
 }
 
 func (c Client) AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error) {
+	// c.MethodCall(c, "AddDockerResource", id, resourceName, imageName, digest)
+	// return -1, c.NextErr()
 	return -1, nil
 }
 
 func (c Client) DockerResourceUploadInfo(id *charm.URL, resourceName string) (*params.DockerInfoResponse, error) {
-	result := params.DockerInfoResponse{}
-	return &result, nil
+	// c.MethodCall(c, "DockerResourceUploadInfo", id, resourceName)
+	//return &params.DockerInfoResponse{}, c.NextErr()
+	return &params.DockerInfoResponse{}, nil
 }
 
 func (c Client) Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error {
+	//c.MethodCall(c, "Publish", id, channels, resources)
+	//return c.NextErr()
 	return nil
 }
 
 func (c Client) WithChannel(channel params.Channel) testcharms.MinimalCharmstoreClient {
+	//	c.MethodCall(c, "WithChannel", channel)
+	//	c.PopNoErr()
 	return &c
 }
 
-func (c Client) Latest(channel params.Channel, ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error) {
+func (c Client) Latest(ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error) {
+	//	c.MethodCall(c, "Latest", channel, ids, headers)
 	result := make([]params.CharmRevision, len(ids))
-
 	for i, id := range ids {
 		revision := c.revisions[*id]
 		result[i] = params.CharmRevision{Revision: revision}
 	}
-
 	return result, nil
+	//	return result, c.NextErr()
 }
+
+// func (c Client) LatestRevisions(charms []charmstore.CharmID, metadata map[string][]string) ([]charmstore.CharmRevision, error) {
+// 	result := make([]charmstore.CharmRevision, len(charms))
+// 	for i, cid := range charms {
+// 		revisions, err := c.Latest(cid.Channel, []*charm.URL{cid.URL}, make(map[string][]string))
+// 		if err != nil {
+// 			return nil, errors.Trace(err)
+// 		}
+// 		rev := revisions[0]
+// 		result[i] = charmstore.CharmRevision{Revision: rev.Revision, Err: rev.Err}
+// 	}
+// 	return result, nil
+// }
 
 // Put puts data into a location for later retrieval.
 func (c Client) Put(path string, data interface{}) error {
-	// into the void
+	// c.MethodCall(c, "Put", path, data)
+	//return c.NextErr()
 	return nil
 }
 
@@ -322,6 +369,38 @@ func (c Client) Put(path string, data interface{}) error {
 // 	"wordpress": "quantal/wordpress-26",
 // 	"logging":   "quantal/logging-27",
 // }
+
+// InternalClient implements the github.com/juju/juju/charmstore.CharmstoreWrapper,
+// which deals with channels differently
+type InternalClient struct {
+	base Client
+}
+
+var _ charmstore.CharmstoreWrapper = (*Client)(nil)
+
+func (c InternalClient) Latest(channel params.Channel, ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error) {
+	return c.base.Latest(ids, headers)
+}
+
+func (c InternalClient) ListResources(channel params.Channel, id *charm.URL) ([]params.Resource, error) {
+	return c.base.ListResources(id)
+}
+
+func (c InternalClient) GetResource(channel params.Channel, id *charm.URL, name string) ([]params.Resource, error) {
+	return c.base.GetResource(id, name, -1)
+}
+
+func (c InternalClient) ResourceMeta(channel params.Channel, id *charm.URL, name string, revision int) (params.Resource, error) {
+	return c.base.ResourceMeta(id, name, -1)
+}
+
+func (c InternalClient) ServerURL() string {
+	return "#"
+}
+
+func InternalClientFromClient(base Client) InternalClient {
+	return InternalClient{base}
+}
 
 type CharmStoreSuite struct {
 	testing.CleanupSuite
