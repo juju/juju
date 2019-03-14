@@ -94,11 +94,11 @@ func (m *Model) Charm(charmURL string) (*Charm, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	app, found := m.charms[charmURL]
+	charm, found := m.charms[charmURL]
 	if !found {
 		return nil, errors.NotFoundf("charm %q", charmURL)
 	}
-	return app, nil
+	return charm, nil
 }
 
 // Machine returns the machine with the input id.

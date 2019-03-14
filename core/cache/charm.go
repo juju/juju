@@ -17,7 +17,7 @@ func newCharm(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Charm {
 	return c
 }
 
-// Application represents an application in a model.
+// Charm represents an charm in a model.
 type Charm struct {
 	// Link to model?
 	metrics *ControllerGauges
@@ -29,6 +29,6 @@ type Charm struct {
 
 func (c *Charm) setDetails(details CharmChange) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.details = details
+	c.mu.Unlock()
 }
