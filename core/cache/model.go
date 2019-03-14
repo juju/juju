@@ -19,6 +19,7 @@ func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 		// when many models.
 		hub:          hub,
 		applications: make(map[string]*Application),
+		machines:     make(map[string]*Machine),
 		units:        make(map[string]*Unit),
 	}
 	return m
@@ -35,6 +36,7 @@ type Model struct {
 	configHash   string
 	hashCache    *hashCache
 	applications map[string]*Application
+	machines     map[string]*Machine
 	units        map[string]*Unit
 }
 
@@ -70,6 +72,7 @@ func (m *Model) Report() map[string]interface{} {
 		"name":              m.details.Owner + "/" + m.details.Name,
 		"life":              m.details.Life,
 		"application-count": len(m.applications),
+		"machine-count":     len(m.machines),
 		"unit-count":        len(m.units),
 	}
 }
@@ -85,6 +88,19 @@ func (m *Model) Application(appName string) (*Application, error) {
 		return nil, errors.NotFoundf("application %q", appName)
 	}
 	return app, nil
+}
+
+// Machine returns the machine with the input id.
+// If the machine is not found, a NotFoundError is returned.
+func (m *Model) Machine(machineId string) (*Machine, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	machine, found := m.machines[machineId]
+	if !found {
+		return nil, errors.NotFoundf("machine %q", machineId)
+	}
+	return machine, nil
 }
 
 // Unit returns the unit with the input name.
@@ -139,6 +155,27 @@ func (m *Model) updateUnit(ch UnitChange) {
 func (m *Model) removeUnit(ch RemoveUnit) {
 	m.mu.Lock()
 	delete(m.units, ch.Name)
+	m.mu.Unlock()
+}
+
+// updateMachine adds or updates the machine in the model.
+func (m *Model) updateMachine(ch MachineChange) {
+	m.mu.Lock()
+
+	machine, found := m.machines[ch.Id]
+	if !found {
+		machine = newMachine(m.metrics, m.hub)
+		m.machines[ch.Id] = machine
+	}
+	machine.setDetails(ch)
+
+	m.mu.Unlock()
+}
+
+// removeMachine removes the machine from the model.
+func (m *Model) removeMachine(ch RemoveMachine) {
+	m.mu.Lock()
+	delete(m.machines, ch.Id)
 	m.mu.Unlock()
 }
 

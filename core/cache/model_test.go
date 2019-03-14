@@ -36,6 +36,7 @@ func (s *ModelSuite) TestReport(c *gc.C) {
 		"name":              "model-owner/test-model",
 		"life":              life.Value("alive"),
 		"application-count": 0,
+		"machine-count":     0,
 		"unit-count":        0,
 	})
 }
@@ -132,6 +133,12 @@ func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
 func (s *ModelSuite) TestApplicationNotFoundError(c *gc.C) {
 	m := s.newModel(modelChange)
 	_, err := m.Application("nope")
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *ModelSuite) TestMachineNotFoundError(c *gc.C) {
+	m := s.newModel(modelChange)
+	_, err := m.Machine("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 

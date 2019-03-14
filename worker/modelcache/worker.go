@@ -250,6 +250,33 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			Status:          coreStatus(value.Status),
 			WorkloadVersion: value.WorkloadVersion,
 		}
+	case "machine":
+		if d.Removed {
+			return cache.RemoveMachine{
+				ModelUUID: id.ModelUUID,
+				Id:        id.Id,
+			}
+		}
+		value, ok := d.Entity.(*multiwatcher.MachineInfo)
+		if !ok {
+			c.config.Logger.Errorf("unexpected type %T", d.Entity)
+			return nil
+		}
+		return cache.MachineChange{
+			ModelUUID:                value.ModelUUID,
+			Id:                       value.Id,
+			InstanceId:               value.InstanceId,
+			AgentStatus:              coreStatus(value.AgentStatus),
+			Life:                     life.Value(value.Life),
+			Config:                   value.Config,
+			Series:                   value.Series,
+			SupportedContainers:      value.SupportedContainers,
+			SupportedContainersKnown: value.SupportedContainersKnown,
+			HardwareCharacteristics:  value.HardwareCharacteristics,
+			Addresses:                coreNetworkAddresses(value.Addresses),
+			HasVote:                  value.HasVote,
+			WantsVote:                value.WantsVote,
+		}
 	case "unit":
 		if d.Removed {
 			return cache.RemoveUnit{
@@ -323,4 +350,18 @@ func coreNetworkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
 		}
 	}
 	return ports
+}
+
+func coreNetworkAddresses(delta []multiwatcher.Address) []network.Address {
+	addresses := make([]network.Address, len(delta))
+	for i, d := range delta {
+		addresses[i] = network.Address{
+			Value:           d.Value,
+			Type:            d.Type,
+			Scope:           d.Scope,
+			SpaceName:       d.SpaceName,
+			SpaceProviderId: d.SpaceProviderId,
+		}
+	}
+	return addresses
 }
