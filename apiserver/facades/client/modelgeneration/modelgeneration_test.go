@@ -159,6 +159,7 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 		gen := mocks.NewMockGeneration(ctrl)
 		gen.EXPECT().AssignedUnits().Return(map[string][]string{"redis": units})
 		gen.EXPECT().Created().Return(int64(666))
+		gen.EXPECT().CreatedBy().Return("test-user")
 
 		mod.EXPECT().NextGeneration().Return(gen, nil)
 
@@ -182,6 +183,7 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 
 	gen := result.Generation
 	c.Assert(gen.Created, gc.Equals, int64(666))
+	c.Assert(gen.CreatedBy, gc.Equals, "test-user")
 	c.Assert(gen.Applications, gc.HasLen, 1)
 
 	app := gen.Applications[0]

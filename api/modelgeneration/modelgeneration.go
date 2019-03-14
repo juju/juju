@@ -138,6 +138,7 @@ func generationInfoFromResult(res params.Generation, formatTime func(time.Time) 
 	}
 	gen := model.Generation{
 		Created:      formatTime(time.Unix(res.Created, 0)),
+		CreatedBy:    res.CreatedBy,
 		Applications: appDeltas,
 	}
 

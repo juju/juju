@@ -236,6 +236,7 @@ func (m *API) GenerationInfo(arg params.Entity) (params.GenerationResult, error)
 
 	return params.GenerationResult{Generation: params.Generation{
 		Created:      gen.Created(),
+		CreatedBy:    gen.CreatedBy(),
 		Applications: apps,
 	}}, nil
 }

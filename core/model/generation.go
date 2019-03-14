@@ -51,6 +51,9 @@ type Generation struct {
 	// Created is the formatted time at generation creation.
 	Created string `yaml:"created"`
 
+	// Created is the user who created the generation.
+	CreatedBy string `json:"created-by"`
+
 	// Applications is a collection of applications with changes in this
 	// generation including advanced units and modified configuration.
 	Applications []GenerationApplication `yaml:"applications"`

@@ -1146,6 +1146,9 @@ type Generation struct {
 	// Created is the Unix timestamp at generation creation.
 	Created int64 `json:"created"`
 
+	// Created is the user who created the generation.
+	CreatedBy string `json:"created-by"`
+
 	// Applications holds the collection of application changes
 	// made under this generation.
 	Applications []GenerationApplication `json:"applications"`

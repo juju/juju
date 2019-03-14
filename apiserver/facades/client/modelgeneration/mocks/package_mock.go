@@ -321,6 +321,18 @@ func (mr *MockGenerationMockRecorder) Created() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Created", reflect.TypeOf((*MockGeneration)(nil).Created))
 }
 
+// CreatedBy mocks base method
+func (m *MockGeneration) CreatedBy() string {
+	ret := m.ctrl.Call(m, "CreatedBy")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// CreatedBy indicates an expected call of CreatedBy
+func (mr *MockGenerationMockRecorder) CreatedBy() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatedBy", reflect.TypeOf((*MockGeneration)(nil).CreatedBy))
+}
+
 // MakeCurrent mocks base method
 func (m *MockGeneration) MakeCurrent() error {
 	ret := m.ctrl.Call(m, "MakeCurrent")

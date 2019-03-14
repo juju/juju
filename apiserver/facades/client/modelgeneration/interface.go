@@ -40,6 +40,7 @@ type Model interface {
 // Generation defines the methods used by a generation.
 type Generation interface {
 	Created() int64
+	CreatedBy() string
 	AssignAllUnits(string) error
 	AssignUnit(string) error
 	AssignedUnits() map[string][]string
