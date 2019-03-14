@@ -48,17 +48,7 @@ func (m *Model) Config() map[string]interface{} {
 
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
-	w := newConfigWatcher(keys, m.hashCache)
-
-	unsub := m.hub.Subscribe(m.modelTopic(modelConfigChange), w.configChanged)
-
-	w.tomb.Go(func() error {
-		<-w.tomb.Dying()
-		unsub()
-		return nil
-	})
-
-	return w
+	return newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange))
 }
 
 // Report returns information that is used in the dependency engine report.
@@ -142,9 +132,9 @@ func (m *Model) removeUnit(ch RemoveUnit) {
 	m.mu.Unlock()
 }
 
-// modelTopic prefixes the topic with the model UUID.
-func (m *Model) modelTopic(topic string) string {
-	return m.details.ModelUUID + ":" + topic
+// topic prefixes the input string with the model UUID.
+func (m *Model) topic(suffix string) string {
+	return m.details.ModelUUID + ":" + suffix
 }
 
 func (m *Model) setDetails(details ModelChange) {
@@ -155,7 +145,7 @@ func (m *Model) setDetails(details ModelChange) {
 	if configHash != m.configHash {
 		m.configHash = configHash
 		m.hashCache = hashCache
-		m.hub.Publish(m.modelTopic(modelConfigChange), hashCache)
+		m.hub.Publish(m.topic(modelConfigChange), hashCache)
 	}
 
 	m.mu.Unlock()

@@ -1,5 +1,6 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package cache_test
 
 import (
@@ -62,6 +63,9 @@ func (s *ModelSuite) TestModelConfigIncrementsReadCount(c *gc.C) {
 	c.Check(testutil.ToFloat64(s.gauges.ModelConfigReads), gc.Equals, float64(2))
 }
 
+// Some of the tested behaviour in the following methods is specific to the
+// watcher, but using a cached model avoids the need to put scaffolding code in
+// export_test.go to create a watcher in isolation.
 func (s *ModelSuite) TestConfigWatcherStops(c *gc.C) {
 	m := s.newModel(modelChange)
 	w := m.WatchConfig()
