@@ -73,7 +73,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationErrorNoAutoComplete(c *gc.C)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
 		gExp.AssignUnit("mysql/0").Return(nil)
-		gExp.AutoComplete().Return(false, nil)
+		gExp.AutoComplete("test-user").Return(false, nil)
 		gExp.Refresh().Return(nil).Times(3)
 
 		mExp := mockModel.EXPECT()
@@ -104,7 +104,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationSuccessAutoComplete(c *gc.C)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
 		gExp.AssignUnit("mysql/0").Return(nil)
-		gExp.AutoComplete().Return(true, nil)
+		gExp.AutoComplete("test-user").Return(true, nil)
 		gExp.Refresh().Return(nil).Times(2)
 
 		mExp := mockModel.EXPECT()
@@ -124,7 +124,7 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
-		gExp.MakeCurrent().Return(nil)
+		gExp.MakeCurrent("test-user").Return(nil)
 
 		mExp := mockModel.EXPECT()
 		mExp.NextGeneration().Return(mockGeneration, nil)
@@ -141,7 +141,7 @@ func (s *modelGenerationSuite) TestCancelGenerationCanNotMakeCurrent(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
-		gExp.MakeCurrent().Return(errors.New(errMsg))
+		gExp.MakeCurrent("test-user").Return(errors.New(errMsg))
 
 		mExp := mockModel.EXPECT()
 		mExp.NextGeneration().Return(mockGeneration, nil)

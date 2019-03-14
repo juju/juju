@@ -44,8 +44,8 @@ type Generation interface {
 	AssignAllUnits(string) error
 	AssignUnit(string) error
 	AssignedUnits() map[string][]string
-	MakeCurrent() error
-	AutoComplete() (bool, error)
+	MakeCurrent(string) error
+	AutoComplete(string) (bool, error)
 	Refresh() error
 }
 

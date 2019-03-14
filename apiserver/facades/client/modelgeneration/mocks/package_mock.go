@@ -297,16 +297,16 @@ func (mr *MockGenerationMockRecorder) AssignedUnits() *gomock.Call {
 }
 
 // AutoComplete mocks base method
-func (m *MockGeneration) AutoComplete() (bool, error) {
-	ret := m.ctrl.Call(m, "AutoComplete")
+func (m *MockGeneration) AutoComplete(arg0 string) (bool, error) {
+	ret := m.ctrl.Call(m, "AutoComplete", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AutoComplete indicates an expected call of AutoComplete
-func (mr *MockGenerationMockRecorder) AutoComplete() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoComplete", reflect.TypeOf((*MockGeneration)(nil).AutoComplete))
+func (mr *MockGenerationMockRecorder) AutoComplete(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoComplete", reflect.TypeOf((*MockGeneration)(nil).AutoComplete), arg0)
 }
 
 // Created mocks base method
@@ -334,15 +334,15 @@ func (mr *MockGenerationMockRecorder) CreatedBy() *gomock.Call {
 }
 
 // MakeCurrent mocks base method
-func (m *MockGeneration) MakeCurrent() error {
-	ret := m.ctrl.Call(m, "MakeCurrent")
+func (m *MockGeneration) MakeCurrent(arg0 string) error {
+	ret := m.ctrl.Call(m, "MakeCurrent", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // MakeCurrent indicates an expected call of MakeCurrent
-func (mr *MockGenerationMockRecorder) MakeCurrent() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeCurrent", reflect.TypeOf((*MockGeneration)(nil).MakeCurrent))
+func (mr *MockGenerationMockRecorder) MakeCurrent(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeCurrent", reflect.TypeOf((*MockGeneration)(nil).MakeCurrent), arg0)
 }
 
 // Refresh mocks base method

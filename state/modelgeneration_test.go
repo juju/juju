@@ -55,7 +55,7 @@ func (s *generationSuite) TestAssignApplicationGenCompletedError(c *gc.C) {
 
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent("user"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.AssignApplication("redis"), gc.ErrorMatches, "generation has been completed")
 }
@@ -83,7 +83,7 @@ func (s *generationSuite) TestAssignUnitGenCompletedError(c *gc.C) {
 
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent("user"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.AssignUnit("redis/0"), gc.ErrorMatches, "generation has been completed")
 }
@@ -166,7 +166,7 @@ func (s *generationSuite) TestAssignAllUnitsGenCompletedError(c *gc.C) {
 
 	gen, err := s.Model.NextGeneration()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent("user"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.AssignAllUnits("riak"), gc.ErrorMatches, "generation has been completed")
 }
@@ -182,14 +182,15 @@ func (s *generationSuite) TestAutoCompleteSuccess(c *gc.C) {
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.IsCompleted(), jc.IsFalse)
 
-	completed, err := gen.AutoComplete()
+	completed, err := gen.AutoComplete("user")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(completed, jc.IsTrue)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Check(gen.IsCompleted(), jc.IsTrue)
+	c.Check(gen.CompletedBy(), gc.Equals, "user")
 
 	// Idempotent.
-	completed, err = gen.AutoComplete()
+	completed, err = gen.AutoComplete("user")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(completed, jc.IsTrue)
 }
@@ -203,10 +204,9 @@ func (s *generationSuite) TestAutoCompleteGenerationIncomplete(c *gc.C) {
 	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 
-	completed, err := gen.AutoComplete()
+	completed, err := gen.AutoComplete("user")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(completed, jc.IsFalse)
-
 }
 
 func (s *generationSuite) TestMakeCurrentSuccess(c *gc.C) {
@@ -217,12 +217,13 @@ func (s *generationSuite) TestMakeCurrentSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(gen.IsCompleted(), jc.IsFalse)
-	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent("user"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.IsCompleted(), jc.IsTrue)
+	c.Check(gen.CompletedBy(), gc.Equals, "user")
 
 	// Idempotent.
-	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent("user"), jc.ErrorIsNil)
 }
 
 func (s *generationSuite) TestMakeCurrentCanNotCancelError(c *gc.C) {
@@ -233,7 +234,7 @@ func (s *generationSuite) TestMakeCurrentCanNotCancelError(c *gc.C) {
 
 	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	c.Assert(gen.MakeCurrent(), gc.ErrorMatches,
+	c.Assert(gen.MakeCurrent("user"), gc.ErrorMatches,
 		"cannot cancel generation, there are units behind a generation: riak/1, riak/2, riak/3")
 }
 
@@ -250,12 +251,12 @@ func (s *generationSuite) TestAppNoUnitsAutoCompleteErrorMakeCurrentSuccess(c *g
 
 	// Can not auto-complete.
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
-	completed, err := gen.AutoComplete()
+	completed, err := gen.AutoComplete("user")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(completed, jc.IsFalse)
 
 	// But can cancel.
-	c.Assert(gen.MakeCurrent(), jc.ErrorIsNil)
+	c.Assert(gen.MakeCurrent("user"), jc.ErrorIsNil)
 }
 
 func (s *generationSuite) TestHasNextGeneration(c *gc.C) {
