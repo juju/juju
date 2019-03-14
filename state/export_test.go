@@ -859,8 +859,8 @@ type (
 	InstanceCharmProfileData = instanceCharmProfileData
 )
 
-func NewInstanceCharmProfileDataWatcher(backend ModelBackendShim, memberId, returnStatus string, filter func(interface{}) bool) StringsWatcher {
-	return newInstanceCharmProfileDataWatcher(backend, memberId, returnStatus, filter)
+func NewInstanceCharmProfileDataWatcher(backend ModelBackendShim, memberId string, transform func(string) string) StringsWatcher {
+	return watchInstanceCharmProfileData(backend, memberId, transform)
 }
 
 type ModelBackendShim struct {

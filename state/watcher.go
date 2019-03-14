@@ -2025,38 +2025,50 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 // upgrade completed field that is specific to an application name.  Used by
 // UniterAPI v9.
 func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (StringsWatcher, error) {
+	if featureflag.Enabled(feature.InstanceMutater) {
+
+	}
 	unitName, err := m.LXDProfileUpgradeUnitToWatch(applicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	watchDocId := m.instanceCharmProfileDataId(unitName)
-	filter := func(id interface{}) bool {
-		return id.(string) == watchDocId
-	}
-	returnStatus := ""
-	if featureflag.Enabled(feature.InstanceMutater) {
-		returnStatus = lxdprofile.NotRequiredStatus
-	}
-	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, returnStatus, filter), nil
+	return watchInstanceCharmProfileData(m.st, watchDocId, func(value string) string {
+		return value
+	}), nil
 }
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
 // of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
 // upgrade completed field that is specific to itself.
 func (u *Unit) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
+	if featureflag.Enabled(feature.InstanceMutater) {
+
+	}
 	m, err := u.machine()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	watchDocId := m.instanceCharmProfileDataId(u.doc.Name)
+	return watchInstanceCharmProfileData(m.st, watchDocId, func(value string) string {
+		return value
+	}), nil
+}
+
+func watchInstanceCharmProfileData(backend modelBackend, watchDocId string, transform func(string) string) StringsWatcher {
+	initial := lxdprofile.NotKnownStatus
+	members := bson.D{{"_id", watchDocId}}
+	collection := instanceCharmProfileDataC
 	filter := func(id interface{}) bool {
 		return id.(string) == watchDocId
 	}
-	returnStatus := ""
-	if featureflag.Enabled(feature.InstanceMutater) {
-		returnStatus = lxdprofile.NotRequiredStatus
+	extract := func(data interface{}) (string, error) {
+		if m, ok := data.(instanceCharmProfileData); ok {
+			return m.UpgradeCharmProfileComplete, nil
+		}
+		return initial, errors.NotValidf("type")
 	}
-	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, returnStatus, filter), nil
+	return newInstanceCharmProfileDataWatcher(backend, collection, members, initial, filter, extract, transform)
 }
 
 // instanceCharmProfileDataWatcher notifies about any changes to the
@@ -2081,21 +2093,35 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
 type instanceCharmProfileDataWatcher struct {
 	commonWatcher
 	// docId is used to select the initial interesting entities.
-	docId        string
+	collection   string
+	members      bson.D
 	known        string
-	returnStatus string
+	initialKnown string
 	filter       func(interface{}) bool
+	extract      func(interface{}) (string, error)
+	transform    func(string) string
 	out          chan []string
 }
 
 var _ Watcher = (*instanceCharmProfileDataWatcher)(nil)
 
-func newInstanceCharmProfileDataWatcher(backend modelBackend, memberId, returnStatus string, filter func(interface{}) bool) StringsWatcher {
+func newInstanceCharmProfileDataWatcher(
+	backend modelBackend,
+	collection string,
+	members bson.D,
+	initialKnown string,
+	filter func(interface{}) bool,
+	extract func(interface{}) (string, error),
+	transform func(string) string,
+) StringsWatcher {
 	w := &instanceCharmProfileDataWatcher{
 		commonWatcher: newCommonWatcher(backend),
-		docId:         memberId,
+		collection:    collection,
+		members:       members,
+		initialKnown:  initialKnown,
 		filter:        filter,
-		returnStatus:  returnStatus,
+		extract:       extract,
+		transform:     transform,
 		out:           make(chan []string),
 	}
 	w.tomb.Go(func() error {
@@ -2106,20 +2132,20 @@ func newInstanceCharmProfileDataWatcher(backend modelBackend, memberId, returnSt
 }
 
 func (w *instanceCharmProfileDataWatcher) initial() error {
-	instanceDataCol, instanceDataCloser := w.db.GetCollection(instanceCharmProfileDataC)
-	defer instanceDataCloser()
+	col, closer := w.db.GetCollection(w.collection)
+	defer closer()
 
-	statusField := lxdprofile.NotKnownStatus
+	field := w.initialKnown
 
-	var instanceData instanceCharmProfileData
-	if err := instanceDataCol.Find(bson.D{
-		{"_id", w.docId},
-	}).One(&instanceData); err == nil {
-		statusField = instanceData.UpgradeCharmProfileComplete
+	var data interface{}
+	if err := col.Find(w.members).One(&data); err == nil {
+		if newField, err := w.extract(data); err == nil {
+			field = newField
+		}
 	}
-	w.known = statusField
+	w.known = field
 
-	logger.Tracef("Started watching instanceCharmProfileData for %q: %q", w.docId, statusField)
+	logger.Tracef("Started watching %s for %v: %q", w.collection, w.members, field)
 	return nil
 }
 
@@ -2127,27 +2153,28 @@ func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, er
 	if change.Revno == -1 {
 		return false, nil
 	}
-	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
-	defer instanceCloser()
+	col, closer := w.db.GetCollection(w.collection)
+	defer closer()
 
-	var instanceData instanceCharmProfileData
-	if err := instanceDataCol.Find(bson.D{
-		{"_id", w.docId},
-	}).One(&instanceData); err != nil {
+	var data interface{}
+	if err := col.Find(w.members).One(&data); err != nil {
 		if err != mgo.ErrNotFound {
-			logger.Debugf("instanceCharmProfileData NOT mgo err not found")
+			logger.Debugf("%s NOT mgo err not found", w.collection)
 			return false, err
 		}
-		logger.Tracef("instanceCharmProfileData for %q: mgo err not found", w.docId)
+		logger.Tracef("%s for %v: mgo err not found", w.collection, w.members)
 		return false, nil
 	}
 
 	// check the field before adding to the machineId
-	currentField := instanceData.UpgradeCharmProfileComplete
+	currentField, err := w.extract(data)
+	if err != nil {
+		return false, err
+	}
 	if w.known != currentField {
 		w.known = currentField
 
-		logger.Tracef("Changes in watching instanceCharmProfileData for %q: %q", w.docId, currentField)
+		logger.Tracef("Changes in watching %s for %v: %q", w.collection, w.members, currentField)
 		return true, nil
 	}
 	return false, nil
@@ -2160,11 +2187,15 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 	}
 
 	ch := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(instanceCharmProfileDataC, ch, w.filter)
-	defer w.watcher.UnwatchCollection(instanceCharmProfileDataC, ch)
+	w.watcher.WatchCollectionWithFilter(w.collection, ch, w.filter)
+	defer w.watcher.UnwatchCollection(w.collection, ch)
 
 	out := w.out
 	for {
+		value := w.known
+		if w.transform != nil {
+			value = w.transform(w.known)
+		}
 		select {
 		case <-w.watcher.Dead():
 			return stateWatcherDeadError(w.watcher.Err())
@@ -2178,7 +2209,7 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 			if isChanged {
 				out = w.out
 			}
-		case out <- w.state():
+		case out <- []string{value}:
 			out = nil
 		}
 	}
@@ -2186,13 +2217,6 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 
 func (w *instanceCharmProfileDataWatcher) Changes() <-chan []string {
 	return w.out
-}
-
-func (w *instanceCharmProfileDataWatcher) state() []string {
-	if w.returnStatus != "" {
-		return []string{w.returnStatus}
-	}
-	return []string{w.known}
 }
 
 // WatchUpgradeSeriesNotifications returns a watcher that observes the status of

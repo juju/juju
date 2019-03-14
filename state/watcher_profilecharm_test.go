@@ -122,7 +122,9 @@ func (s *watcherCharmProfileSuite) workerForScenario(c *gc.C, behaviours ...func
 		b()
 	}
 
-	return state.NewInstanceCharmProfileDataWatcher(s.modelBackend, "1", lxdprofile.NotRequiredStatus, s.filter)
+	return state.NewInstanceCharmProfileDataWatcher(s.modelBackend, "1", func(string) string {
+		return lxdprofile.NotRequiredStatus
+	})
 }
 
 // cleanKill waits for notifications to be processed, then waits for the input
