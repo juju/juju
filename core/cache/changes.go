@@ -58,7 +58,7 @@ type CharmChange struct {
 	ModelUUID    string
 	CharmURL     string
 	CharmVersion string
-	LXDProfiler  lxdprofile.LXDProfiler
+	LXDProfile   lxdprofile.Profile
 }
 
 // RemoveCharm represents the situation when an charm
