@@ -64,6 +64,9 @@ type CloudEnvironProvider interface {
 
 // OpenParams contains the parameters for EnvironProvider.Open.
 type OpenParams struct {
+	// ControllerUUID is the controller UUID.
+	ControllerUUID string
+
 	// Cloud is the cloud specification to use to connect to the cloud.
 	Cloud CloudSpec
 

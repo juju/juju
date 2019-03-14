@@ -225,8 +225,9 @@ func ensureHostedModel(
 	}
 
 	openParams := environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: hostedModelConfig,
+		ControllerUUID: controllerUUID,
+		Cloud:          cloudSpec,
+		Config:         hostedModelConfig,
 	}
 	var hostedModelEnv environs.BootstrapEnviron
 	if isCAAS {

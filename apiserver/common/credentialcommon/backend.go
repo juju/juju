@@ -29,6 +29,9 @@ type PersistentBackend interface {
 
 	// AllMachines returns all machines in the model.
 	AllMachines() ([]Machine, error)
+
+	// ControllerConfig returns controller config.
+	ControllerConfig() (ControllerConfig, error)
 }
 
 // Model defines model methods needed for the check.
@@ -75,6 +78,11 @@ type CloudProvider interface {
 	AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error)
 }
 
+// ControllerConfig defines methods needed from the cloud provider to perform the check.
+type ControllerConfig interface {
+	ControllerUUID() string
+}
+
 type stateShim struct {
 	*state.State
 }
@@ -101,4 +109,9 @@ func (st stateShim) AllMachines() ([]Machine, error) {
 func (st stateShim) Model() (Model, error) {
 	m, err := st.State.Model()
 	return m, err
+}
+
+// Model implements PersistentBackend.Model.
+func (st stateShim) ControllerConfig() (ControllerConfig, error) {
+	return st.State.ControllerConfig()
 }

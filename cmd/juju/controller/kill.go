@@ -184,6 +184,13 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 		hasErrors = true
 		logger.Errorf("unable to retrieve hosted model config: %v", err)
 	}
+	ctrlUUID := ""
+	// try to get controller UUID or just ignore.
+	if ctrlCfg, err := api.ControllerConfig(); err == nil {
+		ctrlUUID = ctrlCfg.ControllerUUID()
+	} else {
+		logger.Errorf("getting controller config from API: %v", err)
+	}
 	for _, model := range hostedConfig {
 		if model.Error != nil {
 			// We can only display model name here since
@@ -211,8 +218,9 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 		// TODO(caas) - only cloud providers support Destroy()
 		if cloudProvider, ok := p.(environs.CloudEnvironProvider); ok {
 			env, err := environs.Open(cloudProvider, environs.OpenParams{
-				Cloud:  model.CloudSpec,
-				Config: cfg,
+				ControllerUUID: ctrlUUID,
+				Cloud:          model.CloudSpec,
+				Config:         cfg,
 			})
 			if err != nil {
 				logger.Errorf(err.Error())

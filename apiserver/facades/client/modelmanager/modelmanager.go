@@ -528,10 +528,14 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create config")
 	}
-
+	controllerConfig, err := m.state.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller config")
+	}
 	broker, err := m.getBroker(environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: newConfig,
+		ControllerUUID: controllerConfig.ControllerUUID(),
+		Cloud:          cloudSpec,
+		Config:         newConfig,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to open kubernetes client")
@@ -579,18 +583,19 @@ func (m *ModelManagerAPI) newModel(
 		return nil, errors.Annotate(err, "failed to create config")
 	}
 
-	// Create the Environ.
-	env, err := environs.New(environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: newConfig,
-	})
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to open environ")
-	}
-
 	controllerCfg, err := m.state.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	// Create the Environ.
+	env, err := environs.New(environs.OpenParams{
+		ControllerUUID: controllerCfg.ControllerUUID(),
+		Cloud:          cloudSpec,
+		Config:         newConfig,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to open environ")
 	}
 
 	err = env.Create(
