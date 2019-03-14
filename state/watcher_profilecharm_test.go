@@ -86,21 +86,35 @@ func (s *watcherCharmProfileSuite) TestFullWatch(c *gc.C) {
 		s.expectLoop,
 	)
 
-	for i := 0; i < 2; i++ {
-		select {
-		case changes, ok := <-w.Changes():
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(changes, gc.DeepEquals, []string{lxdprofile.NotRequiredStatus})
-			if i == 1 {
-				close(s.done)
-			}
-		case <-time.After(testing.LongWait):
-			c.Errorf("timed out waiting for watcher changes")
-		}
-	}
+	s.assertChanges(c, w, []string{lxdprofile.NotRequiredStatus}, noop)
+	s.assertChanges(c, w, []string{lxdprofile.NotRequiredStatus}, s.close)
+	s.cleanKill(c, w)
+	s.assertWatcherChangesClosed(c, w)
+}
+
+func (s *watcherCharmProfileSuite) TestFullWatchWithNoStatusChange(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	w := s.workerForScenario(c,
+		s.expectInitialCollectionInstanceField(state.InstanceCharmProfileData{
+			UpgradeCharmProfileComplete: lxdprofile.NotKnownStatus,
+		}),
+		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
+			{Revno: 0},
+		}),
+		s.expectLoop,
+		s.expectMergeCollectionInstanceField(state.InstanceCharmProfileData{
+			UpgradeCharmProfileComplete: lxdprofile.NotKnownStatus,
+		}),
+		s.expectLoop,
+	)
+
+	s.assertChanges(c, w, []string{lxdprofile.NotRequiredStatus}, noop)
+	s.assertNoChanges(c, w)
+	s.close()
 
 	s.cleanKill(c, w)
-	s.assertNoChange(c, w)
+	s.assertWatcherChangesClosed(c, w)
 }
 
 func (s *watcherCharmProfileSuite) workerForScenario(c *gc.C, behaviours ...func()) state.StringsWatcher {
@@ -122,7 +136,30 @@ func (s *watcherCharmProfileSuite) cleanKill(c *gc.C, w worker.Worker) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *watcherCharmProfileSuite) assertNoChange(c *gc.C, w state.StringsWatcher) {
+func (s *watcherCharmProfileSuite) close() {
+	close(s.done)
+}
+
+func (s *watcherCharmProfileSuite) assertChanges(c *gc.C, w state.StringsWatcher, changes []string, closeFn func()) {
+	select {
+	case chg, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(chg, gc.DeepEquals, changes)
+		closeFn()
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for watcher changes")
+	}
+}
+
+func (s *watcherCharmProfileSuite) assertNoChanges(c *gc.C, w state.StringsWatcher) {
+	select {
+	case <-w.Changes():
+		c.Errorf("timed out waiting for watcher changes")
+	case <-time.After(testing.ShortWait):
+	}
+}
+
+func (s *watcherCharmProfileSuite) assertWatcherChangesClosed(c *gc.C, w state.StringsWatcher) {
 	select {
 	case _, ok := <-w.Changes():
 		c.Assert(ok, jc.IsFalse)
@@ -133,7 +170,7 @@ func (s *watcherCharmProfileSuite) assertNoChange(c *gc.C, w state.StringsWatche
 
 func (s *watcherCharmProfileSuite) expectInitialCollectionInstanceField(doc state.InstanceCharmProfileData) func() {
 	return func() {
-		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, s.noopCloser)
+		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
 		s.query.EXPECT().One(gomock.Any()).SetArg(0, doc).Return(nil)
 	}
@@ -152,7 +189,7 @@ func (s *watcherCharmProfileSuite) expectLoopCollectionFilterAndNotify(changes [
 
 func (s *watcherCharmProfileSuite) expectMergeCollectionInstanceField(doc state.InstanceCharmProfileData) func() {
 	return func() {
-		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, s.noopCloser)
+		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
 		s.query.EXPECT().One(gomock.Any()).SetArg(0, doc).Return(nil)
 	}
@@ -162,7 +199,7 @@ func (s *watcherCharmProfileSuite) expectLoop() {
 	s.watcher.EXPECT().Dead().Return(s.dead).AnyTimes()
 }
 
-func (s *watcherCharmProfileSuite) noopCloser() {
+func noop() {
 }
 
 // channelMatcher is used here, to not only match on the channel, but also to
