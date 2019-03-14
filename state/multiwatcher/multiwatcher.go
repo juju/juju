@@ -210,9 +210,9 @@ func (i *ApplicationInfo) EntityId() EntityId {
 type CharmInfo struct {
 	ModelUUID    string            `json:"model-uuid"`
 	CharmURL     string            `json:"charm-url"`
-	CharmVersion string            `bson:"charm-version"`
-	Life         Life              `bson:"life"`
-	LXDProfile   *charm.LXDProfile `bson:"lxd-profile"`
+	CharmVersion string            `json:"charm-version"`
+	Life         Life              `json:"life"`
+	LXDProfile   *charm.LXDProfile `json:"lxd-profile"`
 }
 
 // EntityId returns a unique identifier for an application across
