@@ -87,7 +87,7 @@ func (m *API) AddGeneration(arg params.Entity) (params.ErrorResult, error) {
 		return result, common.ErrPerm
 	}
 
-	result.Error = common.ServerError(m.model.AddGeneration())
+	result.Error = common.ServerError(m.model.AddGeneration(m.apiUser.Name()))
 	return result, nil
 }
 

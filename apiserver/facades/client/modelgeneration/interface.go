@@ -32,7 +32,7 @@ type State interface {
 
 // Model describes model state used by the model generation API.
 type Model interface {
-	AddGeneration() error
+	AddGeneration(string) error
 	NextGeneration() (Generation, error)
 	HasNextGeneration() (bool, error)
 }

@@ -200,15 +200,15 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 }
 
 // AddGeneration mocks base method
-func (m *MockModel) AddGeneration() error {
-	ret := m.ctrl.Call(m, "AddGeneration")
+func (m *MockModel) AddGeneration(arg0 string) error {
+	ret := m.ctrl.Call(m, "AddGeneration", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddGeneration indicates an expected call of AddGeneration
-func (mr *MockModelMockRecorder) AddGeneration() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddGeneration", reflect.TypeOf((*MockModel)(nil).AddGeneration))
+func (mr *MockModelMockRecorder) AddGeneration(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddGeneration", reflect.TypeOf((*MockModel)(nil).AddGeneration), arg0)
 }
 
 // HasNextGeneration mocks base method

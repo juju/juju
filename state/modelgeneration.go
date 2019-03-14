@@ -36,9 +36,15 @@ type generationDoc struct {
 	// Created is a Unix timestamp indicating when this generation was created.
 	Created int64 `bson:"created"`
 
+	// CreatedBy is the user who created this generation.
+	CreatedBy string `bson:"created-by"`
+
 	// Completed, if set, indicates when this generation was completed and
 	// effectively became the current model generation.
 	Completed int64 `bson:"completed"`
+
+	// CompletedBy is the user who committed this generation to the model.
+	CompletedBy string `bson:"completed-by"`
 }
 
 // Generation represents the state of a model generation.
@@ -68,10 +74,20 @@ func (g *Generation) Created() int64 {
 	return g.doc.Created
 }
 
+// CreatedBy returns the user who created the generation.
+func (g *Generation) CreatedBy() string {
+	return g.doc.CreatedBy
+}
+
 // IsCompleted returns true if the generation has been completed;
 // i.e it has a completion time-stamp.
 func (g *Generation) IsCompleted() bool {
 	return g.doc.Completed > 0
+}
+
+// CompletedBy returns the user who committed the generation.
+func (g *Generation) CompletedBy() string {
+	return g.doc.CompletedBy
 }
 
 // AssignApplication indicates that the application with the input name has had
@@ -355,14 +371,15 @@ func (g *Generation) Refresh() error {
 }
 
 // AddGeneration creates a new "next" generation for the model.
-func (m *Model) AddGeneration() error {
-	return errors.Trace(m.st.AddGeneration())
+func (m *Model) AddGeneration(user string) error {
+	return errors.Trace(m.st.AddGeneration(user))
 }
 
 // AddGeneration creates a new "next" generation for the current model.
 // A new generation can not be added for a model that has an existing
 // generation that is not completed.
-func (st *State) AddGeneration() error {
+// The input user indicates the operator who invoked the creation.
+func (st *State) AddGeneration(user string) error {
 	seq, err := sequence(st, "generation")
 	if err != nil {
 		return errors.Trace(err)
@@ -381,7 +398,7 @@ func (st *State) AddGeneration() error {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return insertGenerationTxnOps(strconv.Itoa(seq), now), nil
+		return insertGenerationTxnOps(strconv.Itoa(seq), now, user), nil
 	}
 	err = st.db().Run(buildTxn)
 	if err != nil {
@@ -391,11 +408,12 @@ func (st *State) AddGeneration() error {
 	return err
 }
 
-func insertGenerationTxnOps(id string, now *time.Time) []txn.Op {
+func insertGenerationTxnOps(id string, now *time.Time, user string) []txn.Op {
 	doc := &generationDoc{
 		Id:            id,
 		AssignedUnits: map[string][]string{},
 		Created:       now.Unix(),
+		CreatedBy:     user,
 	}
 
 	return []txn.Op{
