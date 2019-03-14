@@ -108,14 +108,17 @@ type ConfigWatcher struct {
 	hash string
 }
 
-func newConfigWatcher(keys []string, keyHash string) *ConfigWatcher {
+// newConfigWatcher returns a new watcher for the input config keys
+// with a baseline hash of their config values from the input hash cache.
+// As per the cache requirements, hashes are only generated from sorted keys.
+func newConfigWatcher(keys []string, cache *hashCache) *ConfigWatcher {
 	sort.Strings(keys)
 
 	return &ConfigWatcher{
 		notifyWatcherBase: newNotifyWatcherBase(),
 
 		keys: keys,
-		hash: keyHash,
+		hash: cache.getHash(keys),
 	}
 }
 
