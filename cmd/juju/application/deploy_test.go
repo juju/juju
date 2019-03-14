@@ -41,8 +41,6 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
 	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
@@ -54,8 +52,6 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -539,13 +535,11 @@ func (s *CAASDeploySuite) TestCaasModelValidatedAtRun(c *gc.C) {
 }
 
 func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
-	storagePoolManager := poolmanager.New(state.NewStateSettings(s.State), storageProviderRegistry)
-	_, err = storagePoolManager.Create("operator-storage", provider.K8s_ProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.UpdateModelConfig(map[string]interface{}{
+		"operator-storage": "k8s-storage",
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	otherModels := map[string]jujuclient.ModelDetails{
 		"admin/" + m.Name(): {ModelUUID: m.UUID(), ModelType: model.CAAS},
@@ -566,13 +560,11 @@ func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
 }
 
 func (s *CAASDeploySuite) TestDevices(c *gc.C) {
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
-	storagePoolManager := poolmanager.New(state.NewStateSettings(s.State), storageProviderRegistry)
-	_, err = storagePoolManager.Create("operator-storage", provider.K8s_ProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.UpdateModelConfig(map[string]interface{}{
+		"operator-storage": "k8s-storage",
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	otherModels := map[string]jujuclient.ModelDetails{
 		"admin/" + m.Name(): {ModelUUID: m.UUID(), ModelType: model.CAAS},

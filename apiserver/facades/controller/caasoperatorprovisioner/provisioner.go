@@ -8,17 +8,16 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/version"
 )
@@ -31,9 +30,8 @@ type API struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 
-	state                   CAASOperatorProvisionerState
-	storageProviderRegistry storage.ProviderRegistry
-	storagePoolManager      poolmanager.PoolManager
+	state              CAASOperatorProvisionerState
+	storagePoolManager poolmanager.PoolManager
 }
 
 // NewStateCAASOperatorProvisionerAPI provides the signature required for facade registration.
@@ -49,7 +47,7 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 
-	return NewCAASOperatorProvisionerAPI(resources, authorizer, stateShim{ctx.State()}, registry, pm)
+	return NewCAASOperatorProvisionerAPI(resources, authorizer, stateShim{ctx.State()}, pm)
 }
 
 // NewCAASOperatorProvisionerAPI returns a new CAAS operator provisioner API facade.
@@ -57,21 +55,19 @@ func NewCAASOperatorProvisionerAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASOperatorProvisionerState,
-	storageProviderRegistry storage.ProviderRegistry,
 	storagePoolManager poolmanager.PoolManager,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &API{
-		PasswordChanger:         common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		LifeGetter:              common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		APIAddresser:            common.NewAPIAddresser(st, resources),
-		auth:                    authorizer,
-		resources:               resources,
-		state:                   st,
-		storageProviderRegistry: storageProviderRegistry,
-		storagePoolManager:      storagePoolManager,
+		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		LifeGetter:         common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		APIAddresser:       common.NewAPIAddresser(st, resources),
+		auth:               authorizer,
+		resources:          resources,
+		state:              st,
+		storagePoolManager: storagePoolManager,
 	}, nil
 }
 
@@ -99,8 +95,17 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 	vers := version.Current
 	vers.Build = 0
 
+	model, err := a.state.Model()
+	if err != nil {
+		return params.OperatorProvisioningInfo{}, errors.Trace(err)
+	}
+	modelConfig, err := model.ModelConfig()
+	if err != nil {
+		return params.OperatorProvisioningInfo{}, errors.Trace(err)
+	}
+
 	imagePath := podcfg.GetJujuOCIImagePath(cfg, vers)
-	charmStorageParams, err := charmStorageParams(a.storagePoolManager, a.storageProviderRegistry)
+	charmStorageParams, err := CharmStorageParams(cfg.ControllerUUID(), provider.OperatorStorageKey, modelConfig, "", a.storagePoolManager)
 	if err != nil {
 		return params.OperatorProvisioningInfo{}, errors.Annotatef(err, "getting operator storage parameters")
 	}
@@ -110,15 +115,6 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 	}
 	if err != nil {
 		return params.OperatorProvisioningInfo{}, errors.Annotatef(err, "getting api addresses")
-	}
-
-	model, err := a.state.Model()
-	if err != nil {
-		return params.OperatorProvisioningInfo{}, errors.Trace(err)
-	}
-	modelConfig, err := model.ModelConfig()
-	if err != nil {
-		return params.OperatorProvisioningInfo{}, errors.Trace(err)
 	}
 
 	resourceTags := tags.ResourceTags(
@@ -137,27 +133,60 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 	}, nil
 }
 
-func charmStorageParams(
+// CharmStorageParams returns filesystem parameters needed
+// to provision storage used for a charm operator or workload.
+func CharmStorageParams(
+	controllerUUID string,
+	storageKey string,
+	modelCfg *config.Config,
+	poolName string,
 	poolManager poolmanager.PoolManager,
-	registry storage.ProviderRegistry,
 ) (params.KubernetesFilesystemParams, error) {
-
-	// TODO(caas) - make these configurable via model config
-	var pool = caas.OperatorStoragePoolName
-	var size uint64 = 1024
-
-	result := params.KubernetesFilesystemParams{
-		Size:     size,
-		Provider: string(provider.K8s_ProviderType),
+	storageClassName, ok := modelCfg.AllAttrs()[storageKey].(string)
+	if !ok || storageClassName == "" {
+		return params.KubernetesFilesystemParams{}, errors.NewNotFound(nil, "model has no storage class defined")
 	}
 
-	providerType, cfg, err := storagecommon.StoragePoolConfig(pool, poolManager, registry)
-	if err != nil && !errors.IsNotFound(err) {
+	// The defaults here are for operator storage.
+	// Workload storage will override these elsewhere.
+	var size uint64 = 1024
+	tags := tags.ResourceTags(
+		names.NewModelTag(modelCfg.UUID()),
+		names.NewControllerTag(controllerUUID),
+		modelCfg,
+	)
+
+	result := params.KubernetesFilesystemParams{
+		StorageName: "charm",
+		Size:        size,
+		Provider:    string(provider.K8s_ProviderType),
+		Tags:        tags,
+		Attributes:  make(map[string]interface{}),
+	}
+
+	// The storage key value from the model config might correspond
+	// to a storage pool, unless there's been a specific storage pool
+	// requested.
+	// First, blank out the fallback pool name used in previous
+	// versions of Juju.
+	if poolName == string(provider.K8s_ProviderType) {
+		poolName = ""
+	}
+	maybePoolName := poolName
+	if maybePoolName == "" {
+		maybePoolName = storageClassName
+	}
+
+	pool, err := poolManager.Get(maybePoolName)
+	if err != nil && (!errors.IsNotFound(err) || poolName != "") {
 		return params.KubernetesFilesystemParams{}, errors.Trace(err)
 	}
 	if err == nil {
-		result.Provider = string(providerType)
-		result.Attributes = cfg.Attrs()
+		result.Provider = string(pool.Provider())
+		result.Attributes = pool.Attrs()
+	}
+	if _, ok := result.Attributes[provider.StorageClass]; !ok {
+		result.Attributes[provider.StorageClass] = storageClassName
 	}
 	return result, nil
 }

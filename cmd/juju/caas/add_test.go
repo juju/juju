@@ -214,7 +214,10 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	}
 	s.cloudMetadataStore = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
 
-	defaultClusterMetadata := &jujucaas.ClusterMetadata{Cloud: "gce", Regions: set.NewStrings("us-east1")}
+	defaultClusterMetadata := &jujucaas.ClusterMetadata{
+		Cloud: "gce", Regions: set.NewStrings("us-east1"),
+		OperatorStorageClass: &jujucaas.StorageProvisioner{Name: "operator-sc"},
+	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{CallMocker: jujutesting.NewCallMocker(logger)}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(nil)
@@ -462,7 +465,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
 			},
@@ -470,7 +473,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 	)
 }
 
-func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion string, localOnly bool) {
+func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion, workloadStorage string, localOnly bool) {
 	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata")
 	if localOnly {
 		s.fakeCloudAPI.CheckNoCalls(c)
@@ -486,7 +489,7 @@ func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion string, localOn
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": workloadStorage},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
 			},
@@ -528,7 +531,7 @@ func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion string, localOn
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": workloadStorage},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
 			},
@@ -544,7 +547,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c 
 	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(strings.Trim(cmdtesting.Stdout(ctx), "\n"), gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s"`)
-	s.assertAddCloudResult(c, cloudRegion, false)
+	s.assertAddCloudResult(c, cloudRegion, "", false)
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
@@ -633,7 +636,7 @@ func (s *addCAASSuite) TestCreateDefaultStorageProvisioner(c *gc.C) {
 	result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 	result = strings.Replace(result, "\n", " ", -1)
 	c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with gce disk default storage provisioned by the existing "mystorage" storage class`)
-	s.assertAddCloudResult(c, cloudRegion, false)
+	s.assertAddCloudResult(c, cloudRegion, "mystorage", false)
 }
 
 func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
@@ -654,7 +657,7 @@ func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
 	result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 	result = strings.Replace(result, "\n", " ", -1)
 	c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class`)
-	s.assertAddCloudResult(c, cloudRegion, false)
+	s.assertAddCloudResult(c, cloudRegion, "mystorage", false)
 }
 
 func (s *addCAASSuite) TestLocalOnly(c *gc.C) {
@@ -666,7 +669,7 @@ func (s *addCAASSuite) TestLocalOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `k8s substrate "mrcloud2" added as cloud "myk8s"You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`
 	c.Assert(strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1), gc.Equals, expected)
-	s.assertAddCloudResult(c, cloudRegion, true)
+	s.assertAddCloudResult(c, cloudRegion, "", true)
 }
 
 func mockStdinPipe(content string) (*os.File, error) {
@@ -711,7 +714,7 @@ func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
 				StorageEndpoint:  "",
 				HostCloudRegion:  hostCloud,
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"A"},
 			},
@@ -785,7 +788,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata1"},
 			},
@@ -835,7 +838,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
 			},

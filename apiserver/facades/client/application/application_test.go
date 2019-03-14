@@ -102,14 +102,11 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv9 {
 		storageAccess,
 		s.authorizer,
 		blockChecker,
-		model.ModelTag(),
-		model.Type(),
-		model.Name(),
+		model,
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		pm,
 		common.NewResources(),
-		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return &application.APIv9{api}

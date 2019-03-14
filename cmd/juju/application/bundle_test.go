@@ -98,6 +98,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	err := s.State.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.UpdateModelConfig(map[string]interface{}{
+		"operator-storage": "k8s-storage",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/mariadb-42", "mariadb", "kubernetes")
 	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/gitlab-47", "gitlab", "kubernetes")

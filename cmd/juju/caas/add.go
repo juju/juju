@@ -24,6 +24,7 @@ import (
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
@@ -395,6 +396,33 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 		} else {
 			storageMsg = fmt.Sprintf(" with storage provisioned\nby the existing %q storage class", c.workloadStorage)
 		}
+	}
+	if c.workloadStorage == "" && clusterMetadata.NominatedStorageClass != nil {
+		c.workloadStorage = clusterMetadata.NominatedStorageClass.Name
+	}
+
+	// Record the operator storage to use.
+	var operatorStorageName string
+	if clusterMetadata.OperatorStorageClass != nil {
+		operatorStorageName = clusterMetadata.OperatorStorageClass.Name
+	} else {
+		operatorStorageName = c.workloadStorage
+		if storageMsg == "" {
+			storageMsg += "\nwith "
+		} else {
+			storageMsg += "\n"
+		}
+		storageMsg += fmt.Sprintf("operator storage provisioned by the workload storage class")
+	}
+
+	if newCloud.Config == nil {
+		newCloud.Config = make(map[string]interface{})
+	}
+	if _, ok := newCloud.Config[provider.WorkloadStorageKey]; !ok {
+		newCloud.Config[provider.WorkloadStorageKey] = c.workloadStorage
+	}
+	if _, ok := newCloud.Config[provider.OperatorStorageKey]; !ok {
+		newCloud.Config[provider.OperatorStorageKey] = operatorStorageName
 	}
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {

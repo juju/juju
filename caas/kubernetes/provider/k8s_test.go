@@ -688,15 +688,15 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 			"test-agent.conf": "agent-conf-data",
 		},
 	}
-	statefulSetArg := operatorStatefulSetArg(1, "test-juju-operator-storage")
+	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage")
 
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Update(&core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}).Times(1),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Update(configMapArg).Times(1),
-		s.mockStorageClass.EXPECT().Get("test-juju-operator-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
-			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-juju-operator-storage"}}, nil),
+		s.mockStorageClass.EXPECT().Get("test-operator-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
@@ -711,6 +711,7 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 		CharmStorage: caas.CharmStorageParams{
 			Size:         uint64(10),
 			Provider:     "kubernetes",
+			Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
 			ResourceTags: map[string]string{"foo": "bar"},
 		},
 	})
@@ -721,15 +722,15 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	statefulSetArg := operatorStatefulSetArg(1, "test-juju-operator-storage")
+	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage")
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Update(&core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}).Times(1),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, nil),
-		s.mockStorageClass.EXPECT().Get("test-juju-operator-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
-			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-juju-operator-storage"}}, nil),
+		s.mockStorageClass.EXPECT().Get("test-operator-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
@@ -743,6 +744,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 		CharmStorage: caas.CharmStorageParams{
 			Size:         uint64(10),
 			Provider:     "kubernetes",
+			Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
 			ResourceTags: map[string]string{"foo": "bar"},
 		},
 	})
@@ -1141,7 +1143,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			Medium:    "Memory",
 		}},
 	}}
-	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
+	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -1150,10 +1152,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
-		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
-			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}}, nil),
+		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
@@ -1172,6 +1174,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			StorageName: "database",
 			Size:        100,
 			Provider:    "kubernetes",
+			Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},
@@ -1292,7 +1295,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			},
 		}
 	}
-	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
+	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -1301,10 +1304,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
-		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
-			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}}, nil),
+		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
@@ -1326,6 +1329,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},
+			Attributes:   map[string]interface{}{"storage-class": "workload-storage"},
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
 		Devices: []devices.KubernetesDeviceParams{
@@ -1363,7 +1367,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			},
 		}
 	}
-	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
+	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -1372,10 +1376,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
-		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
-			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}}, nil),
+		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
@@ -1397,6 +1401,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},
+			Attributes:   map[string]interface{}{"storage-class": "workload-storage"},
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
 		Constraints: constraints.MustParse("mem=64 cpu-power=500"),
@@ -1441,7 +1446,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 			},
 		},
 	}
-	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
+	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -1450,10 +1455,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
-		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
-			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}}, nil),
+		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
@@ -1475,6 +1480,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},
+			Attributes:   map[string]interface{}{"storage-class": "workload-storage"},
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
@@ -1511,7 +1517,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 			},
 		},
 	}
-	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
+	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -1520,10 +1526,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
-		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
-			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}}, nil),
+		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
@@ -1545,6 +1551,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},
+			Attributes:   map[string]interface{}{"storage-class": "workload-storage"},
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
 		Constraints: constraints.MustParse(`zones=a,b,c`),

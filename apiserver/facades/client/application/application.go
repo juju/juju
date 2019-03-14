@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
@@ -83,9 +84,8 @@ type APIBase struct {
 	authorizer facade.Authorizer
 	check      BlockChecker
 
-	modelTag  names.ModelTag
+	model     Model
 	modelType state.ModelType
-	modelName string
 
 	resources facade.Resources
 
@@ -96,7 +96,6 @@ type APIBase struct {
 	stateCharm func(Charm) *state.Charm
 
 	storagePoolManager    poolmanager.PoolManager
-	caasBroker            caas.Broker
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
 }
 
@@ -188,14 +187,11 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		storageAccess,
 		ctx.Auth(),
 		blockChecker,
-		model.ModelTag(),
-		model.Type(),
-		model.Name(),
+		model,
 		stateCharm,
 		DeployApplication,
 		storagePoolManager,
 		resources,
-		caasBroker,
 	)
 }
 
@@ -205,14 +201,11 @@ func NewAPIBase(
 	storageAccess storageInterface,
 	authorizer facade.Authorizer,
 	blockChecker BlockChecker,
-	modelTag names.ModelTag,
-	modelType state.ModelType,
-	modelName string,
+	model Model,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
 	resources facade.Resources,
-	caasBroker caas.Broker,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -222,14 +215,12 @@ func NewAPIBase(
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
 		check:                 blockChecker,
-		modelTag:              modelTag,
-		modelType:             modelType,
-		modelName:             modelName,
+		model:                 model,
+		modelType:             model.Type(),
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
 		storagePoolManager:    storagePoolManager,
 		resources:             resources,
-		caasBroker:            caasBroker,
 	}, nil
 }
 
@@ -245,11 +236,11 @@ func (api *APIBase) checkPermission(tag names.Tag, perm permission.Access) error
 }
 
 func (api *APIBase) checkCanRead() error {
-	return api.checkPermission(api.modelTag, permission.ReadAccess)
+	return api.checkPermission(api.model.ModelTag(), permission.ReadAccess)
 }
 
 func (api *APIBase) checkCanWrite() error {
-	return api.checkPermission(api.modelTag, permission.WriteAccess)
+	return api.checkPermission(api.model.ModelTag(), permission.WriteAccess)
 }
 
 // SetMetricCredentials sets credentials on the application.
@@ -345,7 +336,7 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 	}
 
 	for i, arg := range args.Applications {
-		err := deployApplication(api.backend, api.modelType, api.modelName, api.stateCharm, arg, api.deployApplicationFunc, api.storagePoolManager, api.caasBroker)
+		err := deployApplication(api.backend, api.model, api.stateCharm, arg, api.deployApplicationFunc, api.storagePoolManager)
 		result.Results[i].Error = common.ServerError(err)
 
 		if err != nil && len(arg.Resources) != 0 {
@@ -453,13 +444,11 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 // both the legacy API on the client facade, as well as the new application facade.
 func deployApplication(
 	backend Backend,
-	modelType state.ModelType,
-	modelName string,
+	model Model,
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
-	caasBroker caas.Broker,
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
@@ -469,6 +458,7 @@ func deployApplication(
 		return errors.Errorf("charm url must include revision")
 	}
 
+	modelType := model.Type()
 	if modelType != state.ModelTypeIAAS {
 		if len(args.AttachStorage) > 0 {
 			return errors.Errorf(
@@ -484,40 +474,36 @@ func deployApplication(
 			)
 		}
 
-		// CAAS models will use an "operator-storage" storage pool if it exists.
-		sp, err := storagePoolManager.Get(caas.OperatorStoragePoolName)
+		cfg, err := model.ModelConfig()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		sp, err := caasoperatorprovisioner.CharmStorageParams("", k8s.OperatorStorageKey, cfg, "", storagePoolManager)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
 		if err == nil {
-			if sp.Provider() != k8s.K8s_ProviderType {
+			if sp.Provider != string(k8s.K8s_ProviderType) {
+				poolName := cfg.AllAttrs()[k8s.OperatorStorageKey]
 				return errors.Errorf(
-					"the %q storage pool requires a provider type of %q, not %q", caas.OperatorStoragePoolName, k8s.K8s_ProviderType, sp.Provider())
+					"the %q storage pool requires a provider type of %q, not %q", poolName, k8s.K8s_ProviderType, sp.Provider)
 			}
 		} else {
-			// No operator-storage pool so try and see if there's a cluster default.
-			if _, err := caasBroker.GetStorageClassName(caas.OperatorStorageClassLabels(args.ApplicationName, modelName)...); err != nil {
-				return errors.Annotatef(
-					err,
-					"deploying a Kubernetes application requires a suitable storage class.\n"+
-						"None were found in the cluster. Either create a default storage class\n"+
-						"or create a Juju storage-pool called 'operator-storage' to define how operator"+
-						"storage should be allocated. See https://discourse.jujucharms.com/t/getting-started/152.",
-				)
-			}
+			return errors.New(
+				"deploying a Kubernetes application requires a suitable storage class.\n" +
+					"None have been configured. Set the operator-storage model config to " +
+					"specify which storage class should be used to allocate operator storage.\n" +
+					"See https://discourse.jujucharms.com/t/getting-started/152.",
+			)
 		}
 
 		var defaultStorageClass *string
+		modelDefaultStorageClass, ok := cfg.AllAttrs()[k8s.WorkloadStorageKey].(string)
+		if ok && modelDefaultStorageClass != "" {
+			defaultStorageClass = &modelDefaultStorageClass
+		}
 		for storageName, cons := range args.Storage {
 			if cons.Pool == "" && defaultStorageClass == nil {
-				// In case no storage pool is specified for charm storage, pre-load any cluster default.
-				result, err := caasBroker.GetStorageClassName(caas.UnitStorageClassLabels(args.ApplicationName, modelName)...)
-				if err != nil && !errors.IsNotFound(err) {
-					return errors.Trace(err)
-				}
-				defaultStorageClass = &result
-			}
-			if cons.Pool == "" && *defaultStorageClass == "" {
 				return errors.Errorf("storage pool for %q must be specified since there's no cluster default storage class", storageName)
 			}
 		}

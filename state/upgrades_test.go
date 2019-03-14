@@ -17,12 +17,15 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
@@ -2924,6 +2927,73 @@ func (s *upgradesSuite) TestUpdateInheritedControllerConfig(c *gc.C) {
 	s.assertUpgradedData(c, UpdateInheritedControllerConfig,
 		expectUpgradedData{coll, expectedSettings},
 	)
+}
+
+type fakeBroker struct {
+	caas.Broker
+}
+
+func (f *fakeBroker) GetClusterMetadata(storageClass string) (result *caas.ClusterMetadata, err error) {
+	return &caas.ClusterMetadata{
+		NominatedStorageClass: &caas.StorageProvisioner{
+			Name: "storage-provisioner",
+		},
+	}, nil
+}
+
+func (s *upgradesSuite) makeCaasModel(c *gc.C, name string, cred names.CloudCredentialTag, attr coretesting.Attrs) *State {
+	uuid := utils.MustNewUUID()
+	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
+		"name": name,
+		"uuid": uuid.String(),
+	}.Merge(attr))
+	m, err := s.state.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	_, st, err := s.controller.NewModel(ModelArgs{
+		Type:                    ModelTypeCAAS,
+		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
+		CloudCredential:         cred,
+		Config:                  cfg,
+		Owner:                   m.Owner(),
+		StorageProviderRegistry: provider.CommonStorageProviders(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return st
+}
+
+func (s *upgradesSuite) TestUpdateKubernetesStorageConfig(c *gc.C) {
+	tag := names.NewCloudCredentialTag(fmt.Sprintf("dummy/%s/default", s.owner.Id()))
+	err := s.state.UpdateCloudCredential(tag, cloud.NewEmptyCredential())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.PatchValue(&NewBroker, func(args environs.OpenParams) (caas.Broker, error) {
+		return &fakeBroker{}, nil
+	})
+
+	m1 := s.makeCaasModel(c, "m1", tag, coretesting.Attrs{
+		"type": "kubernetes",
+	})
+	defer m1.Close()
+
+	settingsColl, settingsCloser := m1.database.GetRawCollection(settingsC)
+	defer settingsCloser()
+
+	// Two rounds to check idempotency.
+	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
+		err := UpdateKubernetesStorageConfig(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+
+		var docs []bson.M
+		err = settingsColl.FindId(m1.ModelUUID() + ":e").All(&docs)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(docs, gc.HasLen, 1)
+		settings, ok := docs[0]["settings"].(bson.M)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(settings["operator-storage"], gc.Equals, "storage-provisioner")
+		c.Assert(settings["workload-storage"], gc.Equals, "storage-provisioner")
+	}
 }
 
 type docById []bson.M

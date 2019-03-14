@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
 
 	apiapplication "github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/common"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -52,14 +50,11 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		storageAccess,
 		s.authorizer,
 		blockChecker,
-		model.ModelTag(),
-		model.Type(),
-		model.Name(),
+		model,
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		&mockStoragePoolManager{},
 		common.NewResources(),
-		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.applicationAPI = &application.APIv9{api}
@@ -188,19 +183,18 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 	storageAccess, err := application.GetStorageState(st)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	api, err := application.NewAPIBase(
 		application.GetState(st),
 		storageAccess,
 		s.authorizer,
 		blockChecker,
-		names.NewModelTag(st.ModelUUID()),
-		state.ModelTypeCAAS,
-		"caasmodel",
+		model,
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		&mockStoragePoolManager{},
 		common.NewResources(),
-		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	apiV8 := &application.APIv8{&application.APIv9{api}}

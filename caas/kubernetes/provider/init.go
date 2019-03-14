@@ -12,6 +12,7 @@ import (
 
 var k8sCloudCheckers map[string]k8slabels.Selector
 var clusterPreferredWorkloadStorage map[string]caas.PreferredStorage
+var clusterPreferredOperatorStorage map[string]caas.PreferredStorage
 
 func init() {
 	caas.RegisterContainerProvider(CAASProviderType, providerInstance)
@@ -40,6 +41,12 @@ func init() {
 			Provisioner: "kubernetes.io/aws-ebs",
 		},
 	}
+
+	// clusterPreferredOperatorStorage defines the opinionated storage
+	// that Juju requires to be available on supported clusters to
+	// provision storage for operators.
+	// TODO - support regional storage for GCE etc
+	clusterPreferredOperatorStorage = clusterPreferredWorkloadStorage
 }
 
 // compileK8sCloudCheckers compiles/validates the collection of
