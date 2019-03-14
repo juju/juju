@@ -69,6 +69,22 @@ type controllerStacker interface {
 	Deploy() error
 }
 
+// setControllerNamespace sets controller's namespace to name.
+// This is only used for bootstrap - set namespace from `controller` to `controller-name`.
+func setControllerNamespace(name string, broker *kubernetesClient) error {
+	_, err := broker.GetNamespace(name)
+	if errors.IsNotFound(err) {
+		// all good.
+		broker.namespace = name
+		return nil
+	}
+	if err == nil {
+		// this should never happen because we avoid it in broker.PrepareForBootstrap before reaching here.
+		return errors.NotValidf("existing namespace %q found", broker.namespace)
+	}
+	return errors.Trace(err)
+}
+
 func newcontrollerStack(
 	stackName string,
 	storageClass string,
@@ -108,7 +124,7 @@ func newcontrollerStack(
 	pcfg.Bootstrap.StateServingInfo = si
 
 	// we use controller name to name controller namespace in bootstrap time.
-	if err = broker.setCurrentNamespace(pcfg.ControllerName); err != nil {
+	if err = setControllerNamespace(pcfg.ControllerName, broker); err != nil {
 		return nil, errors.Trace(err)
 	}
 

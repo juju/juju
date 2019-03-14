@@ -23,7 +23,7 @@ type Annotation struct {
 
 // NewAnnotation contructs an annotation.
 func NewAnnotation(as map[string]string) Annotation {
-	newA := Annotation{prefix: jujuAnnotationPrefix}
+	newA := Annotation{prefix: jujuAnnotationPrefix, vals: make(map[string]string)}
 	if as == nil {
 		return newA
 	}
