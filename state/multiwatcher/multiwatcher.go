@@ -110,6 +110,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(BlockInfo)
 	case "action":
 		d.Entity = new(ActionInfo)
+	case "charm":
+		d.Entity = new(CharmInfo)
 	default:
 		return errors.Errorf("Unexpected entity name %q", entityKind)
 	}
@@ -215,7 +217,7 @@ type CharmInfo struct {
 	LXDProfile   *charm.LXDProfile `json:"lxd-profile"`
 }
 
-// EntityId returns a unique identifier for an application across
+// EntityId returns a unique identifier for an charm across
 // models.
 func (i *CharmInfo) EntityId() EntityId {
 	return EntityId{
