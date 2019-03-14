@@ -36,7 +36,7 @@ type Application struct {
 // Config returns the current application config.
 func (a *Application) Config() map[string]interface{} {
 	a.mu.Lock()
-	a.metrics.ModelConfigReads.Inc()
+	a.metrics.ApplicationConfigReads.Inc()
 	a.mu.Unlock()
 	return a.details.Config
 }
@@ -50,7 +50,9 @@ func (a *Application) setDetails(details ApplicationChange) {
 	a.mu.Lock()
 
 	a.details = details
-	hashCache, configHash := newHashCache(details.Config, nil, nil)
+	hashCache, configHash := newHashCache(
+		details.Config, a.metrics.ApplicationHashCacheHit, a.metrics.ApplicationHashCacheMiss)
+
 	if configHash != a.configHash {
 		a.configHash = configHash
 		a.hashCache = hashCache
