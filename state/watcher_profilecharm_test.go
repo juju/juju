@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/mgo.v2/bson"
@@ -21,7 +22,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type watcherCharmProfileSuite struct {
+type watchLXDProfileUpgradeBaseSuite struct {
 	testing.BaseSuite
 
 	clock      *mocks.MockClock
@@ -31,7 +32,6 @@ type watcherCharmProfileSuite struct {
 	watcher    *mocks.MockBaseWatcher
 
 	modelBackend state.ModelBackendShim
-	filter       func(interface{}) bool
 
 	// The done channel is used by tests to indicate that
 	// the worker has accomplished the scenario and can be stopped.
@@ -39,17 +39,14 @@ type watcherCharmProfileSuite struct {
 	dead chan struct{}
 }
 
-var _ = gc.Suite(&watcherCharmProfileSuite{})
-
-func (s *watcherCharmProfileSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.InstanceMutater)
+func (s *watchLXDProfileUpgradeBaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.done = make(chan struct{})
 	s.dead = make(chan struct{})
 }
 
-func (s *watcherCharmProfileSuite) setup(c *gc.C) *gomock.Controller {
+func (s *watchLXDProfileUpgradeBaseSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = mocks.NewMockClock(ctrl)
@@ -62,26 +59,179 @@ func (s *watcherCharmProfileSuite) setup(c *gc.C) *gomock.Controller {
 		Database: s.database,
 		Watcher:  s.watcher,
 	}
-	s.filter = func(interface{}) bool {
-		return true
-	}
 
 	return ctrl
 }
 
-func (s *watcherCharmProfileSuite) TestFullWatch(c *gc.C) {
+// cleanKill waits for notifications to be processed, then waits for the input
+// worker to be killed cleanly. If either ops time out, the test fails.
+func (s *watchLXDProfileUpgradeBaseSuite) cleanKill(c *gc.C, w worker.Worker) {
+	select {
+	case <-s.done:
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for notifications to be consumed")
+	}
+	workertest.CleanKill(c, w)
+}
+
+func (s *watchLXDProfileUpgradeBaseSuite) close() {
+	close(s.done)
+}
+
+func (s *watchLXDProfileUpgradeBaseSuite) assertChanges(c *gc.C, w state.StringsWatcher, changes []string, closeFn func()) {
+	select {
+	case chg, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(chg, gc.DeepEquals, changes)
+		closeFn()
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for watcher changes")
+	}
+}
+
+func (s *watchLXDProfileUpgradeBaseSuite) assertNoChanges(c *gc.C, w state.StringsWatcher) {
+	select {
+	case <-w.Changes():
+		c.Errorf("timed out waiting for watcher changes")
+	case <-time.After(testing.ShortWait):
+	}
+}
+
+func (s *watchLXDProfileUpgradeBaseSuite) assertWatcherChangesClosed(c *gc.C, w state.StringsWatcher) {
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	default:
+		c.Fatalf("watcher not closed")
+	}
+}
+
+func (s *watchLXDProfileUpgradeBaseSuite) expectLoop() {
+	s.watcher.EXPECT().Dead().Return(s.dead).AnyTimes()
+}
+
+// Current tests for the WatchLXDProfileUpgradeNotifications for machines and
+// units.
+
+type instanceCharmProfileWatcherSuite struct {
+	watchLXDProfileUpgradeBaseSuite
+}
+
+var _ = gc.Suite(&instanceCharmProfileWatcherSuite{})
+
+func (s *instanceCharmProfileWatcherSuite) TestFullWatch(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField(state.InstanceCharmProfileData{
+		s.expectInitialCollectionInstanceField(state.InstanceCharmProfileDataDoc{
 			UpgradeCharmProfileComplete: lxdprofile.EmptyStatus,
 		}),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
 		}),
 		s.expectLoop,
-		s.expectMergeCollectionInstanceField(state.InstanceCharmProfileData{
+		s.expectMergeCollectionInstanceField(state.InstanceCharmProfileDataDoc{
 			UpgradeCharmProfileComplete: lxdprofile.NotKnownStatus,
+		}),
+		s.expectLoop,
+	)
+
+	s.assertChanges(c, w, []string{lxdprofile.EmptyStatus}, noop)
+	s.assertChanges(c, w, []string{lxdprofile.NotKnownStatus}, s.close)
+	s.cleanKill(c, w)
+	s.assertWatcherChangesClosed(c, w)
+}
+
+func (s *instanceCharmProfileWatcherSuite) TestFullWatchWithNoStatusChange(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	w := s.workerForScenario(c,
+		s.expectInitialCollectionInstanceField(state.InstanceCharmProfileDataDoc{
+			UpgradeCharmProfileComplete: lxdprofile.NotKnownStatus,
+		}),
+		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
+			{Revno: 0},
+		}),
+		s.expectLoop,
+		s.expectMergeCollectionInstanceField(state.InstanceCharmProfileDataDoc{
+			UpgradeCharmProfileComplete: lxdprofile.NotKnownStatus,
+		}),
+		s.expectLoop,
+	)
+
+	s.assertChanges(c, w, []string{lxdprofile.NotKnownStatus}, noop)
+	s.assertNoChanges(c, w)
+	s.close()
+
+	s.cleanKill(c, w)
+	s.assertWatcherChangesClosed(c, w)
+}
+
+func (s *instanceCharmProfileWatcherSuite) workerForScenario(c *gc.C, behaviours ...func()) state.StringsWatcher {
+	for _, b := range behaviours {
+		b()
+	}
+
+	return state.NewInstanceCharmProfileDataWatcher(s.modelBackend, "1")
+}
+
+func (s *instanceCharmProfileWatcherSuite) expectInitialCollectionInstanceField(doc state.InstanceCharmProfileDataDoc) func() {
+	return func() {
+		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
+		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
+		s.query.EXPECT().One(gomock.Any()).SetArg(0, doc).Return(nil)
+	}
+}
+
+func (s *instanceCharmProfileWatcherSuite) expectLoopCollectionFilterAndNotify(changes []watcher.Change) func() {
+	return func() {
+		matcher := channelMatcher{
+			changes: changes,
+		}
+
+		s.watcher.EXPECT().WatchCollectionWithFilter("instanceCharmProfileData", matcher, gomock.Any())
+		s.watcher.EXPECT().UnwatchCollection("instanceCharmProfileData", gomock.Any())
+	}
+}
+
+func (s *instanceCharmProfileWatcherSuite) expectMergeCollectionInstanceField(doc state.InstanceCharmProfileDataDoc) func() {
+	return func() {
+		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
+		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
+		s.query.EXPECT().One(gomock.Any()).SetArg(0, doc).Return(nil)
+	}
+}
+
+// Compatibility testing the new feature, which essentially watches the
+// application for any new changes to the charmURL. If this changes in any way,
+// the profile returns lxdprofile.NotRequiredStatus. This is so the uniter lxd
+// profile resolver doesn't block waiting for a lxd profile to be installed. The
+// function call becomes a no-op.
+
+type instanceCharmProfileWatcherCompatibilitySuite struct {
+	watchLXDProfileUpgradeBaseSuite
+}
+
+var _ = gc.Suite(&instanceCharmProfileWatcherCompatibilitySuite{})
+
+func (s *instanceCharmProfileWatcherCompatibilitySuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.InstanceMutater)
+	s.watchLXDProfileUpgradeBaseSuite.SetUpTest(c)
+}
+
+func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatch(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	w := s.workerForScenario(c,
+		s.expectInitialCollectionInstanceField(state.ApplicationDoc{
+			CharmURL: charm.MustParseURL("cs:~user/series/name-0"),
+		}),
+		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
+			{Revno: 0},
+		}),
+		s.expectLoop,
+		s.expectMergeCollectionInstanceField(state.ApplicationDoc{
+			CharmURL: charm.MustParseURL("cs:~user/series/name-1"),
 		}),
 		s.expectLoop,
 	)
@@ -92,19 +242,19 @@ func (s *watcherCharmProfileSuite) TestFullWatch(c *gc.C) {
 	s.assertWatcherChangesClosed(c, w)
 }
 
-func (s *watcherCharmProfileSuite) TestFullWatchWithNoStatusChange(c *gc.C) {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatchWithNoStatusChange(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField(state.InstanceCharmProfileData{
-			UpgradeCharmProfileComplete: lxdprofile.NotKnownStatus,
+		s.expectInitialCollectionInstanceField(state.ApplicationDoc{
+			CharmURL: charm.MustParseURL("cs:~user/series/name-0"),
 		}),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
 		}),
 		s.expectLoop,
-		s.expectMergeCollectionInstanceField(state.InstanceCharmProfileData{
-			UpgradeCharmProfileComplete: lxdprofile.NotKnownStatus,
+		s.expectMergeCollectionInstanceField(state.ApplicationDoc{
+			CharmURL: charm.MustParseURL("cs:~user/series/name-0"),
 		}),
 		s.expectLoop,
 	)
@@ -117,88 +267,39 @@ func (s *watcherCharmProfileSuite) TestFullWatchWithNoStatusChange(c *gc.C) {
 	s.assertWatcherChangesClosed(c, w)
 }
 
-func (s *watcherCharmProfileSuite) workerForScenario(c *gc.C, behaviours ...func()) state.StringsWatcher {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) workerForScenario(c *gc.C, behaviours ...func()) state.StringsWatcher {
 	for _, b := range behaviours {
 		b()
 	}
 
-	return state.NewInstanceCharmProfileDataWatcher(s.modelBackend, "1", func(string) string {
-		return lxdprofile.NotRequiredStatus
-	})
+	return state.NewInstanceCharmProfileDataCompatibilityWatcher(s.modelBackend, "1")
 }
 
-// cleanKill waits for notifications to be processed, then waits for the input
-// worker to be killed cleanly. If either ops time out, the test fails.
-func (s *watcherCharmProfileSuite) cleanKill(c *gc.C, w worker.Worker) {
-	select {
-	case <-s.done:
-	case <-time.After(testing.LongWait):
-		c.Errorf("timed out waiting for notifications to be consumed")
-	}
-	workertest.CleanKill(c, w)
-}
-
-func (s *watcherCharmProfileSuite) close() {
-	close(s.done)
-}
-
-func (s *watcherCharmProfileSuite) assertChanges(c *gc.C, w state.StringsWatcher, changes []string, closeFn func()) {
-	select {
-	case chg, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(chg, gc.DeepEquals, changes)
-		closeFn()
-	case <-time.After(testing.LongWait):
-		c.Errorf("timed out waiting for watcher changes")
-	}
-}
-
-func (s *watcherCharmProfileSuite) assertNoChanges(c *gc.C, w state.StringsWatcher) {
-	select {
-	case <-w.Changes():
-		c.Errorf("timed out waiting for watcher changes")
-	case <-time.After(testing.ShortWait):
-	}
-}
-
-func (s *watcherCharmProfileSuite) assertWatcherChangesClosed(c *gc.C, w state.StringsWatcher) {
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsFalse)
-	default:
-		c.Fatalf("watcher not closed")
-	}
-}
-
-func (s *watcherCharmProfileSuite) expectInitialCollectionInstanceField(doc state.InstanceCharmProfileData) func() {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) expectInitialCollectionInstanceField(doc state.ApplicationDoc) func() {
 	return func() {
-		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
+		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
 		s.query.EXPECT().One(gomock.Any()).SetArg(0, doc).Return(nil)
 	}
 }
 
-func (s *watcherCharmProfileSuite) expectLoopCollectionFilterAndNotify(changes []watcher.Change) func() {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) expectLoopCollectionFilterAndNotify(changes []watcher.Change) func() {
 	return func() {
 		matcher := channelMatcher{
 			changes: changes,
 		}
 
-		s.watcher.EXPECT().WatchCollectionWithFilter("instanceCharmProfileData", matcher, gomock.Any())
-		s.watcher.EXPECT().UnwatchCollection("instanceCharmProfileData", gomock.Any())
+		s.watcher.EXPECT().WatchCollectionWithFilter("applications", matcher, gomock.Any())
+		s.watcher.EXPECT().UnwatchCollection("applications", gomock.Any())
 	}
 }
 
-func (s *watcherCharmProfileSuite) expectMergeCollectionInstanceField(doc state.InstanceCharmProfileData) func() {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) expectMergeCollectionInstanceField(doc state.ApplicationDoc) func() {
 	return func() {
-		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
+		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
 		s.query.EXPECT().One(gomock.Any()).SetArg(0, doc).Return(nil)
 	}
-}
-
-func (s *watcherCharmProfileSuite) expectLoop() {
-	s.watcher.EXPECT().Dead().Return(s.dead).AnyTimes()
 }
 
 func noop() {

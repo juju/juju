@@ -2026,16 +2026,23 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 // UniterAPI v9.
 func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (StringsWatcher, error) {
 	if featureflag.Enabled(feature.InstanceMutater) {
-
+		app, err := m.st.Application(applicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		watchDocId := app.doc.DocID
+		return watchInstanceCharmProfileCompatibilityData(m.st, watchDocId), nil
 	}
+
+	// The following is the old way to watch lxd profile upgrade notifications.
+	// It's been ear marked for deprecation, but until the feature is complete
+	// this will continue to work in the existing manor.
 	unitName, err := m.LXDProfileUpgradeUnitToWatch(applicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	watchDocId := m.instanceCharmProfileDataId(unitName)
-	return watchInstanceCharmProfileData(m.st, watchDocId, func(value string) string {
-		return value
-	}), nil
+	return watchInstanceCharmProfileData(m.st, watchDocId), nil
 }
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
@@ -2043,19 +2050,26 @@ func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (S
 // upgrade completed field that is specific to itself.
 func (u *Unit) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
 	if featureflag.Enabled(feature.InstanceMutater) {
-
+		app, err := u.Application()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		watchDocId := app.doc.DocID
+		return watchInstanceCharmProfileCompatibilityData(u.st, watchDocId), nil
 	}
+
+	// The following is the old way to watch lxd profile upgrade notifications.
+	// It's been ear marked for deprecation, but until the feature is complete
+	// this will continue to work in the existing manor.
 	m, err := u.machine()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	watchDocId := m.instanceCharmProfileDataId(u.doc.Name)
-	return watchInstanceCharmProfileData(m.st, watchDocId, func(value string) string {
-		return value
-	}), nil
+	return watchInstanceCharmProfileData(m.st, watchDocId), nil
 }
 
-func watchInstanceCharmProfileData(backend modelBackend, watchDocId string, transform func(string) string) StringsWatcher {
+func watchInstanceCharmProfileData(backend modelBackend, watchDocId string) StringsWatcher {
 	initial := lxdprofile.NotKnownStatus
 	members := bson.D{{"_id", watchDocId}}
 	collection := instanceCharmProfileDataC
@@ -2066,7 +2080,26 @@ func watchInstanceCharmProfileData(backend modelBackend, watchDocId string, tran
 		if m, ok := data.(instanceCharmProfileData); ok {
 			return m.UpgradeCharmProfileComplete, nil
 		}
-		return initial, errors.NotValidf("type")
+		return initial, errors.NotValidf("instanceCharmProfileData type")
+	}
+	return newInstanceCharmProfileDataWatcher(backend, collection, members, initial, filter, extract, nil)
+}
+
+func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId string) StringsWatcher {
+	initial := ""
+	members := bson.D{{"_id", watchDocId}}
+	collection := applicationsC
+	filter := func(id interface{}) bool {
+		return id.(string) == watchDocId
+	}
+	extract := func(data interface{}) (string, error) {
+		if a, ok := data.(applicationDoc); ok {
+			return a.CharmURL.String(), nil
+		}
+		return initial, errors.NotValidf("applicationDoc type")
+	}
+	transform := func(value string) string {
+		return lxdprofile.NotRequiredStatus
 	}
 	return newInstanceCharmProfileDataWatcher(backend, collection, members, initial, filter, extract, transform)
 }

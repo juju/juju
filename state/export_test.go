@@ -856,11 +856,16 @@ func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, er
 }
 
 type (
-	InstanceCharmProfileData = instanceCharmProfileData
+	InstanceCharmProfileDataDoc = instanceCharmProfileData
+	ApplicationDoc              = applicationDoc
 )
 
-func NewInstanceCharmProfileDataWatcher(backend ModelBackendShim, memberId string, transform func(string) string) StringsWatcher {
-	return watchInstanceCharmProfileData(backend, memberId, transform)
+func NewInstanceCharmProfileDataWatcher(backend ModelBackendShim, memberId string) StringsWatcher {
+	return watchInstanceCharmProfileData(backend, memberId)
+}
+
+func NewInstanceCharmProfileDataCompatibilityWatcher(backend ModelBackendShim, memberId string) StringsWatcher {
+	return watchInstanceCharmProfileCompatibilityData(backend, memberId)
 }
 
 type ModelBackendShim struct {
