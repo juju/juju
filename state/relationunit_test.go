@@ -1794,6 +1794,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	err = mysql0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	changeSettings(c, mysql0)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	mysqlWatcher, err := rel.WatchUnits("mysql")
 	c.Assert(err, jc.ErrorIsNil)
