@@ -32,7 +32,6 @@ from jujupy import (
     juju_home_path,
     JujuData,
     temp_bootstrap_env,
-    CaasClient,
     IaasClient,
 )
 from jujupy.configuration import (
@@ -73,29 +72,6 @@ __metaclass__ = type
 
 log = logging.getLogger(__name__)
 
-
-CAAS_LXD_PROFILE = """
-name: juju-{model_name}
-config:
-  boot.autostart: "true"
-  linux.kernel_modules: ip_tables,ip6_tables,netlink_diag,nf_nat,overlay
-  raw.lxc: |
-    lxc.apparmor.profile=unconfined
-    lxc.mount.auto=proc:rw sys:rw
-    lxc.cap.drop=
-  security.nesting: "true"
-  security.privileged: "true"
-description: ""
-devices:
-  aadisable:
-    path: /sys/module/nf_conntrack/parameters/hashsize
-    source: /dev/null
-    type: disk
-  aadisable1:
-    path: /sys/module/apparmor/parameters/enabled
-    source: /dev/null
-    type: disk
-"""
 IAAS_LXD_PROFILE = """
 name: juju-{model_name}
 config:
@@ -194,29 +170,6 @@ def deploy_iaas_stack(path, client, timeout=3600, charm=False):
         lxd_profile=IAAS_LXD_PROFILE,
     )
     return IaasClient(client)
-
-
-def deploy_caas_stack(path, client, timeout=3600, charm=False):
-    """deploy a CAAS stack, it assumes that the path to a bundle/charm can be
-       reached.
-
-       When deploying the stack, it will use a LXD profile to inject into the
-       lxc client, so that we can take advantage of nested containers, for
-       example.
-
-    :param path: location/path to the bundle/charm
-    :param client: client used to deploy and watch bundle/charm workloads
-    :param timeout: timeout of when the workload should fail deployment
-    :param charm: deploy a charm or bundle
-    """
-
-    client = _deploy_stack(
-        path, client,
-        timeout=timeout,
-        charm=charm,
-        lxd_profile=CAAS_LXD_PROFILE,
-    )
-    return CaasClient(client)
 
 
 def assess_juju_relations(client):
