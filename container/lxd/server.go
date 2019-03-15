@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/os"
@@ -28,6 +29,8 @@ func HasSupport() bool {
 	return false
 }
 
+//go:generate mockgen -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
+
 // Server extends the upstream LXD container server.
 type Server struct {
 	lxd.ContainerServer
@@ -43,6 +46,8 @@ type Server struct {
 	storageAPISupport bool
 
 	localBridgeName string
+
+	clock clock.Clock
 }
 
 // MaybeNewLocalServer returns a Server based on a local socket connection,

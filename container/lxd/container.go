@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
@@ -318,12 +321,27 @@ func (s *Server) RemoveContainer(name string) error {
 		}
 	}
 
-	op, err := s.DeleteContainer(name)
-	if err != nil {
-		return errors.Trace(err)
+	retryArgs := retry.CallArgs{
+		Clock: s.Clock(),
+		IsFatalError: func(err error) bool {
+			return errors.IsBadRequest(err)
+		},
+		Func: func() error {
+			op, err := s.DeleteContainer(name)
+			if err != nil {
+				return errors.BadRequestf(err.Error())
+			}
+
+			return errors.Trace(op.Wait())
+		},
+		Delay:    2 * time.Second,
+		Attempts: 3,
+	}
+	if err := retry.Call(retryArgs); err != nil {
+		return errors.Trace(errors.Cause(err))
 	}
 
-	return errors.Trace(op.Wait())
+	return nil
 }
 
 // WriteContainer writes the current representation of the input container to
@@ -337,6 +355,13 @@ func (s *Server) WriteContainer(c *Container) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (s *Server) Clock() clock.Clock {
+	if s.clock == nil {
+		return clock.WallClock
+	}
+	return s.clock
 }
 
 // containerHasStatus returns true if the input container has a status
