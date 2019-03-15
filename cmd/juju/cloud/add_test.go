@@ -31,9 +31,24 @@ import (
 
 type addSuite struct {
 	jujutesting.IsolationSuite
+
+	store jujuclient.ClientStore
 }
 
 var _ = gc.Suite(&addSuite{})
+
+func (s *addSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	store := jujuclient.NewMemStore()
+	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
+	store.CurrentControllerName = "mycontroller"
+	s.store = store
+}
+
+func (s *addSuite) runCommand(c *gc.C, cloudMetadataStore cloud.CloudMetadataStore, args ...string) (*cmd.Context, error) {
+	cmd := cloud.NewAddCloudCommandForTest(cloudMetadataStore, s.store, nil)
+	return cmdtesting.RunCommand(c, cmd, args...)
+}
 
 func newFakeCloudMetadataStore() *fakeCloudMetadataStore {
 	var logger loggo.Logger
@@ -148,29 +163,27 @@ func (*addSuite) TestAddBadFilename(c *gc.C) {
 	fake.Call("ParseCloudMetadataFile", "somefile.yaml").Returns(map[string]jujucloud.Cloud{}, badFileErr)
 
 	addCmd := cloud.NewAddCloudCommand(fake)
-	_, err := cmdtesting.RunCommand(c, addCmd, "cloud", "somefile.yaml")
+	_, err := cmdtesting.RunCommand(c, addCmd, "cloud", "somefile.yaml", "--local")
 	c.Check(errors.Cause(err), gc.Equals, badFileErr)
 }
 
-func (*addSuite) TestAddBadCloudName(c *gc.C) {
+func (s *addSuite) TestAddBadCloudName(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ParseCloudMetadataFile", "testFile").Returns(map[string]jujucloud.Cloud{}, nil)
 
-	addCmd := cloud.NewAddCloudCommand(fake)
-	_, err := cmdtesting.RunCommand(c, addCmd, "cloud", "testFile")
+	_, err := s.runCommand(c, fake, "cloud", "testFile")
 	c.Assert(err, gc.ErrorMatches, `cloud "cloud" not found in file .*`)
 }
 
-func (*addSuite) TestAddInvalidCloudName(c *gc.C) {
+func (s *addSuite) TestAddInvalidCloudName(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ParseCloudMetadataFile", "testFile").Returns(map[string]jujucloud.Cloud{}, nil)
 
-	addCmd := cloud.NewAddCloudCommand(fake)
-	_, err := cmdtesting.RunCommand(c, addCmd, "bad^cloud", "testFile")
+	_, err := s.runCommand(c, fake, "bad^cloud", "testFile")
 	c.Assert(err, gc.ErrorMatches, `cloud name "bad\^cloud" not valid`)
 }
 
-func (*addSuite) TestAddExisting(c *gc.C) {
+func (s *addSuite) TestAddExisting(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 
 	cloudFile := prepareTestCloudYaml(c, homeStackYamlFile)
@@ -184,11 +197,11 @@ func (*addSuite) TestAddExisting(c *gc.C) {
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(mockCloud, nil)
 
-	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "homestack", cloudFile.Name())
+	_, err = s.runCommand(c, fake, "homestack", cloudFile.Name())
 	c.Assert(err, gc.ErrorMatches, `"homestack" already exists; use --replace to replace this existing cloud`)
 }
 
-func (*addSuite) TestAddExistingReplace(c *gc.C) {
+func (s *addSuite) TestAddExistingReplace(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 
 	cloudFile := prepareTestCloudYaml(c, homeStackYamlFile)
@@ -202,13 +215,13 @@ func (*addSuite) TestAddExistingReplace(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(mockCloud, nil)
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
 
-	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "homestack", cloudFile.Name(), "--replace")
+	_, err = s.runCommand(c, fake, "homestack", cloudFile.Name(), "--replace", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
-func (*addSuite) TestAddExistingPublic(c *gc.C) {
+func (s *addSuite) TestAddExistingPublic(c *gc.C) {
 	cloudFile := prepareTestCloudYaml(c, awsYamlFile)
 	defer cloudFile.Close()
 	defer os.Remove(cloudFile.Name())
@@ -221,11 +234,11 @@ func (*addSuite) TestAddExistingPublic(c *gc.C) {
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(mockCloud, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
 
-	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "aws", cloudFile.Name())
+	_, err = s.runCommand(c, fake, "aws", cloudFile.Name())
 	c.Assert(err, gc.ErrorMatches, `"aws" is the name of a public cloud; use --replace to override this definition`)
 }
 
-func (*addSuite) TestAddExistingBuiltin(c *gc.C) {
+func (s *addSuite) TestAddExistingBuiltin(c *gc.C) {
 	cloudFile := prepareTestCloudYaml(c, localhostYamlFile)
 	defer cloudFile.Close()
 	defer os.Remove(cloudFile.Name())
@@ -238,11 +251,11 @@ func (*addSuite) TestAddExistingBuiltin(c *gc.C) {
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
 
-	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "localhost", cloudFile.Name())
+	_, err = s.runCommand(c, fake, "localhost", cloudFile.Name())
 	c.Assert(err, gc.ErrorMatches, `"localhost" is the name of a built-in cloud; use --replace to override this definition`)
 }
 
-func (*addSuite) TestAddExistingPublicReplace(c *gc.C) {
+func (s *addSuite) TestAddExistingPublicReplace(c *gc.C) {
 	cloudFile := prepareTestCloudYaml(c, awsYamlFile)
 	defer cloudFile.Close()
 	defer os.Remove(cloudFile.Name())
@@ -256,13 +269,13 @@ func (*addSuite) TestAddExistingPublicReplace(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
 	writeCall := fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
 
-	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "aws", cloudFile.Name(), "--replace")
+	_, err = s.runCommand(c, fake, "aws", cloudFile.Name(), "--replace", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(writeCall(), gc.Equals, 1)
 }
 
-func (*addSuite) TestAddNew(c *gc.C) {
+func (s *addSuite) TestAddNew(c *gc.C) {
 	cloudFile := prepareTestCloudYaml(c, garageMaasYamlFile)
 	defer cloudFile.Close()
 	defer os.Remove(cloudFile.Name())
@@ -276,12 +289,12 @@ func (*addSuite) TestAddNew(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
 
-	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "garage-maas", cloudFile.Name())
+	_, err = s.runCommand(c, fake, "garage-maas", cloudFile.Name(), "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
-func (*addSuite) TestAddNewInvalidAuthType(c *gc.C) {
+func (s *addSuite) TestAddNewInvalidAuthType(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fakeCloudYamlFile := `
         clouds:
@@ -299,7 +312,7 @@ func (*addSuite) TestAddNewInvalidAuthType(c *gc.C) {
 
 	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
 
-	_, err = cmdtesting.RunCommand(c, cloud.NewAddCloudCommand(fake), "fakecloud", cloudFile.Name())
+	_, err = s.runCommand(c, fake, "fakecloud", cloudFile.Name())
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`auth type "user-pass" not supported`))
 }
 
@@ -323,7 +336,7 @@ func (api *fakeAddCloudAPI) AddCredential(tag string, credential jujucloud.Crede
 }
 
 func (s *addSuite) setupControllerCloudScenario(c *gc.C) (
-	string, *cloud.AddCloudCommand, *jujuclient.MemStore, *fakeAddCloudAPI, jujucloud.Credential,
+	string, *cloud.AddCloudCommand, *jujuclient.MemStore, *fakeAddCloudAPI, jujucloud.Credential, func() int,
 ) {
 	cloudfile := prepareTestCloudYaml(c, garageMaasYamlFile)
 	s.AddCleanup(func(_ *gc.C) {
@@ -338,10 +351,11 @@ func (s *addSuite) setupControllerCloudScenario(c *gc.C) (
 	fake.Call("ParseCloudMetadataFile", cloudfile.Name()).Returns(mockCloud, nil)
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
-	fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
+	callCounter := fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
 
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
+	store.CurrentControllerName = "mycontroller"
 	store.Accounts["mycontroller"] = jujuclient.AccountDetails{User: "fred"}
 	cred := jujucloud.NewCredential(jujucloud.OAuth1AuthType, map[string]string{
 		"maas-oauth": "auth:token",
@@ -354,13 +368,13 @@ func (s *addSuite) setupControllerCloudScenario(c *gc.C) (
 	cmd := cloud.NewAddCloudCommandForTest(fake, store, func() (cloud.AddCloudAPI, error) {
 		return api, nil
 	})
-	return cloudfile.Name(), cmd, store, api, cred
+	return cloudfile.Name(), cmd, store, api, cred, callCounter
 }
 
 func (s *addSuite) TestAddToController(c *gc.C) {
-	cloudFileName, cmd, _, api, cred := s.setupControllerCloudScenario(c)
+	cloudFileName, cmd, _, api, cred, _ := s.setupControllerCloudScenario(c)
 	_, err := cmdtesting.RunCommand(
-		c, cmd, "garage-maas", cloudFileName, "-c", "mycontroller")
+		c, cmd, "garage-maas", cloudFileName)
 	c.Assert(err, jc.ErrorIsNil)
 	api.CheckCallNames(c, "AddCloud", "AddCredential", "Close")
 	api.CheckCall(c, 0, "AddCloud", jujucloud.Cloud{
@@ -373,8 +387,19 @@ func (s *addSuite) TestAddToController(c *gc.C) {
 	api.CheckCall(c, 1, "AddCredential", "cloudcred-garage-maas_fred_default", cred)
 }
 
+func (s *addSuite) TestAddLocal(c *gc.C) {
+	cloudFileName, cmd, _, api, _, numCalls := s.setupControllerCloudScenario(c)
+
+	_, err := cmdtesting.RunCommand(
+		c, cmd, "garage-maas", cloudFileName, "--local")
+	c.Assert(err, jc.ErrorIsNil)
+	api.CheckNoCalls(c)
+
+	c.Check(numCalls(), gc.Equals, 1)
+}
+
 func (s *addSuite) TestAddToControllerBadController(c *gc.C) {
-	cloudFileName, cmd, store, _, _ := s.setupControllerCloudScenario(c)
+	cloudFileName, cmd, store, _, _, _ := s.setupControllerCloudScenario(c)
 	store.Credentials = nil
 
 	_, err := cmdtesting.RunCommand(
@@ -383,7 +408,7 @@ func (s *addSuite) TestAddToControllerBadController(c *gc.C) {
 }
 
 func (s *addSuite) TestAddToControllerMissingCredential(c *gc.C) {
-	cloudFileName, cmd, store, _, _ := s.setupControllerCloudScenario(c)
+	cloudFileName, cmd, store, _, _, _ := s.setupControllerCloudScenario(c)
 	store.Credentials = nil
 
 	_, err := cmdtesting.RunCommand(
@@ -392,7 +417,7 @@ func (s *addSuite) TestAddToControllerMissingCredential(c *gc.C) {
 }
 
 func (s *addSuite) TestAddToControllerAmbiguousCredential(c *gc.C) {
-	cloudFileName, cmd, store, _, cred := s.setupControllerCloudScenario(c)
+	cloudFileName, cmd, store, _, cred, _ := s.setupControllerCloudScenario(c)
 	store.Credentials["garage-maas"].AuthCredentials["another"] = cred
 
 	_, err := cmdtesting.RunCommand(
@@ -403,7 +428,7 @@ func (s *addSuite) TestAddToControllerAmbiguousCredential(c *gc.C) {
 
 func (*addSuite) TestInteractive(c *gc.C) {
 	command := cloud.NewAddCloudCommand(nil)
-	err := cmdtesting.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	out := &bytes.Buffer{}
@@ -444,7 +469,7 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", m1Metadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommandForTest(fake, jujuclient.NewMemStore(), nil)
-	err := cmdtesting.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := &cmd.Context{
@@ -474,7 +499,7 @@ func (*addSuite) TestInteractiveManual(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", manMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommandForTest(fake, jujuclient.NewMemStore(), nil)
-	err := cmdtesting.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := &cmd.Context{
@@ -504,7 +529,7 @@ func (*addSuite) TestInteractiveManualInvalidName(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", manMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommandForTest(fake, jujuclient.NewMemStore(), nil)
-	err := cmdtesting.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := &cmd.Context{
@@ -553,7 +578,7 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", vsphereMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommandForTest(fake, jujuclient.NewMemStore(), nil)
-	err := cmdtesting.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var stdout bytes.Buffer
@@ -598,7 +623,7 @@ func (*addSuite) TestInteractiveExistingNameOverride(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", manMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommandForTest(fake, jujuclient.NewMemStore(), nil)
-	err := cmdtesting.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := &cmd.Context{
@@ -635,7 +660,7 @@ func (*addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", compoundCloudMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommandForTest(fake, jujuclient.NewMemStore(), nil)
-	err := cmdtesting.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var out bytes.Buffer
@@ -658,7 +683,7 @@ func (*addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
-func (*addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *gc.C) {
+func (s *addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *gc.C) {
 	var out bytes.Buffer
 	ctx := &cmd.Context{
 		Stdout: &out,
@@ -672,7 +697,7 @@ func (*addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *gc.C) {
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
 
-	command := cloud.NewAddCloudCommand(fake)
+	command := cloud.NewAddCloudCommandForTest(fake, s.store, nil)
 	// Running the command will return an error because we only give
 	// enough input to get to the prompt we care about checking. This
 	// test ignores this error.
@@ -682,22 +707,20 @@ func (*addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *gc.C) {
 	c.Check(out.String(), gc.Matches, "(?s).+Enter a name for your manual cloud: .*")
 }
 
-func (*addSuite) TestSpecifyingjujucloudThroughFlag_CorrectlySetsMemberVar(c *gc.C) {
-	command := cloud.NewAddCloudCommand(nil)
+func (s *addSuite) TestSpecifyingjujucloudThroughFlag_CorrectlySetsMemberVar(c *gc.C) {
 	runCmd := func() {
-		cmdtesting.RunCommand(c, command, "garage-maas", "-f", "fake.yaml")
+		s.runCommand(c, nil, "garage-maas", "-f", "fake.yaml")
 	}
 	c.Assert(runCmd, gc.PanicMatches, "runtime error: invalid memory address or nil pointer dereference")
 	//c.Check(command.jujucloud, gc.Equals, "fake.yaml")
 }
 
-func (*addSuite) TestSpecifyingjujucloudThroughFlagAndArgument_Errors(c *gc.C) {
-	command := cloud.NewAddCloudCommand(nil)
-	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", "fake.yaml", "foo.yaml")
+func (s *addSuite) TestSpecifyingjujucloudThroughFlagAndArgument_Errors(c *gc.C) {
+	_, err := s.runCommand(c, nil, "garage-maas", "-f", "fake.yaml", "foo.yaml")
 	c.Check(err, gc.ErrorMatches, "cannot specify cloud file with option and argument")
 }
 
-func (*addSuite) TestValidateGoodCloudFile(c *gc.C) {
+func (s *addSuite) TestValidateGoodCloudFile(c *gc.C) {
 	data := `
 clouds:
   foundations:
@@ -726,15 +749,13 @@ clouds:
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
 	fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
 
-	command := cloud.NewAddCloudCommand(fake)
-
-	_, err = cmdtesting.RunCommand(c, command, "foundations", cloudFile.Name())
+	_, err = s.runCommand(c, fake, "foundations", cloudFile.Name(), "--local")
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{})
 }
 
-func (*addSuite) TestValidateBadjujucloud(c *gc.C) {
+func (s *addSuite) TestValidateBadjujucloud(c *gc.C) {
 	data := `
 clouds:
   foundations:
@@ -755,8 +776,6 @@ clouds:
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
 	fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
 
-	command := cloud.NewAddCloudCommand(fake)
-
 	var logWriter loggo.TestWriter
 	writerName := "add_cloud_tests_writer"
 	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
@@ -765,7 +784,7 @@ clouds:
 		logWriter.Clear()
 	}()
 
-	_, err = cmdtesting.RunCommand(c, command, "foundations", cloudFile.Name())
+	_, err = s.runCommand(c, fake, "foundations", cloudFile.Name(), "--local")
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
@@ -1005,7 +1024,7 @@ func testInteractiveOpenstack(c *gc.C, myOpenstack jujucloud.Cloud, expectedYAML
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", m1Metadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommandForTest(fake, jujuclient.NewMemStore(), nil)
-	err := cmdtesting.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)

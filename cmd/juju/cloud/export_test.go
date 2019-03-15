@@ -32,8 +32,9 @@ func NewAddCloudCommandForTest(
 ) *AddCloudCommand {
 	cloudCallCtx := context.NewCloudCallContext()
 	return &AddCloudCommand{
-		cloudMetadataStore: cloudMetadataStore,
-		CloudCallCtx:       cloudCallCtx,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		cloudMetadataStore:        cloudMetadataStore,
+		CloudCallCtx:              cloudCallCtx,
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
 			return nil
 		},
@@ -44,22 +45,25 @@ func NewAddCloudCommandForTest(
 
 func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(string) (ListCloudsAPI, error)) *listCloudsCommand {
 	return &listCloudsCommand{
-		store:             store,
-		listCloudsAPIFunc: cloudAPI,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		store:                     store,
+		listCloudsAPIFunc:         cloudAPI,
 	}
 }
 
 func NewShowCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(string) (showCloudAPI, error)) *showCloudCommand {
 	return &showCloudCommand{
-		store:            store,
-		showCloudAPIFunc: cloudAPI,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		store:                     store,
+		showCloudAPIFunc:          cloudAPI,
 	}
 }
 
 func NewRemoveCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(string) (removeCloudAPI, error)) *removeCloudCommand {
 	return &removeCloudCommand{
-		store:              store,
-		removeCloudAPIFunc: cloudAPI,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		store:                     store,
+		removeCloudAPIFunc:        cloudAPI,
 	}
 }
 
@@ -77,9 +81,10 @@ func NewUpdateCloudCommandForTest(
 	cloudAPI func(string) (UpdateCloudAPI, error),
 ) *updateCloudCommand {
 	return &updateCloudCommand{
-		cloudMetadataStore: cloudMetadataStore,
-		updateCloudAPIFunc: cloudAPI,
-		store:              store,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		cloudMetadataStore:        cloudMetadataStore,
+		updateCloudAPIFunc:        cloudAPI,
+		store:                     store,
 	}
 }
 

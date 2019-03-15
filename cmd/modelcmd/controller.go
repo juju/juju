@@ -380,3 +380,50 @@ func translateControllerError(store jujuclient.ClientStore, err error) error {
 	}
 	return errors.Wrap(err, ErrNoCurrentController)
 }
+
+// OptionalControllerCommand is used as a base for commands which can
+// act locally or on a controller. It is primarily intended to be used
+// by cloud and credential related commands which can either update a
+// local client cache, or a running controller.
+type OptionalControllerCommand struct {
+	CommandBase
+	Store jujuclient.ClientStore
+
+	noContoller    bool
+	controllerName string
+}
+
+// SetFlags initializes the flags supported by the command.
+func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
+	f.BoolVar(&c.noContoller, "local", false, "Local operation only; controller not affected")
+	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
+	f.StringVar(&c.controllerName, "controller", "", "")
+}
+
+// ControllerNameFromArg returns either a controller name or empty string.
+// A non default controller can be chosen using the --controller option.
+// Use the --local arg to return an empty string, meaning no controller is selected.
+func (c *OptionalControllerCommand) ControllerNameFromArg() (string, error) {
+	if c.noContoller {
+		return "", nil
+	}
+	controllerName := c.controllerName
+	if controllerName == "" {
+		all, err := c.Store.AllControllers()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		if len(all) == 0 {
+			return "", errors.New(ErrNoControllersDefined.Error() + "\nUse --local to update the local cache.")
+		}
+		controllerName, err = DetermineCurrentController(c.Store)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+	if controllerName == "" {
+		return "", errors.New(ErrNoCurrentController.Error() + "\nUse --local to update the local cache.")
+	}
+	return controllerName, nil
+}

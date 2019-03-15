@@ -26,7 +26,7 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju.cloud")
 
 type listCloudsCommand struct {
-	modelcmd.CommandBase
+	modelcmd.OptionalControllerCommand
 	out cmd.Output
 
 	// Used when querying a controller for its cloud details
@@ -41,9 +41,11 @@ var listCloudsDoc = "" +
 	"Output includes fundamental properties for each cloud known to the\n" +
 	"current Juju client: name, number of regions, default region, type,\n" +
 	"and description.\n" +
-	"\nThe default output shows public clouds known to Juju out of the box.\n" +
-	"These may change between Juju versions. In addition to these public\n" +
-	"clouds, the 'localhost' cloud (local LXD) is also listed.\n" +
+	"\nThe default behaviour is to show clouds available on the current controller,\n" +
+	"or another controller specified using --controller.\n" +
+	"\nIf --local is specified, the output shows public clouds known to Juju out of the box;\n" +
+	"these can be used to bootstrap a controller. Clouds may change between Juju versions.\n" +
+	"In addition to these public clouds, the 'localhost' cloud (local LXD) is also listed.\n" +
 	"If you supply a controller name the clouds known on the controller will be displayed.\n" +
 	"\nThis command's default output format is 'tabular'.\n" +
 	"\nCloud metadata sometimes changes, e.g. AWS adds a new region. Use the\n" +
@@ -60,6 +62,7 @@ Examples:
     juju clouds
     juju clouds --format yaml
     juju clouds --controller mycontroller
+    juju clouds --local
 
 See also:
     add-cloud
@@ -75,8 +78,10 @@ type ListCloudsAPI interface {
 
 // NewListCloudsCommand returns a command to list cloud information.
 func NewListCloudsCommand() cmd.Command {
+	store := jujuclient.NewFileClientStore()
 	c := &listCloudsCommand{
-		store: jujuclient.NewFileClientStore(),
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		store:                     store,
 	}
 	c.listCloudsAPIFunc = c.cloudAPI
 
@@ -102,14 +107,21 @@ func (c *listCloudsCommand) Info() *cmd.Info {
 }
 
 func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
+	c.OptionalControllerCommand.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"tabular": formatCloudsTabular,
 	})
-	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
-	f.StringVar(&c.controllerName, "controller", "", "")
+}
+
+// Init populates the command with the args from the command line.
+func (c *listCloudsCommand) Init(args []string) (err error) {
+	c.controllerName, err = c.ControllerNameFromArg()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (c *listCloudsCommand) getCloudList() (*cloudList, error) {

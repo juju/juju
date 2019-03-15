@@ -68,8 +68,12 @@ positional argument:
     juju add-cloud mycloud ~/mycloud.yaml
     juju add-cloud mycloud -f ~/mycloud.yaml
 
-Juju will validate the contents of the supplied file and
-store that cloud definition in its internal cache.
+When <cloud definition file> is provided with <cloud name>,
+Juju stores that definition in the current controller (after
+validating the contents), or the specified controller if
+--controller is used.
+
+If --local is used, Juju stores that definition its internal cache directly.
 
 If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
 option is required.
@@ -99,11 +103,8 @@ clouds:                           # mandatory
  - joyent
  - oci
 
-If you do not supply a controller name, only the local Juju cache
-is updated. If you want to update a running controller to upload a
-new, additional cloud, you can use the --controller or -c option.
-The cloud details will be uploaded to the controller, along with
-a credential for the cloud. As with the cloud, the credential needs
+When a a running controller is updated, the credential for the cloud
+is also uploaded. As with the cloud, the credential needs
 to have been added to the local Juju cache; add-credential is used to
 do that. If there's only one credential for the cloud it will be
 uploaded to the controller. If the cloud has multiple local credentials
@@ -112,6 +113,7 @@ you can specify which to upload with the --credential option.
 Examples:
     juju add-cloud
     juju add-cloud mycloud ~/mycloud.yaml
+    juju add-cloud --local mycloud ~/mycloud.yaml
     juju add-cloud --replace mycloud ~/mycloud2.yaml
     juju add-cloud --controller mycontroller mycloud
     juju add-cloud --controller mycontroller mycloud --credential mycred
@@ -129,7 +131,7 @@ type AddCloudAPI interface {
 // AddCloudCommand is the command that allows you to add a cloud configuration
 // for use with juju bootstrap.
 type AddCloudCommand struct {
-	modelcmd.CommandBase
+	modelcmd.OptionalControllerCommand
 
 	// Replace, if true, existing cloud information is overwritten.
 	Replace bool
@@ -159,15 +161,17 @@ type AddCloudCommand struct {
 // NewAddCloudCommand returns a command to add cloud information.
 func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	cloudCallCtx := context.NewCloudCallContext()
+	store := jujuclient.NewFileClientStore()
 	c := &AddCloudCommand{
-		cloudMetadataStore: cloudMetadataStore,
-		CloudCallCtx:       cloudCallCtx,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		cloudMetadataStore:        cloudMetadataStore,
+		CloudCallCtx:              cloudCallCtx,
 		// Ping is provider.Ping except in tests where we don't actually want to
 		// require a valid cloud.
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
 			return p.Ping(cloudCallCtx, endpoint)
 		},
-		store: jujuclient.NewFileClientStore(),
+		store: store,
 	}
 	c.addCloudAPIFunc = c.cloudAPI
 	return modelcmd.WrapBase(c)
@@ -193,12 +197,10 @@ func (c *AddCloudCommand) Info() *cmd.Info {
 
 // SetFlags initializes the flags supported by the command.
 func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
+	c.OptionalControllerCommand.SetFlags(f)
 	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information for <cloud name>")
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
 	f.StringVar(&c.credentialName, "credential", "", "Credential to use for new cloud")
-	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
-	f.StringVar(&c.controllerName, "controller", "", "")
 }
 
 // Init populates the command with the args from the command line.
@@ -217,6 +219,10 @@ func (c *AddCloudCommand) Init(args []string) (err error) {
 	}
 	if len(args) > 2 {
 		return cmd.CheckEmpty(args[2:])
+	}
+	c.controllerName, err = c.ControllerNameFromArg()
+	if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

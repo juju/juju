@@ -6,7 +6,6 @@ package cloud
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/cloud"
@@ -19,17 +18,22 @@ var usageRemoveCloudSummary = `
 Removes a user-defined cloud from Juju.`[1:]
 
 var usageRemoveCloudDetails = `
-Remove a named, user-defined cloud from Juju.
+Remove a named, user-defined cloud from Juju. The current
+controller is used unless the --controller option is specified.
+
+If --local is specified, Juju removes the cloud from internal cache.
 
 Examples:
     juju remove-cloud mycloud
+    juju remove-cloud mycloud --local
+    juju remove-cloud mycloud --controller mycontroller
 
 See also:
     add-cloud
     list-clouds`
 
 type removeCloudCommand struct {
-	modelcmd.CommandBase
+	modelcmd.OptionalControllerCommand
 
 	// Cloud is the name fo the cloud to remove.
 	Cloud string
@@ -47,8 +51,10 @@ type removeCloudAPI interface {
 
 // NewRemoveCloudCommand returns a command to remove cloud information.
 func NewRemoveCloudCommand() cmd.Command {
+	store := jujuclient.NewFileClientStore()
 	c := &removeCloudCommand{
-		store: jujuclient.NewFileClientStore(),
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		store:                     store,
 	}
 	c.removeCloudAPIFunc = c.cloudAPI
 	return modelcmd.WrapBase(c)
@@ -60,12 +66,6 @@ func (c *removeCloudCommand) cloudAPI(controllerName string) (removeCloudAPI, er
 		return nil, errors.Trace(err)
 	}
 	return cloudapi.NewClient(root), nil
-}
-
-func (c *removeCloudCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
-	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
-	f.StringVar(&c.controllerName, "controller", "", "")
 }
 
 func (c *removeCloudCommand) Info() *cmd.Info {
@@ -82,6 +82,10 @@ func (c *removeCloudCommand) Init(args []string) (err error) {
 		return errors.New("Usage: juju remove-cloud <cloud name>")
 	}
 	c.Cloud = args[0]
+	c.controllerName, err = c.ControllerNameFromArg()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return cmd.CheckEmpty(args[1:])
 }
 
