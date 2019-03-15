@@ -64,6 +64,15 @@ def enable_ha(bs_manager, controller_client):
         controller_client, bs_manager.known_hosts)
     bs_manager.known_hosts = remote_machines
 
+def disable_ha(bs_manager, controller_client):
+    """Disable HA and wait for the controllers to be ready."""
+    log.info("Disabling HA.")
+    controller_client.wait_for(controller_client.remove_machines(["1", "2"], controller=True))
+    show_controller(controller_client)
+    remote_machines = get_remote_machines(
+        controller_client, bs_manager.known_hosts)
+    bs_manager.known_hosts = remote_machines
+
 def show_controller(client):
     controller_info = client.show_controller(format='yaml')
     log.info('Controller is:\n{}'.format(controller_info))
@@ -133,14 +142,12 @@ def assess_recovery(bs_manager, strategy, charm_series):
     if strategy == 'ha-backup':
         enable_ha(bs_manager, controller_client)
         backup_file = controller_client.backup()
-        # at the moment we can't currently restore a backup in HA without
-        # removing the controllers and replica set. This test will need to
-        # be fix to accommodate this setup.
+        disable_ha(bs_manager, controller_client)
     else:
         backup_file = controller_client.backup()
-        create_tmp_model(client)
-        restore_backup(bs_manager, controller_client, backup_file)
-    
+
+    create_tmp_model(client)
+    restore_backup(bs_manager, controller_client, backup_file)
     log.info("Test complete.")
 
 def main(argv):

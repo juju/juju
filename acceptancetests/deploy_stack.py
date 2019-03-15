@@ -358,7 +358,7 @@ def dump_juju_timings(client, log_directory):
         print_now(str(e))
 
 
-def get_remote_machines(client, known_hosts):
+def get_remote_machines(client, known_hosts=None):
     """Return a dict of machine_id to remote machines.
 
     A bootstrap_host address may be provided as a fallback for machine 0 if
@@ -368,9 +368,10 @@ def get_remote_machines(client, known_hosts):
     # Try to get machine details from environment if possible.
     machines = dict(iter_remote_machines(client))
     # The bootstrap host is added as a fallback in case status failed.
-    for machine_id, address in known_hosts.items():
-        if machine_id not in machines:
-            machines[machine_id] = remote_from_address(address)
+    if known_hosts is not None:
+        for machine_id, address in known_hosts.items():
+            if machine_id not in machines:
+                machines[machine_id] = remote_from_address(address)
     # Update remote machines in place with real addresses if substrate needs.
     resolve_remote_dns_names(client.env, machines.values())
     return machines
