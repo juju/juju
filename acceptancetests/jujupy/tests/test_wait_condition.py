@@ -265,7 +265,7 @@ class TestCommandComplete(TestCase):
         cc = CommandComplete(BaseCondition(), ct)
 
         with self.assertRaises(RuntimeError) as ex:
-            cc.do_raise('status')
+            cc.do_raise('', 'status')
         self.assertEqual(
             str(ex.exception),
             'Timed out waiting for "cmd" command to complete: "cmd arg1 arg2"')
