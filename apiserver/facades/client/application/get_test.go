@@ -55,6 +55,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		application.DeployApplication,
 		&mockStoragePoolManager{},
 		common.NewResources(),
+		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.applicationAPI = &application.APIv9{api}
@@ -195,6 +196,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 		application.DeployApplication,
 		&mockStoragePoolManager{},
 		common.NewResources(),
+		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	apiV8 := &application.APIv8{&application.APIv9{api}}

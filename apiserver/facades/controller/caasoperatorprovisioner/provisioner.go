@@ -105,7 +105,11 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 	}
 
 	imagePath := podcfg.GetJujuOCIImagePath(cfg, vers)
-	charmStorageParams, err := CharmStorageParams(cfg.ControllerUUID(), provider.OperatorStorageKey, modelConfig, "", a.storagePoolManager)
+	storageClassName, _ := modelConfig.AllAttrs()[provider.OperatorStorageKey].(string)
+	if storageClassName == "" {
+		return params.OperatorProvisioningInfo{}, errors.New("no operator storage class defined")
+	}
+	charmStorageParams, err := CharmStorageParams(cfg.ControllerUUID(), storageClassName, modelConfig, "", a.storagePoolManager)
 	if err != nil {
 		return params.OperatorProvisioningInfo{}, errors.Annotatef(err, "getting operator storage parameters")
 	}
@@ -137,16 +141,11 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 // to provision storage used for a charm operator or workload.
 func CharmStorageParams(
 	controllerUUID string,
-	storageKey string,
+	storageClassName string,
 	modelCfg *config.Config,
 	poolName string,
 	poolManager poolmanager.PoolManager,
 ) (params.KubernetesFilesystemParams, error) {
-	storageClassName, ok := modelCfg.AllAttrs()[storageKey].(string)
-	if !ok || storageClassName == "" {
-		return params.KubernetesFilesystemParams{}, errors.NewNotFound(nil, "model has no storage class defined")
-	}
-
 	// The defaults here are for operator storage.
 	// Workload storage will override these elsewhere.
 	var size uint64 = 1024

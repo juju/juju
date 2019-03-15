@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/application"
+	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -872,6 +873,16 @@ func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 		return nil, err
 	}
 	return storage.NewConfig(name, m.storageType, map[string]interface{}{"foo": "bar"})
+}
+
+type mockStorageValidator struct {
+	jtesting.Stub
+	caas.StorageValidator
+}
+
+func (m *mockStorageValidator) ValidateStorageClass(config map[string]interface{}) error {
+	m.MethodCall(m, "ValidateStorageClass", config)
+	return m.NextErr()
 }
 
 type mockGeneration struct {

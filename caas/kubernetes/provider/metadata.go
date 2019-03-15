@@ -88,7 +88,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 	}
 
 	// We may have the workload storage but still need to look for operator storage.
-	preferredOperatorStorage, havePreferredOperatorStorage := clusterPreferredOperatorStorage[result.Cloud]
+	preferredOperatorStorage, havePreferredOperatorStorage := jujuPreferredOperatorStorage[result.Cloud]
 	storageClasses, err := k.StorageV1().StorageClasses().List(v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing storage classes")
@@ -150,7 +150,7 @@ func (k *kubernetesClient) listHostCloudRegions() (string, set.Strings, error) {
 
 // CheckDefaultWorkloadStorage implements ClusterMetadataChecker.
 func (k *kubernetesClient) CheckDefaultWorkloadStorage(cluster string, storageProvisioner *caas.StorageProvisioner) error {
-	preferredStorage, ok := clusterPreferredWorkloadStorage[cluster]
+	preferredStorage, ok := jujuPreferredWorkloadStorage[cluster]
 	if !ok {
 		return errors.NotFoundf("cluster %q", cluster)
 	}

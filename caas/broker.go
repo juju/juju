@@ -156,8 +156,17 @@ type Broker interface {
 	// NamespaceGetterSetter provides the API to get/set namespace.
 	NamespaceGetterSetter
 
+	// StorageValidator provides methods to validate storage.
+	StorageValidator
+
 	// ServiceGetterSetter provides the API to get/set service.
 	ServiceGetterSetter
+}
+
+// StorageValidator provides methods to validate storage.
+type StorageValidator interface {
+	// ValidateStorageClass returns an error if the storage config is not valid.
+	ValidateStorageClass(config map[string]interface{}) error
 }
 
 // ServiceGetterSetter provides the API to get/set service.

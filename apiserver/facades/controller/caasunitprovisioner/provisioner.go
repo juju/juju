@@ -346,7 +346,11 @@ func filesystemParams(
 		return params.KubernetesFilesystemParams{}, errors.Annotate(err, "computing storage tags")
 	}
 
-	fsParams, err := caasoperatorprovisioner.CharmStorageParams(controllerUUID, provider.WorkloadStorageKey, modelConfig, pool, poolManager)
+	storageClassName, _ := modelConfig.AllAttrs()[provider.WorkloadStorageKey].(string)
+	if pool == "" && storageClassName == "" {
+		return params.KubernetesFilesystemParams{}, errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageInstance.StorageName())
+	}
+	fsParams, err := caasoperatorprovisioner.CharmStorageParams(controllerUUID, storageClassName, modelConfig, pool, poolManager)
 	if err != nil {
 		return params.KubernetesFilesystemParams{}, errors.Maskf(err, "getting filesystem storage parameters")
 	}

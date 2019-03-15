@@ -572,6 +572,27 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
 }
 
+// ValidateStorageClass returns an error if the storage config is not valid.
+func (k *kubernetesClient) ValidateStorageClass(config map[string]interface{}) error {
+	cfg, err := newStorageConfig(config)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	sc, err := k.getStorageClass(cfg.storageClass)
+	if err != nil {
+		return errors.NewNotValid(err, fmt.Sprintf("storage class %q", cfg.storageClass))
+	}
+	if cfg.storageProvisioner == "" {
+		return nil
+	}
+	if sc.Provisioner != cfg.storageProvisioner {
+		return errors.NewNotValid(
+			nil,
+			fmt.Sprintf("storage class %q has provisoner %q, not %q", cfg.storageClass, sc.Provisioner, cfg.storageProvisioner))
+	}
+	return nil
+}
+
 // getDefaultStorageClass returns the default storageclass in k8s cluster.
 func (k *kubernetesClient) getDefaultStorageClass() (*k8sstorage.StorageClass, error) {
 	storageClasses, err := k.StorageV1().StorageClasses().List(v1.ListOptions{})

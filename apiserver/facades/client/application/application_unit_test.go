@@ -46,11 +46,12 @@ type ApplicationSuite struct {
 	application        mockApplication
 	storagePoolManager *mockStoragePoolManager
 
-	env          environs.Environ
-	blockChecker mockBlockChecker
-	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.APIv9
-	deployParams map[string]application.DeployApplicationParams
+	storageValidator *mockStorageValidator
+	env              environs.Environ
+	blockChecker     mockBlockChecker
+	authorizer       apiservertesting.FakeAuthorizer
+	api              *application.APIv9
+	deployParams     map[string]application.DeployApplicationParams
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
@@ -58,6 +59,7 @@ var _ = gc.Suite(&ApplicationSuite{})
 func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	s.storagePoolManager = &mockStoragePoolManager{storageType: k8s.K8s_ProviderType}
+	s.storageValidator = &mockStorageValidator{}
 	api, err := application.NewAPIBase(
 		&s.backend,
 		&s.backend,
@@ -73,6 +75,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		},
 		s.storagePoolManager,
 		common.NewResources(),
+		s.storageValidator,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = &application.APIv9{api}
@@ -611,6 +614,25 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 	c.Assert(result.Results, gc.HasLen, 1)
 	msg := result.OneError().Error()
 	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `the "k8s-operator-storage" storage pool requires a provider type of "kubernetes", not "rootfs"`)
+}
+
+func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
+	s.storageValidator.SetErrors(errors.NotFoundf("storage class"))
+	s.model.modelType = state.ModelTypeCAAS
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+			Storage: map[string]storage.Constraints{
+				"database": {},
+			},
+		}},
+	}
+	result, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	msg := result.OneError().Error()
+	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `storage class not found`)
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
