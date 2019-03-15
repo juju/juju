@@ -144,7 +144,7 @@ func NewK8sBroker(
 		namespace:           newCfg.Name(),
 		modelUUID:           newCfg.UUID(),
 		newWatcher:          newWatcher,
-		annotations: jujuannotations.NewAnnotation(nil).
+		annotations: jujuannotations.New(nil).
 			Add(annotationControllerUUIDKey, controllerUUID).
 			Add(annotationModelUUIDKey, newCfg.UUID()),
 	}

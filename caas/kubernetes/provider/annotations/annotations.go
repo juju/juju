@@ -21,8 +21,8 @@ type Annotation struct {
 	vals   map[string]string
 }
 
-// NewAnnotation contructs an annotation.
-func NewAnnotation(as map[string]string) Annotation {
+// New contructs an annotation.
+func New(as map[string]string) Annotation {
 	newA := Annotation{prefix: jujuAnnotationPrefix, vals: make(map[string]string)}
 	if as == nil {
 		return newA

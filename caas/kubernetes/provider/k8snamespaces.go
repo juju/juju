@@ -18,7 +18,7 @@ func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]stri
 	if ns == nil {
 		return nil
 	}
-	if jujuannotations.NewAnnotation(ns.GetAnnotations()).ExistAll(annotationMap) {
+	if jujuannotations.New(ns.GetAnnotations()).ExistAll(annotationMap) {
 		return nil
 	}
 	return errors.NotValidf(
@@ -98,7 +98,7 @@ func (k *kubernetesClient) GetCurrentNamespace() string {
 // EnsureNamespace ensures this broker's namespace is created.
 func (k *kubernetesClient) EnsureNamespace() error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: k.namespace}}
-	ns.SetAnnotations(k.annotations.ToMap())
+	ns.SetAnnotations(jujuannotations.New(ns.GetAnnotations()).Merge(k.annotations).ToMap())
 	namespaces := k.CoreV1().Namespaces()
 	_, err := namespaces.Update(ns)
 	if k8serrors.IsNotFound(err) {
@@ -110,7 +110,7 @@ func (k *kubernetesClient) EnsureNamespace() error {
 // createNamespace creates a named namespace.
 func (k *kubernetesClient) createNamespace(name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
-	ns.SetAnnotations(k.annotations.ToMap())
+	ns.SetAnnotations(jujuannotations.New(ns.GetAnnotations()).Merge(k.annotations).ToMap())
 	_, err := k.CoreV1().Namespaces().Create(ns)
 	if k8serrors.IsAlreadyExists(err) {
 		return errors.AlreadyExistsf("namespace %q already exists", name)
