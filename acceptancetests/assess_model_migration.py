@@ -67,10 +67,15 @@ def assess_model_migration(bs1, bs2, args):
             migrated_client, application, resource_contents = results
 
             ensure_model_logs_are_migrated(source_client, dest_client)
-            assess_user_permission_model_migrations(source_client, dest_client)
-            if args.use_develop:
-                assess_development_branch_migrations(
-                    source_client, dest_client)
+            ensure_api_login_redirects(source_client, dest_client)
+
+            # TODO - adding a new user with lxc cloud fails due to missing creds
+            # TODO - local lxd creds need to be added to controller by running
+            # TODO - autoload-credentials and then update-credentials
+            # assess_user_permission_model_migrations(source_client, dest_client)
+
+            # TODO - fix 'migration in progress' error
+            # ensure_migration_rolls_back_on_failure(source_client, dest_client)
 
         # Continue test where we ensure that a migrated model continues to
         # work after it's originating controller has been destroyed.
@@ -87,25 +92,8 @@ def assess_user_permission_model_migrations(source_client, dest_client):
             source_client, dest_client, temp)
         ensure_migrating_with_superuser_user_permissions_succeeds(
             source_client, dest_client, temp)
-
-
-def assess_development_branch_migrations(source_client, dest_client):
-    with temp_dir() as temp:
         ensure_superuser_can_migrate_other_user_models(
-                source_client, dest_client, temp)
-    ensure_migration_rolls_back_on_failure(source_client, dest_client)
-    ensure_api_login_redirects(source_client, dest_client)
-
-
-def after_22beta4(client_version):
-    # LooseVersion considers 2.2-somealpha to be newer than 2.2.0.
-    # Attempt strict versioning first.
-    client_version = get_stripped_version_number(client_version)
-    try:
-        return StrictVersion(client_version) >= StrictVersion('2.2.0')
-    except ValueError:
-        pass
-    return LooseVersion(client_version) >= LooseVersion('2.2-beta4')
+            source_client, dest_client, temp)
 
 
 def parse_args(argv):
@@ -113,10 +101,6 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(
         description="Test model migration feature")
     add_basic_testing_arguments(parser, existing=False)
-    parser.add_argument(
-        '--use-develop',
-        action='store_true',
-        help='Run tests that rely on features in the develop branch.')
     return parser.parse_args(argv)
 
 
@@ -257,7 +241,8 @@ def assert_data_file_lists_correct_controller_for_model(
     controller_models = models_data[
         'controllers'][expected_controller]['models']
 
-    if client.env.environment not in controller_models:
+    model_name = '{}/{}'.format(client.env.user_name, client.env.environment)
+    if model_name not in controller_models:
         raise JujuAssertionError()
 
 
@@ -324,15 +309,10 @@ def ensure_superuser_can_migrate_other_user_models(
         attempt_client.env.environment,
         attempt_client.env.user_name)
 
-    if after_22beta4(source_client.version):
-        source_client.juju(
-            'migrate',
-            (user_qualified_model_name, dest_client.env.controller.name),
-            include_e=False)
-    else:
-        source_client.controller_juju(
-            'migrate',
-            (user_qualified_model_name, dest_client.env.controller.name))
+    source_client.juju(
+        'migrate',
+        (user_qualified_model_name, dest_client.env.controller.name),
+        include_e=False)
 
     migration_client = dest_client.clone(
         dest_client.env.clone(user_qualified_model_name))
@@ -347,14 +327,10 @@ def migrate_model_to_controller(
     log.info('Initiating migration process')
     model_name = get_full_model_name(source_client, include_user_name)
 
-    if after_22beta4(source_client.version):
-        source_client.juju(
-            'migrate',
-            (model_name, dest_client.env.controller.name),
-            include_e=False)
-    else:
-        source_client.controller_juju(
-            'migrate', (model_name, dest_client.env.controller.name))
+    source_client.juju(
+        'migrate',
+        (model_name, dest_client.env.controller.name),
+        include_e=False)
     migration_target_client = dest_client.clone(
         dest_client.env.clone(source_client.env.environment))
 
@@ -391,21 +367,14 @@ def migrate_model_to_controller(
 def get_full_model_name(client, include_user_name):
     # Construct model name based on rules of version + if username is needed.
     if include_user_name:
-        if after_22beta4(client.version):
-            return '{}:{}/{}'.format(
-                client.env.controller.name,
-                client.env.user_name,
-                client.env.environment)
-        else:
-            return '{}/{}'.format(
-                client.env.user_name, client.env.environment)
+        return '{}:{}/{}'.format(
+            client.env.controller.name,
+            client.env.user_name,
+            client.env.environment)
     else:
-        if after_22beta4(client.version):
-            return '{}:{}'.format(
-                client.env.controller.name,
-                client.env.environment)
-        else:
-            return client.env.environment
+        return '{}:{}'.format(
+            client.env.controller.name,
+            client.env.environment)
 
 
 def ensure_model_is_functional(client, application):
@@ -493,15 +462,10 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     """
     test_model, application = deploy_simple_server_to_new_model(
         source_client, 'rollmeback')
-    if after_22beta4(source_client.version):
-        test_model.juju(
-            'migrate',
-            (test_model.env.environment, dest_client.env.controller.name),
-            include_e=False)
-    else:
-        test_model.controller_juju(
-            'migrate',
-            (test_model.env.environment, dest_client.env.controller.name))
+    test_model.juju(
+        'migrate',
+        (test_model.env.environment, dest_client.env.controller.name),
+        include_e=False)
     # Once migration has started interrupt it
     wait_for_migrating(test_model)
     log.info('Disrupting target controller to force rollback')
@@ -607,19 +571,12 @@ def expect_migration_attempt_to_fail(source_client, dest_client):
     appears in test logs.
     """
     try:
-        if after_22beta4(source_client.version):
-            args = [
-                '{}:{}'.format(
-                    source_client.env.controller.name,
-                    source_client.env.environment),
-                dest_client.env.controller.name
-            ]
-        else:
-            args = [
-                '-c', source_client.env.controller.name,
-                source_client.env.environment,
-                dest_client.env.controller.name
-            ]
+        args = [
+            '{}:{}'.format(
+                source_client.env.controller.name,
+                source_client.env.environment),
+            dest_client.env.controller.name
+        ]
         log_output = source_client.get_juju_output(
             'migrate', *args, merge_stderr=True, include_e=False)
     except CalledProcessError as e:

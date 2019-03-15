@@ -26,7 +26,8 @@ type detectCredentialsCommand struct {
 	cmd.CommandBase
 	out cmd.Output
 
-	store jujuclient.CredentialStore
+	cloudType string
+	store     jujuclient.CredentialStore
 
 	// registeredProvidersFunc is set by tests to return all registered environ providers
 	registeredProvidersFunc func() []string
@@ -73,6 +74,7 @@ LXD
 
 Example:
     juju autoload-credentials
+    juju autoload-credentials aws
    
 See also:
     list-credentials
@@ -98,8 +100,17 @@ func (c *detectCredentialsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "autoload-credentials",
 		Purpose: detectCredentialsSummary,
+		Args:    "[<cloud-type>]",
 		Doc:     detectCredentialsDoc,
 	})
+}
+
+func (c *detectCredentialsCommand) Init(args []string) (err error) {
+	if len(args) > 0 {
+		c.cloudType = strings.ToLower(args[0])
+		return cmd.CheckEmpty(args[1:])
+	}
+	return cmd.CheckEmpty(args)
 }
 
 type discoveredCredential struct {
@@ -136,7 +147,10 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 
 	// Let's ensure a consistent order.
 	var sortedCloudNames []string
-	for cloudName := range clouds {
+	for cloudName, cloud := range clouds {
+		if c.cloudType != "" && cloud.Type != c.cloudType {
+			continue
+		}
 		sortedCloudNames = append(sortedCloudNames, cloudName)
 	}
 	sort.Strings(sortedCloudNames)
@@ -158,6 +172,9 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 	var discovered []discoveredCredential
 	discoveredLabels := set.NewStrings()
 	for _, providerName := range providerNames {
+		if c.cloudType != "" && providerName != c.cloudType {
+			continue
+		}
 		provider, err := environs.Provider(providerName)
 		if err != nil {
 			// Should never happen but it will on go 1.2

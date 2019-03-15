@@ -150,12 +150,20 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 
 	remoteCertCredentials, err := p.detectRemoteCredentials(certPEM, keyPEM)
 	if err != nil {
-		logger.Errorf("unable to detect LXC credentials: %s", err)
+		logger.Errorf("unable to detect remote LXC credentials: %s", err)
+	}
+
+	localCertCredentials, err := p.detectLocalCredentials(certPEM, keyPEM)
+	if err != nil {
+		logger.Errorf("unable to detect local LXC credentials: %s", err)
 	}
 
 	authCredentials := make(map[string]cloud.Credential)
 	for k, v := range remoteCertCredentials {
 		authCredentials[k] = v
+	}
+	if localCertCredentials != nil {
+		authCredentials["localhost"] = *localCertCredentials
 	}
 	return &cloud.CloudCredential{
 		AuthCredentials: authCredentials,
