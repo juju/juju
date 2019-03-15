@@ -62,7 +62,7 @@ def enable_ha(bs_manager, controller_client):
     show_controller(controller_client)
     remote_machines = get_remote_machines(
         controller_client, bs_manager.known_hosts)
-    bs_manager.known_hosts = remote_machines
+    return remote_machines
 
 def disable_ha(bs_manager, controller_client):
     """Disable HA and wait for the controllers to be ready."""
@@ -71,7 +71,7 @@ def disable_ha(bs_manager, controller_client):
     show_controller(controller_client)
     remote_machines = get_remote_machines(
         controller_client, None)
-    bs_manager.known_hosts = remote_machines
+    return remote_machines
 
 def show_controller(client):
     controller_info = client.show_controller(format='yaml')
@@ -140,9 +140,9 @@ def assess_recovery(bs_manager, strategy, charm_series):
     # ha-backup allows us to still backup in HA mode, so allow us to still
     # create a cluster of controllers.
     if strategy == 'ha-backup':
-        enable_ha(bs_manager, controller_client)
+        bs_manager.known_hosts = enable_ha(bs_manager, controller_client)
         backup_file = controller_client.backup()
-        disable_ha(bs_manager, controller_client)
+        bs_manager.known_hosts = disable_ha(bs_manager, controller_client)
     else:
         backup_file = controller_client.backup()
 
