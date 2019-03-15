@@ -1436,7 +1436,7 @@ class ModelClient:
                             break
                         status.raise_highest_error(ignore_recoverable=True)
                         reporter.update(states)
-                        time.sleep(1)
+                        time.sleep(5)
                     else:
                         if status is not None:
                             log.error(status.status_text)
