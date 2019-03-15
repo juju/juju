@@ -70,7 +70,7 @@ def disable_ha(bs_manager, controller_client):
     controller_client.wait_for(controller_client.remove_machines(["1", "2"], controller=True))
     show_controller(controller_client)
     remote_machines = get_remote_machines(
-        controller_client, bs_manager.known_hosts)
+        controller_client, None)
     bs_manager.known_hosts = remote_machines
 
 def show_controller(client):
