@@ -121,6 +121,7 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
 		storageAPISupport: shared.StringInSlice("storage", apiExt),
 		serverVersion:     info.Environment.ServerVersion,
+		clock:             clock.WallClock,
 	}, nil
 }
 
