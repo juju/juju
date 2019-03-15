@@ -321,6 +321,11 @@ func (s *Server) RemoveContainer(name string) error {
 		}
 	}
 
+	// LXD has issues deleting containers, even if they've been stopped. The
+	// general advice passed back from the LXD team is to retry it again, to
+	// see if this helps clean up the containers.
+	// ZFS exacerbates this more for the LXD setup, but there is no way to
+	// know as the LXD client doesn't return typed errors.
 	retryArgs := retry.CallArgs{
 		Clock: s.Clock(),
 		IsFatalError: func(err error) bool {
