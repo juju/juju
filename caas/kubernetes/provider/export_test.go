@@ -70,19 +70,15 @@ func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.P
 	return &storageProvider{&kubernetesClient{Interface: k8sClient, namespace: namespace}}
 }
 
-func StorageClass(cfg *storageConfig) string {
+func GetStorageClass(cfg *storageConfig) string {
 	return cfg.storageClass
 }
 
-func ExistingStorageClass(cfg *storageConfig) string {
-	return cfg.existingStorageClass
-}
-
-func StorageProvisioner(cfg *storageConfig) string {
+func GetStorageProvisioner(cfg *storageConfig) string {
 	return cfg.storageProvisioner
 }
 
-func StorageParameters(cfg *storageConfig) map[string]string {
+func GetStorageParameters(cfg *storageConfig) map[string]string {
 	return cfg.parameters
 }
 

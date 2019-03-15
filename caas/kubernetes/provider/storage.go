@@ -25,13 +25,11 @@ const (
 	K8s_ProviderType = storage.ProviderType("kubernetes")
 
 	// K8s storage pool attributes.
-	storageClass       = "storage-class"
+
+	// StorageClass is the name of a storage class resource.
+	StorageClass       = "storage-class"
 	storageProvisioner = "storage-provisioner"
 	storageMedium      = "storage-medium"
-	storageLabel       = "storage-label"
-
-	// K8s storage pool attribute default values.
-	defaultStorageClass = "juju-unit-storage"
 )
 
 //ValidateStorageProvider returns an error if the storage type and config is not valid
@@ -51,6 +49,11 @@ func ValidateStorageProvider(providerType storage.ProviderType, attributes map[s
 		medium := core.StorageMedium(fmt.Sprintf("%v", mediumValue))
 		if medium != core.StorageMediumMemory && medium != core.StorageMediumHugePages {
 			return errors.NotValidf("storage medium %q", mediumValue)
+		}
+	}
+	if providerType == K8s_ProviderType {
+		if _, err := newStorageConfig(attributes); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -76,16 +79,14 @@ type storageProvider struct {
 var _ storage.Provider = (*storageProvider)(nil)
 
 var storageConfigFields = schema.Fields{
-	storageClass:       schema.String(),
-	storageLabel:       schema.String(),
+	StorageClass:       schema.String(),
 	storageProvisioner: schema.String(),
 }
 
 var storageConfigChecker = schema.FieldMap(
 	storageConfigFields,
 	schema.Defaults{
-		storageClass:       schema.Omit,
-		storageLabel:       schema.Omit,
+		StorageClass:       schema.Omit,
 		storageProvisioner: schema.Omit,
 	},
 )
@@ -103,30 +104,18 @@ type storageConfig struct {
 	// parameters define attributes of the storage class.
 	parameters map[string]string
 
-	// existingStorageClass defines a storage class
-	// which if present will be used, but if not
-	// will fallback to looking for a storage class
-	// based on the specified labels.
-	existingStorageClass string
-
-	// storageLabels define the labels used to
-	// search for a storage class.
-	storageLabels []string
-
 	// reclaimPolicy defines the volume reclaim policy.
 	reclaimPolicy core.PersistentVolumeReclaimPolicy
 }
 
-func newStorageConfig(attrs map[string]interface{}, defaultStorageClass string) (*storageConfig, error) {
+func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
 	out, err := storageConfigChecker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating storage config")
 	}
 	coerced := out.(map[string]interface{})
-	storageConfig := &storageConfig{
-		existingStorageClass: defaultStorageClass,
-	}
-	if storageClassName, ok := coerced[storageClass].(string); ok {
+	storageConfig := &storageConfig{}
+	if storageClassName, ok := coerced[StorageClass].(string); ok {
 		storageConfig.storageClass = storageClassName
 	}
 	if storageProvisioner, ok := coerced[storageProvisioner].(string); ok {
@@ -142,8 +131,7 @@ func newStorageConfig(attrs map[string]interface{}, defaultStorageClass string) 
 		k = strings.TrimPrefix(k, "parameters.")
 		storageConfig.parameters[k] = fmt.Sprintf("%v", v)
 	}
-	delete(storageConfig.parameters, storageClass)
-	delete(storageConfig.parameters, storageLabel)
+	delete(storageConfig.parameters, StorageClass)
 	delete(storageConfig.parameters, storageProvisioner)
 
 	return storageConfig, nil
@@ -151,7 +139,7 @@ func newStorageConfig(attrs map[string]interface{}, defaultStorageClass string) 
 
 // ValidateConfig is defined on the storage.Provider interface.
 func (g *storageProvider) ValidateConfig(cfg *storage.Config) error {
-	_, err := newStorageConfig(cfg.Attrs(), defaultStorageClass)
+	_, err := newStorageConfig(cfg.Attrs())
 	return errors.Trace(err)
 }
 

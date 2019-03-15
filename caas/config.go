@@ -4,18 +4,12 @@
 package caas
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 )
 
 const (
-	// OperatorStoragePoolName is the storage pool used to define
-	// storage for application operators.
-	OperatorStoragePoolName = "operator-storage"
-
 	// JujuExternalHostNameKey specifies the hostname of a CAAS application.
 	JujuExternalHostNameKey = "juju-external-hostname"
 
@@ -74,18 +68,4 @@ func ConfigDefaults(providerDefaults schema.Defaults) schema.Defaults {
 		defaults[key] = value
 	}
 	return defaults
-}
-
-// OperatorStorageClassLabels returns possible labels used to search for a
-// storage class used to provision operator storage.
-func OperatorStorageClassLabels(appName, model string) []string {
-	volStorageLabel := fmt.Sprintf("%s-operator-storage", appName)
-	return []string{volStorageLabel, model, "default"}
-}
-
-// UnitStorageClassLabels returns possible labels used to search for a
-// storage class used to provision unit storage.
-func UnitStorageClassLabels(appName, model string) []string {
-	volStorageLabel := fmt.Sprintf("%s-unit-storage", appName)
-	return []string{volStorageLabel, model, "default"}
 }

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/permission"
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"gopkg.in/juju/charm.v6"
@@ -20,12 +19,16 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/globalclock"
 	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/storage/provider"
@@ -1883,4 +1886,99 @@ func UpdateInheritedControllerConfig(pool *StatePool) error {
 		return err
 	}
 	return nil
+}
+
+// UpdateKubernetesStorageConfig sets default storage classes
+// for operator and workload storage.
+func UpdateKubernetesStorageConfig(pool *StatePool) error {
+	return runForAllModelStates(pool, updateKubernetesStorageConfig)
+}
+
+func cloudSpec(
+	st *State,
+	cloudName, regionName string,
+	credentialTag names.CloudCredentialTag,
+) (environs.CloudSpec, error) {
+	modelCloud, err := st.Cloud(cloudName)
+	if err != nil {
+		return environs.CloudSpec{}, errors.Trace(err)
+	}
+
+	var credential *cloud.Credential
+	if credentialTag != (names.CloudCredentialTag{}) {
+		credentialValue, err := st.CloudCredential(credentialTag)
+		if err != nil {
+			return environs.CloudSpec{}, errors.Trace(err)
+		}
+		cloudCredential := cloud.NewNamedCredential(credentialValue.Name,
+			cloud.AuthType(credentialValue.AuthType),
+			credentialValue.Attributes,
+			credentialValue.Revoked,
+		)
+		credential = &cloudCredential
+	}
+
+	return environs.MakeCloudSpec(modelCloud, regionName, credential)
+}
+
+// NewBroker returns a CAAS broker.
+// Override for testing.
+var NewBroker caas.NewContainerBrokerFunc = caas.New
+
+func updateKubernetesStorageConfig(st *State) error {
+	model, err := st.Model()
+	if err != nil || model.Type() == ModelTypeIAAS {
+		return errors.Trace(err)
+	}
+	cred, ok := model.CloudCredential()
+	if !ok {
+		return nil
+	}
+	cfg, err := model.Config()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	defaults, err := st.controllerInheritedConfig(model.Cloud())()
+	operatorStorage, haveDefaultOperatorStorage := defaults[k8s.OperatorStorageKey]
+	if !haveDefaultOperatorStorage {
+		cloudSpec, err := cloudSpec(st, model.Cloud(), model.CloudRegion(), cred)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		broker, err := NewBroker(environs.OpenParams{Cloud: cloudSpec, Config: cfg})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		metadata, err := broker.GetClusterMetadata("")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if metadata.NominatedStorageClass == nil {
+			return nil
+		}
+		operatorStorage = metadata.NominatedStorageClass.Name
+		err = st.updateConfigDefaults(model.Cloud(), cloud.Attrs{
+			k8s.OperatorStorageKey: operatorStorage,
+			k8s.WorkloadStorageKey: operatorStorage, // use same storage for both
+		}, nil)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	attrs := make(map[string]interface{})
+	if _, ok := cfg.AllAttrs()[k8s.OperatorStorageKey]; !ok {
+		attrs[k8s.OperatorStorageKey] = operatorStorage
+	}
+	if _, ok := cfg.AllAttrs()[k8s.WorkloadStorageKey]; !ok {
+		attrs[k8s.WorkloadStorageKey] = operatorStorage
+
+	}
+
+	if len(attrs) == 0 {
+		return nil
+	}
+
+	return model.UpdateModelConfig(attrs, nil)
 }

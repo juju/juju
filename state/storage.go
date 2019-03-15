@@ -16,7 +16,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
@@ -306,7 +305,12 @@ func (sb *storageBackend) RemoveStoragePool(poolName string) error {
 	// TODO: Improve the data model to have a count of in use pools so we can
 	// make these checks as an assert and not queries.
 	var inUse bool
-	if sb.modelType == ModelTypeCAAS && poolName == caas.OperatorStoragePoolName {
+	cfg, err := sb.config()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	operatorStorage, ok := cfg.AllAttrs()[k8sprovider.OperatorStorageKey]
+	if sb.modelType == ModelTypeCAAS && ok && operatorStorage == poolName {
 		apps, err := sb.allApplications()
 		if err != nil {
 			return errors.Trace(err)

@@ -156,18 +156,17 @@ type Broker interface {
 	// NamespaceGetterSetter provides the API to get/set namespace.
 	NamespaceGetterSetter
 
-	// StorageclassGetterSetter provides the API to get/set storageclass.
-	StorageclassGetterSetter
+	// StorageValidator provides methods to validate storage.
+	StorageValidator
 
 	// ServiceGetterSetter provides the API to get/set service.
 	ServiceGetterSetter
 }
 
-// StorageclassGetterSetter provides the API to get/set storageclass.
-type StorageclassGetterSetter interface {
-	// GetStorageClassName returns the name of a storage class with the specified
-	// labels, or else the cluster default storage class, or else a NotFound error.
-	GetStorageClassName(labels ...string) (string, error)
+// StorageValidator provides methods to validate storage.
+type StorageValidator interface {
+	// ValidateStorageClass returns an error if the storage config is not valid.
+	ValidateStorageClass(config map[string]interface{}) error
 }
 
 // ServiceGetterSetter provides the API to get/set service.

@@ -25,8 +25,10 @@ func fakeConfig(c *gc.C, attrs ...coretesting.Attrs) *config.Config {
 
 func fakeConfigAttrs(attrs ...coretesting.Attrs) coretesting.Attrs {
 	merged := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type": "kubernetes",
-		"uuid": utils.MustNewUUID().String(),
+		"type":             "kubernetes",
+		"uuid":             utils.MustNewUUID().String(),
+		"operator-storage": "",
+		"workload-storage": "",
 	})
 	for _, attrs := range attrs {
 		merged = merged.Merge(attrs)

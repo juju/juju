@@ -61,15 +61,6 @@ func (s *storageSuite) TestValidateConfigError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "storage-class must be specified if storage-provisioner is specified")
 }
 
-func (s *storageSuite) TestValidateConfigExistingStorageClass(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	cfg, err := provider.NewStorageConfig(map[string]interface{}{}, "juju-unit-storage")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.ExistingStorageClass(cfg), gc.Equals, "juju-unit-storage")
-}
-
 func (s *storageSuite) TestNewStorageConfig(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
@@ -78,12 +69,11 @@ func (s *storageSuite) TestNewStorageConfig(c *gc.C) {
 		"storage-class":       "juju-ebs",
 		"storage-provisioner": "ebs",
 		"parameters.type":     "gp2",
-	}, "juju-unit-storage")
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.StorageClass(cfg), gc.Equals, "juju-ebs")
-	c.Assert(provider.StorageProvisioner(cfg), gc.Equals, "ebs")
-	c.Assert(provider.ExistingStorageClass(cfg), gc.Equals, "juju-unit-storage")
-	c.Assert(provider.StorageParameters(cfg), jc.DeepEquals, map[string]string{"type": "gp2"})
+	c.Assert(provider.GetStorageClass(cfg), gc.Equals, "juju-ebs")
+	c.Assert(provider.GetStorageProvisioner(cfg), gc.Equals, "ebs")
+	c.Assert(provider.GetStorageParameters(cfg), jc.DeepEquals, map[string]string{"type": "gp2"})
 }
 
 func (s *storageSuite) TestSupports(c *gc.C) {

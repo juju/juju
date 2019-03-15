@@ -70,16 +70,6 @@ func (st *mockState) Model() (caasoperatorprovisioner.Model, error) {
 	return st.model, nil
 }
 
-type mockStorageProviderRegistry struct {
-	testing.Stub
-	storage.ProviderRegistry
-}
-
-func (m *mockStorageProviderRegistry) StorageProvider(providerType storage.ProviderType) (storage.Provider, error) {
-	m.MethodCall(m, "StorageProvider", providerType)
-	return nil, errors.NotSupportedf("StorageProvider")
-}
-
 type mockStoragePoolManager struct {
 	testing.Stub
 	poolmanager.PoolManager
@@ -104,7 +94,9 @@ func (m *mockModel) UUID() string {
 
 func (m *mockModel) ModelConfig() (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
-	return config.New(config.UseDefaults, coretesting.FakeConfig())
+	attrs := coretesting.FakeConfig()
+	attrs["operator-storage"] = "k8s-storage"
+	return config.New(config.UseDefaults, attrs)
 }
 
 type mockApplication struct {

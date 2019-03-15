@@ -19,6 +19,12 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -41,8 +47,6 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
 	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
@@ -54,8 +58,6 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -446,6 +448,34 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	})
 }
 
+type fakeProvider struct {
+	caas.ContainerEnvironProvider
+}
+
+func (*fakeProvider) Open(_ environs.OpenParams) (caas.Broker, error) {
+	return &fakeBroker{}, nil
+}
+
+func (*fakeProvider) Validate(cfg, old *config.Config) (valid *config.Config, _ error) {
+	return cfg, nil
+}
+
+type fakeBroker struct {
+	caas.Broker
+}
+
+func (*fakeBroker) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+	return constraints.NewValidator(), nil
+}
+
+func (*fakeBroker) PrecheckInstance(context.ProviderCallContext, environs.PrecheckInstanceParams) error {
+	return nil
+}
+
+func (*fakeBroker) ValidateStorageClass(_ map[string]interface{}) error {
+	return nil
+}
+
 type CAASDeploySuiteBase struct {
 	charmStoreSuite
 
@@ -459,13 +489,25 @@ func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
 
 	s.charmStoreSuite.SetUpTest(c)
 
+	unregister := caas.RegisterContainerProvider("kubernetes-test", &fakeProvider{})
+	s.AddCleanup(func(_ *gc.C) { unregister() })
+
 	// Set up a CAAS model to replace the IAAS one.
-	st := s.Factory.MakeCAASModel(c, nil)
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "caascloud",
+		Type:      "kubernetes-test",
+		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
+	}, s.Model.Owner().Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{
+		CloudName: "caascloud",
+	})
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	// Close the state pool before the state object itself.
 	s.StatePool.Close()
 	s.StatePool = nil
-	err := s.State.Close()
+	err = s.State.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 }
@@ -539,13 +581,11 @@ func (s *CAASDeploySuite) TestCaasModelValidatedAtRun(c *gc.C) {
 }
 
 func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
-	storagePoolManager := poolmanager.New(state.NewStateSettings(s.State), storageProviderRegistry)
-	_, err = storagePoolManager.Create("operator-storage", provider.K8s_ProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.UpdateModelConfig(map[string]interface{}{
+		"operator-storage": "k8s-storage",
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	otherModels := map[string]jujuclient.ModelDetails{
 		"admin/" + m.Name(): {ModelUUID: m.UUID(), ModelType: model.CAAS},
@@ -566,13 +606,11 @@ func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
 }
 
 func (s *CAASDeploySuite) TestDevices(c *gc.C) {
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
-	storagePoolManager := poolmanager.New(state.NewStateSettings(s.State), storageProviderRegistry)
-	_, err = storagePoolManager.Create("operator-storage", provider.K8s_ProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.UpdateModelConfig(map[string]interface{}{
+		"operator-storage": "k8s-storage",
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	otherModels := map[string]jujuclient.ModelDetails{
 		"admin/" + m.Name(): {ModelUUID: m.UUID(), ModelType: model.CAAS},
