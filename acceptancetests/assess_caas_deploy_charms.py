@@ -12,150 +12,27 @@ from __future__ import print_function
 import argparse
 import logging
 import sys
-import os
-import subprocess
 from time import sleep
 
 import requests
 
-from deploy_stack import (
-    BootstrapManager,
-    deploy_caas_stack,
-)
+from deploy_stack import BootstrapManager
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
 )
 
-from jujucharm import (
-    local_charm_path
-)
 from jujupy.utility import until_timeout
+from jujupy.k8s_provider import (
+    MicroK8s,
+    # KubernetesCore,
+)
 
 __metaclass__ = type
 
 
 log = logging.getLogger("assess_caas_charm_deployment")
-
-JUJU_STORAGECLASS_NAME = "juju-storageclass"
-HOST_PATH_PROVISIONER = """
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: hostpath-provisioner
-  namespace: kube-system
----
-
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: hostpath-provisioner
-  namespace: kube-system
-rules:
-  - apiGroups: [""]
-    resources: ["persistentvolumes"]
-    verbs: ["get", "list", "watch", "create", "delete"]
-  - apiGroups: [""]
-    resources: ["persistentvolumeclaims"]
-    verbs: ["get", "list", "watch", "update"]
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["storageclasses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["list", "watch", "create", "update", "patch"]
----
-
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: hostpath-provisioner
-  namespace: kube-system
-subjects:
-  - kind: ServiceAccount
-    name: hostpath-provisioner
-    namespace: kube-system
-roleRef:
-  kind: ClusterRole
-  name: hostpath-provisioner
-  apiGroup: rbac.authorization.k8s.io
----
-
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: Role
-metadata:
-  name: hostpath-provisioner
-  namespace: kube-system
-rules:
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["create", "get", "delete"]
----
-
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: RoleBinding
-metadata:
-  name: hostpath-provisioner
-  namespace: kube-system
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: hostpath-provisioner
-subjects:
-  - kind: ServiceAccount
-    name: hostpath-provisioner
----
-
-# -- Create a daemon set for web requests and send them to the nginx-ingress-controller
-apiVersion: extensions/v1beta1
-kind: DaemonSet
-metadata:
-  name: hostpath-provisioner
-  namespace: kube-system
-spec:
-  revisionHistoryLimit: 3
-  template:
-    metadata:
-      labels:
-        app: hostpath-provisioner
-    spec:
-      serviceAccountName: hostpath-provisioner
-      terminationGracePeriodSeconds: 0
-      containers:
-        - name: hostpath-provisioner
-          image: mazdermind/hostpath-provisioner:latest
-          imagePullPolicy: "IfNotPresent"
-          env:
-            - name: NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-            - name: PV_DIR
-              value: /mnt/kubernetes
-          volumeMounts:
-            - name: pv-volume
-              mountPath: /mnt/kubernetes
-      volumes:
-        - name: pv-volume
-          hostPath:
-            path: /mnt/kubernetes
----
-
-# -- Create the standard storage class for running on-node hostpath storage
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  # namespace: kube-system
-  name: {class_name}
-  annotations:
-    storageclass.beta.kubernetes.io/is-default-class: "true"
-  labels:
-    kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: EnsureExists
-provisioner: hostpath
----
-"""
 
 
 def check_app_healthy(url, timeout=300, success_hook=lambda: None, fail_hook=lambda: None):
@@ -180,57 +57,28 @@ def check_app_healthy(url, timeout=300, success_hook=lambda: None, fail_hook=lam
     raise JujuAssertionError('gitlab is not healthy')
 
 
-def assess_caas_charm_deployment(client):
-    # Deploy k8s bundle to spin up k8s cluster
-    bundle = local_charm_path(
-        charm='bundles-kubernetes-core-lxd.yaml',
-        repository=os.environ['JUJU_REPOSITORY'],
-        juju_ver=client.version
-    )
-
-    caas_client = deploy_caas_stack(path=bundle, client=client, timeout=4000)
+def assess_caas_charm_deployment(caas_client):
     external_hostname = caas_client.get_external_hostname()
 
-    if not caas_client.is_cluster_healthy:
+    if not caas_client.check_cluster_healthy(timeout=60):
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
-
-    # tmp fix kubernetes core ingress issue
-    ingress_controller_daemonset_name = 'daemonset.apps/nginx-ingress-kubernetes-worker-controller'
-    o = caas_client.kubectl(
-        'patch', ingress_controller_daemonset_name, '--patch',
-        '''
-        {"spec": {"template": {"spec": {"containers": [{"name": "nginx-ingress-kubernetes-worker","args": ["/nginx-ingress-controller", "--default-backend-service=$(POD_NAMESPACE)/default-http-backend", "--configmap=$(POD_NAMESPACE)/nginx-load-balancer-conf", "--enable-ssl-chain-completion=False", "--publish-status-address=%s"]}]}}}}
-        ''' % caas_client.get_first_worker_ip()
-    )
-    log.info(o)
-
-    o = caas_client.kubectl('get', ingress_controller_daemonset_name, '-o', 'yaml')
-    log.info(o)
 
     # add caas model for deploying caas charms on top of it
     model_name = 'testcaas'
     k8s_model = caas_client.add_model(model_name)
 
-    # ensure tmp dir for storage class.model_name
-    o = subprocess.check_output(
-        ('sudo', 'mkdir', '-p', '/mnt/kubernetes/%s' % model_name)  # unfortunately, needs sudo
-    )
-    log.debug(o.decode('UTF-8').strip())
-
-    # ensure storage class
-    caas_client.kubectl_apply(HOST_PATH_PROVISIONER.format(class_name=JUJU_STORAGECLASS_NAME))
-
-    # ensure storage pools for caas operator
+    sc_name = caas_client.default_storage_class_name
+    # ensure storage pools for caas operator using default sc.
     k8s_model.juju(
         'create-storage-pool',
-        ('operator-storage', 'kubernetes', 'storage-class=%s' % JUJU_STORAGECLASS_NAME)
+        ('operator-storage', 'kubernetes', 'storage-class=%s' % sc_name)
     )
 
     # ensure storage pools for mariadb
     mariadb_storage_pool_name = 'mariadb-pv'
     k8s_model.juju(
         'create-storage-pool',
-        (mariadb_storage_pool_name, 'kubernetes', 'storage-class=%s' % JUJU_STORAGECLASS_NAME)
+        (mariadb_storage_pool_name, 'kubernetes', 'storage-class=%s' % sc_name)
     )
 
     k8s_model.deploy(
@@ -240,7 +88,7 @@ def assess_caas_charm_deployment(client):
 
     k8s_model.deploy(
         charm="cs:~juju/mariadb-k8s-0",
-        storage='database=100M,{pool_name}'.format(pool_name=mariadb_storage_pool_name),
+        storage='database=100M,{}'.format(mariadb_storage_pool_name),
     )
 
     k8s_model.juju('relate', ('mariadb-k8s', 'gitlab-k8s'))
@@ -252,7 +100,6 @@ def assess_caas_charm_deployment(client):
 
     def fail_hook():
         success_hook()
-        log.info(caas_client.kubectl('get', ingress_controller_daemonset_name, '-o', 'yaml'))
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
 
     url = '{}://{}/{}'.format('http', external_hostname, 'gitlab-k8s')
@@ -289,7 +136,13 @@ def main(argv=None):
     with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
         ensure_operator_image_path(client, image_path=args.caas_image)
-        assess_caas_charm_deployment(client)
+        for k8s_provider in (
+            # all k8s client we need support.
+            MicroK8s,
+            # KubernetesCore  # disable for now.
+        ):
+            caas_client = k8s_provider(client)
+            assess_caas_charm_deployment(caas_client)
     return 0
 
 
