@@ -22,7 +22,11 @@ import logging
 import tempfile
 import subprocess
 
-from . import Base
+from . import (
+    Base,
+    K8sProviderType,
+    register_provider,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -254,7 +258,10 @@ provisioner: hostpath
 """
 
 
+@register_provider
 class KubernetesCore(Base):
+
+    name = K8sProviderType.K8S_CORE
 
     def __init__(self, client, timeout=1800):
         super().__init__(client, timeout)
@@ -277,6 +284,10 @@ class KubernetesCore(Base):
     def _ensure_cluster_config(self):
         self.__ensure_tmp_fix_for_ingress()
         self.__ensure_storage_provisoner_default_sc()
+
+    def _node_address_getter(self, node):
+        # TODO(ycliuhw): implement here once described k8s core node to find the corrent node ip.
+        raise NotImplemented()
 
     def __ensure_lxd_profile(self, profile, model_name):
         profile = profile.format(model_name=model_name)
