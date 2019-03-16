@@ -25,8 +25,8 @@ from utility import (
 
 from jujupy.utility import until_timeout
 from jujupy.k8s_provider import (
-    MicroK8s,
-    # KubernetesCore,
+    providers,
+    K8sProviderType,
 )
 
 __metaclass__ = type
@@ -119,7 +119,12 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(description="Cass charm deployment CI test")
     parser.add_argument(
         '--caas-image', action='store', default=None,
-        help='Caas operator docker image name to use with format of <username>/caas-jujud-operator:<tag>.'
+        help='CAAS operator docker image name to use with format of <username>/caas-jujud-operator:<tag>.'
+    )
+    parser.add_argument(
+        '--caas-provider', action='store', default='MICROK8S',
+        choices=K8sProviderType.keys,
+        help='Specify K8s cloud provider to use for CAAS tests.'
     )
 
     add_basic_testing_arguments(parser, existing=False)
@@ -137,13 +142,9 @@ def main(argv=None):
     with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
         ensure_operator_image_path(client, image_path=args.caas_image)
-        for k8s_provider in (
-            # all k8s client we need support.
-            MicroK8s,
-            # KubernetesCore  # disable for now.
-        ):
-            caas_client = k8s_provider(client)
-            assess_caas_charm_deployment(caas_client)
+        k8s_provider = providers[args.caas_provider]
+        caas_client = k8s_provider(client)
+        assess_caas_charm_deployment(caas_client)
     return 0
 
 
