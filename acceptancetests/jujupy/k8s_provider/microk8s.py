@@ -21,13 +21,20 @@ from __future__ import print_function
 import logging
 import shutil
 
-from . import Base
+from . import (
+    Base,
+    K8sProviderType,
+    register_provider,
+)
 
 
 logger = logging.getLogger(__name__)
 
 
+@register_provider
 class MicroK8s(Base):
+
+    name = K8sProviderType.MicroK8s
 
     def __init__(self, client, timeout=1800):
         super().__init__(client, timeout)

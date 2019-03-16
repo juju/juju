@@ -24,7 +24,6 @@ from time import sleep
 import json
 import logging
 import subprocess
-from enum import Enum
 from pprint import pformat
 
 from jujupy.utility import (
@@ -42,12 +41,9 @@ logger = logging.getLogger(__name__)
 KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
 
 
-class K8s(Enum):
-    MICROK8S = 1
-    K8S_CORE = 2
-
-
 class Base(object):
+
+    name = None
 
     k8s_cloud_name = 'k8cloud'
 
