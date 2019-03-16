@@ -39,13 +39,13 @@ class K8sProviderType(Enum):
     MICROK8S = 1
     K8S_CORE = 2
 
-    @property
-    def keys(self):
-        return self.__members__.keys()
+    @classmethod
+    def keys(cls):
+        return list(cls.__members__.keys())
 
-    @property
-    def values(self):
-        return self.__members__.values()
+    @classmethod
+    def values(cls):
+        return list(cls.__members__.values())
 
 
 class Factory(object):

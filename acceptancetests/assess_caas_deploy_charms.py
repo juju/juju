@@ -123,7 +123,7 @@ def parse_args(argv):
     )
     parser.add_argument(
         '--caas-provider', action='store', default='MICROK8S',
-        choices=K8sProviderType.keys,
+        choices=K8sProviderType.keys(),
         help='Specify K8s cloud provider to use for CAAS tests.'
     )
 
