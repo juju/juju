@@ -16,17 +16,18 @@
 # Functionality for handling installed or other juju binaries
 # (including paths etc.)
 
+
 from __future__ import print_function
 
 import logging
 import tempfile
 import subprocess
 
-from . import (
+from .base import (
     Base,
     K8sProviderType,
-    register_provider,
 )
+from .factory import register_provider
 
 
 logger = logging.getLogger(__name__)
