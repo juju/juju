@@ -25,6 +25,7 @@ import json
 import logging
 import subprocess
 from pprint import pformat
+from enum import Enum
 
 from jujupy.utility import (
     ensure_dir,
@@ -32,9 +33,33 @@ from jujupy.utility import (
 )
 
 
-__metaclass__ = type
-
 logger = logging.getLogger(__name__)
+
+
+class ProviderNotAvailable(AttributeError):
+    """Raised when a provider is requested that isn't registered"""
+    ...
+
+
+class ProviderNotValid(ValueError):
+    """Raised when a provider is not correctly named.
+    always use K8sProviderType to name a new provider.
+    """
+    ...
+
+
+class K8sProviderType(Enum):
+    MICROK8S = 1
+    K8S_CORE = 2
+
+    @classmethod
+    def keys(cls):
+        return list(cls.__members__.keys())
+
+    @classmethod
+    def values(cls):
+        return list(cls.__members__.values())
+
 
 # caas `add-k8s` did not implement parsing kube config path via flag,
 # so parse it via env var ->  https://github.com/kubernetes/client-go/blob/master/tools/clientcmd/loader.go#L44
