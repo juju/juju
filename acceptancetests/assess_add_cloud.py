@@ -149,56 +149,41 @@ def iter_clouds(clouds, cloud_validation):
     :param clouds: cloud data as defined in $JUJU_DATA/clouds.yaml
     :param cloud_validation: an instance of CloudValidation.
     """
-    yield cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'},
-                     exception=TypeNotAccepted)
-    for cloud_name, cloud in clouds.items():
-        spec = cloud_spec(cloud_name, cloud_name, cloud)
-        yield spec
+    yield cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'}, exception=TypeNotAccepted)
 
     long_text = 'A' * EXCEEDED_LIMIT
-
     for cloud_name, cloud in clouds.items():
-        spec = xfail(cloud_spec('long-name-{}'.format(cloud_name), long_text,
-                                cloud, NameNotAccepted), 1641970, NameMismatch)
-        yield spec
-        spec = xfail(
-            cloud_spec('invalid-name-{}'.format(cloud_name), 'invalid/name',
-                       cloud, NameNotAccepted), 1641981, None)
-        yield spec
+        yield cloud_spec(cloud_name, cloud_name, cloud)
+        yield cloud_spec('slash-in-name-{}'.format(cloud_name), 'invalid/name', cloud, NameNotAccepted, 1641981)
+        yield cloud_spec('numeral-prefix-{}'.format(cloud_name), '99invalid/name', cloud, NameNotAccepted, 1641981)
 
         if cloud['type'] not in ('maas', 'manual', 'vsphere'):
-            variant = deepcopy(cloud)
+            auth_config = deepcopy(cloud)
+            auth_config['auth-types'] = ['asdf']
             variant_name = 'bogus-auth-{}'.format(cloud_name)
-            variant['auth-types'] = ['asdf']
-            yield cloud_spec(variant_name, cloud_name, variant,
-                             AuthNotAccepted)
+            yield cloud_spec(variant_name, cloud_name, auth_config, AuthNotAccepted, 1641970)
 
-        if 'endpoint' in cloud:
-            variant = deepcopy(cloud)
-            variant['endpoint'] = long_text
-            if variant['type'] == 'vsphere':
-                for region in variant['regions'].values():
-                    region['endpoint'] = variant['endpoint']
-            variant_name = 'long-endpoint-{}'.format(cloud_name)
-            spec = cloud_spec(variant_name, cloud_name, variant,
-                              InvalidEndpoint)
-            if not cloud_validation.has_endpoint(cloud['type']):
-                spec = xfail(spec, 1641970, CloudMismatch)
-            yield spec
+        if cloud['type'] == 'vsphere':
+            continue
 
-        for region_name in cloud.get('regions', {}).keys():
-            if cloud['type'] == 'vsphere':
-                continue
-            variant = deepcopy(cloud)
-            region = variant['regions'][region_name]
-            region['endpoint'] = long_text
-            variant_name = 'long-endpoint-{}-{}'.format(cloud_name,
-                                                        region_name)
-            spec = cloud_spec(variant_name, cloud_name, variant,
-                              InvalidEndpoint)
-            if not cloud_validation.has_endpoint(cloud['type']):
-                spec = xfail(spec, 1641970, CloudMismatch)
-            yield spec
+        regions = list(cloud.get('regions', {}).keys())
+
+        expected_exception = CloudMismatch
+        if cloud_validation.has_endpoint(cloud['type']):
+            expected_exception = InvalidEndpoint
+
+        illegal_endpoint_config = deepcopy(cloud)
+        illegal_endpoint_config['endpoint'] = long_text
+        illegal_endpoint_name = 'long-endpoint-{}'.format(cloud_name)
+        for region_name in regions:
+            illegal_endpoint_config['regions'][region_name]['endpoint'] = long_text
+        yield cloud_spec(illegal_endpoint_name, cloud_name, illegal_endpoint_config, expected_exception, 1641970)
+
+        for region_name in regions:
+            regional_long_endpoint_name ='long-endpoint-{}-{}'.format(cloud_name, region_name)
+            regional_long_endpoint_config = deepcopy(cloud)
+            regional_long_endpoint_config['regions'] = {region_name: {'endpoint': long_text}} # test each region independently of others
+            yield cloud_spec(regional_long_endpoint_name, cloud_name, regional_long_endpoint_config, expected_exception, 1641970)
 
 
 def assess_all_clouds(client, cloud_specs):
@@ -261,8 +246,8 @@ def main():
     version = ModelClient.get_version(juju_bin)
     with open(args.example_clouds) as f:
         clouds = yaml.safe_load(f)['clouds']
-    cloug_validation = CloudValidation(version)
-    cloud_specs = iter_clouds(clouds, cloug_validation)
+    cloud_validation = CloudValidation(version)
+    cloud_specs = iter_clouds(clouds, cloud_validation)
     with temp_dir() as juju_home:
         env = JujuData('foo', config=None, juju_home=juju_home)
         client = ModelClient(env, version, juju_bin)

@@ -491,9 +491,16 @@ func queryName(
 		return "", err
 	}
 
+	verifyCloudName := func(name string) (bool, string, error) {
+		if names.IsValidCloud(name) {
+			return true, "", nil
+		}
+		return false, "Invalid name. Valid names start with a letter, and use only letters, numbers, hyphens, and underscores: ", nil
+	}
+
 	for {
 		if cloudName == "" {
-			name, err := pollster.Enter(fmt.Sprintf("a name for your %s cloud", cloudType))
+			name, err := pollster.EnterVerify(fmt.Sprintf("a name for your %s cloud", cloudType), verifyCloudName)
 			if err != nil {
 				return "", errors.Trace(err)
 			}

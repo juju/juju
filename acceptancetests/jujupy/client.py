@@ -2046,42 +2046,61 @@ class ModelClient:
             child.logfile = sys.stdout
             child.expect('Select cloud type:')
             child.sendline(cloud['type'])
-            child.expect('(Enter a name for your .* cloud:)|'
-                         '(Select cloud type:)')
-            if child.match.group(2) is not None:
+            match = child.expect([
+                'Enter a name for your .* cloud:',
+                'Select cloud type:'
+            ])
+            if match == 1:
                 raise TypeNotAccepted('Cloud type not accepted.')
             child.sendline(cloud_name)
             if cloud['type'] == 'maas':
-                child.expect('Enter the API endpoint url:')
+                match = child.expect([
+                    'Enter the API endpoint url:',
+                    'Enter a name for your .* cloud:',
+                ])
+                if match == 1:
+                    raise NameNotAccepted('Cloud name not accepted.')
                 child.sendline(cloud['endpoint'])
             if cloud['type'] == 'manual':
-                child.expect(
-                    "(Enter the controller's hostname or IP address:)|"
-                    "(Enter a name for your .* cloud:)")
-                if child.match.group(2) is not None:
+                match = child.expect([
+                    "Enter the controller's hostname or IP address:",
+                    "Enter a name for your .* cloud:",
+                ])
+                if match == 1:
                     raise NameNotAccepted('Cloud name not accepted.')
                 child.sendline(cloud['endpoint'])
             if cloud['type'] == 'openstack':
-                child.expect('Enter the API endpoint url for the cloud:')
+                match = child.expect([
+                    'Enter the API endpoint url for the cloud',
+                    "Enter a name for your .* cloud:"
+                ])
+                if match == 1:
+                    raise NameNotAccepted('Cloud name not accepted.')
                 child.sendline(cloud['endpoint'])
-                child.expect(
-                    "(Select one or more auth types separated by commas:)|"
-                    "(Can't validate endpoint)")
-                if child.match.group(2) is not None:
+                match = child.expect([
+                    "Enter a path to the CA certificate for your cloud if one is required to access it",
+                    "Can't validate endpoint:",
+                ])
+                if match == 1:
                     raise InvalidEndpoint()
+                child.sendline("")
+                match = child.expect("Select one or more auth types separated by commas:")
                 child.sendline(','.join(cloud['auth-types']))
                 for num, (name, values) in enumerate(cloud['regions'].items()):
-                    child.expect(
-                        '(Enter region name:)|(Select one or more auth types'
-                        ' separated by commas:)')
-                    if child.match.group(2) is not None:
+                    match = child.expect([
+                        'Enter region name:',
+                        'Select one or more auth types separated by commas:',
+                    ])
+                    if match == 1:
                         raise AuthNotAccepted('Auth was not compatible.')
                     child.sendline(name)
                     child.expect(self.REGION_ENDPOINT_PROMPT)
                     child.sendline(values['endpoint'])
-                    child.expect("(Enter another region\? \(Y/n\):)|"
-                                 "(Can't validate endpoint)")
-                    if child.match.group(2) is not None:
+                    match = child.expect([
+                        "Enter another region\? \([yY]/[nN]\):",
+                        "Can't validate endpoint"
+                    ])
+                    if match == 1:
                         raise InvalidEndpoint()
                     if num + 1 < len(cloud['regions']):
                         child.sendline('y')
@@ -2090,16 +2109,19 @@ class ModelClient:
             if cloud['type'] == 'vsphere':
                 child.expect(
                     'Enter the '
-                    '(vCenter address or URL|API endpoint url for the cloud):')
+                    '(vCenter address or URL|API endpoint url for the cloud \[\]):')
                 child.sendline(cloud['endpoint'])
                 for num, (name, values) in enumerate(cloud['regions'].items()):
-                    child.expect("Enter (datacenter|region) name:|"
-                                 "(?P<invalid>Can't validate endpoint)")
-                    if child.match.group('invalid') is not None:
+                    match = child.expect([
+                        "Enter datacenter name",
+                        "Enter region name",
+                        "Can't validate endpoint"
+                    ])
+                    if match == 2:
                         raise InvalidEndpoint()
                     child.sendline(name)
                     child.expect(
-                        'Enter another (datacenter|region)\? \(Y/n\):')
+                        'Enter another (datacenter|region)\? \([yY]/[nN]\):')
                     if num + 1 < len(cloud['regions']):
                         child.sendline('y')
                     else:
