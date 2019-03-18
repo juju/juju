@@ -798,7 +798,7 @@ class ModelClient:
     def remove_machine(self, machine_ids, force=False, controller=False):
         """Remove a machine (or container).
 
-        :param machine_ids: The id of the machine to remove.
+        :param machine_ids: The ids of the machine to remove.
         :return: A WaitMachineNotPresent instance for client.wait_for.
         """
         options = ()
