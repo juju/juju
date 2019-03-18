@@ -123,16 +123,12 @@ func (s *instanceCharmProfileWatcherSuite) TestFullWatch(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField(state.InstanceCharmProfileDataDoc{
-			UpgradeCharmProfileComplete: lxdprofile.EmptyStatus,
-		}),
+		s.expectInitialCollectionInstanceField(lxdprofile.EmptyStatus),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
 		}),
 		s.expectLoop,
-		s.expectMergeCollectionInstanceField(state.InstanceCharmProfileDataDoc{
-			UpgradeCharmProfileComplete: lxdprofile.NotKnownStatus,
-		}),
+		s.expectMergeCollectionInstanceField(lxdprofile.NotKnownStatus),
 		s.expectLoop,
 	)
 
@@ -146,16 +142,12 @@ func (s *instanceCharmProfileWatcherSuite) TestFullWatchWithNoStatusChange(c *gc
 	defer s.setup(c).Finish()
 
 	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField(state.InstanceCharmProfileDataDoc{
-			UpgradeCharmProfileComplete: lxdprofile.NotKnownStatus,
-		}),
+		s.expectInitialCollectionInstanceField(lxdprofile.NotKnownStatus),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
 		}),
 		s.expectLoop,
-		s.expectMergeCollectionInstanceField(state.InstanceCharmProfileDataDoc{
-			UpgradeCharmProfileComplete: lxdprofile.NotKnownStatus,
-		}),
+		s.expectMergeCollectionInstanceField(lxdprofile.NotKnownStatus),
 		s.expectLoop,
 	)
 
@@ -175,11 +167,13 @@ func (s *instanceCharmProfileWatcherSuite) workerForScenario(c *gc.C, behaviours
 	return state.NewInstanceCharmProfileDataWatcher(s.modelBackend, "1")
 }
 
-func (s *instanceCharmProfileWatcherSuite) expectInitialCollectionInstanceField(doc state.InstanceCharmProfileDataDoc) func() {
+func (s *instanceCharmProfileWatcherSuite) expectInitialCollectionInstanceField(state string) func() {
 	return func() {
 		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
-		s.query.EXPECT().One(gomock.Any()).SetArg(0, doc).Return(nil)
+		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
+			"UpgradeCharmProfileComplete": state,
+		}).Return(nil)
 	}
 }
 
@@ -194,11 +188,13 @@ func (s *instanceCharmProfileWatcherSuite) expectLoopCollectionFilterAndNotify(c
 	}
 }
 
-func (s *instanceCharmProfileWatcherSuite) expectMergeCollectionInstanceField(doc state.InstanceCharmProfileDataDoc) func() {
+func (s *instanceCharmProfileWatcherSuite) expectMergeCollectionInstanceField(state string) func() {
 	return func() {
 		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
-		s.query.EXPECT().One(gomock.Any()).SetArg(0, doc).Return(nil)
+		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
+			"UpgradeCharmProfileComplete": state,
+		}).Return(nil)
 	}
 }
 
@@ -223,16 +219,12 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatch(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField(state.ApplicationDoc{
-			CharmURL: charm.MustParseURL("cs:~user/series/name-0"),
-		}),
+		s.expectInitialCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-0")),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
 		}),
 		s.expectLoop,
-		s.expectMergeCollectionInstanceField(state.ApplicationDoc{
-			CharmURL: charm.MustParseURL("cs:~user/series/name-1"),
-		}),
+		s.expectMergeCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-1")),
 		s.expectLoop,
 	)
 
@@ -246,16 +238,12 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatchWithNoStatu
 	defer s.setup(c).Finish()
 
 	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField(state.ApplicationDoc{
-			CharmURL: charm.MustParseURL("cs:~user/series/name-0"),
-		}),
+		s.expectInitialCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-0")),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
 		}),
 		s.expectLoop,
-		s.expectMergeCollectionInstanceField(state.ApplicationDoc{
-			CharmURL: charm.MustParseURL("cs:~user/series/name-0"),
-		}),
+		s.expectMergeCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-0")),
 		s.expectLoop,
 	)
 
@@ -275,11 +263,13 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) workerForScenario(c *gc.
 	return state.NewInstanceCharmProfileDataCompatibilityWatcher(s.modelBackend, "1")
 }
 
-func (s *instanceCharmProfileWatcherCompatibilitySuite) expectInitialCollectionInstanceField(doc state.ApplicationDoc) func() {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) expectInitialCollectionInstanceField(url *charm.URL) func() {
 	return func() {
 		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
-		s.query.EXPECT().One(gomock.Any()).SetArg(0, doc).Return(nil)
+		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
+			"charmurl": url,
+		}).Return(nil)
 	}
 }
 
@@ -294,11 +284,13 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) expectLoopCollectionFilt
 	}
 }
 
-func (s *instanceCharmProfileWatcherCompatibilitySuite) expectMergeCollectionInstanceField(doc state.ApplicationDoc) func() {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) expectMergeCollectionInstanceField(url *charm.URL) func() {
 	return func() {
 		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
-		s.query.EXPECT().One(gomock.Any()).SetArg(0, doc).Return(nil)
+		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
+			"charmurl": url,
+		}).Return(nil)
 	}
 }
 
