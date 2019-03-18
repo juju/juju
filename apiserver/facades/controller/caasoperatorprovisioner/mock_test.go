@@ -27,7 +27,7 @@ type mockState struct {
 	model              *mockModel
 	applicationWatcher *mockStringsWatcher
 	app                *mockApplication
-	operatorImage      string
+	operatorRepo       string
 }
 
 func newMockState() *mockState {
@@ -51,7 +51,7 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	cfg := coretesting.FakeControllerConfig()
-	cfg[controller.CAASOperatorImagePath] = st.operatorImage
+	cfg[controller.CAASImageRepo] = st.operatorRepo
 	return cfg, nil
 }
 
