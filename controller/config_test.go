@@ -189,45 +189,45 @@ var validateTests = []struct {
 	},
 	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "Sharon Jones" at position 3`,
 }, {
-	about: "invalid CAAS operator docker image path",
+	about: "invalid CAAS docker image repo",
 	config: controller.Config{
-		controller.CACertKey:             testing.CACert,
-		controller.CAASOperatorImagePath: "foo?bar",
+		controller.CACertKey:     testing.CACert,
+		controller.CAASImageRepo: "foo?bar",
 	},
 	expectError: `docker image path "foo\?bar" not valid`,
 }, {
-	about: "invalid CAAS operator docker image path - leading colon",
+	about: "invalid CAAS operator docker image repo - leading colon",
 	config: controller.Config{
-		controller.CACertKey:             testing.CACert,
-		controller.CAASOperatorImagePath: ":foo",
+		controller.CACertKey:     testing.CACert,
+		controller.CAASImageRepo: ":foo",
 	},
 	expectError: `docker image path ":foo" not valid`,
 }, {
-	about: "invalid CAAS operator docker image path - trailing colon",
+	about: "invalid CAAS docker image repo - trailing colon",
 	config: controller.Config{
-		controller.CACertKey:             testing.CACert,
-		controller.CAASOperatorImagePath: "foo:",
+		controller.CACertKey:     testing.CACert,
+		controller.CAASImageRepo: "foo:",
 	},
 	expectError: `docker image path "foo:" not valid`,
 }, {
-	about: "invalid CAAS operator docker image path - extra colon",
+	about: "invalid CAAS docker image repo - extra colon",
 	config: controller.Config{
-		controller.CACertKey:             testing.CACert,
-		controller.CAASOperatorImagePath: "foo::bar",
+		controller.CACertKey:     testing.CACert,
+		controller.CAASImageRepo: "foo::bar",
 	},
 	expectError: `docker image path "foo::bar" not valid`,
 }, {
-	about: "invalid CAAS operator docker image path - leading /",
+	about: "invalid CAAS docker image repo - leading /",
 	config: controller.Config{
-		controller.CACertKey:             testing.CACert,
-		controller.CAASOperatorImagePath: "/foo",
+		controller.CACertKey:     testing.CACert,
+		controller.CAASImageRepo: "/foo",
 	},
 	expectError: `docker image path "/foo" not valid`,
 }, {
-	about: "invalid CAAS operator docker image path - extra /",
+	about: "invalid CAAS docker image repo - extra /",
 	config: controller.Config{
-		controller.CACertKey:             testing.CACert,
-		controller.CAASOperatorImagePath: "foo//bar",
+		controller.CACertKey:     testing.CACert,
+		controller.CAASImageRepo: "foo//bar",
 	},
 	expectError: `docker image path "foo//bar" not valid`,
 }, {
@@ -498,25 +498,22 @@ func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *gc.C) {
 	c.Check(cfg.AsSpaceConstraints(nil), gc.IsNil)
 }
 
-func (s *ConfigSuite) TestCAASOperatorImagePath(c *gc.C) {
-	for _, imagePath := range []string{
-		"juju-operator-image",
-		"registry.foo.com/juju-operator-image",
-		"registry.foo.com/me/juju-operator-image",
-		"juju-operator-image:latest",
-		"juju-operator-image:2.4-beta1",
-		"registry.foo.com/juju-operator-image:2.4-beta1",
-		"registry.foo.com/me/juju-operator-image:2.4-beta1",
+func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
+	for _, imageRepo := range []string{
+		"", //used to reset since we don't have a --reset option
+		"juju-operator-repo",
+		"registry.foo.com",
+		"registry.foo.com/me",
 	} {
 		cfg, err := controller.NewConfig(
 			testing.ControllerTag.Id(),
 			testing.CACert,
 			map[string]interface{}{
-				controller.CAASOperatorImagePath: imagePath,
+				controller.CAASImageRepo: imageRepo,
 			},
 		)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg.CAASOperatorImagePath(), gc.Equals, imagePath)
+		c.Assert(cfg.CAASImageRepo(), gc.Equals, imageRepo)
 	}
 }
 

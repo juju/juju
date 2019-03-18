@@ -4,6 +4,7 @@
 package podcfg
 
 import (
+	"fmt"
 	"net"
 	"path"
 	"strconv"
@@ -24,6 +25,11 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
+
+const (
+	jujudOCINamespace = "jujusolutions"
+	jujudOCIName      = "jujud-operator"
+)
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
 type ControllerPodConfig struct {
@@ -196,6 +202,20 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 		}
 	}
 	return nil
+}
+
+// GetJujuOCIImagePath returns the jujud oci image path.
+func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) string {
+	// First check the deprecated "caas-operator-image-path" config.
+	imagePath := controllerCfg.CAASOperatorImagePath()
+	if imagePath != "" {
+		return imagePath
+	}
+	imageRepo := controllerCfg.CAASImageRepo()
+	if imageRepo == "" {
+		imageRepo = jujudOCINamespace
+	}
+	return fmt.Sprintf("%s/%s:%s", imageRepo, jujudOCIName, ver.String())
 }
 
 func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {

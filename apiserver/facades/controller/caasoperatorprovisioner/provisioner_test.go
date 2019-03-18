@@ -125,7 +125,7 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    fmt.Sprintf("jujusolutions/caas-jujud-operator:%s", version.Current.String()),
+		ImagePath:    fmt.Sprintf("jujusolutions/jujud-operator:%s", version.Current.String()),
 		Version:      version.Current,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{
@@ -143,11 +143,11 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
-	s.st.operatorImage = "jujusolutions/caas-jujud-operator"
+	s.st.operatorRepo = "somerepo"
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    s.st.operatorImage,
+		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + version.Current.String(),
 		Version:      version.Current,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{
@@ -166,11 +166,11 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C) {
 	s.storagePoolManager.SetErrors(errors.NotFoundf("pool"))
-	s.st.operatorImage = "jujusolutions/caas-jujud-operator"
+	s.st.operatorRepo = "somerepo"
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    s.st.operatorImage,
+		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + version.Current.String(),
 		Version:      version.Current,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{
