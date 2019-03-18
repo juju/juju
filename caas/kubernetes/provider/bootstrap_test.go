@@ -309,7 +309,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           s.pcfg.GetJujuDbOCIImagePath(),
+			Image:           "jujusolutions/juju-db:4.1.9",
 			Command: []string{
 				"mongod",
 			},
@@ -384,7 +384,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           s.pcfg.GetControllerImagePath(),
+			Image:           "jujusolutions/jujud-operator:" + jujuversion.Current.String(),
 			Command: []string{
 				"/bin/sh",
 			},

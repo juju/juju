@@ -51,7 +51,7 @@ func (s *MongodFinderSuite) TestFindSystemMongo36(c *gc.C) {
 	c.Check(version, gc.Equals, mongo.Version{
 		Major:         3,
 		Minor:         6,
-		Patch:         "3",
+		Point:         3,
 		StorageEngine: mongo.WiredTiger,
 	})
 }
@@ -70,7 +70,7 @@ func (s *MongodFinderSuite) TestFindSystemMongo34(c *gc.C) {
 	c.Check(version, gc.Equals, mongo.Version{
 		Major:         3,
 		Minor:         4,
-		Patch:         "14",
+		Point:         14,
 		StorageEngine: mongo.WiredTiger,
 	})
 }
@@ -91,7 +91,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodb(c *gc.C) {
 	c.Check(version, gc.Equals, mongo.Version{
 		Major:         2,
 		Minor:         4,
-		Patch:         "9",
+		Point:         9,
 		StorageEngine: mongo.MMAPV1,
 	})
 }
@@ -115,7 +115,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodbIgnoringSystemMongodb(c *gc.C) {
 	c.Check(version, gc.Equals, mongo.Version{
 		Major:         2,
 		Minor:         4,
-		Patch:         "9",
+		Point:         9,
 		StorageEngine: mongo.MMAPV1,
 	})
 }
@@ -135,7 +135,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodb32(c *gc.C) {
 	c.Check(version, gc.Equals, mongo.Version{
 		Major:         3,
 		Minor:         2,
-		Patch:         "15",
+		Point:         15,
 		StorageEngine: mongo.WiredTiger,
 	})
 }
@@ -155,7 +155,6 @@ func (s *MongodFinderSuite) TestFindJujuMongodb32IgnoringFailedVersion(c *gc.C) 
 	c.Check(version, gc.Equals, mongo.Version{
 		Major:         3,
 		Minor:         2,
-		Patch:         "",
 		StorageEngine: mongo.WiredTiger,
 	})
 }
@@ -176,7 +175,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodb32IgnoringSystemMongo(c *gc.C) {
 	c.Check(version, gc.Equals, mongo.Version{
 		Major:         3,
 		Minor:         2,
-		Patch:         "15",
+		Point:         15,
 		StorageEngine: mongo.WiredTiger,
 	})
 }
@@ -200,21 +199,22 @@ func (s *MongodFinderSuite) TestStatButNoExecSystemMongo(c *gc.C) {
 }
 
 func (s *MongodFinderSuite) TestParseMongoVersion(c *gc.C) {
-	assertVersion := func(major, minor int, patch string, content string) {
+	assertVersion := func(major, minor, point int, patch string, content string) {
 		v, err := mongo.ParseMongoVersion(content)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(v.Major, gc.Equals, major)
 		c.Check(v.Minor, gc.Equals, minor)
+		c.Check(v.Point, gc.Equals, point)
 		c.Check(v.Patch, gc.Equals, patch)
 	}
-	assertVersion(2, 4, "9", mongodb24Version)
-	assertVersion(2, 6, "10", mongodb26Version)
-	assertVersion(3, 2, "15", mongodb32Version)
-	assertVersion(3, 4, "14", mongodb34Version)
-	assertVersion(3, 6, "3", mongodb36Version)
-	assertVersion(3, 4, "0-rc3", "db version v3.4.0-rc3\n")
-	assertVersion(2, 4, "6", "db version v2.4.6\n")
-	assertVersion(2, 4, "", "db version v2.4.")
+	assertVersion(2, 4, 9, "", mongodb24Version)
+	assertVersion(2, 6, 10, "", mongodb26Version)
+	assertVersion(3, 2, 15, "", mongodb32Version)
+	assertVersion(3, 4, 14, "", mongodb34Version)
+	assertVersion(3, 6, 3, "", mongodb36Version)
+	assertVersion(3, 4, 0, "rc3", "db version v3.4.0-rc3\n")
+	assertVersion(2, 4, 6, "", "db version v2.4.6\n")
+	assertVersion(2, 4, 0, "alpha1", "db version v2.4.0.alpha1")
 }
 
 func (s *MongodFinderSuite) TestParseBadVersion(c *gc.C) {

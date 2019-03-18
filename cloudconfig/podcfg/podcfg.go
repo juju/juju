@@ -33,7 +33,7 @@ var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
 const (
 	jujudOCINamespace = "jujusolutions"
 	jujudOCIName      = "jujud-operator"
-	jujudbOCIName     = "juju-db:4.1.9"
+	jujudbOCIName     = "juju-db"
 )
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
@@ -233,7 +233,8 @@ func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() string {
 	if imageRepo == "" {
 		imageRepo = jujudOCINamespace
 	}
-	return fmt.Sprintf("%s/%s", imageRepo, jujudbOCIName)
+	v := mongo.Mongo419wt
+	return fmt.Sprintf("%s/%s:%d.%d.%d", imageRepo, jujudbOCIName, v.Major, v.Minor, v.Point)
 }
 
 // GetJujuOCIImagePath returns the jujud oci image path.
