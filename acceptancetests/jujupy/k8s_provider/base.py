@@ -70,7 +70,7 @@ class Base(object):
 
     name = None
 
-    k8s_cloud_name = 'k8cloud'
+    cloud_name = 'k8cloud'
 
     timeout = None
     juju_home = None
@@ -157,7 +157,8 @@ class Base(object):
 
     def sh(self, *args):
         return subprocess.check_output(
-            args,
+            # args should be str.
+            (str(arg) for arg in args),
             stderr=subprocess.STDOUT,
         ).decode('UTF-8').strip()
 
@@ -182,4 +183,4 @@ class Base(object):
             self.kubectl('get', 'nodes', '-o', 'json')
         )
         logger.debug("trying to get first worker node IP, nodes are -> \n%s", pformat(nodes))
-        return self._node_address_getter(nodes[0])
+        return self._node_address_getter(nodes['items'][0])
