@@ -176,7 +176,8 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	resultSource := params.GenerationResult{Generation: params.Generation{
-		Created: time.Time{}.Unix(),
+		Created:   time.Time{}.Unix(),
+		CreatedBy: "test-user",
 		Applications: []params.GenerationApplication{
 			{
 				ApplicationName: "redis",
@@ -199,7 +200,8 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(apps, jc.DeepEquals, map[model.GenerationVersion]model.Generation{
 		"next": {
-			Created: "0001-01-01 00:00:00",
+			Created:   "0001-01-01 00:00:00",
+			CreatedBy: "test-user",
 			Applications: []model.GenerationApplication{{
 				ApplicationName: "redis",
 				Units:           []string{"redis/0"},

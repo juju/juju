@@ -1834,7 +1834,7 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsNextGen(c *gc.
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
 
-	c.Assert(s.State.AddGeneration(), jc.ErrorIsNil)
+	c.Assert(s.State.AddGeneration("user"), jc.ErrorIsNil)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1881,7 +1881,7 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLNextGen(c *gc.C) 
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
 
-	c.Assert(s.State.AddGeneration(), jc.ErrorIsNil)
+	c.Assert(s.State.AddGeneration("user"), jc.ErrorIsNil)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{

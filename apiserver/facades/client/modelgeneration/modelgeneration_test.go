@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-var _ = gc.Suite(&modelGenerationSuite{})
-
 type modelGenerationSuite struct {
 	modelUUID string
 
 	api *modelgeneration.API
 }
+
+var _ = gc.Suite(&modelGenerationSuite{})
 
 func (s *modelGenerationSuite) SetUpSuite(c *gc.C) {
 	s.modelUUID = "deadbeef-abcd-4fd2-967d-db9663db7bea"
@@ -39,7 +39,7 @@ func (s *modelGenerationSuite) TearDownTest(c *gc.C) {
 func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mExp := mockModel.EXPECT()
-		mExp.AddGeneration().Return(nil)
+		mExp.AddGeneration("test-user").Return(nil)
 	}).Finish()
 
 	result, err := s.api.AddGeneration(s.modelArg())
@@ -73,7 +73,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationErrorNoAutoComplete(c *gc.C)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
 		gExp.AssignUnit("mysql/0").Return(nil)
-		gExp.AutoComplete().Return(false, nil)
+		gExp.AutoComplete("test-user").Return(false, nil)
 		gExp.Refresh().Return(nil).Times(3)
 
 		mExp := mockModel.EXPECT()
@@ -104,7 +104,7 @@ func (s *modelGenerationSuite) TestAdvanceGenerationSuccessAutoComplete(c *gc.C)
 		gExp := mockGeneration.EXPECT()
 		gExp.AssignAllUnits("ghost").Return(nil)
 		gExp.AssignUnit("mysql/0").Return(nil)
-		gExp.AutoComplete().Return(true, nil)
+		gExp.AutoComplete("test-user").Return(true, nil)
 		gExp.Refresh().Return(nil).Times(2)
 
 		mExp := mockModel.EXPECT()
@@ -124,7 +124,7 @@ func (s *modelGenerationSuite) TestCancelGeneration(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
-		gExp.MakeCurrent().Return(nil)
+		gExp.MakeCurrent("test-user").Return(nil)
 
 		mExp := mockModel.EXPECT()
 		mExp.NextGeneration().Return(mockGeneration, nil)
@@ -141,7 +141,7 @@ func (s *modelGenerationSuite) TestCancelGenerationCanNotMakeCurrent(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mockGeneration := mocks.NewMockGeneration(ctrl)
 		gExp := mockGeneration.EXPECT()
-		gExp.MakeCurrent().Return(errors.New(errMsg))
+		gExp.MakeCurrent("test-user").Return(errors.New(errMsg))
 
 		mExp := mockModel.EXPECT()
 		mExp.NextGeneration().Return(mockGeneration, nil)
@@ -159,6 +159,7 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 		gen := mocks.NewMockGeneration(ctrl)
 		gen.EXPECT().AssignedUnits().Return(map[string][]string{"redis": units})
 		gen.EXPECT().Created().Return(int64(666))
+		gen.EXPECT().CreatedBy().Return("test-user")
 
 		mod.EXPECT().NextGeneration().Return(gen, nil)
 
@@ -182,6 +183,7 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 
 	gen := result.Generation
 	c.Assert(gen.Created, gc.Equals, int64(666))
+	c.Assert(gen.CreatedBy, gc.Equals, "test-user")
 	c.Assert(gen.Applications, gc.HasLen, 1)
 
 	app := gen.Applications[0]
@@ -204,7 +206,7 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) *g
 	mockAuthorizer := facademocks.NewMockAuthorizer(ctrl)
 	aExp := mockAuthorizer.EXPECT()
 	aExp.HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
-	aExp.GetAuthTag().Return(names.NewUserTag("testing"))
+	aExp.GetAuthTag().Return(names.NewUserTag("test-user"))
 	aExp.AuthClient().Return(true)
 
 	fn(ctrl, mockState, mockModel)

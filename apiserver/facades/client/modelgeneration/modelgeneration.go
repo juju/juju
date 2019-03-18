@@ -87,7 +87,7 @@ func (m *API) AddGeneration(arg params.Entity) (params.ErrorResult, error) {
 		return result, common.ErrPerm
 	}
 
-	result.Error = common.ServerError(m.model.AddGeneration())
+	result.Error = common.ServerError(m.model.AddGeneration(m.apiUser.Name()))
 	return result, nil
 }
 
@@ -155,7 +155,7 @@ func (m *API) AdvanceGeneration(arg params.AdvanceGenerationArg) (params.Advance
 	result := params.AdvanceGenerationResult{AdvanceResults: results}
 
 	// Complete the generation if possible.
-	completed, err := generation.AutoComplete()
+	completed, err := generation.AutoComplete(m.apiUser.Name())
 	result.CompleteResult = params.BoolResult{
 		Result: completed,
 		Error:  common.ServerError(err),
@@ -179,7 +179,7 @@ func (m *API) CancelGeneration(arg params.Entity) (params.ErrorResult, error) {
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	result.Error = common.ServerError(generation.MakeCurrent())
+	result.Error = common.ServerError(generation.MakeCurrent(m.apiUser.Name()))
 	return result, nil
 }
 
@@ -236,6 +236,7 @@ func (m *API) GenerationInfo(arg params.Entity) (params.GenerationResult, error)
 
 	return params.GenerationResult{Generation: params.Generation{
 		Created:      gen.Created(),
+		CreatedBy:    gen.CreatedBy(),
 		Applications: apps,
 	}}, nil
 }
