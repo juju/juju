@@ -37,6 +37,9 @@ func collapseRunError(result *exec.ExecResponse, err error) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if result == nil {
+		return nil
+	}
 	if result.Code != 0 {
 		return errors.New(string(result.Stderr))
 	}

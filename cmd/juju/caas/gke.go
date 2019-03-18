@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cmd/juju/interact"
@@ -30,12 +29,8 @@ func (g *gke) cloud() string {
 }
 
 func (g *gke) ensureExecutable() error {
-	path := getEnv("path")
-	checkParams := exec.RunParams{
-		Commands:    "which gcloud",
-		Environment: []string{"PATH=" + path},
-	}
-	err := collapseRunError(exec.RunCommands(checkParams))
+	cmd := []string{"which", "gcloud"}
+	err := collapseRunError(runCommand(g, cmd, ""))
 	errAnnotationMessage := "gcloud command not found, please 'snap install gcloud' then try again"
 	if err != nil {
 		return errors.Annotate(err, errAnnotationMessage)

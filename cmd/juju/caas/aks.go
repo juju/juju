@@ -19,7 +19,6 @@ import (
 
 type aks struct {
 	CommandRunner
-	azExecName string
 }
 
 func newAKSCluster() k8sCluster {
@@ -27,34 +26,22 @@ func newAKSCluster() k8sCluster {
 }
 
 func (a *aks) cloud() string {
-	return "aks"
+	return "azure"
 }
 
 func (a *aks) ensureExecutable() error {
-	if a.azExecName != "" {
-		return nil
-	}
-
 	cmd := []string{"which", "az"}
 	err := collapseRunError(runCommand(a, cmd, ""))
+	errAnnotationMessage := "az not found. Please 'apt install az' (see: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-apt?view=azure-cli-latest), login, and try again"
 	if err != nil {
-		cmd = []string{"which", "azure-cli"}
-		err := collapseRunError(runCommand(a, cmd, ""))
-		errAnnotationMessage := "neither az or azure-cli (version > 2.0.52) found. Please install, login, and try again"
-		if err != nil {
-			return errors.Annotate(err, errAnnotationMessage)
-		}
-		a.azExecName = "azure-cli"
-	} else {
-		a.azExecName = "az"
+		return errors.Errorf(errAnnotationMessage)
 	}
 
 	// check that we are logged in, there is no way to provide login details to a separate command.
-	cmd = []string{a.azExecName, "account", "show"}
+	cmd = []string{"az", "account", "show"}
 	err = collapseRunError(runCommand(a, cmd, ""))
-	errAnnotationMessage := fmt.Sprintf("please run '%s login' to setup account", a.azExecName)
 	if err != nil {
-		return errors.Annotate(err, errAnnotationMessage)
+		return errors.Errorf("please run 'az login' to setup account and re-run this command")
 	}
 	return nil
 }
@@ -63,7 +50,7 @@ func (a *aks) getKubeConfig(p *clusterParams) (io.ReadCloser, string, error) {
 	// 'az aks get-credential' ignores KUBECONFIG env var and instead relies on -f.
 	kubeconfig := clientconfig.GetKubeConfigPath()
 	cmd := []string{
-		a.azExecName, "aks", "get-credentials",
+		"az", "aks", "get-credentials",
 		"--name", p.name, "--resource-group", p.resourceGroup,
 		"--overwrite-existing",
 		"-f", kubeconfig,
@@ -101,7 +88,7 @@ func (a *aks) interactiveParams(ctxt *cmd.Context, p *clusterParams) (*clusterPa
 				resourceGroupMsg = fmt.Sprintf(" in resource group %s", p.resourceGroup)
 			}
 			return nil, errors.Errorf(
-				"cluster %q not found%s.\nSee '%s aks create --help'", p.name, resourceGroupMsg, a.azExecName)
+				"cluster %q not found%s.\nSee 'az aks create --help'", p.name, resourceGroupMsg)
 		}
 
 		if len(clusters) == 1 {
@@ -115,6 +102,13 @@ func (a *aks) interactiveParams(ctxt *cmd.Context, p *clusterParams) (*clusterPa
 		}
 	}
 
+	// grab the resource group and get the 'location' aka. region from itself
+	resourceGroup, err := a.getResourceGroup(p.resourceGroup)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	p.region = resourceGroup.Location
+
 	return p, nil
 }
 
@@ -125,7 +119,7 @@ func (a *aks) queryResourceGroupsForClusters(pollster *interact.Pollster, cluste
 	}
 	if len(groups) == 0 {
 		return "", errors.New("no resource groups found.\n" +
-			fmt.Sprintf("see '%s group --help'", a.azExecName))
+			fmt.Sprintf("see 'az group --help'"))
 	}
 
 	var displayResourceGroupOptions []string
@@ -150,6 +144,28 @@ type resourceGroupDetails struct {
 	Location string `json:"location"`
 }
 
+func (a *aks) getResourceGroup(groupName string) (resourceGroupDetails, error) {
+	cmd := []string{
+		"az", "group", "list",
+		"--output", "json",
+		"--query",
+		fmt.Sprintf(`"[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`, groupName),
+	}
+	result, err := runCommand(a, cmd, "")
+	err = collapseRunError(result, err)
+	if err != nil {
+		return resourceGroupDetails{}, errors.Trace(err)
+	}
+	var group []resourceGroupDetails
+	if err := json.Unmarshal(result.Stdout, &group); err != nil {
+		return resourceGroupDetails{}, errors.Trace(err)
+	}
+	if len(group) != 1 {
+		return resourceGroupDetails{}, errors.NotFoundf("resource group %q", groupName)
+	}
+	return group[0], nil
+}
+
 // will list resource groups used by the passed clusters
 func (a *aks) listResourceGroups(clusters []cluster) ([]resourceGroupDetails, error) {
 	usedRG := set.Strings{}
@@ -160,7 +176,7 @@ func (a *aks) listResourceGroups(clusters []cluster) ([]resourceGroupDetails, er
 	// It seems that any resource group that has a non-null 'managedBy' is a
 	// generated RG i.e. via the creation of the cluster itself.
 	cmd := []string{
-		a.azExecName, "group", "list",
+		"az", "group", "list",
 		"--output", "json",
 		"--query", `"[?properties.provisioningState=='Succeeded']"`,
 	}
@@ -195,7 +211,7 @@ func (a *aks) queryCluster(pollster *interact.Pollster, resourceGroup string) (s
 			resourceGroupMsg = fmt.Sprintf(" in resource group %s", resourceGroup)
 		}
 		return "", "", errors.Errorf(
-			"no clusters have been setup%s.\nSee '%s aks create --help'", resourceGroupMsg, a.azExecName)
+			"no clusters have been setup%s.\nSee 'az aks create --help'", resourceGroupMsg)
 	}
 
 	var clusterNamer func(clusterName, resourceGroupName string) string
@@ -215,10 +231,10 @@ func (a *aks) queryCluster(pollster *interact.Pollster, resourceGroup string) (s
 		}
 		if groupsMentioned.Size() > 1 {
 			clusterNamer = func(clusterName, resourceGroupName string) string {
-				return fmt.Sprintf("%s in resource group %s", clusterName, resourceGroupName)
+				return fmt.Sprintf(`%s in resource group "%s"`, clusterName, resourceGroupName)
 			}
 		} else {
-			clusterPluralText = fmt.Sprintf("Available clusters in resource group %s", groupsMentioned.Values()[0])
+			clusterPluralText = fmt.Sprintf(`Available clusters in resource group "%s"`, groupsMentioned.Values()[0])
 		}
 	}
 
@@ -247,7 +263,7 @@ type clusterDetails struct {
 
 func (a *aks) listClusters(resourceGroup string) ([]cluster, error) {
 	cmd := []string{
-		a.azExecName, "aks", "list",
+		"az", "aks", "list",
 		"--output", "json",
 	}
 	if resourceGroup != "" {

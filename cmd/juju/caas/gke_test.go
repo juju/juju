@@ -232,3 +232,43 @@ func (s *gkeSuite) TestGetKubeConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.DeepEquals, "data")
 }
+
+func (s *gkeSuite) TestEnsureExecutableGcloudFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockRunner := mocks.NewMockCommandRunner(ctrl)
+	gke := &gke{CommandRunner: mockRunner}
+
+	gomock.InOrder(
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands:    "which gcloud",
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code: 0,
+			}, nil),
+	)
+	err := gke.ensureExecutable()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *gkeSuite) TestEnsureExecutableGcloudNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockRunner := mocks.NewMockCommandRunner(ctrl)
+	gke := &gke{CommandRunner: mockRunner}
+
+	gomock.InOrder(
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands:    "which gcloud",
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code: 1,
+			}, nil),
+	)
+	err := gke.ensureExecutable()
+	c.Assert(err, gc.ErrorMatches, "gcloud command not found, please 'snap install gcloud' then try again: ")
+}

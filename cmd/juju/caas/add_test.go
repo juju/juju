@@ -845,3 +845,9 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 		},
 	)
 }
+
+func (s *addCAASSuite) TestOnlyOneClusterProvider(c *gc.C) {
+	cmd := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--aks", "--gke")
+	c.Assert(err, gc.ErrorMatches, "only one of '--gke' or '--aks' can be supplied")
+}

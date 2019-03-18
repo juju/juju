@@ -43,7 +43,6 @@ func (s *aksSuite) TestGetKubeConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	aks := &aks{
 		CommandRunner: mockRunner,
-		azExecName:    "az",
 	}
 	err = ioutil.WriteFile(configFile, []byte("data"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,7 +77,6 @@ func (s *aksSuite) TestInteractiveParam(c *gc.C) {
 	mockRunner := mocks.NewMockCommandRunner(ctrl)
 	aks := &aks{
 		CommandRunner: mockRunner,
-		azExecName:    "az",
 	}
 	resourceGroup := "testRG"
 	clusterName := "mycluster"
@@ -95,6 +93,14 @@ func (s *aksSuite) TestInteractiveParam(c *gc.C) {
 ]
 `, clusterName, resourceGroup)
 
+	resourcegroupJSONResp := fmt.Sprintf(`
+[
+  {
+    "location": "westus2",
+    "name": "%s"
+  }
+]`, resourceGroup)
+
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
@@ -104,8 +110,18 @@ func (s *aksSuite) TestInteractiveParam(c *gc.C) {
 				Code:   0,
 				Stdout: []byte(clusterJSONResp),
 			}, nil),
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands: fmt.Sprintf(
+				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
+				resourceGroup),
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte(resourcegroupJSONResp),
+			}, nil),
 	)
-	stdin := strings.NewReader("mycluster in resource group testRG\n")
+	stdin := strings.NewReader("mycluster in resource group \"testRG\"\n")
 	out := &bytes.Buffer{}
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -115,18 +131,19 @@ func (s *aksSuite) TestInteractiveParam(c *gc.C) {
 	}
 	expected := `
 Available Clusters
-  mycluster in resource group testRG
-  notThisCluster in resource group notThisRG
+  mycluster in resource group "testRG"
+  notThisCluster in resource group "notThisRG"
 
-Select cluster [mycluster in resource group testRG]: 
+Select cluster [mycluster in resource group "testRG"]: 
 `[1:]
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Check(strings.Replace(cmdtesting.Stdout(ctx), "&#34;", `"`, -1), gc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
+		region:        "westus2",
 	})
 }
 
@@ -137,7 +154,6 @@ func (s *aksSuite) TestInteractiveParamResourceGroupDefined(c *gc.C) {
 	mockRunner := mocks.NewMockCommandRunner(ctrl)
 	aks := &aks{
 		CommandRunner: mockRunner,
-		azExecName:    "az",
 	}
 	resourceGroup := "testRG"
 	clusterName := "mycluster"
@@ -149,6 +165,15 @@ func (s *aksSuite) TestInteractiveParamResourceGroupDefined(c *gc.C) {
   }
 ]
 `, clusterName, resourceGroup)
+
+	resourcegroupJSONResp := fmt.Sprintf(`
+[
+  {
+    "location": "westus2",
+    "name": "%s"
+  }
+]`, resourceGroup)
+
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json --resource-group " + resourceGroup,
@@ -157,6 +182,16 @@ func (s *aksSuite) TestInteractiveParamResourceGroupDefined(c *gc.C) {
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(clusterJSONResp),
+			}, nil),
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands: fmt.Sprintf(
+				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
+				resourceGroup),
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte(resourcegroupJSONResp),
 			}, nil),
 	)
 	stdin := strings.NewReader("mycluster\n")
@@ -182,6 +217,7 @@ Select cluster [mycluster]:
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
+		region:        "westus2",
 	})
 }
 
@@ -192,7 +228,6 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGr
 	mockRunner := mocks.NewMockCommandRunner(ctrl)
 	aks := &aks{
 		CommandRunner: mockRunner,
-		azExecName:    "az",
 	}
 	resourceGroup := "testRG"
 	clusterName := "mycluster"
@@ -208,6 +243,14 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGr
   }
 ]
 `, clusterName, resourceGroup, resourceGroup)
+
+	resourcegroupJSONResp := fmt.Sprintf(`
+[
+  {
+    "location": "westus2",
+    "name": "%s"
+  }
+]`, resourceGroup)
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
@@ -216,6 +259,16 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGr
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(clusterJSONResp),
+			}, nil),
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands: fmt.Sprintf(
+				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
+				resourceGroup),
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte(resourcegroupJSONResp),
 			}, nil),
 	)
 	stdin := strings.NewReader("mycluster\n")
@@ -227,7 +280,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGr
 		Stdin:  stdin,
 	}
 	expected := `
-Available Clusters In Resource Group TestRG
+Available Clusters In Resource Group "TestRG"
   mycluster
   notMeSir
 
@@ -236,10 +289,11 @@ Select cluster [mycluster]:
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Check(strings.Replace(cmdtesting.Stdout(ctx), "&#34;", `"`, -1), gc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
+		region:        "westus2",
 	})
 }
 
@@ -250,7 +304,6 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGro
 	mockRunner := mocks.NewMockCommandRunner(ctrl)
 	aks := &aks{
 		CommandRunner: mockRunner,
-		azExecName:    "az",
 	}
 	resourceGroup := "testRG"
 	clusterName := "mycluster"
@@ -266,6 +319,15 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGro
   }
 ]
 `, clusterName, resourceGroup)
+
+	resourcegroupJSONResp := fmt.Sprintf(`
+[
+  {
+    "location": "westus2",
+    "name": "%s"
+  }
+]`, resourceGroup)
+
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
@@ -275,8 +337,18 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGro
 				Code:   0,
 				Stdout: []byte(clusterJSONResp),
 			}, nil),
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands: fmt.Sprintf(
+				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
+				resourceGroup),
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte(resourcegroupJSONResp),
+			}, nil),
 	)
-	stdin := strings.NewReader("mycluster in resource group testRG\n")
+	stdin := strings.NewReader("mycluster in resource group \"testRG\"\n")
 	out := &bytes.Buffer{}
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -286,18 +358,19 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGro
 	}
 	expected := `
 Available Clusters
-  mycluster in resource group testRG
-  notMeSir in resource group MonsterResourceGroup
+  mycluster in resource group "testRG"
+  notMeSir in resource group "MonsterResourceGroup"
 
-Select cluster [mycluster in resource group testRG]: 
+Select cluster [mycluster in resource group "testRG"]: 
 `[1:]
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Check(strings.Replace(cmdtesting.Stdout(ctx), "&#34;", `"`, -1), gc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
+		region:        "westus2",
 	})
 }
 
@@ -308,7 +381,6 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 	mockRunner := mocks.NewMockCommandRunner(ctrl)
 	aks := &aks{
 		CommandRunner: mockRunner,
-		azExecName:    "az",
 	}
 	resourceGroup := "testRG"
 	clusterName := "mycluster"
@@ -324,6 +396,14 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
   }
 ]`, clusterName, resourceGroup, resourceGroup)
 
+	namedResourcegroupJSONResp := fmt.Sprintf(`
+[
+  {
+    "location": "westus2",
+    "name": "%s"
+  }
+]`, resourceGroup)
+
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
@@ -332,6 +412,16 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(clusterJSONResp),
+			}, nil),
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands: fmt.Sprintf(
+				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
+				resourceGroup),
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte(namedResourcegroupJSONResp),
 			}, nil),
 	)
 	stdin := strings.NewReader("")
@@ -351,6 +441,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
+		region:        "westus2",
 	})
 }
 
@@ -364,7 +455,6 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 	mockRunner := mocks.NewMockCommandRunner(ctrl)
 	aks := &aks{
 		CommandRunner: mockRunner,
-		azExecName:    "az",
 	}
 	resourceGroup := "testRG"
 	clusterName := "mycluster"
@@ -396,6 +486,14 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
   }
 ]`, resourceGroup)
 
+	namedResourcegroupJSONResp := fmt.Sprintf(`
+[
+  {
+    "location": "westus2",
+    "name": "%s"
+  }
+]`, resourceGroup)
+
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
@@ -413,8 +511,18 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 				Code:   0,
 				Stdout: []byte(resourcegroupJSONResp),
 			}, nil),
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands: fmt.Sprintf(
+				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
+				resourceGroup),
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte(namedResourcegroupJSONResp),
+			}, nil),
 	)
-	stdin := strings.NewReader("testRG in westus2")
+	stdin := strings.NewReader("testRG in westus2\n")
 	out := &bytes.Buffer{}
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -437,6 +545,7 @@ Select resource group [testRG in westus2]:
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
+		region:        "westus2",
 	})
 }
 
@@ -447,10 +556,29 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedResourceGroupSpecified(c
 	mockRunner := mocks.NewMockCommandRunner(ctrl)
 	aks := &aks{
 		CommandRunner: mockRunner,
-		azExecName:    "az",
 	}
 	resourceGroup := "testRG"
 	clusterName := "mycluster"
+	namedResourcegroupJSONResp := fmt.Sprintf(`
+[
+  {
+    "location": "westus2",
+    "name": "%s"
+  }
+]`, resourceGroup)
+
+	gomock.InOrder(
+		mockRunner.EXPECT().RunCommands(exec.RunParams{
+			Commands: fmt.Sprintf(
+				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
+				resourceGroup),
+			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+		}).Times(1).
+			Return(&exec.ExecResponse{
+				Code:   0,
+				Stdout: []byte(namedResourcegroupJSONResp),
+			}, nil),
+	)
 
 	stdin := strings.NewReader("")
 	out := &bytes.Buffer{}
@@ -470,6 +598,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedResourceGroupSpecified(c
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
+		region:        "westus2",
 	})
 }
 
@@ -500,10 +629,9 @@ func (s *aksSuite) TestEnsureExecutablePicksAZ(c *gc.C) {
 	)
 	err := aks.ensureExecutable()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(aks.azExecName, gc.Equals, "az")
 }
 
-func (s *aksSuite) TestEnsureExecutableTriesSnap(c *gc.C) {
+func (s *aksSuite) TestEnsureExecutableNotFound(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -518,56 +646,7 @@ func (s *aksSuite) TestEnsureExecutableTriesSnap(c *gc.C) {
 			Return(&exec.ExecResponse{
 				Code: 1,
 			}, nil),
-		mockRunner.EXPECT().RunCommands(exec.RunParams{
-			Commands:    "which azure-cli",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
-			Return(&exec.ExecResponse{
-				Code: 0,
-			}, nil),
-		mockRunner.EXPECT().RunCommands(exec.RunParams{
-			Commands:    "azure-cli account show",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
-			Return(&exec.ExecResponse{
-				Code:   0,
-				Stdout: []byte(""),
-			}, nil),
 	)
 	err := aks.ensureExecutable()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(aks.azExecName, gc.Equals, "azure-cli")
-}
-
-func (s *aksSuite) TestEnsureExecutableRemembersFindings(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	mockRunner := mocks.NewMockCommandRunner(ctrl)
-	aks := &aks{CommandRunner: mockRunner}
-
-	gomock.InOrder(
-		mockRunner.EXPECT().RunCommands(exec.RunParams{
-			Commands:    "which az",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
-			Return(&exec.ExecResponse{
-				Code: 0,
-			}, nil),
-		mockRunner.EXPECT().RunCommands(exec.RunParams{
-			Commands:    "az account show",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
-			Return(&exec.ExecResponse{
-				Code:   0,
-				Stdout: []byte(""),
-			}, nil),
-	)
-	err := aks.ensureExecutable()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(aks.azExecName, gc.Equals, "az")
-	// 2nd run shouldn't call anything
-	err = aks.ensureExecutable()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(aks.azExecName, gc.Equals, "az")
+	c.Assert(err, gc.ErrorMatches, `az not found. Please 'apt install az' \(see: .*\).*`)
 }

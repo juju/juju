@@ -69,7 +69,7 @@ The config file can contain definitions for different k8s clusters,
 use --cluster-name to pick which one to use.
 It's also possible to select a context by name using --context-name.
 
-When running add-k8s the underlying cloud/region hosting the cluster need to be
+When running add-k8s the underlying cloud/region hosting the cluster needs to be
 detected to enable storage to be correctly configured. If the cloud/region cannot
 be detected automatically, use --region <cloudType/region> to specify the host
 cloud type and region.
@@ -204,6 +204,9 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return errors.Errorf("missing k8s name.")
 	}
+	if c.gke && c.aks {
+		return errors.BadRequestf("only one of '--gke' or '--aks' can be supplied")
+	}
 	c.caasType = "kubernetes"
 	c.caasName = args[0]
 
@@ -221,6 +224,12 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 			return errors.Trace(err)
 		}
 	} else {
+		if c.project != "" {
+			return errors.New("do not specify project unless adding a GKE cluster")
+		}
+		if c.credential != "" {
+			return errors.New("do not specify credential unless adding a GKE cluster")
+		}
 		if c.aks {
 			if c.contextName != "" {
 				return errors.New("do not specify context name when adding a AKS cluster")
@@ -231,12 +240,6 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 			if err := c.k8sCluster.ensureExecutable(); err != nil {
 				return errors.Trace(err)
 			}
-		}
-		if c.project != "" {
-			return errors.New("do not specify project unless adding a GKE cluster")
-		}
-		if c.credential != "" {
-			return errors.New("do not specify credential unless adding a GKE cluster")
 		}
 	}
 
@@ -338,7 +341,9 @@ func (c *AddCAASCommand) getAKSKubeConfg(ctx *cmd.Context) (io.Reader, string, e
 		resourceGroup: c.resourceGroup,
 	}
 
-	if p.name == "" || p.resourceGroup == "" {
+	// If any items are missing, prompt for them. Don't pass in region as we'll query the resource group for it.
+	// maybe we just always want to call interactive params so it takes care of the region/location issue.
+	if p.name == "" || p.resourceGroup == "" || p.region == "" {
 		var err error
 		p, err = c.k8sCluster.interactiveParams(ctx, p)
 		if err != nil {
@@ -346,6 +351,7 @@ func (c *AddCAASCommand) getAKSKubeConfg(ctx *cmd.Context) (io.Reader, string, e
 		}
 	}
 	c.clusterName = p.name
+	c.hostCloudRegion = c.k8sCluster.cloud() + "/" + p.region
 	return c.k8sCluster.getKubeConfig(p)
 }
 
