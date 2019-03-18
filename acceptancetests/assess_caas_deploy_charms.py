@@ -110,16 +110,14 @@ def assess_caas_charm_deployment(caas_client):
     )
 
     k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
-    # current destroy controller does not handle storage, so destroy current caas model with --destroy-storage.
-    k8s_model.destroy_model()
 
 
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="Cass charm deployment CI test")
+    parser = argparse.ArgumentParser(description="CAAS charm deployment CI test")
     parser.add_argument(
         '--caas-image', action='store', default=None,
-        help='CAAS operator docker image name to use with format of <username>/caas-jujud-operator:<tag>.'
+        help='CAAS operator docker image name to use with format of <username>/jujud-operator:<tag>.'
     )
     parser.add_argument(
         '--caas-provider', action='store', default='MICROK8S',

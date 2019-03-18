@@ -1348,7 +1348,7 @@ class ModelClient:
 
         :param static_bundle: render `bundle_template` if it's not static
         """
-        if static_bundle is False:
+        if not static_bundle:
             bundle_template = self.format_bundle(bundle_template)
         self.juju('deploy', bundle_template, timeout=timeout)
 
