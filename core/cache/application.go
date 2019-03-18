@@ -33,12 +33,16 @@ type Application struct {
 	hashCache  *hashCache
 }
 
-// Config returns the current application config.
+// Config returns a copy of the current application config.
 func (a *Application) Config() map[string]interface{} {
 	a.mu.Lock()
-	a.metrics.ApplicationConfigReads.Inc()
+	cfg := make(map[string]interface{}, len(a.details.Config))
+	for k, v := range a.details.Config {
+		cfg[k] = v
+	}
 	a.mu.Unlock()
-	return a.details.Config
+	a.metrics.ApplicationConfigReads.Inc()
+	return cfg
 }
 
 // WatchConfig creates a watcher for the application config.
@@ -59,7 +63,7 @@ func (a *Application) setDetails(details ApplicationChange) {
 		a.hub.Publish(a.topic(applicationConfigChange), hashCache)
 	}
 
-	defer a.mu.Unlock()
+	a.mu.Unlock()
 }
 
 // topic prefixes the input string with the model ID and application name.

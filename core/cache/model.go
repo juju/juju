@@ -41,9 +41,13 @@ type Model struct {
 // Config returns the current model config.
 func (m *Model) Config() map[string]interface{} {
 	m.mu.Lock()
-	m.metrics.ModelConfigReads.Inc()
+	cfg := make(map[string]interface{}, len(m.details.Config))
+	for k, v := range m.details.Config {
+		cfg[k] = v
+	}
 	m.mu.Unlock()
-	return m.details.Config
+	m.metrics.ModelConfigReads.Inc()
+	return cfg
 }
 
 // WatchConfig creates a watcher for the model config.
