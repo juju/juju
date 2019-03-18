@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 )
@@ -111,15 +112,24 @@ type ConfigWatcher struct {
 // newConfigWatcher returns a new watcher for the input config keys
 // with a baseline hash of their config values from the input hash cache.
 // As per the cache requirements, hashes are only generated from sorted keys.
-func newConfigWatcher(keys []string, cache *hashCache) *ConfigWatcher {
+func newConfigWatcher(keys []string, cache *hashCache, hub *pubsub.SimpleHub, topic string) *ConfigWatcher {
 	sort.Strings(keys)
 
-	return &ConfigWatcher{
+	w := &ConfigWatcher{
 		notifyWatcherBase: newNotifyWatcherBase(),
 
 		keys: keys,
 		hash: cache.getHash(keys),
 	}
+
+	unsub := hub.Subscribe(topic, w.configChanged)
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		unsub()
+		return nil
+	})
+
+	return w
 }
 
 func (w *ConfigWatcher) configChanged(topic string, value interface{}) {
