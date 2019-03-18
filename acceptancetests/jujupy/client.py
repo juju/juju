@@ -86,7 +86,6 @@ from jujupy.wait_condition import (
     NoopCondition,
     WaitAgentsStarted,
     WaitMachineNotPresent,
-    WaitMachinesNotPresent,
     WaitVersion,
 )
 
@@ -796,36 +795,11 @@ class ModelClient:
             timeout = 600
         return WaitMachineNotPresent(machine, timeout)
 
-    def remove_machine(self, machine_id, force=False):
+    def remove_machine(self, machine_ids, force=False, controller=False):
         """Remove a machine (or container).
 
-        :param machine_id: The id of the machine to remove.
+        :param machine_ids: The id of the machine to remove.
         :return: A WaitMachineNotPresent instance for client.wait_for.
-        """
-        if force:
-            options = ('--force',)
-        else:
-            options = ()
-        self.juju('remove-machine', options + (machine_id,))
-        return self.make_remove_machine_condition(machine_id)
-
-    def make_remove_machines_condition(self, machines):
-        """Return a condition object representing a machines removal.
-
-        The timeout varies depending on the provider.
-        See wait_for.
-        """
-        if self.env.provider == 'azure':
-            timeout = 1200
-        else:
-            timeout = 600
-        return WaitMachinesNotPresent(machines, timeout)
-
-    def remove_machines(self, machine_ids, controller=False, force=False):
-        """Remove machines (or containers).
-
-        :param machine_ids: The ids of the machines to remove.
-        :return: A WaitMachinesNotPresent instance for client.wait_for.
         """
         options = ()
         if force:
@@ -833,7 +807,7 @@ class ModelClient:
         if controller:
             options = ('-m', 'controller',)
         self.juju('remove-machine', options + tuple(machine_ids))
-        return self.make_remove_machines_condition(machine_ids)
+        return self.make_remove_machine_condition(machine_ids)
 
     @staticmethod
     def get_cloud_region(cloud, region):

@@ -201,38 +201,12 @@ class AgentsIdle(BaseCondition):
 class WaitMachineNotPresent(BaseCondition):
     """Condition satisfied when a given machine is not present."""
 
-    def __init__(self, machine, timeout=300):
+    def __init__(self, machineOrMachines, timeout=300):
         super(WaitMachineNotPresent, self).__init__(timeout)
-        self.machine = machine
-
-    def __eq__(self, other):
-        if not type(self) is type(other):
-            return False
-        if self.timeout != other.timeout:
-            return False
-        if self.machine != other.machine:
-            return False
-        return True
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def iter_blocking_state(self, status):
-        for machine, info in status.iter_machines():
-            if machine == self.machine:
-                yield machine, 'still-present'
-
-    def do_raise(self, model_name, status):
-        raise Exception("Timed out waiting for machine removal %s" %
-                        self.machine)
-
-
-class WaitMachinesNotPresent(BaseCondition):
-    """Condition satisfied when a given machine is not present."""
-
-    def __init__(self, machines, timeout=300):
-        super(WaitMachinesNotPresent, self).__init__(timeout)
-        self.machines = machines
+        if isinstance(machineOrMachines, list):
+            self.machines = machineOrMachines
+        else:
+            self.machines = [machineOrMachines]
 
     def __eq__(self, other):
         if not type(self) is type(other):
@@ -255,9 +229,12 @@ class WaitMachinesNotPresent(BaseCondition):
             yield machine[0], 'still-present'
 
     def do_raise(self, model_name, status):
-        raise Exception("Timed out waiting for machines removal %s" %
-                        self.machines)
-
+        plural = "s"
+        values = self.machines
+        if len(values) == 1:
+            plural = ""
+            values = self.machines[0]
+        raise Exception("Timed out waiting for machine{} removal {}".format(plural, values))
 
 class WaitApplicationNotPresent(BaseCondition):
     """Condition satisfied when a given machine is not present."""
