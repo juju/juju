@@ -39,7 +39,6 @@ from jujupy.client import (
     LXD_MACHINE,
     Machine,
     ModelClient,
-    CaasClient,
     IaasClient,
     parse_new_state_server_from_error,
     temp_bootstrap_env,
