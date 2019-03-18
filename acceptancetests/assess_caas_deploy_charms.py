@@ -50,7 +50,7 @@ def check_app_healthy(url, timeout=300, success_hook=lambda: None, fail_hook=lam
             log.error(e)
         finally:
             sleep(3)
-            if remaining % 60 == 0:
+            if remaining % 30 == 0:
                 log.info('timeout in %ss', remaining)
     log.error('HTTP health check failed -> %s, status_code -> %s !', url, status_code)
     fail_hook()
@@ -75,6 +75,8 @@ def assess_caas_charm_deployment(caas_client):
     )
 
     # ensure storage pools for mariadb
+    # TODO(ycliuhw): remove storage-pool setup, because Juju takes care of it now.
+    # And add tests for deploy with & without storage setup.
     mariadb_storage_pool_name = 'mariadb-pv'
     k8s_model.juju(
         'create-storage-pool',
