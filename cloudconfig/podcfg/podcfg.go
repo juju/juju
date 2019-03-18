@@ -32,7 +32,8 @@ var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
 
 const (
 	jujudOCINamespace = "jujusolutions"
-	jujudOCIName      = "caas-jujud-operator"
+	jujudOCIName      = "jujud-operator"
+	jujudbOCIName     = "juju-db"
 )
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
@@ -226,13 +227,28 @@ func (cfg *ControllerPodConfig) GetControllerImagePath() string {
 	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion)
 }
 
-// GetJujuOCIImagePath returns jujud oci image path.
-func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) string {
-	imagePath := controllerCfg.CAASOperatorImagePath()
-	if imagePath == "" {
-		imagePath = fmt.Sprintf("%s/%s:%s", jujudOCINamespace, jujudOCIName, ver.String())
+// GetJUjuDbOCIImagePath returns the juju-db oci image path.
+func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() string {
+	imageRepo := cfg.Controller.Config.CAASImageRepo()
+	if imageRepo == "" {
+		imageRepo = jujudOCINamespace
 	}
-	return imagePath
+	v := mongo.Mongo419wt
+	return fmt.Sprintf("%s/%s:%d.%d.%d", imageRepo, jujudbOCIName, v.Major, v.Minor, v.Point)
+}
+
+// GetJujuOCIImagePath returns the jujud oci image path.
+func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) string {
+	// First check the deprecated "caas-operator-image-path" config.
+	imagePath := controllerCfg.CAASOperatorImagePath()
+	if imagePath != "" {
+		return imagePath
+	}
+	imageRepo := controllerCfg.CAASImageRepo()
+	if imageRepo == "" {
+		imageRepo = jujudOCINamespace
+	}
+	return fmt.Sprintf("%s/%s:%s", imageRepo, jujudOCIName, ver.String())
 }
 
 func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {

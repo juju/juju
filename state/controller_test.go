@@ -43,6 +43,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.MaxLogsSize,
 		controller.MaxLogsAge,
 		controller.CAASOperatorImagePath,
+		controller.CAASImageRepo,
 		controller.CharmStoreURL,
 		controller.Features,
 		controller.MeteringURL,

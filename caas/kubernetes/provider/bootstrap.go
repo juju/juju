@@ -533,7 +533,7 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 		containerSpec = append(containerSpec, core.Container{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "mongo:3.6.6",
+			Image:           c.pcfg.GetJujuDbOCIImagePath(),
 			Command: []string{
 				"mongod",
 			},

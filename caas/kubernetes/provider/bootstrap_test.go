@@ -11,7 +11,7 @@ import (
 	core "k8s.io/api/core/v1"
 	k8sstorage "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	intstr "k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -309,7 +309,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "mongo:3.6.6",
+			Image:           "jujusolutions/juju-db:4.1.9",
 			Command: []string{
 				"mongod",
 			},
@@ -384,7 +384,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           s.pcfg.GetControllerImagePath(),
+			Image:           "jujusolutions/jujud-operator:" + jujuversion.Current.String(),
 			Command: []string{
 				"/bin/sh",
 			},

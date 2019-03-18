@@ -86,7 +86,7 @@ func (m *MongodFinder) FindBest() (string, Version, error) {
 
 // all mongo versions start with "db version v" and then the version is a X.Y.Z-extra
 // we don't really care about the 'extra' portion of it, so we just track the rest.
-var mongoVersionRegex = regexp.MustCompile(`^db version v(\d{1,9})\.(\d{1,9})(\..*)?`)
+var mongoVersionRegex = regexp.MustCompile(`^db version v(\d{1,9})\.(\d{1,9}).(\d{1,9})([.-].*)?`)
 
 // ParseMongoVersion parses the output from "mongod --version" and returns a Version struct
 func ParseMongoVersion(versionInfo string) (Version, error) {
@@ -94,25 +94,29 @@ func ParseMongoVersion(versionInfo string) (Version, error) {
 	if m == nil {
 		return Version{}, errors.Errorf("'mongod --version' reported:\n%s", versionInfo)
 	}
-	if len(m) < 3 {
+	if len(m) < 4 {
 		return Version{}, errors.Errorf("did not find enough version parts in:\n%s", versionInfo)
 	}
-	logger.Tracef("got version parts: %#v", m)
+	logger.Criticalf("got version parts: %#v", m)
 	var v Version
 	var err error
 	// Index '[0]' is the full matched string,
 	// [1] is the Major
 	// [2] is the Minor
-	// [3] is the Patch to the end of the line
+	// [3] is the Point
+	// [4] is the Patch to the end of the line
 	if v.Major, err = strconv.Atoi(m[1]); err != nil {
 		return Version{}, errors.Annotatef(err, "invalid major version: %q", versionInfo)
 	}
 	if v.Minor, err = strconv.Atoi(m[2]); err != nil {
 		return Version{}, errors.Annotatef(err, "invalid minor version: %q", versionInfo)
 	}
-	if len(m) > 3 {
-		// strip off the beginning '.', and make sure there is something after it
-		tail := m[3]
+	if v.Point, err = strconv.Atoi(m[3]); err != nil {
+		return Version{}, errors.Annotatef(err, "invalid point version: %q", versionInfo)
+	}
+	if len(m) > 4 {
+		// strip off the beginning '.' or '-', and make sure there is something after it
+		tail := m[4]
 		if len(tail) > 1 {
 			v.Patch = tail[1:]
 		}
