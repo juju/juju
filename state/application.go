@@ -1208,7 +1208,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 					if unitVer := unitTools.Version; unitVer.Compare(epoch) <= 0 {
 						return errors.Errorf(
 							"Unable to upgrade LXDProfile charms with the current version. "+
-								"Please upgrade your unit greater than %s", epoch)
+								"Please upgrade to greater than %q", epoch)
 					}
 				}
 			}
