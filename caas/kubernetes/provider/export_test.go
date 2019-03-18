@@ -53,8 +53,8 @@ func (cs controllerStack) GetStorageSize() resource.Quantity {
 	return cs.storageSize
 }
 
-func NewcontrollerStackForTest(stackName string, broker caas.Broker, pcfg *podcfg.ControllerPodConfig) (ControllerStackerForTest, error) {
-	cs, err := newcontrollerStack(stackName, broker.(*kubernetesClient), pcfg)
+func NewcontrollerStackForTest(stackName, storageClass string, broker caas.Broker, pcfg *podcfg.ControllerPodConfig) (ControllerStackerForTest, error) {
+	cs, err := newcontrollerStack(stackName, storageClass, broker.(*kubernetesClient), pcfg)
 	return cs.(controllerStack), err
 }
 

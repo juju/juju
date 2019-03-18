@@ -130,7 +130,7 @@ func NewK8sBroker(
 		// namespace format: <controller>-<controller-model-UUID> for juju controller to achieve:
 		// 1. multi controllers running in same k8s cluster;
 		// 2. avoid potential conflict if there is existing namespace named "controller"(warning:
-		//    an non juju related existing namespace could be destroyed if bootstraping failed due
+		//    an non juju related existing namespace could be destroyed if bootstrapping failed due
 		//    to AlreadyExistedNamespace error);
 
 		// IMPORTANT!
@@ -174,9 +174,19 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// PrepareForBootstrap prepares for bootstraping a controller.
+func (k *kubernetesClient) validateOperatorStorage() (string, error) {
+	storageClass, _ := k.envCfg.AllAttrs()[OperatorStorageKey].(string)
+	if storageClass == "" {
+		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
+	}
+	_, err := k.getStorageClass(storageClass)
+	return storageClass, errors.Trace(err)
+}
+
+// PrepareForBootstrap prepares for bootstrapping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
-	return nil
+	_, err := k.validateOperatorStorage()
+	return err
 }
 
 // Create implements environs.BootstrapEnviron.
@@ -195,9 +205,13 @@ func (k *kubernetesClient) Bootstrap(
 		return nil, errors.NotSupportedf("set series for bootstrapping to kubernetes")
 	}
 
+	storageClass, err := k.validateOperatorStorage()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) (err error) {
-		envConfig := k.Config()
-		if err = podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
+		if err = podcfg.FinishControllerPodConfig(pcfg, k.Config()); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -208,7 +222,7 @@ func (k *kubernetesClient) Bootstrap(
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
-		controllerStack, err := newcontrollerStack(JujuControllerStackName, k, pcfg)
+		controllerStack, err := newcontrollerStack(JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -591,21 +605,6 @@ func (k *kubernetesClient) ValidateStorageClass(config map[string]interface{}) e
 			fmt.Sprintf("storage class %q has provisoner %q, not %q", cfg.storageClass, sc.Provisioner, cfg.storageProvisioner))
 	}
 	return nil
-}
-
-// getDefaultStorageClass returns the default storageclass in k8s cluster.
-func (k *kubernetesClient) getDefaultStorageClass() (*k8sstorage.StorageClass, error) {
-	storageClasses, err := k.StorageV1().StorageClasses().List(v1.ListOptions{})
-	if err != nil {
-		return nil, errors.Annotate(err, "listing storage classes")
-	}
-	for _, sc := range storageClasses.Items {
-		if v, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && v != "false" {
-			logger.Debugf("using default storage class: %v", sc.Name)
-			return &sc, nil
-		}
-	}
-	return nil, errors.NewNotFound(nil, "default storage class")
 }
 
 type volumeParams struct {

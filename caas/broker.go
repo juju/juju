@@ -147,7 +147,7 @@ type Broker interface {
 	// arguments before recording them in state.
 	environs.InstancePrechecker
 
-	// BootstrapEnviron defines methods for bootstraping a controller.
+	// BootstrapEnviron defines methods for bootstrapping a controller.
 	environs.BootstrapEnviron
 
 	// ResourceAdopter defines methods for adopting resources.

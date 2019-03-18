@@ -72,7 +72,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	}
 	s.pcfg = pcfg
 	s.controllerStackerGetter = func() provider.ControllerStackerForTest {
-		controllerStacker, err := provider.NewcontrollerStackForTest("juju-controller-test", s.broker, s.pcfg)
+		controllerStacker, err := provider.NewcontrollerStackForTest("juju-controller-test", "some-storage", s.broker, s.pcfg)
 		c.Assert(err, jc.ErrorIsNil)
 		return controllerStacker
 	}
@@ -85,16 +85,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	controllerStacker := s.controllerStackerGetter()
 	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
 
-	scName := "default-storageclass"
+	scName := "some-storage"
 	sc := k8sstorage.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
 			Name: scName,
-			Annotations: map[string]string{
-				"storageclass.kubernetes.io/is-default-class": "true",
-			},
 		},
 	}
-	scs := &k8sstorage.StorageClassList{Items: []k8sstorage.StorageClass{sc}}
 
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: s.namespace}}
 	svc := &core.Service{
@@ -475,9 +471,11 @@ test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /va
 		s.mockConfigMaps.EXPECT().Update(configMapWithAgentConfAdded).AnyTimes().
 			Return(configMapWithAgentConfAdded, nil),
 
-		// find storageclass to use.
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
-			Return(scs, nil),
+		// Check the operator storage exists.
+		s.mockStorageClass.EXPECT().Get("test-some-storage", v1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("some-storage", v1.GetOptions{}).Times(1).
+			Return(&sc, nil),
 
 		// ensure statefulset.
 		s.mockStatefulSets.EXPECT().Create(statefulSetSpec).Times(1).
