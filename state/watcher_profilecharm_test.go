@@ -172,7 +172,7 @@ func (s *instanceCharmProfileWatcherSuite) expectInitialCollectionInstanceField(
 		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
 		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
-			"UpgradeCharmProfileComplete": state,
+			"upgradecharmprofilecomplete": state,
 		}).Return(nil)
 	}
 }
@@ -193,7 +193,7 @@ func (s *instanceCharmProfileWatcherSuite) expectMergeCollectionInstanceField(st
 		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
 		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
-			"UpgradeCharmProfileComplete": state,
+			"upgradecharmprofilecomplete": state,
 		}).Return(nil)
 	}
 }
