@@ -2082,7 +2082,7 @@ func watchInstanceCharmProfileData(backend modelBackend, watchDocId string) Stri
 		}
 		return initial, errors.NotValidf("instanceCharmProfileData type")
 	}
-	return newInstanceCharmProfileDataWatcher(backend, collection, members, initial, filter, extract, nil)
+	return newDocumentFieldWatcher(backend, collection, members, initial, filter, extract, nil)
 }
 
 func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId string) StringsWatcher {
@@ -2101,29 +2101,17 @@ func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId
 	transform := func(value string) string {
 		return lxdprofile.NotRequiredStatus
 	}
-	return newInstanceCharmProfileDataWatcher(backend, collection, members, initial, filter, extract, transform)
+	return newDocumentFieldWatcher(backend, collection, members, initial, filter, extract, transform)
 }
 
-// instanceCharmProfileDataWatcher notifies about any changes to the
-// instanceCharmProfileData document. The watcher looks for changes to the
-// upgrading of a charm lxd profile, that belongs to an application, which the
-// provisioner updates the document field. At start up the watcher gathers the
-// current values of the instance charm profile data, if the document doesn't
-// exist, then the status is set to not known. The document are transient and
-// not expected to there all the time, so the code deals with that with the
-// usage of the not know status.
-// Events are generated when there are changes to a instance charm profile
-// data document.
-//
-// - Watcher DEPRECATED -
-// * The following watcher is deprecated and shouldn't be used, it watches for
-// * changes in the instanceCharmProfileData collection, but instead of
-// * returning the status of the status field, it instead always returns the
-// * the supplied return status.
-// This is to retain backwards compatibility for the new LXD profile watcher,
-// where by the uniter resolver will be treated as a no-op based on the
-// supplied return status field.
-type instanceCharmProfileDataWatcher struct {
+// documentFieldWatcher notifies about any changes to a document field
+// specifically, the watcher looks for changes to a document field, and records
+// the current document field (known value). If the document doesn't exist an
+// initialKnown value can be set for the default.
+// Events are generated when there are changes to a document field that is
+// different from the known value. So setting field multiple times won't
+// dispatch an event, on changes that differ will be dispatched.
+type documentFieldWatcher struct {
 	commonWatcher
 	// docId is used to select the initial interesting entities.
 	collection   string
@@ -2136,9 +2124,9 @@ type instanceCharmProfileDataWatcher struct {
 	out          chan []string
 }
 
-var _ Watcher = (*instanceCharmProfileDataWatcher)(nil)
+var _ Watcher = (*documentFieldWatcher)(nil)
 
-func newInstanceCharmProfileDataWatcher(
+func newDocumentFieldWatcher(
 	backend modelBackend,
 	collection string,
 	members bson.D,
@@ -2147,7 +2135,7 @@ func newInstanceCharmProfileDataWatcher(
 	extract func(interface{}) (string, error),
 	transform func(string) string,
 ) StringsWatcher {
-	w := &instanceCharmProfileDataWatcher{
+	w := &documentFieldWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		collection:    collection,
 		members:       members,
@@ -2164,7 +2152,7 @@ func newInstanceCharmProfileDataWatcher(
 	return w
 }
 
-func (w *instanceCharmProfileDataWatcher) initial() error {
+func (w *documentFieldWatcher) initial() error {
 	col, closer := w.db.GetCollection(w.collection)
 	defer closer()
 
@@ -2182,7 +2170,7 @@ func (w *instanceCharmProfileDataWatcher) initial() error {
 	return nil
 }
 
-func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, error) {
+func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 	if change.Revno == -1 {
 		return false, nil
 	}
@@ -2199,7 +2187,7 @@ func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, er
 		return false, nil
 	}
 
-	// check the field before adding to the machineId
+	// check the field before adding it to the known value
 	currentField, err := w.extract(data)
 	if err != nil {
 		return false, err
@@ -2213,7 +2201,7 @@ func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, er
 	return false, nil
 }
 
-func (w *instanceCharmProfileDataWatcher) loop() error {
+func (w *documentFieldWatcher) loop() error {
 	err := w.initial()
 	if err != nil {
 		return err
@@ -2248,7 +2236,7 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 	}
 }
 
-func (w *instanceCharmProfileDataWatcher) Changes() <-chan []string {
+func (w *documentFieldWatcher) Changes() <-chan []string {
 	return w.out
 }
 
