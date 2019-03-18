@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -111,7 +112,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	conf.WarnAboutUnused()
 	return &containerManager{
 		namespace:        namespace,
-		logdir:           logDir,
+		logDir:           logDir,
 		availabilityZone: availabilityZone,
 		imageMetadataURL: imageMetaDataURL,
 		imageStream:      imageStream,
@@ -124,10 +125,11 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 // from the correct location.
 type containerManager struct {
 	namespace        instance.Namespace
-	logdir           string
+	logDir           string
 	availabilityZone string
 	imageMetadataURL string
 	imageStream      string
+	imageMutex       sync.Mutex
 }
 
 var _ container.Manager = (*containerManager)(nil)
@@ -156,7 +158,7 @@ func (manager *containerManager) CreateContainer(
 
 	defer func() {
 		if err != nil {
-			callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
+			_ = callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
 		}
 	}()
 
@@ -213,14 +215,25 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to parse hardware")
 	}
 
-	callback(status.Provisioning, "Creating container; it might take some time", nil)
+	_ = callback(status.Provisioning, "Creating container; it might take some time", nil)
 	logger.Tracef("create the container, constraints: %v", cons)
+
+	// Lock around finding an image.
+	// The provisioner works concurrently to create containers.
+	// If an image needs to be copied from a remote, we don't many goroutines
+	// attempting to do it at once.
+	manager.imageMutex.Lock()
+	err = kvmContainer.EnsureCachedImage(startParams)
+	manager.imageMutex.Unlock()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "acquiring container image")
+	}
+
 	if err := kvmContainer.Start(startParams); err != nil {
-		err = errors.Annotate(err, "kvm container creation failed")
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "kvm container creation failed")
 	}
 	logger.Tracef("kvm container created")
-	callback(status.Running, "Container started", nil)
+	_ = callback(status.Running, "Container started", nil)
 	return &kvmInstance{kvmContainer, name}, &hardware, nil
 }
 
@@ -254,14 +267,14 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 		return
 	}
 	managerPrefix := manager.namespace.Prefix()
-	for _, container := range containers {
+	for _, c := range containers {
 		// Filter out those not starting with our name.
-		name := container.Name()
+		name := c.Name()
 		if !strings.HasPrefix(name, managerPrefix) {
 			continue
 		}
-		if container.IsRunning() {
-			result = append(result, &kvmInstance{container, name})
+		if c.IsRunning() {
+			result = append(result, &kvmInstance{c, name})
 		}
 	}
 	return

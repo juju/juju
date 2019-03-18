@@ -30,6 +30,10 @@ type Container interface {
 	// Name returns the name of the container.
 	Name() string
 
+	// EnsureCachedImage ensures that a container image suitable for satisfying
+	// the input start parameters has been cached on disk.
+	EnsureCachedImage(params StartParams) error
+
 	// Start runs the container as a daemon.
 	Start(params StartParams) error
 
