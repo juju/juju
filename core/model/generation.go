@@ -52,7 +52,7 @@ type Generation struct {
 	Created string `yaml:"created"`
 
 	// Created is the user who created the generation.
-	CreatedBy string `json:"created-by"`
+	CreatedBy string `yaml:"created-by"`
 
 	// Applications is a collection of applications with changes in this
 	// generation including advanced units and modified configuration.

@@ -44,7 +44,8 @@ func (s *showGenerationSuite) TestRunCommandNextGenExists(c *gc.C) {
 
 	result := map[coremodel.GenerationVersion]coremodel.Generation{
 		coremodel.GenerationNext: {
-			Created: "0001-01-01 00:00:00Z",
+			Created:   "0001-01-01 00:00:00Z",
+			CreatedBy: "test-user",
 			Applications: []coremodel.GenerationApplication{{
 				ApplicationName: "redis",
 				Units:           []string{"redis/0"},
@@ -59,6 +60,7 @@ func (s *showGenerationSuite) TestRunCommandNextGenExists(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 next:
   created: 0001-01-01 00:00:00Z
+  created-by: test-user
   applications:
   - application: redis
     units:
