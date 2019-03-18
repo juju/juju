@@ -6,6 +6,7 @@ package provider
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -66,9 +68,9 @@ const (
 	labelApplicationUUID = "juju-application-uuid"
 	labelModel           = "juju-model"
 
-	defaultOperatorStorageClassName = "juju-operator-storage"
-
 	gpuAffinityNodeSelectorKey = "gpu"
+
+	jujudToolDir = "/var/lib/juju/tools"
 )
 
 var defaultPropagationPolicy = v1.DeletePropagationForeground
@@ -128,7 +130,7 @@ func NewK8sBroker(
 		// namespace format: <controller>-<controller-model-UUID> for juju controller to achieve:
 		// 1. multi controllers running in same k8s cluster;
 		// 2. avoid potential conflict if there is existing namespace named "controller"(warning:
-		//    an non juju related existing namespace could be destroyed if bootstraping failed due
+		//    an non juju related existing namespace could be destroyed if bootstrapping failed due
 		//    to AlreadyExistedNamespace error);
 
 		// IMPORTANT!
@@ -138,8 +140,7 @@ func NewK8sBroker(
 		// CRUD any resources inside the namespace.
 		// Note: we should consider above `Solution` even we always run single controller per cluster, because
 		// we should NEVER allow juju controller to touch any namespace that was NOT created by JUJU.
-		// namespace += "-" + modelUUID
-		namespace = "controller-operator"
+		namespace += "-" + modelUUID[:8]
 		logger.Debugf("found config name %q, so naming namespace to %q", newCfg.Name(), namespace)
 	}
 	return &kubernetesClient{
@@ -147,7 +148,7 @@ func NewK8sBroker(
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
 		namespace:           namespace,
-		envCfg:              newCfg,
+		envCfg:              newCfg.Config,
 		modelUUID:           modelUUID,
 		newWatcher:          newWatcher,
 	}, nil
@@ -169,12 +170,27 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	k.envCfg = newCfg
+	k.envCfg = newCfg.Config
 	return nil
 }
 
-// PrepareForBootstrap prepares for bootstraping a controller.
+func (k *kubernetesClient) validateOperatorStorage() (string, error) {
+	storageClass, _ := k.envCfg.AllAttrs()[OperatorStorageKey].(string)
+	if storageClass == "" {
+		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
+	}
+	_, err := k.getStorageClass(storageClass)
+	return storageClass, errors.Trace(err)
+}
+
+// PrepareForBootstrap prepares for bootstrapping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	_, err := k.validateOperatorStorage()
+	return err
+}
+
+// Create implements environs.BootstrapEnviron.
+func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreateParams) error {
 	return nil
 }
 
@@ -189,9 +205,13 @@ func (k *kubernetesClient) Bootstrap(
 		return nil, errors.NotSupportedf("set series for bootstrapping to kubernetes")
 	}
 
+	storageClass, err := k.validateOperatorStorage()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) (err error) {
-		envConfig := k.Config()
-		if err = podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
+		if err = podcfg.FinishControllerPodConfig(pcfg, k.Config()); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -202,7 +222,7 @@ func (k *kubernetesClient) Bootstrap(
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
-		controllerStack, err := newcontrollerStack(JujuControllerStackName, k, pcfg)
+		controllerStack, err := newcontrollerStack(JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -270,6 +290,23 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error 
 			logger.Debugf("namespace %q is still been terminating", k.namespace)
 		}
 	}
+}
+
+// APIVersion returns the version info for the cluster.
+func (k *kubernetesClient) APIVersion() (string, error) {
+	body, err := k.CoreV1().RESTClient().Get().AbsPath("/version").Do().Raw()
+	if err != nil {
+		return "", err
+	}
+	var info apimachineryversion.Info
+	err = json.Unmarshal(body, &info)
+	if err != nil {
+		return "", errors.Annotatef(err, "got '%s' querying API version", string(body))
+	}
+	version := info.GitVersion
+	// git version is "vX.Y.Z", strip the "v"
+	version = strings.Trim(version, "v")
+	return version, nil
 }
 
 // Namespaces returns names of the namespaces on the cluster.
@@ -489,18 +526,14 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		return errors.Annotatef(err, "invalid volume size %v", config.CharmStorage.Size)
 	}
 	params := volumeParams{
-		storageConfig:       &storageConfig{existingStorageClass: defaultOperatorStorageClassName},
-		storageLabels:       caas.OperatorStorageClassLabels(appName, k.namespace),
+		storageConfig:       &storageConfig{},
 		pvcName:             operatorVolumeClaim,
 		requestedVolumeSize: fsSize,
 	}
 	if config.CharmStorage.Provider != K8s_ProviderType {
 		return errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, config.CharmStorage.Provider)
 	}
-	if storageLabel, ok := config.CharmStorage.Attributes[storageLabel]; ok {
-		params.storageLabels = append([]string{fmt.Sprintf("%v", storageLabel)}, params.storageLabels...)
-	}
-	params.storageConfig, err = newStorageConfig(config.CharmStorage.Attributes, defaultOperatorStorageClassName)
+	params.storageConfig, err = newStorageConfig(config.CharmStorage.Attributes)
 	if err != nil {
 		return errors.Annotatef(err, "invalid storage configuration for %v operator", appName)
 	}
@@ -553,72 +586,28 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
 }
 
-func (k *kubernetesClient) GetStorageClassName(labels ...string) (string, error) {
-	sc, err := k.maybeGetStorageClass(labels...)
+// ValidateStorageClass returns an error if the storage config is not valid.
+func (k *kubernetesClient) ValidateStorageClass(config map[string]interface{}) error {
+	cfg, err := newStorageConfig(config)
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return sc.Name, nil
-}
-
-// getDefaultStorageClass returns the default storageclass in k8s cluster.
-func (k *kubernetesClient) getDefaultStorageClass() (*k8sstorage.StorageClass, error) {
-	storageClasses, err := k.StorageV1().StorageClasses().List(v1.ListOptions{})
+	sc, err := k.getStorageClass(cfg.storageClass)
 	if err != nil {
-		return nil, errors.Annotate(err, "listing storage classes")
+		return errors.NewNotValid(err, fmt.Sprintf("storage class %q", cfg.storageClass))
 	}
-	for _, sc := range storageClasses.Items {
-		if v, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && v != "false" {
-			logger.Debugf("using default storage class: %v", sc.Name)
-			return &sc, nil
-		}
+	if cfg.storageProvisioner == "" {
+		return nil
 	}
-	return nil, errors.NewNotFound(nil, "default storage class")
-}
-
-// maybeGetStorageClass looks for a storage class to use when creating
-// a persistent volume, using the specified name (if supplied), or a class
-// matching the specified labels.
-func (k *kubernetesClient) maybeGetStorageClass(labels ...string) (*k8sstorage.StorageClass, error) {
-	// First try looking for a storage class with a Juju label.
-	selector := fmt.Sprintf("%v in (%v)", labelStorage, strings.Join(labels, ", "))
-	modelTerm := fmt.Sprintf("%s==%s", labelModel, k.namespace)
-	modelSelector := selector + "," + modelTerm
-
-	// Attempt to get a storage class tied to this model.
-	storageClasses, err := k.StorageV1().StorageClasses().List(v1.ListOptions{
-		LabelSelector: modelSelector,
-	})
-	if err != nil {
-		return nil, errors.Annotatef(err, "looking for existing storage class with selector %q", modelSelector)
+	if sc.Provisioner != cfg.storageProvisioner {
+		return errors.NewNotValid(
+			nil,
+			fmt.Sprintf("storage class %q has provisoner %q, not %q", cfg.storageClass, sc.Provisioner, cfg.storageProvisioner))
 	}
-
-	// If no storage classes tied to this model, look for a non-model specific
-	// storage class with the relevant labels.
-	if len(storageClasses.Items) == 0 {
-		storageClasses, err = k.StorageV1().StorageClasses().List(v1.ListOptions{
-			LabelSelector: selector,
-		})
-		if err != nil {
-			return nil, errors.Annotatef(err, "looking for existing storage class with selector %q", modelSelector)
-		}
-	}
-	logger.Debugf("available storage classes: %v", storageClasses.Items)
-	// For now, pick the first matching storage class.
-	if len(storageClasses.Items) > 0 {
-		return &storageClasses.Items[0], nil
-	}
-
-	// Second look for the cluster default storage class, if defined.
-	if storageClass, err := k.getDefaultStorageClass(); err == nil {
-		return storageClass, nil
-	}
-
-	return nil, errors.NotFoundf("storage class for any %q", labels)
+	return nil
 }
 
 type volumeParams struct {
-	storageLabels       []string
 	storageConfig       *storageConfig
 	pvcName             string
 	requestedVolumeSize resource.Quantity
@@ -629,34 +618,20 @@ type volumeParams struct {
 // parameters. If no suitable storage class is available, return a NotFound error.
 func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.PersistentVolumeClaimSpec, error) {
 	storageClassName := params.storageConfig.storageClass
-	existingStorageClassName := params.storageConfig.existingStorageClass
 	haveStorageClass := false
-	// If no specific storage class has been specified but there's a default
-	// fallback one, try and look for that first.
-	if storageClassName == "" && existingStorageClassName != "" {
-		sc, err := k.getStorageClass(existingStorageClassName)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return nil, errors.Annotatef(err, "looking for existing storage class %q", existingStorageClassName)
-		}
-		if err == nil {
-			haveStorageClass = true
-			storageClassName = sc.Name
-		}
+	if storageClassName == "" {
+		return nil, errors.New("cannot create a volume claim spec without a storage class")
 	}
-	// If no storage class has been found or asked for,
-	// look for one by matching labels.
-	if storageClassName == "" && !haveStorageClass {
-		sc, err := k.maybeGetStorageClass(params.storageLabels...)
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, errors.Trace(err)
-		}
-		if err == nil {
-			haveStorageClass = true
-			storageClassName = sc.Name
-		}
+	// See if the requested storage class exists already.
+	sc, err := k.getStorageClass(storageClassName)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return nil, errors.Annotatef(err, "looking for storage class %q", storageClassName)
 	}
-	// If a specific storage class has been requested, make sure it exists.
-	if storageClassName != "" && !haveStorageClass {
+	if err == nil {
+		haveStorageClass = true
+		storageClassName = sc.Name
+	}
+	if !haveStorageClass {
 		params.storageConfig.storageClass = storageClassName
 		sc, err := k.EnsureStorageProvisioner(caas.StorageProvisioner{
 			Name:          params.storageConfig.storageClass,
@@ -675,8 +650,7 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 	}
 	if !haveStorageClass {
 		return nil, errors.NewNotFound(nil, fmt.Sprintf(
-			"cannot create persistent volume as no storage class matching %q exists and no default storage class is defined",
-			params.storageLabels))
+			"cannot create persistent volume as storage class %q cannot be found", storageClassName))
 	}
 	accessMode := params.accessMode
 	if accessMode == "" {
@@ -1142,7 +1116,6 @@ func (k *kubernetesClient) EnsureService(
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
 	}
-
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
 	// Defensively check to see if a stateful set is already used.
 	useStatefulSet := len(params.Filesystems) > 0
@@ -1248,7 +1221,7 @@ func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 func (k *kubernetesClient) configureStorage(
 	podSpec *core.PodSpec, statefulSet *apps.StatefulSetSpec, appName, randPrefix string, legacy bool, filesystems []storage.KubernetesFilesystemParams,
 ) error {
-	baseDir, err := paths.StorageDir("kubernetes")
+	baseDir, err := paths.StorageDir(CAASProviderType)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1308,18 +1281,13 @@ func (k *kubernetesClient) configureStorage(
 			pvcNamePrefix = fmt.Sprintf("juju-%s-%d", fs.StorageName, i)
 		}
 		params := volumeParams{
-			storageLabels:       caas.UnitStorageClassLabels(appName, k.namespace),
 			pvcName:             pvcNamePrefix,
 			requestedVolumeSize: fsSize,
 		}
-		if storageLabel, ok := fs.Attributes[storageLabel]; ok {
-			params.storageLabels = append([]string{fmt.Sprintf("%v", storageLabel)}, params.storageLabels...)
-		}
-		params.storageConfig, err = newStorageConfig(fs.Attributes, defaultStorageClass)
+		params.storageConfig, err = newStorageConfig(fs.Attributes)
 		if err != nil {
 			return errors.Annotatef(err, "invalid storage configuration for %v", fs.StorageName)
 		}
-
 		pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
 		if err != nil {
 			return errors.Annotatef(err, "finding volume for %s", fs.StorageName)
@@ -2189,6 +2157,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 		podLabels[k] = v
 	}
 	podLabels[labelVersion] = version
+	jujudCmd := fmt.Sprintf("./jujud caasoperator --application-name=%s --debug", appName)
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   podName,
@@ -2199,13 +2168,21 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				Name:            "juju-operator",
 				ImagePullPolicy: core.PullIfNotPresent,
 				Image:           operatorImagePath,
+				WorkingDir:      jujudToolDir,
+				Command: []string{
+					"/bin/sh",
+				},
+				Args: []string{
+					"-c",
+					fmt.Sprintf(caas.JujudStartUpSh, jujudCmd),
+				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
 				},
 				VolumeMounts: []core.VolumeMount{{
 					Name:      configVolName,
-					MountPath: filepath.Join(agent.Dir(agentPath, appTag), "template-agent.conf"),
-					SubPath:   "template-agent.conf",
+					MountPath: filepath.Join(agent.Dir(agentPath, appTag), TemplateFileNameAgentConf),
+					SubPath:   TemplateFileNameAgentConf,
 				}},
 			}},
 			Volumes: []core.Volume{{
@@ -2217,7 +2194,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 						},
 						Items: []core.KeyToPath{{
 							Key:  appName + "-agent.conf",
-							Path: "template-agent.conf",
+							Path: TemplateFileNameAgentConf,
 						}},
 					},
 				},

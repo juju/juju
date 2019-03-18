@@ -230,10 +230,14 @@ type region struct {
 	StorageEndpoint  string `yaml:"storage-endpoint,omitempty"`
 }
 
+// CloudTypeCAAS is the kubernetes cloud type.
+const CloudTypeCAAS = "kubernetes"
+
 var caasCloudTypes = map[string]bool{
-	"kubernetes": true,
+	CloudTypeCAAS: true,
 }
 
+// CloudIsCAAS checks if cloud is a CAAS cloud.
 func CloudIsCAAS(cloud Cloud) bool {
 	return caasCloudTypes[cloud.Type]
 }

@@ -39,6 +39,7 @@ type BaseSuite struct {
 	namespace string
 
 	k8sClient                  *mocks.MockInterface
+	mockRestClient             *mocks.MockRestClientInterface
 	mockNamespaces             *mocks.MockNamespaceInterface
 	mockApps                   *mocks.MockAppsV1Interface
 	mockExtensions             *mocks.MockExtensionsV1beta1Interface
@@ -83,7 +84,9 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
-		config.NameKey: s.namespace,
+		config.NameKey:              s.namespace,
+		provider.OperatorStorageKey: "",
+		provider.WorkloadStorageKey: "",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
@@ -99,6 +102,8 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	// We make the mock and assign it to the corresponding core getter function.
 	mockCoreV1 := mocks.NewMockCoreV1Interface(ctrl)
 	s.k8sClient.EXPECT().CoreV1().AnyTimes().Return(mockCoreV1)
+	s.mockRestClient = mocks.NewMockRestClientInterface(ctrl)
+	mockCoreV1.EXPECT().RESTClient().AnyTimes().Return(s.mockRestClient)
 
 	s.mockNamespaces = mocks.NewMockNamespaceInterface(ctrl)
 	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)

@@ -21,6 +21,34 @@ import (
 type EnvironConfigGetter struct {
 	*state.State
 	*state.Model
+
+	// NewContainerBroker is a func that returns a caas container broker
+	// for the relevant model.
+	NewContainerBroker caas.NewContainerBrokerFunc
+}
+
+// CloudAPIVersion returns the cloud API version for the cloud with the given spec.
+func (g EnvironConfigGetter) CloudAPIVersion(spec environs.CloudSpec) (string, error) {
+	// Only CAAS models have an API version we care about right now.
+	if g.Model.Type() == state.ModelTypeIAAS {
+		return "", nil
+	}
+	cfg, err := g.ModelConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	newBroker := g.NewContainerBroker
+	if newBroker == nil {
+		newBroker = caas.New
+	}
+	broker, err := newBroker(environs.OpenParams{
+		Cloud:  spec,
+		Config: cfg,
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return broker.APIVersion()
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
@@ -72,7 +100,7 @@ func GetNewEnvironFunc(newEnviron environs.NewEnvironFunc) NewEnvironFunc {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		g := EnvironConfigGetter{st, m}
+		g := EnvironConfigGetter{State: st, Model: m}
 		return environs.GetEnviron(g, newEnviron)
 	}
 }
@@ -89,7 +117,7 @@ func GetNewCAASBrokerFunc(newBroker caas.NewContainerBrokerFunc) NewCAASBrokerFu
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		g := EnvironConfigGetter{st, m}
+		g := EnvironConfigGetter{State: st, Model: m}
 		cloudSpec, err := g.CloudSpec()
 		if err != nil {
 			return nil, errors.Trace(err)

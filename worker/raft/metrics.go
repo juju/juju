@@ -22,7 +22,9 @@ func newMetricsCollector() (prometheus.Collector, error) {
 	// so subsequent calls don't fail because it's already registered
 	// there.
 	prometheus.DefaultRegisterer.Unregister(sink)
-	_, err = metrics.NewGlobal(metrics.DefaultConfig("juju"), sink)
+	config := metrics.DefaultConfig("juju")
+	config.EnableRuntimeMetrics = false
+	_, err = metrics.NewGlobal(config, sink)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

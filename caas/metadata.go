@@ -37,6 +37,7 @@ type StorageProvisioner struct {
 // ClusterMetadata defines metadata about a cluster.
 type ClusterMetadata struct {
 	NominatedStorageClass *StorageProvisioner
+	OperatorStorageClass  *StorageProvisioner
 	Cloud                 string
 	Regions               set.Strings
 }

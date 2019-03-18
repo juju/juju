@@ -115,7 +115,7 @@ func supportsNetworking(environ BootstrapEnviron) (NetworkingEnviron, bool) {
 
 // SupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
-func SupportsSpaces(ctx context.ProviderCallContext, env Environ) bool {
+func SupportsSpaces(ctx context.ProviderCallContext, env BootstrapEnviron) bool {
 	netEnv, ok := supportsNetworking(env)
 	if !ok {
 		return false
@@ -132,7 +132,7 @@ func SupportsSpaces(ctx context.ProviderCallContext, env Environ) bool {
 
 // SupportsContainerAddresses checks if the environment will let us allocate
 // addresses for containers from the host ranges.
-func SupportsContainerAddresses(ctx context.ProviderCallContext, env Environ) bool {
+func SupportsContainerAddresses(ctx context.ProviderCallContext, env BootstrapEnviron) bool {
 	netEnv, ok := supportsNetworking(env)
 	if !ok {
 		return false

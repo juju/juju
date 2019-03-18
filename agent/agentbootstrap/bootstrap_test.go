@@ -327,7 +327,6 @@ LXC_BRIDGE="ignored"`[1:])
 		"Validate",
 		"Open",
 		"Create",
-		"Provider",
 		"Version",
 	)
 	// Those attributes are configured during initialization, after "Open".

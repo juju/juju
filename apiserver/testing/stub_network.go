@@ -527,7 +527,7 @@ func (sb *StubBacking) AddSpace(name string, providerId network.Id, subnets []st
 	return nil
 }
 
-func (sb *StubBacking) ReloadSpaces(environ environs.Environ) error {
+func (sb *StubBacking) ReloadSpaces(environ environs.BootstrapEnviron) error {
 	sb.MethodCall(sb, "ReloadSpaces", environ)
 	if err := sb.NextErr(); err != nil {
 		return err

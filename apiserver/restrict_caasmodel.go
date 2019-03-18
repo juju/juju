@@ -57,6 +57,18 @@ var commonModelFacadeNames = set.NewStrings(
 	"Undertaker",
 	"Uniter",
 	"VolumeAttachmentsWatcher",
+
+	// for caas controller.
+	// TODO(bootstrap): revisit here to ensure unneeded items are removed.
+	"Provisioner",
+	"Resumer",
+	"MachineActions",
+	"ProxyUpdater",
+	"Machiner",
+	"ExternalControllerUpdater",
+	"Upgrader",
+	"FanConfigurer",
+	"Block",
 )
 
 // caasModelFacadeNames lists facades that are only used with CAAS

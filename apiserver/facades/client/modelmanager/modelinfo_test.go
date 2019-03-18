@@ -698,7 +698,7 @@ func (st *mockState) ControllerTag() names.ControllerTag {
 	return names.NewControllerTag(st.controllerUUID)
 }
 
-func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error) {
+func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.CloudRegionSpec) (map[string]interface{}, error) {
 	st.MethodCall(st, "ComposeNewModelConfig")
 	attr := make(map[string]interface{})
 	for attrName, val := range modelAttr {
@@ -800,12 +800,12 @@ func (st *mockState) SetUserAccess(subject names.UserTag, target names.Tag, acce
 	return permission.UserAccess{}, st.NextErr()
 }
 
-func (st *mockState) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
-	st.MethodCall(st, "ModelConfigDefaultValues")
+func (st *mockState) ModelConfigDefaultValues(cloud string) (config.ModelDefaultAttributes, error) {
+	st.MethodCall(st, "ModelConfigDefaultValues", cloud)
 	return st.cfgDefaults, nil
 }
 
-func (st *mockState) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, rspec *environs.RegionSpec) error {
+func (st *mockState) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, rspec *environs.CloudRegionSpec) error {
 	st.MethodCall(st, "UpdateModelConfigDefaultValues", update, remove, rspec)
 	for k, v := range update {
 		if rspec != nil {
@@ -849,7 +849,7 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 	}
 }
 
-func (st *mockState) ReloadSpaces(environ environs.Environ) error {
+func (st *mockState) ReloadSpaces(environ environs.BootstrapEnviron) error {
 	st.MethodCall(st, "ReloadSpaces", environ)
 	return st.NextErr()
 }
@@ -961,7 +961,6 @@ type mockModel struct {
 	migrationStatus     state.MigrationMode
 	controllerUUID      string
 	isController        bool
-	cfgDefaults         config.ModelDefaultAttributes
 	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
 }
 
@@ -1073,14 +1072,9 @@ func (m *mockModel) LastModelConnection(user names.UserTag) (time.Time, error) {
 	return time.Time{}, m.NextErr()
 }
 
-func (m *mockModel) AutoConfigureContainerNetworking(environ environs.Environ) error {
+func (m *mockModel) AutoConfigureContainerNetworking(environ environs.BootstrapEnviron) error {
 	m.MethodCall(m, "AutoConfigureContainerNetworking", environ)
 	return m.NextErr()
-}
-
-func (m *mockModel) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
-	m.MethodCall(m, "ModelConfigDefaultValues")
-	return m.cfgDefaults, nil
 }
 
 func (m *mockModel) getModelDetails() state.ModelSummary {

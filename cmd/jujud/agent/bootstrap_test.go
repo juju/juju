@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package agent
 
 import (
 	"encoding/json"
@@ -627,7 +627,7 @@ func (s *BootstrapSuite) TestBootstrapWithInvalidCredentialLogs(c *gc.C) {
 		env, _ := environs.New(ps)
 		return &mockDummyEnviron{env}, nil
 	}
-	s.PatchValue(&EnvironsNew, newEnviron)
+	s.PatchValue(&environsNewIAAS, newEnviron)
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)

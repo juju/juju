@@ -227,7 +227,12 @@ const (
 
 	// CAASOperatorImagePath sets the url of the docker image
 	// used for the application operator.
+	// Deprecated: use CAASImageRepo
 	CAASOperatorImagePath = "caas-operator-image-path"
+
+	// CAASImageRepo sets the docker repo to use
+	// for the jujud operator and mongo images.
+	CAASImageRepo = "caas-image-repo"
 
 	// Features allows a list of runtime changeable features to be updated.
 	Features = "features"
@@ -269,6 +274,7 @@ var (
 		AuditLogMaxBackups,
 		AuditLogExcludeMethods,
 		CAASOperatorImagePath,
+		CAASImageRepo,
 		Features,
 		MeteringURL,
 	}
@@ -293,6 +299,7 @@ var (
 		JujuHASpace,
 		JujuManagementSpace,
 		CAASOperatorImagePath,
+		CAASImageRepo,
 		Features,
 	)
 
@@ -630,6 +637,12 @@ func (c Config) CAASOperatorImagePath() string {
 	return c.asString(CAASOperatorImagePath)
 }
 
+// CAASImageRepo sets the url of the docker repo
+// used for the jujud operator and mongo images.
+func (c Config) CAASImageRepo() string {
+	return c.asString(CAASImageRepo)
+}
+
 // MeteringURL returns the URL to use for metering api calls.
 func (c Config) MeteringURL() string {
 	url := c.asString(MeteringURL)
@@ -712,7 +725,13 @@ func Validate(c Config) error {
 		return errors.Trace(err)
 	}
 
-	if v, ok := c[CAASOperatorImagePath].(string); ok {
+	if v, ok := c[CAASOperatorImagePath].(string); ok && v != "" {
+		if err := resources.ValidateDockerRegistryPath(v); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if v, ok := c[CAASImageRepo].(string); ok && v != "" {
 		if err := resources.ValidateDockerRegistryPath(v); err != nil {
 			return errors.Trace(err)
 		}
@@ -853,6 +872,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	JujuHASpace:             schema.String(),
 	JujuManagementSpace:     schema.String(),
 	CAASOperatorImagePath:   schema.String(),
+	CAASImageRepo:           schema.String(),
 	Features:                schema.List(schema.String()),
 	CharmStoreURL:           schema.String(),
 	MeteringURL:             schema.String(),
@@ -872,7 +892,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertURLKey:          schema.Omit,
 	AutocertDNSNameKey:      schema.Omit,
 	AllowModelAccessKey:     schema.Omit,
-	MongoMemoryProfile:      schema.Omit,
+	MongoMemoryProfile:      MongoProfLow,
 	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
 	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
@@ -883,6 +903,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	JujuHASpace:             schema.Omit,
 	JujuManagementSpace:     schema.Omit,
 	CAASOperatorImagePath:   schema.Omit,
+	CAASImageRepo:           schema.Omit,
 	Features:                schema.Omit,
 	CharmStoreURL:           csclient.ServerURL,
 	MeteringURL:             romulus.DefaultAPIRoot,

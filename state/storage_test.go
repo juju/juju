@@ -75,7 +75,7 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		// Create the operator-storage
-		_, err = s.pm.Create("operator-storage", provider.LoopProviderType, map[string]interface{}{})
+		_, err = s.pm.Create("k8s-operator-storage", provider.LoopProviderType, map[string]interface{}{})
 		c.Assert(err, jc.ErrorIsNil)
 
 	}
@@ -1401,7 +1401,7 @@ func (s *StorageStateSuiteCaas) SetUpTest(c *gc.C) {
 }
 
 func (s *StorageStateSuiteCaas) TestRemoveStoragePool(c *gc.C) {
-	poolName := "operator-storage"
+	poolName := "k8s-operator-storage"
 	_, err := s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1414,8 +1414,12 @@ func (s *StorageStateSuiteCaas) TestRemoveStoragePool(c *gc.C) {
 }
 
 func (s *StorageStateSuiteCaas) TestRemoveStoragePoolInUse(c *gc.C) {
-	poolName := "operator-storage"
-	_, err := s.pm.Get(poolName)
+	model, err := s.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.UpdateModelConfig(map[string]interface{}{"operator-storage": "k8s-operator-storage"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	poolName := "k8s-operator-storage"
+	_, err = s.pm.Get(poolName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	appPoolName := "tmpfs-pool"

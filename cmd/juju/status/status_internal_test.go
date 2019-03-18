@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"runtime"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -32,7 +30,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/migration"
 	corepresence "github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
@@ -4217,14 +4214,15 @@ type setUnitAsLeader struct {
 func (s setUnitAsLeader) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	target := ctx.st.LeaseNotifyTarget(
-		ioutil.Discard,
-		loggo.GetLogger("status_internal_test"),
-	)
-	target.Claimed(
-		lease.Key{"application-leadership", ctx.st.ModelUUID(), u.ApplicationName()},
-		u.Name(),
-	)
+
+	// We must use the lease manager from the API server.
+	// Requesting it from state will claim against a *different* legacy lease
+	// manager running in the state workers collection.
+	stater := ctx.env.(testing.GetStater)
+	claimer, err := stater.GetLeaseManagerInAPIServer().Claimer("application-leadership", ctx.st.ModelUUID())
+
+	err = claimer.Claim(u.ApplicationName(), u.Name(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type setUnitStatus struct {

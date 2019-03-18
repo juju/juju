@@ -80,7 +80,7 @@ def get_controller_hostname(client):
 
 
 def assess_to(bs_manager, to):
-    """Assess bootstraping with the --to option."""
+    """Assess bootstrapping with the --to option."""
     if to is None:
         raise ValueError('--to not given when testing to')
     with thin_booted_context(bs_manager) as client:

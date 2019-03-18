@@ -472,7 +472,7 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 			return nil
 		}
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, expectedVersion)
+		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "NetworkInfo")
 		c.Check(arg, gc.DeepEquals, params.NetworkInfoParams{

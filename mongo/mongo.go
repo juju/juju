@@ -89,6 +89,7 @@ const (
 type Version struct {
 	Major         int
 	Minor         int
+	Point         int
 	Patch         string // supports variants like 1-alpha
 	StorageEngine StorageEngine
 }
@@ -110,6 +111,12 @@ func (v Version) NewerThan(ver Version) int {
 		return 1
 	}
 	if v.Minor < ver.Minor {
+		return -1
+	}
+	if v.Point > ver.Point {
+		return 1
+	}
+	if v.Point < ver.Point {
 		return -1
 	}
 	return 0
@@ -146,7 +153,7 @@ func NewVersion(v string) (Version, error) {
 			version.StorageEngine = Upgrading
 		}
 	}
-	vParts := strings.SplitN(parts[0], ".", 3)
+	vParts := strings.SplitN(parts[0], ".", 4)
 
 	if len(vParts) >= 1 {
 		i, err := strconv.Atoi(vParts[0])
@@ -162,8 +169,15 @@ func NewVersion(v string) (Version, error) {
 		}
 		version.Minor = i
 	}
-	if len(vParts) == 3 {
-		version.Patch = vParts[2]
+	if len(vParts) >= 3 {
+		i, err := strconv.Atoi(vParts[2])
+		if err != nil {
+			return Version{}, errors.Annotate(err, "Invalid version string, point is not an int")
+		}
+		version.Point = i
+	}
+	if len(vParts) == 4 {
+		version.Patch = vParts[3]
 	}
 
 	if version.Major == 2 && version.StorageEngine == WiredTiger {
@@ -171,7 +185,7 @@ func NewVersion(v string) (Version, error) {
 	}
 
 	// This deserialises the special "Mongo Upgrading" version
-	if version.Major == 0 && version.Minor == 0 {
+	if version.Major == 0 && version.Minor == 0 && version.Point == 0 {
 		return Version{StorageEngine: Upgrading}, nil
 	}
 
@@ -181,6 +195,9 @@ func NewVersion(v string) (Version, error) {
 // String serializes the version into a string.
 func (v Version) String() string {
 	s := fmt.Sprintf("%d.%d", v.Major, v.Minor)
+	if v.Point > 0 {
+		s = fmt.Sprintf("%s.%d", s, v.Point)
+	}
 	if v.Patch != "" {
 		s = fmt.Sprintf("%s.%s", s, v.Patch)
 	}
@@ -225,6 +242,12 @@ var (
 	Mongo36wt = Version{Major: 3,
 		Minor:         6,
 		Patch:         "",
+		StorageEngine: WiredTiger,
+	}
+	// Mongo419wt represents 'mongodb-server-core' at version 4.1.9 with WiredTiger
+	Mongo419wt = Version{Major: 4,
+		Minor:         1,
+		Point:         9,
 		StorageEngine: WiredTiger,
 	}
 	// MongoUpgrade represents a sepacial case where an upgrade is in
@@ -352,6 +375,7 @@ Values set as per mongod recommendation (see syslog on default mongod run)
 /sys/kernel/mm/transparent_hugepage/enabled 'always' > 'never'
 /sys/kernel/mm/transparent_hugepage/defrag 'always' > 'never'
 */
+// TODO(bootstrap): tweaks this to mongo OCI image.
 var mongoKernelTweaks = map[string]string{
 	"/sys/kernel/mm/transparent_hugepage/enabled": "never",
 	"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
@@ -389,7 +413,7 @@ const (
 	// MemoryProfileLow will use as little memory as possible in mongo.
 	MemoryProfileLow MemoryProfile = "low"
 	// MemoryProfileDefault will use mongo config ootb.
-	MemoryProfileDefault = "default"
+	MemoryProfileDefault MemoryProfile = "default"
 )
 
 // EnsureServerParams is a parameter struct for EnsureServer.
@@ -452,6 +476,7 @@ func setupDataDirectory(args EnsureServerParams) error {
 		return errors.Annotate(err, "cannot create mongo database directory")
 	}
 
+	// TODO(fix): rather than copy, we should ln -s coz it could be changed later!!!
 	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
 		return errors.Trace(err)
 	}
@@ -528,8 +553,8 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	}
 
 	mongoArgs := generateConfig(mongoPath, args.DataDir, args.StatePort, oplogSizeMB, args.SetNUMAControlPolicy, mongodVersion, args.MemoryProfile)
-	logger.Debugf("creating mongo service configuration for mongo version: %d.%d.%s at %q",
-		mongoArgs.Version.Major, mongoArgs.Version.Minor, mongoArgs.Version.Patch, mongoArgs.MongoPath)
+	logger.Debugf("creating mongo service configuration for mongo version: %d.%d.%d-%s at %q",
+		mongoArgs.Version.Major, mongoArgs.Version.Minor, mongoArgs.Version.Point, mongoArgs.Version.Patch, mongoArgs.MongoPath)
 
 	svc, err := mongoArgs.asService()
 	if err != nil {

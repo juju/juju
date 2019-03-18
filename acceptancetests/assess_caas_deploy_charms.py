@@ -269,7 +269,7 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(description="Cass charm deployment CI test")
     parser.add_argument(
         '--caas-image', action='store', default=None,
-        help='Caas operator docker image name to use with format of <username>/caas-jujud-operator:<tag>.'
+        help='Caas operator docker image name to use with format of <username>/jujud-operator:<tag>.'
     )
 
     add_basic_testing_arguments(parser, existing=False)

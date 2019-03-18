@@ -80,7 +80,9 @@ type mockModel struct {
 
 func (m *mockModel) ModelConfig() (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
-	return config.New(config.UseDefaults, coretesting.FakeConfig())
+	attrs := coretesting.FakeConfig()
+	attrs["workload-storage"] = "k8s-storage"
+	return config.New(config.UseDefaults, attrs)
 }
 
 func (m *mockModel) PodSpec(tag names.ApplicationTag) (string, error) {
@@ -481,16 +483,6 @@ func (v *mockVolume) SetStatus(statusInfo status.StatusInfo) error {
 
 func (v *mockVolume) Info() (state.VolumeInfo, error) {
 	return state.VolumeInfo{}, errors.NotProvisionedf("volume")
-}
-
-type mockStorageProviderRegistry struct {
-	testing.Stub
-	storage.ProviderRegistry
-}
-
-func (m *mockStorageProviderRegistry) StorageProvider(providerType storage.ProviderType) (storage.Provider, error) {
-	m.MethodCall(m, "StorageProvider", providerType)
-	return nil, errors.NotSupportedf("StorageProvider")
 }
 
 type mockStoragePoolManager struct {

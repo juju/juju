@@ -58,6 +58,8 @@ type StateBackend interface {
 	MigrateAddModelPermissions() error
 	LegacyLeases(time.Time) (map[lease.Key]lease.Info, error)
 	SetEnableDiskUUIDOnVsphere() error
+	UpdateInheritedControllerConfig() error
+	UpdateKubernetesStorageConfig() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -218,4 +220,12 @@ func (s stateBackend) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Inf
 
 func (s stateBackend) SetEnableDiskUUIDOnVsphere() error {
 	return state.SetEnableDiskUUIDOnVsphere(s.pool)
+}
+
+func (s stateBackend) UpdateInheritedControllerConfig() error {
+	return state.UpdateInheritedControllerConfig(s.pool)
+}
+
+func (s stateBackend) UpdateKubernetesStorageConfig() error {
+	return state.UpdateKubernetesStorageConfig(s.pool)
 }

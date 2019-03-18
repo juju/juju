@@ -382,7 +382,7 @@ class CommandComplete(BaseCondition):
         if completed:
             self.command_time.actual_completion()
 
-    def do_raise(self, status):
+    def do_raise(self, model_name, status):
         raise RuntimeError(
             'Timed out waiting for "{}" command to complete: "{}"'.format(
                 self.command_time.cmd,

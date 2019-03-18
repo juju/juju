@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time" // Only used for time types.
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -25,13 +26,13 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/version"
 )
@@ -51,31 +52,31 @@ const (
 )
 
 var (
-	BinarystorageNew                     = &binarystorageNew
-	ImageStorageNewStorage               = &imageStorageNewStorage
-	MachineIdLessThan                    = machineIdLessThan
-	GetOrCreatePorts                     = getOrCreatePorts
-	GetPorts                             = getPorts
-	CombineMeterStatus                   = combineMeterStatus
-	ApplicationGlobalKey                 = applicationGlobalKey
-	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
-	ModelGlobalKey                       = modelGlobalKey
-	MergeBindings                        = mergeBindings
-	UpgradeInProgressError               = errUpgradeInProgress
-	DBCollectionSizeToInt                = dbCollectionSizeToInt
-	NewEntityWatcher                     = newEntityWatcher
+	BinarystorageNew        = &binarystorageNew
+	ImageStorageNewStorage  = &imageStorageNewStorage
+	MachineIdLessThan       = machineIdLessThan
+	GetOrCreatePorts        = getOrCreatePorts
+	GetPorts                = getPorts
+	CombineMeterStatus      = combineMeterStatus
+	ApplicationGlobalKey    = applicationGlobalKey
+	CloudGlobalKey          = cloudGlobalKey
+	RegionSettingsGlobalKey = regionSettingsGlobalKey
+	ModelGlobalKey          = modelGlobalKey
+	MergeBindings           = mergeBindings
+	UpgradeInProgressError  = errUpgradeInProgress
+	DBCollectionSizeToInt   = dbCollectionSizeToInt
+	NewEntityWatcher        = newEntityWatcher
 )
 
 type (
-	CharmDoc        charmDoc
-	MachineDoc      machineDoc
-	RelationDoc     relationDoc
-	ApplicationDoc  applicationDoc
-	UnitDoc         unitDoc
-	BlockDevicesDoc blockDevicesDoc
-	StorageBackend  = storageBackend
-	DeviceBackend   = deviceBackend
+	CharmDoc       charmDoc
+	StorageBackend = storageBackend
+	DeviceBackend  = deviceBackend
 )
+
+func NewStateSettingsForCollection(backend modelBackend, collection string) *StateSettings {
+	return &StateSettings{backend, globalSettingsC}
+}
 
 // EnsureWorkersStarted ensures that all the automatically
 // started state workers are running, so that tests which
@@ -140,11 +141,6 @@ func SetPolicy(st *State, p Policy) Policy {
 	old := st.policy
 	st.policy = p
 	return old
-}
-
-func (doc *MachineDoc) String() string {
-	m := &Machine{doc: machineDoc(*doc)}
-	return m.String()
 }
 
 func CloudModelRefCount(st *State, cloudName string) (int, error) {
@@ -579,11 +575,6 @@ func (m *Machine) SetWantsVote(wantsVote bool) error {
 	return nil
 }
 
-func RemoveController(c *gc.C, m *Machine) {
-	err := m.st.RemoveControllerMachine(m)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func RemoveEndpointBindingsForApplication(c *gc.C, app *Application) {
 	globalKey := app.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)
@@ -610,14 +601,6 @@ func AssertEndpointBindingsNotFoundForApplication(c *gc.C, app *Application) {
 	c.Assert(storedBindings, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func LeadershipLeases(st *State) (map[lease.Key]lease.Info, error) {
-	store, err := st.getLeadershipLeaseStore()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return store.Leases(), nil
 }
 
 func StorageAttachmentCount(instance StorageInstance) int {
@@ -870,4 +853,68 @@ func CaasApplicationDisplayStatus(appStatus status.StatusInfo, operatorStatus st
 
 func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, error) {
 	return getStatus(st.db(), applicationGlobalOperatorKey(appName), "operator")
+}
+
+type (
+	InstanceCharmProfileDataDoc = instanceCharmProfileData
+	ApplicationDoc              = applicationDoc
+)
+
+func NewInstanceCharmProfileDataWatcher(backend ModelBackendShim, memberId string) StringsWatcher {
+	return watchInstanceCharmProfileData(backend, memberId)
+}
+
+func NewInstanceCharmProfileDataCompatibilityWatcher(backend ModelBackendShim, memberId string) StringsWatcher {
+	return watchInstanceCharmProfileCompatibilityData(backend, memberId)
+}
+
+// ModelBackendShim is required to live here in the export_test.go file because
+// there is issues placing this in the test files themselves. The strangeness
+// exhibits itself from the fact that `clock() clock.Clock` doesn't type
+// check correctly and the go compiler thinks it should be
+// `state.clock() clock.Clock`, which makes no sense.
+type ModelBackendShim struct {
+	Clock    clock.Clock
+	Database Database
+	Watcher  watcher.BaseWatcher
+}
+
+func (s ModelBackendShim) docID(id string) string {
+	return ""
+}
+
+func (s ModelBackendShim) localID(id string) string {
+	return ""
+}
+
+func (s ModelBackendShim) strictLocalID(id string) (string, error) {
+	return "", nil
+}
+
+func (s ModelBackendShim) nowToTheSecond() time.Time {
+	return s.Clock.Now().Round(time.Second).UTC()
+}
+
+func (s ModelBackendShim) clock() clock.Clock {
+	return s.Clock
+}
+
+func (s ModelBackendShim) db() Database {
+	return s.Database
+}
+
+func (s ModelBackendShim) modelUUID() string {
+	return ""
+}
+
+func (s ModelBackendShim) modelName() (string, error) {
+	return "", nil
+}
+
+func (s ModelBackendShim) isController() bool {
+	return false
+}
+
+func (s ModelBackendShim) txnLogWatcher() watcher.BaseWatcher {
+	return s.Watcher
 }

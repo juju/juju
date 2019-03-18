@@ -44,6 +44,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cert"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
@@ -99,9 +100,10 @@ var (
 	useMultipleCPUs   = utils.UseMultipleCPUs
 	reportOpenedState = func(*state.State) {}
 
-	caasModelManifolds = model.CAASManifolds
-	iaasModelManifolds = model.IAASManifolds
-	machineManifolds   = machine.Manifolds
+	caasModelManifolds   = model.CAASManifolds
+	iaasModelManifolds   = model.IAASManifolds
+	caasMachineManifolds = machine.CAASManifolds
+	iaasMachineManifolds = machine.IAASManifolds
 )
 
 // Variable to override in tests, default is true
@@ -125,11 +127,15 @@ func init() {
 	}
 }
 
+type machineAgentFactoryFnType func(string, bool) (*MachineAgent, error)
+
 // AgentInitializer handles initializing a type for use as a Jujud
 // agent.
 type AgentInitializer interface {
 	AddFlags(*gnuflag.FlagSet)
 	CheckArgs([]string) error
+	// DataDir returns the directory where this agent should store its data.
+	DataDir() string
 }
 
 // AgentConfigWriter encapsulates disk I/O operations with the agent
@@ -149,7 +155,7 @@ type AgentConfigWriter interface {
 // MachineAgent.
 func NewMachineAgentCmd(
 	ctx *cmd.Context,
-	machineAgentFactory func(string) (*MachineAgent, error),
+	machineAgentFactory machineAgentFactoryFnType,
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
@@ -167,7 +173,7 @@ type machineAgentCmd struct {
 	// This group of arguments is required.
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
-	machineAgentFactory func(string) (*MachineAgent, error)
+	machineAgentFactory machineAgentFactoryFnType
 	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
@@ -198,11 +204,9 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return nil
 	}
 
-	err := a.currentConfig.ReadConfig(names.NewMachineTag(a.machineId).String())
-	if err != nil {
-		return errors.Annotate(err, "cannot read agent configuration")
+	if err := a.currentConfig.ReadConfig(a.tag().String()); err != nil {
+		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
-
 	config := a.currentConfig.CurrentConfig()
 	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
 	a.ctx.Stderr = &lumberjack.Logger{
@@ -211,13 +215,18 @@ func (a *machineAgentCmd) Init(args []string) error {
 		MaxBackups: 2,
 		Compress:   true,
 	}
-
 	return nil
+}
+
+func (a *machineAgentCmd) tag() names.Tag {
+	return names.NewMachineTag(a.machineId)
 }
 
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-	machineAgent, err := a.machineAgentFactory(a.machineId)
+	config := a.currentConfig.CurrentConfig()
+	isCaasMachineAgent := config.Value(agent.ProviderType) == k8sprovider.CAASProviderType
+	machineAgent, err := a.machineAgentFactory(a.machineId, isCaasMachineAgent)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -246,8 +255,8 @@ func MachineAgentFactoryFn(
 	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
-) func(string) (*MachineAgent, error) {
-	return func(machineId string) (*MachineAgent, error) {
+) machineAgentFactoryFnType {
+	return func(machineId string, isCaasMachineAgent bool) (*MachineAgent, error) {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
@@ -261,6 +270,7 @@ func MachineAgentFactoryFn(
 			newIntrospectionSocketName,
 			preUpgradeSteps,
 			rootDir,
+			isCaasMachineAgent,
 		)
 	}
 }
@@ -275,6 +285,7 @@ func NewMachineAgent(
 	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
+	isCaasMachineAgent bool,
 ) (*MachineAgent, error) {
 	prometheusRegistry, err := newPrometheusRegistry()
 	if err != nil {
@@ -296,9 +307,7 @@ func NewMachineAgent(
 		mongoTxnCollector:           mongometrics.NewTxnCollector(),
 		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
-	}
-	if err := a.registerPrometheusCollectors(); err != nil {
-		return nil, errors.Trace(err)
+		isCaasMachineAgent:          isCaasMachineAgent,
 	}
 	return a, nil
 }
@@ -362,6 +371,8 @@ type MachineAgent struct {
 	// Only API servers have hubs. This is temporary until the apiserver and
 	// peergrouper have manifolds.
 	centralHub *pubsub.StructuredHub
+
+	isCaasMachineAgent bool
 }
 
 // Wait waits for the machine agent to finish.
@@ -458,6 +469,11 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
 
+	// moved from NewMachineAgent here because the agent config could not be ready yet there.
+	if err := a.registerPrometheusCollectors(); err != nil {
+		return errors.Trace(err)
+	}
+
 	agentConfig := a.CurrentConfig()
 	agentName := a.Tag().String()
 	machineLock, err := machinelock.New(machinelock.Config{
@@ -547,8 +563,13 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			}
 			return environs.SupportsSpaces(state.CallContext(st), env), nil
 		}
+		if a.isCaasMachineAgent {
+			controllerSupportsSpaces = func(st *state.State) (bool, error) {
+				return false, nil
+			}
+		}
 
-		manifolds := machineManifolds(machine.ManifoldsConfig{
+		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:    previousAgentVersion,
 			AgentName:               agentName,
 			Agent:                   agent.APIHostPortsSetter{Agent: a},
@@ -583,7 +604,11 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			NewModelWorker:                    a.startModelWorkers,
 			ControllerSupportsSpaces:          controllerSupportsSpaces,
 			MuxShutdownWait:                   1 * time.Minute,
-		})
+		}
+		manifolds := iaasMachineManifolds(manifoldsCfg)
+		if a.isCaasMachineAgent {
+			manifolds = caasMachineManifolds(manifoldsCfg)
+		}
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
 				logger.Errorf("while stopping engine with bad manifolds: %v", err)
@@ -689,7 +714,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		if params.IsCodeDead(cause) || cause == jworker.ErrTerminateAgent {
 			return nil, jworker.ErrTerminateAgent
 		}
-		return nil, errors.Errorf("setting up container support: %v", err)
+		return nil, errors.Annotate(err, "setting up container support")
 	}
 
 	if isModelManager {
@@ -725,6 +750,7 @@ func (a *MachineAgent) machine(apiConn api.Connection) (*apimachiner.Machine, er
 }
 
 func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error {
+	// TODO(bootstrap): do we need this for k8s???
 	machine, err := a.machine(apiConn)
 	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
 		return jworker.ErrTerminateAgent
@@ -741,6 +767,7 @@ func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error 
 
 // Restart restarts the agent's service.
 func (a *MachineAgent) Restart() error {
+	// TODO(bootstrap): revisit here to make it only invoked by IAAS.
 	name := a.CurrentConfig().Value(agent.AgentServiceName)
 	return service.Restart(name)
 }
@@ -899,10 +926,9 @@ func mongoDialOptions(
 		limit, err := strconv.Atoi(limitStr)
 		if err != nil {
 			return mongo.DialOpts{}, errors.Errorf("invalid mongo socket pool limit %q", limitStr)
-		} else {
-			logger.Infof("using mongo socker pool limit = %d", limit)
-			dialOpts.PoolLimit = limit
 		}
+		logger.Infof("using mongo socker pool limit = %d", limit)
+		dialOpts.PoolLimit = limit
 	}
 	if dialOpts.PostDialServer != nil {
 		return mongo.DialOpts{}, errors.New("did not expect PostDialServer to be set")
@@ -1041,6 +1067,9 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		}
 	}()
 
+	if a.isCaasMachineAgent {
+		return nil
+	}
 	// EnsureMongoServer installs/upgrades the init config as necessary.
 	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 	if err != nil {
@@ -1051,13 +1080,13 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		return err
 	}
 	logger.Debugf("mongodb service is installed")
-
-	// Mongo is installed, record the version.
-	err = a.ChangeConfig(func(config agent.ConfigSetter) error {
-		config.SetMongoVersion(mongodVersion)
-		return nil
-	})
-	if err != nil {
+	// update Mongo version.
+	if err = a.ChangeConfig(
+		func(config agent.ConfigSetter) error {
+			config.SetMongoVersion(mongodVersion)
+			return nil
+		},
+	); err != nil {
 		return errors.Annotate(err, "cannot set mongo version")
 	}
 	return nil

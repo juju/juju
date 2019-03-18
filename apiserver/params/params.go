@@ -1141,12 +1141,41 @@ type GenerationApplication struct {
 	ConfigChanges map[string]interface{} `json:"config"`
 }
 
-// GenerationResult transports the result of the show-generation command.
-type GenerationResult struct {
+// Generation represents a model generation's details including config changes.
+type Generation struct {
+	// Created is the Unix timestamp at generation creation.
+	Created int64 `json:"created"`
+
+	// Created is the user who created the generation.
+	CreatedBy string `json:"created-by"`
+
 	// Applications holds the collection of application changes
 	// made under this generation.
 	Applications []GenerationApplication `json:"applications"`
+}
+
+// GenerationResult transports the result of the show-generation command.
+type GenerationResult struct {
+	// Generation holds the details of the requested generation.
+	Generation Generation `json:"generation"`
 
 	// Error holds the value of any error that occurred processing the request.
 	Error *Error `json:"error,omitempty"`
+}
+
+// CharmProfilingInfoArg contains a machine Entity with a slice of unit names
+// for which to gather info to apply lxd profiles for the machine based
+// on the unit.
+type CharmProfilingInfoArg struct {
+	Entity    Entity   `json:"entity"`
+	UnitNames []string `json:"unit-names"`
+}
+
+// CharmProfilingInfoResult contains the result based on ProfileInfoArg values
+// to update profiles on a machine.
+type CharmProfilingInfoResult struct {
+	Changes         bool                  `json:"changes"`
+	ProfileChanges  []ProfileChangeResult `json:"profile-changes"`
+	CurrentProfiles []string              `json:"current-profiles"`
+	Error           *Error                `json:"error"`
 }

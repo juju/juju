@@ -5,6 +5,7 @@ package provider_test
 
 import (
 	"os"
+	"strings"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
@@ -32,12 +33,13 @@ func newNode(labels map[string]string) core.Node {
 }
 
 func (s *K8sMetadataSuite) TestMicrok8sFromNodeMeta(c *gc.C) {
-	hostaname, err := os.Hostname()
+	hostname, err := os.Hostname()
 	c.Assert(err, jc.ErrorIsNil)
+	hostname = strings.ToLower(hostname)
 	node := core.Node{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   hostaname,
-			Labels: map[string]string{"kubernetes.io/hostname": hostaname},
+			Name:   hostname,
+			Labels: map[string]string{"kubernetes.io/hostname": hostname},
 		},
 	}
 	cloud, region := provider.GetCloudProviderFromNodeMeta(node)
@@ -209,19 +211,28 @@ func (s *K8sMetadataSuite) TestUserSpecifiedStorageClasses(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
-			Return(&core.NodeList{}, nil),
+			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
+				Labels: map[string]string{"manufacturer": "amazon_ec2"},
+			}}}}, nil),
 		s.mockStorageClass.EXPECT().Get("foo", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&storagev1.StorageClass{
 				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
 				Provisioner: "a-provisioner",
 				Parameters:  map[string]string{"foo": "bar"},
 			}, nil),
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
+				Provisioner: "kubernetes.io/aws-ebs",
+			}}}, nil),
 	)
 	metadata, err := s.broker.GetClusterMetadata("foo")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
 		Provisioner: "a-provisioner",
 		Parameters:  map[string]string{"foo": "bar"},
+	})
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Provisioner: "kubernetes.io/aws-ebs",
 	})
 }
 

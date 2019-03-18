@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/storage"
 )
 
@@ -31,7 +32,8 @@ type KubernetesWatcher = kubernetesWatcher
 
 type ControllerStackerForTest interface {
 	controllerStacker
-	GetAgentConfigContent(c *gc.C) string
+	GetAgentConfigContent(*gc.C) string
+	GetSharedSecretAndSSLKey(*gc.C) (string, string)
 	GetStorageSize() resource.Quantity
 }
 
@@ -41,12 +43,18 @@ func (cs controllerStack) GetAgentConfigContent(c *gc.C) string {
 	return string(agentCfg)
 }
 
+func (cs controllerStack) GetSharedSecretAndSSLKey(c *gc.C) (string, string) {
+	si, ok := cs.agentConfig.StateServingInfo()
+	c.Assert(ok, jc.IsTrue)
+	return si.SharedSecret, mongo.GenerateSSLKey(si.Cert, si.PrivateKey)
+}
+
 func (cs controllerStack) GetStorageSize() resource.Quantity {
 	return cs.storageSize
 }
 
-func NewcontrollerStackForTest(stackName string, broker caas.Broker, pcfg *podcfg.ControllerPodConfig) (ControllerStackerForTest, error) {
-	cs, err := newcontrollerStack(stackName, broker.(*kubernetesClient), pcfg)
+func NewcontrollerStackForTest(stackName, storageClass string, broker caas.Broker, pcfg *podcfg.ControllerPodConfig) (ControllerStackerForTest, error) {
+	cs, err := newcontrollerStack(stackName, storageClass, broker.(*kubernetesClient), pcfg)
 	return cs.(controllerStack), err
 }
 
@@ -62,19 +70,15 @@ func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.P
 	return &storageProvider{&kubernetesClient{Interface: k8sClient, namespace: namespace}}
 }
 
-func StorageClass(cfg *storageConfig) string {
+func GetStorageClass(cfg *storageConfig) string {
 	return cfg.storageClass
 }
 
-func ExistingStorageClass(cfg *storageConfig) string {
-	return cfg.existingStorageClass
-}
-
-func StorageProvisioner(cfg *storageConfig) string {
+func GetStorageProvisioner(cfg *storageConfig) string {
 	return cfg.storageProvisioner
 }
 
-func StorageParameters(cfg *storageConfig) map[string]string {
+func GetStorageParameters(cfg *storageConfig) map[string]string {
 	return cfg.parameters
 }
 

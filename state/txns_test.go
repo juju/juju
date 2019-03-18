@@ -37,7 +37,7 @@ func (s *MultiModelRunnerSuite) SetUpTest(c *gc.C) {
 	s.multiModelRunner = &multiModelRunner{
 		rawRunner: s.testRunner,
 		modelUUID: modelUUID,
-		schema: collectionSchema{
+		schema: CollectionSchema{
 			logsC:     {},
 			machinesC: {},
 			modelsC:   {global: true},

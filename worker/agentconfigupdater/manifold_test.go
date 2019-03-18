@@ -4,6 +4,7 @@
 package agentconfigupdater_test
 
 import (
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -13,8 +14,10 @@ import (
 	"github.com/juju/juju/agent"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agentconfigupdater"
 )
 
@@ -29,6 +32,7 @@ func (s *AgentConfigUpdaterSuite) SetUpTest(c *gc.C) {
 	s.manifold = agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
+		Logger:        loggo.GetLogger("test"),
 	})
 }
 
@@ -100,7 +104,7 @@ func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "checking controller status: boom")
 }
 
-func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIPort int) {
+func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIPort int, expectedErr error) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
 			c.Assert(objType, gc.Equals, "Agent")
@@ -118,6 +122,13 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 					PrivateKey: "key",
 					APIPort:    mockAPIPort,
 				}
+			case "ControllerConfig":
+				result := response.(*params.ControllerConfigResult)
+				*result = params.ControllerConfigResult{
+					Config: map[string]interface{}{
+						"mongo-memory-profile": "low",
+					},
+				}
 			default:
 				c.Fatalf("not sure how to handle: %q", request)
 			}
@@ -130,7 +141,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 	})
 	w, err := s.manifold.Start(context)
 	c.Assert(w, gc.IsNil)
-	c.Assert(err, gc.Equals, dependency.ErrUninstall)
+	c.Assert(err, gc.Equals, expectedErr)
 }
 
 func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *gc.C) {
@@ -138,13 +149,24 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *gc.C) {
 	const mockAPIPort = 1234
 
 	a := &mockAgent{}
-	s.startManifold(c, a, mockAPIPort)
+	s.startManifold(c, a, mockAPIPort, dependency.ErrUninstall)
 
+	c.Assert(a.conf.profileSet, jc.IsFalse)
 	// Verify that the state serving info was actually set.
 	c.Assert(a.conf.ssiSet, jc.IsTrue)
 	c.Assert(a.conf.ssi.APIPort, gc.Equals, mockAPIPort)
 	c.Assert(a.conf.ssi.Cert, gc.Equals, "cert")
 	c.Assert(a.conf.ssi.PrivateKey, gc.Equals, "key")
+}
+
+func (s *AgentConfigUpdaterSuite) TestProfileDifferenceRestarts(c *gc.C) {
+	const mockAPIPort = 1234
+
+	a := &mockAgent{}
+	a.conf.profile = "other"
+	s.startManifold(c, a, mockAPIPort, jworker.ErrRestartAgent)
+
+	c.Assert(a.conf.profileSet, jc.IsTrue)
 }
 
 func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) {
@@ -159,7 +181,7 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) 
 		PrivateKey: existingKey,
 	})
 
-	s.startManifold(c, a, mockAPIPort)
+	s.startManifold(c, a, mockAPIPort, dependency.ErrUninstall)
 
 	// Verify that the state serving info was actually set.
 	c.Assert(a.conf.ssiSet, jc.IsTrue)
@@ -220,6 +242,9 @@ type mockConfig struct {
 	tag    names.Tag
 	ssiSet bool
 	ssi    params.StateServingInfo
+
+	profile    mongo.MemoryProfile
+	profileSet bool
 }
 
 func (mc *mockConfig) Tag() names.Tag {
@@ -240,6 +265,18 @@ func (mc *mockConfig) StateServingInfo() (params.StateServingInfo, bool) {
 func (mc *mockConfig) SetStateServingInfo(info params.StateServingInfo) {
 	mc.ssiSet = true
 	mc.ssi = info
+}
+
+func (mc *mockConfig) MongoMemoryProfile() mongo.MemoryProfile {
+	if mc.profile == "" {
+		return mongo.MemoryProfileLow
+	}
+	return mc.profile
+}
+
+func (mc *mockConfig) SetMongoMemoryProfile(profile mongo.MemoryProfile) {
+	mc.profile = profile
+	mc.profileSet = true
 }
 
 func (mc *mockConfig) LogDir() string {

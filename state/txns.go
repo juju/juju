@@ -59,7 +59,7 @@ func (st *State) MaybePruneTransactions() error {
 
 type multiModelRunner struct {
 	rawRunner jujutxn.Runner
-	schema    collectionSchema
+	schema    CollectionSchema
 	modelUUID string
 }
 

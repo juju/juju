@@ -298,7 +298,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	controllerInheritedConfig, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	controllerInheritedConfig, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey("dummy"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInheritedConfig.Map(), jc.DeepEquals, controllerInheritedConfigIn)
 
@@ -572,7 +572,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 	s.openState(c, modelTag)
 
 	var attrs map[string]interface{}
-	rspec := &environs.RegionSpec{Cloud: "dummy", Region: "c-region"}
+	rspec := &environs.CloudRegionSpec{Cloud: "dummy", Region: "c-region"}
 	got, err := s.State.ComposeNewModelConfig(attrs, rspec)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got["no-proxy"], gc.Equals, "local")
@@ -631,7 +631,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 
 	var attrs map[string]interface{}
 	for r := range regionInheritedConfigIn {
-		rspec := &environs.RegionSpec{Cloud: "dummy", Region: r}
+		rspec := &environs.CloudRegionSpec{Cloud: "dummy", Region: r}
 		got, err := s.State.ComposeNewModelConfig(attrs, rspec)
 		c.Check(err, jc.ErrorIsNil)
 		c.Assert(got["no-proxy"], gc.Equals, regionInheritedConfigIn[r]["no-proxy"])

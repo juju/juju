@@ -122,13 +122,17 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 		return err
 	}
 
-	if err := c.out.Write(ctxt, cloud); err != nil {
+	displayCloud := cloud
+	displayCloud.CloudType = displayCloudType(displayCloud.CloudType)
+	if err := c.out.Write(ctxt, displayCloud); err != nil {
 		return err
 	}
 	if c.includeConfig {
 		config := getCloudConfigDetails(cloud.CloudType)
 		if len(config) > 0 {
-			fmt.Fprintln(ctxt.Stdout, fmt.Sprintf("\nThe available config options specific to %s clouds are:", cloud.CloudType))
+			fmt.Fprintln(
+				ctxt.Stdout,
+				fmt.Sprintf("\nThe available config options specific to %s clouds are:", displayCloud.CloudType))
 			return c.out.Write(ctxt, config)
 		}
 	}

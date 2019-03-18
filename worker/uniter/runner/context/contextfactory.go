@@ -297,6 +297,12 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 	ctx.slaLevel = sla
 
+	apiVersion, err := f.state.CloudAPIVersion()
+	if err != nil {
+		logger.Warningf("could not retrieve the cloud API version: %v", err)
+	}
+	ctx.cloudAPIVersion = apiVersion
+
 	// TODO(fwereade) 23-10-2014 bug 1384572
 	// Nothing here should ever be getting the environ config directly.
 	modelConfig, err := f.state.ModelConfig()

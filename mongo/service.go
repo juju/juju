@@ -55,6 +55,9 @@ const (
 
 	// mongoLogPath is used as a fallback location when syslog is not enabled
 	mongoLogPath = "/var/log/mongodb"
+
+	// FileNameDBSSLKey is the file name of db ssl key file name.
+	FileNameDBSSLKey = "server.pem"
 )
 
 var (
@@ -162,7 +165,7 @@ func restartService(svc mongoService) error {
 }
 
 func sslKeyPath(dataDir string) string {
-	return filepath.Join(dataDir, "server.pem")
+	return filepath.Join(dataDir, FileNameDBSSLKey)
 }
 
 func sharedSecretPath(dataDir string) string {

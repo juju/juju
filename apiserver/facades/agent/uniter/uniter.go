@@ -30,13 +30,14 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v10) of the Uniter API,
-// which adds WatchUnitLXDProfileUpgradeNotifications.
+// UniterAPI implements the latest version (v11) of the Uniter API,
+// which adds CloudAPIVersion.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -49,14 +50,15 @@ type UniterAPI struct {
 	*LXDProfileAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
 	meterstatus.MeterStatus
-	m                 *state.Model
-	st                *state.State
-	auth              facade.Authorizer
-	resources         facade.Resources
-	leadershipChecker leadership.Checker
-	accessUnit        common.GetAuthFunc
-	accessApplication common.GetAuthFunc
-	accessMachine     common.GetAuthFunc
+	m                   *state.Model
+	st                  *state.State
+	auth                facade.Authorizer
+	resources           facade.Resources
+	leadershipChecker   leadership.Checker
+	accessUnit          common.GetAuthFunc
+	accessApplication   common.GetAuthFunc
+	accessMachine       common.GetAuthFunc
+	containerBrokerFunc caas.NewContainerBrokerFunc
 	*StorageAPI
 
 	// A cloud spec can only be accessed for the model of the unit or
@@ -66,11 +68,17 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
+// UniterAPI implements the latest version (v11) of the Uniter API,
+// which adds WatchUnitLXDProfileUpgradeNotifications.
+type UniterAPIV10 struct {
+	UniterAPI
+}
+
 // UniterAPIV9 adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash,
 // WatchUnitAddressesHash, WatchLXDProfileUpgradeNotifications, and
 // RemoveUpgradeCharmProfileData.
 type UniterAPIV9 struct {
-	UniterAPI
+	UniterAPIV10
 }
 
 // UniterAPIV8 adds SetContainerSpec, GoalStates, CloudSpec,
@@ -195,7 +203,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 
 		switch tag := authorizer.GetAuthTag().(type) {
 		case names.ApplicationTag:
-			appName = tag.String()
+			appName = tag.Id()
 		case names.UnitTag:
 			entity, err := st.Unit(tag.Id())
 			if err != nil {
@@ -270,14 +278,25 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}, nil
 }
 
-// NewUniterAPIV9 creates an instance of the V9 uniter API.
-func NewUniterAPIV9(context facade.Context) (*UniterAPIV9, error) {
+// NewUniterAPIV10 creates an instance of the V10 uniter API.
+func NewUniterAPIV10(context facade.Context) (*UniterAPIV10, error) {
 	uniterAPI, err := NewUniterAPI(context)
 	if err != nil {
 		return nil, err
 	}
-	return &UniterAPIV9{
+	return &UniterAPIV10{
 		UniterAPI: *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV9 creates an instance of the V9 uniter API.
+func NewUniterAPIV9(context facade.Context) (*UniterAPIV9, error) {
+	uniterAPI, err := NewUniterAPIV10(context)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV9{
+		UniterAPIV10: *uniterAPI,
 	}, nil
 }
 
@@ -2825,4 +2844,24 @@ func (u *UniterAPI) watchOneUnitHashes(tag names.UnitTag, getWatcher func(u *sta
 		return u.resources.Register(w), changes, nil
 	}
 	return "", nil, watcher.EnsureErr(w)
+}
+
+// CloudAPIVersion isn't on the v10 API.
+func (u *UniterAPIV10) CloudAPIVersion(_, _ struct{}) {}
+
+// CloudAPIVersion returns the cloud API version, if available.
+func (u *UniterAPI) CloudAPIVersion() (params.StringResult, error) {
+	result := params.StringResult{}
+
+	configGetter := stateenvirons.EnvironConfigGetter{State: u.st, Model: u.m, NewContainerBroker: u.containerBrokerFunc}
+	spec, err := configGetter.CloudSpec()
+	if err != nil {
+		return result, common.ServerError(err)
+	}
+	apiVersion, err := configGetter.CloudAPIVersion(spec)
+	if err != nil {
+		return result, common.ServerError(err)
+	}
+	result.Result = apiVersion
+	return result, err
 }

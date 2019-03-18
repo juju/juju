@@ -39,11 +39,11 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-var log = loggo.GetLogger("juju.cmd.jujud")
+var logger = loggo.GetLogger("juju.cmd.jujud")
 
 func init() {
 	if err := components.RegisterForServer(); err != nil {
-		log.Criticalf("unabled to register server components: %v", err)
+		logger.Criticalf("unable to register server components: %v", err)
 		os.Exit(1)
 	}
 }
@@ -167,7 +167,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
-	jujud.Register(NewBootstrapCommand())
+	jujud.Register(agentcmd.NewBootstrapCommand())
 
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the separate concerns; the
@@ -194,14 +194,13 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 	jujud.Register(caasOperatorAgent)
 
-	jujud.Register(NewUpgradeMongoCommand())
 	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
 }
 
-// This function exists to preserve test functionality.
+// MainWrapper exists to preserve test functionality.
 // On windows we need to catch the return code from main for
 // service functionality purposes, but on unix we can just os.Exit
 func MainWrapper(args []string) {

@@ -126,21 +126,6 @@ func (p kubernetesEnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
 }
 
-func (p kubernetesEnvironProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
-	if err := config.Validate(cfg, old); err != nil {
-		return nil, err
-	}
-	return cfg, nil
-}
-
-func (p kubernetesEnvironProvider) newConfig(cfg *config.Config) (*config.Config, error) {
-	valid, err := p.Validate(cfg, nil)
-	if err != nil {
-		return nil, err
-	}
-	return valid, nil
-}
-
 func (p kubernetesEnvironProvider) validateCloudSpec(spec environs.CloudSpec) error {
 
 	if err := spec.Validate(); err != nil {

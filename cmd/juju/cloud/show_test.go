@@ -65,6 +65,44 @@ regions:
 `[1:])
 }
 
+func (s *showSuite) TestShowKubernetes(c *gc.C) {
+	var controllerAPICalled string
+	s.api.cloud = jujucloud.Cloud{
+		Name:        "beehive",
+		Type:        "kubernetes",
+		Description: "Bumble Bees",
+		AuthTypes:   []jujucloud.AuthType{"userpass"},
+		Endpoint:    "http://cluster",
+		Regions: []jujucloud.Region{
+			{
+				Name:     "default",
+				Endpoint: "http://cluster/default",
+			},
+		},
+	}
+	cmd := cloud.NewShowCloudCommandForTest(
+		s.store,
+		func(controllerName string) (cloud.ShowCloudAPI, error) {
+			controllerAPICalled = controllerName
+			return s.api, nil
+		})
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "beehive")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "Cloud", "Close")
+	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, gc.Equals, `
+defined: public
+type: k8s
+description: Bumble Bees
+auth-types: [userpass]
+endpoint: http://cluster
+regions:
+  default:
+    endpoint: http://cluster/default
+`[1:])
+}
+
 func (s *showSuite) TestShowControllerCloud(c *gc.C) {
 	var controllerAPICalled string
 	s.api.cloud = jujucloud.Cloud{

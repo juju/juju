@@ -67,6 +67,7 @@ from jujupy.status import (
 )
 from jujupy.controller import (
     Controllers,
+    ControllerConfig,
 )
 from jujupy.utility import (
     _dns_name_for_machine,
@@ -577,6 +578,8 @@ class ModelClient:
 
     controllers_class = Controllers
 
+    controller_config_class = ControllerConfig
+
     agent_metadata_url = 'agent-metadata-url'
 
     model_permissions = frozenset(['read', 'write', 'admin'])
@@ -920,8 +923,11 @@ class ModelClient:
         })
 
     @contextmanager
-    def _bootstrap_config(self):
-        with temp_yaml_file(self.make_model_config()) as config_filename:
+    def _bootstrap_config(self, mongo_memory_profile=None):
+        cfg = self.make_model_config()
+        if mongo_memory_profile:
+            cfg['mongo-memory-profile'] = mongo_memory_profile
+        with temp_yaml_file(cfg) as config_filename:
             yield config_filename
 
     def _check_bootstrap(self):
@@ -935,10 +941,10 @@ class ModelClient:
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
                   no_gui=False, agent_version=None, db_snap_path=None,
-                  db_snap_asserts_path=None):
+                  db_snap_asserts_path=None, mongo_memory_profile=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
-        with self._bootstrap_config() as config_filename:
+        with self._bootstrap_config(mongo_memory_profile) as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series, credential,
                 auto_upgrade, metadata_source, no_gui, agent_version,
@@ -1085,6 +1091,23 @@ class ModelClient:
                 pass
         raise ControllersTimeout(
             'Timed out waiting for juju show-controllers to succeed')
+
+    def get_controller_config(self, controller_name, timeout=60):
+        """Get controller config."""
+        for ignored in until_timeout(timeout):
+            try:
+                return self.controller_config_class.from_text(
+                    self.get_juju_output(
+                        'controller-config',
+                        '--controller', controller_name,
+                        '--format', 'yaml',
+                        include_e=False,
+                    ).decode('utf-8'),
+                )
+            except subprocess.CalledProcessError:
+                pass
+        raise ControllersTimeout(
+            'Timed out waiting for juju controller-config to succeed')
 
     def show_model(self, model_name=None):
         model_details = self.get_juju_output(

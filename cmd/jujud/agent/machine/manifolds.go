@@ -254,11 +254,11 @@ type ManifoldsConfig struct {
 	MuxShutdownWait time.Duration
 }
 
-// Manifolds returns a set of co-configured manifolds covering the
+// commonManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a machine agent.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
-func Manifolds(config ManifoldsConfig) dependency.Manifolds {
+func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 	// connectFilter exists:
 	//  1) to let us retry api connections immediately on password change,
@@ -278,10 +278,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			return dependency.ErrBounce
 		}
 		return err
-	}
-	var externalUpdateProxyFunc func(proxy.Settings) error
-	if runtime.GOOS == "linux" {
-		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
 	}
 
 	newExternalControllerWatcherClient := func(apiInfo *api.Info) (
@@ -473,19 +469,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			PreviousAgentVersion: config.PreviousAgentVersion,
 		}),
 
-		// The upgradesteps worker runs soon after the machine agent
-		// starts and runs any steps required to upgrade to the
-		// running jujud version. Once upgrade steps have run, the
-		// upgradesteps gate is unlocked and the worker exits.
-		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
-			UpgradeStepsGateName: upgradeStepsGateName,
-			OpenStateForUpgrade:  config.OpenStateForUpgrade,
-			PreUpgradeSteps:      config.PreUpgradeSteps,
-			NewAgentStatusSetter: config.NewAgentStatusSetter,
-		}),
-
 		// The migration workers collaborate to run migrations;
 		// and to create a mechanism for running other workers
 		// so they can't accidentally interfere with a migration
@@ -560,6 +543,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.agentconfigupdater"),
 		})),
 
 		// The apiworkers manifold starts workers which rely on the
@@ -569,16 +553,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiWorkersName: ifNotMigrating(APIWorkersManifold(APIWorkersConfig{
 			APICallerName:   apiCallerName,
 			StartAPIWorkers: config.StartAPIWorkers,
-		})),
-
-		// The reboot manifold manages a worker which will reboot the
-		// machine when requested. It needs an API connection and
-		// waits for upgrades to be complete.
-		rebootName: ifNotMigrating(reboot.Manifold(reboot.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			MachineLock:   config.MachineLock,
-			Clock:         config.Clock,
 		})),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -599,29 +573,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 
-		// The proxy config updater is a leaf worker that sets http/https/apt/etc
-		// proxy settings.
-		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			AgentName:       agentName,
-			APICallerName:   apiCallerName,
-			Logger:          loggo.GetLogger("juju.worker.proxyupdater"),
-			WorkerFunc:      proxyupdater.NewWorker,
-			ExternalUpdate:  externalUpdateProxyFunc,
-			InProcessUpdate: proxyconfig.DefaultConfig.Set,
-			RunFunc:         proxyupdater.RunWithStdIn,
-		})),
-
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the state server addresses change. We should only need one of
 		// these in a consolidated agent.
 		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-		})),
-
-		fanConfigurerName: ifNotMigrating(fanconfigurer.Manifold(fanconfigurer.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
 		})),
 
 		// The machiner Worker will wait for the identified machine to become
@@ -647,31 +604,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogSource:     config.LogSource,
 		})),
 
-		// The deployer worker is primary for deploying and recalling unit
-		// agents, according to changes in a set of state units; and for the
-		// final removal of its agents' units from state when they are no
-		// longer needed.
-		deployerName: ifNotMigrating(deployer.Manifold(deployer.ManifoldConfig{
-			NewDeployContext: config.NewDeployContext,
-			AgentName:        agentName,
-			APICallerName:    apiCallerName,
-		})),
-
-		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-		})),
-
-		// The storageProvisioner worker manages provisioning
-		// (deprovisioning), and attachment (detachment) of first-class
-		// volumes and filesystems.
-		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
-			AgentName:                    agentName,
-			APICallerName:                apiCallerName,
-			Clock:                        config.Clock,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		}))),
-
 		resumerName: ifNotMigrating(resumer.Manifold(resumer.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -686,24 +618,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 
-		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-		})),
-
 		machineActionName: ifNotMigrating(machineactions.Manifold(machineactions.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			NewFacade:     machineactions.NewFacade,
 			NewWorker:     machineactions.NewMachineActionsWorker,
-		})),
-
-		hostKeyReporterName: ifNotMigrating(hostkeyreporter.Manifold(hostkeyreporter.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			RootDir:       config.RootDir,
-			NewFacade:     hostkeyreporter.NewFacade,
-			NewWorker:     hostkeyreporter.NewWorker,
 		})),
 
 		externalControllerUpdaterName: ifNotMigrating(ifPrimaryController(externalcontrollerupdater.Manifold(
@@ -814,13 +733,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: restorewatcher.NewWorker,
 		}),
 
-		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
-			AgentName:                agentName,
-			StateName:                stateName,
-			NewWorker:                certupdater.NewCertificateUpdater,
-			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
-		})),
-
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
 			AgentName: agentName,
 			StateName: stateName,
@@ -910,17 +822,126 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:    loggo.GetLogger("juju.worker.legacyleasesenabled"),
 			NewWorker: featureflag.NewWorker,
 		})),
+
+		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
+			AgentName:                agentName,
+			StateName:                stateName,
+			NewWorker:                certupdater.NewCertificateUpdater,
+			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
+		})),
+
+		fanConfigurerName: ifNotMigrating(fanconfigurer.Manifold(fanconfigurer.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+		})),
 	}
 
-	manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
-		AgentName:     agentName,
-		APICallerName: apiCallerName,
-		Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
-		NewFacade:     upgradeseries.NewFacade,
-		NewWorker:     upgradeseries.NewWorker,
-	}))
-
 	return manifolds
+}
+
+// IAASManifolds returns a set of co-configured manifolds covering the
+// various responsibilities of a IAAS machine agent.
+func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	var externalUpdateProxyFunc func(proxy.Settings) error
+	if runtime.GOOS == "linux" {
+		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
+	}
+	return mergeManifolds(config, dependency.Manifolds{
+		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+		})),
+
+		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+		})),
+
+		// The proxy config updater is a leaf worker that sets http/https/apt/etc
+		// proxy settings.
+		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			Logger:          loggo.GetLogger("juju.worker.proxyupdater"),
+			WorkerFunc:      proxyupdater.NewWorker,
+			ExternalUpdate:  externalUpdateProxyFunc,
+			InProcessUpdate: proxyconfig.DefaultConfig.Set,
+			RunFunc:         proxyupdater.RunWithStdIn,
+		})),
+
+		hostKeyReporterName: ifNotMigrating(hostkeyreporter.Manifold(hostkeyreporter.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			RootDir:       config.RootDir,
+			NewFacade:     hostkeyreporter.NewFacade,
+			NewWorker:     hostkeyreporter.NewWorker,
+		})),
+
+		// The upgradesteps worker runs soon after the machine agent
+		// starts and runs any steps required to upgrade to the
+		// running jujud version. Once upgrade steps have run, the
+		// upgradesteps gate is unlocked and the worker exits.
+		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			OpenStateForUpgrade:  config.OpenStateForUpgrade,
+			PreUpgradeSteps:      config.PreUpgradeSteps,
+			NewAgentStatusSetter: config.NewAgentStatusSetter,
+		}),
+
+		upgradeSeriesWorkerName: ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
+			NewFacade:     upgradeseries.NewFacade,
+			NewWorker:     upgradeseries.NewWorker,
+		})),
+
+		// The deployer worker is primary for deploying and recalling unit
+		// agents, according to changes in a set of state units; and for the
+		// final removal of its agents' units from state when they are no
+		// longer needed.
+		deployerName: ifNotMigrating(deployer.Manifold(deployer.ManifoldConfig{
+			NewDeployContext: config.NewDeployContext,
+			AgentName:        agentName,
+			APICallerName:    apiCallerName,
+		})),
+
+		// The reboot manifold manages a worker which will reboot the
+		// machine when requested. It needs an API connection and
+		// waits for upgrades to be complete.
+		rebootName: ifNotMigrating(reboot.Manifold(reboot.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			MachineLock:   config.MachineLock,
+			Clock:         config.Clock,
+		})),
+
+		// The storageProvisioner worker manages provisioning
+		// (deprovisioning), and attachment (detachment) of first-class
+		// volumes and filesystems.
+		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
+			AgentName:                    agentName,
+			APICallerName:                apiCallerName,
+			Clock:                        config.Clock,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+		}))),
+	})
+}
+
+// CAASManifolds returns a set of co-configured manifolds covering the
+// various responsibilities of a CAAS machine agent.
+func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	return mergeManifolds(config, dependency.Manifolds{})
+}
+
+func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) dependency.Manifolds {
+	result := commonManifolds(config)
+	for name, manifold := range manifolds {
+		result[name] = manifold
+	}
+	return result
 }
 
 func clockManifold(clock clock.Clock) dependency.Manifold {

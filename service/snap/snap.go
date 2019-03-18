@@ -183,7 +183,7 @@ func SetSnapConfig(snap string, key string, value string) error {
 // to produce a list of currently-installed services that are managed by snap.
 func ListCommand() string {
 	// filters the output from `snap list` to only be a newline-delimited list of snaps
-	return Command + " services | tail +2 | cut -d ' ' -f1 | sort -u"
+	return Command + " services | tail -n +2 | cut -d ' ' -f1 | sort -u"
 }
 
 // ListServices returns a list of services that are being managed by snap.

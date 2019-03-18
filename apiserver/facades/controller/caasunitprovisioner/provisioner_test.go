@@ -31,15 +31,14 @@ var _ = gc.Suite(&CAASProvisionerSuite{})
 type CAASProvisionerSuite struct {
 	coretesting.BaseSuite
 
-	clock                   clock.Clock
-	st                      *mockState
-	storage                 *mockStorage
-	storageProviderRegistry *mockStorageProviderRegistry
-	storagePoolManager      *mockStoragePoolManager
-	devices                 *mockDeviceBackend
-	applicationsChanges     chan []string
-	podSpecChanges          chan struct{}
-	scaleChanges            chan struct{}
+	clock               clock.Clock
+	st                  *mockState
+	storage             *mockStorage
+	storagePoolManager  *mockStoragePoolManager
+	devices             *mockDeviceBackend
+	applicationsChanges chan []string
+	podSpecChanges      chan struct{}
+	scaleChanges        chan struct{}
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
@@ -73,7 +72,6 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		storageAttachments: make(map[names.UnitTag]names.StorageTag),
 		backingVolume:      names.NewVolumeTag("66"),
 	}
-	s.storageProviderRegistry = &mockStorageProviderRegistry{}
 	s.storagePoolManager = &mockStoragePoolManager{}
 	s.devices = &mockDeviceBackend{}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
@@ -88,7 +86,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Now())
 
 	facade, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storageProviderRegistry, s.storagePoolManager, s.clock)
+		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storagePoolManager, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -98,7 +96,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storageProviderRegistry, s.storagePoolManager, s.clock)
+		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storagePoolManager, s.clock)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -180,7 +178,10 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 					StorageName: "data",
 					Provider:    string(provider.K8s_ProviderType),
 					Size:        100,
-					Attributes:  map[string]interface{}{"foo": "bar"},
+					Attributes: map[string]interface{}{
+						"storage-class": "k8s-storage",
+						"foo":           "bar",
+					},
 					Tags: map[string]string{
 						"juju-storage-instance": "data/0",
 						"juju-storage-owner":    "gitlab",
@@ -212,7 +213,6 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	})
 	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig")
 	s.storage.CheckCallNames(c, "UnitStorageAttachments", "StorageInstance", "FilesystemAttachment")
-	s.storageProviderRegistry.CheckNoCalls(c)
 	s.storagePoolManager.CheckCallNames(c, "Get")
 }
 
@@ -229,7 +229,6 @@ func (s *CAASProvisionerSuite) TestProvisioningInfoNoUnits(c *gc.C) {
 		Results: []params.KubernetesProvisioningInfoResult{{}}})
 	s.st.CheckCallNames(c, "Model", "Application")
 	s.storage.CheckNoCalls(c)
-	s.storageProviderRegistry.CheckNoCalls(c)
 	s.storagePoolManager.CheckNoCalls(c)
 }
 

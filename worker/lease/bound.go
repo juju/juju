@@ -16,6 +16,7 @@ type broker interface {
 	lease.Checker
 	lease.Claimer
 	lease.Pinner
+	lease.Reader
 }
 
 // boundManager implements the broker interface.
@@ -89,6 +90,12 @@ func (b *boundManager) Pin(leaseName string, entity string) error {
 // Unpin (lease.Pinner) sends an unpin message to the worker loop.
 func (b *boundManager) Unpin(leaseName string, entity string) error {
 	return errors.Trace(b.pinOp(leaseName, entity, b.manager.unpins))
+}
+
+// Leases (lease.Reader) returns all leases and holders
+// in the bound namespace/model.
+func (b *boundManager) Leases() map[string]string {
+	return b.manager.leases(b.namespace, b.modelUUID)
 }
 
 // pinOp creates a pin instance from the input lease name,

@@ -46,6 +46,19 @@ type GenerationApplication struct {
 	ConfigChanges map[string]interface{} `yaml:"config"`
 }
 
+// Generation represents detail of a model generation including config changes.
+type Generation struct {
+	// Created is the formatted time at generation creation.
+	Created string `yaml:"created"`
+
+	// Created is the user who created the generation.
+	CreatedBy string `yaml:"created-by"`
+
+	// Applications is a collection of applications with changes in this
+	// generation including advanced units and modified configuration.
+	Applications []GenerationApplication `yaml:"applications"`
+}
+
 // GenerationSummaries is a type alias for a representation
 // of changes-by-generation.
-type GenerationSummaries = map[GenerationVersion][]GenerationApplication
+type GenerationSummaries = map[GenerationVersion]Generation

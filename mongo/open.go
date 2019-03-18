@@ -235,7 +235,7 @@ func Login(session *mgo.Session, user, password string) error {
 	return nil
 }
 
-// MaybeUnauthorized checks if the cause of the given error is a Mongo
+// MaybeUnauthorizedf checks if the cause of the given error is a Mongo
 // authorization error, and if so, wraps the error with errors.Unauthorizedf.
 func MaybeUnauthorizedf(err error, message string, args ...interface{}) error {
 	if isUnauthorized(errors.Cause(err)) {

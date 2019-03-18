@@ -44,8 +44,8 @@ var (
 // Please do not use collections not referenced here; and when adding new
 // collections, please document them, and make an effort to put them in an
 // appropriate section.
-func allCollections() collectionSchema {
-	result := collectionSchema{
+func allCollections() CollectionSchema {
+	result := CollectionSchema{
 
 		// Infrastructure collections
 		// ==========================

@@ -32,8 +32,8 @@ type Policy interface {
 	Prechecker() (environs.InstancePrechecker, error)
 
 	// ProviderConfigSchemaSource returns a config.ConfigSchemaSource
-	// for the environ provider, or an error.
-	ProviderConfigSchemaSource() (config.ConfigSchemaSource, error)
+	// for the cloud, or an error.
+	ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error)
 
 	// ConfigValidator returns a config.Validator or an error.
 	ConfigValidator() (config.Validator, error)
@@ -178,9 +178,9 @@ func (st *State) storageProviderRegistry() (storage.ProviderRegistry, error) {
 	return st.policy.StorageProviderRegistry()
 }
 
-func (st *State) environsProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {
+func (st *State) environsProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {
 	if st.policy == nil {
 		return nil, errors.NotImplementedf("config.ProviderConfigSchemaSource")
 	}
-	return st.policy.ProviderConfigSchemaSource()
+	return st.policy.ProviderConfigSchemaSource(cloudName)
 }

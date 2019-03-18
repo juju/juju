@@ -9,12 +9,16 @@ import (
 	"github.com/juju/pubsub"
 )
 
+const (
+	applicationConfigChange = "application-config-change"
+)
+
 func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Application {
-	m := &Application{
+	a := &Application{
 		metrics: metrics,
 		hub:     hub,
 	}
-	return m
+	return a
 }
 
 // Application represents an application in a model.
@@ -26,20 +30,45 @@ type Application struct {
 
 	details    ApplicationChange
 	configHash string
+	hashCache  *hashCache
 }
 
-func (m *Application) setDetails(details ApplicationChange) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.details = details
+// Config returns a copy of the current application config.
+func (a *Application) Config() map[string]interface{} {
+	a.mu.Lock()
+	cfg := make(map[string]interface{}, len(a.details.Config))
+	for k, v := range a.details.Config {
+		cfg[k] = v
+	}
+	a.mu.Unlock()
+	a.metrics.ApplicationConfigReads.Inc()
+	return cfg
+}
 
-	configHash, err := hash(details.Config)
-	if err != nil {
-		logger.Errorf("invariant error - application config should be yaml serializable and hashable, %v", err)
-		configHash = ""
+// WatchConfig creates a watcher for the application config.
+func (a *Application) WatchConfig(keys ...string) *ConfigWatcher {
+	return newConfigWatcher(keys, a.hashCache, a.hub, a.topic(applicationConfigChange))
+}
+
+func (a *Application) setDetails(details ApplicationChange) {
+	a.mu.Lock()
+
+	a.details = details
+	hashCache, configHash := newHashCache(
+		details.Config, a.metrics.ApplicationHashCacheHit, a.metrics.ApplicationHashCacheMiss)
+
+	if configHash != a.configHash {
+		a.configHash = configHash
+		a.hashCache = hashCache
+		a.hub.Publish(a.topic(applicationConfigChange), hashCache)
 	}
-	if configHash != m.configHash {
-		m.configHash = configHash
-		// TODO: publish config change...
-	}
+
+	a.mu.Unlock()
+}
+
+// topic prefixes the input string with the model ID and application name.
+// TODO (manadart 2019-03-14) The model ID will not be necessary when there is
+// one hub per model.
+func (a *Application) topic(suffix string) string {
+	return a.details.ModelUUID + ":" + a.details.Name + ":" + suffix
 }

@@ -18,31 +18,31 @@ func (s *cloudSpecSuite) TestNewRegionSpec(c *gc.C) {
 	tests := []struct {
 		description, cloud, region, errMatch string
 		nilErr                               bool
-		want                                 *environs.RegionSpec
+		want                                 *environs.CloudRegionSpec
 	}{
 		{
 			description: "test empty cloud",
 			cloud:       "",
 			region:      "aregion",
-			errMatch:    "cloud and region are required to be non empty strings",
+			errMatch:    "cloud is required to be non empty",
 			want:        nil,
 		}, {
 			description: "test empty region",
 			cloud:       "acloud",
 			region:      "",
-			errMatch:    "cloud and region are required to be non empty strings",
-			want:        nil,
+			nilErr:      true,
+			want:        &environs.CloudRegionSpec{Cloud: "acloud"},
 		}, {
 			description: "test valid",
 			cloud:       "acloud",
 			region:      "aregion",
 			nilErr:      true,
-			want:        &environs.RegionSpec{Cloud: "acloud", Region: "aregion"},
+			want:        &environs.CloudRegionSpec{Cloud: "acloud", Region: "aregion"},
 		},
 	}
 	for i, test := range tests {
 		c.Logf("Test %d: %s", i, test.description)
-		rspec, err := environs.NewRegionSpec(test.cloud, test.region)
+		rspec, err := environs.NewCloudRegionSpec(test.cloud, test.region)
 		if !test.nilErr {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
 		} else {

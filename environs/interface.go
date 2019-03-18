@@ -50,7 +50,7 @@ type EnvironProvider interface {
 	PrepareConfig(PrepareConfigParams) (*config.Config, error)
 }
 
-// A EnvironProvider represents a computing and storage provider
+// A CloudEnvironProvider represents a computing and storage provider
 // for a traditional cloud like AWS or Openstack.
 type CloudEnvironProvider interface {
 	EnvironProvider
@@ -265,8 +265,8 @@ type ConfigSetter interface {
 	SetConfig(cfg *config.Config) error
 }
 
-// Bootstraper provides the way for bootstrapping controller.
-type Bootstraper interface {
+// Bootstrapper provides the way for bootstrapping controller.
+type Bootstrapper interface {
 	// This will be called very early in the bootstrap procedure, to
 	// give an Environ a chance to perform interactive operations that
 	// are required for bootstrapping.
@@ -298,9 +298,25 @@ type Configer interface {
 // in order to bootstrap a controller.
 type BootstrapEnviron interface {
 	Configer
-	Bootstraper
+	Bootstrapper
 	ConstraintsChecker
 	ControllerDestroyer
+
+	// Environ implements storage.ProviderRegistry for acquiring
+	// environ-scoped storage providers supported by the Environ.
+	// StorageProviders returned from Environ.StorageProvider will
+	// be scoped specifically to that Environ.
+	storage.ProviderRegistry
+
+	// Create creates the environment for a new hosted model.
+	//
+	// This will be called before any workers begin operating on the
+	// Environ, to give an Environ a chance to perform operations that
+	// are required for further use.
+	//
+	// Create is not called for the initial controller model; it is
+	// the Bootstrap method's job to create the controller model.
+	Create(context.ProviderCallContext, CreateParams) error
 }
 
 // CloudDestroyer provides the API to cleanup cloud resources.
@@ -329,27 +345,10 @@ type CloudDestroyer interface {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
-	// Environ implements storage.ProviderRegistry for acquiring
-	// environ-scoped storage providers supported by the Environ.
-	// StorageProviders returned from Environ.StorageProvider will
-	// be scoped specifically to that Environ.
-	storage.ProviderRegistry
+	BootstrapEnviron
 
 	// CloudDestroyer provides the API to cleanup cloud resources.
 	CloudDestroyer
-
-	// Bootstraper prepares an environment for bootstrapping.
-	Bootstraper
-
-	// Create creates the environment for a new hosted model.
-	//
-	// This will be called before any workers begin operating on the
-	// Environ, to give an Environ a chance to perform operations that
-	// are required for further use.
-	//
-	// Create is not called for the initial controller model; it is
-	// the Bootstrap method's job to create the controller model.
-	Create(context.ProviderCallContext, CreateParams) error
 
 	// ResourceAdopter defines methods for adopting resources.
 	ResourceAdopter
@@ -358,19 +357,7 @@ type Environ interface {
 	// instances.
 	InstanceBroker
 
-	// Configer allows the access of the configuration data.
-	Configer
-
-	// ConstraintsChecker provides a means to check that constraints are valid.
-	ConstraintsChecker
-
-	// Instances returns a slice of instances corresponding to the
-	// given instance ids.  If no instances were found, but there
-	// was no other error, it will return ErrNoInstances.  If
-	// some but not all the instances were found, the returned slice
-	// will have some nil slots, and an ErrPartialInstances error
-	// will be returned.
-	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
+	InstanceLister
 
 	// ControllerInstances returns the IDs of instances corresponding
 	// to Juju controller, having the specified controller UUID.
@@ -387,10 +374,6 @@ type Environ interface {
 	// InstanceTypesFetcher represents an environment that can return
 	// information about the available instance types.
 	InstanceTypesFetcher
-
-	// ControllerDestroyer is similar to Destroy() in that it destroys
-	// the model, which in this case will be the controller model.
-	ControllerDestroyer
 }
 
 // ControllerDestroyer is similar to Destroy() in that it destroys
@@ -438,6 +421,17 @@ type InstancePrechecker interface {
 	// guaranteed that the constraints are valid; if a non-nil error is
 	// returned, then the constraints are definitely invalid.
 	PrecheckInstance(context.ProviderCallContext, PrecheckInstanceParams) error
+}
+
+// InstanceLister provider api to list instances for specified instance ids.
+type InstanceLister interface {
+	// Instances returns a slice of instances corresponding to the
+	// given instance ids.  If no instances were found, but there
+	// was no other error, it will return ErrNoInstances.  If
+	// some but not all the instances were found, the returned slice
+	// will have some nil slots, and an ErrPartialInstances error
+	// will be returned.
+	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
 }
 
 // PrecheckInstanceParams contains the parameters for

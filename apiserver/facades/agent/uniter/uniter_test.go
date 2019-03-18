@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
@@ -4293,6 +4294,34 @@ func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 		"password": "secret",
 	}
 	c.Assert(result.Result.Credential.Attributes, gc.DeepEquals, exp)
+}
+
+type fakeBroker struct {
+	caas.Broker
+}
+
+func (*fakeBroker) APIVersion() (string, error) {
+	return "6.66", nil
+}
+
+func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
+	_, cm, _, _ := s.setupCAASModel(c)
+	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             cm.State(),
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	uniter.SetNewContainerBrokerFunc(uniterAPI, func(environs.OpenParams) (caas.Broker, error) {
+		return &fakeBroker{}, nil
+	})
+
+	result, err := uniterAPI.CloudAPIVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringResult{
+		Result: "6.66",
+	})
 }
 
 type uniterV8Suite struct {

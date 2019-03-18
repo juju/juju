@@ -11,9 +11,9 @@ PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/)
 
 # Allow the tests to take longer on arm platforms.
 ifeq ($(shell uname -p | sed -E 's/.*(armel|armhf|aarch64).*/golang/'), golang)
-	TEST_TIMEOUT := 2400s
+	TEST_TIMEOUT := 3000s
 else
-	TEST_TIMEOUT := 1500s
+	TEST_TIMEOUT := 1800s
 endif
 
 # Enable verbose testing for reporting.
@@ -148,11 +148,14 @@ operator-image: install caas/jujud-operator-dockerfile caas/jujud-operator-requi
 	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
-	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${DOCKER_USERNAME}/caas-jujud-operator:${OPERATOR_IMAGE_TAG} ${JUJUD_STAGING_DIR}
+	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG} ${JUJUD_STAGING_DIR}
 	rm -rf ${JUJUD_STAGING_DIR}
 
 push-operator-image: operator-image
-	docker push ${DOCKER_USERNAME}/caas-jujud-operator
+	docker push ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}
+
+microk8s-operator-update: operator-image
+	docker save ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG} | microk8s.docker load
 
 check-k8s-model:
 	@:$(if $(value JUJU_K8S_MODEL),, $(error Undefined JUJU_K8S_MODEL))
@@ -160,9 +163,9 @@ check-k8s-model:
 
 local-operator-update: check-k8s-model operator-image
 	$(eval kubeworkers != juju status -m ${JUJU_K8S_MODEL} kubernetes-worker --format json | jq -c '.machines | keys' | tr  -c '[:digit:]' ' ' 2>&1)
-	docker save ${DOCKER_USERNAME}/caas-jujud-operator | gzip > /tmp/caas-jujud-operator-image.tar.gz
-	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} /tmp/caas-jujud-operator-image.tar.gz $(wm):/tmp/caas-jujud-operator-image.tar.gz ; )
-	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/caas-jujud-operator-image.tar.gz | docker load" ; )
+	docker save ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG} | gzip > /tmp/jujud-operator-image.tar.gz
+	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} /tmp/jujud-operator-image.tar.gz $(wm):/tmp/jujud-operator-image.tar.gz ; )
+	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/jujud-operator-image.tar.gz | docker load" ; )
 
 .PHONY: build check install release-install release-build go-build go-install
 .PHONY: clean format simplify

@@ -91,7 +91,11 @@ func (c NotifyWatcherC) AssertNoChange() {
 	c.State.StartSync()
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		if ok {
+			c.Fatalf("watcher sent unexpected change")
+		} else {
+			c.Fatalf("watcher closed Changes channel")
+		}
 	case <-time.After(testing.ShortWait):
 	}
 }

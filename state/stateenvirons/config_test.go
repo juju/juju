@@ -30,7 +30,9 @@ func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
 		callArgs = args
 		return nil, nil
 	}
-	stateenvirons.GetNewEnvironFunc(newEnviron)(s.State)
+	_, err := stateenvirons.GetNewEnvironFunc(newEnviron)(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(calls, gc.Equals, 1)
 
 	cfg, err := s.Model.ModelConfig()
@@ -57,7 +59,7 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	emptyCredential.Label = "empty-credential"
-	cloudSpec, err := stateenvirons.EnvironConfigGetter{st, m}.CloudSpec()
+	cloudSpec, err := stateenvirons.EnvironConfigGetter{State: st, Model: m}.CloudSpec()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudSpec, jc.DeepEquals, environs.CloudSpec{
 		Type:             "dummy",
@@ -78,10 +80,46 @@ func (s *environSuite) TestGetNewCAASBrokerFunc(c *gc.C) {
 		callArgs = args
 		return nil, nil
 	}
-	stateenvirons.GetNewCAASBrokerFunc(newBroker)(s.State)
+	_, err := stateenvirons.GetNewCAASBrokerFunc(newBroker)(s.State)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calls, gc.Equals, 1)
 
 	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(callArgs.Config, jc.DeepEquals, cfg)
+}
+
+type fakeBroker struct {
+	caas.Broker
+}
+
+func (*fakeBroker) APIVersion() (string, error) {
+	return "6.66", nil
+}
+
+func (s *environSuite) TestCloudAPIVersion(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{
+		Name: "foo",
+	})
+	defer st.Close()
+
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred := cloud.NewNamedCredential("dummy-credential", "userpass", nil, false)
+	newBrokerFunc := func(args environs.OpenParams) (caas.Broker, error) {
+		c.Assert(args.Cloud, jc.DeepEquals, environs.CloudSpec{
+			Name:       "caascloud",
+			Type:       "kubernetes",
+			Credential: &cred,
+		})
+		return &fakeBroker{}, nil
+	}
+
+	envConfigGetter := stateenvirons.EnvironConfigGetter{State: st, Model: m, NewContainerBroker: newBrokerFunc}
+	cloudSpec, err := envConfigGetter.CloudSpec()
+	c.Assert(err, jc.ErrorIsNil)
+	apiVersion, err := envConfigGetter.CloudAPIVersion(cloudSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apiVersion, gc.Equals, "6.66")
 }

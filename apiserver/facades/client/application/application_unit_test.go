@@ -40,17 +40,18 @@ type ApplicationSuite struct {
 	testing.IsolationSuite
 	coretesting.JujuOSEnvSuite
 	backend            mockBackend
+	model              mockModel
 	endpoints          []state.Endpoint
 	relation           mockRelation
 	application        mockApplication
 	storagePoolManager *mockStoragePoolManager
 
-	caasBroker   *mockCaasBroker
-	env          environs.Environ
-	blockChecker mockBlockChecker
-	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.APIv9
-	deployParams map[string]application.DeployApplicationParams
+	storageValidator *mockStorageValidator
+	env              environs.Environ
+	blockChecker     mockBlockChecker
+	authorizer       apiservertesting.FakeAuthorizer
+	api              *application.APIv9
+	deployParams     map[string]application.DeployApplicationParams
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
@@ -58,15 +59,13 @@ var _ = gc.Suite(&ApplicationSuite{})
 func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	s.storagePoolManager = &mockStoragePoolManager{storageType: k8s.K8s_ProviderType}
-	s.caasBroker = &mockCaasBroker{storageClassName: "storage"}
+	s.storageValidator = &mockStorageValidator{}
 	api, err := application.NewAPIBase(
 		&s.backend,
 		&s.backend,
 		s.authorizer,
 		&s.blockChecker,
-		names.NewModelTag(utils.MustNewUUID().String()),
-		state.ModelTypeIAAS,
-		"caasmodel",
+		&s.model,
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
 		},
@@ -76,7 +75,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		},
 		s.storagePoolManager,
 		common.NewResources(),
-		s.caasBroker,
+		s.storageValidator,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = &application.APIv9{api}
@@ -95,6 +94,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		{ApplicationName: "bar"},
 	}
 	s.relation = mockRelation{tag: names.NewRelationTag("wordpress:db mysql:db")}
+	s.model = newMockModel()
 	s.backend = mockBackend{
 		controllers: make(map[string]crossmodel.ControllerInfo),
 		applications: map[string]*mockApplication{
@@ -515,7 +515,7 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
-	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.model.modelType = state.ModelTypeCAAS
 	s.backend.charm = &mockCharm{
 		meta: &charm.Meta{},
 		config: &charm.Config{
@@ -567,9 +567,8 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
-	application.SetModelType(s.api, state.ModelTypeCAAS)
-	s.storagePoolManager.SetErrors(errors.NotFoundf("pool"))
-	s.caasBroker.SetErrors(errors.NotFoundf("storage class"))
+	s.model.modelType = state.ModelTypeCAAS
+	delete(s.model.cfg, "operator-storage")
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
@@ -585,7 +584,7 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.C) {
-	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.model.modelType = state.ModelTypeCAAS
 	s.storagePoolManager.SetErrors(errors.NotFoundf("pool"))
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -601,7 +600,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) {
-	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.model.modelType = state.ModelTypeCAAS
 	s.storagePoolManager.storageType = provider.RootfsProviderType
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -614,12 +613,12 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	msg := result.OneError().Error()
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `the "operator-storage" storage pool requires a provider type of "kubernetes", not "rootfs"`)
+	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `the "k8s-operator-storage" storage pool requires a provider type of "kubernetes", not "rootfs"`)
 }
 
-func (s *ApplicationSuite) TestDeployCAASModelNoStoragePool(c *gc.C) {
-	s.caasBroker.SetErrors(errors.NotFoundf("storage class"))
-	application.SetModelType(s.api, state.ModelTypeCAAS)
+func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
+	s.storageValidator.SetErrors(errors.NotFoundf("storage class"))
+	s.model.modelType = state.ModelTypeCAAS
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
@@ -633,11 +632,11 @@ func (s *ApplicationSuite) TestDeployCAASModelNoStoragePool(c *gc.C) {
 	result, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	msg := result.OneError().Error()
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `storage pool for "database" must be specified since there's no cluster default storage class`)
+	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `storage class not found`)
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
-	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.model.modelType = state.ModelTypeCAAS
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
@@ -1279,6 +1278,38 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 				"juju-external-hostname": "value",
 				"stringOption":           "stringVal",
 			},
+			Generation: model.GenerationCurrent,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Application")
+	app := s.backend.applications["postgresql"]
+	app.CheckCallNames(c, "UpdateApplicationConfig", "Charm", "UpdateCharmConfig")
+
+	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
+	c.Assert(err, jc.ErrorIsNil)
+	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	schema, defaults, err = application.AddTrustSchemaAndDefaults(schema, defaults)
+	c.Assert(err, jc.ErrorIsNil)
+
+	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes{
+		"juju-external-hostname": "value",
+	}, []string(nil), schema, defaults)
+	app.CheckCall(c, 2, "UpdateCharmConfig", model.GenerationCurrent, charm.Settings{"stringOption": "stringVal"})
+
+	// We should never have accessed the generation.
+	c.Check(s.backend.generation, gc.IsNil)
+}
+
+func (s *ApplicationSuite) TestSetApplicationConfigNextGen(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	result, err := s.api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
+		Args: []params.ApplicationConfigSet{{
+			ApplicationName: "postgresql",
+			Config: map[string]string{
+				"juju-external-hostname": "value",
+				"stringOption":           "stringVal",
+			},
 			Generation: model.GenerationNext,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1297,6 +1328,8 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 		"juju-external-hostname": "value",
 	}, []string(nil), schema, defaults)
 	app.CheckCall(c, 2, "UpdateCharmConfig", model.GenerationNext, charm.Settings{"stringOption": "stringVal"})
+
+	s.backend.generation.CheckCall(c, 0, "AssignApplication", "postgresql")
 }
 
 func (s *ApplicationSuite) TestBlockSetApplicationConfig(c *gc.C) {

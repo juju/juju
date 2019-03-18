@@ -52,7 +52,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 
 // startMachineAgent starts a controller machine agent and returns the path
 // of its unix socket.
-func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent, string) {
+func (s *introspectionSuite) startMachineAgent(c *gc.C, isCaas bool) (*agentcmd.MachineAgent, string) {
 	// Create a machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs:  []state.MachineJob{state.JobManageModel},
@@ -73,7 +73,7 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent,
 		noPreUpgradeSteps,
 		rootDir,
 	)
-	a, err := machineAgentFactory(m.Id())
+	a, err := machineAgentFactory(m.Id(), isCaas)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start the agent.
@@ -96,8 +96,8 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent,
 	return a, rootDir
 }
 
-func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
-	a, socketPath := s.startMachineAgent(c)
+func (s *introspectionSuite) assertPrometheusMetrics(c *gc.C, isCaas bool) {
+	a, socketPath := s.startMachineAgent(c, isCaas)
 	defer a.Stop()
 
 	expected := []string{
@@ -136,4 +136,12 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
 		}
 	}
 	c.Fatal("timed out waiting for metrics")
+}
+
+func (s *introspectionSuite) TestPrometheusMetricsCaas(c *gc.C) {
+	s.assertPrometheusMetrics(c, true)
+}
+
+func (s *introspectionSuite) TestPrometheusMetricsIaas(c *gc.C) {
+	s.assertPrometheusMetrics(c, false)
 }

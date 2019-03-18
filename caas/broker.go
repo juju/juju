@@ -97,6 +97,9 @@ type Broker interface {
 	// Provider returns the ContainerEnvironProvider that created this Broker.
 	Provider() ContainerEnvironProvider
 
+	// APIVersion returns the master kubelet API version.
+	APIVersion() (string, error)
+
 	// Destroy terminates all containers and other resources in this broker's namespace.
 	Destroy(context.ProviderCallContext) error
 
@@ -140,14 +143,11 @@ type Broker interface {
 	// NamespaceWatcher provides the API to watch caas namespace.
 	NamespaceWatcher
 
-	// ProviderRegistry is an interface for obtaining storage providers.
-	storage.ProviderRegistry
-
 	// InstancePrechecker provides a means of "prechecking" placement
 	// arguments before recording them in state.
 	environs.InstancePrechecker
 
-	// BootstrapEnviron defines methods for bootstraping a controller.
+	// BootstrapEnviron defines methods for bootstrapping a controller.
 	environs.BootstrapEnviron
 
 	// ResourceAdopter defines methods for adopting resources.
@@ -156,18 +156,17 @@ type Broker interface {
 	// NamespaceGetterSetter provides the API to get/set namespace.
 	NamespaceGetterSetter
 
-	// StorageclassGetterSetter provides the API to get/set storageclass.
-	StorageclassGetterSetter
+	// StorageValidator provides methods to validate storage.
+	StorageValidator
 
 	// ServiceGetterSetter provides the API to get/set service.
 	ServiceGetterSetter
 }
 
-// StorageclassGetterSetter provides the API to get/set storageclass.
-type StorageclassGetterSetter interface {
-	// GetStorageClassName returns the name of a storage class with the specified
-	// labels, or else the cluster default storage class, or else a NotFound error.
-	GetStorageClassName(labels ...string) (string, error)
+// StorageValidator provides methods to validate storage.
+type StorageValidator interface {
+	// ValidateStorageClass returns an error if the storage config is not valid.
+	ValidateStorageClass(config map[string]interface{}) error
 }
 
 // ServiceGetterSetter provides the API to get/set service.

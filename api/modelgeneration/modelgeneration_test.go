@@ -4,8 +4,9 @@
 package modelgeneration_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/api/modelgeneration"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
 type modelGenerationSuite struct {
@@ -173,7 +175,9 @@ func (s *modelGenerationSuite) TestHasNextGeneration(c *gc.C) {
 func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	resultSource := params.GenerationResult{
+	resultSource := params.GenerationResult{Generation: params.Generation{
+		Created:   time.Time{}.Unix(),
+		CreatedBy: "test-user",
 		Applications: []params.GenerationApplication{
 			{
 				ApplicationName: "redis",
@@ -181,19 +185,28 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 				ConfigChanges:   map[string]interface{}{"databases": 8},
 			},
 		},
-	}
+	}}
 	arg := params.Entity{Tag: s.tag.String()}
 
 	s.fCaller.EXPECT().FacadeCall("GenerationInfo", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	apps, err := api.GenerationInfo(s.tag.Id())
+
+	formatTime := func(t time.Time) string {
+		return t.UTC().Format("2006-01-02 15:04:05")
+	}
+
+	apps, err := api.GenerationInfo(s.tag.Id(), formatTime)
 	c.Assert(err, gc.IsNil)
-	c.Check(apps, jc.DeepEquals, map[model.GenerationVersion][]model.GenerationApplication{
-		"next": {{
-			ApplicationName: "redis",
-			Units:           []string{"redis/0"},
-			ConfigChanges:   map[string]interface{}{"databases": 8},
-		}},
+	c.Check(apps, jc.DeepEquals, map[model.GenerationVersion]model.Generation{
+		"next": {
+			Created:   "0001-01-01 00:00:00",
+			CreatedBy: "test-user",
+			Applications: []model.GenerationApplication{{
+				ApplicationName: "redis",
+				Units:           []string{"redis/0"},
+				ConfigChanges:   map[string]interface{}{"databases": 8},
+			}},
+		},
 	})
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -110,18 +111,25 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	}
 	model, err := st.Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	configGetter := stateenvirons.EnvironConfigGetter{st, model}
-	env, err := environs.GetEnviron(configGetter, environs.New)
+	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
+	isCaasModel := model.Type() == state.ModelTypeCAAS
+
+	var env storage.ProviderRegistry
+	if isCaasModel {
+		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
+	} else {
+		env, err = environs.GetEnviron(configGetter, environs.New)
+	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
+	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	callCtx := state.CallContext(st)
-	return &ProvisionerAPI{
+	api := &ProvisionerAPI{
 		Remover:                 common.NewRemover(st, false, getAuthFunc),
 		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
 		StatusGetter:            common.NewStatusGetter(st, getAuthFunc),
@@ -133,9 +141,6 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI:     common.NewStateControllerConfig(st),
-		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
-		ToolsFinder:             common.NewToolsFinder(configGetter, st, urlGetter),
-		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
 		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, callCtx, getCanModify),
 		st:                      st,
 		m:                       model,
@@ -147,7 +152,14 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,
 		providerCallContext:     callCtx,
-	}, nil
+	}
+	if isCaasModel {
+		return api, nil
+	}
+	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
+	api.ToolsFinder = common.NewToolsFinder(configGetter, st, urlGetter)
+	api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner)
+	return api, nil
 }
 
 // ProvisionerAPIV4 provides v4 (and v3 for some reason) of the provisioner facade.
