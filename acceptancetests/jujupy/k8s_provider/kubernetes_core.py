@@ -56,90 +56,6 @@ devices:
     type: disk
 """
 
-BUNDLE = """
-series: bionic
-description: A minimal two-machine Kubernetes cluster, appropriate for development.
-machines:
-  '0':
-    constraints: cores=2 mem=4G root-disk=16G
-    series: bionic
-  '1':
-    constraints: cores=4 mem=8G root-disk=20G
-    series: bionic
-services:
-  easyrsa:
-    annotations:
-      gui-x: '450'
-      gui-y: '550'
-    charm: cs:~containers/easyrsa-185
-    num_units: 1
-    to:
-    - lxd:0
-  etcd:
-    annotations:
-      gui-x: '800'
-      gui-y: '550'
-    charm: cs:~containers/etcd-319
-    num_units: 1
-    options:
-      channel: 3.2/stable
-    to:
-    - '0'
-  flannel:
-    annotations:
-      gui-x: '450'
-      gui-y: '750'
-    charm: cs:~containers/flannel-339
-    resources:
-      flannel-amd64: 3
-      flannel-arm64: 1
-      flannel-s390x: 3
-  kubernetes-master:
-    annotations:
-      gui-x: '800'
-      gui-y: '850'
-    charm: cs:~containers/kubernetes-master-522
-    constraints: cores=2 mem=4G root-disk=16G
-    expose: true
-    num_units: 1
-    options:
-      channel: 1.12/stable
-    to:
-    - '0'
-  kubernetes-worker:
-    annotations:
-      gui-x: '100'
-      gui-y: '850'
-    charm: cs:~containers/kubernetes-worker-378
-    constraints: cores=4 mem=8G root-disk=20G
-    expose: true
-    num_units: 1
-    options:
-      channel: 1.12/stable
-      proxy-extra-args: proxy-mode=userspace
-    to:
-    - '1'
-relations:
-- - kubernetes-master:kube-api-endpoint
-  - kubernetes-worker:kube-api-endpoint
-- - kubernetes-master:kube-control
-  - kubernetes-worker:kube-control
-- - kubernetes-master:certificates
-  - easyrsa:self.
-- - kubernetes-master:etcd
-  - etcd:db
-- - kubernetes-worker:certificates
-  - easyrsa:client
-- - etcd:certificates
-  - easyrsa:client
-- - flannel:etcd
-  - etcd:db
-- - flannel:cni
-  - kubernetes-master:cni
-- - flannel:cni
-  - kubernetes-worker:cni
-"""
-
 HOST_PATH_PROVISIONER = """
 apiVersion: v1
 kind: ServiceAccount
@@ -258,6 +174,8 @@ provisioner: hostpath
 ---
 """
 
+KUBERNETES_CORE_BUNDLE = "cs:bundle/kubernetes-core"
+
 
 @register_provider
 class KubernetesCore(Base):
@@ -278,9 +196,9 @@ class KubernetesCore(Base):
     def _ensure_cluster_stack(self):
         self.__ensure_lxd_profile(
             LXD_PROFILE,
-            self.client.model_name  # current model now is the default IAAS hosted model for hosting k8s cluster.
+            self.client.model_name  # current model now is the IAAS hosted model for hosting k8s cluster.
         )
-        self.__deploy_stack_bundle(BUNDLE)
+        self.__deploy_stack_bundle(KUBERNETES_CORE_BUNDLE, is_local=False)
 
     def _ensure_cluster_config(self):
         self.__ensure_tmp_fix_for_ingress()
@@ -299,10 +217,13 @@ class KubernetesCore(Base):
             ).decode('UTF-8').strip()
             logger.debug(o)
 
-    def __deploy_stack_bundle(self, bundle_content):
-        with tempfile.NamedTemporaryFile() as f:
-            f.write(bundle_content)
-            self.client.deploy_bundle(f.name, static_bundle=True)
+    def __deploy_stack_bundle(self, bundle, is_local=False):
+        if is_local:
+            with tempfile.NamedTemporaryFile() as f:
+                f.write(bundle)
+                self.client.deploy_bundle(f.name, static_bundle=True)
+        else:
+            self.client.deploy_bundle(bundle, static_bundle=True)
 
         # Wait for the deployment to finish.
         self.client.wait_for_started(timeout=self.timeout)
@@ -314,7 +235,8 @@ class KubernetesCore(Base):
         self.client.juju(self.client._show_status, ('--format', 'tabular'))
 
     def __ensure_tmp_fix_for_ingress(self):
-        # tmp fix kubernetes core ingress issue
+        # A temporary fix for kubernetes-core ingress issue(the same issue like in microk8s) - https://github.com/ubuntu/microk8s/issues/222.
+        # It has been fixed in microk8s but not in kubernetes core.
         ing_daemonset_name = 'daemonset.apps/nginx-ingress-kubernetes-worker-controller'
         o = self.kubectl(
             'patch', ing_daemonset_name, '--patch',
