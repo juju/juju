@@ -113,22 +113,18 @@ func PrepareController(
 		return nil
 	}
 
+	var env environs.BootstrapEnviron
 	if isCAASController {
 		details.ModelType = model.CAAS
-		if err := do(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		return caas.Open(p, environs.OpenParams{Cloud: args.Cloud, Config: cfg})
+		env, err = caas.Open(p, environs.OpenParams{Cloud: args.Cloud, Config: cfg})
+	} else {
+		details.ModelType = model.IAAS
+		env, err = environs.Open(p, environs.OpenParams{Cloud: args.Cloud, Config: cfg})
 	}
-
-	details.ModelType = model.IAAS
-	env, err := environs.Open(p, environs.OpenParams{
-		Cloud:  args.Cloud,
-		Config: cfg,
-	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	if err := env.PrepareForBootstrap(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -5,6 +5,7 @@ package provider_test
 
 import (
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -17,6 +18,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
+	k8sstorage "k8s.io/api/storage/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -399,7 +401,7 @@ func (s *K8sBrokerSuite) TestControllerNamespaceRenaming(c *gc.C) {
 
 }
 
-func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
+func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -409,6 +411,44 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 		ControllerConfig:     testing.FakeControllerConfig(),
 		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
 	}
+
+	_, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	c.Assert(err, gc.NotNil)
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, "config without operator-storage value not valid.*")
+}
+
+func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	// Ensure the broker is configured with operator storage.
+	cfg := s.broker.Config()
+	var err error
+	cfg, err = cfg.Apply(map[string]interface{}{"operator-storage": "some-storage"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.broker.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := envtesting.BootstrapContext(c)
+	callCtx := &context.CloudCallContext{}
+	bootstrapParams := environs.BootstrapParams{
+		ControllerConfig:     testing.FakeControllerConfig(),
+		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+	}
+
+	sc := &k8sstorage.StorageClass{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "some-storage",
+		},
+	}
+	gomock.InOrder(
+		// Check the operator storage exists.
+		s.mockStorageClass.EXPECT().Get("test-some-storage", v1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("some-storage", v1.GetOptions{}).Times(1).
+			Return(sc, nil),
+	)
 	result, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")

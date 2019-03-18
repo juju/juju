@@ -43,6 +43,7 @@ type controllerStack struct {
 	pcfg        *podcfg.ControllerPodConfig
 	agentConfig agent.ConfigSetterWriter
 
+	storageClass               string
 	storageSize                resource.Quantity
 	portMongoDB, portAPIServer int
 
@@ -63,7 +64,7 @@ type controllerStacker interface {
 	Deploy() error
 }
 
-func newcontrollerStack(stackName string, broker *kubernetesClient, pcfg *podcfg.ControllerPodConfig) (controllerStacker, error) {
+func newcontrollerStack(stackName string, storageClass string, broker *kubernetesClient, pcfg *podcfg.ControllerPodConfig) (controllerStacker, error) {
 	// TODO(caas): parse from constrains?
 	storageSizeControllerRaw := "20Gi"
 	storageSize, err := resource.ParseQuantity(storageSizeControllerRaw)
@@ -106,6 +107,7 @@ func newcontrollerStack(stackName string, broker *kubernetesClient, pcfg *podcfg
 		agentConfig: agentConfig,
 
 		storageSize:   storageSize,
+		storageClass:  storageClass,
 		portMongoDB:   37017,
 		portAPIServer: 17070,
 
@@ -412,15 +414,10 @@ func (c controllerStack) createControllerStatefulset() error {
 }
 
 func (c controllerStack) buildStorageSpecForController(statefulset *apps.StatefulSet) error {
-	storageclass, err := c.broker.getDefaultStorageClass()
+	_, err := c.broker.getStorageClass(c.storageClass)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// TODO(caas): fix me once we have juju defined storageclass feature in place.
-			return errors.Annotatef(err, "no default storageclass found, please create one then retry")
-		}
 		return errors.Trace(err)
 	}
-	scName := storageclass.GetName()
 
 	// build persistent volume claim.
 	statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
@@ -430,7 +427,7 @@ func (c controllerStack) buildStorageSpecForController(statefulset *apps.Statefu
 				Labels: c.stackLabels,
 			},
 			Spec: core.PersistentVolumeClaimSpec{
-				StorageClassName: &scName,
+				StorageClassName: &c.storageClass,
 				AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
 				Resources: core.ResourceRequirements{
 					Requests: core.ResourceList{

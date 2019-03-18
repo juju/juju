@@ -265,8 +265,8 @@ type ConfigSetter interface {
 	SetConfig(cfg *config.Config) error
 }
 
-// Bootstraper provides the way for bootstrapping controller.
-type Bootstraper interface {
+// Bootstrapper provides the way for bootstrapping controller.
+type Bootstrapper interface {
 	// This will be called very early in the bootstrap procedure, to
 	// give an Environ a chance to perform interactive operations that
 	// are required for bootstrapping.
@@ -298,7 +298,7 @@ type Configer interface {
 // in order to bootstrap a controller.
 type BootstrapEnviron interface {
 	Configer
-	Bootstraper
+	Bootstrapper
 	ConstraintsChecker
 	ControllerDestroyer
 
