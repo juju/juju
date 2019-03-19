@@ -13,6 +13,7 @@ import (
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 )
 
 type mockEnviron struct {
@@ -93,6 +95,7 @@ type mockApplication struct {
 	channel                  csparams.Channel
 	exposed                  bool
 	remote                   bool
+	agentTools               *tools.Tools
 }
 
 func (m *mockApplication) Name() string {
@@ -246,6 +249,11 @@ func (a *mockApplication) IsExposed() bool {
 func (a *mockApplication) IsRemote() bool {
 	a.MethodCall(a, "IsRemote")
 	return a.remote
+}
+
+func (a *mockApplication) AgentTools() (*tools.Tools, error) {
+	a.MethodCall(a, "AgentTools")
+	return a.agentTools, a.NextErr()
 }
 
 type mockNotifyWatcher struct {
@@ -412,6 +420,7 @@ func newMockModel() mockModel {
 			"operator-storage": "k8s-operator-storage",
 			"workload-storage": "k8s-storage",
 		},
+		latestToolsVersion: version.Number{Major: 2, Minor: 5, Patch: 0},
 	}
 }
 
@@ -419,9 +428,10 @@ type mockModel struct {
 	application.Model
 	jtesting.Stub
 
-	uuid      string
-	modelType state.ModelType
-	cfg       map[string]interface{}
+	uuid               string
+	modelType          state.ModelType
+	cfg                map[string]interface{}
+	latestToolsVersion version.Number
 }
 
 func (m *mockModel) UUID() string {
@@ -440,6 +450,11 @@ func (m *mockModel) ModelConfig() (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
 	attrs := coretesting.FakeConfig().Merge(m.cfg)
 	return config.New(config.UseDefaults, attrs)
+}
+
+func (m *mockModel) LatestToolsVersion() version.Number {
+	m.MethodCall(m, "LatestToolsVersion")
+	return m.latestToolsVersion
 }
 
 type mockMachine struct {
@@ -714,9 +729,10 @@ func (r *mockRelation) Destroy() error {
 type mockUnit struct {
 	application.Unit
 	jtesting.Stub
-	tag       names.UnitTag
-	machineId string
-	name      string
+	tag        names.UnitTag
+	machineId  string
+	name       string
+	agentTools *tools.Tools
 }
 
 func (u *mockUnit) Tag() names.Tag {
@@ -761,6 +777,11 @@ func (u *mockUnit) AssignedMachineId() (string, error) {
 func (u *mockUnit) Name() string {
 	u.MethodCall(u, "Name")
 	return u.name
+}
+
+func (u *mockUnit) AgentTools() (*tools.Tools, error) {
+	u.MethodCall(u, "AgentTools")
+	return u.agentTools, u.NextErr()
 }
 
 type mockStorageAttachment struct {

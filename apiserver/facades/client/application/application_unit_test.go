@@ -10,6 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -29,11 +30,13 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 )
 
 type ApplicationSuite struct {
@@ -84,6 +87,20 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
+	agentTools := &tools.Tools{
+		Version: version.Binary{
+			Number: version.Number{Major: 2, Minor: 6, Patch: 0},
+			Series: "Bionic",
+			Arch:   "x86",
+		},
+	}
+	olderAgentTools := &tools.Tools{
+		Version: version.Binary{
+			Number: version.Number{Major: 2, Minor: 5, Patch: 1},
+			Series: "Bionic",
+			Arch:   "x86",
+		},
+	}
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
 	}
@@ -113,14 +130,16 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				},
 				units: []*mockUnit{
 					{
-						name:      "postgresql/0",
-						tag:       names.NewUnitTag("postgresql/0"),
-						machineId: "machine-0",
+						name:       "postgresql/0",
+						tag:        names.NewUnitTag("postgresql/0"),
+						machineId:  "machine-0",
+						agentTools: agentTools,
 					},
 					{
-						name:      "postgresql/1",
-						tag:       names.NewUnitTag("postgresql/1"),
-						machineId: "machine-1",
+						name:       "postgresql/1",
+						tag:        names.NewUnitTag("postgresql/1"),
+						machineId:  "machine-1",
+						agentTools: agentTools,
 					},
 				},
 				addedUnit: mockUnit{
@@ -132,6 +151,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				bindings: map[string]string{
 					"juju-info": "myspace",
 				},
+				agentTools: agentTools,
 			},
 			"postgresql-subordinate": {
 				name:        "postgresql-subordinate",
@@ -147,8 +167,14 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 					meta: &charm.Meta{Name: "charm-postgresql-subordinate"},
 				},
 				units: []*mockUnit{
-					{tag: names.NewUnitTag("postgresql-subordinate/0")},
-					{tag: names.NewUnitTag("postgresql-subordinate/1")},
+					{
+						tag:        names.NewUnitTag("postgresql-subordinate/0"),
+						agentTools: agentTools,
+					},
+					{
+						tag:        names.NewUnitTag("postgresql-subordinate/1"),
+						agentTools: agentTools,
+					},
 				},
 				addedUnit: mockUnit{
 					tag: names.NewUnitTag("postgresql-subordinate/99"),
@@ -156,6 +182,45 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				lxdProfileUpgradeChanges: make(chan struct{}),
 				constraints:              constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 				channel:                  csparams.DevelopmentChannel,
+				agentTools:               agentTools,
+			},
+			"redis": {
+				name:        "redis",
+				series:      "quantal",
+				subordinate: false,
+				charm: &mockCharm{
+					config: &charm.Config{
+						Options: map[string]charm.Option{
+							"stringOption": {Type: "string"},
+							"intOption":    {Type: "int", Default: int(123)},
+						},
+					},
+					meta: &charm.Meta{Name: "charm-redis"},
+				},
+				units: []*mockUnit{
+					{
+						name:       "redis/0",
+						tag:        names.NewUnitTag("redis/0"),
+						machineId:  "machine-0",
+						agentTools: olderAgentTools,
+					},
+					{
+						name:       "redis/1",
+						tag:        names.NewUnitTag("redis/1"),
+						machineId:  "machine-1",
+						agentTools: olderAgentTools,
+					},
+				},
+				addedUnit: mockUnit{
+					tag: names.NewUnitTag("redis/99"),
+				},
+				lxdProfileUpgradeChanges: make(chan struct{}),
+				constraints:              constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
+				channel:                  csparams.DevelopmentChannel,
+				bindings: map[string]string{
+					"juju-info": "myspace",
+				},
+				agentTools: agentTools,
 			},
 		},
 		remoteApplications: map[string]application.RemoteApplication{
@@ -280,6 +345,43 @@ postgresql:
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
+}
+
+func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) {
+	s.SetFeatureFlags(feature.InstanceMutater)
+
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:postgresql",
+		ConfigSettings:  map[string]string{"stringOption": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Application", "Charm")
+	s.backend.charm.CheckCallNames(c, "Config")
+	app := s.backend.applications["postgresql"]
+	app.CheckCallNames(c, "AgentTools", "AllUnits", "SetCharmProfile", "SetCharm")
+	// We don't care about 0, 1 calls, as they take no arguments.
+	app.CheckCall(c, 2, "SetCharmProfile", "cs:postgresql")
+	app.CheckCall(c, 3, "SetCharm", state.SetCharmConfig{
+		Charm:          &state.Charm{},
+		ConfigSettings: charm.Settings{"stringOption": "value"},
+	})
+}
+
+func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
+	s.SetFeatureFlags(feature.InstanceMutater)
+
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "redis",
+		CharmURL:        "cs:redis",
+		ConfigSettings:  map[string]string{"stringOption": "value"},
+	})
+	c.Assert(err, gc.ErrorMatches, "Unable to upgrade LXDProfile charms with the current model version. "+
+		"Please run juju upgrade-juju to upgrade the current model to match your controller.")
+
+	s.backend.CheckCallNames(c, "Application")
+	app := s.backend.applications["redis"]
+	app.CheckCallNames(c, "AgentTools", "AllUnits")
 }
 
 func (s *ApplicationSuite) TestDestroyRelation(c *gc.C) {

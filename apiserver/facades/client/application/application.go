@@ -882,7 +882,7 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 		}
 		// Check to see if an agent version has been found first, before trying
 		// to compare against a zero'd number
-		if noAgentVersion || agentVer.Compare(epoch) > 0 {
+		if noAgentVersion || agentVer.Compare(epoch) >= 0 {
 			units, err := application.AllUnits()
 			if err != nil {
 				return errors.Annotate(err, "cannot retrieve units")
@@ -892,10 +892,10 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 				if err != nil {
 					return errors.Annotate(err, "cannot retrieve unit agent tools")
 				}
-				if unitVer := unitTools.Version; unitVer.Compare(epoch) <= 0 {
+				if unitVer := unitTools.Version; unitVer.Compare(epoch) < 0 {
 					return errors.Errorf(
-						"Unable to upgrade LXDProfile charms with the current version. "+
-							"Please upgrade to greater than %q", epoch)
+						"Unable to upgrade LXDProfile charms with the current model version. " +
+							"Please run juju upgrade-juju to upgrade the current model to match your controller.")
 				}
 			}
 		}
