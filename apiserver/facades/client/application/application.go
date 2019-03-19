@@ -13,6 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
+	"github.com/juju/utils/featureflag"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -34,6 +36,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -846,6 +849,56 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	application, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	// Check if the controller agent tools version is greater than the
+	// version we support for the new LXD profiles.
+	// Then check all the units, to see what their agent tools versions is
+	// so that we can ensure that everyone is aligned. If the units version
+	// is too low (i.e. less than the 2.6.0 epoch), then show an error
+	// message that the operator should upgrade to receive the latest
+	// LXD Profile changes.
+	if featureflag.Enabled(feature.InstanceMutater) {
+		var agentVer version.Number
+		var noAgentVersion bool
+
+		epoch := version.Number{Major: 2, Minor: 6, Patch: 0}
+		tools, err := application.AgentTools()
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return errors.Annotate(err, "cannot retrieve agent tools")
+			}
+			// When trying to access the application agent tools version
+			// number it might not be available, so we need to fallback to
+			// the model.LatestToolsVersion.
+			agentVer = api.model.LatestToolsVersion()
+			// LatestToolsVersion returns a zero'd number for when it's not
+			// found, which means we could skip the agent version checking, so
+			// make sure we handle that edge case.
+			if agentVer.Compare(version.Zero) == 0 {
+				noAgentVersion = true
+			}
+		} else {
+			agentVer = tools.Version.Number
+		}
+		// Check to see if an agent version has been found first, before trying
+		// to compare against a zero'd number
+		if noAgentVersion || agentVer.Compare(epoch) > 0 {
+			units, err := application.AllUnits()
+			if err != nil {
+				return errors.Annotate(err, "cannot retrieve units")
+			}
+			for _, unit := range units {
+				unitTools, err := unit.AgentTools()
+				if err != nil {
+					return errors.Annotate(err, "cannot retrieve unit agent tools")
+				}
+				if unitVer := unitTools.Version; unitVer.Compare(epoch) <= 0 {
+					return errors.Errorf(
+						"Unable to upgrade LXDProfile charms with the current version. "+
+							"Please upgrade to greater than %q", epoch)
+				}
+			}
+		}
 	}
 	if err := application.SetCharmProfile(args.CharmURL); err != nil {
 		return errors.Annotatef(err, "unable to set charm profile")

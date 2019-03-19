@@ -17,7 +17,6 @@ import (
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -32,7 +31,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/feature"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
@@ -1182,38 +1180,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	// we don't need to check that this is a charm.LXDProfiler, as we can
 	// state that the function exists.
 	if profile := cfg.Charm.LXDProfile(); profile != nil {
-		// Check if the controller agent tools version is greater than the
-		// version we support for the new LXD profiles.
-		// Then check all the units, to see what their agent tools versions is
-		// so that we can ensure that everyone is aligned. If the units version
-		// is to low (i.e. less than the 2.5.2 epoch), then show an error
-		// message that the operator should upgrade to receive the latest
-		// LXD Profile changes.
-		if featureflag.Enabled(feature.InstanceMutater) {
-			epoch := version.Number{Major: 2, Minor: 5, Patch: 2}
-			tools, err := a.AgentTools()
-			if err != nil {
-				return errors.Annotate(err, "cannot retrieve agent tools")
-			}
-			if ver := tools.Version; ver.Compare(epoch) > 0 {
-				units, err := a.AllUnits()
-				if err != nil {
-					return errors.Annotate(err, "cannot retrieve units")
-				}
-				for _, unit := range units {
-					unitTools, err := unit.AgentTools()
-					if err != nil {
-						return errors.Annotate(err, "cannot retrieve unit agent tools")
-					}
-					if unitVer := unitTools.Version; unitVer.Compare(epoch) <= 0 {
-						return errors.Errorf(
-							"Unable to upgrade LXDProfile charms with the current version. "+
-								"Please upgrade to greater than %q", epoch)
-					}
-				}
-			}
-		}
-
 		// Validate the config devices, to ensure we don't apply an invalid
 		// profile, if we know it's never going to work.
 		if err := profile.ValidateConfigDevices(); err != nil && !cfg.Force {

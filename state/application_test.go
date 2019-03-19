@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -180,126 +179,6 @@ func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
 	cfg := state.SetCharmConfig{
 		Charm:      sch,
 		Force:      true,
-		ForceUnits: true,
-	}
-	err = app.SetCharm(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	ch, force, err = app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
-	c.Assert(force, jc.IsTrue)
-	url, force = app.CharmURL()
-	c.Assert(url, gc.DeepEquals, sch.URL())
-	c.Assert(force, jc.IsTrue)
-	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
-}
-
-func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
-	s.SetFeatureFlags(feature.InstanceMutater)
-
-	charm := s.AddTestingCharm(c, "lxd-profile")
-	app := s.AddTestingApplication(c, "lxd-profile", charm)
-	c.Assert(charm.LXDProfile(), gc.NotNil)
-
-	_, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = app.SetAgentVersion(version.Binary{
-		Number: version.Number{
-			Major: 2,
-			Minor: 6,
-			Patch: 0,
-		},
-		Series: "Xenial",
-		Arch:   "x86",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, unit := range units {
-		err := unit.SetAgentVersion(version.Binary{
-			Number: version.Number{
-				Major: 2,
-				Minor: 5,
-				Patch: 1,
-			},
-			Series: "Bionic",
-			Arch:   "x86",
-		})
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	ch, force, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
-	c.Assert(force, jc.IsFalse)
-	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
-
-	url, force := app.CharmURL()
-	c.Assert(url, gc.DeepEquals, charm.URL())
-	c.Assert(force, jc.IsFalse)
-
-	sch := s.AddMetaCharm(c, "lxd-profile", lxdProfileMetaBase, 2)
-
-	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
-	}
-	err = app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, ".*Unable to upgrade LXDProfile charms with the current version.*")
-}
-
-func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) {
-	s.SetFeatureFlags(feature.InstanceMutater)
-
-	charm := s.AddTestingCharm(c, "lxd-profile")
-	app := s.AddTestingApplication(c, "lxd-profile", charm)
-	c.Assert(charm.LXDProfile(), gc.NotNil)
-
-	_, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = app.SetAgentVersion(version.Binary{
-		Number: version.Number{
-			Major: 2,
-			Minor: 6,
-			Patch: 0,
-		},
-		Series: "Xenial",
-		Arch:   "x86",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, unit := range units {
-		err := unit.SetAgentVersion(version.Binary{
-			Number: version.Number{
-				Major: 2,
-				Minor: 5,
-				Patch: 3,
-			},
-			Series: "Bionic",
-			Arch:   "x86",
-		})
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	ch, force, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
-	c.Assert(force, jc.IsFalse)
-	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
-
-	url, force := app.CharmURL()
-	c.Assert(url, gc.DeepEquals, charm.URL())
-	c.Assert(force, jc.IsFalse)
-
-	sch := s.AddMetaCharm(c, "lxd-profile", lxdProfileMetaBase, 2)
-
-	cfg := state.SetCharmConfig{
-		Charm:      sch,
 		ForceUnits: true,
 	}
 	err = app.SetCharm(cfg)
