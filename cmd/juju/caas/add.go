@@ -62,20 +62,21 @@ var usageAddCAASDetails = `
 Creates a user-defined cloud based on a k8s cluster.
 The new k8s cloud can then be used to bootstrap into, or it
 can be added to an existing controller with the --controller option.
-Speficify non default kubeconfig file location using $KUBECONFIG
+Specify non default kubeconfig file location using $KUBECONFIG
 environment variable or pipe in file content from stdin.
 
 The config file can contain definitions for different k8s clusters,
 use --cluster-name to pick which one to use.
 It's also possible to select a context by name using --context-name.
 
-When running add-k8s the underlying cloud/region hosting the cluster need to be
-detected to enable storage to be correctly configured.if the cloud/region cannot
+When running add-k8s the underlying cloud/region hosting the cluster needs to be
+detected to enable storage to be correctly configured. If the cloud/region cannot
 be detected automatically, use --region <cloudType/region> to specify the host
 cloud type and region.
 
-When adding a GKE cluster, you can use the --gke option to interactively be stepped
-through the registration process, or you can supply the necessary parameters directly.
+When adding a GKE or AKS cluster, you can use the --gke or --aks option to
+interactively be stepped through the registration process, or you can supply the
+necessary parameters directly.
 
 Examples:
     juju add-k8s myk8scloud
@@ -90,6 +91,10 @@ Examples:
     juju add-k8s --gke --project=myproject myk8scloud
     juju add-k8s --gke --credential=myaccount --project=myproject myk8scloud
     juju add-k8s --gke --credential=myaccount --project=myproject --region=someregion myk8scloud
+
+    juju add-k8s --aks myk8scloud
+    juju add-k8s --aks --cluster-name mycluster myk8scloud
+    juju add-k8s --aks --cluster-name mycluster --resource-group myrg myk8scloud
 
 See also:
     remove-k8s
@@ -123,6 +128,9 @@ type AddCAASCommand struct {
 	// credential is the credential to use when accessing the cluster.
 	credential string
 
+	// resourceGroup is the resource group name for the cluster.
+	resourceGroup string
+
 	// hostCloudRegion is the cloud region that the nodes of cluster (k8s) are running in.
 	// The format is <cloudType/region>.
 	hostCloudRegion string
@@ -134,6 +142,7 @@ type AddCAASCommand struct {
 	brokerGetter BrokerGetter
 
 	gke        bool
+	aks        bool
 	k8sCluster k8sCluster
 
 	cloudMetadataStore    CloudMetadataStore
@@ -185,13 +194,18 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.workloadStorage, "storage", "", "kubernetes storage class for workload storage")
 	f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	f.StringVar(&c.credential, "credential", "", "the credential to use when accessing the cluster")
+	f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")
 	f.BoolVar(&c.gke, "gke", false, "used when adding a GKE cluster")
+	f.BoolVar(&c.aks, "aks", false, "used when adding an AKS cluster")
 }
 
 // Init populates the command with the args from the command line.
 func (c *AddCAASCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return errors.Errorf("missing k8s name.")
+	}
+	if c.gke && c.aks {
+		return errors.BadRequestf("only one of '--gke' or '--aks' can be supplied")
 	}
 	c.caasType = "kubernetes"
 	c.caasName = args[0]
@@ -203,12 +217,29 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 		if c.contextName != "" {
 			return errors.New("do not specify context name when adding a GKE cluster")
 		}
+		if c.k8sCluster == nil {
+			c.k8sCluster = newGKECluster()
+		}
+		if err := c.k8sCluster.ensureExecutable(); err != nil {
+			return errors.Trace(err)
+		}
 	} else {
 		if c.project != "" {
 			return errors.New("do not specify project unless adding a GKE cluster")
 		}
 		if c.credential != "" {
 			return errors.New("do not specify credential unless adding a GKE cluster")
+		}
+		if c.aks {
+			if c.contextName != "" {
+				return errors.New("do not specify context name when adding a AKS cluster")
+			}
+			if c.k8sCluster == nil {
+				c.k8sCluster = newAKSCluster()
+			}
+			if err := c.k8sCluster.ensureExecutable(); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -273,33 +304,55 @@ func (c *AddCAASCommand) newCloudCredentialFromKubeConfig(reader io.Reader, cont
 }
 
 func (c *AddCAASCommand) getConfigReader(ctx *cmd.Context) (io.Reader, string, error) {
-	if !c.gke {
-		rdr, err := getStdinPipe(ctx)
-		return rdr, c.clusterName, err
+	if c.gke {
+		return c.getGKEKubeConfg(ctx)
 	}
+	if c.aks {
+		return c.getAKSKubeConfg(ctx)
+	}
+	rdr, err := getStdinPipe(ctx)
+	return rdr, c.clusterName, err
+}
+
+func (c *AddCAASCommand) getGKEKubeConfg(ctx *cmd.Context) (io.Reader, string, error) {
 	p := &clusterParams{
 		name:       c.clusterName,
 		region:     c.hostCloudRegion,
 		project:    c.project,
 		credential: c.credential,
 	}
-	// TODO - add support for AKS etc
-	cluster := c.k8sCluster
-	if cluster == nil {
-		cluster = newGKECluster()
-	}
 
 	// If any items are missing, prompt for them.
 	if p.name == "" || p.project == "" || p.region == "" {
 		var err error
-		p, err = cluster.interactiveParams(ctx, p)
+		p, err = c.k8sCluster.interactiveParams(ctx, p)
 		if err != nil {
 			return nil, "", errors.Trace(err)
 		}
 	}
 	c.clusterName = p.name
-	c.hostCloudRegion = cluster.cloud() + "/" + p.region
-	return cluster.getKubeConfig(p)
+	c.hostCloudRegion = c.k8sCluster.cloud() + "/" + p.region
+	return c.k8sCluster.getKubeConfig(p)
+}
+
+func (c *AddCAASCommand) getAKSKubeConfg(ctx *cmd.Context) (io.Reader, string, error) {
+	p := &clusterParams{
+		name:          c.clusterName,
+		resourceGroup: c.resourceGroup,
+	}
+
+	// If any items are missing, prompt for them. Don't pass in region as we'll query the resource group for it.
+	// maybe we just always want to call interactive params so it takes care of the region/location issue.
+	if p.name == "" || p.resourceGroup == "" || p.region == "" {
+		var err error
+		p, err = c.k8sCluster.interactiveParams(ctx, p)
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
+	}
+	c.clusterName = p.name
+	c.hostCloudRegion = c.k8sCluster.cloud() + "/" + p.region
+	return c.k8sCluster.getKubeConfig(p)
 }
 
 var clusterQueryErrMsg = `
@@ -477,7 +530,7 @@ func (c *AddCAASCommand) addCloudToControllerWithRegion(apiClient AddCloudAPI, n
 
 func (c *AddCAASCommand) newK8sBrokerGetter() BrokerGetter {
 	return func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error) {
-		// To get a k8s client, we need a config will minimal information.
+		// To get a k8s client, we need a config with minimal information.
 		// It's not used unless operating on a real model but we need to supply it.
 		uuid, err := utils.NewUUID()
 		if err != nil {
