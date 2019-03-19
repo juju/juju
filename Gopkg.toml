@@ -263,7 +263,8 @@
 
 [[constraint]]
   name = "github.com/hashicorp/raft"
-  revision = "077966dbc90f342107eb723ec52fdb0463ec789b"
+  revision = "834fca2f9ffc153bf038e9333425a40ba515059f"
+  source = "github.com/juju/raft"
 
 [[constraint]]
   name = "github.com/joyent/gocommon"
