@@ -273,6 +273,7 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			MachineId:      value.MachineId,
 			Ports:          coreNetworkPorts(value.Ports),
 			PortRanges:     coreNetworkPortRanges(value.PortRanges),
+			Principal:      value.Principal,
 			Subordinate:    value.Subordinate,
 			WorkloadStatus: coreStatus(value.WorkloadStatus),
 			AgentStatus:    coreStatus(value.AgentStatus),

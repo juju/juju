@@ -271,13 +271,15 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		c.Assert(lu.IsPrincipal(), jc.IsFalse)
 		deployer, ok = lu.DeployerTag()
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
+		unitName := fmt.Sprintf("wordpress/%d", i)
+		c.Assert(deployer, gc.Equals, names.NewUnitTag(unitName))
 		add(&multiwatcher.UnitInfo{
 			ModelUUID:   modelUUID,
 			Name:        fmt.Sprintf("logging/%d", i),
 			Application: "logging",
 			Series:      "quantal",
 			Ports:       []multiwatcher.Port{},
+			Principal:   unitName,
 			Subordinate: true,
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "waiting",
