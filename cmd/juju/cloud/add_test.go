@@ -493,6 +493,34 @@ func (*addSuite) TestInteractiveManual(c *gc.C) {
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
+func (*addSuite) TestInteractiveManualInvalidName(c *gc.C) {
+	manCloud := manualCloud
+	manCloud.Name = "invalid/123"
+	fake := newFakeCloudMetadataStore()
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
+	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
+	fake.Call("ParseOneCloud", []byte("endpoint: 192.168.1.6\n")).Returns(manCloud, nil)
+	manMetadata := map[string]jujucloud.Cloud{"man": manCloud}
+	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", manMetadata).Returns(nil)
+
+	command := cloud.NewAddCloudCommandForTest(fake, jujuclient.NewMemStore(), nil)
+	err := cmdtesting.InitCommand(command, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := &cmd.Context{
+		Stdout: ioutil.Discard,
+		Stderr: ioutil.Discard,
+		Stdin: strings.NewReader("" +
+			/* Select cloud type: */ "manual\n" +
+			/* Enter a name for the cloud: */ manCloud.Name + "\n",
+		),
+	}
+
+	err = command.Run(ctx)
+	c.Check(err, gc.NotNil)
+	c.Check(numCallsToWrite(), gc.Equals, 0)
+}
+
 func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
