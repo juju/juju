@@ -148,7 +148,7 @@ func (w *ConfigWatcher) configChanged(topic string, value interface{}) {
 // StringsWatcher will return what has changed.
 type StringsWatcher interface {
 	Watcher
-	Changes() <-chan struct{}
+	Changes() <-chan []string
 }
 
 type stringsWatcherBase struct {
@@ -161,7 +161,7 @@ type stringsWatcherBase struct {
 	mu     sync.Mutex
 }
 
-func newStringsWatcherBase() *stringsWatcherBase {
+func newStringsWatcherBase(values ...string) *stringsWatcherBase {
 	// We use a single entry buffered channel for the changes.
 	// This allows the config changed handler to send a value when there
 	// is a change, but if that value hasn't been consumed before the
@@ -170,7 +170,7 @@ func newStringsWatcherBase() *stringsWatcherBase {
 
 	// Send initial event down the channel. We know that this will
 	// execute immediately because it is a buffered channel.
-	ch <- []string{}
+	ch <- values
 
 	return &stringsWatcherBase{changes: ch}
 }
@@ -216,4 +216,26 @@ func (w *stringsWatcherBase) notify(values []string) {
 	}
 
 	w.mu.Unlock()
+}
+
+// ChangeWatcher notifies that something changed, with
+// the given slice of strings.  An initial event is sent
+// with the input given at creation.
+type ChangeWatcher struct {
+	*stringsWatcherBase
+}
+
+func newAddRemoveWatcher(values ...string) *ChangeWatcher {
+	return &ChangeWatcher{
+		stringsWatcherBase: newStringsWatcherBase(values...),
+	}
+}
+
+func (w *ChangeWatcher) changed(topic string, value interface{}) {
+	strings, ok := value.([]string)
+	if !ok {
+		logger.Errorf("programming error, value not of type []string")
+	}
+
+	w.changes <- strings
 }

@@ -28,10 +28,11 @@ type StringsWatcherC struct {
 // AssertOneChange fails if no change is sent before a long time has passed; or
 // if, subsequent to that, any further change is sent before a short time has
 // passed.
-func (c StringsWatcherC) AssertOneChange() {
+func (c StringsWatcherC) AssertOneChange(expected []string) {
 	select {
-	case _, ok := <-c.Watcher.Changes():
+	case obtained, ok := <-c.Watcher.Changes():
 		c.Assert(ok, jc.IsTrue)
+		c.Assert(obtained, jc.SameContents, expected)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
