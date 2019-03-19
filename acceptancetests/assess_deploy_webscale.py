@@ -23,7 +23,6 @@ from urllib.request import urlretrieve
 
 from deploy_stack import (
     BootstrapManager,
-    deploy_caas_stack,
     deploy_iaas_stack,
 )
 from utility import (
@@ -56,8 +55,6 @@ def deploy_bundle(client, charm_bundle, stack_type):
         # one that's not already included.
         if stack_type == "iaas":
             default_charm = "webscale-lxd.yaml"
-        elif stack_type == "caas":
-            default_charm = "bundles-kubernetes-core-lxd.yaml"
         else:
             raise JujuAssertionError(
                 'invalid stack type {}'.format(stack_type))
@@ -188,8 +185,6 @@ def get_stack_client(stack_type, path, client, timeout=3600, charm=False):
     """
     if stack_type == "iaas":
         fn = deploy_iaas_stack
-    elif stack_type == "caas":
-        fn = deploy_caas_stack
     else:
         raise JujuAssertionError('invalid stack type {}'.format(stack_type))
     return fn(path, client, timeout=timeout, charm=charm)
@@ -220,8 +215,8 @@ def parse_args(argv):
     )
     parser.add_argument(
         '--stack-type',
-        help="Stack type to use when deploying <iaas|caas>",
-        default="caas",
+        help="Stack type to use when deploying <iaas>",
+        default="iaas",
     )
     parser.add_argument(
         '--juju-version',
