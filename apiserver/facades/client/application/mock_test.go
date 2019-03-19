@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -76,7 +75,7 @@ func (c *mockCharm) Config() *charm.Config {
 	return c.config
 }
 
-func (c *mockCharm) LXDProfile() lxdprofile.LXDProfile {
+func (c *mockCharm) LXDProfile() *charm.LXDProfile {
 	c.MethodCall(c, "LXDProfile")
 	return c.lxdProfile
 }

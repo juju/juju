@@ -2247,9 +2247,6 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
 		return profiler.LXDProfile()
 	}
-	if profiler, ok := p.Charm.(lxdprofile.LXDProfiler); ok {
-		return profiler.LXDProfile()
-	}
 	return nil
 }
 
@@ -2289,7 +2286,6 @@ func validateAgentVersions(application Application, cfgAgentVersion ModelConfig)
 		// Check first to see if we have a agent version from the model config.
 		// If we don't have that, then fall back to the agents.
 		cfgVersion, ok := cfgAgentVersion.AgentVersion()
-		fmt.Println(">>", cfgVersion)
 		if ok {
 			if cfgVersion.Compare(epoch) < 0 {
 				return ErrInvalidAgentVersions
