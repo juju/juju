@@ -251,7 +251,7 @@ func (s *InterfaceSuite) TestGoalState(c *gc.C) {
 			},
 		},
 		Relations: map[string]application.UnitsGoalState{
-			"server": {
+			"db": {
 				"db0": application.GoalStateStatus{
 					Status: "joining",
 					Since:  &timestamp,

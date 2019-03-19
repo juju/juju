@@ -2075,6 +2075,9 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 		c.Assert(units, gc.HasLen, 1)
 		subUnits = append(subUnits, units[0])
 	}
+	// In order to ensure that both the subordinate creation events
+	// have all been processed, wait for the model to be idle.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	wc.AssertChange(subUnits[0].Name(), subUnits[1].Name())
 	wc.AssertNoChange()
 
@@ -2091,6 +2094,9 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = subUnits[1].Remove()
 	c.Assert(err, jc.ErrorIsNil)
+	// In order to ensure that both the dead and remove operations
+	// have been processed, we need to wait until the model is idle.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	wc.AssertChange(subUnits[0].Name(), subUnits[1].Name())
 	wc.AssertNoChange()
 

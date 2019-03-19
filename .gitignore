@@ -21,3 +21,4 @@ vendor/
 .idea/
 *.pyc
 .vscode/
+juju-backup-*.tar.gz

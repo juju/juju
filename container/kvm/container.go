@@ -35,30 +35,32 @@ func (c *kvmContainer) Name() string {
 	return c.name
 }
 
-func (c *kvmContainer) Start(params StartParams) error {
+// EnsureCachedImage ensures that a container image suitable for satisfying
+// the input start parameters has been cached on disk.
+func (c *kvmContainer) EnsureCachedImage(params StartParams) error {
 	var srcFunc func() simplestreams.DataSource
 	if params.ImageDownloadURL != "" {
 		srcFunc = func() simplestreams.DataSource {
 			return imagedownloads.NewDataSource(params.ImageDownloadURL)
 		}
 	}
-	var ftype = BIOSFType
+	var fType = BIOSFType
 	if params.Arch == arch.ARM64 {
-		ftype = UEFIFType
+		fType = UEFIFType
 	}
 
 	sp := syncParams{
 		arch:    params.Arch,
 		series:  params.Series,
 		stream:  params.Stream,
-		ftype:   ftype,
+		fType:   fType,
 		srcFunc: srcFunc,
 	}
 	logger.Debugf("synchronise images for %s %s %s %s", sp.arch, sp.series, sp.stream, params.ImageDownloadURL)
 	var callback ProgressCallback
 	if params.StatusCallback != nil {
 		callback = func(msg string) {
-			params.StatusCallback(status.Provisioning, msg, nil)
+			_ = params.StatusCallback(status.Provisioning, msg, nil)
 		}
 	}
 	if err := Sync(sp, nil, callback); err != nil {
@@ -67,6 +69,12 @@ func (c *kvmContainer) Start(params StartParams) error {
 		}
 		logger.Debugf("image already cached %s", err)
 	}
+	return nil
+}
+
+// Start creates and starts a new container.
+// It assumes that the backing image is already cached on disk.
+func (c *kvmContainer) Start(params StartParams) error {
 	var bridge string
 	var interfaces []libvirt.InterfaceInfo
 	if params.Network != nil {
@@ -83,7 +91,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 	}
 	logger.Debugf("create the machine %s", c.name)
 	if params.StatusCallback != nil {
-		params.StatusCallback(status.Provisioning, "Creating instance", nil)
+		_ = params.StatusCallback(status.Provisioning, "Creating instance", nil)
 	}
 	if err := CreateMachine(CreateMachineParams{
 		Hostname:          c.name,
@@ -101,7 +109,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 
 	logger.Debugf("Set machine %s to autostart", c.name)
 	if params.StatusCallback != nil {
-		params.StatusCallback(status.Provisioning, "Starting instance", nil)
+		_ = params.StatusCallback(status.Provisioning, "Starting instance", nil)
 	}
 	return AutostartMachine(c)
 }

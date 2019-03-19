@@ -725,7 +725,7 @@ func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.containerBroker.Calls()) > 0 {
+		if len(s.containerBroker.Calls()) >= 2 {
 			break
 		}
 	}
@@ -747,7 +747,7 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 	}
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.containerBroker.Calls()) > 0 {
+		if len(s.containerBroker.Calls()) >= 2 {
 			break
 		}
 	}

@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"time"
 
-	humanize "github.com/dustin/go-humanize"
+	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
@@ -39,7 +39,7 @@ type Oner interface {
 
 // syncParams conveys the information necessary for calling imagedownloads.One.
 type syncParams struct {
-	arch, series, stream, ftype string
+	arch, series, stream, fType string
 	srcFunc                     func() simplestreams.DataSource
 }
 
@@ -48,24 +48,24 @@ func (p syncParams) One() (*imagedownloads.Metadata, error) {
 	if err := p.exists(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return imagedownloads.One(p.arch, p.series, p.stream, p.ftype, p.srcFunc)
+	return imagedownloads.One(p.arch, p.series, p.stream, p.fType, p.srcFunc)
 }
 
 func (p syncParams) exists() error {
-	fname := backingFileName(p.series, p.arch)
+	fName := backingFileName(p.series, p.arch)
 	baseDir, err := paths.DataDir(series.MustHostSeries())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	path := filepath.Join(baseDir, kvm, guestDir, fname)
+	imagePath := filepath.Join(baseDir, kvm, guestDir, fName)
 
-	if _, err := os.Stat(path); err == nil {
-		return errors.AlreadyExistsf("%q %q image for exists at %q", p.series, p.arch, path)
+	if _, err := os.Stat(imagePath); err == nil {
+		return errors.AlreadyExistsf("%q %q image for exists at %q", p.series, p.arch, imagePath)
 	}
 	return nil
 }
 
-// Validate that our types fulfull their implementations.
+// Validate that our types fulfill their implementations.
 var _ Oner = (*syncParams)(nil)
 var _ Fetcher = (*fetcher)(nil)
 
@@ -119,7 +119,7 @@ func (f *fetcher) Close() {
 type ProgressCallback func(message string)
 
 // Sync updates the local cached images by reading the simplestreams data and
-// caching if an image matching the contrainsts doesn't exist. It retrieves
+// caching if an image matching the constraints doesn't exist. It retrieves
 // metadata information from Oner and updates local cache via Fetcher.
 // A ProgressCallback can optionally be passed which will get update messages
 // as data is copied.
@@ -164,7 +164,7 @@ type progressWriter struct {
 	clock       clock.Clock
 }
 
-var _ (io.Writer) = (*progressWriter)(nil)
+var _ io.Writer = (*progressWriter)(nil)
 
 func (p *progressWriter) Write(content []byte) (n int, err error) {
 	if p.clock == nil {
