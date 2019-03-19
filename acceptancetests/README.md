@@ -43,7 +43,7 @@ To run a test locally with lxd and locally complied juju:
             test-mode: true
             default-series: bionic
     ```
-  * ```export JUJU_REPOSITORY=./path/to/acceptancetests/repository```
+  * ```export JUJU_REPOSITORY=$GOPATH/src/github.com/juju/juju/acceptancetests/repository```
   * ```mkdir /tmp/artifacts```
   * Now you can run the test with:
      * ```$ ./assess_model_migration.py lxd $GOPATH/bin/juju /tmp/artifacts```

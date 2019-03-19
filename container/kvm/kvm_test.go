@@ -96,19 +96,19 @@ func (s *KVMSuite) TestListMatchesRunningContainers(c *gc.C) {
 }
 
 func (s *KVMSuite) TestCreateContainer(c *gc.C) {
-	instance := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
-	name := string(instance.Id())
+	inst := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
+	name := string(inst.Id())
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
 	containertesting.AssertCloudInit(c, cloudInitFilename)
 }
 
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
-	instance := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
+	inst := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
 
-	err := s.manager.DestroyContainer(instance.Id())
+	err := s.manager.DestroyContainer(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	name := string(instance.Id())
+	name := string(inst.Id())
 	// Check that the container dir is no longer in the container dir
 	c.Assert(filepath.Join(s.ContainerDir, name), jc.DoesNotExist)
 	// but instead, in the removed container dir
@@ -179,7 +179,9 @@ func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
 		ImageDownloadURL: "mocked-url",
 	}
 	mockedContainer := kvm.NewEmptyKvmContainer()
-	mockedContainer.Start(startParams)
+
+	// We are testing only the logging side-effect, so the error is ignored.
+	_ = mockedContainer.EnsureCachedImage(startParams)
 
 	expectedArgs := fmt.Sprintf(
 		"synchronise images for %s %s %s %s",
@@ -311,7 +313,7 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 		params := kvm.ParseConstraintsToStartParams(cons)
 		c.Check(params, gc.DeepEquals, test.expected)
 		c.Check(tw.Log(), jc.LogMatches, test.infoLog)
-		loggo.RemoveWriter("constraint-tester")
+		_, _ = loggo.RemoveWriter("constraint-tester")
 	}
 }
 

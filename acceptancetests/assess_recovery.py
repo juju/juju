@@ -62,7 +62,16 @@ def enable_ha(bs_manager, controller_client):
     show_controller(controller_client)
     remote_machines = get_remote_machines(
         controller_client, bs_manager.known_hosts)
-    bs_manager.known_hosts = remote_machines
+    return remote_machines
+
+def disable_ha(bs_manager, controller_client):
+    """Disable HA and wait for the controllers to be ready."""
+    log.info("Disabling HA.")
+    controller_client.wait_for(controller_client.remove_machine(["1", "2"], controller=True))
+    show_controller(controller_client)
+    remote_machines = get_remote_machines(
+        controller_client, None)
+    return remote_machines
 
 def show_controller(client):
     controller_info = client.show_controller(format='yaml')
@@ -130,17 +139,19 @@ def assess_recovery(bs_manager, strategy, charm_series):
 
     # ha-backup allows us to still backup in HA mode, so allow us to still
     # create a cluster of controllers.
-    if strategy == 'ha-backup':
-        enable_ha(bs_manager, controller_client)
+    haBackup = strategy == 'ha-backup'
+    if haBackup:
+        bs_manager.known_hosts = enable_ha(bs_manager, controller_client)
         backup_file = controller_client.backup()
-        # at the moment we can't currently restore a backup in HA without
-        # removing the controllers and replica set. This test will need to
-        # be fix to accommodate this setup.
+        bs_manager.known_hosts = disable_ha(bs_manager, controller_client)
     else:
         backup_file = controller_client.backup()
-        create_tmp_model(client)
-        restore_backup(bs_manager, controller_client, backup_file)
-    
+
+    create_tmp_model(client)
+    # check_controller if NOT in haBackup, as we know that some of the
+    # controllers are currently down.
+    restore_backup(bs_manager, controller_client, backup_file,
+        check_controller=not haBackup)
     log.info("Test complete.")
 
 def main(argv):

@@ -2639,10 +2639,25 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 			return nil, errors.Annotate(err, "getting relation status")
 		}
 		endPoints := r.Endpoints()
+		if len(endPoints) == 1 {
+			// Ignore peer relations here.
+			continue
+		}
+
+		// First determine the local endpoint name to use later
+		// as the key in the result map.
+		var resultEndpointName string
 		for _, e := range endPoints {
-			if e.Relation.Role == "peer" {
-				continue
+			if e.ApplicationName == appName {
+				resultEndpointName = e.Name
 			}
+		}
+		if resultEndpointName == "" {
+			continue
+		}
+
+		// Now gather the goal state.
+		for _, e := range endPoints {
 			var key string
 			app, err := u.st.Application(e.ApplicationName)
 			if err == nil {
@@ -2689,7 +2704,16 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 				}
 			}
 
-			result[e.Name] = relationGoalState
+			// Merge in the goal state for the current remote endpoint
+			// with any other goal state already collected for the local endpoint.
+			unitsGoalState := result[resultEndpointName]
+			if unitsGoalState == nil {
+				unitsGoalState = params.UnitsGoalState{}
+			}
+			for k, v := range relationGoalState {
+				unitsGoalState[k] = v
+			}
+			result[resultEndpointName] = unitsGoalState
 		}
 	}
 	return result, nil

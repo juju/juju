@@ -201,16 +201,19 @@ class AgentsIdle(BaseCondition):
 class WaitMachineNotPresent(BaseCondition):
     """Condition satisfied when a given machine is not present."""
 
-    def __init__(self, machine, timeout=300):
+    def __init__(self, machineOrMachines, timeout=300):
         super(WaitMachineNotPresent, self).__init__(timeout)
-        self.machine = machine
+        if isinstance(machineOrMachines, list):
+            self.machines = machineOrMachines
+        else:
+            self.machines = [machineOrMachines]
 
     def __eq__(self, other):
         if not type(self) is type(other):
             return False
         if self.timeout != other.timeout:
             return False
-        if self.machine != other.machine:
+        if self.machines != other.machines:
             return False
         return True
 
@@ -218,14 +221,20 @@ class WaitMachineNotPresent(BaseCondition):
         return not self.__eq__(other)
 
     def iter_blocking_state(self, status):
+        machines = []
         for machine, info in status.iter_machines():
-            if machine == self.machine:
-                yield machine, 'still-present'
+            if machine in self.machines:
+                machines.append(machine)
+        if len(machines) > 0:
+            yield machine[0], 'still-present'
 
     def do_raise(self, model_name, status):
-        raise Exception("Timed out waiting for machine removal %s" %
-                        self.machine)
-
+        plural = "s"
+        values = self.machines
+        if len(values) == 1:
+            plural = ""
+            values = self.machines[0]
+        raise Exception("Timed out waiting for machine{} removal {}".format(plural, values))
 
 class WaitApplicationNotPresent(BaseCondition):
     """Condition satisfied when a given machine is not present."""

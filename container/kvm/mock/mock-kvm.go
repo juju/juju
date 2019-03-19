@@ -66,6 +66,10 @@ func (mock *mockContainer) Name() string {
 	return mock.name
 }
 
+func (mock *mockContainer) EnsureCachedImage(params kvm.StartParams) error {
+	return nil
+}
+
 func (mock *mockContainer) Start(params kvm.StartParams) error {
 	if mock.started {
 		return fmt.Errorf("container is already running")

@@ -200,7 +200,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelation(c *gc.C) {
 				Result: &params.GoalState{
 					Units: expectedUnitMysql,
 					Relations: map[string]params.UnitsGoalState{
-						"db": {
+						"server": {
 							"wordpress":   expectedRelationStatus,
 							"wordpress/0": expectedUnitStatus,
 						},
@@ -233,7 +233,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesDeadUnitsExcluded(c *gc.C) {
 				Result: &params.GoalState{
 					Units: expected2UnitsMysql,
 					Relations: map[string]params.UnitsGoalState{
-						"db": {
+						"server": {
 							"wordpress":   expectedRelationStatus,
 							"wordpress/0": expectedUnitStatus,
 						},
@@ -254,7 +254,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesDeadUnitsExcluded(c *gc.C) {
 						"mysql/0": expectedUnitStatus,
 					},
 					Relations: map[string]params.UnitsGoalState{
-						"db": {
+						"server": {
 							"wordpress":   expectedRelationStatus,
 							"wordpress/0": expectedUnitStatus,
 						},
@@ -307,7 +307,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *gc.C) {
 				Result: &params.GoalState{
 					Units: expected2UnitsMysql,
 					Relations: map[string]params.UnitsGoalState{
-						"db": {
+						"server": {
 							"wordpress":   expectedRelationStatus,
 							"wordpress/0": expectedUnitStatus,
 						},
@@ -332,7 +332,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *gc.C) {
 						},
 					},
 					Relations: map[string]params.UnitsGoalState{
-						"db": {
+						"server": {
 							"wordpress":   expectedRelationStatus,
 							"wordpress/0": expectedUnitStatus,
 						},
@@ -358,7 +358,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesCrossModelRelation(c *gc.C) {
 					"mysql/0": expectedUnitStatus,
 				},
 				Relations: map[string]params.UnitsGoalState{
-					"db": {
+					"server": {
 						"wordpress":   expectedRelationStatus,
 						"wordpress/0": expectedUnitStatus,
 					},
@@ -389,11 +389,11 @@ func (s *uniterGoalStateSuite) TestGoalStatesCrossModelRelation(c *gc.C) {
 					"mysql/0": expectedUnitStatus,
 				},
 				Relations: map[string]params.UnitsGoalState{
-					"db": {
+					"server": {
 						"wordpress":   expectedRelationStatus,
 						"wordpress/0": expectedUnitStatus,
 					},
-					"metrics": {
+					"metrics-client": {
 						"ctrl1:admin/default.metrics": expectedRelationStatus,
 					},
 				},
@@ -413,6 +413,16 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 		Machine:     s.machine1,
 	})
 
+	// And add another wordpress.
+	wordpress2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress2",
+		Charm: s.wpCharm,
+	})
+	wordpressUnit2 := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: wordpress2,
+		Machine:     s.machine1,
+	})
+
 	mysqlCharm1 := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
 	})
@@ -427,6 +437,9 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 	})
 
 	err := s.addRelationEnterScope(c, s.wordpressUnit, "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.addRelationEnterScope(c, wordpressUnit2, "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.addRelationEnterScope(c, s.mysqlUnit, "logging")
@@ -445,12 +458,14 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 				Result: &params.GoalState{
 					Units: expectedUnitMysql,
 					Relations: map[string]params.UnitsGoalState{
-						"db": {
-							"wordpress":   expectedRelationStatus,
-							"wordpress/0": expectedUnitStatus,
-							"wordpress/1": expectedUnitStatus,
+						"server": {
+							"wordpress":    expectedRelationStatus,
+							"wordpress/0":  expectedUnitStatus,
+							"wordpress/1":  expectedUnitStatus,
+							"wordpress2":   expectedRelationStatus,
+							"wordpress2/0": expectedUnitStatus,
 						},
-						"info": {
+						"juju-info": {
 							"logging":   expectedRelationStatus,
 							"logging/0": expectedUnitStatus,
 						},
