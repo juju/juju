@@ -231,10 +231,10 @@ func (a *aks) queryCluster(pollster *interact.Pollster, resourceGroup string) (s
 		}
 		if groupsMentioned.Size() > 1 {
 			clusterNamer = func(clusterName, resourceGroupName string) string {
-				return fmt.Sprintf(`%s in resource group "%s"`, clusterName, resourceGroupName)
+				return fmt.Sprintf("%s in resource group %s", clusterName, resourceGroupName)
 			}
 		} else {
-			clusterPluralText = fmt.Sprintf(`Available clusters in resource group "%s"`, groupsMentioned.Values()[0])
+			clusterPluralText = fmt.Sprintf("Available clusters in resource group %s", groupsMentioned.Values()[0])
 		}
 	}
 

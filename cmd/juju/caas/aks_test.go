@@ -121,7 +121,7 @@ func (s *aksSuite) TestInteractiveParam(c *gc.C) {
 				Stdout: []byte(resourcegroupJSONResp),
 			}, nil),
 	)
-	stdin := strings.NewReader("mycluster in resource group \"testRG\"\n")
+	stdin := strings.NewReader("mycluster in resource group testRG\n")
 	out := &bytes.Buffer{}
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -131,15 +131,15 @@ func (s *aksSuite) TestInteractiveParam(c *gc.C) {
 	}
 	expected := `
 Available Clusters
-  mycluster in resource group "testRG"
-  notThisCluster in resource group "notThisRG"
+  mycluster in resource group testRG
+  notThisCluster in resource group notThisRG
 
-Select cluster [mycluster in resource group "testRG"]: 
+Select cluster [mycluster in resource group testRG]: 
 `[1:]
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(strings.Replace(cmdtesting.Stdout(ctx), "&#34;", `"`, -1), gc.Equals, expected)
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
@@ -280,7 +280,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGr
 		Stdin:  stdin,
 	}
 	expected := `
-Available Clusters In Resource Group "TestRG"
+Available Clusters In Resource Group TestRG
   mycluster
   notMeSir
 
@@ -289,7 +289,7 @@ Select cluster [mycluster]:
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(strings.Replace(cmdtesting.Stdout(ctx), "&#34;", `"`, -1), gc.Equals, expected)
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
@@ -348,7 +348,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGro
 				Stdout: []byte(resourcegroupJSONResp),
 			}, nil),
 	)
-	stdin := strings.NewReader("mycluster in resource group \"testRG\"\n")
+	stdin := strings.NewReader("mycluster in resource group testRG\n")
 	out := &bytes.Buffer{}
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -358,15 +358,15 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGro
 	}
 	expected := `
 Available Clusters
-  mycluster in resource group "testRG"
-  notMeSir in resource group "MonsterResourceGroup"
+  mycluster in resource group testRG
+  notMeSir in resource group MonsterResourceGroup
 
-Select cluster [mycluster in resource group "testRG"]: 
+Select cluster [mycluster in resource group testRG]: 
 `[1:]
 
 	outParams, err := aks.interactiveParams(ctx, &clusterParams{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(strings.Replace(cmdtesting.Stdout(ctx), "&#34;", `"`, -1), gc.Equals, expected)
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		name:          clusterName,
 		resourceGroup: resourceGroup,
