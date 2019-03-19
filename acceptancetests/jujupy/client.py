@@ -795,18 +795,19 @@ class ModelClient:
             timeout = 600
         return WaitMachineNotPresent(machine, timeout)
 
-    def remove_machine(self, machine_id, force=False):
+    def remove_machine(self, machine_ids, force=False, controller=False):
         """Remove a machine (or container).
 
-        :param machine_id: The id of the machine to remove.
+        :param machine_ids: The ids of the machine to remove.
         :return: A WaitMachineNotPresent instance for client.wait_for.
         """
+        options = ()
         if force:
             options = ('--force',)
-        else:
-            options = ()
-        self.juju('remove-machine', options + (machine_id,))
-        return self.make_remove_machine_condition(machine_id)
+        if controller:
+            options = ('-m', 'controller',)
+        self.juju('remove-machine', options + tuple(machine_ids))
+        return self.make_remove_machine_condition(machine_ids)
 
     @staticmethod
     def get_cloud_region(cloud, region):
@@ -1348,7 +1349,7 @@ class ModelClient:
 
         :param static_bundle: render `bundle_template` if it's not static
         """
-        if static_bundle is False:
+        if not static_bundle:
             bundle_template = self.format_bundle(bundle_template)
         self.juju('deploy', bundle_template, timeout=timeout)
 
@@ -2046,42 +2047,61 @@ class ModelClient:
             child.logfile = sys.stdout
             child.expect('Select cloud type:')
             child.sendline(cloud['type'])
-            child.expect('(Enter a name for your .* cloud:)|'
-                         '(Select cloud type:)')
-            if child.match.group(2) is not None:
+            match = child.expect([
+                'Enter a name for your .* cloud:',
+                'Select cloud type:'
+            ])
+            if match == 1:
                 raise TypeNotAccepted('Cloud type not accepted.')
             child.sendline(cloud_name)
             if cloud['type'] == 'maas':
-                child.expect('Enter the API endpoint url:')
+                match = child.expect([
+                    'Enter the API endpoint url:',
+                    'Enter a name for your .* cloud:',
+                ])
+                if match == 1:
+                    raise NameNotAccepted('Cloud name not accepted.')
                 child.sendline(cloud['endpoint'])
             if cloud['type'] == 'manual':
-                child.expect(
-                    "(Enter the controller's hostname or IP address:)|"
-                    "(Enter a name for your .* cloud:)")
-                if child.match.group(2) is not None:
+                match = child.expect([
+                    "Enter the controller's hostname or IP address:",
+                    "Enter a name for your .* cloud:",
+                ])
+                if match == 1:
                     raise NameNotAccepted('Cloud name not accepted.')
                 child.sendline(cloud['endpoint'])
             if cloud['type'] == 'openstack':
-                child.expect('Enter the API endpoint url for the cloud:')
+                match = child.expect([
+                    'Enter the API endpoint url for the cloud',
+                    "Enter a name for your .* cloud:"
+                ])
+                if match == 1:
+                    raise NameNotAccepted('Cloud name not accepted.')
                 child.sendline(cloud['endpoint'])
-                child.expect(
-                    "(Select one or more auth types separated by commas:)|"
-                    "(Can't validate endpoint)")
-                if child.match.group(2) is not None:
+                match = child.expect([
+                    "Enter a path to the CA certificate for your cloud if one is required to access it",
+                    "Can't validate endpoint:",
+                ])
+                if match == 1:
                     raise InvalidEndpoint()
+                child.sendline("")
+                match = child.expect("Select one or more auth types separated by commas:")
                 child.sendline(','.join(cloud['auth-types']))
                 for num, (name, values) in enumerate(cloud['regions'].items()):
-                    child.expect(
-                        '(Enter region name:)|(Select one or more auth types'
-                        ' separated by commas:)')
-                    if child.match.group(2) is not None:
+                    match = child.expect([
+                        'Enter region name:',
+                        'Select one or more auth types separated by commas:',
+                    ])
+                    if match == 1:
                         raise AuthNotAccepted('Auth was not compatible.')
                     child.sendline(name)
                     child.expect(self.REGION_ENDPOINT_PROMPT)
                     child.sendline(values['endpoint'])
-                    child.expect("(Enter another region\? \(Y/n\):)|"
-                                 "(Can't validate endpoint)")
-                    if child.match.group(2) is not None:
+                    match = child.expect([
+                        "Enter another region\? \([yY]/[nN]\):",
+                        "Can't validate endpoint"
+                    ])
+                    if match == 1:
                         raise InvalidEndpoint()
                     if num + 1 < len(cloud['regions']):
                         child.sendline('y')
@@ -2090,16 +2110,19 @@ class ModelClient:
             if cloud['type'] == 'vsphere':
                 child.expect(
                     'Enter the '
-                    '(vCenter address or URL|API endpoint url for the cloud):')
+                    '(vCenter address or URL|API endpoint url for the cloud \[\]):')
                 child.sendline(cloud['endpoint'])
                 for num, (name, values) in enumerate(cloud['regions'].items()):
-                    child.expect("Enter (datacenter|region) name:|"
-                                 "(?P<invalid>Can't validate endpoint)")
-                    if child.match.group('invalid') is not None:
+                    match = child.expect([
+                        "Enter datacenter name",
+                        "Enter region name",
+                        "Can't validate endpoint"
+                    ])
+                    if match == 2:
                         raise InvalidEndpoint()
                     child.sendline(name)
                     child.expect(
-                        'Enter another (datacenter|region)\? \(Y/n\):')
+                        'Enter another (datacenter|region)\? \([yY]/[nN]\):')
                     if num + 1 < len(cloud['regions']):
                         child.sendline('y')
                     else:
@@ -2180,79 +2203,6 @@ class ModelClient:
         if not args:
             raise ValueError('No target to switch to has been given.')
         self.juju('switch', (':'.join(args),), include_e=False)
-
-
-# caas `add-k8s` did not implement parsing kube config path via flag,
-# so parse it via env var ->  https://github.com/kubernetes/client-go/blob/master/tools/clientcmd/loader.go#L44
-KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
-
-
-class CaasClient:
-    """CaasClient defines a client that can interact with CAAS setup directly.
-       Methods and properties that solely interact with a kubernetes
-       infrastructure can then be added to the following class.
-    """
-
-    cloud_name = 'k8cloud'
-
-    def __init__(self, client):
-        self.client = client
-        self.juju_home = self.client.env.juju_home
-
-        self.kubectl_path = os.path.join(self.juju_home, 'kubectl')
-        self.kube_home = os.path.join(self.juju_home, '.kube')
-        self.kube_config_path = os.path.join(self.kube_home, 'config')
-
-        # ensure kube home
-        ensure_dir(self.kube_home)
-
-        # ensure kube config env var
-        os.environ[KUBE_CONFIG_PATH_ENV_VAR] = self.kube_config_path
-
-        # ensure kube credentials
-        self.client.juju('scp', ('kubernetes-master/0:config', self.kube_config_path))
-
-        # ensure kubectl by scp from master
-        self.client.juju('scp', ('kubernetes-master/0:/snap/kubectl/current/kubectl', self.kubectl_path))
-
-        self.client.controller_juju('add-k8s', (self.cloud_name,))
-        log.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds(format='yaml'))
-
-    def add_model(self, model_name):
-        return self.client.add_model(env=self.client.env.clone(model_name), cloud_region=self.cloud_name)
-
-    @property
-    def is_cluster_healthy(self):
-        try:
-            cluster_info = self.kubectl('cluster-info')
-            log.debug('cluster_info -> \n%s', cluster_info)
-            nodes_info = self.kubectl('get', 'nodes')
-            log.debug('nodes_info -> \n%s', nodes_info)
-            return True
-        except subprocess.CalledProcessError as e:
-            log.error('error -> %s', e)
-            return False
-
-    def kubectl(self, *args):
-        args = (self.kubectl_path, '--kubeconfig', self.kube_config_path) + args
-        return subprocess.check_output(args, stderr=subprocess.STDOUT).decode('UTF-8').strip()
-
-    def kubectl_apply(self, stdin):
-        with subprocess.Popen(('echo', stdin), stdout=subprocess.PIPE) as echo:
-            o = subprocess.check_output(
-                (self.kubectl_path, '--kubeconfig', self.kube_config_path, 'apply', '-f', '-'),
-                stdin=echo.stdout
-            ).decode('UTF-8').strip()
-            log.debug(o)
-
-    def get_external_hostname(self):
-        # assume here always use single node cdk core or microk8s
-        return '{}.xip.io'.format(self.get_first_worker_ip())
-
-    def get_first_worker_ip(self):
-        status = self.client.get_status()
-        unit = status.get_unit('kubernetes-worker/{}'.format(0))
-        return status.get_machine_dns_name(unit['machine'])
 
 
 class IaasClient:

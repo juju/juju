@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -152,6 +153,7 @@ type Model interface {
 	Owner() names.UserTag
 	Tag() names.Tag
 	Type() state.ModelType
+	ModelConfig() (*config.Config, error)
 }
 
 // Resources defines a subset of the functionality provided by the

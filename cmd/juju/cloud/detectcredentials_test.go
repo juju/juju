@@ -109,7 +109,7 @@ func (s *detectCredentialsSuite) SetUpTest(c *gc.C) {
 	s.aCredential = jujucloud.CloudCredential{}
 }
 
-func (s *detectCredentialsSuite) run(c *gc.C, stdin io.Reader, clouds map[string]jujucloud.Cloud) (*cmd.Context, error) {
+func (s *detectCredentialsSuite) run(c *gc.C, stdin io.Reader, clouds map[string]jujucloud.Cloud, args ...string) (*cmd.Context, error) {
 	registeredProvidersFunc := func() []string {
 		return []string{"mock-provider"}
 	}
@@ -122,7 +122,11 @@ func (s *detectCredentialsSuite) run(c *gc.C, stdin io.Reader, clouds map[string
 		}
 		return nil, errors.NotFoundf("cloud %s", cloudName)
 	}
-	command := cloud.NewDetectCredentialsCommandForTest(s.store, registeredProvidersFunc, allCloudsFunc, cloudByNameFunc)
+	cloudType := ""
+	if len(args) > 0 {
+		cloudType = args[0]
+	}
+	command := cloud.NewDetectCredentialsCommandForTest(s.store, registeredProvidersFunc, allCloudsFunc, cloudByNameFunc, cloudType)
 	err := cmdtesting.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
@@ -207,6 +211,29 @@ func (s *detectCredentialsSuite) TestDetectCredentialInvalidCloud(c *gc.C) {
 func (s *detectCredentialsSuite) TestNewDetectCredentialNoneFound(c *gc.C) {
 	stdin := strings.NewReader("")
 	ctx, err := s.run(c, stdin, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
+	c.Assert(output, gc.Matches, ".*No cloud credentials found.*")
+	c.Assert(s.store.Credentials, gc.HasLen, 0)
+}
+
+func (s *detectCredentialsSuite) TestNewDetectCredentialFilter(c *gc.C) {
+	s.aCredential = jujucloud.CloudCredential{
+		DefaultRegion: "default region",
+		AuthCredentials: map[string]jujucloud.Credential{
+			"test": s.credentialWithLabel(jujucloud.AccessKeyAuthType, "credential")},
+	}
+	clouds := map[string]jujucloud.Cloud{
+		"test-cloud": {
+			Type: "mock-provider",
+		},
+		"another-cloud": {
+			Type: "another-provider",
+		},
+	}
+
+	stdin := strings.NewReader("")
+	ctx, err := s.run(c, stdin, clouds, "some-provider")
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
 	c.Assert(output, gc.Matches, ".*No cloud credentials found.*")

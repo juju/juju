@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"errors"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
@@ -14,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/tags"
@@ -450,6 +452,48 @@ func (s *containerSuite) TestRemoveContainersPartialFailure(c *gc.C) {
 
 	err = jujuSvr.RemoveContainers([]string{"c1", "c2", "c3"})
 	c.Assert(err, gc.ErrorMatches, "failed to remove containers: c1, c2")
+}
+
+func (s *containerSuite) TestDeleteContainersPartialFailure(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	deleteOpFail := lxdtesting.NewMockOperation(ctrl)
+	deleteOpFail.EXPECT().Wait().Return(errors.New("failure")).AnyTimes()
+
+	deleteOpSuccess := lxdtesting.NewMockOperation(ctrl)
+	deleteOpSuccess.EXPECT().Wait().Return(nil)
+
+	retries := 3
+
+	// Container c1, c2 already stopped, but delete fails. Container c2 is started and stopped before deletion.
+	exp := cSvr.EXPECT()
+	exp.GetContainerState("c1").Return(&api.ContainerState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
+	exp.DeleteContainer("c1").Return(deleteOpFail, nil)
+	exp.DeleteContainer("c1").Return(deleteOpSuccess, nil)
+
+	exp.GetContainerState("c2").Return(&api.ContainerState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
+	exp.DeleteContainer("c2").Return(deleteOpFail, nil).Times(retries)
+
+	clock := mocks.NewMockClock(ctrl)
+	ch := make(chan time.Time)
+
+	cExp := clock.EXPECT()
+	cExp.Now().Return(time.Now()).AnyTimes()
+	cExp.After(2 * time.Second).Return(ch).AnyTimes()
+
+	go func() {
+		for i := 0; i < retries; i++ {
+			ch <- time.Now()
+		}
+	}()
+
+	jujuSvr, err := lxd.NewTestingServer(cSvr, clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.RemoveContainers([]string{"c1", "c2"})
+	c.Assert(err, gc.ErrorMatches, "failed to remove containers: c2")
 }
 
 func (s *managerSuite) TestSpecApplyConstraints(c *gc.C) {

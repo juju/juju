@@ -15,8 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -24,7 +26,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -32,13 +33,12 @@ var logger = loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner")
 
 type Facade struct {
 	*common.LifeGetter
-	resources               facade.Resources
-	state                   CAASUnitProvisionerState
-	storage                 StorageBackend
-	storageProviderRegistry storage.ProviderRegistry
-	storagePoolManager      poolmanager.PoolManager
-	devices                 DeviceBackend
-	clock                   clock.Clock
+	resources          facade.Resources
+	state              CAASUnitProvisionerState
+	storage            StorageBackend
+	storagePoolManager poolmanager.PoolManager
+	devices            DeviceBackend
+	clock              clock.Clock
 }
 
 // NewStateFacade provides the signature required for facade registration.
@@ -67,7 +67,6 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		stateShim{ctx.State()},
 		sb,
 		db,
-		registry,
 		pm,
 		clock.WallClock,
 	)
@@ -80,7 +79,6 @@ func NewFacade(
 	st CAASUnitProvisionerState,
 	sb StorageBackend,
 	db DeviceBackend,
-	storageProviderRegistry storage.ProviderRegistry,
 	storagePoolManager poolmanager.PoolManager,
 	clock clock.Clock,
 ) (*Facade, error) {
@@ -94,13 +92,12 @@ func NewFacade(
 				common.AuthFuncForTagKind(names.UnitTagKind),
 			),
 		),
-		resources:               resources,
-		state:                   st,
-		storage:                 sb,
-		devices:                 db,
-		storageProviderRegistry: storageProviderRegistry,
-		storagePoolManager:      storagePoolManager,
-		clock:                   clock,
+		resources:          resources,
+		state:              st,
+		storage:            sb,
+		devices:            db,
+		storagePoolManager: storagePoolManager,
+		clock:              clock,
 	}, nil
 }
 
@@ -325,10 +322,9 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 func filesystemParams(
 	f state.Filesystem,
 	storageInstance state.StorageInstance,
-	modelUUID, controllerUUID string,
+	controllerUUID string,
 	modelConfig *config.Config,
 	poolManager poolmanager.PoolManager,
-	registry storage.ProviderRegistry,
 ) (params.KubernetesFilesystemParams, error) {
 
 	var pool string
@@ -345,23 +341,23 @@ func filesystemParams(
 		size = filesystemInfo.Size
 	}
 
-	filesystemTags, err := storagecommon.StorageTags(storageInstance, modelUUID, controllerUUID, modelConfig)
+	filesystemTags, err := storagecommon.StorageTags(storageInstance, modelConfig.UUID(), controllerUUID, modelConfig)
 	if err != nil {
 		return params.KubernetesFilesystemParams{}, errors.Annotate(err, "computing storage tags")
 	}
 
-	providerType, cfg, err := storagecommon.StoragePoolConfig(pool, poolManager, registry)
+	storageClassName, _ := modelConfig.AllAttrs()[provider.WorkloadStorageKey].(string)
+	if pool == "" && storageClassName == "" {
+		return params.KubernetesFilesystemParams{}, errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageInstance.StorageName())
+	}
+	fsParams, err := caasoperatorprovisioner.CharmStorageParams(controllerUUID, storageClassName, modelConfig, pool, poolManager)
 	if err != nil {
-		return params.KubernetesFilesystemParams{}, errors.Trace(err)
+		return params.KubernetesFilesystemParams{}, errors.Maskf(err, "getting filesystem storage parameters")
 	}
-	result := params.KubernetesFilesystemParams{
-		Provider:    string(providerType),
-		Attributes:  cfg.Attrs(),
-		Tags:        filesystemTags,
-		Size:        size,
-		StorageName: storageInstance.StorageName(),
-	}
-	return result, nil
+	fsParams.Size = size
+	fsParams.StorageName = storageInstance.StorageName()
+	fsParams.Tags = filesystemTags
+	return fsParams, nil
 }
 
 // applicationFilesystemParams retrieves FilesystemParams for the filesystems
@@ -390,8 +386,8 @@ func (f *Facade) applicationFilesystemParams(
 			return nil, errors.Trace(err)
 		}
 		filesystemParams, err := filesystemParams(
-			fs, si, modelConfig.UUID(), controllerConfig.ControllerUUID(),
-			modelConfig, f.storagePoolManager, f.storageProviderRegistry,
+			fs, si, controllerConfig.ControllerUUID(),
+			modelConfig, f.storagePoolManager,
 		)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting filesystem %q parameters", fs.Tag().Id())

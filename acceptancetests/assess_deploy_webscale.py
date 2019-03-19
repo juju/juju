@@ -23,7 +23,6 @@ from urllib.request import urlretrieve
 
 from deploy_stack import (
     BootstrapManager,
-    deploy_caas_stack,
     deploy_iaas_stack,
 )
 from utility import (
@@ -56,8 +55,6 @@ def deploy_bundle(client, charm_bundle, stack_type):
         # one that's not already included.
         if stack_type == "iaas":
             default_charm = "webscale-lxd.yaml"
-        elif stack_type == "caas":
-            default_charm = "bundles-kubernetes-core-lxd.yaml"
         else:
             raise JujuAssertionError(
                 'invalid stack type {}'.format(stack_type))
@@ -188,8 +185,6 @@ def get_stack_client(stack_type, path, client, timeout=3600, charm=False):
     """
     if stack_type == "iaas":
         fn = deploy_iaas_stack
-    elif stack_type == "caas":
-        fn = deploy_caas_stack
     else:
         raise JujuAssertionError('invalid stack type {}'.format(stack_type))
     return fn(path, client, timeout=timeout, charm=charm)
@@ -220,8 +215,8 @@ def parse_args(argv):
     )
     parser.add_argument(
         '--stack-type',
-        help="Stack type to use when deploying <iaas|caas>",
-        default="caas",
+        help="Stack type to use when deploying <iaas>",
+        default="iaas",
     )
     parser.add_argument(
         '--juju-version',
@@ -231,8 +226,16 @@ def parse_args(argv):
     parser.add_argument(
         '--db-snap-path',
         help="URL to a mongo snap to override the mongo version used for the "
-             "test controller; if a URL is specified, it will be download "
+             "test controller; if a URL is specified, it will be downloaded "
              "locally before bootstrapping",
+        default="",
+    )
+    parser.add_argument(
+        '--db-asserts-path',
+        help="URL to a mongo asserts file to be used in conjunction with a "
+             "provided mongo snap to bootstrap the test controller; if a URL "
+             "is specified, it will be downloaded locally before "
+             "bootstrapping",
         default="",
     )
     parser.add_argument(
@@ -250,7 +253,7 @@ def parse_args(argv):
 
 
 def mongo_snap_settings(args):
-    if not args.db_snap_path:
+    if not args.db_snap_path and not args.db_asserts_path:
         log.info("Using built-in mongo")
         return "", ""
 
@@ -263,7 +266,7 @@ def mongo_snap_settings(args):
 
     # Fetch snap if using a remote URL. Juju expects the snap file to match
     # "juju-db_\d+.snap" so we should rename it accordingly.
-    dst_snap_path = "/tmp/juju-db_1.snap"
+    dst_snap_path = "/tmp/juju-db_6.snap"
 
     if urlparse(args.db_snap_path).scheme != "":
         log.info("Downloading db snap from {} to {}".format(
@@ -274,11 +277,19 @@ def mongo_snap_settings(args):
             args.db_snap_path, dst_snap_path))
         shutil.copy2(args.db_snap_path, dst_snap_path)
 
-    # Create empty assert file and enable appropriate feature flags
-    db_snap_asserts_path = "/tmp/juju-db-empty.asserts"
-    os.close(os.open(db_snap_asserts_path, os.O_CREAT | os.O_APPEND))
+    # Fetch asserts file if using a remote URL
+    dst_asserts_path = "/tmp/juju-db_6.asserts"
 
-    return dst_snap_path, db_snap_asserts_path
+    if urlparse(args.db_asserts_path).scheme != "":
+        log.info("Downloading db asserts from {} to {}".format(
+            args.db_asserts_path, dst_asserts_path))
+        urlretrieve(args.db_asserts_path, dst_asserts_path)
+    else:
+        log.info("Copying local db asserts {} to {}".format(
+            args.db_asserts_path, dst_asserts_path))
+        shutil.copy2(args.db_asserts_path, dst_asserts_path)
+
+    return dst_snap_path, dst_asserts_path
 
 
 def main(argv=None):

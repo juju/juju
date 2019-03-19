@@ -16,6 +16,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
 
@@ -2023,58 +2025,128 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 // upgrade completed field that is specific to an application name.  Used by
 // UniterAPI v9.
 func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (StringsWatcher, error) {
+	if featureflag.Enabled(feature.InstanceMutater) {
+		app, err := m.st.Application(applicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		watchDocId := app.doc.DocID
+		return watchInstanceCharmProfileCompatibilityData(m.st, watchDocId), nil
+	}
+
+	// The following is the old way to watch lxd profile upgrade notifications.
+	// It's been ear marked for deprecation, but until the feature is complete
+	// this will continue to work in the existing manor.
 	unitName, err := m.LXDProfileUpgradeUnitToWatch(applicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	watchDocId := m.instanceCharmProfileDataId(unitName)
-	filter := func(id interface{}) bool {
-		return id.(string) == watchDocId
-	}
-	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, filter), nil
+	return watchInstanceCharmProfileData(m.st, watchDocId), nil
 }
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
 // of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
 // upgrade completed field that is specific to itself.
 func (u *Unit) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
+	if featureflag.Enabled(feature.InstanceMutater) {
+		app, err := u.Application()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		watchDocId := app.doc.DocID
+		return watchInstanceCharmProfileCompatibilityData(u.st, watchDocId), nil
+	}
+
+	// The following is the old way to watch lxd profile upgrade notifications.
+	// It's been ear marked for deprecation, but until the feature is complete
+	// this will continue to work in the existing manor.
 	m, err := u.machine()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	watchDocId := m.instanceCharmProfileDataId(u.doc.Name)
+	return watchInstanceCharmProfileData(m.st, watchDocId), nil
+}
+
+func watchInstanceCharmProfileData(backend modelBackend, watchDocId string) StringsWatcher {
+	initial := lxdprofile.NotKnownStatus
+	members := bson.D{{"_id", watchDocId}}
+	collection := instanceCharmProfileDataC
 	filter := func(id interface{}) bool {
 		return id.(string) == watchDocId
 	}
-	return newInstanceCharmProfileDataWatcher(m.st, watchDocId, filter), nil
+	extract := func(data map[string]interface{}) (string, error) {
+		if value, ok := data["upgradecharmprofilecomplete"]; ok {
+			if complete, ok := value.(string); ok {
+				return complete, nil
+			}
+		}
+		return initial, errors.NotValidf("instanceCharmProfileData type")
+	}
+	return newDocumentFieldWatcher(backend, collection, members, initial, filter, extract, nil)
 }
 
-// instanceCharmProfileDataWatcher notifies about any changes to the
-// instanceCharmProfileData document. The watcher looks for changes to the
-// upgrading of a charm lxd profile, that belongs to an application, which the
-// provisioner updates the document field. At start up the watcher gathers the
-// current values of the instance charm profile data, if the document doesn't
-// exist, then the status is set to not known. The document are transient and
-// not expected to there all the time, so the code deals with that with the
-// usage of the not know status.
-// Events are generated when there are changes to a instance charm profile
-// data document.
-type instanceCharmProfileDataWatcher struct {
+func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId string) StringsWatcher {
+	initial := ""
+	members := bson.D{{"_id", watchDocId}}
+	collection := applicationsC
+	filter := func(id interface{}) bool {
+		return id.(string) == watchDocId
+	}
+	extract := func(data map[string]interface{}) (string, error) {
+		if value, ok := data["charmurl"]; ok {
+			if url, ok := value.(*charm.URL); ok {
+				return url.String(), nil
+			}
+		}
+		return initial, errors.NotValidf("applicationDoc type")
+	}
+	transform := func(value string) string {
+		return lxdprofile.NotRequiredStatus
+	}
+	return newDocumentFieldWatcher(backend, collection, members, initial, filter, extract, transform)
+}
+
+// documentFieldWatcher notifies about any changes to a document field
+// specifically, the watcher looks for changes to a document field, and records
+// the current document field (known value). If the document doesn't exist an
+// initialKnown value can be set for the default.
+// Events are generated when there are changes to a document field that is
+// different from the known value. So setting field multiple times won't
+// dispatch an event, on changes that differ will be dispatched.
+type documentFieldWatcher struct {
 	commonWatcher
 	// docId is used to select the initial interesting entities.
-	docId  string
-	known  string
-	filter func(interface{}) bool
-	out    chan []string
+	collection   string
+	members      bson.D
+	known        string
+	initialKnown string
+	filter       func(interface{}) bool
+	extract      func(map[string]interface{}) (string, error)
+	transform    func(string) string
+	out          chan []string
 }
 
-var _ Watcher = (*instanceCharmProfileDataWatcher)(nil)
+var _ Watcher = (*documentFieldWatcher)(nil)
 
-func newInstanceCharmProfileDataWatcher(backend modelBackend, memberId string, filter func(interface{}) bool) StringsWatcher {
-	w := &instanceCharmProfileDataWatcher{
+func newDocumentFieldWatcher(
+	backend modelBackend,
+	collection string,
+	members bson.D,
+	initialKnown string,
+	filter func(interface{}) bool,
+	extract func(map[string]interface{}) (string, error),
+	transform func(string) string,
+) StringsWatcher {
+	w := &documentFieldWatcher{
 		commonWatcher: newCommonWatcher(backend),
-		docId:         memberId,
+		collection:    collection,
+		members:       members,
+		initialKnown:  initialKnown,
 		filter:        filter,
+		extract:       extract,
+		transform:     transform,
 		out:           make(chan []string),
 	}
 	w.tomb.Go(func() error {
@@ -2084,66 +2156,71 @@ func newInstanceCharmProfileDataWatcher(backend modelBackend, memberId string, f
 	return w
 }
 
-func (w *instanceCharmProfileDataWatcher) initial() error {
-	instanceDataCol, instanceDataCloser := w.db.GetCollection(instanceCharmProfileDataC)
-	defer instanceDataCloser()
+func (w *documentFieldWatcher) initial() error {
+	col, closer := w.db.GetCollection(w.collection)
+	defer closer()
 
-	statusField := lxdprofile.NotKnownStatus
+	field := w.initialKnown
 
-	var instanceData instanceCharmProfileData
-	if err := instanceDataCol.Find(bson.D{
-		{"_id", w.docId},
-	}).One(&instanceData); err == nil {
-		statusField = instanceData.UpgradeCharmProfileComplete
+	var data map[string]interface{}
+	if err := col.Find(w.members).One(&data); err == nil {
+		if newField, err := w.extract(data); err == nil {
+			field = newField
+		}
 	}
-	w.known = statusField
+	w.known = field
 
-	logger.Tracef("Started watching instanceCharmProfileData for %q: %q", w.docId, statusField)
+	logger.Tracef("Started watching %s for %v: %q", w.collection, w.members, field)
 	return nil
 }
 
-func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, error) {
+func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 	if change.Revno == -1 {
 		return false, nil
 	}
-	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
-	defer instanceCloser()
+	col, closer := w.db.GetCollection(w.collection)
+	defer closer()
 
-	var instanceData instanceCharmProfileData
-	if err := instanceDataCol.Find(bson.D{
-		{"_id", w.docId},
-	}).One(&instanceData); err != nil {
+	var data map[string]interface{}
+	if err := col.Find(w.members).One(&data); err != nil {
 		if err != mgo.ErrNotFound {
-			logger.Debugf("instanceCharmProfileData NOT mgo err not found")
+			logger.Debugf("%s NOT mgo err not found", w.collection)
 			return false, err
 		}
-		logger.Tracef("instanceCharmProfileData for %q: mgo err not found", w.docId)
+		logger.Tracef("%s for %v: mgo err not found", w.collection, w.members)
 		return false, nil
 	}
 
-	// check the field before adding to the machineId
-	currentField := instanceData.UpgradeCharmProfileComplete
+	// check the field before adding it to the known value
+	currentField, err := w.extract(data)
+	if err != nil {
+		return false, err
+	}
 	if w.known != currentField {
 		w.known = currentField
 
-		logger.Tracef("Changes in watching instanceCharmProfileData for %q: %q", w.docId, currentField)
+		logger.Tracef("Changes in watching %s for %v: %q", w.collection, w.members, currentField)
 		return true, nil
 	}
 	return false, nil
 }
 
-func (w *instanceCharmProfileDataWatcher) loop() error {
+func (w *documentFieldWatcher) loop() error {
 	err := w.initial()
 	if err != nil {
 		return err
 	}
 
 	ch := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(instanceCharmProfileDataC, ch, w.filter)
-	defer w.watcher.UnwatchCollection(instanceCharmProfileDataC, ch)
+	w.watcher.WatchCollectionWithFilter(w.collection, ch, w.filter)
+	defer w.watcher.UnwatchCollection(w.collection, ch)
 
 	out := w.out
 	for {
+		value := w.known
+		if w.transform != nil {
+			value = w.transform(w.known)
+		}
 		select {
 		case <-w.watcher.Dead():
 			return stateWatcherDeadError(w.watcher.Err())
@@ -2157,13 +2234,13 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 			if isChanged {
 				out = w.out
 			}
-		case out <- []string{w.known}:
+		case out <- []string{value}:
 			out = nil
 		}
 	}
 }
 
-func (w *instanceCharmProfileDataWatcher) Changes() <-chan []string {
+func (w *documentFieldWatcher) Changes() <-chan []string {
 	return w.out
 }
 

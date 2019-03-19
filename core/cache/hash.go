@@ -52,7 +52,7 @@ func (c *hashCache) getHash(keys []string) string {
 	key := strings.Join(keys, ",")
 	value, found := c.hash[key]
 	if found {
-		c.cacheHits.Inc()
+		c.incHits()
 		return value
 	}
 
@@ -63,7 +63,7 @@ func (c *hashCache) getHash(keys []string) string {
 
 func (c *hashCache) generateHash(keys []string) string {
 	// We are generating a hash, so call it a miss.
-	c.cacheMisses.Inc()
+	c.incMisses()
 
 	interested := c.config
 	if len(keys) > 0 {
@@ -80,6 +80,18 @@ func (c *hashCache) generateHash(keys []string) string {
 		return ""
 	}
 	return h
+}
+
+func (c *hashCache) incHits() {
+	if c.cacheHits != nil {
+		c.cacheHits.Inc()
+	}
+}
+
+func (c *hashCache) incMisses() {
+	if c.cacheMisses != nil {
+		c.cacheMisses.Inc()
+	}
 }
 
 // hash returns a hash of the yaml serialized settings.

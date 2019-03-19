@@ -25,12 +25,11 @@ var _ = gc.Suite(&CAASProvisionerSuite{})
 type CAASProvisionerSuite struct {
 	coretesting.BaseSuite
 
-	resources               *common.Resources
-	authorizer              *apiservertesting.FakeAuthorizer
-	api                     *caasoperatorprovisioner.API
-	st                      *mockState
-	storageProviderRegistry *mockStorageProviderRegistry
-	storagePoolManager      *mockStoragePoolManager
+	resources          *common.Resources
+	authorizer         *apiservertesting.FakeAuthorizer
+	api                *caasoperatorprovisioner.API
+	st                 *mockState
+	storagePoolManager *mockStoragePoolManager
 }
 
 func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
@@ -45,9 +44,8 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState()
-	s.storageProviderRegistry = &mockStorageProviderRegistry{}
 	s.storagePoolManager = &mockStoragePoolManager{}
-	api, err := caasoperatorprovisioner.NewCAASOperatorProvisionerAPI(s.resources, s.authorizer, s.st, s.storageProviderRegistry, s.storagePoolManager)
+	api, err := caasoperatorprovisioner.NewCAASOperatorProvisionerAPI(s.resources, s.authorizer, s.st, s.storagePoolManager)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -56,7 +54,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	_, err := caasoperatorprovisioner.NewCAASOperatorProvisionerAPI(s.resources, s.authorizer, s.st, s.storageProviderRegistry, s.storagePoolManager)
+	_, err := caasoperatorprovisioner.NewCAASOperatorProvisionerAPI(s.resources, s.authorizer, s.st, s.storagePoolManager)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -125,16 +123,20 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    fmt.Sprintf("jujusolutions/caas-jujud-operator:%s", version.Current.String()),
+		ImagePath:    fmt.Sprintf("jujusolutions/jujud-operator:%s", version.Current.String()),
 		Version:      version.Current,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{
 			"juju-model-uuid":      coretesting.ModelTag.Id(),
 			"juju-controller-uuid": coretesting.ControllerTag.Id()},
 		CharmStorage: params.KubernetesFilesystemParams{
-			Size:       uint64(1024),
-			Provider:   "kubernetes",
-			Attributes: map[string]interface{}{"foo": "bar"},
+			StorageName: "charm",
+			Size:        uint64(1024),
+			Provider:    "kubernetes",
+			Attributes: map[string]interface{}{
+				"storage-class": "k8s-storage",
+				"foo":           "bar",
+			},
 			Tags: map[string]string{
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
 				"juju-controller-uuid": coretesting.ControllerTag.Id()},
@@ -143,20 +145,24 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
-	s.st.operatorImage = "jujusolutions/caas-jujud-operator"
+	s.st.operatorRepo = "somerepo"
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    s.st.operatorImage,
+		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + version.Current.String(),
 		Version:      version.Current,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{
 			"juju-model-uuid":      coretesting.ModelTag.Id(),
 			"juju-controller-uuid": coretesting.ControllerTag.Id()},
 		CharmStorage: params.KubernetesFilesystemParams{
-			Size:       uint64(1024),
-			Provider:   "kubernetes",
-			Attributes: map[string]interface{}{"foo": "bar"},
+			StorageName: "charm",
+			Size:        uint64(1024),
+			Provider:    "kubernetes",
+			Attributes: map[string]interface{}{
+				"storage-class": "k8s-storage",
+				"foo":           "bar",
+			},
 			Tags: map[string]string{
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
 				"juju-controller-uuid": coretesting.ControllerTag.Id()},
@@ -166,19 +172,23 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C) {
 	s.storagePoolManager.SetErrors(errors.NotFoundf("pool"))
-	s.st.operatorImage = "jujusolutions/caas-jujud-operator"
+	s.st.operatorRepo = "somerepo"
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    s.st.operatorImage,
+		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + version.Current.String(),
 		Version:      version.Current,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{
 			"juju-model-uuid":      coretesting.ModelTag.Id(),
 			"juju-controller-uuid": coretesting.ControllerTag.Id()},
 		CharmStorage: params.KubernetesFilesystemParams{
-			Size:     uint64(1024),
-			Provider: "kubernetes",
+			StorageName: "charm",
+			Size:        uint64(1024),
+			Provider:    "kubernetes",
+			Attributes: map[string]interface{}{
+				"storage-class": "k8s-storage",
+			},
 			Tags: map[string]string{
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
 				"juju-controller-uuid": coretesting.ControllerTag.Id()},

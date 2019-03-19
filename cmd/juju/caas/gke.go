@@ -28,6 +28,16 @@ func (g *gke) cloud() string {
 	return "gce"
 }
 
+func (g *gke) ensureExecutable() error {
+	cmd := []string{"which", "gcloud"}
+	err := collapseRunError(runCommand(g, cmd, ""))
+	errAnnotationMessage := "gcloud command not found, please 'snap install gcloud' then try again"
+	if err != nil {
+		return errors.Annotate(err, errAnnotationMessage)
+	}
+	return nil
+}
+
 func (g *gke) getKubeConfig(p *clusterParams) (io.ReadCloser, string, error) {
 	cmd := []string{
 		"gcloud", "container", "clusters", "get-credentials", p.name,
@@ -121,7 +131,7 @@ func (g *gke) queryAccount(pollster *interact.Pollster) (string, error) {
 	}
 	if len(allAccounts) == 0 {
 		return "", errors.New("no accounts have been set up.\n" +
-			"See gcloud help auth.'",
+			"See 'gcloud help auth'.",
 		)
 	}
 	if defaultAccount == "" {
@@ -208,10 +218,11 @@ func (g *gke) queryCluster(pollster *interact.Pollster, account, project, region
 	if len(allClustersByName) == 0 {
 		regionMsg := ""
 		if region != "" {
-			regionMsg = fmt.Sprintf(" in region %v", regionMsg)
+			regionMsg = fmt.Sprintf(" in region %v", region)
 		}
-		return "", "", errors.New("no clusters have been set up%s.\n" +
+		return "", "", errors.Errorf("no clusters have been set up%s.\n"+
 			"You can create a k8s cluster using 'gcloud container cluster create'",
+			regionMsg,
 		)
 	}
 	var clusterNamesAndRegions []string

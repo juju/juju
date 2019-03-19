@@ -11,7 +11,7 @@ import (
 	core "k8s.io/api/core/v1"
 	k8sstorage "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	intstr "k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -72,7 +72,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	}
 	s.pcfg = pcfg
 	s.controllerStackerGetter = func() provider.ControllerStackerForTest {
-		controllerStacker, err := provider.NewcontrollerStackForTest("juju-controller-test", s.broker, s.pcfg)
+		controllerStacker, err := provider.NewcontrollerStackForTest("juju-controller-test", "some-storage", s.broker, s.pcfg)
 		c.Assert(err, jc.ErrorIsNil)
 		return controllerStacker
 	}
@@ -85,16 +85,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	controllerStacker := s.controllerStackerGetter()
 	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
 
-	scName := "default-storageclass"
+	scName := "some-storage"
 	sc := k8sstorage.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
 			Name: scName,
-			Annotations: map[string]string{
-				"storageclass.kubernetes.io/is-default-class": "true",
-			},
 		},
 	}
-	scs := &k8sstorage.StorageClassList{Items: []k8sstorage.StorageClass{sc}}
 
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: s.namespace}}
 	svc := &core.Service{
@@ -309,7 +305,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "mongo:3.6.6",
+			Image:           "jujusolutions/juju-db:4.1.9",
 			Command: []string{
 				"mongod",
 			},
@@ -384,7 +380,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           s.pcfg.GetControllerImagePath(),
+			Image:           "jujusolutions/jujud-operator:" + jujuversion.Current.String(),
 			Command: []string{
 				"/bin/sh",
 			},
@@ -475,9 +471,11 @@ test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /va
 		s.mockConfigMaps.EXPECT().Update(configMapWithAgentConfAdded).AnyTimes().
 			Return(configMapWithAgentConfAdded, nil),
 
-		// find storageclass to use.
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
-			Return(scs, nil),
+		// Check the operator storage exists.
+		s.mockStorageClass.EXPECT().Get("test-some-storage", v1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("some-storage", v1.GetOptions{}).Times(1).
+			Return(&sc, nil),
 
 		// ensure statefulset.
 		s.mockStatefulSets.EXPECT().Create(statefulSetSpec).Times(1).

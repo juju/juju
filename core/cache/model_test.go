@@ -1,5 +1,6 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package cache_test
 
 import (
@@ -63,6 +64,9 @@ func (s *ModelSuite) TestModelConfigIncrementsReadCount(c *gc.C) {
 	c.Check(testutil.ToFloat64(s.gauges.ModelConfigReads), gc.Equals, float64(2))
 }
 
+// Some of the tested behaviour in the following methods is specific to the
+// watcher, but using a cached model avoids the need to put scaffolding code in
+// export_test.go to create a watcher in isolation.
 func (s *ModelSuite) TestConfigWatcherStops(c *gc.C) {
 	m := s.newModel(modelChange)
 	w := m.WatchConfig()
@@ -90,6 +94,7 @@ func (s *ModelSuite) TestConfigWatcherChange(c *gc.C) {
 
 	// The hash is generated each time we set the details.
 	c.Check(testutil.ToFloat64(s.gauges.ModelHashCacheMiss), gc.Equals, float64(2))
+
 	// The value is retrieved from the cache when the watcher is created and notified.
 	c.Check(testutil.ToFloat64(s.gauges.ModelHashCacheHit), gc.Equals, float64(2))
 }
@@ -128,6 +133,22 @@ func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
 
 	m.SetDetails(change)
 	wc.AssertNoChange()
+}
+
+func (s *ModelSuite) TestConfigWatcherSameValuesCacheHit(c *gc.C) {
+	m := s.newModel(modelChange)
+
+	w := m.WatchConfig("key", "another")
+	defer workertest.CleanKill(c, w)
+
+	w2 := m.WatchConfig("another", "key")
+	defer workertest.CleanKill(c, w2)
+
+	// One cache miss for the "all" hash, and one for the specific fields.
+	c.Check(testutil.ToFloat64(s.gauges.ModelHashCacheMiss), gc.Equals, float64(2))
+
+	// Specific field hash should get a hit despite the field ordering.
+	c.Check(testutil.ToFloat64(s.gauges.ModelHashCacheHit), gc.Equals, float64(1))
 }
 
 func (s *ModelSuite) TestApplicationNotFoundError(c *gc.C) {

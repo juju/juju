@@ -27,7 +27,7 @@ type mockState struct {
 	model              *mockModel
 	applicationWatcher *mockStringsWatcher
 	app                *mockApplication
-	operatorImage      string
+	operatorRepo       string
 }
 
 func newMockState() *mockState {
@@ -51,7 +51,7 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	cfg := coretesting.FakeControllerConfig()
-	cfg[controller.CAASOperatorImagePath] = st.operatorImage
+	cfg[controller.CAASImageRepo] = st.operatorRepo
 	return cfg, nil
 }
 
@@ -68,16 +68,6 @@ func (st *mockState) Model() (caasoperatorprovisioner.Model, error) {
 		return nil, err
 	}
 	return st.model, nil
-}
-
-type mockStorageProviderRegistry struct {
-	testing.Stub
-	storage.ProviderRegistry
-}
-
-func (m *mockStorageProviderRegistry) StorageProvider(providerType storage.ProviderType) (storage.Provider, error) {
-	m.MethodCall(m, "StorageProvider", providerType)
-	return nil, errors.NotSupportedf("StorageProvider")
 }
 
 type mockStoragePoolManager struct {
@@ -104,7 +94,9 @@ func (m *mockModel) UUID() string {
 
 func (m *mockModel) ModelConfig() (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
-	return config.New(config.UseDefaults, coretesting.FakeConfig())
+	attrs := coretesting.FakeConfig()
+	attrs["operator-storage"] = "k8s-storage"
+	return config.New(config.UseDefaults, attrs)
 }
 
 type mockApplication struct {

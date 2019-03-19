@@ -176,14 +176,41 @@ func (s *K8sMetadataSuite) TestNoDefaultStorageClasses(c *gc.C) {
 		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
 			Return(&core.NodeList{}, nil),
 		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{}}}, nil),
+			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
+				Provisioner: "a-provisioner",
+				Parameters:  map[string]string{"foo": "bar"},
+			}}}, nil),
+	)
+	metadata, err := s.broker.GetClusterMetadata("")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Provisioner: "a-provisioner",
+		Parameters:  map[string]string{"foo": "bar"},
+	})
+}
+
+func (s *K8sMetadataSuite) TestNoDefaultStorageClassesTooMany(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+			Return(&core.NodeList{}, nil),
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
+				Provisioner: "a-provisioner",
+				Parameters:  map[string]string{"foo": "bar"},
+			}, {
+				Provisioner: "b-provisioner",
+				Parameters:  map[string]string{"foo": "bar"},
+			}}}, nil),
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(metadata.NominatedStorageClass, gc.IsNil)
 }
 
-func (s *K8sMetadataSuite) TestDefaultStorageClasses(c *gc.C) {
+func (s *K8sMetadataSuite) TestPreferDefaultStorageClass(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -194,6 +221,34 @@ func (s *K8sMetadataSuite) TestDefaultStorageClasses(c *gc.C) {
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
 				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
 				Provisioner: "a-provisioner",
+				Parameters:  map[string]string{"foo": "bar"},
+			}, {
+				Provisioner: "b-provisioner",
+				Parameters:  map[string]string{"foo": "bar"},
+			}}}, nil),
+	)
+	metadata, err := s.broker.GetClusterMetadata("")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Provisioner: "a-provisioner",
+		Parameters:  map[string]string{"foo": "bar"},
+	})
+}
+
+func (s *K8sMetadataSuite) TestBetaDefaultStorageClass(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+			Return(&core.NodeList{}, nil),
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
+				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.beta.kubernetes.io/is-default-class": "true"}},
+				Provisioner: "a-provisioner",
+				Parameters:  map[string]string{"foo": "bar"},
+			}, {
+				Provisioner: "b-provisioner",
 				Parameters:  map[string]string{"foo": "bar"},
 			}}}, nil),
 	)
@@ -211,18 +266,84 @@ func (s *K8sMetadataSuite) TestUserSpecifiedStorageClasses(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
-			Return(&core.NodeList{}, nil),
+			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
+				Labels: map[string]string{"manufacturer": "amazon_ec2"},
+			}}}}, nil),
 		s.mockStorageClass.EXPECT().Get("foo", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&storagev1.StorageClass{
 				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
 				Provisioner: "a-provisioner",
 				Parameters:  map[string]string{"foo": "bar"},
 			}, nil),
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
+				Provisioner: "kubernetes.io/aws-ebs",
+			}}}, nil),
 	)
 	metadata, err := s.broker.GetClusterMetadata("foo")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
 		Provisioner: "a-provisioner",
+		Parameters:  map[string]string{"foo": "bar"},
+	})
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Provisioner: "kubernetes.io/aws-ebs",
+	})
+}
+
+func (s *K8sMetadataSuite) TestOperatorStorageClassNoDefault(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
+				Labels: map[string]string{"manufacturer": "amazon_ec2"},
+			}}}}, nil),
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
+				Provisioner: "kubernetes.io/aws-ebs",
+			}, {
+				Provisioner: "kubernetes.io/aws-ebs",
+				Parameters:  map[string]string{"foo": "bar"},
+			}}}, nil),
+	)
+	metadata, err := s.broker.GetClusterMetadata("")
+	c.Check(err, jc.ErrorIsNil)
+	// More than one match so need to be explicit for workload storage.
+	c.Check(metadata.NominatedStorageClass, gc.IsNil)
+	// Take the first match for operator storage.
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Provisioner: "kubernetes.io/aws-ebs",
+	})
+}
+
+func (s *K8sMetadataSuite) TestOperatorStorageClassPrefersDefault(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
+				Labels: map[string]string{"manufacturer": "amazon_ec2"},
+			}}}}, nil),
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
+				Provisioner: "kubernetes.io/aws-ebs",
+			}, {
+				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
+				Provisioner: "kubernetes.io/aws-ebs",
+				Parameters:  map[string]string{"foo": "bar"},
+			}}}, nil),
+	)
+	metadata, err := s.broker.GetClusterMetadata("")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Provisioner: "kubernetes.io/aws-ebs",
+		Parameters:  map[string]string{"foo": "bar"},
+	})
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
 	})
 }

@@ -375,10 +375,11 @@ func (c *defaultsCommand) parseCloudRegion(args []string) ([]string, error) {
 	}
 
 	// Ensure we exit early when we have a settings file or key=value.
-	_, err := os.Stat(maybeRegion)
+	info, err := os.Stat(maybeRegion)
+	isFile := err == nil && !info.IsDir()
 	// TODO(redir) 2016-10-05 #1627162
 	// We don't disallow "=" in region names, but probably should.
-	if err == nil || strings.Contains(maybeRegion, "=") {
+	if isFile || strings.Contains(maybeRegion, "=") {
 		return args, nil
 	}
 

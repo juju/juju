@@ -10,6 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
+	storage "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
@@ -61,6 +62,17 @@ func getCloudRegionFromNodeMeta(node core.Node) (string, string) {
 	return "", ""
 }
 
+func isDefaultStorageClass(sc storage.StorageClass) bool {
+	if v, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && v != "false" {
+		return true
+	}
+	// Older clusters still use the beta annotation.
+	if v, ok := sc.Annotations["storageclass.beta.kubernetes.io/is-default-class"]; ok && v != "false" {
+		return true
+	}
+	return false
+}
+
 // GetClusterMetadata implements ClusterMetadataChecker.
 func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.ClusterMetadata, error) {
 	var result caas.ClusterMetadata
@@ -77,23 +89,80 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 		}
 		if err == nil {
 			result.NominatedStorageClass = &caas.StorageProvisioner{
+				Name:        sc.Name,
 				Provisioner: sc.Provisioner,
 				Parameters:  sc.Parameters,
 			}
-		}
-	} else {
-		storageClasses, err := k.StorageV1().StorageClasses().List(v1.ListOptions{})
-		if err != nil {
-			return nil, errors.Annotate(err, "listing storage classes")
-		}
-		for _, sc := range storageClasses.Items {
-			if v, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && v != "false" {
-				result.NominatedStorageClass = &caas.StorageProvisioner{
-					Provisioner: sc.Provisioner,
-					Parameters:  sc.Parameters,
-				}
-				break
+			if sc.ReclaimPolicy != nil {
+				result.NominatedStorageClass.ReclaimPolicy = string(*sc.ReclaimPolicy)
 			}
+		}
+	}
+
+	// We may have the workload storage but still need to look for operator storage.
+	preferredOperatorStorage, havePreferredOperatorStorage := jujuPreferredOperatorStorage[result.Cloud]
+	storageClasses, err := k.StorageV1().StorageClasses().List(v1.ListOptions{})
+	if err != nil {
+		return nil, errors.Annotate(err, "listing storage classes")
+	}
+
+	var (
+		possibleWorkloadStorage []storage.StorageClass
+		possibleOperatorStorage []*caas.StorageProvisioner
+		defaultOperatorStorage  *caas.StorageProvisioner
+	)
+	for _, sc := range storageClasses.Items {
+		if havePreferredOperatorStorage {
+			maybeOperatorStorage := &caas.StorageProvisioner{
+				Name:        sc.Name,
+				Provisioner: sc.Provisioner,
+				Parameters:  sc.Parameters,
+			}
+			if sc.ReclaimPolicy != nil {
+				maybeOperatorStorage.ReclaimPolicy = string(*sc.ReclaimPolicy)
+			}
+			if err := storageClassMatches(preferredOperatorStorage, maybeOperatorStorage); err == nil {
+				possibleOperatorStorage = append(possibleOperatorStorage, maybeOperatorStorage)
+				if isDefaultStorageClass(sc) {
+					defaultOperatorStorage = maybeOperatorStorage
+				}
+			}
+		}
+		if result.NominatedStorageClass != nil {
+			continue
+		}
+		if isDefaultStorageClass(sc) {
+			result.NominatedStorageClass = &caas.StorageProvisioner{
+				Name:        sc.Name,
+				Provisioner: sc.Provisioner,
+				Parameters:  sc.Parameters,
+			}
+			if sc.ReclaimPolicy != nil {
+				result.NominatedStorageClass.ReclaimPolicy = string(*sc.ReclaimPolicy)
+			}
+			break
+		}
+		possibleWorkloadStorage = append(possibleWorkloadStorage, sc)
+	}
+
+	// Prefer operator storage from the default storage class.
+	if defaultOperatorStorage != nil {
+		result.OperatorStorageClass = defaultOperatorStorage
+	} else if len(possibleOperatorStorage) > 0 {
+		result.OperatorStorageClass = possibleOperatorStorage[0]
+	}
+
+	// Even if no storage class was marked as default for the cluster, if there's only
+	// one of them, use it for workload storage.
+	if result.NominatedStorageClass == nil && len(possibleWorkloadStorage) == 1 {
+		sc := possibleWorkloadStorage[0]
+		result.NominatedStorageClass = &caas.StorageProvisioner{
+			Name:        sc.Name,
+			Provisioner: sc.Provisioner,
+			Parameters:  sc.Parameters,
+		}
+		if sc.ReclaimPolicy != nil {
+			result.NominatedStorageClass.ReclaimPolicy = string(*sc.ReclaimPolicy)
 		}
 	}
 	return &result, nil
@@ -124,10 +193,14 @@ func (k *kubernetesClient) listHostCloudRegions() (string, set.Strings, error) {
 
 // CheckDefaultWorkloadStorage implements ClusterMetadataChecker.
 func (k *kubernetesClient) CheckDefaultWorkloadStorage(cluster string, storageProvisioner *caas.StorageProvisioner) error {
-	preferredStorage, ok := clusterPreferredWorkloadStorage[cluster]
+	preferredStorage, ok := jujuPreferredWorkloadStorage[cluster]
 	if !ok {
 		return errors.NotFoundf("cluster %q", cluster)
 	}
+	return storageClassMatches(preferredStorage, storageProvisioner)
+}
+
+func storageClassMatches(preferredStorage caas.PreferredStorage, storageProvisioner *caas.StorageProvisioner) error {
 	if storageProvisioner == nil || preferredStorage.Provisioner != storageProvisioner.Provisioner {
 		return &caas.NonPreferredStorageError{PreferredStorage: preferredStorage}
 	}

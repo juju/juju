@@ -32,7 +32,7 @@ type State interface {
 
 // Model describes model state used by the model generation API.
 type Model interface {
-	AddGeneration() error
+	AddGeneration(string) error
 	NextGeneration() (Generation, error)
 	HasNextGeneration() (bool, error)
 }
@@ -40,11 +40,12 @@ type Model interface {
 // Generation defines the methods used by a generation.
 type Generation interface {
 	Created() int64
+	CreatedBy() string
 	AssignAllUnits(string) error
 	AssignUnit(string) error
 	AssignedUnits() map[string][]string
-	MakeCurrent() error
-	AutoComplete() (bool, error)
+	MakeCurrent(string) error
+	AutoComplete(string) (bool, error)
 	Refresh() error
 }
 

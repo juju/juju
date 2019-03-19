@@ -100,12 +100,14 @@ func NewDetectCredentialsCommandForTest(
 	registeredProvidersFunc func() []string,
 	allCloudsFunc func() (map[string]jujucloud.Cloud, error),
 	cloudsByNameFunc func(string) (*jujucloud.Cloud, error),
+	cloudType string,
 ) *detectCredentialsCommand {
 	return &detectCredentialsCommand{
 		store:                   testStore,
 		registeredProvidersFunc: registeredProvidersFunc,
 		allCloudsFunc:           allCloudsFunc,
 		cloudByNameFunc:         cloudsByNameFunc,
+		cloudType:               cloudType,
 	}
 }
 

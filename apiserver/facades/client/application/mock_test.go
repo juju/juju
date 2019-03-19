@@ -10,10 +10,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/storage/provider"
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
+	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/application"
+	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
@@ -401,6 +402,44 @@ func (m *mockBackend) Machine(id string) (application.Machine, error) {
 		}
 	}
 	return nil, errors.NotFoundf("machine %q", id)
+}
+
+func newMockModel() mockModel {
+	return mockModel{
+		uuid:      utils.MustNewUUID().String(),
+		modelType: state.ModelTypeIAAS,
+		cfg: map[string]interface{}{
+			"operator-storage": "k8s-operator-storage",
+			"workload-storage": "k8s-storage",
+		},
+	}
+}
+
+type mockModel struct {
+	application.Model
+	jtesting.Stub
+
+	uuid      string
+	modelType state.ModelType
+	cfg       map[string]interface{}
+}
+
+func (m *mockModel) UUID() string {
+	return m.uuid
+}
+
+func (m *mockModel) ModelTag() names.ModelTag {
+	return names.NewModelTag(m.UUID())
+}
+
+func (m *mockModel) Type() state.ModelType {
+	return m.modelType
+}
+
+func (m *mockModel) ModelConfig() (*config.Config, error) {
+	m.MethodCall(m, "ModelConfig")
+	attrs := coretesting.FakeConfig().Merge(m.cfg)
+	return config.New(config.UseDefaults, attrs)
 }
 
 type mockMachine struct {
@@ -833,25 +872,17 @@ func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	storageType := m.storageType
-	if name == "db" {
-		storageType = provider.RootfsProviderType
-	}
-	return storage.NewConfig(name, storageType, map[string]interface{}{"foo": "bar"})
+	return storage.NewConfig(name, m.storageType, map[string]interface{}{"foo": "bar"})
 }
 
-type mockCaasBroker struct {
+type mockStorageValidator struct {
 	jtesting.Stub
-	caas.Broker
-	storageClassName string
+	caas.StorageValidator
 }
 
-func (m *mockCaasBroker) GetStorageClassName(labels ...string) (string, error) {
-	m.MethodCall(m, "GetStorageClassName", labels)
-	if err := m.NextErr(); err != nil {
-		return "", err
-	}
-	return m.storageClassName, m.NextErr()
+func (m *mockStorageValidator) ValidateStorageClass(config map[string]interface{}) error {
+	m.MethodCall(m, "ValidateStorageClass", config)
+	return m.NextErr()
 }
 
 type mockGeneration struct {

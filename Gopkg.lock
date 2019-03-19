@@ -371,11 +371,12 @@
   version = "v0.5.0"
 
 [[projects]]
-  digest = "1:3dea8a64498e503e13eaa87133ab0c5423988a67f739e52273631230cf15a428"
+  digest = "1:b52f54ecd403c75e91379df33eaa153cd3bf3c9ed123cef823e922c4b6a6f8d2"
   name = "github.com/hashicorp/raft"
   packages = ["."]
   pruneopts = ""
-  revision = "077966dbc90f342107eb723ec52fdb0463ec789b"
+  revision = "834fca2f9ffc153bf038e9333425a40ba515059f"
+  source = "github.com/juju/raft"
 
 [[projects]]
   digest = "1:d2707097c8132df0bfccc3fbbf6973b3b80324e08d6e489edf90efc9d7b5c773"
@@ -658,11 +659,11 @@
   revision = "5f8741c297b47cba29f747c67f2e31e7c2a36ecb"
 
 [[projects]]
-  digest = "1:76068d833db78ba2419f72e5efd91d1d4ab5e8ffca1f61c5b5a724795fea6572"
+  digest = "1:009e2a6e84e7b6dd187f85e0f26e29e8be0f1154aeaa630c1b24cc0e24b2be3f"
   name = "github.com/juju/pubsub"
   packages = ["."]
   pruneopts = ""
-  revision = "ad5dc02599e01a8409f9b1144e4d759baafd01dc"
+  revision = "5ff05f703d2531147fb927125eea0d61cf4179e5"
 
 [[projects]]
   digest = "1:fbafcd485d270fc069d738bdcbfa3e03676936f837d4b2708f7ba80fa90e1c5a"

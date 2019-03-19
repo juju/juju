@@ -200,15 +200,15 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 }
 
 // AddGeneration mocks base method
-func (m *MockModel) AddGeneration() error {
-	ret := m.ctrl.Call(m, "AddGeneration")
+func (m *MockModel) AddGeneration(arg0 string) error {
+	ret := m.ctrl.Call(m, "AddGeneration", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddGeneration indicates an expected call of AddGeneration
-func (mr *MockModelMockRecorder) AddGeneration() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddGeneration", reflect.TypeOf((*MockModel)(nil).AddGeneration))
+func (mr *MockModelMockRecorder) AddGeneration(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddGeneration", reflect.TypeOf((*MockModel)(nil).AddGeneration), arg0)
 }
 
 // HasNextGeneration mocks base method
@@ -297,16 +297,16 @@ func (mr *MockGenerationMockRecorder) AssignedUnits() *gomock.Call {
 }
 
 // AutoComplete mocks base method
-func (m *MockGeneration) AutoComplete() (bool, error) {
-	ret := m.ctrl.Call(m, "AutoComplete")
+func (m *MockGeneration) AutoComplete(arg0 string) (bool, error) {
+	ret := m.ctrl.Call(m, "AutoComplete", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AutoComplete indicates an expected call of AutoComplete
-func (mr *MockGenerationMockRecorder) AutoComplete() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoComplete", reflect.TypeOf((*MockGeneration)(nil).AutoComplete))
+func (mr *MockGenerationMockRecorder) AutoComplete(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoComplete", reflect.TypeOf((*MockGeneration)(nil).AutoComplete), arg0)
 }
 
 // Created mocks base method
@@ -321,16 +321,28 @@ func (mr *MockGenerationMockRecorder) Created() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Created", reflect.TypeOf((*MockGeneration)(nil).Created))
 }
 
+// CreatedBy mocks base method
+func (m *MockGeneration) CreatedBy() string {
+	ret := m.ctrl.Call(m, "CreatedBy")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// CreatedBy indicates an expected call of CreatedBy
+func (mr *MockGenerationMockRecorder) CreatedBy() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatedBy", reflect.TypeOf((*MockGeneration)(nil).CreatedBy))
+}
+
 // MakeCurrent mocks base method
-func (m *MockGeneration) MakeCurrent() error {
-	ret := m.ctrl.Call(m, "MakeCurrent")
+func (m *MockGeneration) MakeCurrent(arg0 string) error {
+	ret := m.ctrl.Call(m, "MakeCurrent", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // MakeCurrent indicates an expected call of MakeCurrent
-func (mr *MockGenerationMockRecorder) MakeCurrent() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeCurrent", reflect.TypeOf((*MockGeneration)(nil).MakeCurrent))
+func (mr *MockGenerationMockRecorder) MakeCurrent(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeCurrent", reflect.TypeOf((*MockGeneration)(nil).MakeCurrent), arg0)
 }
 
 // Refresh mocks base method

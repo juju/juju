@@ -27,6 +27,11 @@ type SessionCloser func()
 
 func dontCloseAnything() {}
 
+//go:generate mockgen -package mocks -destination mocks/database_mock.go github.com/juju/juju/state Database
+//go:generate mockgen -package mocks -destination mocks/mongo_mock.go github.com/juju/juju/mongo Collection,Query
+//go:generate mockgen -package mocks -destination mocks/txn_mock.go github.com/juju/txn Runner
+//go:generate mockgen -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
+
 // Database exposes the mongodb capabilities that most of state should see.
 type Database interface {
 
@@ -95,7 +100,7 @@ type Database interface {
 
 	// Schema returns the schema used to load the database. The returned schema
 	// is not a copy and must not be modified.
-	Schema() collectionSchema
+	Schema() CollectionSchema
 }
 
 // Change represents any mgo/txn-representable change to a Database.
@@ -138,7 +143,7 @@ func Apply(db Database, change Change) error {
 }
 
 // collectionInfo describes important features of a collection.
-type collectionInfo struct {
+type CollectionInfo struct {
 
 	// explicitCreate, if non-nil, will cause the collection to be explicitly
 	// Create~d (with the given value) before ensuring indexes.
@@ -173,10 +178,10 @@ type collectionInfo struct {
 }
 
 // collectionSchema defines the set of collections used in juju.
-type collectionSchema map[string]collectionInfo
+type CollectionSchema map[string]CollectionInfo
 
 // Create causes all recorded collections to be created and indexed as specified
-func (schema collectionSchema) Create(
+func (schema CollectionSchema) Create(
 	db *mgo.Database,
 	settings *controller.Config,
 ) error {
@@ -222,7 +227,7 @@ type database struct {
 	raw *mgo.Database
 
 	// schema specifies how the various collections must be handled.
-	schema collectionSchema
+	schema CollectionSchema
 
 	// modelUUID is used to automatically filter queries and operations on
 	// certain collections (as defined in .schema).
@@ -395,6 +400,6 @@ func (db *database) Run(transactions jujutxn.TransactionSource) error {
 }
 
 // Schema is part of the Database interface.
-func (db *database) Schema() collectionSchema {
+func (db *database) Schema() CollectionSchema {
 	return db.schema
 }

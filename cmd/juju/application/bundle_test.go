@@ -17,6 +17,8 @@ import (
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -25,7 +27,6 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -86,18 +87,35 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 
 func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C) {
 	// Set up a CAAS model to replace the IAAS one.
+	unregister := caas.RegisterContainerProvider("kubernetes-test", &fakeProvider{})
+	s.AddCleanup(func(_ *gc.C) { unregister() })
+
+	// Set up a CAAS model to replace the IAAS one.
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "caascloud",
+		Type:      "kubernetes-test",
+		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
+	}, s.Model.Owner().Id())
+	c.Assert(err, jc.ErrorIsNil)
+
 	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{
-		Name:  "test",
-		Owner: names.NewUserTag("admin"),
+		Name:      "test",
+		CloudName: "caascloud",
 	})
 	s.CleanupSuite.AddCleanup(func(*gc.C) { _ = st.Close() })
 
 	// Close the state pool before the state object itself.
 	c.Assert(s.StatePool.Close(), jc.ErrorIsNil)
 	s.StatePool = nil
-	err := s.State.Close()
+	err = s.State.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.UpdateModelConfig(map[string]interface{}{
+		"operator-storage": "k8s-storage",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/mariadb-42", "mariadb", "kubernetes")
 	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/gitlab-47", "gitlab", "kubernetes")

@@ -49,6 +49,10 @@ type ControllerGauges struct {
 	ModelConfigReads   prometheus.Gauge
 	ModelHashCacheHit  prometheus.Gauge
 	ModelHashCacheMiss prometheus.Gauge
+
+	ApplicationConfigReads   prometheus.Gauge
+	ApplicationHashCacheHit  prometheus.Gauge
+	ApplicationHashCacheMiss prometheus.Gauge
 }
 
 func createControllerGauges() *ControllerGauges {
@@ -74,6 +78,27 @@ func createControllerGauges() *ControllerGauges {
 				Help:      "The number of times the model config change hash was generated.",
 			},
 		),
+		ApplicationConfigReads: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "application_config_reads",
+				Help:      "The number of times the application config is read.",
+			},
+		),
+		ApplicationHashCacheHit: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "application_hash_cache_hit",
+				Help:      "The number of times the application config change hash was determined using the cached value.",
+			},
+		),
+		ApplicationHashCacheMiss: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "application_hash_cache_miss",
+				Help:      "The number of times the application config change hash was generated.",
+			},
+		),
 	}
 }
 
@@ -82,6 +107,10 @@ func (c *ControllerGauges) Collect(ch chan<- prometheus.Metric) {
 	c.ModelConfigReads.Collect(ch)
 	c.ModelHashCacheHit.Collect(ch)
 	c.ModelHashCacheMiss.Collect(ch)
+
+	c.ApplicationConfigReads.Collect(ch)
+	c.ApplicationHashCacheHit.Collect(ch)
+	c.ApplicationHashCacheMiss.Collect(ch)
 }
 
 // Collector is a prometheus.Collector that collects metrics about

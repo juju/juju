@@ -36,9 +36,15 @@ type generationDoc struct {
 	// Created is a Unix timestamp indicating when this generation was created.
 	Created int64 `bson:"created"`
 
+	// CreatedBy is the user who created this generation.
+	CreatedBy string `bson:"created-by"`
+
 	// Completed, if set, indicates when this generation was completed and
 	// effectively became the current model generation.
 	Completed int64 `bson:"completed"`
+
+	// CompletedBy is the user who committed this generation to the model.
+	CompletedBy string `bson:"completed-by"`
 }
 
 // Generation represents the state of a model generation.
@@ -68,10 +74,20 @@ func (g *Generation) Created() int64 {
 	return g.doc.Created
 }
 
+// CreatedBy returns the user who created the generation.
+func (g *Generation) CreatedBy() string {
+	return g.doc.CreatedBy
+}
+
 // IsCompleted returns true if the generation has been completed;
 // i.e it has a completion time-stamp.
 func (g *Generation) IsCompleted() bool {
 	return g.doc.Completed > 0
+}
+
+// CompletedBy returns the user who committed the generation.
+func (g *Generation) CompletedBy() string {
+	return g.doc.CompletedBy
 }
 
 // AssignApplication indicates that the application with the input name has had
@@ -212,8 +228,8 @@ func assignGenerationUnitTxnOps(id, appName, unitName string) []txn.Op {
 // generation. It then becomes the "current" generation, and true is returned.
 // If the criteria above are not met, the generation is not completed and
 // false is returned.
-func (g *Generation) AutoComplete() (bool, error) {
-	completed, err := g.complete(false)
+func (g *Generation) AutoComplete(userName string) (bool, error) {
+	completed, err := g.complete(userName, false)
 	return completed, errors.Trace(err)
 }
 
@@ -222,15 +238,15 @@ func (g *Generation) AutoComplete() (bool, error) {
 // generation, which can be either "current" of "next".
 // This the operation invoked by an operator "cancelling" a generation.
 // It then becomes the "current" generation.
-func (g *Generation) MakeCurrent() error {
-	_, err := g.complete(true)
+func (g *Generation) MakeCurrent(userName string) error {
+	_, err := g.complete(userName, true)
 	return errors.Trace(err)
 }
 
 // TODO (hml) 23-jan-2019
 // When implementing change history, review to see if this is
 // still the best course of action.
-func (g *Generation) complete(allowEmpty bool) (bool, error) {
+func (g *Generation) complete(userName string, allowEmpty bool) (bool, error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := g.Refresh(); err != nil {
@@ -247,18 +263,20 @@ func (g *Generation) complete(allowEmpty bool) (bool, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// The generation doc has only 3 elements that change as part of juju
-		// functionality.  We want to assert than none of those have changed
-		// here, however ensuring that no new applications are added to
-		// AssignedUnits, is non trivial.  Therefore just check the txn-revno
-		// instead.
+
+		// As a proxy for checking that the generation has not changed,
+		// Assert that the txn rev-no has not changed since we materialised
+		// this generation object.
 		ops := []txn.Op{
 			{
 				C:      generationsC,
 				Id:     g.doc.Id,
 				Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
 				Update: bson.D{
-					{"$set", bson.D{{"completed", now.Unix()}}},
+					{"$set", bson.D{
+						{"completed", now.Unix()},
+						{"completed-by", userName},
+					}},
 				},
 			},
 		}
@@ -355,14 +373,15 @@ func (g *Generation) Refresh() error {
 }
 
 // AddGeneration creates a new "next" generation for the model.
-func (m *Model) AddGeneration() error {
-	return errors.Trace(m.st.AddGeneration())
+func (m *Model) AddGeneration(userName string) error {
+	return errors.Trace(m.st.AddGeneration(userName))
 }
 
 // AddGeneration creates a new "next" generation for the current model.
 // A new generation can not be added for a model that has an existing
 // generation that is not completed.
-func (st *State) AddGeneration() error {
+// The input user indicates the operator who invoked the creation.
+func (st *State) AddGeneration(userName string) error {
 	seq, err := sequence(st, "generation")
 	if err != nil {
 		return errors.Trace(err)
@@ -381,7 +400,7 @@ func (st *State) AddGeneration() error {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return insertGenerationTxnOps(strconv.Itoa(seq), now), nil
+		return insertGenerationTxnOps(strconv.Itoa(seq), now, userName), nil
 	}
 	err = st.db().Run(buildTxn)
 	if err != nil {
@@ -391,11 +410,12 @@ func (st *State) AddGeneration() error {
 	return err
 }
 
-func insertGenerationTxnOps(id string, now *time.Time) []txn.Op {
+func insertGenerationTxnOps(id string, now *time.Time, user string) []txn.Op {
 	doc := &generationDoc{
 		Id:            id,
 		AssignedUnits: map[string][]string{},
 		Created:       now.Unix(),
+		CreatedBy:     user,
 	}
 
 	return []txn.Op{

@@ -11,7 +11,8 @@ import (
 )
 
 var k8sCloudCheckers map[string]k8slabels.Selector
-var clusterPreferredWorkloadStorage map[string]caas.PreferredStorage
+var jujuPreferredWorkloadStorage map[string]caas.PreferredStorage
+var jujuPreferredOperatorStorage map[string]caas.PreferredStorage
 
 func init() {
 	caas.RegisterContainerProvider(CAASProviderType, providerInstance)
@@ -20,9 +21,9 @@ func init() {
 	// used for detecting cloud provider from node labels.
 	k8sCloudCheckers = compileK8sCloudCheckers()
 
-	// clusterPreferredWorkloadStorage defines the opinionated storage
+	// jujuPreferredWorkloadStorage defines the opinionated storage
 	// that Juju requires to be available on supported clusters.
-	clusterPreferredWorkloadStorage = map[string]caas.PreferredStorage{
+	jujuPreferredWorkloadStorage = map[string]caas.PreferredStorage{
 		"microk8s": {
 			Name:        "hostpath",
 			Provisioner: "microk8s.io/hostpath",
@@ -40,6 +41,12 @@ func init() {
 			Provisioner: "kubernetes.io/aws-ebs",
 		},
 	}
+
+	// jujuPreferredOperatorStorage defines the opinionated storage
+	// that Juju requires to be available on supported clusters to
+	// provision storage for operators.
+	// TODO - support regional storage for GCE etc
+	jujuPreferredOperatorStorage = jujuPreferredWorkloadStorage
 }
 
 // compileK8sCloudCheckers compiles/validates the collection of

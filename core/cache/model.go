@@ -43,24 +43,18 @@ type Model struct {
 // Config returns the current model config.
 func (m *Model) Config() map[string]interface{} {
 	m.mu.Lock()
-	m.metrics.ModelConfigReads.Inc()
+	cfg := make(map[string]interface{}, len(m.details.Config))
+	for k, v := range m.details.Config {
+		cfg[k] = v
+	}
 	m.mu.Unlock()
-	return m.details.Config
+	m.metrics.ModelConfigReads.Inc()
+	return cfg
 }
 
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
-	w := newConfigWatcher(keys, m.hashCache.getHash(keys))
-
-	unsub := m.hub.Subscribe(m.modelTopic(modelConfigChange), w.configChanged)
-
-	w.tomb.Go(func() error {
-		<-w.tomb.Dying()
-		unsub()
-		return nil
-	})
-
-	return w
+	return newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange))
 }
 
 // Report returns information that is used in the dependency engine report.
@@ -179,9 +173,9 @@ func (m *Model) removeMachine(ch RemoveMachine) {
 	m.mu.Unlock()
 }
 
-// modelTopic prefixes the topic with the model UUID.
-func (m *Model) modelTopic(topic string) string {
-	return m.details.ModelUUID + ":" + topic
+// topic prefixes the input string with the model UUID.
+func (m *Model) topic(suffix string) string {
+	return m.details.ModelUUID + ":" + suffix
 }
 
 func (m *Model) setDetails(details ModelChange) {
@@ -192,7 +186,7 @@ func (m *Model) setDetails(details ModelChange) {
 	if configHash != m.configHash {
 		m.configHash = configHash
 		m.hashCache = hashCache
-		m.hub.Publish(m.modelTopic(modelConfigChange), hashCache)
+		m.hub.Publish(m.topic(modelConfigChange), hashCache)
 	}
 
 	m.mu.Unlock()

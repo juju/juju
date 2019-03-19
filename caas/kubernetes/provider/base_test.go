@@ -84,7 +84,9 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
-		config.NameKey: s.namespace,
+		config.NameKey:              s.namespace,
+		provider.OperatorStorageKey: "",
+		provider.WorkloadStorageKey: "",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg

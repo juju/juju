@@ -263,7 +263,8 @@
 
 [[constraint]]
   name = "github.com/hashicorp/raft"
-  revision = "077966dbc90f342107eb723ec52fdb0463ec789b"
+  revision = "834fca2f9ffc153bf038e9333425a40ba515059f"
+  source = "github.com/juju/raft"
 
 [[constraint]]
   name = "github.com/joyent/gocommon"
@@ -323,7 +324,7 @@
 
 [[constraint]]
   name = "github.com/juju/pubsub"
-  revision = "ad5dc02599e01a8409f9b1144e4d759baafd01dc"
+  revision = "5ff05f703d2531147fb927125eea0d61cf4179e5"
 
 [[constraint]]
   name = "github.com/juju/ratelimit"
