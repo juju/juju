@@ -9,6 +9,7 @@ var (
 	ParseSettingsCompatible = parseSettingsCompatible
 	NewStateStorage         = &newStateStorage
 	GetStorageState         = getStorageState
+	OpenCharmStoreRepo      = openCSRepo
 )
 
 func GetState(st *state.State) Backend {

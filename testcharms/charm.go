@@ -17,9 +17,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmrepo.v3/testing"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/charmstore"
 	jtesting "github.com/juju/juju/testing"
@@ -77,16 +79,6 @@ type CharmExtraWriteOperations interface {
 type CharmReadOperations interface {
 	// Get retrieves a charm. Requesting a missing charm returns an error.
 	Get(id *charm.URL) (charm.Charm, error)
-}
-
-type CharmWriteOperations interface {
-	// UploadCharm stores a charm.Charm for later retrieval via Get
-	UploadCharm(id *charm.URL, charmData charm.Charm) (*charm.URL, error)
-
-	UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
-
-	// Publish marks the charm `id` as published.
-	Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error
 }
 
 type BundleReadOperations interface {
@@ -147,9 +139,30 @@ func RepoForSeries(series string) *testing.Repo {
 	return testing.NewRepo("charm-repo", series)
 }
 
+type CharmAdder interface {
+	AddCharm(id *charm.URL, channel params.Channel, force bool) error
+	AddCharmWithAuthorization(id *charm.URL, channel params.Channel, macaroon *macaroon.Macaroon, force bool) error
+}
+
+type CharmUploader interface {
+	// UploadCharm stores a charm.Charm for later retrieval via a Repository
+	UploadCharm(id *charm.URL, charmData charm.Charm) (*charm.URL, error)
+
+	UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
+
+	// Publish marks the charm `id` as published.
+	Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error
+}
+
+type Repository interface {
+	charmrepo.Interface
+}
+
 type MinimalCharmstoreClient interface {
 	RawCharmstoreWriteOperations
-	CharmWriteOperations
+	CharmUploader
+	CharmAdder
+	Repository
 	BundleWriteOperations
 	ResourceReadOperations
 	ResourceWriteOperations

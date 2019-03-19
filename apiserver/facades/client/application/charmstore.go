@@ -206,7 +206,7 @@ func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization) 
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		repo = config.SpecializeCharmRepo(repo, modelConfig).(*charmrepo.CharmStore)
+		repo = config.SpecializeCharmRepo(repo, modelConfig)
 		return repo, nil
 	})
 }

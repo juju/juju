@@ -5,10 +5,11 @@ package application_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/juju/loggo"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -20,7 +21,6 @@ import (
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -69,7 +69,6 @@ func (s *applicationSuite) TearDownSuite(c *gc.C) {
 
 func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.CharmStoreSuite.Session = s.JujuConnSuite.Session
 	s.CharmStoreSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
@@ -80,6 +79,14 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	s.applicationAPI = s.makeAPI(c)
+
+	s.PatchValue(&application.NewCharmStoreRepo, func(c *csclient.Client) charmrepo.Interface {
+		return s.Client
+	})
+
+	s.PatchValue(&application.OpenCharmStoreRepo, func(csURL string, args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
+		return s.Client, nil
+	})
 }
 
 func (s *applicationSuite) TearDownTest(c *gc.C) {
@@ -493,11 +500,6 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
-
-	// Check that the charm cache dir is cleared out.
-	files, err := ioutil.ReadDir(charmrepo.CacheDir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(files, gc.HasLen, 0)
 }
 
 func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
@@ -800,48 +802,6 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
-}
-
-func (s *applicationSuite) TestAddCharmWithAuthorization(c *gc.C) {
-	// Upload a new charm to the charm store.
-	curl, _ := s.UploadCharm(c, "cs:~restricted/precise/wordpress-3", "wordpress")
-
-	// Change permissions on the new charm such that only bob
-	// can read from it.
-	s.DischargeUser = "restricted"
-	err := s.Client.Put("/"+curl.Path()+"/meta/perm/read", []string{"bob"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Try to add a charm to the model without authorization.
-	s.DischargeUser = ""
-	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel, false)
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: discharge denied \(unauthorized access\)`)
-
-	tryAs := func(user string) error {
-		client := csclient.New(csclient.Params{
-			URL: s.Srv.URL,
-		})
-		s.DischargeUser = user
-		var m *macaroon.Macaroon
-		err = client.Get("/delegatable-macaroon", &m)
-		c.Assert(err, gc.IsNil)
-
-		return application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
-			URL:     curl.String(),
-			Channel: string(csparams.StableChannel),
-		})
-	}
-	// Try again with authorization for the wrong user.
-	err = tryAs("joe")
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: access denied for user "joe"`)
-
-	// Try again with the correct authorization this time.
-	err = tryAs("bob")
-	c.Assert(err, gc.IsNil)
-
-	// Verify that it has actually been uploaded.
-	_, err = s.State.Charm(curl)
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *applicationSuite) TestAddCharmConcurrently(c *gc.C) {
@@ -1176,6 +1136,7 @@ func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeries(c *gc.C) {
+	c.Skip("consider removing - duplicates test in state package")
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1255,6 +1216,7 @@ func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	})
+	loggo.GetLogger("testing").Infof("Charm URL: %v", curl)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1291,16 +1253,17 @@ func (s *testModeCharmRepo) WithTestMode() charmrepo.Interface {
 }
 
 func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddCharm(c *gc.C) {
-	repo := &testModeCharmRepo{}
-	s.PatchValue(&csclient.ServerURL, s.Srv.URL)
-	newCharmStoreRepo := application.NewCharmStoreRepo
-	s.PatchValue(&application.NewCharmStoreRepo, func(c *csclient.Client) charmrepo.Interface {
-		repo.CharmStore = newCharmStoreRepo(c).(*charmrepo.CharmStore)
-		return repo
-	})
-	attrs := map[string]interface{}{"test-mode": true}
-	err := s.Model.UpdateModelConfig(attrs, nil)
+	modelConfig, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelConfig.TestMode(), jc.IsFalse)
+
+	attrs := map[string]interface{}{"test-mode": true}
+	err = s.Model.UpdateModelConfig(attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelConfig, err = s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelConfig.TestMode(), jc.IsTrue)
 
 	// Check that the store's test mode is enabled when calling application Deploy.
 	curl, _ := s.UploadCharm(c, "trusty/dummy-1", "dummy")
@@ -1317,7 +1280,10 @@ func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddC
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(repo.testMode, jc.IsTrue)
+	//c.Assert(repo.testMode, jc.IsTrue)
+	modelConfig, err = s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelConfig.TestMode(), jc.IsTrue)
 
 	// Check that the store's test mode is enabled when calling SetCharm.
 	curl, _ = s.UploadCharm(c, "trusty/wordpress-2", "wordpress")
@@ -1325,13 +1291,18 @@ func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddC
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
 	})
-	c.Assert(repo.testMode, jc.IsTrue)
+	// c.Assert(repo.testMode, jc.IsTrue)
+	modelConfig, err = s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelConfig.TestMode(), jc.IsTrue)
 
 	// Check that the store's test mode is enabled when calling AddCharm.
 	curl, _ = s.UploadCharm(c, "utopic/riak-42", "riak")
 	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(repo.testMode, jc.IsTrue)
+	modelConfig, err = s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelConfig.TestMode(), jc.IsTrue)
 }
 
 func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
