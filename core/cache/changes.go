@@ -63,6 +63,7 @@ type UnitChange struct {
 	MachineId      string
 	Ports          []network.Port
 	PortRanges     []network.PortRange
+	Principal      string
 	Subordinate    bool
 	WorkloadStatus status.StatusInfo
 	AgentStatus    status.StatusInfo

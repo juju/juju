@@ -378,6 +378,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		Application: u.Application,
 		Series:      u.Series,
 		MachineId:   u.MachineId,
+		Principal:   u.Principal,
 		Subordinate: u.Principal != "",
 	}
 	if u.CharmURL != nil {

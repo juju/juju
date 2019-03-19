@@ -272,6 +272,7 @@ type UnitInfo struct {
 	MachineId      string      `json:"machine-id"`
 	Ports          []Port      `json:"ports"`
 	PortRanges     []PortRange `json:"port-ranges"`
+	Principal      string      `json:"principal"`
 	Subordinate    bool        `json:"subordinate"`
 	// Workload and agent state are modelled separately.
 	WorkloadStatus StatusInfo `json:"workload-status"`
