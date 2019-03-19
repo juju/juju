@@ -78,7 +78,7 @@ var imageCacheCalls int
 
 // EnsureCachedImage is the first supply of start-params to the container.
 // We set it here for subsequent test assertions.
-// Start called is by the manager immediately after, with the same argument.
+// Start is called by the manager immediately after, with the same argument.
 func (mock *MockContainer) EnsureCachedImage(params kvm.StartParams) error {
 	imageCacheCalls++
 	mock.StartParams = params
