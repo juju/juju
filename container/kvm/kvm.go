@@ -139,9 +139,6 @@ func (manager *containerManager) Namespace() instance.Namespace {
 	return manager.namespace
 }
 
-// Exposed so tests can observe our side-effects
-var startParams StartParams
-
 func (manager *containerManager) CreateContainer(
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
@@ -186,7 +183,7 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, err
 	}
 	// Create the container.
-	startParams = ParseConstraintsToStartParams(cons)
+	startParams := ParseConstraintsToStartParams(cons)
 	startParams.Arch = arch.HostArch()
 	startParams.Series = series
 	startParams.Network = networkConfig
@@ -220,8 +217,8 @@ func (manager *containerManager) CreateContainer(
 
 	// Lock around finding an image.
 	// The provisioner works concurrently to create containers.
-	// If an image needs to be copied from a remote, we don't many goroutines
-	// attempting to do it at once.
+	// If an image needs to be copied from a remote, we don't want many
+	// goroutines attempting to do it at once.
 	manager.imageMutex.Lock()
 	err = kvmContainer.EnsureCachedImage(startParams)
 	manager.imageMutex.Unlock()

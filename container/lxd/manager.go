@@ -158,8 +158,8 @@ func (m *containerManager) getContainerSpec(
 
 	// Lock around finding an image.
 	// The provisioner works concurrently to create containers.
-	// If an image needs to be copied from a remote, we don't many goroutines
-	// attempting to do it at once.
+	// If an image needs to be copied from a remote, we don't want many
+	// goroutines attempting to do it at once.
 	m.imageMutex.Lock()
 	found, err := m.server.FindImage(series, jujuarch.HostArch(), imageSources, true, callback)
 	m.imageMutex.Unlock()

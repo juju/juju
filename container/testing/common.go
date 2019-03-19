@@ -30,8 +30,8 @@ func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 	}
 	err = instanceConfig.SetTools(tools.List{
 		&tools.Tools{
-			Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-			URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+			Version: version.MustParseBinary("2.5.2-bionic-amd64"),
+			URL:     "http://tools.testing.invalid/2.5.2-bionic-amd64.tgz",
 		},
 	})
 	if err != nil {
@@ -65,9 +65,9 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 ) instance.Instance {
-
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
-	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "quantal", networkConfig, storageConfig, callback)
+	inst, hardware, err := manager.CreateContainer(
+		instanceConfig, constraints.Value{}, "bionic", networkConfig, storageConfig, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")

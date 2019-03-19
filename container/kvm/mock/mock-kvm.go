@@ -5,6 +5,7 @@ package mock
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/juju/juju/container/kvm"
 )
@@ -47,6 +48,7 @@ type ContainerFactory interface {
 type mockFactory struct {
 	instances map[string]kvm.Container
 	listeners []chan<- Event
+	mu        sync.Mutex
 }
 
 func MockFactory() ContainerFactory {
@@ -55,22 +57,35 @@ func MockFactory() ContainerFactory {
 	}
 }
 
-type mockContainer struct {
+type MockContainer struct {
+	StartParams kvm.StartParams
+
 	factory *mockFactory
 	name    string
 	started bool
 }
 
 // Name returns the name of the container.
-func (mock *mockContainer) Name() string {
+func (mock *MockContainer) Name() string {
 	return mock.name
 }
 
-func (mock *mockContainer) EnsureCachedImage(params kvm.StartParams) error {
+// imageCacheCalls does nothing more than get incremented by calls to the
+// mocked EnsureCachedImage method below.
+// However, it will cause the race checker to fail if such calls are not made
+// in a Goroutine safe manner.
+var imageCacheCalls int
+
+// EnsureCachedImage is the first supply of start-params to the container.
+// We set it here for subsequent test assertions.
+// Start called is by the manager immediately after, with the same argument.
+func (mock *MockContainer) EnsureCachedImage(params kvm.StartParams) error {
+	imageCacheCalls++
+	mock.StartParams = params
 	return nil
 }
 
-func (mock *mockContainer) Start(params kvm.StartParams) error {
+func (mock *MockContainer) Start(params kvm.StartParams) error {
 	if mock.started {
 		return fmt.Errorf("container is already running")
 	}
@@ -80,7 +95,7 @@ func (mock *mockContainer) Start(params kvm.StartParams) error {
 }
 
 // Stop terminates the running container.
-func (mock *mockContainer) Stop() error {
+func (mock *MockContainer) Stop() error {
 	if !mock.started {
 		return fmt.Errorf("container is not running")
 	}
@@ -89,12 +104,12 @@ func (mock *mockContainer) Stop() error {
 	return nil
 }
 
-func (mock *mockContainer) IsRunning() bool {
+func (mock *MockContainer) IsRunning() bool {
 	return mock.started
 }
 
 // String returns information about the container.
-func (mock *mockContainer) String() string {
+func (mock *MockContainer) String() string {
 	return fmt.Sprintf("<MockContainer %q>", mock.name)
 }
 
@@ -103,11 +118,14 @@ func (mock *mockFactory) String() string {
 }
 
 func (mock *mockFactory) New(name string) kvm.Container {
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+
 	container, ok := mock.instances[name]
 	if ok {
 		return container
 	}
-	container = &mockContainer{
+	container = &MockContainer{
 		factory: mock,
 		name:    name,
 	}
