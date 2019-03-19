@@ -413,6 +413,16 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 		Machine:     s.machine1,
 	})
 
+	// And add another wordpress.
+	wordpress2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress2",
+		Charm: s.wpCharm,
+	})
+	wordpressUnit2 := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: wordpress2,
+		Machine:     s.machine1,
+	})
+
 	mysqlCharm1 := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
 	})
@@ -427,6 +437,9 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 	})
 
 	err := s.addRelationEnterScope(c, s.wordpressUnit, "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.addRelationEnterScope(c, wordpressUnit2, "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.addRelationEnterScope(c, s.mysqlUnit, "logging")
@@ -446,9 +459,11 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 					Units: expectedUnitMysql,
 					Relations: map[string]params.UnitsGoalState{
 						"server": {
-							"wordpress":   expectedRelationStatus,
-							"wordpress/0": expectedUnitStatus,
-							"wordpress/1": expectedUnitStatus,
+							"wordpress":    expectedRelationStatus,
+							"wordpress/0":  expectedUnitStatus,
+							"wordpress/1":  expectedUnitStatus,
+							"wordpress2":   expectedRelationStatus,
+							"wordpress2/0": expectedUnitStatus,
 						},
 						"juju-info": {
 							"logging":   expectedRelationStatus,
