@@ -227,10 +227,16 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 			"hosted-db2": &mockRemoteApplication{},
 		},
 		charm: &mockCharm{
-			meta: &charm.Meta{}, config: &charm.Config{
+			meta: &charm.Meta{},
+			config: &charm.Config{
 				Options: map[string]charm.Option{
 					"stringOption": {Type: "string"},
 					"intOption":    {Type: "int", Default: int(123)}},
+			},
+			lxdProfile: &charm.LXDProfile{
+				Config: map[string]string{
+					"security.nested": "false",
+				},
 			},
 		},
 		endpoints: &s.endpoints,
@@ -357,11 +363,11 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
-	s.backend.charm.CheckCallNames(c, "Config")
+	s.backend.charm.CheckCallNames(c, "LXDProfile", "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "AgentTools", "AllUnits", "SetCharmProfile", "SetCharm")
-	// We don't care about 0, 1 calls, as they take no arguments.
-	app.CheckCall(c, 2, "SetCharmProfile", "cs:postgresql")
+	app.CheckCallNames(c, "SetCharmProfile", "AgentTools", "AllUnits", "SetCharm")
+	// We don't care about 1, 2 calls, as they take no arguments.
+	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
 	app.CheckCall(c, 3, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
@@ -379,9 +385,33 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "Unable to upgrade LXDProfile charms with the current model version. "+
 		"Please run juju upgrade-juju to upgrade the current model to match your controller.")
 
-	s.backend.CheckCallNames(c, "Application")
+	s.backend.CheckCallNames(c, "Application", "Charm")
 	app := s.backend.applications["redis"]
-	app.CheckCallNames(c, "AgentTools", "AllUnits")
+	app.CheckCallNames(c, "SetCharmProfile", "AgentTools", "AllUnits")
+}
+
+func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
+	s.SetFeatureFlags(feature.InstanceMutater)
+
+	// Patch the mock backend charm profile to have an empty value, so that it
+	// shows how SetCharm profile works with empty profiles.
+	s.backend.charm.lxdProfile = &charm.LXDProfile{}
+
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:postgresql",
+		ConfigSettings:  map[string]string{"stringOption": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Application", "Charm")
+	s.backend.charm.CheckCallNames(c, "LXDProfile", "Config")
+	app := s.backend.applications["postgresql"]
+	app.CheckCallNames(c, "SetCharmProfile", "SetCharm")
+	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
+	app.CheckCall(c, 1, "SetCharm", state.SetCharmConfig{
+		Charm:          &state.Charm{},
+		ConfigSettings: charm.Settings{"stringOption": "value"},
+	})
 }
 
 func (s *ApplicationSuite) TestDestroyRelation(c *gc.C) {

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -60,19 +61,25 @@ type mockCharm struct {
 	jtesting.Stub
 
 	charm.Charm
-	config *charm.Config
-	meta   *charm.Meta
+	config     *charm.Config
+	meta       *charm.Meta
+	lxdProfile *charm.LXDProfile
 }
 
-func (m *mockCharm) Meta() *charm.Meta {
-	m.MethodCall(m, "Meta")
-	return m.meta
+func (c *mockCharm) Meta() *charm.Meta {
+	c.MethodCall(c, "Meta")
+	return c.meta
 }
 
 func (c *mockCharm) Config() *charm.Config {
 	c.MethodCall(c, "Config")
 	c.PopNoErr()
 	return c.config
+}
+
+func (c *mockCharm) LXDProfile() lxdprofile.LXDProfile {
+	c.MethodCall(c, "LXDProfile")
+	return c.lxdProfile
 }
 
 type mockApplication struct {
