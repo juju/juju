@@ -37,7 +37,7 @@ default: build
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
-ifeq ($(JUJU_SKIP_DEP),true)
+ifeq ($(JUJU_ping_DEP),true)
 dep:
 	@echo "skipping dep"
 else
@@ -137,25 +137,32 @@ check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
 # CAAS related targets
-DOCKER_USERNAME?=jujusolutions
-JUJUD_STAGING_DIR?=/tmp/jujud-operator
-JUJUD_BIN_DIR=${GOPATH}/bin
-OPERATOR_IMAGE_TAG = $(shell jujud version | rev | cut -d- -f3- | rev)
+DOCKER_USERNAME          ?= jujusolutions
+JUJUD_STAGING_DIR        ?= /tmp/jujud-operator
+JUJUD_BIN_DIR            ?= ${GOPATH}/bin
+OPERATOR_IMAGE_BUILD_SRC ?= true
+OPERATOR_IMAGE_TAG       ?= $(shell jujud version | rev | cut -d- -f3- | rev)
+OPERATOR_IMAGE_PATH      = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}
 
-operator-image: install caas/jujud-operator-dockerfile caas/jujud-operator-requirements.txt
+operator-image: 
+    ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
+		@make install
+    else
+		@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/jujud."
+    endif
 	rm -rf ${JUJUD_STAGING_DIR}
 	mkdir ${JUJUD_STAGING_DIR}
 	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
-	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG} ${JUJUD_STAGING_DIR}
+	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${OPERATOR_IMAGE_PATH} ${JUJUD_STAGING_DIR}
 	rm -rf ${JUJUD_STAGING_DIR}
 
 push-operator-image: operator-image
-	docker push ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}
+	docker push ${OPERATOR_IMAGE_PATH}
 
 microk8s-operator-update: operator-image
-	docker save ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG} | microk8s.docker load
+	docker save ${OPERATOR_IMAGE_PATH} | microk8s.docker load
 
 check-k8s-model:
 	@:$(if $(value JUJU_K8S_MODEL),, $(error Undefined JUJU_K8S_MODEL))
@@ -163,7 +170,7 @@ check-k8s-model:
 
 local-operator-update: check-k8s-model operator-image
 	$(eval kubeworkers != juju status -m ${JUJU_K8S_MODEL} kubernetes-worker --format json | jq -c '.machines | keys' | tr  -c '[:digit:]' ' ' 2>&1)
-	docker save ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG} | gzip > /tmp/jujud-operator-image.tar.gz
+	docker save ${OPERATOR_IMAGE_PATH} | gzip > /tmp/jujud-operator-image.tar.gz
 	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} /tmp/jujud-operator-image.tar.gz $(wm):/tmp/jujud-operator-image.tar.gz ; )
 	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/jujud-operator-image.tar.gz | docker load" ; )
 
