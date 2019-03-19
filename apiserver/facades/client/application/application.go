@@ -8,6 +8,7 @@ package application
 
 import (
 	"fmt"
+	"math"
 	"net"
 
 	"github.com/juju/errors"
@@ -912,7 +913,11 @@ func (api *APIBase) applicationSetCharm(
 		// machines.
 		// TODO (stickupkid): Removal of LXD Profile
 		if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: sch}) {
-			if err := validateAgentVersions(application); err != nil {
+			modelConfig, err := api.model.ModelConfig()
+			if err != nil {
+				return errors.Annotate(err, "getting model config")
+			}
+			if err := validateAgentVersions(application, modelConfig); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -2239,17 +2244,36 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 	if p.Charm == nil {
 		return nil
 	}
+	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
+		return profiler.LXDProfile()
+	}
 	if profiler, ok := p.Charm.(lxdprofile.LXDProfiler); ok {
 		return profiler.LXDProfile()
 	}
 	return nil
 }
 
-func validateAgentVersions(application Application) error {
+// ModelConfig is a point of use model configuration.
+type ModelConfig interface {
+	AgentVersion() (version.Number, bool)
+}
+
+var (
+	// ErrInvalidAgentVersions is a sentinal error for when we can no longer
+	// upgrade juju using 2.5.x agents with 2.6 or greater controllers.
+	ErrInvalidAgentVersions = errors.Errorf(
+		"Unable to upgrade LXDProfile charms with the current model version. " +
+			"Please run juju upgrade-juju to upgrade the current model to match your controller.")
+)
+
+func validateAgentVersions(application Application, cfgAgentVersion ModelConfig) error {
 	var agentVer version.Number
 	var noAgentVersion bool
 
-	epoch := version.Number{Major: 2, Minor: 6, Patch: 0}
+	// The epoch is set like this, because beta tags are less than release tags.
+	// So 2.6-beta1.1 < 2.6.0, even though the patch is greater than 0. To
+	// prevent the miss-match, we add the upper epoch limit.
+	epoch := version.Number{Major: 2, Minor: 5, Patch: math.MaxInt32}
 	tools, err := application.AgentTools()
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -2262,6 +2286,18 @@ func validateAgentVersions(application Application) error {
 	// Check to see if an agent version has been found first, before trying
 	// to compare against a zero'd number
 	if noAgentVersion || agentVer.Compare(epoch) >= 0 {
+		// Check first to see if we have a agent version from the model config.
+		// If we don't have that, then fall back to the agents.
+		cfgVersion, ok := cfgAgentVersion.AgentVersion()
+		fmt.Println(">>", cfgVersion)
+		if ok {
+			if cfgVersion.Compare(epoch) < 0 {
+				return ErrInvalidAgentVersions
+			}
+			return nil
+		}
+		// If no config is found, we can assume that no config version is found
+		// and that we should attempt to look at the units of the application.
 		units, err := application.AllUnits()
 		if err != nil {
 			return errors.Annotate(err, "cannot retrieve units")
@@ -2272,9 +2308,7 @@ func validateAgentVersions(application Application) error {
 				return errors.Annotate(err, "cannot retrieve unit agent tools")
 			}
 			if unitVer := unitTools.Version; unitVer.Compare(epoch) < 0 {
-				return errors.Errorf(
-					"Unable to upgrade LXDProfile charms with the current model version. " +
-						"Please run juju upgrade-juju to upgrade the current model to match your controller.")
+				return ErrInvalidAgentVersions
 			}
 		}
 	}

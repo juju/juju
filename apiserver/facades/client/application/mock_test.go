@@ -13,7 +13,6 @@ import (
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/utils"
-	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -426,8 +425,8 @@ func newMockModel() mockModel {
 		cfg: map[string]interface{}{
 			"operator-storage": "k8s-operator-storage",
 			"workload-storage": "k8s-storage",
+			"agent-version":    "2.6.0",
 		},
-		latestToolsVersion: version.Number{Major: 2, Minor: 5, Patch: 0},
 	}
 }
 
@@ -435,10 +434,9 @@ type mockModel struct {
 	application.Model
 	jtesting.Stub
 
-	uuid               string
-	modelType          state.ModelType
-	cfg                map[string]interface{}
-	latestToolsVersion version.Number
+	uuid      string
+	modelType state.ModelType
+	cfg       map[string]interface{}
 }
 
 func (m *mockModel) UUID() string {
@@ -457,11 +455,6 @@ func (m *mockModel) ModelConfig() (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
 	attrs := coretesting.FakeConfig().Merge(m.cfg)
 	return config.New(config.UseDefaults, attrs)
-}
-
-func (m *mockModel) LatestToolsVersion() version.Number {
-	m.MethodCall(m, "LatestToolsVersion")
-	return m.latestToolsVersion
 }
 
 type mockMachine struct {

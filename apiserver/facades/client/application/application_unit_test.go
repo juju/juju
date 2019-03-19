@@ -196,6 +196,11 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 						},
 					},
 					meta: &charm.Meta{Name: "charm-redis"},
+					lxdProfile: &charm.LXDProfile{
+						Config: map[string]string{
+							"security.nested": "false",
+						},
+					},
 				},
 				units: []*mockUnit{
 					{
@@ -365,10 +370,9 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "LXDProfile", "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharmProfile", "AgentTools", "AllUnits", "SetCharm")
-	// We don't care about 1, 2 calls, as they take no arguments.
+	app.CheckCallNames(c, "SetCharmProfile", "AgentTools", "SetCharm")
 	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
-	app.CheckCall(c, 3, "SetCharm", state.SetCharmConfig{
+	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -376,6 +380,9 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
 	s.SetFeatureFlags(feature.InstanceMutater)
+
+	// Patch the mock model to always be behind the epoch.
+	s.model.cfg["agent-version"] = "2.5.0"
 
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "redis",
@@ -387,7 +394,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
 
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	app := s.backend.applications["redis"]
-	app.CheckCallNames(c, "SetCharmProfile", "AgentTools", "AllUnits")
+	app.CheckCallNames(c, "SetCharmProfile", "AgentTools")
 }
 
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
