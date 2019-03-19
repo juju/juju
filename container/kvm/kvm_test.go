@@ -105,12 +105,14 @@ func (s *KVMSuite) TestCreateContainer(c *gc.C) {
 	containertesting.AssertCloudInit(c, cloudInitFilename)
 }
 
+// This test will pass regular unit tests, but is intended for the
+// race-checking CI job to assert concurrent creation safety.
 func (s *KVMSuite) TestCreateContainerConcurrent(c *gc.C) {
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(idx int) {
-			containertesting.CreateContainer(c, s.manager, fmt.Sprintf("1/kvm/%d", idx))
+			_ = containertesting.CreateContainer(c, s.manager, fmt.Sprintf("1/kvm/%d", idx))
 			wg.Done()
 		}(i)
 	}
