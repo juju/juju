@@ -37,7 +37,7 @@ default: build
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
-ifeq ($(JUJU_ping_DEP),true)
+ifeq ($(JUJU_SKIP_DEP),true)
 dep:
 	@echo "skipping dep"
 else
