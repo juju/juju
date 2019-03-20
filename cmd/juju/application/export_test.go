@@ -161,3 +161,10 @@ func NewShowCommandForTest(api ApplicationsInfoAPI, store jujuclient.ClientStore
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
+
+type FakeDeployAPI = fakeDeployAPI
+type TestHandler = testMetricsRegistrationHandler
+
+var (
+	VanillaFakeModelAPI = vanillaFakeModelAPI
+)

@@ -75,9 +75,14 @@ func addCharmFromURL(client CharmAdder, curl *charm.URL, channel csparams.Channe
 	return curl, csMac, nil
 }
 
+type charmstoreCommunicator interface {
+	Get(endpoint string, extra interface{}) error
+	WithChannel(csparams.Channel) *csclient.Client
+}
+
 // newCharmStoreClient is called to obtain a charm store client.
 // It is defined as a variable so it can be changed for testing purposes.
-var newCharmStoreClient = func(client *httpbakery.Client, csURL string) *csclient.Client {
+var newCharmStoreClient = func(client *httpbakery.Client, csURL string) charmstoreCommunicator {
 	return csclient.New(csclient.Params{
 		URL:          csURL,
 		BakeryClient: client,
@@ -88,7 +93,7 @@ var newCharmStoreClient = func(client *httpbakery.Client, csURL string) *csclien
 // used to add the charm corresponding to the given URL.
 // The macaroon is properly attenuated so that it can only be used to deploy
 // the given charm URL.
-func authorizeCharmStoreEntity(csClient *csclient.Client, curl *charm.URL) (*macaroon.Macaroon, error) {
+func authorizeCharmStoreEntity(csClient charmstoreCommunicator, curl *charm.URL) (*macaroon.Macaroon, error) {
 	endpoint := "/delegatable-macaroon?id=" + url.QueryEscape(curl.String())
 	var m *macaroon.Macaroon
 	if err := csClient.Get(endpoint, &m); err != nil {

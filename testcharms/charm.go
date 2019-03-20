@@ -161,7 +161,7 @@ type Repository interface {
 type MinimalCharmstoreClient interface {
 	RawCharmstoreWriteOperations
 	CharmUploader
-	CharmAdder
+	// CharmAdder
 	Repository
 	BundleWriteOperations
 	ResourceReadOperations
