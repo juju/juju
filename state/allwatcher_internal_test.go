@@ -33,6 +33,7 @@ var (
 	_ backingEntityDoc = (*backingMachine)(nil)
 	_ backingEntityDoc = (*backingUnit)(nil)
 	_ backingEntityDoc = (*backingApplication)(nil)
+	_ backingEntityDoc = (*backingCharm)(nil)
 	_ backingEntityDoc = (*backingRemoteApplication)(nil)
 	_ backingEntityDoc = (*backingApplicationOffer)(nil)
 	_ backingEntityDoc = (*backingRelation)(nil)
@@ -150,6 +151,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		Annotations: pairs,
 	})
 
+	add(&multiwatcher.CharmInfo{
+		ModelUUID: modelUUID,
+		CharmURL:  applicationCharmURL(wordpress).String(),
+		Life:      multiwatcher.Life("alive"),
+	})
+
 	logging := AddTestingApplication(c, st, "logging", AddTestingCharm(c, st, "logging"))
 	add(&multiwatcher.ApplicationInfo{
 		ModelUUID:   modelUUID,
@@ -164,6 +171,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Data:    map[string]interface{}{},
 			Since:   &now,
 		},
+	})
+
+	add(&multiwatcher.CharmInfo{
+		ModelUUID: modelUUID,
+		CharmURL:  applicationCharmURL(logging).String(),
+		Life:      multiwatcher.Life("alive"),
 	})
 
 	eps, err := st.InferEndpoints("logging", "wordpress")
@@ -315,6 +328,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Data:    map[string]interface{}{},
 			Since:   &now,
 		},
+	})
+
+	add(&multiwatcher.CharmInfo{
+		ModelUUID: modelUUID,
+		CharmURL:  applicationCharmURL(mysql).String(),
+		Life:      multiwatcher.Life("alive"),
 	})
 
 	// Set up a remote application related to the offer.
@@ -579,6 +598,10 @@ func (s *allWatcherStateSuite) TestChangeRelations(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestChangeApplications(c *gc.C) {
 	testChangeApplications(c, s.owner, s.performChangeTestCases)
+}
+
+func (s *allWatcherStateSuite) TestChangeCharms(c *gc.C) {
+	testChangeCharms(c, s.owner, s.performChangeTestCases)
 }
 
 func (s *allWatcherStateSuite) TestChangeApplicationsConstraints(c *gc.C) {
@@ -2706,6 +2729,21 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 				change: watcher.Change{
 					C:  "settings",
 					Id: st.docID("a#foo"),
+				}}
+		},
+	}
+	runChangeTests(c, changeTestFuncs)
+}
+
+func testChangeCharms(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
+	changeTestFuncs := []changeTestFunc{
+		// Charms.
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "no charm in state, no charm in store -> do nothing",
+				change: watcher.Change{
+					C:  "charms",
+					Id: st.docID("wordpress"),
 				}}
 		},
 	}

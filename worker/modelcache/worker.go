@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -385,7 +384,7 @@ func coreNetworkAddresses(delta []multiwatcher.Address) []network.Address {
 	return addresses
 }
 
-func coreLXDProfile(delta *charm.LXDProfile) lxdprofile.Profile {
+func coreLXDProfile(delta *multiwatcher.Profile) lxdprofile.Profile {
 	if delta == nil {
 		return lxdprofile.Profile{}
 	}

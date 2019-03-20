@@ -207,14 +207,21 @@ func (i *ApplicationInfo) EntityId() EntityId {
 	}
 }
 
+// Profile is a representation of charm.v6 LXDProfile
+type Profile struct {
+	Config      map[string]string            `json:"config"`
+	Description string                       `json:"description"`
+	Devices     map[string]map[string]string `json:"devices"`
+}
+
 // CharmInfo holds the information about a charm that is tracked by the
 // multiwatcher.
 type CharmInfo struct {
-	ModelUUID    string            `json:"model-uuid"`
-	CharmURL     string            `json:"charm-url"`
-	CharmVersion string            `json:"charm-version"`
-	Life         Life              `json:"life"`
-	LXDProfile   *charm.LXDProfile `json:"lxd-profile"`
+	ModelUUID    string   `json:"model-uuid"`
+	CharmURL     string   `json:"charm-url"`
+	CharmVersion string   `json:"charm-version"`
+	Life         Life     `json:"life"`
+	LXDProfile   *Profile `json:"profile"`
 }
 
 // EntityId returns a unique identifier for an charm across
