@@ -344,7 +344,9 @@
 
 [[constraint]]
   name = "github.com/juju/txn"
-  revision = "90cbb53292a84c397765581432d543d6faa404a4"
+  branch = "txn-with-sstxn"
+  source = "github.com/jameinel/juju-txn"
+#  revision = "8b04e13fed503681d54b660dbf536336ae62ce6a"
 
 [[override]]
   name = "github.com/juju/usso"
@@ -516,8 +518,9 @@
 
 [[constraint]]
   name = "gopkg.in/mgo.v2"
-  revision = "9ecfba03d10a21015af9bbd42aa0512dc0cf9514"
-  source = "github.com/juju/mgo"
+#  revision = "05866bc74f4d4664be53205ca9e4789302a1cc9d"
+  branch = "mgo-sstxn"
+  source = "github.com/jameinel/mgo"
 
 [[constraint]]
   name = "gopkg.in/natefinch/lumberjack.v2"
