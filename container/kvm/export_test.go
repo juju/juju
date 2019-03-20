@@ -6,7 +6,7 @@ package kvm
 import (
 	"strings"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 )
 
 // This file exports internal package implementations so that tests
@@ -36,7 +36,7 @@ func NewTestContainer(name string, runCmd runFunc, pathfinder func(string) (stri
 
 // ContainerFromInstance extracts the inner container from input instance,
 // so we can access it for test assertions.
-func ContainerFromInstance(inst instance.Instance) Container {
+func ContainerFromInstance(inst instances.Instance) Container {
 	kvm := inst.(*kvmInstance)
 	return kvm.container
 }
