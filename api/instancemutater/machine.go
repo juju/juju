@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -40,6 +41,11 @@ type MutaterMachine interface {
 	// WatchUnits returns a watcher.StringsWatcher for watching units of a given
 	// machine.
 	WatchUnits() (watcher.StringsWatcher, error)
+
+	// SetModificationStatus sets the provider specific modification status
+	// for a machine. Allowing the propergation of status messages to the
+	// operator.
+	SetModificationStatus(status status.Status, info string, data map[string]interface{}) error
 }
 
 // Machine represents a juju machine as seen by an instancemutater
@@ -168,4 +174,19 @@ func (m *Machine) CharmProfilingInfo(unitNames []string) (*ProfileInfo, error) {
 // RemoveUpgradeCharmProfileData implements MutaterMachine.RemoveUpgradeCharmProfileData.
 func (m *Machine) RemoveUpgradeCharmProfileData(string) error {
 	return nil
+}
+
+// SetModificationStatus implements MutaterMachine.SetModificationStatus.
+func (m *Machine) SetModificationStatus(status status.Status, info string, data map[string]interface{}) error {
+	var result params.ErrorResults
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: m.tag.String(), Status: status.String(), Info: info, Data: data},
+		},
+	}
+	err := m.facade.FacadeCall("SetModificationStatus", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }

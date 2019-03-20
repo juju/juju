@@ -1234,8 +1234,9 @@ func (m *Machine) ModificationStatus() (status.StatusInfo, error) {
 	return machineStatus, nil
 }
 
-// SetModificationStatus sets the provider specific modification status for a
-// machine.
+// SetModificationStatus sets the provider specific modification status
+// for a machine. Allowing the propergation of status messages to the
+// operator.
 func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
 	return setStatus(m.st.db(), setStatusParams{
 		badge:     "modification",

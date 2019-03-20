@@ -7,6 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/api/instancemutater"
+	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
@@ -70,6 +71,18 @@ func (m *MockMutaterMachine) SetCharmProfiles(arg0 []string) error {
 // SetCharmProfiles indicates an expected call of SetCharmProfiles
 func (mr *MockMutaterMachineMockRecorder) SetCharmProfiles(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmProfiles", reflect.TypeOf((*MockMutaterMachine)(nil).SetCharmProfiles), arg0)
+}
+
+// SetModificationStatus mocks base method
+func (m *MockMutaterMachine) SetModificationStatus(arg0 status.Status, arg1 string, arg2 map[string]interface{}) error {
+	ret := m.ctrl.Call(m, "SetModificationStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModificationStatus indicates an expected call of SetModificationStatus
+func (mr *MockMutaterMachineMockRecorder) SetModificationStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModificationStatus", reflect.TypeOf((*MockMutaterMachine)(nil).SetModificationStatus), arg0, arg1, arg2)
 }
 
 // SetUpgradeCharmProfileComplete mocks base method
