@@ -145,14 +145,14 @@ func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
 
 	c.Check(len(stub.Calls()), gc.Equals, 4)
 	want := []string{
-		`genisoimage -output \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00-ds\.iso -volid cidata -joliet -rock user-data meta-data network-config`,
-		`qemu-img create -b \/tmp/juju-libvirtSuite-\d+\/kvm\/guests\/precise-arm64-backing-file.qcow -f qcow2 \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00.qcow 8G`,
-		`virsh define \/tmp\/juju-libvirtSuite-\d+\/host00.xml`,
-		"virsh start host00",
+		tmpDir + ` genisoimage -output \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00-ds\.iso -volid cidata -joliet -rock user-data meta-data network-config`,
+		` qemu-img create -b \/tmp/juju-libvirtSuite-\d+\/kvm\/guests\/precise-arm64-backing-file.qcow -f qcow2 \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00.qcow 8G`,
+		` virsh define \/tmp\/juju-libvirtSuite-\d+\/host00.xml`,
+		" virsh start host00",
 	}
 
 	for i, cmd := range stub.Calls() {
-		c.Assert(cmd, gc.Matches, want[i])
+		c.Check(cmd, gc.Matches, want[i])
 	}
 }
 
@@ -177,8 +177,8 @@ func (commandWrapperSuite) TestDestroyMachineSuccess(c *gc.C) {
 	err = DestroyMachine(container)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stub.Calls(), jc.DeepEquals, []string{
-		"virsh destroy aname",
-		"virsh undefine --nvram aname",
+		" virsh destroy aname",
+		" virsh undefine --nvram aname",
 	})
 }
 
@@ -187,8 +187,8 @@ func (commandWrapperSuite) TestDestroyMachineFails(c *gc.C) {
 	container := NewTestContainer("aname", stub.Run, nil)
 	err := DestroyMachine(container)
 	c.Check(stub.Calls(), jc.DeepEquals, []string{
-		"virsh destroy aname",
-		"virsh undefine --nvram aname",
+		" virsh destroy aname",
+		" virsh undefine --nvram aname",
 	})
 	log := c.GetTestLog()
 	c.Check(log, jc.Contains, "`virsh destroy aname` failed")
@@ -201,7 +201,7 @@ func (commandWrapperSuite) TestAutostartMachineSuccess(c *gc.C) {
 	stub := NewRunStub("success", nil)
 	container := NewTestContainer("aname", stub.Run, nil)
 	err := AutostartMachine(container)
-	c.Assert(stub.Calls(), jc.DeepEquals, []string{"virsh autostart aname"})
+	c.Assert(stub.Calls(), jc.DeepEquals, []string{" virsh autostart aname"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -209,7 +209,7 @@ func (commandWrapperSuite) TestAutostartMachineFails(c *gc.C) {
 	stub := NewRunStub("", errors.Errorf("Boom"))
 	container := NewTestContainer("aname", stub.Run, nil)
 	err := AutostartMachine(container)
-	c.Assert(stub.Calls(), jc.DeepEquals, []string{"virsh autostart aname"})
+	c.Assert(stub.Calls(), jc.DeepEquals, []string{" virsh autostart aname"})
 	c.Check(err, gc.ErrorMatches, `failed to autostart domain "aname": Boom`)
 }
 
@@ -224,7 +224,7 @@ func (commandWrapperSuite) TestListMachinesSuccess(c *gc.C) {
 	got, err := ListMachines(stub.Run)
 
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(stub.Calls(), jc.DeepEquals, []string{"virsh -q list --all"})
+	c.Check(stub.Calls(), jc.DeepEquals, []string{" virsh -q list --all"})
 	c.Assert(got, jc.DeepEquals, map[string]string{
 		"Domain-0": "running",
 		"ubuntu":   "paused",
@@ -236,6 +236,6 @@ func (commandWrapperSuite) TestListMachinesFails(c *gc.C) {
 	stub := NewRunStub("", errors.Errorf("Boom"))
 	got, err := ListMachines(stub.Run)
 	c.Check(err, gc.ErrorMatches, "Boom")
-	c.Check(stub.Calls(), jc.DeepEquals, []string{"virsh -q list --all"})
+	c.Check(stub.Calls(), jc.DeepEquals, []string{" virsh -q list --all"})
 	c.Assert(got, gc.IsNil)
 }

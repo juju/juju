@@ -35,6 +35,7 @@ import (
 )
 
 const (
+	virsh         = "virsh"
 	guestDir      = "guests"
 	poolName      = "juju-pool"
 	kvm           = "kvm"
@@ -149,7 +150,7 @@ func (p CreateMachineParams) ValidateDomainParams() error {
 	return nil
 }
 
-// diskInfo is type for imlementing libvirt.DiskInfo.
+// diskInfo is type for implementing libvirt.DiskInfo.
 type diskInfo struct {
 	driver, source string
 }
@@ -179,7 +180,7 @@ func CreateMachine(params CreateMachineParams) error {
 		return errors.Annotate(err, "failed to write instance metadata")
 	}
 
-	dsPath, err := writeDatasourceVolume(params)
+	dsPath, err := writeDataSourceVolume(params)
 	if err != nil {
 		return errors.Annotatef(err, "failed to write data source volume for %q", params.Host())
 	}
@@ -197,13 +198,13 @@ func CreateMachine(params CreateMachineParams) error {
 		return errors.Annotatef(err, "failed to write domain xml for %q", params.Host())
 	}
 
-	out, err := params.runCmdAsRoot("virsh", "define", domainPath)
+	out, err := params.runCmdAsRoot("", virsh, "define", domainPath)
 	if err != nil {
 		return errors.Annotatef(err, "failed to defined the domain for %q from %s", params.Host(), domainPath)
 	}
 	logger.Debugf("created domain: %s", out)
 
-	out, err = params.runCmdAsRoot("virsh", "start", params.Host())
+	out, err = params.runCmdAsRoot("", virsh, "start", params.Host())
 	if err != nil {
 		return errors.Annotatef(err, "failed to start domain %q", params.Host())
 	}
@@ -241,18 +242,18 @@ func DestroyMachine(c *kvmContainer) error {
 	// all the parts. The exception here is getting the guestBase, if that
 	// fails we return the error because we cannot continue without it.
 
-	_, err := c.runCmd("virsh", "destroy", c.Name())
+	_, err := c.runCmd("", virsh, "destroy", c.Name())
 	if err != nil {
-		logger.Infof("`virsh destroy %s` failed: %q", c.Name(), err)
+		logger.Infof("`%s destroy %s` failed: %q", virsh, c.Name(), err)
 	}
 
 	// The nvram flag here removes the pflash drive for us. There is also a
 	// `remove-all-storage` flag, but it is unclear if that would also remove
 	// the backing store which we don't want to do. So we remove those manually
 	// after undefining.
-	_, err = c.runCmd("virsh", "undefine", "--nvram", c.Name())
+	_, err = c.runCmd("", virsh, "undefine", "--nvram", c.Name())
 	if err != nil {
-		logger.Infof("`virsh undefine --nvram %s` failed: %q", c.Name(), err)
+		logger.Infof("`%s undefine --nvram %s` failed: %q", virsh, c.Name(), err)
 	}
 	guestBase, err := guestPath(c.pathfinder)
 	if err != nil {
@@ -276,7 +277,7 @@ func AutostartMachine(c *kvmContainer) error {
 	if c.runCmd == nil {
 		c.runCmd = run
 	}
-	_, err := c.runCmd("virsh", "autostart", c.Name())
+	_, err := c.runCmd("", virsh, "autostart", c.Name())
 	return errors.Annotatef(err, "failed to autostart domain %q", c.Name())
 }
 
@@ -287,7 +288,7 @@ func ListMachines(runCmd runFunc) (map[string]string, error) {
 		runCmd = run
 	}
 
-	output, err := runCmd("virsh", "-q", "list", "--all")
+	output, err := runCmd("", virsh, "-q", "list", "--all")
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +316,7 @@ func guestPath(pathfinder func(string) (string, error)) (string, error) {
 }
 
 // writeDataSourceVolume creates a data source image for cloud init.
-func writeDatasourceVolume(params CreateMachineParams) (string, error) {
+func writeDataSourceVolume(params CreateMachineParams) (string, error) {
 	templateDir := filepath.Dir(params.UserDataFile)
 
 	if err := writeMetadata(templateDir); err != nil {
@@ -345,17 +346,6 @@ func writeDatasourceVolume(params CreateMachineParams) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	// We then change directories and capture our original directory to return
-	// to.  This allows us to run the command with user-data and meta-data as
-	// relative paths to appease the NoCloud script.
-	owd, err := os.Getwd()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if err = os.Chdir(templateDir); err != nil {
-		return "", errors.Trace(err)
-	}
-
 	// Create data the source volume outputting the iso image to the guests
 	// (AKA libvirt storage pool) directory.
 	guestBase, err := guestPath(params.findPath)
@@ -364,7 +354,11 @@ func writeDatasourceVolume(params CreateMachineParams) (string, error) {
 	}
 	dsPath := filepath.Join(guestBase, fmt.Sprintf("%s-ds.iso", params.Host()))
 
+	// Use the template path as the working directory.
+	// This allows us to run the command with user-data and meta-data as
+	// relative paths to appease the NoCloud script.
 	out, err := params.runCmd(
+		templateDir,
 		"genisoimage",
 		"-output", dsPath,
 		"-volid", "cidata",
@@ -376,11 +370,6 @@ func writeDatasourceVolume(params CreateMachineParams) (string, error) {
 		return "", errors.Trace(err)
 	}
 	logger.Debugf("create ds image: %s", out)
-
-	// Here we return to the old working directory.
-	if err := os.Chdir(owd); err != nil {
-		return "", errors.Trace(err)
-	}
 
 	return dsPath, nil
 }
@@ -472,6 +461,7 @@ func writeRootDisk(params CreateMachineParams) (string, error) {
 		backingFileName(params.Series, params.Arch()))
 
 	out, err := params.runCmd(
+		"",
 		"qemu-img",
 		"create",
 		"-b", backingPath,
@@ -488,7 +478,7 @@ func writeRootDisk(params CreateMachineParams) (string, error) {
 
 // pool info parses and returns the output of `virsh pool-info <poolname>`.
 func poolInfo(runCmd runFunc) (*libvirtPool, error) {
-	output, err := runCmd("virsh", "pool-info", poolName)
+	output, err := runCmd("", virsh, "pool-info", poolName)
 	if err != nil {
 		logger.Debugf("pool %q doesn't appear to exist: %s", poolName, err)
 		return nil, nil
