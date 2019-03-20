@@ -4,10 +4,7 @@
 package application
 
 import (
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/tools"
 	"github.com/juju/schema"
-	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -18,10 +15,12 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/tools"
 )
 
 // Backend defines the state functionality required by the application
@@ -158,7 +157,6 @@ type Model interface {
 	Tag() names.Tag
 	Type() state.ModelType
 	ModelConfig() (*config.Config, error)
-	LatestToolsVersion() version.Number
 }
 
 // Resources defines a subset of the functionality provided by the
