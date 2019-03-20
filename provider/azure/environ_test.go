@@ -311,7 +311,7 @@ func prepareForBootstrap(
 		discoverAuthSender(),
 		tokenRefreshSender(),
 	}
-	err = env.PrepareForBootstrap(ctx)
+	err = env.PrepareForBootstrap(ctx, "controller-1")
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }

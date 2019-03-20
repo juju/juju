@@ -1217,7 +1217,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.PrepareForBootstrap(envtesting.BootstrapContext(c))
+	err = env.PrepareForBootstrap(envtesting.BootstrapContext(c), "controller-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check the available tools which are the 1.2.0 envtools.

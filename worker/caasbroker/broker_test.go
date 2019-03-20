@@ -106,6 +106,6 @@ func (s *TrackerSuite) TestInitialise(c *gc.C) {
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "CloudSpec", "Model")
+		context.CheckCallNames(c, "CloudSpec", "Model", "ControllerConfig")
 	})
 }

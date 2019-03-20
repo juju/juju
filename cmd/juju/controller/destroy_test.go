@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -92,6 +93,14 @@ func (f *fakeDestroyAPI) ModelConfig() (map[string]interface{}, error) {
 		return nil, err
 	}
 	return f.env, nil
+}
+
+func (f *fakeDestroyAPI) ControllerConfig() (jujucontroller.Config, error) {
+	f.MethodCall(f, "ControllerConfig")
+	if err := f.NextErr(); err != nil {
+		return nil, err
+	}
+	return testing.FakeControllerConfig(), nil
 }
 
 func (f *fakeDestroyAPI) HostedModelConfigs() ([]apicontroller.HostedConfig, error) {

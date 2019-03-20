@@ -38,6 +38,8 @@ type BaseSuite struct {
 
 	namespace string
 
+	controllerUUID string
+
 	k8sClient                  *mocks.MockInterface
 	mockRestClient             *mocks.MockRestClientInterface
 	mockNamespaces             *mocks.MockNamespaceInterface
@@ -67,6 +69,7 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 
 	s.namespace = "test"
+	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":              "fred",
@@ -172,7 +175,7 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		return s.watcher, err
 	}
 	var err error
-	s.broker, err = provider.NewK8sBroker(s.k8sRestConfig, s.cfg, newClient, newK8sWatcherForTest, s.clock)
+	s.broker, err = provider.NewK8sBroker(s.controllerUUID, s.k8sRestConfig, s.cfg, newClient, newK8sWatcherForTest, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }
