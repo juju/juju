@@ -9,7 +9,7 @@ from influxdb import InfluxDBClient
 
 __metaclass__ = type
 
-DBNAME = 'txn_metrics'
+DBNAME = 'juju'
 POLICYNAME = 'txn_metric'
 
 
