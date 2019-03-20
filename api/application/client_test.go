@@ -346,8 +346,8 @@ func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 		c.Assert(request, gc.Equals, "DestroyApplication")
 		c.Assert(a, jc.DeepEquals, params.DestroyApplicationsParams{
 			Applications: []params.DestroyApplicationParams{
-				{ApplicationTag: "application-foo"},
-				{ApplicationTag: "application-bar"},
+				{ApplicationTag: "application-foo", Force: true},
+				{ApplicationTag: "application-bar", Force: true},
 			},
 		})
 		c.Assert(response, gc.FitsTypeOf, &params.DestroyApplicationResults{})
@@ -357,6 +357,7 @@ func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 	})
 	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
 		Applications: []string{"foo", "bar"},
+		Force:        true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
@@ -463,8 +464,8 @@ func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 		c.Assert(request, gc.Equals, "DestroyUnit")
 		c.Assert(a, jc.DeepEquals, params.DestroyUnitsParams{
 			Units: []params.DestroyUnitParams{
-				{UnitTag: "unit-foo-0"},
-				{UnitTag: "unit-bar-1"},
+				{UnitTag: "unit-foo-0", Force: true},
+				{UnitTag: "unit-bar-1", Force: true},
 			},
 		})
 		c.Assert(response, gc.FitsTypeOf, &params.DestroyUnitResults{})
@@ -474,6 +475,7 @@ func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 	})
 	results, err := client.DestroyUnits(application.DestroyUnitsParams{
 		Units: []string{"foo/0", "bar/1"},
+		Force: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
@@ -1144,7 +1146,7 @@ func (s *applicationSuite) TestScaleApplication(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args, jc.DeepEquals, params.ScaleApplicationsParams{
 				Applications: []params.ScaleApplicationParams{
-					{ApplicationTag: "application-foo", Scale: 5},
+					{ApplicationTag: "application-foo", Scale: 5, Force: true},
 				}})
 
 			result, ok := response.(*params.ScaleApplicationResults)
@@ -1159,6 +1161,7 @@ func (s *applicationSuite) TestScaleApplication(c *gc.C) {
 	results, err := client.ScaleApplication(application.ScaleApplicationParams{
 		ApplicationName: "foo",
 		Scale:           5,
+		Force:           true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResult{
