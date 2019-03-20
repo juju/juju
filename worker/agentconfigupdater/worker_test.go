@@ -129,7 +129,7 @@ func (s *WorkerSuite) TestUpdateMongoProfile(c *gc.C) {
 		c.Fatalf("event not handled")
 	}
 
-	// Prpfile the same, worker still alive.
+	// Profile the same, worker still alive.
 	workertest.CheckAlive(c, w)
 
 	newConfig.Config[controller.MongoMemoryProfile] = "new-value"

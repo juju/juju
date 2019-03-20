@@ -117,7 +117,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 				config.SetStateServingInfo(info)
 				if mongoProfileChanged {
-					logger.Debugf("setting agent config mongo memory profile: %s", configMongoMemoryProfile)
+					logger.Debugf("setting agent config mongo memory profile: %q => %q", agentsMongoMemoryProfile, configMongoMemoryProfile)
 					config.SetMongoMemoryProfile(configMongoMemoryProfile)
 				}
 				return nil

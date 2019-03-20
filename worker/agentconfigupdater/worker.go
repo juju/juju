@@ -97,12 +97,12 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	}
 
 	err = w.config.Agent.ChangeConfig(func(setter coreagent.ConfigSetter) error {
-		w.config.Logger.Debugf("setting agent config mongo memory profile: %s", mongoProfile)
+		w.config.Logger.Debugf("setting agent config mongo memory profile: %q => %q", w.mongoProfile, mongoProfile)
 		setter.SetMongoMemoryProfile(mongoProfile)
 		return nil
 	})
 	if err != nil {
-		w.config.Logger.Warningf("failed to update agent config: %v", err)
+		w.tomb.Kill(errors.Annotate(err, "failed to update agent config"))
 		return
 	}
 
