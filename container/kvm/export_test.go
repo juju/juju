@@ -53,8 +53,8 @@ type runStub struct {
 }
 
 // Run fakes running commands, instead recording calls made for use in testing.
-func (s *runStub) Run(cmd string, args ...string) (string, error) {
-	call := []string{cmd}
+func (s *runStub) Run(dir, cmd string, args ...string) (string, error) {
+	call := []string{dir, cmd}
 	call = append(call, args...)
 	s.calls = append(s.calls, strings.Join(call, " "))
 	if s.err != nil {

@@ -129,10 +129,10 @@ func createPool(pathfinder func(string) (string, error), runCmd runFunc, chownFu
 	return nil
 }
 
-// definePool creates the required directories and changes ownershipt of the
+// definePool creates the required directories and changes ownership of the
 // guest directory so that libvirt-qemu can read, write, and execute its
 // guest volumes.
-func definePool(dir string, runCmd runFunc, chownFunc func(string) error) error {
+func definePool(dir string, runCmd runFunc, _ func(string) error) error {
 	// Permissions gleaned from https://goo.gl/SZIw14
 	// The command itself would change the permissions to match anyhow.
 	err := os.MkdirAll(dir, 0755)
@@ -144,7 +144,8 @@ func definePool(dir string, runCmd runFunc, chownFunc func(string) error) error 
 	// e.g. file, lvm, scsi, disk, NFS. Newer versions support using only named
 	// args (--type, --target) but this is backwards compatible for trusty.
 	output, err := runCmd(
-		"virsh",
+		"",
+		virsh,
 		"pool-define-as",
 		poolName,
 		"dir",
@@ -179,7 +180,7 @@ func chownToLibvirt(dir string) error {
 // buildPool sets up libvirt internals for the guest pool.
 func buildPool(runCmd runFunc) error {
 	// This can run without error if the pool isn't active.
-	output, err := runCmd("virsh", "pool-build", poolName)
+	output, err := runCmd("", virsh, "pool-build", poolName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -189,7 +190,7 @@ func buildPool(runCmd runFunc) error {
 
 // startPool makes the pool available for use in libvirt.
 func startPool(runCmd runFunc) error {
-	output, err := runCmd("virsh", "pool-start", poolName)
+	output, err := runCmd("", virsh, "pool-start", poolName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -200,7 +201,7 @@ func startPool(runCmd runFunc) error {
 
 // autostartPool sets up the pool to run automatically when libvirt starts.
 func autostartPool(runCmd runFunc) error {
-	output, err := runCmd("virsh", "pool-autostart", poolName)
+	output, err := runCmd("", virsh, "pool-autostart", poolName)
 	if err != nil {
 		return errors.Trace(err)
 	}

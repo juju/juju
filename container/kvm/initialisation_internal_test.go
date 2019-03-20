@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-// gocheck boilerplate.
 type initialisationInternalSuite struct {
 	testing.IsolationSuite
 }
@@ -37,10 +36,10 @@ func (initialisationInternalSuite) TestCreatePool(c *gc.C) {
 	err = createPool(pathfinder, stub.Run, chown)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(stub.Calls(), jc.DeepEquals, []string{
-		fmt.Sprintf("virsh pool-define-as juju-pool dir - - - - %s/kvm/guests", tmpDir),
-		"virsh pool-build juju-pool",
-		"virsh pool-start juju-pool",
-		"virsh pool-autostart juju-pool",
+		fmt.Sprintf(" virsh pool-define-as juju-pool dir - - - - %s/kvm/guests", tmpDir),
+		" virsh pool-build juju-pool",
+		" virsh pool-start juju-pool",
+		" virsh pool-autostart juju-pool",
 	})
 }
 
