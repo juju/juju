@@ -117,8 +117,8 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="CAAS charm deployment CI test")
     parser.add_argument(
-        '--caas-image', action='store', default=None,
-        help='CAAS operator docker image name to use with format of <username>/jujud-operator:<tag>.'
+        '--caas-image-repo', action='store', default='jujuqabot',
+        help='CAAS operator docker image repo to use.'
     )
     parser.add_argument(
         '--caas-provider', action='store', default='MICROK8S',
@@ -130,8 +130,8 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
-def ensure_operator_image_path(client, image_path):
-    client.controller_juju('controller-config', ('caas-operator-image-path={}'.format(image_path),))
+def ensure_operator_image_path(client, caas_image_repo):
+    client.controller_juju('controller-config', ('caas-image-repo={}'.format(caas_image_repo),))
 
 
 def main(argv=None):
@@ -140,7 +140,7 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
-        ensure_operator_image_path(client, image_path=args.caas_image)
+        ensure_operator_image_path(client, caas_image_repo=args.caas_image_repo)
         k8s_provider = providers[args.caas_provider]
         caas_client = k8s_provider(client)
         assess_caas_charm_deployment(caas_client)
