@@ -294,8 +294,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	controllerTag := agentConfig.Controller()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
-		// The environ tracker could/should be used by several other
-		// workers (firewaller, provisioners, address-cleaner?).
 		environTrackerName: ifCredentialValid(ifResponsible(environ.Manifold(environ.ManifoldConfig{
 			APICallerName:  apiCallerName,
 			NewEnvironFunc: config.NewEnvironFunc,

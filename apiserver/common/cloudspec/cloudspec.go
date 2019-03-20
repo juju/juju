@@ -4,16 +4,23 @@
 package cloudspec
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 // CloudSpecAPI implements common methods for use by various
 // facades for querying the cloud spec of models.
 type CloudSpecAPI interface {
+	// WatchCloudSpecsChanges returns a watcher for cloud spec changes.
+	WatchCloudSpecsChanges(args params.Entities) (params.NotifyWatchResults, error)
+
 	// CloudSpec returns the model's cloud spec.
 	CloudSpec(args params.Entities) (params.CloudSpecResults, error)
 
@@ -22,16 +29,21 @@ type CloudSpecAPI interface {
 }
 
 type cloudSpecAPI struct {
-	getCloudSpec func(names.ModelTag) (environs.CloudSpec, error)
-	getAuthFunc  common.GetAuthFunc
+	resources facade.Resources
+
+	getCloudSpec   func(names.ModelTag) (environs.CloudSpec, error)
+	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error)
+	getAuthFunc    common.GetAuthFunc
 }
 
 // NewCloudSpec returns a new CloudSpecAPI.
 func NewCloudSpec(
+	resources facade.Resources,
 	getCloudSpec func(names.ModelTag) (environs.CloudSpec, error),
+	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPI {
-	return cloudSpecAPI{getCloudSpec, getAuthFunc}
+	return cloudSpecAPI{resources, getCloudSpec, watchCloudSpec, getAuthFunc}
 }
 
 // CloudSpec returns the model's cloud spec.
@@ -84,4 +96,51 @@ func (s cloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
 		CACertificates:   spec.CACertificates,
 	}
 	return result
+}
+
+// WatchCloudSpecsChanges returns a watcher for cloud spec changes.
+func (s cloudSpecAPI) WatchCloudSpecsChanges(args params.Entities) (params.NotifyWatchResults, error) {
+	authFunc, err := s.getAuthFunc()
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+	results := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		tag, err := names.ParseModelTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !authFunc(tag) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		w, err := s.watchCloudSpecChanges(tag)
+		if err == nil {
+			results.Results[i] = w
+		} else {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
+}
+
+func (s *cloudSpecAPI) watchCloudSpecChanges(tag names.ModelTag) (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+	watch, err := s.watchCloudSpec(tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	// Consume the initial event. Technically, API
+	// calls to Watch 'transmit' the initial event
+	// in the Watch response. But NotifyWatchers
+	// have no state to transmit.
+	if _, ok := <-watch.Changes(); ok {
+		result.NotifyWatcherId = s.resources.Register(watch)
+	} else {
+		return result, watcher.EnsureErr(watch)
+	}
+	return result, nil
 }

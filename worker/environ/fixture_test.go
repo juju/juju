@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
@@ -23,27 +23,32 @@ type fixture struct {
 	observerErrs  []error
 	cloud         environs.CloudSpec
 	initialConfig map[string]interface{}
+	initialSpec   environs.CloudSpec
 }
 
 func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 	watcher := newNotifyWatcher(fix.watcherErr)
 	defer workertest.DirtyKill(c, watcher)
+	cloudWatcher := newNotifyWatcher(fix.watcherErr)
+	defer workertest.DirtyKill(c, cloudWatcher)
 	context := &runContext{
-		cloud:   fix.cloud,
-		config:  newModelConfig(c, fix.initialConfig),
-		watcher: watcher,
+		cloud:        fix.initialSpec,
+		config:       newModelConfig(c, fix.initialConfig),
+		watcher:      watcher,
+		cloudWatcher: cloudWatcher,
 	}
 	context.stub.SetErrors(fix.observerErrs...)
 	test(context)
 }
 
 type runContext struct {
-	mu          sync.Mutex
-	stub        testing.Stub
-	cloud       environs.CloudSpec
-	config      map[string]interface{}
-	watcher     *notifyWatcher
-	credWatcher *notifyWatcher
+	mu           sync.Mutex
+	stub         testing.Stub
+	cloud        environs.CloudSpec
+	config       map[string]interface{}
+	watcher      *notifyWatcher
+	cloudWatcher *notifyWatcher
+	credWatcher  *notifyWatcher
 }
 
 // SetConfig updates the configuration returned by ModelConfig.
@@ -51,6 +56,13 @@ func (context *runContext) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.config = newModelConfig(c, extraAttrs)
+}
+
+// SetCloudSpec updates the spec returned by CloudSpec.
+func (context *runContext) SetCloudSpec(c *gc.C, spec environs.CloudSpec) {
+	context.mu.Lock()
+	defer context.mu.Unlock()
+	context.cloud = spec
 }
 
 // CloudSpec is part of the environ.ConfigObserver interface.
@@ -92,6 +104,23 @@ func (context *runContext) CloseModelConfigNotify() {
 	close(context.watcher.changes)
 }
 
+// KillCloudSpecNotify kills the watcher returned from WatchCloudSpecChanges with
+// the error configured in the enclosing fixture.
+func (context *runContext) KillCloudSpecNotify() {
+	context.cloudWatcher.Kill()
+}
+
+// SendCloudSpecNotify sends a value on the channel used by WatchCloudSpecChanges
+// results.
+func (context *runContext) SendCloudSpecNotify() {
+	context.cloudWatcher.changes <- struct{}{}
+}
+
+// CloseCloudSpecNotify closes the channel used by WatchCloudSpecChanges results.
+func (context *runContext) CloseCloudSpecNotify() {
+	close(context.cloudWatcher.changes)
+}
+
 // WatchForModelConfigChanges is part of the environ.ConfigObserver interface.
 func (context *runContext) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
 	context.mu.Lock()
@@ -101,6 +130,16 @@ func (context *runContext) WatchForModelConfigChanges() (watcher.NotifyWatcher, 
 		return nil, err
 	}
 	return context.watcher, nil
+}
+
+func (context *runContext) WatchCloudSpecChanges() (watcher.NotifyWatcher, error) {
+	context.mu.Lock()
+	defer context.mu.Unlock()
+	context.stub.AddCall("WatchCloudSpecChanges")
+	if err := context.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return context.cloudWatcher, nil
 }
 
 // KillCredentialNotify kills the watcher returned from WatchCredentialChanges with
@@ -165,8 +204,9 @@ func newModelConfig(c *gc.C, extraAttrs coretesting.Attrs) map[string]interface{
 type mockEnviron struct {
 	environs.Environ
 	testing.Stub
-	cfg *config.Config
-	mu  sync.Mutex
+	cfg  *config.Config
+	spec environs.CloudSpec
+	mu   sync.Mutex
 }
 
 func (e *mockEnviron) Config() *config.Config {
@@ -188,6 +228,23 @@ func (e *mockEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+func (e *mockEnviron) CloudSpec() environs.CloudSpec {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.spec
+}
+
+func (e *mockEnviron) SetCloudSpec(spec environs.CloudSpec) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.MethodCall(e, "SetCloudSpec", spec)
+	if err := e.NextErr(); err != nil {
+		return err
+	}
+	e.spec = spec
+	return nil
+}
+
 func newMockEnviron(args environs.OpenParams) (environs.Environ, error) {
-	return &mockEnviron{cfg: args.Config}, nil
+	return &mockEnviron{cfg: args.Config, spec: args.Cloud}, nil
 }

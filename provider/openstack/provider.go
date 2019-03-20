@@ -896,6 +896,12 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+// SetCloudSpec is specified in the environs.Environ interface.
+func (e *Environ) SetCloudSpec(spec environs.CloudSpec) error {
+	// TODO - not supported
+	return nil
+}
+
 func identityClientVersion(authURL string) (int, error) {
 	url, err := url.Parse(authURL)
 	if err != nil {
