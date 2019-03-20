@@ -16,6 +16,9 @@ const libvirtUser = "libvirt-qemu"
 // command and returning the combined output.
 // The first parameter, if non-empty will use the input
 // path as the working directory for the command.
+// NOTE: if changing runFunc, remember to edit BOTH copies of
+// runAsLibvirt() in run_other.go and run_linux.go.  One doesn't
+// compile on linux, thus easily missed.
 type runFunc func(string, string, ...string) (string, error)
 
 // run the command and return the combined output.
