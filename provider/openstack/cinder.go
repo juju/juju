@@ -106,7 +106,7 @@ var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 
 	client := env.clientUnlocked
 	if env.volumeURL == nil {
-		url, err := getVolumeEndpointURL(client, env.cloud.Region)
+		url, err := getVolumeEndpointURL(client, env.cloudUnlocked.Region)
 		if errors.IsNotFound(err) {
 			// No volume endpoint found; Cinder is not supported.
 			return nil, errors.NotSupportedf("volumes")
@@ -119,7 +119,7 @@ var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 
 	cinderCl := cinderClient{cinder.Basic(env.volumeURL, client.TenantId(), client.Token)}
 
-	cloudSpec := env.cloud
+	cloudSpec := env.cloudUnlocked
 	if len(cloudSpec.CACertificates) > 0 {
 		cinderCl = cinderClient{cinder.BasicTLSConfig(
 			env.volumeURL,

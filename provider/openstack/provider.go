@@ -172,7 +172,6 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 	e := &Environ{
 		name:         args.Config.Name(),
 		uuid:         uuid,
-		cloud:        args.Cloud,
 		namespace:    namespace,
 		clock:        clock.WallClock,
 		configurator: p.Configurator,
@@ -191,18 +190,11 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 	e.networking = networking
 
 	if err := e.SetConfig(args.Config); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	client, err := authClient(e.cloud, e.ecfgUnlocked)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot set config")
+	if err := e.SetCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Trace(err)
 	}
-	e.clientUnlocked = client
-	e.novaUnlocked = nova.New(e.clientUnlocked)
-	e.neutronUnlocked = neutron.New(e.clientUnlocked)
 
 	return e, nil
 }
@@ -289,11 +281,11 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 type Environ struct {
 	name      string
 	uuid      string
-	cloud     environs.CloudSpec
 	namespace instance.Namespace
 
 	ecfgMutex       sync.Mutex
 	ecfgUnlocked    *environConfig
+	cloudUnlocked   environs.CloudSpec
 	clientUnlocked  client.AuthenticatingClient
 	novaUnlocked    *nova.Client
 	neutronUnlocked *neutron.Client
@@ -495,6 +487,13 @@ func (e *Environ) ecfg() *environConfig {
 	ecfg := e.ecfgUnlocked
 	e.ecfgMutex.Unlock()
 	return ecfg
+}
+
+func (e *Environ) cloud() environs.CloudSpec {
+	e.ecfgMutex.Lock()
+	cloud := e.cloudUnlocked
+	e.ecfgMutex.Unlock()
+	return cloud
 }
 
 func (e *Environ) client() client.AuthenticatingClient {
@@ -708,7 +707,7 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 func (e *Environ) supportsNeutron() bool {
 	client := e.client()
-	endpointMap := client.EndpointsForRegion(e.cloud.Region)
+	endpointMap := client.EndpointsForRegion(e.cloud().Region)
 	_, ok := endpointMap["network"]
 	return ok
 }
@@ -898,7 +897,17 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 
 // SetCloudSpec is specified in the environs.Environ interface.
 func (e *Environ) SetCloudSpec(spec environs.CloudSpec) error {
-	// TODO - not supported
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+
+	e.cloudUnlocked = spec
+	client, err := authClient(e.cloudUnlocked, e.ecfgUnlocked)
+	if err != nil {
+		return errors.Annotate(err, "cannot set config")
+	}
+	e.clientUnlocked = client
+	e.novaUnlocked = nova.New(e.clientUnlocked)
+	e.neutronUnlocked = neutron.New(e.clientUnlocked)
 	return nil
 }
 
@@ -1047,7 +1056,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
-		Region:      e.cloud.Region,
+		Region:      e.cloud().Region,
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
@@ -1870,7 +1879,7 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		region = e.cloud.Region
+		region = e.cloud().Region
 	}
 	cloudSpec, err := e.cloudSpec(region)
 	if err != nil {
@@ -1885,13 +1894,13 @@ func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 
 // Region is specified in the HasRegion interface.
 func (e *Environ) Region() (simplestreams.CloudSpec, error) {
-	return e.cloudSpec(e.cloud.Region)
+	return e.cloudSpec(e.cloud().Region)
 }
 
 func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
 		Region:   region,
-		Endpoint: e.cloud.Endpoint,
+		Endpoint: e.cloud().Endpoint,
 	}, nil
 }
 
