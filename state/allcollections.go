@@ -414,6 +414,10 @@ func allCollections() CollectionSchema {
 		// See resource/persistence/mongo.go, where it should never have
 		// been put in the first place.
 		"resources": {},
+		// see vendor/gopkg.in/juju/blobstore.v2/resourcecatalog.go
+		// This shouldn't need to be declared here, but we need to allocate the
+		// collection before a TXN tries to insert it.
+		"storedResources": {},
 
 		// -----
 
