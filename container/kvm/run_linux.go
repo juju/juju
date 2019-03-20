@@ -6,6 +6,7 @@
 package kvm
 
 import (
+	"os"
 	"os/exec"
 	"os/user"
 	"strconv"
@@ -14,17 +15,25 @@ import (
 	"github.com/juju/errors"
 )
 
-// run the command as user libvirt-qemu and return the combined output.
-func runAsLibvirt(command string, args ...string) (string, error) {
+// Run the command as user libvirt-qemu and return the combined output.
+// If dir is non-empty, use it as the working directory.
+func runAsLibvirt(dir, command string, args ...string) (string, error) {
 	uid, gid, err := getUserUIDGID(libvirtUser)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	logger.Debugf("running: %s %v", command, args)
+	cmd := exec.Command(command, args...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
+
+	if dir == "" {
+		dir, _ = os.Getwd()
+	}
+	logger.Debugf("running: %s %v from %s", command, args)
 	logger.Debugf("running as uid: %d, gid: %d\n", uid, gid)
 
-	cmd := exec.Command(command, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
 	cmd.SysProcAttr.Credential = &syscall.Credential{
 		Uid: uint32(uid),
@@ -39,10 +48,10 @@ func runAsLibvirt(command string, args ...string) (string, error) {
 
 }
 
-// getUserUIDGID returns integervals for uid and gid for the user. It returns
+// getUserUIDGID returns integer vals for uid and gid for the user. It returns
 // -1 when there's an error so no one accidentally thinks 0 is the appropriate
 // uid/gid when there's an error.
-func getUserUIDGID(name string) (int, int, error) {
+func getUserUIDGID(_ string) (int, int, error) {
 	u, err := user.Lookup(libvirtUser)
 	if err != nil {
 		return -1, -1, errors.Trace(err)
