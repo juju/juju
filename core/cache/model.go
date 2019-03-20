@@ -110,7 +110,7 @@ func (m *Model) WatchMachines() *ChangeWatcher {
 	}
 
 	w := newAddRemoveWatcher(machines...)
-	unsub := m.hub.Subscribe(m.modelTopic(modelMachineChange), w.changed)
+	unsub := m.hub.Subscribe(m.topic(modelMachineChange), w.changed)
 
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -184,7 +184,7 @@ func (m *Model) updateMachine(ch MachineChange) {
 	if !found {
 		machine = newMachine(m.metrics, m.hub)
 		m.machines[ch.Id] = machine
-		m.hub.Publish(m.modelTopic(modelMachineChange), []string{ch.Id})
+		m.hub.Publish(m.topic(modelMachineChange), []string{ch.Id})
 	}
 	machine.setDetails(ch)
 
@@ -195,7 +195,7 @@ func (m *Model) updateMachine(ch MachineChange) {
 func (m *Model) removeMachine(ch RemoveMachine) {
 	m.mu.Lock()
 	delete(m.machines, ch.Id)
-	m.hub.Publish(m.modelTopic(modelMachineChange), []string{ch.Id})
+	m.hub.Publish(m.topic(modelMachineChange), []string{ch.Id})
 	m.mu.Unlock()
 }
 
