@@ -281,6 +281,64 @@ func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
 	}
 }
 
+func (s *WorkerSuite) TestAddMachine(c *gc.C) {
+	changes := s.captureEvents(c, machineEvents)
+	w := s.start(c)
+
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
+	s.State.StartSync()
+
+	change := s.nextChange(c, changes)
+	obtained, ok := change.(cache.MachineChange)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(obtained.Id, gc.Equals, machine.Id())
+
+	controller := s.getController(c, w)
+	modUUIDs := controller.ModelUUIDs()
+	c.Check(modUUIDs, gc.HasLen, 1)
+
+	mod, err := controller.Model(modUUIDs[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	cachedMachine, err := mod.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cachedMachine, gc.NotNil)
+}
+
+func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
+	changes := s.captureEvents(c, machineEvents)
+	w := s.start(c)
+
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
+	s.State.StartSync()
+	_ = s.nextChange(c, changes)
+
+	controller := s.getController(c, w)
+	modUUID := controller.ModelUUIDs()[0]
+
+	// Move machine to dying.
+	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+	// Move machine to dead.
+	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
+	// Remove will delete the machine from the database.
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
+	s.State.StartSync()
+
+	// We will either get our machine event,
+	// or time-out after processing all the changes.
+	for {
+		change := s.nextChange(c, changes)
+		if _, ok := change.(cache.RemoveMachine); ok {
+			mod, err := controller.Model(modUUID)
+			c.Assert(err, jc.ErrorIsNil)
+
+			_, err = mod.Machine(machine.Id())
+			c.Check(errors.IsNotFound(err), jc.IsTrue)
+			return
+		}
+	}
+}
+
 func (s *WorkerSuite) TestAddUnit(c *gc.C) {
 	changes := s.captureEvents(c, unitEvents)
 	w := s.start(c)
@@ -373,6 +431,16 @@ var applicationEvents = func(change interface{}) bool {
 	case cache.ApplicationChange:
 		return true
 	case cache.RemoveApplication:
+		return true
+	}
+	return false
+}
+
+var machineEvents = func(change interface{}) bool {
+	switch change.(type) {
+	case cache.MachineChange:
+		return true
+	case cache.RemoveMachine:
 		return true
 	}
 	return false

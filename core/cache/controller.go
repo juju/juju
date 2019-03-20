@@ -81,6 +81,10 @@ func (c *Controller) loop() error {
 				c.updateApplication(ch)
 			case RemoveApplication:
 				c.removeApplication(ch)
+			case MachineChange:
+				c.updateMachine(ch)
+			case RemoveMachine:
+				c.removeMachine(ch)
 			case UnitChange:
 				c.updateUnit(ch)
 			case RemoveUnit:
@@ -175,7 +179,7 @@ func (c *Controller) removeApplication(ch RemoveApplication) {
 	c.mu.Unlock()
 }
 
-// updateApplication adds or updates the application in the specified model.
+// updateUnit adds or updates the unit in the specified model.
 func (c *Controller) updateUnit(ch UnitChange) {
 	c.mu.Lock()
 	c.ensureModel(ch.ModelUUID).updateUnit(ch)
@@ -189,6 +193,24 @@ func (c *Controller) removeUnit(ch RemoveUnit) {
 	c.mu.Lock()
 	if model, ok := c.models[ch.ModelUUID]; ok {
 		model.removeUnit(ch)
+	}
+	c.mu.Unlock()
+}
+
+// updateMachine adds or updates the machine in the specified model.
+func (c *Controller) updateMachine(ch MachineChange) {
+	c.mu.Lock()
+	c.ensureModel(ch.ModelUUID).updateMachine(ch)
+	c.mu.Unlock()
+}
+
+// removeMachine removes the machine from the cached model.
+// If the cache does not have the model loaded for the machine yet,
+// then it will not have the machine cached.
+func (c *Controller) removeMachine(ch RemoveMachine) {
+	c.mu.Lock()
+	if model, ok := c.models[ch.ModelUUID]; ok {
+		model.removeMachine(ch)
 	}
 	c.mu.Unlock()
 }
