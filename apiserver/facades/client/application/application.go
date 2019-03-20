@@ -740,7 +740,7 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 		// For now we do not support changing the channel through Update().
 		// TODO(ericsnow) Support it?
 		channel := app.Channel()
-		if err = api.applicationSetCharm(
+		if err = api.updateCharm(
 			args.ApplicationName,
 			app,
 			args.CharmURL,
@@ -789,6 +789,37 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 		return app.SetConstraints(*args.Constraints)
 	}
 	return nil
+}
+
+// updateCharm parses the charm url and then grabs the charm from the backend.
+// this is analogous to setCharmWithAgentValidation, minus the validation around
+// setting the profile charm.
+func (api *APIBase) updateCharm(
+	appName string,
+	application Application,
+	url string,
+	channel csparams.Channel,
+	configSettingsStrings map[string]string,
+	configSettingsYAML string,
+	forceSeries,
+	forceUnits,
+	force bool,
+	resourceIDs map[string]string,
+	storageConstraints map[string]params.StorageConstraints,
+) error {
+	curl, err := charm.ParseURL(url)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	charm, err := api.backend.Charm(curl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.applicationSetCharm(appName, application, charm,
+		channel, configSettingsStrings, configSettingsYAML,
+		forceSeries, forceUnits, force, resourceIDs,
+		storageConstraints,
+	)
 }
 
 // UpdateApplicationSeries updates the application series. Series for
@@ -852,12 +883,8 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := application.SetCharmProfile(args.CharmURL); err != nil {
-		return errors.Annotatef(err, "unable to set charm profile")
-	}
-
 	channel := csparams.Channel(args.Channel)
-	return api.applicationSetCharm(
+	return api.setCharmWithAgentValidation(
 		args.ApplicationName,
 		application,
 		args.CharmURL,
@@ -872,8 +899,12 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	)
 }
 
-// applicationSetCharm sets the charm for the given for the application.
-func (api *APIBase) applicationSetCharm(
+// setCharmWithAgentValidation checks the agent versions of the application
+// and unit before continuing on. These checks are important to prevent old
+// code running at the same time as the new code. If you encounter the error,
+// the correct and only work around is to upgrade the units to match the
+// controller.
+func (api *APIBase) setCharmWithAgentValidation(
 	appName string,
 	application Application,
 	url string,
@@ -890,7 +921,7 @@ func (api *APIBase) applicationSetCharm(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	sch, err := api.backend.Charm(curl)
+	charm, err := api.backend.Charm(curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -912,7 +943,7 @@ func (api *APIBase) applicationSetCharm(
 		// incoming update. This could be very costly when you have lots of
 		// machines.
 		// TODO (stickupkid): Removal of LXD Profile
-		if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: sch}) {
+		if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: charm}) {
 			modelConfig, err := api.model.ModelConfig()
 			if err != nil {
 				return errors.Annotate(err, "getting model config")
@@ -922,11 +953,36 @@ func (api *APIBase) applicationSetCharm(
 			}
 		}
 	}
+	if err := application.SetCharmProfile(url); err != nil {
+		return errors.Annotatef(err, "unable to set charm profile")
+	}
+	return api.applicationSetCharm(appName, application, charm,
+		channel, configSettingsStrings, configSettingsYAML,
+		forceSeries, forceUnits, force, resourceIDs,
+		storageConstraints,
+	)
+}
+
+// applicationSetCharm sets the charm for the given for the application.
+func (api *APIBase) applicationSetCharm(
+	appName string,
+	application Application,
+	stateCharm Charm,
+	channel csparams.Channel,
+	configSettingsStrings map[string]string,
+	configSettingsYAML string,
+	forceSeries,
+	forceUnits,
+	force bool,
+	resourceIDs map[string]string,
+	storageConstraints map[string]params.StorageConstraints,
+) error {
+	var err error
 	var settings charm.Settings
 	if configSettingsYAML != "" {
-		settings, err = sch.Config().ParseSettingsYAML([]byte(configSettingsYAML), appName)
+		settings, err = stateCharm.Config().ParseSettingsYAML([]byte(configSettingsYAML), appName)
 	} else if len(configSettingsStrings) > 0 {
-		settings, err = parseSettingsCompatible(sch.Config(), configSettingsStrings)
+		settings, err = parseSettingsCompatible(stateCharm.Config(), configSettingsStrings)
 	}
 	if err != nil {
 		return errors.Annotate(err, "parsing config settings")
@@ -946,7 +1002,7 @@ func (api *APIBase) applicationSetCharm(
 		}
 	}
 	cfg := state.SetCharmConfig{
-		Charm:              api.stateCharm(sch),
+		Charm:              api.stateCharm(stateCharm),
 		Channel:            channel,
 		ConfigSettings:     settings,
 		ForceSeries:        forceSeries,

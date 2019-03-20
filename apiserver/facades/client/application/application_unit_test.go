@@ -370,8 +370,8 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "LXDProfile", "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharmProfile", "AgentTools", "SetCharm")
-	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
+	app.CheckCallNames(c, "AgentTools", "SetCharmProfile", "SetCharm")
+	app.CheckCall(c, 1, "SetCharmProfile", "cs:postgresql")
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
@@ -394,7 +394,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
 
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	app := s.backend.applications["redis"]
-	app.CheckCallNames(c, "SetCharmProfile", "AgentTools")
+	app.CheckCallNames(c, "AgentTools")
 }
 
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
