@@ -13,6 +13,8 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/mongo"
+	jworker "github.com/juju/juju/worker"
 )
 
 // Logger defines the logging methods used by the worker.
@@ -76,6 +78,57 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrUninstall
 			}
 
+			// Do the initial state serving info and mongo profile checks
+			// before attempting to get the central hub. The central hub is only
+			// running when the agent is a controller. If the agent isn't a controller
+			// but should be, the agent config will not have any state serving info
+			// but the database will think that we should be. In those situations
+			// we need to update the local config and restart.
+			controllerConfig, err := apiState.ControllerConfig()
+			if err != nil {
+				return nil, errors.Annotate(err, "getting controller config")
+			}
+			// If the mongo memory profile from the controller config
+			// is different from the one in the agent config we need to
+			// restart the agent to apply the memory profile to the mongo
+			// service.
+			agentsMongoMemoryProfile := agent.CurrentConfig().MongoMemoryProfile()
+			configMongoMemoryProfile := mongo.MemoryProfile(controllerConfig.MongoMemoryProfile())
+			mongoProfileChanged := agentsMongoMemoryProfile != configMongoMemoryProfile
+
+			info, err := apiState.StateServingInfo()
+			if err != nil {
+				return nil, errors.Annotate(err, "getting state serving info")
+			}
+			err = agent.ChangeConfig(func(setter coreagent.ConfigSetter) error {
+				existing, hasInfo := setter.StateServingInfo()
+				if hasInfo {
+					// Use the existing cert and key as they appear to
+					// have been already updated by the cert updater
+					// worker to have this machine's IP address as
+					// part of the cert. This changed cert is never
+					// put back into the database, so it isn't
+					// reflected in the copy we have got from
+					// apiState.
+					info.Cert = existing.Cert
+					info.PrivateKey = existing.PrivateKey
+				}
+				setter.SetStateServingInfo(info)
+				if mongoProfileChanged {
+					config.Logger.Debugf("setting agent config mongo memory profile: %s", configMongoMemoryProfile)
+					setter.SetMongoMemoryProfile(configMongoMemoryProfile)
+				}
+				return nil
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			// If we need a restart, return the fatal error.
+			if mongoProfileChanged {
+				config.Logger.Infof("restarting agent for new mongo memory profile")
+				return nil, jworker.ErrRestartAgent
+			}
+
 			// Only get the hub if we are a controller.
 			var hub *pubsub.StructuredHub
 			if err := context.Get(config.CentralHubName, &hub); err != nil {
@@ -83,12 +136,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			info, err := apiState.StateServingInfo()
-
 			return NewWorker(WorkerConfig{
 				Agent:        agent,
-				ConfigGetter: apiState,
 				Hub:          hub,
+				MongoProfile: configMongoMemoryProfile,
 				Logger:       config.Logger,
 			})
 		},

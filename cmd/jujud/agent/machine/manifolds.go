@@ -547,9 +547,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The agent-config-updater manifold sets the state serving info from
 		// the API connection and writes it to the agent config.
 		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.agentconfigupdater"),
+			AgentName:      agentName,
+			APICallerName:  apiCallerName,
+			CentralHubName: centralHubName,
+			Logger:         loggo.GetLogger("juju.worker.agentconfigupdater"),
 		})),
 
 		// The apiworkers manifold starts workers which rely on the
