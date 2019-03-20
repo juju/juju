@@ -23,10 +23,9 @@ import (
 type WorkerSuite struct {
 	testing.IsolationSuite
 	logger loggo.Logger
+	agent  *mockAgent
 	hub    *pubsub.StructuredHub
 	config agentconfigupdater.WorkerConfig
-
-	agent *mockAgent
 }
 
 var _ = gc.Suite(&WorkerSuite{})

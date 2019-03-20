@@ -54,7 +54,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// Grab the tag and ensure that it's for a machine.
-			tag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
+			currentConfig := agent.CurrentConfig()
+			tag, ok := currentConfig.Tag().(names.MachineTag)
 			if !ok {
 				return nil, errors.New("agent's tag is not a machine tag")
 			}
@@ -92,7 +93,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// is different from the one in the agent config we need to
 			// restart the agent to apply the memory profile to the mongo
 			// service.
-			agentsMongoMemoryProfile := agent.CurrentConfig().MongoMemoryProfile()
+			logger := config.Logger
+			agentsMongoMemoryProfile := currentConfig.MongoMemoryProfile()
 			configMongoMemoryProfile := mongo.MemoryProfile(controllerConfig.MongoMemoryProfile())
 			mongoProfileChanged := agentsMongoMemoryProfile != configMongoMemoryProfile
 
@@ -100,8 +102,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
 			}
-			err = agent.ChangeConfig(func(setter coreagent.ConfigSetter) error {
-				existing, hasInfo := setter.StateServingInfo()
+			err = agent.ChangeConfig(func(config coreagent.ConfigSetter) error {
+				existing, hasInfo := config.StateServingInfo()
 				if hasInfo {
 					// Use the existing cert and key as they appear to
 					// have been already updated by the cert updater
@@ -113,10 +115,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					info.Cert = existing.Cert
 					info.PrivateKey = existing.PrivateKey
 				}
-				setter.SetStateServingInfo(info)
+				config.SetStateServingInfo(info)
 				if mongoProfileChanged {
-					config.Logger.Debugf("setting agent config mongo memory profile: %s", configMongoMemoryProfile)
-					setter.SetMongoMemoryProfile(configMongoMemoryProfile)
+					logger.Debugf("setting agent config mongo memory profile: %s", configMongoMemoryProfile)
+					config.SetMongoMemoryProfile(configMongoMemoryProfile)
 				}
 				return nil
 			})
@@ -125,14 +127,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			// If we need a restart, return the fatal error.
 			if mongoProfileChanged {
-				config.Logger.Infof("restarting agent for new mongo memory profile")
+				logger.Infof("restarting agent for new mongo memory profile")
 				return nil, jworker.ErrRestartAgent
 			}
 
-			// Only get the hub if we are a controller.
+			// Only get the hub if we are a controller and we haven't updated
+			// the memory profile.
 			var hub *pubsub.StructuredHub
 			if err := context.Get(config.CentralHubName, &hub); err != nil {
-				config.Logger.Tracef("hub dependency not available")
+				logger.Tracef("hub dependency not available")
 				return nil, err
 			}
 
