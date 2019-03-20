@@ -123,9 +123,6 @@ func NewK8sBroker(
 	newWatcher NewK8sWatcherFunc,
 	clock jujuclock.Clock,
 ) (caas.Broker, error) {
-	if controllerUUID == "" {
-		return nil, errors.NotValidf("controllerUUID is required")
-	}
 
 	k8sClient, apiextensionsClient, err := newClient(k8sRestConfig)
 	if err != nil {
@@ -136,18 +133,28 @@ func NewK8sBroker(
 		return nil, errors.Trace(err)
 	}
 
+	modelUUID := newCfg.UUID()
+	if modelUUID == "" {
+		return nil, errors.NotValidf("modelUUID is required")
+	}
 	client := &kubernetesClient{
 		clock:               clock,
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
 		envCfg:              newCfg.Config,
 		namespace:           newCfg.Name(),
-		modelUUID:           newCfg.UUID(),
+		envCfg:              newCfg.Config,
+		modelUUID:           modelUUID,
 		newWatcher:          newWatcher,
 		annotations: jujuannotations.New(nil).
-			Add(annotationControllerUUIDKey, controllerUUID).
-			Add(annotationModelUUIDKey, newCfg.UUID()),
+			Add(annotationModelUUIDKey, modelUUID),
 	}
+
+	if controllerUUID != "" {
+		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
+		client.annotations.Add(annotationControllerUUIDKey, controllerUUID)
+	}
+
 	if err = client.decideFacts(); err != nil {
 		// pre-set some configs here before interacting with the cluster.
 		return nil, errors.Trace(err)
@@ -231,15 +238,11 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, co
 	if err == nil {
 		return alreadyExistErr
 	}
-	if errors.IsNotFound(err) {
-		// All good, no existing controller found on the cluster.
-		// The namespace will be set to controller-name in newcontrollerStack.
-		return nil
-	}
 	if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
+	// do validation on starage class.
 	_, err = k.validateOperatorStorage()
 	return errors.Trace(err)
 }
