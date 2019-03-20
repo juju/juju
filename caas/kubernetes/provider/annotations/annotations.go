@@ -82,8 +82,12 @@ func (a Annotation) ToMap() map[string]string {
 // CheckKeysNonEmpty checks if the provided keys are all set to non empty value.
 func (a Annotation) CheckKeysNonEmpty(keys ...string) error {
 	for _, k := range keys {
-		if v, ok := a.getVal(k); !ok || v == "" {
+		v, ok := a.getVal(k)
+		if !ok {
 			return errors.NotFoundf("annotation key %q", k)
+		}
+		if v == "" {
+			return errors.NotValidf("annotation key %q has empty value", k)
 		}
 	}
 	return nil
