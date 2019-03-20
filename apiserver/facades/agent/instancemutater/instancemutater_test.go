@@ -4,6 +4,8 @@
 package instancemutater_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	coretesting "github.com/juju/testing"
@@ -16,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -27,6 +30,14 @@ type instanceMutaterAPISuite struct {
 	lifer      *mocks.MockLifer
 	state      *mocks.MockInstanceMutaterState
 	resources  *mocks.MockResources
+
+	machineTag names.Tag
+}
+
+func (s *instanceMutaterAPISuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	s.machineTag = names.NewMachineTag("0")
 }
 
 func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
@@ -41,17 +52,35 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *instanceMutaterAPISuite) behaviourLife(machineTag names.Tag) {
-	exp := s.authorizer.EXPECT()
-	gomock.InOrder(
-		exp.AuthController().Return(true),
-		exp.AuthMachineAgent().Return(true),
-		exp.GetAuthTag().Return(machineTag),
-	)
+func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C, behaviours ...func()) *instancemutater.InstanceMutaterAPI {
+	for _, b := range behaviours {
+		b()
+	}
+
+	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+	return facade
 }
 
-func (s *instanceMutaterAPISuite) behaviourFindEntity(machineTag names.Tag, entity state.Entity) {
-	s.state.EXPECT().FindEntity(machineTag).Return(entity, nil)
+func (s *instanceMutaterAPISuite) expectLife(machineTag names.Tag) func() {
+	return func() {
+		exp := s.authorizer.EXPECT()
+		gomock.InOrder(
+			exp.AuthController().Return(true),
+			exp.AuthMachineAgent().Return(true),
+			exp.GetAuthTag().Return(machineTag),
+		)
+	}
+}
+
+func (s *instanceMutaterAPISuite) expectFindEntity(machineTag names.Tag, entity state.Entity) func() {
+	return func() {
+		s.state.EXPECT().FindEntity(machineTag).Return(entity, nil)
+	}
+}
+
+func (s *instanceMutaterAPISuite) expectAuthMachineAgent() {
+	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
 }
 
 type InstanceMutaterAPILifeSuite struct {
@@ -63,17 +92,14 @@ var _ = gc.Suite(&InstanceMutaterAPILifeSuite{})
 func (s *InstanceMutaterAPILifeSuite) TestLife(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	machineTag := names.NewMachineTag("0")
-
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-	s.behaviourFindEntity(machineTag, entityShim{
-		Entity: s.entity,
-		Lifer:  s.lifer,
-	})
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectFindEntity(s.machineTag, entityShim{
+			Entity: s.entity,
+			Lifer:  s.lifer,
+		}),
+	)
 
 	results, err := facade.Life(params.Entities{
 		Entities: []params.Entity{{Tag: "machine-0"}},
@@ -92,13 +118,10 @@ func (s *InstanceMutaterAPILifeSuite) TestLife(c *gc.C) {
 func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidType(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	machineTag := names.NewMachineTag("0")
-
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+	)
 
 	results, err := facade.Life(params.Entities{
 		Entities: []params.Entity{{Tag: "user-0"}},
@@ -122,15 +145,14 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithParentId(c *gc.C) {
 
 	machineTag := names.NewMachineTag("0/lxd/0")
 
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-	s.behaviourFindEntity(machineTag, entityShim{
-		Entity: s.entity,
-		Lifer:  s.lifer,
-	})
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(machineTag),
+		s.expectFindEntity(machineTag, entityShim{
+			Entity: s.entity,
+			Lifer:  s.lifer,
+		}),
+	)
 
 	results, err := facade.Life(params.Entities{
 		Entities: []params.Entity{{Tag: "machine-0-lxd-0"}},
@@ -151,11 +173,10 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidParentId(c *gc.C) {
 
 	machineTag := names.NewMachineTag("0/lxd/0")
 
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(machineTag),
+	)
 
 	results, err := facade.Life(params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1-lxd-0"}},
@@ -174,9 +195,11 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidParentId(c *gc.C) {
 	})
 }
 
-func (s *InstanceMutaterAPILifeSuite) behaviourFindEntity(machineTag names.Tag, entity state.Entity) {
-	s.state.EXPECT().FindEntity(machineTag).Return(entity, nil)
-	s.lifer.EXPECT().Life().Return(state.Alive)
+func (s *InstanceMutaterAPILifeSuite) expectFindEntity(machineTag names.Tag, entity state.Entity) func() {
+	return func() {
+		s.state.EXPECT().FindEntity(machineTag).Return(entity, nil)
+		s.lifer.EXPECT().Life().Return(state.Alive)
+	}
 }
 
 type entityShim struct {
@@ -213,21 +236,19 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) setup(c *gc.C) *gomock.Contr
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	machineTag := names.NewMachineTag("0")
 	unitNames := []string{"unit"}
 
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-	s.behaviourFindEntity(machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
-	s.behaviourMachine(instance.Id("0"))
-	s.behaviourCharmProfiles()
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
+		s.expectMachine(instance.Id("0")),
+		s.expectCharmProfiles,
+	)
 
 	results, err := facade.CharmProfilingInfo(params.CharmProfilingInfoArg{
 		Entity:    params.Entity{Tag: "machine-0"},
@@ -264,22 +285,20 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNoProfile(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	machineTag := names.NewMachineTag("0")
 	unitNames := []string{"unit", "empty"}
 
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-	s.behaviourFindEntity(machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
-	s.behaviourMachine(instance.Id("0"))
-	s.behaviourCharmProfiles()
-	s.behaviourCharmProfilesWithEmpty()
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
+		s.expectMachine(instance.Id("0")),
+		s.expectCharmProfiles,
+		s.expectCharmProfilesWithEmpty,
+	)
 
 	results, err := facade.CharmProfilingInfo(params.CharmProfilingInfoArg{
 		Entity:    params.Entity{Tag: "machine-0"},
@@ -317,15 +336,13 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithInvalidMachine(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	machineTag := names.NewMachineTag("0")
 	unitNames := []string{"unit"}
 
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-	s.state.EXPECT().FindEntity(machineTag).Return(s.entity, errors.New("not found"))
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectFindEntityWithNotFoundError,
+	)
 
 	results, err := facade.CharmProfilingInfo(params.CharmProfilingInfoArg{
 		Entity:    params.Entity{Tag: "machine-0"},
@@ -338,20 +355,18 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithIn
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMachineNotProvisioned(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	machineTag := names.NewMachineTag("0")
 	unitNames := []string{"unit"}
 
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-	s.behaviourFindEntity(machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
-	s.machine.EXPECT().InstanceId().Return(instance.Id("0"), params.Error{Code: params.CodeNotProvisioned})
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
+		s.expectInstanceIdNotProvisioned,
+	)
 
 	results, err := facade.CharmProfilingInfo(params.CharmProfilingInfoArg{
 		Entity:    params.Entity{Tag: "machine-0"},
@@ -364,11 +379,21 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMa
 	c.Assert(results.Changes, jc.IsFalse)
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) behaviourMachine(id instance.Id) {
-	s.machine.EXPECT().InstanceId().Return(id, nil)
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectMachine(id instance.Id) func() {
+	return func() {
+		s.machine.EXPECT().InstanceId().Return(id, nil)
+	}
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) behaviourCharmProfiles() {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectFindEntityWithNotFoundError() {
+	s.state.EXPECT().FindEntity(s.machineTag).Return(s.entity, errors.New("not found"))
+}
+
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectInstanceIdNotProvisioned() {
+	s.machine.EXPECT().InstanceId().Return(instance.Id("0"), params.Error{Code: params.CodeNotProvisioned})
+}
+
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectCharmProfiles() {
 	aExp := s.application.EXPECT()
 	cExp := s.charm.EXPECT()
 	dExp := s.model.EXPECT()
@@ -406,7 +431,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) behaviourCharmProfiles() {
 	cExp.Revision().Return(0)
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) behaviourCharmProfilesWithEmpty() {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectCharmProfilesWithEmpty() {
 	aExp := s.application.EXPECT()
 	cExp := s.charm.EXPECT()
 	lExp := s.lxdProfile.EXPECT()
@@ -447,19 +472,16 @@ func (s *InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite) setup(c *gc.C) *
 func (s *InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	machineTag := names.NewMachineTag("0")
-
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-	s.behaviourFindEntity(machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
-	s.behaviourSetProfileMsg(lxdprofile.SuccessStatus, nil)
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
+		s.expectSetProfileMsg(lxdprofile.SuccessStatus, nil),
+	)
 
 	results, err := facade.SetUpgradeCharmProfileComplete(params.SetProfileUpgradeCompleteArgs{
 		Args: []params.SetProfileUpgradeCompleteArg{
@@ -478,25 +500,22 @@ func (s *InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite) TestSetUpgradeCh
 func (s *InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite) TestSetUpgradeCharmProfileCompleteWithError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	machineTag := names.NewMachineTag("0")
-
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-	s.behaviourFindEntity(machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
-	s.behaviourFindEntity(machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
-	s.behaviourSetProfileMsg(lxdprofile.SuccessStatus, nil)
-	s.behaviourSetProfileMsg(lxdprofile.SuccessStatus, errors.New("Failure"))
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
+		s.expectSetProfileMsg(lxdprofile.SuccessStatus, nil),
+		s.expectSetProfileMsg(lxdprofile.SuccessStatus, errors.New("Failure")),
+	)
 
 	results, err := facade.SetUpgradeCharmProfileComplete(params.SetProfileUpgradeCompleteArgs{
 		Args: []params.SetProfileUpgradeCompleteArg{
@@ -524,8 +543,10 @@ func (s *InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite) TestSetUpgradeCh
 	})
 }
 
-func (s *InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite) behaviourSetProfileMsg(msg string, err error) {
-	s.machine.EXPECT().SetUpgradeCharmProfileComplete("unit", msg).Return(err)
+func (s *InstanceMutaterAPISetUpgradeCharmProfileCompleteSuite) expectSetProfileMsg(msg string, err error) func() {
+	return func() {
+		s.machine.EXPECT().SetUpgradeCharmProfileComplete("unit", msg).Return(err)
+	}
 }
 
 type InstanceMutaterAPISetCharmProfilesSuite struct {
@@ -547,20 +568,18 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) setup(c *gc.C) *gomock.Control
 func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfiles(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	machineTag := names.NewMachineTag("0")
 	profiles := []string{"unit-foo-0"}
 
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-	s.behaviourFindEntity(machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
-	s.behaviourSetProfiles(profiles, nil)
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
+		s.expectSetProfiles(profiles, nil),
+	)
 
 	results, err := facade.SetCharmProfiles(params.SetProfileArgs{
 		Args: []params.SetProfileArg{
@@ -578,26 +597,24 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfiles(c *gc.C) 
 func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	machineTag := names.NewMachineTag("0")
 	profiles := []string{"unit-foo-0"}
 
-	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
-	s.behaviourLife(machineTag)
-	s.behaviourFindEntity(machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
-	s.behaviourSetProfiles(profiles, nil)
-	s.behaviourFindEntity(machineTag, machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-		Lifer:   s.lifer,
-	})
-	s.behaviourSetProfiles(profiles, errors.New("Failure"))
-
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
+		s.expectSetProfiles(profiles, nil),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
+		s.expectSetProfiles(profiles, errors.New("Failure")),
+	)
 
 	results, err := facade.SetCharmProfiles(params.SetProfileArgs{
 		Args: []params.SetProfileArg{
@@ -623,6 +640,95 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(
 	})
 }
 
-func (s *InstanceMutaterAPISetCharmProfilesSuite) behaviourSetProfiles(profiles []string, err error) {
-	s.machine.EXPECT().SetCharmProfiles(profiles).Return(err)
+func (s *InstanceMutaterAPISetCharmProfilesSuite) expectSetProfiles(profiles []string, err error) func() {
+	return func() {
+		s.machine.EXPECT().SetCharmProfiles(profiles).Return(err)
+	}
+}
+
+type InstanceMutaterAPISetModificationStatusSuite struct {
+	instanceMutaterAPISuite
+
+	machine *mocks.MockMachine
+}
+
+var _ = gc.Suite(&InstanceMutaterAPISetModificationStatusSuite{})
+
+func (s *InstanceMutaterAPISetModificationStatusSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := s.instanceMutaterAPISuite.setup(c)
+
+	s.machine = mocks.NewMockMachine(ctrl)
+
+	return ctrl
+}
+
+func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatusProfiles(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
+		s.expectSetModificationStatus(status.Applied, "applied", nil),
+	)
+
+	result, err := facade.SetModificationStatus(params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: "machine-0", Status: "applied", Info: "applied", Data: nil},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+		},
+	})
+}
+
+func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatusProfilesWithError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
+		s.expectSetModificationStatus(status.Applied, "applied", errors.New("failed")),
+	)
+
+	result, err := facade.SetModificationStatus(params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: "machine-0", Status: "applied", Info: "applied", Data: nil},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: "failed"}},
+		},
+	})
+}
+
+func (s *InstanceMutaterAPISetModificationStatusSuite) expectSetModificationStatus(st status.Status, message string, err error) func() {
+	return func() {
+		now := time.Now()
+
+		sExp := s.state.EXPECT()
+		sExp.ControllerTimestamp().Return(&now, nil)
+
+		mExp := s.machine.EXPECT()
+		mExp.SetModificationStatus(status.StatusInfo{
+			Status:  st,
+			Message: message,
+			Data:    nil,
+			Since:   &now,
+		}).Return(err)
+	}
 }

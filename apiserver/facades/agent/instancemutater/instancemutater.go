@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/status"
 )
 
 //go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Context,Resources,Authorizer
@@ -93,6 +94,29 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.CharmProfilingInfoA
 		result.Error = common.ServerError(err)
 	}
 
+	return result, nil
+}
+
+// SetModificationStatus updates the instance whilst changes are occurring. This
+// is different from SetStatus and SetInstanceStatus, by the fact this holds
+// information about the ongoing changes that are happening to instances.
+// Consider LXD Profile updates that can modify a instance, but may not cause
+// the instance to be placed into a error state. This modification status
+// serves the purpose of highlighting that to the operator.
+// Only machine tags are accepted.
+func (api *InstanceMutaterAPI) SetModificationStatus(args params.SetStatus) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canAccess, err := api.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return result, errors.Trace(err)
+	}
+	for i, arg := range args.Entities {
+		err = api.setOneModificationStatus(canAccess, arg)
+		result.Results[i].Error = common.ServerError(err)
+	}
 	return result, nil
 }
 
@@ -232,4 +256,34 @@ func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(machineTag string, pro
 		return errors.Trace(err)
 	}
 	return machine.SetCharmProfiles(profiles)
+}
+
+func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
+	logger.Tracef("SetInstanceStatus called with: %#v", arg)
+	mTag, err := names.ParseMachineTag(arg.Tag)
+	if err != nil {
+		return common.ErrPerm
+	}
+	machine, err := api.getMachine(canAccess, mTag)
+	if err != nil {
+		logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
+		return err
+	}
+
+	// We can use the controller timestamp to get now.
+	since, err := api.st.ControllerTimestamp()
+	if err != nil {
+		return err
+	}
+	s := status.StatusInfo{
+		Status:  status.Status(arg.Status),
+		Message: arg.Info,
+		Data:    arg.Data,
+		Since:   since,
+	}
+	if err = machine.SetModificationStatus(s); err != nil {
+		logger.Debugf("failed to SetModificationStatus for %q: %v", mTag, err)
+		return err
+	}
+	return nil
 }
