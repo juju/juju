@@ -14,6 +14,10 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
+var requireAnnotationsForNameSpace = []string{
+	annotationControllerUUIDKey, annotationModelUUIDKey,
+}
+
 func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]string) error {
 	if ns == nil {
 		return nil
@@ -98,7 +102,9 @@ func (k *kubernetesClient) GetCurrentNamespace() string {
 // EnsureNamespace ensures this broker's namespace is created.
 func (k *kubernetesClient) EnsureNamespace() error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: k.namespace}}
-	ns.SetAnnotations(jujuannotations.New(ns.GetAnnotations()).Merge(k.annotations).ToMap())
+	if err := k.ensureNamespaceAnnotations(ns); err != nil {
+		return errors.Trace(err)
+	}
 	namespaces := k.CoreV1().Namespaces()
 	_, err := namespaces.Update(ns)
 	if k8serrors.IsNotFound(err) {
@@ -107,10 +113,23 @@ func (k *kubernetesClient) EnsureNamespace() error {
 	return errors.Trace(err)
 }
 
+func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error {
+	annotations := jujuannotations.New(ns.GetAnnotations()).Merge(k.annotations)
+	logger.Criticalf("ensureNamespaceAnnotations ------> %v", annotations)
+	// check required keys are set: annotationControllerUUIDKey, annotationModelUUIDKey.
+	if err := annotations.CheckKeysNonEmpty(requireAnnotationsForNameSpace...); err != nil {
+		return errors.Trace(err)
+	}
+	ns.SetAnnotations(annotations.ToMap())
+	return nil
+}
+
 // createNamespace creates a named namespace.
 func (k *kubernetesClient) createNamespace(name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
-	ns.SetAnnotations(jujuannotations.New(ns.GetAnnotations()).Merge(k.annotations).ToMap())
+	if err := k.ensureNamespaceAnnotations(ns); err != nil {
+		return errors.Trace(err)
+	}
 	_, err := k.CoreV1().Namespaces().Create(ns)
 	if k8serrors.IsAlreadyExists(err) {
 		return errors.AlreadyExistsf("namespace %q already exists", name)
@@ -155,5 +174,6 @@ func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return k.newWatcher(w, k.namespace, k.clock)
 }

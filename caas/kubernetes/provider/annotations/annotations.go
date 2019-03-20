@@ -6,6 +6,7 @@ package annotations
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 )
 
@@ -61,12 +62,7 @@ func (a Annotation) ExistAny(expected map[string]string) bool {
 
 // Add inserts a new key value pair.
 func (a Annotation) Add(key, value string) Annotation {
-	key = a.getKey(key)
-	v := a.vals[key]
-	if v != "" {
-		logger.Debugf("annotation %q changed from %q to %q", key, v, value)
-	}
-	a.vals[key] = value
+	a.setVal(key, value)
 	return a
 }
 
@@ -83,6 +79,16 @@ func (a Annotation) ToMap() map[string]string {
 	return a.vals
 }
 
+// CheckKeysNonEmpty checks if the provided keys are all set to non empty value.
+func (a Annotation) CheckKeysNonEmpty(keys ...string) error {
+	for _, k := range keys {
+		if v, ok := a.getVal(k); !ok || v == "" {
+			return errors.NotFoundf("annotation key %q", k)
+		}
+	}
+	return nil
+}
+
 func (a Annotation) getKey(key string) string {
 	if strings.HasPrefix(key, a.prefix) {
 		return key
@@ -90,7 +96,21 @@ func (a Annotation) getKey(key string) string {
 	return a.prefix + "/" + key
 }
 
+// getVal returns the value for the specified key.
 func (a Annotation) getVal(key string) (string, bool) {
 	v, ok := a.vals[a.getKey(key)]
 	return v, ok
+}
+
+func (a Annotation) setVal(key, val string) {
+	key = a.getKey(key)
+	if val == "" {
+		logger.Warningf("setting empty value for annotation %q", key)
+	}
+
+	oldVal, existing := a.getVal(key)
+	if existing {
+		logger.Debugf("annotation %q changed from %q to %q", key, oldVal, val)
+	}
+	a.vals[key] = val
 }
