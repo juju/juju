@@ -550,13 +550,17 @@ func (c *AddCAASCommand) newK8sBrokerGetter() BrokerGetter {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ctrlUUID, err := c.ControllerUUID(c.store, c.controllerName)
-		if err != nil {
-			return nil, errors.Trace(err)
+		openParams := environs.OpenParams{
+			Cloud: cloudSpec, Config: cfg,
 		}
-		return caas.New(environs.OpenParams{
-			ControllerUUID: ctrlUUID, Cloud: cloudSpec, Config: cfg,
-		})
+		if c.controllerName != "" {
+			ctrlUUID, err := c.ControllerUUID(c.store, c.controllerName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			openParams.ControllerUUID = ctrlUUID
+		}
+		return caas.New(openParams)
 	}
 }
 
