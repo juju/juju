@@ -31,7 +31,7 @@ func runAsLibvirt(dir, command string, args ...string) (string, error) {
 	if dir == "" {
 		dir, _ = os.Getwd()
 	}
-	logger.Debugf("running: %s %v from %s", command, args)
+	logger.Debugf("running: %s %v from %s", command, args, dir)
 	logger.Debugf("running as uid: %d, gid: %d\n", uid, gid)
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
