@@ -234,13 +234,15 @@ func (cfg *ControllerPodConfig) GetControllerImagePath() string {
 	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion)
 }
 
-// GetJUjuDbOCIImagePath returns the juju-db oci image path.
+// GetJujuDbOCIImagePath returns the juju-db oci image path.
 func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() string {
 	imageRepo := cfg.Controller.Config.CAASImageRepo()
 	if imageRepo == "" {
 		imageRepo = jujudOCINamespace
 	}
-	v := mongo.Mongo419wt
+	v := mongo.Mongo36wt
+	v.Point = 6
+	// we use mongo:3.6.6 for k8s controller.
 	return fmt.Sprintf("%s/%s:%d.%d.%d", imageRepo, jujudbOCIName, v.Major, v.Minor, v.Point)
 }
 
