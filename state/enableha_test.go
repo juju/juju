@@ -326,6 +326,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
 func (s *EnableHASuite) TestWatchControllerInfo(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w := s.State.WatchControllerInfo()
 	defer statetesting.AssertStop(c, w)

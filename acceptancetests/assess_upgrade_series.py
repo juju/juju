@@ -34,6 +34,7 @@ def assess_juju_upgrade_series(client, args):
     target_machine = '0'
     assert_correct_series(client, target_machine, args.from_series)
     upgrade_series_prepare(client, target_machine, args.to_series, agree=True)
+    reboot_machine(client, target_machine)
     do_release_upgrade(client, target_machine)
     reboot_machine(client, target_machine)
     upgrade_series_complete(client, target_machine)
@@ -57,40 +58,18 @@ def do_release_upgrade(client, machine):
         output = client.get_juju_output(
             'ssh', machine, 'sudo do-release-upgrade -f '
             'DistUpgradeViewNonInteractive', timeout=3600)
+        log.info("do-release-upgrade response: ".format(output))
     except subprocess.CalledProcessError as e:
         raise AssertionError(
             "do-release-upgrade failed on {}: {}".format(machine, e))
 
-    log.info("do-release-upgrade response: ".format(output))
-
 
 def reboot_machine(client, machine):
-    try:
-        log.info("Restarting: {}".format(machine))
-        cmd = build_ssh_cmd(client, machine, 'sudo shutdown -r now && exit')
-        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-        log.info("Restarting machine output: {}\n".format(output))
-    except subprocess.CalledProcessError as e:
-        logging.info(
-            "Error running shutdown:\nstdout: %s\nstderr: %s",
-            e.output, getattr(e, 'stderr', None))
+    log.info("Restarting: {}".format(machine))
+    client.juju('run', ('--machine', machine, 'sudo shutdown -r now'))
 
     log.info("wait_for_started()")
     client.wait_for_started()
-
-
-def build_ssh_cmd(client, machine, command):
-    ssh_opts = [
-        "-o", "User ubuntu",
-        "-o", "UserKnownHostsFile /dev/null",
-        "-o", "StrictHostKeyChecking no",
-        "-o", "PasswordAuthentication no",
-    ]
-
-    status = client.get_status()
-    machine_name = status.get_machine_dns_name(machine)
-    cmd = ["ssh"] + ssh_opts + [machine_name] + [command]
-    return cmd
 
 
 def assert_correct_series(client, machine, expected):
