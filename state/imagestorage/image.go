@@ -73,7 +73,10 @@ func (s *imageStorage) txnRunner(session *mgo.Session) jujutxn.Runner {
 
 // Override for testing.
 var txnRunner = func(db *mgo.Database) jujutxn.Runner {
-	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
+	return jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:               db,
+		ServerSideTransactions: false,
+	})
 }
 
 // AddImage is defined on the Storage interface.

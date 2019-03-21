@@ -361,6 +361,7 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			Database:               raw,
 			RunTransactionObserver: observer,
 			Clock:                  db.clock,
+			ServerSideTransactions: true,
 		}
 		runner = jujutxn.NewRunner(params)
 	}
