@@ -112,6 +112,7 @@ def assess_caas_charm_deployment(caas_client):
     )
 
     k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
+    k8s_model.destroy_model()
 
 
 def parse_args(argv):
