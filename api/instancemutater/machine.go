@@ -43,7 +43,7 @@ type MutaterMachine interface {
 	WatchUnits() (watcher.StringsWatcher, error)
 
 	// SetModificationStatus sets the provider specific modification status
-	// for a machine. Allowing the propergation of status messages to the
+	// for a machine. Allowing the propagation of status messages to the
 	// operator.
 	SetModificationStatus(status status.Status, info string, data map[string]interface{}) error
 }

@@ -1235,7 +1235,7 @@ func (m *Machine) ModificationStatus() (status.StatusInfo, error) {
 }
 
 // SetModificationStatus sets the provider specific modification status
-// for a machine. Allowing the propergation of status messages to the
+// for a machine. Allowing the propagation of status messages to the
 // operator.
 func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
 	return setStatus(m.st.db(), setStatusParams{
