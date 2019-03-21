@@ -336,7 +336,7 @@ func (s *Server) RemoveContainer(name string) error {
 			if err != nil {
 				// sigh, LXD not found container - it's been deleted so, we
 				// just need to return nil.
-				if lxdNotFoundErr(err) {
+				if IsLXDNotFound(errors.Cause(err)) {
 					return nil
 				}
 				return errors.BadRequestf(err.Error())
@@ -382,11 +382,4 @@ func containerHasStatus(container api.Container, statuses []string) bool {
 		}
 	}
 	return false
-}
-
-// lxdNotFound is here because LXD doesn't use typed errors, which causes some
-// pain the in the juju code base. We essentially need to do a string match
-// based on https://github.com/lxc/lxd/blob/097d4845ea5ee78cee5fde6451466d7fd9225726/lxd/response.go#L474
-func lxdNotFoundErr(err error) bool {
-	return errors.Cause(err).Error() == "not found"
 }
