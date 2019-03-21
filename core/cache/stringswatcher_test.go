@@ -6,6 +6,7 @@ package cache_test
 import (
 	"time"
 
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -37,6 +38,40 @@ func (c StringsWatcherC) AssertOneChange(expected []string) {
 		c.Fatalf("watcher did not send change")
 	}
 	c.AssertNoChange()
+}
+
+// AssertMaybeCombinedChanges fails if no change is sent before a long time
+// has passed; if an empty change is found; if the change isn't part of the
+// changes expected.
+func (c StringsWatcherC) AssertMaybeCombinedChanges(expected []string) {
+	var found bool
+	expectedSet := set.NewStrings(expected...)
+	for {
+		select {
+		case obtained, ok := <-c.Watcher.Changes():
+			c.Assert(ok, jc.IsTrue)
+			c.Logf("expected %v; obtained %v", expectedSet.Values(), obtained)
+			// Maybe the expected changes came thru as 1 change.
+			if expectedSet.Size() == len(obtained) {
+				c.Assert(obtained, jc.SameContents, expectedSet.Values())
+				c.Logf("")
+				found = true
+				break
+			}
+			// Remove the obtained results from expected, if nothing is removed
+			// from expected, fail here, received bad data.
+			leftOver := expectedSet.Difference(set.NewStrings(obtained...))
+			if expectedSet.Size() == leftOver.Size() {
+				c.Fatal("obtained %v, not contained in expected %v", obtained, expectedSet.Values())
+			}
+			expectedSet = leftOver
+		case <-time.After(testing.LongWait):
+			c.Fatalf("watcher did not send change")
+		}
+		if found {
+			break
+		}
+	}
 }
 
 // AssertNoChange fails if it manages to read a value from Changes before a

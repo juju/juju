@@ -235,7 +235,7 @@ func (s *ControllerSuite) TestWatchMachineGatherMachines(c *gc.C) {
 	change2 := change
 	change2.Id = "3"
 	s.processChange(c, change2, events)
-	wc.AssertOneChange([]string{change.Id, change2.Id})
+	wc.AssertMaybeCombinedChanges([]string{change.Id, change2.Id})
 }
 
 func (s *ControllerSuite) newWithMachine(c *gc.C) (*cache.Controller, <-chan interface{}) {
