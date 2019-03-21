@@ -743,14 +743,16 @@
   revision = "472a3e8b2073fb3cd67c12d2bc5f3cd28e5f4116"
 
 [[projects]]
-  digest = "1:d816cd26c23069335c5847492447ce99749f1768c4fe3dbd4cca8fd7a54058e9"
+  branch = "txn-with-sstxn"
+  digest = "1:65995a16bb93cebc1cdbb33326582165c07f6615f717c4bf5e2dc6c6fe930561"
   name = "github.com/juju/txn"
   packages = [
     ".",
     "testing",
   ]
   pruneopts = ""
-  revision = "90cbb53292a84c397765581432d543d6faa404a4"
+  revision = "8b04e13fed503681d54b660dbf536336ae62ce6a"
+  source = "github.com/jameinel/juju-txn"
 
 [[projects]]
   digest = "1:cf637806c17846b1660d388cfbee501ed64734526fe2e6176f16f9cd950e7c62"
@@ -902,7 +904,7 @@
   revision = "4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36"
 
 [[projects]]
-  digest = "1:9ab3794bfaaf6e5d195027f3e3d6c53018420de5ccb759d7721926bc80211c67"
+  digest = "1:ec7b515b3d73292884f01ca2321fdf847a94ece44c62c8a0201bd006569218d0"
   name = "github.com/lxc/lxd"
   packages = [
     "client",
@@ -1461,7 +1463,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "1:96b43bfe348be6362e66b0c98dc2fe590d822633da7df13fba644f44e710a57e"
+  digest = "1:4550b3f3b23dc4ddc7ba8e6379b49e4ef54123aa5c7f4afe5d4a9c0629261d9c"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1472,7 +1474,7 @@
   revision = "ba56c9482e6c71e9ed79b1551754831bf9af8854"
 
 [[projects]]
-  digest = "1:86df7d2874a5250cf64324e2ce4e88fea552aa1f5c1a3f065599bd1f381ce939"
+  digest = "1:9fb6d69a402776e877d747d6d9b0bcf0769cde817a4cd451b9540641f9e3f290"
   name = "gopkg.in/juju/charmrepo.v2"
   packages = [
     ".",
@@ -1483,7 +1485,7 @@
   revision = "653bbd81990d2d7d48e0fb931a3b0f52c694572f"
 
 [[projects]]
-  digest = "1:58b987791edd26aa46f1964df3fad56359386e5b872bd145c4cd5eadfb7be646"
+  digest = "1:2420fa2956fd6a56d34be99b00f9c0e0a0d72a001f61d46aabd8d3cabb30618b"
   name = "gopkg.in/juju/charmrepo.v3"
   packages = [
     ".",
@@ -1495,7 +1497,7 @@
   revision = "7778a447283bd71109671c20818544514e16e9d9"
 
 [[projects]]
-  digest = "1:74fbfdf0898041a163a696f0a901b6f4740a47ceffb1839d514ba75699a60c3e"
+  digest = "1:d1ef51b36a44628ee25558833673458df9ed0d25e223bdfdd259de426d55a671"
   name = "gopkg.in/juju/charmstore.v5"
   packages = [
     ".",
@@ -1620,7 +1622,8 @@
   revision = "66ab28d0d56f39a383f7cf5cf3ac9a4e9ab32865"
 
 [[projects]]
-  digest = "1:2ade5b562cede27440f7f98c32495cc634c30eb64bc59e1d37bcd1b45efcd931"
+  branch = "mgo-sstxn"
+  digest = "1:74fe65cba48e6543320b8fad4134daf99a9d9dbdb322ad26b72feacc54224206"
   name = "gopkg.in/mgo.v2"
   packages = [
     ".",
@@ -1628,11 +1631,12 @@
     "internal/json",
     "internal/sasl",
     "internal/scram",
+    "sstxn",
     "txn",
   ]
   pruneopts = ""
-  revision = "9ecfba03d10a21015af9bbd42aa0512dc0cf9514"
-  source = "github.com/juju/mgo"
+  revision = "b083885f668b51f6e40e504d7319c9e241131a53"
+  source = "github.com/jameinel/mgo"
 
 [[projects]]
   digest = "1:b3754795e3fee393109402432c80f9771e13118efa63da5a022028ca68fc1887"
