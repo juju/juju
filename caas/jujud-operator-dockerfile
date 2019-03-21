@@ -1,5 +1,9 @@
 FROM ubuntu:18.04
 
+# Add the syslog user for audit logging.
+RUN useradd --system -M syslog
+RUN usermod -s /usr/sbin/nologin syslog
+
 # Some Python dependencies.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
