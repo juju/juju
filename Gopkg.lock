@@ -731,7 +731,8 @@
   revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
 
 [[projects]]
-  digest = "1:1f97e7ff2235380d88fc2d83045b48bc858555137a948254f938b255be572e66"
+  branch = "mgo-with-replSet"
+  digest = "0:"
   name = "github.com/juju/testing"
   packages = [
     ".",
@@ -740,7 +741,8 @@
     "httptesting",
   ]
   pruneopts = ""
-  revision = "472a3e8b2073fb3cd67c12d2bc5f3cd28e5f4116"
+  revision = "0d8516c13e109e2dd102ddaabf085f32c436a4a6"
+  source = "github.com/jameinel/juju-testing"
 
 [[projects]]
   branch = "txn-with-sstxn"

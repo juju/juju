@@ -114,8 +114,9 @@
   name = "github.com/juju/romulus"
 
 [[constraint]]
-  revision = "472a3e8b2073fb3cd67c12d2bc5f3cd28e5f4116"
+  branch="mgo-with-replSet"
   name = "github.com/juju/testing"
+  source = "github.com/jameinel/juju-testing"
 
 [[constraint]]
   revision = "bf9cc5bdd62dabc40b7f634b39a5e2dc44d44c45"
