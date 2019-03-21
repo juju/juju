@@ -26,7 +26,7 @@ var _ = gc.Suite(&cinderInternalSuite{})
 
 func (s *cinderInternalSuite) TestStorageProviderTypes(c *gc.C) {
 	env := &Environ{
-		cloud: environs.CloudSpec{
+		cloudUnlocked: environs.CloudSpec{
 			Region: "foo",
 		},
 		clientUnlocked: &testAuthClient{

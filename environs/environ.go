@@ -22,20 +22,27 @@ type NewEnvironFunc func(OpenParams) (Environ, error)
 // GetEnviron returns the environs.Environ ("provider") associated
 // with the model.
 func GetEnviron(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, error) {
+	env, _, err := GetEnvironAndCloud(st, newEnviron)
+	return env, err
+}
+
+// GetEnvironAndCloud returns the environs.Environ ("provider") and cloud associated
+// with the model.
+func GetEnvironAndCloud(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, *CloudSpec, error) {
 	modelConfig, err := st.ModelConfig()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	cloudSpec, err := st.CloudSpec()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	env, err := newEnviron(OpenParams{
 		Cloud:  cloudSpec,
 		Config: modelConfig,
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	return env, nil
+	return env, &cloudSpec, nil
 }

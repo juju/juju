@@ -244,7 +244,9 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
 	cloudSpec := cloudspec.NewCloudSpec(
+		resources,
 		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecWatcherForModel(st),
 		common.AuthFuncForTag(m.ModelTag()),
 	)
 
