@@ -94,6 +94,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 				}
 				return errors.Trace(err)
 			}
+
 			m.logger.Tracef("startMachines added machine %s", machine.Tag().Id())
 			c = make(chan struct{})
 			m.machines[tag] = c

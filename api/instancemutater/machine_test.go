@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/api/instancemutater/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -43,40 +45,33 @@ func (s *instanceMutaterMachineSuite) SetUpTest(c *gc.C) {
 func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	results := params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
-	args := s.setUpSetProfileUpgradeCompleteArgs()
+	m := s.machineForScenario(c,
+		s.expectSetUpgradeCharmProfileCompleteFacadeCall,
+	)
 
-	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
-
-	err := s.setupMachine().SetUpgradeCharmProfileComplete(s.unitName, s.message)
+	err := m.SetUpgradeCharmProfileComplete(s.unitName, s.message)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	results := params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "failed"}}}}
-	args := s.setUpSetProfileUpgradeCompleteArgs()
+	m := s.machineForScenario(c,
+		s.expectSetUpgradeCharmProfileCompleteFacadeCallReturnsError(errors.New("failed")),
+	)
 
-	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
-
-	err := s.setupMachine().SetUpgradeCharmProfileComplete(s.unitName, s.message)
+	err := m.SetUpgradeCharmProfileComplete(s.unitName, s.message)
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
 func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteErrorExpectedOne(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	message := lxdprofile.SuccessStatus
-	results := params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}}
-	args := s.setUpSetProfileUpgradeCompleteArgs()
+	m := s.machineForScenario(c,
+		s.expectSetUpgradeCharmProfileCompleteFacadeCallReturnsTwoErrors,
+	)
 
-	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
-
-	err := s.setupMachine().SetUpgradeCharmProfileComplete(s.unitName, message)
+	err := m.SetUpgradeCharmProfileComplete(s.unitName, s.message)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
@@ -169,6 +164,28 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessNoChanges(c *
 	c.Assert(info.ProfileChanges, gc.HasLen, 0)
 }
 
+func (s *instanceMutaterMachineSuite) TestSetModificationStatus(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	m := s.machineForScenario(c,
+		s.expectSetModificationFacadeCall(status.Applied, "applied", nil),
+	)
+
+	err := m.SetModificationStatus(status.Applied, "applied", nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *instanceMutaterMachineSuite) TestSetModificationStatusReturnsError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	m := s.machineForScenario(c,
+		s.expectSetModificationFacadeCallReturnsError(errors.New("bad")),
+	)
+
+	err := m.SetModificationStatus(status.Applied, "applied", nil)
+	c.Assert(err, gc.ErrorMatches, "bad")
+}
+
 func (s *instanceMutaterMachineSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -192,4 +209,87 @@ func (s *instanceMutaterMachineSuite) setUpSetProfileUpgradeCompleteArgs() param
 
 func (s *instanceMutaterMachineSuite) setupMachine() *instancemutater.Machine {
 	return instancemutater.NewMachine(s.fCaller, s.tag, params.Alive)
+}
+
+func (s *instanceMutaterMachineSuite) machineForScenario(c *gc.C, behaviours ...func()) *instancemutater.Machine {
+	for _, b := range behaviours {
+		b()
+	}
+
+	return s.setupMachine()
+}
+
+func (s *instanceMutaterMachineSuite) expectSetUpgradeCharmProfileCompleteFacadeCall() {
+	results := params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
+	args := s.setUpSetProfileUpgradeCompleteArgs()
+
+	fExp := s.fCaller.EXPECT()
+	fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
+}
+
+func (s *instanceMutaterMachineSuite) expectSetUpgradeCharmProfileCompleteFacadeCallReturnsError(err error) func() {
+	return func() {
+		results := params.ErrorResults{
+			Results: []params.ErrorResult{
+				{Error: &params.Error{Message: err.Error()}},
+			},
+		}
+		args := s.setUpSetProfileUpgradeCompleteArgs()
+
+		fExp := s.fCaller.EXPECT()
+		fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
+	}
+}
+
+func (s *instanceMutaterMachineSuite) expectSetUpgradeCharmProfileCompleteFacadeCallReturnsTwoErrors() {
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: nil},
+		},
+	}
+	args := s.setUpSetProfileUpgradeCompleteArgs()
+
+	fExp := s.fCaller.EXPECT()
+	fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
+}
+
+func (s *instanceMutaterMachineSuite) expectSetModificationFacadeCall(status status.Status, info string, data map[string]interface{}) func() {
+	return func() {
+		args := params.SetStatus{
+			Entities: []params.EntityStatusArgs{
+				{Tag: s.tag.String(), Status: status.String(), Info: info, Data: data},
+			},
+		}
+		results := params.ErrorResults{
+			Results: []params.ErrorResult{
+				{},
+			},
+		}
+
+		fExp := s.fCaller.EXPECT()
+		fExp.FacadeCall("SetModificationStatus", args, gomock.Any()).SetArg(2, results).Return(nil)
+	}
+}
+
+func (s *instanceMutaterMachineSuite) expectSetModificationFacadeCallReturnsError(err error) func() {
+	return func() {
+		args := params.SetStatus{
+			Entities: []params.EntityStatusArgs{
+				{Tag: s.tag.String(), Status: status.Applied.String(), Info: "applied"},
+			},
+		}
+		results := params.ErrorResults{
+			Results: []params.ErrorResult{
+				{
+					Error: &params.Error{
+						Message: err.Error(),
+					},
+				},
+			},
+		}
+
+		fExp := s.fCaller.EXPECT()
+		fExp.FacadeCall("SetModificationStatus", args, gomock.Any()).SetArg(2, results).Return(nil)
+	}
 }

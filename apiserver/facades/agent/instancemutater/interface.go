@@ -4,7 +4,10 @@
 package instancemutater
 
 import (
+	"time"
+
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -14,6 +17,7 @@ type InstanceMutaterState interface {
 	WatchModelMachines() state.StringsWatcher
 	Unit(string) (Unit, error)
 	Model() (Model, error)
+	ControllerTimestamp() (*time.Time, error)
 }
 
 // State represents point of use methods from the state object
@@ -32,6 +36,7 @@ type Machine interface {
 	InstanceId() (instance.Id, error)
 	SetCharmProfiles([]string) error
 	SetUpgradeCharmProfileComplete(unitName, msg string) error
+	SetModificationStatus(status.StatusInfo) error
 }
 
 // Unit represents point of use methods from the state unit object
