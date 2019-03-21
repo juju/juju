@@ -4,6 +4,8 @@
 package state
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
@@ -52,6 +54,10 @@ func keysEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
+	a = a[:]
+	b = b[:]
+	sort.Strings(a)
+	sort.Strings(b)
 	for i := range a {
 		if a[i] != b[i] {
 			return false
