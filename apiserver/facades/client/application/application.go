@@ -719,6 +719,21 @@ func parseSettingsCompatible(charmConfig *charm.Config, settings map[string]stri
 	return changes, nil
 }
 
+type setCharmParams struct {
+	AppName               string
+	Application           Application
+	Channel               csparams.Channel
+	ConfigSettingsStrings map[string]string
+	ConfigSettingsYAML    string
+	ResourceIDs           map[string]string
+	StorageConstraints    map[string]params.StorageConstraints
+	Force                 forceParams
+}
+
+type forceParams struct {
+	ForceSeries, ForceUnits, Force bool
+}
+
 // Update updates the application attributes, including charm URL,
 // minimum number of units, charm config and constraints.
 // All parameters in params.ApplicationUpdate except the application name are optional.
@@ -741,17 +756,17 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 		// TODO(ericsnow) Support it?
 		channel := app.Channel()
 		if err = api.updateCharm(
-			args.ApplicationName,
-			app,
+			setCharmParams{
+				AppName:     args.ApplicationName,
+				Application: app,
+				Channel:     channel,
+				Force: forceParams{
+					ForceSeries: args.ForceSeries,
+					ForceUnits:  args.ForceCharmURL,
+					Force:       args.Force,
+				},
+			},
 			args.CharmURL,
-			channel,
-			nil, // charm settings (strings map)
-			"",  // charm settings (YAML)
-			args.ForceSeries,
-			args.ForceCharmURL,
-			args.Force,
-			nil, // resource IDs
-			nil, // storage constraints
 		); err != nil {
 			return errors.Trace(err)
 		}
@@ -795,17 +810,8 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 // this is analogous to setCharmWithAgentValidation, minus the validation around
 // setting the profile charm.
 func (api *APIBase) updateCharm(
-	appName string,
-	application Application,
+	params setCharmParams,
 	url string,
-	channel csparams.Channel,
-	configSettingsStrings map[string]string,
-	configSettingsYAML string,
-	forceSeries,
-	forceUnits,
-	force bool,
-	resourceIDs map[string]string,
-	storageConstraints map[string]params.StorageConstraints,
 ) error {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
@@ -815,11 +821,7 @@ func (api *APIBase) updateCharm(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return api.applicationSetCharm(appName, application, charm,
-		channel, configSettingsStrings, configSettingsYAML,
-		forceSeries, forceUnits, force, resourceIDs,
-		storageConstraints,
-	)
+	return api.applicationSetCharm(params, charm)
 }
 
 // UpdateApplicationSeries updates the application series. Series for
@@ -885,17 +887,21 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	}
 	channel := csparams.Channel(args.Channel)
 	return api.setCharmWithAgentValidation(
-		args.ApplicationName,
-		application,
+		setCharmParams{
+			AppName:               args.ApplicationName,
+			Application:           application,
+			Channel:               channel,
+			ConfigSettingsStrings: args.ConfigSettings,
+			ConfigSettingsYAML:    args.ConfigSettingsYAML,
+			ResourceIDs:           args.ResourceIDs,
+			StorageConstraints:    args.StorageConstraints,
+			Force: forceParams{
+				ForceSeries: args.ForceSeries,
+				ForceUnits:  args.ForceUnits,
+				Force:       args.Force,
+			},
+		},
 		args.CharmURL,
-		channel,
-		args.ConfigSettings,
-		args.ConfigSettingsYAML,
-		args.ForceSeries,
-		args.ForceUnits,
-		args.Force,
-		args.ResourceIDs,
-		args.StorageConstraints,
 	)
 }
 
@@ -905,17 +911,8 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 // the correct and only work around is to upgrade the units to match the
 // controller.
 func (api *APIBase) setCharmWithAgentValidation(
-	appName string,
-	application Application,
+	params setCharmParams,
 	url string,
-	channel csparams.Channel,
-	configSettingsStrings map[string]string,
-	configSettingsYAML string,
-	forceSeries,
-	forceUnits,
-	force bool,
-	resourceIDs map[string]string,
-	storageConstraints map[string]params.StorageConstraints,
 ) error {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
@@ -925,6 +922,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	application := params.Application
 	// Check if the controller agent tools version is greater than the
 	// version we support for the new LXD profiles.
 	// Then check all the units, to see what their agent tools versions is
@@ -956,41 +954,28 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err := application.SetCharmProfile(url); err != nil {
 		return errors.Annotatef(err, "unable to set charm profile")
 	}
-	return api.applicationSetCharm(appName, application, charm,
-		channel, configSettingsStrings, configSettingsYAML,
-		forceSeries, forceUnits, force, resourceIDs,
-		storageConstraints,
-	)
+	return api.applicationSetCharm(params, charm)
 }
 
 // applicationSetCharm sets the charm for the given for the application.
 func (api *APIBase) applicationSetCharm(
-	appName string,
-	application Application,
+	params setCharmParams,
 	stateCharm Charm,
-	channel csparams.Channel,
-	configSettingsStrings map[string]string,
-	configSettingsYAML string,
-	forceSeries,
-	forceUnits,
-	force bool,
-	resourceIDs map[string]string,
-	storageConstraints map[string]params.StorageConstraints,
 ) error {
 	var err error
 	var settings charm.Settings
-	if configSettingsYAML != "" {
-		settings, err = stateCharm.Config().ParseSettingsYAML([]byte(configSettingsYAML), appName)
-	} else if len(configSettingsStrings) > 0 {
-		settings, err = parseSettingsCompatible(stateCharm.Config(), configSettingsStrings)
+	if params.ConfigSettingsYAML != "" {
+		settings, err = stateCharm.Config().ParseSettingsYAML([]byte(params.ConfigSettingsYAML), params.AppName)
+	} else if len(params.ConfigSettingsStrings) > 0 {
+		settings, err = parseSettingsCompatible(stateCharm.Config(), params.ConfigSettingsStrings)
 	}
 	if err != nil {
 		return errors.Annotate(err, "parsing config settings")
 	}
 	var stateStorageConstraints map[string]state.StorageConstraints
-	if len(storageConstraints) > 0 {
+	if len(params.StorageConstraints) > 0 {
 		stateStorageConstraints = make(map[string]state.StorageConstraints)
-		for name, cons := range storageConstraints {
+		for name, cons := range params.StorageConstraints {
 			stateCons := state.StorageConstraints{Pool: cons.Pool}
 			if cons.Size != nil {
 				stateCons.Size = *cons.Size
@@ -1001,17 +986,18 @@ func (api *APIBase) applicationSetCharm(
 			stateStorageConstraints[name] = stateCons
 		}
 	}
+	force := params.Force
 	cfg := state.SetCharmConfig{
 		Charm:              api.stateCharm(stateCharm),
-		Channel:            channel,
+		Channel:            params.Channel,
 		ConfigSettings:     settings,
-		ForceSeries:        forceSeries,
-		ForceUnits:         forceUnits,
-		Force:              force,
-		ResourceIDs:        resourceIDs,
+		ForceSeries:        force.ForceSeries,
+		ForceUnits:         force.ForceUnits,
+		Force:              force.Force,
+		ResourceIDs:        params.ResourceIDs,
 		StorageConstraints: stateStorageConstraints,
 	}
-	return application.SetCharm(cfg)
+	return params.Application.SetCharm(cfg)
 }
 
 // charmConfigFromGetYaml will parse a yaml produced by juju get and generate
