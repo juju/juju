@@ -6,6 +6,7 @@ package instancemutater
 import (
 	"time"
 
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -18,6 +19,12 @@ type InstanceMutaterState interface {
 	Unit(string) (Unit, error)
 	Model() (Model, error)
 	ControllerTimestamp() (*time.Time, error)
+}
+
+// InstanceMutaterCacheModel represents point of use methods from the cache
+// model
+type InstanceMutaterCacheModel interface {
+	WatchMachines() cache.NotifyWatcher // Change to cache.ChangeWatcher
 }
 
 // State represents point of use methods from the state object
