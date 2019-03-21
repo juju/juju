@@ -673,11 +673,11 @@
   revision = "5b9ff866471762aa2ab2dced63c9fb6f53921342"
 
 [[projects]]
-  digest = "1:0919e1397c5d494538f8f6a5bf18ab9546d104565d2a2214ec6973f4fbdb00f3"
+  digest = "1:592b7bbe9d2e0e76c45217ccc69938c5b61a607a5c7a1dd4de88be6c98f44ee5"
   name = "github.com/juju/replicaset"
   packages = ["."]
   pruneopts = ""
-  revision = "86037679224858cd82666e4877a8ac4c42cbda8b"
+  revision = "501ab59799b199dc2a129e60a771a51fef99cd51"
 
 [[projects]]
   digest = "1:2876394b554fd2ea3a68d6585c529817b76a7e3c3c5e0f23e7bf93b6f9956bb8"

@@ -102,7 +102,7 @@
   name = "github.com/juju/proxy"
 
 [[constraint]]
-  revision = "86037679224858cd82666e4877a8ac4c42cbda8b"
+  revision = "501ab59799b199dc2a129e60a771a51fef99cd51"
   name = "github.com/juju/replicaset"
 
 [[constraint]]
