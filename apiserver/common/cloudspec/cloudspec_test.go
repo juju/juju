@@ -17,15 +17,18 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type CloudSpecSuite struct {
 	testing.IsolationSuite
 	testing.Stub
-	result   environs.CloudSpec
-	authFunc common.AuthFunc
-	api      cloudspec.CloudSpecAPI
+	result      environs.CloudSpec
+	specChanges chan struct{}
+	authFunc    common.AuthFunc
+	api         cloudspec.CloudSpecAPI
 }
 
 var _ = gc.Suite(&CloudSpecSuite{})
@@ -38,13 +41,21 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 		s.AddCall("Auth", tag)
 		return tag == coretesting.ModelTag
 	}
-	s.api = cloudspec.NewCloudSpec(func(tag names.ModelTag) (environs.CloudSpec, error) {
-		s.AddCall("CloudSpec", tag)
-		return s.result, s.NextErr()
-	}, func() (common.AuthFunc, error) {
-		s.AddCall("GetAuthFunc")
-		return s.authFunc, s.NextErr()
-	})
+	s.specChanges = make(chan struct{}, 1)
+	s.api = cloudspec.NewCloudSpec(
+		common.NewResources(),
+		func(tag names.ModelTag) (environs.CloudSpec, error) {
+			s.AddCall("CloudSpec", tag)
+			return s.result, s.NextErr()
+		},
+		func(tag names.ModelTag) (state.NotifyWatcher, error) {
+			s.AddCall("WatchCloudSpec", tag)
+			return statetesting.NewMockNotifyWatcher(s.specChanges), s.NextErr()
+		},
+		func() (common.AuthFunc, error) {
+			s.AddCall("GetAuthFunc")
+			return s.authFunc, s.NextErr()
+		})
 
 	credential := cloud.NewCredential(
 		"auth-type",
@@ -99,6 +110,36 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 		{"GetAuthFunc", nil},
 		{"Auth", []interface{}{coretesting.ModelTag}},
 		{"CloudSpec", []interface{}{coretesting.ModelTag}},
+		{"Auth", []interface{}{otherModelTag}},
+	})
+}
+
+func (s *CloudSpecSuite) TestWatchCloudSpecsChanges(c *gc.C) {
+	s.specChanges <- struct{}{}
+	otherModelTag := names.NewModelTag(utils.MustNewUUID().String())
+	machineTag := names.NewMachineTag("42")
+	result, err := s.api.WatchCloudSpecsChanges(params.Entities{Entities: []params.Entity{
+		{coretesting.ModelTag.String()},
+		{otherModelTag.String()},
+		{machineTag.String()},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, jc.DeepEquals, []params.NotifyWatchResult{{
+		NotifyWatcherId: "1",
+	}, {
+		Error: &params.Error{
+			Code:    params.CodeUnauthorized,
+			Message: "permission denied",
+		},
+	}, {
+		Error: &params.Error{
+			Message: `"machine-42" is not a valid model tag`,
+		},
+	}})
+	s.CheckCalls(c, []testing.StubCall{
+		{"GetAuthFunc", nil},
+		{"Auth", []interface{}{coretesting.ModelTag}},
+		{"WatchCloudSpec", []interface{}{coretesting.ModelTag}},
 		{"Auth", []interface{}{otherModelTag}},
 	})
 }
