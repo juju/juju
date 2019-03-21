@@ -357,11 +357,15 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 				)
 			}
 		}
+		sstxn := false
+		if featureflag.Enabled(feature.MongoDbSnap) && featureflag.Enabled(feature.MongoDbSSTXN) {
+			sstxn = true
+		}
 		params := jujutxn.RunnerParams{
 			Database:               raw,
 			RunTransactionObserver: observer,
 			Clock:                  db.clock,
-			ServerSideTransactions: true,
+			ServerSideTransactions: sstxn,
 		}
 		runner = jujutxn.NewRunner(params)
 	}
