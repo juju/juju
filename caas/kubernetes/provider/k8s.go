@@ -143,7 +143,6 @@ func NewK8sBroker(
 		apiextensionsClient: apiextensionsClient,
 		envCfg:              newCfg.Config,
 		namespace:           newCfg.Name(),
-		envCfg:              newCfg.Config,
 		modelUUID:           modelUUID,
 		newWatcher:          newWatcher,
 		annotations: jujuannotations.New(nil).
@@ -241,6 +240,8 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, co
 	if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
+	// All good, no existing controller found on the cluster.
+	// The namespace will be set to controller-name in newcontrollerStack.
 
 	// do validation on starage class.
 	_, err = k.validateOperatorStorage()
