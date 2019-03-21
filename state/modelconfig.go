@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -22,6 +23,20 @@ var disallowedModelConfigAttrs = [...]string{
 // ModelConfig returns the complete config for the model
 func (m *Model) ModelConfig() (*config.Config, error) {
 	return getModelConfig(m.st.db(), m.UUID())
+}
+
+// AgentVersion returns the agent version for the model config.
+// If no agent version is found, it returns NotFound error.
+func (m *Model) AgentVersion() (version.Number, error) {
+	cfg, err := m.ModelConfig()
+	if err != nil {
+		return version.Number{}, errors.Trace(err)
+	}
+	ver, ok := cfg.AgentVersion()
+	if !ok {
+		return version.Number{}, errors.NotFoundf("agent version")
+	}
+	return ver, nil
 }
 
 func getModelConfig(db Database, uuid string) (*config.Config, error) {

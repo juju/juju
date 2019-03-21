@@ -13,6 +13,7 @@ import (
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -454,6 +455,19 @@ func (m *mockModel) ModelConfig() (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
 	attrs := coretesting.FakeConfig().Merge(m.cfg)
 	return config.New(config.UseDefaults, attrs)
+}
+
+func (m *mockModel) AgentVersion() (version.Number, error) {
+	m.MethodCall(m, "AgentVersion")
+	cfg, err := m.ModelConfig()
+	if err != nil {
+		return version.Number{}, err
+	}
+	ver, ok := cfg.AgentVersion()
+	if !ok {
+		return version.Number{}, errors.NotFoundf("agent version")
+	}
+	return ver, nil
 }
 
 type mockMachine struct {

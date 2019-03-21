@@ -5,6 +5,7 @@ package application
 
 import (
 	"github.com/juju/schema"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -157,6 +158,7 @@ type Model interface {
 	Tag() names.Tag
 	Type() state.ModelType
 	ModelConfig() (*config.Config, error)
+	AgentVersion() (version.Number, error)
 }
 
 // Resources defines a subset of the functionality provided by the

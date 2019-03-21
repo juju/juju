@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.application")
@@ -918,7 +919,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charm, err := api.backend.Charm(curl)
+	newCharm, err := api.backend.Charm(curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -934,19 +935,19 @@ func (api *APIBase) setCharmWithAgentValidation(
 		// Ensure that we only check agent versions of a charm when we have a
 		// non-empty profile. So this check will only be run in the following
 		// scenarios; adding a profile, upgrading a profile. Removal of a
-		// profile, that had an existing charm, won't be trigger the following
-		// check.
+		// profile, that had an existing charm, will check if there is currently
+		// an existing charm and if so, run the check.
 		// Checking that is possible, but that would require asking every unit
 		// machines what profiles they currently have and matching with the
 		// incoming update. This could be very costly when you have lots of
 		// machines.
-		// TODO (stickupkid): Removal of LXD Profile
-		if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: charm}) {
-			modelConfig, err := api.model.ModelConfig()
-			if err != nil {
-				return errors.Annotate(err, "getting model config")
-			}
-			if err := validateAgentVersions(application, modelConfig); err != nil {
+		currentCharm, _, err := application.Charm()
+		if err != nil {
+			logger.Debugf("Unable to locate current charm: %v", err)
+		}
+		if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: currentCharm}) ||
+			lxdprofile.NotEmpty(lxdCharmProfiler{Charm: newCharm}) {
+			if err := validateAgentVersions(application, api.model); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -954,7 +955,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err := application.SetCharmProfile(url); err != nil {
 		return errors.Annotatef(err, "unable to set charm profile")
 	}
-	return api.applicationSetCharm(params, charm)
+	return api.applicationSetCharm(params, newCharm)
 }
 
 // applicationSetCharm sets the charm for the given for the application.
@@ -2292,9 +2293,14 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 	return nil
 }
 
+// AgentTools is a point of use agent tools requester.
+type AgentTools interface {
+	AgentTools() (*tools.Tools, error)
+}
+
 // ModelConfig is a point of use model configuration.
 type ModelConfig interface {
-	AgentVersion() (version.Number, bool)
+	AgentVersion() (version.Number, error)
 }
 
 var (
@@ -2305,50 +2311,41 @@ var (
 			"Please run juju upgrade-juju to upgrade the current model to match your controller.")
 )
 
-func validateAgentVersions(application Application, cfgAgentVersion ModelConfig) error {
-	var agentVer version.Number
-	var noAgentVersion bool
+func getAgentToolsVersion(agentTools AgentTools) (version.Number, error) {
+	tools, err := agentTools.AgentTools()
+	if err != nil {
+		return version.Zero, err
+	}
+	return tools.Version.Number, nil
+}
 
+func getModelConfigVersion(modelConfig ModelConfig) (version.Number, error) {
+	agent, err := modelConfig.AgentVersion()
+	if err != nil {
+		return version.Zero, err
+	}
+	return agent, nil
+}
+
+func validateAgentVersions(application Application, modelConfig ModelConfig) error {
 	// The epoch is set like this, because beta tags are less than release tags.
 	// So 2.6-beta1.1 < 2.6.0, even though the patch is greater than 0. To
 	// prevent the miss-match, we add the upper epoch limit.
 	epoch := version.Number{Major: 2, Minor: 5, Patch: math.MaxInt32}
-	tools, err := application.AgentTools()
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return errors.Annotate(err, "cannot retrieve agent tools")
+
+	ver, err := getAgentToolsVersion(application)
+	if ver.Compare(epoch) >= 0 || errors.IsNotFound(err) {
+		// Check to see if the model config version is valid
+		modelVer, modelErr := getModelConfigVersion(modelConfig)
+		if modelErr != nil {
+			// If we can't find the model config version, then we can't do the
+			// comparison check.
+			return errors.Trace(modelErr)
 		}
-		noAgentVersion = true
-	} else {
-		agentVer = tools.Version.Number
+		if modelVer.Compare(epoch) < 0 {
+			return ErrInvalidAgentVersions
+		}
+		return nil
 	}
-	// Check to see if an agent version has been found first, before trying
-	// to compare against a zero'd number
-	if noAgentVersion || agentVer.Compare(epoch) >= 0 {
-		// Check first to see if we have a agent version from the model config.
-		// If we don't have that, then fall back to the agents.
-		cfgVersion, ok := cfgAgentVersion.AgentVersion()
-		if ok {
-			if cfgVersion.Compare(epoch) < 0 {
-				return ErrInvalidAgentVersions
-			}
-			return nil
-		}
-		// If no config is found, we can assume that no config version is found
-		// and that we should attempt to look at the units of the application.
-		units, err := application.AllUnits()
-		if err != nil {
-			return errors.Annotate(err, "cannot retrieve units")
-		}
-		for _, unit := range units {
-			unitTools, err := unit.AgentTools()
-			if err != nil {
-				return errors.Annotate(err, "cannot retrieve unit agent tools")
-			}
-			if unitVer := unitTools.Version; unitVer.Compare(epoch) < 0 {
-				return ErrInvalidAgentVersions
-			}
-		}
-	}
-	return nil
+	return err
 }

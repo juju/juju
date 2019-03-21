@@ -101,6 +101,11 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 			Arch:   "x86",
 		},
 	}
+	lxdProfile := &charm.LXDProfile{
+		Config: map[string]string{
+			"security.nested": "false",
+		},
+	}
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
 	}
@@ -126,7 +131,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 							"intOption":    {Type: "int", Default: int(123)},
 						},
 					},
-					meta: &charm.Meta{Name: "charm-postgresql"},
+					meta:       &charm.Meta{Name: "charm-postgresql"},
+					lxdProfile: lxdProfile,
 				},
 				units: []*mockUnit{
 					{
@@ -164,7 +170,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 							"intOption":    {Type: "int", Default: int(123)},
 						},
 					},
-					meta: &charm.Meta{Name: "charm-postgresql-subordinate"},
+					meta:       &charm.Meta{Name: "charm-postgresql-subordinate"},
+					lxdProfile: lxdProfile,
 				},
 				units: []*mockUnit{
 					{
@@ -195,12 +202,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 							"intOption":    {Type: "int", Default: int(123)},
 						},
 					},
-					meta: &charm.Meta{Name: "charm-redis"},
-					lxdProfile: &charm.LXDProfile{
-						Config: map[string]string{
-							"security.nested": "false",
-						},
-					},
+					meta:       &charm.Meta{Name: "charm-redis"},
+					lxdProfile: lxdProfile,
 				},
 				units: []*mockUnit{
 					{
@@ -238,11 +241,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 					"stringOption": {Type: "string"},
 					"intOption":    {Type: "int", Default: int(123)}},
 			},
-			lxdProfile: &charm.LXDProfile{
-				Config: map[string]string{
-					"security.nested": "false",
-				},
-			},
+			lxdProfile: lxdProfile,
 		},
 		endpoints: &s.endpoints,
 		relations: map[int]*mockRelation{
@@ -368,11 +367,11 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
-	s.backend.charm.CheckCallNames(c, "LXDProfile", "Config")
+	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "AgentTools", "SetCharmProfile", "SetCharm")
-	app.CheckCall(c, 1, "SetCharmProfile", "cs:postgresql")
-	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharmProfile", "SetCharm")
+	app.CheckCall(c, 2, "SetCharmProfile", "cs:postgresql")
+	app.CheckCall(c, 3, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -394,7 +393,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
 
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	app := s.backend.applications["redis"]
-	app.CheckCallNames(c, "AgentTools")
+	app.CheckCallNames(c, "Charm", "AgentTools")
 }
 
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
@@ -411,11 +410,11 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
-	s.backend.charm.CheckCallNames(c, "LXDProfile", "Config")
+	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharmProfile", "SetCharm")
-	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
-	app.CheckCall(c, 1, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharmProfile", "SetCharm")
+	app.CheckCall(c, 2, "SetCharmProfile", "cs:postgresql")
+	app.CheckCall(c, 3, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
