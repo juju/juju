@@ -5,15 +5,19 @@ package agentconfigupdater_test
 
 import (
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
@@ -24,15 +28,21 @@ import (
 type AgentConfigUpdaterSuite struct {
 	testing.BaseSuite
 	manifold dependency.Manifold
+	hub      *pubsub.StructuredHub
 }
 
 var _ = gc.Suite(&AgentConfigUpdaterSuite{})
 
 func (s *AgentConfigUpdaterSuite) SetUpTest(c *gc.C) {
+	logger := loggo.GetLogger("test")
 	s.manifold = agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
-		AgentName:     "agent",
-		APICallerName: "api-caller",
-		Logger:        loggo.GetLogger("test"),
+		AgentName:      "agent",
+		APICallerName:  "api-caller",
+		CentralHubName: "central-hub",
+		Logger:         logger,
+	})
+	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
+		Logger: logger,
 	})
 }
 
@@ -40,6 +50,7 @@ func (s *AgentConfigUpdaterSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, []string{
 		"agent",
 		"api-caller",
+		"central-hub",
 	})
 }
 
@@ -96,15 +107,100 @@ func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *gc.C) {
 	// Call the manifold's start func with a fake resource getter that
 	// returns the fake Agent and APICaller
 	context := dt.StubContext(nil, map[string]interface{}{
-		"agent":      a,
-		"api-caller": apiCaller,
+		"agent":       a,
+		"api-caller":  apiCaller,
+		"central-hub": s.hub,
 	})
 	w, err := s.manifold.Start(context)
 	c.Assert(w, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "checking controller status: boom")
 }
 
-func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIPort int, expectedErr error) {
+func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, response interface{}) error {
+			c.Assert(objType, gc.Equals, "Agent")
+			switch request {
+			case "GetEntities":
+				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
+				result := response.(*params.AgentGetEntitiesResults)
+				result.Entities = []params.AgentGetEntitiesResult{{
+					Jobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+				}}
+			case "StateServingInfo":
+				result := response.(*params.StateServingInfo)
+				*result = params.StateServingInfo{
+					Cert:       "cert",
+					PrivateKey: "key",
+					APIPort:    1234,
+				}
+			case "ControllerConfig":
+				result := response.(*params.ControllerConfigResult)
+				*result = params.ControllerConfigResult{
+					Config: map[string]interface{}{
+						"mongo-memory-profile": "default",
+					},
+				}
+			default:
+				c.Fatalf("not sure how to handle: %q", request)
+			}
+			return nil
+		},
+	)
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent":       &mockAgent{},
+		"api-caller":  apiCaller,
+		"central-hub": dependency.ErrMissing,
+	})
+	worker, err := s.manifold.Start(context)
+	c.Check(worker, gc.IsNil)
+	c.Check(err, gc.Equals, dependency.ErrMissing)
+}
+
+func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *gc.C) {
+	agent := &mockAgent{}
+	agent.conf.profile = "not-set"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, response interface{}) error {
+			c.Assert(objType, gc.Equals, "Agent")
+			switch request {
+			case "GetEntities":
+				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
+				result := response.(*params.AgentGetEntitiesResults)
+				result.Entities = []params.AgentGetEntitiesResult{{
+					Jobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+				}}
+			case "StateServingInfo":
+				result := response.(*params.StateServingInfo)
+				*result = params.StateServingInfo{
+					Cert:       "cert",
+					PrivateKey: "key",
+					APIPort:    1234,
+				}
+			case "ControllerConfig":
+				result := response.(*params.ControllerConfigResult)
+				*result = params.ControllerConfigResult{
+					Config: map[string]interface{}{
+						"mongo-memory-profile": "default",
+					},
+				}
+			default:
+				c.Fatalf("not sure how to handle: %q", request)
+			}
+			return nil
+		},
+	)
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent":       agent,
+		"api-caller":  apiCaller,
+		"central-hub": dependency.ErrMissing,
+	})
+	worker, err := s.manifold.Start(context)
+	c.Check(worker, gc.IsNil)
+	c.Check(err, gc.Equals, jworker.ErrRestartAgent)
+}
+
+func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIPort int) (worker.Worker, error) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
 			c.Assert(objType, gc.Equals, "Agent")
@@ -126,7 +222,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
-						"mongo-memory-profile": "low",
+						"mongo-memory-profile": "default",
 					},
 				}
 			default:
@@ -136,12 +232,11 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 		},
 	)
 	context := dt.StubContext(nil, map[string]interface{}{
-		"agent":      a,
-		"api-caller": apiCaller,
+		"agent":       a,
+		"api-caller":  apiCaller,
+		"central-hub": s.hub,
 	})
-	w, err := s.manifold.Start(context)
-	c.Assert(w, gc.IsNil)
-	c.Assert(err, gc.Equals, expectedErr)
+	return s.manifold.Start(context)
 }
 
 func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *gc.C) {
@@ -149,7 +244,10 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *gc.C) {
 	const mockAPIPort = 1234
 
 	a := &mockAgent{}
-	s.startManifold(c, a, mockAPIPort, dependency.ErrUninstall)
+	w, err := s.startManifold(c, a, mockAPIPort)
+	c.Assert(w, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+	workertest.CleanKill(c, w)
 
 	c.Assert(a.conf.profileSet, jc.IsFalse)
 	// Verify that the state serving info was actually set.
@@ -164,7 +262,9 @@ func (s *AgentConfigUpdaterSuite) TestProfileDifferenceRestarts(c *gc.C) {
 
 	a := &mockAgent{}
 	a.conf.profile = "other"
-	s.startManifold(c, a, mockAPIPort, jworker.ErrRestartAgent)
+	w, err := s.startManifold(c, a, mockAPIPort)
+	c.Assert(w, gc.IsNil)
+	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
 
 	c.Assert(a.conf.profileSet, jc.IsTrue)
 }
@@ -181,7 +281,10 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) 
 		PrivateKey: existingKey,
 	})
 
-	s.startManifold(c, a, mockAPIPort, dependency.ErrUninstall)
+	w, err := s.startManifold(c, a, mockAPIPort)
+	c.Assert(w, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+	workertest.CleanKill(c, w)
 
 	// Verify that the state serving info was actually set.
 	c.Assert(a.conf.ssiSet, jc.IsTrue)
@@ -214,8 +317,9 @@ func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job multiwatcher.M
 		},
 	)
 	w, err := s.manifold.Start(dt.StubContext(nil, map[string]interface{}{
-		"agent":      a,
-		"api-caller": apiCaller,
+		"agent":       a,
+		"api-caller":  apiCaller,
+		"central-hub": s.hub,
 	}))
 	c.Assert(w, gc.IsNil)
 	c.Assert(err, gc.Equals, dependency.ErrUninstall)
@@ -243,7 +347,7 @@ type mockConfig struct {
 	ssiSet bool
 	ssi    params.StateServingInfo
 
-	profile    mongo.MemoryProfile
+	profile    string
 	profileSet bool
 }
 
@@ -269,13 +373,13 @@ func (mc *mockConfig) SetStateServingInfo(info params.StateServingInfo) {
 
 func (mc *mockConfig) MongoMemoryProfile() mongo.MemoryProfile {
 	if mc.profile == "" {
-		return mongo.MemoryProfileLow
+		return controller.DefaultMongoMemoryProfile
 	}
-	return mc.profile
+	return mongo.MemoryProfile(mc.profile)
 }
 
 func (mc *mockConfig) SetMongoMemoryProfile(profile mongo.MemoryProfile) {
-	mc.profile = profile
+	mc.profile = string(profile)
 	mc.profileSet = true
 }
 

@@ -38,7 +38,9 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
+		s.resources,
 		cloudspec.MakeCloudSpecGetterForModel(s.State),
+		cloudspec.MakeCloudSpecWatcherForModel(s.State),
 		common.AuthFuncForTag(s.Model.ModelTag()),
 	)
 	// Create a firewaller API for the machine.

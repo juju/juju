@@ -155,7 +155,9 @@ func NewControllerAPI(
 			apiUser,
 		),
 		CloudSpecAPI: cloudspec.NewCloudSpec(
+			resources,
 			cloudspec.MakeCloudSpecGetter(pool),
+			cloudspec.MakeCloudSpecWatcherForModel(st),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
 		state:      st,
