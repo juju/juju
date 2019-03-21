@@ -232,22 +232,16 @@ var (
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
-	// Mongo34wt represents 'mongodb-server-core' at version 3.4.x with WiredTiger
-	Mongo34wt = Version{Major: 3,
-		Minor:         4,
-		Patch:         "",
-		StorageEngine: WiredTiger,
-	}
 	// Mongo36wt represents 'mongodb-server-core' at version 3.6.x with WiredTiger
 	Mongo36wt = Version{Major: 3,
 		Minor:         6,
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
-	// Mongo419wt represents 'mongodb-server-core' at version 4.1.9 with WiredTiger
-	Mongo419wt = Version{Major: 4,
-		Minor:         1,
-		Point:         9,
+	// Mongo406wt represents 'mongodb-server-core' at version 4.0.6 with WiredTiger
+	Mongo406wt = Version{Major: 4,
+		Minor:         0,
+		Point:         6,
 		StorageEngine: WiredTiger,
 	}
 	// MongoUpgrade represents a sepacial case where an upgrade is in

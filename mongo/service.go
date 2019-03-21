@@ -44,9 +44,6 @@ const (
 	// Mongo34LowCacheSize changed to being a float, and allows you to specify down to 256MB
 	Mongo34LowCacheSize = 0.25
 
-	// defaultStorageEngine is the storage engine used by juju.
-	defaultStorageEngine = WiredTiger
-
 	// flagMarker is an in-line comment for bash. If it somehow makes its way onto
 	// the command line, it will be ignored. See https://stackoverflow.com/a/1456019/395287
 	flagMarker = "`#flag: true` \\"

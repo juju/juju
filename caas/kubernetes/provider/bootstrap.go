@@ -510,6 +510,10 @@ func (c controllerStack) buildStorageSpecForController(statefulset *apps.Statefu
 }
 
 func (c controllerStack) buildContainerSpecForController(statefulset *apps.StatefulSet) error {
+	wiredTigerCacheSize := float32(mongo.LowCacheSize)
+	if c.pcfg.Controller.Config.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
+		wiredTigerCacheSize = 0.25
+	}
 	generateContainerSpecs := func(jujudCmd string) []core.Container {
 		var containerSpec []core.Container
 		// add container mongoDB.
@@ -548,7 +552,7 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 				"--auth",
 				fmt.Sprintf("--keyFile=%s/%s", c.pcfg.DataDir, c.fileNameSharedSecret),
 				"--storageEngine=wiredTiger",
-				"--wiredTigerCacheSizeGB=0.25",
+				fmt.Sprintf("--wiredTigerCacheSizeGB=%v", wiredTigerCacheSize),
 				"--bind_ip_all",
 			},
 			Ports: []core.ContainerPort{
