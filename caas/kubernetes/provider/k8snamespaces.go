@@ -105,10 +105,10 @@ func (k *kubernetesClient) EnsureNamespace() error {
 	if err := k.ensureNamespaceAnnotations(ns); err != nil {
 		return errors.Trace(err)
 	}
-	namespaces := k.CoreV1().Namespaces()
-	_, err := namespaces.Update(ns)
+	api := k.CoreV1().Namespaces()
+	_, err := api.Update(ns)
 	if k8serrors.IsNotFound(err) {
-		_, err = namespaces.Create(ns)
+		_, err = api.Create(ns)
 	}
 	return errors.Trace(err)
 }
@@ -142,7 +142,7 @@ func (k *kubernetesClient) deleteNamespace() error {
 	// All model resources are provisioned in the namespace;
 	// deleting the namespace will also delete those resources.
 	ns, err := k.GetNamespace(k.namespace)
-	if k8serrors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		return nil
 	}
 	if err != nil {

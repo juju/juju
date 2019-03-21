@@ -11,6 +11,7 @@ import (
 	testclock "github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	core "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,8 +36,6 @@ type BaseSuite struct {
 	broker        caas.Broker
 	cfg           *config.Config
 	k8sRestConfig *rest.Config
-
-	namespace string
 
 	controllerUUID string
 
@@ -65,11 +64,8 @@ type BaseSuite struct {
 	watcher *provider.KubernetesWatcher
 }
 
-func (s *BaseSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-
-	s.namespace = "test"
-	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
+func (s *BaseSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":              "fred",
@@ -86,18 +82,46 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.k8sRestConfig, err = provider.CloudSpecToK8sRestConfig(cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// init config for each test for easier changing config inside test.
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
-		config.NameKey:              s.namespace,
+		config.NameKey:              "test",
 		provider.OperatorStorageKey: "",
 		provider.WorkloadStorageKey: "",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
+
+	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
 }
 
-func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) namespace() string {
+	if s.broker != nil {
+		return s.broker.GetCurrentNamespace()
+	}
+	return s.cfg.Name()
+}
 
+func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl)
+	return s.setupBroker(c, ctrl, newK8sRestClientFunc)
+}
+
+func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller, newK8sRestClientFunc provider.NewK8sClientFunc) *gomock.Controller {
+	s.clock = testclock.NewClock(time.Time{})
+	newK8sWatcherForTest := func(wi watch.Interface, name string, clock jujuclock.Clock) (*provider.KubernetesWatcher, error) {
+		w, err := provider.NewKubernetesWatcher(wi, name, clock)
+		c.Assert(err, jc.ErrorIsNil)
+		s.watcher = w
+		return s.watcher, err
+	}
+	var err error
+	s.broker, err = provider.NewK8sBroker(s.controllerUUID, s.k8sRestConfig, s.cfg, newK8sRestClientFunc, newK8sWatcherForTest, s.clock)
+	c.Assert(err, jc.ErrorIsNil)
+	return ctrl
+}
+
+func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller) provider.NewK8sClientFunc {
 	s.k8sClient = mocks.NewMockInterface(ctrl)
 
 	// Plug in the various k8s client modules we need.
@@ -112,22 +136,22 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
 
 	s.mockPods = mocks.NewMockPodInterface(ctrl)
-	mockCoreV1.EXPECT().Pods(s.namespace).AnyTimes().Return(s.mockPods)
+	mockCoreV1.EXPECT().Pods(s.namespace()).AnyTimes().Return(s.mockPods)
 
 	s.mockServices = mocks.NewMockServiceInterface(ctrl)
-	mockCoreV1.EXPECT().Services(s.namespace).AnyTimes().Return(s.mockServices)
+	mockCoreV1.EXPECT().Services(s.namespace()).AnyTimes().Return(s.mockServices)
 
 	s.mockConfigMaps = mocks.NewMockConfigMapInterface(ctrl)
-	mockCoreV1.EXPECT().ConfigMaps(s.namespace).AnyTimes().Return(s.mockConfigMaps)
+	mockCoreV1.EXPECT().ConfigMaps(s.namespace()).AnyTimes().Return(s.mockConfigMaps)
 
 	s.mockPersistentVolumes = mocks.NewMockPersistentVolumeInterface(ctrl)
 	mockCoreV1.EXPECT().PersistentVolumes().AnyTimes().Return(s.mockPersistentVolumes)
 
 	s.mockPersistentVolumeClaims = mocks.NewMockPersistentVolumeClaimInterface(ctrl)
-	mockCoreV1.EXPECT().PersistentVolumeClaims(s.namespace).AnyTimes().Return(s.mockPersistentVolumeClaims)
+	mockCoreV1.EXPECT().PersistentVolumeClaims(s.namespace()).AnyTimes().Return(s.mockPersistentVolumeClaims)
 
 	s.mockSecrets = mocks.NewMockSecretInterface(ctrl)
-	mockCoreV1.EXPECT().Secrets(s.namespace).AnyTimes().Return(s.mockSecrets)
+	mockCoreV1.EXPECT().Secrets(s.namespace()).AnyTimes().Return(s.mockSecrets)
 
 	s.mockNodes = mocks.NewMockNodeInterface(ctrl)
 	mockCoreV1.EXPECT().Nodes().AnyTimes().Return(s.mockNodes)
@@ -139,9 +163,9 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	s.mockIngressInterface = mocks.NewMockIngressInterface(ctrl)
 	s.k8sClient.EXPECT().ExtensionsV1beta1().AnyTimes().Return(s.mockExtensions)
 	s.k8sClient.EXPECT().AppsV1().AnyTimes().Return(s.mockApps)
-	s.mockApps.EXPECT().StatefulSets(s.namespace).AnyTimes().Return(s.mockStatefulSets)
-	s.mockApps.EXPECT().Deployments(s.namespace).AnyTimes().Return(s.mockDeployments)
-	s.mockExtensions.EXPECT().Ingresses(s.namespace).AnyTimes().Return(s.mockIngressInterface)
+	s.mockApps.EXPECT().StatefulSets(s.namespace()).AnyTimes().Return(s.mockStatefulSets)
+	s.mockApps.EXPECT().Deployments(s.namespace()).AnyTimes().Return(s.mockDeployments)
+	s.mockExtensions.EXPECT().Ingresses(s.namespace()).AnyTimes().Return(s.mockIngressInterface)
 
 	s.mockStorage = mocks.NewMockStorageV1Interface(ctrl)
 	s.mockStorageClass = mocks.NewMockStorageClassInterface(ctrl)
@@ -154,8 +178,7 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	s.mockApiextensionsClient.EXPECT().ApiextensionsV1beta1().AnyTimes().Return(s.mockApiextensionsV1)
 	s.mockApiextensionsV1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCustomResourceDefinition)
 
-	// Set up the mock k8sClient we pass to our broker under test.
-	newClient := func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
+	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
 		c.Assert(cfg.Username, gc.Equals, "fred")
 		c.Assert(cfg.Password, gc.Equals, "secret")
 		c.Assert(cfg.Host, gc.Equals, "some-host")
@@ -166,18 +189,6 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		})
 		return s.k8sClient, s.mockApiextensionsClient, nil
 	}
-
-	s.clock = testclock.NewClock(time.Time{})
-	newK8sWatcherForTest := func(wi watch.Interface, name string, clock jujuclock.Clock) (*provider.KubernetesWatcher, error) {
-		w, err := provider.NewKubernetesWatcher(wi, name, clock)
-		c.Assert(err, jc.ErrorIsNil)
-		s.watcher = w
-		return s.watcher, err
-	}
-	var err error
-	s.broker, err = provider.NewK8sBroker(s.controllerUUID, s.k8sRestConfig, s.cfg, newClient, newK8sWatcherForTest, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
-	return ctrl
 }
 
 func (s *BaseSuite) k8sNotFoundError() *k8serrors.StatusError {
@@ -194,4 +205,16 @@ func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation) *v1.DeleteOptio
 
 func (s *BaseSuite) k8sNewFakeWatcher() *watch.RaceFreeFakeWatcher {
 	return watch.NewRaceFreeFake()
+}
+
+func (s *BaseSuite) ensureJujuNamespaceAnnotations(isController bool, ns *core.Namespace) *core.Namespace {
+	annotations := map[string]string{
+		"juju.io/controller-uuid": s.controllerUUID,
+		"juju.io/model-uuid":      s.cfg.UUID(),
+	}
+	if isController {
+		annotations["juju.io/is-controller"] = "true"
+	}
+	ns.SetAnnotations(annotations)
+	return ns
 }

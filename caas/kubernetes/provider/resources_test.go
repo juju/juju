@@ -23,7 +23,7 @@ type ResourcesSuite struct {
 }
 
 func (s *ResourcesSuite) TestAdoptResources(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	modelSelector := "juju-model-uuid==" + testing.ModelTag.Id()

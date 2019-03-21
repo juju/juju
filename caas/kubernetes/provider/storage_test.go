@@ -24,11 +24,11 @@ type storageSuite struct {
 }
 
 func (s *storageSuite) k8sProvider(c *gc.C, ctrl *gomock.Controller) storage.Provider {
-	return provider.StorageProvider(s.k8sClient, s.namespace)
+	return provider.StorageProvider(s.k8sClient, s.namespace())
 }
 
 func (s *storageSuite) TestValidateConfig(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	p := s.k8sProvider(c, ctrl)
@@ -48,7 +48,7 @@ func (s *storageSuite) TestValidateConfig(c *gc.C) {
 }
 
 func (s *storageSuite) TestValidateConfigError(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	p := s.k8sProvider(c, ctrl)
@@ -62,7 +62,7 @@ func (s *storageSuite) TestValidateConfigError(c *gc.C) {
 }
 
 func (s *storageSuite) TestNewStorageConfig(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	cfg, err := provider.NewStorageConfig(map[string]interface{}{
@@ -77,7 +77,7 @@ func (s *storageSuite) TestNewStorageConfig(c *gc.C) {
 }
 
 func (s *storageSuite) TestSupports(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	p := s.k8sProvider(c, ctrl)
@@ -86,7 +86,7 @@ func (s *storageSuite) TestSupports(c *gc.C) {
 }
 
 func (s *storageSuite) TestScope(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	p := s.k8sProvider(c, ctrl)
@@ -94,7 +94,7 @@ func (s *storageSuite) TestScope(c *gc.C) {
 }
 
 func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -119,7 +119,7 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 }
 
 func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -144,7 +144,7 @@ func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *gc.C) {
 }
 
 func (s *storageSuite) TestListVolumes(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -163,7 +163,7 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 }
 
 func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(

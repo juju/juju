@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -36,10 +37,25 @@ type bootstrapSuite struct {
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+	// this is a controller namespace!
+	// this will impact config.name as well.
+
+	controllerName := "controller-1"
+
 	s.BaseSuite.SetUpTest(c)
 
+	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
+		config.NameKey:              "controller",
+		provider.OperatorStorageKey: "",
+		provider.WorkloadStorageKey: "",
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	s.cfg = cfg
+
+	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
+
 	s.controllerCfg = testing.FakeControllerConfig()
-	pcfg, err := podcfg.NewBootstrapControllerPodConfig(s.controllerCfg, "controller-1", "bionic")
+	pcfg, err := podcfg.NewBootstrapControllerPodConfig(s.controllerCfg, controllerName, "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 
 	pcfg.JujuVersion = jujuversion.Current
@@ -79,8 +95,22 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl)
+
+	gomock.InOrder(
+		// NewK8sBroker checks no existing ns by annotations.
+		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
+			Return(&core.NamespaceList{Items: []core.Namespace{}}, nil),
+	)
+
+	s.setupBroker(c, ctrl, newK8sRestClientFunc)
+
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Get(s.pcfg.ControllerName, v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+	)
 
 	controllerStacker := s.controllerStackerGetter()
 	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
@@ -92,12 +122,14 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: s.namespace}}
+	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: s.namespace()}}
+	ns.Name = s.namespace()
+	s.ensureJujuNamespaceAnnotations(true, ns)
 	svc := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-service",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.namespace(),
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-application": "juju-controller-test"},
@@ -122,7 +154,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.namespace(),
 		},
 		Type: core.SecretTypeOpaque,
 	}
@@ -130,7 +162,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.namespace(),
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -141,7 +173,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.namespace(),
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -154,7 +186,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.namespace(),
 		},
 	}
 	bootstrapParamsContent, err := s.pcfg.Bootstrap.StateInitializationParams.Marshal()
@@ -163,7 +195,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.namespace(),
 		},
 		Data: map[string]string{
 			"bootstrap-params": string(bootstrapParamsContent),
@@ -173,7 +205,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.namespace(),
 		},
 		Data: map[string]string{
 			"bootstrap-params": string(bootstrapParamsContent),
@@ -187,7 +219,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.namespace(),
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: "juju-controller-test-service",
@@ -215,7 +247,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:    map[string]string{"juju-application": "juju-controller-test"},
-					Namespace: s.namespace,
+					Namespace: s.namespace(),
 				},
 				Spec: core.PodSpec{
 					RestartPolicy: core.RestartPolicyAlways,

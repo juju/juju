@@ -301,6 +301,12 @@ func (k *kubernetesClient) Bootstrap(
 
 // DestroyController implements the Environ interface.
 func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+	// ensures all annnotations are set correctly.
+	k.annotations.Merge(
+		jujuannotations.New(nil).
+			Add(annotationControllerUUIDKey, controllerUUID).
+			Add(annotationsControllerIsControllerKey, "true"),
+	)
 	return k.Destroy(ctx)
 }
 
