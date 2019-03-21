@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
@@ -164,8 +165,8 @@ type stringsWatcherBase struct {
 func newStringsWatcherBase(values ...string) *stringsWatcherBase {
 	// We use a single entry buffered channel for the changes.
 	// This allows the config changed handler to send a value when there
-	// is a change, but if that value hasn't been consumed before the
-	// next change, the second change is discarded.
+	// is a change, if that value hasn't been consumed before the
+	// next change, the changes are combined.
 	ch := make(chan []string, 1)
 
 	// Send initial event down the channel. We know that this will
@@ -178,6 +179,8 @@ func newStringsWatcherBase(values ...string) *stringsWatcherBase {
 // Changes is part of the core watcher definition.
 // The changes channel is never closed.
 func (w *stringsWatcherBase) Changes() <-chan []string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	return w.changes
 }
 
@@ -212,7 +215,11 @@ func (w *stringsWatcherBase) notify(values []string) {
 	select {
 	case w.changes <- values:
 	default:
-		// Already a pending change, so do nothing.
+		// Already a pending change, so add the new values to the
+		// pending change.
+		changesSet := set.NewStrings(<-w.changes...)
+		changesSet = changesSet.Union(set.NewStrings(values...))
+		w.changes <- changesSet.Values()
 	}
 
 	w.mu.Unlock()
@@ -237,5 +244,5 @@ func (w *ChangeWatcher) changed(topic string, value interface{}) {
 		logger.Errorf("programming error, value not of type []string")
 	}
 
-	w.changes <- strings
+	w.notify(strings)
 }

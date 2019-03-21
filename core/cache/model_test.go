@@ -220,6 +220,24 @@ func (s *ControllerSuite) TestWatchMachineChangeMachine(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *ControllerSuite) TestWatchMachineGatherMachines(c *gc.C) {
+	w, events := s.setupWithWatchMachine(c)
+	defer workertest.CleanKill(c, w)
+	wc := NewStringsWatcherC(c, w)
+	// Sends initial event.
+	wc.AssertOneChange([]string{machineChange.Id})
+
+	change := cache.MachineChange{
+		ModelUUID: modelChange.ModelUUID,
+		Id:        "2",
+	}
+	s.processChange(c, change, events)
+	change2 := change
+	change2.Id = "3"
+	s.processChange(c, change2, events)
+	wc.AssertOneChange([]string{change.Id, change2.Id})
+}
+
 func (s *ControllerSuite) newWithMachine(c *gc.C) (*cache.Controller, <-chan interface{}) {
 	events := s.captureEvents(c)
 	controller, err := cache.NewController(s.config)
