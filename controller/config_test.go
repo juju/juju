@@ -268,6 +268,13 @@ var validateTests = []struct {
 		controller.PruneTxnSleepTime: "15",
 	},
 	expectError: `prune-txn-sleep-time must be a valid duration \(eg "10ms"\): time: missing unit in duration 15`,
+}, {
+	about: "mongo-memory-profile not valid",
+	config: controller.Config{
+		controller.CACertKey:          testing.CACert,
+		controller.MongoMemoryProfile: "not-valid",
+	},
+	expectError: `mongo-memory-profile: expected one of "low" or "default" got string\("not-valid"\)`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {
