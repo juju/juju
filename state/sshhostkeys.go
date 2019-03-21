@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -45,26 +46,57 @@ func (st *State) GetSSHHostKeys(tag names.MachineTag) (SSHHostKeys, error) {
 	return SSHHostKeys(doc.Keys), nil
 }
 
+// keysEqual checks if the ssh host keys are the same between two sets.
+// we shouldn't care about the order of the keys.
+func keysEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // SetSSHHostKeys updates the stored SSH host keys for an entity.
 //
 // See the note for GetSSHHostKeys regarding supported entities.
 func (st *State) SetSSHHostKeys(tag names.MachineTag, keys SSHHostKeys) error {
+	coll, closer := st.db().GetCollection(sshHostKeysC)
+	defer closer()
 	id := machineGlobalKey(tag.Id())
 	doc := sshHostKeysDoc{
 		Keys: keys,
 	}
-	err := st.db().RunTransaction([]txn.Op{
-		{
-			C:      sshHostKeysC,
-			Id:     id,
-			Insert: doc,
-		}, {
+	var dbDoc sshHostKeysDoc
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		err := coll.FindId(id).One(&dbDoc)
+		if err != nil {
+			if err == mgo.ErrNotFound {
+				return []txn.Op{{
+					C:      sshHostKeysC,
+					Id:     id,
+					Insert: doc,
+				}}, nil
+			}
+			return nil, err
+		}
+		if keysEqual(dbDoc.Keys, keys) {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return []txn.Op{{
 			C:      sshHostKeysC,
 			Id:     id,
 			Update: bson.M{"$set": doc},
-		},
-	})
-	return errors.Annotate(err, "SSH host key update failed")
+		}}, nil
+	}
+
+	if err := st.db().Run(buildTxn); err != nil {
+		return errors.Annotate(err, "SSH host key update failed")
+	}
+	return nil
 }
 
 // removeSSHHostKeyOp returns the operation needed to remove the SSH

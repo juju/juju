@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -31,7 +33,7 @@ func (s *SSHHostKeysSuite) TestGetWithNoKeys(c *gc.C) {
 
 func (s *SSHHostKeysSuite) TestSetGet(c *gc.C) {
 	for i := 0; i < 3; i++ {
-		keys := state.SSHHostKeys{"rsa foo", "dsa bar"}
+		keys := state.SSHHostKeys{fmt.Sprintf("rsa foo %d", i), "dsa bar"}
 		err := s.State.SetSSHHostKeys(s.machineTag, keys)
 		c.Assert(err, jc.ErrorIsNil)
 		checkGet(c, s.State, s.machineTag, keys)
