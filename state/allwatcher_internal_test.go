@@ -2737,7 +2737,6 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 
 func testChangeCharms(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
 	changeTestFuncs := []changeTestFunc{
-		// Charms.
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "no charm in state, no charm in store -> do nothing",
@@ -2745,6 +2744,39 @@ func testChangeCharms(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, [
 					C:  "charms",
 					Id: st.docID("wordpress"),
 				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "charm is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.CharmInfo{
+						ModelUUID: st.ModelUUID(),
+						CharmURL:  "local:quantal/quantal-wordpress-2",
+					},
+				},
+				change: watcher.Change{
+					C:  "charms",
+					Id: st.docID("local:quantal/quantal-wordpress-2"),
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			charm := AddTestingCharm(c, st, "wordpress")
+			return changeTestCase{
+				about: "charm is added if it's in backing but not in Store",
+				change: watcher.Change{
+					C:  "charms",
+					Id: st.docID(charm.URL().String()),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.CharmInfo{
+						ModelUUID: st.ModelUUID(),
+						CharmURL:  charm.URL().String(),
+						Life:      multiwatcher.Life("alive"),
+						LXDProfile: &multiwatcher.Profile{
+							Config:  map[string]string{},
+							Devices: map[string]map[string]string{},
+						},
+					}}}
 		},
 	}
 	runChangeTests(c, changeTestFuncs)

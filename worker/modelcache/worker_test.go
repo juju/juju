@@ -374,7 +374,10 @@ func (s *WorkerSuite) TestRemoveCharm(c *gc.C) {
 	controller := s.getController(c, w)
 	modUUID := controller.ModelUUIDs()[0]
 
+	// Move charm to dying.
 	c.Assert(charm.Destroy(), jc.ErrorIsNil)
+	// Remove will delete the charm from the database.
+	c.Assert(charm.Remove(), jc.ErrorIsNil)
 	s.State.StartSync()
 
 	// We will either get our charm event,
