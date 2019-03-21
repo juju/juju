@@ -217,12 +217,24 @@ func (w *stringsWatcherBase) notify(values []string) {
 	default:
 		// Already a pending change, so add the new values to the
 		// pending change.
-		changesSet := set.NewStrings(<-w.changes...)
-		changesSet = changesSet.Union(set.NewStrings(values...))
-		w.changes <- changesSet.Values()
+		w.amendBufferedChange(values)
 	}
 
 	w.mu.Unlock()
+}
+
+// amendBufferedChange alters the buffered notification to include new
+// information. This method assumes lock protection.
+func (w *stringsWatcherBase) amendBufferedChange(values []string) {
+	select {
+	case old := <-w.changes:
+		w.changes <- set.NewStrings(old...).Union(set.NewStrings(values...)).Values()
+	default:
+		// Someone read the channel in the meantime.
+		// We know we're locked, so no further writes will have occurred.
+		// Just send what we were going to send.
+		w.changes <- values
+	}
 }
 
 // ChangeWatcher notifies that something changed, with
