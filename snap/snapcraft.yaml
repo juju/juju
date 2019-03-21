@@ -39,7 +39,6 @@ parts:
       - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
     override-build: |
-      cat patches/*.diff patches/*.patch | patch -f -u -p1 -r- -d ../go/src/github.com/juju/juju/vendor
       snapcraftctl build
 
       mkdir -p $SNAPCRAFT_PART_INSTALL/bash_completions
