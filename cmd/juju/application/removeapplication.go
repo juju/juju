@@ -20,14 +20,22 @@ import (
 
 // NewRemoveApplicationCommand returns a command which removes an application.
 func NewRemoveApplicationCommand() cmd.Command {
-	return modelcmd.Wrap(&removeApplicationCommand{})
+	c := &removeApplicationCommand{}
+	c.newAPIFunc = func() (RemoveApplicationAPI, int, error) {
+		return c.getAPI()
+	}
+	return modelcmd.Wrap(c)
 }
 
 // removeApplicationCommand causes an existing application to be destroyed.
 type removeApplicationCommand struct {
 	modelcmd.ModelCommandBase
-	DestroyStorage   bool
+
+	newAPIFunc func() (RemoveApplicationAPI, int, error)
+
 	ApplicationNames []string
+	DestroyStorage   bool
+	Force            bool
 }
 
 var helpSummaryRmApp = `
@@ -42,8 +50,17 @@ before removing them. Removing units which are co-located with units of
 other charms or a Juju controller will not result in the removal of the
 machine.
 
+Sometimes, the removal of the application may fail as Juju encounters errors
+and failures that need to be dealt with before an application can be removed.
+For example, Juju will not remove an application if there are hook failures.
+However, at times, there is a need to remove an application ignoring
+all operational errors. In these rare cases, use --force option but note 
+that --force will also remove all units of the application, its subordinates
+and, potentially, machines without given them the opportunity to shutdown cleanly.
+
 Examples:
     juju remove-application hadoop
+    juju remove-application --force hadoop
     juju remove-application -m test-model mariadb`[1:]
 
 func (c *removeApplicationCommand) Info() *cmd.Info {
@@ -58,6 +75,7 @@ func (c *removeApplicationCommand) Info() *cmd.Info {
 func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to application units")
+	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
 }
 
 func (c *removeApplicationCommand) Init(args []string) error {
@@ -73,7 +91,7 @@ func (c *removeApplicationCommand) Init(args []string) error {
 	return nil
 }
 
-type removeApplicationAPI interface {
+type RemoveApplicationAPI interface {
 	Close() error
 	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
 	DestroyApplications(application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error)
@@ -89,7 +107,7 @@ type storageAPI interface {
 	ListStorageDetails() ([]params.StorageDetails, error)
 }
 
-func (c *removeApplicationCommand) getAPI() (removeApplicationAPI, int, error) {
+func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, int, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, -1, errors.Trace(err)
@@ -141,7 +159,7 @@ func (c *removeApplicationCommand) applicationsHaveStorage(appNames []string) (b
 }
 
 func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
-	client, apiVersion, err := c.getAPI()
+	client, apiVersion, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
@@ -160,7 +178,7 @@ func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
 // Drop this in Juju 3.0.
 func (c *removeApplicationCommand) removeApplicationsDeprecated(
 	ctx *cmd.Context,
-	client removeApplicationAPI,
+	client RemoveApplicationAPI,
 ) error {
 	for _, name := range c.ApplicationNames {
 		err := client.DestroyDeprecated(name)
@@ -173,11 +191,12 @@ func (c *removeApplicationCommand) removeApplicationsDeprecated(
 
 func (c *removeApplicationCommand) removeApplications(
 	ctx *cmd.Context,
-	client removeApplicationAPI,
+	client RemoveApplicationAPI,
 ) error {
 	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
 		Applications:   c.ApplicationNames,
 		DestroyStorage: c.DestroyStorage,
+		Force:          c.Force,
 	})
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)

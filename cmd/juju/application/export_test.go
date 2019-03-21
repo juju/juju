@@ -13,8 +13,6 @@ import (
 	"github.com/juju/juju/resource/resourceadapters"
 )
 
-type RemoveApplicationAPI removeApplicationAPI
-
 func NewUpgradeCharmCommandForTest(
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
@@ -65,10 +63,20 @@ func NewAddUnitCommandForTestWithRefresh(api applicationAddUnitAPI, store jujucl
 }
 
 // NewRemoveUnitCommandForTest returns a RemoveUnitCommand with the api provided as specified.
-func NewRemoveUnitCommandForTest(api removeApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+func NewRemoveUnitCommandForTest(api RemoveApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &removeUnitCommand{api: api}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
+}
+
+type removeAPIFunc func() (RemoveApplicationAPI, int, error)
+
+// NewRemoveApplicationCommandForTest returns a RemoveApplicationCommand.
+func NewRemoveApplicationCommandForTest(f removeAPIFunc, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	c := &removeApplicationCommand{}
+	c.newAPIFunc = f
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c)
 }
 
 // NewAddRelationCommandForTest returns an AddRelationCommand with the api provided as specified.
