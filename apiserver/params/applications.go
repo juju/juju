@@ -292,6 +292,10 @@ type DestroyApplicationParams struct {
 	// DestroyStorage controls whether or not storage attached to
 	// units of the application should be destroyed.
 	DestroyStorage bool `json:"destroy-storage,omitempty"`
+
+	// Force controls whether or not the destruction of an application
+	// will be forced, i.e. ignore operational errors.
+	Force bool
 }
 
 // DestroyConsumedApplicationsParams holds bulk parameters for the
@@ -368,6 +372,10 @@ type ScaleApplicationParams struct {
 
 	// Scale is the number of units which should be added/removed from the existing count.
 	ScaleChange int `json:"scale-change,omitempty"`
+
+	// Force controls whether or not scaling of an application
+	// will be forced, i.e. ignore operational errors.
+	Force bool
 }
 
 // ScaleApplicationResults contains the results of a ScaleApplication

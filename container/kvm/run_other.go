@@ -7,7 +7,7 @@ package kvm
 
 import "github.com/juju/errors"
 
-func runAsLibvirt(commands string, args ...string) (string, error) {
+func runAsLibvirt(_, _ string, _ ...string) (string, error) {
 	return "", errors.New("kvm is only supported on linux amd64, arm64, and ppc64el")
 }
 

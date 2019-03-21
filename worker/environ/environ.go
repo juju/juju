@@ -4,6 +4,8 @@
 package environ
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -19,6 +21,7 @@ var logger = loggo.GetLogger("juju.worker.environ")
 type ConfigObserver interface {
 	environs.EnvironConfigGetter
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
+	WatchCloudSpecChanges() (watcher.NotifyWatcher, error)
 }
 
 // Config describes the dependencies of a Tracker.
@@ -44,9 +47,10 @@ func (config Config) Validate() error {
 // Tracker loads an environment, makes it available to clients, and updates
 // the environment in response to config changes until it is killed.
 type Tracker struct {
-	config   Config
-	catacomb catacomb.Catacomb
-	environ  environs.Environ
+	config           Config
+	catacomb         catacomb.Catacomb
+	environ          environs.Environ
+	currentCloudSpec environs.CloudSpec
 }
 
 // NewTracker loads an environment from the observer and returns a new Tracker,
@@ -59,14 +63,15 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	environ, err := environs.GetEnviron(config.Observer, config.NewEnvironFunc)
+	environ, spec, err := environs.GetEnvironAndCloud(config.Observer, config.NewEnvironFunc)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create environ")
 	}
 
 	t := &Tracker{
-		config:  config,
-		environ: environ,
+		config:           config,
+		environ:          environ,
+		currentCloudSpec: *spec,
 	}
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &t.catacomb,
@@ -92,6 +97,26 @@ func (t *Tracker) loop() error {
 	if err := t.catacomb.Add(environWatcher); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Some environs support reacting to changes in the cloud config.
+	// Set up a watcher if that's the case.
+	var (
+		cloudWatcherChanges watcher.NotifyChannel
+		cloudSpecSetter     environs.CloudSpecSetter
+		ok                  bool
+	)
+	if cloudSpecSetter, ok = t.environ.(environs.CloudSpecSetter); !ok {
+		logger.Warningf("cloud type %v doesn't support dynamic changing of cloud spec", t.environ.Config().Type())
+	} else {
+		cloudWatcher, err := t.config.Observer.WatchCloudSpecChanges()
+		if err != nil {
+			return errors.Annotate(err, "cannot watch environ cloud spec")
+		}
+		if err := t.catacomb.Add(environWatcher); err != nil {
+			return errors.Trace(err)
+		}
+		cloudWatcherChanges = cloudWatcher.Changes()
+	}
 	for {
 		logger.Debugf("waiting for environ watch notification")
 		select {
@@ -101,14 +126,30 @@ func (t *Tracker) loop() error {
 			if !ok {
 				return errors.New("environ config watch closed")
 			}
-		}
-		logger.Debugf("reloading environ config")
-		modelConfig, err := t.config.Observer.ModelConfig()
-		if err != nil {
-			return errors.Annotate(err, "cannot read environ config")
-		}
-		if err = t.environ.SetConfig(modelConfig); err != nil {
-			return errors.Annotate(err, "cannot update environ config")
+			logger.Debugf("reloading environ config")
+			modelConfig, err := t.config.Observer.ModelConfig()
+			if err != nil {
+				return errors.Annotate(err, "cannot read environ config")
+			}
+			if err = t.environ.SetConfig(modelConfig); err != nil {
+				return errors.Annotate(err, "cannot update environ config")
+			}
+		case _, ok := <-cloudWatcherChanges:
+			if !ok {
+				return errors.New("cloud watch closed")
+			}
+			cloudSpec, err := t.config.Observer.CloudSpec()
+			if err != nil {
+				return errors.Annotate(err, "cannot read environ config")
+			}
+			if reflect.DeepEqual(cloudSpec, t.currentCloudSpec) {
+				continue
+			}
+			logger.Debugf("reloading cloud config")
+			if err = cloudSpecSetter.SetCloudSpec(cloudSpec); err != nil {
+				return errors.Annotate(err, "cannot update environ cloud spec")
+			}
+			t.currentCloudSpec = cloudSpec
 		}
 	}
 }

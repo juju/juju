@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"sync"
+
+	"github.com/juju/juju/container/kvm/mock"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -102,6 +105,20 @@ func (s *KVMSuite) TestCreateContainer(c *gc.C) {
 	containertesting.AssertCloudInit(c, cloudInitFilename)
 }
 
+// This test will pass regular unit tests, but is intended for the
+// race-checking CI job to assert concurrent creation safety.
+func (s *KVMSuite) TestCreateContainerConcurrent(c *gc.C) {
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			_ = containertesting.CreateContainer(c, s.manager, fmt.Sprintf("1/kvm/%d", idx))
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+}
+
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 	inst := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
 
@@ -116,22 +133,20 @@ func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 }
 
 // Test that CreateContainer creates proper startParams.
-func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
+func (s *KVMSuite) TestCreateContainerUsesReleaseSimpleStream(c *gc.C) {
 
 	// Mock machineConfig with a mocked simple stream URL.
 	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// CreateContainer sets TestStartParams internally; we call this
-	// purely for the side-effect.
-	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
-
-	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "")
-	c.Assert(kvm.TestStartParams.Stream, gc.Equals, "released")
+	inst := containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
+	startParams := kvm.ContainerFromInstance(inst).(*mock.MockContainer).StartParams
+	c.Assert(startParams.ImageDownloadURL, gc.Equals, "")
+	c.Assert(startParams.Stream, gc.Equals, "released")
 }
 
 // Test that CreateContainer creates proper startParams.
-func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
+func (s *KVMSuite) TestCreateContainerUsesDailySimpleStream(c *gc.C) {
 
 	// Mock machineConfig with a mocked simple stream URL.
 	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
@@ -143,15 +158,13 @@ func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// CreateContainer sets TestStartParams internally;
-	// we call this purely for the side-effect.
-	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
-
-	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "http://cloud-images.ubuntu.com/daily")
-	c.Assert(kvm.TestStartParams.Stream, gc.Equals, "daily")
+	inst := containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
+	startParams := kvm.ContainerFromInstance(inst).(*mock.MockContainer).StartParams
+	c.Assert(startParams.ImageDownloadURL, gc.Equals, "http://cloud-images.ubuntu.com/daily")
+	c.Assert(startParams.Stream, gc.Equals, "daily")
 }
 
-func (s *KVMSuite) TestCreateContainerUtilizesSetImageMetadataURL(c *gc.C) {
+func (s *KVMSuite) TestCreateContainerUsesSetImageMetadataURL(c *gc.C) {
 
 	// Mock machineConfig with a mocked simple stream URL.
 	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
@@ -163,14 +176,12 @@ func (s *KVMSuite) TestCreateContainerUtilizesSetImageMetadataURL(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// CreateContainer sets TestStartParams internally;
-	// we call this purely for the side-effect.
-	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
-
-	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "https://images.linuxcontainers.org")
+	inst := containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
+	startParams := kvm.ContainerFromInstance(inst).(*mock.MockContainer).StartParams
+	c.Assert(startParams.ImageDownloadURL, gc.Equals, "https://images.linuxcontainers.org")
 }
 
-func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
+func (s *KVMSuite) TestImageAcquisitionUsesSimpleStream(c *gc.C) {
 
 	startParams := kvm.StartParams{
 		Series:           "mocked-series",

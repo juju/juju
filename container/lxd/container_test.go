@@ -419,6 +419,39 @@ func (s *containerSuite) TestRemoveContainersSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *containerSuite) TestRemoveContainersSuccessWithNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	stopOp := lxdtesting.NewMockOperation(ctrl)
+	stopOp.EXPECT().Wait().Return(nil)
+
+	deleteOp := lxdtesting.NewMockOperation(ctrl)
+	deleteOp.EXPECT().Wait().Return(nil)
+
+	stopReq := api.ContainerStatePut{
+		Action:   "stop",
+		Timeout:  -1,
+		Force:    true,
+		Stateful: false,
+	}
+
+	// Container c1 is already stopped. Container c2 is started and stopped before deletion.
+	exp := cSvr.EXPECT()
+	exp.GetContainerState("c1").Return(&api.ContainerState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
+	exp.DeleteContainer("c1").Return(deleteOp, nil)
+	exp.GetContainerState("c2").Return(&api.ContainerState{StatusCode: api.Started}, lxdtesting.ETag, nil)
+	exp.UpdateContainerState("c2", stopReq, lxdtesting.ETag).Return(stopOp, nil)
+	exp.DeleteContainer("c2").Return(deleteOp, errors.New("not found"))
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.RemoveContainers([]string{"c1", "c2"})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *containerSuite) TestRemoveContainersPartialFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

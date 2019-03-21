@@ -450,6 +450,10 @@ type DestroyUnitsParams struct {
 	// DestroyStorage controls whether or not storage attached
 	// to the units will be destroyed.
 	DestroyStorage bool
+
+	// Force controls whether or not the removal of applications
+	// will be forced, i.e. ignore removal errors.
+	Force bool
 }
 
 // DestroyUnits decreases the number of units dedicated to one or more
@@ -471,6 +475,7 @@ func (c *Client) DestroyUnits(in DestroyUnitsParams) ([]params.DestroyUnitResult
 		argsV5.Units = append(argsV5.Units, params.DestroyUnitParams{
 			UnitTag:        names.NewUnitTag(name).String(),
 			DestroyStorage: in.DestroyStorage,
+			Force:          in.Force,
 		})
 	}
 	if len(argsV5.Units) == 0 {
@@ -528,6 +533,10 @@ type DestroyApplicationsParams struct {
 	// DestroyStorage controls whether or not storage attached
 	// to units of the applications will be destroyed.
 	DestroyStorage bool
+
+	// Force controls whether or not the removal of applications
+	// will be forced, i.e. ignore removal errors.
+	Force bool
 }
 
 // DestroyApplications destroys the given applications.
@@ -548,6 +557,7 @@ func (c *Client) DestroyApplications(in DestroyApplicationsParams) ([]params.Des
 		argsV5.Applications = append(argsV5.Applications, params.DestroyApplicationParams{
 			ApplicationTag: names.NewApplicationTag(name).String(),
 			DestroyStorage: in.DestroyStorage,
+			Force:          in.Force,
 		})
 	}
 	if len(argsV5.Applications) == 0 {
@@ -624,6 +634,10 @@ type ScaleApplicationParams struct {
 
 	// ScaleChange is the amount of change to the target number of existing units.
 	ScaleChange int
+
+	// Force controls whether or not the removal of applications
+	// will be forced, i.e. ignore removal errors.
+	Force bool
 }
 
 // ScaleApplication sets the desired unit count for one or more applications.
@@ -641,6 +655,7 @@ func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplic
 			ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
 			Scale:          in.Scale,
 			ScaleChange:    in.ScaleChange,
+			Force:          in.Force,
 		}},
 	}
 	var results params.ScaleApplicationResults

@@ -29,9 +29,10 @@ type removeUnitCommand struct {
 	DestroyStorage bool
 	NumUnits       int
 	EntityNames    []string
-	api            removeApplicationAPI
+	api            RemoveApplicationAPI
 
 	unknownModel bool
+	Force        bool
 }
 
 const removeUnitDoc = `
@@ -61,11 +62,21 @@ model.
 Juju will also remove the machine if the removed unit was the only unit left
 on that machine (including units in containers).
 
+Sometimes, the removal of the unit may fail as Juju encounters errors
+and failures that need to be dealt with before a unit can be removed.
+For example, Juju will not remove a unit if there are hook failures.
+However, at times, there is a need to remove a unit ignoring
+all operational errors. In these rare cases, use --force option but note 
+that --force will remove a unit and, potentially, its machine without 
+given them the opportunity to shutdown cleanly.
+
 Examples:
 
     juju remove-unit wordpress/2 wordpress/3 wordpress/4
 
     juju remove-unit wordpress/2 --destroy-storage
+ 
+    juju remove-unit wordpress/2 --force
 
 See also:
     remove-application
@@ -85,6 +96,7 @@ func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "num-units", 0, "Number of units to remove (kubernetes models only)")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
+	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
 }
 
 func (c *removeUnitCommand) Init(args []string) error {
@@ -144,7 +156,7 @@ func (c *removeUnitCommand) validateIAASRemoval() error {
 	return nil
 }
 
-func (c *removeUnitCommand) getAPI() (removeApplicationAPI, int, error) {
+func (c *removeUnitCommand) getAPI() (RemoveApplicationAPI, int, error) {
 	if c.api != nil {
 		return c.api, c.api.BestAPIVersion(), nil
 	}
@@ -224,15 +236,16 @@ func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
 
 // TODO(axw) 2017-03-16 #1673323
 // Drop this in Juju 3.0.
-func (c *removeUnitCommand) removeUnitsDeprecated(ctx *cmd.Context, client removeApplicationAPI) error {
+func (c *removeUnitCommand) removeUnitsDeprecated(ctx *cmd.Context, client RemoveApplicationAPI) error {
 	err := client.DestroyUnitsDeprecated(c.EntityNames...)
 	return block.ProcessBlockedError(err, block.BlockRemove)
 }
 
-func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client removeApplicationAPI) error {
+func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicationAPI) error {
 	results, err := client.DestroyUnits(application.DestroyUnitsParams{
 		Units:          c.EntityNames,
 		DestroyStorage: c.DestroyStorage,
+		Force:          c.Force,
 	})
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockRemove)
@@ -269,10 +282,11 @@ func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client removeApplicati
 	return nil
 }
 
-func (c *removeUnitCommand) removeCaasUnits(ctx *cmd.Context, client removeApplicationAPI) error {
+func (c *removeUnitCommand) removeCaasUnits(ctx *cmd.Context, client RemoveApplicationAPI) error {
 	result, err := client.ScaleApplication(application.ScaleApplicationParams{
 		ApplicationName: c.EntityNames[0],
 		ScaleChange:     -c.NumUnits,
+		Force:           c.Force,
 	})
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockRemove)

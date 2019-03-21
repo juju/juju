@@ -410,6 +410,10 @@ type DestroyUnitParams struct {
 	// DestroyStorage controls whether or not storage
 	// attached to the unit should be destroyed.
 	DestroyStorage bool `json:"destroy-storage,omitempty"`
+
+	// Force controls whether or not the destruction of an application
+	// will be forced, i.e. ignore operational errors.
+	Force bool
 }
 
 // Creds holds credentials for identifying an entity.
