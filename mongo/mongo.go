@@ -238,13 +238,20 @@ var (
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
-	// Mongo406wt represents 'mongodb-server-core' at version 4.0.6 with WiredTiger
+	// Mongo406wt represents snap 'juju-db' at version 4.0.x with WiredTiger
+	// XXX: (jam) This is the only Mongo declaration that declares a Point
+	//  release. It doesn't seem the right place to do so. We currently have to,
+	//  because the K8s pod spec requires it but
+	//  a) It doesn't match the current snap version
+	//  b) It prevents our normal "update the package to get an updated mongo without
+	//     rebuilding Juju".
+	//  c) It will get *real* messy if we support a range of 4.0.* releases.
 	Mongo406wt = Version{Major: 4,
 		Minor:         0,
 		Point:         6,
 		StorageEngine: WiredTiger,
 	}
-	// MongoUpgrade represents a sepacial case where an upgrade is in
+	// MongoUpgrade represents a special case where an upgrade is in
 	// progress.
 	MongoUpgrade = Version{Major: 0,
 		Minor:         0,
@@ -535,6 +542,12 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	// Disable the default mongodb installed by the mongodb-server package.
 	// Only do this if the file doesn't exist already, so users can run
 	// their own mongodb server if they wish to.
+	// Note (jam): 2019-03-22 This shouldn't be needed anymore. It was used
+	//  on Precise where we installed mongodb-server from the archive. On
+	//   Trusty:  we install juju-mongodb
+	//   Xenial:  we install juju-mongodb3.2
+	//   Bionic:  we install mongodb-server-core (which doesn't run the service)
+	//        or  snap install juju-db
 	if _, err := os.Stat(mongoConfigPath); os.IsNotExist(err) {
 		err = utils.AtomicWriteFile(
 			mongoConfigPath,

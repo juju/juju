@@ -483,13 +483,11 @@ func generateConfig(mongoPath string, dataDir string, statePort int, oplogSizeMB
 	}
 
 	if featureflag.Enabled(feature.MongoDbSnap) {
-		// TODO (jam): 2019-03-22 Do we have to set Syslog = false, it has
-		//  been very useful in debugging production systems. Maybe we
-		//  can put the syslog 'long running queries' to another file
+		// Switch from syslog to appending to dataDir, because snaps don't
+		// have the same permissions
 		mongoArgs.Syslog = false
 		mongoArgs.LogAppend = true
 		mongoArgs.LogPath = logPath(dataDir)
-		mongoArgs.BindToAllIP = true // TODO(tsm): disable when not needed
 	}
 
 	return mongoArgs

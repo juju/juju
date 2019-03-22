@@ -128,7 +128,7 @@ func (s *serviceSuite) TestNewConf32(c *gc.C) {
 	}
 	c.Check(hasStorageEngine, gc.Equals, true)
 	c.Check(hasOplogSize, gc.Equals, true)
-	c.Check(hasCacheSize, gc.Equals, true)
+	c.Check(hasCacheSize, gc.Equals, false)
 }
 
 func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
@@ -145,7 +145,7 @@ func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
 		oplogSizeMB,
 		false,
 		mongodVersion,
-		mongo.MemoryProfileDefault,
+		mongo.MemoryProfileLow,
 	)
 	conf := mongo.NewConf(confArgs)
 
