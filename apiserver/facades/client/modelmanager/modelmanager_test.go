@@ -432,6 +432,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
+		"ControllerConfig",
 		"NewModel",
 		"Close",
 		"GetBackend",

@@ -5,8 +5,6 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
@@ -17,6 +15,7 @@ import (
 	common "github.com/juju/juju/provider/common"
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version"
+	reflect "reflect"
 )
 
 // MockZonedEnviron is a mock of ZonedEnviron interface
@@ -244,15 +243,15 @@ func (mr *MockZonedEnvironMockRecorder) PrecheckInstance(arg0, arg1 interface{})
 }
 
 // PrepareForBootstrap mocks base method
-func (m *MockZonedEnviron) PrepareForBootstrap(arg0 environs.BootstrapContext) error {
-	ret := m.ctrl.Call(m, "PrepareForBootstrap", arg0)
+func (m *MockZonedEnviron) PrepareForBootstrap(arg0 environs.BootstrapContext, arg1 string) error {
+	ret := m.ctrl.Call(m, "PrepareForBootstrap", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PrepareForBootstrap indicates an expected call of PrepareForBootstrap
-func (mr *MockZonedEnvironMockRecorder) PrepareForBootstrap(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareForBootstrap", reflect.TypeOf((*MockZonedEnviron)(nil).PrepareForBootstrap), arg0)
+func (mr *MockZonedEnvironMockRecorder) PrepareForBootstrap(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareForBootstrap", reflect.TypeOf((*MockZonedEnviron)(nil).PrepareForBootstrap), arg0, arg1)
 }
 
 // Provider mocks base method
