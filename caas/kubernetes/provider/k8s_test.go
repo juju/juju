@@ -384,7 +384,7 @@ func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestControllerNamespaceRenaming(c *gc.C) {
+func (s *K8sBrokerSuite) TestControllerNamespaceRenamingFromModelConfigNameToControllerName(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
 		config.NameKey: "controller",
 	}))
@@ -399,7 +399,7 @@ func (s *K8sBrokerSuite) TestControllerNamespaceRenaming(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl)
+	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).

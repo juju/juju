@@ -97,6 +97,16 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.namespace = s.cfg.Name()
 }
 
+func (s *BaseSuite) TearDownTest(c *gc.C) {
+	// ensure previous broker setup all are all cleaned up because it should be re-initialized in setupController or errors.
+	s.broker = nil
+	s.clock = nil
+	s.k8sClient = nil
+	s.mockApiextensionsClient = nil
+
+	s.BaseSuite.TearDownTest(c)
+}
+
 func (s *BaseSuite) getNamespace() string {
 	if s.broker != nil {
 		return s.broker.GetCurrentNamespace()
@@ -106,7 +116,7 @@ func (s *BaseSuite) getNamespace() string {
 
 func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl)
+	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 	return s.setupBroker(c, ctrl, newK8sRestClientFunc)
 }
 
@@ -124,7 +134,7 @@ func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller, newK8sRestClie
 	return ctrl
 }
 
-func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller) provider.NewK8sClientFunc {
+func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespace string) provider.NewK8sClientFunc {
 	s.k8sClient = mocks.NewMockInterface(ctrl)
 
 	// Plug in the various k8s client modules we need.
@@ -140,22 +150,22 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller) provide
 	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
 
 	s.mockPods = mocks.NewMockPodInterface(ctrl)
-	mockCoreV1.EXPECT().Pods(s.getNamespace()).AnyTimes().Return(s.mockPods)
+	mockCoreV1.EXPECT().Pods(namespace).AnyTimes().Return(s.mockPods)
 
 	s.mockServices = mocks.NewMockServiceInterface(ctrl)
-	mockCoreV1.EXPECT().Services(s.getNamespace()).AnyTimes().Return(s.mockServices)
+	mockCoreV1.EXPECT().Services(namespace).AnyTimes().Return(s.mockServices)
 
 	s.mockConfigMaps = mocks.NewMockConfigMapInterface(ctrl)
-	mockCoreV1.EXPECT().ConfigMaps(s.getNamespace()).AnyTimes().Return(s.mockConfigMaps)
+	mockCoreV1.EXPECT().ConfigMaps(namespace).AnyTimes().Return(s.mockConfigMaps)
 
 	s.mockPersistentVolumes = mocks.NewMockPersistentVolumeInterface(ctrl)
 	mockCoreV1.EXPECT().PersistentVolumes().AnyTimes().Return(s.mockPersistentVolumes)
 
 	s.mockPersistentVolumeClaims = mocks.NewMockPersistentVolumeClaimInterface(ctrl)
-	mockCoreV1.EXPECT().PersistentVolumeClaims(s.getNamespace()).AnyTimes().Return(s.mockPersistentVolumeClaims)
+	mockCoreV1.EXPECT().PersistentVolumeClaims(namespace).AnyTimes().Return(s.mockPersistentVolumeClaims)
 
 	s.mockSecrets = mocks.NewMockSecretInterface(ctrl)
-	mockCoreV1.EXPECT().Secrets(s.getNamespace()).AnyTimes().Return(s.mockSecrets)
+	mockCoreV1.EXPECT().Secrets(namespace).AnyTimes().Return(s.mockSecrets)
 
 	s.mockNodes = mocks.NewMockNodeInterface(ctrl)
 	mockCoreV1.EXPECT().Nodes().AnyTimes().Return(s.mockNodes)
@@ -167,9 +177,9 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller) provide
 	s.mockIngressInterface = mocks.NewMockIngressInterface(ctrl)
 	s.k8sClient.EXPECT().ExtensionsV1beta1().AnyTimes().Return(s.mockExtensions)
 	s.k8sClient.EXPECT().AppsV1().AnyTimes().Return(s.mockApps)
-	s.mockApps.EXPECT().StatefulSets(s.getNamespace()).AnyTimes().Return(s.mockStatefulSets)
-	s.mockApps.EXPECT().Deployments(s.getNamespace()).AnyTimes().Return(s.mockDeployments)
-	s.mockExtensions.EXPECT().Ingresses(s.getNamespace()).AnyTimes().Return(s.mockIngressInterface)
+	s.mockApps.EXPECT().StatefulSets(namespace).AnyTimes().Return(s.mockStatefulSets)
+	s.mockApps.EXPECT().Deployments(namespace).AnyTimes().Return(s.mockDeployments)
+	s.mockExtensions.EXPECT().Ingresses(namespace).AnyTimes().Return(s.mockIngressInterface)
 
 	s.mockStorage = mocks.NewMockStorageV1Interface(ctrl)
 	s.mockStorageClass = mocks.NewMockStorageClassInterface(ctrl)

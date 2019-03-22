@@ -95,10 +95,9 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	// this is set in newcontrollerStack eventually, but we need to set here because mock resources set ns now!
-	// TODO: fix here !!!
-	s.namespace = s.pcfg.ControllerName
-	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl)
+	// Eventually the namespace wil be set to controllerName.
+	// So we have to specify the final namespace(controllerName) for later use.
+	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.pcfg.ControllerName)
 
 	gomock.InOrder(
 		// NewK8sBroker checks no existing ns by annotations.
@@ -106,16 +105,16 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Return(&core.NamespaceList{Items: []core.Namespace{}}, nil),
 	)
 	s.setupBroker(c, ctrl, newK8sRestClientFunc)
-	// broker's namespace should be "controller" - controllerModelConfig.Name()
+	// Broker's namespace should be "controller" - controllerModelConfig.Name()
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller")
 
 	gomock.InOrder(
-		// setControllerNamespace checks controllerName is ok to use.
+		// The setControllerNamespace checks controllerName is ok to use.
 		s.mockNamespaces.EXPECT().Get(s.pcfg.ControllerName, v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 	)
 	controllerStacker := s.controllerStackerGetter()
-	// broker's namespace should be set to controller name now.
+	// Broker's namespace should be set to controller name now.
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.pcfg.ControllerName)
 
 	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
