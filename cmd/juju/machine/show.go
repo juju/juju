@@ -16,10 +16,7 @@ other formats can be specified with the "--format" option.
 Available formats are yaml, tabular, and json
 
 Examples:
-    # Display status for machine 0
     juju show-machine 0
-
-    # Display status for machines 1, 2 & 3
     juju show-machine 1 2 3
 
 `
