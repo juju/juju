@@ -243,6 +243,11 @@ def parse_args(argv):
         help="the name of a mongo profile to use when bootstrapping",
         default="",
     )
+    parser.add_argument(
+        '--with-mongo-server-side-txns',
+        help="set to true to enable server-side mongo transactions (mongo4)",
+        default="false",
+    )
     add_basic_testing_arguments(parser, existing=False)
     # Override the default logging_config default value set by adding basic
     # testing arguments. This way we can have a default value for all tests,
@@ -262,7 +267,12 @@ def mongo_snap_settings(args):
     # enabled features to the backend; the backend however supports
     # fetching the features through the JUJU_DEV_FEATURE_FLAGS envvar.
     log.info("Enabling 'mongodb-snap' feature flag")
-    os.environ["JUJU_DEV_FEATURE_FLAGS"] = "mongodb-snap"
+    flags = "mongodb-snap"
+    if args.with_mongo_server_side_txns == "true":
+        log.info("Enabling 'mongodb-sstxn' feature flag")
+        flags += ",mongodb-sstxn"
+
+    os.environ["JUJU_DEV_FEATURE_FLAGS"] = flags
 
     # Fetch snap if using a remote URL. Juju expects the snap file to match
     # "juju-db_\d+.snap" so we should rename it accordingly.
@@ -327,6 +337,7 @@ def main(argv=None):
         charm_urls = ",".join(extract_charm_urls(client))
 
         try:
+            use_sst = args.with_mongo_server_side_txns == "true"
             rclient = get_reporting_client(args.reporting_uri)
             rclient.report(metrics, tags={
                 "git-sha": args.git_sha,
@@ -335,8 +346,7 @@ def main(argv=None):
                 "juju-version": args.juju_version,
                 "mongo-version": mongo_version,
                 "mongo-profile": mongo_profile,
-                # The following are placeholders for now
-                "mongo-ss-txns": "false",
+                "mongo-ss-txns": "true" if use_sst else "false",
             })
         except Exception:
             raise JujuAssertionError("Error reporting metrics")
