@@ -91,7 +91,7 @@ func newcontrollerStack(
 	broker *kubernetesClient,
 	pcfg *podcfg.ControllerPodConfig,
 ) (controllerStacker, error) {
-	// TODO(caas): parse from constrains?\
+	// TODO(caas): parse from constrains?
 	storageSizeControllerRaw := "20Gi"
 	storageSize, err := resource.ParseQuantity(storageSizeControllerRaw)
 	if err != nil {

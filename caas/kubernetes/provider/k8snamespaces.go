@@ -71,9 +71,7 @@ func (k *kubernetesClient) getOneNamespaceByAnnotations(annotations jujuannotati
 	}
 	var matchedNS []core.Namespace
 	annotationMap := annotations.ToMap()
-	logger.Criticalf("finding namespace for annotations %v", annotationMap)
 	for _, ns := range namespaces.Items {
-		logger.Criticalf("getOneNamespaceByAnnotations k.namespace -> %q, ns.Namespace -> %q", k.namespace, ns.GetName())
 		if err := checkNamespaceOwnedByJuju(&ns, annotationMap); err != nil {
 			continue
 		}
@@ -83,7 +81,7 @@ func (k *kubernetesClient) getOneNamespaceByAnnotations(annotations jujuannotati
 		matchedNS = append(matchedNS, ns)
 	}
 	if len(matchedNS) > 0 {
-		doLog := logger.Criticalf
+		doLog := logger.Debugf
 		if len(matchedNS) > 1 {
 			// this should never happen before we enable multi controller in single cluster.
 			doLog = logger.Errorf
@@ -115,7 +113,6 @@ func (k *kubernetesClient) EnsureNamespace() error {
 
 func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error {
 	annotations := jujuannotations.New(ns.GetAnnotations()).Merge(k.annotations)
-	logger.Criticalf("ensureNamespaceAnnotations ------> %v", annotations)
 	// check required keys are set: annotationControllerUUIDKey, annotationModelUUIDKey.
 	if err := annotations.CheckKeysNonEmpty(requireAnnotationsForNameSpace...); err != nil {
 		return errors.Trace(err)

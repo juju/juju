@@ -181,9 +181,7 @@ func (k *kubernetesClient) decideFacts() error {
 		}
 		// This is an existing controller.
 		// Now, link it back.
-		logger.Criticalf("decideFacts found NS -> %+v", ns)
 		namespace = ns.GetName()
-		logger.Criticalf("found namespace %q for %q model", namespace, k.envCfg.Name())
 	}
 	k.namespace = namespace
 	return nil
@@ -243,7 +241,7 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, co
 	// All good, no existing controller found on the cluster.
 	// The namespace will be set to controller-name in newcontrollerStack.
 
-	// do validation on starage class.
+	// do validation on storage class.
 	_, err = k.validateOperatorStorage()
 	return errors.Trace(err)
 }
@@ -301,7 +299,7 @@ func (k *kubernetesClient) Bootstrap(
 
 // DestroyController implements the Environ interface.
 func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
-	// ensures all annnotations are set correctly.
+	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
 	k.annotations.Merge(
 		jujuannotations.New(nil).
 			Add(annotationControllerUUIDKey, controllerUUID).
