@@ -42,8 +42,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	jujuannotations "github.com/juju/juju/caas/kubernetes/provider/annotations"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	jujuannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
@@ -73,11 +73,16 @@ const (
 
 	jujudToolDir = "/var/lib/juju/tools"
 
-	annotationControllerUUIDKey = "controller-uuid"
-	annotationModelUUIDKey      = "model-uuid"
+	annotationPrefix = "juju.io"
 )
 
-var defaultPropagationPolicy = v1.DeletePropagationForeground
+var (
+	defaultPropagationPolicy = v1.DeletePropagationForeground
+
+	annotationModelUUIDKey              = annotationPrefix + "/" + "model"
+	annotationControllerUUIDKey         = annotationPrefix + "/" + "controller"
+	annotationControllerIsControllerKey = annotationPrefix + "/" + "is-controller"
+)
 
 type kubernetesClient struct {
 	clock jujuclock.Clock
@@ -168,7 +173,7 @@ func (k *kubernetesClient) decideFacts() error {
 		// this is a controller model.
 
 		// ensure controller specific annotations.
-		_ = k.annotations.Add(annotationsControllerIsControllerKey, "true")
+		_ = k.annotations.Add(annotationControllerIsControllerKey, "true")
 
 		ns, err := k.getOneNamespaceByAnnotations(k.annotations)
 		if errors.IsNotFound(err) || ns == nil {
@@ -303,7 +308,7 @@ func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, co
 	k.annotations.Merge(
 		jujuannotations.New(nil).
 			Add(annotationControllerUUIDKey, controllerUUID).
-			Add(annotationsControllerIsControllerKey, "true"),
+			Add(annotationControllerIsControllerKey, "true"),
 	)
 	return k.Destroy(ctx)
 }

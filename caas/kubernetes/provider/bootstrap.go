@@ -27,9 +27,6 @@ import (
 const (
 	// JujuControllerStackName is the juju CAAS controller stack name.
 	JujuControllerStackName = "juju-controller"
-
-	// annotationsControllerIsControllerKey is the juju controller annotation key for is-controller.
-	annotationsControllerIsControllerKey = "is-controller"
 )
 
 var (

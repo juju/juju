@@ -10,7 +10,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 
-	jujuannotations "github.com/juju/juju/caas/kubernetes/provider/annotations"
+	jujuannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -22,7 +22,7 @@ func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]stri
 	if ns == nil {
 		return nil
 	}
-	if jujuannotations.New(ns.GetAnnotations()).ExistAll(annotationMap) {
+	if jujuannotations.New(ns.GetAnnotations()).HasAll(annotationMap) {
 		return nil
 	}
 	return errors.NotValidf(
@@ -40,7 +40,7 @@ func (k *kubernetesClient) Namespaces() ([]string, error) {
 	}
 	result := make([]string, len(ns.Items))
 	for i, n := range ns.Items {
-		if err := checkNamespaceOwnedByJuju(&n, k.annotations.ToMap()); err != nil {
+		if err := checkNamespaceOwnedByJuju(&n, k.annotations); err != nil {
 			continue
 		}
 		result[i] = n.Name
@@ -58,7 +58,7 @@ func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting namespace %q", name)
 	}
-	if err := checkNamespaceOwnedByJuju(ns, k.annotations.ToMap()); err != nil {
+	if err := checkNamespaceOwnedByJuju(ns, k.annotations); err != nil {
 		return nil, notFoundErr
 	}
 	return ns, nil
@@ -70,7 +70,7 @@ func (k *kubernetesClient) getOneNamespaceByAnnotations(annotations jujuannotati
 		return nil, errors.Trace(err)
 	}
 	var matchedNS []core.Namespace
-	annotationMap := annotations.ToMap()
+	annotationMap := annotations
 	for _, ns := range namespaces.Items {
 		if err := checkNamespaceOwnedByJuju(&ns, annotationMap); err != nil {
 			continue
@@ -117,7 +117,7 @@ func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error 
 	if err := annotations.CheckKeysNonEmpty(requireAnnotationsForNameSpace...); err != nil {
 		return errors.Trace(err)
 	}
-	ns.SetAnnotations(annotations.ToMap())
+	ns.SetAnnotations(annotations)
 	return nil
 }
 
@@ -146,7 +146,7 @@ func (k *kubernetesClient) deleteNamespace() error {
 		return errors.Trace(err)
 	}
 
-	if err := checkNamespaceOwnedByJuju(ns, k.annotations.ToMap()); err != nil {
+	if err := checkNamespaceOwnedByJuju(ns, k.annotations); err != nil {
 		return errors.Trace(err)
 	}
 
