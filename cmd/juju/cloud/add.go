@@ -66,7 +66,7 @@ A cloud definition can be provided in a file either as an option --f or as a
 positional argument:
 
     juju add-cloud mycloud ~/mycloud.yaml
-    juju add-cloud mycloud --f ~/mycloud.yaml
+    juju add-cloud mycloud -f ~/mycloud.yaml
 
 Juju will validate the contents of the supplied file and
 store that cloud definition in its internal cache.
