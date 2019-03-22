@@ -43,13 +43,12 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	jujuannotations "github.com/juju/juju/core/annotations"
+	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/paths"
@@ -93,7 +92,7 @@ type kubernetesClient struct {
 	// creating k8s resources.
 	namespace string
 
-	annotations jujuannotations.Annotation
+	annotations k8sannotations.Annotation
 
 	lock   sync.Mutex
 	envCfg *config.Config
@@ -150,7 +149,7 @@ func NewK8sBroker(
 		namespace:           newCfg.Name(),
 		modelUUID:           modelUUID,
 		newWatcher:          newWatcher,
-		annotations: jujuannotations.New(nil).
+		annotations: k8sannotations.New(nil).
 			Add(annotationModelUUIDKey, modelUUID),
 	}
 
@@ -158,38 +157,17 @@ func NewK8sBroker(
 		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
 		client.annotations.Add(annotationControllerUUIDKey, controllerUUID)
 	}
-
-	if err = client.decideFacts(); err != nil {
-		// pre-set some configs here before interacting with the cluster.
-		return nil, errors.Trace(err)
-	}
 	return client, nil
 }
 
-func (k *kubernetesClient) decideFacts() error {
-	// decide namespace name.
-	namespace := k.namespace
-	if k.envCfg.Name() == environsbootstrap.ControllerModelName {
-		// this is a controller model.
+// GetAnnotations returns current namespace's annotations.
+func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
+	return k.annotations
+}
 
-		// ensure controller specific annotations.
-		_ = k.annotations.Add(annotationControllerIsControllerKey, "true")
-
-		ns, err := k.getOneNamespaceByAnnotations(k.annotations)
-		if errors.IsNotFound(err) || ns == nil {
-			// No existing controller found on the cluster.
-			// A controller must be bootstrapping now.
-			return nil
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-		// This is an existing controller.
-		// Now, link it back.
-		namespace = ns.GetName()
-	}
-	k.namespace = namespace
-	return nil
+// AddAnnotations set an annotation to current namespace's annotations.
+func (k *kubernetesClient) AddAnnotations(key, value string) k8sannotations.Annotation {
+	return k.annotations.Add(key, value)
 }
 
 // Config returns environ config.
@@ -224,7 +202,10 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 // PrepareForBootstrap prepares for bootstraping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	k.namespace = controllerName
-	alreadyExistErr := errors.AlreadyExistsf("namespace %q, choose another namespace name then try again", k.namespace)
+	alreadyExistErr := errors.NewAlreadyExists(nil,
+		fmt.Sprintf(`a controller called %q already exists on this k8s cluster.
+Please bootstrap again and choose a different controller name.`, k.namespace),
+	)
 	// ensure no existing namespace has the same name.
 	_, err := k.GetNamespace(k.namespace)
 	if err == nil {
@@ -236,7 +217,7 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, co
 	// Good, no existing namespace has the same name.
 	// Now, try to find if there is any existing controller running in this cluster.
 	// Note: we have to do this check before we are confident to support multi controllers running in same k8s cluster.
-	_, err = k.getOneNamespaceByAnnotations(k.annotations)
+	_, err = k.ListNamespacesByAnnotations(k.annotations)
 	if err == nil {
 		return alreadyExistErr
 	}
@@ -306,7 +287,7 @@ func (k *kubernetesClient) Bootstrap(
 func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
 	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
 	k.annotations.Merge(
-		jujuannotations.New(nil).
+		k8sannotations.New(nil).
 			Add(annotationControllerUUIDKey, controllerUUID).
 			Add(annotationControllerIsControllerKey, "true"),
 	)

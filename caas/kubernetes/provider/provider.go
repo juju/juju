@@ -85,7 +85,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	if err != nil {
 		return nil, err
 	}
-	return broker, nil
+	return controllerCorelation(broker)
 }
 
 // ParsePodSpec is part of the ContainerEnvironProvider interface.

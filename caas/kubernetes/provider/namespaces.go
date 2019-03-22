@@ -10,7 +10,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 
-	jujuannotations "github.com/juju/juju/core/annotations"
+	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -22,7 +22,7 @@ func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]stri
 	if ns == nil {
 		return nil
 	}
-	if jujuannotations.New(ns.GetAnnotations()).HasAll(annotationMap) {
+	if k8sannotations.New(ns.GetAnnotations()).HasAll(annotationMap) {
 		return nil
 	}
 	return errors.NotValidf(
@@ -64,7 +64,14 @@ func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
 	return ns, nil
 }
 
-func (k *kubernetesClient) getOneNamespaceByAnnotations(annotations jujuannotations.Annotation) (*core.Namespace, error) {
+// SetNamespace sets current namespace to the specified name.
+// Note: this does not ensure related namespace resources.
+func (k *kubernetesClient) SetNamespace(name string) {
+	k.namespace = name
+}
+
+// ListNamespacesByAnnotations filters namespaces by annations.
+func (k *kubernetesClient) ListNamespacesByAnnotations(annotations k8sannotations.Annotation) ([]core.Namespace, error) {
 	namespaces, err := k.CoreV1().Namespaces().List(v1.ListOptions{IncludeUninitialized: true})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -72,24 +79,20 @@ func (k *kubernetesClient) getOneNamespaceByAnnotations(annotations jujuannotati
 	var matchedNS []core.Namespace
 	annotationMap := annotations
 	for _, ns := range namespaces.Items {
-		if err := checkNamespaceOwnedByJuju(&ns, annotationMap); err != nil {
-			continue
+		if err := checkNamespaceOwnedByJuju(&ns, annotationMap); err == nil {
+			matchedNS = append(matchedNS, ns)
 		}
-		if k.namespace != "" && k.namespace == ns.GetName() {
-			return &ns, nil
-		}
-		matchedNS = append(matchedNS, ns)
 	}
 	if len(matchedNS) > 0 {
 		doLog := logger.Debugf
 		if len(matchedNS) > 1 {
 			// this should never happen before we enable multi controller in single cluster.
-			doLog = logger.Errorf
+			doLog = logger.Warningf
 		}
 		doLog("found %d matched namespaces with annotations %v", len(matchedNS), annotationMap)
-		return &matchedNS[0], nil
+		return matchedNS, nil
 	}
-	return nil, errors.NotFoundf("namespace %v", k.annotations)
+	return nil, errors.NotFoundf("namespace for %v", k.annotations)
 }
 
 // GetCurrentNamespace returns current namespace name.
@@ -112,7 +115,7 @@ func (k *kubernetesClient) EnsureNamespace() error {
 }
 
 func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error {
-	annotations := jujuannotations.New(ns.GetAnnotations()).Merge(k.annotations)
+	annotations := k8sannotations.New(ns.GetAnnotations()).Merge(k.annotations)
 	// check required keys are set: annotationControllerUUIDKey, annotationModelUUIDKey.
 	if err := annotations.CheckKeysNonEmpty(requireAnnotationsForNameSpace...); err != nil {
 		return errors.Trace(err)

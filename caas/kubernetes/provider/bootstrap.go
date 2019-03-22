@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 )
 
@@ -64,6 +65,31 @@ type controllerStack struct {
 type controllerStacker interface {
 	// Deploy creates all resources for controller stack.
 	Deploy() error
+}
+
+func controllerCorelation(broker caas.Broker) (caas.Broker, error) {
+	if broker.Config().Name() != environsbootstrap.ControllerModelName {
+		return broker, nil
+	}
+	// decide namespace name for controller.
+
+	// ensure controller specific annotations.
+	_ = broker.AddAnnotations(annotationControllerIsControllerKey, "true")
+
+	ns, err := broker.ListNamespacesByAnnotations(broker.GetAnnotations())
+	if errors.IsNotFound(err) || ns == nil {
+		// No existing controller found on the cluster.
+		// A controller must be bootstrapping now.
+		return broker, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// This is an existing controller.
+	// Now, link it back.
+	// It should be always one record here based on current annotation design.
+	broker.SetNamespace(ns[0].GetName())
+	return broker, nil
 }
 
 // setControllerNamespace sets controller's namespace to name.

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/version"
 	core "k8s.io/api/core/v1"
 
+	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -137,6 +138,15 @@ type Broker interface {
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
 
+	// ListNamespacesByAnnotations filters namespaces by annations.
+	ListNamespacesByAnnotations(annotations k8sannotations.Annotation) ([]core.Namespace, error)
+
+	// GetAnnotations returns current namespace's annotations.
+	GetAnnotations() k8sannotations.Annotation
+
+	// AddAnnotations set an annotation to current namespace's annotations.
+	AddAnnotations(key, value string) k8sannotations.Annotation
+
 	// ClusterMetadataChecker provides an API to query cluster metadata.
 	ClusterMetadataChecker
 
@@ -200,6 +210,10 @@ type NamespaceGetterSetter interface {
 
 	// GetCurrentNamespace returns current namespace name.
 	GetCurrentNamespace() string
+
+	// SetNamespace sets current namespace to the specified name.
+	// Note: this does not ensure related namespace resources.
+	SetNamespace(name string)
 }
 
 // ClusterMetadataChecker provides an API to query cluster metadata.
