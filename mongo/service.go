@@ -459,11 +459,15 @@ func generateConfig(mongoPath string, dataDir string, statePort int, oplogSizeMB
 		//BindIP:                "127.0.0.1", // TODO(tsm): use machine's actual IP address via dialInfo
 	}
 
-	if usingMongo34orAbove && useLowMemory && usingWiredTiger {
-		mongoArgs.WiredTigerCacheSizeGB = Mongo34LowCacheSize
-	} else if usingWiredTiger {
-		mongoArgs.WiredTigerCacheSizeGB = LowCacheSize
-	} else {
+	if useLowMemory && usingWiredTiger {
+		if usingMongo34orAbove {
+			// Mongo 3.4 introduced the ability to have fractional GB cache size
+			mongoArgs.WiredTigerCacheSizeGB = Mongo34LowCacheSize
+		} else {
+			mongoArgs.WiredTigerCacheSizeGB = LowCacheSize
+		}
+	}
+	if !usingWiredTiger {
 		mongoArgs.NoPreAlloc = true
 		mongoArgs.SmallFiles = true
 	}
@@ -479,6 +483,9 @@ func generateConfig(mongoPath string, dataDir string, statePort int, oplogSizeMB
 	}
 
 	if featureflag.Enabled(feature.MongoDbSnap) {
+		// TODO (jam): 2019-03-22 Do we have to set Syslog = false, it has
+		//  been very useful in debugging production systems. Maybe we
+		//  can put the syslog 'long running queries' to another file
 		mongoArgs.Syslog = false
 		mongoArgs.LogAppend = true
 		mongoArgs.LogPath = logPath(dataDir)
