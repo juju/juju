@@ -143,6 +143,12 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 				Name:  "test2",
 				Image: "juju/image2",
 				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
+				// Defaults since not specified.
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot:             boolPtr(false),
+					ReadOnlyRootFilesystem:   boolPtr(false),
+					AllowPrivilegeEscalation: boolPtr(false),
+				},
 			},
 		},
 	})
@@ -210,6 +216,12 @@ func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
 				Name:  "test2",
 				Image: "juju/image2",
 				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
+				// Defaults since not specified.
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot:             boolPtr(false),
+					ReadOnlyRootFilesystem:   boolPtr(false),
+					AllowPrivilegeEscalation: boolPtr(false),
+				},
 			},
 		},
 		InitContainers: []core.Container{
@@ -222,8 +234,8 @@ func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
 				ImagePullPolicy: core.PullAlways,
 				// Defaults since not specified.
 				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot:             boolPtr(true),
-					ReadOnlyRootFilesystem:   boolPtr(true),
+					RunAsNonRoot:             boolPtr(false),
+					ReadOnlyRootFilesystem:   boolPtr(false),
 					AllowPrivilegeEscalation: boolPtr(false),
 				},
 			},
@@ -352,10 +364,22 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 					{Name: "restricted", Value: "yes"},
 					{Name: "switch", Value: "true"},
 				},
+				// Defaults since not specified.
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot:             boolPtr(false),
+					ReadOnlyRootFilesystem:   boolPtr(false),
+					AllowPrivilegeEscalation: boolPtr(false),
+				},
 			}, {
 				Name:  "test2",
 				Image: "juju/image2",
 				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP, Name: "fred"}},
+				// Defaults since not specified.
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot:             boolPtr(false),
+					ReadOnlyRootFilesystem:   boolPtr(false),
+					AllowPrivilegeEscalation: boolPtr(false),
+				},
 			},
 		},
 	})
@@ -734,7 +758,6 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 				ObjectMeta: v1.ObjectMeta{
 					Name: "database-appuuid",
 					Annotations: map[string]string{
-						"juju-app":     "app-name",
 						"foo":          "bar",
 						"juju-storage": "database",
 					}},

@@ -505,15 +505,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		}
 	}
 
-	storageTags := make(map[string]string)
-	for k, v := range config.CharmStorage.ResourceTags {
-		storageTags[k] = v
-	}
-
-	annotations := make(map[string]string)
-	for k, v := range config.ResourceTags {
-		annotations[k] = v
-	}
+	annotations := translateJujuAnnotations(config.ResourceTags)
 	annotations[labelVersion] = config.Version.String()
 
 	// Set up the parameters for creating charm storage.
@@ -547,10 +539,11 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	if err != nil {
 		return errors.Annotate(err, "finding operator volume claim")
 	}
+	storageAnnotations := translateJujuAnnotations(config.CharmStorage.ResourceTags)
 	pvc := &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        params.pvcName,
-			Annotations: storageTags},
+			Annotations: storageAnnotations},
 		Spec: *pvcSpec,
 	}
 	pod := operatorPod(operatorName, appName, agentPath, config.OperatorImagePath, config.Version.String(), annotations)
@@ -972,13 +965,27 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(t *caas.Custom
 	return
 }
 
+func translateJujuAnnotations(in map[string]string) map[string]string {
+	out := make(map[string]string)
+	for k, v := range in {
+		if k == tags.JujuController {
+			k = "juju.io/controller"
+		}
+		if k == tags.JujuModel {
+			k = "juju.io/model"
+		}
+		out[k] = v
+	}
+	return out
+}
+
 // EnsureService creates or updates a service for pods with the given params.
 func (k *kubernetesClient) EnsureService(
 	appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes,
 ) (err error) {
 	defer func() {
 		if err != nil {
-			statusCallback(appName, status.Error, err.Error(), nil)
+			_ = statusCallback(appName, status.Error, err.Error(), nil)
 		}
 	}()
 
@@ -1104,16 +1111,7 @@ func (k *kubernetesClient) EnsureService(
 			})
 	}
 
-	annotations := make(map[string]string)
-	for k, v := range params.ResourceTags {
-		if k == tags.JujuController {
-			k = "juju.io/controller"
-		}
-		if k == tags.JujuModel {
-			k = "juju.io/model"
-		}
-		annotations[k] = v
-	}
+	annotations := translateJujuAnnotations(params.ResourceTags)
 
 	for _, c := range params.PodSpec.Containers {
 		if c.ImageDetails.Password == "" {
@@ -1301,16 +1299,12 @@ func (k *kubernetesClient) configureStorage(
 		if err != nil {
 			return errors.Annotatef(err, "finding volume for %s", fs.StorageName)
 		}
-		tags := make(map[string]string)
-		for k, v := range fs.ResourceTags {
-			tags[k] = v
-		}
-		tags[labelStorage] = fs.StorageName
-		tags[labelApplication] = appName
+		annotations := translateJujuAnnotations(fs.ResourceTags)
+		annotations[labelStorage] = fs.StorageName
 		pvc := core.PersistentVolumeClaim{
 			ObjectMeta: v1.ObjectMeta{
 				Name:        params.pvcName,
-				Annotations: tags},
+				Annotations: annotations},
 			Spec: *pvcSpec,
 		}
 		logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, pvc)
@@ -2172,7 +2166,7 @@ func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) 
 
 // operatorPod returns a *core.Pod for the operator pod
 // of the specified application.
-func operatorPod(podName, appName, agentPath, operatorImagePath, version string, tags map[string]string) *core.Pod {
+func operatorPod(podName, appName, agentPath, operatorImagePath, version string, annotations map[string]string) *core.Pod {
 	configMapName := operatorConfigMapName(podName)
 	configVolName := configMapName
 
@@ -2181,13 +2175,8 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 	}
 
 	appTag := names.NewApplicationTag(appName)
-	podAnnotations := make(map[string]string)
-	for k, v := range tags {
-		podAnnotations[k] = v
-	}
+	podAnnotations := podAnnotations(annotations)
 	podAnnotations[labelVersion] = version
-	podAnnotations["apparmor.security.beta.kubernetes.io/pod"] = "runtime/default"
-	podAnnotations["seccomp.security.beta.kubernetes.io/pod"] = "docker/default"
 	jujudCmd := fmt.Sprintf("./jujud caasoperator --application-name=%s --debug", appName)
 
 	return &core.Pod{
@@ -2348,6 +2337,15 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
+func defaultSecurityContext() *core.SecurityContext {
+	// TODO - consider locking this down more but charms will break
+	return &core.SecurityContext{
+		AllowPrivilegeEscalation: boolPtr(false),
+		ReadOnlyRootFilesystem:   boolPtr(false),
+		RunAsNonRoot:             boolPtr(false),
+	}
+}
+
 func populateContainerDetails(deploymentName string, pod *core.PodSpec, podContainers []core.Container, containers []caas.ContainerSpec) error {
 	for i, c := range containers {
 		if c.Image != "" {
@@ -2361,6 +2359,7 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 		}
 
 		if c.ProviderContainer == nil {
+			podContainers[i].SecurityContext = defaultSecurityContext()
 			continue
 		}
 		spec, ok := c.ProviderContainer.(*K8sContainerSpec)
@@ -2377,11 +2376,7 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 		if spec.SecurityContext != nil {
 			podContainers[i].SecurityContext = spec.SecurityContext
 		} else {
-			podContainers[i].SecurityContext = &core.SecurityContext{
-				AllowPrivilegeEscalation: boolPtr(false),
-				ReadOnlyRootFilesystem:   boolPtr(true),
-				RunAsNonRoot:             boolPtr(true),
-			}
+			podContainers[i].SecurityContext = defaultSecurityContext()
 		}
 	}
 	return nil
