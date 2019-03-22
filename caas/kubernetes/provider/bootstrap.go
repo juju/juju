@@ -445,10 +445,13 @@ func (c controllerStack) createControllerStatefulset() error {
 }
 
 func (c controllerStack) buildStorageSpecForController(statefulset *apps.StatefulSet) error {
-	_, err := c.broker.getStorageClass(c.storageClass)
+	sc, err := c.broker.getStorageClass(c.storageClass)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// try to find <namespace>-<c.storageClass>,
+	// if it's not found, then fallback to c.storageClass.
+	c.storageClass = sc.GetName()
 
 	// build persistent volume claim.
 	statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
