@@ -125,7 +125,7 @@ def _new_log_dir(log_dir, post_fix):
     return new_log_dir
 
 
-def wait_until_model_disappears(client, model_name, timeout=120):
+def wait_until_model_disappears(client, model_name, timeout=600):
     """Waits for a while for 'model_name' model to no longer be listed.
 
     :raises JujuAssertionError: If the named model continues to be listed in
@@ -156,7 +156,7 @@ def wait_until_model_disappears(client, model_name, timeout=120):
                 model_name, timeout))
 
 
-def wait_for_model(client, model_name, timeout=120):
+def wait_for_model(client, model_name, timeout=600):
     """Wait for a given timeout for the client to see the model_name.
 
     :raises JujuAssertionError: If the named model does not appear in the
@@ -177,7 +177,7 @@ def wait_for_model(client, model_name, timeout=120):
                 model_name, timeout))
 
 
-def wait_for_migrating(client, timeout=120):
+def wait_for_migrating(client, timeout=600):
     """Block until provided model client has a migration status.
 
     :raises JujuAssertionError: If the status doesn't show migration within the
@@ -416,7 +416,7 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
 
-def ensure_model_logs_are_migrated(source_client, dest_client, timeout=120):
+def ensure_model_logs_are_migrated(source_client, dest_client, timeout=600):
     """Ensure logs are migrated when a model is migrated between controllers.
 
     :param source_client: ModelClient representing source controller to create

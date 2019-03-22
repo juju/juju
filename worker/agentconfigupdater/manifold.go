@@ -5,6 +5,7 @@ package agentconfigupdater
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/pubsub"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -18,16 +19,20 @@ import (
 
 // Logger defines the logging methods used by the worker.
 type Logger interface {
+	Criticalf(string, ...interface{})
+	Warningf(string, ...interface{})
 	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
 }
 
 // ManifoldConfig provides the dependencies for the
 // agent config updater manifold.
 type ManifoldConfig struct {
-	AgentName     string
-	APICallerName string
-	Logger        Logger
+	AgentName      string
+	APICallerName  string
+	CentralHubName string
+	Logger         Logger
 }
 
 // Manifold defines a simple start function which
@@ -39,6 +44,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.APICallerName,
+			config.CentralHubName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			// Get the agent.
@@ -73,6 +79,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrUninstall
 			}
 
+			// Do the initial state serving info and mongo profile checks
+			// before attempting to get the central hub. The central hub is only
+			// running when the agent is a controller. If the agent isn't a controller
+			// but should be, the agent config will not have any state serving info
+			// but the database will think that we should be. In those situations
+			// we need to update the local config and restart.
 			controllerConfig, err := apiState.ControllerConfig()
 			if err != nil {
 				return nil, errors.Annotate(err, "getting controller config")
@@ -82,8 +94,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// restart the agent to apply the memory profile to the mongo
 			// service.
 			logger := config.Logger
-			mongoProfile := mongo.MemoryProfile(controllerConfig.MongoMemoryProfile())
-			mongoProfileChanged := mongoProfile != currentConfig.MongoMemoryProfile()
+			agentsMongoMemoryProfile := currentConfig.MongoMemoryProfile()
+			configMongoMemoryProfile := mongo.MemoryProfile(controllerConfig.MongoMemoryProfile())
+			mongoProfileChanged := agentsMongoMemoryProfile != configMongoMemoryProfile
+
 			info, err := apiState.StateServingInfo()
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
@@ -103,8 +117,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 				config.SetStateServingInfo(info)
 				if mongoProfileChanged {
-					logger.Debugf("setting agent config mongo memory profile: %s", mongoProfile)
-					config.SetMongoMemoryProfile(mongoProfile)
+					logger.Debugf("setting agent config mongo memory profile: %q => %q", agentsMongoMemoryProfile, configMongoMemoryProfile)
+					config.SetMongoMemoryProfile(configMongoMemoryProfile)
 				}
 				return nil
 			})
@@ -113,12 +127,24 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			// If we need a restart, return the fatal error.
 			if mongoProfileChanged {
-				logger.Infof("Restarting agent for new mongo memory profile")
+				logger.Infof("restarting agent for new mongo memory profile")
 				return nil, jworker.ErrRestartAgent
 			}
 
-			// All is well - we're done (no actual worker is actually returned).
-			return nil, dependency.ErrUninstall
+			// Only get the hub if we are a controller and we haven't updated
+			// the memory profile.
+			var hub *pubsub.StructuredHub
+			if err := context.Get(config.CentralHubName, &hub); err != nil {
+				logger.Tracef("hub dependency not available")
+				return nil, err
+			}
+
+			return NewWorker(WorkerConfig{
+				Agent:        agent,
+				Hub:          hub,
+				MongoProfile: configMongoMemoryProfile,
+				Logger:       config.Logger,
+			})
 		},
 	}
 }

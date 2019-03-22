@@ -268,6 +268,12 @@ type ConfigSetter interface {
 	SetConfig(cfg *config.Config) error
 }
 
+// CloudSpecSetter implements access to an environment's cloud spec.
+type CloudSpecSetter interface {
+	// SetConfig updates the Environ's configuration.
+	SetCloudSpec(spec CloudSpec) error
+}
+
 // Bootstrapper provides the way for bootstrapping controller.
 type Bootstrapper interface {
 	// This will be called very early in the bootstrap procedure, to

@@ -3062,6 +3062,27 @@ func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
 	wc.AssertOneChange()
 }
 
+func (s *StateSuite) TestWatchCloudSpecChanges(c *gc.C) {
+	w := s.model.WatchCloudSpecChanges()
+	defer statetesting.AssertStop(c, w)
+
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	// Initially we get one change notification
+	wc.AssertOneChange()
+
+	cloud, err := s.State.Cloud(s.Model.Cloud())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Multiple changes will only result in a single change notification
+	cloud.StorageEndpoint = "https://storage"
+	err = s.State.UpdateCloud(cloud)
+	c.Assert(err, jc.ErrorIsNil)
+	cloud.StorageEndpoint = "https://storage1"
+	err = s.State.UpdateCloud(cloud)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+}
+
 func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	// The equivalence tested here isn't necessarily correct, and
 	// comparing private details is discouraged in the project.

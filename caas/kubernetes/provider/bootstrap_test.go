@@ -341,7 +341,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "jujusolutions/juju-db:3.6.6",
+			Image:           "jujusolutions/juju-db:4.0.6",
 			Command: []string{
 				"mongod",
 			},
@@ -359,7 +359,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				"--auth",
 				"--keyFile=/var/lib/juju/shared-secret",
 				"--storageEngine=wiredTiger",
-				"--wiredTigerCacheSizeGB=0.25",
+				"--wiredTigerCacheSizeGB=1",
 				"--bind_ip_all",
 			},
 			Ports: []core.ContainerPort{

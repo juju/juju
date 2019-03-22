@@ -3,18 +3,16 @@
 
 package kvm
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/juju/juju/environs/instances"
+)
 
 // This file exports internal package implementations so that tests
 // can utilize them to mock behavior.
 
-var (
-	// KVMPath is exported for use in tests.
-	KVMPath = &kvmPath
-
-	// Used to export the parameters used to call Start on the KVM Container
-	TestStartParams = &startParams
-)
+var KVMPath = &kvmPath
 
 // MakeCreateMachineParamsTestable adds test values to non exported values on
 // CreateMachineParams.
@@ -36,6 +34,13 @@ func NewTestContainer(name string, runCmd runFunc, pathfinder func(string) (stri
 	return &kvmContainer{name: name, runCmd: runCmd, pathfinder: pathfinder}
 }
 
+// ContainerFromInstance extracts the inner container from input instance,
+// so we can access it for test assertions.
+func ContainerFromInstance(inst instances.Instance) Container {
+	kvm := inst.(*kvmInstance)
+	return kvm.container
+}
+
 // NewRunStub is a stub to fake shelling out to os.Exec or utils.RunCommand.
 func NewRunStub(output string, err error) *runStub {
 	return &runStub{output: output, err: err}
@@ -48,8 +53,8 @@ type runStub struct {
 }
 
 // Run fakes running commands, instead recording calls made for use in testing.
-func (s *runStub) Run(cmd string, args ...string) (string, error) {
-	call := []string{cmd}
+func (s *runStub) Run(dir, cmd string, args ...string) (string, error) {
+	call := []string{dir, cmd}
 	call = append(call, args...)
 	s.calls = append(s.calls, strings.Join(call, " "))
 	if s.err != nil {

@@ -32,7 +32,9 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		return nil, errors.Trace(err)
 	}
 	cloudSpecAPI := cloudspec.NewCloudSpec(
+		resources,
 		cloudspec.MakeCloudSpecGetterForModel(ctx.State()),
+		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),
 		common.AuthFuncForTag(model.ModelTag()),
 	)
 	return &Facade{

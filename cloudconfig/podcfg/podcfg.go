@@ -36,6 +36,9 @@ const (
 	jujudbOCIName     = "juju-db"
 )
 
+// jujudbVersion is the version of juju-db to use.
+var jujudbVersion = mongo.Mongo406wt
+
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
 type ControllerPodConfig struct {
 	// Tags is a set of tags/labels to set on the Pod, if supported. This
@@ -121,20 +124,18 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 			LogDir:          cfg.LogDir,
 			MetricsSpoolDir: cfg.MetricsSpoolDir,
 		},
-		Jobs:              cfg.Jobs,
-		Tag:               tag,
-		UpgradedToVersion: cfg.JujuVersion,
-		Password:          password,
-		Nonce:             cfg.PodNonce,
-		APIAddresses:      cfg.APIHostAddrs(),
-		CACert:            cacert,
-		Values:            cfg.AgentEnvironment,
-		Controller:        cfg.ControllerTag,
-		Model:             cfg.APIInfo.ModelTag,
-		// TODO(bootstrap): IAAS updates version after mongo installed, but for CAAS, it's predefined.
-		// make mongo version and profile more flexible to modifiable.
-		MongoVersion:       mongo.Mongo36wt,
-		MongoMemoryProfile: mongo.MemoryProfileDefault,
+		Jobs:               cfg.Jobs,
+		Tag:                tag,
+		UpgradedToVersion:  cfg.JujuVersion,
+		Password:           password,
+		Nonce:              cfg.PodNonce,
+		APIAddresses:       cfg.APIHostAddrs(),
+		CACert:             cacert,
+		Values:             cfg.AgentEnvironment,
+		Controller:         cfg.ControllerTag,
+		Model:              cfg.APIInfo.ModelTag,
+		MongoVersion:       jujudbVersion,
+		MongoMemoryProfile: mongo.MemoryProfile(cfg.Controller.Config.MongoMemoryProfile()),
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
 }
@@ -240,9 +241,7 @@ func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() string {
 	if imageRepo == "" {
 		imageRepo = jujudOCINamespace
 	}
-	v := mongo.Mongo36wt
-	v.Point = 6
-	// we use mongo:3.6.6 for k8s controller.
+	v := jujudbVersion
 	return fmt.Sprintf("%s/%s:%d.%d.%d", imageRepo, jujudbOCIName, v.Major, v.Minor, v.Point)
 }
 

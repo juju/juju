@@ -66,7 +66,7 @@ func (syncInternalSuite) TestFetcher(c *gc.C) {
 
 	// Check that our call was made as expected.
 	c.Assert(stub.Calls(), gc.HasLen, 1)
-	c.Assert(stub.Calls()[0], gc.Matches, "qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/spammy-archless-backing-file.qcow")
+	c.Assert(stub.Calls()[0], gc.Matches, " qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/spammy-archless-backing-file.qcow")
 
 }
 
@@ -102,7 +102,7 @@ func (syncInternalSuite) TestFetcherWriteFails(c *gc.C) {
 
 	// Check that our call was made as expected.
 	c.Assert(stub.Calls(), gc.HasLen, 1)
-	c.Assert(stub.Calls()[0], gc.Matches, "qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/spammy-archless-backing-file.qcow")
+	c.Assert(stub.Calls()[0], gc.Matches, " qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/spammy-archless-backing-file.qcow")
 
 }
 

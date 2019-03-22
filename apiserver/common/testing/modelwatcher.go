@@ -21,7 +21,9 @@ type ModelWatcher interface {
 type ModelWatcherTest struct {
 	modelWatcher ModelWatcher
 	st           *state.State
-	resources    *common.Resources
+	// We can't call this "resources" as it conflicts
+	// when embedded in other test suites.
+	res *common.Resources
 }
 
 func NewModelWatcherTest(
@@ -54,7 +56,7 @@ func (s *ModelWatcherTest) TestModelConfig(c *gc.C) {
 }
 
 func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.res.Count(), gc.Equals, 0)
 
 	result, err := s.modelWatcher.WatchForModelConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,8 +65,8 @@ func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *gc.C) {
 	})
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
+	c.Assert(s.res.Count(), gc.Equals, 1)
+	resource := s.res.Get("1")
 	defer statetesting.AssertStop(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned"

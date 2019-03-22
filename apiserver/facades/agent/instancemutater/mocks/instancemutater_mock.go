@@ -8,9 +8,11 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	instance "github.com/juju/juju/core/instance"
+	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
 	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
+	time "time"
 )
 
 // MockInstanceMutaterState is a mock of InstanceMutaterState interface
@@ -34,6 +36,19 @@ func NewMockInstanceMutaterState(ctrl *gomock.Controller) *MockInstanceMutaterSt
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockInstanceMutaterState) EXPECT() *MockInstanceMutaterStateMockRecorder {
 	return m.recorder
+}
+
+// ControllerTimestamp mocks base method
+func (m *MockInstanceMutaterState) ControllerTimestamp() (*time.Time, error) {
+	ret := m.ctrl.Call(m, "ControllerTimestamp")
+	ret0, _ := ret[0].(*time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerTimestamp indicates an expected call of ControllerTimestamp
+func (mr *MockInstanceMutaterStateMockRecorder) ControllerTimestamp() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerTimestamp", reflect.TypeOf((*MockInstanceMutaterState)(nil).ControllerTimestamp))
 }
 
 // FindEntity mocks base method
@@ -181,6 +196,18 @@ func (m *MockMachine) SetCharmProfiles(arg0 []string) error {
 // SetCharmProfiles indicates an expected call of SetCharmProfiles
 func (mr *MockMachineMockRecorder) SetCharmProfiles(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmProfiles", reflect.TypeOf((*MockMachine)(nil).SetCharmProfiles), arg0)
+}
+
+// SetModificationStatus mocks base method
+func (m *MockMachine) SetModificationStatus(arg0 status.StatusInfo) error {
+	ret := m.ctrl.Call(m, "SetModificationStatus", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModificationStatus indicates an expected call of SetModificationStatus
+func (mr *MockMachineMockRecorder) SetModificationStatus(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModificationStatus", reflect.TypeOf((*MockMachine)(nil).SetModificationStatus), arg0)
 }
 
 // SetUpgradeCharmProfileComplete mocks base method

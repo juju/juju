@@ -5,6 +5,7 @@ package cache
 
 import (
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -74,4 +75,30 @@ type UnitChange struct {
 type RemoveUnit struct {
 	ModelUUID string
 	Name      string
+}
+
+// MachineChange represents either a new machine, or a change
+// to an existing machine in a model.
+type MachineChange struct {
+	ModelUUID                string
+	Id                       string
+	InstanceId               string
+	AgentStatus              status.StatusInfo
+	InstanceStatus           status.StatusInfo
+	Life                     life.Value
+	Config                   map[string]interface{}
+	Series                   string
+	SupportedContainers      []instance.ContainerType
+	SupportedContainersKnown bool
+	HardwareCharacteristics  *instance.HardwareCharacteristics
+	Addresses                []network.Address
+	HasVote                  bool
+	WantsVote                bool
+}
+
+// RemoveMachine represents the situation when a machine
+// is removed from a model in the database.
+type RemoveMachine struct {
+	ModelUUID string
+	Id        string
 }

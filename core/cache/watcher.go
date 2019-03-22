@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
@@ -143,4 +144,117 @@ func (w *ConfigWatcher) configChanged(topic string, value interface{}) {
 		return
 	}
 	w.notify()
+}
+
+// StringsWatcher will return what has changed.
+type StringsWatcher interface {
+	Watcher
+	Changes() <-chan []string
+}
+
+type stringsWatcherBase struct {
+	tomb    tomb.Tomb
+	changes chan []string
+	// We can't send down a closed channel, so protect the sending
+	// with a mutex and bool. Since you can't really even ask a channel
+	// if it is closed.
+	closed bool
+	mu     sync.Mutex
+}
+
+func newStringsWatcherBase(values ...string) *stringsWatcherBase {
+	// We use a single entry buffered channel for the changes.
+	// This allows the config changed handler to send a value when there
+	// is a change, if that value hasn't been consumed before the
+	// next change, the changes are combined.
+	ch := make(chan []string, 1)
+
+	// Send initial event down the channel. We know that this will
+	// execute immediately because it is a buffered channel.
+	ch <- values
+
+	return &stringsWatcherBase{changes: ch}
+}
+
+// Changes is part of the core watcher definition.
+// The changes channel is never closed.
+func (w *stringsWatcherBase) Changes() <-chan []string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.changes
+}
+
+// Kill is part of the worker.Worker interface.
+func (w *stringsWatcherBase) Kill() {
+	w.mu.Lock()
+	w.closed = true
+	close(w.changes)
+	w.mu.Unlock()
+	w.tomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (w *stringsWatcherBase) Wait() error {
+	return w.tomb.Wait()
+}
+
+// Stop is currently required by the Resources wrapper in the apiserver.
+func (w *stringsWatcherBase) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *stringsWatcherBase) notify(values []string) {
+	w.mu.Lock()
+
+	if w.closed {
+		w.mu.Unlock()
+		return
+	}
+
+	select {
+	case w.changes <- values:
+	default:
+		// Already a pending change, so add the new values to the
+		// pending change.
+		w.amendBufferedChange(values)
+	}
+
+	w.mu.Unlock()
+}
+
+// amendBufferedChange alters the buffered notification to include new
+// information. This method assumes lock protection.
+func (w *stringsWatcherBase) amendBufferedChange(values []string) {
+	select {
+	case old := <-w.changes:
+		w.changes <- set.NewStrings(old...).Union(set.NewStrings(values...)).Values()
+	default:
+		// Someone read the channel in the meantime.
+		// We know we're locked, so no further writes will have occurred.
+		// Just send what we were going to send.
+		w.changes <- values
+	}
+}
+
+// ChangeWatcher notifies that something changed, with
+// the given slice of strings.  An initial event is sent
+// with the input given at creation.
+type ChangeWatcher struct {
+	*stringsWatcherBase
+}
+
+func newAddRemoveWatcher(values ...string) *ChangeWatcher {
+	return &ChangeWatcher{
+		stringsWatcherBase: newStringsWatcherBase(values...),
+	}
+}
+
+func (w *ChangeWatcher) changed(topic string, value interface{}) {
+	strings, ok := value.([]string)
+	if !ok {
+		logger.Errorf("programming error, value not of type []string")
+	}
+
+	w.notify(strings)
 }

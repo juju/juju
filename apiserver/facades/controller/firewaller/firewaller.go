@@ -61,7 +61,9 @@ func NewStateFirewallerAPIV3(context facade.Context) (*FirewallerAPIV3, error) {
 	}
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
+		context.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecWatcherForModel(st),
 		common.AuthFuncForTag(m.ModelTag()),
 	)
 	return NewFirewallerAPI(stateShim{st: st, State: firewall.StateShim(st, m)}, context.Resources(), context.Auth(), cloudSpecAPI)

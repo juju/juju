@@ -136,6 +136,19 @@ func (mr *MockContextMockRecorder) LeadershipPinner(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeadershipPinner", reflect.TypeOf((*MockContext)(nil).LeadershipPinner), arg0)
 }
 
+// LeadershipReader mocks base method
+func (m *MockContext) LeadershipReader(arg0 string) (leadership.Reader, error) {
+	ret := m.ctrl.Call(m, "LeadershipReader", arg0)
+	ret0, _ := ret[0].(leadership.Reader)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LeadershipReader indicates an expected call of LeadershipReader
+func (mr *MockContextMockRecorder) LeadershipReader(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeadershipReader", reflect.TypeOf((*MockContext)(nil).LeadershipReader), arg0)
+}
+
 // Presence mocks base method
 func (m *MockContext) Presence() facade.Presence {
 	ret := m.ctrl.Call(m, "Presence")

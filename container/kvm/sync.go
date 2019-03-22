@@ -237,7 +237,7 @@ func (i *Image) write(r io.Reader, md *imagedownloads.Metadata) error {
 	// TODO(jam): 2017-03-19 If this is slow, maybe we want to add a progress step for it, rather than only
 	// indicating download progress.
 	output, err := i.runCmd(
-		"qemu-img", "convert", "-f", "qcow2", tmpPath, i.FilePath)
+		"", "qemu-img", "convert", "-f", "qcow2", tmpPath, i.FilePath)
 	logger.Debugf("qemu-image convert output: %s", output)
 	if err != nil {
 		i.cleanupAll()

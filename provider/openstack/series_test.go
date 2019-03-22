@@ -29,7 +29,7 @@ func MetadataStorage(e environs.Environ) envstorage.Storage {
 	env := e.(*Environ)
 	ecfg := env.ecfg()
 	container := "juju-dist-test"
-	client, err := authClient(env.cloud, ecfg)
+	client, err := authClient(env.cloud(), ecfg)
 	if err != nil {
 		panic(fmt.Errorf("cannot create %s container: %v", container, err))
 	}
@@ -495,7 +495,7 @@ func FindInstanceSpec(
 	return findInstanceSpec(env, &instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
-		Region:      env.cloud.Region,
+		Region:      env.cloud().Region,
 		Constraints: constraints.MustParse(cons),
 	}, imageMetadata)
 }

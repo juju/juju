@@ -334,9 +334,13 @@ func (s *Server) RemoveContainer(name string) error {
 		Func: func() error {
 			op, err := s.DeleteContainer(name)
 			if err != nil {
+				// sigh, LXD not found container - it's been deleted so, we
+				// just need to return nil.
+				if IsLXDNotFound(errors.Cause(err)) {
+					return nil
+				}
 				return errors.BadRequestf(err.Error())
 			}
-
 			return errors.Trace(op.Wait())
 		},
 		Delay:    2 * time.Second,

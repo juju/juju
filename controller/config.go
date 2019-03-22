@@ -189,7 +189,7 @@ const (
 	DefaultAPIPortOpenDelay = "2s"
 
 	// DefaultMongoMemoryProfile is the default profile used by mongo.
-	DefaultMongoMemoryProfile = MongoProfLow
+	DefaultMongoMemoryProfile = MongoProfDefault
 
 	// DefaultMaxLogsAgeDays is the maximum age in days of log entries.
 	DefaultMaxLogsAgeDays = 3
@@ -294,6 +294,7 @@ var (
 		MaxPruneTxnPasses,
 		MaxLogsSize,
 		MaxLogsAge,
+		MongoMemoryProfile,
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
 		JujuHASpace,
@@ -549,7 +550,7 @@ func (c Config) MongoMemoryProfile() string {
 	if profile, ok := c[MongoMemoryProfile]; ok {
 		return profile.(string)
 	}
-	return MongoProfLow
+	return DefaultMongoMemoryProfile
 }
 
 // NUMACtlPreference returns if numactl is preferred.
@@ -689,7 +690,7 @@ func Validate(c Config) error {
 
 	if mgoMemProfile, ok := c[MongoMemoryProfile].(string); ok {
 		if mgoMemProfile != MongoProfLow && mgoMemProfile != MongoProfDefault {
-			return errors.Errorf("mongo-memory-profile: expected one of %s or %s got string(%q)", MongoProfLow, MongoProfDefault, mgoMemProfile)
+			return errors.Errorf("mongo-memory-profile: expected one of %q or %q got string(%q)", MongoProfLow, MongoProfDefault, mgoMemProfile)
 		}
 	}
 
@@ -892,7 +893,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertURLKey:          schema.Omit,
 	AutocertDNSNameKey:      schema.Omit,
 	AllowModelAccessKey:     schema.Omit,
-	MongoMemoryProfile:      MongoProfLow,
+	MongoMemoryProfile:      DefaultMongoMemoryProfile,
 	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
 	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
