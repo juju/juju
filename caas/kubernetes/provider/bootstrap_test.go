@@ -37,8 +37,6 @@ type bootstrapSuite struct {
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
-	// this is a controller namespace!
-	// this will impact config.name as well.
 
 	controllerName := "controller-1"
 
@@ -97,6 +95,9 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+	// this is set in newcontrollerStack eventually, but we need to set here because mock resources set ns now!
+	// TODO: fix here !!!
+	s.namespace = s.pcfg.ControllerName
 	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl)
 
 	gomock.InOrder(
@@ -104,15 +105,19 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
 			Return(&core.NamespaceList{Items: []core.Namespace{}}, nil),
 	)
-
 	s.setupBroker(c, ctrl, newK8sRestClientFunc)
+	// broker's namespace should be "controller" - controllerModelConfig.Name()
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller")
 
 	gomock.InOrder(
+		// setControllerNamespace checks controllerName is ok to use.
 		s.mockNamespaces.EXPECT().Get(s.pcfg.ControllerName, v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 	)
-
 	controllerStacker := s.controllerStackerGetter()
+	// broker's namespace should be set to controller name now.
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.pcfg.ControllerName)
+
 	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
 
 	scName := "some-storage"
@@ -122,14 +127,14 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: s.namespace()}}
-	ns.Name = s.namespace()
+	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: s.getNamespace()}}
+	ns.Name = s.getNamespace()
 	s.ensureJujuNamespaceAnnotations(true, ns)
 	svc := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-service",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace(),
+			Namespace: s.getNamespace(),
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-application": "juju-controller-test"},
@@ -154,7 +159,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace(),
+			Namespace: s.getNamespace(),
 		},
 		Type: core.SecretTypeOpaque,
 	}
@@ -162,7 +167,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace(),
+			Namespace: s.getNamespace(),
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -173,7 +178,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace(),
+			Namespace: s.getNamespace(),
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -186,7 +191,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace(),
+			Namespace: s.getNamespace(),
 		},
 	}
 	bootstrapParamsContent, err := s.pcfg.Bootstrap.StateInitializationParams.Marshal()
@@ -195,7 +200,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace(),
+			Namespace: s.getNamespace(),
 		},
 		Data: map[string]string{
 			"bootstrap-params": string(bootstrapParamsContent),
@@ -205,7 +210,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace(),
+			Namespace: s.getNamespace(),
 		},
 		Data: map[string]string{
 			"bootstrap-params": string(bootstrapParamsContent),
@@ -219,7 +224,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test",
 			Labels:    map[string]string{"juju-application": "juju-controller-test"},
-			Namespace: s.namespace(),
+			Namespace: s.getNamespace(),
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: "juju-controller-test-service",
@@ -247,7 +252,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:    map[string]string{"juju-application": "juju-controller-test"},
-					Namespace: s.namespace(),
+					Namespace: s.getNamespace(),
 				},
 				Spec: core.PodSpec{
 					RestartPolicy: core.RestartPolicyAlways,
@@ -337,7 +342,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "jujusolutions/juju-db:4.1.9",
+			Image:           "jujusolutions/juju-db:3.6.6",
 			Command: []string{
 				"mongod",
 			},
@@ -504,8 +509,10 @@ test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /va
 			Return(configMapWithAgentConfAdded, nil),
 
 		// Check the operator storage exists.
-		s.mockStorageClass.EXPECT().Get("test-some-storage", v1.GetOptions{}).Times(1).
+		// first check if <namespace>-<storage-class> exist or not.
+		s.mockStorageClass.EXPECT().Get("controller-1-some-storage", v1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
+		// not found, fallback to <storage-class>.
 		s.mockStorageClass.EXPECT().Get("some-storage", v1.GetOptions{}).Times(1).
 			Return(&sc, nil),
 

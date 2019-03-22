@@ -37,6 +37,8 @@ type BaseSuite struct {
 	cfg           *config.Config
 	k8sRestConfig *rest.Config
 
+	namespace string
+
 	controllerUUID string
 
 	k8sClient                  *mocks.MockInterface
@@ -92,13 +94,14 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.cfg = cfg
 
 	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
+	s.namespace = s.cfg.Name()
 }
 
-func (s *BaseSuite) namespace() string {
+func (s *BaseSuite) getNamespace() string {
 	if s.broker != nil {
 		return s.broker.GetCurrentNamespace()
 	}
-	return s.cfg.Name()
+	return s.namespace
 }
 
 func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
@@ -129,6 +132,7 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller) provide
 	// We make the mock and assign it to the corresponding core getter function.
 	mockCoreV1 := mocks.NewMockCoreV1Interface(ctrl)
 	s.k8sClient.EXPECT().CoreV1().AnyTimes().Return(mockCoreV1)
+
 	s.mockRestClient = mocks.NewMockRestClientInterface(ctrl)
 	mockCoreV1.EXPECT().RESTClient().AnyTimes().Return(s.mockRestClient)
 
@@ -136,22 +140,22 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller) provide
 	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
 
 	s.mockPods = mocks.NewMockPodInterface(ctrl)
-	mockCoreV1.EXPECT().Pods(s.namespace()).AnyTimes().Return(s.mockPods)
+	mockCoreV1.EXPECT().Pods(s.getNamespace()).AnyTimes().Return(s.mockPods)
 
 	s.mockServices = mocks.NewMockServiceInterface(ctrl)
-	mockCoreV1.EXPECT().Services(s.namespace()).AnyTimes().Return(s.mockServices)
+	mockCoreV1.EXPECT().Services(s.getNamespace()).AnyTimes().Return(s.mockServices)
 
 	s.mockConfigMaps = mocks.NewMockConfigMapInterface(ctrl)
-	mockCoreV1.EXPECT().ConfigMaps(s.namespace()).AnyTimes().Return(s.mockConfigMaps)
+	mockCoreV1.EXPECT().ConfigMaps(s.getNamespace()).AnyTimes().Return(s.mockConfigMaps)
 
 	s.mockPersistentVolumes = mocks.NewMockPersistentVolumeInterface(ctrl)
 	mockCoreV1.EXPECT().PersistentVolumes().AnyTimes().Return(s.mockPersistentVolumes)
 
 	s.mockPersistentVolumeClaims = mocks.NewMockPersistentVolumeClaimInterface(ctrl)
-	mockCoreV1.EXPECT().PersistentVolumeClaims(s.namespace()).AnyTimes().Return(s.mockPersistentVolumeClaims)
+	mockCoreV1.EXPECT().PersistentVolumeClaims(s.getNamespace()).AnyTimes().Return(s.mockPersistentVolumeClaims)
 
 	s.mockSecrets = mocks.NewMockSecretInterface(ctrl)
-	mockCoreV1.EXPECT().Secrets(s.namespace()).AnyTimes().Return(s.mockSecrets)
+	mockCoreV1.EXPECT().Secrets(s.getNamespace()).AnyTimes().Return(s.mockSecrets)
 
 	s.mockNodes = mocks.NewMockNodeInterface(ctrl)
 	mockCoreV1.EXPECT().Nodes().AnyTimes().Return(s.mockNodes)
@@ -163,9 +167,9 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller) provide
 	s.mockIngressInterface = mocks.NewMockIngressInterface(ctrl)
 	s.k8sClient.EXPECT().ExtensionsV1beta1().AnyTimes().Return(s.mockExtensions)
 	s.k8sClient.EXPECT().AppsV1().AnyTimes().Return(s.mockApps)
-	s.mockApps.EXPECT().StatefulSets(s.namespace()).AnyTimes().Return(s.mockStatefulSets)
-	s.mockApps.EXPECT().Deployments(s.namespace()).AnyTimes().Return(s.mockDeployments)
-	s.mockExtensions.EXPECT().Ingresses(s.namespace()).AnyTimes().Return(s.mockIngressInterface)
+	s.mockApps.EXPECT().StatefulSets(s.getNamespace()).AnyTimes().Return(s.mockStatefulSets)
+	s.mockApps.EXPECT().Deployments(s.getNamespace()).AnyTimes().Return(s.mockDeployments)
+	s.mockExtensions.EXPECT().Ingresses(s.getNamespace()).AnyTimes().Return(s.mockIngressInterface)
 
 	s.mockStorage = mocks.NewMockStorageV1Interface(ctrl)
 	s.mockStorageClass = mocks.NewMockStorageClassInterface(ctrl)

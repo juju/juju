@@ -24,7 +24,7 @@ type storageSuite struct {
 }
 
 func (s *storageSuite) k8sProvider(c *gc.C, ctrl *gomock.Controller) storage.Provider {
-	return provider.StorageProvider(s.k8sClient, s.namespace())
+	return provider.StorageProvider(s.k8sClient, s.getNamespace())
 }
 
 func (s *storageSuite) TestValidateConfig(c *gc.C) {

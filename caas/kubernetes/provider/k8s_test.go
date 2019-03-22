@@ -596,7 +596,7 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.namespace())
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
 }
 
 func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
