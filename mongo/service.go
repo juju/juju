@@ -459,11 +459,15 @@ func generateConfig(mongoPath string, dataDir string, statePort int, oplogSizeMB
 		//BindIP:                "127.0.0.1", // TODO(tsm): use machine's actual IP address via dialInfo
 	}
 
-	if usingMongo34orAbove && useLowMemory && usingWiredTiger {
-		mongoArgs.WiredTigerCacheSizeGB = Mongo34LowCacheSize
-	} else if usingWiredTiger {
-		mongoArgs.WiredTigerCacheSizeGB = LowCacheSize
-	} else {
+	if useLowMemory && usingWiredTiger {
+		if usingMongo34orAbove {
+			// Mongo 3.4 introduced the ability to have fractional GB cache size.
+			mongoArgs.WiredTigerCacheSizeGB = Mongo34LowCacheSize
+		} else {
+			mongoArgs.WiredTigerCacheSizeGB = LowCacheSize
+		}
+	}
+	if !usingWiredTiger {
 		mongoArgs.NoPreAlloc = true
 		mongoArgs.SmallFiles = true
 	}
@@ -479,6 +483,8 @@ func generateConfig(mongoPath string, dataDir string, statePort int, oplogSizeMB
 	}
 
 	if featureflag.Enabled(feature.MongoDbSnap) {
+		// Switch from syslog to appending to dataDir, because snaps don't
+		// have the same permissions.
 		mongoArgs.Syslog = false
 		mongoArgs.LogAppend = true
 		mongoArgs.LogPath = logPath(dataDir)

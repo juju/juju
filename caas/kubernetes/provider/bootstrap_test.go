@@ -96,11 +96,11 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	svc := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-service",
-			Labels:    map[string]string{"juju-application": "juju-controller-test"},
+			Labels:    map[string]string{"juju-app": "juju-controller-test"},
 			Namespace: s.namespace,
 		},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-application": "juju-controller-test"},
+			Selector: map[string]string{"juju-app": "juju-controller-test"},
 			Type:     core.ServiceType("ClusterIP"),
 			Ports: []core.ServicePort{
 				{
@@ -121,7 +121,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	emptySecret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
-			Labels:    map[string]string{"juju-application": "juju-controller-test"},
+			Labels:    map[string]string{"juju-app": "juju-controller-test"},
 			Namespace: s.namespace,
 		},
 		Type: core.SecretTypeOpaque,
@@ -129,7 +129,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	secretWithSharedSecretAdded := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
-			Labels:    map[string]string{"juju-application": "juju-controller-test"},
+			Labels:    map[string]string{"juju-app": "juju-controller-test"},
 			Namespace: s.namespace,
 		},
 		Type: core.SecretTypeOpaque,
@@ -140,7 +140,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	secretWithServerPEMAdded := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
-			Labels:    map[string]string{"juju-application": "juju-controller-test"},
+			Labels:    map[string]string{"juju-app": "juju-controller-test"},
 			Namespace: s.namespace,
 		},
 		Type: core.SecretTypeOpaque,
@@ -153,7 +153,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	emptyConfigMap := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
-			Labels:    map[string]string{"juju-application": "juju-controller-test"},
+			Labels:    map[string]string{"juju-app": "juju-controller-test"},
 			Namespace: s.namespace,
 		},
 	}
@@ -162,7 +162,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	configMapWithBootstrapParamsAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
-			Labels:    map[string]string{"juju-application": "juju-controller-test"},
+			Labels:    map[string]string{"juju-app": "juju-controller-test"},
 			Namespace: s.namespace,
 		},
 		Data: map[string]string{
@@ -172,7 +172,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	configMapWithAgentConfAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
-			Labels:    map[string]string{"juju-application": "juju-controller-test"},
+			Labels:    map[string]string{"juju-app": "juju-controller-test"},
 			Namespace: s.namespace,
 		},
 		Data: map[string]string{
@@ -186,20 +186,20 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	statefulSetSpec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test",
-			Labels:    map[string]string{"juju-application": "juju-controller-test"},
+			Labels:    map[string]string{"juju-app": "juju-controller-test"},
 			Namespace: s.namespace,
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: "juju-controller-test-service",
 			Replicas:    &numberOfPods,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-application": "juju-controller-test"},
+				MatchLabels: map[string]string{"juju-app": "juju-controller-test"},
 			},
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{
 				{
 					ObjectMeta: v1.ObjectMeta{
 						Name:   "storage",
-						Labels: map[string]string{"juju-application": "juju-controller-test"},
+						Labels: map[string]string{"juju-app": "juju-controller-test"},
 					},
 					Spec: core.PersistentVolumeClaimSpec{
 						StorageClassName: &scName,
@@ -214,7 +214,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:    map[string]string{"juju-application": "juju-controller-test"},
+					Labels:    map[string]string{"juju-app": "juju-controller-test"},
 					Namespace: s.namespace,
 				},
 				Spec: core.PodSpec{
@@ -323,7 +323,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				"--auth",
 				"--keyFile=/var/lib/juju/shared-secret",
 				"--storageEngine=wiredTiger",
-				"--wiredTigerCacheSizeGB=1",
 				"--bind_ip_all",
 			},
 			Ports: []core.ContainerPort{

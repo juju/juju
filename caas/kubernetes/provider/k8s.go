@@ -51,6 +51,7 @@ import (
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/paths"
 	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
@@ -64,8 +65,8 @@ const (
 	labelOperator        = "juju-operator"
 	labelStorage         = "juju-storage"
 	labelVersion         = "juju-version"
-	labelApplication     = "juju-application"
-	labelApplicationUUID = "juju-application-uuid"
+	labelApplication     = "juju-app"
+	labelApplicationUUID = "juju-app-uuid"
 	labelModel           = "juju-model"
 
 	gpuAffinityNodeSelectorKey = "gpu"
@@ -394,7 +395,7 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 	imageSecretName,
 	appName string,
 	imageDetails *caas.ImageDetails,
-	resourceTags map[string]string,
+	annotations map[string]string,
 ) error {
 	if imageDetails.Password == "" {
 		return errors.New("attempting to create a secret with no password")
@@ -406,9 +407,10 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 
 	newSecret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      imageSecretName,
-			Namespace: k.namespace,
-			Labels:    resourceTags},
+			Name:        imageSecretName,
+			Namespace:   k.namespace,
+			Labels:      map[string]string{labelApplication: appName},
+			Annotations: annotations},
 		Type: core.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
 			core.DockerConfigJsonKey: secretData,
@@ -507,13 +509,12 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	for k, v := range config.CharmStorage.ResourceTags {
 		storageTags[k] = v
 	}
-	storageTags[labelOperator] = appName
 
-	tags := make(map[string]string)
+	annotations := make(map[string]string)
 	for k, v := range config.ResourceTags {
-		tags[k] = v
+		annotations[k] = v
 	}
-	tags[labelOperator] = appName
+	annotations[labelVersion] = config.Version.String()
 
 	// Set up the parameters for creating charm storage.
 	operatorVolumeClaim := "charm"
@@ -548,11 +549,11 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	}
 	pvc := &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   params.pvcName,
-			Labels: storageTags},
+			Name:        params.pvcName,
+			Annotations: storageTags},
 		Spec: *pvcSpec,
 	}
-	pod := operatorPod(operatorName, appName, agentPath, config.OperatorImagePath, config.Version.String(), tags)
+	pod := operatorPod(operatorName, appName, agentPath, config.OperatorImagePath, config.Version.String(), annotations)
 	// Take a copy for use with statefulset.
 	podWithoutStorage := pod
 
@@ -560,8 +561,9 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	logger.Debugf("using persistent volume claim for operator %s: %+v", appName, pvc)
 	statefulset := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   operatorName,
-			Labels: pod.Labels},
+			Name:        operatorName,
+			Labels:      map[string]string{labelOperator: appName},
+			Annotations: annotations},
 		Spec: apps.StatefulSetSpec{
 			Replicas: &numPods,
 			Selector: &v1.LabelSelector{
@@ -569,7 +571,8 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: pod.Labels,
+					Labels:      map[string]string{labelOperator: appName},
+					Annotations: pod.Annotations,
 				},
 			},
 			PodManagementPolicy:  apps.ParallelPodManagement,
@@ -1101,17 +1104,23 @@ func (k *kubernetesClient) EnsureService(
 			})
 	}
 
-	resourceTags := make(map[string]string)
+	annotations := make(map[string]string)
 	for k, v := range params.ResourceTags {
-		resourceTags[k] = v
+		if k == tags.JujuController {
+			k = "juju.io/controller"
+		}
+		if k == tags.JujuModel {
+			k = "juju.io/model"
+		}
+		annotations[k] = v
 	}
-	resourceTags[labelApplication] = appName
+
 	for _, c := range params.PodSpec.Containers {
 		if c.ImageDetails.Password == "" {
 			continue
 		}
 		imageSecretName := appSecretName(deploymentName, c.Name)
-		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, resourceTags); err != nil {
+		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, annotations); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
@@ -1149,12 +1158,12 @@ func (k *kubernetesClient) EnsureService(
 
 	numPods := int32(numUnits)
 	if useStatefulSet {
-		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, resourceTags, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	} else {
-		if err := k.configureDeployment(appName, deploymentName, resourceTags, unitSpec, params.PodSpec.Containers, &numPods); err != nil {
+		if err := k.configureDeployment(appName, deploymentName, annotations, unitSpec, params.PodSpec.Containers, &numPods); err != nil {
 			return errors.Annotate(err, "creating or updating DeploymentController")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -1171,21 +1180,21 @@ func (k *kubernetesClient) EnsureService(
 	}
 	if !params.PodSpec.OmitServiceFrontend {
 		// Merge any service annotations from the charm.
-		if unitSpec.Service != nil && len(unitSpec.Service.Annotations) > 0 {
-			annotations := make(map[string]string)
+		if unitSpec.Service != nil {
 			for k, v := range unitSpec.Service.Annotations {
 				annotations[k] = v
 			}
-			deployAnnotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
-			if err != nil {
-				return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
-			}
-			for k, v := range deployAnnotations {
-				annotations[k] = v
-			}
-			config[serviceAnnotationsKey] = annotations
 		}
-		if err := k.configureService(appName, deploymentName, ports, resourceTags, config); err != nil {
+		// Merge any service annotations from the CLI.
+		deployAnnotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
+		if err != nil {
+			return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
+		}
+		for k, v := range deployAnnotations {
+			annotations[k] = v
+		}
+		config[serviceAnnotationsKey] = annotations
+		if err := k.configureService(appName, deploymentName, ports, config); err != nil {
 			return errors.Annotatef(err, "creating or updating service for %v", appName)
 		}
 	}
@@ -1300,8 +1309,8 @@ func (k *kubernetesClient) configureStorage(
 		tags[labelApplication] = appName
 		pvc := core.PersistentVolumeClaim{
 			ObjectMeta: v1.ObjectMeta{
-				Name:   params.pvcName,
-				Labels: tags},
+				Name:        params.pvcName,
+				Annotations: tags},
 			Spec: *pvcSpec,
 		}
 		logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, pvc)
@@ -1372,8 +1381,20 @@ func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers [
 	return nil
 }
 
+func podAnnotations(annotations map[string]string) map[string]string {
+	podAnnotations := make(map[string]string)
+	for k, v := range annotations {
+		podAnnotations[k] = v
+	}
+	// Add standard security annotations.
+	podAnnotations["apparmor.security.beta.kubernetes.io/pod"] = "runtime/default"
+	podAnnotations["seccomp.security.beta.kubernetes.io/pod"] = "docker/default"
+
+	return podAnnotations
+}
+
 func (k *kubernetesClient) configureDeployment(
-	appName, deploymentName string, labels map[string]string, unitSpec *unitSpec, containers []caas.ContainerSpec, replicas *int32,
+	appName, deploymentName string, annotations map[string]string, unitSpec *unitSpec, containers []caas.ContainerSpec, replicas *int32,
 ) error {
 	logger.Debugf("creating/updating deployment for %s", appName)
 
@@ -1388,8 +1409,9 @@ func (k *kubernetesClient) configureDeployment(
 
 	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   deploymentName,
-			Labels: labels},
+			Name:        deploymentName,
+			Labels:      map[string]string{labelApplication: appName},
+			Annotations: annotations},
 		Spec: apps.DeploymentSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
@@ -1398,7 +1420,8 @@ func (k *kubernetesClient) configureDeployment(
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
-					Labels:       labels,
+					Labels:       map[string]string{labelApplication: appName},
+					Annotations:  podAnnotations(annotations),
 				},
 				Spec: podSpec,
 			},
@@ -1428,7 +1451,7 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func (k *kubernetesClient) configureStatefulSet(
-	appName, deploymentName, randPrefix string, labels map[string]string, unitSpec *unitSpec,
+	appName, deploymentName, randPrefix string, annotations map[string]string, unitSpec *unitSpec,
 	containers []caas.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
@@ -1437,11 +1460,15 @@ func (k *kubernetesClient) configureStatefulSet(
 	cfgName := func(fileSetName string) string {
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
+	statefulSetAnnotations := make(map[string]string)
+	for k, v := range annotations {
+		statefulSetAnnotations[k] = v
+	}
+	statefulSetAnnotations[labelApplicationUUID] = randPrefix
 	statefulset := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        deploymentName,
-			Annotations: map[string]string{labelApplicationUUID: randPrefix},
-			Labels:      labels},
+			Annotations: statefulSetAnnotations},
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
@@ -1449,7 +1476,8 @@ func (k *kubernetesClient) configureStatefulSet(
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: labels,
+					Labels:      map[string]string{labelApplication: appName},
+					Annotations: podAnnotations(annotations),
 				},
 			},
 			PodManagementPolicy: apps.ParallelPodManagement,
@@ -1488,6 +1516,7 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 		return errors.Trace(err)
 	}
 	// TODO(caas) - allow extra storage to be added
+	existing.Spec.Selector = spec.Spec.Selector
 	existing.Spec.Replicas = spec.Spec.Replicas
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
 	_, err = statefulsets.Update(existing)
@@ -1545,7 +1574,7 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 
 func (k *kubernetesClient) configureService(
 	appName, deploymentName string, containerPorts []core.ContainerPort,
-	tags map[string]string, config application.ConfigAttributes,
+	config application.ConfigAttributes,
 ) error {
 	logger.Debugf("creating/updating service for %s", appName)
 
@@ -1575,7 +1604,7 @@ func (k *kubernetesClient) configureService(
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        deploymentName,
-			Labels:      tags,
+			Labels:      map[string]string{labelApplication: appName},
 			Annotations: annotations,
 		},
 		Spec: core.ServiceSpec{
@@ -2152,16 +2181,20 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 	}
 
 	appTag := names.NewApplicationTag(appName)
-	podLabels := make(map[string]string)
+	podAnnotations := make(map[string]string)
 	for k, v := range tags {
-		podLabels[k] = v
+		podAnnotations[k] = v
 	}
-	podLabels[labelVersion] = version
+	podAnnotations[labelVersion] = version
+	podAnnotations["apparmor.security.beta.kubernetes.io/pod"] = "runtime/default"
+	podAnnotations["seccomp.security.beta.kubernetes.io/pod"] = "docker/default"
 	jujudCmd := fmt.Sprintf("./jujud caasoperator --application-name=%s --debug", appName)
+
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   podName,
-			Labels: podLabels,
+			Name:        podName,
+			Annotations: podAnnotations,
+			Labels:      map[string]string{labelOperator: appName},
 		},
 		Spec: core.PodSpec{
 			Containers: []core.Container{{
@@ -2311,6 +2344,10 @@ func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitS
 	return &unitSpec, nil
 }
 
+func boolPtr(b bool) *bool {
+	return &b
+}
+
 func populateContainerDetails(deploymentName string, pod *core.PodSpec, podContainers []core.Container, containers []caas.ContainerSpec) error {
 	for i, c := range containers {
 		if c.Image != "" {
@@ -2336,6 +2373,15 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 		}
 		if spec.ReadinessProbe != nil {
 			podContainers[i].ReadinessProbe = spec.ReadinessProbe
+		}
+		if spec.SecurityContext != nil {
+			podContainers[i].SecurityContext = spec.SecurityContext
+		} else {
+			podContainers[i].SecurityContext = &core.SecurityContext{
+				AllowPrivilegeEscalation: boolPtr(false),
+				ReadOnlyRootFilesystem:   boolPtr(true),
+				RunAsNonRoot:             boolPtr(true),
+			}
 		}
 	}
 	return nil

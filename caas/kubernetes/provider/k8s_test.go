@@ -66,7 +66,8 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 				Nameservers: []string{"ns1", "n2"},
 			},
 			SecurityContext: &core.PodSecurityContext{
-				RunAsNonRoot: boolPtr(true),
+				RunAsNonRoot:       boolPtr(true),
+				SupplementalGroups: []int64{1, 2},
 			},
 			ReadinessGates: []core.PodReadinessGate{
 				{ConditionType: core.PodInitialized},
@@ -85,6 +86,10 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 				LivenessProbe: &core.Probe{
 					SuccessThreshold: 20,
 					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				},
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot: boolPtr(true),
+					Privileged:   boolPtr(true),
 				},
 			},
 		}, {
@@ -110,7 +115,8 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 			Nameservers: []string{"ns1", "n2"},
 		},
 		SecurityContext: &core.PodSecurityContext{
-			RunAsNonRoot: boolPtr(true),
+			RunAsNonRoot:       boolPtr(true),
+			SupplementalGroups: []int64{1, 2},
 		},
 		ReadinessGates: []core.PodReadinessGate{
 			{ConditionType: core.PodInitialized},
@@ -121,6 +127,10 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 				Image:           "juju/image",
 				Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
 				ImagePullPolicy: core.PullAlways,
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot: boolPtr(true),
+					Privileged:   boolPtr(true),
+				},
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
 					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
@@ -153,6 +163,10 @@ func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
 				LivenessProbe: &core.Probe{
 					SuccessThreshold: 20,
 					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				},
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot: boolPtr(true),
+					Privileged:   boolPtr(true),
 				},
 			},
 		}, {
@@ -188,6 +202,10 @@ func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
 					SuccessThreshold: 20,
 					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 				},
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot: boolPtr(true),
+					Privileged:   boolPtr(true),
+				},
 			}, {
 				Name:  "test2",
 				Image: "juju/image2",
@@ -202,6 +220,12 @@ func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
 				WorkingDir:      "/path/to/here",
 				Command:         []string{"sh", "ls"},
 				ImagePullPolicy: core.PullAlways,
+				// Defaults since not specified.
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot:             boolPtr(true),
+					ReadOnlyRootFilesystem:   boolPtr(true),
+					AllowPrivilegeEscalation: boolPtr(false),
+				},
 			},
 		},
 	})
@@ -274,10 +298,11 @@ test -e ./jujud || cp /opt/jujud $(pwd)/jujud
 
 var basicServiceArg = &core.Service{
 	ObjectMeta: v1.ObjectMeta{
-		Name:   "app-name",
-		Labels: map[string]string{"juju-application": "app-name"}},
+		Name:        "app-name",
+		Labels:      map[string]string{"juju-app": "app-name"},
+		Annotations: map[string]string{}},
 	Spec: core.ServiceSpec{
-		Selector: map[string]string{"juju-application": "app-name"},
+		Selector: map[string]string{"juju-app": "app-name"},
 		Type:     "nodeIP",
 		Ports: []core.ServicePort{
 			{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -288,22 +313,23 @@ var basicServiceArg = &core.Service{
 	},
 }
 
-func (s *K8sBrokerSuite) secretArg(c *gc.C, labels map[string]string) *core.Secret {
+func (s *K8sBrokerSuite) secretArg(c *gc.C, annotations map[string]string) *core.Secret {
 	secretData, err := provider.CreateDockerConfigJSON(&basicPodspec.Containers[0].ImageDetails)
 	c.Assert(err, jc.ErrorIsNil)
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+
 	secret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name-test-secret",
-			Namespace: "test",
-			Labels:    labels,
+			Name:        "app-name-test-secret",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "app-name"},
+			Annotations: annotations,
 		},
 		Type: "kubernetes.io/dockerconfigjson",
 		Data: map[string][]byte{".dockerconfigjson": secretData},
 	}
-	if secret.Labels == nil {
-		secret.Labels = make(map[string]string)
-	}
-	secret.Labels["juju-application"] = "app-name"
 	return secret
 }
 
@@ -337,13 +363,18 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 
 func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	tags := map[string]string{
-		"juju-operator": "gitlab",
+		"fred": "mary",
 	}
 	pod := provider.OperatorPod("gitlab", "gitlab", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", tags)
 	c.Assert(pod.Name, gc.Equals, "gitlab")
 	c.Assert(pod.Labels, jc.DeepEquals, map[string]string{
 		"juju-operator": "gitlab",
-		"juju-version":  "2.99.0",
+	})
+	c.Assert(pod.Annotations, jc.DeepEquals, map[string]string{
+		"fred":         "mary",
+		"juju-version": "2.99.0",
+		"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+		"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 	})
 	c.Assert(pod.Spec.Containers, gc.HasLen, 1)
 	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "jujusolutions/jujud-operator")
@@ -631,8 +662,10 @@ func operatorStatefulSetArg(numUnits int32, scName string) *appsv1.StatefulSet {
 			Name: "test-operator",
 			Labels: map[string]string{
 				"juju-operator": "test",
-				"juju-version":  "2.99.0",
-				"fred":          "mary",
+			},
+			Annotations: map[string]string{
+				"juju-version": "2.99.0",
+				"fred":         "mary",
 			}},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
@@ -643,8 +676,12 @@ func operatorStatefulSetArg(numUnits int32, scName string) *appsv1.StatefulSet {
 				ObjectMeta: v1.ObjectMeta{
 					Labels: map[string]string{
 						"juju-operator": "test",
-						"fred":          "mary",
-						"juju-version":  "2.99.0",
+					},
+					Annotations: map[string]string{
+						"fred":         "mary",
+						"juju-version": "2.99.0",
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 					},
 				},
 				Spec: operatorPodspec,
@@ -652,9 +689,8 @@ func operatorStatefulSetArg(numUnits int32, scName string) *appsv1.StatefulSet {
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
 				ObjectMeta: v1.ObjectMeta{
 					Name: "charm",
-					Labels: map[string]string{
-						"juju-operator": "test",
-						"foo":           "bar",
+					Annotations: map[string]string{
+						"foo": "bar",
 					}},
 				Spec: core.PersistentVolumeClaimSpec{
 					StorageClassName: &scName,
@@ -675,31 +711,32 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 	return &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "app-name",
-			Labels: map[string]string{
-				"juju-application": "app-name",
-			},
 			Annotations: map[string]string{
-				"juju-application-uuid": "appuuid",
+				"juju-app-uuid": "appuuid",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-application": "app-name"},
+				MatchLabels: map[string]string{"juju-app": "app-name"},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-application": "app-name"},
+					Labels: map[string]string{"juju-app": "app-name"},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+					},
 				},
 				Spec: podSpec,
 			},
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
 				ObjectMeta: v1.ObjectMeta{
 					Name: "database-appuuid",
-					Labels: map[string]string{
-						"juju-application": "app-name",
-						"foo":              "bar",
-						"juju-storage":     "database",
+					Annotations: map[string]string{
+						"juju-app":     "app-name",
+						"foo":          "bar",
+						"juju-storage": "database",
 					}},
 				Spec: core.PersistentVolumeClaimSpec{
 					StorageClassName: &scName,
@@ -828,7 +865,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 			Return(s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-application==test"}).Times(1).
+		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==test"}).Times(1).
 			Return(&core.SecretList{Items: []core.Secret{{
 				ObjectMeta: v1.ObjectMeta{Name: "secret"},
 			}}}, nil),
@@ -876,22 +913,26 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "app-name",
-			Labels: map[string]string{
-				"juju-application": "app-name",
-				"fred":             "mary",
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred": "mary",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-application": "app-name"},
+				MatchLabels: map[string]string{"juju-app": "app-name"},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
 					Labels: map[string]string{
-						"juju-application": "app-name",
-						"fred":             "mary",
+						"juju-app": "app-name",
+					},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"fred": "mary",
 					},
 				},
 				Spec: podSpec,
@@ -900,14 +941,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	}
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "app-name",
-			Annotations: map[string]string{"a": "b"},
-			Labels: map[string]string{
-				"juju-application": "app-name",
-				"fred":             "mary",
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred": "mary",
+				"a":    "b",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-application": "app-name"},
+			Selector: map[string]string{"juju-app": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -1191,7 +1232,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1259,17 +1300,22 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "app-name",
-			Labels: map[string]string{"juju-application": "app-name"}},
+			Name:        "app-name",
+			Labels:      map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-application": "app-name"},
+				MatchLabels: map[string]string{"juju-app": "app-name"},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels:       map[string]string{"juju-application": "app-name"},
+					Labels:       map[string]string{"juju-app": "app-name"},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+					},
 				},
 				Spec: podSpec,
 			},
@@ -1343,7 +1389,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1415,7 +1461,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1494,7 +1540,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1565,7 +1611,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-application-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1651,11 +1697,11 @@ func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Watch(v1.ListOptions{
-			LabelSelector: "juju-application==test",
+			LabelSelector: "juju-app==test",
 			Watch:         true,
 		}).Return(ssWatcher, nil),
 		s.mockDeployments.EXPECT().Watch(v1.ListOptions{
-			LabelSelector: "juju-application==test",
+			LabelSelector: "juju-app==test",
 			Watch:         true,
 		}).Return(deployWatcher, nil),
 	)
