@@ -31,9 +31,10 @@ type k8sContainers struct {
 // K8sContainerSpec is a subset of v1.Container which defines
 // attributes we expose for charms to set.
 type K8sContainerSpec struct {
-	LivenessProbe   *core.Probe     `json:"livenessProbe,omitempty"`
-	ReadinessProbe  *core.Probe     `json:"readinessProbe,omitempty"`
-	ImagePullPolicy core.PullPolicy `json:"imagePullPolicy,omitempty"`
+	LivenessProbe   *core.Probe           `json:"livenessProbe,omitempty"`
+	ReadinessProbe  *core.Probe           `json:"readinessProbe,omitempty"`
+	SecurityContext *core.SecurityContext `json:"securityContext,omitempty"`
+	ImagePullPolicy core.PullPolicy       `json:"imagePullPolicy,omitempty"`
 }
 
 // Validate is defined on ProviderContainer.
