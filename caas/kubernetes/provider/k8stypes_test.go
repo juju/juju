@@ -32,6 +32,7 @@ terminationGracePeriodSeconds: 20
 automountServiceAccountToken: true
 securityContext:
   runAsNonRoot: true
+  supplementalGroups: [1,2]
 hostname: host
 subdomain: sub
 priorityClassName: top
@@ -54,6 +55,9 @@ containers:
       protocol: TCP
     - containerPort: 443
       name: mary
+    securityContext:
+      runAsNonRoot: true
+      privileged: true
     livenessProbe:
       initialDelaySeconds: 10
       httpGet:
@@ -152,7 +156,8 @@ foo: bar
 			TerminationGracePeriodSeconds: int64Ptr(20),
 			AutomountServiceAccountToken:  boolPtr(true),
 			SecurityContext: &core.PodSecurityContext{
-				RunAsNonRoot: boolPtr(true),
+				RunAsNonRoot:       boolPtr(true),
+				SupplementalGroups: []int64{1, 2},
 			},
 			Hostname:          "host",
 			Subdomain:         "sub",
@@ -196,6 +201,10 @@ foo: bar
 			},
 			ProviderContainer: &provider.K8sContainerSpec{
 				ImagePullPolicy: "Always",
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot: boolPtr(true),
+					Privileged:   boolPtr(true),
+				},
 				LivenessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
 					Handler: core.Handler{

@@ -62,9 +62,14 @@ When invoked without arguments, add-cloud begins an interactive session
 designed for working with private clouds.  The session will enable you 
 to instruct Juju how to connect to your private cloud.
 
-When <cloud definition file> is provided with <cloud name>, 
-Juju stores that definition its internal cache directly after 
-validating the contents.
+A cloud definition can be provided in a file either as an option --f or as a 
+positional argument:
+
+    juju add-cloud mycloud ~/mycloud.yaml
+    juju add-cloud mycloud -f ~/mycloud.yaml
+
+Juju will validate the contents of the supplied file and
+store that cloud definition in its internal cache.
 
 If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
 option is required.

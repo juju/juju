@@ -37,7 +37,7 @@ const (
 )
 
 // jujudbVersion is the version of juju-db to use.
-var jujudbVersion = mongo.Mongo406wt
+var jujudbVersion = mongo.Mongo40wt
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
 type ControllerPodConfig struct {
@@ -242,7 +242,7 @@ func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() string {
 		imageRepo = jujudOCINamespace
 	}
 	v := jujudbVersion
-	return fmt.Sprintf("%s/%s:%d.%d.%d", imageRepo, jujudbOCIName, v.Major, v.Minor, v.Point)
+	return fmt.Sprintf("%s/%s:%d.%d", imageRepo, jujudbOCIName, v.Major, v.Minor)
 }
 
 // GetJujuOCIImagePath returns the jujud oci image path.
