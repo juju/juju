@@ -1032,21 +1032,9 @@ type charmStoreSuite struct {
 	client    testcharms.Charmstore
 }
 
-func (s *charmStoreSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
-}
-
-func (s *charmStoreSuite) TearDownSuite(c *gc.C) {
-	s.JujuConnSuite.TearDownSuite(c)
-}
-
 func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.client = apiservertesting.NewClient(apiservertesting.NewRepository())
-}
-
-func (s *charmStoreSuite) TearDownTest(c *gc.C) {
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 // changeReadPerm changes the read permission of the given charm URL.
