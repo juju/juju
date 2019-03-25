@@ -123,7 +123,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var charms []charmstrore.CharmID
+	var charms []charmstore.CharmID
 	var resultsIndexedApps []*state.Application
 	for _, application := range applications {
 		curl, _ := application.CharmURL()
