@@ -2298,8 +2298,8 @@ type AgentTools interface {
 	AgentTools() (*tools.Tools, error)
 }
 
-// ModelConfig is a point of use model configuration.
-type ModelConfig interface {
+// AgentVersioner is a point of use agent version object.
+type AgentVersioner interface {
 	AgentVersion() (version.Number, error)
 }
 
@@ -2319,24 +2319,37 @@ func getAgentToolsVersion(agentTools AgentTools) (version.Number, error) {
 	return tools.Version.Number, nil
 }
 
-func getModelConfigVersion(modelConfig ModelConfig) (version.Number, error) {
-	agent, err := modelConfig.AgentVersion()
+func getAgentVersion(versioner AgentVersioner) (version.Number, error) {
+	agent, err := versioner.AgentVersion()
 	if err != nil {
 		return version.Zero, err
 	}
 	return agent, nil
 }
 
-func validateAgentVersions(application Application, modelConfig ModelConfig) error {
+func validateAgentVersions(application Application, versioner AgentVersioner) error {
 	// The epoch is set like this, because beta tags are less than release tags.
 	// So 2.6-beta1.1 < 2.6.0, even though the patch is greater than 0. To
 	// prevent the miss-match, we add the upper epoch limit.
 	epoch := version.Number{Major: 2, Minor: 5, Patch: math.MaxInt32}
 
+	// Locate the agent tools version to limit the amount of checking we
+	// required to do over all. We check for NotFound to also use that as a
+	// fallthrough to check the agent version as well. This should take care
+	// of places where the application.AgentTools version is not set (IAAS).
 	ver, err := getAgentToolsVersion(application)
-	if ver.Compare(epoch) >= 0 || errors.IsNotFound(err) {
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if errors.IsNotFound(err) || ver.Compare(epoch) >= 0 {
 		// Check to see if the model config version is valid
-		modelVer, modelErr := getModelConfigVersion(modelConfig)
+		// Arguably we could check on the per-unit level, as that is the
+		// *actual* version of the agent that is running, looking at the
+		// versioner (alias to model config), we get the intent of the move
+		// to that version.
+		// This should be enough for a pre-flight check, rather than querying
+		// potentially thousands of units (think large production stacks).
+		modelVer, modelErr := getAgentVersion(versioner)
 		if modelErr != nil {
 			// If we can't find the model config version, then we can't do the
 			// comparison check.
@@ -2345,7 +2358,6 @@ func validateAgentVersions(application Application, modelConfig ModelConfig) err
 		if modelVer.Compare(epoch) < 0 {
 			return ErrInvalidAgentVersions
 		}
-		return nil
 	}
-	return err
+	return nil
 }
