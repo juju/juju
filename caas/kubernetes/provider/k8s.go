@@ -126,7 +126,7 @@ func NewK8sBroker(
 	newClient NewK8sClientFunc,
 	newWatcher NewK8sWatcherFunc,
 	clock jujuclock.Clock,
-) (caas.Broker, error) {
+) (*kubernetesClient, error) {
 
 	k8sClient, apiextensionsClient, err := newClient(k8sRestConfig)
 	if err != nil {
@@ -165,8 +165,8 @@ func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 	return k.annotations
 }
 
-// AddAnnotations set an annotation to current namespace's annotations.
-func (k *kubernetesClient) AddAnnotations(key, value string) k8sannotations.Annotation {
+// addAnnotations set an annotation to current namespace's annotations.
+func (k *kubernetesClient) addAnnotations(key, value string) k8sannotations.Annotation {
 	return k.annotations.Add(key, value)
 }
 
@@ -217,7 +217,7 @@ Please bootstrap again and choose a different controller name.`, k.namespace),
 	// Good, no existing namespace has the same name.
 	// Now, try to find if there is any existing controller running in this cluster.
 	// Note: we have to do this check before we are confident to support multi controllers running in same k8s cluster.
-	_, err = k.ListNamespacesByAnnotations(k.annotations)
+	_, err = k.listNamespacesByAnnotations(k.annotations)
 	if err == nil {
 		return alreadyExistErr
 	}
@@ -263,6 +263,27 @@ func (k *kubernetesClient) Bootstrap(
 		}
 
 		logger.Debugf("controller pod config: \n%+v", pcfg)
+
+		// we use controller name to name controller namespace in bootstrap time.
+		setControllerNamespace := func(name string, broker *kubernetesClient) error {
+			_, err := broker.GetNamespace(name)
+			if errors.IsNotFound(err) {
+				// all good.
+				broker.SetNamespace(name)
+				// ensure controller specific annotations.
+				_ = broker.addAnnotations(annotationControllerIsControllerKey, "true")
+				return nil
+			}
+			if err == nil {
+				// this should never happen because we avoid it in broker.PrepareForBootstrap before reaching here.
+				return errors.NotValidf("existing namespace %q found", broker.namespace)
+			}
+			return errors.Trace(err)
+		}
+
+		if err := setControllerNamespace(pcfg.ControllerName, k); err != nil {
+			return errors.Trace(err)
+		}
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
 		controllerStack, err := newcontrollerStack(JujuControllerStackName, storageClass, k, pcfg)

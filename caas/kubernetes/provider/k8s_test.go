@@ -36,7 +36,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
+	// "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/storage"
@@ -382,32 +382,6 @@ func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
 
 	err := s.broker.SetConfig(s.cfg)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *K8sBrokerSuite) TestControllerNamespaceRenamingFromModelConfigNameToControllerName(c *gc.C) {
-	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
-		config.NameKey: "controller",
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	s.cfg = cfg
-
-	existingNs := core.Namespace{}
-	existingNs.Name = "controller-c1"
-
-	s.ensureJujuNamespaceAnnotations(true, &existingNs)
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
-			Return(&core.NamespaceList{Items: []core.Namespace{existingNs}}, nil),
-	)
-	s.setupBroker(c, ctrl, newK8sRestClientFunc)
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-c1")
-
 }
 
 func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {

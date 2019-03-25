@@ -20,7 +20,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	"github.com/juju/juju/cloud"
@@ -33,7 +32,7 @@ type BaseSuite struct {
 	testing.BaseSuite
 
 	clock         *testclock.Clock
-	broker        caas.Broker
+	broker        *provider.KubernetesClient
 	cfg           *config.Config
 	k8sRestConfig *rest.Config
 

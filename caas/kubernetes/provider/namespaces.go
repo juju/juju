@@ -70,8 +70,8 @@ func (k *kubernetesClient) SetNamespace(name string) {
 	k.namespace = name
 }
 
-// ListNamespacesByAnnotations filters namespaces by annations.
-func (k *kubernetesClient) ListNamespacesByAnnotations(annotations k8sannotations.Annotation) ([]core.Namespace, error) {
+// listNamespacesByAnnotations filters namespaces by annations.
+func (k *kubernetesClient) listNamespacesByAnnotations(annotations k8sannotations.Annotation) ([]core.Namespace, error) {
 	namespaces, err := k.CoreV1().Namespaces().List(v1.ListOptions{IncludeUninitialized: true})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -79,6 +79,8 @@ func (k *kubernetesClient) ListNamespacesByAnnotations(annotations k8sannotation
 	var matchedNS []core.Namespace
 	annotationMap := annotations
 	for _, ns := range namespaces.Items {
+		logger.Criticalf("ns -> %v", ns)
+		logger.Criticalf("annotationMap -> %v", annotationMap)
 		if err := checkNamespaceOwnedByJuju(&ns, annotationMap); err == nil {
 			matchedNS = append(matchedNS, ns)
 		}
