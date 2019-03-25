@@ -189,7 +189,7 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 	if ctrlCfg, err := api.ControllerConfig(); err == nil {
 		ctrlUUID = ctrlCfg.ControllerUUID()
 	} else {
-		logger.Errorf("getting controller config from API: %v", err)
+		logger.Warningf("getting controller config from API: %v", err)
 	}
 	for _, model := range hostedConfig {
 		if model.Error != nil {

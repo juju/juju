@@ -218,7 +218,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		if isCAAS {
 			// For CAAS, the agent-version in controller config should
 			// always equals to current juju version.
-			return errors.NotValidf(
+			return errors.NotSupportedf(
 				"desired juju version %q, current version %q for k8s controllers",
 				desiredVersion, jujuversion.Current,
 			)

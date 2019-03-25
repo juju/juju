@@ -1368,5 +1368,5 @@ func (m *mockModelBackend) CloudCredential(tag names.CloudCredentialTag) (state.
 }
 
 func (m *mockModelBackend) ControllerConfig() (credentialcommon.ControllerConfig, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("ControllerConfig")
 }

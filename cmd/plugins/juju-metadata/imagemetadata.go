@@ -50,7 +50,7 @@ func prepare(context *cmd.Context, controllerName string, store jujuclient.Clien
 	// we'll do about simplestreams.MetadataValidator yet. Probably
 	// move it to the EnvironProvider interface.
 	return environs.New(environs.OpenParams{
-		ControllerUUID: bootstrapConfig.ControllerModelUUID,
+		ControllerUUID: bootstrapConfig.ControllerConfig.ControllerUUID(),
 		Cloud:          params.Cloud,
 		Config:         cfg,
 	})
