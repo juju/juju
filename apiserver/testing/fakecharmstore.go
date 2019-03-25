@@ -174,33 +174,61 @@ type ChannelAwareClient struct {
 
 var _ testcharms.ChannelAwareCharmstore = (*ChannelAwareClient)(nil)
 
-func (c *ChannelAwareClient) Latest(ids []*charm.URL, headers map[string][]string) (revisions []params.CharmRevision, err error) {
+func (c ChannelAwareClient) Latest(ids []*charm.URL, headers map[string][]string) (revisions []params.CharmRevision, err error) {
 	return c.charmstore.Latest(c.channel, ids, headers)
 }
 
-func (c *ChannelAwareClient) ListResources(id *charm.URL) ([]params.Resource, error) {
+func (c ChannelAwareClient) ListResources(id *charm.URL) ([]params.Resource, error) {
 	return c.charmstore.ListResources(c.channel, id)
 }
 
-func (c *ChannelAwareClient) GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
+func (c ChannelAwareClient) GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
 	return c.charmstore.GetResource(c.channel, id, name, revision)
 }
 
-func (c *ChannelAwareClient) ResourceMeta(id *charm.URL, name string, revision int) (params.Resource, error) {
+func (c ChannelAwareClient) ResourceMeta(id *charm.URL, name string, revision int) (params.Resource, error) {
 	return c.charmstore.ResourceMeta(c.channel, id, name, revision)
 }
 
-func (c *ChannelAwareClient) ServerURL() string {
+func (c ChannelAwareClient) ServerURL() string {
 	return c.charmstore.ServerURL()
 }
 
-func (c *ChannelAwareClient) Get(path string, value interface{}) error {
+func (c ChannelAwareClient) Get(path string, value interface{}) error {
 	return c.charmstore.Get(path, value)
 }
 
 // Put stores data at path
-func (c *ChannelAwareClient) Put(path string, value interface{}) error {
+func (c ChannelAwareClient) Put(path string, value interface{}) error {
 	return c.charmstore.Put(path, value)
+}
+
+func (c ChannelAwareClient) UploadCharm(id *charm.URL, ch charm.Charm) (*charm.URL, error) {
+	return c.charmstore.UploadCharm(id, ch)
+}
+
+func (c ChannelAwareClient) UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error {
+	return c.charmstore.UploadCharmWithRevision(id, ch, promulgatedRevision)
+}
+
+func (c ChannelAwareClient) UploadBundle(id *charm.URL, bundle charm.Bundle) (*charm.URL, error) {
+	return c.charmstore.UploadBundle(id, bundle)
+}
+
+func (c ChannelAwareClient) UploadBundleWithRevision(id *charm.URL, bundle charm.Bundle, promulgatedRevision int) error {
+	return c.charmstore.UploadBundleWithRevision(id, bundle, promulgatedRevision)
+}
+
+func (c ChannelAwareClient) UploadResource(id *charm.URL, name, path string, file io.ReadSeeker, size int64, progress csclient.Progress) (revision int, err error) {
+	return c.charmstore.UploadResource(id, name, path, file, size, progress)
+}
+
+func (c ChannelAwareClient) Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error {
+	return c.charmstore.Publish(id, channels, resources)
+}
+
+func (c ChannelAwareClient) AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error) {
+	return c.charmstore.AddDockerResource(id, resourceName, imageName, digest)
 }
 
 // Repository is a stand-in charmrepo.

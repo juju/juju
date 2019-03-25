@@ -6,34 +6,28 @@ package application_test
 import (
 	"bytes"
 	"io/ioutil"
-	"net/http/httptest"
 	"path"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/juju/juju/core/model"
-
-	"github.com/juju/cmd/cmdtesting"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	"gopkg.in/juju/charmstore.v5"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
 
+	"github.com/juju/cmd/cmdtesting"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/component/all"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
+	jc "github.com/juju/testing/checkers"
 )
 
 type UpgradeCharmResourceSuite struct {
@@ -130,38 +124,40 @@ resources:
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
 	jujutesting.JujuConnSuite
-	handler    charmstore.HTTPCloseHandler
-	srv        *httptest.Server
-	srvSession *mgo.Session
-	client     *csclient.Client
+	// handler    charmstore.HTTPCloseHandler
+	// srv        *httptest.Server
+	// srvSession *mgo.Session
+	// client     *csclient.Client
+	client testcharms.Charmstore
 }
 
 func (s *charmStoreSuite) SetUpTest(c *gc.C) {
-	srvSession, err := gitjujutesting.MgoServer.Dial()
-	c.Assert(err, gc.IsNil)
-	s.srvSession = srvSession
+	// srvSession, err := gitjujutesting.MgoServer.Dial()
+	// c.Assert(err, gc.IsNil)
+	// s.srvSession = srvSession
 
-	// Set up the charm store testing server.
-	db := s.srvSession.DB("juju-testing")
-	params := charmstore.ServerParams{
-		AuthUsername: "test-user",
-		AuthPassword: "test-password",
-	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
-	c.Assert(err, jc.ErrorIsNil)
-	s.handler = handler
-	s.srv = httptest.NewServer(handler)
-	s.client = csclient.New(csclient.Params{
-		URL:      s.srv.URL,
-		User:     params.AuthUsername,
-		Password: params.AuthPassword,
-	})
+	// // Set up the charm store testing server.
+	// db := s.srvSession.DB("juju-testing")
+	// params := charmstore.ServerParams{
+	// 	AuthUsername: "test-user",
+	// 	AuthPassword: "test-password",
+	// }
+	// handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
+	// c.Assert(err, jc.ErrorIsNil)
+	// s.handler = handler
+	// s.srv = httptest.NewServer(handler)
+	// s.client = csclient.New(csclient.Params{
+	// 	URL:      s.srv.URL,
+	// 	User:     params.AuthUsername,
+	// 	Password: params.AuthPassword,
+	// })
+	// // Set charmstore URL config so the config is set during bootstrap
+	// if s.ControllerConfigAttrs == nil {
+	// 	s.ControllerConfigAttrs = make(map[string]interface{})
+	// }
+	// s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
 
-	// Set charmstore URL config so the config is set during bootstrap
-	if s.ControllerConfigAttrs == nil {
-		s.ControllerConfigAttrs = make(map[string]interface{})
-	}
-	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
+	s.client = apiservertesting.NewClient(apiservertesting.NewRepository())
 
 	s.JujuConnSuite.SetUpTest(c)
 
@@ -170,9 +166,9 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {
-	s.handler.Close()
-	s.srv.Close()
-	s.srvSession.Close()
+	// s.handler.Close()
+	// s.srv.Close()
+	// s.srvSession.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -392,6 +388,6 @@ type applicationInfo struct {
 // charm or bundle. The deployment stderr output and error are returned.
 // TODO(rog) delete this when tests are universally internal or external.
 func runDeploy(c *gc.C, args ...string) (string, error) {
-	ctx, err := cmdtesting.RunCommand(c, application.NewDeployCommand(), args...)
+	ctx, err := cmdtesting.RunCommand(c, application.NewDeployCommand(nil, nil), args...)
 	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }

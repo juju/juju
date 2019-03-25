@@ -94,7 +94,7 @@ removing application storage-filesystem-multi-series
 
 func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered-multi-series")
-	deploy := NewDeployCommand()
+	deploy := NewDeployCommand(nil, nil)
 	_, err := cmdtesting.RunCommand(c, deploy, ch)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runRemoveApplication(c, "metered-multi-series")

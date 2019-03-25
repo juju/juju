@@ -114,6 +114,11 @@ type DeployAPI interface {
 	PlanURL() string
 }
 
+type charmRepository interface {
+	charmrepo.Interface
+	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
+}
+
 // The following structs exist purely because Go cannot create a
 // struct with a field named the same as a method name. The DeployAPI
 // needs to both embed a *<package>.Client and provide the
@@ -138,11 +143,11 @@ type modelConfigClient struct {
 }
 
 type charmRepoClient struct {
-	*charmrepo.CharmStore
+	charmRepository
 }
 
 type charmstoreClient struct {
-	*csclient.Client
+	charmstoreCommunicator
 }
 
 type annotationsClient struct {
@@ -154,7 +159,7 @@ type plansClient struct {
 }
 
 func (a *charmstoreClient) AuthorizeCharmstoreEntity(url *charm.URL) (*macaroon.Macaroon, error) {
-	return authorizeCharmStoreEntity(a.Client, url)
+	return authorizeCharmStoreEntity(a, url)
 }
 
 func (c *plansClient) PlanURL() string {
@@ -249,9 +254,9 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-				charmstoreClient:  &charmstoreClient{Client: cstoreClient},
+				charmstoreClient:  &charmstoreClient{cstoreClient},
 				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-				charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
+				charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
 				plansClient:       &plansClient{planURL: mURL},
 			}, nil
 		}
@@ -260,7 +265,10 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 }
 
 // NewDeployCommand returns a command to deploy applications.
-func NewDeployCommand() modelcmd.ModelCommand {
+func NewDeployCommand(
+	charmStore charmstoreCommunicator,
+	charmRepo charmRepository,
+) modelcmd.ModelCommand {
 	steps := []DeployStep{
 		&RegisterMeteredCharm{
 			PlanURL:      romulus.DefaultAPIRoot,
@@ -294,7 +302,15 @@ func NewDeployCommand() modelcmd.ModelCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
+
+		if (charmStore == nil) != (charmRepo == nil) {
+			return nil, errors.Errorf("either provide both charmStore and charmRepo or neither of them")
+		}
+
+		if charmStore == nil && charmRepo == nil {
+			charmStore = newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
+			charmRepo = charmrepo.NewCharmStoreFromClient(charmStore.(*csclient.Client))
+		}
 
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
@@ -302,9 +318,9 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			charmstoreClient:  &charmstoreClient{Client: cstoreClient},
+			charmstoreClient:  &charmstoreClient{charmStore},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
+			charmRepoClient:   &charmRepoClient{charmRepo},
 			plansClient:       &plansClient{planURL: mURL},
 		}, nil
 	}

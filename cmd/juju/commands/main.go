@@ -404,7 +404,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage and control applications
 	r.Register(application.NewAddUnitCommand())
 	r.Register(application.NewConfigCommand())
-	r.Register(application.NewDeployCommand())
+	r.Register(application.NewDeployCommand(nil,nil))
 	r.Register(application.NewExposeCommand())
 	r.Register(application.NewUnexposeCommand())
 	r.Register(application.NewApplicationGetConstraintsCommand())

@@ -13,36 +13,32 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/testing/factory"
-	"github.com/juju/loggo"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v3"
 	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
 
+	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	jjcharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient"
@@ -50,6 +46,11 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
+	"github.com/juju/loggo"
+	jujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 )
 
 type DeploySuiteBase struct {
@@ -73,7 +74,7 @@ var _ = gc.Suite(&DeploySuite{})
 // runDeploy executes the deploy command in order to deploy the given
 // charm or bundle. The deployment stderr output and error are returned.
 func runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
-	ctx, err := cmdtesting.RunCommand(c, NewDeployCommand(), args...)
+	ctx, err := cmdtesting.RunCommand(c, NewDeployCommand(nil, nil), args...)
 	return strings.Trim(cmdtesting.Stdout(ctx), "\n"),
 		strings.Trim(cmdtesting.Stderr(ctx), "\n"),
 		err
@@ -117,7 +118,7 @@ var initErrorTests = []struct {
 func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
-		err := cmdtesting.InitCommand(NewDeployCommand(), t.args)
+		err := cmdtesting.InitCommand(NewDeployCommand(nil, nil), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -561,7 +562,7 @@ func (s *CAASDeploySuite) TestInitErrorsCaasModel(c *gc.C) {
 
 	for i, t := range caasTests {
 		c.Logf("Running %d with args %v", i, t.args)
-		err = cmdtesting.InitCommand(NewDeployCommand(), t.args)
+		err = cmdtesting.InitCommand(NewDeployCommand(nil, nil), t.args)
 		c.Assert(err, gc.ErrorMatches, t.message)
 	}
 }
@@ -579,7 +580,7 @@ var caasTests = []struct {
 func (s *CAASDeploySuite) TestCaasModelValidatedAtRun(c *gc.C) {
 	for i, t := range caasTests {
 		c.Logf("Running %d with args %v", i, t.args)
-		mycmd := NewDeployCommand()
+		mycmd := NewDeployCommand(nil, nil)
 		err := cmdtesting.InitCommand(mycmd, t.args)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -956,7 +957,7 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
-		_, err := cmdtesting.RunCommand(c, NewDeployCommand(), test.deployURL, fmt.Sprintf("wordpress%d", i))
+		_, err := cmdtesting.RunCommand(c, NewDeployCommand(nil, nil), test.deployURL, fmt.Sprintf("wordpress%d", i))
 		if test.expectError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectError)
 			continue
@@ -1027,7 +1028,8 @@ const (
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
 	testing.JujuConnSuite
-	client testcharms.StatefulCharmstoreClient
+	charmrepo charmrepo.Interface
+	client    testcharms.Charmstore
 }
 
 func (s *charmStoreSuite) SetUpSuite(c *gc.C) {
@@ -1040,7 +1042,7 @@ func (s *charmStoreSuite) TearDownSuite(c *gc.C) {
 
 func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.client = apiservertesting.NewCharmstoreClient()
+	s.client = apiservertesting.NewClient(apiservertesting.NewRepository())
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {

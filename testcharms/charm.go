@@ -29,21 +29,12 @@ const defaultSeries = "quantal"
 // Repo provides access to the test charm repository.
 var Repo = testing.NewRepo("charm-repo", defaultSeries)
 
-type MiniHTTP interface {
+type miniHTTP interface {
 	Get(path string, value interface{}) error
 	Put(path string, value interface{}) error
 }
 
-// Charmstore provides an important subset of the functionality provided the Juju charm store.
-//
-// Charmstore is an extension of the upstream csclient.CharmstoreWrapper interface
-type Charmstore interface {
-	MiniHTTP
-	WithChannel(channel params.Channel) ChannelAwareCharmstore
-	Latest(channel params.Channel, ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error)
-	ListResources(channel params.Channel, id *charm.URL) ([]params.Resource, error)
-	GetResource(channel params.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error)
-	ResourceMeta(channel params.Channel, id *charm.URL, name string, revision int) (params.Resource, error)
+type commonCharmstore interface {
 	ServerURL() string
 	UploadCharm(id *charm.URL, ch charm.Charm) (*charm.URL, error)
 	UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
@@ -52,6 +43,19 @@ type Charmstore interface {
 	UploadResource(id *charm.URL, name, path string, file io.ReadSeeker, size int64, progress csclient.Progress) (revision int, err error)
 	Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error
 	AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error)
+}
+
+// Charmstore provides an important subset of the functionality provided the Juju charm store.
+//
+// Charmstore is an extension of the upstream csclient.CharmstoreWrapper interface
+type Charmstore interface {
+	miniHTTP
+	commonCharmstore
+	WithChannel(channel params.Channel) ChannelAwareCharmstore
+	Latest(channel params.Channel, ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error)
+	ListResources(channel params.Channel, id *charm.URL) ([]params.Resource, error)
+	GetResource(channel params.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error)
+	ResourceMeta(channel params.Channel, id *charm.URL, name string, revision int) (params.Resource, error)
 
 	// ignoring for now..
 	//
@@ -71,8 +75,8 @@ type Charmstore interface {
 // ChannelAwareCharmstore is a variant of the Charmstore interface that
 // uses methods without a channel argument.
 type ChannelAwareCharmstore interface {
-	MiniHTTP
-	ServerURL() string
+	miniHTTP
+	commonCharmstore
 	Latest(ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error)
 	ListResources(id *charm.URL) ([]params.Resource, error)
 	GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error)
