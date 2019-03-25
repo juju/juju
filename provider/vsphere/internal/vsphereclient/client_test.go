@@ -10,7 +10,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -34,6 +36,7 @@ type clientSuite struct {
 	roundTripper   mockRoundTripper
 	uploadRequests []*http.Request
 	onImageUpload  func(*http.Request)
+	clock          *testclock.Clock
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -75,7 +78,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		taskResult: make(map[types.ManagedObjectReference]types.AnyType),
 		taskError:  make(map[types.ManagedObjectReference]*types.LocalizedMethodFault),
 	}
-	s.roundTripper.contents = map[string][]types.ObjectContent{
+	s.roundTripper.setContents(map[string][]types.ObjectContent{
 		"FakeRootFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Datacenter",
@@ -376,7 +379,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "uuid", Val: "yup"},
 			},
 		}},
-	}
+	})
 
 	s.roundTripper.importVAppResult = types.ManagedObjectReference{
 		Type:  "VirtualMachine",
@@ -405,6 +408,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		s.server.Close()
 	})
 	s.roundTripper.serverURL = s.server.URL
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *clientSuite) newFakeClient(roundTripper soap.RoundTripper, dc string) *Client {
@@ -425,6 +429,7 @@ func (s *clientSuite) newFakeClient(roundTripper soap.RoundTripper, dc string) *
 		},
 		datacenter: dc,
 		logger:     loggo.GetLogger("vsphereclient"),
+		clock:      s.clock,
 	}
 }
 

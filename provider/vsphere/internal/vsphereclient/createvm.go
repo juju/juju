@@ -265,31 +265,20 @@ func (c *Client) extendVMRootDisk(
 	sizeMB uint64,
 	taskWaiter *taskWaiter,
 ) error {
-	var mo mo.VirtualMachine
-	if err := c.client.RetrieveOne(ctx, vm.Reference(), []string{"config.hardware"}, &mo); err != nil {
+	disk, backing, err := c.getDiskWithFileBacking(ctx, vm)
+	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, dev := range mo.Config.Hardware.Device {
-		dev, ok := dev.(*types.VirtualDisk)
-		if !ok {
-			continue
-		}
-		newCapacityInKB := int64(sizeMB) * 1024
-		if dev.CapacityInKB >= newCapacityInKB {
-			// The root disk is already bigger than the
-			// user-specified size, so leave it alone.
-			return nil
-		}
-		backing, ok := dev.Backing.(types.BaseVirtualDeviceFileBackingInfo)
-		if !ok {
-			continue
-		}
-		datastorePath := backing.GetVirtualDeviceFileBackingInfo().FileName
-		return errors.Trace(c.extendDisk(
-			ctx, datacenter, datastorePath, newCapacityInKB, taskWaiter,
-		))
+	newCapacityInKB := int64(sizeMB) * 1024
+	if disk.CapacityInKB >= newCapacityInKB {
+		// The root disk is already bigger than the
+		// user-specified size, so leave it alone.
+		return nil
 	}
-	return errors.New("disk not found")
+	datastorePath := backing.GetVirtualDeviceFileBackingInfo().FileName
+	return errors.Trace(c.extendDisk(
+		ctx, vm, datacenter, datastorePath, newCapacityInKB, taskWaiter,
+	))
 }
 
 func (c *Client) createImportSpec(
