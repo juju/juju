@@ -92,6 +92,44 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	existingNs := core.Namespace{}
+	existingNs.SetName("controller-1")
+	existingNs.SetAnnotations(map[string]string{
+		"juju.io/model":         s.cfg.UUID(),
+		"juju.io/controller":    s.controllerUUID,
+		"juju.io/is-controller": "true",
+	})
+
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller")
+	c.Assert(s.broker.GetAnnotations().ToMap(), jc.DeepEquals, map[string]string{
+		"juju.io/model":      s.cfg.UUID(),
+		"juju.io/controller": s.controllerUUID,
+	})
+
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
+			Return(&core.NamespaceList{Items: []core.Namespace{existingNs}}, nil),
+	)
+	var err error
+	s.broker, err = provider.ControllerCorelation(s.broker)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(
+		// "is-controller" is set as well.
+		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
+		map[string]string{
+			"juju.io/model":         s.cfg.UUID(),
+			"juju.io/controller":    s.controllerUUID,
+			"juju.io/is-controller": "true",
+		},
+	)
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-1")
+}
+
 func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -99,23 +137,33 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	// So we have to specify the final namespace(controllerName) for later use.
 	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.pcfg.ControllerName)
 
-	gomock.InOrder(
-		// NewK8sBroker checks no existing ns by annotations.
-		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
-			Return(&core.NamespaceList{Items: []core.Namespace{}}, nil),
-	)
 	s.setupBroker(c, ctrl, newK8sRestClientFunc)
-	// Broker's namespace should be "controller" - controllerModelConfig.Name()
+	// Broker's namespace is "controller" now - controllerModelConfig.Name()
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller")
-
-	gomock.InOrder(
-		// The setControllerNamespace checks controllerName is ok to use.
-		s.mockNamespaces.EXPECT().Get(s.pcfg.ControllerName, v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(nil, s.k8sNotFoundError()),
+	c.Assert(
+		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
+		map[string]string{
+			"juju.io/model":      s.cfg.UUID(),
+			"juju.io/controller": s.controllerUUID,
+		},
 	)
+
+	// These two are done in broker.Bootstrap method actually.
+	s.broker.SetNamespace("controller-1")
+	s.broker.GetAnnotations().Add("juju.io/is-controller", "true")
+
 	controllerStacker := s.controllerStackerGetter()
 	// Broker's namespace should be set to controller name now.
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.pcfg.ControllerName)
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-1")
+	c.Assert(
+		// "is-controller" is set as well.
+		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
+		map[string]string{
+			"juju.io/model":         s.cfg.UUID(),
+			"juju.io/controller":    s.controllerUUID,
+			"juju.io/is-controller": "true",
+		},
+	)
 
 	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
 

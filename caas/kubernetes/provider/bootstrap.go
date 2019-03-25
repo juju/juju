@@ -27,7 +27,7 @@ import (
 
 const (
 	// JujuControllerStackName is the juju CAAS controller stack name.
-	JujuControllerStackName = "juju-controller"
+	JujuControllerStackName = "controller"
 )
 
 var (
@@ -39,7 +39,6 @@ var (
 
 type controllerStack struct {
 	stackName   string
-	namespace   string
 	stackLabels map[string]string
 	broker      *kubernetesClient
 
@@ -67,19 +66,18 @@ type controllerStacker interface {
 	Deploy() error
 }
 
-func controllerCorelation(broker caas.Broker) (caas.Broker, error) {
+func controllerCorelation(broker *kubernetesClient) (*kubernetesClient, error) {
 	if broker.Config().Name() != environsbootstrap.ControllerModelName {
 		return broker, nil
 	}
-	// decide namespace name for controller.
-
 	// ensure controller specific annotations.
-	_ = broker.AddAnnotations(annotationControllerIsControllerKey, "true")
+	_ = broker.addAnnotations(annotationControllerIsControllerKey, "true")
 
-	ns, err := broker.ListNamespacesByAnnotations(broker.GetAnnotations())
+	ns, err := broker.listNamespacesByAnnotations(broker.GetAnnotations())
 	if errors.IsNotFound(err) || ns == nil {
 		// No existing controller found on the cluster.
 		// A controller must be bootstrapping now.
+		// It will reply on setControllerNamespace in controller stack to set namespace name.
 		return broker, nil
 	}
 	if err != nil {
@@ -90,22 +88,6 @@ func controllerCorelation(broker caas.Broker) (caas.Broker, error) {
 	// It should be always one record here based on current annotation design.
 	broker.SetNamespace(ns[0].GetName())
 	return broker, nil
-}
-
-// setControllerNamespace sets controller's namespace to name.
-// This is only used for bootstrap - set namespace from `controller` to `controller-name`.
-func setControllerNamespace(name string, broker *kubernetesClient) error {
-	_, err := broker.GetNamespace(name)
-	if errors.IsNotFound(err) {
-		// all good.
-		broker.namespace = name
-		return nil
-	}
-	if err == nil {
-		// this should never happen because we avoid it in broker.PrepareForBootstrap before reaching here.
-		return errors.NotValidf("existing namespace %q found", broker.namespace)
-	}
-	return errors.Trace(err)
 }
 
 func newcontrollerStack(
@@ -146,14 +128,8 @@ func newcontrollerStack(
 	agentConfig.SetStateServingInfo(si)
 	pcfg.Bootstrap.StateServingInfo = si
 
-	// we use controller name to name controller namespace in bootstrap time.
-	if err = setControllerNamespace(pcfg.ControllerName, broker); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	cs := controllerStack{
 		stackName:   stackName,
-		namespace:   broker.GetCurrentNamespace(),
 		stackLabels: map[string]string{labelApplication: stackName},
 		broker:      broker,
 
@@ -207,7 +183,7 @@ func (c controllerStack) getControllerSecret() (secret *core.Secret, err error) 
 			ObjectMeta: v1.ObjectMeta{
 				Name:      c.resourceNameSecret,
 				Labels:    c.stackLabels,
-				Namespace: c.namespace,
+				Namespace: c.broker.GetCurrentNamespace(),
 			},
 			Type: core.SecretTypeOpaque,
 		})
@@ -234,7 +210,7 @@ func (c controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err error
 			ObjectMeta: v1.ObjectMeta{
 				Name:      c.resourceNameConfigMap,
 				Labels:    c.stackLabels,
-				Namespace: c.namespace,
+				Namespace: c.broker.GetCurrentNamespace(),
 			},
 		})
 	}
@@ -254,7 +230,7 @@ func (c controllerStack) doCleanUp() {
 // Deploy creates all resources for controller stack.
 func (c controllerStack) Deploy() (err error) {
 	// creating namespace for controller stack, this namespace will be removed by broker.DestroyController if bootstrap failed.
-	if err = c.broker.createNamespace(c.namespace); err != nil {
+	if err = c.broker.createNamespace(c.broker.GetCurrentNamespace()); err != nil {
 		return errors.Annotate(err, "creating namespace for controller stack")
 	}
 
@@ -307,7 +283,7 @@ func (c controllerStack) createControllerService() error {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      svcName,
 			Labels:    c.stackLabels,
-			Namespace: c.namespace,
+			Namespace: c.broker.GetCurrentNamespace(),
 		},
 		Spec: core.ServiceSpec{
 			Selector: c.stackLabels,
@@ -431,7 +407,7 @@ func (c controllerStack) createControllerStatefulset() error {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      c.resourceNameStatefulSet,
 			Labels:    c.stackLabels,
-			Namespace: c.namespace,
+			Namespace: c.broker.GetCurrentNamespace(),
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: c.resourceNameService,
@@ -442,7 +418,7 @@ func (c controllerStack) createControllerStatefulset() error {
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:    c.stackLabels,
-					Namespace: c.namespace,
+					Namespace: c.broker.GetCurrentNamespace(),
 				},
 				Spec: core.PodSpec{
 					RestartPolicy: core.RestartPolicyAlways,
