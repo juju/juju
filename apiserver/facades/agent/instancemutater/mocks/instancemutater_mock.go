@@ -127,9 +127,9 @@ func (m *MockInstanceMutaterCacheModel) EXPECT() *MockInstanceMutaterCacheModelM
 }
 
 // WatchMachines mocks base method
-func (m *MockInstanceMutaterCacheModel) WatchMachines() cache.NotifyWatcher {
+func (m *MockInstanceMutaterCacheModel) WatchMachines() cache.StringsWatcher {
 	ret := m.ctrl.Call(m, "WatchMachines")
-	ret0, _ := ret[0].(cache.NotifyWatcher)
+	ret0, _ := ret[0].(cache.StringsWatcher)
 	return ret0
 }
 

@@ -20,7 +20,7 @@ import (
 //go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Context,Resources,Authorizer
 //go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,InstanceMutaterCacheModel,Model,Machine,Unit,Application,Charm,LXDProfile
 //go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
-//go:generate mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/cache NotifyWatcher
+//go:generate mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/cache StringsWatcher
 
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
 
@@ -61,8 +61,9 @@ func NewFacadeV1(ctx facade.Context) (*InstanceMutaterAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	mdl := &instanceMutaterCacheModelShim{Model: model}
 
-	return NewInstanceMutaterAPI(st, model, ctx.Resources(), ctx.Auth())
+	return NewInstanceMutaterAPI(st, mdl, ctx.Resources(), ctx.Auth())
 }
 
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
@@ -182,9 +183,7 @@ func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error
 	watch := api.model.WatchMachines()
 	if changes, ok := <-watch.Changes(); ok {
 		result.StringsWatcherId = api.resources.Register(watch)
-
-		fmt.Println(changes)
-		result.Changes = []string{} // TODO: change for changes
+		result.Changes = changes
 	} else {
 		return result, fmt.Errorf("cannot obtain initial model machines")
 	}

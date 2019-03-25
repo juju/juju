@@ -58,13 +58,6 @@ func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
 	return newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange))
 }
 
-// WatchMachines creates a ChangeWatcher (strings watcher) to notify about
-// added and removed machines in the model.  The initial event contains
-// a slice of the current machine ids.
-func (m *Model) WatchMachines() NotifyWatcher {
-	return nil
-}
-
 // Report returns information that is used in the dependency engine report.
 func (m *Model) Report() map[string]interface{} {
 	m.mu.Lock()

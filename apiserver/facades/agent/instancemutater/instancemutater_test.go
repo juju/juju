@@ -4,6 +4,7 @@
 package instancemutater_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -739,7 +740,7 @@ type InstanceMutaterAPIWatchMachinesSuite struct {
 	instanceMutaterAPISuite
 
 	machine *mocks.MockMachine
-	watcher *mocks.MockNotifyWatcher
+	watcher *mocks.MockStringsWatcher
 }
 
 var _ = gc.Suite(&InstanceMutaterAPIWatchMachinesSuite{})
@@ -748,7 +749,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) setup(c *gc.C) *gomock.Controller
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
 	s.machine = mocks.NewMockMachine(ctrl)
-	s.watcher = mocks.NewMockNotifyWatcher(ctrl)
+	s.watcher = mocks.NewMockStringsWatcher(ctrl)
 
 	return ctrl
 }
@@ -766,7 +767,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
-		Changes:          []string{},
+		Changes:          []string{"0"},
 	})
 }
 
@@ -789,11 +790,11 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectAuthController() {
 
 func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithNotify(times int) func() {
 	return func() {
-		ch := make(chan struct{})
+		ch := make(chan []string)
 
 		go func() {
 			for i := 0; i < times; i++ {
-				ch <- struct{}{}
+				ch <- []string{fmt.Sprintf("%d", i)}
 			}
 		}()
 
@@ -804,7 +805,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithNotify(tim
 }
 
 func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithClosedChannel() {
-	ch := make(chan struct{})
+	ch := make(chan []string)
 	close(ch)
 
 	s.model.EXPECT().WatchMachines().Return(s.watcher)

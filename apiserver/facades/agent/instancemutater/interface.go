@@ -24,7 +24,7 @@ type InstanceMutaterState interface {
 // InstanceMutaterCacheModel represents point of use methods from the cache
 // model
 type InstanceMutaterCacheModel interface {
-	WatchMachines() cache.NotifyWatcher // Change to cache.ChangeWatcher
+	WatchMachines() cache.StringsWatcher
 }
 
 // State represents point of use methods from the state object
