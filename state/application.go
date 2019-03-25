@@ -1496,7 +1496,7 @@ func (a *Application) addUnitOps(
 		if err != nil {
 			return "", nil, err
 		}
-		cons, err = a.st.resolveConstraints(scons)
+		cons, err = a.st.ResolveConstraints(scons)
 		if err != nil {
 			return "", nil, err
 		}

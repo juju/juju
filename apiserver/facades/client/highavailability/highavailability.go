@@ -48,6 +48,15 @@ func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authori
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.Type() == state.ModelTypeCAAS {
+		return nil, errors.NotSupportedf("high availability on kubernetes controllers")
+	}
+
 	return &HighAvailabilityAPI{
 		state:      st,
 		resources:  resources,

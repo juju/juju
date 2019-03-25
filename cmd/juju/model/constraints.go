@@ -19,12 +19,12 @@ import (
 // getConstraintsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 const getConstraintsDoc = "" +
-	"Shows machine constraints that have been set on the model with\n" +
+	"Shows constraints that have been set on the model with\n" +
 	"`juju set-model-constraints.`\n" +
 	"By default, the model is the current model.\n" +
 	"Model constraints are combined with constraints set on an application\n" +
 	"with `juju set-constraints` for commands (such as 'deploy') that provision\n" +
-	"machines for applications. Where model and application constraints overlap, the\n" +
+	"machines/containers for applications. Where model and application constraints overlap, the\n" +
 	"application constraints take precedence.\n" +
 	"Constraints for a specific application can be viewed with `juju get-constraints`.\n" + getConstraintsDocExamples
 
@@ -44,11 +44,11 @@ See also:
 // setConstraintsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 const setConstraintsDoc = "" +
-	"Sets machine constraints on the model that can be viewed with\n" +
+	"Sets constraints on the model that can be viewed with\n" +
 	"`juju get-model-constraints`.  By default, the model is the current model.\n" +
 	"Model constraints are combined with constraints set for an application with\n" +
 	"`juju set-constraints` for commands (such as 'deploy') that provision\n" +
-	"machines for applications. Where model and application constraints overlap, the\n" +
+	"machines/containers for applications. Where model and application constraints overlap, the\n" +
 	"application constraints take precedence.\n" +
 	"Constraints for a specific application can be viewed with `juju get-constraints`.\n" + setConstraintsDocExamples
 
@@ -81,7 +81,6 @@ func NewModelGetConstraintsCommand() cmd.Command {
 // modelGetConstraintsCommand shows the constraints for a model.
 type modelGetConstraintsCommand struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
 	out cmd.Output
 	api ConstraintsAPI
 }
@@ -141,7 +140,6 @@ func NewModelSetConstraintsCommand() cmd.Command {
 // modelSetConstraintsCommand sets the constraints for a model.
 type modelSetConstraintsCommand struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
 	api         ConstraintsAPI
 	Constraints constraints.Value
 }

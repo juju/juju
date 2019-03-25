@@ -14,6 +14,15 @@ import (
 type stateShim struct {
 	*state.State
 	*state.Model
+
+	isController *bool
+}
+
+func (s *stateShim) IsController() bool {
+	if s.isController == nil {
+		return s.State.IsController()
+	}
+	return *s.isController
 }
 
 func (s *stateShim) MachineSeries(id string) (string, error) {
@@ -22,4 +31,8 @@ func (s *stateShim) MachineSeries(id string) (string, error) {
 
 func (s *stateShim) ControllerTag() names.ControllerTag {
 	return s.State.ControllerTag()
+}
+
+func (s *stateShim) ModelType() state.ModelType {
+	return s.Model.Type()
 }

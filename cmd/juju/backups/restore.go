@@ -20,7 +20,9 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewRestoreCommand returns a command used to restore a backup.
@@ -114,7 +116,9 @@ func (c *restoreCommand) Init(args []string) error {
 }
 
 func (c *restoreCommand) modelStatus() (string, []base.ModelStatus, error) {
-	modelUUIDs, err := c.ModelUUIDs([]string{bootstrap.ControllerModelName})
+	controllerModel := jujuclient.JoinOwnerModelName(
+		names.NewUserTag(environs.AdminUser), bootstrap.ControllerModelName)
+	modelUUIDs, err := c.ModelUUIDs([]string{controllerModel})
 	if err != nil {
 		return "", nil, errors.Annotatef(err, "cannot get controller model uuid")
 	}
@@ -154,6 +158,9 @@ func (c *restoreCommand) newClient() (*backups.Client, error) {
 
 // Run is the entry point for this command.
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
+	if err := c.validateIaasController(c.Info().Name); err != nil {
+		return errors.Trace(err)
+	}
 	if c.Log != nil {
 		if err := c.Log.Start(ctx); err != nil {
 			return err

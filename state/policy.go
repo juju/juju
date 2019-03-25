@@ -128,9 +128,9 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
-// resolveConstraints combines the given constraints with the environ constraints to get
+// ResolveConstraints combines the given constraints with the environ constraints to get
 // a constraints which will be used to create a new instance.
-func (st *State) resolveConstraints(cons constraints.Value) (constraints.Value, error) {
+func (st *State) ResolveConstraints(cons constraints.Value) (constraints.Value, error) {
 	validator, err := st.constraintsValidator()
 	if err != nil {
 		return constraints.Value{}, err

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/backups"
 	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	statebackups "github.com/juju/juju/state/backups"
 )
@@ -68,6 +69,14 @@ func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}
+}
+
+func (c *CommandBase) validateIaasController(cmdName string) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return common.ValidateIaasController(c.CommandBase, cmdName, controllerName, c.ClientStore())
 }
 
 var newAPIClient = func(c *CommandBase) (APIClient, error) {

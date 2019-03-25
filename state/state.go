@@ -1426,7 +1426,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 	// Ignore constraints that result from this call as
 	// these would be accumulation of model and application constraints
 	// but we only want application constraints to be persisted here.
-	cons, err := st.resolveConstraints(args.Constraints)
+	cons, err := st.ResolveConstraints(args.Constraints)
 	if err != nil {
 		return errors.Trace(err)
 	}

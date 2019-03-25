@@ -17,12 +17,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/backups"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/testing"
 )
 
 type removeSuite struct {
-	testing.FakeJujuXDGDataHomeSuite
+	BaseBackupsSuite
 
 	command cmd.Command
 }
@@ -30,9 +28,9 @@ type removeSuite struct {
 var _ = gc.Suite(&removeSuite{})
 
 func (s *removeSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.BaseBackupsSuite.SetUpTest(c)
 
-	s.command = backups.NewRemoveCommandForTest(jujuclienttesting.MinimalStore())
+	s.command = backups.NewRemoveCommandForTest(s.store)
 }
 
 func (s *removeSuite) patch(c *gc.C) (*gomock.Controller, *MockAPIClient) {

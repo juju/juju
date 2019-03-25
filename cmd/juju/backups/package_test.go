@@ -14,11 +14,15 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	apibackups "github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -52,6 +56,8 @@ type BaseBackupsSuite struct {
 	apiVersion int
 
 	filename string
+
+	store *jujuclient.MemStore
 }
 
 func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
@@ -64,6 +70,14 @@ func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.data = "<compressed archive data>"
 
 	s.apiVersion = 2
+
+	s.store = jujuclienttesting.MinimalStore()
+	models := s.store.Models["arthur"]
+	models.Models["admin/controller"] = jujuclient.ModelDetails{
+		ModelUUID: utils.MustNewUUID().String(),
+		ModelType: model.IAAS,
+	}
+	s.store.Models["arthur"] = models
 }
 
 func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {

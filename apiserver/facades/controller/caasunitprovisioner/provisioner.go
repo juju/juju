@@ -304,6 +304,10 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	mergedCons, err := f.state.ResolveConstraints(cons)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	resourceTags := tags.ResourceTags(
 		names.NewModelTag(modelConfig.UUID()),
 		names.NewControllerTag(controllerCfg.ControllerUUID()),
@@ -314,7 +318,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		PodSpec:     podSpec,
 		Filesystems: filesystemParams,
 		Devices:     devices,
-		Constraints: cons,
+		Constraints: mergedCons,
 		Tags:        resourceTags,
 	}, nil
 }

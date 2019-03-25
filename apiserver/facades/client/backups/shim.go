@@ -61,3 +61,7 @@ func (s *stateShim) ControllerTag() names.ControllerTag {
 func (s *stateShim) ModelTag() names.ModelTag {
 	return s.Model.ModelTag()
 }
+
+func (s *stateShim) ModelType() state.ModelType {
+	return s.Model.Type()
+}
