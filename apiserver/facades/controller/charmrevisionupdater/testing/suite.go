@@ -6,13 +6,12 @@ package testing
 import (
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 
+	jc "github.com/juju/testing/checkers"
 	// "github.com/juju/juju/apiserver/testing"
-
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/charmstore"
@@ -27,8 +26,9 @@ import (
 type CharmSuite struct {
 	jcSuite *jujutesting.JujuConnSuite
 
-	Client apiservertesting.Client
-	charms map[string]*state.Charm
+	charmrepo apiservertesting.Repository
+	Client    apiservertesting.Client
+	charms    map[string]*state.Charm
 }
 
 func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
@@ -38,7 +38,8 @@ func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
 func (s *CharmSuite) TearDownSuite(c *gc.C) {}
 
 func (s *CharmSuite) SetUpTest(c *gc.C) {
-	s.Client = apiservertesting.NewCharmstoreClient()
+	s.charmrepo = apiservertesting.NewRepository()
+	s.Client = *apiservertesting.NewClient(s.charmrepo)
 	urls := map[string]string{
 		"mysql":     "quantal/mysql-23",
 		"dummy":     "quantal/dummy-24",
@@ -55,7 +56,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	// Patch the charm repo initializer function: it is replaced with a charm
 	// store repo pointing to the testing server.
 	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (charmstore.CharmstoreWrapper, error) {
-		return apiservertesting.InternalClientFromClient(s.Client), nil
+		return s.Client, nil
 	})
 }
 
