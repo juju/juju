@@ -19,7 +19,6 @@ import (
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/macaroon.v1"
 
-	// jc "github.com/juju/testing/checkers"
 	"github.com/juju/errors"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/testcharms"

@@ -15,13 +15,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 
-	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/errors"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -39,9 +42,6 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 // LTS-dependent requires new entry upon new LTS release. There are numerous
