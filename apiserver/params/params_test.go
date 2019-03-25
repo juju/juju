@@ -93,7 +93,7 @@ var marshalTestCases = []struct {
 			LXDProfile:   &multiwatcher.Profile{},
 		},
 	},
-	json: `["charm","change",{"model-uuid": "uuid", "charm-url": "cs:quantal/name","life":"dying","profile":{}}]`,
+	json: `["charm","change",{"model-uuid": "uuid", "charm-url": "cs:quantal/name", "charm-version":"3", "life":"dying","profile":{}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: multiwatcher.Delta{

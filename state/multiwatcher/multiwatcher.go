@@ -209,9 +209,9 @@ func (i *ApplicationInfo) EntityId() EntityId {
 
 // Profile is a representation of charm.v6 LXDProfile
 type Profile struct {
-	Config      map[string]string            `json:"config"`
-	Description string                       `json:"description"`
-	Devices     map[string]map[string]string `json:"devices"`
+	Config      map[string]string            `json:"config,omitempty"`
+	Description string                       `json:"description,omitempty"`
+	Devices     map[string]map[string]string `json:"devices,omitempty"`
 }
 
 // CharmInfo holds the information about a charm that is tracked by the
