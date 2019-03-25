@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	applicationConfigChange = "application-config-change"
+	applicationConfigChange   = "application-config-change"
+	applicationCharmURLChange = "application-charmurl-change"
 )
 
 func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Application {
@@ -58,6 +59,10 @@ func (a *Application) WatchConfig(keys ...string) *ConfigWatcher {
 func (a *Application) setDetails(details ApplicationChange) {
 	a.mu.Lock()
 
+	if a.details.CharmURL != details.CharmURL {
+		a.hub.Publish(a.modelTopic(applicationCharmURLChange), []string{a.details.Name, details.CharmURL})
+	}
+
 	a.details = details
 	hashCache, configHash := newHashCache(
 		details.Config, a.metrics.ApplicationHashCacheHit, a.metrics.ApplicationHashCacheMiss)
@@ -76,4 +81,8 @@ func (a *Application) setDetails(details ApplicationChange) {
 // one hub per model.
 func (a *Application) topic(suffix string) string {
 	return a.details.ModelUUID + ":" + a.details.Name + ":" + suffix
+}
+
+func (a *Application) modelTopic(suffix string) string {
+	return modelTopic(a.details.ModelUUID, suffix)
 }

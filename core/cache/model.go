@@ -12,6 +12,7 @@ import (
 
 const modelConfigChange = "model-config-change"
 const modelMachineChange = "model-machine-change"
+const modelUnitChange = "model-unit-change"
 
 func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 	m := &Model{
@@ -205,6 +206,7 @@ func (m *Model) updateUnit(ch UnitChange) {
 	if !found {
 		unit = newUnit(m.metrics, m.hub)
 		m.units[ch.Name] = unit
+		m.hub.Publish(m.topic(modelUnitChange), unit)
 	}
 	unit.setDetails(ch)
 
@@ -214,6 +216,10 @@ func (m *Model) updateUnit(ch UnitChange) {
 // removeUnit removes the unit from the model.
 func (m *Model) removeUnit(ch RemoveUnit) {
 	m.mu.Lock()
+	unit, ok := m.units[ch.Name]
+	if ok {
+		m.hub.Publish(m.topic(modelUnitChange), []string{ch.Name, unit.details.Application})
+	}
 	delete(m.units, ch.Name)
 	m.mu.Unlock()
 }
@@ -243,7 +249,11 @@ func (m *Model) removeMachine(ch RemoveMachine) {
 
 // topic prefixes the input string with the model UUID.
 func (m *Model) topic(suffix string) string {
-	return m.details.ModelUUID + ":" + suffix
+	return modelTopic(m.details.ModelUUID, suffix)
+}
+
+func modelTopic(modeluuid, suffix string) string {
+	return modeluuid + ":" + suffix
 }
 
 func (m *Model) setDetails(details ModelChange) {

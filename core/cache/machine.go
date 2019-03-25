@@ -6,6 +6,7 @@ package cache
 import (
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 )
 
@@ -21,6 +22,7 @@ type Machine struct {
 	model *Model
 	mu    sync.Mutex
 
+	modelUUID  string
 	details    MachineChange
 	configHash string
 }
@@ -53,14 +55,6 @@ func (m *Machine) Units() ([]*Unit, error) {
 	return result, nil
 }
 
-type MachineAppLXDProfileWatcher struct {
-	*notifyWatcherBase
-}
-
-func (m *Machine) WatchApplicationLXDProfiles() *MachineAppLXDProfileWatcher {
-	return nil
-}
-
 func (m *Machine) setDetails(details MachineChange) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -75,4 +69,22 @@ func (m *Machine) setDetails(details MachineChange) {
 		m.configHash = configHash
 		// TODO: publish config change...
 	}
+}
+
+// WatchApplicationLXDProfiles notifies if any of the following happen
+// relative to this machine:
+//     1. A new unit whose charm has an lxd profile is added.
+//     2. A unit being removed has a profile and other units
+//        exist on the machine.
+//     3. The lxdprofile of an application with a unit on this
+//        machine is added, removed, or exisits.
+func (m *Machine) WatchApplicationLXDProfiles() *MachineAppLXDProfileWatcher {
+	applications := make(map[string]set.Strings)
+	return newMachineAppLXDProfileWatcher(
+		m.model.topic(applicationCharmURLChange),
+		m.model.topic(modelUnitChange),
+		m.details.Id,
+		applications,
+		m.model.hub,
+	)
 }

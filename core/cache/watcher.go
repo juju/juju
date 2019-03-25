@@ -11,6 +11,8 @@ import (
 	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/core/lxdprofile"
 )
 
 // The watchers used in the cache package are closer to state watchers
@@ -144,6 +146,188 @@ func (w *ConfigWatcher) configChanged(topic string, value interface{}) {
 		return
 	}
 	w.notify()
+}
+
+type MachineAppLXDProfileWatcher struct {
+	*notifyWatcherBase
+
+	applications map[string]appInfo // unit names for each application
+	machineId    string
+
+	getCharm charmFunc
+}
+
+type charmFunc func(string) (*Charm, error)
+
+type appInfo struct {
+	charmURL     string
+	charmProfile *lxdprofile.Profile
+	units        set.Strings
+}
+
+func newMachineAppLXDProfileWatcher(
+	appTopic, unitTopic, machineId string,
+	applications map[string]appInfo,
+	getCharm charmFunc,
+	hub *pubsub.SimpleHub,
+) *MachineAppLXDProfileWatcher {
+	w := &MachineAppLXDProfileWatcher{
+		notifyWatcherBase: newNotifyWatcherBase(),
+		applications:      applications,
+		getCharm:          getCharm,
+		machineId:         machineId,
+	}
+
+	unsubApp := hub.Subscribe(appTopic, w.applicationCharmURLChange)
+	unsubUnit := hub.Subscribe(unitTopic, w.unitChange)
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		unsubApp()
+		unsubUnit()
+		return nil
+	})
+
+	return w
+}
+
+// applicationCharmURLChange sends a notification if what is saved for its
+// charm lxdprofile changes.  No notification is sent if the pointer begins
+// and ends as nil.
+func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, value interface{}) {
+	w.notifyWatcherBase.mu.Lock()
+	var notify bool
+	defer func(notify *bool) {
+		w.notifyWatcherBase.mu.Unlock()
+		if *notify {
+			w.notify()
+		}
+	}(&notify)
+
+	values, ok := value.([]string)
+	if !ok {
+		logger.Errorf("programming error, value not of type []string")
+		return
+	}
+	if len(values) != 2 {
+		logger.Errorf("programming error, 2 values not provided")
+		return
+	}
+	appName, chURL := values[0], values[1]
+	info, ok := w.applications[appName]
+	if ok {
+		ch, err := w.getCharm(chURL)
+		if err != nil {
+
+		}
+		// notify if:
+		// 1. the prior charm had a profile and the new one does not.
+		// 2. the new profile is not empty.
+		if (info.charmProfile != nil && ch.details.LXDProfile.Empty()) ||
+			!ch.details.LXDProfile.Empty() {
+			logger.Tracef("notifying due to change of charm lxd profile for %s, machine-%s", appName, w.machineId)
+			notify = true
+		} else {
+			logger.Tracef("no notification of charm lxd profile needed for %s, machine-%s", appName, w.machineId)
+		}
+		if ch.details.LXDProfile.Empty() {
+			info.charmProfile = nil
+		} else {
+			info.charmProfile = &ch.details.LXDProfile
+		}
+		info.charmURL = chURL
+		w.applications[appName] = info
+	} else {
+		logger.Errorf("not watching %s on machine-%s", appName, w.machineId)
+	}
+}
+
+// unitChange modifies the map of applications being watched when a unit is
+// added or removed from the machine.  Notification is sent if:
+//     1. A new unit whose charm has an lxd profile is added.
+//     2. A unit being removed has a profile and other units
+//        exist on the machine.
+func (w *MachineAppLXDProfileWatcher) unitChange(topic string, value interface{}) {
+	w.notifyWatcherBase.mu.Lock()
+	var notify bool
+	defer func(notify *bool) {
+		w.notifyWatcherBase.mu.Unlock()
+		if *notify {
+			logger.Tracef("notifying due to add/remove unit requires lxd profile change")
+			w.notify()
+		}
+	}(&notify)
+
+	names, okString := value.([]string)
+	unit, okUnit := value.(*Unit)
+	switch {
+	case okString:
+		logger.Tracef("Stop watching %q", names)
+		notify = w.removeUnit(names)
+	case okUnit:
+		if w.machineId != unit.details.MachineId {
+			logger.Tracef("not the machine being watched")
+			return
+		}
+		logger.Tracef("Start watching %q", unit.details.Name)
+		notify = w.addUnit(unit)
+	default:
+		logger.Errorf("programming error, value not of type *Unit or []string")
+	}
+}
+
+func (w *MachineAppLXDProfileWatcher) addUnit(unit *Unit) bool {
+	_, ok := w.applications[unit.details.Application]
+	if !ok {
+		info := appInfo{
+			charmURL: unit.details.CharmURL,
+			units:    set.NewStrings(unit.details.Name),
+		}
+		ch, err := w.getCharm(unit.details.CharmURL)
+		if err != nil {
+
+		}
+		if !ch.details.LXDProfile.Empty() {
+			info.charmProfile = &ch.details.LXDProfile
+		}
+		w.applications[unit.details.Application] = info
+	} else {
+		w.applications[unit.details.Application].units.Add(unit.details.Name)
+	}
+	if w.applications[unit.details.Application].charmProfile != nil {
+		return true
+	}
+	return false
+}
+
+func (w *MachineAppLXDProfileWatcher) removeUnit(names []string) bool {
+	if len(names) != 2 {
+		logger.Errorf("programming error, 2 values not provided")
+		return false
+	}
+	unitName, appName := names[0], names[1]
+	_, ok := w.applications[appName]
+	if !ok {
+		logger.Errorf("programming error, unit removed before being added, application name not found")
+		return false
+	}
+	if !w.applications[appName].units.Contains(unitName) {
+		logger.Errorf("unit not being watched for machine")
+		return false
+	}
+	profile := w.applications[appName].charmProfile
+	w.applications[appName].units.Remove(unitName)
+	if w.applications[appName].units.Size() == 0 {
+		// the application has no more units on this machine,
+		// stop watching it.
+		delete(w.applications, appName)
+	}
+	// If there are additional units on the machine and the current
+	// application has an lxd profile, notify so it can be removed
+	// from the machine.
+	if len(w.applications) > 0 && profile != nil && !profile.Empty() {
+		return true
+	}
+	return false
 }
 
 // StringsWatcher will return what has changed.
