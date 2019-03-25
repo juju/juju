@@ -9,11 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/loggo"
-
-	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
@@ -23,6 +18,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/client/application"
@@ -43,6 +39,9 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 )
 
 type applicationSuite struct {
@@ -1280,10 +1279,6 @@ func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddC
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	//c.Assert(repo.testMode, jc.IsTrue)
-	modelConfig, err = s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelConfig.TestMode(), jc.IsTrue)
 
 	// Check that the store's test mode is enabled when calling SetCharm.
 	curl, _ = s.UploadCharm(c, "trusty/wordpress-2", "wordpress")
@@ -1291,10 +1286,6 @@ func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddC
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
 	})
-	// c.Assert(repo.testMode, jc.IsTrue)
-	modelConfig, err = s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelConfig.TestMode(), jc.IsTrue)
 
 	// Check that the store's test mode is enabled when calling AddCharm.
 	curl, _ = s.UploadCharm(c, "utopic/riak-42", "riak")

@@ -10,14 +10,13 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 
-	jc "github.com/juju/testing/checkers"
-	// "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
+	jc "github.com/juju/testing/checkers"
 )
 
 // CharmSuite provides infrastructure to set up and perform tests associated

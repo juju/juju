@@ -8,15 +8,14 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
+	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charmrevisionupdater")
@@ -124,9 +123,9 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		return nil, errors.Trace(err)
 	}
 
-	resultsIndexedApps := make([]*state.Application, len(applications))
-	charms := make([]charmstore.CharmID, len(applications))
-	for i, application := range applications {
+	var charms []charmstrore.CharmID
+	var resultsIndexedApps []*state.Application
+	for _, application := range applications {
 		curl, _ := application.CharmURL()
 		if curl.Schema == "local" {
 			continue
@@ -145,8 +144,8 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 				"arch":   strings.Join(archs, ","),
 			},
 		}
-		charms[i] = cid
-		resultsIndexedApps[i] = application
+		charms = append(charms, cid)
+		resultsIndexedApps = append(resultsIndexedApps, application)
 	}
 
 	metadata := map[string]string{
