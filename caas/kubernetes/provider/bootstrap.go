@@ -510,6 +510,10 @@ func (c controllerStack) buildStorageSpecForController(statefulset *apps.Statefu
 }
 
 func (c controllerStack) buildContainerSpecForController(statefulset *apps.StatefulSet) error {
+	var wiredTigerCacheSize float32
+	if c.pcfg.Controller.Config.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
+		wiredTigerCacheSize = mongo.Mongo34LowCacheSize
+	}
 	generateContainerSpecs := func(jujudCmd string) []core.Container {
 		var containerSpec []core.Container
 		// add container mongoDB.
@@ -527,6 +531,25 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 				"db.adminCommand('ping')",
 			},
 		}
+		args := []string{
+			fmt.Sprintf("--dbpath=%s/db", c.pcfg.DataDir),
+			fmt.Sprintf("--sslPEMKeyFile=%s/%s", c.pcfg.DataDir, c.fileNameSSLKey),
+			"--sslPEMKeyPassword=ignored",
+			"--sslMode=requireSSL",
+			fmt.Sprintf("--port=%d", c.portMongoDB),
+			"--journal",
+			fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
+			"--quiet",
+			"--oplogSize=1024",
+			"--ipv6",
+			"--auth",
+			fmt.Sprintf("--keyFile=%s/%s", c.pcfg.DataDir, c.fileNameSharedSecret),
+			"--storageEngine=wiredTiger",
+			"--bind_ip_all",
+		}
+		if wiredTigerCacheSize > 0 {
+			args = append(args, fmt.Sprintf("--wiredTigerCacheSizeGB=%v", wiredTigerCacheSize))
+		}
 		containerSpec = append(containerSpec, core.Container{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
@@ -534,23 +557,7 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 			Command: []string{
 				"mongod",
 			},
-			Args: []string{
-				fmt.Sprintf("--dbpath=%s/db", c.pcfg.DataDir),
-				fmt.Sprintf("--sslPEMKeyFile=%s/%s", c.pcfg.DataDir, c.fileNameSSLKey),
-				"--sslPEMKeyPassword=ignored",
-				"--sslMode=requireSSL",
-				fmt.Sprintf("--port=%d", c.portMongoDB),
-				"--journal",
-				fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
-				"--quiet",
-				"--oplogSize=1024",
-				"--ipv6",
-				"--auth",
-				fmt.Sprintf("--keyFile=%s/%s", c.pcfg.DataDir, c.fileNameSharedSecret),
-				"--storageEngine=wiredTiger",
-				"--wiredTigerCacheSizeGB=0.25",
-				"--bind_ip_all",
-			},
+			Args: args,
 			Ports: []core.ContainerPort{
 				{
 					Name:          "mongodb",

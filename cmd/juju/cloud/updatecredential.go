@@ -81,7 +81,6 @@ func (c *updateCredentialCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.StringVar(&c.credential, "credential", "", "Name of credential to update")
 }
 
 type credentialAPI interface {

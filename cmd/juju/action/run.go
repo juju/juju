@@ -76,68 +76,15 @@ explicit arguments will override the parameter file.
 
 Examples:
 
-$ juju run-action mysql/3 backup --wait
-action-id: <ID>
-result:
-  status: success
-  file:
-    size: 873.2
-    units: GB
-    name: foo.sql
-
-
-$ juju run-action mysql/3 backup
-action: <ID>
-
-$ juju run-action mysql/leader backup
-resolved leader: mysql/0
-action: <ID>
-
-$ juju show-action-output <ID>
-result:
-  status: success
-  file:
-    size: 873.2
-    units: GB
-    name: foo.sql
-
-$ juju run-action mysql/3 backup --params parameters.yml
-...
-Params sent will be the contents of parameters.yml.
-...
-
-$ juju run-action mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
-...
-Params sent will be:
-
-out: out.tar.bz2
-file:
-  kind: xz
-  quality: high
-...
-
-$ juju run-action mysql/3 backup --params p.yml file.kind=xz file.quality=high
-...
-If p.yml contains:
-
-file:
-  location: /var/backups/mysql/
-  kind: gzip
-
-then the merged args passed will be:
-
-file:
-  location: /var/backups/mysql/
-  kind: xz
-  quality: high
-...
-
-$ juju run-action sleeper/0 pause time=1000
-...
-
-$ juju run-action sleeper/0 pause --string-args time=1000
-...
-The value for the "time" param will be the string literal "1000".
+    juju run-action mysql/3 backup --wait
+    juju run-action mysql/3 backup
+    juju run-action mysql/leader backup
+    juju show-action-output <ID>
+    juju run-action mysql/3 backup --params parameters.yml
+    juju run-action mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
+    juju run-action mysql/3 backup --params p.yml file.kind=xz file.quality=high
+    juju run-action sleeper/0 pause time=1000
+    juju run-action sleeper/0 pause --string-args time=1000
 `
 
 // SetFlags offers an option for YAML output.

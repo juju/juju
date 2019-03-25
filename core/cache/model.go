@@ -11,6 +11,7 @@ import (
 )
 
 const modelConfigChange = "model-config-change"
+const modelMachineChange = "model-machine-change"
 
 func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 	m := &Model{
@@ -97,6 +98,29 @@ func (m *Model) Machine(machineId string) (*Machine, error) {
 	return machine, nil
 }
 
+// WatchMachines creates a ChangeWatcher (strings watcher) to notify about
+// added and removed machines in the model.  The initial event contains
+// a slice of the current machine ids.
+func (m *Model) WatchMachines() *ChangeWatcher {
+	machines := make([]string, len(m.machines))
+	i := 0
+	for k := range m.machines {
+		machines[i] = k
+		i += 1
+	}
+
+	w := newAddRemoveWatcher(machines...)
+	unsub := m.hub.Subscribe(m.topic(modelMachineChange), w.changed)
+
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		unsub()
+		return nil
+	})
+
+	return w
+}
+
 // Unit returns the unit with the input name.
 // If the unit is not found, a NotFoundError is returned.
 func (m *Model) Unit(unitName string) (*Unit, error) {
@@ -160,6 +184,7 @@ func (m *Model) updateMachine(ch MachineChange) {
 	if !found {
 		machine = newMachine(m.metrics, m.hub)
 		m.machines[ch.Id] = machine
+		m.hub.Publish(m.topic(modelMachineChange), []string{ch.Id})
 	}
 	machine.setDetails(ch)
 
@@ -170,6 +195,7 @@ func (m *Model) updateMachine(ch MachineChange) {
 func (m *Model) removeMachine(ch RemoveMachine) {
 	m.mu.Lock()
 	delete(m.machines, ch.Id)
+	m.hub.Publish(m.topic(modelMachineChange), []string{ch.Id})
 	m.mu.Unlock()
 }
 

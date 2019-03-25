@@ -58,13 +58,8 @@ The online store will, of course, need to be contacted at some point to get
 the software.
 
 Examples:
-    # Download the software (version auto-selected) to the model:
     juju sync-agent-binaries --debug
-
-    # Download a specific version of the software locally:
     juju sync-agent-binaries --debug --version 2.0 --local-dir=/home/ubuntu/sync-agent-binaries
-
-    # Get locally available software to the model:
     juju sync-agent-binaries --debug --source=/home/ubuntu/sync-agent-binaries
 
 See also:

@@ -123,12 +123,11 @@ func (s *serviceSuite) TestNewConf32(c *gc.C) {
 			c.Check(confFields[i+1], gc.Equals, "10")
 		} else if field == "--wiredTigerCacheSizeGB" {
 			hasCacheSize = true
-			c.Check(confFields[i+1], gc.Equals, "1")
 		}
 	}
 	c.Check(hasStorageEngine, gc.Equals, true)
 	c.Check(hasOplogSize, gc.Equals, true)
-	c.Check(hasCacheSize, gc.Equals, true)
+	c.Check(hasCacheSize, gc.Equals, false)
 }
 
 func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
@@ -145,7 +144,7 @@ func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
 		oplogSizeMB,
 		false,
 		mongodVersion,
-		mongo.MemoryProfileDefault,
+		mongo.MemoryProfileLow,
 	)
 	conf := mongo.NewConf(confArgs)
 
@@ -197,7 +196,7 @@ func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
 			c.Assert(expectedVal, gc.Equals, actualVal)
 		}
 	}
-	logger.Debugf("expectedArgs contents %v", expectedArgs)
+	logger.Debugf("expectedArgs contents %v", expectedArgs.Values())
 	c.Assert(expectedArgs.IsEmpty(), gc.Equals, true)
 }
 
