@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 )
 
-// ConfigAttributes is the config for an applcore/application/config.goication.
+// ConfigAttributes is the config for an application.
 type ConfigAttributes map[string]interface{}
 
 // Config encapsulates config for an application.
