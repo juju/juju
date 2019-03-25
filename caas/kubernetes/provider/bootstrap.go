@@ -200,7 +200,7 @@ func (c controllerStack) doCleanUp() {
 // Deploy creates all resources for controller stack.
 func (c controllerStack) Deploy() (err error) {
 	// creating namespace for controller stack, this namespace will be removed by broker.DestroyController if bootstrap failed.
-	if err = c.broker.createNamespace(c.namespace); err != nil {
+	if err = c.broker.CreateNamespace(c.namespace); err != nil {
 		return errors.Annotate(err, "creating namespace for controller stack")
 	}
 

@@ -200,6 +200,9 @@ type NamespaceGetterSetter interface {
 
 	// GetCurrentNamespace returns current namespace name.
 	GetCurrentNamespace() string
+
+	// CreateNamespace creates a named namespace.
+	CreateNamespace(name string) error
 }
 
 // ClusterMetadataChecker provides an API to query cluster metadata.

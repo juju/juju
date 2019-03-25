@@ -12,7 +12,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -537,14 +536,8 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 		return nil, errors.Annotate(err, "failed to open kubernetes client")
 	}
 
-	// CAAS models exist in a namespace which must be unique.
-	namespaces, err := broker.Namespaces()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to list namespaces")
-	}
-	nsSet := set.NewStrings(namespaces...)
-	if nsSet.Contains(createArgs.Name) {
-		return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("namespace called %q already exists, would clash with model name", createArgs.Name))
+	if err = broker.CreateNamespace(createArgs.Name); err != nil {
+		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
 	}
 
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)

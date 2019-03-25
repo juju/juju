@@ -352,8 +352,8 @@ func (k *kubernetesClient) EnsureNamespace() error {
 	return errors.Trace(err)
 }
 
-// createNamespace creates a named namespace.
-func (k *kubernetesClient) createNamespace(name string) error {
+// CreateNamespace creates a named namespace.
+func (k *kubernetesClient) CreateNamespace(name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
 	_, err := k.CoreV1().Namespaces().Create(ns)
 	if k8serrors.IsAlreadyExists(err) {
