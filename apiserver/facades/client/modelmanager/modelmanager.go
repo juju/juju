@@ -536,7 +536,15 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 		return nil, errors.Annotate(err, "failed to open kubernetes client")
 	}
 
-	if err = broker.CreateNamespace(createArgs.Name); err != nil {
+	controllerCfg, err := m.state.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err = broker.Create(
+		m.callContext,
+		environs.CreateParams{
+			ControllerUUID: controllerCfg.ControllerUUID(),
+		}); err != nil {
 		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
 	}
 
