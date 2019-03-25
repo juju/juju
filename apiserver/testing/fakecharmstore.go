@@ -13,6 +13,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -245,8 +246,8 @@ type Repository struct {
 var _ charmrepo.Interface = (*Repository)(nil)
 
 func NewRepository() Repository {
-	return Repository{
-		channel:   params.Channel(""),
+	repo := Repository{
+		channel:   params.NoChannel,
 		charms:    make(map[params.Channel]map[charm.URL]charm.Charm),
 		bundles:   make(map[params.Channel]map[charm.URL]charm.Bundle),
 		resources: make(map[params.Channel]map[charm.URL][]params.Resource),
@@ -256,18 +257,30 @@ func NewRepository() Repository {
 		// extraInfo:     make(map[charm.URL]map[string]interface{}),
 		resourcesData: *NewDatastore(),
 	}
+	for _, channel := range params.OrderedChannels {
+		repo.charms[channel] = make(map[charm.URL]charm.Charm)
+		repo.bundles[channel] = make(map[charm.URL]charm.Bundle)
+		repo.resources[channel] = make(map[charm.URL][]params.Resource)
+		repo.revisions[channel] = make(map[charm.URL]int)
+	}
+	return repo
 }
 
-// Disambiguates a charm to a specific revision.
+func (r *Repository) addRevision(ref *charm.URL) *charm.URL {
+	revision := r.revisions[r.channel][*ref]
+	return ref.WithRevision(revision)
+}
+
+// Resolve disambiguates a charm to a specific revision.
 //
 // Part of the charmrepo.Interface
 func (r Repository) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries []string, err error) {
-	return ref.WithRevision(r.revisions[r.channel][*ref]), []string{"trusty", "wily"}, nil
+	return r.addRevision(ref), []string{"trusty", "wily"}, nil
 }
 
 func (r Repository) ResolveWithChannel(ref *charm.URL) (*charm.URL, params.Channel, []string, error) {
 	canonRef, supportedSeries, err := r.Resolve(ref)
-	return canonRef, params.Channel(""), supportedSeries, err
+	return canonRef, r.channel, supportedSeries, err
 }
 
 func (r Repository) AddCharm(id *charm.URL, channel params.Channel, force bool) error {
@@ -298,7 +311,7 @@ func (r Repository) AddCharmWithAuthorization(id *charm.URL, channel params.Chan
 //
 // Part of the charmrepo.Interface
 func (r Repository) Get(id *charm.URL) (charm.Charm, error) {
-	withRevision := id.WithRevision(r.revisions[r.channel][*id])
+	withRevision := r.addRevision(id)
 	charmData := r.charms[r.channel][*withRevision]
 	if charmData == nil {
 		return charmData, NotFoundError(fmt.Sprintf("cannot retrieve \"%v\": charm", id.String()))
@@ -306,7 +319,7 @@ func (r Repository) Get(id *charm.URL) (charm.Charm, error) {
 	return charmData, nil
 }
 
-// Get retrieves a bundle from the repository.
+// GetBundle retrieves a bundle from the repository.
 //
 // Part of the charmrepo.Interface
 func (r Repository) GetBundle(id *charm.URL) (charm.Bundle, error) {
@@ -318,12 +331,18 @@ func (r Repository) GetBundle(id *charm.URL) (charm.Bundle, error) {
 }
 
 func (r Repository) UploadCharm(id *charm.URL, charmData charm.Charm) (*charm.URL, error) {
-	withRevision := id.WithRevision(r.revisions[r.channel][*id])
+	if len(r.charms[r.channel]) == 0 {
+		r.charms[r.channel] = make(map[charm.URL]charm.Charm)
+	}
+	withRevision := r.addRevision(id)
 	r.charms[r.channel][*withRevision] = charmData
 	return withRevision, nil
 }
 
 func (r Repository) UploadCharmWithRevision(id *charm.URL, charmData charm.Charm, promulgatedRevision int) error {
+	if len(r.revisions[r.channel]) == 0 {
+		r.revisions[r.channel] = make(map[charm.URL]int)
+	}
 	r.revisions[r.channel][*id] = promulgatedRevision
 	_, err := r.UploadCharm(id, charmData)
 	if err != nil {
@@ -349,17 +368,22 @@ func (r Repository) UploadBundleWithRevision(id *charm.URL, bundleData charm.Bun
 func (r Repository) GetResource(id *charm.URL, name string, revision int) (result csclient.ResourceData, err error) {
 	_, err = r.ResourceMeta(id, name, revision)
 	if err != nil {
-		return csclient.ResourceData{}, err
+		return csclient.ResourceData{}, errors.Trace(err)
 	}
 
 	buffer := bytes.NewBuffer([]byte{})
 	err = r.resourcesData.Get(id.String(), buffer)
 	if err != nil {
-		return csclient.ResourceData{}, err
+		return csclient.ResourceData{}, errors.Trace(err)
+	}
+	data := ioutil.NopCloser(buffer)
+
+	fingerprint, err := charmresource.GenerateFingerprint(data)
+	if err != nil {
+		return csclient.ResourceData{}, errors.Trace(err)
 	}
 
-	repoData := csclient.ResourceData{ioutil.NopCloser(buffer), "n/a"}
-	return repoData, nil
+	return csclient.ResourceData{data, fingerprint.String()}, nil
 }
 
 func (r Repository) ResourceMeta(id *charm.URL, name string, revision int) (params.Resource, error) {
@@ -397,11 +421,17 @@ func signature(r io.ReadSeeker) (hash []byte, err error) {
 
 // UploadResource "uploads" data from file and stores it at path
 func (r Repository) UploadResource(id *charm.URL, name, path string, file io.ReadSeeker, size int64, progress csclient.Progress) (revision int, err error) {
+	if len(r.resources[r.channel]) == 0 {
+		r.resources[r.channel] = make(map[charm.URL][]params.Resource)
+	}
 	resources, err := r.ListResources(id)
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
 	revision = len(resources)
+	if len(resources) == 0 {
+		r.resources[r.channel][*id] = make([]params.Resource, 1)
+	}
 	//progress.Start() // ignoring progress for now, hoping that it's not material to the tests
 	hash, err := signature(file)
 	if err != nil {
@@ -443,15 +473,13 @@ func (r Repository) WithChannel(channel params.Channel) Repository {
 
 func (r Repository) Latest(ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error) {
 	result := make([]params.CharmRevision, len(ids))
+	haveRevisions := len(r.revisions[r.channel]) > 0
 	for i, id := range ids {
-		var revError error
-		revision := r.revisions[r.channel][*id]
-		if revision == 0 { // TODO(tsm) test for nil
-			revError = errors.NotFoundf(id.String())
-		}
-		result[i] = params.CharmRevision{
-			Revision: revision,
-			Err:      revError,
+		if haveRevisions {
+			revision := r.revisions[r.channel][*id]
+			result[i] = params.CharmRevision{Revision: revision}
+		} else {
+			result[i] = params.CharmRevision{Err: NotFoundError(id.String())}
 		}
 	}
 	return result, nil
