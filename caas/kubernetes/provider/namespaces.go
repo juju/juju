@@ -79,8 +79,6 @@ func (k *kubernetesClient) listNamespacesByAnnotations(annotations k8sannotation
 	var matchedNS []core.Namespace
 	annotationMap := annotations
 	for _, ns := range namespaces.Items {
-		logger.Criticalf("ns -> %v", ns)
-		logger.Criticalf("annotationMap -> %v", annotationMap)
 		if err := checkNamespaceOwnedByJuju(&ns, annotationMap); err == nil {
 			matchedNS = append(matchedNS, ns)
 		}
