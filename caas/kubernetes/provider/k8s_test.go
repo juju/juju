@@ -1017,37 +1017,43 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
 	defer ctrl.Finish()
 
 	podSpec := basicPodspec
-	podSpec.CustomResourceDefinitions = []caas.CustomResourceDefinition{
-		{
-			Kind:    "TFJob",
-			Group:   "kubeflow.org",
+	podSpec.CustomResourceDefinitions = map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
+		"tfjobs.kubeflow.org": {
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Kind:     "TFJob",
+				Singular: "tfjob",
+				Plural:   "tfjobs",
+			},
 			Version: "v1alpha2",
+			Group:   "kubeflow.org",
 			Scope:   "Namespaced",
-			Validation: caas.CustomResourceDefinitionValidation{
-				Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-					"tfReplicaSpecs": {
-						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-							"Worker": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"replicas": {
-										Type:    "integer",
-										Minimum: float64Ptr(1),
+			Validation: &apiextensionsv1beta1.CustomResourceValidation{
+				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"tfReplicaSpecs": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"Worker": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+										},
 									},
 								},
-							},
-							"PS": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"replicas": {
-										Type: "integer", Minimum: float64Ptr(1),
+								"PS": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type: "integer", Minimum: float64Ptr(1),
+										},
 									},
 								},
-							},
-							"Chief": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"replicas": {
-										Type:    "integer",
-										Minimum: float64Ptr(1),
-										Maximum: float64Ptr(1),
+								"Chief": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+											Maximum: float64Ptr(1),
+										},
 									},
 								},
 							},
@@ -1121,37 +1127,43 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 	defer ctrl.Finish()
 
 	podSpec := basicPodspec
-	podSpec.CustomResourceDefinitions = []caas.CustomResourceDefinition{
-		{
-			Kind:    "TFJob",
-			Group:   "kubeflow.org",
+	podSpec.CustomResourceDefinitions = map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
+		"tfjobs.kubeflow.org": {
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Kind:     "TFJob",
+				Singular: "tfjob",
+				Plural:   "tfjobs",
+			},
 			Version: "v1alpha2",
+			Group:   "kubeflow.org",
 			Scope:   "Namespaced",
-			Validation: caas.CustomResourceDefinitionValidation{
-				Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-					"tfReplicaSpecs": {
-						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-							"Worker": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"replicas": {
-										Type:    "integer",
-										Minimum: float64Ptr(1),
+			Validation: &apiextensionsv1beta1.CustomResourceValidation{
+				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"tfReplicaSpecs": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"Worker": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+										},
 									},
 								},
-							},
-							"PS": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"replicas": {
-										Type: "integer", Minimum: float64Ptr(1),
+								"PS": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type: "integer", Minimum: float64Ptr(1),
+										},
 									},
 								},
-							},
-							"Chief": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"replicas": {
-										Type:    "integer",
-										Minimum: float64Ptr(1),
-										Maximum: float64Ptr(1),
+								"Chief": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+											Maximum: float64Ptr(1),
+										},
 									},
 								},
 							},

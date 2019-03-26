@@ -73,6 +73,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 		for _, cr := range computeResources {
 			if cr.Summary.GetComputeResourceSummary().EffectiveCpu == 0 {
 				logger.Debugf("skipping empty compute resource %q", cr.Name)
+				continue
 			}
 			pools, err := env.client.ResourcePools(env.ctx, cr.Name+"/...")
 			if err != nil {

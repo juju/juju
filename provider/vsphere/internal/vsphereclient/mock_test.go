@@ -5,6 +5,7 @@ package vsphereclient
 
 import (
 	"context"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -67,9 +68,14 @@ var (
 type mockRoundTripper struct {
 	testing.Stub
 
-	serverURL        string
-	roundTrip        func(ctx context.Context, req, res soap.HasFault) error
-	contents         map[string][]types.ObjectContent
+	serverURL string
+	roundTrip func(ctx context.Context, req, res soap.HasFault) error
+
+	// mu protects access to the contents so we can change it in a
+	// test.
+	mu       sync.Mutex
+	contents map[string][]types.ObjectContent
+
 	collectors       map[string]*collector
 	importVAppResult types.ManagedObjectReference
 	taskError        map[types.ManagedObjectReference]*types.LocalizedMethodFault
@@ -166,6 +172,9 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 				Value: uuid,
 			},
 		}
+	case *methods.DestroyPropertyCollectorBody:
+		req := req.(*methods.DestroyPropertyCollectorBody).Req
+		delete(r.collectors, req.This.Value)
 	case *methods.CreateFilterBody:
 		r.MethodCall(r, "CreateFilter")
 		req := req.(*methods.CreateFilterBody).Req
@@ -260,6 +269,8 @@ func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *ty
 	}
 	r.MethodCall(r, "RetrieveProperties", args...)
 	logger.Debugf("RetrieveProperties for %s expecting %v", args, typeNames)
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	var contents []types.ObjectContent
 	for _, obj := range spec.ObjectSet {
 		for _, content := range r.contents[obj.Obj.Value] {
@@ -276,6 +287,18 @@ func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *ty
 		}
 	}
 	return &types.RetrievePropertiesResponse{contents}
+}
+
+func (r *mockRoundTripper) setContents(contents map[string][]types.ObjectContent) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.contents = contents
+}
+
+func (r *mockRoundTripper) updateContents(key string, content []types.ObjectContent) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.contents[key] = content
 }
 
 func retrievePropertiesStubCall(vals ...string) testing.StubCall {

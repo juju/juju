@@ -8,7 +8,9 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/vmware/govmomi"
@@ -20,7 +22,36 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
+	"gopkg.in/retry.v1"
 )
+
+const (
+	// maxExtendWait is the longest we'll wait for a disk to be
+	// extended.
+	maxExtendWait = 30 * time.Second
+
+	// extendInitialDelay is the shortest time we'll wait for a disk
+	// extend to succeed.
+	extendInitialDelay = 10 * time.Millisecond
+
+	// extendMaxDelay is the longest we'll wait before checking
+	// again whether the disk extend has succeeded.
+	extendMaxDelay = 5 * time.Second
+
+	// extendBackoffFactor is the multiple the delay will grow by each
+	// attempt.
+	extendBackoffFactor = 1.5
+)
+
+// ErrExtendDisk is returned if we timed out trying to extend the root
+// disk of a VM.
+var ErrExtendDisk = errors.Errorf("extending disk failed")
+
+// IsExtendDiskError returns whether the cause of this error was a
+// failure to extend a VM disk.
+func IsExtendDiskError(err error) bool {
+	return errors.Cause(err) == ErrExtendDisk
+}
 
 // Client encapsulates a vSphere client, exposing the subset of
 // functionality that we require in the Juju provider.
@@ -28,6 +59,7 @@ type Client struct {
 	client     *govmomi.Client
 	datacenter string
 	logger     loggo.Logger
+	clock      clock.Clock
 }
 
 // Dial dials a new vSphere client connection using the given URL,
@@ -44,7 +76,12 @@ func Dial(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &Client{client, datacenter, logger}, nil
+	return &Client{
+		client:     client,
+		datacenter: datacenter,
+		logger:     logger,
+		clock:      clock.WallClock,
+	}, nil
 }
 
 // Close logs out and closes the client connection.
@@ -438,8 +475,31 @@ func (c *Client) cloneVM(
 	return object.NewVirtualMachine(c.client.Client, info.Result.(types.ManagedObjectReference)), nil
 }
 
+func (c *Client) getDiskWithFileBacking(
+	ctx context.Context,
+	vm *object.VirtualMachine,
+) (*types.VirtualDisk, types.BaseVirtualDeviceFileBackingInfo, error) {
+	var mo mo.VirtualMachine
+	if err := c.client.RetrieveOne(ctx, vm.Reference(), []string{"config.hardware"}, &mo); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	for _, dev := range mo.Config.Hardware.Device {
+		dev, ok := dev.(*types.VirtualDisk)
+		if !ok {
+			continue
+		}
+		backing, ok := dev.Backing.(types.BaseVirtualDeviceFileBackingInfo)
+		if !ok {
+			continue
+		}
+		return dev, backing, nil
+	}
+	return nil, nil, errors.NotFoundf("disk")
+}
+
 func (c *Client) extendDisk(
 	ctx context.Context,
+	vm *object.VirtualMachine,
 	datacenter *object.Datacenter,
 	datastorePath string,
 	capacityKB int64,
@@ -458,13 +518,35 @@ func (c *Client) extendDisk(
 		NewCapacityKb: capacityKB,
 	}
 
-	res, err := methods.ExtendVirtualDisk_Task(ctx, c.client.Client, &req)
+	_, err := methods.ExtendVirtualDisk_Task(ctx, c.client.Client, &req)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	task := object.NewTask(c.client.Client, res.Returnval)
-	_, err = taskWaiter.waitTask(ctx, task, "extending disk")
-	return errors.Trace(err)
+	// NOTE: not waiting for the returned task because it never
+	// completes - this is because the API actually returns a
+	// permission error when we try to get the status of the task,
+	// even though the task is created and runs happily as far as the
+	// web client is concerned. (You can see this error by adding
+	// logging to govmomi/vim25/methods.WaitForUpdatesEx.) It seems
+	// like this is a bug in the API. Instead we wait for the VM's
+	// disk's capacity to be what we asked for, or return an error.
+	strategy := retry.LimitTime(maxExtendWait, retry.Exponential{
+		Initial:  extendInitialDelay,
+		Factor:   extendBackoffFactor,
+		MaxDelay: extendMaxDelay,
+		Jitter:   true,
+	})
+	a := retry.StartWithCancel(strategy, c.clock, ctx.Done())
+	for a.Next() {
+		disk, _, err := c.getDiskWithFileBacking(ctx, vm)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if disk.CapacityInKB >= capacityKB {
+			return nil
+		}
+	}
+	return errors.Trace(ErrExtendDisk)
 }
 
 func (c *Client) detachDisk(

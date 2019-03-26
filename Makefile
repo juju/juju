@@ -162,7 +162,7 @@ push-operator-image: operator-image
 	docker push ${OPERATOR_IMAGE_PATH}
 
 microk8s-operator-update: operator-image
-	docker save ${OPERATOR_IMAGE_PATH} | microk8s.docker load
+	docker save ${OPERATOR_IMAGE_PATH} | microk8s.ctr image import -
 
 check-k8s-model:
 	@:$(if $(value JUJU_K8S_MODEL),, $(error Undefined JUJU_K8S_MODEL))

@@ -443,38 +443,49 @@ func (s *WorkerSuite) TestNewPodSpecChangeCrd(c *gc.C) {
 
 	var (
 		anotherSpec = `
-crd:
-  - group: kubeflow.org
+customResourceDefinitions:
+  tfjobs.kubeflow.org:
+    group: kubeflow.org
     version: v1alpha2
     scope: Namespaced
-    kind: TFJob
+    names:
+      plural: "tfjobs"
+      singular: "tfjob"
+      kind: TFJob
     validation:
-      properties:
-        tfReplicaSpecs:
-          properties:
-            Worker:
-              properties:
-                replicas:
-                  type: integer
-                  minimum: 1
+      openAPIV3Schema:
+        properties:
+          tfReplicaSpecs:
+            properties:
+              Worker:
+                properties:
+                  replicas:
+                    type: integer
+                    minimum: 1
 `[1:]
 
 		anotherParsedSpec = caas.PodSpec{
-			CustomResourceDefinitions: []caas.CustomResourceDefinition{
-				{
-					Kind:    "TFJob",
+			CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
+				"tfjobs.kubeflow.org": {
 					Group:   "kubeflow.org",
 					Version: "v1alpha2",
 					Scope:   "Namespaced",
-					Validation: caas.CustomResourceDefinitionValidation{
-						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-							"tfReplicaSpecs": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"Worker": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"replicas": {
-												Type:    "integer",
-												Minimum: float64Ptr(1),
+					Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+						Kind:     "TFJob",
+						Plural:   "tfjobs",
+						Singular: "tfjob",
+					},
+					Validation: &apiextensionsv1beta1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"tfReplicaSpecs": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"Worker": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+												},
 											},
 										},
 									},

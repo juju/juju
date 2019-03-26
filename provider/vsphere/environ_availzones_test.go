@@ -22,7 +22,10 @@ type environAvailzonesSuite struct {
 var _ = gc.Suite(&environAvailzonesSuite{})
 
 func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
+	emptyResource := newComputeResource("empty")
+	emptyResource.Summary.(*mockSummary).EffectiveCpu = 0
 	s.client.computeResources = []*mo.ComputeResource{
+		emptyResource,
 		newComputeResource("z1"),
 		newComputeResource("z2"),
 	}
@@ -42,6 +45,7 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 	zones, err := zonedEnviron.AvailabilityZones(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(zones), gc.Equals, 5)
+	// No zones for the empty resource.
 	c.Assert(zones[0].Name(), gc.Equals, "z1")
 	c.Assert(zones[1].Name(), gc.Equals, "z2")
 	c.Assert(zones[2].Name(), gc.Equals, "z2/child")
