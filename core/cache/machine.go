@@ -79,12 +79,36 @@ func (m *Machine) setDetails(details MachineChange) {
 //     3. The lxdprofile of an application with a unit on this
 //        machine is added, removed, or exisits.
 func (m *Machine) WatchApplicationLXDProfiles() *MachineAppLXDProfileWatcher {
-	applications := make(map[string]set.Strings)
-	return newMachineAppLXDProfileWatcher(
+	m.model.mu.Lock()
+	applications := make(map[string]appInfo)
+	for k, v := range m.model.applications {
+		info := appInfo{
+			charmURL: v.details.CharmURL,
+			units:    set.NewStrings(),
+		}
+		ch, found := m.model.charms[v.details.CharmURL]
+		if found {
+			if !ch.details.LXDProfile.Empty() {
+				info.charmProfile = &ch.details.LXDProfile
+			}
+		}
+		applications[k] = info
+	}
+	for name, unit := range m.model.units {
+		if _, found := applications[unit.details.Application]; !found {
+			logger.Errorf("programming error, unit without an application")
+			continue
+		}
+		applications[unit.details.Application].units.Add(name)
+	}
+	w := newMachineAppLXDProfileWatcher(
 		m.model.topic(applicationCharmURLChange),
 		m.model.topic(modelUnitChange),
 		m.details.Id,
 		applications,
+		m.model.Charm,
 		m.model.hub,
 	)
+	m.model.mu.Unlock()
+	return w
 }
