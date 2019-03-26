@@ -599,3 +599,11 @@ func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 	c.Assert(enableHAResult.Demoted, gc.HasLen, 0)
 }
+
+func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer st.Close()
+
+	_, err := highavailability.NewHighAvailabilityAPI(st, s.resources, s.authoriser)
+	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
+}

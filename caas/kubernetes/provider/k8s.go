@@ -235,7 +235,8 @@ Please bootstrap again and choose a different controller name.`, k.namespace),
 
 // Create implements environs.BootstrapEnviron.
 func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreateParams) error {
-	return nil
+	// must raise errors.AlreadyExistsf if it's already exist.
+	return k.createNamespace(k.namespace)
 }
 
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
@@ -472,12 +473,6 @@ func (k *kubernetesClient) OperatorExists(appName string) (bool, error) {
 // name, agent path, and operator config.
 func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
 	logger.Debugf("creating/updating %s operator", appName)
-
-	// TODO(caas) - this is a stop gap until we implement a CAAS model manager worker
-	// First up, ensure the namespace eis there if not already created.
-	if err := k.EnsureNamespace(); err != nil {
-		return errors.Annotatef(err, "ensuring operator namespace %v", k.namespace)
-	}
 
 	operatorName := k.operatorName(appName)
 	// TODO(caas) use secrets for storing agent password?

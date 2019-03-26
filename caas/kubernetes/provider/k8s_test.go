@@ -497,29 +497,6 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
-func (s *K8sBrokerSuite) TestEnsureNamespace(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	ns := &core.Namespace{}
-	ns.Name = "test"
-	s.ensureJujuNamespaceAnnotations(false, ns)
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Update(ns).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockNamespaces.EXPECT().Create(ns).Times(1),
-		// Idempotent check.
-		s.mockNamespaces.EXPECT().Update(ns).Times(1),
-	)
-
-	err := s.broker.EnsureNamespace()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check idempotent.
-	err = s.broker.EnsureNamespace()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *K8sBrokerSuite) TestGetNamespace(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
@@ -626,6 +603,40 @@ func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
+}
+
+func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}})
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Create(ns).Times(1).
+			Return(ns, nil),
+	)
+
+	err := s.broker.Create(
+		&context.CloudCallContext{},
+		environs.CreateParams{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}})
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Create(ns).Times(1).
+			Return(nil, s.k8sAlreadyExistsError()),
+	)
+
+	err := s.broker.Create(
+		&context.CloudCallContext{},
+		environs.CreateParams{},
+	)
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
 func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
@@ -781,7 +792,6 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage")
 
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Update(s.ensureJujuNamespaceAnnotations(false, &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}})).Times(1),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Update(configMapArg).Times(1),
@@ -814,7 +824,6 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 
 	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage")
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Update(s.ensureJujuNamespaceAnnotations(false, &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}})).Times(1),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -846,7 +855,6 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Update(s.ensureJujuNamespaceAnnotations(false, &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}})).Times(1),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).

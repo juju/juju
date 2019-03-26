@@ -102,20 +102,6 @@ func (k *kubernetesClient) GetCurrentNamespace() string {
 	return k.namespace
 }
 
-// EnsureNamespace ensures this broker's namespace is created.
-func (k *kubernetesClient) EnsureNamespace() error {
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: k.namespace}}
-	if err := k.ensureNamespaceAnnotations(ns); err != nil {
-		return errors.Trace(err)
-	}
-	api := k.CoreV1().Namespaces()
-	_, err := api.Update(ns)
-	if k8serrors.IsNotFound(err) {
-		_, err = api.Create(ns)
-	}
-	return errors.Trace(err)
-}
-
 func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error {
 	annotations := k8sannotations.New(ns.GetAnnotations()).Merge(k.annotations)
 	// check required keys are set: annotationControllerUUIDKey, annotationModelUUIDKey.
@@ -134,7 +120,7 @@ func (k *kubernetesClient) createNamespace(name string) error {
 	}
 	_, err := k.CoreV1().Namespaces().Create(ns)
 	if k8serrors.IsAlreadyExists(err) {
-		return errors.AlreadyExistsf("namespace %q already exists", name)
+		return errors.AlreadyExistsf("namespace %q", name)
 	}
 	return errors.Trace(err)
 }

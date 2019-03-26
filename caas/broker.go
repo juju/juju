@@ -192,9 +192,6 @@ type NamespaceGetterSetter interface {
 	// Namespaces returns name names of the namespaces on the cluster.
 	Namespaces() ([]string, error)
 
-	// EnsureNamespace ensures this broker's namespace is created.
-	EnsureNamespace() error
-
 	// GetNamespace returns the namespace for the specified name or current namespace.
 	GetNamespace(name string) (*core.Namespace, error)
 

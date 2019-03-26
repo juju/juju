@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type uploadSuite struct {
@@ -29,7 +28,7 @@ var _ = gc.Suite(&uploadSuite{})
 func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 
-	s.command = backups.NewUploadCommandForTest(jujuclienttesting.MinimalStore())
+	s.command = backups.NewUploadCommandForTest(s.store)
 	s.filename = "juju-backup-20140912-130755.abcd-spam-deadbeef-eggs.tar.gz"
 }
 
