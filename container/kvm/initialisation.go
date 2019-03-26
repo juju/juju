@@ -33,19 +33,13 @@ func (ci *containerInitialiser) Initialise() error {
 		return errors.Trace(err)
 	}
 
-	// Check if we've done this already.
 	poolInfo, err := poolInfo(run)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if poolInfo == nil {
-		if err := createPool(paths.DataDir, run, chownToLibvirt); err != nil {
-			return errors.Trace(err)
-		}
-		return nil
+	if err := ensurePool(poolInfo, paths.DataDir, run, chownToLibvirt); err != nil {
+		return errors.Trace(err)
 	}
-	logger.Debugf(`pool already initialised "%#v"`, poolInfo)
-
 	return nil
 }
 
@@ -92,27 +86,44 @@ func getRequiredPackages(a string) []string {
 	return requiredPackages
 }
 
-// createPool creates the libvirt storage pool directory. runCmd and chownFunc
-// are here for testing. runCmd so we can check the right shell out calls are
-// made, and chownFunc because we cannot chown unless we are root.
-func createPool(pathfinder func(string) (string, error), runCmd runFunc, chownFunc func(string) error) error {
+// ensurePool creates the libvirt storage pool and ensures its is active.
+// runCmd and chownFunc are here for testing. runCmd so we can check the
+// right shell out calls are made, and chownFunc because we cannot chown
+// unless we are root.
+func ensurePool(poolInfo *libvirtPool, pathfinder func(string) (string, error), runCmd runFunc, chownFunc func(string) error) error {
 	poolDir, err := guestPath(pathfinder)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err = definePool(poolDir, runCmd, chownFunc); err != nil {
-		return errors.Trace(err)
-	}
-	if err = buildPool(runCmd); err != nil {
-		return errors.Trace(err)
+	if poolInfo == nil {
+		poolInfo = &libvirtPool{}
 	}
 
-	if err = startPool(runCmd); err != nil {
-		return errors.Trace(err)
+	if poolInfo.Name == "" {
+		if err = definePool(poolDir, runCmd, chownFunc); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		logger.Debugf(`pool %q already created`, poolInfo.Name)
 	}
-	if err = autostartPool(runCmd); err != nil {
-		return errors.Trace(err)
+
+	if poolInfo.State != "running" {
+		if err = buildPool(runCmd); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err = startPool(runCmd); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		logger.Debugf(`pool %q already active`, poolInfo.Name)
+	}
+
+	if poolInfo.Autostart != "yes" {
+		if err = autostartPool(runCmd); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// We have to set ownership of the guest pool directory after running virsh
