@@ -24,7 +24,6 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/juju/charmstore.v5"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
@@ -42,6 +41,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -251,6 +251,59 @@ func (s *UpgradeCharmSuite) TestConfigSettingsMinFacadeVersion(c *gc.C) {
 		"updating config at upgrade-charm time is not supported by server version 1.2.3")
 }
 
+// charmResolver is an extension of charmrepo.Interface that is used by the
+// application package
+type charmResolver interface {
+	charmrepo.Interface
+	ResolveWithChannel(ref *charm.URL) (*charm.URL, csclientparams.Channel, []string, error)
+}
+
+type listResourcesHandler struct {
+	// TODO(tsm) implement functionality
+	// repo Repository
+}
+
+var _ ResourceLister = (*listResourcesHandler)(nil)
+
+func (l *listResourcesHandler) ListResources(applications []string) ([]resource.ApplicationResources, error) {
+	return []resource.ApplicationResources{}, nil
+}
+
+// CharmUpgradeHandler is a helper type that implements the
+// CharmUpgradeClient interface
+type charmUpgradeHandler struct {
+	//TODO(tsm) implement functionality
+	//repo Repository
+}
+
+var _ CharmUpgradeClient = (*charmUpgradeHandler)(nil)
+var _ CharmAPIClient = (*charmUpgradeHandler)(nil)
+
+func (h charmUpgradeHandler) GetCharmURL(model.GenerationVersion, string) (*charm.URL, error) {
+	return nil, nil
+}
+
+func (h charmUpgradeHandler) Get(model.GenerationVersion, string) (*params.ApplicationGetResults, error) {
+	return nil, nil
+}
+
+func (h charmUpgradeHandler) SetCharm(model.GenerationVersion, application.SetCharmConfig) error {
+	return nil
+}
+
+var _ CharmClient = (*apiservertesting.Client)(nil)
+var _ CharmAdder = (*apiservertesting.Client)(nil)
+var _ CharmClient = (*apiservertesting.ChannelAwareClient)(nil)
+var _ CharmAdder = (*apiservertesting.ChannelAwareClient)(nil)
+
+type fakeModelConfigGetter struct {
+	ModelConfigGetter
+}
+
+func (m *fakeModelConfigGetter) ModelGet() (map[string]interface{}, error) {
+	return coretesting.FakeConfig(), nil
+}
+
 type UpgradeCharmErrorsStateSuite struct {
 	jujutesting.RepoSuite
 	// handler charmstore.HTTPCloseHandler
@@ -258,22 +311,47 @@ type UpgradeCharmErrorsStateSuite struct {
 	channel          csclientparams.Channel
 	supportedSeries  []string
 	charmstoreClient testcharms.Charmstore
+	charmRepo        charmResolver
 }
 
 func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
-	s.channel = csclientparams.StableChannel
-	s.supportedSeries = []string{"quantal", "trusty"}
 	s.RepoSuite.SetUpTest(c)
+
+	s.channel = csclientparams.StableChannel
+	s.charmRepo = apiservertesting.NewRepository()
+	s.charmstoreClient = apiservertesting.NewClient(*s.charmRepo.(*apiservertesting.Repository))
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 }
 
 var _ = gc.Suite(&UpgradeCharmErrorsStateSuite{})
 
-func newUpgradeCharmCommandForTest(charmstoreClient testcharms.Charmstore, channel csparams.Channel, supportedSeries []string) Command {
-	resourceDeployer := func(
+func (s *UpgradeCharmErrorsStateSuite) runUpgradeCharm(c *gc.C, args ...string) error {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	store.Models["foo"] = &jujuclient.ControllerModels{
+		CurrentModel: "admin/bar",
+		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {ModelGeneration: model.GenerationNext}},
+	}
+
+	apiConnection := mockAPIConnection{
+		bestFacadeVersion: 2,
+		serverVersion: &version.Number{
+			Major: 1,
+			Minor: 2,
+			Patch: 3,
+		},
+	}
+	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
+		return &apiConnection, nil
+	}
+
+	deployResources := func(
 		applicationID string,
-		chID charmstore.CharmID,
+		chID jujucharmstore.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resourcesMeta map[string]charmresource.Meta,
@@ -313,63 +391,51 @@ func newUpgradeCharmCommandForTest(charmstoreClient testcharms.Charmstore, chann
 			progress := apiservertesting.NewProgress()
 			size := int64(len(data))
 
-			client := charmstoreClient.WithChannel(chID.Channel)
+			client := s.charmstoreClient.WithChannel(chID.Channel)
 			rev, err := client.UploadResource(newCharmID, name, meta.Path, file, size, progress)
 
-			ids[name] = rev
+			ids[name] = string(rev)
 		}
 
 		return ids, nil
 	}
 
-	charmResolver := func(
+	resolveCharm := func(
 		resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
 		url *charm.URL,
 	) (*charm.URL, csparams.Channel, []string, error) {
-		if url.Schema != "cs" {
-			return nil, csparams.NoChannel, nil, errors.Errorf("unknown schema for charm URL %q", url)
-		}
-		return url, channel, supportedSeries, nil
+		return s.charmRepo.ResolveWithChannel(url)
 	}
 
-	newCharmAdder := func(
-		api.Connection,
-		*httpbakery.Client,
-		string, // Charmstore API URL
-		csclientparams.Channel,
-	) CharmAdder {
-		return charmstoreClient.
-	}
-
-	cmd := &upgradeCharmCommand{
-		DeployResources:       resourceDeployer,
-		ResolveCharm:          charmResolver,
-		NewCharmAdder:         newCharmAdder,
-		NewCharmClient:        func(base.APICallCloser) CharmClient { return charmstoreClient },
-		NewCharmUpgradeClient: func(base.APICallCloser) CharmAPIClient { return charmstoreClient },
-		NewModelConfigGetter:  func(base.APICallCloser) ModelConfigGetter { return charmstoreClient },
-		NewResourceLister:     func(base.APICallCloser) (ResourceLister, error) { return charmstoreClient.IntoResourceLister() },
-		CharmStoreURLGetter:   func(conn base.APICallCloser) (string, error) { return "", nil },
-	}
-	return cmd
-}
-
-func runUpgradeCharm(c *gc.C, args ...string) error {
-	_, err := cmdtesting.RunCommand(c, NewUpgradeCharmCommand(), args...)
+	upgradeCharm := NewUpgradeCharmCommandForTest(
+		store,
+		apiOpen,
+		deployResources,
+		resolveCharm,
+		func(api.Connection, *httpbakery.Client, string, csclientparams.Channel) CharmAdder {
+			return s.charmstoreClient
+		},
+		func(base.APICallCloser) CharmClient { return s.charmstoreClient },
+		func(base.APICallCloser) CharmAPIClient { return &charmUpgradeHandler{} },
+		func(base.APICallCloser) ModelConfigGetter { return &fakeModelConfigGetter{} },
+		func(base.APICallCloser) (ResourceLister, error) { return &listResourcesHandler{}, nil },
+		func(base.APICallCloser) (string, error) { return "testing.api.charmstore-nomock", nil },
+	)
+	_, err := cmdtesting.RunCommand(c, upgradeCharm, args...)
 	return err
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestInvalidArgs(c *gc.C) {
-	err := runUpgradeCharm(c)
+	err := s.runUpgradeCharm(c)
 	c.Assert(err, gc.ErrorMatches, "no application specified")
-	err = runUpgradeCharm(c, "invalid:name")
+	err = s.runUpgradeCharm(c, "invalid:name")
 	c.Assert(err, gc.ErrorMatches, `invalid application name "invalid:name"`)
-	err = runUpgradeCharm(c, "foo", "bar")
+	err = s.runUpgradeCharm(c, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestInvalidApplication(c *gc.C) {
-	err := runUpgradeCharm(c, "phony")
+	err := s.runUpgradeCharm(c, "phony")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `application "phony" not found`,
 		Code:    "not found",
@@ -384,41 +450,46 @@ func (s *UpgradeCharmErrorsStateSuite) deployApplication(c *gc.C) {
 
 func (s *UpgradeCharmErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployApplication(c)
-	err := runUpgradeCharm(c, "riak", "--switch=blah")
+	err := s.runUpgradeCharm(c, "riak", "--switch=blah")
 	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:blah": charm or bundle not found`)
-	err = runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
+	err = s.runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
 	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:missing/one": charm not found`)
 	// TODO(dimitern): add tests with incompatible charms
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestNoPathFails(c *gc.C) {
 	s.deployApplication(c)
-	err := runUpgradeCharm(c, "riak")
+	err := s.runUpgradeCharm(c, "riak")
 	c.Assert(err, gc.ErrorMatches, "upgrading a local charm requires either --path or --switch")
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestSwitchAndRevisionFails(c *gc.C) {
 	s.deployApplication(c)
-	err := runUpgradeCharm(c, "riak", "--switch=riak", "--revision=2")
+	err := s.runUpgradeCharm(c, "riak", "--switch=riak", "--revision=2")
 	c.Assert(err, gc.ErrorMatches, "--switch and --revision are mutually exclusive")
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestPathAndRevisionFails(c *gc.C) {
 	s.deployApplication(c)
-	err := runUpgradeCharm(c, "riak", "--path=foo", "--revision=2")
+	err := s.runUpgradeCharm(c, "riak", "--path=foo", "--revision=2")
 	c.Assert(err, gc.ErrorMatches, "--path and --revision are mutually exclusive")
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestSwitchAndPathFails(c *gc.C) {
 	s.deployApplication(c)
-	err := runUpgradeCharm(c, "riak", "--switch=riak", "--path=foo")
+	err := s.runUpgradeCharm(c, "riak", "--switch=riak", "--path=foo")
 	c.Assert(err, gc.ErrorMatches, "--switch and --path are mutually exclusive")
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestInvalidRevision(c *gc.C) {
 	s.deployApplication(c)
-	err := runUpgradeCharm(c, "riak", "--revision=blah")
+	err := s.runUpgradeCharm(c, "riak", "--revision=blah")
 	c.Assert(err, gc.ErrorMatches, `invalid value "blah" for option --revision: strconv.(ParseInt|Atoi): parsing "blah": invalid syntax`)
+}
+
+func runUpgradeCharm(c *gc.C, args ...string) error {
+	_, err := cmdtesting.RunCommand(c, NewUpgradeCharmCommand(), args...)
+	return err
 }
 
 type BaseUpgradeCharmStateSuite struct{}

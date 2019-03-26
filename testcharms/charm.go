@@ -19,7 +19,9 @@ import (
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmrepo.v3/testing"
+	"gopkg.in/macaroon.v2-unstable"
 
+	"github.com/juju/juju/api/charms"
 	jtesting "github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 )
@@ -51,6 +53,11 @@ type commonCharmstore interface {
 type Charmstore interface {
 	miniHTTP
 	commonCharmstore
+	AddCharm(id *charm.URL, channel params.Channel, force bool) error
+	AddLocalCharm(id *charm.URL, details charm.Charm, force bool) (*charm.URL, error)
+	AddCharmWithAuthorization(id *charm.URL, channel params.Channel, macaroon *macaroon.Macaroon, force bool) error
+	AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error)
+	CharmInfo(id string) (*charms.CharmInfo, error)
 	WithChannel(channel params.Channel) ChannelAwareCharmstore
 	Latest(channel params.Channel, ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error)
 	ListResources(channel params.Channel, id *charm.URL) ([]params.Resource, error)
@@ -68,8 +75,6 @@ type Charmstore interface {
 	// Meta(id *charm.URL, result interface{}) (*charm.URL, error)
 	// PutExtraInfo(id *charm.URL, info map[string]interface{}) error
 	// PutCommonInfo(id *charm.URL, info map[string]interface{}) error
-	// AddCharm(id *charm.URL, channel params.Channel, force bool) error
-	// AddCharmWithAuthorization(id *charm.URL, channel params.Channel, macaroon *macaroon.Macaroon, force bool) error
 }
 
 // ChannelAwareCharmstore is a variant of the Charmstore interface that

@@ -19,15 +19,11 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
-	applicationapi "github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
-	apiserverparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -97,7 +93,6 @@ type Client struct {
 
 var _ charmstore.CharmstoreWrapper = (*Client)(nil)
 var _ testcharms.Charmstore = (*Client)(nil)
-var _ application.CharmClient = (*ChannelAwareClient)(nil)
 
 func NewClient(repo Repository) *Client {
 	return &Client{repo}
@@ -192,8 +187,21 @@ func (c Client) CharmInfo(id string) (*charms.CharmInfo, error) {
 	return info, nil
 }
 
-func (c Client) IntoCharmUpgrader() application.CharmAPIClient {
-	return &CharmUpgradeHandler{}
+func (c Client) AddLocalCharm(id *charm.URL, details charm.Charm, force bool) (*charm.URL, error) {
+	id = id.WithRevision(details.Revision())
+	return id, c.AddCharm(id, params.Channel("local"), force)
+}
+
+func (c Client) AddCharm(id *charm.URL, channel params.Channel, force bool) error {
+	return c.repo.AddCharm(id, channel, force)
+}
+
+func (c Client) AddCharmWithAuthorization(id *charm.URL, channel params.Channel, auth *macaroon.Macaroon, force bool) error {
+	return c.AddCharm(id, channel, force)
+}
+
+func (c Client) AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error) {
+	return nil, nil
 }
 
 type ChannelAwareClient struct {
@@ -202,7 +210,6 @@ type ChannelAwareClient struct {
 }
 
 var _ testcharms.ChannelAwareCharmstore = (*ChannelAwareClient)(nil)
-var _ application.CharmClient = (*ChannelAwareClient)(nil)
 
 func (c ChannelAwareClient) Latest(ids []*charm.URL, headers map[string][]string) (revisions []params.CharmRevision, err error) {
 	return c.charmstore.Latest(c.channel, ids, headers)
@@ -261,46 +268,25 @@ func (c ChannelAwareClient) AddDockerResource(id *charm.URL, resourceName string
 	return c.charmstore.AddDockerResource(id, resourceName, imageName, digest)
 }
 
-func (c ChannelAwareClient) IntoCharmUpgrader() application.CharmAPIClient {
-	return c.charmstore.IntoCharmUpgrader()
-}
-
 func (c ChannelAwareClient) CharmInfo(id string) (*charms.CharmInfo, error) {
 	return c.charmstore.CharmInfo(id)
 }
 
-// CharmUpgradeHandler is a helper type that implements the
-// application.CharmUpgradeClient interface
-type CharmUpgradeHandler struct {
-	//TODO(tsm) implement functionality
-	//repo Repository
+func (c ChannelAwareClient) AddLocalCharm(id *charm.URL, details charm.Charm, force bool) (*charm.URL, error) {
+	return c.charmstore.AddLocalCharm(id, details, force)
 }
 
-var _ application.CharmUpgradeClient = (*CharmUpgradeHandler)(nil)
-var _ application.CharmAPIClient = (*CharmUpgradeHandler)(nil)
+func (c ChannelAwareClient) AddCharm(id *charm.URL, channel params.Channel, force bool) error {
+	return c.charmstore.AddCharm(id, channel, force)
+}
 
-func (h CharmUpgradeHandler) GetCharmURL(model.GenerationVersion, string) (*charm.URL, error) {
+func (c ChannelAwareClient) AddCharmWithAuthorization(id *charm.URL, channel params.Channel, auth *macaroon.Macaroon, force bool) error {
+	return c.charmstore.AddCharm(id, channel, force)
+}
+
+func (c ChannelAwareClient) AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error) {
 	return nil, nil
 }
-
-func (h CharmUpgradeHandler) Get(model.GenerationVersion, string) (*apiserverparams.ApplicationGetResults, error) {
-	return nil, nil
-}
-
-func (h CharmUpgradeHandler) SetCharm(model.GenerationVersion, applicationapi.SetCharmConfig) error {
-	return nil
-}
-
-type ListResourcesHandler struct {
-	// TODO(tsm) implement functionality
-	// repo Repository
-}
-
-func (l *ListResourcesHandler) ListResources(applications []string) ([]resource.ApplicationResources, error) {
-	return []resource.ApplicationResources{}, nil
-}
-
-var _ application.ResourceLister = (*ListResourcesHandler)(nil)
 
 // Repository is a stand-in charmrepo.
 type Repository struct {
