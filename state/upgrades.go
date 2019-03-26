@@ -1916,7 +1916,7 @@ func EnsureDefaultModificationStatus(pool *StatePool) error {
 
 		// We only need to migrate machines that don't have a modification
 		// status document. So we need to first check if there is one, before
-		// creating an txn.Op for the missing document.
+		// creating a txn.Op for the missing document.
 		var status statusDoc
 		err := statusCol.Find(bson.D{{"_id", key}}).Select(bson.D{{"_id", 1}}).One(&status)
 		if err == mgo.ErrNotFound {
