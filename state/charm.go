@@ -49,8 +49,9 @@ func (m MacaroonCache) Get(u *charm.URL) (macaroon.Slice, error) {
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
-	DocID string     `bson:"_id"`
-	URL   *charm.URL `bson:"url"` // DANGEROUS see charm.* fields below
+	ModelUUID string     `bson:"model-uuid"`
+	DocID     string     `bson:"_id"`
+	URL       *charm.URL `bson:"url"` // DANGEROUS see charm.* fields below
 	// CharmVersion
 	CharmVersion string `bson:"charm-version"`
 
@@ -379,6 +380,8 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 	if cdoc != nil {
 		cdoc.LXDProfile = unescapeLXDProfile(cdoc.LXDProfile)
 	}
+
+	cdoc.ModelUUID = st.ModelUUID()
 
 	ch := Charm{st: st, doc: *cdoc}
 	return &ch

@@ -110,6 +110,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(BlockInfo)
 	case "action":
 		d.Entity = new(ActionInfo)
+	case "charm":
+		d.Entity = new(CharmInfo)
 	default:
 		return errors.Errorf("Unexpected entity name %q", entityKind)
 	}
@@ -202,6 +204,33 @@ func (i *ApplicationInfo) EntityId() EntityId {
 		Kind:      "application",
 		ModelUUID: i.ModelUUID,
 		Id:        i.Name,
+	}
+}
+
+// Profile is a representation of charm.v6 LXDProfile
+type Profile struct {
+	Config      map[string]string            `json:"config,omitempty"`
+	Description string                       `json:"description,omitempty"`
+	Devices     map[string]map[string]string `json:"devices,omitempty"`
+}
+
+// CharmInfo holds the information about a charm that is tracked by the
+// multiwatcher.
+type CharmInfo struct {
+	ModelUUID    string   `json:"model-uuid"`
+	CharmURL     string   `json:"charm-url"`
+	CharmVersion string   `json:"charm-version"`
+	Life         Life     `json:"life"`
+	LXDProfile   *Profile `json:"profile"`
+}
+
+// EntityId returns a unique identifier for an charm across
+// models.
+func (i *CharmInfo) EntityId() EntityId {
+	return EntityId{
+		Kind:      "charm",
+		ModelUUID: i.ModelUUID,
+		Id:        i.CharmURL,
 	}
 }
 

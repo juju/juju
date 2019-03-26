@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -71,6 +72,8 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 			collection.docType = reflect.TypeOf(backingUnit{})
 		case applicationsC:
 			collection.docType = reflect.TypeOf(backingApplication{})
+		case charmsC:
+			collection.docType = reflect.TypeOf(backingCharm{})
 		case actionsC:
 			collection.docType = reflect.TypeOf(backingAction{})
 		case relationsC:
@@ -549,6 +552,45 @@ func (app *backingApplication) removed(store *multiwatcherStore, modelUUID, id s
 
 func (app *backingApplication) mongoId() string {
 	return app.DocID
+}
+
+type backingCharm charmDoc
+
+func (ch *backingCharm) updated(st *State, store *multiwatcherStore, id string) error {
+	info := &multiwatcher.CharmInfo{
+		ModelUUID:    st.ModelUUID(),
+		CharmURL:     ch.URL.String(),
+		CharmVersion: ch.CharmVersion,
+		Life:         multiwatcher.Life(ch.Life.String()),
+	}
+
+	if ch.LXDProfile != nil && !ch.LXDProfile.Empty() {
+		info.LXDProfile = toMulitwatcherProfile(ch.LXDProfile)
+	}
+
+	store.Update(info)
+	return nil
+}
+
+func (ch *backingCharm) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
+	store.Remove(multiwatcher.EntityId{
+		Kind:      "charm",
+		ModelUUID: modelUUID,
+		Id:        id,
+	})
+	return nil
+}
+
+func (ch *backingCharm) mongoId() string {
+	return ch.DocID
+}
+
+func toMulitwatcherProfile(profile *charm.LXDProfile) *multiwatcher.Profile {
+	return &multiwatcher.Profile{
+		Config:      profile.Config,
+		Description: profile.Description,
+		Devices:     profile.Devices,
+	}
 }
 
 type backingRemoteApplication remoteApplicationDoc
@@ -1261,6 +1303,7 @@ func newAllWatcherStateBacking(st *State, params WatchParams) Backing {
 		machinesC,
 		unitsC,
 		applicationsC,
+		charmsC,
 		relationsC,
 		annotationsC,
 		statusesC,
@@ -1343,17 +1386,18 @@ func (b *allWatcherStateBacking) Release() error {
 
 func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
 	collections := makeAllWatcherCollectionInfo(
+		annotationsC,
+		applicationsC,
+		charmsC,
+		constraintsC,
 		modelsC,
 		machinesC,
-		unitsC,
-		applicationsC,
-		relationsC,
-		annotationsC,
-		statusesC,
-		constraintsC,
-		settingsC,
 		openedPortsC,
+		relationsC,
 		remoteApplicationsC,
+		statusesC,
+		settingsC,
+		unitsC,
 	)
 	return &allModelWatcherStateBacking{
 		st:               st,
