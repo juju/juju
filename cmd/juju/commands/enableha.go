@@ -210,7 +210,14 @@ type MakeHAClient interface {
 // Run connects to the environment specified on the command line
 // and calls EnableHA.
 func (c *enableHACommand) Run(ctx *cmd.Context) error {
-	var err error
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := common.ValidateIaasController(c.CommandBase, c.Info().Name, controllerName, c.ClientStore()); err != nil {
+		return errors.Trace(err)
+	}
+
 	c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr)
 	if err != nil {
 		return err

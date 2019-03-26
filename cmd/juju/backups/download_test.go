@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type downloadSuite struct {
@@ -24,7 +23,7 @@ var _ = gc.Suite(&downloadSuite{})
 
 func (s *downloadSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.wrappedCommand, s.command = backups.NewDownloadCommandForTest(jujuclienttesting.MinimalStore())
+	s.wrappedCommand, s.command = backups.NewDownloadCommandForTest(s.store)
 }
 
 func (s *downloadSuite) TearDownTest(c *gc.C) {

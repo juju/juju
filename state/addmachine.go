@@ -199,7 +199,7 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 }
 
 func (st *State) resolveMachineConstraints(cons constraints.Value) (constraints.Value, error) {
-	mcons, err := st.resolveConstraints(cons)
+	mcons, err := st.ResolveConstraints(cons)
 	if err != nil {
 		return constraints.Value{}, err
 	}

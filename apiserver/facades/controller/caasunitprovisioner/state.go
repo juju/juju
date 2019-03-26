@@ -24,6 +24,7 @@ type CAASUnitProvisionerState interface {
 	FindEntity(names.Tag) (state.Entity, error)
 	Model() (Model, error)
 	WatchApplications() state.StringsWatcher
+	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
 }
 
 // StorageBackend provides the subset of backend storage

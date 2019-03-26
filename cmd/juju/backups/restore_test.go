@@ -30,8 +30,6 @@ type restoreSuite struct {
 	BaseBackupsSuite
 	wrappedCommand cmd.Command
 	command        *backups.RestoreCommand
-
-	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&restoreSuite{})
@@ -46,7 +44,6 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 
 	controllerName := "test-master"
-	s.store = jujuclient.NewMemStore()
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{
 		ControllerUUID: controllerUUID,
 		CACert:         testing.CACert,
@@ -60,8 +57,8 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 	}
 	s.store.Models[controllerName] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"bob/test1":      {ModelUUID: test1ModelUUID, ModelType: model.IAAS},
-			"bob/controller": {ModelUUID: controllerModelUUID, ModelType: model.IAAS},
+			"bob/test1":        {ModelUUID: test1ModelUUID, ModelType: model.IAAS},
+			"admin/controller": {ModelUUID: controllerModelUUID, ModelType: model.IAAS},
 		},
 		CurrentModel: "controller",
 	}

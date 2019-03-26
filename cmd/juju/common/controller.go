@@ -11,7 +11,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/utils"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
@@ -130,4 +133,25 @@ func BootstrapEndpointAddresses(environ environs.InstanceBroker, callContext con
 		return nil, errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}
 	return netAddrs, nil
+}
+
+// ValidateIaasController returns an error if the controller
+// is not an IAAS controller.
+func ValidateIaasController(c modelcmd.CommandBase, cmdName, controllerName string, store jujuclient.ClientStore) error {
+	// Ensure controller model is cached.
+	controllerModel := jujuclient.JoinOwnerModelName(
+		names.NewUserTag(environs.AdminUser), bootstrap.ControllerModelName)
+	_, err := c.ModelUUIDs(store, controllerName, []string{controllerModel})
+	if err != nil {
+		return errors.Annotatef(err, "cannot get controller model uuid")
+	}
+
+	details, err := store.ModelByName(controllerName, controllerModel)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if details.ModelType == model.IAAS {
+		return nil
+	}
+	return errors.Errorf("Juju command %q not supported on kubernetes controllers", cmdName)
 }
