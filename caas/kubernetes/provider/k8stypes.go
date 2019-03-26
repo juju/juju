@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 	core "k8s.io/api/core/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/juju/juju/caas"
@@ -24,8 +25,9 @@ type k8sContainer struct {
 }
 
 type k8sContainers struct {
-	Containers     []k8sContainer `json:"containers"`
-	InitContainers []k8sContainer `json:"initContainers"`
+	Containers                []k8sContainer                                               `json:"containers"`
+	InitContainers            []k8sContainer                                               `json:"initContainers"`
+	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
 }
 
 // K8sContainerSpec is a subset of v1.Container which defines
@@ -130,6 +132,7 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 		}
 		spec.InitContainers[i] = containerFromK8sSpec(c)
 	}
+	spec.CustomResourceDefinitions = containers.CustomResourceDefinitions
 	return &spec, nil
 }
 

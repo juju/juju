@@ -901,47 +901,33 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 
 // EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
 func (k *kubernetesClient) EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error {
-	for _, t := range podSpec.CustomResourceDefinitions {
-		crd, err := k.ensureCustomResourceDefinitionTemplate(&t)
+	for name, crd := range podSpec.CustomResourceDefinitions {
+		crd, err := k.ensureCustomResourceDefinitionTemplate(name, crd)
 		if err != nil {
-			return errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", t.Kind))
+			return errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", name))
 		}
 		logger.Debugf("ensured custom resource definition %q", crd.ObjectMeta.Name)
 	}
 	return nil
 }
 
-func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(t *caas.CustomResourceDefinition) (
+func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(name string, spec apiextensionsv1beta1.CustomResourceDefinitionSpec) (
 	crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
-	singularName := strings.ToLower(t.Kind)
-	pluralName := fmt.Sprintf("%ss", singularName)
-	crdFullName := fmt.Sprintf("%s.%s", pluralName, t.Group)
 	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      crdFullName,
+			Name:      name,
 			Namespace: k.namespace,
 		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   t.Group,
-			Version: t.Version,
-			Scope:   apiextensionsv1beta1.ResourceScope(t.Scope),
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:   pluralName,
-				Kind:     t.Kind,
-				Singular: singularName,
-			},
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: t.Validation.Properties,
-				},
-			},
-		},
+		Spec: spec,
 	}
 	apiextensionsV1beta1 := k.apiextensionsClient.ApiextensionsV1beta1()
 	logger.Debugf("creating crd %#v", crdIn)
 	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
 	if k8serrors.IsAlreadyExists(err) {
-		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Get(crdFullName, v1.GetOptions{})
+		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Get(name, v1.GetOptions{})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		resourceVersion := crd.ObjectMeta.GetResourceVersion()
 		crdIn.ObjectMeta.SetResourceVersion(resourceVersion)
 		logger.Debugf("existing crd with resource version %q found, so update it %#v", resourceVersion, crdIn)
