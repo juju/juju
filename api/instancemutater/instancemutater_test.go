@@ -154,6 +154,12 @@ func (s *instanceMutaterSuite) expectWatchMachinesWithError() {
 	aExp.APICall("InstanceMutater", 1, "", "WatchMachines", nil, gomock.Any()).Return(errors.New("failed"))
 }
 
+func (s *instanceMutaterSuite) expectNotifyWatcher() {
+	aExp := s.apiCaller.EXPECT()
+	aExp.BestFacadeVersion("NotifyWatcher").Return(1)
+	aExp.APICall("NotifyWatcher", 1, "", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
+}
+
 func clientErrorAPICaller(c *gc.C, method string, expectArgs interface{}) *apitesting.CallChecker {
 	return apitesting.APICallChecker(c, apitesting.APICall{
 		Facade:        "InstanceMutater",

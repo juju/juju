@@ -104,6 +104,36 @@ func (s *instanceMutaterMachineSuite) TestWatchUnitsSuccess(c *gc.C) {
 	}
 }
 
+func (s *instanceMutaterMachineSuite) TestWatchApplicationsForLXDProfiles(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	api := s.machineForScenario(c,
+		s.expectWatchApplicationsForLXDProfiles,
+		s.expectNotifyWatcher,
+	)
+	ch, err := api.WatchApplicationsForLXDProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// watch for the changes
+	for i := 0; i < 2; i++ {
+		select {
+		case <-ch.Changes():
+		case <-time.After(jujutesting.LongWait):
+			c.Fail()
+		}
+	}
+}
+
+func (s *instanceMutaterMachineSuite) TestWatchApplicationsForLXDProfilesServerError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	api := s.machineForScenario(c,
+		s.expectWatchApplicationsForLXDProfilesWithError(errors.New("failed")),
+	)
+	_, err := api.WatchApplicationsForLXDProfiles()
+	c.Assert(err, gc.ErrorMatches, "failed")
+}
+
 func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -292,4 +322,49 @@ func (s *instanceMutaterMachineSuite) expectSetModificationFacadeCallReturnsErro
 		fExp := s.fCaller.EXPECT()
 		fExp.FacadeCall("SetModificationStatus", args, gomock.Any()).SetArg(2, results).Return(nil)
 	}
+}
+
+func (s *instanceMutaterMachineSuite) expectWatchApplicationsForLXDProfiles() {
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: s.tag.String()},
+		},
+	}
+	results := params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{
+				NotifyWatcherId: "1",
+			},
+		},
+	}
+	fExp := s.fCaller.EXPECT()
+	fExp.FacadeCall("WatchApplicationsForLXDProfiles", args, gomock.Any()).SetArg(2, results).Return(nil)
+	fExp.RawAPICaller().Return(s.apiCaller)
+}
+
+func (s *instanceMutaterMachineSuite) expectWatchApplicationsForLXDProfilesWithError(err error) func() {
+	return func() {
+		args := params.Entities{
+			Entities: []params.Entity{
+				{Tag: s.tag.String()},
+			},
+		}
+		results := params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{
+				{
+					Error: &params.Error{
+						Message: err.Error(),
+					},
+				},
+			},
+		}
+		aExp := s.fCaller.EXPECT()
+		aExp.FacadeCall("WatchApplicationsForLXDProfiles", args, gomock.Any()).SetArg(2, results).Return(nil)
+	}
+}
+
+func (s *instanceMutaterMachineSuite) expectNotifyWatcher() {
+	aExp := s.apiCaller.EXPECT()
+	aExp.BestFacadeVersion("NotifyWatcher").Return(1)
+	aExp.APICall("NotifyWatcher", 1, "1", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
 }

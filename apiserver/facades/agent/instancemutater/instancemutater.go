@@ -34,6 +34,7 @@ type InstanceMutaterV1 interface {
 	SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error)
 	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
 	WatchMachines() (params.StringsWatchResult, error)
+	WatchApplicationsForLXDProfiles(args params.Entities) (params.NotifyWatchResults, error)
 }
 
 type InstanceMutaterAPI struct {
@@ -186,6 +187,40 @@ func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error
 		result.Changes = changes
 	} else {
 		return result, fmt.Errorf("cannot obtain initial model machines")
+	}
+	return result, nil
+}
+
+// WatchApplicationsForLXDProfiles starts a watcher to track Applications with
+// LXD Profiles.
+func (api *InstanceMutaterAPI) WatchApplicationsForLXDProfiles(args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := api.getAuthFunc()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		entityResult, err := api.watchOneEntityApplication(canAccess, tag)
+		result.Results[i] = entityResult
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return params.NotifyWatchResults{}, nil
+}
+
+func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFunc, tag names.Tag) (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+	if !canAccess(tag) {
+		return result, common.ErrPerm
 	}
 	return result, nil
 }

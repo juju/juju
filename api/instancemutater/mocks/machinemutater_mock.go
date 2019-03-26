@@ -109,6 +109,19 @@ func (mr *MockMutaterMachineMockRecorder) Tag() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockMutaterMachine)(nil).Tag))
 }
 
+// WatchApplicationsForLXDProfiles mocks base method
+func (m *MockMutaterMachine) WatchApplicationsForLXDProfiles() (watcher.NotifyWatcher, error) {
+	ret := m.ctrl.Call(m, "WatchApplicationsForLXDProfiles")
+	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchApplicationsForLXDProfiles indicates an expected call of WatchApplicationsForLXDProfiles
+func (mr *MockMutaterMachineMockRecorder) WatchApplicationsForLXDProfiles() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationsForLXDProfiles", reflect.TypeOf((*MockMutaterMachine)(nil).WatchApplicationsForLXDProfiles))
+}
+
 // WatchUnits mocks base method
 func (m *MockMutaterMachine) WatchUnits() (watcher.StringsWatcher, error) {
 	ret := m.ctrl.Call(m, "WatchUnits")
