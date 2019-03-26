@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -86,7 +87,9 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	}
 	s.pcfg = pcfg
 	s.controllerStackerGetter = func() provider.ControllerStackerForTest {
-		controllerStacker, err := provider.NewcontrollerStackForTest("juju-controller-test", "some-storage", s.broker, s.pcfg)
+		controllerStacker, err := provider.NewcontrollerStackForTest(
+			envtesting.BootstrapContext(c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
+		)
 		c.Assert(err, jc.ErrorIsNil)
 		return controllerStacker
 	}

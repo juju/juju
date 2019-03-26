@@ -62,16 +62,18 @@ func tryAPI(c *modelcmd.ModelCommandBase) error {
 // WaitForAgentInitialisation polls the bootstrapped controller with a read-only
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
-func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName, hostedModelName string) error {
+func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName, hostedModelName string) (err error) {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	isCAAS := modelType == model.CAAS
+
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempts := utils.AttemptStrategy{
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
 	}
-	var (
-		apiAttempts int
-		err         error
-	)
 
 	// Make a best effort to find the new controller address so we can print it.
 	addressInfo := ""
@@ -84,13 +86,23 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 	}
 
 	ctx.Infof("Contacting Juju controller%s to verify accessibility...", addressInfo)
-	apiAttempts = 1
+	apiAttempts := 1
 	for attempt := attempts.Start(); attempt.Next(); apiAttempts++ {
 		err = tryAPI(c)
 		if err == nil {
-			ctx.Infof("Bootstrap complete, %q controller now available", controllerName)
-			ctx.Infof("Controller machines are in the %q model", bootstrap.ControllerModelName)
-			ctx.Infof("Initial model %q added", hostedModelName)
+			msg := fmt.Sprintf("\nBootstrap complete, controller %q now is available", controllerName)
+			if isCAAS {
+				msg += fmt.Sprintf(" in namespace %q", controllerName)
+				msg += `
+Now you can run 
+	juju add-model <model-name>
+to create a new model to deploy CAAS workload
+`
+			} else {
+				msg += fmt.Sprintf("\nController machines are in the %q model", bootstrap.ControllerModelName)
+				msg += fmt.Sprintf("\nInitial model %q added", hostedModelName)
+			}
+			ctx.Infof(msg)
 			break
 		}
 		// As the API server is coming up, it goes through a number of steps.

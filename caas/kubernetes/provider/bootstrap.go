@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 )
@@ -38,6 +39,8 @@ var (
 )
 
 type controllerStack struct {
+	ctx environs.BootstrapContext
+
 	stackName   string
 	stackLabels map[string]string
 	broker      *kubernetesClient
@@ -91,6 +94,7 @@ func controllerCorelation(broker *kubernetesClient) (*kubernetesClient, error) {
 }
 
 func newcontrollerStack(
+	ctx environs.BootstrapContext,
 	stackName string,
 	storageClass string,
 	broker *kubernetesClient,
@@ -129,6 +133,7 @@ func newcontrollerStack(
 	pcfg.Bootstrap.StateServingInfo = si
 
 	cs := controllerStack{
+		ctx:         ctx,
 		stackName:   stackName,
 		stackLabels: map[string]string{labelApplication: stackName},
 		broker:      broker,
@@ -230,7 +235,9 @@ func (c controllerStack) doCleanUp() {
 // Deploy creates all resources for controller stack.
 func (c controllerStack) Deploy() (err error) {
 	// creating namespace for controller stack, this namespace will be removed by broker.DestroyController if bootstrap failed.
-	if err = c.broker.createNamespace(c.broker.GetCurrentNamespace()); err != nil {
+	nsName := c.broker.GetCurrentNamespace()
+	c.ctx.Infof("Creating k8s resources for controller %q", nsName)
+	if err = c.broker.createNamespace(nsName); err != nil {
 		return errors.Annotate(err, "creating namespace for controller stack")
 	}
 
@@ -239,6 +246,7 @@ func (c controllerStack) Deploy() (err error) {
 			c.doCleanUp()
 		}
 	}()
+
 	// create service for controller pod.
 	if err = c.createControllerService(); err != nil {
 		return errors.Annotate(err, "creating service for controller")
@@ -273,6 +281,8 @@ func (c controllerStack) Deploy() (err error) {
 	if err = c.createControllerStatefulset(); err != nil {
 		return errors.Annotate(err, "creating statefulset for controller")
 	}
+	// fake message for better user experience.
+	c.ctx.Infof("Downloading Juju agent OCI image")
 
 	return nil
 }
@@ -303,11 +313,11 @@ func (c controllerStack) createControllerService() error {
 			},
 		},
 	}
-	logger.Debugf("ensuring controller service: \n%+v", spec)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q", svcName)
 		c.broker.deleteService(svcName)
 	})
+	logger.Debugf("creating controller service: \n%+v", spec)
 	return errors.Trace(c.broker.ensureService(spec))
 }
 
