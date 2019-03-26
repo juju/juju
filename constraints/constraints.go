@@ -23,16 +23,17 @@ const (
 	Arch      = "arch"
 	Container = "container"
 	// cpuCores is an alias for Cores.
-	cpuCores     = "cpu-cores"
-	Cores        = "cores"
-	CpuPower     = "cpu-power"
-	Mem          = "mem"
-	RootDisk     = "root-disk"
-	Tags         = "tags"
-	InstanceType = "instance-type"
-	Spaces       = "spaces"
-	VirtType     = "virt-type"
-	Zones        = "zones"
+	cpuCores       = "cpu-cores"
+	Cores          = "cores"
+	CpuPower       = "cpu-power"
+	Mem            = "mem"
+	RootDisk       = "root-disk"
+	RootDiskSource = "root-disk-source"
+	Tags           = "tags"
+	InstanceType   = "instance-type"
+	Spaces         = "spaces"
+	VirtType       = "virt-type"
+	Zones          = "zones"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -67,6 +68,12 @@ type Value struct {
 	// time, an instance with the specified amount of disk space in the OS
 	// disk might be requested.
 	RootDisk *uint64 `json:"root-disk,omitempty" yaml:"root-disk,omitempty"`
+
+	// RootDiskSource, if specified, determines what storage the root
+	// disk should be allocated from. This will be provider specific -
+	// in the case of vSphere it identifies the datastore the root
+	// disk file should be created in.
+	RootDiskSource *string `json:"root-disk-source,omitempty" yaml:"root-disk-source,omitempty"`
 
 	// Tags, if not nil, indicates tags that the machine must have applied to it.
 	// An empty list is treated the same as a nil (unspecified) list, except an
@@ -221,6 +228,10 @@ func (v Value) String() string {
 			s += "M"
 		}
 		strs = append(strs, "root-disk="+s)
+	}
+	if v.RootDiskSource != nil {
+		s := *v.RootDiskSource
+		strs = append(strs, "root-disk-source="+s)
 	}
 	if v.Tags != nil {
 		s := strings.Join(*v.Tags, ",")
@@ -431,6 +442,8 @@ func (v *Value) setRaw(name, str string) error {
 		err = v.setMem(str)
 	case RootDisk:
 		err = v.setRootDisk(str)
+	case RootDiskSource:
+		err = v.setRootDiskSource(str)
 	case Tags:
 		err = v.setTags(str)
 	case InstanceType:
@@ -490,6 +503,8 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			v.Mem, err = parseUint64(vstr)
 		case RootDisk:
 			v.RootDisk, err = parseUint64(vstr)
+		case RootDiskSource:
+			v.RootDiskSource = &vstr
 		case Tags:
 			v.Tags, err = parseYamlStrings("tags", val)
 		case Spaces:
@@ -587,6 +602,14 @@ func (v *Value) setRootDisk(str string) (err error) {
 	}
 	v.RootDisk, err = parseSize(str)
 	return
+}
+
+func (v *Value) setRootDiskSource(str string) error {
+	if v.RootDiskSource != nil {
+		return errors.Errorf("already set")
+	}
+	v.RootDiskSource = &str
+	return nil
 }
 
 func (v *Value) setTags(str string) error {
