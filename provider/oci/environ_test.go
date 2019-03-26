@@ -361,10 +361,10 @@ func (e *environSuite) TestPrepareForBootstrap(c *gc.C) {
 		ociIdentity.ListAvailabilityDomainsResponse{}, errors.New("got error"))
 
 	ctx := envtesting.BootstrapContext(c)
-	err := e.env.PrepareForBootstrap(ctx)
+	err := e.env.PrepareForBootstrap(ctx, "controller-1")
 	c.Assert(err, gc.IsNil)
 
-	err = e.env.PrepareForBootstrap(ctx)
+	err = e.env.PrepareForBootstrap(ctx, "controller-1")
 	c.Assert(err, gc.ErrorMatches, "got error")
 }
 

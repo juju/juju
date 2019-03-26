@@ -101,7 +101,7 @@ func (env *joyentEnviron) Create(context.ProviderCallContext, environs.CreatePar
 	return nil
 }
 
-func (env *joyentEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (env *joyentEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(env); err != nil {
 			return errors.Trace(err)

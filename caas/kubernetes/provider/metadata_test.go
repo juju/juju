@@ -150,7 +150,7 @@ func newNodeList(labels map[string]string) *core.NodeList {
 }
 
 func (s *K8sMetadataSuite) TestListHostCloudRegions(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	for i, v := range hostRegionsTestCases {
@@ -169,7 +169,7 @@ func (s *K8sMetadataSuite) TestListHostCloudRegions(c *gc.C) {
 }
 
 func (s *K8sMetadataSuite) TestNoDefaultStorageClasses(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -190,7 +190,7 @@ func (s *K8sMetadataSuite) TestNoDefaultStorageClasses(c *gc.C) {
 }
 
 func (s *K8sMetadataSuite) TestNoDefaultStorageClassesTooMany(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -211,7 +211,7 @@ func (s *K8sMetadataSuite) TestNoDefaultStorageClassesTooMany(c *gc.C) {
 }
 
 func (s *K8sMetadataSuite) TestPreferDefaultStorageClass(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -236,7 +236,7 @@ func (s *K8sMetadataSuite) TestPreferDefaultStorageClass(c *gc.C) {
 }
 
 func (s *K8sMetadataSuite) TestBetaDefaultStorageClass(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -261,7 +261,7 @@ func (s *K8sMetadataSuite) TestBetaDefaultStorageClass(c *gc.C) {
 }
 
 func (s *K8sMetadataSuite) TestUserSpecifiedStorageClasses(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -292,7 +292,7 @@ func (s *K8sMetadataSuite) TestUserSpecifiedStorageClasses(c *gc.C) {
 }
 
 func (s *K8sMetadataSuite) TestOperatorStorageClassNoDefault(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -319,7 +319,7 @@ func (s *K8sMetadataSuite) TestOperatorStorageClassNoDefault(c *gc.C) {
 }
 
 func (s *K8sMetadataSuite) TestOperatorStorageClassPrefersDefault(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -349,7 +349,7 @@ func (s *K8sMetadataSuite) TestOperatorStorageClassPrefersDefault(c *gc.C) {
 }
 
 func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageUnknownCluster(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	err := s.broker.CheckDefaultWorkloadStorage("foo", nil)
@@ -357,7 +357,7 @@ func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageUnknownCluster(c *gc.C
 }
 
 func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageNonpreferred(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	err := s.broker.CheckDefaultWorkloadStorage("microk8s", &caas.StorageProvisioner{Provisioner: "foo"})

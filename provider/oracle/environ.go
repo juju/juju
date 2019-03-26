@@ -131,7 +131,7 @@ func NewOracleEnviron(p *EnvironProvider, args environs.OpenParams, client Envir
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (o *OracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (o *OracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	if ctx.ShouldVerifyCredentials() {
 		logger.Infof("Logging into the oracle cloud infrastructure")
 		if err := o.client.Authenticate(); err != nil {

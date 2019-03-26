@@ -195,8 +195,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	openParams := environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: args.ControllerModelConfig,
+		ControllerUUID: args.ControllerConfig.ControllerUUID(),
+		Cloud:          cloudSpec,
+		Config:         args.ControllerModelConfig,
 	}
 	var env environs.BootstrapEnviron
 	if isCAAS {
@@ -217,7 +218,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		if isCAAS {
 			// For CAAS, the agent-version in controller config should
 			// always equals to current juju version.
-			return errors.NotSupportedf("desired juju version for k8s controllers")
+			return errors.NotSupportedf(
+				"desired juju version %q, current version %q for k8s controllers",
+				desiredVersion, jujuversion.Current,
+			)
 		}
 
 		// If we have been asked for a newer version, ensure the newer

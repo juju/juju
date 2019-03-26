@@ -26,9 +26,13 @@ var (
 	NewKubernetesWatcher     = newKubernetesWatcher
 	CompileK8sCloudCheckers  = compileK8sCloudCheckers
 	CloudSpecToK8sRestConfig = cloudSpecToK8sRestConfig
+	ControllerCorelation     = controllerCorelation
 )
 
-type KubernetesWatcher = kubernetesWatcher
+type (
+	KubernetesClient  = kubernetesClient
+	KubernetesWatcher = kubernetesWatcher
+)
 
 type ControllerStackerForTest interface {
 	controllerStacker
@@ -53,8 +57,8 @@ func (cs controllerStack) GetStorageSize() resource.Quantity {
 	return cs.storageSize
 }
 
-func NewcontrollerStackForTest(stackName, storageClass string, broker caas.Broker, pcfg *podcfg.ControllerPodConfig) (ControllerStackerForTest, error) {
-	cs, err := newcontrollerStack(stackName, storageClass, broker.(*kubernetesClient), pcfg)
+func NewcontrollerStackForTest(stackName, storageClass string, broker *kubernetesClient, pcfg *podcfg.ControllerPodConfig) (ControllerStackerForTest, error) {
+	cs, err := newcontrollerStack(stackName, storageClass, broker, pcfg)
 	return cs.(controllerStack), err
 }
 

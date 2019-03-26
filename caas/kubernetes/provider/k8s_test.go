@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/storage"
@@ -413,7 +412,7 @@ type K8sBrokerSuite struct {
 var _ = gc.Suite(&K8sBrokerSuite{})
 
 func (s *K8sBrokerSuite) TestAPIVersion(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	r := rest.NewRequest(nil, "get", &url.URL{Path: "/path/"}, "", rest.ContentConfig{}, rest.Serializers{}, nil, nil, 0)
@@ -425,39 +424,22 @@ func (s *K8sBrokerSuite) TestAPIVersion(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestConfig(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	c.Assert(s.broker.Config(), jc.DeepEquals, s.cfg)
 }
 
 func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	err := s.broker.SetConfig(s.cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestControllerNamespaceRenaming(c *gc.C) {
-	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
-		config.NameKey: "controller",
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	s.cfg = cfg
-
-	ctrl := s.setupBroker(c)
-	defer func() {
-		ctrl.Finish()
-		// reset s.cfg
-		s.SetUpSuite(c)
-	}()
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-"+cfg.UUID()[:8])
-
-}
-
 func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	ctx := envtesting.BootstrapContext(c)
@@ -474,7 +456,7 @@ func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	// Ensure the broker is configured with operator storage.
@@ -514,32 +496,12 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
-func (s *K8sBrokerSuite) TestEnsureNamespace(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Update(ns).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockNamespaces.EXPECT().Create(ns).Times(1),
-		// Idempotent check.
-		s.mockNamespaces.EXPECT().Update(ns).Times(1),
-	)
-
-	err := s.broker.EnsureNamespace()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check idempotent.
-	err = s.broker.EnsureNamespace()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *K8sBrokerSuite) TestGetNamespace(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
+	s.ensureJujuNamespaceAnnotations(false, ns)
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(ns, nil),
@@ -551,7 +513,7 @@ func (s *K8sBrokerSuite) TestGetNamespace(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestGetNamespaceNotFound(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -565,14 +527,14 @@ func (s *K8sBrokerSuite) TestGetNamespaceNotFound(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestNamespaces(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ns1 := core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
-	ns2 := core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test2"}}
+	ns1 := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}})
+	ns2 := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test2"}})
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
-			Return(&core.NamespaceList{Items: []core.Namespace{ns1, ns2}}, nil),
+			Return(&core.NamespaceList{Items: []core.Namespace{*ns1, *ns2}}, nil),
 	)
 
 	result, err := s.broker.Namespaces()
@@ -580,11 +542,13 @@ func (s *K8sBrokerSuite) TestNamespaces(c *gc.C) {
 	c.Assert(result, jc.SameContents, []string{"test", "test2"})
 }
 
-func (s *K8sBrokerSuite) assertDestroy(c *gc.C, destroyFunc func() error) {
-	ctrl := s.setupBroker(c)
+func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc func() error) {
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
+	ns := &core.Namespace{}
+	ns.Name = "test"
+	s.ensureJujuNamespaceAnnotations(isController, ns)
 	namespaceWatcher := s.k8sNewFakeWatcher()
 
 	gomock.InOrder(
@@ -595,6 +559,8 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, destroyFunc func() error) {
 			},
 		).
 			Return(namespaceWatcher, nil),
+		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(ns, nil),
 		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(nil),
 		s.mockStorageClass.EXPECT().DeleteCollection(
@@ -625,24 +591,24 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, destroyFunc func() error) {
 }
 
 func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
-	s.assertDestroy(c, func() error { return s.broker.DestroyController(context.NewCloudCallContext(), s.cfg.UUID()) })
+	s.assertDestroy(c, true, func() error { return s.broker.DestroyController(context.NewCloudCallContext(), s.controllerUUID) })
 }
 
 func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
-	s.assertDestroy(c, func() error { return s.broker.Destroy(context.NewCloudCallContext()) })
+	s.assertDestroy(c, false, func() error { return s.broker.Destroy(context.NewCloudCallContext()) })
 }
 
 func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.namespace)
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
 }
 
 func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
+	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}})
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Create(ns).Times(1).
 			Return(ns, nil),
@@ -656,10 +622,10 @@ func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
+	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}})
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Create(ns).Times(1).
 			Return(nil, s.k8sAlreadyExistsError()),
@@ -673,7 +639,7 @@ func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	// Delete operations below return a not found to ensure it's treated as a no-op.
@@ -811,7 +777,7 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 }
 
 func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	configMapArg := &core.ConfigMap{
@@ -825,7 +791,6 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage")
 
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Update(&core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}).Times(1),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Update(configMapArg).Times(1),
@@ -853,12 +818,11 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage")
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Update(&core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}).Times(1),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -886,11 +850,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Update(&core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}).Times(1),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -909,7 +872,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 }
 
 func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	// Delete operations below return a not found to ensure it's treated as a no-op.
@@ -935,7 +898,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	two := int32(2)
@@ -960,7 +923,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	numUnits := int32(2)
@@ -1050,7 +1013,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	podSpec := basicPodspec
@@ -1154,7 +1117,7 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	podSpec := basicPodspec
@@ -1259,7 +1222,7 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
@@ -1336,7 +1299,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	numUnits := int32(2)
@@ -1417,7 +1380,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
@@ -1492,7 +1455,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
@@ -1558,7 +1521,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
@@ -1637,7 +1600,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
@@ -1708,7 +1671,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	opPod := core.Pod{
@@ -1733,7 +1696,7 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -1746,7 +1709,7 @@ func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	ssWatcher := watch.NewRaceFreeFake()

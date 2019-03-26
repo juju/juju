@@ -64,6 +64,9 @@ type CloudEnvironProvider interface {
 
 // OpenParams contains the parameters for EnvironProvider.Open.
 type OpenParams struct {
+	// ControllerUUID is the controller UUID.
+	ControllerUUID string
+
 	// Cloud is the cloud specification to use to connect to the cloud.
 	Cloud CloudSpec
 
@@ -276,7 +279,7 @@ type Bootstrapper interface {
 	// This will be called very early in the bootstrap procedure, to
 	// give an Environ a chance to perform interactive operations that
 	// are required for bootstrapping.
-	PrepareForBootstrap(ctx BootstrapContext) error
+	PrepareForBootstrap(ctx BootstrapContext, controllerName string) error
 
 	// Bootstrap creates a new environment, and an instance to host the
 	// controller for that environment. The instance will have the

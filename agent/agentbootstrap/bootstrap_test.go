@@ -333,6 +333,7 @@ LXC_BRIDGE="ignored"`[1:])
 	expectedCalledCfg, err := hostedCfg.Apply(map[string]interface{}{"container-networking-method": ""})
 	c.Assert(err, jc.ErrorIsNil)
 	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{
+		ControllerUUID: controllerCfg.ControllerUUID(),
 		Cloud: environs.CloudSpec{
 			Type:   "dummy",
 			Name:   "dummy",

@@ -43,12 +43,12 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
@@ -72,9 +72,17 @@ const (
 	gpuAffinityNodeSelectorKey = "gpu"
 
 	jujudToolDir = "/var/lib/juju/tools"
+
+	annotationPrefix = "juju.io"
 )
 
-var defaultPropagationPolicy = v1.DeletePropagationForeground
+var (
+	defaultPropagationPolicy = v1.DeletePropagationForeground
+
+	annotationModelUUIDKey              = annotationPrefix + "/" + "model"
+	annotationControllerUUIDKey         = annotationPrefix + "/" + "controller"
+	annotationControllerIsControllerKey = annotationPrefix + "/" + "is-controller"
+)
 
 type kubernetesClient struct {
 	clock jujuclock.Clock
@@ -84,6 +92,8 @@ type kubernetesClient struct {
 	// namespace is the k8s namespace to use when
 	// creating k8s resources.
 	namespace string
+
+	annotations k8sannotations.Annotation
 
 	lock   sync.Mutex
 	envCfg *config.Config
@@ -111,12 +121,14 @@ type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clo
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
 func NewK8sBroker(
+	controllerUUID string,
 	k8sRestConfig *rest.Config,
 	cfg *config.Config,
 	newClient NewK8sClientFunc,
 	newWatcher NewK8sWatcherFunc,
 	clock jujuclock.Clock,
-) (caas.Broker, error) {
+) (*kubernetesClient, error) {
+
 	k8sClient, apiextensionsClient, err := newClient(k8sRestConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -125,34 +137,38 @@ func NewK8sBroker(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelUUID := newCfg.UUID()
-	namespace := newCfg.Name()
-	if namespace == environsbootstrap.ControllerModelName {
-		// namespace format: <controller>-<controller-model-UUID> for juju controller to achieve:
-		// 1. multi controllers running in same k8s cluster;
-		// 2. avoid potential conflict if there is existing namespace named "controller"(warning:
-		//    an non juju related existing namespace could be destroyed if bootstrapping failed due
-		//    to AlreadyExistedNamespace error);
 
-		// IMPORTANT!
-		// TODO(bootstrap): do we want to run multi controller in same k8s cluster or always run one?
-		// Solution(potential): we SHOULD label all namespaces(controller ns, model ns) with controller ID,
-		// and always check if the controller owns(created) the namespace whenever it tries to
-		// CRUD any resources inside the namespace.
-		// Note: we should consider above `Solution` even we always run single controller per cluster, because
-		// we should NEVER allow juju controller to touch any namespace that was NOT created by JUJU.
-		namespace += "-" + modelUUID[:8]
-		logger.Debugf("found config name %q, so naming namespace to %q", newCfg.Name(), namespace)
+	modelUUID := newCfg.UUID()
+	if modelUUID == "" {
+		return nil, errors.NotValidf("modelUUID is required")
 	}
-	return &kubernetesClient{
+	client := &kubernetesClient{
 		clock:               clock,
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
-		namespace:           namespace,
 		envCfg:              newCfg.Config,
+		namespace:           newCfg.Name(),
 		modelUUID:           modelUUID,
 		newWatcher:          newWatcher,
-	}, nil
+		annotations: k8sannotations.New(nil).
+			Add(annotationModelUUIDKey, modelUUID),
+	}
+
+	if controllerUUID != "" {
+		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
+		client.annotations.Add(annotationControllerUUIDKey, controllerUUID)
+	}
+	return client, nil
+}
+
+// GetAnnotations returns current namespace's annotations.
+func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
+	return k.annotations
+}
+
+// addAnnotations set an annotation to current namespace's annotations.
+func (k *kubernetesClient) addAnnotations(key, value string) k8sannotations.Annotation {
+	return k.annotations.Add(key, value)
 }
 
 // Config returns environ config.
@@ -184,16 +200,42 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 	return storageClass, errors.Trace(err)
 }
 
-// PrepareForBootstrap prepares for bootstrapping a controller.
-func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
-	_, err := k.validateOperatorStorage()
-	return err
+// PrepareForBootstrap prepares for bootstraping a controller.
+func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
+	k.namespace = controllerName
+	alreadyExistErr := errors.NewAlreadyExists(nil,
+		fmt.Sprintf(`a controller called %q already exists on this k8s cluster.
+Please bootstrap again and choose a different controller name.`, k.namespace),
+	)
+	// ensure no existing namespace has the same name.
+	_, err := k.GetNamespace(k.namespace)
+	if err == nil {
+		return alreadyExistErr
+	}
+	if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	// Good, no existing namespace has the same name.
+	// Now, try to find if there is any existing controller running in this cluster.
+	// Note: we have to do this check before we are confident to support multi controllers running in same k8s cluster.
+	_, err = k.listNamespacesByAnnotations(k.annotations)
+	if err == nil {
+		return alreadyExistErr
+	}
+	if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	// All good, no existing controller found on the cluster.
+	// The namespace will be set to controller-name in newcontrollerStack.
+
+	// do validation on storage class.
+	_, err = k.validateOperatorStorage()
+	return errors.Trace(err)
 }
 
 // Create implements environs.BootstrapEnviron.
 func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreateParams) error {
-	// must raise errors if it's already exist.
-	// so don't use EnsureNamespace.
+	// must raise errors.AlreadyExistsf if it's already exist.
 	return k.createNamespace(k.namespace)
 }
 
@@ -224,6 +266,27 @@ func (k *kubernetesClient) Bootstrap(
 
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
+		// we use controller name to name controller namespace in bootstrap time.
+		setControllerNamespace := func(name string, broker *kubernetesClient) error {
+			_, err := broker.GetNamespace(name)
+			if errors.IsNotFound(err) {
+				// all good.
+				broker.SetNamespace(name)
+				// ensure controller specific annotations.
+				_ = broker.addAnnotations(annotationControllerIsControllerKey, "true")
+				return nil
+			}
+			if err == nil {
+				// this should never happen because we avoid it in broker.PrepareForBootstrap before reaching here.
+				return errors.NotValidf("existing namespace %q found", broker.namespace)
+			}
+			return errors.Trace(err)
+		}
+
+		if err := setControllerNamespace(pcfg.ControllerName, k); err != nil {
+			return errors.Trace(err)
+		}
+
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
 		controllerStack, err := newcontrollerStack(JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
@@ -245,6 +308,12 @@ func (k *kubernetesClient) Bootstrap(
 
 // DestroyController implements the Environ interface.
 func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
+	k.annotations.Merge(
+		k8sannotations.New(nil).
+			Add(annotationControllerUUIDKey, controllerUUID).
+			Add(annotationControllerIsControllerKey, "true"),
+	)
 	return k.Destroy(ctx)
 }
 
@@ -310,86 +379,6 @@ func (k *kubernetesClient) APIVersion() (string, error) {
 	// git version is "vX.Y.Z", strip the "v"
 	version = strings.Trim(version, "v")
 	return version, nil
-}
-
-// Namespaces returns names of the namespaces on the cluster.
-func (k *kubernetesClient) Namespaces() ([]string, error) {
-	namespaces := k.CoreV1().Namespaces()
-	ns, err := namespaces.List(v1.ListOptions{IncludeUninitialized: true})
-	if err != nil {
-		return nil, errors.Annotate(err, "listing namespaces")
-	}
-	result := make([]string, len(ns.Items))
-	for i, n := range ns.Items {
-		result[i] = n.Name
-	}
-	return result, nil
-}
-
-// GetNamespace returns the namespace for the specified name or current namespace.
-func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
-	ns, err := k.CoreV1().Namespaces().Get(name, v1.GetOptions{IncludeUninitialized: true})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("namespace %q", name)
-	}
-	if err != nil {
-		return nil, errors.Annotate(err, "getting namespaces")
-	}
-	return ns, nil
-}
-
-// GetCurrentNamespace returns current namespace name.
-func (k *kubernetesClient) GetCurrentNamespace() string {
-	return k.namespace
-}
-
-// EnsureNamespace ensures this broker's namespace is created.
-func (k *kubernetesClient) EnsureNamespace() error {
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: k.namespace}}
-	namespaces := k.CoreV1().Namespaces()
-	_, err := namespaces.Update(ns)
-	if k8serrors.IsNotFound(err) {
-		_, err = namespaces.Create(ns)
-	}
-	return errors.Trace(err)
-}
-
-// createNamespace creates a named namespace.
-func (k *kubernetesClient) createNamespace(name string) error {
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
-	_, err := k.CoreV1().Namespaces().Create(ns)
-	if k8serrors.IsAlreadyExists(err) {
-		return errors.AlreadyExistsf("namespace %q", name)
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteNamespace() error {
-	// deleteNamespace is used as a means to implement Destroy().
-	// All model resources are provisioned in the namespace;
-	// deleting the namespace will also delete those resources.
-	err := k.CoreV1().Namespaces().Delete(k.namespace, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-// WatchNamespace returns a watcher which notifies when there
-// are changes to current namespace.
-func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
-	w, err := k.CoreV1().Namespaces().Watch(
-		v1.ListOptions{
-			FieldSelector:        fields.OneTermEqualSelector("metadata.name", k.namespace).String(),
-			IncludeUninitialized: true,
-		},
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return k.newWatcher(w, k.namespace, k.clock)
 }
 
 // ensureOCIImageSecret ensures a secret exists for use with retrieving images from private registries
@@ -484,12 +473,6 @@ func (k *kubernetesClient) OperatorExists(appName string) (bool, error) {
 // name, agent path, and operator config.
 func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
 	logger.Debugf("creating/updating %s operator", appName)
-
-	// TODO(caas) - this is a stop gap until we implement a CAAS model manager worker
-	// First up, ensure the namespace eis there if not already created.
-	if err := k.EnsureNamespace(); err != nil {
-		return errors.Annotatef(err, "ensuring operator namespace %v", k.namespace)
-	}
 
 	operatorName := k.operatorName(appName)
 	// TODO(caas) use secrets for storing agent password?

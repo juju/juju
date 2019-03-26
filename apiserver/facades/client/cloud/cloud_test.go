@@ -1366,3 +1366,7 @@ func (m *mockModelBackend) AllMachines() ([]credentialcommon.Machine, error) {
 func (m *mockModelBackend) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
 	return state.Credential{}, nil
 }
+
+func (m *mockModelBackend) ControllerConfig() (credentialcommon.ControllerConfig, error) {
+	return nil, errors.NotImplementedf("ControllerConfig")
+}

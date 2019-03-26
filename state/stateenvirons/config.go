@@ -37,13 +37,18 @@ func (g EnvironConfigGetter) CloudAPIVersion(spec environs.CloudSpec) (string, e
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	ctrlCfg, err := g.ControllerConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	newBroker := g.NewContainerBroker
 	if newBroker == nil {
 		newBroker = caas.New
 	}
 	broker, err := newBroker(environs.OpenParams{
-		Cloud:  spec,
-		Config: cfg,
+		ControllerUUID: ctrlCfg.ControllerUUID(),
+		Cloud:          spec,
+		Config:         cfg,
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -126,9 +131,14 @@ func GetNewCAASBrokerFunc(newBroker caas.NewContainerBrokerFunc) NewCAASBrokerFu
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		ctrlCfg, err := g.ControllerConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return newBroker(environs.OpenParams{
-			Cloud:  cloudSpec,
-			Config: cfg,
+			ControllerUUID: ctrlCfg.ControllerUUID(),
+			Cloud:          cloudSpec,
+			Config:         cfg,
 		})
 	}
 }

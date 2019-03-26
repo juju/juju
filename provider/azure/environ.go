@@ -213,7 +213,7 @@ func (env *azureEnviron) initEnviron() error {
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(env, nil); err != nil {
 			return errors.Trace(err)

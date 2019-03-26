@@ -58,6 +58,7 @@ func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 	cfg := testing.FakeControllerConfig()
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
+		"controller-1",
 		"kubernetes",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,6 +72,7 @@ func (*podcfgSuite) TestOperatorImagesCustomRepo(c *gc.C) {
 	cfg["caas-image-repo"] = "path/to/my/repo"
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
+		"controller-1",
 		"kubernetes",
 	)
 	c.Assert(err, jc.ErrorIsNil)

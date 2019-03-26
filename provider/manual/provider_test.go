@@ -74,7 +74,7 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 		return nil, err
 	}
 	ctx := envtesting.BootstrapContext(c)
-	return ctx, env.PrepareForBootstrap(ctx)
+	return ctx, env.PrepareForBootstrap(ctx, "controller-1")
 }
 
 func (s *providerSuite) TestNullAlias(c *gc.C) {

@@ -656,7 +656,7 @@ func (e *Environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	// Verify credentials.
 	if err := authenticateClient(e.client()); err != nil {
 		return err

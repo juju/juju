@@ -21,11 +21,14 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 )
 
-// JujuControllerStackName is the juju CAAS controller stack name.
-const JujuControllerStackName = "juju-controller"
+const (
+	// JujuControllerStackName is the juju CAAS controller stack name.
+	JujuControllerStackName = "controller"
+)
 
 var (
 	// TemplateFileNameServerPEM is the template server.pem file name.
@@ -36,7 +39,6 @@ var (
 
 type controllerStack struct {
 	stackName   string
-	namespace   string
 	stackLabels map[string]string
 	broker      *kubernetesClient
 
@@ -64,7 +66,36 @@ type controllerStacker interface {
 	Deploy() error
 }
 
-func newcontrollerStack(stackName string, storageClass string, broker *kubernetesClient, pcfg *podcfg.ControllerPodConfig) (controllerStacker, error) {
+func controllerCorelation(broker *kubernetesClient) (*kubernetesClient, error) {
+	if broker.Config().Name() != environsbootstrap.ControllerModelName {
+		return broker, nil
+	}
+	// ensure controller specific annotations.
+	_ = broker.addAnnotations(annotationControllerIsControllerKey, "true")
+
+	ns, err := broker.listNamespacesByAnnotations(broker.GetAnnotations())
+	if errors.IsNotFound(err) || ns == nil {
+		// No existing controller found on the cluster.
+		// A controller must be bootstrapping now.
+		// It will reply on setControllerNamespace in controller stack to set namespace name.
+		return broker, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// This is an existing controller.
+	// Now, link it back.
+	// It should be always one record here based on current annotation design.
+	broker.SetNamespace(ns[0].GetName())
+	return broker, nil
+}
+
+func newcontrollerStack(
+	stackName string,
+	storageClass string,
+	broker *kubernetesClient,
+	pcfg *podcfg.ControllerPodConfig,
+) (controllerStacker, error) {
 	// TODO(caas): parse from constrains?
 	storageSizeControllerRaw := "20Gi"
 	storageSize, err := resource.ParseQuantity(storageSizeControllerRaw)
@@ -72,7 +103,7 @@ func newcontrollerStack(stackName string, storageClass string, broker *kubernete
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(caas): we'll need a different tag type other than machine tag.
+	// TODO(bootstrap): we'll need a different tag type other than machine tag.
 	var agentConfig agent.ConfigSetterWriter
 	agentConfig, err = pcfg.AgentConfig(names.NewMachineTag(pcfg.MachineId))
 	if err != nil {
@@ -99,7 +130,6 @@ func newcontrollerStack(stackName string, storageClass string, broker *kubernete
 
 	cs := controllerStack{
 		stackName:   stackName,
-		namespace:   broker.GetCurrentNamespace(),
 		stackLabels: map[string]string{labelApplication: stackName},
 		broker:      broker,
 
@@ -153,7 +183,7 @@ func (c controllerStack) getControllerSecret() (secret *core.Secret, err error) 
 			ObjectMeta: v1.ObjectMeta{
 				Name:      c.resourceNameSecret,
 				Labels:    c.stackLabels,
-				Namespace: c.namespace,
+				Namespace: c.broker.GetCurrentNamespace(),
 			},
 			Type: core.SecretTypeOpaque,
 		})
@@ -180,7 +210,7 @@ func (c controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err error
 			ObjectMeta: v1.ObjectMeta{
 				Name:      c.resourceNameConfigMap,
 				Labels:    c.stackLabels,
-				Namespace: c.namespace,
+				Namespace: c.broker.GetCurrentNamespace(),
 			},
 		})
 	}
@@ -200,7 +230,7 @@ func (c controllerStack) doCleanUp() {
 // Deploy creates all resources for controller stack.
 func (c controllerStack) Deploy() (err error) {
 	// creating namespace for controller stack, this namespace will be removed by broker.DestroyController if bootstrap failed.
-	if err = c.broker.createNamespace(c.namespace); err != nil {
+	if err = c.broker.createNamespace(c.broker.GetCurrentNamespace()); err != nil {
 		return errors.Annotate(err, "creating namespace for controller stack")
 	}
 
@@ -253,7 +283,7 @@ func (c controllerStack) createControllerService() error {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      svcName,
 			Labels:    c.stackLabels,
-			Namespace: c.namespace,
+			Namespace: c.broker.GetCurrentNamespace(),
 		},
 		Spec: core.ServiceSpec{
 			Selector: c.stackLabels,
@@ -377,7 +407,7 @@ func (c controllerStack) createControllerStatefulset() error {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      c.resourceNameStatefulSet,
 			Labels:    c.stackLabels,
-			Namespace: c.namespace,
+			Namespace: c.broker.GetCurrentNamespace(),
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: c.resourceNameService,
@@ -388,7 +418,7 @@ func (c controllerStack) createControllerStatefulset() error {
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:    c.stackLabels,
-					Namespace: c.namespace,
+					Namespace: c.broker.GetCurrentNamespace(),
 				},
 				Spec: core.PodSpec{
 					RestartPolicy: core.RestartPolicyAlways,
@@ -414,10 +444,13 @@ func (c controllerStack) createControllerStatefulset() error {
 }
 
 func (c controllerStack) buildStorageSpecForController(statefulset *apps.StatefulSet) error {
-	_, err := c.broker.getStorageClass(c.storageClass)
+	sc, err := c.broker.getStorageClass(c.storageClass)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// try to find <namespace>-<c.storageClass>,
+	// if it's not found, then fallback to c.storageClass.
+	c.storageClass = sc.GetName()
 
 	// build persistent volume claim.
 	statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
@@ -517,7 +550,7 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 	generateContainerSpecs := func(jujudCmd string) []core.Container {
 		var containerSpec []core.Container
 		// add container mongoDB.
-		// TODO(caas): refactor mongo package to make it usable for IAAS and CAAS,
+		// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
 		// then generate mongo config from EnsureServerParams.
 		probCmds := &core.ExecAction{
 			Command: []string{

@@ -16,6 +16,7 @@ type Facade struct {
 	resources facade.Resources
 	cloudspec.CloudSpecAPI
 	*common.ModelWatcher
+	*common.ControllerConfigAPI
 }
 
 // NewStateFacade provides the signature required for facade registration.
@@ -37,9 +38,10 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		common.AuthFuncForTag(model.ModelTag()),
 	)
 	return &Facade{
-		CloudSpecAPI: cloudSpecAPI,
-		ModelWatcher: common.NewModelWatcher(model, resources, authorizer),
-		auth:         authorizer,
-		resources:    resources,
+		CloudSpecAPI:        cloudSpecAPI,
+		ModelWatcher:        common.NewModelWatcher(model, resources, authorizer),
+		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
+		auth:                authorizer,
+		resources:           resources,
 	}, nil
 }

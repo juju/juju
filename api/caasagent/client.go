@@ -16,6 +16,7 @@ type Client struct {
 	facade base.FacadeCaller
 	*cloudspec.CloudSpecAPI
 	*common.ModelWatcher
+	*common.ControllerConfigAPI
 }
 
 // NewClient returns a version of an api client that provides functionality
@@ -27,8 +28,9 @@ func NewClient(caller base.APICaller) (*Client, error) {
 	}
 	facadeCaller := base.NewFacadeCaller(caller, "CAASAgent")
 	return &Client{
-		facade:       facadeCaller,
-		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
-		ModelWatcher: common.NewModelWatcher(facadeCaller),
+		facade:              facadeCaller,
+		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
+		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
 	}, nil
 }
