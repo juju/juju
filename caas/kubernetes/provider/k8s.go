@@ -192,7 +192,9 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) er
 
 // Create implements environs.BootstrapEnviron.
 func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreateParams) error {
-	return nil
+	// must raise errors if it's already exist.
+	// so don't use EnsureNamespace.
+	return k.createNamespace(k.namespace)
 }
 
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
@@ -357,7 +359,7 @@ func (k *kubernetesClient) createNamespace(name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
 	_, err := k.CoreV1().Namespaces().Create(ns)
 	if k8serrors.IsAlreadyExists(err) {
-		return errors.AlreadyExistsf("namespace %q already exists", name)
+		return errors.AlreadyExistsf("namespace %q", name)
 	}
 	return errors.Trace(err)
 }

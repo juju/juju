@@ -204,8 +204,8 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 
 	s.callContext = context.NewCloudCallContext()
 
-	s.caasBroker = &mockCaasBroker{}
 	newBroker := func(args environs.OpenParams) (caas.Broker, error) {
+		s.caasBroker = &mockCaasBroker{namespace: args.Config.Name()}
 		return s.caasBroker, nil
 	}
 
@@ -432,6 +432,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
+		"ControllerConfig",
 		"NewModel",
 		"Close",
 		"GetBackend",
@@ -440,6 +441,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"AllMachines",
 		"LatestMigration",
 	)
+	s.caasBroker.CheckCallNames(c, "Create")
 
 	// Check that Model.LastModelConnection is called just twice
 	// without making the test depend on other calls to Model
@@ -481,16 +483,16 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateCAASModelNamespaceClash(c *gc.C) {
-	s.caasBroker.namespaces = []string{"foo"}
 	args := params.ModelCreateArgs{
-		Name:               "foo",
+		Name:               "existing-ns",
 		OwnerTag:           "user-admin",
 		Config:             map[string]interface{}{},
 		CloudTag:           "cloud-k8s-cloud",
 		CloudCredentialTag: "cloudcred-k8s-cloud_admin_some-credential",
 	}
 	_, err := s.caasApi.CreateModel(args)
-	c.Assert(err, gc.ErrorMatches, `namespace called "foo" already exists, would clash with model name`)
+	s.caasBroker.CheckCallNames(c, "Create")
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
 func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {

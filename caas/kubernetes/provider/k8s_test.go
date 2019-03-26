@@ -638,6 +638,40 @@ func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.namespace)
 }
 
+func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Create(ns).Times(1).
+			Return(ns, nil),
+	)
+
+	err := s.broker.Create(
+		&context.CloudCallContext{},
+		environs.CreateParams{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Create(ns).Times(1).
+			Return(nil, s.k8sAlreadyExistsError()),
+	)
+
+	err := s.broker.Create(
+		&context.CloudCallContext{},
+		environs.CreateParams{},
+	)
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+}
+
 func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
