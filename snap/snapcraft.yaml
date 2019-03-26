@@ -12,7 +12,7 @@ apps:
 parts:
   wrappers:
     plugin: dump
-    source: snap/
+    source: snap/local
   juju:
     plugin: dep
     go-importpath: github.com/juju/juju
