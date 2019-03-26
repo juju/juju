@@ -546,12 +546,15 @@ type mockCaasBroker struct {
 	gitjujutesting.Stub
 	caas.Broker
 
-	namespaces []string
+	namespace string
 }
 
-func (m *mockCaasBroker) Namespaces() ([]string, error) {
-	m.MethodCall(m, "Namespaces")
-	return m.namespaces, nil
+func (m *mockCaasBroker) Create(context.ProviderCallContext, environs.CreateParams) error {
+	m.MethodCall(m, "Create")
+	if m.namespace == "existing-ns" {
+		return errors.AlreadyExistsf("namespace %q", m.namespace)
+	}
+	return nil
 }
 
 type mockState struct {

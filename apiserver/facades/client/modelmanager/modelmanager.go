@@ -542,9 +542,8 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 	}
 	if err = broker.Create(
 		m.callContext,
-		environs.CreateParams{
-			ControllerUUID: controllerCfg.ControllerUUID(),
-		}); err != nil {
+		environs.CreateParams{ControllerUUID: controllerCfg.ControllerUUID()},
+	); err != nil {
 		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
 	}
 

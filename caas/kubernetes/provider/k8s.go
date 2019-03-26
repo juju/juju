@@ -359,7 +359,7 @@ func (k *kubernetesClient) createNamespace(name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
 	_, err := k.CoreV1().Namespaces().Create(ns)
 	if k8serrors.IsAlreadyExists(err) {
-		return errors.AlreadyExistsf("namespace %q already exists", name)
+		return errors.AlreadyExistsf("namespace %q", name)
 	}
 	return errors.Trace(err)
 }
