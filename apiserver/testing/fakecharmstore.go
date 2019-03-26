@@ -11,6 +11,8 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
@@ -19,24 +21,32 @@ import (
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/errors"
+	applicationapi "github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/charms"
+	apiserverparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/testing"
 )
 
-// noopProgress implements csclient.Progress
-type noopProgress struct{}
+// NoopProgress implements csclient.Progress
+type NoopProgress struct{}
 
-func (noopProgress) Start(uploadId string, expires time.Time) {}
+func (NoopProgress) Start(uploadId string, expires time.Time) {}
 
-func (noopProgress) Transferred(total int64) {}
+func (NoopProgress) Transferred(total int64) {}
 
-func (noopProgress) Error(err error) {}
+func (NoopProgress) Error(err error) {}
 
-func (noopProgress) Finalizing() {}
+func (NoopProgress) Finalizing() {}
 
-var _ csclient.Progress = (*noopProgress)(nil)
+var _ csclient.Progress = (*NoopProgress)(nil)
+
+func NewProgress() csclient.Progress {
+	return NoopProgress{}
+}
 
 // Datastore is a small in-memory store that can be used
 // for stubbing out HTTP calls.
@@ -87,6 +97,7 @@ type Client struct {
 
 var _ charmstore.CharmstoreWrapper = (*Client)(nil)
 var _ testcharms.Charmstore = (*Client)(nil)
+var _ application.CharmClient = (*ChannelAwareClient)(nil)
 
 func NewClient(repo Repository) *Client {
 	return &Client{repo}
@@ -167,12 +178,31 @@ func (c Client) UploadResource(id *charm.URL, name, path string, file io.ReadSee
 	return c.repo.UploadResource(id, name, path, file, size, progress)
 }
 
+func (c Client) CharmInfo(id string) (*charms.CharmInfo, error) {
+	url, err := charm.ParseURL(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	details, _, _, err := c.repo.ResolveWithChannel(url)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	info := &charms.CharmInfo{Revision: details.Revision, URL: id}
+	return info, nil
+}
+
+func (c Client) IntoCharmUpgrader() application.CharmAPIClient {
+	return &CharmUpgradeHandler{}
+}
+
 type ChannelAwareClient struct {
 	channel    params.Channel
 	charmstore Client
 }
 
 var _ testcharms.ChannelAwareCharmstore = (*ChannelAwareClient)(nil)
+var _ application.CharmClient = (*ChannelAwareClient)(nil)
 
 func (c ChannelAwareClient) Latest(ids []*charm.URL, headers map[string][]string) (revisions []params.CharmRevision, err error) {
 	return c.charmstore.Latest(c.channel, ids, headers)
@@ -231,6 +261,47 @@ func (c ChannelAwareClient) AddDockerResource(id *charm.URL, resourceName string
 	return c.charmstore.AddDockerResource(id, resourceName, imageName, digest)
 }
 
+func (c ChannelAwareClient) IntoCharmUpgrader() application.CharmAPIClient {
+	return c.charmstore.IntoCharmUpgrader()
+}
+
+func (c ChannelAwareClient) CharmInfo(id string) (*charms.CharmInfo, error) {
+	return c.charmstore.CharmInfo(id)
+}
+
+// CharmUpgradeHandler is a helper type that implements the
+// application.CharmUpgradeClient interface
+type CharmUpgradeHandler struct {
+	//TODO(tsm) implement functionality
+	//repo Repository
+}
+
+var _ application.CharmUpgradeClient = (*CharmUpgradeHandler)(nil)
+var _ application.CharmAPIClient = (*CharmUpgradeHandler)(nil)
+
+func (h CharmUpgradeHandler) GetCharmURL(model.GenerationVersion, string) (*charm.URL, error) {
+	return nil, nil
+}
+
+func (h CharmUpgradeHandler) Get(model.GenerationVersion, string) (*apiserverparams.ApplicationGetResults, error) {
+	return nil, nil
+}
+
+func (h CharmUpgradeHandler) SetCharm(model.GenerationVersion, applicationapi.SetCharmConfig) error {
+	return nil
+}
+
+type ListResourcesHandler struct {
+	// TODO(tsm) implement functionality
+	// repo Repository
+}
+
+func (l *ListResourcesHandler) ListResources(applications []string) ([]resource.ApplicationResources, error) {
+	return []resource.ApplicationResources{}, nil
+}
+
+var _ application.ResourceLister = (*ListResourcesHandler)(nil)
+
 // Repository is a stand-in charmrepo.
 type Repository struct {
 	channel       params.Channel
@@ -240,13 +311,14 @@ type Repository struct {
 	revisions     map[params.Channel]map[charm.URL]int
 	added         map[string][]charm.URL
 	resourcesData Datastore
+	generations   map[model.GenerationVersion]string
 }
 
 var _ charmrepo.Interface = (*Repository)(nil)
 
 func NewRepository() Repository {
 	repo := Repository{
-		channel:   params.NoChannel,
+		channel:   params.StableChannel,
 		charms:    make(map[params.Channel]map[charm.URL]charm.Charm),
 		bundles:   make(map[params.Channel]map[charm.URL]charm.Bundle),
 		resources: make(map[params.Channel]map[charm.URL][]params.Resource),
@@ -274,7 +346,7 @@ func (r *Repository) addRevision(ref *charm.URL) *charm.URL {
 //
 // Part of the charmrepo.Interface
 func (r Repository) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries []string, err error) {
-	return r.addRevision(ref), []string{"trusty", "wily"}, nil
+	return r.addRevision(ref), []string{"trusty", "wily", "quantal"}, nil
 }
 
 func (r Repository) ResolveWithChannel(ref *charm.URL) (*charm.URL, params.Channel, []string, error) {

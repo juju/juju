@@ -6,10 +6,10 @@ package application
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http/httptest"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -23,6 +23,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmstore.v5"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
@@ -33,6 +34,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
@@ -251,32 +253,106 @@ func (s *UpgradeCharmSuite) TestConfigSettingsMinFacadeVersion(c *gc.C) {
 
 type UpgradeCharmErrorsStateSuite struct {
 	jujutesting.RepoSuite
-	handler charmstore.HTTPCloseHandler
-	srv     *httptest.Server
+	// handler charmstore.HTTPCloseHandler
+	// srv     *httptest.Server
+	channel          csclientparams.Channel
+	supportedSeries  []string
+	charmstoreClient testcharms.Charmstore
 }
 
 func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
+	s.channel = csclientparams.StableChannel
+	s.supportedSeries = []string{"quantal", "trusty"}
 	s.RepoSuite.SetUpTest(c)
-	// Set up the charm store testing server.
-	handler, err := charmstore.NewServer(s.Session.DB("juju-testing"), nil, "", charmstore.ServerParams{
-		AuthUsername: "test-user",
-		AuthPassword: "test-password",
-	}, charmstore.V5)
-	c.Assert(err, jc.ErrorIsNil)
-	s.handler = handler
-	s.srv = httptest.NewServer(handler)
-	s.AddCleanup(func(*gc.C) {
-		s.handler.Close()
-		s.srv.Close()
-	})
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	s.PatchValue(&getCharmStoreAPIURL, func(base.APICallCloser) (string, error) {
-		return s.srv.URL, nil
-	})
 }
 
 var _ = gc.Suite(&UpgradeCharmErrorsStateSuite{})
+
+func newUpgradeCharmCommandForTest(charmstoreClient testcharms.Charmstore, channel csparams.Channel, supportedSeries []string) Command {
+	resourceDeployer := func(
+		applicationID string,
+		chID charmstore.CharmID,
+		csMac *macaroon.Macaroon,
+		filesAndRevisions map[string]string,
+		resourcesMeta map[string]charmresource.Meta,
+		conn base.APICallCloser,
+	) (ids map[string]string, err error) {
+		if len(filesAndRevisions)+len(resourcesMeta) == 0 {
+			// Nothing to upload.
+			return nil, nil
+		}
+
+		filenames := make(map[string]string)
+		revisions := make(map[string]int)
+		for name, val := range filesAndRevisions {
+			rev, err := strconv.Atoi(val)
+			if err != nil {
+				filenames[name] = val
+			} else {
+				revisions[name] = rev
+			}
+		}
+
+		for name, meta := range resourcesMeta {
+			err = meta.Validate()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			data, err := ioutil.ReadFile(filenames[name])
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			file, err := os.Open(filenames[name])
+			if err != nil {
+				return nil, nil
+			}
+
+			newCharmID := chID.URL.WithRevision(revisions[name])
+			progress := apiservertesting.NewProgress()
+			size := int64(len(data))
+
+			client := charmstoreClient.WithChannel(chID.Channel)
+			rev, err := client.UploadResource(newCharmID, name, meta.Path, file, size, progress)
+
+			ids[name] = rev
+		}
+
+		return ids, nil
+	}
+
+	charmResolver := func(
+		resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
+		url *charm.URL,
+	) (*charm.URL, csparams.Channel, []string, error) {
+		if url.Schema != "cs" {
+			return nil, csparams.NoChannel, nil, errors.Errorf("unknown schema for charm URL %q", url)
+		}
+		return url, channel, supportedSeries, nil
+	}
+
+	newCharmAdder := func(
+		api.Connection,
+		*httpbakery.Client,
+		string, // Charmstore API URL
+		csclientparams.Channel,
+	) CharmAdder {
+		return charmstoreClient.
+	}
+
+	cmd := &upgradeCharmCommand{
+		DeployResources:       resourceDeployer,
+		ResolveCharm:          charmResolver,
+		NewCharmAdder:         newCharmAdder,
+		NewCharmClient:        func(base.APICallCloser) CharmClient { return charmstoreClient },
+		NewCharmUpgradeClient: func(base.APICallCloser) CharmAPIClient { return charmstoreClient },
+		NewModelConfigGetter:  func(base.APICallCloser) ModelConfigGetter { return charmstoreClient },
+		NewResourceLister:     func(base.APICallCloser) (ResourceLister, error) { return charmstoreClient.IntoResourceLister() },
+		CharmStoreURLGetter:   func(conn base.APICallCloser) (string, error) { return "", nil },
+	}
+	return cmd
+}
 
 func runUpgradeCharm(c *gc.C, args ...string) error {
 	_, err := cmdtesting.RunCommand(c, NewUpgradeCharmCommand(), args...)
