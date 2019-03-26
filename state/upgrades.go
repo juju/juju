@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
@@ -1894,8 +1893,7 @@ func EnsureDefaultModificationStatus(pool *StatePool) error {
 
 	machineCol, machineCloser := db.GetRawCollection(machinesC)
 	defer machineCloser()
-	// Find all machines that are alive.
-	machineIter := machineCol.Find(bson.D{{"life", life.Alive}}).Iter()
+	machineIter := machineCol.Find(nil).Iter()
 	defer machineIter.Close()
 
 	statusCol, statusCloser := db.GetRawCollection(statusesC)
@@ -1903,30 +1901,35 @@ func EnsureDefaultModificationStatus(pool *StatePool) error {
 
 	var ops []txn.Op
 	var machine machineDoc
+	updatedTime := st.clock().Now().UnixNano()
 	for machineIter.Next(&machine) {
-		key := machineGlobalModificationKey(machine.Id)
-
-		rawDoc := statusDoc{
-			ModelUUID:  machine.ModelUUID,
-			Status:     status.Idle,
-			StatusInfo: "",
-			StatusData: make(map[string]interface{}),
-			Updated:    st.clock().Now().UnixNano(),
-		}
+		// Since we are using a raw collection, we need to manually
+		// ensure that we prefix the IDs with the model-uuid.
+		localID := machineGlobalModificationKey(machine.Id)
+		key := ensureModelUUID(machine.ModelUUID, localID)
 
 		// We only need to migrate machines that don't have a modification
 		// status document. So we need to first check if there is one, before
 		// creating a txn.Op for the missing document.
-		var status statusDoc
-		err := statusCol.Find(bson.D{{"_id", key}}).Select(bson.D{{"_id", 1}}).One(&status)
-		if err == mgo.ErrNotFound {
-			ops = append(ops, txn.Op{
-				C:      statusesC,
-				Id:     key,
-				Assert: txn.DocMissing,
-				Insert: rawDoc,
-			})
+		var doc statusDoc
+		err := statusCol.Find(bson.D{{"_id", key}}).Select(bson.D{{"_id", 1}}).One(&doc)
+		if err == nil {
+			continue
+		} else if err != mgo.ErrNotFound {
+			return errors.Trace(err)
 		}
+
+		rawDoc := statusDoc{
+			ModelUUID: machine.ModelUUID,
+			Status:    status.Idle,
+			Updated:   updatedTime,
+		}
+		ops = append(ops, txn.Op{
+			C:      statusesC,
+			Id:     key,
+			Assert: txn.DocMissing,
+			Insert: rawDoc,
+		})
 	}
 	if err := machineIter.Close(); err != nil {
 		return errors.Trace(err)

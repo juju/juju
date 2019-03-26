@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
@@ -2935,13 +2934,29 @@ func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
 	coll, closer := s.state.db().GetRawCollection(statusesC)
 	defer closer()
 
-	s.makeMachine(c, life.Alive)
-	s.makeMachine(c, life.Dying)
+	model1 := s.makeModel(c, "model-old", coretesting.Attrs{})
+	defer model1.Close()
+	model2 := s.makeModel(c, "model-new", coretesting.Attrs{})
+	defer model2.Close()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	s.makeMachine(c, uuid1, "0", Alive)
+	s.makeMachine(c, uuid2, "1", Dying)
 
 	expected := bsonMById{
 		{
-			"_id":        "m#0#modification",
-			"model-uuid": "",
+			"_id":        uuid1 + ":m#0#modification",
+			"model-uuid": uuid1,
+			"status":     "idle",
+			"statusinfo": "",
+			"statusdata": bson.M{},
+			"neverset":   false,
+			"updated":    int64(1),
+		}, {
+			"_id":        uuid2 + ":m#1#modification",
+			"model-uuid": uuid2,
 			"status":     "idle",
 			"statusinfo": "",
 			"statusdata": bson.M{},
@@ -2950,6 +2965,7 @@ func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
 		},
 	}
 
+	sort.Sort(expected)
 	c.Log(pretty.Sprint(expected))
 	s.assertUpgradedDataWithFilter(c, EnsureDefaultModificationStatus,
 		bson.D{{"_id", bson.RegEx{"#modification$", ""}}},
@@ -2957,13 +2973,15 @@ func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
 	)
 }
 
-func (s *upgradesSuite) makeMachine(c *gc.C, life life.Value) {
+func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {
 	coll, closer := s.state.db().GetRawCollection(machinesC)
 	defer closer()
 
-	err := coll.Insert(bson.M{
-		"machineid": "0",
-		"life":      life,
+	err := coll.Insert(machineDoc{
+		DocID:     ensureModelUUID(uuid, id),
+		Id:        id,
+		ModelUUID: uuid,
+		Life:      life,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
