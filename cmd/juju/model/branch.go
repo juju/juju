@@ -16,73 +16,77 @@ import (
 )
 
 const (
-	addGenerationSummary = "Adds a new generation to the model."
-	addGenerationDoc     = `
-Users need to be able to roll changes to applications in a safe guided 
-processes that controls the flow such that not all units of an HA application 
-are hit at once. This also allows some manual canary testing and provides 
-control over the flow of changes out to the model. 
+	branchSummary = "Adds a new branch to the model."
+	branchDoc     = `
+A branch is a mechanism by which changes can be applied to units gradually at 
+the operator's discretion. When changes are made to charm configuration, charm
+URL or resources against a branch, only units set to track the branch will realise 
+such changes. Once the changes are assessed and deemed acceptable, the branch 
+can be committed, applying the changes to the model and affecting all units.
 
 Examples:
-    juju add-generation
+    juju branch upgrade-postgresql
 
 See also:
-    advance-generation
-    cancel-generation
-    switch-generation
+    track
+    checkout
+    commit
+    abort
+	diff
 `
 )
 
-// NewAddGenerationCommand wraps addGenerationCommand with sane model settings.
-func NewAddGenerationCommand() cmd.Command {
-	return modelcmd.Wrap(&addGenerationCommand{})
+// NewBranchCommand wraps branchCommand with sane model settings.
+func NewBranchCommand() cmd.Command {
+	return modelcmd.Wrap(&branchCommand{})
 }
 
-// addGenerationCommand is the simplified command for accessing and setting
-// attributes related to adding model generations.
-type addGenerationCommand struct {
+// branchCommand supplies the "branch" CLI command used to add a new branch to
+// the current model.
+type branchCommand struct {
 	modelcmd.ModelCommandBase
 
-	api AddGenerationCommandAPI
+	api BranchCommandAPI
 
 	branchName string
 }
 
-// AddGenerationCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package mocks -destination ./mocks/addgeneration_mock.go github.com/juju/juju/cmd/juju/model AddGenerationCommandAPI
-type AddGenerationCommandAPI interface {
+// BranchCommandAPI describes API methods required
+// to execute the branch command..
+//go:generate mockgen -package mocks -destination ./mocks/branch_mock.go github.com/juju/juju/cmd/juju/model BranchCommandAPI
+type BranchCommandAPI interface {
 	Close() error
-	AddGeneration(string, string) error
+	AddBranch(string, string) error
 }
 
 // Info implements part of the cmd.Command interface.
-func (c *addGenerationCommand) Info() *cmd.Info {
+func (c *branchCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "add-generation",
+		Name:    "branch",
 		Args:    "<branch name>",
-		Purpose: addGenerationSummary,
-		Doc:     addGenerationDoc,
+		Purpose: branchSummary,
+		Doc:     branchDoc,
 	}
 	return jujucmd.Info(info)
 }
 
 // SetFlags implements part of the cmd.Command interface.
-func (c *addGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *branchCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 }
 
 // Init implements part of the cmd.Command interface.
-func (c *addGenerationCommand) Init(args []string) error {
+func (c *branchCommand) Init(args []string) error {
 	if len(args) != 1 {
-		return errors.Errorf("must specify a branch name")
+		return errors.Errorf("expected a branch name")
 	}
 	c.branchName = args[0]
 	return nil
 }
 
-// getAPI returns the API. This allows passing in a test AddGenerationCommandAPI
-// implementation.
-func (c *addGenerationCommand) getAPI() (AddGenerationCommandAPI, error) {
+// getAPI returns the API that supplies methods
+// required to execute this command.
+func (c *branchCommand) getAPI() (BranchCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -95,7 +99,7 @@ func (c *addGenerationCommand) getAPI() (AddGenerationCommandAPI, error) {
 }
 
 // Run implements the meaty part of the cmd.Command interface.
-func (c *addGenerationCommand) Run(ctx *cmd.Context) error {
+func (c *branchCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -107,7 +111,7 @@ func (c *addGenerationCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting model details")
 	}
 
-	if err = client.AddGeneration(modelDetails.ModelUUID, c.branchName); err != nil {
+	if err = client.AddBranch(modelDetails.ModelUUID, c.branchName); err != nil {
 		return err
 	}
 
@@ -117,6 +121,6 @@ func (c *addGenerationCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	_, err = ctx.Stdout.Write([]byte(fmt.Sprintf("target generation set to %q\n", c.branchName)))
+	_, err = ctx.Stdout.Write([]byte(fmt.Sprintf("Active branch set to %q\n", c.branchName)))
 	return err
 }

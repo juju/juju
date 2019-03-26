@@ -19,7 +19,7 @@ type State interface {
 
 // Model describes model state used by the model generation API.
 type Model interface {
-	AddGeneration(string, string) error
+	AddBranch(string, string) error
 	Branch(string) (Generation, error)
 }
 

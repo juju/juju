@@ -42,10 +42,10 @@ func (s *modelGenerationSuite) TearDownTest(c *gc.C) {
 
 func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, _ *mocks.MockState, mod *mocks.MockModel) {
-		mod.EXPECT().AddGeneration(s.newBranchName, s.apiUser).Return(nil)
+		mod.EXPECT().AddBranch(s.newBranchName, s.apiUser).Return(nil)
 	}).Finish()
 
-	result, err := s.api.AddGeneration(s.newBranchArg())
+	result, err := s.api.AddBranch(s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 }

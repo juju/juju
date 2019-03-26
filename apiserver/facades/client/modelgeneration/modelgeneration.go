@@ -75,8 +75,8 @@ func (m *API) hasAdminAccess(modelTag names.ModelTag) (bool, error) {
 	return canWrite, err
 }
 
-// AddGeneration adds a new branch with the input name to the model.
-func (m *API) AddGeneration(arg params.BranchArg) (params.ErrorResult, error) {
+// AddBranch adds a new branch with the input name to the model.
+func (m *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
 	modelTag, err := names.ParseModelTag(arg.Model.Tag)
 	if err != nil {
@@ -87,7 +87,7 @@ func (m *API) AddGeneration(arg params.BranchArg) (params.ErrorResult, error) {
 		return result, common.ErrPerm
 	}
 
-	result.Error = common.ServerError(m.model.AddGeneration(arg.BranchName, m.apiUser.Name()))
+	result.Error = common.ServerError(m.model.AddBranch(arg.BranchName, m.apiUser.Name()))
 	return result, nil
 }
 

@@ -213,7 +213,7 @@ func (s *generationSuite) setupAssignAllUnits(c *gc.C) *state.Generation {
 }
 
 func (s *generationSuite) addBranch(c *gc.C) *state.Generation {
-	c.Assert(s.Model.AddGeneration(newBranchName, newBranchCreator), jc.ErrorIsNil)
+	c.Assert(s.Model.AddBranch(newBranchName, newBranchCreator), jc.ErrorIsNil)
 	branch, err := s.Model.Branch(newBranchName)
 	c.Assert(err, jc.ErrorIsNil)
 	return branch

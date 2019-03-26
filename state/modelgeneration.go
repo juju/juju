@@ -357,16 +357,15 @@ func (g *Generation) Refresh() error {
 	return nil
 }
 
-// AddGeneration creates a new branch to the the model.
-func (m *Model) AddGeneration(branchName, userName string) error {
-	return errors.Trace(m.st.AddGeneration(branchName, userName))
+// AddBranch creates a new branch in the current model.
+func (m *Model) AddBranch(branchName, userName string) error {
+	return errors.Trace(m.st.AddBranch(branchName, userName))
 }
 
-// AddGeneration creates a new "next" generation for the current model.
-// A new generation can not be added for a model that has an existing
-// generation that is not completed.
+// AddBranch creates a new branch in the current model.
+// A branch cannot be created with the same name as another "in-flight" branch.
 // The input user indicates the operator who invoked the creation.
-func (st *State) AddGeneration(branchName, userName string) error {
+func (st *State) AddBranch(branchName, userName string) error {
 	id, err := sequence(st, "branch")
 	if err != nil {
 		return errors.Trace(err)
