@@ -14,5 +14,12 @@ func stateStepsFor254() []Step {
 				return context.State().EnsureDefaultModificationStatus()
 			},
 		},
+		&upgradeStep{
+			description: "ensure device constraints exists for applications",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().EnsureApplicationDeviceConstraints()
+			},
+		},
 	}
 }

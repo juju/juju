@@ -20,8 +20,14 @@ type steps254Suite struct {
 
 var _ = gc.Suite(&steps254Suite{})
 
-func (s *steps254Suite) TestUpdateInheritedControllerConfig(c *gc.C) {
+func (s *steps254Suite) TestEnsureDefaultModificationStatus(c *gc.C) {
 	step := findStateStep(c, v254, `ensure default modification status is set for machines`)
+	// Logic for step itself is tested in state package.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
+func (s *steps254Suite) TestEnsureApplicationDeviceConstraints(c *gc.C) {
+	step := findStateStep(c, v254, `ensure device constraints exists for applications`)
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }

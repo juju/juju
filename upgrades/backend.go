@@ -60,6 +60,7 @@ type StateBackend interface {
 	SetEnableDiskUUIDOnVsphere() error
 	UpdateInheritedControllerConfig() error
 	EnsureDefaultModificationStatus() error
+	EnsureApplicationDeviceConstraints() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -228,4 +229,8 @@ func (s stateBackend) UpdateInheritedControllerConfig() error {
 
 func (s stateBackend) EnsureDefaultModificationStatus() error {
 	return state.EnsureDefaultModificationStatus(s.pool)
+}
+
+func (s stateBackend) EnsureApplicationDeviceConstraints() error {
+	return state.EnsureApplicationDeviceConstraints(s.pool)
 }
