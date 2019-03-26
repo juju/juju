@@ -1180,6 +1180,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	// we don't need to check that this is a charm.LXDProfiler, as we can
 	// state that the function exists.
 	if profile := cfg.Charm.LXDProfile(); profile != nil {
+		// Validate the config devices, to ensure we don't apply an invalid
+		// profile, if we know it's never going to work.
 		if err := profile.ValidateConfigDevices(); err != nil && !cfg.Force {
 			return errors.Annotate(err, "validating lxd profile")
 		}

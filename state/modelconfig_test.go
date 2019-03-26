@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -106,6 +107,23 @@ func (s *ModelConfigSuite) TestModelConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(oldCfg, jc.DeepEquals, cfg)
+}
+
+func (s *ModelConfigSuite) TestAgentVersion(c *gc.C) {
+	attrs := map[string]interface{}{
+		"agent-version": "2.2.3",
+		"arbitrary-key": "shazam!",
+	}
+	ver, err := s.Model.AgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ver, gc.DeepEquals, version.Number{Major: 1, Minor: 2, Patch: 3})
+
+	err = s.Model.UpdateModelConfig(attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ver, err = s.Model.AgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ver, gc.DeepEquals, version.Number{Major: 2, Minor: 2, Patch: 3})
 }
 
 func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {

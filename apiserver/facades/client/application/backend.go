@@ -4,8 +4,8 @@
 package application
 
 import (
-	"github.com/juju/juju/core/model"
 	"github.com/juju/schema"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -16,10 +16,12 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/tools"
 )
 
 // Backend defines the state functionality required by the application
@@ -89,6 +91,7 @@ type Application interface {
 	UpdateApplicationConfig(application.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 	SetScale(int) error
 	ChangeScale(int) (int, error)
+	AgentTools() (*tools.Tools, error)
 }
 
 // Charm defines a subset of the functionality provided by the
@@ -137,6 +140,7 @@ type Unit interface {
 	IsPrincipal() bool
 	Life() state.Life
 	Resolve(retryHooks bool) error
+	AgentTools() (*tools.Tools, error)
 
 	AssignedMachineId() (string, error)
 	AssignWithPolicy(state.AssignmentPolicy) error
@@ -154,6 +158,7 @@ type Model interface {
 	Tag() names.Tag
 	Type() state.ModelType
 	ModelConfig() (*config.Config, error)
+	AgentVersion() (version.Number, error)
 }
 
 // Resources defines a subset of the functionality provided by the
