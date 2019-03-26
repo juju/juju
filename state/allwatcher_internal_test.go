@@ -1016,7 +1016,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	wpTime := s.state.clock().Now()
 
 	// Look for the state changes from the allwatcher.
-	deltas = tw.All(5)
+	deltas = tw.All(6)
 
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
@@ -1067,6 +1067,12 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Addresses: []multiwatcher.Address{},
 			HasVote:   false,
 			WantsVote: false,
+		},
+	}, {
+		Entity: &multiwatcher.CharmInfo{
+			ModelUUID: s.state.ModelUUID(),
+			CharmURL:  "local:quantal/quantal-wordpress-3",
+			Life:      multiwatcher.Life("alive"),
 		},
 	}, {
 		Entity: &multiwatcher.ApplicationInfo{
@@ -1125,13 +1131,13 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			about: "applications",
 			triggerEvent: func(st *State) int {
 				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 1
+				return 2
 			},
 		}, {
 			about: "units",
 			setUpState: func(st *State) int {
 				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 1
+				return 2
 			},
 			triggerEvent: func(st *State) int {
 				app, err := st.Application("wordpress")
@@ -1146,7 +1152,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			setUpState: func(st *State) int {
 				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 				AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
-				return 2
+				return 4
 			},
 			triggerEvent: func(st *State) int {
 				eps, err := st.InferEndpoints("mysql", "wordpress")
@@ -1210,7 +1216,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
 				now := testing.ZeroTime()
-				m.SetInstanceStatus(status.StatusInfo{
+				err = m.SetInstanceStatus(status.StatusInfo{
 					Status:  status.Error,
 					Message: "pete tong",
 					Since:   &now,
@@ -1222,7 +1228,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			about: "constraints",
 			setUpState: func(st *State) int {
 				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 1
+				return 2
 			},
 			triggerEvent: func(st *State) int {
 				app, err := st.Application("wordpress")
@@ -1237,7 +1243,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			about: "settings",
 			setUpState: func(st *State) int {
 				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 1
+				return 2
 			},
 			triggerEvent: func(st *State) int {
 				app, err := st.Application("wordpress")
@@ -1272,7 +1278,6 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 					w.AssertChanges(c, expected)
 					otherW.AssertNoChange(c)
 				}
-				c.Logf("triggering event")
 				expected := test.triggerEvent(st)
 				// Check event was isolated to the correct watcher.
 				w.AssertChanges(c, expected)
@@ -1905,7 +1910,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 	// Look for the state changes from the allwatcher.
 	later := st2.clock().Now()
-	deltas = tw.All(7)
+	deltas = tw.All(8)
 
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
@@ -1956,6 +1961,12 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Addresses: []multiwatcher.Address{},
 			HasVote:   false,
 			WantsVote: false,
+		},
+	}, {
+		Entity: &multiwatcher.CharmInfo{
+			ModelUUID: st1.ModelUUID(),
+			CharmURL:  "local:quantal/quantal-wordpress-3",
+			Life:      multiwatcher.Life("alive"),
 		},
 	}, {
 		Entity: &multiwatcher.ApplicationInfo{
@@ -2772,10 +2783,6 @@ func testChangeCharms(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, [
 						ModelUUID: st.ModelUUID(),
 						CharmURL:  charm.URL().String(),
 						Life:      multiwatcher.Life("alive"),
-						LXDProfile: &multiwatcher.Profile{
-							Config:  map[string]string{},
-							Devices: map[string]map[string]string{},
-						},
 					}}}
 		},
 	}
@@ -3952,7 +3959,7 @@ func (tw *testWatcher) AssertNoChange(c *gc.C) {
 	select {
 	case d := <-tw.deltas:
 		if len(d) > 0 {
-			c.Error("change detected")
+			c.Errorf("change detected (%#v)", d)
 		}
 	case <-time.After(testing.ShortWait):
 		// expected

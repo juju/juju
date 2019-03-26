@@ -564,7 +564,7 @@ func (ch *backingCharm) updated(st *State, store *multiwatcherStore, id string) 
 		Life:         multiwatcher.Life(ch.Life.String()),
 	}
 
-	if ch.LXDProfile != nil {
+	if ch.LXDProfile != nil && !ch.LXDProfile.Empty() {
 		info.LXDProfile = toMulitwatcherProfile(ch.LXDProfile)
 	}
 
