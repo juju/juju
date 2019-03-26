@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	// "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/storage"
