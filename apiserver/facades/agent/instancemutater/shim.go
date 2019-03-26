@@ -6,6 +6,7 @@ package instancemutater
 import (
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/state"
 )
@@ -108,4 +109,14 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 		return nil
 	}
 	return p.Charm.LXDProfile()
+}
+
+// instanceMutaterCacheModelShim is used as a shim between the
+// cache.ChangeWatcher and cache.StringsWatcher to enable better mock testing.
+type instanceMutaterCacheModelShim struct {
+	*cache.Model
+}
+
+func (s *instanceMutaterCacheModelShim) WatchMachines() cache.StringsWatcher {
+	return s.Model.WatchMachines()
 }

@@ -4,6 +4,7 @@
 package instancemutater_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -29,6 +30,7 @@ type instanceMutaterAPISuite struct {
 	entity     *mocks.MockEntity
 	lifer      *mocks.MockLifer
 	state      *mocks.MockInstanceMutaterState
+	model      *mocks.MockInstanceMutaterCacheModel
 	resources  *mocks.MockResources
 
 	machineTag names.Tag
@@ -47,6 +49,7 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 	s.entity = mocks.NewMockEntity(ctrl)
 	s.lifer = mocks.NewMockLifer(ctrl)
 	s.state = mocks.NewMockInstanceMutaterState(ctrl)
+	s.model = mocks.NewMockInstanceMutaterCacheModel(ctrl)
 	s.resources = mocks.NewMockResources(ctrl)
 
 	return ctrl
@@ -57,7 +60,7 @@ func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C, behaviours ...fu
 		b()
 	}
 
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.resources, s.authorizer)
+	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.model, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	return facade
 }
@@ -731,4 +734,80 @@ func (s *InstanceMutaterAPISetModificationStatusSuite) expectSetModificationStat
 			Since:   &now,
 		}).Return(err)
 	}
+}
+
+type InstanceMutaterAPIWatchMachinesSuite struct {
+	instanceMutaterAPISuite
+
+	machine *mocks.MockMachine
+	watcher *mocks.MockStringsWatcher
+}
+
+var _ = gc.Suite(&InstanceMutaterAPIWatchMachinesSuite{})
+
+func (s *InstanceMutaterAPIWatchMachinesSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := s.instanceMutaterAPISuite.setup(c)
+
+	s.machine = mocks.NewMockMachine(ctrl)
+	s.watcher = mocks.NewMockStringsWatcher(ctrl)
+
+	return ctrl
+}
+
+func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectAuthController,
+		s.expectWatchMachinesWithNotify(1),
+	)
+
+	result, err := facade.WatchMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
+		StringsWatcherId: "1",
+		Changes:          []string{"0"},
+	})
+}
+
+func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChannel(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectAuthController,
+		s.expectWatchMachinesWithClosedChannel,
+	)
+
+	_, err := facade.WatchMachines()
+	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines")
+}
+
+func (s *InstanceMutaterAPIWatchMachinesSuite) expectAuthController() {
+	s.authorizer.EXPECT().AuthController().Return(true)
+}
+
+func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithNotify(times int) func() {
+	return func() {
+		ch := make(chan []string)
+
+		go func() {
+			for i := 0; i < times; i++ {
+				ch <- []string{fmt.Sprintf("%d", i)}
+			}
+		}()
+
+		s.model.EXPECT().WatchMachines().Return(s.watcher)
+		s.watcher.EXPECT().Changes().Return(ch)
+		s.resources.EXPECT().Register(s.watcher).Return("1")
+	}
+}
+
+func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithClosedChannel() {
+	ch := make(chan []string)
+	close(ch)
+
+	s.model.EXPECT().WatchMachines().Return(s.watcher)
+	s.watcher.EXPECT().Changes().Return(ch)
 }
