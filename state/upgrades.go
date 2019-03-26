@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
@@ -1881,6 +1882,57 @@ func UpdateInheritedControllerConfig(pool *StatePool) error {
 	if len(ops) > 0 {
 		err = errors.Trace(st.runRawTransaction(ops))
 		return err
+	}
+	return nil
+}
+
+// EnsureDefaultModificationStatus ensures that there is a modification status
+// document for every machine in the statuses.
+func EnsureDefaultModificationStatus(pool *StatePool) error {
+	st := pool.SystemState()
+	db := st.db()
+
+	machineCol, machineCloser := db.GetRawCollection(machinesC)
+	defer machineCloser()
+	// Find all machines that are alive.
+	machineIter := machineCol.Find(bson.D{{"life", life.Alive}}).Iter()
+	defer machineIter.Close()
+
+	statusCol, statusCloser := db.GetRawCollection(statusesC)
+	defer statusCloser()
+
+	var ops []txn.Op
+	var machine machineDoc
+	for machineIter.Next(&machine) {
+		key := machineGlobalModificationKey(machine.Id)
+
+		rawDoc := statusDoc{
+			ModelUUID:  machine.ModelUUID,
+			Status:     status.Idle,
+			StatusInfo: "",
+			StatusData: make(map[string]interface{}),
+			Updated:    st.clock().Now().UnixNano(),
+		}
+
+		// We only need to migrate machines that don't have a modification
+		// status document. So we need to first check if there is one, before
+		// creating an txn.Op for the missing document.
+		var status statusDoc
+		err := statusCol.Find(bson.D{{"_id", key}}).Select(bson.D{{"_id", 1}}).One(&status)
+		if err == mgo.ErrNotFound {
+			ops = append(ops, txn.Op{
+				C:      statusesC,
+				Id:     key,
+				Assert: txn.DocMissing,
+				Insert: rawDoc,
+			})
+		}
+	}
+	if err := machineIter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
 }

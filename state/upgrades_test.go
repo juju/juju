@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
@@ -335,6 +336,10 @@ type expectUpgradedData struct {
 }
 
 func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*StatePool) error, expect ...expectUpgradedData) {
+	s.assertUpgradedDataWithFilter(c, upgrade, nil, expect...)
+}
+
+func (s *upgradesSuite) assertUpgradedDataWithFilter(c *gc.C, upgrade func(*StatePool) error, filter bson.D, expect ...expectUpgradedData) {
 	// Two rounds to check idempotency.
 	for i := 0; i < 2; i++ {
 		c.Logf("Run: %d", i)
@@ -343,7 +348,7 @@ func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*StatePool) err
 
 		for _, expect := range expect {
 			var docs []bson.M
-			err = expect.coll.Find(nil).Sort("_id").All(&docs)
+			err = expect.coll.Find(filter).Sort("_id").All(&docs)
 			c.Assert(err, jc.ErrorIsNil)
 			for i, d := range docs {
 				doc := d
@@ -2924,6 +2929,43 @@ func (s *upgradesSuite) TestUpdateInheritedControllerConfig(c *gc.C) {
 	s.assertUpgradedData(c, UpdateInheritedControllerConfig,
 		expectUpgradedData{coll, expectedSettings},
 	)
+}
+
+func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
+	coll, closer := s.state.db().GetRawCollection(statusesC)
+	defer closer()
+
+	s.makeMachine(c, life.Alive)
+	s.makeMachine(c, life.Dying)
+
+	expected := bsonMById{
+		{
+			"_id":        "m#0#modification",
+			"model-uuid": "",
+			"status":     "idle",
+			"statusinfo": "",
+			"statusdata": bson.M{},
+			"neverset":   false,
+			"updated":    int64(1),
+		},
+	}
+
+	c.Log(pretty.Sprint(expected))
+	s.assertUpgradedDataWithFilter(c, EnsureDefaultModificationStatus,
+		bson.D{{"_id", bson.RegEx{"#modification$", ""}}},
+		expectUpgradedData{coll, expected},
+	)
+}
+
+func (s *upgradesSuite) makeMachine(c *gc.C, life life.Value) {
+	coll, closer := s.state.db().GetRawCollection(machinesC)
+	defer closer()
+
+	err := coll.Insert(bson.M{
+		"machineid": "0",
+		"life":      life,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type docById []bson.M

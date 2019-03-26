@@ -59,6 +59,7 @@ type StateBackend interface {
 	LegacyLeases(time.Time) (map[lease.Key]lease.Info, error)
 	SetEnableDiskUUIDOnVsphere() error
 	UpdateInheritedControllerConfig() error
+	EnsureDefaultModificationStatus() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -223,4 +224,8 @@ func (s stateBackend) SetEnableDiskUUIDOnVsphere() error {
 
 func (s stateBackend) UpdateInheritedControllerConfig() error {
 	return state.UpdateInheritedControllerConfig(s.pool)
+}
+
+func (s stateBackend) EnsureDefaultModificationStatus() error {
+	return state.EnsureDefaultModificationStatus(s.pool)
 }
