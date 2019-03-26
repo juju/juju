@@ -335,6 +335,10 @@ type expectUpgradedData struct {
 }
 
 func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*StatePool) error, expect ...expectUpgradedData) {
+	s.assertUpgradedDataWithFilter(c, upgrade, nil, expect...)
+}
+
+func (s *upgradesSuite) assertUpgradedDataWithFilter(c *gc.C, upgrade func(*StatePool) error, filter bson.D, expect ...expectUpgradedData) {
 	// Two rounds to check idempotency.
 	for i := 0; i < 2; i++ {
 		c.Logf("Run: %d", i)
@@ -343,7 +347,7 @@ func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*StatePool) err
 
 		for _, expect := range expect {
 			var docs []bson.M
-			err = expect.coll.Find(nil).Sort("_id").All(&docs)
+			err = expect.coll.Find(filter).Sort("_id").All(&docs)
 			c.Assert(err, jc.ErrorIsNil)
 			for i, d := range docs {
 				doc := d
@@ -2924,6 +2928,62 @@ func (s *upgradesSuite) TestUpdateInheritedControllerConfig(c *gc.C) {
 	s.assertUpgradedData(c, UpdateInheritedControllerConfig,
 		expectUpgradedData{coll, expectedSettings},
 	)
+}
+
+func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
+	coll, closer := s.state.db().GetRawCollection(statusesC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-old", coretesting.Attrs{})
+	defer model1.Close()
+	model2 := s.makeModel(c, "model-new", coretesting.Attrs{})
+	defer model2.Close()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	s.makeMachine(c, uuid1, "0", Alive)
+	s.makeMachine(c, uuid2, "1", Dying)
+
+	expected := bsonMById{
+		{
+			"_id":        uuid1 + ":m#0#modification",
+			"model-uuid": uuid1,
+			"status":     "idle",
+			"statusinfo": "",
+			"statusdata": bson.M{},
+			"neverset":   false,
+			"updated":    int64(1),
+		}, {
+			"_id":        uuid2 + ":m#1#modification",
+			"model-uuid": uuid2,
+			"status":     "idle",
+			"statusinfo": "",
+			"statusdata": bson.M{},
+			"neverset":   false,
+			"updated":    int64(1),
+		},
+	}
+
+	sort.Sort(expected)
+	c.Log(pretty.Sprint(expected))
+	s.assertUpgradedDataWithFilter(c, EnsureDefaultModificationStatus,
+		bson.D{{"_id", bson.RegEx{"#modification$", ""}}},
+		expectUpgradedData{coll, expected},
+	)
+}
+
+func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {
+	coll, closer := s.state.db().GetRawCollection(machinesC)
+	defer closer()
+
+	err := coll.Insert(machineDoc{
+		DocID:     ensureModelUUID(uuid, id),
+		Id:        id,
+		ModelUUID: uuid,
+		Life:      life,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type docById []bson.M
