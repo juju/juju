@@ -381,6 +381,8 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 		cdoc.LXDProfile = unescapeLXDProfile(cdoc.LXDProfile)
 	}
 
+	cdoc.ModelUUID = st.ModelUUID()
+
 	ch := Charm{st: st, doc: *cdoc}
 	return &ch
 }
