@@ -237,7 +237,7 @@ type DetailedStatus struct {
 	Kind    string                 `json:"kind"`
 	Version string                 `json:"version"`
 	Life    string                 `json:"life"`
-	Err     error                  `json:"err,omitempty"`
+	Err     *Error                 `json:"err,omitempty"`
 }
 
 // History holds many DetailedStatus.
