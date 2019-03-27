@@ -223,6 +223,7 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 		return result, err
 	}
 	watch := machine.WatchApplicationLXDProfiles()
+	// Consume the initial event before sending the result.
 	if _, ok := <-watch.Changes(); ok {
 		result.NotifyWatcherId = api.resources.Register(watch)
 	} else {
