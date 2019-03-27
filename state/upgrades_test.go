@@ -2986,6 +2986,54 @@ func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *upgradesSuite) TestEnsureApplicationDeviceConstraints(c *gc.C) {
+	coll, closer := s.state.db().GetRawCollection(deviceConstraintsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-old", coretesting.Attrs{})
+	defer model1.Close()
+	model2 := s.makeModel(c, "model-new", coretesting.Attrs{})
+	defer model2.Close()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	s.makeApplication(c, uuid1, "app1", Alive)
+	s.makeApplication(c, uuid2, "app2", Dying)
+
+	expected := bsonMById{
+		{
+			"_id":         uuid1 + ":adc#app1#cs:test-charm",
+			"constraints": bson.M{},
+		}, {
+			"_id":         uuid2 + ":adc#app2#cs:test-charm",
+			"constraints": bson.M{},
+		},
+	}
+
+	sort.Sort(expected)
+	c.Log(pretty.Sprint(expected))
+	s.assertUpgradedDataWithFilter(c, EnsureApplicationDeviceConstraints,
+		bson.D{{"_id", bson.RegEx{":adc#", ""}}},
+		expectUpgradedData{coll, expected},
+	)
+}
+
+func (s *upgradesSuite) makeApplication(c *gc.C, uuid, name string, life Life) {
+	coll, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	curl := charm.MustParseURL("test-charm")
+	err := coll.Insert(applicationDoc{
+		DocID:     ensureModelUUID(uuid, name),
+		Name:      name,
+		ModelUUID: uuid,
+		CharmURL:  curl,
+		Life:      life,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }
