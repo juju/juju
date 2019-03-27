@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -41,7 +42,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type UpgradeJujuSuite struct {
+type UpgradeBaseSuite struct {
 	jujutesting.JujuConnSuite
 
 	resources  *common.Resources
@@ -51,8 +52,12 @@ type UpgradeJujuSuite struct {
 	coretesting.CmdBlockHelper
 }
 
+type UpgradeJujuSuite struct {
+	UpgradeBaseSuite
+}
+
 func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.UpgradeBaseSuite.SetUpTest(c)
 	err := s.ControllerStore.UpdateModel(jujutesting.ControllerName, "admin/dummy-model", jujuclient.ModelDetails{
 		ModelType: model.IAAS,
 		ModelUUID: coretesting.ModelTag.Id(),
@@ -70,7 +75,7 @@ func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
 
 var _ = gc.Suite(&UpgradeJujuSuite{})
 
-var upgradeJujuTests = []struct {
+type upgradeTest struct {
 	about          string
 	tools          []string
 	currentVersion string
@@ -82,7 +87,9 @@ var upgradeJujuTests = []struct {
 	expectVersion  string
 	expectUploaded []string
 	upgradeMap     map[int]version.Number
-}{{
+}
+
+var upgradeJujuTests = []upgradeTest{{
 	about:          "unwanted extra argument",
 	currentVersion: "1.0.0-quantal-amd64",
 	args:           []string{"foo"},
@@ -322,12 +329,18 @@ var upgradeJujuTests = []struct {
 	expectVersion:  "1.21.3",
 }}
 
-func (s *UpgradeJujuSuite) upgradeJujuCommand(minUpgradeVers map[int]version.Number, options ...modelcmd.WrapOption) cmd.Command {
-	return newUpgradeJujuCommand(s.ControllerStore, minUpgradeVers, options...)
+type upgradeCommandFunc func(minUpgradeVers map[int]version.Number) cmd.Command
+
+func (s *UpgradeJujuSuite) upgradeJujuCommand(minUpgradeVers map[int]version.Number) cmd.Command {
+	return newUpgradeJujuCommand(s.ControllerStore, minUpgradeVers)
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
-	for i, test := range upgradeJujuTests {
+	s.assertUpgradeTests(c, upgradeJujuTests, s.upgradeJujuCommand)
+}
+
+func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgradeJujuCommand upgradeCommandFunc) {
+	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		s.Reset(c)
 		tools.DefaultBaseURL = ""
@@ -337,7 +350,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		s.PatchValue(&jujuversion.Current, current.Number)
 		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 		s.PatchValue(&series.MustHostSeries, func() string { return current.Series })
-		com := s.upgradeJujuCommand(test.upgradeMap)
+		com := upgradeJujuCommand(test.upgradeMap)
 		if err := cmdtesting.InitCommand(com, test.args); err != nil {
 			if test.expectInitErr != "" {
 				c.Check(err, gc.ErrorMatches, test.expectInitErr)
@@ -389,7 +402,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 	}
 }
 
-func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agentVersion version.Number) {
+func (s *UpgradeBaseSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agentVersion version.Number) {
 	storage, err := s.State.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
@@ -438,7 +451,7 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 // tools to the environment's storage. We don't want
 // 'em there; but we do want a consistent default-series
 // in the environment state.
-func (s *UpgradeJujuSuite) Reset(c *gc.C) {
+func (s *UpgradeBaseSuite) Reset(c *gc.C) {
 	s.JujuConnSuite.Reset(c)
 	envtesting.RemoveTools(c, s.DefaultToolsStorage, s.Environ.Config().AgentStream())
 	updateAttrs := map[string]interface{}{
@@ -605,6 +618,10 @@ type DryRunTest struct {
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
+	s.assertUpgradeDryRun(c, "upgrade-model", s.upgradeJujuCommand)
+}
+
+func (s *UpgradeBaseSuite) assertUpgradeDryRun(c *gc.C, command string, upgradeJujuCommand upgradeCommandFunc) {
 
 	tests := []DryRunTest{
 		{
@@ -613,11 +630,11 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.1.3-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `best version:
+			expectedCmdOutput: fmt.Sprintf(`best version:
     2.1.3.1
 upgrade to this version by running
-    juju upgrade-model --build-agent
-`,
+    juju %s --build-agent
+`, command),
 		},
 		{
 			about:          "dry run outputs and doesn't change anything",
@@ -625,11 +642,11 @@ upgrade to this version by running
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `best version:
+			expectedCmdOutput: fmt.Sprintf(`best version:
     2.1.3
 upgrade to this version by running
-    juju upgrade-model
-`,
+    juju %s
+`, command),
 		},
 		{
 			about:          "dry run ignores unknown series",
@@ -637,11 +654,11 @@ upgrade to this version by running
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "1.2.3-myawesomeseries-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `best version:
+			expectedCmdOutput: fmt.Sprintf(`best version:
     2.1.3
 upgrade to this version by running
-    juju upgrade-model
-`,
+    juju %s
+`, command),
 		},
 	}
 
@@ -652,7 +669,7 @@ upgrade to this version by running
 
 		s.setUpEnvAndTools(c, test.currentVersion, test.agentVersion, test.tools)
 
-		com := s.upgradeJujuCommand(nil)
+		com := upgradeJujuCommand(nil)
 		err := cmdtesting.InitCommand(com, test.cmdArgs)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -671,7 +688,7 @@ upgrade to this version by running
 	}
 }
 
-func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agentVersion string, tools []string) {
+func (s *UpgradeBaseSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agentVersion string, tools []string) {
 	current := version.MustParseBinary(currentVersion)
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
