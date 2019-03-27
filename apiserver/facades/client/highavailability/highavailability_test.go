@@ -202,7 +202,7 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches,
 		"juju-ha-space is not set and a unique usable address was not found for machines: 0"+
-			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication")
+			"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication")
 }
 
 func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
@@ -218,7 +218,7 @@ func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
 	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches,
 		"juju-ha-space is not set and a unique usable address was not found for machines: 0"+
-			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication")
+			"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication")
 }
 
 func (s *clientSuite) TestEnableHANoErrorForNoAddresses(c *gc.C) {
@@ -260,7 +260,7 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 	_, err = s.enableHA(c, 5, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches,
 		"juju-ha-space is not set and a unique usable address was not found for machines: 2"+
-			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication")
+			"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication")
 }
 
 func (s *clientSuite) TestEnableHAConstraints(c *gc.C) {

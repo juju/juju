@@ -486,7 +486,7 @@ func (p *peerGroupChanges) updateAddresses() error {
 }
 
 const multiAddressMessage = "multiple usable addresses found" +
-	"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication"
+	"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication"
 
 // updateAddressesFromInternal attempts to update each member with a
 // cloud-local address from the machine.
@@ -501,7 +501,10 @@ const multiAddressMessage = "multiple usable addresses found" +
 func (p *peerGroupChanges) updateAddressesFromInternal() error {
 	var multipleAddresses []string
 
-	for _, id := range p.sortedMemberIds() {
+	ids := p.sortedMemberIds()
+	singleController := len(ids) == 1
+
+	for _, id := range ids {
 		m := p.info.machines[id]
 		hostPorts := m.GetPotentialMongoHostPorts(p.info.mongoPort)
 		addrs := network.SelectInternalHostPorts(hostPorts, false)
@@ -533,7 +536,11 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 		if _, ok := p.info.recognised[id]; ok {
 			for _, addr := range addrs {
 				if member.Address == addr {
-					logger.Warningf("%s\npreserving member with unchanged address %q", multiAddressMessage, addr)
+					// If this is a single controller with multiple addresses,
+					// avoid warning logs for every peer-group check.
+					if !singleController {
+						logger.Warningf("%s\npreserving member with unchanged address %q", multiAddressMessage, addr)
+					}
 					unchanged = true
 					break
 				}
@@ -554,7 +561,7 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 	if len(multipleAddresses) > 0 {
 		ids := strings.Join(multipleAddresses, ", ")
 		return fmt.Errorf("juju-ha-space is not set and these machines have more than one usable address: %s"+
-			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication", ids)
+			"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication", ids)
 	}
 	return nil
 }
