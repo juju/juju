@@ -1982,3 +1982,107 @@ func updateKubernetesStorageConfig(st *State) error {
 
 	return model.UpdateModelConfig(attrs, nil)
 }
+
+// EnsureDefaultModificationStatus ensures that there is a modification status
+// document for every machine in the statuses.
+func EnsureDefaultModificationStatus(pool *StatePool) error {
+	st := pool.SystemState()
+	db := st.db()
+
+	machineCol, machineCloser := db.GetRawCollection(machinesC)
+	defer machineCloser()
+	machineIter := machineCol.Find(nil).Iter()
+	defer machineIter.Close()
+
+	statusCol, statusCloser := db.GetRawCollection(statusesC)
+	defer statusCloser()
+
+	var ops []txn.Op
+	var machine machineDoc
+	updatedTime := st.clock().Now().UnixNano()
+	for machineIter.Next(&machine) {
+		// Since we are using a raw collection, we need to manually
+		// ensure that we prefix the IDs with the model-uuid.
+		localID := machineGlobalModificationKey(machine.Id)
+		key := ensureModelUUID(machine.ModelUUID, localID)
+
+		// We only need to migrate machines that don't have a modification
+		// status document. So we need to first check if there is one, before
+		// creating a txn.Op for the missing document.
+		var doc statusDoc
+		err := statusCol.Find(bson.D{{"_id", key}}).Select(bson.D{{"_id", 1}}).One(&doc)
+		if err == nil {
+			continue
+		} else if err != mgo.ErrNotFound {
+			return errors.Trace(err)
+		}
+
+		rawDoc := statusDoc{
+			ModelUUID: machine.ModelUUID,
+			Status:    status.Idle,
+			Updated:   updatedTime,
+		}
+		ops = append(ops, txn.Op{
+			C:      statusesC,
+			Id:     key,
+			Assert: txn.DocMissing,
+			Insert: rawDoc,
+		})
+	}
+	if err := machineIter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
+// EnsureApplicationDeviceConstraints ensures that there is a device
+// constraints document for every application.
+func EnsureApplicationDeviceConstraints(pool *StatePool) error {
+	st := pool.SystemState()
+	db := st.db()
+
+	applicationCol, applicationCloser := db.GetRawCollection(applicationsC)
+	defer applicationCloser()
+	applicationIter := applicationCol.Find(nil).Iter()
+	defer applicationIter.Close()
+
+	constraintsCol, constraintsCloser := db.GetRawCollection(deviceConstraintsC)
+	defer constraintsCloser()
+
+	var ops []txn.Op
+	var application applicationDoc
+	for applicationIter.Next(&application) {
+		// Since we are using a raw collection, we need to manually
+		// ensure that we prefix the IDs with the model-uuid.
+		localID := applicationDeviceConstraintsKey(application.Name, application.CharmURL)
+		key := ensureModelUUID(application.ModelUUID, localID)
+
+		// We only need to migrate applications that don't have a device
+		// constraints document. So we need to first check if there is one, before
+		// creating a txn.Op for the missing document.
+		var doc statusDoc
+		err := constraintsCol.Find(bson.D{{"_id", key}}).Select(bson.D{{"_id", 1}}).One(&doc)
+		if err == nil {
+			continue
+		} else if err != mgo.ErrNotFound {
+			return errors.Trace(err)
+		}
+
+		ops = append(ops, txn.Op{
+			C:      deviceConstraintsC,
+			Id:     key,
+			Assert: txn.DocMissing,
+			Insert: deviceConstraintsDoc{},
+		})
+	}
+	if err := applicationIter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
