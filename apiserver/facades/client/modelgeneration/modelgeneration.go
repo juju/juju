@@ -87,7 +87,11 @@ func (m *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 		return result, common.ErrPerm
 	}
 
-	result.Error = common.ServerError(m.model.AddBranch(arg.BranchName, m.apiUser.Name()))
+	if err := model.ValidateBranchName(arg.BranchName); err != nil {
+		result.Error = common.ServerError(err)
+	} else {
+		result.Error = common.ServerError(m.model.AddBranch(arg.BranchName, m.apiUser.Name()))
+	}
 	return result, nil
 }
 

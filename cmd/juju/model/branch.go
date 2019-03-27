@@ -6,6 +6,8 @@ package model
 import (
 	"fmt"
 
+	"github.com/juju/juju/core/model"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -79,6 +81,9 @@ func (c *branchCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *branchCommand) Init(args []string) error {
 	if len(args) != 1 {
 		return errors.Errorf("expected a branch name")
+	}
+	if err := model.ValidateBranchName(args[0]); err != nil {
+		return err
 	}
 	c.branchName = args[0]
 	return nil

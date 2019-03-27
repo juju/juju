@@ -40,7 +40,20 @@ func (s *modelGenerationSuite) TearDownTest(c *gc.C) {
 // TODO (hml) 17-jan-2019
 // Add more explicit permissions tests once that requirement is ironed out.
 
-func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
+func (s *modelGenerationSuite) TestAddBranchInvalidNameError(c *gc.C) {
+	defer s.setupModelGenerationAPI(c, nil).Finish()
+
+	arg := params.BranchArg{
+		BranchName: model.GenerationMaster,
+		Model:      params.Entity{Tag: names.NewModelTag(s.modelUUID).String()},
+	}
+	result, err := s.api.AddBranch(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.NotNil)
+	c.Check(result.Error.Message, gc.Matches, ".* not valid")
+}
+
+func (s *modelGenerationSuite) TestAddBranchSuccess(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, _ *mocks.MockState, mod *mocks.MockModel) {
 		mod.EXPECT().AddBranch(s.newBranchName, s.apiUser).Return(nil)
 	}).Finish()
@@ -200,7 +213,9 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) *g
 	aExp.GetAuthTag().Return(names.NewUserTag("test-user"))
 	aExp.AuthClient().Return(true)
 
-	fn(ctrl, mockState, mockModel)
+	if fn != nil {
+		fn(ctrl, mockState, mockModel)
+	}
 
 	var err error
 	s.api, err = modelgeneration.NewModelGenerationAPI(mockState, mockAuthorizer, mockModel)

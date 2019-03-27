@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/model/mocks"
+	coremodel "github.com/juju/juju/core/model"
 )
 
 type branchSuite struct {
@@ -26,9 +27,14 @@ func (s *branchSuite) TestInit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *branchSuite) TestInitFail(c *gc.C) {
+func (s *branchSuite) TestInitNoName(c *gc.C) {
 	err := s.runInit()
 	c.Assert(err, gc.ErrorMatches, "expected a branch name")
+}
+
+func (s *branchSuite) TestInitInvalidName(c *gc.C) {
+	err := s.runInit(coremodel.GenerationMaster)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *branchSuite) TestRunCommand(c *gc.C) {
