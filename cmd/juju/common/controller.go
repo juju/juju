@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
+	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -92,7 +93,7 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 		if err == nil {
 			msg := fmt.Sprintf("\nBootstrap complete, controller %q now is available", controllerName)
 			if isCAAS {
-				msg += fmt.Sprintf(" in namespace %q", controllerName)
+				msg += fmt.Sprintf(" in namespace %q", caasprovider.DecideControllerNamespace(controllerName))
 				msg += `
 Now you can run 
 	juju add-model <model-name>

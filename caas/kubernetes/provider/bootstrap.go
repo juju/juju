@@ -93,7 +93,8 @@ func controllerCorelation(broker *kubernetesClient) (*kubernetesClient, error) {
 	return broker, nil
 }
 
-func decideControllerNamespace(controllerName string) string {
+// DecideControllerNamespace decides the namespace name to use for a new controller.
+func DecideControllerNamespace(controllerName string) string {
 	return "controller-" + controllerName
 }
 

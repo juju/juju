@@ -207,7 +207,7 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, co
 Please bootstrap again and choose a different controller name.`, k.namespace),
 	)
 
-	k.namespace = decideControllerNamespace(controllerName)
+	k.namespace = DecideControllerNamespace(controllerName)
 
 	// ensure no existing namespace has the same name.
 	_, err := k.getNamespaceByName(k.namespace)
@@ -271,7 +271,7 @@ func (k *kubernetesClient) Bootstrap(
 
 		// we use controller name to name controller namespace in bootstrap time.
 		setControllerNamespace := func(controllerName string, broker *kubernetesClient) error {
-			nsName := decideControllerNamespace(controllerName)
+			nsName := DecideControllerNamespace(controllerName)
 
 			_, err := broker.GetNamespace(nsName)
 			if errors.IsNotFound(err) {
