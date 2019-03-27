@@ -130,6 +130,7 @@ func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 			"juju.io/is-controller": "true",
 		},
 	)
+	// controller namespace linked back(changed from 'controller' to 'controller-1')
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-1")
 }
 

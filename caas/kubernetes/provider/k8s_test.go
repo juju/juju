@@ -460,12 +460,7 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	defer ctrl.Finish()
 
 	// Ensure the broker is configured with operator storage.
-	cfg := s.broker.Config()
-	var err error
-	cfg, err = cfg.Apply(map[string]interface{}{"operator-storage": "some-storage"})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.broker.SetConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	s.setupOperatorStorageConfig(c)
 
 	ctx := envtesting.BootstrapContext(c)
 	callCtx := &context.CloudCallContext{}
@@ -494,6 +489,79 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	bootstrapParams.BootstrapSeries = "bionic"
 	result, err = s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (s *K8sBrokerSuite) setupOperatorStorageConfig(c *gc.C) {
+	cfg := s.broker.Config()
+	var err error
+	cfg, err = cfg.Apply(map[string]interface{}{"operator-storage": "some-storage"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.broker.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	// Ensure the broker is configured with operator storage.
+	s.setupOperatorStorageConfig(c)
+
+	sc := &k8sstorage.StorageClass{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "some-storage",
+		},
+	}
+
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Get("controller-ctrl-1", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
+			Return(&core.NamespaceList{Items: []core.Namespace{}}, nil),
+		s.mockStorageClass.EXPECT().Get("controller-ctrl-1-some-storage", v1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("some-storage", v1.GetOptions{}).Times(1).
+			Return(sc, nil),
+	)
+	ctx := envtesting.BootstrapContext(c)
+	c.Assert(
+		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIsNil,
+	)
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-ctrl-1")
+}
+
+func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "controller-ctrl-1"}}
+	s.ensureJujuNamespaceAnnotations(true, ns)
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Get("controller-ctrl-1", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(ns, nil),
+	)
+	ctx := envtesting.BootstrapContext(c)
+	c.Assert(
+		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.Satisfies, errors.IsAlreadyExists,
+	)
+}
+
+func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistControllerAnnotations(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "controller-ctrl-1"}}
+	s.ensureJujuNamespaceAnnotations(true, ns)
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Get("controller-ctrl-1", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
+			Return(&core.NamespaceList{Items: []core.Namespace{*ns}}, nil),
+	)
+	ctx := envtesting.BootstrapContext(c)
+	c.Assert(
+		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.Satisfies, errors.IsAlreadyExists,
+	)
 }
 
 func (s *K8sBrokerSuite) TestGetNamespace(c *gc.C) {

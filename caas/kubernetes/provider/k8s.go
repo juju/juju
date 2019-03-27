@@ -210,7 +210,7 @@ Please bootstrap again and choose a different controller name.`, k.namespace),
 	k.namespace = decideControllerNamespace(controllerName)
 
 	// ensure no existing namespace has the same name.
-	_, err := k.GetNamespace(k.namespace)
+	_, err := k.getNamespaceByName(k.namespace)
 	if err == nil {
 		return alreadyExistErr
 	}
