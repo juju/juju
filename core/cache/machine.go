@@ -43,3 +43,11 @@ func (m *Machine) setDetails(details MachineChange) {
 		// TODO: publish config change...
 	}
 }
+
+type MachineAppLXDProfileWatcher struct {
+	*notifyWatcherBase
+}
+
+func (m *Machine) WatchApplicationLXDProfiles() *MachineAppLXDProfileWatcher {
+	return nil
+}

@@ -21,12 +21,6 @@ type InstanceMutaterState interface {
 	ControllerTimestamp() (*time.Time, error)
 }
 
-// InstanceMutaterCacheModel represents point of use methods from the cache
-// model
-type InstanceMutaterCacheModel interface {
-	WatchMachines() cache.StringsWatcher
-}
-
 // State represents point of use methods from the state object
 type State interface {
 	Model() (*state.Model, error)
@@ -69,4 +63,16 @@ type LXDProfile interface {
 	Devices() map[string]map[string]string
 	Empty() bool
 	ValidateConfigDevices() error
+}
+
+// ModelCache represents point of use methods from the cache
+// model
+type ModelCache interface {
+	Machine(machineId string) (ModelCacheMachine, error)
+	WatchMachines() cache.StringsWatcher
+}
+
+// ModelCacheMachine represents a point of use Machine from the cache package.
+type ModelCacheMachine interface {
+	WatchApplicationLXDProfiles() cache.NotifyWatcher
 }

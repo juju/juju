@@ -42,10 +42,10 @@ type MutaterMachine interface {
 	// machine.
 	WatchUnits() (watcher.StringsWatcher, error)
 
-	// WatchApplicationsForLXDProfiles returns a NotifyWatcher, notifies when the
+	// WatchApplicationLXDProfiles returns a NotifyWatcher, notifies when the
 	// charm URL changes for an application and there is a change in the lxd
 	// profile for the charm
-	WatchApplicationsForLXDProfiles() (watcher.NotifyWatcher, error)
+	WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error)
 
 	// SetModificationStatus sets the provider specific modification status
 	// for a machine. Allowing the propagation of status messages to the
@@ -119,13 +119,13 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// WatchApplicationsForLXDProfiles implements MutaterMachine.WatchApplicationsForLXDProfiles.
-func (m *Machine) WatchApplicationsForLXDProfiles() (watcher.NotifyWatcher, error) {
+// WatchApplicationLXDProfiles implements MutaterMachine.WatchApplicationLXDProfiles.
+func (m *Machine) WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.facade.FacadeCall("WatchApplicationsForLXDProfiles", args, &results)
+	err := m.facade.FacadeCall("WatchApplicationLXDProfiles", args, &results)
 	if err != nil {
 		return nil, err
 	}

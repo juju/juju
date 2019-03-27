@@ -111,12 +111,30 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 	return p.Charm.LXDProfile()
 }
 
-// instanceMutaterCacheModelShim is used as a shim between the
+// modelCacheShim is used as a shim between the
 // cache.ChangeWatcher and cache.StringsWatcher to enable better mock testing.
-type instanceMutaterCacheModelShim struct {
+type modelCacheShim struct {
 	*cache.Model
 }
 
-func (s *instanceMutaterCacheModelShim) WatchMachines() cache.StringsWatcher {
+func (s *modelCacheShim) WatchMachines() cache.StringsWatcher {
 	return s.Model.WatchMachines()
+}
+
+func (s modelCacheShim) Machine(machineId string) (ModelCacheMachine, error) {
+	machine, err := s.Model.Machine(machineId)
+	if err != nil {
+		return nil, err
+	}
+	return &modelCacheMachine{
+		Machine: machine,
+	}, nil
+}
+
+type modelCacheMachine struct {
+	*cache.Machine
+}
+
+func (m *modelCacheMachine) WatchApplicationLXDProfiles() cache.NotifyWatcher {
+	return m.Machine.WatchApplicationLXDProfiles()
 }

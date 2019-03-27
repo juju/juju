@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
 	"github.com/juju/juju/apiserver/params"
@@ -30,7 +31,7 @@ type instanceMutaterAPISuite struct {
 	entity     *mocks.MockEntity
 	lifer      *mocks.MockLifer
 	state      *mocks.MockInstanceMutaterState
-	model      *mocks.MockInstanceMutaterCacheModel
+	model      *mocks.MockModelCache
 	resources  *mocks.MockResources
 
 	machineTag names.Tag
@@ -49,7 +50,7 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 	s.entity = mocks.NewMockEntity(ctrl)
 	s.lifer = mocks.NewMockLifer(ctrl)
 	s.state = mocks.NewMockInstanceMutaterState(ctrl)
-	s.model = mocks.NewMockInstanceMutaterCacheModel(ctrl)
+	s.model = mocks.NewMockModelCache(ctrl)
 	s.resources = mocks.NewMockResources(ctrl)
 
 	return ctrl
@@ -809,5 +810,112 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithClosedChan
 	close(ch)
 
 	s.model.EXPECT().WatchMachines().Return(s.watcher)
+	s.watcher.EXPECT().Changes().Return(ch)
+}
+
+type InstanceMutaterAPIWatchApplicationLXDProfilesSuite struct {
+	instanceMutaterAPISuite
+
+	machine *mocks.MockModelCacheMachine
+	watcher *mocks.MockNotifyWatcher
+}
+
+var _ = gc.Suite(&InstanceMutaterAPIWatchApplicationLXDProfilesSuite{})
+
+func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := s.instanceMutaterAPISuite.setup(c)
+
+	s.machine = mocks.NewMockModelCacheMachine(ctrl)
+	s.watcher = mocks.NewMockNotifyWatcher(ctrl)
+
+	return ctrl
+}
+
+func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicationLXDProfiles(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectWatchApplicationLXDProfilesWithNotify(1),
+	)
+
+	result, err := facade.WatchApplicationLXDProfiles(params.Entities{
+		Entities: []params.Entity{{Tag: s.machineTag.String()}},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{{
+			NotifyWatcherId: "1",
+		}},
+	})
+}
+
+func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicationLXDProfilesWithInvalidTag(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+	)
+
+	result, err := facade.WatchApplicationLXDProfiles(params.Entities{
+		Entities: []params.Entity{{Tag: names.NewUserTag("bob@local").String()}},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{{
+			Error: common.ServerError(common.ErrPerm),
+		}},
+	})
+}
+
+func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicationLXDProfilesWithClosedChannel(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectWatchApplicationLXDProfilesWithClosedChannel,
+	)
+
+	result, err := facade.WatchApplicationLXDProfiles(params.Entities{
+		Entities: []params.Entity{{Tag: s.machineTag.String()}},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{{
+			Error: common.ServerError(errors.New("cannot obtain initial machine watch application LXD profiles")),
+		}},
+	})
+}
+
+func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectAuthController() {
+	s.authorizer.EXPECT().AuthController().Return(true)
+}
+
+func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicationLXDProfilesWithNotify(times int) func() {
+	return func() {
+		ch := make(chan struct{})
+
+		go func() {
+			for i := 0; i < times; i++ {
+				ch <- struct{}{}
+			}
+		}()
+
+		s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+		s.machine.EXPECT().WatchApplicationLXDProfiles().Return(s.watcher)
+		s.watcher.EXPECT().Changes().Return(ch)
+		s.resources.EXPECT().Register(s.watcher).Return("1")
+	}
+}
+
+func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicationLXDProfilesWithClosedChannel() {
+	ch := make(chan struct{})
+	close(ch)
+
+	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().WatchApplicationLXDProfiles().Return(s.watcher)
 	s.watcher.EXPECT().Changes().Return(ch)
 }
