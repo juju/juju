@@ -50,16 +50,25 @@ func (k *kubernetesClient) Namespaces() ([]string, error) {
 
 // GetNamespace returns the namespace for the specified name.
 func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
-	notFoundErr := errors.NotFoundf("namespace %q", name)
+	ns, err := k.getNamespaceByName(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := checkNamespaceOwnedByJuju(ns, k.annotations); err != nil {
+		return nil, errors.NotFoundf("namespace %q", name)
+	}
+	return ns, nil
+}
+
+// getNamespaceByName is used internally for bootstrap.
+// Note: it should be never used by something else. "GetNamespace" is what you should use.
+func (k *kubernetesClient) getNamespaceByName(name string) (*core.Namespace, error) {
 	ns, err := k.CoreV1().Namespaces().Get(name, v1.GetOptions{IncludeUninitialized: true})
 	if k8serrors.IsNotFound(err) {
-		return nil, notFoundErr
+		return nil, errors.NotFoundf("namespace %q", name)
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting namespace %q", name)
-	}
-	if err := checkNamespaceOwnedByJuju(ns, k.annotations); err != nil {
-		return nil, notFoundErr
 	}
 	return ns, nil
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/storage"
 )
@@ -57,8 +58,8 @@ func (cs controllerStack) GetStorageSize() resource.Quantity {
 	return cs.storageSize
 }
 
-func NewcontrollerStackForTest(stackName, storageClass string, broker *kubernetesClient, pcfg *podcfg.ControllerPodConfig) (ControllerStackerForTest, error) {
-	cs, err := newcontrollerStack(stackName, storageClass, broker, pcfg)
+func NewcontrollerStackForTest(ctx environs.BootstrapContext, stackName, storageClass string, broker *kubernetesClient, pcfg *podcfg.ControllerPodConfig) (ControllerStackerForTest, error) {
+	cs, err := newcontrollerStack(ctx, stackName, storageClass, broker, pcfg)
 	return cs.(controllerStack), err
 }
 

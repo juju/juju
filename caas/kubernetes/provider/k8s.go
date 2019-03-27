@@ -202,13 +202,15 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 
 // PrepareForBootstrap prepares for bootstraping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
-	k.namespace = controllerName
 	alreadyExistErr := errors.NewAlreadyExists(nil,
 		fmt.Sprintf(`a controller called %q already exists on this k8s cluster.
 Please bootstrap again and choose a different controller name.`, k.namespace),
 	)
+
+	k.namespace = DecideControllerNamespace(controllerName)
+
 	// ensure no existing namespace has the same name.
-	_, err := k.GetNamespace(k.namespace)
+	_, err := k.getNamespaceByName(k.namespace)
 	if err == nil {
 		return alreadyExistErr
 	}
@@ -218,6 +220,7 @@ Please bootstrap again and choose a different controller name.`, k.namespace),
 	// Good, no existing namespace has the same name.
 	// Now, try to find if there is any existing controller running in this cluster.
 	// Note: we have to do this check before we are confident to support multi controllers running in same k8s cluster.
+
 	_, err = k.listNamespacesByAnnotations(k.annotations)
 	if err == nil {
 		return alreadyExistErr
@@ -267,11 +270,13 @@ func (k *kubernetesClient) Bootstrap(
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
 		// we use controller name to name controller namespace in bootstrap time.
-		setControllerNamespace := func(name string, broker *kubernetesClient) error {
-			_, err := broker.GetNamespace(name)
+		setControllerNamespace := func(controllerName string, broker *kubernetesClient) error {
+			nsName := DecideControllerNamespace(controllerName)
+
+			_, err := broker.GetNamespace(nsName)
 			if errors.IsNotFound(err) {
 				// all good.
-				broker.SetNamespace(name)
+				broker.SetNamespace(nsName)
 				// ensure controller specific annotations.
 				_ = broker.addAnnotations(annotationControllerIsControllerKey, "true")
 				return nil
@@ -288,7 +293,7 @@ func (k *kubernetesClient) Bootstrap(
 		}
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
-		controllerStack, err := newcontrollerStack(JujuControllerStackName, storageClass, k, pcfg)
+		controllerStack, err := newcontrollerStack(ctx, JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
