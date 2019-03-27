@@ -219,7 +219,7 @@ func (m *Model) updateMachine(ch MachineChange) {
 
 	machine, found := m.machines[ch.Id]
 	if !found {
-		machine = newMachine(m.metrics, m.hub)
+		machine = newMachine(m)
 		m.machines[ch.Id] = machine
 		m.hub.Publish(m.topic(modelMachineChange), []string{ch.Id})
 	}
