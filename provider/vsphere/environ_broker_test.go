@@ -341,7 +341,7 @@ func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C)
 	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0])
 }
 
-func (s *environBrokerSuite) TestStartInstanceDatastore(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
 	cfg := s.env.Config()
 	cfg, err := cfg.Apply(map[string]interface{}{
 		"datastore": "datastore0",
@@ -355,7 +355,27 @@ func (s *environBrokerSuite) TestStartInstanceDatastore(c *gc.C) {
 
 	call := s.client.Calls()[3]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.Datastore, gc.Equals, "datastore0")
+	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "datastore0")
+}
+
+func (s *environBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
+	cfg := s.env.Config()
+	cfg, err := cfg.Apply(map[string]interface{}{
+		"datastore": "datastore0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := s.createStartInstanceArgs(c)
+	datastore := "zebras"
+	args.Constraints.RootDiskSource = &datastore
+	_, err = s.env.StartInstance(s.callCtx, args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	call := s.client.Calls()[3]
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "zebras")
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {

@@ -190,6 +190,10 @@ func (env *sessionEnviron) newRawInstance(
 	if cons.RootDisk == nil || *cons.RootDisk < minRootDisk {
 		cons.RootDisk = &minRootDisk
 	}
+	defaultDatastore := env.ecfg.datastore()
+	if cons.RootDiskSource == nil || *cons.RootDiskSource == "" {
+		cons.RootDiskSource = &defaultDatastore
+	}
 
 	// Download and extract the OVA file. If we're bootstrapping we use
 	// a temporary directory, otherwise we cache the image for future use.
@@ -223,7 +227,6 @@ func (env *sessionEnviron) newRawInstance(
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
 		NetworkDevices:         networkDevices,
-		Datastore:              env.ecfg.datastore(),
 		UpdateProgress:         updateProgress,
 		UpdateProgressInterval: updateProgressInterval,
 		Clock:                  clock.WallClock,
