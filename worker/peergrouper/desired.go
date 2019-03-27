@@ -501,7 +501,10 @@ const multiAddressMessage = "multiple usable addresses found" +
 func (p *peerGroupChanges) updateAddressesFromInternal() error {
 	var multipleAddresses []string
 
-	for _, id := range p.sortedMemberIds() {
+	ids := p.sortedMemberIds()
+	singleController := len(ids) == 1
+
+	for _, id := range ids {
 		m := p.info.machines[id]
 		hostPorts := m.GetPotentialMongoHostPorts(p.info.mongoPort)
 		addrs := network.SelectInternalHostPorts(hostPorts, false)
@@ -533,7 +536,11 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 		if _, ok := p.info.recognised[id]; ok {
 			for _, addr := range addrs {
 				if member.Address == addr {
-					logger.Warningf("%s\npreserving member with unchanged address %q", multiAddressMessage, addr)
+					// If this is a single controller with multiple addresses,
+					// avoid warning logs for every peer-group check.
+					if !singleController {
+						logger.Warningf("%s\npreserving member with unchanged address %q", multiAddressMessage, addr)
+					}
 					unchanged = true
 					break
 				}
