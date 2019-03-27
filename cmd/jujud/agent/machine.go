@@ -1222,6 +1222,8 @@ func (a *MachineAgent) uninstallAgent() error {
 		return nil
 	}
 	logger.Infof("uninstalling agent")
+	logger.Warningf("Refusing to actually uninstall the agent. Stopping instead")
+	return nil
 
 	agentConfig := a.CurrentConfig()
 	var errs []error
