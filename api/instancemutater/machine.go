@@ -43,8 +43,9 @@ type MutaterMachine interface {
 	WatchUnits() (watcher.StringsWatcher, error)
 
 	// WatchApplicationLXDProfiles returns a NotifyWatcher, notifies when the
-	// charm URL changes for an application and there is a change in the lxd
-	// profile for the charm
+	// following changes happen:
+	//  - application charm URL changes and there is a lxd profile
+	//  - unit is add or removed and there is a lxd profile
 	WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error)
 
 	// SetModificationStatus sets the provider specific modification status
