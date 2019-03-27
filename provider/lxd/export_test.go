@@ -70,11 +70,11 @@ func ExposeInstEnv(inst *environInstance) *environ {
 }
 
 func ExposeEnvConfig(env *environ) *environConfig {
-	return env.ecfg
+	return env.ecfgUnlocked
 }
 
 func ExposeEnvServer(env *environ) Server {
-	return env.server
+	return env.server()
 }
 
 func GetImageSources(env environs.Environ) ([]lxd.ServerSpec, error) {

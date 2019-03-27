@@ -31,7 +31,7 @@ func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (const
 	validator := constraints.NewValidator()
 
 	validator.RegisterUnsupported(unsupportedConstraints)
-	validator.RegisterVocabulary(constraints.Arch, []string{env.server.HostArch()})
+	validator.RegisterVocabulary(constraints.Arch, []string{env.server().HostArch()})
 
 	return validator, nil
 }
