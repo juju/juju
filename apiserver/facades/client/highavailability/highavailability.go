@@ -197,7 +197,7 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 	if len(badIds) > 0 {
 		return errors.Errorf(
 			"juju-ha-space is not set and a unique usable address was not found for machines: %s"+
-				"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication",
+				"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication",
 			strings.Join(badIds, ", "),
 		)
 	}
