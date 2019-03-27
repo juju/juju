@@ -78,7 +78,7 @@ func (env *environ) allInstances() ([]*environInstance, error) {
 
 // prefixedInstances returns instances with the specified prefix.
 func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error) {
-	containers, err := env.server.AliveContainers(prefix)
+	containers, err := env.server().AliveContainers(prefix)
 	err = errors.Trace(err)
 
 	// Turn lxd.Container values into *environInstance values,
@@ -95,7 +95,7 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
 func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	containers, err := env.server.AliveContainers("juju-")
+	containers, err := env.server().AliveContainers("juju-")
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
@@ -134,7 +134,7 @@ func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUU
 		// If we added a method directly to environInstance to do this, we wouldn't need this
 		// implementation of UpdateContainerConfig at all, and the container representation we are
 		// holding would be consistent with that on the server.
-		err := env.server.UpdateContainerConfig(string(id), map[string]string{qualifiedKey: controllerUUID})
+		err := env.server().UpdateContainerConfig(string(id), map[string]string{qualifiedKey: controllerUUID})
 		if err != nil {
 			logger.Errorf("error setting controller uuid tag for %q: %v", id, err)
 			failed = append(failed, id)

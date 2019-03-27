@@ -56,6 +56,6 @@ func (i *environInstance) Status(ctx context.ProviderCallContext) instance.Insta
 
 // Addresses implements instance.Instance.
 func (i *environInstance) Addresses(_ context.ProviderCallContext) ([]network.Address, error) {
-	addrs, err := i.env.server.ContainerAddresses(i.container.Name)
+	addrs, err := i.env.server().ContainerAddresses(i.container.Name)
 	return addrs, errors.Trace(err)
 }

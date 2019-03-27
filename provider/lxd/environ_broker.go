@@ -61,7 +61,7 @@ func (env *environ) StartInstance(
 }
 
 func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (string, error) {
-	arch := env.server.HostArch()
+	arch := env.server().HostArch()
 	tools, err := args.Tools.Match(tools.Filter{Arch: arch})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -69,7 +69,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 	if err := args.InstanceConfig.SetTools(tools); err != nil {
 		return "", errors.Trace(err)
 	}
-	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.ecfg.Config); err != nil {
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return "", errors.Trace(err)
 	}
 	return arch, nil
@@ -194,7 +194,7 @@ func (env *environ) getContainerSpec(
 	// Check to see if there are any non-eth0 devices in the default profile.
 	// If there are, we need cloud-init to configure them, and we need to
 	// explicitly add them to the container spec.
-	nics, err := env.server.GetNICsFromProfile("default")
+	nics, err := env.server().GetNICsFromProfile("default")
 	if err != nil {
 		return cSpec, errors.Trace(err)
 	}
@@ -253,9 +253,9 @@ func (env *environ) getTargetServer(
 	}
 
 	if p.nodeName == "" {
-		return env.server, nil
+		return env.server(), nil
 	}
-	return env.server.UseTargetServer(p.nodeName)
+	return env.server().UseTargetServer(p.nodeName)
 }
 
 type lxdPlacement struct {
@@ -299,7 +299,7 @@ func (env *environ) getHardwareCharacteristics(
 
 	archStr := container.Arch()
 	if archStr == "unknown" || !arch.IsSupportedArch(archStr) {
-		archStr = env.server.HostArch()
+		archStr = env.server().HostArch()
 	}
 	cores := uint64(container.CPUs())
 	mem := uint64(container.Mem())
@@ -336,7 +336,7 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 		}
 	}
 
-	err := env.server.RemoveContainers(names)
+	err := env.server().RemoveContainers(names)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 	}

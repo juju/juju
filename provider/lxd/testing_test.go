@@ -246,7 +246,7 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	s.EnvConfig = ecfg
 	uuid := cfg.UUID()
 	s.Env.uuid = uuid
-	s.Env.ecfg = s.EnvConfig
+	s.Env.ecfgUnlocked = s.EnvConfig
 	namespace, err := instance.NewNamespace(uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Env.namespace = namespace
@@ -336,7 +336,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Common = &stubCommon{stub: s.Stub}
 
 	// Patch out all expensive external deps.
-	s.Env.server = s.Client
+	s.Env.serverUnlocked = s.Client
 	s.Env.base = s.Common
 }
 
@@ -760,9 +760,9 @@ func (s *EnvironSuite) NewEnviron(c *gc.C, svr Server, cfgEdit map[string]interf
 	c.Assert(err, jc.ErrorIsNil)
 
 	return &environ{
-		server:    svr,
-		ecfg:      eCfg,
-		namespace: namespace,
+		serverUnlocked: svr,
+		ecfgUnlocked:   eCfg,
+		namespace:      namespace,
 	}
 }
 

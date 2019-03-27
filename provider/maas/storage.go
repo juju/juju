@@ -40,7 +40,7 @@ func NewStorage(env *maasEnviron) storage.Storage {
 	} else {
 		return &maas1Storage{
 			environ:    env,
-			maasClient: env.getMAASClient().GetSubObject("files"),
+			maasClient: env.maasClientUnlocked.GetSubObject("files"),
 		}
 	}
 }
