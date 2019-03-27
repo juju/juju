@@ -486,7 +486,7 @@ func (p *peerGroupChanges) updateAddresses() error {
 }
 
 const multiAddressMessage = "multiple usable addresses found" +
-	"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication"
+	"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication"
 
 // updateAddressesFromInternal attempts to update each member with a
 // cloud-local address from the machine.
@@ -554,7 +554,7 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 	if len(multipleAddresses) > 0 {
 		ids := strings.Join(multipleAddresses, ", ")
 		return fmt.Errorf("juju-ha-space is not set and these machines have more than one usable address: %s"+
-			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication", ids)
+			"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication", ids)
 	}
 	return nil
 }
