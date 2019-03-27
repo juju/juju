@@ -93,6 +93,10 @@ func controllerCorelation(broker *kubernetesClient) (*kubernetesClient, error) {
 	return broker, nil
 }
 
+func decideControllerNamespace(controllerName string) string {
+	return "controller-" + controllerName
+}
+
 func newcontrollerStack(
 	ctx environs.BootstrapContext,
 	stackName string,

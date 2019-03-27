@@ -96,7 +96,7 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 				msg += `
 Now you can run 
 	juju add-model <model-name>
-to create a new model to deploy CAAS workload
+to create a new model to deploy k8s workloads
 `
 			} else {
 				msg += fmt.Sprintf("\nController machines are in the %q model", bootstrap.ControllerModelName)
