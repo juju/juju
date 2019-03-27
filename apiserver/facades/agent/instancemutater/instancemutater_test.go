@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 type instanceMutaterAPISuite struct {
@@ -35,12 +36,14 @@ type instanceMutaterAPISuite struct {
 	resources  *mocks.MockResources
 
 	machineTag names.Tag
+	done       chan struct{}
 }
 
 func (s *instanceMutaterAPISuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.machineTag = names.NewMachineTag("0")
+	s.done = make(chan struct{})
 }
 
 func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
@@ -85,6 +88,14 @@ func (s *instanceMutaterAPISuite) expectFindEntity(machineTag names.Tag, entity 
 
 func (s *instanceMutaterAPISuite) expectAuthMachineAgent() {
 	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
+}
+
+func (s *instanceMutaterAPISuite) assertStop(c *gc.C) {
+	select {
+	case <-s.done:
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for notifications to be consumed")
+	}
 }
 
 type InstanceMutaterAPILifeSuite struct {
@@ -770,6 +781,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *gc.C) {
 		StringsWatcherId: "1",
 		Changes:          []string{"0"},
 	})
+	s.assertStop(c)
 }
 
 func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChannel(c *gc.C) {
@@ -797,6 +809,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithNotify(tim
 			for i := 0; i < times; i++ {
 				ch <- []string{fmt.Sprintf("%d", i)}
 			}
+			close(s.done)
 		}()
 
 		s.model.EXPECT().WatchMachines().Return(s.watcher)
@@ -849,6 +862,7 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicatio
 			NotifyWatcherId: "1",
 		}},
 	})
+	s.assertStop(c)
 }
 
 func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicationLXDProfilesWithInvalidTag(c *gc.C) {
@@ -902,6 +916,7 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicat
 			for i := 0; i < times; i++ {
 				ch <- struct{}{}
 			}
+			close(s.done)
 		}()
 
 		s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
