@@ -83,7 +83,7 @@ func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
 		mod.EXPECT().Branch(s.newBranchName).Return(gen, nil)
 	}).Finish()
 
-	result, err := s.api.AdvanceGeneration(arg)
+	result, err := s.api.TrackBranch(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
@@ -111,7 +111,7 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 		mod.EXPECT().Branch(s.newBranchName).Return(gen, nil)
 	}).Finish()
 
-	result, err := s.api.AdvanceGeneration(arg)
+	result, err := s.api.TrackBranch(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},

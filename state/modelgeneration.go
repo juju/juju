@@ -146,8 +146,9 @@ func assignGenerationAppTxnOps(id, appName string) []txn.Op {
 	}
 }
 
-// AssignAllUnits indicates that all units of the given application,
-// not already added to this generation will be.
+// AssignAllUnits ensures that all units of the input application are
+// designated as tracking the branch, by adding the unit names
+// to the generation.
 func (g *Generation) AssignAllUnits(appName string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -191,9 +192,8 @@ func (g *Generation) AssignAllUnits(appName string) error {
 	return errors.Trace(g.st.db().Run(buildTxn))
 }
 
-// AssignUnit indicates that the unit with the input name has had been added
-// to this generation and should realise config changes applied to its
-// application against this generation.
+// AssignUnit indicates that the unit with the input name is tracking this
+// branch, by adding the name to the generation.
 func (g *Generation) AssignUnit(unitName string) error {
 	appName, err := names.UnitApplication(unitName)
 	if err != nil {

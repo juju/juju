@@ -15,75 +15,74 @@ import (
 )
 
 const (
-	advanceGenerationSummary = "Advances units and/or applications to the next generation."
-	advanceGenerationDoc     = `
-Users need to be able to roll changes to applications in a safe guided 
-processes that controls the flow such that not all units of an HA application 
-are hit at once. This also allows some manual canary testing and provides 
-control over the flow of changes out to the model. 
+	trackBranchSummary = "Set units and/or applications to realise changes made under a branch."
+	trackBranchDoc     = `
+Specific units can be set to track a branch by supplying multiple unit IDs.
+All units of an application can be set to track a branch by passing an
+application name. Units can only track one branch at a time.
 
 Examples:
-    juju advance-generation redis
-    juju advance-generation redis/0
-    juju advance-generation redis/0 mysql
+    juju track test-branch redis/0
+    juju track test-branch redis
+    juju track test-branch redis -n 2
+    juju track test-branch redis/0 mysql
 
 See also:
-    add-generation
-    cancel-generation
-    switch-generation
-
-Aliases:
-    advance
+    branch
+    checkout
+    commit
+    abort
+	diff
 `
 )
 
-// NewAdvanceGenerationCommand wraps advanceGenerationCommand with sane model settings.
-func NewAdvanceGenerationCommand() cmd.Command {
-	return modelcmd.Wrap(&advanceGenerationCommand{})
+// NewTrackBranchCommand wraps trackBranchCommand with sane model settings.
+func NewTrackBranchCommand() cmd.Command {
+	return modelcmd.Wrap(&trackBranchCommand{})
 }
 
-// advanceGenerationCommand is the simplified command for accessing and setting
-// attributes related to adding model generations.
-type advanceGenerationCommand struct {
+// trackBranchCommand supplies the "track" CLI command used to make units \
+// realise changes made under a branch.
+type trackBranchCommand struct {
 	modelcmd.ModelCommandBase
 
-	api AdvanceGenerationCommandAPI
+	api TrackBranchCommandAPI
 
 	branchName string
 	entities   []string
 }
 
-// AdvanceGenerationCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package mocks -destination ./mocks/advancegeneration_mock.go github.com/juju/juju/cmd/juju/model AdvanceGenerationCommandAPI
-type AdvanceGenerationCommandAPI interface {
+// TrackBranchCommandAPI describes API methods required
+// to execute the track command.
+//go:generate mockgen -package mocks -destination ./mocks/trackbranch_mock.go github.com/juju/juju/cmd/juju/model TrackBranchCommandAPI
+type TrackBranchCommandAPI interface {
 	Close() error
 	TrackBranch(string, string, []string) error
 }
 
 // Info implements part of the cmd.Command interface.
-func (c *advanceGenerationCommand) Info() *cmd.Info {
+func (c *trackBranchCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "advance-generation",
+		Name:    "track",
 		Args:    "<branch name> <entities> ...",
-		Aliases: []string{"advance"},
-		Purpose: advanceGenerationSummary,
-		Doc:     advanceGenerationDoc,
+		Purpose: trackBranchSummary,
+		Doc:     trackBranchDoc,
 	}
 	return jujucmd.Info(info)
 }
 
 // SetFlags implements part of the cmd.Command interface.
-func (c *advanceGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *trackBranchCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 }
 
 // Init implements part of the cmd.Command interface.
-func (c *advanceGenerationCommand) Init(args []string) error {
+func (c *trackBranchCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.Errorf("a branch name plus unit and/or application names(s) must be specified")
+		return errors.Errorf("expected a branch name plus unit and/or application names(s)")
 	}
 	if len(args) == 1 {
-		return errors.Errorf("unit and/or application names(s) must be specified")
+		return errors.Errorf("expected unit and/or application names(s)")
 	}
 	for _, arg := range args[1:] {
 		if !names.IsValidApplication(arg) && !names.IsValidUnit(arg) {
@@ -95,9 +94,9 @@ func (c *advanceGenerationCommand) Init(args []string) error {
 	return nil
 }
 
-// getAPI returns the API. This allows passing in a test AdvanceGenerationCommandAPI
-// implementation.
-func (c *advanceGenerationCommand) getAPI() (AdvanceGenerationCommandAPI, error) {
+// getAPI returns the API that supplies methods
+// required to execute this command.
+func (c *trackBranchCommand) getAPI() (TrackBranchCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -110,12 +109,13 @@ func (c *advanceGenerationCommand) getAPI() (AdvanceGenerationCommandAPI, error)
 }
 
 // Run implements the meaty part of the cmd.Command interface.
-func (c *advanceGenerationCommand) Run(ctx *cmd.Context) error {
+func (c *trackBranchCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer func() { _ = client.Close() }()
+
 	_, modelDetails, err := c.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")

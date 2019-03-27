@@ -95,10 +95,9 @@ func (m *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 	return result, nil
 }
 
-// TrackBranch, adds the provided unit(s) and/or application(s) to
-// the "next" generation.  If the generation can auto complete, it is
-// made the "current" generation.
-func (m *API) AdvanceGeneration(arg params.BranchTrackArg) (params.ErrorResults, error) {
+// TrackBranch marks the input units and/or applications as tracking the input
+// branch, causing them to realise changes made under that branch.
+func (m *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, error) {
 	modelTag, err := names.ParseModelTag(arg.Model.Tag)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -108,7 +107,7 @@ func (m *API) AdvanceGeneration(arg params.BranchTrackArg) (params.ErrorResults,
 		return params.ErrorResults{}, common.ErrPerm
 	}
 
-	generation, err := m.model.Branch(arg.BranchName)
+	branch, err := m.model.Branch(arg.BranchName)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -124,9 +123,9 @@ func (m *API) AdvanceGeneration(arg params.BranchTrackArg) (params.ErrorResults,
 		}
 		switch tag.Kind() {
 		case names.ApplicationTagKind:
-			result.Results[i].Error = common.ServerError(generation.AssignAllUnits(tag.Id()))
+			result.Results[i].Error = common.ServerError(branch.AssignAllUnits(tag.Id()))
 		case names.UnitTagKind:
-			result.Results[i].Error = common.ServerError(generation.AssignUnit(tag.Id()))
+			result.Results[i].Error = common.ServerError(branch.AssignUnit(tag.Id()))
 		default:
 			result.Results[i].Error = common.ServerError(
 				errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag))

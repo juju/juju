@@ -18,13 +18,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type advanceGenerationSuite struct {
+type trackBranchSuite struct {
 	generationBaseSuite
 }
 
-var _ = gc.Suite(&advanceGenerationSuite{})
+var _ = gc.Suite(&trackBranchSuite{})
 
-func (s *advanceGenerationSuite) SetUpTest(c *gc.C) {
+func (s *trackBranchSuite) SetUpTest(c *gc.C) {
 	s.generationBaseSuite.SetUpTest(c)
 
 	// Update the local store to indicate we are on the "new-branch" branch.
@@ -35,27 +35,27 @@ func (s *advanceGenerationSuite) SetUpTest(c *gc.C) {
 	}), jc.ErrorIsNil)
 }
 
-func (s *advanceGenerationSuite) TestInitApplication(c *gc.C) {
+func (s *trackBranchSuite) TestInitApplication(c *gc.C) {
 	err := s.runInit(s.branchName, "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *advanceGenerationSuite) TestInitUnit(c *gc.C) {
+func (s *trackBranchSuite) TestInitUnit(c *gc.C) {
 	err := s.runInit(s.branchName, "ubuntu/0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *advanceGenerationSuite) TestInitEmpty(c *gc.C) {
+func (s *trackBranchSuite) TestInitEmpty(c *gc.C) {
 	err := s.runInit()
-	c.Assert(err, gc.ErrorMatches, `a branch name plus unit and/or application names\(s\) must be specified`)
+	c.Assert(err, gc.ErrorMatches, `expected a branch name plus unit and/or application names\(s\)`)
 }
 
-func (s *advanceGenerationSuite) TestInitInvalid(c *gc.C) {
+func (s *trackBranchSuite) TestInitInvalid(c *gc.C) {
 	err := s.runInit(s.branchName, "test me")
 	c.Assert(err, gc.ErrorMatches, `invalid application or unit name "test me"`)
 }
 
-func (s *advanceGenerationSuite) TestRunCommand(c *gc.C) {
+func (s *trackBranchSuite) TestRunCommand(c *gc.C) {
 	mockController, api := setUpAdvanceMocks(c)
 	defer mockController.Finish()
 
@@ -65,7 +65,7 @@ func (s *advanceGenerationSuite) TestRunCommand(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *advanceGenerationSuite) TestRunCommandFail(c *gc.C) {
+func (s *trackBranchSuite) TestRunCommandFail(c *gc.C) {
 	ctrl, api := setUpAdvanceMocks(c)
 	defer ctrl.Finish()
 
@@ -75,17 +75,17 @@ func (s *advanceGenerationSuite) TestRunCommandFail(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "fail")
 }
 
-func (s *advanceGenerationSuite) runInit(args ...string) error {
-	return cmdtesting.InitCommand(model.NewAdvanceGenerationCommandForTest(nil, s.store), args)
+func (s *trackBranchSuite) runInit(args ...string) error {
+	return cmdtesting.InitCommand(model.NewTrackBranchCommandForTest(nil, s.store), args)
 }
 
-func (s *advanceGenerationSuite) runCommand(c *gc.C, api model.AdvanceGenerationCommandAPI, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, model.NewAdvanceGenerationCommandForTest(api, s.store), args...)
+func (s *trackBranchSuite) runCommand(c *gc.C, api model.TrackBranchCommandAPI, args ...string) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, model.NewTrackBranchCommandForTest(api, s.store), args...)
 }
 
-func setUpAdvanceMocks(c *gc.C) (*gomock.Controller, *mocks.MockAdvanceGenerationCommandAPI) {
+func setUpAdvanceMocks(c *gc.C) (*gomock.Controller, *mocks.MockTrackBranchCommandAPI) {
 	ctrl := gomock.NewController(c)
-	api := mocks.NewMockAdvanceGenerationCommandAPI(ctrl)
+	api := mocks.NewMockTrackBranchCommandAPI(ctrl)
 	api.EXPECT().Close()
 	return ctrl, api
 }

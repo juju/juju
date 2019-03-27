@@ -65,7 +65,7 @@ func (c *Client) TrackBranch(modelUUID, branchName string, entities []string) er
 		BranchName: branchName,
 	}
 	if len(entities) == 0 {
-		return errors.Trace(errors.New("No units or applications to advance"))
+		return errors.New("no units or applications specified")
 	}
 	for _, entity := range entities {
 		switch {
@@ -76,16 +76,14 @@ func (c *Client) TrackBranch(modelUUID, branchName string, entities []string) er
 			arg.Entities = append(arg.Entities,
 				params.Entity{Tag: names.NewUnitTag(entity).String()})
 		default:
-			return errors.Trace(errors.New("Must be application or unit"))
+			return errors.Errorf("%q is not an application or a unit", entity)
 		}
 	}
-	err := c.facade.FacadeCall("AdvanceGeneration", arg, &result)
+	err := c.facade.FacadeCall("TrackBranch", arg, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// If there were errors based on the advancing units, return those.
-	// Otherwise check the results of auto-completion.
 	if err := result.Combine(); err != nil {
 		return errors.Trace(err)
 	}
