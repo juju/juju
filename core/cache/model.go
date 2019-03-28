@@ -10,9 +10,15 @@ import (
 	"github.com/juju/pubsub"
 )
 
-const modelConfigChange = "model-config-change"
-const modelMachineChange = "model-machine-change"
-const modelUnitChange = "model-unit-change"
+const (
+	// a machine has been added or removed from the model.
+	modelAddRemoveMachine = "model-add-remove-machine"
+	// model config has changed.
+	modelConfigChange = "model-config-change"
+	// a unit in the model has been changed such than a lxd profile change
+	// maybe be necessary has been made.
+	modelUnitLXDProfileChange = "model-unit-lxd-profile-change"
+)
 
 func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 	m := &Model{
@@ -132,7 +138,7 @@ func (m *Model) WatchMachines() *ChangeWatcher {
 	}
 
 	w := newAddRemoveWatcher(machines...)
-	unsub := m.hub.Subscribe(m.topic(modelMachineChange), w.changed)
+	unsub := m.hub.Subscribe(m.topic(modelAddRemoveMachine), w.changed)
 
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -206,7 +212,7 @@ func (m *Model) updateUnit(ch UnitChange) {
 	if !found {
 		unit = newUnit(m.metrics, m.hub)
 		m.units[ch.Name] = unit
-		m.hub.Publish(m.topic(modelUnitChange), unit)
+		m.hub.Publish(m.topic(modelUnitLXDProfileChange), unit)
 	}
 	unit.setDetails(ch)
 
@@ -218,7 +224,7 @@ func (m *Model) removeUnit(ch RemoveUnit) {
 	m.mu.Lock()
 	unit, ok := m.units[ch.Name]
 	if ok {
-		m.hub.Publish(m.topic(modelUnitChange), []string{ch.Name, unit.details.Application})
+		m.hub.Publish(m.topic(modelUnitLXDProfileChange), []string{ch.Name, unit.details.Application})
 	}
 	delete(m.units, ch.Name)
 	m.mu.Unlock()
@@ -232,7 +238,7 @@ func (m *Model) updateMachine(ch MachineChange) {
 	if !found {
 		machine = newMachine(m)
 		m.machines[ch.Id] = machine
-		m.hub.Publish(m.topic(modelMachineChange), []string{ch.Id})
+		m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
 	}
 	machine.setDetails(ch)
 
@@ -243,7 +249,7 @@ func (m *Model) updateMachine(ch MachineChange) {
 func (m *Model) removeMachine(ch RemoveMachine) {
 	m.mu.Lock()
 	delete(m.machines, ch.Id)
-	m.hub.Publish(m.topic(modelMachineChange), []string{ch.Id})
+	m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
 	m.mu.Unlock()
 }
 
