@@ -142,7 +142,7 @@ func (s *DeploySuite) runDeployWithOutput(c *gc.C, args ...string) (string, stri
 func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
-		err := cmdtesting.InitCommand(NewDeployCommand(), t.args)
+		err := cmdtesting.InitCommand(NewDeployCommandForTest2(s.charmstore, s.charmrepo), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
