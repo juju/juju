@@ -402,15 +402,77 @@ func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 	return nil
 }
 
+func (c *bootstrapCommand) initializeHostedModel(
+	isCAASController bool,
+	config bootstrapConfigs,
+	store jujuclient.ClientStore,
+	environ environs.BootstrapEnviron,
+	bootstrapParams *bootstrap.BootstrapParams,
+) (*jujuclient.ModelDetails, error) {
+	if isCAASController && c.hostedModelName == defaultHostedModelName {
+		// k8s controller does NOT have "default" hosted model
+		// if the user didn't specify a preferred hosted model name.
+		return nil, nil
+	}
+
+	hostedModelUUID, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	hostedModelType := model.IAAS
+	if isCAASController {
+		hostedModelType = model.CAAS
+	}
+	modelDetails := &jujuclient.ModelDetails{
+		ModelUUID: hostedModelUUID.String(),
+		ModelType: hostedModelType,
+	}
+
+	if featureflag.Enabled(feature.Generations) {
+		modelDetails.ModelGeneration = model.GenerationCurrent
+	}
+
+	if err := store.UpdateModel(
+		c.controllerName,
+		c.hostedModelName,
+		*modelDetails,
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	bootstrapParams.HostedModelConfig = c.hostedModelConfig(
+		hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ,
+	)
+
+	if !c.noSwitch {
+		// Set the current model to the initial hosted model.
+		if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return modelDetails, nil
+}
+
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
-	var initialHostedModelInstructionMsg string
+	var hostedModel *jujuclient.ModelDetails
 	defer func() {
 		resultErr = handleChooseCloudRegionError(ctx, resultErr)
 		if resultErr == nil {
-			defer ctx.Infof(initialHostedModelInstructionMsg)
+			var msg string
+			if hostedModel == nil {
+				msg = `
+Now you can run 
+	juju add-model <model-name>
+to create a new model to deploy k8s workloads.
+`
+			} else {
+				msg = fmt.Sprintf("Initial model %q added", c.hostedModelName)
+			}
+			defer ctx.Infof(msg)
 		}
 	}()
 
@@ -568,59 +630,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	getHostedModel := func() (*jujuclient.ModelDetails, error) {
-		if isCAASController && c.hostedModelName == defaultHostedModelName {
-			// k8s controller does NOT have "default" hosted model
-			// if the user didn't specify a preferred hosted model name.
-			initialHostedModelInstructionMsg = `
-Now you can run 
-	juju add-model <model-name>
-to create a new model to deploy k8s workloads
-`
-			return nil, nil
-		}
-		initialHostedModelInstructionMsg = fmt.Sprintf("Initial model %q added", c.hostedModelName)
-
-		hostedModelUUID, err := utils.NewUUID()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		hostedModelType := model.IAAS
-		if isCAASController {
-			hostedModelType = model.CAAS
-		}
-		modelDetails := &jujuclient.ModelDetails{
-			ModelUUID: hostedModelUUID.String(),
-			ModelType: hostedModelType,
-		}
-
-		if featureflag.Enabled(feature.Generations) {
-			modelDetails.ModelGeneration = model.GenerationCurrent
-		}
-
-		if err := store.UpdateModel(
-			c.controllerName,
-			c.hostedModelName,
-			*modelDetails,
-		); err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		bootstrapParams.HostedModelConfig = c.hostedModelConfig(
-			hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ,
-		)
-
-		if !c.noSwitch {
-			// Set the current model to the initial hosted model.
-			if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		return modelDetails, nil
-	}
-
-	hostedModel, err := getHostedModel()
+	hostedModel, err = c.initializeHostedModel(
+		isCAASController, config, store, environ, &bootstrapParams,
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}

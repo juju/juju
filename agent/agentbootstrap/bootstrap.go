@@ -191,7 +191,7 @@ func ensureHostedModel(
 	adminUser names.UserTag,
 	cloudCredentialTag names.CloudCredentialTag,
 ) error {
-	if args.HostedModelConfig == nil || len(args.HostedModelConfig) == 0 {
+	if len(args.HostedModelConfig) == 0 {
 		logger.Debugf("no hosted model configured")
 		return nil
 	}
