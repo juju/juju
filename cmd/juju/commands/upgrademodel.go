@@ -77,9 +77,10 @@ func newUpgradeJujuCommand(store jujuclient.ClientStore, minUpgradeVers map[int]
 	return modelcmd.Wrap(cmd, options...)
 }
 
-// upgradeJujuCommand upgrades the agents in a juju installation.
-type upgradeJujuCommand struct {
-	modelcmd.ModelCommandBase
+// upgradeFlags is used by both the
+// upgradeJujuCommand and upgradeControllerCommand
+// to hold flags common to both.
+type upgradeFlags struct {
 	vers          string
 	Version       version.Number
 	BuildAgent    bool
@@ -91,12 +92,32 @@ type upgradeJujuCommand struct {
 	// IgnoreAgentVersions is used to allow an admin to request an agent version without waiting for all agents to be at the right
 	// version.
 	IgnoreAgentVersions bool
+}
+
+func (u *upgradeFlags) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&u.vers, "agent-version", "", "Upgrade to specific version")
+	f.StringVar(&u.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
+	f.BoolVar(&u.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
+	f.BoolVar(&u.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
+	f.BoolVar(&u.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
+	f.BoolVar(&u.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
+	f.BoolVar(&u.AssumeYes, "yes", false, "")
+	f.BoolVar(&u.IgnoreAgentVersions, "ignore-agent-versions", false,
+		"Don't check if all agents have already reached the current version")
+}
+
+// upgradeJujuCommand upgrades the agents in a juju installation.
+type upgradeJujuCommand struct {
+	modelcmd.ModelCommandBase
+	upgradeFlags
 
 	// minMajorUpgradeVersion maps known major numbers to
 	// the minimum version that can be upgraded to that
 	// major version.  For example, users must be running
 	// 1.25.4 or later in order to upgrade to 2.0.
 	minMajorUpgradeVersion map[int]version.Number
+
+	upgradeMessage string
 }
 
 func (c *upgradeJujuCommand) Info() *cmd.Info {
@@ -110,18 +131,13 @@ func (c *upgradeJujuCommand) Info() *cmd.Info {
 
 func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.vers, "agent-version", "", "Upgrade to specific version")
-	f.StringVar(&c.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
-	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
-	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
-	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
-	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
-	f.BoolVar(&c.AssumeYes, "yes", false, "")
-	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
-		"Don't check if all agents have already reached the current version")
+	c.upgradeFlags.SetFlags(f)
 }
 
 func (c *upgradeJujuCommand) Init(args []string) error {
+	if c.upgradeMessage == "" {
+		c.upgradeMessage = "upgrade to this version by running\n    juju upgrade-model"
+	}
 	if c.vers != "" {
 		vers, err := version.Parse(c.vers)
 		if err != nil {
@@ -378,9 +394,9 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	if c.DryRun {
 		if c.BuildAgent {
-			fmt.Fprint(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-model --build-agent\n")
+			fmt.Fprintf(ctx.Stderr, "%s --build-agent\n", c.upgradeMessage)
 		} else {
-			fmt.Fprintf(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-model\n")
+			fmt.Fprintf(ctx.Stderr, "%s\n", c.upgradeMessage)
 		}
 	} else {
 		if c.ResetPrevious {
