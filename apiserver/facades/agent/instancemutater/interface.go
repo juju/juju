@@ -74,5 +74,5 @@ type ModelCache interface {
 
 // ModelCacheMachine represents a point of use Machine from the cache package.
 type ModelCacheMachine interface {
-	WatchApplicationLXDProfiles() cache.NotifyWatcher
+	WatchApplicationLXDProfiles() (cache.NotifyWatcher, error)
 }
