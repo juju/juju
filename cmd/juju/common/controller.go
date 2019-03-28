@@ -63,13 +63,7 @@ func tryAPI(c *modelcmd.ModelCommandBase) error {
 // WaitForAgentInitialisation polls the bootstrapped controller with a read-only
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
-func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName, hostedModelName string) (err error) {
-	modelType, err := c.ModelType()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	isCAAS := modelType == model.CAAS
-
+func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, isCAASController bool, controllerName, hostedModelName string) (err error) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempts := utils.AttemptStrategy{
 		Min:   bootstrapReadyPollCount,
@@ -92,16 +86,10 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 		err = tryAPI(c)
 		if err == nil {
 			msg := fmt.Sprintf("\nBootstrap complete, controller %q now is available", controllerName)
-			if isCAAS {
+			if isCAASController {
 				msg += fmt.Sprintf(" in namespace %q", caasprovider.DecideControllerNamespace(controllerName))
-				msg += `
-Now you can run 
-	juju add-model <model-name>
-to create a new model to deploy k8s workloads
-`
 			} else {
 				msg += fmt.Sprintf("\nController machines are in the %q model", bootstrap.ControllerModelName)
-				msg += fmt.Sprintf("\nInitial model %q added", hostedModelName)
 			}
 			ctx.Infof(msg)
 			break

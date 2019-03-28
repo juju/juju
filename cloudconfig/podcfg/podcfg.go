@@ -289,6 +289,17 @@ func (cfg *ControllerPodConfig) verifyControllerConfig() (err error) {
 	return nil
 }
 
+// GetHostedModel checks if hosted model was requested to create.
+func (cfg *ControllerPodConfig) GetHostedModel() (string, bool) {
+	hasHostedModel := len(cfg.Bootstrap.HostedModelConfig) > 0
+	if hasHostedModel {
+		modelName := cfg.Bootstrap.HostedModelConfig[config.NameKey].(string)
+		logger.Debugf("configured hosted model %q for bootstrapping", modelName)
+		return modelName, true
+	}
+	return "", false
+}
+
 // VerifyConfig verifies that the BootstrapConfig is valid.
 func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if cfg.ControllerModelConfig == nil {
@@ -308,9 +319,6 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	}
 	if cfg.StateServingInfo.APIPort == 0 {
 		return errors.New("missing API port")
-	}
-	if len(cfg.HostedModelConfig) == 0 {
-		return errors.New("missing hosted model config")
 	}
 	return nil
 }
@@ -354,11 +362,7 @@ func NewControllerPodConfig(
 		DataDir:         dataDir,
 		LogDir:          path.Join(logDir, "juju"),
 		MetricsSpoolDir: metricsSpoolDir,
-		// CAAS only has JobManageModel.
-		Jobs: []multiwatcher.MachineJob{
-			multiwatcher.JobManageModel,
-		},
-		Tags: map[string]string{},
+		Tags:            map[string]string{},
 		// Parameter entries.
 		ControllerTag:  controllerTag,
 		MachineId:      podID,
@@ -406,6 +410,7 @@ func NewBootstrapControllerPodConfig(config controller.Config, controllerName, s
 			},
 		},
 	}
+
 	pcfg.Jobs = []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,

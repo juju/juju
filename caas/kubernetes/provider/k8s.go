@@ -269,6 +269,23 @@ func (k *kubernetesClient) Bootstrap(
 
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
+		// validate hosted model name if we need to create it.
+		if hostedModelName, has := pcfg.GetHostedModel(); has {
+			_, err := k.getNamespaceByName(hostedModelName)
+			if err == nil {
+				return errors.NewAlreadyExists(nil,
+					fmt.Sprintf(`
+namespace %q already exists in the cluster,
+please choose a different hosted model name then try again.
+`, hostedModelName),
+				)
+			}
+			if !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			// hosted model is all good.
+		}
+
 		// we use controller name to name controller namespace in bootstrap time.
 		setControllerNamespace := func(controllerName string, broker *kubernetesClient) error {
 			nsName := DecideControllerNamespace(controllerName)

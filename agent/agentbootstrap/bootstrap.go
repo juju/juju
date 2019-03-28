@@ -191,6 +191,10 @@ func ensureHostedModel(
 	adminUser names.UserTag,
 	cloudCredentialTag names.CloudCredentialTag,
 ) error {
+	if len(args.HostedModelConfig) == 0 {
+		logger.Debugf("no hosted model configured")
+		return nil
+	}
 
 	// Create the initial hosted model, with the model config passed to
 	// bootstrap, which contains the UUID, name for the hosted model,
@@ -240,17 +244,12 @@ func ensureHostedModel(
 		return errors.Annotate(err, "opening hosted model environment")
 	}
 
-	// TODO(bootstrapping): enable creating default hostedmodel after we solve the "default" namespace conflict!
-	if isCAAS {
-		logger.Debugf("default hosted model is disabled for k8s controller due to conflict with the k8s default namespace.")
-	} else {
-		if err := hostedModelEnv.Create(
-			state.CallContext(st),
-			environs.CreateParams{
-				ControllerUUID: controllerUUID,
-			}); err != nil {
-			return errors.Annotate(err, "creating hosted model environment")
-		}
+	if err := hostedModelEnv.Create(
+		state.CallContext(st),
+		environs.CreateParams{
+			ControllerUUID: controllerUUID,
+		}); err != nil {
+		return errors.Annotate(err, "creating hosted model environment")
 	}
 
 	ctrlModel, err := st.Model()
