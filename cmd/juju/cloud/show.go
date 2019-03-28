@@ -21,7 +21,7 @@ import (
 )
 
 type showCloudCommand struct {
-	modelcmd.CommandBase
+	modelcmd.OptionalControllerCommand
 	out cmd.Output
 
 	CloudName string
@@ -42,14 +42,16 @@ options.
 If ‘--include-config’ is used, additional configuration (key, type, and
 description) specific to the cloud are displayed if available.
 
-If you supply a controller name the cloud information will be queried from the
-controller.
+The current controller is used unless the --controller option is specified.
+
+If --local is specified, Juju shows the cloud from internal cache.
 
 Examples:
 
     juju show-cloud google
     juju show-cloud azure-china --output ~/azure_cloud_details.txt
     juju show-cloud myopenstack --controller mycontroller
+    juju show-cloud myopenstack --local
 
 See also:
     clouds
@@ -63,8 +65,10 @@ type showCloudAPI interface {
 
 // NewShowCloudCommand returns a command to list cloud information.
 func NewShowCloudCommand() cmd.Command {
+	store := jujuclient.NewFileClientStore()
 	c := &showCloudCommand{
-		store: jujuclient.NewFileClientStore(),
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		store:                     store,
 	}
 	c.showCloudAPIFunc = c.cloudAPI
 	return modelcmd.WrapBase(c)
@@ -79,14 +83,12 @@ func (c *showCloudCommand) cloudAPI(controllerName string) (showCloudAPI, error)
 }
 
 func (c *showCloudCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
+	c.OptionalControllerCommand.SetFlags(f)
 	// We only support yaml for display purposes.
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.includeConfig, "include-config", false, "Print available config option details specific to the specified cloud")
-	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
-	f.StringVar(&c.controllerName, "controller", "", "")
 }
 
 func (c *showCloudCommand) Init(args []string) error {
@@ -95,6 +97,11 @@ func (c *showCloudCommand) Init(args []string) error {
 		c.CloudName = args[0]
 	default:
 		return errors.New("no cloud specified")
+	}
+	var err error
+	c.controllerName, err = c.ControllerNameFromArg()
+	if err != nil {
+		return errors.Trace(err)
 	}
 	return cmd.CheckEmpty(args[1:])
 }

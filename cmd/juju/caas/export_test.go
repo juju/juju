@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -24,13 +25,14 @@ func NewAddCAASCommandForTest(
 	getAllCloudDetails func() (map[string]*jujucmdcloud.CloudDetails, error),
 ) cmd.Command {
 	cmd := &AddCAASCommand{
-		cloudMetadataStore:    cloudMetadataStore,
-		store:                 store,
-		addCloudAPIFunc:       addCloudAPIFunc,
-		brokerGetter:          brokerGetter,
-		k8sCluster:            k8sCluster,
-		newClientConfigReader: newClientConfigReaderFunc,
-		getAllCloudDetails:    getAllCloudDetails,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		cloudMetadataStore:        cloudMetadataStore,
+		store:                     store,
+		addCloudAPIFunc:           addCloudAPIFunc,
+		brokerGetter:              brokerGetter,
+		k8sCluster:                k8sCluster,
+		newClientConfigReader:     newClientConfigReaderFunc,
+		getAllCloudDetails:        getAllCloudDetails,
 	}
 	return cmd
 }
@@ -41,9 +43,10 @@ func NewRemoveCAASCommandForTest(
 	removeCloudAPIFunc func() (RemoveCloudAPI, error),
 ) cmd.Command {
 	cmd := &RemoveCAASCommand{
-		cloudMetadataStore: cloudMetadataStore,
-		store:              store,
-		apiFunc:            removeCloudAPIFunc,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		cloudMetadataStore:        cloudMetadataStore,
+		store:                     store,
+		apiFunc:                   removeCloudAPIFunc,
 	}
 	return cmd
 }

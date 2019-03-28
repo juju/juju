@@ -31,7 +31,10 @@ var _ = gc.Suite(&updateCloudSuite{})
 func (s *updateCloudSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.api = &fakeUpdateCloudAPI{}
-	s.store = jujuclient.NewMemStore()
+	store := jujuclient.NewMemStore()
+	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
+	store.CurrentControllerName = "mycontroller"
+	s.store = store
 }
 
 func (s *updateCloudSuite) TestBadArgs(c *gc.C) {
@@ -82,7 +85,7 @@ func (s *updateCloudSuite) TestUpdateLocalCacheFromFile(c *gc.C) {
 	cmd, fileName := s.setupCloudFileScenario(c, func(controllerName string) (cloud.UpdateCloudAPI, error) {
 		return nil, errors.New("")
 	})
-	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName)
+	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName, "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.Calls(), gc.HasLen, 0)
 }
@@ -103,7 +106,7 @@ func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
 		controllerNameCalled = controllerName
 		return s.api, nil
 	})
-	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName, "--controller", "mycontroller")
+	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "UpdateCloud", "Close")
 	c.Assert(controllerNameCalled, gc.Equals, "mycontroller")

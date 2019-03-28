@@ -6,10 +6,9 @@ package caas
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
-	"github.com/juju/juju/cloud"
 
 	cloudapi "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -21,10 +20,14 @@ Removes a k8s endpoint from Juju.`[1:]
 var usageRemoveCAASDetails = `
 Removes the specified k8s cloud from this client.
 If --controller is used, also removes the cloud 
-from the specfied controller (if it is not in use).
+from the specified controller (if it is not in use).
+
+If you just want to update the local cache and not
+a running controller, use the --local option.
 
 Examples:
     juju remove-k8s myk8scloud
+    juju remove-k8s myk8scloud --local
     juju remove-k8s --controller mycontroller myk8scloud
     
 See also:
@@ -39,7 +42,7 @@ type RemoveCloudAPI interface {
 
 // RemoveCAASCommand is the command that allows you to remove a k8s cloud.
 type RemoveCAASCommand struct {
-	modelcmd.CommandBase
+	modelcmd.OptionalControllerCommand
 
 	// cloudName is the name of the caas cloud to remove.
 	cloudName string
@@ -52,9 +55,11 @@ type RemoveCAASCommand struct {
 
 // NewRemoveCAASCommand returns a command to add caas information.
 func NewRemoveCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
+	store := jujuclient.NewFileClientStore()
 	cmd := &RemoveCAASCommand{
-		cloudMetadataStore: cloudMetadataStore,
-		store:              jujuclient.NewFileClientStore(),
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		cloudMetadataStore:        cloudMetadataStore,
+		store:                     store,
 	}
 	cmd.apiFunc = func() (RemoveCloudAPI, error) {
 		root, err := cmd.NewAPIRoot(cmd.store, cmd.controllerName, "")
@@ -76,19 +81,16 @@ func (c *RemoveCAASCommand) Info() *cmd.Info {
 	})
 }
 
-// SetFlags initializes the flags supported by the command.
-func (c *RemoveCAASCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
-	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
-	f.StringVar(&c.controllerName, "controller", "", "")
-}
-
 // Init populates the command with the args from the command line.
 func (c *RemoveCAASCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return errors.Errorf("missing k8s name.")
 	}
 	c.cloudName = args[0]
+	c.controllerName, err = c.ControllerNameFromArg()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return cmd.CheckEmpty(args[1:])
 }
 

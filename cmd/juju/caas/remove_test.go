@@ -120,7 +120,7 @@ func (s *removeCAASSuite) TestRemove(c *gc.C) {
 
 func (s *removeCAASSuite) TestRemoveLocalOnly(c *gc.C) {
 	cmd := s.makeCommand()
-	_, err := s.runCommand(c, cmd, "myk8s")
+	_, err := s.runCommand(c, cmd, "myk8s", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.fakeCloudAPI.CheckNoCalls(c)

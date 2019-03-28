@@ -17,7 +17,7 @@ import (
 )
 
 type updateCloudCommand struct {
-	modelcmd.CommandBase
+	modelcmd.OptionalControllerCommand
 
 	cloudMetadataStore CloudMetadataStore
 
@@ -44,10 +44,11 @@ cloud details.
 
 To update a cloud on the controller you can provide just the <cloud name> which
 will use the cloud defined in the local cache or you can provide a cloud
-definition yaml file from which to retrieve the cloud details.
+definition yaml file from which to retrieve the cloud details; the current
+controller is used unless the --controller option is specified.
 
-When <cloud definition file> is provided with <cloud name> but --controller is
-not specified, Juju stores that definition in its internal cache directly after
+When <cloud definition file> is provided with <cloud name> and --local is
+specified, Juju stores that definition in its internal cache directly after
 validating the contents.
 
 Examples:
@@ -55,6 +56,7 @@ Examples:
     juju update-cloud mymaas -f path/to/maas.yaml
     juju update-cloud mymaas -f path/to/maas.yaml --controller mycontroller
     juju update-cloud mymaas --controller mycontroller
+    juju update-cloud mymaas --local -f path/to/maas.yaml
 
 See also:
     add-cloud
@@ -72,9 +74,11 @@ var NewUpdateCloudCommand = func(cloudMetadataStore CloudMetadataStore) cmd.Comm
 }
 
 func newUpdateCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
+	store := jujuclient.NewFileClientStore()
 	c := &updateCloudCommand{
-		cloudMetadataStore: cloudMetadataStore,
-		store:              jujuclient.NewFileClientStore(),
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		cloudMetadataStore:        cloudMetadataStore,
+		store:                     store,
 	}
 	c.updateCloudAPIFunc = c.updateCloudAPI
 
@@ -103,6 +107,12 @@ func (c *updateCloudCommand) Init(args []string) error {
 		return err
 	}
 
+	var err error
+	c.controllerName, err = c.ControllerNameFromArg()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// Condense arguments into an action,
 	c.commandAction = c.updateLocalCacheFromFile
 	if c.controllerName != "" {
@@ -129,10 +139,8 @@ func (c *updateCloudCommand) Info() *cmd.Info {
 }
 
 func (c *updateCloudCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
+	c.OptionalControllerCommand.SetFlags(f)
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
-	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
-	f.StringVar(&c.controllerName, "controller", "", "")
 }
 
 func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {

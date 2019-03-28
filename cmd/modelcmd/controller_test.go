@@ -141,3 +141,89 @@ func runTestControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...str
 	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return cmd, errors.Trace(err)
 }
+
+type OptionalControllerCommandSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&OptionalControllerCommandSuite{})
+
+func (s *OptionalControllerCommandSuite) TestControllerCommandNoneRunning(c *gc.C) {
+	cmd, err := runTestOptionalControllerCommand(c, jujuclient.NewMemStore())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cmd.ControllerNameFromArg()
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, `
+No controllers registered.
+
+Please either create a new controller using "juju bootstrap" or connect to
+another controller that you have been given access to using "juju register".
+
+Use --local to update the local cache.`[1:])
+}
+
+func (s *OptionalControllerCommandSuite) TestControllerCommandCurrent(c *gc.C) {
+	store := jujuclient.NewMemStore()
+	store.Controllers = map[string]jujuclient.ControllerDetails{
+		"fred": {},
+	}
+	store.CurrentControllerName = "fred"
+	cmd, err := runTestOptionalControllerCommand(c, store)
+	c.Assert(err, jc.ErrorIsNil)
+	controllerName, err := cmd.ControllerNameFromArg()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerName, gc.Equals, "fred")
+}
+
+func (s *OptionalControllerCommandSuite) TestControllerCommandCurrentFromEnv(c *gc.C) {
+	s.PatchEnvironment("JUJU_CONTROLLER", "mary")
+	store := jujuclient.NewMemStore()
+	store.Controllers = map[string]jujuclient.ControllerDetails{
+		"fred": {},
+		"mary": {},
+	}
+	store.CurrentControllerName = "fred"
+	cmd, err := runTestOptionalControllerCommand(c, store)
+	c.Assert(err, jc.ErrorIsNil)
+	controllerName, err := cmd.ControllerNameFromArg()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerName, gc.Equals, "mary")
+}
+
+func (s *OptionalControllerCommandSuite) TestControllerCommandLocal(c *gc.C) {
+	store := jujuclient.NewMemStore()
+	store.Controllers = map[string]jujuclient.ControllerDetails{
+		"fred": {},
+	}
+	store.CurrentControllerName = "fred"
+	cmd, err := runTestOptionalControllerCommand(c, store, "--local")
+	c.Assert(err, jc.ErrorIsNil)
+	controllerName, err := cmd.ControllerNameFromArg()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerName, gc.Equals, "")
+}
+
+type testOptionalControllerCommand struct {
+	modelcmd.OptionalControllerCommand
+}
+
+func (c *testOptionalControllerCommand) Info() *cmd.Info {
+	return jujucmd.Info(&cmd.Info{
+		Name:        "testOptionalControllerCommand",
+		FlagKnownAs: "option",
+	})
+}
+
+func (c *testOptionalControllerCommand) Run(ctx *cmd.Context) error {
+	return nil
+}
+
+func runTestOptionalControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*testOptionalControllerCommand, error) {
+	cmd := &testOptionalControllerCommand{
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store: store,
+		},
+	}
+	_, err := cmdtesting.RunCommand(c, cmd, args...)
+	return cmd, errors.Trace(err)
+}
