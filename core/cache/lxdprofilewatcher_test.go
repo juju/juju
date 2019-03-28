@@ -18,6 +18,7 @@ type lxdProfileWatcherSuite struct {
 	model    *cache.Model
 	machine0 *cache.Machine
 	machine1 *cache.Machine
+	wc0      NotifyWatcherC
 }
 
 var _ = gc.Suite(&lxdProfileWatcherSuite{})
@@ -27,60 +28,69 @@ func (s *lxdProfileWatcherSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcher(c *gc.C) {
+	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
+}
+
+func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherError(c *gc.C) {
 	s.setupOneMachineAppLXDProfileWatcherScenario(c)
-	w := s.machine0.WatchApplicationLXDProfiles()
-	defer workertest.CleanKill(c, w)
-	wc := NewNotifyWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange()
+	// set up a subordinate unit without a principal.
+	uc := unitChange
+	uc.Name = "subordinate/0"
+	uc.Subordinate = true
+	uc.Principal = "principal/0"
+	s.model.UpdateUnit(uc)
+	_, err := s.machine0.WatchApplicationLXDProfiles()
+	c.Assert(err, gc.ErrorMatches, "failed to get units to start MachineAppLXDProfileWatcher: principal unit \"principal/0\" for subordinate subordinate/0 not found")
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherNewCharmRevNoProfile(c *gc.C) {
-	s.setupOneMachineAppLXDProfileWatcherScenario(c)
-	w := s.machine0.WatchApplicationLXDProfiles()
-	defer workertest.CleanKill(c, w)
-	wc := NewNotifyWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange()
+	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
 
 	// Start with a charm having a profile so change the charm's profile
 	// from existing to not, should be notified to remove the profile.
 	s.updateCharmForMachineAppLXDProfileWatcher("2", false)
-	wc.AssertOneChange()
+	s.wc0.AssertOneChange()
 
 	// Changing the charm url, and the profile stays empty,
 	// should not be notified to remove the profile.
 	s.updateCharmForMachineAppLXDProfileWatcher("3", false)
-	wc.AssertNoChange()
+	s.wc0.AssertNoChange()
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherNewCharmRevProfile(c *gc.C) {
-	s.setupOneMachineAppLXDProfileWatcherScenario(c)
-	w := s.machine0.WatchApplicationLXDProfiles()
-	defer workertest.CleanKill(c, w)
-	wc := NewNotifyWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange()
-
+	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
 	s.updateCharmForMachineAppLXDProfileWatcher("2", true)
-	wc.AssertOneChange()
+	s.wc0.AssertOneChange()
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherAddUnit(c *gc.C) {
+	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
+
 	// New unit added to existing machine doesn't have a charm url yet.
-	s.testMachineAppLXDProfileWatcherAddUnit(c,
+	// It may been added without a machine id either.
+	s.model.UpdateUnit(
 		cache.UnitChange{
 			ModelUUID:   "model-uuid",
 			Name:        "application-name/1",
 			Application: "application-name",
 			Series:      "bionic",
-			//CharmURL:    "www.charm-url.com-1",
-			MachineId: "0",
-		}, true)
+		})
+	s.wc0.AssertNoChange()
+
+	// Add the machine id, this time we should get a notification.
+	s.model.UpdateUnit(cache.UnitChange{
+		ModelUUID:   "model-uuid",
+		Name:        "application-name/1",
+		Application: "application-name",
+		Series:      "bionic",
+		MachineId:   "0",
+	})
+	s.wc0.AssertOneChange()
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherAddUnitWrongMachine(c *gc.C) {
-	s.testMachineAppLXDProfileWatcherAddUnit(c,
+	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
+	s.model.UpdateUnit(
 		cache.UnitChange{
 			ModelUUID:   "model-uuid",
 			Name:        "do-not-watch/2",
@@ -88,36 +98,22 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherAddUnitWrongMach
 			Series:      "bionic",
 			CharmURL:    "www.no-charm-url.com-1",
 			MachineId:   "42",
-		}, false)
-}
-
-func (s *lxdProfileWatcherSuite) testMachineAppLXDProfileWatcherAddUnit(c *gc.C, ch cache.UnitChange, change bool) {
-	s.setupOneMachineAppLXDProfileWatcherScenario(c)
-	w := s.machine0.WatchApplicationLXDProfiles()
-	defer workertest.CleanKill(c, w)
-	wc := NewNotifyWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange()
-
-	s.model.UpdateUnit(ch)
-
-	if change {
-		wc.AssertOneChange()
-	} else {
-		wc.AssertNoChange()
-	}
+		})
+	s.wc0.AssertNoChange()
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherTwoMachines(c *gc.C) {
 	s.setupTwoMachineAppLXDProfileWatcherScenario(c)
 
-	w0 := s.machine0.WatchApplicationLXDProfiles()
+	w0, err := s.machine0.WatchApplicationLXDProfiles()
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w0)
 	wc0 := NewNotifyWatcherC(c, w0)
 	// Sends initial event.
 	wc0.AssertOneChange()
 
-	w1 := s.machine1.WatchApplicationLXDProfiles()
+	w1, err := s.machine1.WatchApplicationLXDProfiles()
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w1)
 	wc1 := NewNotifyWatcherC(c, w1)
 	// Sends initial event.
@@ -140,12 +136,7 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherSubordinates(c *
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherRemoveUnitWithProfileTwoUnits(c *gc.C) {
-	s.setupOneMachineAppLXDProfileWatcherScenario(c)
-	w := s.machine0.WatchApplicationLXDProfiles()
-	defer workertest.CleanKill(c, w)
-	wc := NewNotifyWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange()
+	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
 
 	// Add a new unit of a new application.
 	s.newUnitForMachineAppLXDProfileWatcherNoProfile()
@@ -156,7 +147,7 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherRemoveUnitWithPr
 			ModelUUID: "model-uuid",
 			Name:      "application-name/0",
 		})
-	wc.AssertOneChange()
+	s.wc0.AssertOneChange()
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherRemoveOnlyUnit(c *gc.C) {
@@ -176,18 +167,12 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherRemoveUnitWrongM
 }
 
 func (s *lxdProfileWatcherSuite) testMachineAppLXDProfileWatcherRemoveUnit(c *gc.C, ch cache.RemoveUnit, change bool) {
-	s.setupOneMachineAppLXDProfileWatcherScenario(c)
-	w := s.machine0.WatchApplicationLXDProfiles()
-	defer workertest.CleanKill(c, w)
-	wc := NewNotifyWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange()
-
+	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
 	s.model.RemoveUnit(ch)
 	if change {
-		wc.AssertOneChange()
+		s.wc0.AssertOneChange()
 	} else {
-		wc.AssertNoChange()
+		s.wc0.AssertNoChange()
 	}
 }
 
@@ -251,7 +236,7 @@ func (s *lxdProfileWatcherSuite) setupTwoMachineAppLXDProfileWatcherScenario(c *
 	s.setupOneMachineAppLXDProfileWatcherScenario(c)
 
 	mc := machineChange
-	machineChange.Id = "1"
+	mc.Id = "1"
 
 	s.model.UpdateMachine(mc)
 	machine, err := s.model.Machine(mc.Id)
@@ -261,9 +246,22 @@ func (s *lxdProfileWatcherSuite) setupTwoMachineAppLXDProfileWatcherScenario(c *
 
 	uc := unitChange
 	uc.Name = "application-name/1"
+	uc.MachineId = "1"
 	s.model.UpdateUnit(uc)
 	_, err = s.model.Unit(uc.Name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.model.UpdateCharm(charmChange)
+}
+
+func (s *lxdProfileWatcherSuite) assertStartOneMachineWatcher(c *gc.C) *cache.MachineAppLXDProfileWatcher {
+	s.setupOneMachineAppLXDProfileWatcherScenario(c)
+	w, err := s.machine0.WatchApplicationLXDProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	//defer workertest.CleanKill(c, w)
+	wc := NewNotifyWatcherC(c, w)
+	// Sends initial event.
+	wc.AssertOneChange()
+	s.wc0 = wc
+	return w
 }
