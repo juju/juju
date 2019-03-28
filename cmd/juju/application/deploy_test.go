@@ -623,7 +623,7 @@ func (s *CAASDeploySuite) TestCaasModelValidatedAtRun(c *gc.C) {
 }
 
 func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
-	c.Skip("TODO(tsm) fix test. Needs the right mocks in place to support CAAS's runDeploy semantics.")
+	c.Fatal("TODO(tsm) revert changes")
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.UpdateModelConfig(map[string]interface{}{
@@ -654,7 +654,7 @@ func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
 		nil,
 		map[string]string{"foo": "bar"},
 	)
-	//	testcharms.UploadCharm(c, s.client, charm.URL{ch, "mariadb")
+	testcharms.UploadCharm(c, s.client, charm.URL{ch, "mariadb")
 	_, err = s.runDeploy(c, charmDir.Path, "-m", m.Name())
 	c.Assert(err, gc.ErrorMatches, "local charm missing OCI images for: [a-z]+_image, [a-z]+_image")
 
