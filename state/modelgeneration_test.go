@@ -84,6 +84,12 @@ func (s *generationSuite) TestAssignUnitGenAbortedError(c *gc.C) {
 	c.Assert(gen.AssignUnit("redis/0"), gc.ErrorMatches, "branch was already aborted")
 }
 
+func (s *generationSuite) TestAssignUnitNotExistsError(c *gc.C) {
+	s.setupTestingClock(c)
+	gen := s.addBranch(c)
+	c.Assert(gen.AssignUnit("redis/0"), gc.ErrorMatches, `unit "redis/0" not found`)
+}
+
 func (s *generationSuite) TestAssignUnitGenCommittedError(c *gc.C) {
 	s.setupTestingClock(c)
 	gen := s.setupAssignAllUnits(c)
@@ -100,17 +106,18 @@ func (s *generationSuite) TestAssignUnitGenCommittedError(c *gc.C) {
 }
 
 func (s *generationSuite) TestAssignUnitSuccess(c *gc.C) {
-	gen := s.addBranch(c)
+	s.setupTestingClock(c)
+	gen := s.setupAssignAllUnits(c)
 
-	c.Assert(gen.AssignUnit("redis/0"), jc.ErrorIsNil)
+	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
 
-	expected := map[string][]string{"redis": {"redis/0"}}
+	expected := map[string][]string{"riak": {"riak/0"}}
 
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Check(gen.AssignedUnits(), gc.DeepEquals, expected)
 
 	// Idempotent.
-	c.Assert(gen.AssignUnit("redis/0"), jc.ErrorIsNil)
+	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Check(gen.AssignedUnits(), gc.DeepEquals, expected)
 }

@@ -234,12 +234,10 @@ func (m *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error) {
 	}
 
 	if _, err := m.model.Branch(arg.BranchName); err != nil {
-		if err != nil {
-			if errors.IsNotFound(err) {
-				result.Result = false
-			} else {
-				result.Error = common.ServerError(err)
-			}
+		if errors.IsNotFound(err) {
+			result.Result = false
+		} else {
+			result.Error = common.ServerError(err)
 		}
 	} else {
 		result.Result = true
