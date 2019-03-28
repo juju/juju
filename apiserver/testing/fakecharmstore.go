@@ -302,7 +302,7 @@ type Repository struct {
 
 var _ charmrepo.Interface = (*Repository)(nil)
 
-func NewRepository() Repository {
+func NewRepository() *Repository {
 	repo := Repository{
 		channel:   params.StableChannel,
 		charms:    make(map[params.Channel]map[charm.URL]charm.Charm),
@@ -320,7 +320,7 @@ func NewRepository() Repository {
 		repo.resources[channel] = make(map[charm.URL][]params.Resource)
 		repo.revisions[channel] = make(map[charm.URL]int)
 	}
-	return repo
+	return &repo
 }
 
 func (r *Repository) addRevision(ref *charm.URL) *charm.URL {
@@ -557,7 +557,7 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 	repo := NewRepository()
 	s.CleanupSuite.SetUpTest(c)
 	s.charmrepo = repo
-	s.charmstore = NewClient(repo)
+	s.charmstore = NewClient(*repo)
 }
 
 func (s *CharmStoreSuite) TearDownTest(c *gc.C) {

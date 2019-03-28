@@ -162,6 +162,9 @@ func NewShowCommandForTest(api ApplicationsInfoAPI, store jujuclient.ClientStore
 	return modelcmd.Wrap(cmd)
 }
 
+// NewDeployCommandForTest2 returns a command to deploy applications.
+var NewDeployCommandForTest2 = newDeployCommand
+
 type FakeDeployAPI = fakeDeployAPI
 type TestHandler = testMetricsRegistrationHandler
 

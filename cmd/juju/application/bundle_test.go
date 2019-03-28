@@ -49,8 +49,43 @@ import (
 // target in testing/base.go:SetupSuite we'll need to also update the entries
 // herein.
 
+type BundleDeployCharmStoreSuite struct {
+	charmStoreSuite
+
+	stub   *testing.Stub
+	server *httptest.Server
+}
+
+var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
+
+func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
+	s.charmStoreSuite.SetUpSuite(c)
+	s.PatchValue(&watcher.Period, 10*time.Millisecond)
+}
+
+func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
+	s.stub = &testing.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: s.stub}
+	s.server = httptest.NewServer(handler)
+	// Set metering URL config so the config is set during bootstrap
+	if s.ControllerConfigAttrs == nil {
+		s.ControllerConfigAttrs = make(map[string]interface{})
+	}
+	s.ControllerConfigAttrs[controller.MeteringURL] = s.server.URL
+
+	s.charmStoreSuite.SetUpTest(c)
+	logger.SetLogLevel(loggo.TRACE)
+}
+
+func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {
+	if s.server != nil {
+		s.server.Close()
+	}
+	s.charmStoreSuite.TearDownTest(c)
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C) {
-	err := runDeploy(c, "bundle/no-such")
+	err := s.runDeploy(c, "bundle/no-such")
 	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:bundle/no-such": bundle not found`)
 }
 
@@ -58,11 +93,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
-	err := runDeploy(c, "bundle/wordpress-simple", "--config", "config.yaml")
+	err := s.runDeploy(c, "bundle/wordpress-simple", "--config", "config.yaml")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")
-	err = runDeploy(c, "bundle/wordpress-simple", "-n", "2")
+	err = s.runDeploy(c, "bundle/wordpress-simple", "-n", "2")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: -n")
-	err = runDeploy(c, "bundle/wordpress-simple", "--series", "xenial")
+	err = s.runDeploy(c, "bundle/wordpress-simple", "--series", "xenial")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --series")
 }
 
@@ -70,7 +105,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
-	err := runDeploy(c, "bundle/wordpress-simple")
+	err := s.runDeploy(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
@@ -130,7 +165,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	_, err = pm.Create("operator-storage", provider.K8s_ProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = runDeploy(c, "-m", "admin/test", "bundle/kubernetes-simple")
+	err = s.runDeploy(c, "-m", "admin/test", "bundle/kubernetes-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:kubernetes/gitlab-47", "cs:kubernetes/mariadb-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
@@ -190,7 +225,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) 
 	_, ch1 := testcharms.UploadCharm(c, s.client, "xenial/terms1-17", "terms1")
 	_, ch2 := testcharms.UploadCharm(c, s.client, "xenial/terms2-42", "terms2")
 	testcharms.UploadBundle(c, s.client, "bundle/terms-simple-1", "terms-simple")
-	err := runDeploy(c, "bundle/terms-simple")
+	err := s.runDeploy(c, "bundle/terms-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/terms1-17", "cs:xenial/terms2-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
@@ -208,7 +243,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql-storage")
 	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-mysql-storage-1", "wordpress-with-mysql-storage")
-	err := runDeploy(
+	err := s.runDeploy(
 		c, "bundle/wordpress-with-mysql-storage",
 		"--storage", "mysql:logs=tmpfs,10G", // override logs
 	)
@@ -248,7 +283,7 @@ func (s *CAASModelDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
 	_, dashboardCharm := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/dashboard4miner-3", "dashboard4miner", "kubernetes")
 
 	testcharms.UploadBundle(c, s.client, "bundle/bitcoinminer-with-dashboard-1", "bitcoinminer-with-dashboard")
-	err = runDeploy(
+	err = s.runDeploy(
 		c, "bundle/bitcoinminer-with-dashboard",
 		"-m", m.Name(),
 		"--device", "miner:bitcoinminer=10,nvidia.com/gpu", // override bitcoinminer
@@ -276,7 +311,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
-	stdOut, stdErr, err := runDeployWithOutput(c, "bundle/wordpress-with-endpoint-bindings")
+	stdOut, stdErr, err := s.runDeployWithOutput(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, gc.ErrorMatches, ""+
 		"cannot deploy bundle: cannot deploy application \"mysql\": "+
 		"cannot add application \"mysql\": unknown space \"db\" not valid")
@@ -302,7 +337,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
-	err = runDeploy(c, "bundle/wordpress-with-endpoint-bindings")
+	err = s.runDeploy(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-extra-bindings-47")
 
@@ -339,7 +374,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
-	stdOut, stdErr, err := runDeployWithOutput(c, "bundle/wordpress-simple")
+	stdOut, stdErr, err := s.runDeployWithOutput(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
@@ -353,7 +388,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 		"- add unit mysql/0 to new machine 0\n"+
 		"- add unit wordpress/0 to new machine 1",
 	)
-	stdOut, stdErr, err = runDeployWithOutput(c, "bundle/wordpress-simple")
+	stdOut, stdErr, err = s.runDeployWithOutput(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	// Nothing to do...
 	c.Check(stdOut, gc.Equals, "")
@@ -380,7 +415,7 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
-	stdOut, _, err := runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
+	stdOut, _, err := s.runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "" +
 		"Changes to deploy bundle:\n" +
@@ -395,7 +430,7 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 		"- add unit wordpress/0 to new machine 1"
 
 	c.Check(stdOut, gc.Equals, expected)
-	stdOut, _, err = runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
+	stdOut, _, err = s.runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, expected)
 
@@ -422,7 +457,7 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "sub", Charm: sub})
 
-	stdOut, _, err := runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
+	stdOut, _, err := s.runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "" +
 		"Changes to deploy bundle:\n" +
@@ -434,7 +469,7 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
 		"- add unit wordpress/0 to new machine 1"
 
 	c.Check(stdOut, gc.Equals, expected)
-	stdOut, _, err = runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
+	stdOut, _, err = s.runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, expected)
 }
@@ -444,7 +479,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
 	url, _ := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	s.changeReadPerm(c, url, clientUserName)
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
-	err := runDeploy(c, "bundle/wordpress-simple")
+	err := s.runDeploy(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
 	ch, err := s.State.Charm(charm.MustParseURL("cs:xenial/wordpress-47"))
@@ -469,7 +504,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
     `
 	err := ioutil.WriteFile(path, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, path)
+	err = s.runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:xenial/dummy-1")
 	ch, err := s.State.Charm(charm.MustParseURL("local:xenial/dummy-1"))
@@ -495,7 +530,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
 	c.Assert(
 		ioutil.WriteFile(filepath.Join(dir, "dummy-resource.zip"), []byte("zip file"), 0644),
 		jc.ErrorIsNil)
-	err := runDeploy(c, dir)
+	err := s.runDeploy(c, dir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:quantal/dummy-resource-0")
 	ch, err := s.State.Charm(charm.MustParseURL("local:quantal/dummy-resource-0"))
@@ -518,7 +553,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNoSeriesInCharmURL(c *gc.C
     `
 	err := ioutil.WriteFile(path, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, path)
+	err = s.runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:~who/multi-series-0")
 	ch, err := s.State.Charm(charm.MustParseURL("~who/multi-series-0"))
@@ -533,7 +568,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharmUnauthorized(c *
 	url, _ := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	s.changeReadPerm(c, url, "who")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
-	err := runDeploy(c, "bundle/wordpress-simple")
+	err := s.runDeploy(c, "bundle/wordpress-simple")
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: .*: access denied for user "client-username"`)
 }
 
@@ -633,41 +668,6 @@ func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, serviceapplication
 	c.Assert(resources, jc.DeepEquals, expected)
 }
 
-type BundleDeployCharmStoreSuite struct {
-	charmStoreSuite
-
-	stub   *testing.Stub
-	server *httptest.Server
-}
-
-var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
-
-func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
-	s.charmStoreSuite.SetUpSuite(c)
-	s.PatchValue(&watcher.Period, 10*time.Millisecond)
-}
-
-func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
-	s.stub = &testing.Stub{}
-	handler := &testMetricsRegistrationHandler{Stub: s.stub}
-	s.server = httptest.NewServer(handler)
-	// Set metering URL config so the config is set during bootstrap
-	if s.ControllerConfigAttrs == nil {
-		s.ControllerConfigAttrs = make(map[string]interface{})
-	}
-	s.ControllerConfigAttrs[controller.MeteringURL] = s.server.URL
-
-	s.charmStoreSuite.SetUpTest(c)
-	logger.SetLogLevel(loggo.TRACE)
-}
-
-func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {
-	if s.server != nil {
-		s.server.Close()
-	}
-	s.charmStoreSuite.TearDownTest(c)
-}
-
 func (s *BundleDeployCharmStoreSuite) Client() testcharms.Charmstore {
 	return s.client
 }
@@ -683,7 +683,7 @@ func (s *BundleDeployCharmStoreSuite) DeployBundleYAML(c *gc.C, content string, 
 func (s *BundleDeployCharmStoreSuite) DeployBundleYAMLWithOutput(c *gc.C, content string, extraArgs ...string) (string, string, error) {
 	bundlePath := s.makeBundleDir(c, content)
 	args := append([]string{bundlePath}, extraArgs...)
-	return runDeployWithOutput(c, args...)
+	return s.runDeployWithOutput(c, args...)
 }
 
 func (s *BundleDeployCharmStoreSuite) makeBundleDir(c *gc.C, content string) string {
@@ -1114,7 +1114,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
-	err := runDeploy(c, "bundle/wordpress-simple")
+	err := s.runDeploy(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)

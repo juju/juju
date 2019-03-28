@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -20,6 +21,8 @@ import (
 type RemoveApplicationSuite struct {
 	jujutesting.RepoSuite
 	testing.CmdBlockHelper
+	charmrepo  charmRepository
+	charmstore charmstoreCommunicator
 }
 
 var _ = gc.Suite(&RemoveApplicationSuite{})
@@ -29,6 +32,17 @@ func (s *RemoveApplicationSuite) SetUpTest(c *gc.C) {
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+	s.charmrepo = apiservertesting.NewRepository()
+	charmstoreClient := apiservertesting.NewClient(*s.charmrepo.(*apiservertesting.Repository))
+	s.charmstore = &testingCharmstoreCommunicatorShim{charmstoreClient}
+}
+
+func (s *RemoveApplicationSuite) runDeploy(c *gc.C, args ...string) error {
+	return runDeploy(c, s.charmstore, s.charmrepo, args...)
+}
+
+func (s *RemoveApplicationSuite) runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
+	return runDeployWithOutput(c, s.charmstore, s.charmrepo, args...)
 }
 
 func runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -38,7 +52,7 @@ func runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
 func (s *RemoveApplicationSuite) setupTestApplication(c *gc.C) {
 	// Destroy an application that exists.
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, ch, "multi-series")
+	err := s.runDeploy(c, ch, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -63,7 +77,7 @@ func (s *RemoveApplicationSuite) TestDestroyStorage(c *gc.C) {
 
 func (s *RemoveApplicationSuite) testStorageRemoval(c *gc.C, destroy bool) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
-	err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,modelscoped")
+	err := s.runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,modelscoped")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Materialise the storage by assigning units to machines.
@@ -94,7 +108,7 @@ removing application storage-filesystem-multi-series
 
 func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered-multi-series")
-	deploy := NewDeployCommand(nil, nil)
+	deploy := NewDeployCommand()
 	_, err := cmdtesting.RunCommand(c, deploy, ch)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runRemoveApplication(c, "metered-multi-series")

@@ -18,7 +18,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
@@ -247,14 +246,14 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 				return nil, errors.Trace(err)
 			}
 			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
-
+			csclientShim := &charmstoreCommunicatorShim{cstoreClient}
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
 				apiClient:         &apiClient{Client: apiRoot.Client()},
 				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-				charmstoreClient:  &charmstoreClient{cstoreClient},
+				charmstoreClient:  &charmstoreClient{csclientShim},
 				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 				charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
 				plansClient:       &plansClient{planURL: mURL},
@@ -264,11 +263,7 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 	return modelcmd.Wrap(deployCmd)
 }
 
-// NewDeployCommand returns a command to deploy applications.
-func NewDeployCommand(
-	charmStore charmstoreCommunicator,
-	charmRepo charmRepository,
-) modelcmd.ModelCommand {
+func newDeployCommand(charmStore charmstoreCommunicator, charmRepo charmRepository) modelcmd.ModelCommand {
 	steps := []DeployStep{
 		&RegisterMeteredCharm{
 			PlanURL:      romulus.DefaultAPIRoot,
@@ -304,12 +299,13 @@ func NewDeployCommand(
 		}
 
 		if (charmStore == nil) != (charmRepo == nil) {
-			return nil, errors.Errorf("either provide both charmStore and charmRepo or neither of them")
+			return nil, errors.NotValidf("charmStore and charmRepo must both be nil, or both be non-nil")
 		}
 
 		if charmStore == nil && charmRepo == nil {
-			charmStore = newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
-			charmRepo = charmrepo.NewCharmStoreFromClient(charmStore.(*csclient.Client))
+			realCharmStore := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
+			charmRepo = charmrepo.NewCharmStoreFromClient(realCharmStore)
+			charmStore = &charmstoreCommunicatorShim{realCharmStore}
 		}
 
 		return &deployAPIAdapter{
@@ -326,6 +322,11 @@ func NewDeployCommand(
 	}
 
 	return modelcmd.Wrap(deployCmd)
+}
+
+// NewDeployCommand returns a command to deploy applications.
+func NewDeployCommand() modelcmd.ModelCommand {
+	return newDeployCommand(nil, nil)
 }
 
 type DeployCommand struct {

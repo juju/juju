@@ -157,7 +157,8 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	// }
 	// s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
 
-	s.client = apiservertesting.NewClient(apiservertesting.NewRepository())
+	mockrepo := apiservertesting.NewRepository()
+	s.client = apiservertesting.NewClient(*mockrepo)
 
 	s.JujuConnSuite.SetUpTest(c)
 
@@ -388,6 +389,6 @@ type applicationInfo struct {
 // charm or bundle. The deployment stderr output and error are returned.
 // TODO(rog) delete this when tests are universally internal or external.
 func runDeploy(c *gc.C, args ...string) (string, error) {
-	ctx, err := cmdtesting.RunCommand(c, application.NewDeployCommand(nil, nil), args...)
+	ctx, err := cmdtesting.RunCommand(c, application.NewDeployCommand(), args...)
 	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }

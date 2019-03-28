@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/testcharms"
 )
 
 // SeriesConfig defines the single config method that we need to resolve
@@ -77,12 +78,32 @@ func addCharmFromURL(client CharmAdder, curl *charm.URL, channel csparams.Channe
 
 type charmstoreCommunicator interface {
 	Get(endpoint string, extra interface{}) error
-	WithChannel(csparams.Channel) *csclient.Client
+	WithChannel(csparams.Channel) charmstoreCommunicator // *csclient.Client
+	// Latest(ids []*charm.URL, headers map[string][]string) ([]params.CharmRevision, error)
+	// ListResources(id *charm.URL) ([]params.Resource, error)
+	// GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error)
+	// ResourceMeta(id *charm.URL, name string, revision int) (params.Resource, error)
+}
+
+type testingCharmstoreCommunicatorShim struct {
+	testcharms.Charmstore
+}
+
+func (c *testingCharmstoreCommunicatorShim) WithChannel(channel csparams.Channel) charmstoreCommunicator {
+	return c.WithChannel(channel)
+}
+
+type charmstoreCommunicatorShim struct {
+	*csclient.Client
+}
+
+func (c *charmstoreCommunicatorShim) WithChannel(channel csparams.Channel) charmstoreCommunicator {
+	return c.WithChannel(channel)
 }
 
 // newCharmStoreClient is called to obtain a charm store client.
 // It is defined as a variable so it can be changed for testing purposes.
-var newCharmStoreClient = func(client *httpbakery.Client, csURL string) charmstoreCommunicator {
+var newCharmStoreClient = func(client *httpbakery.Client, csURL string) *csclient.Client {
 	return csclient.New(csclient.Params{
 		URL:          csURL,
 		BakeryClient: client,

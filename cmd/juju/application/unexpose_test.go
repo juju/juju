@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testcharms"
@@ -19,6 +20,8 @@ import (
 type UnexposeSuite struct {
 	jujutesting.RepoSuite
 	testing.CmdBlockHelper
+	charmrepo  charmRepository
+	charmstore charmstoreCommunicator
 }
 
 func (s *UnexposeSuite) SetUpTest(c *gc.C) {
@@ -26,6 +29,9 @@ func (s *UnexposeSuite) SetUpTest(c *gc.C) {
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+	s.charmrepo = apiservertesting.NewRepository()
+	charmstoreClient := apiservertesting.NewClient(*s.charmrepo.(*apiservertesting.Repository))
+	s.charmstore = &testingCharmstoreCommunicatorShim{charmstoreClient}
 }
 
 var _ = gc.Suite(&UnexposeSuite{})
@@ -42,9 +48,17 @@ func (s *UnexposeSuite) assertExposed(c *gc.C, application string, expected bool
 	c.Assert(actual, gc.Equals, expected)
 }
 
+func (s *UnexposeSuite) runDeploy(c *gc.C, args ...string) error {
+	return runDeploy(c, s.charmstore, s.charmrepo, args...)
+}
+
+func (s *UnexposeSuite) runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
+	return runDeployWithOutput(c, s.charmstore, s.charmrepo, args...)
+}
+
 func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	err := s.runDeploy(c, ch, "some-application-name", "--series", "trusty")
 
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
@@ -67,7 +81,7 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 
 func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	err := s.runDeploy(c, ch, "some-application-name", "--series", "trusty")
 
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")

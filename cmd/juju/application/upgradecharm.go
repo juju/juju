@@ -518,7 +518,7 @@ func newCharmAdder(
 		*charmstoreClient
 		*apiClient
 	}{
-		charmstoreClient: &charmstoreClient{csClient},
+		charmstoreClient: &charmstoreClient{&charmstoreCommunicatorShim{csClient}},
 		apiClient:        &apiClient{Client: api.Client()},
 	}
 	return charmstoreAdapter
