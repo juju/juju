@@ -580,6 +580,7 @@ to create a new model to deploy k8s workloads
 			return nil, nil
 		}
 		initialHostedModelInstructionMsg = fmt.Sprintf("Initial model %q added", c.hostedModelName)
+
 		hostedModelUUID, err := utils.NewUUID()
 		if err != nil {
 			return nil, errors.Trace(err)
