@@ -39,6 +39,39 @@ func (s *annotationsSuite) TestExistAndAdd(c *gc.C) {
 	c.Assert(s.annotations.Has(key, "a new value"), jc.IsTrue)
 }
 
+func (s *annotationsSuite) TestCopy(c *gc.C) {
+	annotation1 := map[string]string{
+		"annotation-1-key": "annotation-1-val",
+	}
+	s.annotations.Merge(jujuannotations.New(annotation1))
+	c.Assert(s.annotations.ToMap(), jc.DeepEquals, annotation1)
+
+	newAnnotation1 := s.annotations.Copy()
+	newAnnotation2 := s.annotations
+
+	newAnnotation1.Add("a-new-key", "a-new-value")
+	c.Assert(
+		newAnnotation1.ToMap(), jc.DeepEquals,
+		map[string]string{
+			"annotation-1-key": "annotation-1-val",
+			"a-new-key":        "a-new-value",
+		},
+	)
+	// no change in original one because it was Copy.
+	c.Assert(s.annotations.ToMap(), jc.DeepEquals, annotation1)
+
+	newAnnotation2.Add("aaaa", "bbbbb")
+	c.Assert(newAnnotation2.ToMap(), jc.DeepEquals, map[string]string{
+		"annotation-1-key": "annotation-1-val",
+		"aaaa":             "bbbbb",
+	})
+	// changed in original one because it was NOT Copy.
+	c.Assert(s.annotations.ToMap(), jc.DeepEquals, map[string]string{
+		"annotation-1-key": "annotation-1-val",
+		"aaaa":             "bbbbb",
+	})
+}
+
 func (s *annotationsSuite) TestExistAllExistAnyMergeToMap(c *gc.C) {
 	annotation1 := map[string]string{
 		"annotation-1-key": "annotation-1-val",
