@@ -45,7 +45,7 @@ func (m *Machine) Units() ([]*Unit, error) {
 		if unit.details.Subordinate {
 			principalUnit, found := m.model.units[unit.details.Principal]
 			if !found {
-				return nil, errors.NotFoundf("principal unit %q for subordinate %s", unit.details.Principal, unitName)
+				return result, errors.NotFoundf("principal unit %q for subordinate %s", unit.details.Principal, unitName)
 			}
 			if principalUnit.details.MachineId == m.details.Id {
 				result = append(result, unit)
@@ -78,26 +78,34 @@ func (m *Machine) setDetails(details MachineChange) {
 //        exist on the machine.
 //     3. The lxdprofile of an application with a unit on this
 //        machine is added, removed, or exists.
-func (m *Machine) WatchApplicationLXDProfiles() *MachineAppLXDProfileWatcher {
+func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, error) {
+	units, err := m.Units()
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to get units to start MachineAppLXDProfileWatcher")
+	}
 	m.model.mu.Lock()
 	applications := make(map[string]appInfo)
-	for name, unit := range m.model.units {
-		if m.details.Id != unit.details.MachineId {
-			continue
-		}
+	for _, unit := range units {
 		_, found := applications[unit.details.Application]
 		if found {
-			applications[unit.details.Application].units.Add(name)
+			applications[unit.details.Application].units.Add(unit.details.Name)
 			continue
 		}
 		app, foundApp := m.model.applications[unit.details.Application]
 		if !foundApp {
-			logger.Errorf("programming error, unit without an application")
+			// This is unlikely, but could happen.
+			// If the unit has no machineId, it will be added
+			// to what is watched when the machineId is assigned.
+			// Otherwise return an error.
+			if unit.details.MachineId != "" {
+				return nil, errors.Errorf("programming error, unit %s has machineId but not application", unit.details.Name)
+			}
+			logger.Errorf("unit %s has no application, nor machine id, start watching when machine id assigned.", unit.details.Name)
 			continue
 		}
 		info := appInfo{
 			charmURL: app.details.CharmURL,
-			units:    set.NewStrings(),
+			units:    set.NewStrings(unit.details.Name),
 		}
 		ch, found := m.model.charms[app.details.CharmURL]
 		if found {
@@ -118,5 +126,5 @@ func (m *Machine) WatchApplicationLXDProfiles() *MachineAppLXDProfileWatcher {
 		m.model.hub,
 	)
 	m.model.mu.Unlock()
-	return w
+	return w, nil
 }
