@@ -16,8 +16,8 @@ type lxdProfileWatcherSuite struct {
 	entitySuite
 
 	model    *cache.Model
+	machine0 *cache.Machine
 	machine1 *cache.Machine
-	unit1    *cache.Unit
 }
 
 var _ = gc.Suite(&lxdProfileWatcherSuite{})
@@ -27,8 +27,8 @@ func (s *lxdProfileWatcherSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcher(c *gc.C) {
-	s.setupMachineAppLXDProfileWatcher(c)
-	w := s.machine1.WatchApplicationLXDProfiles()
+	s.setupOneMachineAppLXDProfileWatcherScenario(c)
+	w := s.machine0.WatchApplicationLXDProfiles()
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
@@ -36,8 +36,8 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcher(c *gc.C) {
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherNewCharmRevNoProfile(c *gc.C) {
-	s.setupMachineAppLXDProfileWatcher(c)
-	w := s.machine1.WatchApplicationLXDProfiles()
+	s.setupOneMachineAppLXDProfileWatcherScenario(c)
+	w := s.machine0.WatchApplicationLXDProfiles()
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
@@ -55,8 +55,8 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherNewCharmRevNoPro
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherNewCharmRevProfile(c *gc.C) {
-	s.setupMachineAppLXDProfileWatcher(c)
-	w := s.machine1.WatchApplicationLXDProfiles()
+	s.setupOneMachineAppLXDProfileWatcherScenario(c)
+	w := s.machine0.WatchApplicationLXDProfiles()
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
@@ -92,8 +92,8 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherAddUnitWrongMach
 }
 
 func (s *lxdProfileWatcherSuite) testMachineAppLXDProfileWatcherAddUnit(c *gc.C, ch cache.UnitChange, change bool) {
-	s.setupMachineAppLXDProfileWatcher(c)
-	w := s.machine1.WatchApplicationLXDProfiles()
+	s.setupOneMachineAppLXDProfileWatcherScenario(c)
+	w := s.machine0.WatchApplicationLXDProfiles()
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
@@ -109,12 +109,39 @@ func (s *lxdProfileWatcherSuite) testMachineAppLXDProfileWatcherAddUnit(c *gc.C,
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherTwoMachines(c *gc.C) {
+	s.setupTwoMachineAppLXDProfileWatcherScenario(c)
+
+	w0 := s.machine0.WatchApplicationLXDProfiles()
+	defer workertest.CleanKill(c, w0)
+	wc0 := NewNotifyWatcherC(c, w0)
+	// Sends initial event.
+	wc0.AssertOneChange()
+
+	w1 := s.machine1.WatchApplicationLXDProfiles()
+	defer workertest.CleanKill(c, w1)
+	wc1 := NewNotifyWatcherC(c, w1)
+	// Sends initial event.
+	wc1.AssertOneChange()
+
+	// Add a unit to machine 0
+	uc := unitChange
+	uc.Name = "application-name/2"
+	uc.MachineId = s.machine0.Id()
+	s.model.UpdateUnit(uc)
+
+	// Assert machine 0 watcher gets the notification,
+	// not machine 1.
+	wc0.AssertOneChange()
+	wc1.AssertNoChange()
+}
+
+func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherSubordinates(c *gc.C) {
 
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherRemoveUnitWithProfileTwoUnits(c *gc.C) {
-	s.setupMachineAppLXDProfileWatcher(c)
-	w := s.machine1.WatchApplicationLXDProfiles()
+	s.setupOneMachineAppLXDProfileWatcherScenario(c)
+	w := s.machine0.WatchApplicationLXDProfiles()
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
@@ -149,8 +176,8 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherRemoveUnitWrongM
 }
 
 func (s *lxdProfileWatcherSuite) testMachineAppLXDProfileWatcherRemoveUnit(c *gc.C, ch cache.RemoveUnit, change bool) {
-	s.setupMachineAppLXDProfileWatcher(c)
-	w := s.machine1.WatchApplicationLXDProfiles()
+	s.setupOneMachineAppLXDProfileWatcherScenario(c)
+	w := s.machine0.WatchApplicationLXDProfiles()
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
@@ -206,24 +233,37 @@ func (s *lxdProfileWatcherSuite) newUnitForMachineAppLXDProfileWatcherNoProfile(
 	s.model.UpdateUnit(uc)
 }
 
-func (s *lxdProfileWatcherSuite) setupMachineAppLXDProfileWatcher(c *gc.C) {
+func (s *lxdProfileWatcherSuite) setupOneMachineAppLXDProfileWatcherScenario(c *gc.C) {
 	s.model = s.newModel(modelChange)
 
 	s.model.UpdateMachine(machineChange)
 	machine, err := s.model.Machine(machineChange.Id)
 	c.Assert(err, jc.ErrorIsNil)
-	s.machine1 = machine
+	c.Assert(machine.Id(), gc.Equals, machineChange.Id)
+	s.machine0 = machine
 
 	s.model.UpdateApplication(appChange)
-
 	s.model.UpdateUnit(unitChange)
-	unit, err := s.model.Unit(unitChange.Name)
+	s.model.UpdateCharm(charmChange)
+}
+
+func (s *lxdProfileWatcherSuite) setupTwoMachineAppLXDProfileWatcherScenario(c *gc.C) {
+	s.setupOneMachineAppLXDProfileWatcherScenario(c)
+
+	mc := machineChange
+	machineChange.Id = "1"
+
+	s.model.UpdateMachine(mc)
+	machine, err := s.model.Machine(mc.Id)
 	c.Assert(err, jc.ErrorIsNil)
-	s.unit1 = unit
+	c.Assert(machine.Id(), gc.Equals, mc.Id)
+	s.machine1 = machine
+
+	uc := unitChange
+	uc.Name = "application-name/1"
+	s.model.UpdateUnit(uc)
+	_, err = s.model.Unit(uc.Name)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.model.UpdateCharm(charmChange)
-
-	m, err := s.model.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Id(), gc.Equals, "0")
 }
