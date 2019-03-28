@@ -50,6 +50,12 @@ func (s *entitySuite) SetUpTest(c *gc.C) {
 	})
 }
 
+func (s *entitySuite) newModel(details cache.ModelChange) *cache.Model {
+	m := cache.NewModel(s.gauges, s.hub)
+	m.SetDetails(details)
+	return m
+}
+
 type ImportSuite struct{}
 
 var _ = gc.Suite(&ImportSuite{})

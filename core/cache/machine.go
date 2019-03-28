@@ -6,26 +6,59 @@ package cache
 import (
 	"sync"
 
-	"github.com/juju/pubsub"
+	"github.com/juju/errors"
 )
 
-func newMachine(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Machine {
+func newMachine(model *Model) *Machine {
 	m := &Machine{
-		metrics: metrics,
-		hub:     hub,
+		model: model,
 	}
 	return m
 }
 
 // Machine represents a machine in a model.
 type Machine struct {
-	// Link to model?
-	metrics *ControllerGauges
-	hub     *pubsub.SimpleHub
-	mu      sync.Mutex
+	model *Model
+	mu    sync.Mutex
 
 	details    MachineChange
 	configHash string
+}
+
+// Id returns the id string of this machine.
+func (m *Machine) Id() string {
+	return m.details.Id
+}
+
+// Units returns all the units that have been assigned to the machine
+// including subordinates.
+func (m *Machine) Units() ([]*Unit, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result := make([]*Unit, 0)
+	for unitName, unit := range m.model.units {
+		if unit.details.MachineId == m.details.Id {
+			result = append(result, unit)
+		}
+		if unit.details.Subordinate {
+			principalUnit, found := m.model.units[unit.details.Principal]
+			if !found {
+				return nil, errors.NotFoundf("principal unit %q for subordinate %s", unit.details.Principal, unitName)
+			}
+			if principalUnit.details.MachineId == m.details.Id {
+				result = append(result, unit)
+			}
+		}
+	}
+	return result, nil
+}
+
+type MachineAppLXDProfileWatcher struct {
+	*notifyWatcherBase
+}
+
+func (m *Machine) WatchApplicationLXDProfiles() *MachineAppLXDProfileWatcher {
+	return nil
 }
 
 func (m *Machine) setDetails(details MachineChange) {
@@ -42,12 +75,4 @@ func (m *Machine) setDetails(details MachineChange) {
 		m.configHash = configHash
 		// TODO: publish config change...
 	}
-}
-
-type MachineAppLXDProfileWatcher struct {
-	*notifyWatcherBase
-}
-
-func (m *Machine) WatchApplicationLXDProfiles() *MachineAppLXDProfileWatcher {
-	return nil
 }

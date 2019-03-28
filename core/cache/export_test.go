@@ -18,3 +18,13 @@ func (m *Model) SetDetails(details ModelChange) {
 func (a *Application) SetDetails(details ApplicationChange) {
 	a.setDetails(details)
 }
+
+// Expose Update* for testing.
+
+func (m *Model) UpdateMachine(details MachineChange) {
+	m.updateMachine(details)
+}
+
+func (m *Model) UpdateUnit(details UnitChange) {
+	m.updateUnit(details)
+}

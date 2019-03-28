@@ -55,6 +55,11 @@ func (m *Model) Config() map[string]interface{} {
 	return cfg
 }
 
+// Name returns the current model's name.
+func (m *Model) Name() string {
+	return m.details.Name
+}
+
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
 	return newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange))
@@ -219,7 +224,7 @@ func (m *Model) updateMachine(ch MachineChange) {
 
 	machine, found := m.machines[ch.Id]
 	if !found {
-		machine = newMachine(m.metrics, m.hub)
+		machine = newMachine(m)
 		m.machines[ch.Id] = machine
 		m.hub.Publish(m.topic(modelMachineChange), []string{ch.Id})
 	}

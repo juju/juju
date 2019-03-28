@@ -27,6 +27,11 @@ func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Unit {
 	return u
 }
 
+// Application returns the application name of this unit.
+func (u *Unit) Application() string {
+	return u.details.Application
+}
+
 func (u *Unit) setDetails(details UnitChange) {
 	u.mu.Lock()
 	defer u.mu.Unlock()

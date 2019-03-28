@@ -25,12 +25,6 @@ func (s *ModelSuite) SetUpTest(c *gc.C) {
 	s.entitySuite.SetUpTest(c)
 }
 
-func (s *ModelSuite) newModel(details cache.ModelChange) *cache.Model {
-	m := cache.NewModel(s.gauges, s.hub)
-	m.SetDetails(details)
-	return m
-}
-
 func (s *ModelSuite) TestReport(c *gc.C) {
 	m := s.newModel(modelChange)
 	c.Assert(m.Report(), jc.DeepEquals, map[string]interface{}{

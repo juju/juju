@@ -33,6 +33,11 @@ type Application struct {
 	hashCache  *hashCache
 }
 
+// CharmURL returns the charm url string for this application.
+func (a *Application) CharmURL() string {
+	return a.details.CharmURL
+}
+
 // Config returns a copy of the current application config.
 func (a *Application) Config() map[string]interface{} {
 	a.mu.Lock()

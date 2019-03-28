@@ -7,6 +7,8 @@ import (
 	"sync"
 
 	"github.com/juju/pubsub"
+
+	"github.com/juju/juju/core/lxdprofile"
 )
 
 func newCharm(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Charm {
@@ -25,6 +27,11 @@ type Charm struct {
 	mu      sync.Mutex
 
 	details CharmChange
+}
+
+// LXDProfile returns the lxd profile of this charm.
+func (c *Charm) LXDProfile() lxdprofile.Profile {
+	return c.details.LXDProfile
 }
 
 func (c *Charm) setDetails(details CharmChange) {
