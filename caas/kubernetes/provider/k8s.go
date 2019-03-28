@@ -276,7 +276,7 @@ func (k *kubernetesClient) Bootstrap(
 				return errors.NewAlreadyExists(nil,
 					fmt.Sprintf(`
 namespace %q already exists in the cluster,
-please choose a different hosted model name then try again
+please choose a different hosted model name then try again.
 `, hostedModelName),
 				)
 			}

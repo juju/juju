@@ -472,7 +472,7 @@ to create a new model to deploy k8s workloads.
 			} else {
 				msg = fmt.Sprintf("Initial model %q added", c.hostedModelName)
 			}
-			defer ctx.Infof(msg)
+			ctx.Infof(msg)
 		}
 	}()
 
