@@ -291,10 +291,10 @@ func (cfg *ControllerPodConfig) verifyControllerConfig() (err error) {
 
 // GetHostedModel checks if hosted model was requested to create.
 func (cfg *ControllerPodConfig) GetHostedModel() (string, bool) {
-	hasHostedModel := cfg.Bootstrap.HostedModelConfig != nil && len(cfg.Bootstrap.HostedModelConfig) > 0
+	hasHostedModel := len(cfg.Bootstrap.HostedModelConfig) > 0
 	if hasHostedModel {
 		modelName := cfg.Bootstrap.HostedModelConfig[config.NameKey].(string)
-		logger.Debugf("found configured hosted model %q for bootstrapping", modelName)
+		logger.Debugf("configured hosted model %q for bootstrapping", modelName)
 		return modelName, true
 	}
 	return "", false
@@ -362,11 +362,7 @@ func NewControllerPodConfig(
 		DataDir:         dataDir,
 		LogDir:          path.Join(logDir, "juju"),
 		MetricsSpoolDir: metricsSpoolDir,
-		// CAAS only has JobManageModel.
-		Jobs: []multiwatcher.MachineJob{
-			multiwatcher.JobManageModel,
-		},
-		Tags: map[string]string{},
+		Tags:            map[string]string{},
 		// Parameter entries.
 		ControllerTag:  controllerTag,
 		MachineId:      podID,
@@ -414,6 +410,11 @@ func NewBootstrapControllerPodConfig(config controller.Config, controllerName, s
 			},
 		},
 	}
+
+	pcfg.Jobs = []multiwatcher.MachineJob{
+		multiwatcher.JobManageModel,
+		multiwatcher.JobHostUnits,
+	}
 	return pcfg, nil
 }
 
@@ -429,14 +430,6 @@ func PopulateControllerPodConfig(pcfg *ControllerPodConfig, providerType string)
 	}
 	pcfg.AgentEnvironment[agent.ProviderType] = providerType
 	pcfg.AgentEnvironment[agent.AgentServiceName] = "jujud-" + names.NewMachineTag(pcfg.MachineId).String()
-
-	// config jobs here because we need hosted model config populated first.
-	pcfg.Jobs = []multiwatcher.MachineJob{
-		multiwatcher.JobManageModel,
-	}
-	if _, exist := pcfg.GetHostedModel(); exist {
-		pcfg.Jobs = append(pcfg.Jobs, multiwatcher.JobHostUnits)
-	}
 	return nil
 }
 
