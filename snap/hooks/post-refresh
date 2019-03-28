@@ -1,1 +1,1 @@
-./microk8s-setup.sh
+../local/microk8s-setup.sh
