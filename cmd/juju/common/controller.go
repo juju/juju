@@ -88,16 +88,8 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 			msg := fmt.Sprintf("\nBootstrap complete, controller %q now is available", controllerName)
 			if isCAASController {
 				msg += fmt.Sprintf(" in namespace %q", caasprovider.DecideControllerNamespace(controllerName))
-				msg += `
-Now you can run 
-	juju add-model <model-name>
-to create a new model to deploy k8s workloads
-`
 			} else {
 				msg += fmt.Sprintf("\nController machines are in the %q model", bootstrap.ControllerModelName)
-				if hostedModelName != "" {
-					msg += fmt.Sprintf("\nInitial model %q added", hostedModelName)
-				}
 			}
 			ctx.Infof(msg)
 			break

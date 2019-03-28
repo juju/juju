@@ -406,8 +406,12 @@ func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
+	var initialHostedModelInstructionMsg string
 	defer func() {
 		resultErr = handleChooseCloudRegionError(ctx, resultErr)
+		if resultErr == nil {
+			defer ctx.Infof(initialHostedModelInstructionMsg)
+		}
 	}()
 
 	if err := c.parseConstraints(ctx); err != nil {
@@ -568,8 +572,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if isCAASController && c.hostedModelName == defaultHostedModelName {
 			// k8s controller does NOT have "default" hosted model
 			// if the user didn't specify a preferred hosted model name.
+			initialHostedModelInstructionMsg = `
+Now you can run 
+	juju add-model <model-name>
+to create a new model to deploy k8s workloads
+`
 			return nil, nil
 		}
+		initialHostedModelInstructionMsg = fmt.Sprintf("Initial model %q added", c.hostedModelName)
 		hostedModelUUID, err := utils.NewUUID()
 		if err != nil {
 			return nil, errors.Trace(err)
