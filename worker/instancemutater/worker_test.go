@@ -12,11 +12,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
-	instancemutaterapi "github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/instancemutater"
 	"github.com/juju/juju/worker/instancemutater/mocks"
@@ -112,14 +111,14 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 type workerSuite struct {
 	testing.IsolationSuite
 
-	logger         *mocks.MockLogger
-	facade         *mocks.MockInstanceMutaterAPI
-	environ        environShim
-	agentConfig    *mocks.MockConfig
-	machine        *mocks.MockMutaterMachine
-	machineTag     names.Tag
-	machinesWorker *workermocks.MockWorker
-	unitsWorker    *workermocks.MockWorker
+	logger              *mocks.MockLogger
+	facade              *mocks.MockInstanceMutaterAPI
+	environ             environShim
+	agentConfig         *mocks.MockConfig
+	machine             *mocks.MockMutaterMachine
+	machineTag          names.Tag
+	machinesWorker      *workermocks.MockWorker
+	appLXDProfileWorker *workermocks.MockWorker
 
 	// The done channel is used by tests to indicate that
 	// the worker has accomplished the scenario and can be stopped.
@@ -147,11 +146,8 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 			{"0"},
 		}, s.noopDone),
 		s.expectFacadeMachineTag,
-		s.notifyUnits([][]string{
-			{"unit"},
-		}, s.closeDone),
+		s.notifyAppLXDProfile(1, s.closeDone),
 		s.expectMachineTag,
-		s.expectCharmProfileInfo,
 	)
 
 	s.cleanKill(c, w)
@@ -183,7 +179,7 @@ func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 	s.agentConfig = mocks.NewMockConfig(ctrl)
 	s.machine = mocks.NewMockMutaterMachine(ctrl)
 	s.machinesWorker = workermocks.NewMockWorker(ctrl)
-	s.unitsWorker = workermocks.NewMockWorker(ctrl)
+	s.appLXDProfileWorker = workermocks.NewMockWorker(ctrl)
 
 	return ctrl
 }
@@ -230,12 +226,6 @@ func (s *workerSuite) expectMachineTag() {
 	s.machine.EXPECT().Tag().Return(s.machineTag).AnyTimes()
 }
 
-func (s *workerSuite) expectCharmProfileInfo() {
-	s.machine.EXPECT().CharmProfilingInfo([]string{"unit"}).Return(&instancemutaterapi.ProfileInfo{
-		Changes: true,
-	}, nil)
-}
-
 // notifyMachines returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
@@ -254,33 +244,33 @@ func (s *workerSuite) notifyMachines(values [][]string, doneFn func()) func() {
 		s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
 
 		s.facade.EXPECT().WatchModelMachines().Return(
-			&fakeWatcher{
+			&fakeStringsWatcher{
 				Worker: s.machinesWorker,
 				ch:     ch,
 			}, nil)
 	}
 }
 
-// notifyUnits returns a suite behaviour that will cause the instance mutator
+// notifyAppLXDProfile returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
-func (s *workerSuite) notifyUnits(values [][]string, doneFn func()) func() {
-	ch := make(chan []string)
+func (s *workerSuite) notifyAppLXDProfile(times int, doneFn func()) func() {
+	ch := make(chan struct{})
 
 	return func() {
 		go func() {
-			for _, v := range values {
-				ch <- v
+			for i := 0; i < times; i += 1 {
+				ch <- struct{}{}
 			}
 			doneFn()
 		}()
 
-		s.unitsWorker.EXPECT().Kill().AnyTimes()
-		s.unitsWorker.EXPECT().Wait().Return(nil).AnyTimes()
+		s.appLXDProfileWorker.EXPECT().Kill().AnyTimes()
+		s.appLXDProfileWorker.EXPECT().Wait().Return(nil).AnyTimes()
 
-		s.machine.EXPECT().WatchUnits().Return(
-			&fakeWatcher{
-				Worker: s.unitsWorker,
+		s.machine.EXPECT().WatchApplicationLXDProfiles().Return(
+			&fakeNotifyWatcher{
+				Worker: s.appLXDProfileWorker,
 				ch:     ch,
 			}, nil)
 	}
@@ -331,11 +321,20 @@ type environShim struct {
 	*mocks.MockLXDProfiler
 }
 
-type fakeWatcher struct {
+type fakeStringsWatcher struct {
 	worker.Worker
 	ch <-chan []string
 }
 
-func (w *fakeWatcher) Changes() watcher.StringsChannel {
+func (w *fakeStringsWatcher) Changes() watcher.StringsChannel {
+	return w.ch
+}
+
+type fakeNotifyWatcher struct {
+	worker.Worker
+	ch <-chan struct{}
+}
+
+func (w *fakeNotifyWatcher) Changes() watcher.NotifyChannel {
 	return w.ch
 }
