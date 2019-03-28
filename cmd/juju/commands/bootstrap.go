@@ -564,44 +564,62 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	hostedModelUUID, err := utils.NewUUID()
+	getHostedModel := func() (*jujuclient.ModelDetails, error) {
+		if isCAASController && c.hostedModelName == defaultHostedModelName {
+			// k8s controller does NOT have "default" hosted model
+			// if the user didn't specify a preferred hosted model name.
+			return nil, nil
+		}
+		hostedModelUUID, err := utils.NewUUID()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		hostedModelType := model.IAAS
+		if isCAASController {
+			hostedModelType = model.CAAS
+		}
+		modelDetails := &jujuclient.ModelDetails{
+			ModelUUID: hostedModelUUID.String(),
+			ModelType: hostedModelType,
+		}
+
+		if featureflag.Enabled(feature.Generations) {
+			modelDetails.ModelGeneration = model.GenerationCurrent
+		}
+
+		if err := store.UpdateModel(
+			c.controllerName,
+			c.hostedModelName,
+			*modelDetails,
+		); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		bootstrapParams.HostedModelConfig = c.hostedModelConfig(
+			hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ,
+		)
+
+		if !c.noSwitch {
+			// Set the current model to the initial hosted model.
+			if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		return modelDetails, nil
+	}
+
+	hostedModel, err := getHostedModel()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Set the current model to the initial hosted model.
-	hostedModelType := model.IAAS
-	if isCAASController {
-		hostedModelType = model.CAAS
-	}
-	modelDetails := jujuclient.ModelDetails{
-		ModelUUID: hostedModelUUID.String(),
-		ModelType: hostedModelType,
-	}
-
-	if featureflag.Enabled(feature.Generations) {
-		modelDetails.ModelGeneration = model.GenerationCurrent
-	}
-	if err := store.UpdateModel(
-		c.controllerName,
-		c.hostedModelName,
-		modelDetails,
-	); err != nil {
-		return errors.Trace(err)
-	}
-
 	if !c.noSwitch {
-		if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
-			return errors.Trace(err)
-		}
+		// set the current controller.
 		if err := store.SetCurrentController(c.controllerName); err != nil {
 			return errors.Trace(err)
 		}
 	}
-
-	bootstrapParams.HostedModelConfig = c.hostedModelConfig(
-		hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ,
-	)
 
 	cloudRegion := c.Cloud
 	if region.Name != "" {
@@ -741,14 +759,18 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
-	if err = c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
+	modelNameToSet := bootstrap.ControllerModelName
+	if hostedModel != nil {
+		modelNameToSet = c.hostedModelName
+	}
+	if err = c.SetModelName(modelcmd.JoinModelName(c.controllerName, modelNameToSet), false); err != nil {
 		return errors.Trace(err)
 	}
 
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
-	return waitForAgentInitialisation(ctx, &c.ModelCommandBase, c.controllerName, c.hostedModelName)
+	return waitForAgentInitialisation(ctx, &c.ModelCommandBase, isCAASController, c.controllerName, c.hostedModelName)
 }
 
 func (c *bootstrapCommand) handleCommandLineErrorsAndInfoRequests(ctx *cmd.Context) (bool, error) {

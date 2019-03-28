@@ -309,9 +309,6 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if cfg.StateServingInfo.APIPort == 0 {
 		return errors.New("missing API port")
 	}
-	if len(cfg.HostedModelConfig) == 0 {
-		return errors.New("missing hosted model config")
-	}
 	return nil
 }
 
@@ -408,7 +405,9 @@ func NewBootstrapControllerPodConfig(config controller.Config, controllerName, s
 	}
 	pcfg.Jobs = []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
-		multiwatcher.JobHostUnits,
+	}
+	if pcfg.Bootstrap.HostedModelConfig != nil && len(pcfg.Bootstrap.HostedModelConfig) > 0 {
+		pcfg.Jobs = append(pcfg.Jobs, multiwatcher.JobHostUnits)
 	}
 	return pcfg, nil
 }
