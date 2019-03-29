@@ -131,15 +131,26 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherTwoMachines(c *g
 	wc1.AssertNoChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherSubordinates(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherSubordinateWithProfile(c *gc.C) {
+	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
+	// Add a new subordinate unit with a profile of a new application.
+	s.newUnitForMachineAppLXDProfileWatcherSubProfile(s.machine0.Id(), unitChange.Name)
+	s.wc0.AssertOneChange()
+}
 
+func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherSubordinateNoProfile(c *gc.C) {
+	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
+	// Add a new subordinate unit with no profile of a new application.
+	s.newUnitForMachineAppLXDProfileWatcherNoProfile(s.machine0.Id(), unitChange.Name)
+	s.wc0.AssertNoChange()
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherRemoveUnitWithProfileTwoUnits(c *gc.C) {
 	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
 
 	// Add a new unit of a new application.
-	s.newUnitForMachineAppLXDProfileWatcherNoProfile()
+	s.newUnitForMachineAppLXDProfileWatcherNoProfile(s.machine0.Id(), "")
+	s.wc0.AssertNoChange()
 
 	// Remove the original unit which has a profile.
 	s.model.RemoveUnit(
@@ -198,11 +209,24 @@ func (s *lxdProfileWatcherSuite) updateCharmForMachineAppLXDProfileWatcher(rev s
 	})
 }
 
-func (s *lxdProfileWatcherSuite) newUnitForMachineAppLXDProfileWatcherNoProfile() {
-	cc := cache.CharmChange{
+func (s *lxdProfileWatcherSuite) newUnitForMachineAppLXDProfileWatcherNoProfile(machineId, principal string) {
+	s.newUnit(machineId, principal, cache.CharmChange{
 		ModelUUID: "model-uuid",
 		CharmURL:  "cs:name-me-345",
-	}
+	})
+}
+
+func (s *lxdProfileWatcherSuite) newUnitForMachineAppLXDProfileWatcherSubProfile(machineId, principal string) {
+	s.newUnit(machineId, principal, cache.CharmChange{
+		ModelUUID: "model-uuid",
+		CharmURL:  "cs:name-me-345",
+		LXDProfile: lxdprofile.Profile{
+			Config: map[string]string{"keySub": "valueSub"},
+		},
+	})
+}
+
+func (s *lxdProfileWatcherSuite) newUnit(machineId, principal string, cc cache.CharmChange) {
 	s.model.UpdateCharm(cc)
 
 	ac := appChange
@@ -214,7 +238,12 @@ func (s *lxdProfileWatcherSuite) newUnitForMachineAppLXDProfileWatcherNoProfile(
 	uc.Application = ac.Name
 	uc.CharmURL = ac.CharmURL
 	uc.Name = "name-me/0"
-	uc.MachineId = "0"
+	if principal != "" {
+		uc.Principal = principal
+		uc.Subordinate = true
+	} else {
+		uc.MachineId = machineId
+	}
 	s.model.UpdateUnit(uc)
 }
 
