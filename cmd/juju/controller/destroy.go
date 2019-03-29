@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/api/credentialmanager"
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -533,7 +535,7 @@ func (c *destroyCommandBase) getControllerEnviron(
 	store jujuclient.ClientStore,
 	controllerName string,
 	sysAPI destroyControllerAPI,
-) (environs.Environ, error) {
+) (environs.BootstrapEnviron, error) {
 	// TODO: (hml) 2018-08-01
 	// We should try to destroy via the API first, from store is a
 	// fall back position.
@@ -550,7 +552,7 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,
 	controllerName string,
-) (environs.Environ, error) {
+) (environs.BootstrapEnviron, error) {
 	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
 		ctx, store, environs.GlobalProviderRegistry(),
 	)(controllerName)
@@ -569,11 +571,16 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return environs.New(environs.OpenParams{
+
+	openParams := environs.OpenParams{
 		ControllerUUID: ctrlUUID,
 		Cloud:          params.Cloud,
 		Config:         cfg,
-	})
+	}
+	if bootstrapConfig.CloudType == cloud.CloudTypeCAAS {
+		return caas.New(openParams)
+	}
+	return environs.New(openParams)
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromAPI(

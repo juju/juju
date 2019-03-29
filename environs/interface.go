@@ -309,6 +309,8 @@ type BootstrapEnviron interface {
 	Configer
 	Bootstrapper
 	ConstraintsChecker
+
+	CloudDestroyer
 	ControllerDestroyer
 
 	// Environ implements storage.ProviderRegistry for acquiring
@@ -355,9 +357,6 @@ type CloudDestroyer interface {
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
 	BootstrapEnviron
-
-	// CloudDestroyer provides the API to cleanup cloud resources.
-	CloudDestroyer
 
 	// ResourceAdopter defines methods for adopting resources.
 	ResourceAdopter

@@ -74,6 +74,11 @@ func (a Annotation) ToMap() map[string]string {
 	return out
 }
 
+// Copy returns a copy of current annotation.
+func (a Annotation) Copy() Annotation {
+	return New(nil).Merge(a)
+}
+
 // CheckKeysNonEmpty checks if the provided keys are all set to non empty value.
 func (a Annotation) CheckKeysNonEmpty(keys ...string) error {
 	for _, k := range keys {
@@ -100,7 +105,12 @@ func (a Annotation) setVal(key, val string) {
 	}
 
 	oldVal, existing := a.getVal(key)
-	if existing {
+	if existing && oldVal == val {
+		return
+	}
+	if !existing {
+		logger.Debugf("annotation %q sets to %q", key, val)
+	} else {
 		logger.Debugf("annotation %q changed from %q to %q", key, oldVal, val)
 	}
 	a[key] = val
