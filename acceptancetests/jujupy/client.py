@@ -103,7 +103,7 @@ KVM_MACHINE = 'kvm'
 LXC_MACHINE = 'lxc'
 LXD_MACHINE = 'lxd'
 
-_DEFAULT_POLL_TIMEOUT = 2
+_DEFAULT_POLL_TIMEOUT = 5
 _DEFAULT_BUNDLE_TIMEOUT = 3600
 
 log = logging.getLogger("jujupy")
