@@ -110,6 +110,15 @@ func (s *watchLXDProfileUpgradeBaseSuite) expectLoop() {
 	s.watcher.EXPECT().Dead().Return(s.dead).AnyTimes()
 }
 
+func (s *watchLXDProfileUpgradeBaseSuite) assertChangesSent(c *gc.C, done chan struct{}, close func()) {
+	select {
+	case <-done:
+		close()
+	case <-time.After(testing.LongWait):
+		c.Errorf("expected watch changes to have been sent")
+	}
+}
+
 // Current tests for the WatchLXDProfileUpgradeNotifications for machines and
 // units.
 
@@ -122,18 +131,21 @@ var _ = gc.Suite(&instanceCharmProfileWatcherSuite{})
 func (s *instanceCharmProfileWatcherSuite) TestFullWatch(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	done := make(chan struct{})
 	w := s.workerForScenario(c,
 		s.expectInitialCollectionInstanceField(lxdprofile.EmptyStatus),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
-		}),
+			{Revno: 1},
+		}, done),
 		s.expectLoop,
+		s.expectMergeCollectionInstanceField(lxdprofile.NotKnownStatus),
 		s.expectMergeCollectionInstanceField(lxdprofile.NotKnownStatus),
 		s.expectLoop,
 	)
 
-	s.assertChanges(c, w, []string{lxdprofile.EmptyStatus}, noop)
-	s.assertChanges(c, w, []string{lxdprofile.NotKnownStatus}, s.close)
+	s.assertChangesSent(c, done, s.close)
+	s.assertChanges(c, w, []string{lxdprofile.NotKnownStatus}, noop)
 	s.cleanKill(c, w)
 	s.assertWatcherChangesClosed(c, w)
 }
@@ -141,16 +153,18 @@ func (s *instanceCharmProfileWatcherSuite) TestFullWatch(c *gc.C) {
 func (s *instanceCharmProfileWatcherSuite) TestFullWatchWithNoStatusChange(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	done := make(chan struct{})
 	w := s.workerForScenario(c,
 		s.expectInitialCollectionInstanceField(lxdprofile.NotKnownStatus),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
-		}),
+		}, done),
 		s.expectLoop,
 		s.expectMergeCollectionInstanceField(lxdprofile.NotKnownStatus),
 		s.expectLoop,
 	)
 
+	s.assertChangesSent(c, done, noop)
 	s.assertChanges(c, w, []string{lxdprofile.NotKnownStatus}, noop)
 	s.assertNoChanges(c, w)
 	s.close()
@@ -177,13 +191,17 @@ func (s *instanceCharmProfileWatcherSuite) expectInitialCollectionInstanceField(
 	}
 }
 
-func (s *instanceCharmProfileWatcherSuite) expectLoopCollectionFilterAndNotify(changes []watcher.Change) func() {
+func (s *instanceCharmProfileWatcherSuite) expectLoopCollectionFilterAndNotify(changes []watcher.Change, done chan struct{}) func() {
 	return func() {
-		matcher := channelMatcher{
-			changes: changes,
+		do := func(collection string, ch chan<- watcher.Change, filter func(interface{}) bool) {
+			go func() {
+				for _, change := range changes {
+					ch <- change
+				}
+				done <- struct{}{}
+			}()
 		}
-
-		s.watcher.EXPECT().WatchCollectionWithFilter("instanceCharmProfileData", matcher, gomock.Any())
+		s.watcher.EXPECT().WatchCollectionWithFilter("instanceCharmProfileData", gomock.Any(), gomock.Any()).Do(do)
 		s.watcher.EXPECT().UnwatchCollection("instanceCharmProfileData", gomock.Any())
 	}
 }
@@ -218,18 +236,21 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) SetUpTest(c *gc.C) {
 func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatch(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	done := make(chan struct{})
 	w := s.workerForScenario(c,
 		s.expectInitialCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-0")),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
-		}),
+			{Revno: 1},
+		}, done),
 		s.expectLoop,
+		s.expectMergeCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-1")),
 		s.expectMergeCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-1")),
 		s.expectLoop,
 	)
 
+	s.assertChangesSent(c, done, s.close)
 	s.assertChanges(c, w, []string{lxdprofile.NotRequiredStatus}, noop)
-	s.assertChanges(c, w, []string{lxdprofile.NotRequiredStatus}, s.close)
 	s.cleanKill(c, w)
 	s.assertWatcherChangesClosed(c, w)
 }
@@ -237,16 +258,18 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatch(c *gc.C) {
 func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatchWithNoStatusChange(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	done := make(chan struct{})
 	w := s.workerForScenario(c,
 		s.expectInitialCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-0")),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
-		}),
+		}, done),
 		s.expectLoop,
 		s.expectMergeCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-0")),
 		s.expectLoop,
 	)
 
+	s.assertChangesSent(c, done, noop)
 	s.assertChanges(c, w, []string{lxdprofile.NotRequiredStatus}, noop)
 	s.assertNoChanges(c, w)
 	s.close()
@@ -273,13 +296,17 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) expectInitialCollectionI
 	}
 }
 
-func (s *instanceCharmProfileWatcherCompatibilitySuite) expectLoopCollectionFilterAndNotify(changes []watcher.Change) func() {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) expectLoopCollectionFilterAndNotify(changes []watcher.Change, done chan struct{}) func() {
 	return func() {
-		matcher := channelMatcher{
-			changes: changes,
+		do := func(collection string, ch chan<- watcher.Change, filter func(interface{}) bool) {
+			go func() {
+				for _, change := range changes {
+					ch <- change
+				}
+				done <- struct{}{}
+			}()
 		}
-
-		s.watcher.EXPECT().WatchCollectionWithFilter("applications", matcher, gomock.Any())
+		s.watcher.EXPECT().WatchCollectionWithFilter("applications", gomock.Any(), gomock.Any()).Do(do)
 		s.watcher.EXPECT().UnwatchCollection("applications", gomock.Any())
 	}
 }
@@ -295,29 +322,4 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) expectMergeCollectionIns
 }
 
 func noop() {
-}
-
-// channelMatcher is used here, to not only match on the channel, but also to
-// apply values on to the private channel. This isn't pretty, because we don't
-// have access to the channel inside the watcher, but serves as an example of
-// getting information to private channels.
-type channelMatcher struct {
-	changes []watcher.Change
-}
-
-func (m channelMatcher) Matches(x interface{}) bool {
-	ch, ok := x.(chan<- watcher.Change)
-	if ok {
-		go func() {
-			for _, v := range m.changes {
-				ch <- v
-			}
-		}()
-		return true
-	}
-	return false
-}
-
-func (channelMatcher) String() string {
-	return "is chan watcher.Change"
 }
