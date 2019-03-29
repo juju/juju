@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
-	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
@@ -189,7 +189,7 @@ type ResourceData struct {
 	io.ReadCloser
 
 	// Resource holds the metadata for the resource.
-	Resource charmresource.Resource
+	Resource resource.Resource
 }
 
 // GetResource returns the data (bytes) and metadata for a resource from the charmstore.
@@ -217,7 +217,7 @@ func (c Client) GetResource(req ResourceRequest) (data ResourceData, err error) 
 		}
 	}()
 	data.ReadCloser = resData.ReadCloser
-	if data.Resource.Type == charmresource.TypeFile {
+	if data.Resource.Type == resource.TypeFile {
 		fpHash := data.Resource.Fingerprint.String()
 		if resData.Hash != fpHash {
 			return ResourceData{},
@@ -228,25 +228,25 @@ func (c Client) GetResource(req ResourceRequest) (data ResourceData, err error) 
 }
 
 // ResourceInfo returns the metadata for the given resource from the charmstore.
-func (c Client) ResourceInfo(req ResourceRequest) (charmresource.Resource, error) {
+func (c Client) ResourceInfo(req ResourceRequest) (resource.Resource, error) {
 	if err := c.jar.Activate(req.Charm); err != nil {
-		return charmresource.Resource{}, errors.Trace(err)
+		return resource.Resource{}, errors.Trace(err)
 	}
 	defer c.jar.Deactivate()
 	meta, err := c.csWrapper.ResourceMeta(req.Channel, req.Charm, req.Name, req.Revision)
 	if err != nil {
-		return charmresource.Resource{}, errors.Trace(err)
+		return resource.Resource{}, errors.Trace(err)
 	}
 	res, err := csparams.API2Resource(meta)
 	if err != nil {
-		return charmresource.Resource{}, errors.Trace(err)
+		return resource.Resource{}, errors.Trace(err)
 	}
 	return res, nil
 }
 
 // ListResources returns a list of resources for each of the given charms.
-func (c Client) ListResources(charms []CharmID) ([][]charmresource.Resource, error) {
-	results := make([][]charmresource.Resource, len(charms))
+func (c Client) ListResources(charms []CharmID) ([][]resource.Resource, error) {
+	results := make([][]resource.Resource, len(charms))
 	for i, ch := range charms {
 		res, err := c.listResources(ch)
 		if err != nil {
@@ -262,7 +262,7 @@ func (c Client) ListResources(charms []CharmID) ([][]charmresource.Resource, err
 	return results, nil
 }
 
-func (c Client) listResources(ch CharmID) ([]charmresource.Resource, error) {
+func (c Client) listResources(ch CharmID) ([]resource.Resource, error) {
 	if err := c.jar.Activate(ch.URL); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -316,8 +316,8 @@ func (c csclientImpl) ResourceMeta(channel csparams.Channel, id *charm.URL, name
 	return client.ResourceMeta(id, name, revision)
 }
 
-func api2resources(res []csparams.Resource) ([]charmresource.Resource, error) {
-	result := make([]charmresource.Resource, len(res))
+func api2resources(res []csparams.Resource) ([]resource.Resource, error) {
+	result := make([]resource.Resource, len(res))
 	for i, r := range res {
 		var err error
 		result[i], err = csparams.API2Resource(r)
