@@ -15,6 +15,11 @@ type Tools struct {
 	Size    int64          `json:"size"`
 }
 
+// AgentVersion
+func (t *Tools) AgentVersion() version.Number {
+	return t.Version.Number
+}
+
 // GUI represents the location and version of a GUI release archive.
 type GUIArchive struct {
 	Version version.Number `json:"version"`

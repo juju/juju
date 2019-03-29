@@ -70,6 +70,15 @@ func (src List) URLs() map[version.Binary][]string {
 	return result
 }
 
+// HasVersion instance store an agent version.
+type HasVersion interface {
+	// AgentVersion returns the agent version.
+	AgentVersion() version.Number
+}
+
+// Versions holds instances of HasVersion.
+type Versions []HasVersion
+
 // Newest returns the greatest version in src, and the tools with that version.
 func (src List) Newest() (version.Number, List) {
 	var result List
@@ -86,14 +95,30 @@ func (src List) Newest() (version.Number, List) {
 	return best, result
 }
 
+// Newest returns the greatest version in src, and the instances with that version.
+func (src Versions) Newest() (version.Number, Versions) {
+	var result Versions
+	var best version.Number
+	for _, agent := range src {
+		if best.Compare(agent.AgentVersion()) < 0 {
+			// Found new best number; reset result list.
+			best = agent.AgentVersion()
+			result = append(result[:0], agent)
+		} else if agent.AgentVersion() == best {
+			result = append(result, agent)
+		}
+	}
+	return best, result
+}
+
 // NewestCompatible returns the most recent version compatible with
 // base, i.e. with the same major and minor numbers and greater or
 // equal patch and build numbers.
-func (src List) NewestCompatible(base version.Number) (newest version.Number, found bool) {
+func (src Versions) NewestCompatible(base version.Number) (newest version.Number, found bool) {
 	newest = base
 	found = false
-	for _, tool := range src {
-		toolVersion := tool.Version.Number
+	for _, agent := range src {
+		toolVersion := agent.AgentVersion()
 		if newest == toolVersion {
 			found = true
 		} else if newest.Compare(toolVersion) < 0 &&
@@ -136,6 +161,21 @@ func (src List) Match(f Filter) (List, error) {
 	return result, nil
 }
 
+// Match returns a List, derived from src, containing only those instances that
+// match the supplied Filter. If no tools match, it returns ErrNoMatches.
+func (src Versions) Match(f Filter) (Versions, error) {
+	var result Versions
+	for _, agent := range src {
+		if f.match(agent) {
+			result = append(result, agent)
+		}
+	}
+	if len(result) == 0 {
+		return nil, ErrNoMatches
+	}
+	return result, nil
+}
+
 func (l List) Len() int           { return len(l) }
 func (l List) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l List) Less(i, j int) bool { return l[i].Version.String() < l[j].Version.String() }
@@ -156,9 +196,13 @@ type Filter struct {
 }
 
 // match returns true if the supplied tools match f.
-func (f Filter) match(tools *Tools) bool {
-	if f.Number != version.Zero && tools.Version.Number != f.Number {
+func (f Filter) match(agent HasVersion) bool {
+	if f.Number != version.Zero && agent.AgentVersion() != f.Number {
 		return false
+	}
+	tools, ok := agent.(*Tools)
+	if !ok {
+		return true
 	}
 	if f.Series != "" && tools.Version.Series != f.Series {
 		return false
