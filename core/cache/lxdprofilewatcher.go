@@ -62,8 +62,8 @@ func newMachineAppLXDProfileWatcher(
 }
 
 // applicationCharmURLChange sends a notification if what is saved for its
-// charm lxdprofile changes.  No notification is sent if the pointer begins
-// and ends as nil.
+// charm lxdprofile changes.  No notification is sent if the profile pointer
+// begins and ends as nil.
 func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, value interface{}) {
 	w.notifyWatcherBase.mu.Lock()
 	var notify bool
@@ -76,7 +76,7 @@ func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, va
 
 	values, ok := value.(appCharmUrlChange)
 	if !ok {
-		logger.Errorf("programming error, value not of typecharmUrlChange")
+		logger.Errorf("programming error, value not of type appCharmUrlChange")
 		return
 	}
 	appName, chURL := values.appName, values.chURL
@@ -84,7 +84,8 @@ func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, va
 	if ok {
 		ch, err := w.getCharm(chURL)
 		if err != nil {
-
+			logger.Errorf("error getting charm %s to evaluate for lxd profile notification: %s", chURL, err)
+			return
 		}
 		// notify if:
 		// 1. the prior charm had a profile and the new one does not.
