@@ -1,7 +1,7 @@
 series: bionic
 applications:
   lxd-profile:
-    charm: cs:~juju-qa/bionic/lxd-profile-without-devices-2
+    charm: cs:~juju-qa/bionic/lxd-profile-without-devices-4
     num_units: 4
     to:
       - "0"
