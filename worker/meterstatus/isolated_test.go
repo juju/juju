@@ -128,8 +128,12 @@ func (s *IsolatedWorkerSuite) TearDownTest(c *gc.C) {
 
 func (s *IsolatedWorkerSuite) TestTriggering(c *gc.C) {
 	assertSignal(c, s.triggersCreated)
-	s.clk.Advance(AmberGracePeriod + time.Second)
+
+	// Wait on the red and amber timers.
+	c.Assert(s.clk.WaitAdvance(AmberGracePeriod+time.Second, testing.ShortWait, 2), jc.ErrorIsNil)
 	assertSignal(c, s.hookRan)
+
+	// Don't need to ensure the timers here, we did it for both above.
 	s.clk.Advance(RedGracePeriod + time.Second)
 	assertSignal(c, s.hookRan)
 
