@@ -319,8 +319,8 @@ class WaitModelVersion(BaseCondition):
 class WaitAgentsStarted(BaseCondition):
     """Wait until all agents are idle or started."""
 
-    def __init__(self, timeout=1200):
-        super(WaitAgentsStarted, self).__init__(timeout)
+    def __init__(self, timeout=None):
+        super(WaitAgentsStarted, self).__init__(1200 if timeout is None else timeout)
 
     def iter_blocking_state(self, status):
         states = Status.check_agents_started(status)

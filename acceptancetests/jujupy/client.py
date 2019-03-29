@@ -1271,7 +1271,7 @@ class ModelClient:
 
     def deploy(self, charm, repository=None, to=None, series=None,
                service=None, force=False, resource=None, num=None,
-               constraints=None, alias=None, bind=None, **kwargs):
+               constraints=None, alias=None, bind=None, wait_timeout=None, **kwargs):
         args = [charm]
         if service is not None:
             args.extend([service])
@@ -1298,7 +1298,9 @@ class ModelClient:
             else:
                 args.extend(['--{}'.format(key), value])
         retvar, ct = self.juju('deploy', tuple(args))
-        return retvar, CommandComplete(WaitAgentsStarted(), ct)
+        # Unfortunately some times we need to up the wait condition timeout if
+        # we're deploying a complex set of machines/containers.
+        return retvar, CommandComplete(WaitAgentsStarted(wait_timeout), ct)
 
     def attach(self, service, resource):
         args = (service, resource)
