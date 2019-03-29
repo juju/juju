@@ -255,11 +255,12 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	hw := &instance.HardwareCharacteristics{
-		Arch:     &img.Arch,
-		Mem:      cons.Mem,
-		CpuCores: cons.CpuCores,
-		CpuPower: cons.CpuPower,
-		RootDisk: cons.RootDisk,
+		Arch:           &img.Arch,
+		Mem:            cons.Mem,
+		CpuCores:       cons.CpuCores,
+		CpuPower:       cons.CpuPower,
+		RootDisk:       cons.RootDisk,
+		RootDiskSource: cons.RootDiskSource,
 	}
 	return vm, hw, err
 }
