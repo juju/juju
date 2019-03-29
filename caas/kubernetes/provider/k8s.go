@@ -1638,11 +1638,11 @@ func (k *kubernetesClient) configureService(
 			ExternalName:             config.GetString(serviceExternalNameKey, ""),
 		},
 	}
-	return k.ensureService(service)
+	return k.ensureK8sService(service)
 }
 
-// ensureService ensures a service resource.
-func (k *kubernetesClient) ensureService(spec *core.Service) error {
+// ensureK8sService ensures a k8s service resource.
+func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
 	services := k.CoreV1().Services(k.namespace)
 	// Set any immutable fields if the service already exists.
 	existing, err := services.Get(spec.Name, v1.GetOptions{IncludeUninitialized: true})
@@ -1655,6 +1655,11 @@ func (k *kubernetesClient) ensureService(spec *core.Service) error {
 		_, err = services.Create(spec)
 	}
 	return errors.Trace(err)
+}
+
+// getK8sService gets a k8s service resource by service name.
+func (k *kubernetesClient) getK8sService(name string) error {
+	return nil
 }
 
 // deleteService deletes a service resource.

@@ -318,12 +318,29 @@ func (c controllerStack) createControllerService() error {
 			},
 		},
 	}
+
+	logger.Debugf("creating controller service: \n%+v", spec)
+	if err := c.broker.ensureK8sService(spec); err != nil {
+		return errors.Trace(err)
+	}
+
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q", svcName)
 		c.broker.deleteService(svcName)
 	})
-	logger.Debugf("creating controller service: \n%+v", spec)
-	return errors.Trace(c.broker.ensureService(spec))
+
+	// get the service by app name;
+	svc, err := c.broker.GetService(c.stackName)
+	if err != nil {
+		return errors.Annotate(err, "getting controller service")
+	}
+	logger.Criticalf("controller svc -> %v", svc)
+	publicAddress := svc.Addresses[0]
+	logger.Criticalf("controller svc publicAddress -> %+v", publicAddress)
+	if err := c.pcfg.Bootstrap.ControllerConfig.SetAutocertDNSName(publicAddress.Value); err != nil {
+		return errors.Annotatef(err, "setting controller public DNS to %v", publicAddress)
+	}
+	return nil
 }
 
 func (c controllerStack) addCleanUp(cleanUp func()) {
