@@ -103,6 +103,7 @@ KVM_MACHINE = 'kvm'
 LXC_MACHINE = 'lxc'
 LXD_MACHINE = 'lxd'
 
+_DEFAULT_POLL_TIMEOUT = 2
 _DEFAULT_BUNDLE_TIMEOUT = 3600
 
 log = logging.getLogger("jujupy")
@@ -1439,7 +1440,7 @@ class ModelClient:
                             break
                         status.raise_highest_error(ignore_recoverable=True)
                         reporter.update(states)
-                        time.sleep(1)
+                        time.sleep(_DEFAULT_POLL_TIMEOUT)
                     else:
                         if status is not None:
                             log.error(status.status_text)
@@ -1656,7 +1657,7 @@ class ModelClient:
                     status = self.get_status()
                     if status.get_service_count() >= service_count:
                         return
-                    time.sleep(1)
+                    time.sleep(_DEFAULT_POLL_TIMEOUT)
                 else:
                     raise ApplicationsNotStarted(self.env.environment, status)
 
@@ -1701,7 +1702,7 @@ class ModelClient:
                     return
                 if not quiet:
                     reporter.update(states)
-                time.sleep(1)
+                time.sleep(_DEFAULT_POLL_TIMEOUT)
             else:
                 status.raise_highest_error(ignore_recoverable=False)
         except StatusTimeout:
