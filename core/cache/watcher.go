@@ -4,6 +4,7 @@
 package cache
 
 import (
+	"regexp"
 	"sort"
 	"sync"
 
@@ -257,4 +258,38 @@ func (w *ChangeWatcher) changed(topic string, value interface{}) {
 	}
 
 	w.notify(strings)
+}
+
+// RegexpChangeWatcher notifies when individual pieces of a subscribed topic
+// match the given compiled regular expression.  An initial event is sent
+// with the input given at creation.
+type RegexpChangeWatcher struct {
+	*stringsWatcherBase
+
+	compiled *regexp.Regexp
+}
+
+func newRegexpAddRemoveWatcher(compiled *regexp.Regexp, values ...string) *RegexpChangeWatcher {
+	return &RegexpChangeWatcher{
+		stringsWatcherBase: newStringsWatcherBase(values...),
+		compiled:           compiled,
+	}
+}
+
+func (w *RegexpChangeWatcher) changed(topic string, value interface{}) {
+	strings, ok := value.([]string)
+	if !ok {
+		logger.Errorf("programming error, value not of type []string")
+	}
+
+	matches := set.NewStrings()
+	for _, s := range strings {
+		if w.compiled.MatchString(s) {
+			matches.Add(s)
+		}
+	}
+
+	if !matches.IsEmpty() {
+		w.notify(matches.Values())
+	}
 }
