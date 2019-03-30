@@ -4,6 +4,8 @@
 package cache
 
 import (
+	"fmt"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/pubsub"
 
@@ -12,6 +14,8 @@ import (
 
 type MachineAppLXDProfileWatcher struct {
 	*notifyWatcherBase
+
+	metrics *ControllerGauges
 
 	applications map[string]appInfo // unit names for each application
 	machineId    string
@@ -33,21 +37,27 @@ type appInfo struct {
 	units        set.Strings
 }
 
-func newMachineAppLXDProfileWatcher(
-	appTopic, unitTopic, machineId string,
-	applications map[string]appInfo,
-	modeler MachineAppModeler,
-	hub *pubsub.SimpleHub,
-) *MachineAppLXDProfileWatcher {
+type MachineAppLXDProfileConfig struct {
+	appTopic     string
+	unitTopic    string
+	machineId    string
+	applications map[string]appInfo
+	modeler      MachineAppModeler
+	metrics      *ControllerGauges
+	hub          *pubsub.SimpleHub
+}
+
+func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) *MachineAppLXDProfileWatcher {
 	w := &MachineAppLXDProfileWatcher{
 		notifyWatcherBase: newNotifyWatcherBase(),
-		applications:      applications,
-		modeler:           modeler,
-		machineId:         machineId,
+		applications:      config.applications,
+		modeler:           config.modeler,
+		machineId:         config.machineId,
+		metrics:           config.metrics,
 	}
 
-	unsubApp := hub.Subscribe(appTopic, w.applicationCharmURLChange)
-	unsubUnit := hub.Subscribe(unitTopic, w.unitChange)
+	unsubApp := config.hub.Subscribe(config.appTopic, w.applicationCharmURLChange)
+	unsubUnit := config.hub.Subscribe(config.unitTopic, w.unitChange)
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
 		unsubApp()
@@ -55,7 +65,7 @@ func newMachineAppLXDProfileWatcher(
 		return nil
 	})
 
-	logger.Tracef("started MachineAppLXDProfileWatcher for machine-%s with %#v", machineId, applications)
+	logger.Tracef("started MachineAppLXDProfileWatcher for machine-%s with %#v", config.machineId, config.applications)
 	return w
 }
 
@@ -69,12 +79,15 @@ func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, va
 		w.notifyWatcherBase.mu.Unlock()
 		if *notify {
 			w.notify()
+			w.metrics.LXDProfileChangeHit.Inc()
+		} else {
+			w.metrics.LXDProfileChangeMiss.Inc()
 		}
 	}(&notify)
 
 	values, ok := value.(appCharmUrlChange)
 	if !ok {
-		logger.Errorf("programming error, value not of type appCharmUrlChange")
+		w.logError("programming error, value not of type appCharmUrlChange")
 		return
 	}
 	appName, chURL := values.appName, values.chURL
@@ -82,7 +95,7 @@ func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, va
 	if ok {
 		ch, err := w.modeler.Charm(chURL)
 		if err != nil {
-			logger.Errorf("error getting charm %s to evaluate for lxd profile notification: %s", chURL, err)
+			w.logError(fmt.Sprintf("error getting charm %s to evaluate for lxd profile notification: %s", chURL, err))
 			return
 		}
 		// notify if:
@@ -121,6 +134,9 @@ func (w *MachineAppLXDProfileWatcher) unitChange(topic string, value interface{}
 		if *notify {
 			logger.Tracef("notifying due to add/remove unit requires lxd profile change machine-%s", w.machineId)
 			w.notify()
+			w.metrics.LXDProfileChangeHit.Inc()
+		} else {
+			w.metrics.LXDProfileChangeMiss.Inc()
 		}
 	}(&notify)
 
@@ -152,9 +168,9 @@ func (w *MachineAppLXDProfileWatcher) unitChange(topic string, value interface{}
 		logger.Tracef("start watching %q on machine-%s", unit.details.Name, w.machineId)
 		notify = w.addUnit(unit)
 	default:
-		logger.Errorf("programming error, value not of type *Unit or []string")
+		w.logError("programming error, value not of type *Unit or []string")
 	}
-	logger.Tracef("end of unit change %#v", w.applications)
+	logger.Debugf("end of unit change %#v", w.applications)
 }
 
 func (w *MachineAppLXDProfileWatcher) addUnit(unit *Unit) bool {
@@ -165,14 +181,14 @@ func (w *MachineAppLXDProfileWatcher) addUnit(unit *Unit) bool {
 			// this happens for new units to existing machines.
 			app, err := w.modeler.Application(unit.details.Application)
 			if err != nil {
-				logger.Errorf("failed to get application %s for machine-%s", unit.details.Application, w.machineId)
+				w.logError(fmt.Sprintf("failed to get application %s for machine-%s", unit.details.Application, w.machineId))
 				return false
 			}
 			curl = app.details.CharmURL
 		}
 		ch, err := w.modeler.Charm(curl)
 		if err != nil {
-			logger.Errorf("failed to get charm %q for %s on machine-%s", curl, unit.details.Name, w.machineId)
+			w.logError(fmt.Sprintf("failed to get charm %q for %s on machine-%s", curl, unit.details.Name, w.machineId))
 			return false
 		}
 		info := appInfo{
@@ -194,17 +210,17 @@ func (w *MachineAppLXDProfileWatcher) addUnit(unit *Unit) bool {
 
 func (w *MachineAppLXDProfileWatcher) removeUnit(names []string) bool {
 	if len(names) != 2 {
-		logger.Errorf("programming error, 2 values not provided")
+		w.logError("programming error, 2 values not provided")
 		return false
 	}
 	unitName, appName := names[0], names[1]
 	app, ok := w.applications[appName]
 	if !ok {
-		logger.Errorf("programming error, unit removed before being added, application name not found")
+		w.logError("programming error, unit removed before being added, application name not found")
 		return false
 	}
 	if !app.units.Contains(unitName) {
-		logger.Errorf("unit not being watched for machine")
+		w.logError("unit not being watched for machine")
 		return false
 	}
 	profile := app.charmProfile
@@ -221,4 +237,9 @@ func (w *MachineAppLXDProfileWatcher) removeUnit(names []string) bool {
 		return true
 	}
 	return false
+}
+
+func (w *MachineAppLXDProfileWatcher) logError(msg string) {
+	logger.Errorf(msg)
+	w.metrics.LXDProfileChangeError.Inc()
 }
