@@ -130,6 +130,9 @@ func (m *Model) Machine(machineId string) (*Machine, error) {
 // added and removed machines in the model.  The initial event contains
 // a slice of the current machine ids.
 func (m *Model) WatchMachines() *ChangeWatcher {
+	m.mu.Lock()
+
+	// Gather initial slice of machines in this model.
 	machines := make([]string, len(m.machines))
 	i := 0
 	for k := range m.machines {
@@ -146,6 +149,7 @@ func (m *Model) WatchMachines() *ChangeWatcher {
 		return nil
 	})
 
+	m.mu.Unlock()
 	return w
 }
 
@@ -256,6 +260,10 @@ func (m *Model) removeMachine(ch RemoveMachine) {
 // topic prefixes the input string with the model UUID.
 func (m *Model) topic(suffix string) string {
 	return modelTopic(m.details.ModelUUID, suffix)
+}
+
+func modelTopic(modeluuid, suffix string) string {
+	return modeluuid + ":" + suffix
 }
 
 func modelTopic(modeluuid, suffix string) string {
