@@ -4,10 +4,13 @@
 package cache
 
 import (
+	"fmt"
+	"regexp"
 	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 )
 
 func newMachine(model *Model) *Machine {
@@ -55,20 +58,37 @@ func (m *Machine) Units() ([]*Unit, error) {
 	return result, nil
 }
 
-func (m *Machine) setDetails(details MachineChange) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.details = details
+// WatchContainers creates a RegexpChangeWatcher (strings watcher) to notify
+// about added and removed containers on this machine.  The initial event
+// contains a slice of the current container machine ids.
+func (m *Machine) WatchContainers() (*RegexpChangeWatcher, error) {
+	m.model.mu.Lock()
 
-	configHash, err := hash(details.Config)
+	// Create a compiled regexp to match containers on this machine.
+	compiled, err := m.containerRegexp()
 	if err != nil {
-		logger.Errorf("invariant error - machine config should be yaml serializable and hashable, %v", err)
-		configHash = ""
+		return nil, err
 	}
-	if configHash != m.configHash {
-		m.configHash = configHash
-		// TODO: publish config change...
+
+	// Gather initial slice of containers on this machine.
+	machines := make([]string, 0)
+	for k, v := range m.model.machines {
+		if compiled.MatchString(v.details.Id) {
+			machines = append(machines, k)
+		}
 	}
+
+	w := newRegexpAddRemoveWatcher(compiled, machines...)
+	unsub := m.model.hub.Subscribe(m.modelTopic(modelAddRemoveMachine), w.changed)
+
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		unsub()
+		return nil
+	})
+
+	m.model.mu.Unlock()
+	return w, nil
 }
 
 // WatchApplicationLXDProfiles notifies if any of the following happen
@@ -127,4 +147,29 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 	)
 	m.model.mu.Unlock()
 	return w, nil
+}
+
+func (m *Machine) containerRegexp() (*regexp.Regexp, error) {
+	regExp := fmt.Sprintf("^%s%s", m.details.Id, names.ContainerSnippet)
+	return regexp.Compile(regExp)
+}
+
+func (m *Machine) modelTopic(suffix string) string {
+	return modelTopic(m.details.ModelUUID, suffix)
+}
+
+func (m *Machine) setDetails(details MachineChange) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.details = details
+
+	configHash, err := hash(details.Config)
+	if err != nil {
+		logger.Errorf("invariant error - machine config should be yaml serializable and hashable, %v", err)
+		configHash = ""
+	}
+	if configHash != m.configHash {
+		m.configHash = configHash
+		// TODO: publish config change...
+	}
 }
