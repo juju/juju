@@ -14,7 +14,7 @@ import (
 type Flag interface {
 
 	// Check returns the flag's value. Check calls must *always* return
-	// the same value for a given instatiation of the type implementing
+	// the same value for a given instantiation of the type implementing
 	// Flag.
 	Check() bool
 }

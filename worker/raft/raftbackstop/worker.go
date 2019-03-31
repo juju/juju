@@ -21,12 +21,14 @@ import (
 type RaftNode interface {
 	State() raft.RaftState
 	GetConfiguration() raft.ConfigurationFuture
+	BootstrapCluster(configuration raft.Configuration) raft.Future
 }
 
 // Logger represents the logging methods called.
 type Logger interface {
 	Infof(message string, args ...interface{})
 	Debugf(message string, args ...interface{})
+	Tracef(message string, args ...interface{})
 }
 
 // This worker monitors the state of the raft cluster it's passed, and
@@ -140,6 +142,7 @@ func (w *backstopWorker) loop() error {
 }
 
 func (w *backstopWorker) maybeRecoverCluster(details apiserver.Details) error {
+	w.config.Logger.Tracef("maybeRecoverCluster called with %#v", details)
 	if w.configUpdated {
 		if !w.reportedWaiting {
 			w.config.Logger.Infof("raft configuration already updated; waiting for raft worker restart")
@@ -163,6 +166,21 @@ func (w *backstopWorker) maybeRecoverCluster(details apiserver.Details) error {
 	}
 
 	numServers := len(raftServers)
+	if numServers == 0 && len(details.Servers) == 1 {
+		// we know it is found because we checked earlier
+		// TODO(jam): 2019-03-31 Would we want to handle the case where len(details.Servers) > 1
+		//  You could potentially get into that case if you were in HA but one of the
+		//  machines had 'raft/' deleted. But hopefully the HA properties will
+		//  allow one of the controllers to recover. What if all 3 are removed
+		//  simultaneously?
+		localDetails := details.Servers[string(w.config.LocalID)]
+		localServer := &raft.Server{
+			Suffrage: raft.Nonvoter,
+			ID:       w.config.LocalID,
+			Address:  raft.ServerAddress(localDetails.InternalAddress),
+		}
+		return errors.Trace(w.recoverViaBootstrap(localServer))
+	}
 	localServer := raftServers[w.config.LocalID]
 	if localServer == nil {
 		return nil
@@ -173,7 +191,6 @@ func (w *backstopWorker) maybeRecoverCluster(details apiserver.Details) error {
 		// The server can vote and has quorum, so it can become leader.
 		return nil
 	}
-
 	err = w.recoverCluster(localServer)
 	return errors.Annotate(err, "recovering cluster")
 }
@@ -201,7 +218,7 @@ func (w *backstopWorker) recoverCluster(server *raft.Server) error {
 	var lastLog raft.Log
 	err = w.config.LogStore.GetLog(lastIndex, &lastLog)
 	if err != nil {
-		return errors.Annotate(err, "getting last log entry")
+		return errors.Annotatef(err, "getting last log entry %d", lastIndex)
 	}
 
 	// Prepare log record to add.
@@ -215,6 +232,22 @@ func (w *backstopWorker) recoverCluster(server *raft.Server) error {
 		return errors.Annotate(err, "storing recovery configuration")
 	}
 	w.configUpdated = true
+	return nil
+}
+
+// recoverViaBootstrap re-initializes the raft cluster. This should only be
+// used in the case that the raft directory has been completely wiped.
+func (w *backstopWorker) recoverViaBootstrap(server *raft.Server) error {
+	newServer := *server
+	newServer.Suffrage = raft.Voter
+	configuration := raft.Configuration{
+		Servers: []raft.Server{newServer},
+	}
+	w.config.Logger.Infof("rebootstrapping raft configuration: %#v", configuration)
+	err := w.config.Raft.BootstrapCluster(configuration).Error()
+	if err != nil {
+		return errors.Annotate(err, "re-bootstrapping cluster")
+	}
 	return nil
 }
 
