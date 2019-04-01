@@ -54,6 +54,7 @@ func (r *Remover) removeEntity(tag names.Tag) error {
 			return err
 		}
 	}
+	// TODO (anastasiamac) this needs to work with force if needed
 	return remover.Remove()
 }
 

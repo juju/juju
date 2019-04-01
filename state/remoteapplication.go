@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -248,10 +249,21 @@ func copyAttributes(values attributeMap) attributeMap {
 	return result
 }
 
+// Destroy in addition to doing what Destroy() does,
+// when force is passed in as 'true', forces th destruction of remote application,
+// ignoring errors.
+func (s *RemoteApplication) DestroyWithForce(force bool) (err error) {
+	return s.internalDestroy(force)
+}
+
 // Destroy ensures that this remote application reference and all its relations
 // will be removed at some point; if no relation involving the
 // application has any units in scope, they are all removed immediately.
 func (s *RemoteApplication) Destroy() (err error) {
+	return s.internalDestroy(false)
+}
+
+func (s *RemoteApplication) internalDestroy(force bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy remote application %q", s)
 	defer func() {
 		if err == nil {
@@ -267,14 +279,20 @@ func (s *RemoteApplication) Destroy() (err error) {
 				return nil, err
 			}
 		}
-		switch ops, err := app.destroyOps(); err {
+		switch ops, err := app.destroyOps(force); err {
 		case errRefresh:
 		case errAlreadyDying:
 			return nil, jujutxn.ErrNoOperations
 		case nil:
 			return ops, nil
 		default:
-			return nil, err
+			if !force {
+				return nil, err
+			}
+			if len(ops) != 0 {
+				logger.Warningf("force destroying remote application %v despite error %v", s.Name(), err)
+				return ops, nil
+			}
 		}
 		return nil, jujutxn.ErrTransientFailure
 	}
@@ -284,13 +302,17 @@ func (s *RemoteApplication) Destroy() (err error) {
 // destroyOps returns the operations required to destroy the application. If it
 // returns errRefresh, the application should be refreshed and the destruction
 // operations recalculated.
-func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
+func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, error) {
 	if s.doc.Life == Dying {
 		return nil, errAlreadyDying
 	}
+	errs := []string{}
 	rels, err := s.Relations()
 	if err != nil {
-		return nil, errors.Trace(err)
+		if !force {
+			return nil, errors.Trace(err)
+		}
+		errs = append(errs, err.Error())
 	}
 	if len(rels) != s.doc.RelationCount {
 		// This is just an early bail out. The relations obtained may still
@@ -302,7 +324,10 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 	// We'll need status below when processing relations.
 	statusInfo, statusErr := s.Status()
 	if statusErr != nil && !errors.IsNotFound(statusErr) {
-		return nil, errors.Trace(statusErr)
+		if !force {
+			return nil, errors.Trace(statusErr)
+		}
+		errs = append(errs, statusErr.Error())
 	}
 
 	var ops []txn.Op
@@ -314,17 +339,26 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 			logger.Debugf("forcing cleanup of units for %v", s.Name())
 			remoteUnits, err := rel.AllRemoteUnits(s.Name())
 			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			logger.Debugf("got %v relation units to clean", len(remoteUnits))
-			for _, ru := range remoteUnits {
-				if err := ru.LeaveScope(); err != nil {
+				if !force {
+					// TODO (anastasiamac) This should probably be 'continue'...
 					return nil, errors.Trace(err)
+				}
+				errs = append(errs, err.Error())
+			}
+			if countRemoteUnits := len(remoteUnits); countRemoteUnits != 0 {
+				logger.Debugf("got %v relation units to clean", countRemoteUnits)
+				for _, ru := range remoteUnits {
+					if err := ru.LeaveScopeWithForce(force); err != nil {
+						if !force {
+							return nil, errors.Trace(err)
+						}
+						errs = append(errs, err.Error())
+					}
 				}
 			}
 		}
 
-		relOps, isRemove, err := rel.destroyOps(s.doc.Name)
+		relOps, isRemove, err := rel.destroyOps(s.doc.Name, force)
 		if err == errAlreadyDying {
 			relOps = []txn.Op{{
 				C:      relationsC,
@@ -332,12 +366,17 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 				Assert: bson.D{{"life", Dying}},
 			}}
 		} else if err != nil {
-			return nil, errors.Trace(err)
+			if !force {
+				return nil, errors.Trace(err)
+			}
+			errs = append(errs, err.Error())
 		}
 		if isRemove {
 			removeCount++
 		}
-		ops = append(ops, relOps...)
+		if len(relOps) != 0 {
+			ops = append(ops, relOps...)
+		}
 	}
 	// If all of the application's known relations will be
 	// removed, the application can also be removed.
@@ -345,9 +384,18 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 		hasLastRefs := bson.D{{"life", Alive}, {"relationcount", removeCount}}
 		removeOps, err := s.removeOps(hasLastRefs)
 		if err != nil {
-			return nil, errors.Trace(err)
+			if !force {
+				return nil, errors.Trace(err)
+			}
+			errs = append(errs, err.Error())
 		}
-		return append(ops, removeOps...), nil
+		if len(removeOps) != 0 {
+			ops = append(ops, removeOps...)
+		}
+		if !force || len(errs) == 0 {
+			return ops, nil
+		}
+		return ops, errors.Errorf("%v", strings.Join(errs, "\n"))
 	}
 	// In all other cases, application removal will be handled as a consequence
 	// of the removal of the relation referencing it. If any  relations have
@@ -366,12 +414,16 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 		decref := bson.D{{"$inc", bson.D{{"relationcount", -removeCount}}}}
 		update = append(update, decref...)
 	}
-	return append(ops, txn.Op{
+	ops = append(ops, txn.Op{
 		C:      remoteApplicationsC,
 		Id:     s.doc.DocID,
 		Assert: notLastRefs,
 		Update: update,
-	}), nil
+	})
+	if !force || len(errs) == 0 {
+		return ops, nil
+	}
+	return ops, errors.Errorf("%v", strings.Join(errs, "\n"))
 }
 
 // removeOps returns the operations required to remove the application. Supplied

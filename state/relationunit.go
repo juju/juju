@@ -271,12 +271,23 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 	return ru.st.db().RunTransaction(ops)
 }
 
+// LeaveScopeWithForce in addition to doing what LeaveScope() does,
+// when force is passed in as 'true', forces relation unit to leave scope,
+// ignoring errors.
+func (ru *RelationUnit) LeaveScopeWithForce(force bool) error {
+	return ru.internalLeaveScope(force)
+}
+
 // LeaveScope signals that the unit has left its scope in the relation.
 // After the unit has left its relation scope, it is no longer a member
 // of the relation; if the relation is dying when its last member unit
 // leaves, it is removed immediately. It is not an error to leave a scope
 // that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
+	return ru.internalLeaveScope(false)
+}
+
+func (ru *RelationUnit) internalLeaveScope(force bool) error {
 	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
@@ -315,7 +326,11 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		count, err := relationScopes.FindId(key).Count()
 		if err != nil {
-			return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
+			if !force {
+				return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
+			}
+			// When forcing, we still want to leave the scope so will fall through to the rest of
+			// the logic from here.
 		} else if count == 0 {
 			return nil, jujutxn.ErrNoOperations
 		}
@@ -340,11 +355,16 @@ func (ru *RelationUnit) LeaveScope() error {
 				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
 		} else {
-			relOps, err := ru.relation.removeOps("", ru.unitName)
+			relOps, err := ru.relation.removeOps("", ru.unitName, force)
 			if err != nil {
-				return nil, err
+				if !force {
+					return nil, err
+				}
+				logger.Warningf("forcing leave scope for %s despite error %v", desc, err)
 			}
-			ops = append(ops, relOps...)
+			if len(relOps) != 0 {
+				ops = append(ops, relOps...)
+			}
 		}
 		return ops, nil
 	}

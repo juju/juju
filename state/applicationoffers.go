@@ -225,7 +225,7 @@ func (s *applicationOffers) Remove(offerName string, force bool) (err error) {
 					}
 				}
 
-				relOps, _, err := rel.destroyOps("")
+				relOps, _, err := rel.destroyOps("", force)
 				if err == errAlreadyDying {
 					continue
 				} else if err != nil {

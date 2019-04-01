@@ -799,8 +799,8 @@ func AppDeviceConstraints(app *Application) (map[string]DeviceConstraints, error
 	return readDeviceConstraints(app.st, app.deviceConstraintsKey())
 }
 
-func RemoveRelation(c *gc.C, rel *Relation) {
-	ops, err := rel.removeOps("", "")
+func RemoveRelation(c *gc.C, rel *Relation, force bool) {
+	ops, err := rel.removeOps("", "", force)
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.st.db().RunTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)

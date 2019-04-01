@@ -466,9 +466,18 @@ func (s *ApplicationSuite) TestDestroyRelationIdRelationNotFound(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
+	s.assertDestroyApplication(c, false)
+}
+
+func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
+	s.assertDestroyApplication(c, true)
+}
+
+func (s *ApplicationSuite) assertDestroyApplication(c *gc.C, force bool) {
 	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{{
 			ApplicationTag: "application-postgresql",
+			Force:          force,
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -498,7 +507,7 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyApplicationOperation{})
+	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyApplicationOperation{Force: force})
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
@@ -582,10 +591,20 @@ func (s *ApplicationSuite) TestDestroyConsumedApplicationNotFound(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
+	s.assertDestroyUnit(c, false)
+}
+
+func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
+	s.assertDestroyUnit(c, true)
+}
+
+func (s *ApplicationSuite) assertDestroyUnit(c *gc.C, force bool) {
 	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{
-			{UnitTag: "unit-postgresql-0"},
 			{
+				UnitTag: "unit-postgresql-0",
+				Force:   force,
+			}, {
 				UnitTag:        "unit-postgresql-1",
 				DestroyStorage: true,
 			},
@@ -619,7 +638,7 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyUnitOperation{})
+	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyUnitOperation{Force: force})
 	s.backend.CheckCall(c, 9, "ApplyOperation", &state.DestroyUnitOperation{
 		DestroyStorage: true,
 	})

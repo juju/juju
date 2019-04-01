@@ -249,11 +249,21 @@ func (r *Relation) checkConsumePermission(offerUUID, userId string) (bool, error
 	return true, nil
 }
 
+// DestroyWithForce may force the destruction of the relation.
+func (r *Relation) DestroyWithForce(force bool) (err error) {
+	return r.internalDestroy(force)
+}
+
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() (err error) {
+	return r.internalDestroy(false)
+}
+
+func (r *Relation) internalDestroy(force bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy relation %q", r)
 	if len(r.doc.Endpoints) == 1 && r.doc.Endpoints[0].Role == charm.RolePeer {
+		// TODO (anastasiamac) what does it do when forcing ??
 		return errors.Errorf("is a peer relation")
 	}
 	defer func() {
@@ -264,27 +274,42 @@ func (r *Relation) Destroy() (err error) {
 	}()
 	rel := &Relation{r.st, r.doc}
 
+	errs := []string{}
 	remoteApp, isCrossModel, err := r.RemoteApplication()
 	if err != nil {
-		return errors.Trace(err)
-	}
-	// If the status of the consumed app is terminated, we will never
-	// get an orderly exit of units from scope so force the issue.
-	if isCrossModel {
-		statusInfo, err := remoteApp.Status()
-		if err != nil && !errors.IsNotFound(err) {
+		if !force {
 			return errors.Trace(err)
 		}
-		if err == nil && statusInfo.Status == status.Terminated {
-			logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
-			remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
-			if err != nil {
-				return errors.Trace(err)
-			}
-			logger.Debugf("got %v relation units to clean", len(remoteUnits))
-			for _, ru := range remoteUnits {
-				if err := ru.LeaveScope(); err != nil {
+		errs = append(errs, err.Error())
+	} else {
+		// If the status of the consumed app is terminated, we will never
+		// get an orderly exit of units from scope so force the issue.
+		if isCrossModel {
+			statusInfo, err := remoteApp.Status()
+			if err != nil && !errors.IsNotFound(err) {
+				if !force {
 					return errors.Trace(err)
+				}
+				errs = append(errs, err.Error())
+			}
+			if err == nil && statusInfo.Status == status.Terminated {
+				logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
+				remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
+				if err != nil {
+					if !force {
+						return errors.Trace(err)
+					}
+					errs = append(errs, err.Error())
+				}
+				logger.Debugf("got %v relation units to clean", len(remoteUnits))
+				for _, ru := range remoteUnits {
+					if err := ru.LeaveScope(); err != nil {
+						if !force {
+							// TODO (anastasiamac) should not we 'continue' here rather than get out?
+							return errors.Trace(err)
+						}
+						errs = append(errs, err.Error())
+					}
 				}
 			}
 		}
@@ -302,15 +327,29 @@ func (r *Relation) Destroy() (err error) {
 				return nil, err
 			}
 		}
-		ops, _, err := rel.destroyOps("")
+		ops, _, err := rel.destroyOps("", force)
 		if err == errAlreadyDying {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
-			return nil, err
+			if !force {
+				return nil, err
+			}
+			errs = append(errs, err.Error())
 		}
-		return ops, nil
+		return ops, err
 	}
-	return rel.st.db().Run(buildTxn)
+	err = rel.st.db().Run(buildTxn)
+	if !force {
+		return err
+	}
+	if err != nil {
+		errs = append(errs, err.Error())
+	}
+	if len(errs) != 0 {
+		return errors.Errorf("%v", strings.Join(errs, "\n"))
+	}
+	return nil
+
 }
 
 // destroyOps returns the operations necessary to destroy the relation, and
@@ -318,14 +357,18 @@ func (r *Relation) Destroy() (err error) {
 // operations may include changes to the relation's applications; however, if
 // ignoreApplication is not empty, no operations modifying that application will
 // be generated.
-func (r *Relation) destroyOps(ignoreApplication string) (ops []txn.Op, isRemove bool, err error) {
+func (r *Relation) destroyOps(ignoreApplication string, force bool) (ops []txn.Op, isRemove bool, err error) {
 	if r.doc.Life != Alive {
+		// TODO (anastasiamac) Should not we ignore this with 'force' to enable stuck removal to proceed?
 		return nil, false, errAlreadyDying
 	}
 	if r.doc.UnitCount == 0 {
-		removeOps, err := r.removeOps(ignoreApplication, "")
+		removeOps, err := r.removeOps(ignoreApplication, "", force)
 		if err != nil {
-			return nil, false, err
+			if !force {
+				return nil, false, err
+			}
+			logger.Warningf("ignoring error (%v) while constructing relation %v destroy operations since force is used", err, r)
 		}
 		return removeOps, true, nil
 	}
@@ -342,7 +385,7 @@ func (r *Relation) destroyOps(ignoreApplication string) (ops []txn.Op, isRemove 
 // included; if departingUnitName is non-empty, this implies that the
 // relation's applications may be Dying and otherwise unreferenced, and may thus
 // require removal themselves.
-func (r *Relation) removeOps(ignoreApplication string, departingUnitName string) ([]txn.Op, error) {
+func (r *Relation) removeOps(ignoreApplication string, departingUnitName string, force bool) ([]txn.Op, error) {
 	relOp := txn.Op{
 		C:      relationsC,
 		Id:     r.doc.DocID,
@@ -354,26 +397,44 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string)
 		relOp.Assert = bson.D{{"life", Alive}, {"unitcount", 0}}
 	}
 	ops := []txn.Op{relOp}
+	errs := []string{}
 	for _, ep := range r.doc.Endpoints {
 		if ep.ApplicationName == ignoreApplication {
 			continue
 		}
 		app, err := applicationByName(r.st, ep.ApplicationName)
 		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if app.IsRemote() {
-			epOps, err := r.removeRemoteEndpointOps(ep, departingUnitName != "")
-			if err != nil {
+			if !force {
+				// TODO (anastasiamac) This should be 'continue'
 				return nil, errors.Trace(err)
 			}
-			ops = append(ops, epOps...)
+			errs = append(errs, err.Error())
 		} else {
-			epOps, err := r.removeLocalEndpointOps(ep, departingUnitName)
-			if err != nil {
-				return nil, errors.Trace(err)
+			if app.IsRemote() {
+				epOps, err := r.removeRemoteEndpointOps(ep, departingUnitName != "")
+				if err != nil {
+					if !force {
+						// TODO (anastasiamac) This should be 'continue'
+						return nil, errors.Trace(err)
+					}
+					errs = append(errs, err.Error())
+				}
+				if len(epOps) != 0 {
+					ops = append(ops, epOps...)
+				}
+			} else {
+				epOps, err := r.removeLocalEndpointOps(ep, departingUnitName, force)
+				if err != nil {
+					if !force {
+						// TODO (anastasiamac) This should be 'continue'
+						return nil, errors.Trace(err)
+					}
+					errs = append(errs, err.Error())
+				}
+				if len(epOps) != 0 {
+					ops = append(ops, epOps...)
+				}
 			}
-			ops = append(ops, epOps...)
 		}
 	}
 	ops = append(ops, removeStatusOp(r.st, r.globalScope()))
@@ -383,11 +444,15 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string)
 	ops = append(ops, tokenOps...)
 	offerOps := removeOfferConnectionsForRelationOps(r.Id())
 	ops = append(ops, offerOps...)
-	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
-	return append(ops, cleanupOp), nil
+	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()), force)
+	ops = append(ops, cleanupOp)
+	if !force || len(errs) == 0 {
+		return ops, nil
+	}
+	return ops, errors.Errorf("%v", strings.Join(errs, "\n"))
 }
 
-func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string) ([]txn.Op, error) {
+func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string, force bool) ([]txn.Op, error) {
 	var asserts bson.D
 	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
 	departingUnitApplicationMatchesEndpoint := func() bool {
@@ -413,9 +478,11 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string)
 		hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
 		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
 		if err := applications.Find(removable).One(&app.doc); err == nil {
-			return app.removeOps(hasLastRef)
+			return app.removeOps(hasLastRef, force)
 		} else if err != mgo.ErrNotFound {
-			return nil, err
+			if !force {
+				return nil, err
+			}
 		}
 		// If not, we must check that this is still the case when the
 		// transaction is applied.
