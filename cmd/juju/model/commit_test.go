@@ -61,16 +61,16 @@ func (s *cancelGenerationSuite) TestRunCommandFail(c *gc.C) {
 }
 
 func (s *cancelGenerationSuite) runInit(args ...string) error {
-	return cmdtesting.InitCommand(model.NewCancelGenerationCommandForTest(nil, s.store), args)
+	return cmdtesting.InitCommand(model.NewCommitCommandForTest(nil, s.store), args)
 }
 
-func (s *cancelGenerationSuite) runCommand(c *gc.C, api model.CancelGenerationCommandAPI) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, model.NewCancelGenerationCommandForTest(api, s.store), s.branchName)
+func (s *cancelGenerationSuite) runCommand(c *gc.C, api model.CommitCommandAPI) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, model.NewCommitCommandForTest(api, s.store), s.branchName)
 }
 
-func setUpCancelMocks(c *gc.C) (*gomock.Controller, *mocks.MockCancelGenerationCommandAPI) {
+func setUpCancelMocks(c *gc.C) (*gomock.Controller, *mocks.MockCommitCommandAPI) {
 	ctrl := gomock.NewController(c)
-	api := mocks.NewMockCancelGenerationCommandAPI(ctrl)
+	api := mocks.NewMockCommitCommandAPI(ctrl)
 	api.EXPECT().Close()
 	return ctrl, api
 }

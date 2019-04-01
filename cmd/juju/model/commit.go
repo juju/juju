@@ -17,61 +17,64 @@ import (
 )
 
 const (
-	cancelGenerationSummary = "Cancels the new generation to the model."
-	cancelGenerationDoc     = `
-Cancel the next generation. This will abort anything in the next
-generation and return the active target to the current generation. 
+	commitSummary = "Commits a branch to the model."
+	commitDoc     = `
+Committing a branch writes changes to charm configuration, charm URL and
+resources made under the branch, to the model. All units who's applications
+were changed under the branch realise those changes, as will any new units.
 
 Examples:
-    juju cancel-generation
+    juju commit upgrade-postgresql
 
 See also:
-    add-generation
-    advance-generation
-    switch-generation
+	branch
+    track
+    checkout
+    abort
+	diff
 `
 )
 
-// NewCancelGenerationCommand wraps cancelGenerationCommand with sane model settings.
-func NewCancelGenerationCommand() cmd.Command {
-	return modelcmd.Wrap(&cancelGenerationCommand{})
+// NewCommitCommand wraps commitCommand with sane model settings.
+func NewCommitCommand() cmd.Command {
+	return modelcmd.Wrap(&commitCommand{})
 }
 
-// cancelGenerationCommand is the simplified command for accessing and setting
-// attributes related to canceling model generations.
-type cancelGenerationCommand struct {
+// commitCommand supplies the "commit" CLI command used to commit changes made
+// under a branch, to the model.
+type commitCommand struct {
 	modelcmd.ModelCommandBase
 
-	api CancelGenerationCommandAPI
+	api CommitCommandAPI
 
 	branchName string
 }
 
-// CancelGenerationCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package mocks -destination ./mocks/cancelgeneration_mock.go github.com/juju/juju/cmd/juju/model CancelGenerationCommandAPI
-type CancelGenerationCommandAPI interface {
+// CommitCommandAPI defines an API interface to be used during testing.
+//go:generate mockgen -package mocks -destination ./mocks/commit_mock.go github.com/juju/juju/cmd/juju/model CommitCommandAPI
+type CommitCommandAPI interface {
 	Close() error
 	CommitBranch(string, string) (int, error)
 }
 
 // Info implements part of the cmd.Command interface.
-func (c *cancelGenerationCommand) Info() *cmd.Info {
+func (c *commitCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "cancel-generation",
+		Name:    "commit",
 		Args:    "<branch name>",
-		Purpose: cancelGenerationSummary,
-		Doc:     cancelGenerationDoc,
+		Purpose: commitSummary,
+		Doc:     commitDoc,
 	}
 	return jujucmd.Info(info)
 }
 
 // SetFlags implements part of the cmd.Command interface.
-func (c *cancelGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *commitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 }
 
 // Init implements part of the cmd.Command interface.
-func (c *cancelGenerationCommand) Init(args []string) error {
+func (c *commitCommand) Init(args []string) error {
 	if len(args) != 1 {
 		return errors.Errorf("must specify a branch name to commit")
 	}
@@ -79,9 +82,9 @@ func (c *cancelGenerationCommand) Init(args []string) error {
 	return nil
 }
 
-// getAPI returns the API. This allows passing in a test CancelGenerationCommandAPI
+// getAPI returns the API. This allows passing in a test CommitCommandAPI
 // implementation.
-func (c *cancelGenerationCommand) getAPI() (CancelGenerationCommandAPI, error) {
+func (c *commitCommand) getAPI() (CommitCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -94,7 +97,7 @@ func (c *cancelGenerationCommand) getAPI() (CancelGenerationCommandAPI, error) {
 }
 
 // Run implements the meaty part of the cmd.Command interface.
-func (c *cancelGenerationCommand) Run(ctx *cmd.Context) error {
+func (c *commitCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
