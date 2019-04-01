@@ -1,1 +1,1 @@
-../local/microk8s-setup.sh
+./install
