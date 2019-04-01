@@ -314,8 +314,12 @@ func makeFakeClient(
 	actionsByNames params.ActionsByNames,
 	errStr string,
 ) *fakeAPIClient {
+	var delayTimer *time.Timer
+	if delay != 0 {
+		delayTimer = time.NewTimer(delay)
+	}
 	client := &fakeAPIClient{
-		delay:            time.NewTimer(delay),
+		delay:            delayTimer,
 		timeout:          time.NewTimer(timeout),
 		actionTagMatches: tags,
 		actionResults:    response,
