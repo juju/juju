@@ -7,12 +7,15 @@ grade: devel
 
 apps:
   juju:
-    command: wrappers/juju
+    command: juju
+
+  cache-images:
+    command: cache-images
 
 parts:
   wrappers:
     plugin: dump
-    source: snap/local
+    source: snap/local/wrappers
   juju:
     plugin: dep
     go-importpath: github.com/juju/juju

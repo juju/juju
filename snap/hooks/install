@@ -25,7 +25,7 @@ mongo_image="docker.io/jujusolutions/juju-db:4.0"
 echo "Going to cache images: $oci_image and $mongo_image."
 
 echo "Pulling: $oci_image."
-$container_cmd $image_arg pull $oci_image
+$container_cmd -n k8s.io $image_arg pull $oci_image
 
 echo "Pulling: $mongo_image."
-$container_cmd $image_arg pull $mongo_image
+$container_cmd -n k8s.io $image_arg pull $mongo_image
