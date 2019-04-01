@@ -83,43 +83,31 @@ func (m *Model) mark() int {
 	return result
 }
 
-func (m *Model) sweep() SweepPhaseResult {
-	var result SweepPhaseResult
+func (m *Model) sweep() *SweepChecker {
+	checker := &SweepChecker{}
 	m.mu.Lock()
 	for key, app := range m.applications {
-		if app.isStale() {
+		if checker.Check(app) {
 			delete(m.applications, key)
-			result.Stale++
-		} else {
-			result.Active++
 		}
 	}
 	for key, charm := range m.charms {
-		if charm.isStale() {
+		if checker.Check(charm) {
 			delete(m.charms, key)
-			result.Stale++
-		} else {
-			result.Active++
 		}
 	}
 	for key, machine := range m.machines {
-		if machine.isStale() {
+		if checker.Check(machine) {
 			delete(m.machines, key)
-			result.Stale++
-		} else {
-			result.Active++
 		}
 	}
 	for key, unit := range m.units {
-		if unit.isStale() {
+		if checker.Check(unit) {
 			delete(m.units, key)
-			result.Stale++
-		} else {
-			result.Active++
 		}
 	}
 	m.mu.Unlock()
-	return result
+	return checker
 }
 
 // Report returns information that is used in the dependency engine report.

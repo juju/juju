@@ -120,16 +120,12 @@ func (c *Controller) Mark() map[string]int {
 	return result
 }
 
-type SweepPhaseResult struct {
-	Active, Stale int
-}
-
 // Sweep goes through all the items within a model that have been marked as
 // stale and if the item hasn't been updated in between Mark and Sweep, then
 // the item will be removed.
 // The result from the sweep is how many items are removed per model.
-func (c *Controller) Sweep() map[string]SweepPhaseResult {
-	result := make(map[string]SweepPhaseResult)
+func (c *Controller) Sweep() map[string]*SweepChecker {
+	result := make(map[string]*SweepChecker)
 	c.mu.Lock()
 	for uuid, model := range c.models {
 		result[uuid] = model.sweep()
