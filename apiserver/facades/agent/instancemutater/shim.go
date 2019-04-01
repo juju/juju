@@ -135,6 +135,6 @@ type modelCacheMachine struct {
 	*cache.Machine
 }
 
-func (m *modelCacheMachine) WatchApplicationLXDProfiles() cache.NotifyWatcher {
+func (m *modelCacheMachine) WatchApplicationLXDProfiles() (cache.NotifyWatcher, error) {
 	return m.Machine.WatchApplicationLXDProfiles()
 }

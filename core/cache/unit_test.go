@@ -24,7 +24,7 @@ var unitChange = cache.UnitChange{
 	Name:           "application-name/0",
 	Application:    "application-name",
 	Series:         "bionic",
-	CharmURL:       "www.charm-url.com",
+	CharmURL:       "www.charm-url.com-1",
 	PublicAddress:  "",
 	PrivateAddress: "",
 	MachineId:      "0",

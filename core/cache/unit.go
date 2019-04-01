@@ -34,8 +34,15 @@ func (u *Unit) Application() string {
 
 func (u *Unit) setDetails(details UnitChange) {
 	u.mu.Lock()
-	defer u.mu.Unlock()
+	if u.details.MachineId != details.MachineId {
+		u.hub.Publish(u.modelTopic(modelUnitLXDProfileChange), u)
+	}
 	u.details = details
 
 	// TODO (manadart 2019-02-11): Maintain hash and publish changes.
+	u.mu.Unlock()
+}
+
+func (u *Unit) modelTopic(suffix string) string {
+	return modelTopic(u.details.ModelUUID, suffix)
 }

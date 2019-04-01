@@ -6,6 +6,7 @@ package cache
 import (
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 )
 
@@ -21,6 +22,7 @@ type Machine struct {
 	model *Model
 	mu    sync.Mutex
 
+	modelUUID  string
 	details    MachineChange
 	configHash string
 }
@@ -43,7 +45,7 @@ func (m *Machine) Units() ([]*Unit, error) {
 		if unit.details.Subordinate {
 			principalUnit, found := m.model.units[unit.details.Principal]
 			if !found {
-				return nil, errors.NotFoundf("principal unit %q for subordinate %s", unit.details.Principal, unitName)
+				return result, errors.NotFoundf("principal unit %q for subordinate %s", unit.details.Principal, unitName)
 			}
 			if principalUnit.details.MachineId == m.details.Id {
 				result = append(result, unit)
@@ -51,14 +53,6 @@ func (m *Machine) Units() ([]*Unit, error) {
 		}
 	}
 	return result, nil
-}
-
-type MachineAppLXDProfileWatcher struct {
-	*notifyWatcherBase
-}
-
-func (m *Machine) WatchApplicationLXDProfiles() *MachineAppLXDProfileWatcher {
-	return nil
 }
 
 func (m *Machine) setDetails(details MachineChange) {
@@ -75,4 +69,62 @@ func (m *Machine) setDetails(details MachineChange) {
 		m.configHash = configHash
 		// TODO: publish config change...
 	}
+}
+
+// WatchApplicationLXDProfiles notifies if any of the following happen
+// relative to this machine:
+//     1. A new unit whose charm has an lxd profile is added.
+//     2. A unit being removed has a profile and other units
+//        exist on the machine.
+//     3. The lxdprofile of an application with a unit on this
+//        machine is added, removed, or exists.
+func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, error) {
+	units, err := m.Units()
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to get units to start MachineAppLXDProfileWatcher")
+	}
+	m.model.mu.Lock()
+	applications := make(map[string]appInfo)
+	for _, unit := range units {
+		appName := unit.details.Application
+		unitName := unit.details.Name
+		_, found := applications[appName]
+		if found {
+			applications[appName].units.Add(unitName)
+			continue
+		}
+		app, foundApp := m.model.applications[appName]
+		if !foundApp {
+			// This is unlikely, but could happen.
+			// If the unit has no machineId, it will be added
+			// to what is watched when the machineId is assigned.
+			// Otherwise return an error.
+			if unit.details.MachineId != "" {
+				return nil, errors.Errorf("programming error, unit %s has machineId but not application", unitName)
+			}
+			logger.Errorf("unit %s has no application, nor machine id, start watching when machine id assigned.", unitName)
+			continue
+		}
+		info := appInfo{
+			charmURL: app.details.CharmURL,
+			units:    set.NewStrings(unitName),
+		}
+		ch, found := m.model.charms[app.details.CharmURL]
+		if found {
+			if !ch.details.LXDProfile.Empty() {
+				info.charmProfile = &ch.details.LXDProfile
+			}
+		}
+		applications[appName] = info
+	}
+	w := newMachineAppLXDProfileWatcher(
+		m.model.topic(applicationCharmURLChange),
+		m.model.topic(modelUnitLXDProfileChange),
+		m.details.Id,
+		applications,
+		m.model,
+		m.model.hub,
+	)
+	m.model.mu.Unlock()
+	return w, nil
 }

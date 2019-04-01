@@ -65,7 +65,7 @@ var appChange = cache.ApplicationChange{
 	ModelUUID:   "model-uuid",
 	Name:        "application-name",
 	Exposed:     false,
-	CharmURL:    "www.charm-url.com",
+	CharmURL:    "www.charm-url.com-1",
 	Life:        life.Alive,
 	MinUnits:    0,
 	Constraints: constraints.Value{},

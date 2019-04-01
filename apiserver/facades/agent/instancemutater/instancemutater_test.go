@@ -904,6 +904,26 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicatio
 	})
 }
 
+func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicationLXDProfilesModelCacheError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectWatchApplicationLXDProfilesError,
+	)
+
+	result, err := facade.WatchApplicationLXDProfiles(params.Entities{
+		Entities: []params.Entity{{Tag: s.machineTag.String()}},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{{
+			Error: common.ServerError(errors.New("error from model cache")),
+		}},
+	})
+}
+
 func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectAuthController() {
 	s.authorizer.EXPECT().AuthController().Return(true)
 }
@@ -920,7 +940,7 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicat
 		}()
 
 		s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-		s.machine.EXPECT().WatchApplicationLXDProfiles().Return(s.watcher)
+		s.machine.EXPECT().WatchApplicationLXDProfiles().Return(s.watcher, nil)
 		s.watcher.EXPECT().Changes().Return(ch)
 		s.resources.EXPECT().Register(s.watcher).Return("1")
 	}
@@ -931,6 +951,11 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicat
 	close(ch)
 
 	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-	s.machine.EXPECT().WatchApplicationLXDProfiles().Return(s.watcher)
+	s.machine.EXPECT().WatchApplicationLXDProfiles().Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
+}
+
+func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicationLXDProfilesError() {
+	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().WatchApplicationLXDProfiles().Return(s.watcher, errors.New("error from model cache"))
 }

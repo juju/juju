@@ -83,10 +83,11 @@ func (m *MockModelCacheMachine) EXPECT() *MockModelCacheMachineMockRecorder {
 }
 
 // WatchApplicationLXDProfiles mocks base method
-func (m *MockModelCacheMachine) WatchApplicationLXDProfiles() cache.NotifyWatcher {
+func (m *MockModelCacheMachine) WatchApplicationLXDProfiles() (cache.NotifyWatcher, error) {
 	ret := m.ctrl.Call(m, "WatchApplicationLXDProfiles")
 	ret0, _ := ret[0].(cache.NotifyWatcher)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // WatchApplicationLXDProfiles indicates an expected call of WatchApplicationLXDProfiles

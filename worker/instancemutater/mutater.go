@@ -4,8 +4,6 @@
 package instancemutater
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"gopkg.in/juju/names.v2"
@@ -125,53 +123,28 @@ func runMachine(context machineContext, logger Logger, m instancemutater.Mutater
 		}
 	}()
 
-	unitWatcher, err := m.WatchUnits()
+	profileChangeWatcher, err := m.WatchApplicationLXDProfiles()
 	if err != nil {
 		logger.Errorf(err.Error())
 		return
 	}
-	if err := context.add(unitWatcher); err != nil {
+	if err := context.add(profileChangeWatcher); err != nil {
 		return
 	}
 
-	if err := watchUnitLoop(context, logger, m, unitWatcher); err != nil {
+	if err := watchUnitLoop(context, logger, m, profileChangeWatcher); err != nil {
 		context.kill(err)
 	}
 }
 
-func watchUnitLoop(context machineContext, logger Logger, m instancemutater.MutaterMachine, unitWatcher watcher.StringsWatcher) error {
-	logger.Tracef("watching units for machine %s", m.Tag().Id())
+func watchUnitLoop(context machineContext, logger Logger, m instancemutater.MutaterMachine, profileChangeWatcher watcher.NotifyWatcher) error {
+	logger.Tracef("watching change on  machine %s", m.Tag().Id())
 	for {
 		select {
 		case <-context.dying():
 			return context.errDying()
-		case unitNames, ok := <-unitWatcher.Changes():
-			if !ok {
-				return errors.New("unit watcher closed")
-			}
-			if len(unitNames) == 0 {
-				logger.Tracef("no names reported from unit watcher for %s", m.Tag().String())
-				continue
-			}
-			err := unitsChanged(logger, m, unitNames)
-			if err != nil {
-				logger.Errorf("from unitsChanged: %#v", err)
-			}
+		case <-profileChangeWatcher.Changes():
+			logger.Debugf("machine-%s Received notification profile verification and change needed", m.Tag().Id())
 		}
 	}
-}
-
-func unitsChanged(logger Logger, m instancemutater.MutaterMachine, names []string) error {
-	logger.Tracef("Received change on %s.%s", m.Tag(), names)
-	info, err := m.CharmProfilingInfo(names)
-	if err != nil {
-		return err
-	}
-	if !info.Changes {
-		// No change is necessary.
-		logger.Tracef("no charm profile changes for %s necessary, based on changes to %s", m.Tag().String(),
-			strings.Join(names, ", "))
-		return nil
-	}
-	return nil
 }

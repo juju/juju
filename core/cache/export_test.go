@@ -5,18 +5,24 @@ package cache
 
 var (
 	CreateControllerGauges = createControllerGauges
-	NewModel               = newModel
 	NewApplication         = newApplication
+	NewModel               = newModel
 )
 
 // Expose SetDetails for testing.
+
+func (a *Application) SetDetails(details ApplicationChange) {
+	a.setDetails(details)
+}
 
 func (m *Model) SetDetails(details ModelChange) {
 	m.setDetails(details)
 }
 
-func (a *Application) SetDetails(details ApplicationChange) {
-	a.setDetails(details)
+// Expose Remove* for testing
+
+func (m *Model) RemoveUnit(ch RemoveUnit) {
+	m.removeUnit(ch)
 }
 
 // Expose Update* for testing.
@@ -27,4 +33,12 @@ func (m *Model) UpdateMachine(details MachineChange) {
 
 func (m *Model) UpdateUnit(details UnitChange) {
 	m.updateUnit(details)
+}
+
+func (m *Model) UpdateApplication(details ApplicationChange) {
+	m.updateApplication(details)
+}
+
+func (m *Model) UpdateCharm(details CharmChange) {
+	m.updateCharm(details)
 }

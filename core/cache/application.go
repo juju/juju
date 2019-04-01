@@ -10,6 +10,9 @@ import (
 )
 
 const (
+	// the application's charm url has changed.
+	applicationCharmURLChange = "application-charmurl-change"
+	// application config has changed.
 	applicationConfigChange = "application-config-change"
 )
 
@@ -55,8 +58,19 @@ func (a *Application) WatchConfig(keys ...string) *ConfigWatcher {
 	return newConfigWatcher(keys, a.hashCache, a.hub, a.topic(applicationConfigChange))
 }
 
+// appCharmUrlChange contains an appName and it's charm URL.  To be used
+// when publishing for applicationCharmURLChange.
+type appCharmUrlChange struct {
+	appName string
+	chURL   string
+}
+
 func (a *Application) setDetails(details ApplicationChange) {
 	a.mu.Lock()
+
+	if a.details.CharmURL != details.CharmURL {
+		a.hub.Publish(a.modelTopic(applicationCharmURLChange), appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL})
+	}
 
 	a.details = details
 	hashCache, configHash := newHashCache(
@@ -76,4 +90,8 @@ func (a *Application) setDetails(details ApplicationChange) {
 // one hub per model.
 func (a *Application) topic(suffix string) string {
 	return a.details.ModelUUID + ":" + a.details.Name + ":" + suffix
+}
+
+func (a *Application) modelTopic(suffix string) string {
+	return modelTopic(a.details.ModelUUID, suffix)
 }
