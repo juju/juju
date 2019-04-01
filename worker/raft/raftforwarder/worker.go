@@ -111,7 +111,7 @@ func (w *forwarder) loop() error {
 func (w *forwarder) handleRequest(_ string, req raftlease.ForwardRequest, err error) {
 	w.id++
 	reqID := w.id
-	w.config.Logger.Tracef("%d: received %#v, err: %s", reqID, req, err)
+	w.config.Logger.Tracef("%d: received %#v, err: %v", reqID, req, err)
 	if err != nil {
 		// This should never happen, so treat it as fatal.
 		w.catacomb.Kill(errors.Annotate(err, "requests callback failed"))

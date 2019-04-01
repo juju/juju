@@ -340,14 +340,14 @@ var mongoInstalledVersion = func() mongo.Version {
 func NewDBRestorer(args RestorerArgs) (DBRestorer, error) {
 	mongorestorePath, err := getMongorestorePath()
 	if err != nil {
-		return nil, errors.Annotate(err, "mongorestrore not available")
+		return nil, errors.Annotate(err, "mongorestore not available")
 	}
 
 	installedMongo := mongoInstalledVersion()
 	logger.Debugf("args: is %#v", args)
 	logger.Infof("installed mongo is %s", installedMongo)
 	// NewerThan will check Major and Minor so migration between micro versions
-	// will work, before changing this bewar, Mongo has been known to break
+	// will work, before changing this beware, Mongo has been known to break
 	// compatibility between minors.
 	if args.Version.NewerThan(installedMongo) != 0 {
 		return nil, errors.NotSupportedf("restore mongo version %s into version %s", args.Version.String(), installedMongo.String())
