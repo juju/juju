@@ -537,6 +537,9 @@ func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInst
 	if data.RootDisk != nil {
 		inst.RootDisk = *data.RootDisk
 	}
+	if data.RootDiskSource != nil {
+		inst.RootDiskSource = *data.RootDiskSource
+	}
 	if data.CpuCores != nil {
 		inst.CpuCores = *data.CpuCores
 	}
@@ -1652,17 +1655,18 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		return nil
 	}
 	result := description.ConstraintsArgs{
-		Architecture: optionalString("arch"),
-		Container:    optionalString("container"),
-		CpuCores:     optionalInt("cpucores"),
-		CpuPower:     optionalInt("cpupower"),
-		InstanceType: optionalString("instancetype"),
-		Memory:       optionalInt("mem"),
-		RootDisk:     optionalInt("rootdisk"),
-		Spaces:       optionalStringSlice("spaces"),
-		Tags:         optionalStringSlice("tags"),
-		VirtType:     optionalString("virttype"),
-		Zones:        optionalStringSlice("zones"),
+		Architecture:   optionalString("arch"),
+		Container:      optionalString("container"),
+		CpuCores:       optionalInt("cpucores"),
+		CpuPower:       optionalInt("cpupower"),
+		InstanceType:   optionalString("instancetype"),
+		Memory:         optionalInt("mem"),
+		RootDisk:       optionalInt("rootdisk"),
+		RootDiskSource: optionalString("rootdisksource"),
+		Spaces:         optionalStringSlice("spaces"),
+		Tags:           optionalStringSlice("tags"),
+		VirtType:       optionalString("virttype"),
+		Zones:          optionalStringSlice("zones"),
 	}
 	if optionalErr != nil {
 		return description.ConstraintsArgs{}, errors.Trace(optionalErr)
