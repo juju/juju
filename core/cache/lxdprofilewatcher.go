@@ -16,14 +16,16 @@ type MachineAppLXDProfileWatcher struct {
 	applications map[string]appInfo // unit names for each application
 	machineId    string
 
-	getApp   appFunc
-	getCharm charmFunc
-	getUnit  unitFunc
+	modeler MachineAppModeler
 }
 
-type appFunc func(string) (*Application, error)
-type charmFunc func(string) (*Charm, error)
-type unitFunc func(string) (*Unit, error)
+// MachineAppModeler is a point of use model for MachineAppLXDProfileWatcher to
+// get Applications, Charms and Units.
+type MachineAppModeler interface {
+	Application(string) (*Application, error)
+	Charm(string) (*Charm, error)
+	Unit(string) (*Unit, error)
+}
 
 type appInfo struct {
 	charmURL     string
@@ -34,17 +36,13 @@ type appInfo struct {
 func newMachineAppLXDProfileWatcher(
 	appTopic, unitTopic, machineId string,
 	applications map[string]appInfo,
-	getApp appFunc,
-	getCharm charmFunc,
-	getUnit unitFunc,
+	modeler MachineAppModeler,
 	hub *pubsub.SimpleHub,
 ) *MachineAppLXDProfileWatcher {
 	w := &MachineAppLXDProfileWatcher{
 		notifyWatcherBase: newNotifyWatcherBase(),
 		applications:      applications,
-		getApp:            getApp,
-		getCharm:          getCharm,
-		getUnit:           getUnit,
+		modeler:           modeler,
 		machineId:         machineId,
 	}
 
@@ -82,7 +80,7 @@ func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, va
 	appName, chURL := values.appName, values.chURL
 	info, ok := w.applications[appName]
 	if ok {
-		ch, err := w.getCharm(chURL)
+		ch, err := w.modeler.Charm(chURL)
 		if err != nil {
 			logger.Errorf("error getting charm %s to evaluate for lxd profile notification: %s", chURL, err)
 			return
@@ -138,7 +136,7 @@ func (w *MachineAppLXDProfileWatcher) unitChange(topic string, value interface{}
 			logger.Tracef("%s has no machineId and not a sub", unit.details.Name)
 			return
 		case unit.details.Subordinate:
-			principal, err := w.getUnit(unit.details.Principal)
+			principal, err := w.modeler.Unit(unit.details.Principal)
 			if err != nil {
 				logger.Tracef("unit %s is subordinate, principal %s not found", unit.details.Name, unit.details.Principal)
 				return
@@ -165,14 +163,14 @@ func (w *MachineAppLXDProfileWatcher) addUnit(unit *Unit) bool {
 		curl := unit.details.CharmURL
 		if curl == "" {
 			// this happens for new units to existing machines.
-			app, err := w.getApp(unit.details.Application)
+			app, err := w.modeler.Application(unit.details.Application)
 			if err != nil {
 				logger.Errorf("failed to get application %s for machine-%s", unit.details.Application, w.machineId)
 				return false
 			}
 			curl = app.details.CharmURL
 		}
-		ch, err := w.getCharm(curl)
+		ch, err := w.modeler.Charm(curl)
 		if err != nil {
 			logger.Errorf("failed to get charm %q for %s on machine-%s", curl, unit.details.Name, w.machineId)
 			return false
@@ -200,18 +198,18 @@ func (w *MachineAppLXDProfileWatcher) removeUnit(names []string) bool {
 		return false
 	}
 	unitName, appName := names[0], names[1]
-	_, ok := w.applications[appName]
+	app, ok := w.applications[appName]
 	if !ok {
 		logger.Errorf("programming error, unit removed before being added, application name not found")
 		return false
 	}
-	if !w.applications[appName].units.Contains(unitName) {
+	if !app.units.Contains(unitName) {
 		logger.Errorf("unit not being watched for machine")
 		return false
 	}
-	profile := w.applications[appName].charmProfile
-	w.applications[appName].units.Remove(unitName)
-	if w.applications[appName].units.Size() == 0 {
+	profile := app.charmProfile
+	app.units.Remove(unitName)
+	if app.units.Size() == 0 {
 		// the application has no more units on this machine,
 		// stop watching it.
 		delete(w.applications, appName)

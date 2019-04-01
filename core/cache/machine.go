@@ -86,26 +86,28 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 	m.model.mu.Lock()
 	applications := make(map[string]appInfo)
 	for _, unit := range units {
-		_, found := applications[unit.details.Application]
+		appName := unit.details.Application
+		unitName := unit.details.Name
+		_, found := applications[appName]
 		if found {
-			applications[unit.details.Application].units.Add(unit.details.Name)
+			applications[appName].units.Add(unitName)
 			continue
 		}
-		app, foundApp := m.model.applications[unit.details.Application]
+		app, foundApp := m.model.applications[appName]
 		if !foundApp {
 			// This is unlikely, but could happen.
 			// If the unit has no machineId, it will be added
 			// to what is watched when the machineId is assigned.
 			// Otherwise return an error.
 			if unit.details.MachineId != "" {
-				return nil, errors.Errorf("programming error, unit %s has machineId but not application", unit.details.Name)
+				return nil, errors.Errorf("programming error, unit %s has machineId but not application", unitName)
 			}
-			logger.Errorf("unit %s has no application, nor machine id, start watching when machine id assigned.", unit.details.Name)
+			logger.Errorf("unit %s has no application, nor machine id, start watching when machine id assigned.", unitName)
 			continue
 		}
 		info := appInfo{
 			charmURL: app.details.CharmURL,
-			units:    set.NewStrings(unit.details.Name),
+			units:    set.NewStrings(unitName),
 		}
 		ch, found := m.model.charms[app.details.CharmURL]
 		if found {
@@ -113,16 +115,14 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 				info.charmProfile = &ch.details.LXDProfile
 			}
 		}
-		applications[unit.details.Application] = info
+		applications[appName] = info
 	}
 	w := newMachineAppLXDProfileWatcher(
 		m.model.topic(applicationCharmURLChange),
 		m.model.topic(modelUnitLXDProfileChange),
 		m.details.Id,
 		applications,
-		m.model.Application,
-		m.model.Charm,
-		m.model.Unit,
+		m.model,
 		m.model.hub,
 	)
 	m.model.mu.Unlock()
