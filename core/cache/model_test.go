@@ -255,7 +255,7 @@ func (s *ControllerSuite) newWithMachine(c *gc.C) (*cache.Controller, <-chan int
 	return controller, events
 }
 
-func (s *ControllerSuite) setupWithWatchMachine(c *gc.C) (*cache.ChangeWatcher, <-chan interface{}) {
+func (s *ControllerSuite) setupWithWatchMachine(c *gc.C) (*cache.PredicateStringsWatcher, <-chan interface{}) {
 	controller, events := s.newWithMachine(c)
 	m, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)

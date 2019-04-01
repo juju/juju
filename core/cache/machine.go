@@ -58,10 +58,10 @@ func (m *Machine) Units() ([]*Unit, error) {
 	return result, nil
 }
 
-// WatchContainers creates a RegexpChangeWatcher (strings watcher) to notify
+// WatchContainers creates a PredicateStringsWatcher (strings watcher) to notify
 // about added and removed containers on this machine.  The initial event
 // contains a slice of the current container machine ids.
-func (m *Machine) WatchContainers() (*RegexpChangeWatcher, error) {
+func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 	m.model.mu.Lock()
 
 	// Create a compiled regexp to match containers on this machine.
@@ -78,7 +78,7 @@ func (m *Machine) WatchContainers() (*RegexpChangeWatcher, error) {
 		}
 	}
 
-	w := newRegexpAddRemoveWatcher(compiled, machines...)
+	w := newPredicateStringsWatcher(regexpPredicate(compiled), machines...)
 	unsub := m.model.hub.Subscribe(m.modelTopic(modelAddRemoveMachine), w.changed)
 
 	w.tomb.Go(func() error {

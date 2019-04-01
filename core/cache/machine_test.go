@@ -141,7 +141,7 @@ func (s *machineSuite) setupMachine0(c *gc.C) {
 	s.machine0 = machine
 }
 
-func (s *machineSuite) setupMachine0WithContainerWatcher(c *gc.C, addContainer bool) *cache.RegexpChangeWatcher {
+func (s *machineSuite) setupMachine0WithContainerWatcher(c *gc.C, addContainer bool) *cache.PredicateStringsWatcher {
 	s.setupMachine0(c)
 
 	if addContainer {
