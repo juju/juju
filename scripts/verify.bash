@@ -72,7 +72,7 @@ go vet \
     $DIRNAMES || [ -n "$IGNORE_VET_WARNINGS" ]
 
 # Allow the ignoring of the golinters
-if [ -n "$IGNORE_GOLINTERS" ]; then
+if [ -n "$INCLUDE_GOLINTERS" ]; then
     echo "checking: golinters ..."
     ./scripts/golinters.bash
 else
