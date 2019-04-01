@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/status"
@@ -288,6 +289,9 @@ type ControllerDetails struct {
 	// CACert is a security certificate for this controller.
 	CACert string `yaml:"ca-cert" json:"ca-cert"`
 
+	// SHA-256 fingerprint of the CA cert
+	CAFingerprint string `yaml:"ca-fingerprint,omitempty" json:"ca-fingerprint,omitempty"`
+
 	// Cloud is the name of the cloud that this controller runs in.
 	Cloud string `yaml:"cloud" json:"cloud"`
 
@@ -359,12 +363,15 @@ func (c *showControllerCommand) convertControllerForShow(
 	mongoVersion string,
 	identityURL string,
 ) {
+	// CA cert will always be valid so no need to check for errors here
+	caFingerprint, _ := cert.Fingerprint(details.CACert)
 
 	controller.Details = ControllerDetails{
 		ControllerUUID:    details.ControllerUUID,
 		OldControllerUUID: details.ControllerUUID,
 		APIEndpoints:      details.APIEndpoints,
 		CACert:            details.CACert,
+		CAFingerprint:     caFingerprint,
 		Cloud:             details.Cloud,
 		CloudRegion:       details.CloudRegion,
 		AgentVersion:      details.AgentVersion,

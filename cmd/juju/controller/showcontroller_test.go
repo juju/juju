@@ -468,6 +468,77 @@ func (s *ShowControllerSuite) TestShowControllerWithIdentityProvider(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, "identity-url: "+expURL)
 }
 
+func (s *ShowControllerSuite) TestShowControllerWithCAFingerprint(c *gc.C) {
+	s.controllersYaml = `controllers:
+  mallards:
+    uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: |-
+      -----BEGIN CERTIFICATE-----
+      MIICHDCCAcagAwIBAgIUfzWn5ktGMxD6OiTgfiZyvKdM+ZYwDQYJKoZIhvcNAQEL
+      BQAwazENMAsGA1UEChMEanVqdTEzMDEGA1UEAwwqanVqdS1nZW5lcmF0ZWQgQ0Eg
+      Zm9yIG1vZGVsICJqdWp1IHRlc3RpbmciMSUwIwYDVQQFExwxMjM0LUFCQ0QtSVMt
+      Tk9ULUEtUkVBTC1VVUlEMB4XDTE2MDkyMTEwNDgyN1oXDTI2MDkyODEwNDgyN1ow
+      azENMAsGA1UEChMEanVqdTEzMDEGA1UEAwwqanVqdS1nZW5lcmF0ZWQgQ0EgZm9y
+      IG1vZGVsICJqdWp1IHRlc3RpbmciMSUwIwYDVQQFExwxMjM0LUFCQ0QtSVMtTk9U
+      LUEtUkVBTC1VVUlEMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAL+0X+1zl2vt1wI4
+      1Q+RnlltJyaJmtwCbHRhREXVGU7t0kTMMNERxqLnuNUyWRz90Rg8s9XvOtCqNYW7
+      mypGrFECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8w
+      HQYDVR0OBBYEFHueMLZ1QJ/2sKiPIJ28TzjIMRENMA0GCSqGSIb3DQEBCwUAA0EA
+      ovZN0RbUHrO8q9Eazh0qPO4mwW9jbGTDz126uNrLoz1g3TyWxIas1wRJ8IbCgxLy
+      XUrBZO5UPZab66lJWXyseA==
+      -----END CERTIFICATE-----
+    cloud: mallards
+    agent-version: 999.99.99
+    mongo-version: 3.5.12
+`
+	s.createTestClientStore(c)
+
+	s.expectedOutput = `
+mallards:
+  details:
+    uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: |-
+      -----BEGIN CERTIFICATE-----
+      MIICHDCCAcagAwIBAgIUfzWn5ktGMxD6OiTgfiZyvKdM+ZYwDQYJKoZIhvcNAQEL
+      BQAwazENMAsGA1UEChMEanVqdTEzMDEGA1UEAwwqanVqdS1nZW5lcmF0ZWQgQ0Eg
+      Zm9yIG1vZGVsICJqdWp1IHRlc3RpbmciMSUwIwYDVQQFExwxMjM0LUFCQ0QtSVMt
+      Tk9ULUEtUkVBTC1VVUlEMB4XDTE2MDkyMTEwNDgyN1oXDTI2MDkyODEwNDgyN1ow
+      azENMAsGA1UEChMEanVqdTEzMDEGA1UEAwwqanVqdS1nZW5lcmF0ZWQgQ0EgZm9y
+      IG1vZGVsICJqdWp1IHRlc3RpbmciMSUwIwYDVQQFExwxMjM0LUFCQ0QtSVMtTk9U
+      LUEtUkVBTC1VVUlEMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAL+0X+1zl2vt1wI4
+      1Q+RnlltJyaJmtwCbHRhREXVGU7t0kTMMNERxqLnuNUyWRz90Rg8s9XvOtCqNYW7
+      mypGrFECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8w
+      HQYDVR0OBBYEFHueMLZ1QJ/2sKiPIJ28TzjIMRENMA0GCSqGSIb3DQEBCwUAA0EA
+      ovZN0RbUHrO8q9Eazh0qPO4mwW9jbGTDz126uNrLoz1g3TyWxIas1wRJ8IbCgxLy
+      XUrBZO5UPZab66lJWXyseA==
+      -----END CERTIFICATE-----
+    ca-fingerprint: 93:D9:8E:B8:99:36:E8:8E:23:D5:95:5E:81:29:80:B2:D2:89:A7:38:20:7B:1B:BD:96:C8:D9:C1:03:88:55:70
+    cloud: mallards
+    agent-version: 999.99.99
+    mongo-version: 3.5.12
+  models:
+    controller:
+      uuid: abc
+      model-uuid: abc
+      machine-count: 2
+      core-count: 4
+    my-model:
+      uuid: def
+      model-uuid: def
+      machine-count: 2
+      core-count: 4
+  current-model: admin/my-model
+  account:
+    user: admin
+    access: superuser
+    password: hunter2
+`[1:]
+
+	s.assertShowController(c, "mallards", "--show-password")
+}
 func (s *ShowControllerSuite) runShowController(c *gc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, controller.NewShowControllerCommandForTest(s.store, s.api), args...)
 }
