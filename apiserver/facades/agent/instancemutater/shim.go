@@ -112,7 +112,7 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 }
 
 // modelCacheShim is used as a shim between the
-// cache.ChangeWatcher and cache.StringsWatcher to enable better mock testing.
+// cache.PredicateStringsWatcher and cache.StringsWatcher to enable better mock testing.
 type modelCacheShim struct {
 	*cache.Model
 }
