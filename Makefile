@@ -57,7 +57,7 @@ release-install: dep go-install
 
 pre-check:
 	@echo running pre-test checks
-	@$(PROJECT_DIR)/scripts/verify.bash
+	@IGNORE_GOLINTERS=1 $(PROJECT_DIR)/scripts/verify.bash
 
 check: dep pre-check
 	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
