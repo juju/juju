@@ -4,7 +4,9 @@
 package cert
 
 import (
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"time"
 
@@ -63,6 +65,39 @@ func NewServer(caCertPEM, caKeyPEM string, expiry time.Time, hostnames []string)
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		KeyBits:     NewLeafKeyBits,
 	})
+}
+
+var hexAlphabet = [16]byte{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'}
+
+// Fingerprint returns a human-readable SHA-256 fingerprint for a certificate
+// stored in the PEM format. The returned fingerprint matches the output of:
+// openssl x509 -noout -fingerprint -sha256 -inform pem -in cert.pem
+func Fingerprint(certPEM string) (string, error) {
+	block, _ := pem.Decode([]byte(certPEM))
+	if block == nil {
+		return "", errors.New("input does not contain a valid certificate in PEM format")
+	}
+
+	if _, err := x509.ParseCertificate(block.Bytes); err != nil {
+		return "", errors.Annotate(err, "cannot calculate certificate fingerprint")
+	}
+
+	// fingerprint format is: XX:YY:...:ZZ
+	fingerprint := make([]byte, (sha256.Size*3)-1)
+	var index int
+	for _, fb := range sha256.Sum256(block.Bytes) {
+		if index != 0 {
+			fingerprint[index] = ':'
+			index++
+		}
+
+		// Encode each byte as two chars
+		fingerprint[index] = hexAlphabet[(fb>>4)&0xf]
+		fingerprint[index+1] = hexAlphabet[fb&0xf]
+		index += 2
+	}
+
+	return string(fingerprint), nil
 }
 
 // NewCA generates a CA certificate/key pair suitable for signing server
