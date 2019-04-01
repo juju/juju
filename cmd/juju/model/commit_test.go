@@ -32,7 +32,26 @@ func (s *cancelGenerationSuite) TestInitFail(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "must specify a branch name to commit")
 }
 
-func (s *cancelGenerationSuite) TestRunCommand(c *gc.C) {
+func (s *cancelGenerationSuite) TestRunCommandAborted(c *gc.C) {
+	ctrl, api := setUpCancelMocks(c)
+	defer ctrl.Finish()
+
+	api.EXPECT().CommitBranch(gomock.Any(), s.branchName).Return(0, nil)
+
+	ctx, err := s.runCommand(c, api)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+Branch "new-branch" had no changes to commit and was aborted
+Active branch set to "master"`[1:])
+
+	// Ensure the local store has "master" as the target.
+	details, err := s.store.ModelByName(
+		s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationMaster)
+}
+
+func (s *cancelGenerationSuite) TestRunCommandCommitted(c *gc.C) {
 	ctrl, api := setUpCancelMocks(c)
 	defer ctrl.Finish()
 
@@ -41,11 +60,12 @@ func (s *cancelGenerationSuite) TestRunCommand(c *gc.C) {
 	ctx, err := s.runCommand(c, api)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-changes committed; model is now at generation 3
-active branch set to "master"`[1:])
+Branch "new-branch" committed; model is now at generation 3
+Active branch set to "master"`[1:])
 
 	// Ensure the local store has "master" as the target.
-	details, err := s.store.ModelByName(s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
+	details, err := s.store.ModelByName(
+		s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationMaster)
 }

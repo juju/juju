@@ -119,8 +119,16 @@ func (c *commitCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	msg := fmt.Sprintf("changes committed; model is now at generation %d\nactive branch set to %q",
-		newGenId, model.GenerationMaster)
+	msg := fmt.Sprintf("Branch %q ", c.branchName)
+
+	// If the model generation was not advanced, it means that there were no
+	// changes to apply from the branch - it was aborted.
+	if newGenId == 0 {
+		msg = msg + "had no changes to commit and was aborted"
+	} else {
+		msg = msg + fmt.Sprintf("committed; model is now at generation %d", newGenId)
+	}
+	msg = msg + fmt.Sprintf("\nActive branch set to %q", model.GenerationMaster)
 
 	_, err = ctx.Stdout.Write([]byte(msg))
 	return err
