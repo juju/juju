@@ -140,6 +140,12 @@ func (v *Value) HasCpuCores() bool {
 	return v.CpuCores != nil && *v.CpuCores > 0
 }
 
+// HasRootDiskSource returns true if the constraints.Value specifies a
+// source for its root disk.
+func (v *Value) HasRootDiskSource() bool {
+	return v.RootDiskSource != nil && *v.RootDiskSource != ""
+}
+
 // HasInstanceType returns true if the constraints.Value specifies an instance type.
 func (v *Value) HasInstanceType() bool {
 	return v.InstanceType != nil && *v.InstanceType != ""
