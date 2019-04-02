@@ -27,7 +27,9 @@ import (
 )
 
 var (
-	bootstrapReadyPollDelay = 1 * time.Second
+	bootstrapReadyPollDelay     = 1 * time.Second
+	bootstrapReadyPollTotalTime = 2 * time.Minute // for testing
+	// bootstrapReadyPollTotalTime = 10 * time.Minute
 	bootstrapReadyPollCount = 60
 	blockAPI                = getBlockAPI
 )
@@ -63,9 +65,18 @@ func tryAPI(c *modelcmd.ModelCommandBase) error {
 // WaitForAgentInitialisation polls the bootstrapped controller with a read-only
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
-func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, isCAASController bool, controllerName, hostedModelName string) (err error) {
+func WaitForAgentInitialisation(
+	ctx *cmd.Context,
+	c *modelcmd.ModelCommandBase,
+	isCAASController bool,
+	controllerName,
+	hostedModelName string,
+	controllerDataRefresher func() error,
+) (err error) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempts := utils.AttemptStrategy{
+		// added total time to try for more stable of when we should give up;
+		Total: bootstrapReadyPollTotalTime,
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
 	}
@@ -94,6 +105,10 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 			ctx.Infof(msg)
 			break
 		}
+
+		// try to pull controller LB DNS, ignore any errors.
+		_ = controllerDataRefresher()
+
 		// As the API server is coming up, it goes through a number of steps.
 		// Initially the upgrade steps run, but the api server allows some
 		// calls to be processed during the upgrade, but not the list blocks.
@@ -106,6 +121,7 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 		errorMessage := errors.Cause(err).Error()
 		switch {
 		case errors.Cause(err) == io.EOF,
+			strings.HasSuffix(errorMessage, "timeout"),
 			strings.HasSuffix(errorMessage, "connection is shut down"),
 			strings.HasSuffix(errorMessage, "no api connection available"),
 			strings.Contains(errorMessage, "spaces are still being discovered"):
