@@ -6,19 +6,19 @@ package instancemutater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 )
 
 //go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Context,Resources,Authorizer
 //go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Model,Machine,Unit,Application,Charm,LXDProfile
-//go:generate mockgen -package mocks -destination mocks/modelcache_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater ModelCache,ModelCacheMachine
+//go:generate mockgen -package mocks -destination mocks/modelcache_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater ModelCache,ModelCacheMachine,ModelCacheApplication,ModelCacheUnit,ModelCacheCharm
 //go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
 //go:generate mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/cache NotifyWatcher,StringsWatcher
 
@@ -30,7 +30,7 @@ type InstanceMutaterV1 interface {
 	WatchUnits(args params.Entities) (params.StringsWatchResults, error)
 	Life(args params.Entities) (params.LifeResults, error)
 
-	CharmProfilingInfo(arg params.CharmProfilingInfoArg) (params.CharmProfilingInfoResult, error)
+	CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error)
 	SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error)
 	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
 	WatchMachines() (params.StringsWatchResult, error)
@@ -94,25 +94,25 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 // CharmProfilingInfo returns info to update lxd profiles on the machine
 // based on the given unit names.  If the machine is not provisioned,
 // no profile change info will be returned, nor will an error.
-func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.CharmProfilingInfoArg) (params.CharmProfilingInfoResult, error) {
+func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error) {
 	result := params.CharmProfilingInfoResult{
-		ProfileChanges: make([]params.ProfileChangeResult, len(arg.UnitNames)),
+		ProfileChanges: make([]params.ProfileChangeResult, 0),
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return params.CharmProfilingInfoResult{}, errors.Trace(err)
 	}
-	tag, err := names.ParseMachineTag(arg.Entity.Tag)
+	tag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
 		result.Error = common.ServerError(common.ErrPerm)
 		return result, nil
 	}
-	m, err := api.getMachine(canAccess, tag)
+	m, err := api.getCacheMachine(canAccess, tag)
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
 	}
-	lxdProfileInfo, changes, err := api.machineLXDProfileInfo(m, arg.UnitNames)
+	lxdProfileInfo, err := api.machineLXDProfileInfo(m)
 	if err != nil {
 		result.Error = common.ServerError(err)
 	}
@@ -120,10 +120,9 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.CharmProfilingInfoA
 	// use the results from the machineLXDProfileInfo and apply them to the
 	// result
 	result.InstanceId = lxdProfileInfo.InstanceId
-	result.ModelName = lxdProfileInfo.ModelName
+	result.ModelName = api.model.Name()
 	result.CurrentProfiles = lxdProfileInfo.MachineProfiles
-	result.ProfileChanges = lxdProfileInfo.ProfileChanges
-	result.Changes = changes
+	result.ProfileChanges = lxdProfileInfo.ProfileUnits
 
 	return result, nil
 }
@@ -279,10 +278,10 @@ type lxdProfileInfo struct {
 	InstanceId      instance.Id
 	ModelName       string
 	MachineProfiles []string
-	ProfileChanges  []params.ProfileChangeResult
+	ProfileUnits    []params.ProfileChangeResult
 }
 
-func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []string) (lxdProfileInfo, bool, error) {
+func (api *InstanceMutaterAPI) machineLXDProfileInfo(m ModelCacheMachine) (lxdProfileInfo, error) {
 	var empty lxdProfileInfo
 
 	instId, err := m.InstanceId()
@@ -290,71 +289,52 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []stri
 		// There is nothing we can do with this machine at this point. The
 		// profiles will be applied when the machine is provisioned.
 		logger.Tracef("Attempting to apply a profile to a machine that isn't provisioned %q", instId)
-		return empty, false, nil
+		return empty, nil
 	}
-	model, err := api.st.Model()
-	if err != nil {
-		return empty, false, errors.Trace(err)
-	}
-	modelName := model.Name()
 
-	machineProfiles, err := m.CharmProfiles()
+	units, err := m.Units()
 	if err != nil {
-		return empty, false, errors.Trace(err)
+		return empty, errors.Trace(err)
 	}
-	changeResults := make([]params.ProfileChangeResult, len(unitNames))
+	machineProfiles := m.CharmProfiles()
+	changeResults := make([]params.ProfileChangeResult, len(units))
+	for i, unit := range units {
+		appName := unit.Application()
+		app, err := api.model.Application(appName)
+		if err != nil {
+			changeResults[i].Error = common.ServerError(err)
+			continue
+		}
+		ch, err := api.model.Charm(app.CharmURL())
+		if err != nil {
+			changeResults[i].Error = common.ServerError(err)
+			continue
+		}
 
-	for i, name := range unitNames {
-		unit, err := api.st.Unit(name)
+		charmURL, err := charm.ParseURL(app.CharmURL())
 		if err != nil {
 			changeResults[i].Error = common.ServerError(err)
 			continue
 		}
-		app, err := unit.Application()
-		if err != nil {
-			changeResults[i].Error = common.ServerError(err)
-			continue
-		}
-		ch, err := app.Charm()
-		if err != nil {
-			changeResults[i].Error = common.ServerError(err)
-			continue
-		}
+
 		profile := ch.LXDProfile()
-		noProfile := !lxdprofile.NotEmpty(lxdCharmProfiler{
-			Charm: ch,
+		changeResults = append(changeResults, params.ProfileChangeResult{
+			ApplicationName: appName,
+			Subordinate:     false,
+			Revision:        charmURL.Revision,
+			Profile: &params.CharmLXDProfile{
+				Config:      profile.Config,
+				Description: profile.Description,
+				Devices:     profile.Devices,
+			},
 		})
-		appName := app.Name()
-		currentProfile, err := lxdprofile.MatchProfileNameByAppName(machineProfiles, appName)
-		if err != nil {
-			changeResults[i].Error = common.ServerError(err)
-			continue
-		}
-		newProfile := lxdprofile.Name(modelName, appName, ch.Revision())
-		logger.Tracef("machineLXDProfileInfo noProfile(%t) currentProfile(%q), newProfile(%q)",
-			noProfile, currentProfile, newProfile)
-		// If the unit's charm has no profile, and no profile from the unit's
-		// application is on the machine, or the machine's profile for the unit
-		// matches the profile which would be created based on the unit's revision,
-		// nothing to do here.
-		if (noProfile && currentProfile == "") ||
-			currentProfile == newProfile {
-			continue
-		}
-		changeResults[i].OldProfileName = currentProfile
-		changeResults[i].NewProfileName = newProfile
-		changeResults[i].Profile = &params.CharmLXDProfile{
-			Config:      profile.Config(),
-			Description: profile.Description(),
-			Devices:     profile.Devices(),
-		}
 	}
 	return lxdProfileInfo{
 		InstanceId:      instId,
-		ModelName:       modelName,
+		ModelName:       api.model.Name(),
 		MachineProfiles: machineProfiles,
-		ProfileChanges:  changeResults,
-	}, true, nil
+		ProfileUnits:    changeResults,
+	}, nil
 }
 
 func (api *InstanceMutaterAPI) oneUpgradeCharmProfileComplete(machineTag, unitName, msg string, canAccess common.AuthFunc) error {

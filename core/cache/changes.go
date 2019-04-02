@@ -108,6 +108,7 @@ type MachineChange struct {
 	SupportedContainers      []instance.ContainerType
 	SupportedContainersKnown bool
 	HardwareCharacteristics  *instance.HardwareCharacteristics
+	CharmProfiles            []string
 	Addresses                []network.Address
 	HasVote                  bool
 	WantsVote                bool

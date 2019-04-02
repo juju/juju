@@ -1073,11 +1073,11 @@ type ProfileArgs struct {
 }
 
 type ProfileChangeResult struct {
-	OldProfileName string           `json:"old-profile-name,omitempty"`
-	NewProfileName string           `json:"new-profile-name,omitempty"`
-	Profile        *CharmLXDProfile `json:"profile,omitempty"`
-	Subordinate    bool             `json:"subordinate,omitempty"`
-	Error          *Error           `json:"error,omitempty"`
+	ApplicationName string           `json:"application-name,omitempty"`
+	Subordinate     bool             `json:"subordinate,omitempty"`
+	Revision        int              `json:"revision,omitempty"`
+	Profile         *CharmLXDProfile `json:"profile,omitempty"`
+	Error           *Error           `json:"error,omitempty"`
 }
 
 type ProfileChangeResults struct {
@@ -1167,20 +1167,11 @@ type GenerationResult struct {
 	Error *Error `json:"error,omitempty"`
 }
 
-// CharmProfilingInfoArg contains a machine Entity with a slice of unit names
-// for which to gather info to apply lxd profiles for the machine based
-// on the unit.
-type CharmProfilingInfoArg struct {
-	Entity    Entity   `json:"entity"`
-	UnitNames []string `json:"unit-names"`
-}
-
 // CharmProfilingInfoResult contains the result based on ProfileInfoArg values
 // to update profiles on a machine.
 type CharmProfilingInfoResult struct {
 	InstanceId      instance.Id           `json:"instance-id"`
 	ModelName       string                `json:"model-name"`
-	Changes         bool                  `json:"changes"`
 	ProfileChanges  []ProfileChangeResult `json:"profile-changes"`
 	CurrentProfiles []string              `json:"current-profiles"`
 	Error           *Error                `json:"error"`

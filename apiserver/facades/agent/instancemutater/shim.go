@@ -121,6 +121,26 @@ func (s *modelCacheShim) WatchMachines() cache.StringsWatcher {
 	return s.Model.WatchMachines()
 }
 
+func (s modelCacheShim) Charm(charmURL string) (ModelCacheCharm, error) {
+	ch, err := s.Model.Charm(charmURL)
+	if err != nil {
+		return nil, err
+	}
+	return &modelCacheCharm{
+		Charm: ch,
+	}, nil
+}
+
+func (s modelCacheShim) Application(appName string) (ModelCacheApplication, error) {
+	app, err := s.Model.Application(appName)
+	if err != nil {
+		return nil, err
+	}
+	return &modelCacheApplication{
+		Application: app,
+	}, nil
+}
+
 func (s modelCacheShim) Machine(machineId string) (ModelCacheMachine, error) {
 	machine, err := s.Model.Machine(machineId)
 	if err != nil {
@@ -137,4 +157,30 @@ type modelCacheMachine struct {
 
 func (m *modelCacheMachine) WatchApplicationLXDProfiles() (cache.NotifyWatcher, error) {
 	return m.Machine.WatchApplicationLXDProfiles()
+}
+
+func (m *modelCacheMachine) Units() ([]ModelCacheUnit, error) {
+	units, err := m.Machine.Units()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]ModelCacheUnit, len(units))
+	for k, v := range units {
+		result[k] = &modelCacheUnit{
+			Unit: v,
+		}
+	}
+	return result, nil
+}
+
+type modelCacheCharm struct {
+	*cache.Charm
+}
+
+type modelCacheUnit struct {
+	*cache.Unit
+}
+
+type modelCacheApplication struct {
+	*cache.Application
 }

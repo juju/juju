@@ -26,7 +26,7 @@ type MutaterMachine interface {
 
 	// CharmProfilingInfo returns info to update lxd profiles on the machine
 	// based on the given unit names.
-	CharmProfilingInfo([]string) (*ProfileInfo, error)
+	CharmProfilingInfo() (*ProfileInfo, error)
 
 	// SetCharmProfiles records the given slice of charm profile names.
 	SetCharmProfiles([]string) error
@@ -167,17 +167,14 @@ func (m *Machine) WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error) {
 
 type ProfileInfo struct {
 	ModelName       string
-	Changes         bool
 	InstanceId      instance.Id
 	ProfileChanges  []ProfileChanges
 	CurrentProfiles []string
 }
 
 type ProfileChanges struct {
-	OldProfileName string
-	NewProfileName string
-	Profile        *CharmLXDProfile
-	Subordinate    bool
+	Profile     *CharmLXDProfile
+	Subordinate bool
 }
 
 type CharmLXDProfile struct {
@@ -187,12 +184,9 @@ type CharmLXDProfile struct {
 }
 
 // CharmProfilingInfo implements MutaterMachine.CharmProfilingInfo.
-func (m *Machine) CharmProfilingInfo(unitNames []string) (*ProfileInfo, error) {
+func (m *Machine) CharmProfilingInfo() (*ProfileInfo, error) {
 	var result params.CharmProfilingInfoResult
-	args := params.CharmProfilingInfoArg{
-		Entity:    params.Entity{Tag: m.tag.String()},
-		UnitNames: unitNames,
-	}
+	args := params.Entity{Tag: m.tag.String()}
 	err := m.facade.FacadeCall("CharmProfilingInfo", args, &result)
 	if err != nil {
 		return nil, err
@@ -203,16 +197,10 @@ func (m *Machine) CharmProfilingInfo(unitNames []string) (*ProfileInfo, error) {
 	returnResult := &ProfileInfo{
 		InstanceId:      result.InstanceId,
 		ModelName:       result.ModelName,
-		Changes:         result.Changes,
 		CurrentProfiles: result.CurrentProfiles,
-	}
-	if !result.Changes {
-		return returnResult, nil
 	}
 	profileChanges := make([]ProfileChanges, len(result.ProfileChanges))
 	for i, change := range result.ProfileChanges {
-		profileChanges[i].NewProfileName = change.NewProfileName
-		profileChanges[i].OldProfileName = change.OldProfileName
 		profileChanges[i].Subordinate = change.Subordinate
 		if change.Profile != nil {
 			profileChanges[i].Profile = &CharmLXDProfile{

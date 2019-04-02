@@ -53,6 +53,20 @@ func (s *machineSuite) TestEmptyInstanceId(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 0 not provisioned")
 }
 
+func (s *machineSuite) TestCharmProfiles(c *gc.C) {
+	mc := cache.MachineChange{
+		Id:            "0",
+		CharmProfiles: []string{"charm-profile-1"},
+	}
+	s.model.UpdateMachine(mc)
+
+	machine, err := s.model.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	profiles := machine.CharmProfiles()
+	c.Assert(profiles, gc.DeepEquals, mc.CharmProfiles)
+}
+
 func (s *machineSuite) TestUnits(c *gc.C) {
 	machine, expectedUnits := s.setupMachineWithUnits(c, "0", []string{"test1", "test2"})
 	obtainedUnits, err := machine.Units()

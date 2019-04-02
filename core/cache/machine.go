@@ -46,6 +46,11 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	return instance.Id(m.details.InstanceId), nil
 }
 
+// CharmProfiles returns the cached list of charm profiles for the machine
+func (m *Machine) CharmProfiles() []string {
+	return m.details.CharmProfiles
+}
+
 // Units returns all the units that have been assigned to the machine
 // including subordinates.
 func (m *Machine) Units() ([]*Unit, error) {
