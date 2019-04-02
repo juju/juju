@@ -80,7 +80,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	var transport raft.Transport
 	if err := context.Get(config.TransportName, &transport); err != nil {
 		return nil, errors.Trace(err)
