@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/instance"
 )
 
 func newMachine(model *Model) *Machine {
@@ -28,6 +29,15 @@ type Machine struct {
 // Id returns the id string of this machine.
 func (m *Machine) Id() string {
 	return m.details.Id
+}
+
+// InstanceId returns the provider specific instance id for this machine and
+// returns not provisioned if instance id is empty
+func (m *Machine) InstanceId() (instance.Id, error) {
+	if m.details.InstanceId == "" && m.details.HardwareCharacteristics == nil {
+		return "", errors.NotProvisionedf("machine %v", m.Id())
+	}
+	return instance.Id(m.details.InstanceId), nil
 }
 
 // Units returns all the units that have been assigned to the machine

@@ -1178,6 +1178,7 @@ type CharmProfilingInfoArg struct {
 // CharmProfilingInfoResult contains the result based on ProfileInfoArg values
 // to update profiles on a machine.
 type CharmProfilingInfoResult struct {
+	InstanceId      instance.Id           `json:"instance-id"`
 	Changes         bool                  `json:"changes"`
 	ProfileChanges  []ProfileChangeResult `json:"profile-changes"`
 	CurrentProfiles []string              `json:"current-profiles"`
