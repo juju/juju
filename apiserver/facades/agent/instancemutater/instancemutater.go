@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 )
@@ -111,10 +112,17 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.CharmProfilingInfoA
 		result.Error = common.ServerError(err)
 		return result, nil
 	}
-	result.ProfileChanges, result.CurrentProfiles, result.Changes, err = api.machineLXDProfileInfo(m, arg.UnitNames)
+	lxdProfileInfo, changes, err := api.machineLXDProfileInfo(m, arg.UnitNames)
 	if err != nil {
 		result.Error = common.ServerError(err)
 	}
+
+	// use the results from the machineLXDProfileInfo and apply them to the
+	// result
+	result.InstanceId = lxdProfileInfo.InstanceId
+	result.CurrentProfiles = lxdProfileInfo.MachineProfiles
+	result.ProfileChanges = lxdProfileInfo.ProfileChanges
+	result.Changes = changes
 
 	return result, nil
 }
@@ -264,22 +272,33 @@ func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.M
 	return machine, nil
 }
 
-func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []string) ([]params.ProfileChangeResult, []string, bool, error) {
-	if instId, err := m.InstanceId(); err != nil && params.IsCodeNotProvisioned(err) {
+// lxdProfileInfo holds the profile information for the machineLXDProfileInfo
+// to provide context to the result of the call.
+type lxdProfileInfo struct {
+	InstanceId      instance.Id
+	MachineProfiles []string
+	ProfileChanges  []params.ProfileChangeResult
+}
+
+func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []string) (lxdProfileInfo, bool, error) {
+	var empty lxdProfileInfo
+
+	instId, err := m.InstanceId()
+	if err != nil && params.IsCodeNotProvisioned(err) {
 		// There is nothing we can do with this machine at this point. The
 		// profiles will be applied when the machine is provisioned.
 		logger.Tracef("Attempting to apply a profile to a machine that isn't provisioned %q", instId)
-		return nil, nil, false, nil
+		return empty, false, nil
 	}
 	model, err := api.st.Model()
 	if err != nil {
-		return nil, nil, false, errors.Trace(err)
+		return empty, false, errors.Trace(err)
 	}
 	modelName := model.Name()
 
 	machineProfiles, err := m.CharmProfiles()
 	if err != nil {
-		return nil, machineProfiles, false, errors.Trace(err)
+		return empty, false, errors.Trace(err)
 	}
 	changeResults := make([]params.ProfileChangeResult, len(unitNames))
 
@@ -328,7 +347,11 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []stri
 			Devices:     profile.Devices(),
 		}
 	}
-	return changeResults, machineProfiles, true, nil
+	return lxdProfileInfo{
+		InstanceId:      instId,
+		MachineProfiles: machineProfiles,
+		ProfileChanges:  changeResults,
+	}, true, nil
 }
 
 func (api *InstanceMutaterAPI) oneUpgradeCharmProfileComplete(machineTag, unitName, msg string, canAccess common.AuthFunc) error {

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -19,6 +20,10 @@ import (
 //go:generate mockgen -package mocks -destination mocks/caller_mock.go github.com/juju/juju/api/base APICaller,FacadeCaller
 //go:generate mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/instancemutater MutaterMachine
 type MutaterMachine interface {
+
+	// InstanceId returns the provider specific instance id for this machine
+	InstanceId() (string, error)
+
 	// CharmProfilingInfo returns info to update lxd profiles on the machine
 	// based on the given unit names.
 	CharmProfilingInfo([]string) (*ProfileInfo, error)
@@ -61,6 +66,26 @@ type Machine struct {
 
 	tag  names.MachineTag
 	life params.Life
+}
+
+// InstanceId implements MutaterMachine.InstanceId.
+func (m *Machine) InstanceId() (string, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.facade.FacadeCall("InstanceId", args, &results)
+	if err != nil {
+		return "", err
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Result, nil
 }
 
 // SetCharmProfiles implements MutaterMachine.SetCharmProfiles.
@@ -142,6 +167,7 @@ func (m *Machine) WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error) {
 
 type ProfileInfo struct {
 	Changes         bool
+	InstanceId      instance.Id
 	ProfileChanges  []ProfileChanges
 	CurrentProfiles []string
 }
@@ -170,7 +196,11 @@ func (m *Machine) CharmProfilingInfo(unitNames []string) (*ProfileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
 	returnResult := &ProfileInfo{
+		InstanceId:      result.InstanceId,
 		Changes:         result.Changes,
 		CurrentProfiles: result.CurrentProfiles,
 	}

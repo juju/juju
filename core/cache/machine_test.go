@@ -32,6 +32,27 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.model = s.newModel(modelChange)
 }
 
+func (s *machineSuite) TestInstanceId(c *gc.C) {
+	machine, _ := s.setupMachineWithUnits(c, "0", []string{"test1"})
+
+	id, err := machine.InstanceId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id, gc.Equals, instance.Id("juju-gd4c23-0"))
+}
+
+func (s *machineSuite) TestEmptyInstanceId(c *gc.C) {
+	mc := cache.MachineChange{
+		Id: "0",
+	}
+	s.model.UpdateMachine(mc)
+
+	machine, err := s.model.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = machine.InstanceId()
+	c.Assert(err, gc.ErrorMatches, "machine 0 not provisioned")
+}
+
 func (s *machineSuite) TestUnits(c *gc.C) {
 	machine, expectedUnits := s.setupMachineWithUnits(c, "0", []string{"test1", "test2"})
 	obtainedUnits, err := machine.Units()

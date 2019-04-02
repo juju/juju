@@ -49,6 +49,19 @@ func (mr *MockMutaterMachineMockRecorder) CharmProfilingInfo(arg0 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfilingInfo", reflect.TypeOf((*MockMutaterMachine)(nil).CharmProfilingInfo), arg0)
 }
 
+// InstanceId mocks base method
+func (m *MockMutaterMachine) InstanceId() (string, error) {
+	ret := m.ctrl.Call(m, "InstanceId")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InstanceId indicates an expected call of InstanceId
+func (mr *MockMutaterMachineMockRecorder) InstanceId() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMutaterMachine)(nil).InstanceId))
+}
+
 // RemoveUpgradeCharmProfileData mocks base method
 func (m *MockMutaterMachine) RemoveUpgradeCharmProfileData(arg0 string) error {
 	ret := m.ctrl.Call(m, "RemoveUpgradeCharmProfileData", arg0)
