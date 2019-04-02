@@ -286,12 +286,6 @@ type ControllerDetails struct {
 	// APIEndpoints is the collection of API endpoints running in this controller.
 	APIEndpoints []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
 
-	// CACert is a security certificate for this controller.
-	CACert string `yaml:"ca-cert" json:"ca-cert"`
-
-	// SHA-256 fingerprint of the CA cert
-	CAFingerprint string `yaml:"ca-fingerprint,omitempty" json:"ca-fingerprint,omitempty"`
-
 	// Cloud is the name of the cloud that this controller runs in.
 	Cloud string `yaml:"cloud" json:"cloud"`
 
@@ -311,6 +305,12 @@ type ControllerDetails struct {
 	// IdentityURL contails the address of an external identity provider
 	// if one has been configured for this controller.
 	IdentityURL string `yaml:"identity-url,omitempty" json:"identity-url,omitempty"`
+
+	// SHA-256 fingerprint of the CA cert
+	CAFingerprint string `yaml:"ca-fingerprint,omitempty" json:"ca-fingerprint,omitempty"`
+
+	// CACert is a security certificate for this controller.
+	CACert string `yaml:"ca-cert" json:"ca-cert"`
 }
 
 // ModelDetails holds details of a model to show.
