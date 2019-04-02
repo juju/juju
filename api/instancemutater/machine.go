@@ -166,6 +166,7 @@ func (m *Machine) WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error) {
 }
 
 type ProfileInfo struct {
+	ModelName       string
 	Changes         bool
 	InstanceId      instance.Id
 	ProfileChanges  []ProfileChanges
@@ -201,6 +202,7 @@ func (m *Machine) CharmProfilingInfo(unitNames []string) (*ProfileInfo, error) {
 	}
 	returnResult := &ProfileInfo{
 		InstanceId:      result.InstanceId,
+		ModelName:       result.ModelName,
 		Changes:         result.Changes,
 		CurrentProfiles: result.CurrentProfiles,
 	}

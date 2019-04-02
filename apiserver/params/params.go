@@ -1179,6 +1179,7 @@ type CharmProfilingInfoArg struct {
 // to update profiles on a machine.
 type CharmProfilingInfoResult struct {
 	InstanceId      instance.Id           `json:"instance-id"`
+	ModelName       string                `json:"model-name"`
 	Changes         bool                  `json:"changes"`
 	ProfileChanges  []ProfileChangeResult `json:"profile-changes"`
 	CurrentProfiles []string              `json:"current-profiles"`

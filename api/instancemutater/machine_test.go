@@ -144,6 +144,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 	}
 	results := params.CharmProfilingInfoResult{
 		InstanceId:      instance.Id("juju-gd4c23-0"),
+		ModelName:       "default",
 		Changes:         true,
 		CurrentProfiles: []string{"juju-default-neutron-ovswitch-255"},
 		Error:           nil,
@@ -164,6 +165,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Changes, jc.IsTrue)
 	c.Assert(info.InstanceId, gc.Equals, results.InstanceId)
+	c.Assert(info.ModelName, gc.Equals, results.ModelName)
 	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
 	c.Assert(info.ProfileChanges[0].OldProfileName, gc.Equals, results.ProfileChanges[0].OldProfileName)
 	c.Assert(info.ProfileChanges[0].NewProfileName, gc.Equals, results.ProfileChanges[0].NewProfileName)
@@ -179,8 +181,9 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessNoChanges(c *
 		UnitNames: []string{s.unitName},
 	}
 	results := params.CharmProfilingInfoResult{
-		InstanceId:      instance.Id("juju-gd4c23-0"),
 		Changes:         false,
+		InstanceId:      instance.Id("juju-gd4c23-0"),
+		ModelName:       "default",
 		CurrentProfiles: []string{"juju-default-neutron-ovswitch-255"},
 		Error:           nil,
 		ProfileChanges: []params.ProfileChangeResult{{
@@ -195,6 +198,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessNoChanges(c *
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Changes, jc.IsFalse)
 	c.Assert(info.InstanceId, gc.Equals, results.InstanceId)
+	c.Assert(info.ModelName, gc.Equals, results.ModelName)
 	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
 	c.Assert(info.ProfileChanges, gc.HasLen, 0)
 }
