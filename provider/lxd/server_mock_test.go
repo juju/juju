@@ -5,14 +5,13 @@
 package lxd
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	lxd "github.com/juju/juju/container/lxd"
 	environs "github.com/juju/juju/environs"
 	network "github.com/juju/juju/network"
 	client "github.com/lxc/lxd/client"
 	api "github.com/lxc/lxd/shared/api"
+	reflect "reflect"
 )
 
 // MockServer is a mock of Server interface
@@ -531,6 +530,18 @@ func (m *MockServer) UpdateContainerConfig(arg0 string, arg1 map[string]string) 
 // UpdateContainerConfig indicates an expected call of UpdateContainerConfig
 func (mr *MockServerMockRecorder) UpdateContainerConfig(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateContainerConfig", reflect.TypeOf((*MockServer)(nil).UpdateContainerConfig), arg0, arg1)
+}
+
+// UpdateContainerProfiles mocks base method
+func (m *MockServer) UpdateContainerProfiles(arg0 string, arg1 []string) error {
+	ret := m.ctrl.Call(m, "UpdateContainerProfiles", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateContainerProfiles indicates an expected call of UpdateContainerProfiles
+func (mr *MockServerMockRecorder) UpdateContainerProfiles(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateContainerProfiles", reflect.TypeOf((*MockServer)(nil).UpdateContainerProfiles), arg0, arg1)
 }
 
 // UpdateServerConfig mocks base method
