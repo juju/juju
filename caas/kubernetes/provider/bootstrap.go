@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 )
 
 const (
@@ -302,14 +303,8 @@ func (c controllerStack) createControllerService() error {
 		},
 		Spec: core.ServiceSpec{
 			Selector: c.stackLabels,
-			Type:     core.ServiceType(defaultServiceType),
+			Type:     core.ServiceType(c.pcfg.Bootstrap.ControllerServiceType),
 			Ports: []core.ServicePort{
-				{
-					Name:       "mongodb",
-					TargetPort: intstr.FromInt(c.portMongoDB),
-					Port:       int32(c.portMongoDB),
-					Protocol:   "TCP",
-				},
 				{
 					Name:       "api-server",
 					TargetPort: intstr.FromInt(c.portAPIServer),
@@ -335,9 +330,9 @@ func (c controllerStack) createControllerService() error {
 		return errors.Annotate(err, "getting controller service")
 	}
 	logger.Criticalf("controller svc -> %v", svc)
-	publicAddress := svc.Addresses[0]
-	logger.Criticalf("controller svc publicAddress -> %+v", publicAddress)
-	if err := c.pcfg.Bootstrap.ControllerConfig.SetAutocertDNSName(publicAddress.Value); err != nil {
+	controllerConfig := c.pcfg.Bootstrap.ControllerConfig
+	publicAddress := network.AddressesWithPort(svc.Addresses, controllerConfig.APIPort())[0].String()
+	if err := controllerConfig.SetAutocertDNSName(publicAddress); err != nil {
 		return errors.Annotatef(err, "setting controller public DNS to %v", publicAddress)
 	}
 	return nil
