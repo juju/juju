@@ -82,6 +82,12 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 		return nil, errors.Annotate(err, "cannot determine cluster region")
 	}
 
+	serviceType, ok := preferredControllerServiceTypes[result.Cloud]
+	if !ok {
+		return nil, errors.NotFoundf("service type for %q", result.Cloud)
+	}
+	result.PreferredServiceType = serviceType
+
 	if storageClass != "" {
 		sc, err := k.StorageV1().StorageClasses().Get(storageClass, v1.GetOptions{IncludeUninitialized: true})
 		if err != nil && !k8serrors.IsNotFound(err) {

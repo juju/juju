@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/collections/set"
+	core "k8s.io/api/core/v1"
 )
 
 const (
@@ -40,6 +41,7 @@ type ClusterMetadata struct {
 	OperatorStorageClass  *StorageProvisioner
 	Cloud                 string
 	Regions               set.Strings
+	PreferredServiceType  core.ServiceType
 }
 
 // NonPreferredStorageError is raised when a cluster does not have
