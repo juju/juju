@@ -27,6 +27,10 @@ func (m *Model) SetDetails(details ModelChange) {
 
 // Expose Remove* for testing
 
+func (m *Model) RemoveCharm(ch RemoveCharm) {
+	m.removeCharm(ch)
+}
+
 func (m *Model) RemoveUnit(ch RemoveUnit) {
 	m.removeUnit(ch)
 }

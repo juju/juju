@@ -123,6 +123,7 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 				return nil, errors.Errorf("programming error, unit %s has machineId but not application", unitName)
 			}
 			logger.Errorf("unit %s has no application, nor machine id, start watching when machine id assigned.", unitName)
+			m.model.metrics.LXDProfileChangeError.Inc()
 			continue
 		}
 		info := appInfo{
@@ -137,14 +138,15 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 		}
 		applications[appName] = info
 	}
-	w := newMachineAppLXDProfileWatcher(
-		m.model.topic(applicationCharmURLChange),
-		m.model.topic(modelUnitLXDProfileChange),
-		m.details.Id,
-		applications,
-		m.model,
-		m.model.hub,
-	)
+	w := newMachineAppLXDProfileWatcher(MachineAppLXDProfileConfig{
+		appTopic:     m.model.topic(applicationCharmURLChange),
+		unitTopic:    m.model.topic(modelUnitLXDProfileChange),
+		machineId:    m.details.Id,
+		applications: applications,
+		modeler:      m.model,
+		metrics:      m.model.metrics,
+		hub:          m.model.hub,
+	})
 	m.model.mu.Unlock()
 	return w, nil
 }
