@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
@@ -486,6 +487,9 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	}
 	if _, ok := newCloud.Config[provider.OperatorStorageKey]; !ok {
 		newCloud.Config[provider.OperatorStorageKey] = operatorStorageName
+	}
+	if _, ok := newCloud.Config[bootstrap.ControllerServiceTypeKey]; !ok {
+		newCloud.Config[bootstrap.ControllerServiceTypeKey] = clusterMetadata.PreferredServiceType
 	}
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
