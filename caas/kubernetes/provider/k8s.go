@@ -817,6 +817,28 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	return errors.Trace(k.deleteDeployment(operatorName))
 }
 
+func getLoadBalancerIP(svc *core.Service) string {
+	// reason we have this is because different cloud provider
+	// has different way to report back LB address.
+	// This should cover most of case now.
+	lpAdd := svc.Spec.LoadBalancerIP
+	if lpAdd != "" {
+		return lpAdd
+	}
+	ing := svc.Status.LoadBalancer.Ingress
+	if len(ing) > 0 {
+		// It usually has only one record.
+		firstOne := ing[0]
+		if firstOne.IP != "" {
+			return firstOne.IP
+		}
+		if firstOne.Hostname != "" {
+			return firstOne.Hostname
+		}
+	}
+	return lpAdd
+}
+
 func getSvcAddresses(svc *core.Service) []network.Address {
 	var netAddrs []network.Address
 
@@ -831,6 +853,7 @@ func getSvcAddresses(svc *core.Service) []network.Address {
 			}
 		}
 	}
+
 	t := svc.Spec.Type
 	clusterIP := svc.Spec.ClusterIP
 	switch t {
@@ -841,7 +864,7 @@ func getSvcAddresses(svc *core.Service) []network.Address {
 	case core.ServiceTypeNodePort:
 		appendAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)
 	case core.ServiceTypeLoadBalancer:
-		appendAddrs(network.ScopePublic, svc.Spec.LoadBalancerIP)
+		appendAddrs(network.ScopePublic, getLoadBalancerIP(svc))
 	}
 	if len(netAddrs) == 0 && clusterIP != "" {
 		// fallback to ClusterIP, usually it's not empty.
