@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
 )
@@ -82,10 +83,19 @@ func (m ManagerConfig) WarnAboutUnused() {
 // LXDProfileManager defines an interface for dealing with lxd profiles used to
 // deploy juju containers.
 type LXDProfileManager interface {
+	// AssignProfiles assigns the given profile names to the lxd instance
+	// provided.  The slice of ProfilePosts provides details for adding to
+	// and removing profiles from the lxd server.
+	AssignProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error)
+
 	// MaybeWriteLXDProfile, write given LXDProfile to machine if not already
 	// there.
 	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
 
+	// TODO: HML 2-apr-2019
+	// remove when provisioner_task processProfileChanges() is
+	// removed.
+	//
 	// ReplaceOrAddInstanceProfile replaces, adds, a charm profile to
 	// the given instance and returns a slice of LXD profiles applied
 	// to the instance. Replace happens inplace in the current order of

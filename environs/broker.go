@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -170,12 +171,20 @@ type InstanceBroker interface {
 // LXDProfiler defines an interface for dealing with lxd profiles used to
 // deploy juju machines and containers.
 type LXDProfiler interface {
+	// AssignProfiles assigns the given profile names to the lxd instance
+	// provided.  The slice of ProfilePosts provides details for adding to
+	// and removing profiles from the lxd server.
+	AssignProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error)
+
 	// MaybeWriteLXDProfile, write given LXDProfile to if not already there.
 	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
 
 	// LXDProfileNames returns all the profiles associated to a container name
 	LXDProfileNames(containerName string) ([]string, error)
 
+	// TODO: HML 2-apr-2019
+	// remove when provisioner_task processProfileChanges() is
+	// removed.
 	// ReplaceOrAddInstanceProfile replaces, adds, a charm profile to
 	// the given instance and returns a slice of LXD profiles applied
 	// to the instance. Replace happens inplace in the current order of
