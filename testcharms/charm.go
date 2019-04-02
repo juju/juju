@@ -39,6 +39,24 @@ func RepoForSeries(series string) *testing.Repo {
 	return testing.NewRepo("charm-repo", series)
 }
 
+// charmstoreClient bridges a charmstore and Juju
+//
+// Only methods that are relied upon by the testcharms package are exposed here.
+type charmstoreClient interface {
+	// Put enables "raw HTTP" calls
+	Put(path string, value interface{}) error
+	// Publish publishes an object representable by `id`, which could be a bundle, charm or resource
+	Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error
+	UploadBundle(id *charm.URL, bundle charm.Bundle) (*charm.URL, error)
+	UploadBundleWithRevision(id *charm.URL, bundle charm.Bundle, promulgatedRevision int) error
+	UploadCharm(id *charm.URL, charmDetails charm.Charm) (*charm.URL, error)
+	UploadCharmWithRevision(id *charm.URL, charmDetails charm.Charm, promulgatedRevision int) error
+	UploadResource(id *charm.URL, name, path string, file io.ReaderAt, size int64, progress csclient.Progress) (revision int, err error)
+	ListResources(id *charm.URL) ([]params.Resource, error)
+	AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error)
+	WithChannel(channel params.Channel) *csclient.Client // TODO(tsm) make generic
+}
+
 // UploadCharmWithMeta pushes a new charm to the charmstore.
 // The uploaded charm takes the supplied charmURL with metadata.yaml and metrics.yaml
 // to define the charm, rather than relying on the charm to exist on disk.
@@ -46,7 +64,7 @@ func RepoForSeries(series string) *testing.Repo {
 // here for us in tests.
 //
 // For convenience the charm is also made public
-func UploadCharmWithMeta(c *gc.C, client *csclient.Client, charmURL, meta, metrics string, revision int) (*charm.URL, charm.Charm) {
+func UploadCharmWithMeta(c *gc.C, client charmstoreClient, charmURL, meta, metrics string, revision int) (*charm.URL, charm.Charm) {
 	ch := testing.NewCharm(c, testing.CharmSpec{
 		Meta:     meta,
 		Metrics:  metrics,
@@ -59,7 +77,7 @@ func UploadCharmWithMeta(c *gc.C, client *csclient.Client, charmURL, meta, metri
 }
 
 // UploadCharm sets default series to quantal
-func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL, charm.Charm) {
+func UploadCharm(c *gc.C, client charmstoreClient, url, name string) (*charm.URL, charm.Charm) {
 	return UploadCharmWithSeries(c, client, url, name, defaultSeries)
 }
 
@@ -68,7 +86,7 @@ func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL
 //
 // It also adds any required resources that haven't already been uploaded
 // with the content "<resourcename> content".
-func UploadCharmWithSeries(c *gc.C, client *csclient.Client, url, name, series string) (*charm.URL, charm.Charm) {
+func UploadCharmWithSeries(c *gc.C, client charmstoreClient, url, name, series string) (*charm.URL, charm.Charm) {
 	id := charm.MustParseURL(url)
 	promulgatedRevision := -1
 	if id.User == "" {
@@ -116,7 +134,7 @@ func UploadCharmWithSeries(c *gc.C, client *csclient.Client, url, name, series s
 // UploadCharmMultiSeries uploads a charm with revision using the given charm store client,
 // and returns the resulting charm URL and charm. This API caters for new multi-series charms
 // which do not specify a series in the URL.
-func UploadCharmMultiSeries(c *gc.C, client *csclient.Client, url, name string) (*charm.URL, charm.Charm) {
+func UploadCharmMultiSeries(c *gc.C, client charmstoreClient, url, name string) (*charm.URL, charm.Charm) {
 	id := charm.MustParseURL(url)
 	if id.User == "" {
 		// We still need a user even if we are uploading a promulgated charm.
@@ -136,7 +154,7 @@ func UploadCharmMultiSeries(c *gc.C, client *csclient.Client, url, name string) 
 
 // UploadBundle uploads a bundle using the given charm store client, and
 // returns the resulting bundle URL and bundle.
-func UploadBundle(c *gc.C, client *csclient.Client, url, name string) (*charm.URL, charm.Bundle) {
+func UploadBundle(c *gc.C, client charmstoreClient, url, name string) (*charm.URL, charm.Bundle) {
 	id := charm.MustParseURL(url)
 	promulgatedRevision := -1
 	if id.User == "" {
@@ -161,7 +179,7 @@ func UploadBundle(c *gc.C, client *csclient.Client, url, name string) (*charm.UR
 //
 // The named resources with their associated revision
 // numbers are also published.
-func SetPublicWithResources(c *gc.C, client *csclient.Client, id *charm.URL, resources map[string]int) {
+func SetPublicWithResources(c *gc.C, client charmstoreClient, id *charm.URL, resources map[string]int) {
 	// Publish to the stable channel.
 	err := client.Publish(id, []params.Channel{params.StableChannel}, resources)
 	c.Assert(err, jc.ErrorIsNil)
@@ -173,7 +191,7 @@ func SetPublicWithResources(c *gc.C, client *csclient.Client, id *charm.URL, res
 
 // SetPublic sets the charm or bundle with the given id to be
 // published with global read permissions to the stable channel.
-func SetPublic(c *gc.C, client *csclient.Client, id *charm.URL) {
+func SetPublic(c *gc.C, client charmstoreClient, id *charm.URL) {
 	SetPublicWithResources(c, client, id, nil)
 }
 

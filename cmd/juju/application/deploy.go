@@ -18,8 +18,8 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
@@ -137,12 +137,29 @@ type modelConfigClient struct {
 	*modelconfig.Client
 }
 
+// charmrepoForDeploy is a stripped-down version of the
+// gopkg.in/juju/charmrepo.v3 Interface interface. It is
+// used by tests that embed a DeploySuiteBase.
+type charmrepoForDeploy interface {
+	Get(charmURL *charm.URL) (charm.Charm, error)
+	GetBundle(bundleURL *charm.URL) (charm.Bundle, error)
+	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
+}
+
 type charmRepoClient struct {
-	*charmrepo.CharmStore
+	charmrepoForDeploy
+}
+
+// charmstoreForDeploy is a subset of the methods implemented
+// by gopkg.in/juju/charmrepo.v3/csclient.Client. It is
+// used by tests that embed a DeploySuiteBase.
+type charmstoreForDeploy interface {
+	Get(endpoint string, extra interface{}) error
+	WithChannel(csparams.Channel) charmstoreForDeploy
 }
 
 type charmstoreClient struct {
-	*csclient.Client
+	charmstoreForDeploy
 }
 
 type annotationsClient struct {
@@ -154,7 +171,7 @@ type plansClient struct {
 }
 
 func (a *charmstoreClient) AuthorizeCharmstoreEntity(url *charm.URL) (*macaroon.Macaroon, error) {
-	return authorizeCharmStoreEntity(a.Client, url)
+	return authorizeCharmStoreEntity(a, url)
 }
 
 func (c *plansClient) PlanURL() string {
@@ -213,52 +230,6 @@ func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.Annotation
 	return a.annotationsClient.Get(tags)
 }
 
-// NewDeployCommandForTest returns a command to deploy applications intended to be used only in tests.
-func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
-	deployCmd := &DeployCommand{
-		Steps:      steps,
-		NewAPIRoot: newAPIRoot,
-	}
-	if newAPIRoot == nil {
-		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
-			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			bakeryClient, err := deployCmd.BakeryClient()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
-
-			return &deployAPIAdapter{
-				Connection:        apiRoot,
-				apiClient:         &apiClient{Client: apiRoot.Client()},
-				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
-				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
-				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-				charmstoreClient:  &charmstoreClient{Client: cstoreClient},
-				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-				charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
-				plansClient:       &plansClient{planURL: mURL},
-			}, nil
-		}
-	}
-	return modelcmd.Wrap(deployCmd)
-}
-
 // NewDeployCommand returns a command to deploy applications.
 func NewDeployCommand() modelcmd.ModelCommand {
 	steps := []DeployStep{
@@ -302,9 +273,9 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			charmstoreClient:  &charmstoreClient{Client: cstoreClient},
+			charmstoreClient:  &charmstoreClient{&charmstoreClientShim{cstoreClient}},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
+			charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
 			plansClient:       &plansClient{planURL: mURL},
 		}, nil
 	}

@@ -172,9 +172,9 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 			charmsClient:      &charmsClient{Client: charms.NewClient(apiRoot)},
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			charmstoreClient:  &charmstoreClient{Client: cstoreClient},
+			charmstoreClient:  &charmstoreClient{&charmstoreClientShim{cstoreClient}},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
+			charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
 		}, nil
 	}
 

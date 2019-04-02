@@ -34,6 +34,7 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmstore.v5"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
@@ -65,6 +66,34 @@ import (
 type DeploySuiteBase struct {
 	testing.RepoSuite
 	coretesting.CmdBlockHelper
+	charmstore charmstoreForDeploy
+	charmrepo  charmrepoForDeploy
+}
+
+type fakeCharmstoreClientShim struct {
+	internal jjcharmstore.ChannelAwareFakeClient
+}
+
+func (c fakeCharmstoreClientShim) Get(path string, extra interface{}) error {
+	return c.internal.Get(path, extra)
+}
+
+func (c fakeCharmstoreClientShim) WithChannel(channel csparams.Channel) charmstoreForDeploy {
+	cstore := c.internal.WithChannel(channel)
+	return fakeCharmstoreClientShim{*cstore}
+}
+
+func (s *DeploySuiteBase) runDeploy(c *gc.C, args ...string) error {
+	_, _, err := s.runDeployWithOutput(c, args...)
+	return err
+}
+
+func (s *DeploySuiteBase) runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
+	//TODO(tsm) eliminate code duplication w/ function call
+	ctx, err := cmdtesting.RunCommand(c, NewDeployCommandForTest2(s.charmstore, s.charmrepo), args...)
+	return strings.Trim(cmdtesting.Stdout(ctx), "\n"),
+		strings.Trim(cmdtesting.Stderr(ctx), "\n"),
+		err
 }
 
 func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
@@ -72,6 +101,10 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+	repo := jjcharmstore.NewRepository()
+	client := jjcharmstore.NewFakeClient(repo).WithChannel(csparams.StableChannel)
+	s.charmrepo = repo
+	s.charmstore = &fakeCharmstoreClientShim{*client}
 }
 
 type DeploySuite struct {
@@ -133,7 +166,7 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 }
 
 func (s *DeploySuite) TestNoCharmOrBundle(c *gc.C) {
-	err := runDeploy(c, c.MkDir())
+	err := s.runDeploy(c, c.MkDir())
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `charm or bundle at .*`)
 }
@@ -142,13 +175,13 @@ func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockDeploy")
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, ch, "some-application-name", "--series", "precise")
+	err := s.runDeploy(c, ch, "some-application-name", "--series", "precise")
 
 	s.AssertBlocked(c, err, ".*TestBlockDeploy.*")
 }
 
 func (s *DeploySuite) TestInvalidPath(c *gc.C) {
-	err := runDeploy(c, "/home/nowhere")
+	err := s.runDeploy(c, "/home/nowhere")
 	c.Assert(err, gc.ErrorMatches, `charm or bundle URL has invalid form: "/home/nowhere"`)
 }
 
@@ -156,19 +189,19 @@ func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
 	path := filepath.Join(c.MkDir(), "bundle.yaml")
 	err := ioutil.WriteFile(path, []byte(":"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, path)
+	err = s.runDeploy(c, path)
 	c.Assert(err, gc.ErrorMatches, `invalid charm or bundle provided at ".*bundle.yaml"`)
 }
 
 func (s *DeploySuite) TestPathWithNoCharmOrBundle(c *gc.C) {
-	err := runDeploy(c, c.MkDir())
+	err := s.runDeploy(c, c.MkDir())
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `charm or bundle at .*`)
 }
 
 func (s *DeploySuite) TestCharmDir(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, ch, "--series", "trusty")
+	err := s.runDeploy(c, ch, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
 	s.AssertApplication(c, "multi-series", curl, 1, 0)
@@ -181,7 +214,7 @@ func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
 	defer os.Chdir(wd)
 	err = os.Chdir(s.CharmsPath)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "multi-series")
+	err = s.runDeploy(c, "multi-series")
 	c.Assert(err, gc.ErrorMatches, ""+
 		"The charm or bundle \"multi-series\" is ambiguous.\n"+
 		"To deploy a local charm or bundle, run `juju deploy ./multi-series`.\n"+
@@ -190,7 +223,7 @@ func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
-	err := runDeploy(c, path, "--series", "precise", "--force")
+	err := s.runDeploy(c, path, "--series", "precise", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	s.AssertApplication(c, "dummy", curl, 1, 0)
@@ -203,13 +236,13 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
-	err = runDeploy(c, path)
+	err = s.runDeploy(c, path)
 	c.Assert(err, gc.ErrorMatches, "series not specified and charm does not define any")
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
-	err := runDeploy(c, path)
+	err := s.runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", version.SupportedLTS()))
 	s.AssertApplication(c, "dummy", curl, 1, 0)
@@ -223,7 +256,7 @@ func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "multi-series")
-	err = runDeploy(c, path)
+	err = s.runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
 	s.AssertApplication(c, "multi-series", curl, 1, 0)
@@ -231,7 +264,7 @@ func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, path, "--series", "trusty")
+	err := s.runDeploy(c, path, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
 	s.AssertApplication(c, "multi-series", curl, 1, 0)
@@ -239,13 +272,13 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeries(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, path, "--series", "quantal")
+	err := s.runDeploy(c, path, "--series", "quantal")
 	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise,trusty,xenial,yakkety`)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, path, "--series", "quantal", "--force")
+	err := s.runDeploy(c, path, "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/multi-series-1")
 	s.AssertApplication(c, "multi-series", curl, 1, 0)
@@ -253,7 +286,7 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedLXDProfileForce(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "lxd-profile-fail")
-	err := runDeploy(c, path, "--series", "quantal", "--force")
+	err := s.runDeploy(c, path, "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/lxd-profile-fail-0")
 	s.AssertApplication(c, "lxd-profile-fail", curl, 1, 0)
@@ -265,7 +298,7 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
 	dirPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
-	err := runDeploy(c, dirPath, "--series", "quantal")
+	err := s.runDeploy(c, dirPath, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	upgradedRev := dummyCharm.Revision() + 1
 	curl := dummyCharm.URL().WithRevision(upgradedRev)
@@ -278,7 +311,7 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 
 func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	err := s.runDeploy(c, ch, "some-application-name", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
 	s.AssertApplication(c, "some-application-name", curl, 1, 0)
@@ -286,7 +319,7 @@ func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 
 func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
-	err := runDeploy(c, ch, "--series", "trusty")
+	err := s.runDeploy(c, ch, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/logging-1")
 	s.AssertApplication(c, "logging", curl, 0, 0)
@@ -303,7 +336,7 @@ func (s *DeploySuite) combinedSettings(ch charm.Charm, inSettings charm.Settings
 func (s *DeploySuite) TestSingleConfigFile(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	path := setupConfigFile(c, c.MkDir())
-	err := runDeploy(c, ch, "dummy-application", "--config", path, "--series", "precise")
+	err := s.runDeploy(c, ch, "dummy-application", "--config", path, "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
@@ -321,13 +354,13 @@ func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	// Putting a config file in home is okay as $HOME is set to a tempdir
 	setupConfigFile(c, utils.Home())
-	err := runDeploy(c, ch, "dummy-application", "--config", "~/testconfig.yaml")
+	err := s.runDeploy(c, ch, "dummy-application", "--config", "~/testconfig.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DeploySuite) TestConfigValues(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, ch, "dummy-application", "--config", "skill-level=9000", "--config", "outlook=good", "--series", "precise")
+	err := s.runDeploy(c, ch, "dummy-application", "--config", "skill-level=9000", "--config", "outlook=good", "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
@@ -345,7 +378,7 @@ func (s *DeploySuite) TestConfigValues(c *gc.C) {
 func (s *DeploySuite) TestConfigValuesWithFile(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	path := setupConfigFile(c, c.MkDir())
-	err := runDeploy(c, ch, "dummy-application", "--config", path, "--config", "outlook=good", "--config", "skill-level=8000", "--series", "precise")
+	err := s.runDeploy(c, ch, "dummy-application", "--config", path, "--config", "outlook=good", "--config", "skill-level=8000", "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
@@ -362,14 +395,14 @@ func (s *DeploySuite) TestConfigValuesWithFile(c *gc.C) {
 
 func (s *DeploySuite) TestSingleConfigMoreThanOneFile(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, ch, "dummy-application", "--config", "one", "--config", "another", "--series", "precise")
+	err := s.runDeploy(c, ch, "dummy-application", "--config", "one", "--config", "another", "--series", "precise")
 	c.Assert(err, gc.ErrorMatches, "only a single config YAML file can be specified, got 2")
 }
 
 func (s *DeploySuite) TestConfigError(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	path := setupConfigFile(c, c.MkDir())
-	err := runDeploy(c, ch, "other-application", "--config", path)
+	err := s.runDeploy(c, ch, "other-application", "--config", path)
 	c.Assert(err, gc.ErrorMatches, `no settings found for "other-application"`)
 	_, err = s.State.Application("other-application")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -377,7 +410,7 @@ func (s *DeploySuite) TestConfigError(c *gc.C) {
 
 func (s *DeploySuite) TestConstraints(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, ch, "--constraints", "mem=2G cores=2", "--series", "trusty")
+	err := s.runDeploy(c, ch, "--constraints", "mem=2G cores=2", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
 	application, _ := s.AssertApplication(c, "multi-series", curl, 1, 0)
@@ -408,7 +441,7 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 
 func (s *DeploySuite) TestLXDProfileLocalCharm(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "lxd-profile")
-	err := runDeploy(c, path)
+	err := s.runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:bionic/lxd-profile-0")
 	s.AssertApplication(c, "lxd-profile", curl, 1, 0)
@@ -416,7 +449,7 @@ func (s *DeploySuite) TestLXDProfileLocalCharm(c *gc.C) {
 
 func (s *DeploySuite) TestLXDProfileLocalCharmFails(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "lxd-profile-fail")
-	err := runDeploy(c, path)
+	err := s.runDeploy(c, path)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, `invalid lxd-profile.yaml: contains device type "unix-disk"`)
 }
 
@@ -427,7 +460,7 @@ func (s *DeploySuite) TestLXDProfileLocalCharmFails(c *gc.C) {
 // (need deploy client to be refactored to use API stub)
 func (s *DeploySuite) TestStorage(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-block")
-	err := runDeploy(c, ch, "--storage", "data=machinescoped,1G", "--series", "trusty")
+	err := s.runDeploy(c, ch, "--storage", "data=machinescoped,1G", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/storage-block-1")
 	application, _ := s.AssertApplication(c, "storage-block", curl, 1, 0)
@@ -643,7 +676,7 @@ func (s *DeploySuite) TestDeployStorageFailContainer(c *gc.C) {
 	machine, err := s.State.AddMachine(version.SupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	container := "lxd:" + machine.Id()
-	err = runDeploy(c, ch, "--to", container, "--storage", "data=machinescoped,1G")
+	err = s.runDeploy(c, ch, "--to", container, "--storage", "data=machinescoped,1G")
 	c.Assert(err, gc.ErrorMatches, "adding storage to lxd container not supported")
 }
 
@@ -653,7 +686,7 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 	machine, err := s.State.AddMachine(version.SupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = runDeploy(c, ch, "-n", "1", "--to", "valid", "--series", "quantal")
+	err = s.runDeploy(c, ch, "-n", "1", "--to", "valid", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
 	svc, err := s.State.Application("dummy")
@@ -674,13 +707,13 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
-	err := runDeploy(c, ch, "--constraints", "mem=1G", "--series", "quantal")
+	err := s.runDeploy(c, ch, "--constraints", "mem=1G", "--series", "quantal")
 	c.Assert(err, gc.ErrorMatches, "cannot use --constraints with subordinate application")
 }
 
 func (s *DeploySuite) TestNumUnits(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, ch, "-n", "13", "--series", "trusty")
+	err := s.runDeploy(c, ch, "-n", "13", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
 	s.AssertApplication(c, "multi-series", curl, 13, 0)
@@ -688,7 +721,7 @@ func (s *DeploySuite) TestNumUnits(c *gc.C) {
 
 func (s *DeploySuite) TestNumUnitsSubordinate(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
-	err := runDeploy(c, "--num-units", "3", ch, "--series", "quantal")
+	err := s.runDeploy(c, "--num-units", "3", ch, "--series", "quantal")
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate application")
 	_, err = s.State.Application("dummy")
 	c.Assert(err, gc.ErrorMatches, `application "dummy" not found`)
@@ -716,14 +749,14 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	machine, err := s.State.AddMachine(version.SupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", version.SupportedLTS())
+	err = s.runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", version.SupportedLTS())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id())
 }
 
 func (s *DeploySuite) TestInvalidSeriesForModel(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, ch, "portlandia", "--series", "kubernetes")
+	err := s.runDeploy(c, ch, "portlandia", "--series", "kubernetes")
 	c.Assert(err, gc.ErrorMatches, `series "kubernetes" in a non container model not valid`)
 }
 
@@ -735,7 +768,7 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	}
 	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", version.SupportedLTS())
+	err = s.runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", version.SupportedLTS())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, container.Id())
 	machines, err := s.State.AllMachines()
@@ -747,7 +780,7 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	machine, err := s.State.AddMachine(version.SupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", "lxd:"+machine.Id(), ch, "portlandia", "--series", version.SupportedLTS())
+	err = s.runDeploy(c, "--to", "lxd:"+machine.Id(), ch, "portlandia", "--series", version.SupportedLTS())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxd/0")
 
@@ -766,7 +799,7 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, "--to", "42", ch, "portlandia", "--series", "precise")
+	err := s.runDeploy(c, "--to", "42", ch, "portlandia", "--series", "precise")
 	c.Assert(err, gc.ErrorMatches, `cannot deploy "portlandia" to machine 42: machine 42 not found`)
 	_, err = s.State.Application("portlandia")
 	c.Assert(err, gc.ErrorMatches, `application "portlandia" not found`)
@@ -776,7 +809,7 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 	machine, err := s.State.AddMachine(version.SupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
-	err = runDeploy(c, "--to", machine.Id(), ch, "--series", "quantal")
+	err = s.runDeploy(c, "--to", machine.Id(), ch, "--series", "quantal")
 
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate application")
 	_, err = s.State.Application("dummy")
@@ -784,13 +817,13 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 }
 
 func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
-	err := runDeploy(c, "--to", "0", "local:dummy", "portlandia")
+	err := s.runDeploy(c, "--to", "0", "local:dummy", "portlandia")
 	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the controller for a local model and cannot host units")
 }
 
 func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "terms1")
-	_, stdErr, err := runDeployWithOutput(c, ch, "--series", "trusty")
+	_, stdErr, err := s.runDeployWithOutput(c, ch, "--series", "trusty")
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdErr, gc.Equals, `Deploying charm "local:trusty/terms1-1".`)

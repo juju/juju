@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"gopkg.in/juju/charm.v6"
-	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charm.v6/resource"
 )
 
 // CharmInfo holds the information about a charm from the charm store.
@@ -31,7 +31,7 @@ type CharmInfo struct {
 	// LatestResources is the list of resource info for each of the
 	// charm's resources. This list is accurate as of the time that the
 	// charm store handled the request for the charm info.
-	LatestResources []charmresource.Resource
+	LatestResources []resource.Resource
 }
 
 // LatestURL returns the charm URL for the latest revision of the charm.

@@ -62,7 +62,7 @@ func (c StringsWatcherC) AssertMaybeCombinedChanges(expected []string) {
 			// from expected, fail here, received bad data.
 			leftOver := expectedSet.Difference(set.NewStrings(obtained...))
 			if expectedSet.Size() == leftOver.Size() {
-				c.Fatal("obtained %v, not contained in expected %v", obtained, expectedSet.Values())
+				c.Fatalf("obtained %v, not contained in expected %v", obtained, expectedSet.Values())
 			}
 			expectedSet = leftOver
 		case <-time.After(testing.LongWait):
