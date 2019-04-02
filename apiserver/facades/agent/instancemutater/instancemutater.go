@@ -120,6 +120,7 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.CharmProfilingInfoA
 	// use the results from the machineLXDProfileInfo and apply them to the
 	// result
 	result.InstanceId = lxdProfileInfo.InstanceId
+	result.ModelName = lxdProfileInfo.ModelName
 	result.CurrentProfiles = lxdProfileInfo.MachineProfiles
 	result.ProfileChanges = lxdProfileInfo.ProfileChanges
 	result.Changes = changes
@@ -276,6 +277,7 @@ func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.M
 // to provide context to the result of the call.
 type lxdProfileInfo struct {
 	InstanceId      instance.Id
+	ModelName       string
 	MachineProfiles []string
 	ProfileChanges  []params.ProfileChangeResult
 }
@@ -349,6 +351,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine, unitNames []stri
 	}
 	return lxdProfileInfo{
 		InstanceId:      instId,
+		ModelName:       modelName,
 		MachineProfiles: machineProfiles,
 		ProfileChanges:  changeResults,
 	}, true, nil
