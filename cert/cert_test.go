@@ -254,24 +254,37 @@ func (certSuite) TestNewServerHostnames(c *gc.C) {
 
 func (certSuite) TestFingerprint(c *gc.C) {
 	tests := []struct {
-		input     string
-		exp       string
-		expErrStr string
+		descr string
+		input string
+		exp   string
+		err   string
 	}{
-		{"not in pem format", "", "input does not contain a valid certificate in PEM format"},
-		{"-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----", "", "cannot calculate certificate fingerprint: asn1: syntax error: sequence truncated"},
-		{caCertPEM, "93:D9:8E:B8:99:36:E8:8E:23:D5:95:5E:81:29:80:B2:D2:89:A7:38:20:7B:1B:BD:96:C8:D9:C1:03:88:55:70", ""},
+		{
+			descr: "certificate not in PEM format",
+			input: "not in pem format",
+			err:   "input does not contain a valid certificate in PEM format",
+		},
+		{
+			descr: "PEM envelope without a valid certificate",
+			input: "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----",
+			err:   "cannot calculate certificate fingerprint: asn1: syntax error: sequence truncated",
+		},
+		{
+			descr: "valid certificate in PEM format",
+			input: caCertPEM,
+			exp:   "93:D9:8E:B8:99:36:E8:8E:23:D5:95:5E:81:29:80:B2:D2:89:A7:38:20:7B:1B:BD:96:C8:D9:C1:03:88:55:70",
+		},
 	}
 
 	for i, t := range tests {
-		c.Logf("test %d: ", i)
+		c.Logf("test %d: %s", i, t.descr)
 
 		fp, err := cert.Fingerprint(t.input)
-		if t.expErrStr == "" {
+		if t.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(fp, gc.Equals, t.exp)
 		} else {
-			c.Assert(err.Error(), gc.Equals, t.expErrStr)
+			c.Assert(err.Error(), gc.Equals, t.err)
 		}
 	}
 

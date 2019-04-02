@@ -67,7 +67,7 @@ func NewServer(caCertPEM, caKeyPEM string, expiry time.Time, hostnames []string)
 	})
 }
 
-var hexAlphabet = [16]byte{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'}
+var hexAlphabet = []byte("0123456789ABCDEF")
 
 // Fingerprint returns a human-readable SHA-256 fingerprint for a certificate
 // stored in the PEM format. The returned fingerprint matches the output of:
