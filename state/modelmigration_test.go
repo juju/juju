@@ -16,6 +16,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
@@ -803,6 +804,29 @@ func (s *MigrationSuite) TestWatchMinionReportsMultiModel(c *gc.C) {
 	c.Assert(mig3.SubmitMinionReport(names.NewMachineTag("0"), migration.QUIESCE, true), jc.ErrorIsNil)
 	wc.AssertNoChange()
 	wc3.AssertOneChange()
+}
+
+func (s *MigrationSuite) TestModelUserAccess(c *gc.C) {
+	model, err := s.State2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
+
+	// Get users that had access to the model before the migration
+	modelUsers, err := model.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(modelUsers), gc.Not(gc.Equals), 0)
+
+	mig, err := s.State2.CreateMigration(s.stdSpec)
+
+	for _, modelUser := range modelUsers {
+		c.Logf("check that migration doc lists user %q having permission %q", modelUser.UserTag, modelUser.Access)
+		perm := mig.ModelUserAccess(modelUser.UserTag)
+		c.Assert(perm, gc.Equals, modelUser.Access)
+	}
+
+	// Querying for any other user should yield permission.NoAccess
+	perm := mig.ModelUserAccess(names.NewUserTag("bogus"))
+	c.Assert(perm, gc.Equals, permission.NoAccess)
 }
 
 func (s *MigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (
