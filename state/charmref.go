@@ -4,8 +4,6 @@
 package state
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2/txn"
@@ -68,20 +66,23 @@ func appCharmIncRefOps(mb modelBackend, appName string, curl *charm.URL, canCrea
 // storage constraints documents for that pair, and schedule a cleanup
 // to see if the charm itself is now unreferenced and can be tidied
 // away itself.
-func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDoFinal, force bool) ([]txn.Op, error) {
+func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDoFinal, force bool) ([]txn.Op, []error, error) {
 	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
-	errs := []string{}
+	errs := []error{}
+	fail := func(e error) ([]txn.Op, []error, error) {
+		return nil, errs, errors.Trace(e)
+	}
 	ops := []txn.Op{}
 	charmKey := charmGlobalKey(curl)
 	charmOp, err := nsRefcounts.AliveDecRefOp(refcounts, charmKey)
 	if err != nil {
 		err = errors.Annotate(err, "charm reference")
 		if !force {
-			return nil, err
+			return fail(err)
 		}
-		errs = append(errs, err.Error())
+		errs = append(errs, err)
 	} else {
 		ops = append(ops, charmOp)
 	}
@@ -91,9 +92,9 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDo
 	if err != nil {
 		err = errors.Annotatef(err, "settings reference %s", settingsKey)
 		if !force {
-			return nil, err
+			return fail(err)
 		}
-		errs = append(errs, err.Error())
+		errs = append(errs, err)
 	} else {
 		ops = append(ops, settingsOp)
 	}
@@ -103,9 +104,9 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDo
 	if err != nil {
 		err = errors.Annotatef(err, "storage constraints reference %s", storageConstraintsKey)
 		if !force {
-			return nil, err
+			return fail(err)
 		}
-		errs = append(errs, err.Error())
+		errs = append(errs, err)
 	} else {
 		ops = append(ops, storageConstraintsOp)
 	}
@@ -118,10 +119,7 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDo
 		// see `Application.removeOps` for the workaround.
 		ops = append(ops, finalAppCharmRemoveOps(appName, curl)...)
 	}
-	if !force || len(errs) == 0 {
-		return ops, nil
-	}
-	return ops, errors.Errorf("%v", strings.Join(errs, "\n"))
+	return ops, errs, nil
 }
 
 // finalAppCharmRemoveOps returns operations to delete the settings

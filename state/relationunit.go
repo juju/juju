@@ -275,7 +275,11 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 // when force is passed in as 'true', forces relation unit to leave scope,
 // ignoring errors.
 func (ru *RelationUnit) LeaveScopeWithForce(force bool) error {
-	return ru.internalLeaveScope(force)
+	// TODO (anastasiamac 2019-04-2) First return here is operational errors.
+	// We might want to consider to pass them up to notify users of non-fatal
+	// errors we have encountered.
+	_, err := ru.internalLeaveScope(force)
+	return err
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -284,10 +288,10 @@ func (ru *RelationUnit) LeaveScopeWithForce(force bool) error {
 // leaves, it is removed immediately. It is not an error to leave a scope
 // that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
-	return ru.internalLeaveScope(false)
+	return ru.LeaveScopeWithForce(false)
 }
 
-func (ru *RelationUnit) internalLeaveScope(force bool) error {
+func (ru *RelationUnit) internalLeaveScope(force bool) ([]error, error) {
 	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
@@ -316,6 +320,7 @@ func (ru *RelationUnit) internalLeaveScope(force bool) error {
 	// the database is actually changed).
 	desc := fmt.Sprintf("unit %q in relation %q", ru.unitName, ru.relation)
 	logger.Debugf("%v leaving scope", desc)
+	errs := []error{}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := ru.relation.Refresh(); errors.IsNotFound(err) {
@@ -355,12 +360,15 @@ func (ru *RelationUnit) internalLeaveScope(force bool) error {
 				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
 		} else {
-			relOps, err := ru.relation.removeOps("", ru.unitName, force)
+			relOps, opErrs, err := ru.relation.removeOps("", ru.unitName, force)
+			if len(opErrs) != 0 {
+				errs = append(errs, opErrs...)
+			}
 			if err != nil {
 				if !force {
 					return nil, err
 				}
-				logger.Warningf("forcing leave scope for %s despite error %v", desc, err)
+				errs = append(errs, err)
 			}
 			if len(relOps) != 0 {
 				ops = append(ops, relOps...)
@@ -369,9 +377,9 @@ func (ru *RelationUnit) internalLeaveScope(force bool) error {
 		return ops, nil
 	}
 	if err := ru.st.db().Run(buildTxn); err != nil {
-		return errors.Annotatef(err, "cannot leave scope for %s", desc)
+		return errs, errors.Annotatef(err, "cannot leave scope for %s", desc)
 	}
-	return nil
+	return errs, nil
 }
 
 // Valid returns whether this RelationUnit is one that can actually

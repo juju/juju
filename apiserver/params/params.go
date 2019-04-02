@@ -414,6 +414,12 @@ type DestroyUnitParams struct {
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
 	Force bool
+
+	// Errors contains errors encountered while applying this operation.
+	// Generally, these are non-fatal errors that have been encountered
+	// during, say, force. They may not have prevented the operation from being
+	// aborted but the user might still want to know about them.
+	Errors []error
 }
 
 // Creds holds credentials for identifying an entity.

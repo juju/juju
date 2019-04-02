@@ -242,7 +242,7 @@ func (a *Application) DestroyOperation() *DestroyApplicationOperation {
 // DestroyApplicationOperation is a model operation for destroying an
 // application.
 type DestroyApplicationOperation struct {
-	// unit holds the unit to destroy.
+	// app holds the application to destroy.
 	app *Application
 
 	// DestroyStorage controls whether or not storage attached
@@ -258,6 +258,22 @@ type DestroyApplicationOperation struct {
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
 	Force bool
+
+	// Errors contains errors encountered while applying this operation.
+	// Generally, these are non-fatal errors that have been encountered
+	// during, say, force. They may not have prevented the operation from being
+	// aborted but the user might still want to know about them.
+	Errors []error
+}
+
+// AddError adds an error to the collection of errors for this operation.
+func (op *DestroyApplicationOperation) AddError(one ...error) {
+	op.Errors = append(op.Errors, one...)
+}
+
+// LastError returns last added error for this operation.
+func (op *DestroyApplicationOperation) LastError() error {
+	return op.Errors[len(op.Errors)-1]
 }
 
 // Build is part of the ModelOperation interface.
@@ -269,13 +285,17 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 			return nil, err
 		}
 	}
-	ops, err := op.app.destroyOps(op.DestroyStorage, op.RemoveOffers, op.Force)
+	ops, err := op.destroyOps()
 	switch err {
 	case errRefresh:
 		return nil, jujutxn.ErrTransientFailure
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
 	case nil:
+		return ops, nil
+	}
+	if op.Force {
+		logger.Warningf("forcing destroy application for %v despite error %v", op.app.Name(), err)
 		return ops, nil
 	}
 	return nil, err
@@ -289,35 +309,35 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 // destroyOps returns the operations required to destroy the application. If it
 // returns errRefresh, the application should be refreshed and the destruction
 // operations recalculated.
-func (a *Application) destroyOps(destroyStorage, removeOffers, force bool) ([]txn.Op, error) {
-	if a.doc.Life == Dying {
-		// TODO (anastasiamac) ??? If unit is already dying but we are forcing, should we re-try
-		// removal all over again? i.e. don't throw errAlreadyDying but do everything below again?..
-		return nil, errAlreadyDying
+func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
+	if op.app.doc.Life == Dying {
+		if !op.Force {
+			return nil, errAlreadyDying
+		}
+		// If we are forcing, we need to try to destroy the application again.
 	}
 
-	// We want to collect errors when forcing in order to report
-	// these to the user.
-	// TODO (anastasiamac) report removal erros to the user when forcing.
-	errs := []string{}
-	rels, err := a.Relations()
+	rels, err := op.app.Relations()
 	if err != nil {
-		if !force {
+		if !op.Force {
 			return nil, err
 		}
-		// If we are forcing the removal, just proceed.
-		errs = append(errs, err.Error())
+		op.AddError(err)
 	}
-	if len(rels) != a.doc.RelationCount {
+	if len(rels) != op.app.doc.RelationCount {
 		// This is just an early bail out. The relations obtained may still
 		// be wrong, but that situation will be caught by a combination of
 		// asserts on relationcount and on each known relation, below.
 		return nil, errRefresh
 	}
-	ops := []txn.Op{minUnitsRemoveOp(a.st, a.doc.Name)}
+	ops := []txn.Op{minUnitsRemoveOp(op.app.st, op.app.doc.Name)}
 	removeCount := 0
+	failedRels := false
 	for _, rel := range rels {
-		relOps, isRemove, err := rel.destroyOps(a.doc.Name, force)
+		relOps, isRemove, opErrs, err := rel.destroyOps(op.app.doc.Name, op.Force)
+		if len(opErrs) != 0 {
+			op.AddError(opErrs...)
+		}
 		if err == errAlreadyDying {
 			relOps = []txn.Op{{
 				C:      relationsC,
@@ -325,14 +345,8 @@ func (a *Application) destroyOps(destroyStorage, removeOffers, force bool) ([]tx
 				Assert: bson.D{{"life", Dying}},
 			}}
 		} else if err != nil {
-			// TODO (anastasimac) I think these should always 'continue',
-			// even when not forced, rather than err out immediately.
-			if !force {
-				return nil, err
-			}
-			// There is nothing we can really do about this relation if there was
-			// an error getting its destroy operation.
-			errs = append(errs, err.Error())
+			op.AddError(err)
+			failedRels = true
 			continue
 		}
 		if isRemove {
@@ -340,33 +354,36 @@ func (a *Application) destroyOps(destroyStorage, removeOffers, force bool) ([]tx
 		}
 		ops = append(ops, relOps...)
 	}
-	resOps, err := removeResourcesOps(a.st, a.doc.Name)
+	if !op.Force && failedRels {
+		return nil, op.LastError()
+	}
+	resOps, err := removeResourcesOps(op.app.st, op.app.doc.Name)
 	if err != nil {
-		if !force {
+		if !op.Force {
 			return nil, errors.Trace(err)
 		}
-		errs = append(errs, err.Error())
+		op.AddError(err)
 	}
 	if len(resOps) != 0 {
 		ops = append(ops, resOps...)
 	}
 
 	// We can't delete an application if it is being offered.
-	// TODO (anastasiamac 2019-03-29) SHould we force remove applications with offers now?
-	if !removeOffers {
-		countOp, n, err := countApplicationOffersRefOp(a.st, a.Name())
+	// TODO (anastasiamac 2019-03-29) Should we force remove applications with offers now?
+	if !op.RemoveOffers {
+		countOp, n, err := countApplicationOffersRefOp(op.app.st, op.app.Name())
 		if err != nil {
-			if !force {
+			if !op.Force {
 				return nil, errors.Trace(err)
 			}
-			errs = append(errs, err.Error())
+			op.AddError(err)
 		} else {
 			if n != 0 {
 				err = errors.Errorf("application is used by %d offer%s", n, plural(n))
-				if !force {
+				if !op.Force {
 					return nil, err
 				}
-				errs = append(errs, err.Error())
+				op.AddError(err)
 			}
 			// When we are forcing, regardless of the error and offer count, we want this countOp added.
 			ops = append(ops, countOp)
@@ -375,23 +392,20 @@ func (a *Application) destroyOps(destroyStorage, removeOffers, force bool) ([]tx
 
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed.
-	if a.doc.UnitCount == 0 && a.doc.RelationCount == removeCount {
+	if op.app.doc.UnitCount == 0 && op.app.doc.RelationCount == removeCount {
 		hasLastRefs := bson.D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
-		removeOps, err := a.removeOps(hasLastRefs, force)
+		removeOps, opErrs, err := op.app.removeOps(hasLastRefs, op.Force)
+		if len(opErrs) != 0 {
+			op.AddError(opErrs...)
+		}
 		if err != nil {
-			if !force {
+			if !op.Force {
 				return nil, errors.Trace(err)
 			}
-			errs = append(errs, err.Error())
-			// We want to return both the operations to execute and the encountered errors to report.
-			return ops, errors.Errorf("%v", strings.Join(errs, "\n"))
+			op.AddError(err)
+			return ops, nil
 		}
-		ops = append(ops, removeOps...)
-		if len(errs) != 0 {
-			// We want to return both the operations to execute and the encountered errors to report.
-			return ops, errors.Errorf("%v", strings.Join(errs, "\n"))
-		}
-		return ops, nil
+		return append(ops, removeOps...), nil
 	}
 	// In all other cases, application removal will be handled as a consequence
 	// of the removal of the last unit or relation referencing it. If any
@@ -402,18 +416,18 @@ func (a *Application) destroyOps(destroyStorage, removeOffers, force bool) ([]tx
 	// will be caught by virtue of being a remove.
 	notLastRefs := bson.D{
 		{"life", Alive},
-		{"relationcount", a.doc.RelationCount},
+		{"relationcount", op.app.doc.RelationCount},
 	}
 	// With respect to unit count, a changing value doesn't matter, so long
 	// as the count's equality with zero does not change, because all we care
 	// about is that *some* unit is, or is not, keeping the application from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
-	if a.doc.UnitCount > 0 {
+	if op.app.doc.UnitCount > 0 {
 		cleanupOp := newCleanupOp(
 			cleanupUnitsForDyingApplication,
-			a.doc.Name,
-			destroyStorage,
-			force,
+			op.app.doc.Name,
+			op.DestroyStorage,
+			op.Force,
 		)
 		ops = append(ops, cleanupOp)
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", bson.D{{"$gt", 0}}}}...)
@@ -427,15 +441,11 @@ func (a *Application) destroyOps(destroyStorage, removeOffers, force bool) ([]tx
 	}
 	ops = append(ops, txn.Op{
 		C:      applicationsC,
-		Id:     a.doc.DocID,
+		Id:     op.app.doc.DocID,
 		Assert: notLastRefs,
 		Update: update,
 	})
-	if !force || len(errs) == 0 {
-		return ops, nil
-	}
-	// We want to return both the operations to execute and the encountered errors to report.
-	return ops, errors.Errorf("%v", strings.Join(errs, "\n"))
+	return ops, nil
 }
 
 func removeResourcesOps(st *State, applicationID string) ([]txn.Op, error) {
@@ -459,7 +469,7 @@ func removeResourcesOps(st *State, applicationID string) ([]txn.Op, error) {
 // When force is set, the operation will proceed regardless of the errors,
 // and if any errors are encountered, all possible accumulated operations
 // as well as all encountered errors will be returned.
-func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, error) {
+func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, []error, error) {
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
@@ -467,14 +477,14 @@ func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, error) {
 		Remove: true,
 	}}
 
-	errs := []string{}
+	errs := []error{}
 	// Remove application offers.
 	removeOfferOps, err := removeApplicationOffersOps(a.st, a.doc.Name)
 	if err != nil {
 		if !force {
-			return nil, errors.Trace(err)
+			return nil, errs, errors.Trace(err)
 		}
-		errs = append(errs, err.Error())
+		errs = append(errs, err)
 	}
 
 	if len(removeOfferOps) != 0 {
@@ -487,12 +497,15 @@ func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, error) {
 	// do it explicitly below.
 	name := a.doc.Name
 	curl := a.doc.CharmURL
-	charmOps, err := appCharmDecRefOps(a.st, name, curl, false, force)
+	charmOps, opErrs, err := appCharmDecRefOps(a.st, name, curl, false, force)
+	if len(opErrs) != 0 {
+		errs = append(errs, opErrs...)
+	}
 	if err != nil {
 		if !force {
-			return nil, errors.Trace(err)
+			return nil, errs, errors.Trace(err)
 		}
-		errs = append(errs, err.Error())
+		errs = append(errs, err)
 	}
 	if len(charmOps) != 0 {
 		ops = append(ops, charmOps...)
@@ -514,10 +527,7 @@ func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, error) {
 		removeModelApplicationRefOp(a.st, name),
 		removePodSpecOp(a.ApplicationTag()),
 	)
-	if !force || len(errs) == 0 {
-		return ops, nil
-	}
-	return ops, errors.Errorf("%v", strings.Join(errs, "\n"))
+	return ops, errs, nil
 }
 
 // IsExposed returns whether this application is exposed. The explicitly open
@@ -870,7 +880,7 @@ func (a *Application) changeCharmOps(
 	if oldKey != nil {
 		// Since we can force this now, let's.. There is no point hanging on
 		// to the old key.
-		decOps, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true, true) // current charm
+		decOps, _, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true, true) // current charm
 		if err != nil {
 			// TODO (anastasiamac) The question is do we really need to stop further processing
 			// if the old key could not be removed?
@@ -1964,28 +1974,31 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
-func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.Op, error) {
-	errs := []string{}
-	hostOps, err := u.destroyHostOps(a, force)
+func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.Op, []error, error) {
+	errs := []error{}
+	hostOps, opErrs, err := u.destroyHostOps(a, force)
+	if len(opErrs) != 0 {
+		errs = append(errs, opErrs...)
+	}
 	if err != nil {
 		if !force {
-			return nil, err
+			return nil, errs, errors.Trace(err)
 		}
-		errs = append(errs, err.Error())
+		errs = append(errs, err)
 	}
 	portsOps, err := removePortsForUnitOps(a.st, u)
 	if err != nil {
 		if !force {
-			return nil, err
+			return nil, errs, errors.Trace(err)
 		}
-		errs = append(errs, err.Error())
+		errs = append(errs, err)
 	}
 	resOps, err := removeUnitResourcesOps(a.st, u.doc.Name)
 	if err != nil {
 		if !force {
-			return nil, errors.Trace(err)
+			return nil, errs, errors.Trace(err)
 		}
-		errs = append(errs, err.Error())
+		errs = append(errs, err)
 	}
 
 	observedFieldsMatch := bson.D{
@@ -2020,9 +2033,9 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 	model, err := a.st.Model()
 	if err != nil {
 		if !force {
-			return nil, err
+			return nil, errs, errors.Trace(err)
 		}
-		errs = append(errs, err.Error())
+		errs = append(errs, err)
 	} else {
 		if model.Type() == ModelTypeCAAS {
 			ops = append(ops, u.removeCloudContainerOps()...)
@@ -2032,18 +2045,18 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 	sb, err := NewStorageBackend(a.st)
 	if err != nil {
 		if !force {
-			return nil, err
+			return nil, errs, errors.Trace(err)
 		}
-		errs = append(errs, err.Error())
+		errs = append(errs, err)
 	} else {
 		// TODO (anastasiamac 2019-03-29) There is a lot of logic in here...
 		// Should this also accept a force flag?
 		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag())
 		if err != nil {
 			if !force {
-				return nil, err
+				return nil, errs, errors.Trace(err)
 			}
-			errs = append(errs, err.Error())
+			errs = append(errs, err)
 		}
 		if len(storageInstanceOps) != 0 {
 			ops = append(ops, storageInstanceOps...)
@@ -2054,14 +2067,17 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 		// If the unit has a different URL to the application, allow any final
 		// cleanup to happen; otherwise we just do it when the app itself is removed.
 		maybeDoFinal := u.doc.CharmURL != a.doc.CharmURL
-		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, force)
+		decOps, opErrs, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, force)
+		if len(opErrs) != 0 {
+			errs = append(errs, opErrs...)
+		}
 		if errors.IsNotFound(err) {
-			return nil, errRefresh
+			return nil, errs, errRefresh
 		} else if err != nil {
 			if !force {
-				return nil, err
+				return nil, errs, errors.Trace(err)
 			}
-			errs = append(errs, err.Error())
+			errs = append(errs, err)
 		}
 		if len(decOps) != 0 {
 			ops = append(ops, decOps...)
@@ -2069,15 +2085,18 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 	}
 	if a.doc.Life == Dying && a.doc.RelationCount == 0 && a.doc.UnitCount == 1 {
 		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 0}, {"unitcount", 1}}
-		removeOps, err := a.removeOps(hasLastRef, force)
+		removeOps, opErrs, err := a.removeOps(hasLastRef, force)
+		if len(opErrs) != 0 {
+			errs = append(errs, opErrs...)
+		}
 		if err != nil {
 			if !force {
-				return nil, errors.Trace(err)
+				return nil, errs, errors.Trace(err)
 			}
-			errs = append(errs, err.Error())
+			errs = append(errs, err)
 		}
 		if len(removeOps) != 0 {
-			return append(ops, removeOps...), nil
+			return append(ops, removeOps...), errs, nil
 		}
 	}
 	appOp := txn.Op{
@@ -2096,12 +2115,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 			}},
 		}
 	}
-	ops = append(ops, appOp)
-
-	if !force || len(errs) == 0 {
-		return ops, nil
-	}
-	return ops, errors.Errorf("%v", strings.Join(errs, "\n"))
+	return append(ops, appOp), errs, nil
 }
 
 func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {

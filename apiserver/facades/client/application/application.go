@@ -1377,6 +1377,8 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		// TODO (anastasiamac 2019-03-29) we want to return errors and info when forced..
 		//  maybe always, so that we can report how many errors we are getting/got.
 		// At the moment, this only returns the intent not the actual result.
+		// However, there is a provision for this functionality for the near-future: destroy operation itself
+		// contains Errors that have been encountered during its application.
 		return &info, nil
 	}
 	results := make([]params.DestroyUnitResult, len(args.Units))
@@ -1506,6 +1508,8 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		// TODO (anastasiamac 2019-03-29) we want to return errors and info when forced..
 		//  maybe always, so that we can report how many errors we are getting/got.
 		// At the moment, this only returns the intent not the actual result.
+		// However, there is a provision for this functionality for the near-future: destroy operation itself
+		// contains Errors that have been encountered during its application.
 		return &info, nil
 	}
 	results := make([]params.DestroyApplicationResult, len(args.Applications))
