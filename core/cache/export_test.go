@@ -9,6 +9,12 @@ var (
 	NewModel               = newModel
 )
 
+// Expose Remove* for testing.
+
+func (m *Model) RemoveMachine(details RemoveMachine) {
+	m.removeMachine(details)
+}
+
 // Expose SetDetails for testing.
 
 func (a *Application) SetDetails(details ApplicationChange) {

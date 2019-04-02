@@ -126,10 +126,13 @@ func (m *Model) Machine(machineId string) (*Machine, error) {
 	return machine, nil
 }
 
-// WatchMachines creates a ChangeWatcher (strings watcher) to notify about
+// WatchMachines returns a PredicateStringsWatcher to notify about
 // added and removed machines in the model.  The initial event contains
 // a slice of the current machine ids.
-func (m *Model) WatchMachines() *ChangeWatcher {
+func (m *Model) WatchMachines() *PredicateStringsWatcher {
+	m.mu.Lock()
+
+	// Gather initial slice of machines in this model.
 	machines := make([]string, len(m.machines))
 	i := 0
 	for k := range m.machines {
@@ -137,7 +140,7 @@ func (m *Model) WatchMachines() *ChangeWatcher {
 		i += 1
 	}
 
-	w := newAddRemoveWatcher(machines...)
+	w := newChangeWatcher(machines...)
 	unsub := m.hub.Subscribe(m.topic(modelAddRemoveMachine), w.changed)
 
 	w.tomb.Go(func() error {
@@ -146,6 +149,7 @@ func (m *Model) WatchMachines() *ChangeWatcher {
 		return nil
 	})
 
+	m.mu.Unlock()
 	return w
 }
 
