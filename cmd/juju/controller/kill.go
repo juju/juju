@@ -154,12 +154,12 @@ func (c *killCommand) getControllerAPIWithTimeout(timeout time.Duration) (destro
 		c   destroyControllerAPI
 		err error
 	}
-	resultc := make(chan result)
+	resultC := make(chan result)
 	done := make(chan struct{})
 	go func() {
 		api, err := c.getControllerAPI()
 		select {
-		case resultc <- result{api, err}:
+		case resultC <- result{api, err}:
 		case <-done:
 			if api != nil {
 				api.Close()
@@ -167,7 +167,7 @@ func (c *killCommand) getControllerAPIWithTimeout(timeout time.Duration) (destro
 		}
 	}()
 	select {
-	case r := <-resultc:
+	case r := <-resultC:
 		return r.c, r.err
 	case <-c.clock.After(timeout):
 		close(done)

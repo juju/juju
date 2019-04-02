@@ -144,6 +144,10 @@ type BootstrapParams struct {
 	// CAPrivateKey is the controller's CA certificate private key.
 	CAPrivateKey string
 
+	// ControllerServiceType is the service type to use for a k8s controller.
+	// Optional: only for k8s controller.
+	ControllerServiceType string
+
 	// DialOpts contains the bootstrap dial options.
 	DialOpts environs.BootstrapDialOpts
 
@@ -198,6 +202,7 @@ func bootstrapCAAS(
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
+	logger.Criticalf("args -> %+v", args)
 	if args.BuildAgent {
 		return errors.NewNotSupported(nil, "--build-agent when bootstrapping a k8s controller")
 	}
@@ -220,6 +225,7 @@ func bootstrapCAAS(
 		args.ControllerConfig,
 		args.ControllerName,
 		result.Series,
+		args.ControllerServiceType,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -552,6 +558,7 @@ func Bootstrap(
 		ModelConstraints: args.ModelConstraints,
 		BootstrapSeries:  args.BootstrapSeries,
 		Placement:        args.Placement,
+		// ControllerServiceType: args.ControllerServiceType,
 	}
 	doBootstrap := bootstrapIAAS
 	if jujucloud.CloudIsCAAS(args.Cloud) {

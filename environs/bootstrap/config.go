@@ -42,6 +42,10 @@ const (
 	// BootstrapAddressesDelayKey is the attribute key for the amount of
 	// time in between refreshing the bootstrap machine addresses.
 	BootstrapAddressesDelayKey = "bootstrap-addresses-delay"
+
+	// ControllerServiceTypeKey is the attribute key for the service type
+	// to use for a k8s controller.
+	ControllerServiceTypeKey = "controller-service-type"
 )
 
 const (
@@ -71,6 +75,7 @@ var BootstrapConfigAttributes = []string{
 	BootstrapTimeoutKey,
 	BootstrapRetryDelayKey,
 	BootstrapAddressesDelayKey,
+	ControllerServiceTypeKey,
 }
 
 // IsBootstrapAttribute reports whether or not the specified
@@ -92,6 +97,10 @@ type Config struct {
 	BootstrapTimeout        time.Duration
 	BootstrapRetryDelay     time.Duration
 	BootstrapAddressesDelay time.Duration
+
+	// ControllerServiceType is the service type to use for a k8s controller.
+	// Optional: only for k8s controller.
+	ControllerServiceType string
 }
 
 // Validate validates the controller configuration.
@@ -124,6 +133,7 @@ func (c Config) Validate() error {
 // $JUJU_DATA/ca-private-key.pem. If none of these are set, an
 // error is returned.
 func NewConfig(attrs map[string]interface{}) (Config, error) {
+	logger.Criticalf("attrs 1-> %+v", attrs)
 	coerced, err := configChecker.Coerce(attrs, nil)
 	if err != nil {
 		return Config{}, errors.Trace(err)
@@ -134,7 +144,10 @@ func NewConfig(attrs map[string]interface{}) (Config, error) {
 		BootstrapRetryDelay:     time.Duration(attrs[BootstrapRetryDelayKey].(int)) * time.Second,
 		BootstrapAddressesDelay: time.Duration(attrs[BootstrapAddressesDelayKey].(int)) * time.Second,
 	}
-
+	if svcType, ok := attrs[ControllerServiceTypeKey].(string); ok {
+		config.ControllerServiceType = svcType
+	}
+	logger.Criticalf("attrs 2-> %+v", attrs)
 	if adminSecret, ok := attrs[AdminSecretKey].(string); ok {
 		config.AdminSecret = adminSecret
 	} else {
@@ -220,6 +233,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CACertKey + "-path":        schema.String(),
 	CAPrivateKeyKey:            schema.String(),
 	CAPrivateKeyKey + "-path":  schema.String(),
+	ControllerServiceTypeKey:   schema.String(),
 	BootstrapTimeoutKey:        schema.ForceInt(),
 	BootstrapRetryDelayKey:     schema.ForceInt(),
 	BootstrapAddressesDelayKey: schema.ForceInt(),
