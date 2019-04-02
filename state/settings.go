@@ -7,24 +7,13 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-)
 
-// See: http://docs.mongodb.org/manual/faq/developers/#faq-dollar-sign-escaping
-// for why we're using those replacements.
-const (
-	fullWidthDot    = "\uff0e"
-	fullWidthDollar = "\uff04"
-)
-
-var (
-	escapeReplacer   = strings.NewReplacer(".", fullWidthDot, "$", fullWidthDollar)
-	unescapeReplacer = strings.NewReplacer(fullWidthDot, ".", fullWidthDollar, "$")
+	"github.com/juju/juju/mongo/utils"
 )
 
 const (
@@ -55,13 +44,12 @@ func (m *settingsMap) SetBSON(raw bson.Raw) error {
 	if err := raw.Unmarshal(rawMap); err != nil {
 		return err
 	}
-	replaceKeys(rawMap, unescapeReplacer.Replace)
-	*m = settingsMap(rawMap)
+	*m = settingsMap(utils.UnescapeKeys(rawMap))
 	return nil
 }
 
 func (m settingsMap) GetBSON() (interface{}, error) {
-	escapedMap := copyMap(m, escapeReplacer.Replace)
+	escapedMap := utils.EscapeKeys(m)
 	return escapedMap, nil
 }
 
@@ -172,26 +160,26 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 // settingsUpdateOps returns the item changes and txn ops necessary
 // to write the changes made to c back onto its node.
 func (s *Settings) settingsUpdateOps() ([]ItemChange, []txn.Op) {
-	changes := []ItemChange{}
+	var changes []ItemChange
 	updates := bson.M{}
 	deletions := bson.M{}
 	for key := range cacheKeys(s.disk, s.core) {
-		old, ondisk := s.disk[key]
-		new, incore := s.core[key]
-		if reflect.DeepEqual(new, old) {
+		old, onDisk := s.disk[key]
+		live, inCore := s.core[key]
+		if reflect.DeepEqual(live, old) {
 			continue
 		}
 		var change ItemChange
-		escapedKey := escapeReplacer.Replace(key)
+		escapedKey := utils.EscapeKey(key)
 		switch {
-		case incore && ondisk:
-			change = ItemChange{ItemModified, key, old, new}
-			updates[escapedKey] = new
-		case incore && !ondisk:
-			change = ItemChange{ItemAdded, key, nil, new}
-			updates[escapedKey] = new
-		case ondisk && !incore:
-			change = ItemChange{ItemDeleted, key, old, nil}
+		case inCore && onDisk:
+			change = ItemChange{ItemModified, key, old, live}
+			updates[escapedKey] = live
+		case inCore && !onDisk:
+			change = ItemChange{ItemAdded, key, nil, live}
+			updates[escapedKey] = live
+		case onDisk && !inCore:
+			change = ItemChange{ItemDeleted, key, old, live}
 			deletions[escapedKey] = 1
 		default:
 			panic("unreachable")
@@ -246,31 +234,6 @@ func newSettings(db Database, collection, key string) *Settings {
 	}
 }
 
-// replaceKeys will modify the provided map in place by replacing keys with
-// their replacement if they have been modified.
-func replaceKeys(m map[string]interface{}, replace func(string) string) {
-	for key, value := range m {
-		if newKey := replace(key); newKey != key {
-			delete(m, key)
-			m[newKey] = value
-		}
-	}
-	return
-}
-
-// copyMap copies the keys and values of one map into a new one.  If replace
-// is non-nil, for each old key k, the new key will be replace(k).
-func copyMap(in map[string]interface{}, replace func(string) string) (out map[string]interface{}) {
-	out = make(map[string]interface{})
-	for key, value := range in {
-		if replace != nil {
-			key = replace(key)
-		}
-		out[key] = value
-	}
-	return
-}
-
 // Read (re)reads the node data into c.
 func (s *Settings) Read() error {
 	doc, err := readSettingsDoc(s.db, s.collection, s.key)
@@ -300,10 +263,10 @@ func readSettingsDoc(db Database, collection, key string) (*settingsDoc, error) 
 // readSettingsDocInto reads the settings doc with the given key
 // into the provided output structure.
 func readSettingsDocInto(db Database, collection, key string, out interface{}) error {
-	settings, closer := db.GetCollection(collection)
+	col, closer := db.GetCollection(collection)
 	defer closer()
 
-	err := settings.FindId(key).One(out)
+	err := col.FindId(key).One(out)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("settings")
 	}
@@ -348,7 +311,7 @@ func readSettings(db Database, collection, key string) (*Settings, error) {
 var errSettingsExist = errors.New("cannot overwrite existing settings")
 
 func createSettingsOp(collection, key string, values map[string]interface{}) txn.Op {
-	newValues := copyMap(values, escapeReplacer.Replace)
+	newValues := utils.EscapeKeys(values)
 	return txn.Op{
 		C:      collection,
 		Id:     key,
@@ -439,10 +402,10 @@ func replaceSettingsOp(db Database, collection, key string, values map[string]in
 	deletes := bson.M{}
 	for k := range s.disk {
 		if _, found := values[k]; !found {
-			deletes[escapeReplacer.Replace(k)] = 1
+			deletes[utils.EscapeKey(k)] = 1
 		}
 	}
-	newValues := copyMap(values, escapeReplacer.Replace)
+	newValues := utils.EscapeKeys(values)
 	op := s.assertUnchangedOp()
 	op.Update = setUnsetUpdateSettings(bson.M(newValues), deletes)
 	assertFailed := func() (bool, error) {
@@ -463,31 +426,52 @@ func (s *Settings) assertUnchangedOp() txn.Op {
 	}
 }
 
-func inSubdocReplacer(subdoc string) func(string) string {
-	return func(key string) string {
-		return subdoc + "." + key
-	}
-}
-
 // setUnsetUpdateSettings returns a bson.D for use
 // in a s.collection txn.Op's Update field, containing
 // $set and $unset operators if the corresponding
 // operands are non-empty.
 func setUnsetUpdateSettings(set, unset bson.M) bson.D {
 	var update bson.D
-	replace := inSubdocReplacer("settings")
 	if len(set) > 0 {
-		set = bson.M(copyMap(map[string]interface{}(set), replace))
-		update = append(update, bson.DocElem{"$set", set})
+		set = bson.M(subDocKeys(map[string]interface{}(set), "settings"))
+		update = append(update, bson.DocElem{Name: "$set", Value: set})
 	}
 	if len(unset) > 0 {
-		unset = bson.M(copyMap(map[string]interface{}(unset), replace))
-		update = append(update, bson.DocElem{"$unset", unset})
+		unset = bson.M(subDocKeys(map[string]interface{}(unset), "settings"))
+		update = append(update, bson.DocElem{Name: "$unset", Value: unset})
 	}
 	if len(update) > 0 {
-		update = append(update, bson.DocElem{"$inc", bson.D{{"version", 1}}})
+		update = append(update, bson.DocElem{Name: "$inc", Value: bson.D{{"version", 1}}})
 	}
 	return update
+}
+
+// subDocKeys returns a new map based on the input,
+// with keys indicating nesting within an MongoDB sub-document.
+func subDocKeys(m map[string]interface{}, subDoc string) map[string]interface{} {
+	return copyMap(m, subDocReplacer(subDoc))
+}
+
+// copyMap copies the keys and values of one map into a new one.
+// If the input replacement function is non-nil, each key in the new map will
+// be the result of applying the function to its original.
+func copyMap(in map[string]interface{}, replace func(string) string) (out map[string]interface{}) {
+	out = make(map[string]interface{})
+	for key, value := range in {
+		if replace != nil {
+			key = replace(key)
+		}
+		out[key] = value
+	}
+	return
+}
+
+// subDocReplacer returns a replacement function suitable for modifying input
+// keys to indicate MongoDB sub-documents.
+func subDocReplacer(subDoc string) func(string) string {
+	return func(key string) string {
+		return subDoc + "." + key
+	}
 }
 
 // StateSettings is used to expose various settings APIs outside of the state package.
