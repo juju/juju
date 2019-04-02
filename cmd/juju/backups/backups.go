@@ -146,7 +146,7 @@ var getArchive = func(filename string) (rc ArchiveReader, metaResult *params.Bac
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	_, err = archive.Seek(0, os.SEEK_SET)
+	_, err = archive.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -179,7 +179,7 @@ var getArchive = func(filename string) (rc ArchiveReader, metaResult *params.Bac
 	if meta.Finished == nil || meta.Finished.IsZero() {
 		meta.Finished = fileMeta.Finished
 	}
-	_, err = archive.Seek(0, os.SEEK_SET)
+	_, err = archive.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

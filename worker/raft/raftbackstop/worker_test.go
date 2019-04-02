@@ -217,6 +217,26 @@ func (s *WorkerSuite) TestRecoversClusterTwoVoters(c *gc.C) {
 	})
 }
 
+func (s WorkerSuite) TestRecoversClusterNoVoters(c *gc.C) {
+	s.raft.setValues(raft.Follower, &mockConfigFuture{conf: raft.Configuration{
+		Servers: []raft.Server{},
+	}})
+	// we don't setLastLog because there is no log entry in this case
+	s.publishDetails(c, map[string]string{"23": "address"})
+	var conf raft.Configuration
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		conf = s.raft.GetConfiguration().Configuration()
+		if len(conf.Servers) != 0 {
+			break
+		}
+	}
+	c.Check(conf.Servers, gc.DeepEquals, []raft.Server{{
+		Suffrage: raft.Voter,
+		ID:       "23",
+		Address:  "address",
+	}})
+}
+
 func (s *WorkerSuite) assertNoRecovery(c *gc.C) {
 	time.Sleep(coretesting.ShortWait)
 	c.Assert(s.findStoreLogCalls(), gc.HasLen, 0)
@@ -372,12 +392,30 @@ func (r *mockRaft) GetConfiguration() raft.ConfigurationFuture {
 	return r.cf
 }
 
+func (r *mockRaft) BootstrapCluster(conf raft.Configuration) raft.Future {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cf.conf = conf
+	r.state = raft.Leader
+	return &mockFuture{err: nil}
+}
+
 func (r *mockRaft) setValues(state raft.RaftState, cf *mockConfigFuture) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.state = state
 	r.cf = cf
 }
+
+type mockFuture struct {
+	err error
+}
+
+func (f *mockFuture) Error() error {
+	return f.err
+}
+
+var _ raft.Future = (*mockFuture)(nil)
 
 type mockConfigFuture struct {
 	raft.IndexFuture

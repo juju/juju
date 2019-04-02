@@ -201,6 +201,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 		default:
 			return
 		}
+		logger.Errorf("Failed to connect to controller: %v", err)
 		err = ErrConnectImpossible
 	}()
 

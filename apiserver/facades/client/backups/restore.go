@@ -116,6 +116,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	// And passing os.Exit in wouldn't make this any better either,
 	// just using it subverts the expectations of *everything* else
 	// running in the process.
+	// XXX: We have ErrRestartAgent which should be capable of replacing this
 	os.Exit(1)
 	return nil
 }
