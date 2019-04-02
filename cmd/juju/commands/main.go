@@ -281,7 +281,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewModelGetConstraintsCommand())
 	r.Register(model.NewModelSetConstraintsCommand())
 	r.Register(newSyncToolsCommand())
-	r.Register(newUpgradeJujuCommand(nil, nil))
+	r.Register(newUpgradeJujuCommand())
 	r.Register(newUpgradeControllerCommand())
 	r.Register(application.NewUpgradeCharmCommand())
 	r.Register(application.NewSetSeriesCommand())

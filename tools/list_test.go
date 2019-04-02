@@ -160,6 +160,24 @@ func (s *ListSuite) TestNewest(c *gc.C) {
 	}
 }
 
+func (s *ListSuite) TestNewestVersions(c *gc.C) {
+	for i, test := range newestTests {
+		c.Logf("test %d", i)
+		versions := make(tools.Versions, len(test.src))
+		for i, v := range test.src {
+			versions[i] = v
+		}
+		number, actual := versions.Newest()
+		c.Check(number, gc.DeepEquals, test.number)
+
+		var expectVersions tools.Versions
+		for _, v := range test.expect {
+			expectVersions = append(expectVersions, v)
+		}
+		c.Check(actual, gc.DeepEquals, expectVersions)
+	}
+}
+
 var newestCompatibleTests = []struct {
 	src    tools.List
 	base   version.Number
@@ -200,7 +218,11 @@ var newestCompatibleTests = []struct {
 func (s *ListSuite) TestNewestCompatible(c *gc.C) {
 	for i, test := range newestCompatibleTests {
 		c.Logf("test %d", i)
-		actual, found := test.src.NewestCompatible(test.base)
+		versions := make(tools.Versions, len(test.src))
+		for i, v := range test.src {
+			versions[i] = v
+		}
+		actual, found := versions.NewestCompatible(test.base)
 		c.Check(actual, gc.DeepEquals, test.expect)
 		c.Check(found, gc.Equals, test.found)
 	}
@@ -303,5 +325,27 @@ func (s *ListSuite) TestMatch(c *gc.C) {
 		} else {
 			c.Check(err, gc.Equals, tools.ErrNoMatches)
 		}
+	}
+}
+
+func (s *ListSuite) TestMatchVersions(c *gc.C) {
+	for i, test := range matchTests {
+		c.Logf("test %d", i)
+		versions := make(tools.Versions, len(test.src))
+		for i, v := range test.src {
+			versions[i] = v
+		}
+		actual, err := versions.Match(test.filter)
+		if len(test.expect) > 0 {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err, gc.Equals, tools.ErrNoMatches)
+		}
+
+		var expectVersions tools.Versions
+		for _, v := range test.expect {
+			expectVersions = append(expectVersions, v)
+		}
+		c.Check(actual, gc.DeepEquals, expectVersions)
 	}
 }

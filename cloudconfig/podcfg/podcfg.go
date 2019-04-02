@@ -256,6 +256,9 @@ func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) st
 	if imageRepo == "" {
 		imageRepo = jujudOCINamespace
 	}
+	if ver == version.Zero {
+		return fmt.Sprintf("%s/%s", imageRepo, jujudOCIName)
+	}
 	return fmt.Sprintf("%s/%s:%s", imageRepo, jujudOCIName, ver.String())
 }
 
