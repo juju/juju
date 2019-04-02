@@ -164,9 +164,17 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot get controller details")
 	}
+
 	apiInfo := &api.Info{
 		Addrs:  controller.APIEndpoints,
 		CACert: controller.CACert,
+	}
+	// append public DNS
+	if controller.PublicDNSName != "" {
+		apiInfo.Addrs = append(
+			apiInfo.Addrs,
+			controller.PublicDNSName,
+		)
 	}
 	if args.ModelUUID != "" {
 		apiInfo.ModelTag = names.NewModelTag(args.ModelUUID)

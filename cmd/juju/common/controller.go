@@ -106,7 +106,7 @@ func WaitForAgentInitialisation(
 			break
 		}
 
-		// try to pull controller LB DNS, ignore any errors.
+		// try to poll controller LB DNS, ignore any errors.
 		_ = controllerDataRefresher()
 
 		// As the API server is coming up, it goes through a number of steps.

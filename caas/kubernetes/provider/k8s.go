@@ -825,16 +825,19 @@ func getLoadBalancerIP(svc *core.Service) string {
 	if lpAdd != "" {
 		return lpAdd
 	}
+
 	ing := svc.Status.LoadBalancer.Ingress
-	if len(ing) > 0 {
-		// It usually has only one record.
-		firstOne := ing[0]
-		if firstOne.IP != "" {
-			return firstOne.IP
-		}
-		if firstOne.Hostname != "" {
-			return firstOne.Hostname
-		}
+	if len(ing) == 0 {
+		return lpAdd
+	}
+
+	// It usually has only one record.
+	firstOne := ing[0]
+	if firstOne.IP != "" {
+		return firstOne.IP
+	}
+	if firstOne.Hostname != "" {
+		return firstOne.Hostname
 	}
 	return lpAdd
 }

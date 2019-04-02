@@ -330,6 +330,8 @@ func (c controllerStack) createControllerService() error {
 		return errors.Annotate(err, "getting controller service")
 	}
 	logger.Criticalf("controller svc -> %v", svc)
+	// TODO(xxxxxxxxxxxxxxxxxxxxxxxxxx): we need keep polling until we got an expected accessible address
+	// then write into controller config or fail the bootstrap process!!!!!!
 	controllerConfig := c.pcfg.Bootstrap.ControllerConfig
 	publicAddress := network.AddressesWithPort(svc.Addresses, controllerConfig.APIPort())[0].String()
 	if err := controllerConfig.SetAutocertDNSName(publicAddress); err != nil {
