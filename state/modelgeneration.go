@@ -146,8 +146,9 @@ func assignGenerationAppTxnOps(id, appName string) []txn.Op {
 	}
 }
 
-// AssignAllUnits indicates that all units of the given application,
-// not already added to this generation will be.
+// AssignAllUnits ensures that all units of the input application are
+// designated as tracking the branch, by adding the unit names
+// to the generation.
 func (g *Generation) AssignAllUnits(appName string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -156,15 +157,15 @@ func (g *Generation) AssignAllUnits(appName string) error {
 			}
 		}
 		if err := g.CheckNotComplete(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		unitNames, err := appUnitNames(g.st, appName)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		app, err := g.st.Application(appName)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		ops := []txn.Op{
 			{
@@ -179,7 +180,11 @@ func (g *Generation) AssignAllUnits(appName string) error {
 		assignedUnits := set.NewStrings(g.doc.AssignedUnits[appName]...)
 		for _, name := range unitNames {
 			if !assignedUnits.Contains(name) {
-				ops = append(ops, assignGenerationUnitTxnOps(g.doc.DocId, appName, name)...)
+				unit, err := g.st.Unit(name)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, assignGenerationUnitTxnOps(g.doc.DocId, appName, unit)...)
 			}
 		}
 		// If there are no units to add to the generation, quit here.
@@ -191,9 +196,8 @@ func (g *Generation) AssignAllUnits(appName string) error {
 	return errors.Trace(g.st.db().Run(buildTxn))
 }
 
-// AssignUnit indicates that the unit with the input name has had been added
-// to this generation and should realise config changes applied to its
-// application against this generation.
+// AssignUnit indicates that the unit with the input name is tracking this
+// branch, by adding the name to the generation.
 func (g *Generation) AssignUnit(unitName string) error {
 	appName, err := names.UnitApplication(unitName)
 	if err != nil {
@@ -207,32 +211,41 @@ func (g *Generation) AssignUnit(unitName string) error {
 			}
 		}
 		if err := g.CheckNotComplete(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		if set.NewStrings(g.doc.AssignedUnits[appName]...).Contains(unitName) {
 			return nil, jujutxn.ErrNoOperations
 		}
-		return assignGenerationUnitTxnOps(g.doc.DocId, appName, unitName), nil
+		unit, err := g.st.Unit(unitName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return assignGenerationUnitTxnOps(g.doc.DocId, appName, unit), nil
 	}
 
 	return errors.Trace(g.st.db().Run(buildTxn))
 }
 
-func assignGenerationUnitTxnOps(id, appName, unitName string) []txn.Op {
+func assignGenerationUnitTxnOps(id, appName string, unit *Unit) []txn.Op {
 	assignedField := "assigned-units"
 	appField := fmt.Sprintf("%s.%s", assignedField, appName)
 
 	return []txn.Op{
+		{
+			C:      unitsC,
+			Id:     unit.doc.DocID,
+			Assert: bson.D{{"life", Alive}},
+		},
 		{
 			C:  generationsC,
 			Id: id,
 			Assert: bson.D{{"$and", []bson.D{
 				{{"completed", 0}},
 				{{assignedField, bson.D{{"$exists", true}}}},
-				{{appField, bson.D{{"$not", bson.D{{"$elemMatch", bson.D{{"$eq", unitName}}}}}}}},
+				{{appField, bson.D{{"$not", bson.D{{"$elemMatch", bson.D{{"$eq", unit.Name()}}}}}}}},
 			}}},
 			Update: bson.D{
-				{"$push", bson.D{{appField, unitName}}},
+				{"$push", bson.D{{appField, unit.Name()}}},
 			},
 		},
 	}

@@ -197,8 +197,8 @@ func NewCancelGenerationCommandForTest(api CancelGenerationCommandAPI, store juj
 	return modelcmd.Wrap(cmd)
 }
 
-func NewAdvanceGenerationCommandForTest(api AdvanceGenerationCommandAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &advanceGenerationCommand{
+func NewTrackBranchCommandForTest(api TrackBranchCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &trackBranchCommand{
 		api: api,
 	}
 	cmd.SetClientStore(store)

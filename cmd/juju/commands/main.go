@@ -342,7 +342,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	if featureflag.Enabled(feature.Generations) {
 		r.Register(model.NewBranchCommand())
 		r.Register(model.NewCancelGenerationCommand())
-		r.Register(model.NewAdvanceGenerationCommand())
+		r.Register(model.NewTrackBranchCommand())
 		r.Register(model.NewSwitchGenerationCommand())
 		r.Register(model.NewShowGenerationCommand())
 	}
