@@ -90,7 +90,27 @@ func (m *Machine) InstanceId() (string, error) {
 }
 
 // SetCharmProfiles implements MutaterMachine.SetCharmProfiles.
-func (m *Machine) SetCharmProfiles([]string) error {
+func (m *Machine) SetCharmProfiles(profiles []string) error {
+	var results params.ErrorResults
+	args := params.SetProfileArgs{
+		Args: []params.SetProfileArg{
+			{
+				Entity:   params.Entity{Tag: m.tag.String()},
+				Profiles: profiles,
+			},
+		},
+	}
+	err := m.facade.FacadeCall("SetCharmProfiles", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
 	return nil
 }
 

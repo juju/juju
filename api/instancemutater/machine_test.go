@@ -28,6 +28,7 @@ type instanceMutaterMachineSuite struct {
 	message  string
 	tag      names.MachineTag
 	unitName string
+	profiles []string
 
 	fCaller   *mocks.MockFacadeCaller
 	apiCaller *mocks.MockAPICaller
@@ -39,8 +40,31 @@ func (s *instanceMutaterMachineSuite) SetUpTest(c *gc.C) {
 	s.tag = names.NewMachineTag("0")
 	s.args = params.Entities{Entities: []params.Entity{{Tag: s.tag.String()}}}
 	s.unitName = "lxd-profile/0"
+	s.profiles = []string{"charm-app-x-0", "charm-app-y-1"}
 	s.message = lxdprofile.SuccessStatus
 	s.BaseSuite.SetUpTest(c)
+}
+
+func (s *instanceMutaterMachineSuite) TestSetCharmProfiles(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	m := s.machineForScenario(c,
+		s.expectSetCharmProfilesFacadeCall,
+	)
+
+	err := m.SetCharmProfiles(s.profiles)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *instanceMutaterMachineSuite) TestSetCharmProfilesError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	m := s.machineForScenario(c,
+		s.expectSetCharmProfilesFacadeCallReturnsError(errors.New("failed")),
+	)
+
+	err := m.SetCharmProfiles(s.profiles)
+	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
 func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteSuccess(c *gc.C) {
@@ -193,6 +217,17 @@ func (s *instanceMutaterMachineSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *instanceMutaterMachineSuite) setUpSetCharmProfilesArgs() params.SetProfileArgs {
+	return params.SetProfileArgs{
+		Args: []params.SetProfileArg{
+			{
+				Entity:   params.Entity{Tag: s.tag.String()},
+				Profiles: s.profiles,
+			},
+		},
+	}
+}
+
 func (s *instanceMutaterMachineSuite) setUpSetProfileUpgradeCompleteArgs() params.SetProfileUpgradeCompleteArgs {
 	return params.SetProfileUpgradeCompleteArgs{
 		Args: []params.SetProfileUpgradeCompleteArg{
@@ -215,6 +250,28 @@ func (s *instanceMutaterMachineSuite) machineForScenario(c *gc.C, behaviours ...
 	}
 
 	return s.setupMachine()
+}
+
+func (s *instanceMutaterMachineSuite) expectSetCharmProfilesFacadeCall() {
+	results := params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
+	args := s.setUpSetCharmProfilesArgs()
+
+	fExp := s.fCaller.EXPECT()
+	fExp.FacadeCall("SetCharmProfiles", args, gomock.Any()).SetArg(2, results).Return(nil)
+}
+
+func (s *instanceMutaterMachineSuite) expectSetCharmProfilesFacadeCallReturnsError(err error) func() {
+	return func() {
+		results := params.ErrorResults{
+			Results: []params.ErrorResult{
+				{Error: &params.Error{Message: err.Error()}},
+			},
+		}
+		args := s.setUpSetCharmProfilesArgs()
+
+		fExp := s.fCaller.EXPECT()
+		fExp.FacadeCall("SetCharmProfiles", args, gomock.Any()).SetArg(2, results).Return(nil)
+	}
 }
 
 func (s *instanceMutaterMachineSuite) expectSetUpgradeCharmProfileCompleteFacadeCall() {
