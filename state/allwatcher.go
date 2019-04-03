@@ -272,7 +272,6 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 		info.InstanceStatus = oldInfo.InstanceStatus
 		info.InstanceId = oldInfo.InstanceId
 		info.HardwareCharacteristics = oldInfo.HardwareCharacteristics
-		info.CharmProfiles = oldInfo.CharmProfiles
 	}
 	// try to update agent version
 	err = m.updateAgentVersion(entity, info)

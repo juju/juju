@@ -6,6 +6,8 @@ package instancemutater
 import (
 	"fmt"
 
+	"github.com/juju/juju/core/lxdprofile"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -25,8 +27,7 @@ type MutaterMachine interface {
 	InstanceId() (string, error)
 
 	// CharmProfilingInfo returns info to update lxd profiles on the machine
-	// based on the given unit names.
-	CharmProfilingInfo() (*ProfileInfo, error)
+	CharmProfilingInfo() (*UnitProfileInfo, error)
 
 	// SetCharmProfiles records the given slice of charm profile names.
 	SetCharmProfiles([]string) error
@@ -165,26 +166,15 @@ func (m *Machine) WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error) {
 	return apiwatcher.NewNotifyWatcher(m.facade.RawAPICaller(), result), nil
 }
 
-type ProfileInfo struct {
+type UnitProfileInfo struct {
 	ModelName       string
 	InstanceId      instance.Id
-	ProfileChanges  []ProfileChanges
+	ProfileChanges  []lxdprofile.Profile
 	CurrentProfiles []string
 }
 
-type ProfileChanges struct {
-	Profile     *CharmLXDProfile
-	Subordinate bool
-}
-
-type CharmLXDProfile struct {
-	Config      map[string]string
-	Description string
-	Devices     map[string]map[string]string
-}
-
 // CharmProfilingInfo implements MutaterMachine.CharmProfilingInfo.
-func (m *Machine) CharmProfilingInfo() (*ProfileInfo, error) {
+func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
 	var result params.CharmProfilingInfoResult
 	args := params.Entity{Tag: m.tag.String()}
 	err := m.facade.FacadeCall("CharmProfilingInfo", args, &result)
@@ -194,19 +184,17 @@ func (m *Machine) CharmProfilingInfo() (*ProfileInfo, error) {
 	if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	returnResult := &ProfileInfo{
+	returnResult := &UnitProfileInfo{
 		InstanceId:      result.InstanceId,
 		ModelName:       result.ModelName,
 		CurrentProfiles: result.CurrentProfiles,
 	}
-	profileChanges := make([]ProfileChanges, len(result.ProfileChanges))
+	profileChanges := make([]lxdprofile.Profile, len(result.ProfileChanges))
 	for i, change := range result.ProfileChanges {
-		if change.Profile != nil {
-			profileChanges[i].Profile = &CharmLXDProfile{
-				Config:      change.Profile.Config,
-				Description: change.Profile.Description,
-				Devices:     change.Profile.Devices,
-			}
+		profileChanges[i] = lxdprofile.Profile{
+			Config:      change.Profile.Config,
+			Description: change.Profile.Description,
+			Devices:     change.Profile.Devices,
 		}
 		if change.Error != nil {
 			return nil, change.Error

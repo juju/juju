@@ -40,7 +40,10 @@ func (m *Machine) Id() string {
 // InstanceId returns the provider specific instance id for this machine and
 // returns not provisioned if instance id is empty
 func (m *Machine) InstanceId() (instance.Id, error) {
-	if m.details.InstanceId == "" && m.details.HardwareCharacteristics == nil {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.details.InstanceId == "" {
 		return "", errors.NotProvisionedf("machine %v", m.Id())
 	}
 	return instance.Id(m.details.InstanceId), nil
@@ -48,6 +51,9 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 
 // CharmProfiles returns the cached list of charm profiles for the machine
 func (m *Machine) CharmProfiles() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	return m.details.CharmProfiles
 }
 

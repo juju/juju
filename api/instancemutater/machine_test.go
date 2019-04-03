@@ -159,7 +159,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 	c.Assert(info.InstanceId, gc.Equals, results.InstanceId)
 	c.Assert(info.ModelName, gc.Equals, results.ModelName)
 	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
-	c.Assert(info.ProfileChanges[0].Profile.Description, gc.Equals, "Test Profile")
+	c.Assert(info.ProfileChanges[0].Description, gc.Equals, "Test Profile")
 }
 
 func (s *instanceMutaterMachineSuite) TestSetModificationStatus(c *gc.C) {
