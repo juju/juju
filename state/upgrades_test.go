@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	mongoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
@@ -1477,9 +1478,9 @@ func (s *upgradesSuite) TestSplitLogsIgnoresDupeRecordsAlreadyThere(c *gc.C) {
 
 func (s *upgradesSuite) TestSplitLogsHandlesNoLogsCollection(c *gc.C) {
 	db := s.state.MongoSession().DB(logsDB)
-	names, err := db.CollectionNames()
+	cols, err := db.CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(set.NewStrings(names...).Contains("logs"), jc.IsFalse)
+	c.Assert(set.NewStrings(cols...).Contains("logs"), jc.IsFalse)
 
 	err = SplitLogCollections(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1964,9 +1965,9 @@ func (s *upgradesSuite) TestMoveOldAuditLogNoRecords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.state.MongoSession().DB("juju")
-	names, err := db.CollectionNames()
+	cols, err := db.CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
+	c.Assert(set.NewStrings(cols...).Contains("audit.log"), jc.IsFalse)
 
 	err = MoveOldAuditLog(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1990,9 +1991,9 @@ func (s *upgradesSuite) TestMoveOldAuditLogRename(c *gc.C) {
 	)
 
 	db := s.state.MongoSession().DB("juju")
-	names, err := db.CollectionNames()
+	cols, err := db.CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
+	c.Assert(set.NewStrings(cols...).Contains("audit.log"), jc.IsFalse)
 }
 
 func (s *upgradesSuite) TestMigrateLeasesToGlobalTimeWithNewTarget(c *gc.C) {
@@ -2375,9 +2376,9 @@ func (s *upgradesSuite) TestRemoveVotingMachineIds(c *gc.C) {
 func (s *upgradesSuite) TestUpgradeContainerImageStreamDefault(c *gc.C) {
 	// Value not set
 	m1 := s.makeModel(c, "m1", coretesting.Attrs{
-		"other-setting": "val",
-		unescapeReplacer.Replace("dotted.setting"): "value",
-		unescapeReplacer.Replace("dollar$setting"): "value",
+		"other-setting":  "val",
+		"dotted.setting": "value",
+		"dollar$setting": "value",
 	})
 	defer m1.Close()
 	// Value set to the empty string
@@ -2472,10 +2473,10 @@ func (s *upgradesSuite) TestRemoveContainerImageStreamFromNonModelSettings(c *gc
 		bson.M{
 			"_id": "not-a-model",
 			"settings": bson.M{
-				"container-image-stream":                   "released",
-				"other-setting":                            "val",
-				unescapeReplacer.Replace("dotted.setting"): "value",
-				unescapeReplacer.Replace("dollar$setting"): "value",
+				"container-image-stream":               "released",
+				"other-setting":                        "val",
+				mongoutils.EscapeKey("dotted.setting"): "value",
+				mongoutils.EscapeKey("dollar$setting"): "value",
 			},
 		},
 	)

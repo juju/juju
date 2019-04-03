@@ -323,7 +323,7 @@ func safeConfig(ch charm.Charm) *charm.Config {
 	cfg := ch.Config()
 	escapedConfig := charm.NewConfig()
 	for optionName, option := range cfg.Options {
-		escapedName := escapeReplacer.Replace(optionName)
+		escapedName := mongoutils.EscapeKey(optionName)
 		escapedConfig.Options[escapedName] = option
 	}
 	return escapedConfig
@@ -371,7 +371,7 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 	if cdoc != nil && cdoc.Config != nil {
 		unescapedConfig := charm.NewConfig()
 		for optionName, option := range cdoc.Config.Options {
-			unescapedName := unescapeReplacer.Replace(optionName)
+			unescapedName := mongoutils.UnescapeKey(optionName)
 			unescapedConfig.Options[unescapedName] = option
 		}
 		cdoc.Config = unescapedConfig

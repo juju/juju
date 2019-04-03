@@ -13,6 +13,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/mongo/utils"
 )
 
 // defaultEndpointName is the key in the bindings map that stores the
@@ -40,19 +41,19 @@ type bindingsMap map[string]string
 
 // SetBSON ensures any special characters ($ or .) are unescaped in keys after
 // unmarshalling the raw BSON coming from the stored document.
-func (bp *bindingsMap) SetBSON(raw bson.Raw) error {
+func (b *bindingsMap) SetBSON(raw bson.Raw) error {
 	rawMap := make(map[string]string)
 	if err := raw.Unmarshal(rawMap); err != nil {
 		return err
 	}
 	for key, value := range rawMap {
-		newKey := unescapeReplacer.Replace(key)
+		newKey := utils.UnescapeKey(key)
 		if newKey != key {
 			delete(rawMap, key)
 		}
 		rawMap[newKey] = value
 	}
-	*bp = bindingsMap(rawMap)
+	*b = bindingsMap(rawMap)
 	return nil
 }
 
@@ -66,9 +67,10 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 	}
 	rawMap := make(map[string]string, len(b))
 	for key, value := range b {
-		newKey := escapeReplacer.Replace(key)
+		newKey := utils.EscapeKey(key)
 		rawMap[newKey] = value
 	}
+
 	return rawMap, nil
 }
 
@@ -193,7 +195,7 @@ func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 	// Prepare the update operations.
 	escaped := make(bson.M, len(updatedMap))
 	for endpoint, space := range updatedMap {
-		escaped[escapeReplacer.Replace(endpoint)] = space
+		escaped[utils.EscapeKey(endpoint)] = space
 	}
 
 	updateOp := txn.Op{
