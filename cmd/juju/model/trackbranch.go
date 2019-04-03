@@ -41,7 +41,7 @@ func NewTrackBranchCommand() cmd.Command {
 	return modelcmd.Wrap(&trackBranchCommand{})
 }
 
-// trackBranchCommand supplies the "track" CLI command used to make units \
+// trackBranchCommand supplies the "track" CLI command used to make units
 // realise changes made under a branch.
 type trackBranchCommand struct {
 	modelcmd.ModelCommandBase
