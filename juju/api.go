@@ -169,13 +169,6 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 		Addrs:  controller.APIEndpoints,
 		CACert: controller.CACert,
 	}
-	// append public DNS
-	if controller.PublicDNSName != "" {
-		apiInfo.Addrs = append(
-			apiInfo.Addrs,
-			controller.PublicDNSName,
-		)
-	}
 	if args.ModelUUID != "" {
 		apiInfo.ModelTag = names.NewModelTag(args.ModelUUID)
 	}

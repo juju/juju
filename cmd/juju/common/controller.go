@@ -28,9 +28,10 @@ import (
 
 var (
 	bootstrapReadyPollDelay     = 1 * time.Second
-	bootstrapReadyPollTotalTime = 2 * time.Minute // for testing
+	bootstrapReadyPollTotalTime = 2 * time.Minute // for testing, DOES it actually work?
 	// bootstrapReadyPollTotalTime = 10 * time.Minute
-	bootstrapReadyPollCount = 60
+	// bootstrapReadyPollCount = 60
+	bootstrapReadyPollCount = 15
 	blockAPI                = getBlockAPI
 )
 
@@ -71,7 +72,6 @@ func WaitForAgentInitialisation(
 	isCAASController bool,
 	controllerName,
 	hostedModelName string,
-	controllerDataRefresher func() error,
 ) (err error) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempts := utils.AttemptStrategy{
@@ -106,9 +106,6 @@ func WaitForAgentInitialisation(
 			break
 		}
 
-		// try to poll controller LB DNS, ignore any errors.
-		_ = controllerDataRefresher()
-
 		// As the API server is coming up, it goes through a number of steps.
 		// Initially the upgrade steps run, but the api server allows some
 		// calls to be processed during the upgrade, but not the list blocks.
@@ -121,6 +118,7 @@ func WaitForAgentInitialisation(
 		errorMessage := errors.Cause(err).Error()
 		switch {
 		case errors.Cause(err) == io.EOF,
+			strings.HasSuffix(errorMessage, "connection refused"), // added for testing
 			strings.HasSuffix(errorMessage, "timeout"),
 			strings.HasSuffix(errorMessage, "connection is shut down"),
 			strings.HasSuffix(errorMessage, "no api connection available"),
