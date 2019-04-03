@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/environs"
@@ -62,7 +63,7 @@ type Client struct {
 	*modelconfig.ModelConfigAPIV1
 
 	api         *API
-	newEnviron  func() (environs.Environ, error)
+	newEnviron  func() (environs.BootstrapEnviron, error)
 	check       *common.BlockChecker
 	callContext context.ProviderCallContext
 }
@@ -144,14 +145,23 @@ func newFacade(ctx facade.Context) (*Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
+
+	var newEnviron func() (environs.BootstrapEnviron, error)
+	if model.Type() == state.ModelTypeCAAS {
+		newEnviron = func() (environs.BootstrapEnviron, error) {
+			f := stateenvirons.GetNewCAASBrokerFunc(caas.New)
+			return f(st)
+		}
+	} else {
+		newEnviron = func() (environs.BootstrapEnviron, error) {
+			return environs.GetEnviron(configGetter, environs.New)
+		}
+	}
 
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
-	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
-	newEnviron := func() (environs.Environ, error) {
-		return environs.GetEnviron(configGetter, environs.New)
-	}
 	blockChecker := common.NewBlockChecker(st)
 	backend := modelconfig.NewStateBackend(model)
 	// The modelConfigAPI exposed here is V1.
@@ -191,7 +201,7 @@ func NewClient(
 	presence facade.Presence,
 	statusSetter *common.StatusSetter,
 	toolsFinder *common.ToolsFinder,
-	newEnviron func() (environs.Environ, error),
+	newEnviron func() (environs.BootstrapEnviron, error),
 	blockChecker *common.BlockChecker,
 	callCtx context.ProviderCallContext,
 	leadershipReader leadership.Reader,
@@ -620,13 +630,21 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	}
 	// Before changing the agent version to trigger an upgrade or downgrade,
 	// we'll do a very basic check to ensure the environment is accessible.
-	env, err := c.newEnviron()
+	envOrBroker, err := c.newEnviron()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if err := environs.CheckProviderAPI(env, c.callContext); err != nil {
-		return err
+	// Check IAAS clouds.
+	if env, ok := envOrBroker.(environs.InstanceBroker); ok {
+		if err := environs.CheckProviderAPI(env, c.callContext); err != nil {
+			return err
+		}
+	}
+	// Check k8s clusters.
+	if env, ok := envOrBroker.(caas.ClusterMetadataChecker); ok {
+		if _, err := env.GetClusterMetadata(""); err != nil {
+			return errors.Annotate(err, "cannot make API call to provider")
+		}
 	}
 	// If this is the controller model, also check to make sure that there are
 	// no running migrations.  All models should have migration mode of None.

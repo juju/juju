@@ -186,7 +186,7 @@ func NewTestMachineAgentFactory(
 	bufferedLogger *logsender.BufferedLogWriter,
 	rootDir string,
 ) machineAgentFactoryFnType {
-	preUpgradeSteps := func(_ *state.StatePool, _ agent.Config, isController, isMaster bool) error {
+	preUpgradeSteps := func(_ *state.StatePool, _ agent.Config, isController, isMaster, isCaas bool) error {
 		return nil
 	}
 	return func(machineId string, isCAAS bool) (*MachineAgent, error) {

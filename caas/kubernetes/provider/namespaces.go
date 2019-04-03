@@ -79,7 +79,7 @@ func (k *kubernetesClient) SetNamespace(name string) {
 	k.namespace = name
 }
 
-// listNamespacesByAnnotations filters namespaces by annations.
+// listNamespacesByAnnotations filters namespaces by annotations.
 func (k *kubernetesClient) listNamespacesByAnnotations(annotations k8sannotations.Annotation) ([]core.Namespace, error) {
 	namespaces, err := k.CoreV1().Namespaces().List(v1.ListOptions{IncludeUninitialized: true})
 	if err != nil {

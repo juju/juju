@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasmodelupgrader_test
+package caasenvironupgrader_test
 
 import (
 	"github.com/juju/testing"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/status"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasmodelupgrader"
+	"github.com/juju/juju/worker/caasenvironupgrader"
 )
 
 type WorkerSuite struct {
@@ -22,14 +22,14 @@ type WorkerSuite struct {
 var _ = gc.Suite(&WorkerSuite{})
 
 func (*WorkerSuite) TestNewWorkerValidatesConfig(c *gc.C) {
-	_, err := caasmodelupgrader.NewWorker(caasmodelupgrader.Config{})
+	_, err := caasenvironupgrader.NewWorker(caasenvironupgrader.Config{})
 	c.Assert(err, gc.ErrorMatches, "nil Facade not valid")
 }
 
 func (*WorkerSuite) TestNewWorker(c *gc.C) {
 	mockFacade := mockFacade{}
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := caasmodelupgrader.NewWorker(caasmodelupgrader.Config{
+	w, err := caasenvironupgrader.NewWorker(caasenvironupgrader.Config{
 		Facade:       &mockFacade,
 		GateUnlocker: &mockGateUnlocker,
 		ModelTag:     coretesting.ModelTag,

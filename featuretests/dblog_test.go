@@ -38,6 +38,17 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *dblogSuite) TestMachineAgentLogsGoToDBCAAS(c *gc.C) {
+	// Set up a CAAS model to replace the IAAS one.
+	st := s.Factory.MakeCAASModel(c, nil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	// Close the state pool before the state object itself.
+	s.StatePool.Close()
+	s.StatePool = nil
+	err := s.State.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State = st
+	s.Factory = factory.NewFactory(st, s.StatePool)
+
 	s.assertMachineAgentLogsGoToDB(c, true)
 }
 
@@ -47,8 +58,13 @@ func (s *dblogSuite) TestMachineAgentLogsGoToDBIAAS(c *gc.C) {
 
 func (s *dblogSuite) assertMachineAgentLogsGoToDB(c *gc.C, isCaas bool) {
 	// Create a machine and an agent for it.
+	series := "quantal"
+	if isCaas {
+		series = "kubernetes"
+	}
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Nonce: agent.BootstrapNonce,
+		Nonce:  agent.BootstrapNonce,
+		Series: series,
 	})
 
 	s.PrimeAgent(c, m.Tag(), password)

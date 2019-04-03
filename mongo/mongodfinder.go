@@ -97,7 +97,6 @@ func ParseMongoVersion(versionInfo string) (Version, error) {
 	if len(m) < 4 {
 		return Version{}, errors.Errorf("did not find enough version parts in:\n%s", versionInfo)
 	}
-	logger.Criticalf("got version parts: %#v", m)
 	var v Version
 	var err error
 	// Index '[0]' is the full matched string,

@@ -93,7 +93,7 @@ type ManifoldsConfig struct {
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
-	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool) error
+	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool, bool) error
 
 	// MachineLock is a central source for acquiring the machine lock.
 	// This is used by a number of workers to ensure serialisation of actions

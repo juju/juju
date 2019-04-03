@@ -31,8 +31,8 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/applicationscaler"
 	"github.com/juju/juju/worker/caasbroker"
+	"github.com/juju/juju/worker/caasenvironupgrader"
 	"github.com/juju/juju/worker/caasfirewaller"
-	"github.com/juju/juju/worker/caasmodelupgrader"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 	"github.com/juju/juju/worker/caasunitprovisioner"
 	"github.com/juju/juju/worker/charmrevision"
@@ -276,15 +276,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				OpenFn: sinks.OpenSyslog,
 			}},
 		})),
-		// The model upgrader runs on all controller agents, and
-		// unlocks the gate when the model is up-to-date. The
+		// The environ upgrader runs on all controller agents, and
+		// unlocks the gate when the environ is up-to-date. The
 		// environ tracker will be supplied only to the leader,
 		// which is the agent that will run the upgrade steps;
 		// the other controller agents will wait for it to complete
 		// running those steps before allowing logins to the model.
-		modelUpgradeGateName: gate.Manifold(),
-		modelUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
-			GateName:  modelUpgradeGateName,
+		environUpgradeGateName: gate.Manifold(),
+		environUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  environUpgradeGateName,
 			NewWorker: gate.NewFlagWorker,
 		}),
 	}
@@ -387,10 +387,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                    machineundertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
-		modelUpgraderName: ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+		environUpgraderName: ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
-			GateName:                     modelUpgradeGateName,
+			GateName:                     environUpgradeGateName,
 			ControllerTag:                controllerTag,
 			ModelTag:                     modelTag,
 			NewFacade:                    modelupgrader.NewFacade,
@@ -467,12 +467,12 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewWorker: caasunitprovisioner.NewWorker,
 			},
 		)),
-		modelUpgraderName: caasmodelupgrader.Manifold(caasmodelupgrader.ManifoldConfig{
+		environUpgraderName: caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
 			APICallerName: apiCallerName,
-			GateName:      modelUpgradeGateName,
+			GateName:      environUpgradeGateName,
 			ModelTag:      modelTag,
-			NewFacade:     caasmodelupgrader.NewFacade,
-			NewWorker:     caasmodelupgrader.NewWorker,
+			NewFacade:     caasenvironupgrader.NewFacade,
+			NewWorker:     caasenvironupgrader.NewWorker,
 		}),
 		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName:                apiCallerName,
@@ -551,10 +551,10 @@ var (
 	}.Decorate
 
 	// ifNotUpgrading wraps a manifold such that it only runs after
-	// the model upgrade worker has completed.
+	// the environ upgrade worker has completed.
 	ifNotUpgrading = engine.Housing{
 		Flags: []string{
-			modelUpgradedFlagName,
+			environUpgradedFlagName,
 		},
 	}.Decorate
 
@@ -581,9 +581,9 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMasterName       = "migration-master"
 
-	modelUpgradeGateName  = "model-upgrade-gate"
-	modelUpgradedFlagName = "model-upgraded-flag"
-	modelUpgraderName     = "model-upgrader"
+	environUpgradeGateName  = "environ-upgrade-gate"
+	environUpgradedFlagName = "environ-upgraded-flag"
+	environUpgraderName     = "environ-upgrader"
 
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"

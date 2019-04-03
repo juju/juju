@@ -249,7 +249,7 @@ func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgen
 	return a
 }
 
-func noPreUpgradeSteps(_ *state.StatePool, _ agent.Config, isController, isMaster bool) error {
+func noPreUpgradeSteps(_ *state.StatePool, _ agent.Config, isController, isMaster, isCaas bool) error {
 	return nil
 }
 

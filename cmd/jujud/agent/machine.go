@@ -604,6 +604,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			NewModelWorker:                    a.startModelWorkers,
 			ControllerSupportsSpaces:          controllerSupportsSpaces,
 			MuxShutdownWait:                   1 * time.Minute,
+			NewContainerBrokerFunc:            newCAASBroker,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasMachineAgent {

@@ -712,7 +712,12 @@ func IsVersionInconsistentError(e interface{}) bool {
 	return ok
 }
 
-func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
+func (st *State) checkCanUpgradeCAAS(currentVersion, newVersion string) error {
+	// TODO(caas)
+	return nil
+}
+
+func (st *State) checkCanUpgradeIAAS(currentVersion, newVersion string) error {
 	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
 	matchNew := "^" + regexp.QuoteMeta(newVersion) + "-"
 	// Get all machines and units with a different or empty version.
@@ -775,6 +780,11 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVers
 		)
 	}
 
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	isCAAS := model.Type() == ModelTypeCAAS
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		settings, err := readSettings(st.db(), settingsC, modelGlobalKey)
 		if err != nil {
@@ -794,8 +804,14 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVers
 		}
 
 		if !ignoreAgentVersions {
-			if err := st.checkCanUpgrade(currentVersion, newVersion.String()); err != nil {
-				return nil, errors.Trace(err)
+			if isCAAS {
+				if err := st.checkCanUpgradeCAAS(currentVersion, newVersion.String()); err != nil {
+					return nil, errors.Trace(err)
+				}
+			} else {
+				if err := st.checkCanUpgradeIAAS(currentVersion, newVersion.String()); err != nil {
+					return nil, errors.Trace(err)
+				}
 			}
 		}
 
