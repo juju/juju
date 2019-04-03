@@ -14,6 +14,7 @@ import (
 	lxdclient "github.com/lxc/lxd/client"
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -22,13 +23,13 @@ import (
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"gopkg.in/juju/charm.v6"
 )
 
 func Test(t *stdtesting.T) {
@@ -538,12 +539,9 @@ func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 func (s *managerSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
-	// Operation arrangements.
 	s.expectUpdateOp(ctrl, "Updating container", nil)
 
-	instId := "testme"
 	old := "old-profile"
-	oldProfiles := []string{"default", "juju-default", old}
 	new := "new-profile"
 	newProfiles := []string{"default", "juju-default", new}
 	put := charm.LXDProfile{
@@ -552,35 +550,47 @@ func (s *managerSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
 		},
 		Description: "test profile",
 	}
-	post := lxdapi.ProfilesPost{
-		ProfilePut: lxdapi.ProfilePut(put),
-		Name:       new,
-	}
-	cExp := s.cSvr.EXPECT()
-	gomock.InOrder(
-		cExp.GetProfileNames().Return(oldProfiles, nil),
-		cExp.CreateProfile(post).Return(nil),
-		cExp.GetContainer(instId).Return(
-			&lxdapi.Container{
-				ContainerPut: lxdapi.ContainerPut{
-					Profiles: oldProfiles,
-				},
-			}, "", nil),
-		cExp.UpdateContainer(instId, gomock.Any(), gomock.Any()).Return(s.updateOp, nil),
-		cExp.DeleteProfile(old).Return(nil),
-		cExp.GetContainer(instId).Return(
-			&lxdapi.Container{
-				ContainerPut: lxdapi.ContainerPut{
-					Profiles: newProfiles,
-				},
-			}, "", nil),
-	)
+	s.expectUpdateContainerProfiles(old, new, newProfiles, lxdapi.ProfilePut(put))
 
 	s.makeManager(c)
 	proMgr, ok := s.manager.(container.LXDProfileManager)
 	c.Assert(ok, jc.IsTrue)
 
-	obtained, err := proMgr.ReplaceOrAddInstanceProfile(instId, old, new, &put)
+	obtained, err := proMgr.ReplaceOrAddInstanceProfile("testme", old, new, &put)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, newProfiles)
+}
+
+func (s *managerSuite) TestAssignProfiles(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+	s.expectUpdateOp(ctrl, "Updating container", nil)
+
+	old := "old-profile"
+	new := "new-profile"
+	newProfiles := []string{"default", "juju-default", new}
+	put := lxdprofile.Profile{
+		Config: map[string]string{
+			"security.nesting": "true",
+		},
+		Description: "test profile",
+	}
+	s.expectUpdateContainerProfiles(old, new, newProfiles, lxdapi.ProfilePut(put))
+	profilePosts := []lxdprofile.ProfilePost{
+		{
+			Name:    old,
+			Profile: nil,
+		}, {
+			Name:    new,
+			Profile: &put,
+		},
+	}
+
+	s.makeManager(c)
+	proMgr, ok := s.manager.(container.LXDProfileManager)
+	c.Assert(ok, jc.IsTrue)
+
+	obtained, err := proMgr.AssignProfiles("testme", newProfiles, profilePosts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, newProfiles)
 }
@@ -661,4 +671,32 @@ func (s *managerSuite) expectUpdateOp(ctrl *gomock.Controller, description strin
 		return
 	}
 	s.updateOp.EXPECT().Get().Return(lxdapi.Operation{Description: description})
+}
+
+func (s *managerSuite) expectUpdateContainerProfiles(old, new string, newProfiles []string, put lxdapi.ProfilePut) {
+	instId := "testme"
+	oldProfiles := []string{"default", "juju-default", old}
+	post := lxdapi.ProfilesPost{
+		ProfilePut: put,
+		Name:       new,
+	}
+	cExp := s.cSvr.EXPECT()
+	gomock.InOrder(
+		cExp.GetProfileNames().Return(oldProfiles, nil),
+		cExp.CreateProfile(post).Return(nil),
+		cExp.GetContainer(instId).Return(
+			&lxdapi.Container{
+				ContainerPut: lxdapi.ContainerPut{
+					Profiles: oldProfiles,
+				},
+			}, "", nil),
+		cExp.UpdateContainer(instId, gomock.Any(), gomock.Any()).Return(s.updateOp, nil),
+		cExp.DeleteProfile(old).Return(nil),
+		cExp.GetContainer(instId).Return(
+			&lxdapi.Container{
+				ContainerPut: lxdapi.ContainerPut{
+					Profiles: newProfiles,
+				},
+			}, "", nil),
+	)
 }
