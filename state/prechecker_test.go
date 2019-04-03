@@ -243,3 +243,19 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 		VolumeId: "foo",
 	}})
 }
+
+func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
+	s.prechecker.precheckInstanceError = errors.Errorf("failed for some reason")
+	ch := s.AddTestingCharm(c, "wordpress")
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        "wordpress",
+		Charm:       ch,
+		NumUnits:    1,
+		Constraints: constraints.MustParse("root-disk=20G"),
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": failed for some reason`)
+	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
+		Series:      "quantal",
+		Constraints: constraints.MustParse("root-disk=20G"),
+	})
+}

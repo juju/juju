@@ -1448,6 +1448,45 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 		storagePools.Add(storageParams.Pool)
 	}
 
+	// Obtain volume attachment params corresponding to storage being
+	// attached. We need to pass them along to precheckInstance, in
+	// case the volumes cannot be attached to a machine with the given
+	// placement directive.
+	sb, err := NewStorageBackend(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
+	for _, storageTag := range args.AttachStorage {
+		v, err := sb.StorageInstanceVolume(storageTag)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		volumeInfo, err := v.Info()
+		if err != nil {
+			// Volume has not been provisioned yet,
+			// so it cannot be attached.
+			continue
+		}
+		providerType, _, _, err := poolStorageProvider(sb, volumeInfo.Pool)
+		if err != nil {
+			return errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
+		}
+		storageName, _ := names.StorageName(storageTag.Id())
+		volumeAttachments = append(volumeAttachments, storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: providerType,
+				ReadOnly: args.Charm.Meta().Storage[storageName].ReadOnly,
+			},
+			Volume:   v.VolumeTag(),
+			VolumeId: volumeInfo.VolumeId,
+		})
+	}
+
+	// Collect distinct placements that need to be checked.
+	placements := set.NewStrings()
 	for _, placement := range args.Placement {
 		data, err := st.parsePlacement(placement)
 		if err != nil {
@@ -1468,54 +1507,31 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 					err, "cannot deploy to machine %s", m,
 				)
 			}
+			// We've checked the machine placement, there's not a
+			// provider-specific placement that needs checking
+			// (although the instance creation still needs to be
+			// checked).
+			placements.Add("")
 
 		case directivePlacement:
-			// Obtain volume attachment params corresponding to storage being
-			// attached. We need to pass them along to precheckInstance, in
-			// case the volumes cannot be attached to a machine with the given
-			// placement directive.
-			sb, err := NewStorageBackend(st)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
-			for _, storageTag := range args.AttachStorage {
-				v, err := sb.StorageInstanceVolume(storageTag)
-				if errors.IsNotFound(err) {
-					continue
-				} else if err != nil {
-					return errors.Trace(err)
-				}
-				volumeInfo, err := v.Info()
-				if err != nil {
-					// Volume has not been provisioned yet,
-					// so it cannot be attached.
-					continue
-				}
-				providerType, _, _, err := poolStorageProvider(sb, volumeInfo.Pool)
-				if err != nil {
-					return errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
-				}
-				storageName, _ := names.StorageName(storageTag.Id())
-				volumeAttachments = append(volumeAttachments, storage.VolumeAttachmentParams{
-					AttachmentParams: storage.AttachmentParams{
-						Provider: providerType,
-						ReadOnly: args.Charm.Meta().Storage[storageName].ReadOnly,
-					},
-					Volume:   v.VolumeTag(),
-					VolumeId: volumeInfo.VolumeId,
-				})
-			}
-			if err := st.precheckInstance(
-				args.Series,
-				args.Constraints,
-				data.directive,
-				volumeAttachments,
-			); err != nil {
-				return errors.Trace(err)
-			}
+			placements.Add(data.directive)
 		}
 	}
+	// We still want to check the constraints if there's no placement.
+	if placements.Size() == 0 {
+		placements.Add("")
+	}
+	for _, placement := range placements.SortedValues() {
+		if err := st.precheckInstance(
+			args.Series,
+			args.Constraints,
+			placement,
+			volumeAttachments,
+		); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return nil
 }
 
