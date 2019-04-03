@@ -32,7 +32,7 @@ See also:
     checkout
     commit
     abort
-	diff
+    diff
 `
 )
 
