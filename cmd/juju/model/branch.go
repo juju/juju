@@ -25,6 +25,8 @@ the operator's discretion. When changes are made to charm configuration, charm
 URL or resources against a branch, only units set to track the branch will realise 
 such changes. Once the changes are assessed and deemed acceptable, the branch 
 can be committed, applying the changes to the model and affecting all units.
+The branch name "master" is reserved for primary model-based settings and is
+not valid for new branches.
 
 Examples:
     juju branch upgrade-postgresql
