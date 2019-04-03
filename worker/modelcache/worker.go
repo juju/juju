@@ -274,6 +274,7 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			SupportedContainers:      value.SupportedContainers,
 			SupportedContainersKnown: value.SupportedContainersKnown,
 			HardwareCharacteristics:  value.HardwareCharacteristics,
+			CharmProfiles:            value.CharmProfiles,
 			Addresses:                coreNetworkAddresses(value.Addresses),
 			HasVote:                  value.HasVote,
 			WantsVote:                value.WantsVote,

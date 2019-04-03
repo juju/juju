@@ -1006,7 +1006,9 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	}
 	err = m0.SetProvisioned(instance.Id("i-0"), "", "bootstrap_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
-	cp := []string{}
+	cp := []string{"charm-app-0"}
+	err = m0.SetCharmProfiles(cp)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = m1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
