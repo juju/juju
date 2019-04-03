@@ -29,9 +29,9 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // AddGeneration adds a model generation to the config.
-func (c *Client) AddGeneration(modelUUID string) error {
+func (c *Client) AddGeneration(modelUUID, branchName string) error {
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("AddGeneration", argForModel(modelUUID), &result)
+	err := c.facade.FacadeCall("AddGeneration", argForBranch(modelUUID, branchName), &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -41,27 +41,31 @@ func (c *Client) AddGeneration(modelUUID string) error {
 	return nil
 }
 
-// CancelGeneration cancels a model generation to the config.
-func (c *Client) CancelGeneration(modelUUID string) error {
-	var result params.ErrorResult
-	err := c.facade.FacadeCall("CancelGeneration", argForModel(modelUUID), &result)
+// CommitBranch commits the branch with the input name to the model,
+// effectively completing it and applying all branch changes across the model.
+// The new generation ID of the model is returned.
+func (c *Client) CommitBranch(modelUUID, branchName string) (int, error) {
+	var result params.IntResult
+	err := c.facade.FacadeCall("CommitBranch", argForBranch(modelUUID, branchName), &result)
 	if err != nil {
-		return errors.Trace(err)
+		return 0, errors.Trace(err)
 	}
 	if result.Error != nil {
-		return errors.Trace(result.Error)
+		return 0, errors.Trace(result.Error)
 	}
-	return nil
+	return result.Result, nil
 }
 
-// AdvanceGeneration advances a unit and/or applications to the 'next'
-// generation. The boolean return indicates whether the generation was
-// automatically completed as a result of unit advancement.
-func (c *Client) AdvanceGeneration(modelUUID string, entities []string) (bool, error) {
-	var result params.AdvanceGenerationResult
-	arg := params.AdvanceGenerationArg{Model: argForModel(modelUUID)}
+// TrackBranch sets the input units and/or applications to track changes made
+// under the input branch name.
+func (c *Client) TrackBranch(modelUUID, branchName string, entities []string) error {
+	var result params.ErrorResults
+	arg := params.BranchTrackArg{
+		Model:      argForModel(modelUUID),
+		BranchName: branchName,
+	}
 	if len(entities) == 0 {
-		return false, errors.Trace(errors.New("No units or applications to advance"))
+		return errors.Trace(errors.New("No units or applications to advance"))
 	}
 	for _, entity := range entities {
 		switch {
@@ -72,31 +76,27 @@ func (c *Client) AdvanceGeneration(modelUUID string, entities []string) (bool, e
 			arg.Entities = append(arg.Entities,
 				params.Entity{Tag: names.NewUnitTag(entity).String()})
 		default:
-			return false, errors.Trace(errors.New("Must be application or unit"))
+			return errors.Trace(errors.New("Must be application or unit"))
 		}
 	}
 	err := c.facade.FacadeCall("AdvanceGeneration", arg, &result)
 	if err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	// If there were errors based on the advancing units, return those.
 	// Otherwise check the results of auto-completion.
-	if err := result.AdvanceResults.Combine(); err != nil {
-		return false, errors.Trace(err)
+	if err := result.Combine(); err != nil {
+		return errors.Trace(err)
 	}
-	res := result.CompleteResult
-	if res.Error != nil {
-		return false, errors.Trace(res.Error)
-	}
-	return res.Result, nil
+	return nil
 }
 
-// HasNextGeneration returns true if the model has a "next" generation that
-// has not yet been completed.
-func (c *Client) HasNextGeneration(modelUUID string) (bool, error) {
+// HasActiveBranch returns true if the model has an "in-flight" branch with
+// the input name.
+func (c *Client) HasActiveBranch(modelUUID, branchName string) (bool, error) {
 	var result params.BoolResult
-	err := c.facade.FacadeCall("HasNextGeneration", argForModel(modelUUID), &result)
+	err := c.facade.FacadeCall("HasActiveBranch", argForBranch(modelUUID, branchName), &result)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -110,10 +110,10 @@ func (c *Client) HasNextGeneration(modelUUID string) (bool, error) {
 // generation, with units moved to the generation, and any generational
 // configuration changes.
 func (c *Client) GenerationInfo(
-	modelUUID string, formatTime func(time.Time) string,
+	modelUUID, branchName string, formatTime func(time.Time) string,
 ) (model.GenerationSummaries, error) {
 	var result params.GenerationResult
-	err := c.facade.FacadeCall("GenerationInfo", argForModel(modelUUID), &result)
+	err := c.facade.FacadeCall("BranchInfo", argForBranch(modelUUID, branchName), &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -121,6 +121,13 @@ func (c *Client) GenerationInfo(
 		return nil, errors.Trace(result.Error)
 	}
 	return generationInfoFromResult(result.Generation, formatTime), nil
+}
+
+func argForBranch(modelUUID, branchName string) params.BranchArg {
+	return params.BranchArg{
+		Model:      argForModel(modelUUID),
+		BranchName: branchName,
+	}
 }
 
 func argForModel(modelUUID string) params.Entity {
@@ -141,9 +148,5 @@ func generationInfoFromResult(res params.Generation, formatTime func(time.Time) 
 		CreatedBy:    res.CreatedBy,
 		Applications: appDeltas,
 	}
-
-	// TODO (manadart 2019-02-25): Always deal with the "next" generation.
-	// As generations evolve, this command will allow requesting specific
-	// generation IDs at which time this type should be represented in the DTO.
-	return map[model.GenerationVersion]model.Generation{model.GenerationNext: gen}
+	return map[string]model.Generation{res.BranchName: gen}
 }

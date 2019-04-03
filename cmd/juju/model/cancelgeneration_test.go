@@ -22,55 +22,55 @@ type cancelGenerationSuite struct {
 
 var _ = gc.Suite(&cancelGenerationSuite{})
 
-func (s *cancelGenerationSuite) runInit(args ...string) error {
-	cmd := model.NewCancelGenerationCommandForTest(nil, s.store)
-	return cmdtesting.InitCommand(cmd, args)
-}
-
 func (s *cancelGenerationSuite) TestInit(c *gc.C) {
-	err := s.runInit()
+	err := s.runInit(s.branchName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *cancelGenerationSuite) TestInitFail(c *gc.C) {
-	err := s.runInit("test")
-	c.Assert(err, gc.ErrorMatches, "No arguments allowed")
-}
-
-func (s *cancelGenerationSuite) runCommand(c *gc.C, api model.CancelGenerationCommandAPI) (*cmd.Context, error) {
-	cmd := model.NewCancelGenerationCommandForTest(api, s.store)
-	return cmdtesting.RunCommand(c, cmd)
-}
-
-func setUpCancelMocks(c *gc.C) (*gomock.Controller, *mocks.MockCancelGenerationCommandAPI) {
-	mockController := gomock.NewController(c)
-	mockCancelGenerationCommandAPI := mocks.NewMockCancelGenerationCommandAPI(mockController)
-	mockCancelGenerationCommandAPI.EXPECT().Close()
-	return mockController, mockCancelGenerationCommandAPI
+	err := s.runInit()
+	c.Assert(err, gc.ErrorMatches, "must specify a branch name to commit")
 }
 
 func (s *cancelGenerationSuite) TestRunCommand(c *gc.C) {
-	mockController, mockCancelGenerationCommandAPI := setUpCancelMocks(c)
-	defer mockController.Finish()
+	ctrl, api := setUpCancelMocks(c)
+	defer ctrl.Finish()
 
-	mockCancelGenerationCommandAPI.EXPECT().CancelGeneration(gomock.Any()).Return(nil)
+	api.EXPECT().CommitBranch(gomock.Any(), s.branchName).Return(3, nil)
 
-	ctx, err := s.runCommand(c, mockCancelGenerationCommandAPI)
+	ctx, err := s.runCommand(c, api)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "remaining incomplete changes dropped and target generation set to current\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+changes committed; model is now at generation 3
+active branch set to "master"`[1:])
 
-	// ensure the model's store has been updated to 'current'.
+	// Ensure the local store has "master" as the target.
 	details, err := s.store.ModelByName(s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationCurrent)
+	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationMaster)
 }
 
 func (s *cancelGenerationSuite) TestRunCommandFail(c *gc.C) {
-	mockController, mockCancelGenerationCommandAPI := setUpCancelMocks(c)
-	defer mockController.Finish()
+	ctrl, api := setUpCancelMocks(c)
+	defer ctrl.Finish()
 
-	mockCancelGenerationCommandAPI.EXPECT().CancelGeneration(gomock.Any()).Return(errors.Errorf("failme"))
+	api.EXPECT().CommitBranch(gomock.Any(), s.branchName).Return(0, errors.Errorf("fail"))
 
-	_, err := s.runCommand(c, mockCancelGenerationCommandAPI)
-	c.Assert(err, gc.ErrorMatches, "failme")
+	_, err := s.runCommand(c, api)
+	c.Assert(err, gc.ErrorMatches, "fail")
+}
+
+func (s *cancelGenerationSuite) runInit(args ...string) error {
+	return cmdtesting.InitCommand(model.NewCancelGenerationCommandForTest(nil, s.store), args)
+}
+
+func (s *cancelGenerationSuite) runCommand(c *gc.C, api model.CancelGenerationCommandAPI) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, model.NewCancelGenerationCommandForTest(api, s.store), s.branchName)
+}
+
+func setUpCancelMocks(c *gc.C) (*gomock.Controller, *mocks.MockCancelGenerationCommandAPI) {
+	ctrl := gomock.NewController(c)
+	api := mocks.NewMockCancelGenerationCommandAPI(ctrl)
+	api.EXPECT().Close()
+	return ctrl, api
 }

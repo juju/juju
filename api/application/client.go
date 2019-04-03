@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/storage"
 )
 
@@ -162,11 +161,11 @@ func (c *Client) Deploy(args DeployArgs) error {
 
 // GetCharmURL returns the charm URL the given application is
 // running at present.
-func (c *Client) GetCharmURL(generation model.GenerationVersion, applicationName string) (*charm.URL, error) {
+func (c *Client) GetCharmURL(branchName, applicationName string) (*charm.URL, error) {
 	result := new(params.StringResult)
 	args := params.ApplicationGet{
 		ApplicationName: applicationName,
-		Generation:      generation,
+		Generation:      branchName,
 	}
 	err := c.facade.FacadeCall("GetCharmURL", args, result)
 	if err != nil {
@@ -181,11 +180,11 @@ func (c *Client) GetCharmURL(generation model.GenerationVersion, applicationName
 // GetConfig returns the charm configuration settings for each of the
 // applications. If any of the applications are not found, an error is
 // returned.
-func (c *Client) GetConfig(generation model.GenerationVersion, appNames ...string) ([]map[string]interface{}, error) {
+func (c *Client) GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error) {
 	v := c.BestAPIVersion()
 
 	if v < 5 {
-		settings, err := c.getConfigV4(generation, appNames)
+		settings, err := c.getConfigV4(branchName, appNames)
 		return settings, errors.Trace(err)
 	}
 
@@ -205,7 +204,7 @@ func (c *Client) GetConfig(generation model.GenerationVersion, appNames ...strin
 		// Version 9 of the API introduces generational config.
 		arg := params.ApplicationGetArgs{Args: make([]params.ApplicationGet, len(appNames))}
 		for i, appName := range appNames {
-			arg.Args[i] = params.ApplicationGet{ApplicationName: appName, Generation: generation}
+			arg.Args[i] = params.ApplicationGet{ApplicationName: appName, Generation: branchName}
 		}
 		callArg = arg
 	}
@@ -227,10 +226,10 @@ func (c *Client) GetConfig(generation model.GenerationVersion, appNames ...strin
 }
 
 // getConfigV4 retrieves application config for versions of the API < 5.
-func (c *Client) getConfigV4(generation model.GenerationVersion, appNames []string) ([]map[string]interface{}, error) {
+func (c *Client) getConfigV4(branchName string, appNames []string) ([]map[string]interface{}, error) {
 	var allSettings []map[string]interface{}
 	for _, appName := range appNames {
-		results, err := c.Get(generation, appName)
+		results, err := c.Get(branchName, appName)
 		if err != nil {
 			return nil, errors.Annotatef(err, "unable to get settings for %q", appName)
 		}
@@ -317,7 +316,7 @@ type SetCharmConfig struct {
 }
 
 // SetCharm sets the charm for a given application.
-func (c *Client) SetCharm(generation model.GenerationVersion, cfg SetCharmConfig) error {
+func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 	var storageConstraints map[string]params.StorageConstraints
 	if len(cfg.StorageConstraints) > 0 {
 		storageConstraints = make(map[string]params.StorageConstraints)
@@ -348,7 +347,7 @@ func (c *Client) SetCharm(generation model.GenerationVersion, cfg SetCharmConfig
 		ForceUnits:         cfg.ForceUnits,
 		ResourceIDs:        cfg.ResourceIDs,
 		StorageConstraints: storageConstraints,
-		Generation:         generation,
+		Generation:         branchName,
 	}
 	return c.facade.FacadeCall("SetCharm", args, nil)
 }
@@ -732,11 +731,11 @@ func (c *Client) Unexpose(application string) error {
 }
 
 // Get returns the configuration for the named application.
-func (c *Client) Get(generation model.GenerationVersion, application string) (*params.ApplicationGetResults, error) {
+func (c *Client) Get(branchName, application string) (*params.ApplicationGetResults, error) {
 	var results params.ApplicationGetResults
 	args := params.ApplicationGet{
 		ApplicationName: application,
-		Generation:      generation,
+		Generation:      branchName,
 	}
 	err := c.facade.FacadeCall("Get", args, &results)
 	return &results, err
@@ -844,16 +843,14 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 }
 
 // SetApplicationConfig sets configuration options on an application.
-func (c *Client) SetApplicationConfig(
-	generation model.GenerationVersion, application string, config map[string]string,
-) error {
+func (c *Client) SetApplicationConfig(branchName, application string, config map[string]string) error {
 	if c.BestAPIVersion() < 6 {
 		return errors.NotSupportedf("SetApplicationsConfig not supported by this version of Juju")
 	}
 	args := params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: application,
-			Generation:      generation,
+			Generation:      branchName,
 			Config:          config,
 		}},
 	}
@@ -866,16 +863,14 @@ func (c *Client) SetApplicationConfig(
 }
 
 // UnsetApplicationConfig resets configuration options on an application.
-func (c *Client) UnsetApplicationConfig(
-	generation model.GenerationVersion, application string, options []string,
-) error {
+func (c *Client) UnsetApplicationConfig(branchName, application string, options []string) error {
 	if c.BestAPIVersion() < 6 {
 		return errors.NotSupportedf("UnsetApplicationConfig not supported by this version of Juju")
 	}
 	args := params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: application,
-			Generation:      generation,
+			Generation:      branchName,
 			Options:         options,
 		}},
 	}

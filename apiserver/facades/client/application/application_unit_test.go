@@ -1416,7 +1416,7 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 				"juju-external-hostname": "value",
 				"stringOption":           "stringVal",
 			},
-			Generation: model.GenerationCurrent,
+			Generation: model.GenerationMaster,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
@@ -1433,13 +1433,13 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes{
 		"juju-external-hostname": "value",
 	}, []string(nil), schema, defaults)
-	app.CheckCall(c, 2, "UpdateCharmConfig", model.GenerationCurrent, charm.Settings{"stringOption": "stringVal"})
+	app.CheckCall(c, 2, "UpdateCharmConfig", model.GenerationMaster, charm.Settings{"stringOption": "stringVal"})
 
 	// We should never have accessed the generation.
 	c.Check(s.backend.generation, gc.IsNil)
 }
 
-func (s *ApplicationSuite) TestSetApplicationConfigNextGen(c *gc.C) {
+func (s *ApplicationSuite) TestSetApplicationConfigBranch(c *gc.C) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
 	result, err := s.api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
@@ -1448,7 +1448,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigNextGen(c *gc.C) {
 				"juju-external-hostname": "value",
 				"stringOption":           "stringVal",
 			},
-			Generation: model.GenerationNext,
+			Generation: "new-branch",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
@@ -1465,7 +1465,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigNextGen(c *gc.C) {
 	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes{
 		"juju-external-hostname": "value",
 	}, []string(nil), schema, defaults)
-	app.CheckCall(c, 2, "UpdateCharmConfig", model.GenerationNext, charm.Settings{"stringOption": "stringVal"})
+	app.CheckCall(c, 2, "UpdateCharmConfig", "new-branch", charm.Settings{"stringOption": "stringVal"})
 
 	s.backend.generation.CheckCall(c, 0, "AssignApplication", "postgresql")
 }
@@ -1494,7 +1494,7 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
 			Options:         []string{"juju-external-hostname", "stringVal"},
-			Generation:      model.GenerationNext,
+			Generation:      "new-branch",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
@@ -1511,7 +1511,7 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 
 	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes(nil),
 		[]string{"juju-external-hostname"}, schema, defaults)
-	app.CheckCall(c, 1, "UpdateCharmConfig", model.GenerationNext, charm.Settings{"stringVal": nil})
+	app.CheckCall(c, 1, "UpdateCharmConfig", "new-branch", charm.Settings{"stringVal": nil})
 }
 
 func (s *ApplicationSuite) TestBlockUnsetApplicationConfig(c *gc.C) {

@@ -226,7 +226,7 @@ func prepare(
 	details.LastKnownAccess = string(permission.SuperuserAccess)
 	details.ModelUUID = cfg.UUID()
 	if featureflag.Enabled(feature.Generations) {
-		details.ModelGeneration = model.GenerationCurrent
+		details.ModelGeneration = model.GenerationMaster
 	}
 	details.ControllerDetails.Cloud = args.Cloud.Name
 	details.ControllerDetails.CloudRegion = args.Cloud.Region

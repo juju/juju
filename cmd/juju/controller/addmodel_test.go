@@ -216,7 +216,7 @@ func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
 	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID:       "fake-model-uuid",
 		ModelType:       model.IAAS,
-		ModelGeneration: model.GenerationCurrent,
+		ModelGeneration: model.GenerationMaster,
 	})
 }
 
@@ -594,7 +594,7 @@ func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
 	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID:       "fake-model-uuid",
 		ModelType:       model.IAAS,
-		ModelGeneration: model.GenerationCurrent,
+		ModelGeneration: model.GenerationMaster,
 	})
 }
 
@@ -618,7 +618,7 @@ func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
 	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID:       "fake-model-uuid",
 		ModelType:       model.IAAS,
-		ModelGeneration: model.GenerationCurrent,
+		ModelGeneration: model.GenerationMaster,
 	})
 }
 

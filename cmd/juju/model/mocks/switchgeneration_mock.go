@@ -44,15 +44,15 @@ func (mr *MockSwitchGenerationCommandAPIMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockSwitchGenerationCommandAPI)(nil).Close))
 }
 
-// HasNextGeneration mocks base method
-func (m *MockSwitchGenerationCommandAPI) HasNextGeneration(arg0 string) (bool, error) {
-	ret := m.ctrl.Call(m, "HasNextGeneration", arg0)
+// HasActiveBranch mocks base method
+func (m *MockSwitchGenerationCommandAPI) HasActiveBranch(arg0, arg1 string) (bool, error) {
+	ret := m.ctrl.Call(m, "HasActiveBranch", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// HasNextGeneration indicates an expected call of HasNextGeneration
-func (mr *MockSwitchGenerationCommandAPIMockRecorder) HasNextGeneration(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasNextGeneration", reflect.TypeOf((*MockSwitchGenerationCommandAPI)(nil).HasNextGeneration), arg0)
+// HasActiveBranch indicates an expected call of HasActiveBranch
+func (mr *MockSwitchGenerationCommandAPIMockRecorder) HasActiveBranch(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasActiveBranch", reflect.TypeOf((*MockSwitchGenerationCommandAPI)(nil).HasActiveBranch), arg0, arg1)
 }

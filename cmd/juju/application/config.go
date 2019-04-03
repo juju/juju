@@ -15,7 +15,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/keyvalues"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
@@ -87,7 +86,7 @@ type configCommand struct {
 
 	action          func(applicationAPI, *cmd.Context) error // get, set, or reset action set in  Init
 	applicationName string
-	generation      string
+	branchName      string
 	configFile      cmd.FileVar
 	keys            []string
 	reset           []string // Holds the keys to be reset until parsed.
@@ -100,21 +99,21 @@ type configCommand struct {
 type applicationAPI interface {
 	Close() error
 	Update(args params.ApplicationUpdate) error
-	Get(generation model.GenerationVersion, application string) (*params.ApplicationGetResults, error)
+	Get(branchName string, application string) (*params.ApplicationGetResults, error)
 	Set(application string, options map[string]string) error
 	Unset(application string, options []string) error
 	BestAPIVersion() int
 
 	// These methods are on API V6.
-	SetApplicationConfig(generation model.GenerationVersion, application string, config map[string]string) error
-	UnsetApplicationConfig(generation model.GenerationVersion, application string, options []string) error
+	SetApplicationConfig(branchName string, application string, config map[string]string) error
+	UnsetApplicationConfig(branchName string, application string, options []string) error
 }
 
 // Info is part of the cmd.Command interface.
 func (c *configCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "config",
-		Args:    "<application name> [--generation current|next] [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
+		Args:    "<application name> [--branch <branch-name>] [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
 		Purpose: configSummary,
 		Doc:     configDetails,
 	})
@@ -128,7 +127,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
 
 	if featureflag.Enabled(feature.Generations) {
-		f.StringVar(&c.generation, "generation", "", "Specifically target config for the supplied generation")
+		f.StringVar(&c.branchName, "branch", "", "Specifically target config for the supplied branch")
 	}
 }
 
@@ -178,25 +177,23 @@ func (c *configCommand) Init(args []string) error {
 }
 
 func (c *configCommand) validateGeneration() error {
-	if c.generation == "" {
-		gen, err := c.ModelGeneration()
+	if c.branchName == "" {
+		branchName, err := c.ModelGeneration()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		c.generation = string(gen)
+		c.branchName = branchName
 	}
-	if !set.NewStrings(string(model.GenerationCurrent), string(model.GenerationNext)).Contains(c.generation) {
-		// TODO (manadart 2019-02-04): If the generation feature is inactive,
-		// we set a default in lieu of empty values. This is an expediency
-		// during development. When we remove the flag, there will be tests
-		// (particularly feature tests) that will need to accommodate a value
-		// for generation in the local store.
-		if !featureflag.Enabled(feature.Generations) && c.generation == "" {
-			c.generation = string(model.GenerationCurrent)
-		} else {
-			return errors.New(`generation option must be "current" or "next"`)
-		}
+
+	// TODO (manadart 2019-02-04): If the generation feature is inactive,
+	// we set a default in lieu of empty values. This is an expediency
+	// during development. When we remove the flag, there will be tests
+	// (particularly feature tests) that will need to accommodate a value
+	// for generation in the local store.
+	if !featureflag.Enabled(feature.Generations) && c.branchName == "" {
+		c.branchName = model.GenerationMaster
 	}
+
 	return nil
 }
 
@@ -322,7 +319,7 @@ func (c *configCommand) resetConfig(client applicationAPI, ctx *cmd.Context) err
 	if client.BestAPIVersion() < 6 {
 		err = client.Unset(c.applicationName, c.resetKeys)
 	} else {
-		err = client.UnsetApplicationConfig(model.GenerationVersion(c.generation), c.applicationName, c.resetKeys)
+		err = client.UnsetApplicationConfig(c.branchName, c.applicationName, c.resetKeys)
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
@@ -339,7 +336,7 @@ func (c *configCommand) setConfig(client applicationAPI, ctx *cmd.Context) error
 		return errors.Trace(err)
 	}
 
-	result, err := client.Get(model.GenerationVersion(c.generation), c.applicationName)
+	result, err := client.Get(c.branchName, c.applicationName)
 	if err != nil {
 		return err
 	}
@@ -359,7 +356,7 @@ func (c *configCommand) setConfig(client applicationAPI, ctx *cmd.Context) error
 	if client.BestAPIVersion() < 6 {
 		err = client.Set(c.applicationName, settings)
 	} else {
-		err = client.SetApplicationConfig(model.GenerationVersion(c.generation), c.applicationName, settings)
+		err = client.SetApplicationConfig(c.branchName, c.applicationName, settings)
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
@@ -388,14 +385,14 @@ func (c *configCommand) setConfigFromFile(client applicationAPI, ctx *cmd.Contex
 			params.ApplicationUpdate{
 				ApplicationName: c.applicationName,
 				SettingsYAML:    string(b),
-				Generation:      model.GenerationVersion(c.generation),
+				Generation:      c.branchName,
 			},
 		), block.BlockChange))
 }
 
 // getConfig is the run action to return one or all configuration values.
 func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error {
-	results, err := client.Get(model.GenerationVersion(c.generation), c.applicationName)
+	results, err := client.Get(c.branchName, c.applicationName)
 	if err != nil {
 		return err
 	}
@@ -433,7 +430,7 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 	err = c.out.Write(ctx, resultsMap)
 
 	if featureflag.Enabled(feature.Generations) && err == nil {
-		var gen model.GenerationVersion
+		var gen string
 		gen, err = c.ModelGeneration()
 		if err == nil {
 			_, err = ctx.Stdout.Write([]byte(fmt.Sprintf("\nchanges will be targeted to generation: %s\n", gen)))

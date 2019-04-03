@@ -63,7 +63,7 @@ func addGeneration(models map[string]*ControllerModels) error {
 		for name, m := range cm.Models {
 			if m.ModelGeneration == "" {
 				changes = true
-				m.ModelGeneration = model.GenerationCurrent
+				m.ModelGeneration = model.GenerationMaster
 				cm.Models[name] = m
 			}
 		}

@@ -371,7 +371,7 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.config != nil {
-			err := app.UpdateCharmConfig(model.GenerationCurrent, t.config)
+			err := app.UpdateCharmConfig(model.GenerationMaster, t.config)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		expect := t.expect
@@ -379,7 +379,7 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 		expect.Application = app.Name()
 		expect.Charm = ch.Meta().Name
 		client := apiapplication.NewClient(s.APIState)
-		got, err := client.Get(model.GenerationCurrent, app.Name())
+		got, err := client.Get(model.GenerationMaster, app.Name())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*got, jc.DeepEquals, expect)
 	}
@@ -399,10 +399,10 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "test-application", ch)
 
-	err := app.UpdateCharmConfig(model.GenerationCurrent, map[string]interface{}{"skill-level": nonFloatInt})
+	err := app.UpdateCharmConfig(model.GenerationMaster, map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, jc.ErrorIsNil)
 	client := apiapplication.NewClient(s.APIState)
-	got, err := client.Get(model.GenerationCurrent, app.Name())
+	got, err := client.Get(model.GenerationMaster, app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.CharmConfig["skill-level"], jc.DeepEquals, map[string]interface{}{
 		"description": "A number indicating skill.",

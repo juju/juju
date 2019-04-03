@@ -340,7 +340,7 @@ func (s *DeploySuite) TestSingleConfigFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := app.CharmConfig(model.GenerationCurrent)
+	settings, err := app.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	appCh, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -364,7 +364,7 @@ func (s *DeploySuite) TestConfigValues(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := app.CharmConfig(model.GenerationCurrent)
+	settings, err := app.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	appCh, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -382,7 +382,7 @@ func (s *DeploySuite) TestConfigValuesWithFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := app.CharmConfig(model.GenerationCurrent)
+	settings, err := app.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	appCh, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1189,7 +1189,7 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]ap
 	for _, app := range applications {
 		curl, _ := app.CharmURL()
 		c.Assert(err, jc.ErrorIsNil)
-		config, err := app.CharmConfig(model.GenerationCurrent)
+		config, err := app.CharmConfig(model.GenerationMaster)
 		c.Assert(err, jc.ErrorIsNil)
 		constraints, err := app.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
@@ -2043,9 +2043,7 @@ func (f *fakeDeployAPI) GetAnnotations(tags []string) ([]params.AnnotationsGetRe
 	return nil, nil
 }
 
-func (f *fakeDeployAPI) GetConfig(
-	generation model.GenerationVersion, appNames ...string,
-) ([]map[string]interface{}, error) {
+func (f *fakeDeployAPI) GetConfig(_ string, _ ...string) ([]map[string]interface{}, error) {
 	return nil, nil
 }
 
@@ -2088,8 +2086,8 @@ func (f *fakeDeployAPI) SetAnnotation(annotations map[string]map[string]string) 
 	return results[0].([]params.ErrorResult), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) SetCharm(generation model.GenerationVersion, cfg application.SetCharmConfig) error {
-	results := f.MethodCall(f, "SetCharm", generation, cfg)
+func (f *fakeDeployAPI) SetCharm(branchName string, cfg application.SetCharmConfig) error {
+	results := f.MethodCall(f, "SetCharm", branchName, cfg)
 	return jujutesting.TypeAssertError(results[0])
 }
 

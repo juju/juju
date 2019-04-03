@@ -24,26 +24,21 @@ type showGenerationSuite struct {
 
 var _ = gc.Suite(&showGenerationSuite{})
 
-func (s *showGenerationSuite) runInit(args ...string) error {
-	cmd := model.NewCancelGenerationCommandForTest(nil, s.store)
-	return cmdtesting.InitCommand(cmd, args)
-}
-
 func (s *showGenerationSuite) TestInit(c *gc.C) {
-	err := s.runInit()
+	err := s.runInit(s.branchName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *showGenerationSuite) TestInitFail(c *gc.C) {
-	err := s.runInit("test")
-	c.Assert(err, gc.ErrorMatches, "No arguments allowed")
+	err := s.runInit()
+	c.Assert(err, gc.ErrorMatches, "must specify a branch name")
 }
 
 func (s *showGenerationSuite) TestRunCommandNextGenExists(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	result := map[coremodel.GenerationVersion]coremodel.Generation{
-		coremodel.GenerationNext: {
+	result := map[string]coremodel.Generation{
+		s.branchName: {
 			Created:   "0001-01-01 00:00:00Z",
 			CreatedBy: "test-user",
 			Applications: []coremodel.GenerationApplication{{
@@ -53,12 +48,12 @@ func (s *showGenerationSuite) TestRunCommandNextGenExists(c *gc.C) {
 			}},
 		},
 	}
-	s.api.EXPECT().GenerationInfo(gomock.Any(), gomock.Any()).Return(result, nil)
+	s.api.EXPECT().GenerationInfo(gomock.Any(), s.branchName, gomock.Any()).Return(result, nil)
 
 	ctx, err := s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-next:
+new-branch:
   created: 0001-01-01 00:00:00Z
   created-by: test-user
   applications:
@@ -73,15 +68,19 @@ next:
 func (s *showGenerationSuite) TestRunCommandNextNoGenError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.api.EXPECT().GenerationInfo(gomock.Any(), gomock.Any()).Return(
+	s.api.EXPECT().GenerationInfo(gomock.Any(), s.branchName, gomock.Any()).Return(
 		nil, errors.New("this model has no next generation"))
 
 	_, err := s.runCommand(c)
 	c.Assert(err, gc.ErrorMatches, "this model has no next generation")
 }
 
+func (s *showGenerationSuite) runInit(args ...string) error {
+	return cmdtesting.InitCommand(model.NewShowGenerationCommandForTest(nil, s.store), args)
+}
+
 func (s *showGenerationSuite) runCommand(c *gc.C) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, model.NewShowGenerationCommandForTest(s.api, s.store))
+	return cmdtesting.RunCommand(c, model.NewShowGenerationCommandForTest(s.api, s.store), s.branchName)
 }
 
 func (s *showGenerationSuite) setup(c *gc.C) *gomock.Controller {

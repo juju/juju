@@ -170,7 +170,7 @@ func (s *ModelCommandSuite) TestModelGeneration(c *gc.C) {
 		User: "bar", Password: "hunter2",
 	}
 	err := s.store.UpdateModel("foo", "adminfoo/currentfoo",
-		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS, ModelGeneration: model.GenerationNext})
+		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS, ModelGeneration: "new-branch"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.store.SetCurrentModel("foo", "adminfoo/currentfoo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,12 +179,12 @@ func (s *ModelCommandSuite) TestModelGeneration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	modelGeneration, err := cmd.ModelGeneration()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelGeneration, gc.Equals, model.GenerationNext)
+	c.Assert(modelGeneration, gc.Equals, "new-branch")
 
-	c.Assert(cmd.SetModelGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+	c.Assert(cmd.SetModelGeneration(model.GenerationMaster), jc.ErrorIsNil)
 	modelGeneration, err = cmd.ModelGeneration()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelGeneration, gc.Equals, model.GenerationCurrent)
+	c.Assert(modelGeneration, gc.Equals, model.GenerationMaster)
 }
 
 func (s *ModelCommandSuite) TestBootstrapContext(c *gc.C) {

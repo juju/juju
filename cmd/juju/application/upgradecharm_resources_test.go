@@ -355,7 +355,7 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]ap
 	deployed := make(map[string]applicationInfo, len(applications))
 	for _, app := range applications {
 		ch, _ := app.CharmURL()
-		config, err := app.CharmConfig(model.GenerationCurrent)
+		config, err := app.CharmConfig(model.GenerationMaster)
 		c.Assert(err, jc.ErrorIsNil)
 		if len(config) == 0 {
 			config = nil

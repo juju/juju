@@ -6,6 +6,8 @@ package model
 import (
 	"fmt"
 
+	"github.com/juju/juju/core/model"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -13,7 +15,6 @@ import (
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
 )
 
 const (
@@ -43,21 +44,21 @@ type switchGenerationCommand struct {
 
 	api SwitchGenerationCommandAPI
 
-	generation string
+	branchName string
 }
 
 // SwitchGenerationCommandAPI defines an API interface to be used during testing.
 //go:generate mockgen -package mocks -destination ./mocks/switchgeneration_mock.go github.com/juju/juju/cmd/juju/model SwitchGenerationCommandAPI
 type SwitchGenerationCommandAPI interface {
 	Close() error
-	HasNextGeneration(string) (bool, error)
+	HasActiveBranch(string, string) (bool, error)
 }
 
 // Info implements part of the cmd.Command interface.
 func (c *switchGenerationCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Args:    "<current|next>",
 		Name:    "switch-generation",
+		Args:    "<branch name>",
 		Purpose: switchGenerationSummary,
 		Doc:     switchGenerationDoc,
 	}
@@ -72,14 +73,9 @@ func (c *switchGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init implements part of the cmd.Command interface.
 func (c *switchGenerationCommand) Init(args []string) error {
 	if len(args) != 1 {
-		return errors.Errorf("Must specify 'current' or 'next'")
+		return errors.Errorf("must specify a branch name to switch to")
 	}
-
-	if args[0] != "current" && args[0] != "next" {
-		return errors.Errorf("Must specify 'current' or 'next'")
-	}
-
-	c.generation = args[0]
+	c.branchName = args[0]
 	return nil
 }
 
@@ -98,11 +94,11 @@ func (c *switchGenerationCommand) getAPI() (SwitchGenerationCommandAPI, error) {
 	return client, nil
 }
 
-// Run (cmd.Command) sets the active generation in the local store.
+// Run (cmd.Command) sets the active branch in the local store.
 func (c *switchGenerationCommand) Run(ctx *cmd.Context) error {
-	// If attempting to set the active generation to "next",
-	// check that the model has such a generation.
-	if c.generation == string(model.GenerationNext) {
+	// If the active branch is not being set to the (default) master,
+	// then first ensure that a branch with the supplied name exists.
+	if c.branchName != model.GenerationMaster {
 		client, err := c.getAPI()
 		if err != nil {
 			return err
@@ -113,19 +109,19 @@ func (c *switchGenerationCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Annotate(err, "getting model details")
 		}
-		hasNext, err := client.HasNextGeneration(modelDetails.ModelUUID)
+		hasBranch, err := client.HasActiveBranch(modelDetails.ModelUUID, c.branchName)
 		if err != nil {
-			return errors.Annotate(err, "checking for next generation")
+			return errors.Annotate(err, "checking for active branch")
 		}
-		if !hasNext {
-			return errors.New("this model has no next generation")
+		if !hasBranch {
+			return errors.Errorf("this model has no active branch %q", c.branchName)
 		}
 	}
 
-	if err := c.SetModelGeneration(model.GenerationVersion(c.generation)); err != nil {
+	if err := c.SetModelGeneration(c.branchName); err != nil {
 		return err
 	}
-	msg := fmt.Sprintf("target generation set to %s\n", c.generation)
+	msg := fmt.Sprintf("target generation set to %q\n", c.branchName)
 	_, err := ctx.Stdout.Write([]byte(msg))
 	return err
 }

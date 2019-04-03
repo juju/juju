@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
 )
 
 const (
@@ -48,21 +47,24 @@ func NewAdvanceGenerationCommand() cmd.Command {
 type advanceGenerationCommand struct {
 	modelcmd.ModelCommandBase
 
-	api      AdvanceGenerationCommandAPI
-	entities []string
+	api AdvanceGenerationCommandAPI
+
+	branchName string
+	entities   []string
 }
 
 // AdvanceGenerationCommandAPI defines an API interface to be used during testing.
 //go:generate mockgen -package mocks -destination ./mocks/advancegeneration_mock.go github.com/juju/juju/cmd/juju/model AdvanceGenerationCommandAPI
 type AdvanceGenerationCommandAPI interface {
 	Close() error
-	AdvanceGeneration(string, []string) (bool, error)
+	TrackBranch(string, string, []string) error
 }
 
 // Info implements part of the cmd.Command interface.
 func (c *advanceGenerationCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:    "advance-generation",
+		Args:    "<branch name> <entities> ...",
 		Aliases: []string{"advance"},
 		Purpose: advanceGenerationSummary,
 		Doc:     advanceGenerationDoc,
@@ -78,14 +80,18 @@ func (c *advanceGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init implements part of the cmd.Command interface.
 func (c *advanceGenerationCommand) Init(args []string) error {
 	if len(args) == 0 {
+		return errors.Errorf("a branch name plus unit and/or application names(s) must be specified")
+	}
+	if len(args) == 1 {
 		return errors.Errorf("unit and/or application names(s) must be specified")
 	}
-	for _, arg := range args {
+	for _, arg := range args[1:] {
 		if !names.IsValidApplication(arg) && !names.IsValidUnit(arg) {
 			return errors.Errorf("invalid application or unit name %q", arg)
 		}
 	}
-	c.entities = args
+	c.branchName = args[0]
+	c.entities = args[1:]
 	return nil
 }
 
@@ -115,19 +121,5 @@ func (c *advanceGenerationCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting model details")
 	}
 
-	completed, err := client.AdvanceGeneration(modelDetails.ModelUUID, c.entities)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// If the unit advancement caused the generation to be completed,
-	// notify the user and set the local store generation back to "current".
-	if completed {
-		if err = c.SetModelGeneration(model.GenerationCurrent); err == nil {
-			_, err = ctx.Stdout.Write([]byte(
-				"generation automatically completed; target generation set to \"current\"\n"))
-		}
-
-	}
-	return errors.Trace(err)
+	return errors.Trace(client.TrackBranch(modelDetails.ModelUUID, c.branchName, c.entities))
 }

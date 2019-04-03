@@ -90,7 +90,7 @@ var getTests = []struct {
 				},
 			},
 			"settings":                               charmSettings,
-			"changes will be targeted to generation": interface{}("current"),
+			"changes will be targeted to generation": interface{}(model.GenerationMaster),
 		},
 	}, {
 		"dummy-application",
@@ -99,7 +99,7 @@ var getTests = []struct {
 			"application":                            "dummy-application",
 			"charm":                                  "dummy",
 			"settings":                               charmSettings,
-			"changes will be targeted to generation": interface{}("current"),
+			"changes will be targeted to generation": interface{}(model.GenerationMaster),
 		},
 	},
 }
@@ -120,7 +120,7 @@ func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.fake = &fakeApplicationAPI{
-		generation:  model.GenerationCurrent,
+		branchName:  model.GenerationMaster,
 		name:        "dummy-application",
 		charmName:   "dummy",
 		charmValues: s.defaultCharmValues,
@@ -157,7 +157,9 @@ func (s *configCommandSuite) TestGetCommandInitWithKey(c *gc.C) {
 
 func (s *configCommandSuite) TestGetCommandInitWithGeneration(c *gc.C) {
 	err := cmdtesting.InitCommand(
-		application.NewConfigCommandForTest(s.fake, s.store), []string{"app", "key", "--generation", "current"})
+		application.NewConfigCommandForTest(s.fake, s.store),
+		[]string{"app", "key", "--branch", model.GenerationMaster},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -171,6 +173,7 @@ func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 		code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{t.application})
 		c.Check(code, gc.Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+
 		// round trip via goyaml to avoid being sucked into a quagmire of
 		// map[interface{}]interface{} vs map[string]interface{}. This is
 		// also required if we add json support to this command.
@@ -182,6 +185,7 @@ func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 
 		actual := make(map[string]interface{})
 		err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
+		c.Log(ctx.Stdout.(*bytes.Buffer).String())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(actual, jc.DeepEquals, expected)
 	}
@@ -265,13 +269,9 @@ var setCommandInitErrorTests = []struct {
 	args:        []string{"application", "key", "another"},
 	expectError: "can only retrieve a single value, or all values",
 }, {
-	about:       "--generation with no value",
-	args:        []string{"application", "key", "--generation"},
-	expectError: "option needs an argument: --generation",
-}, {
-	about:       "--generation with invalid value",
-	args:        []string{"application", "key", "--generation", "not-there"},
-	expectError: `generation option must be "current" or "next"`,
+	about:       "--branch with no value",
+	args:        []string{"application", "key", "--branch"},
+	expectError: "option needs an argument: --branch",
 }}
 
 func (s *configCommandSuite) TestSetCommandInitError(c *gc.C) {
@@ -312,8 +312,8 @@ func (s *configCommandSuite) TestSetCharmConfigSuccess(c *gc.C) {
 		"outlook":  "hello@world.tld",
 	})
 	s.assertSetSuccess(c, s.dir, []string{
-		"--generation",
-		"current",
+		"--branch",
+		model.GenerationMaster,
 		"username=hello",
 		"outlook=hello@world.tld",
 	}, s.defaultAppValues, map[string]interface{}{
@@ -321,12 +321,12 @@ func (s *configCommandSuite) TestSetCharmConfigSuccess(c *gc.C) {
 		"outlook":  "hello@world.tld",
 	})
 
-	s.fake.generation = model.GenerationNext
+	s.fake.branchName = "new-branch"
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello",
 		"outlook=hello@world.tld",
-		"--generation",
-		"next",
+		"--branch",
+		"new-branch",
 	}, s.defaultAppValues, map[string]interface{}{
 		"username": "hello",
 		"outlook":  "hello@world.tld",

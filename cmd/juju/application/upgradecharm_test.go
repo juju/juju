@@ -126,7 +126,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 	}
 	store.Models["foo"] = &jujuclient.ControllerModels{
 		CurrentModel: "admin/bar",
-		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {ModelGeneration: model.GenerationNext}},
+		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {ModelGeneration: model.GenerationMaster}},
 	}
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		s.AddCall("OpenAPI")
@@ -177,7 +177,7 @@ func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
 
-	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationNext, application.SetCharmConfig{
+	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -227,7 +227,7 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
 
-	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationNext, application.SetCharmConfig{
+	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -913,19 +913,17 @@ type mockCharmAPIClient struct {
 	charmURL *charm.URL
 }
 
-func (m *mockCharmAPIClient) GetCharmURL(generation model.GenerationVersion, appName string) (*charm.URL, error) {
-	m.MethodCall(m, "GetCharmURL", generation, appName)
+func (m *mockCharmAPIClient) GetCharmURL(branchName, appName string) (*charm.URL, error) {
+	m.MethodCall(m, "GetCharmURL", branchName, appName)
 	return m.charmURL, m.NextErr()
 }
 
-func (m *mockCharmAPIClient) SetCharm(generation model.GenerationVersion, cfg application.SetCharmConfig) error {
-	m.MethodCall(m, "SetCharm", generation, cfg)
+func (m *mockCharmAPIClient) SetCharm(branchName string, cfg application.SetCharmConfig) error {
+	m.MethodCall(m, "SetCharm", branchName, cfg)
 	return m.NextErr()
 }
 
-func (m *mockCharmAPIClient) Get(
-	generation model.GenerationVersion, applicationName string,
-) (*params.ApplicationGetResults, error) {
+func (m *mockCharmAPIClient) Get(branchName, applicationName string) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", applicationName)
 	return &params.ApplicationGetResults{}, m.NextErr()
 }

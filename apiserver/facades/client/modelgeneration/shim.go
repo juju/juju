@@ -25,6 +25,6 @@ type generationModelShim struct {
 	*state.Model
 }
 
-func (g *generationModelShim) NextGeneration() (Generation, error) {
-	return g.Model.NextGeneration()
+func (g *generationModelShim) Branch(name string) (Generation, error) {
+	return g.Model.Branch(name)
 }
