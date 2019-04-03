@@ -6,12 +6,15 @@ package instancemutater
 import (
 	"fmt"
 
+	"github.com/juju/juju/core/lxdprofile"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -19,9 +22,12 @@ import (
 //go:generate mockgen -package mocks -destination mocks/caller_mock.go github.com/juju/juju/api/base APICaller,FacadeCaller
 //go:generate mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/instancemutater MutaterMachine
 type MutaterMachine interface {
+
+	// InstanceId returns the provider specific instance id for this machine
+	InstanceId() (string, error)
+
 	// CharmProfilingInfo returns info to update lxd profiles on the machine
-	// based on the given unit names.
-	CharmProfilingInfo([]string) (*ProfileInfo, error)
+	CharmProfilingInfo() (*UnitProfileInfo, error)
 
 	// SetCharmProfiles records the given slice of charm profile names.
 	SetCharmProfiles([]string) error
@@ -61,6 +67,26 @@ type Machine struct {
 
 	tag  names.MachineTag
 	life params.Life
+}
+
+// InstanceId implements MutaterMachine.InstanceId.
+func (m *Machine) InstanceId() (string, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.facade.FacadeCall("InstanceId", args, &results)
+	if err != nil {
+		return "", err
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Result, nil
 }
 
 // SetCharmProfiles implements MutaterMachine.SetCharmProfiles.
@@ -140,54 +166,45 @@ func (m *Machine) WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error) {
 	return apiwatcher.NewNotifyWatcher(m.facade.RawAPICaller(), result), nil
 }
 
-type ProfileInfo struct {
-	Changes         bool
-	ProfileChanges  []ProfileChanges
+type UnitProfileInfo struct {
+	ModelName       string
+	InstanceId      instance.Id
+	ProfileChanges  []UnitProfileChanges
 	CurrentProfiles []string
 }
 
-type ProfileChanges struct {
-	OldProfileName string
-	NewProfileName string
-	Profile        *CharmLXDProfile
-	Subordinate    bool
-}
-
-type CharmLXDProfile struct {
-	Config      map[string]string
-	Description string
-	Devices     map[string]map[string]string
+type UnitProfileChanges struct {
+	ApplicationName string
+	Revision        int
+	Profile         lxdprofile.Profile
 }
 
 // CharmProfilingInfo implements MutaterMachine.CharmProfilingInfo.
-func (m *Machine) CharmProfilingInfo(unitNames []string) (*ProfileInfo, error) {
+func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
 	var result params.CharmProfilingInfoResult
-	args := params.CharmProfilingInfoArg{
-		Entity:    params.Entity{Tag: m.tag.String()},
-		UnitNames: unitNames,
-	}
+	args := params.Entity{Tag: m.tag.String()}
 	err := m.facade.FacadeCall("CharmProfilingInfo", args, &result)
 	if err != nil {
 		return nil, err
 	}
-	returnResult := &ProfileInfo{
-		Changes:         result.Changes,
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	returnResult := &UnitProfileInfo{
+		InstanceId:      result.InstanceId,
+		ModelName:       result.ModelName,
 		CurrentProfiles: result.CurrentProfiles,
 	}
-	if !result.Changes {
-		return returnResult, nil
-	}
-	profileChanges := make([]ProfileChanges, len(result.ProfileChanges))
+	profileChanges := make([]UnitProfileChanges, len(result.ProfileChanges))
 	for i, change := range result.ProfileChanges {
-		profileChanges[i].NewProfileName = change.NewProfileName
-		profileChanges[i].OldProfileName = change.OldProfileName
-		profileChanges[i].Subordinate = change.Subordinate
-		if change.Profile != nil {
-			profileChanges[i].Profile = &CharmLXDProfile{
+		profileChanges[i] = UnitProfileChanges{
+			ApplicationName: change.ApplicationName,
+			Revision:        change.Revision,
+			Profile: lxdprofile.Profile{
 				Config:      change.Profile.Config,
 				Description: change.Profile.Description,
 				Devices:     change.Profile.Devices,
-			}
+			},
 		}
 		if change.Error != nil {
 			return nil, change.Error

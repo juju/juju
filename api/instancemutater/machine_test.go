@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/api/instancemutater/mocks"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/testing"
@@ -137,61 +138,28 @@ func (s *instanceMutaterMachineSuite) TestWatchApplicationLXDProfilesServerError
 func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	args := params.CharmProfilingInfoArg{
-		Entity:    params.Entity{Tag: s.tag.String()},
-		UnitNames: []string{s.unitName},
-	}
+	args := params.Entity{Tag: s.tag.String()}
 	results := params.CharmProfilingInfoResult{
-		Changes:         true,
+		InstanceId:      instance.Id("juju-gd4c23-0"),
+		ModelName:       "default",
 		CurrentProfiles: []string{"juju-default-neutron-ovswitch-255"},
 		Error:           nil,
-		ProfileChanges: []params.ProfileChangeResult{{
-			OldProfileName: "",
-			NewProfileName: "juju-default-lxd-profile-3",
+		ProfileChanges: []params.ProfileInfoResult{{
 			Profile: &params.CharmLXDProfile{
 				Description: "Test Profile",
 			},
-			Subordinate: true,
 		}},
 	}
 
 	fExp := s.fCaller.EXPECT()
 	fExp.FacadeCall("CharmProfilingInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
 
-	info, err := s.setupMachine().CharmProfilingInfo([]string{s.unitName})
+	info, err := s.setupMachine().CharmProfilingInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Changes, jc.IsTrue)
+	c.Assert(info.InstanceId, gc.Equals, results.InstanceId)
+	c.Assert(info.ModelName, gc.Equals, results.ModelName)
 	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
-	c.Assert(info.ProfileChanges[0].OldProfileName, gc.Equals, results.ProfileChanges[0].OldProfileName)
-	c.Assert(info.ProfileChanges[0].NewProfileName, gc.Equals, results.ProfileChanges[0].NewProfileName)
 	c.Assert(info.ProfileChanges[0].Profile.Description, gc.Equals, "Test Profile")
-	c.Assert(info.ProfileChanges[0].Subordinate, jc.IsTrue)
-}
-
-func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessNoChanges(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	args := params.CharmProfilingInfoArg{
-		Entity:    params.Entity{Tag: s.tag.String()},
-		UnitNames: []string{s.unitName},
-	}
-	results := params.CharmProfilingInfoResult{
-		Changes:         false,
-		CurrentProfiles: []string{"juju-default-neutron-ovswitch-255"},
-		Error:           nil,
-		ProfileChanges: []params.ProfileChangeResult{{
-			NewProfileName: "juju-default-lxd-profile-3", // including to make sure it's not copied over.
-		}},
-	}
-
-	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("CharmProfilingInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
-
-	info, err := s.setupMachine().CharmProfilingInfo([]string{s.unitName})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Changes, jc.IsFalse)
-	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
-	c.Assert(info.ProfileChanges, gc.HasLen, 0)
 }
 
 func (s *instanceMutaterMachineSuite) TestSetModificationStatus(c *gc.C) {
