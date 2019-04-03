@@ -7,9 +7,6 @@ import (
 	core "k8s.io/api/core/v1"
 )
 
-// // ControllerServiceTypeKey defines controller service type key.
-// const ControllerServiceTypeKey = "controller-service-type"
-
 var preferredControllerServiceTypes = map[string]core.ServiceType{
 	K8sCloudAzure:    core.ServiceTypeLoadBalancer,
 	K8sCloudCDK:      core.ServiceTypeLoadBalancer,

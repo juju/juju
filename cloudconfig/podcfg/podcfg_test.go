@@ -60,6 +60,7 @@ func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 		cfg,
 		"controller-1",
 		"kubernetes",
+		"LoadBalancer",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	podConfig.JujuVersion = version.MustParse("6.6.6")
@@ -74,6 +75,7 @@ func (*podcfgSuite) TestOperatorImagesCustomRepo(c *gc.C) {
 		cfg,
 		"controller-1",
 		"kubernetes",
+		"LoadBalancer",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	podConfig.JujuVersion = version.MustParse("6.6.6")

@@ -202,7 +202,6 @@ func bootstrapCAAS(
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
-	logger.Criticalf("args -> %+v", args)
 	if args.BuildAgent {
 		return errors.NewNotSupported(nil, "--build-agent when bootstrapping a k8s controller")
 	}

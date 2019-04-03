@@ -61,10 +61,6 @@ type BootstrapParams struct {
 	// that rely on it for selecting images. This will be empty for
 	// providers that do not implements simplestreams.HasRegion.
 	ImageMetadata []*imagemetadata.ImageMetadata
-
-	// // ControllerServiceType is the service type to use for a k8s controller.
-	// // Optional: only for k8s controller.
-	// ControllerServiceType string
 }
 
 // CloudBootstrapFinalizer is a function returned from Environ.Bootstrap.

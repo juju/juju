@@ -17,7 +17,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
-	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
@@ -61,10 +60,6 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		)
 	}
 	err := st.APICall("Admin", 3, "", "Login", request, &result)
-
-	data, err := goyaml.Marshal(result)
-	logger.Criticalf("Login request -> %+v, result -> \n%s", request, string(data))
-
 	if err != nil {
 		var resp params.RedirectInfoResult
 		if params.IsRedirect(err) {

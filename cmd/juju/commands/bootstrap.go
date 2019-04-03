@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -738,7 +739,6 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	bootstrapParams.CloudCredential = credentials.credential
 	bootstrapParams.CloudCredentialName = credentials.name
 
-	logger.Criticalf("bootstrapParams --> %+v", bootstrapParams.ControllerServiceType)
 	bootstrapFuncs := getBootstrapFuncs()
 	if err = bootstrapFuncs.Bootstrap(
 		modelcmd.BootstrapContext(ctx),
@@ -796,7 +796,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		)
 	}
 
-	if err = k8sprovider.ReScheduler(controllerDataRefresher, errors.IsNotProvisioned, 2*time.Minute); err != nil {
+	if err = k8sprovider.ReScheduler(controllerDataRefresher, errors.IsNotProvisioned, jujuclock.WallClock, 3*time.Minute); err != nil {
 		return errors.Trace(err)
 	}
 

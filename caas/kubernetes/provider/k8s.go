@@ -1678,11 +1678,6 @@ func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
 	return errors.Trace(err)
 }
 
-// getK8sService gets a k8s service resource by service name.
-func (k *kubernetesClient) getK8sService(name string) error {
-	return nil
-}
-
 // deleteService deletes a service resource.
 func (k *kubernetesClient) deleteService(deploymentName string) error {
 	services := k.CoreV1().Services(k.namespace)

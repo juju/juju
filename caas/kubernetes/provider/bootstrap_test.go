@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -54,7 +56,8 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
 
 	s.controllerCfg = testing.FakeControllerConfig()
-	pcfg, err := podcfg.NewBootstrapControllerPodConfig(s.controllerCfg, controllerName, "bionic")
+	s.controllerCfg[controller.APIPort] = 17070
+	pcfg, err := podcfg.NewBootstrapControllerPodConfig(s.controllerCfg, controllerName, "bionic", "ClusterIP")
 	c.Assert(err, jc.ErrorIsNil)
 
 	pcfg.JujuVersion = jujuversion.Current
@@ -85,6 +88,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 		StatePort:    123,
 		APIPort:      456,
 	}
+	pcfg.Bootstrap.ControllerConfig = s.controllerCfg
 	s.pcfg = pcfg
 	s.controllerStackerGetter = func() provider.ControllerStackerForTest {
 		controllerStacker, err := provider.NewcontrollerStackForTest(
@@ -192,17 +196,31 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Type:     core.ServiceType("ClusterIP"),
 			Ports: []core.ServicePort{
 				{
-					Name:       "mongodb",
-					TargetPort: intstr.FromInt(37017),
-					Port:       37017,
-					Protocol:   "TCP",
+					Name:       "api-server",
+					TargetPort: intstr.FromInt(17070),
+					Port:       17070,
 				},
+			},
+		},
+	}
+
+	svcProvisioned := core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "juju-controller-test-service",
+			Labels:    map[string]string{"juju-app": "juju-controller-test"},
+			Namespace: s.getNamespace(),
+		},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{"juju-app": "juju-controller-test"},
+			Type:     core.ServiceType("ClusterIP"),
+			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
 					TargetPort: intstr.FromInt(17070),
 					Port:       17070,
 				},
 			},
+			ClusterIP: "1.1.1.1",
 		},
 	}
 
@@ -526,6 +544,16 @@ test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /va
 		s.mockServices.EXPECT().Create(svc).Times(1).
 			Return(svc, nil),
 
+		// below calls are for GetService.
+		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).Times(1).
+			Return(&core.ServiceList{Items: []core.Service{svcProvisioned}}, nil),
+		s.mockStatefulSets.EXPECT().Get("juju-operator-juju-controller-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+
 		// ensure shared-secret secret.
 		s.mockSecrets.EXPECT().Get("juju-controller-test-secret", v1.GetOptions{IncludeUninitialized: true}).AnyTimes().
 			Return(nil, s.k8sNotFoundError()),
@@ -570,5 +598,20 @@ test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /va
 		s.mockStatefulSets.EXPECT().Create(statefulSetSpec).Times(1).
 			Return(statefulSetSpec, nil),
 	)
-	c.Assert(controllerStacker.Deploy(), jc.ErrorIsNil)
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- controllerStacker.Deploy()
+	}()
+
+	err = s.clock.WaitAdvance(3*time.Second, testing.LongWait, 2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for deploy error")
+	}
+
 }

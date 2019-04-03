@@ -133,7 +133,6 @@ func (c Config) Validate() error {
 // $JUJU_DATA/ca-private-key.pem. If none of these are set, an
 // error is returned.
 func NewConfig(attrs map[string]interface{}) (Config, error) {
-	logger.Criticalf("attrs 1-> %+v", attrs)
 	coerced, err := configChecker.Coerce(attrs, nil)
 	if err != nil {
 		return Config{}, errors.Trace(err)
@@ -147,7 +146,6 @@ func NewConfig(attrs map[string]interface{}) (Config, error) {
 	if svcType, ok := attrs[ControllerServiceTypeKey].(string); ok {
 		config.ControllerServiceType = svcType
 	}
-	logger.Criticalf("attrs 2-> %+v", attrs)
 	if adminSecret, ok := attrs[AdminSecretKey].(string); ok {
 		config.AdminSecret = adminSecret
 	} else {
@@ -243,6 +241,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CACertKey + "-path":        schema.Omit,
 	CAPrivateKeyKey:            schema.Omit,
 	CAPrivateKeyKey + "-path":  schema.Omit,
+	ControllerServiceTypeKey:   schema.Omit,
 	BootstrapTimeoutKey:        DefaultBootstrapSSHTimeout,
 	BootstrapRetryDelayKey:     DefaultBootstrapSSHRetryDelay,
 	BootstrapAddressesDelayKey: DefaultBootstrapSSHAddressesDelay,

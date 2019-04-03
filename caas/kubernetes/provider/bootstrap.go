@@ -4,7 +4,6 @@
 package provider
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -44,7 +44,8 @@ var (
 )
 
 type controllerStack struct {
-	ctx environs.BootstrapContext
+	ctx   environs.BootstrapContext
+	clock jujuclock.Clock
 
 	stackName   string
 	stackLabels map[string]string
@@ -103,19 +104,19 @@ func DecideControllerNamespace(controllerName string) string {
 	return "controller-" + controllerName
 }
 
-// ReScheduler executes a function and keep retrying if the function returns an expected error.
+// ReScheduler executes a function and keep retrying until timeout if the function returns an expected error.
 func ReScheduler(
 	do func() error,
 	expectedErrorChecker func(error) bool,
+	clock jujuclock.Clock,
 	timeout time.Duration,
 ) (err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 	retryInterval := 3 * time.Second
 	for {
 		select {
-		case <-time.After(retryInterval):
+		case <-clock.After(retryInterval):
 			err = do()
+			logger.Criticalf("do --> %v", err)
 			if err == nil {
 				return nil
 			}
@@ -127,9 +128,8 @@ func ReScheduler(
 				retryInterval,
 			)
 			// got expected error, keep retrying.
-		case <-ctx.Done():
-			err = ctx.Err()
-			return errors.Trace(err)
+		case <-clock.After(timeout):
+			return errors.Timeoutf("%q exceeded", timeout.String())
 		}
 	}
 }
@@ -175,6 +175,7 @@ func newcontrollerStack(
 
 	cs := controllerStack{
 		ctx:         ctx,
+		clock:       broker.clock,
 		stackName:   stackName,
 		stackLabels: map[string]string{labelApplication: stackName},
 		broker:      broker,
@@ -379,9 +380,9 @@ func (c controllerStack) createControllerService() error {
 			"setting controller public DNS to %v", publicAddress,
 		)
 	}
-
+	// keep polling the svc public address until timeout in 3 minutes(this should be enough time to provision the LB).
 	return errors.Trace(
-		ReScheduler(publicAddressPoller, errors.IsNotProvisioned, 2*time.Minute),
+		ReScheduler(publicAddressPoller, errors.IsNotProvisioned, c.clock, 3*time.Minute),
 	)
 }
 
