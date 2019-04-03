@@ -91,9 +91,9 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 	}, nil
 }
 
-// CharmProfilingInfo returns info to update lxd profiles on the machine
-// based on the given unit names.  If the machine is not provisioned,
-// no profile change info will be returned, nor will an error.
+// CharmProfilingInfo returns info to update lxd profiles on the machine. If
+// the machine is not provisioned, no profile change info will be returned,
+// nor will an error.
 func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error) {
 	result := params.CharmProfilingInfoResult{
 		ProfileChanges: make([]params.ProfileInfoResult, 0),
