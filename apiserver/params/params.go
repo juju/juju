@@ -1072,12 +1072,19 @@ type ProfileArgs struct {
 	Args []ProfileArg `json:"args"`
 }
 
-type ProfileChangeResult struct {
+type ProfileInfoResult struct {
 	ApplicationName string           `json:"application-name,omitempty"`
-	Subordinate     bool             `json:"subordinate,omitempty"`
 	Revision        int              `json:"revision,omitempty"`
 	Profile         *CharmLXDProfile `json:"profile,omitempty"`
 	Error           *Error           `json:"error,omitempty"`
+}
+
+type ProfileChangeResult struct {
+	OldProfileName string           `json:"old-profile-name,omitempty"`
+	NewProfileName string           `json:"new-profile-name,omitempty"`
+	Profile        *CharmLXDProfile `json:"profile,omitempty"`
+	Subordinate    bool             `json:"subordinate,omitempty"`
+	Error          *Error           `json:"error,omitempty"`
 }
 
 type ProfileChangeResults struct {
@@ -1170,9 +1177,9 @@ type GenerationResult struct {
 // CharmProfilingInfoResult contains the result based on ProfileInfoArg values
 // to update profiles on a machine.
 type CharmProfilingInfoResult struct {
-	InstanceId      instance.Id           `json:"instance-id"`
-	ModelName       string                `json:"model-name"`
-	ProfileChanges  []ProfileChangeResult `json:"profile-changes"`
-	CurrentProfiles []string              `json:"current-profiles"`
-	Error           *Error                `json:"error"`
+	InstanceId      instance.Id         `json:"instance-id"`
+	ModelName       string              `json:"model-name"`
+	ProfileChanges  []ProfileInfoResult `json:"profile-changes"`
+	CurrentProfiles []string            `json:"current-profiles"`
+	Error           *Error              `json:"error"`
 }

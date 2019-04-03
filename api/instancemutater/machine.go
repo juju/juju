@@ -201,7 +201,6 @@ func (m *Machine) CharmProfilingInfo() (*ProfileInfo, error) {
 	}
 	profileChanges := make([]ProfileChanges, len(result.ProfileChanges))
 	for i, change := range result.ProfileChanges {
-		profileChanges[i].Subordinate = change.Subordinate
 		if change.Profile != nil {
 			profileChanges[i].Profile = &CharmLXDProfile{
 				Config:      change.Profile.Config,

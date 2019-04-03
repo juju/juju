@@ -96,7 +96,7 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 // no profile change info will be returned, nor will an error.
 func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error) {
 	result := params.CharmProfilingInfoResult{
-		ProfileChanges: make([]params.ProfileChangeResult, 0),
+		ProfileChanges: make([]params.ProfileInfoResult, 0),
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
@@ -120,7 +120,7 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.Cha
 	// use the results from the machineLXDProfileInfo and apply them to the
 	// result
 	result.InstanceId = lxdProfileInfo.InstanceId
-	result.ModelName = api.model.Name()
+	result.ModelName = lxdProfileInfo.ModelName
 	result.CurrentProfiles = lxdProfileInfo.MachineProfiles
 	result.ProfileChanges = lxdProfileInfo.ProfileUnits
 
@@ -278,7 +278,7 @@ type lxdProfileInfo struct {
 	InstanceId      instance.Id
 	ModelName       string
 	MachineProfiles []string
-	ProfileUnits    []params.ProfileChangeResult
+	ProfileUnits    []params.ProfileInfoResult
 }
 
 func (api *InstanceMutaterAPI) machineLXDProfileInfo(m ModelCacheMachine) (lxdProfileInfo, error) {
@@ -297,7 +297,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m ModelCacheMachine) (lxdPr
 		return empty, errors.Trace(err)
 	}
 	machineProfiles := m.CharmProfiles()
-	changeResults := make([]params.ProfileChangeResult, len(units))
+	changeResults := make([]params.ProfileInfoResult, len(units))
 	for i, unit := range units {
 		appName := unit.Application()
 		app, err := api.model.Application(appName)
@@ -305,29 +305,32 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m ModelCacheMachine) (lxdPr
 			changeResults[i].Error = common.ServerError(err)
 			continue
 		}
-		ch, err := api.model.Charm(app.CharmURL())
+		chURL := app.CharmURL()
+		ch, err := api.model.Charm(chURL)
 		if err != nil {
 			changeResults[i].Error = common.ServerError(err)
 			continue
 		}
 
-		charmURL, err := charm.ParseURL(app.CharmURL())
+		charmURL, err := charm.ParseURL(chURL)
 		if err != nil {
 			changeResults[i].Error = common.ServerError(err)
 			continue
 		}
 
-		profile := ch.LXDProfile()
-		changeResults = append(changeResults, params.ProfileChangeResult{
-			ApplicationName: appName,
-			Subordinate:     false,
-			Revision:        charmURL.Revision,
-			Profile: &params.CharmLXDProfile{
+		var normalised *params.CharmLXDProfile
+		if profile := ch.LXDProfile(); !profile.Empty() {
+			normalised = &params.CharmLXDProfile{
 				Config:      profile.Config,
 				Description: profile.Description,
 				Devices:     profile.Devices,
-			},
-		})
+			}
+		}
+		changeResults[i] = params.ProfileInfoResult{
+			ApplicationName: appName,
+			Revision:        charmURL.Revision,
+			Profile:         normalised,
+		}
 	}
 	return lxdProfileInfo{
 		InstanceId:      instId,

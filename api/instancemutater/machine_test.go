@@ -144,11 +144,10 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 		ModelName:       "default",
 		CurrentProfiles: []string{"juju-default-neutron-ovswitch-255"},
 		Error:           nil,
-		ProfileChanges: []params.ProfileChangeResult{{
+		ProfileChanges: []params.ProfileInfoResult{{
 			Profile: &params.CharmLXDProfile{
 				Description: "Test Profile",
 			},
-			Subordinate: true,
 		}},
 	}
 
@@ -161,7 +160,6 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 	c.Assert(info.ModelName, gc.Equals, results.ModelName)
 	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
 	c.Assert(info.ProfileChanges[0].Profile.Description, gc.Equals, "Test Profile")
-	c.Assert(info.ProfileChanges[0].Subordinate, jc.IsTrue)
 }
 
 func (s *instanceMutaterMachineSuite) TestSetModificationStatus(c *gc.C) {
