@@ -72,6 +72,7 @@ type HardwareCharacteristics struct {
 
 	// RootDisk is the size of the disk in megabytes.
 	RootDisk *uint64 `json:"root-disk,omitempty" yaml:"rootdisk,omitempty"`
+
 	// RootDiskSource is where the disk storage resides.
 	RootDiskSource *string `json:"root-disk-source,omitempty" yaml:"rootdisksource,omitempty"`
 
