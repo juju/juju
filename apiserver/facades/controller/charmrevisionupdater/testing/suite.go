@@ -62,7 +62,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 		"logging":   "quantal/logging-27",
 	}
 	for name, url := range urls {
-		testcharms.UploadCharm(c, s.Client, url, name)
+		testcharms.UploadCharm(c, &testcharmsClientShim{s.Client}, url, name)
 	}
 	s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	// Patch the charm repo initializer function: it is replaced with a charm

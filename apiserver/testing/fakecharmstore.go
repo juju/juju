@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmstore.v5"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
@@ -21,6 +22,14 @@ import (
 
 	"github.com/juju/juju/testcharms"
 )
+
+type testcharmsClientShim struct {
+	*csclient.Client
+}
+
+func (c *testcharmsClientShim) WithChannel(channel params.Channel) testcharms.CharmstoreClient {
+	return c.WithChannel(channel)
+}
 
 type CharmStoreSuite struct {
 	testing.CleanupSuite
@@ -77,9 +86,9 @@ func (s *CharmStoreSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *CharmStoreSuite) UploadCharm(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
-	return testcharms.UploadCharm(c, s.Client, url, name)
+	return testcharms.UploadCharm(c, &testcharmsClientShim{s.Client}, url, name)
 }
 
 func (s *CharmStoreSuite) UploadCharmMultiSeries(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
-	return testcharms.UploadCharmMultiSeries(c, s.Client, url, name)
+	return testcharms.UploadCharmMultiSeries(c, &testcharmsClientShim{s.Client}, url, name)
 }
