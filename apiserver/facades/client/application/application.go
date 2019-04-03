@@ -2125,7 +2125,7 @@ func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error 
 }
 
 func (api *APIBase) addAppToBranch(branchName string, appName string) error {
-	gen, err := api.backend.Branch(string(branchName))
+	gen, err := api.backend.Branch(branchName)
 	if err != nil {
 		return errors.Annotate(err, "retrieving next generation")
 	}

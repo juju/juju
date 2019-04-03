@@ -279,7 +279,7 @@ func (g *Generation) Commit(userName string) (int, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			newGenId = int(id)
+			newGenId = id
 		}
 
 		// As a proxy for checking that the generation has not changed,
