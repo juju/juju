@@ -7,7 +7,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/storage"
 )
 
@@ -96,7 +95,7 @@ type ApplicationUpdate struct {
 
 	// Generation is the generation version in which this
 	// request will update the application.
-	Generation model.GenerationVersion `json:"generation"`
+	Generation string `json:"generation"`
 }
 
 // ApplicationSetCharm sets the charm for a given application.
@@ -106,7 +105,7 @@ type ApplicationSetCharm struct {
 
 	// Generation is the generation version that this
 	// request will set the application charm for.
-	Generation model.GenerationVersion `json:"generation"`
+	Generation string `json:"generation"`
 
 	// CharmURL is the new url for the charm.
 	CharmURL string `json:"charm-url"`
@@ -157,7 +156,7 @@ type ApplicationSet struct {
 
 	// Generation is the generation version that this request
 	// will set application configuration options for.
-	Generation model.GenerationVersion `json:"generation"`
+	Generation string `json:"generation"`
 
 	Options map[string]string `json:"options"`
 }
@@ -170,7 +169,7 @@ type ApplicationUnset struct {
 
 	// Generation is the generation version that this request
 	// will unset application configuration options for.
-	Generation model.GenerationVersion `json:"generation"`
+	Generation string `json:"generation"`
 
 	Options []string `json:"options"`
 }
@@ -188,7 +187,7 @@ type ApplicationGet struct {
 
 	// Generation is the generation version that this
 	// request will retrieve application data for.
-	Generation model.GenerationVersion `json:"generation"`
+	Generation string `json:"generation"`
 }
 
 // ApplicationGetResults holds results of the application Get call.
@@ -215,7 +214,7 @@ type ApplicationConfigSet struct {
 
 	// Generation is the generation version that this request
 	// will set application configuration for.
-	Generation model.GenerationVersion `json:"generation"`
+	Generation string `json:"generation"`
 
 	Config map[string]string `json:"config"`
 }

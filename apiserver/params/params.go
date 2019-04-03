@@ -1103,31 +1103,18 @@ type SetProfileUpgradeCompleteArg struct {
 	Message  string `json:"message"`
 }
 
-// GenerationVersionArg contains a Model Entity to act in and the
-// GenerationVersion to switch to.
-type GenerationVersionArg struct {
-	Model   Entity                  `json:"model"`
-	Version model.GenerationVersion `json:"version"`
+// BranchArg represents an in-flight branch via its model and branch name.
+type BranchArg struct {
+	Model      Entity `json:"model"`
+	BranchName string `json:"branch"`
 }
 
-// AdvanceGenerationArg contains a Model Entity to act in and a slice of
-// Entities to advance into the 'next' generation.
-type AdvanceGenerationArg struct {
-	Model    Entity   `json:"model"`
-	Entities []Entity `json:"entities"`
-}
-
-// AdvanceGenerationResult contains the results of a call to AdvanceGeneration.
-type AdvanceGenerationResult struct {
-	// AdvanceResults contains the results from advancing each of the supplied
-	// entities to the next generation.
-	AdvanceResults ErrorResults `json:"advance-results"`
-
-	// CompletedResult will be non-empty when advancing units to the next
-	// generation invokes the generation's auto-completion.
-	// The results of rolling the next generation into the current will be
-	// represented here.
-	CompleteResult BoolResult `json:"complete-result,omitempty"`
+// BranchTrackArg identifies an in-flight branch and a collection of
+// entities that should be set to track changes made under the branch.
+type BranchTrackArg struct {
+	Model      Entity   `json:"model"`
+	BranchName string   `json:"branch"`
+	Entities   []Entity `json:"entities"`
 }
 
 // GenerationApplication represents changes to an application
@@ -1147,6 +1134,9 @@ type GenerationApplication struct {
 
 // Generation represents a model generation's details including config changes.
 type Generation struct {
+	// BranchName uniquely identifies a branch *amongst in-flight branches*.
+	BranchName string `json:"branch"`
+
 	// Created is the Unix timestamp at generation creation.
 	Created int64 `json:"created"`
 

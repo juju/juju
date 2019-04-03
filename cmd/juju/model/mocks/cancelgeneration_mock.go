@@ -32,18 +32,6 @@ func (m *MockCancelGenerationCommandAPI) EXPECT() *MockCancelGenerationCommandAP
 	return m.recorder
 }
 
-// CancelGeneration mocks base method
-func (m *MockCancelGenerationCommandAPI) CancelGeneration(arg0 string) error {
-	ret := m.ctrl.Call(m, "CancelGeneration", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CancelGeneration indicates an expected call of CancelGeneration
-func (mr *MockCancelGenerationCommandAPIMockRecorder) CancelGeneration(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelGeneration", reflect.TypeOf((*MockCancelGenerationCommandAPI)(nil).CancelGeneration), arg0)
-}
-
 // Close mocks base method
 func (m *MockCancelGenerationCommandAPI) Close() error {
 	ret := m.ctrl.Call(m, "Close")
@@ -54,4 +42,17 @@ func (m *MockCancelGenerationCommandAPI) Close() error {
 // Close indicates an expected call of Close
 func (mr *MockCancelGenerationCommandAPIMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockCancelGenerationCommandAPI)(nil).Close))
+}
+
+// CommitBranch mocks base method
+func (m *MockCancelGenerationCommandAPI) CommitBranch(arg0, arg1 string) (int, error) {
+	ret := m.ctrl.Call(m, "CommitBranch", arg0, arg1)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommitBranch indicates an expected call of CommitBranch
+func (mr *MockCancelGenerationCommandAPIMockRecorder) CommitBranch(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitBranch", reflect.TypeOf((*MockCancelGenerationCommandAPI)(nil).CommitBranch), arg0, arg1)
 }

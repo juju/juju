@@ -27,7 +27,6 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 )
@@ -157,7 +156,7 @@ type Repository struct {
 	revisions     map[params.Channel]map[charm.URL]int
 	added         map[string][]charm.URL
 	resourcesData datastore
-	generations   map[model.GenerationVersion]string
+	generations   map[string]string
 }
 
 // NewRepository returns an empty Repository. To populate it with charms, bundles and resources

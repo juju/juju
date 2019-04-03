@@ -4,6 +4,8 @@
 package model
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -11,7 +13,6 @@ import (
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
 )
 
 const (
@@ -43,19 +44,22 @@ type addGenerationCommand struct {
 	modelcmd.ModelCommandBase
 
 	api AddGenerationCommandAPI
+
+	branchName string
 }
 
 // AddGenerationCommandAPI defines an API interface to be used during testing.
 //go:generate mockgen -package mocks -destination ./mocks/addgeneration_mock.go github.com/juju/juju/cmd/juju/model AddGenerationCommandAPI
 type AddGenerationCommandAPI interface {
 	Close() error
-	AddGeneration(string) error
+	AddGeneration(string, string) error
 }
 
 // Info implements part of the cmd.Command interface.
 func (c *addGenerationCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:    "add-generation",
+		Args:    "<branch name>",
 		Purpose: addGenerationSummary,
 		Doc:     addGenerationDoc,
 	}
@@ -69,9 +73,10 @@ func (c *addGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements part of the cmd.Command interface.
 func (c *addGenerationCommand) Init(args []string) error {
-	if len(args) != 0 {
-		return errors.Errorf("No arguments allowed")
+	if len(args) != 1 {
+		return errors.Errorf("must specify a branch name")
 	}
+	c.branchName = args[0]
 	return nil
 }
 
@@ -95,23 +100,23 @@ func (c *addGenerationCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
 
-	if err = client.AddGeneration(modelDetails.ModelUUID); err != nil {
+	if err = client.AddGeneration(modelDetails.ModelUUID, c.branchName); err != nil {
 		return err
 	}
 
 	// Now update the model store with the 'next' generation for this
 	// model.
-	if err = c.SetModelGeneration(model.GenerationNext); err != nil {
+	if err = c.SetModelGeneration(c.branchName); err != nil {
 		return err
 	}
 
-	ctx.Stdout.Write([]byte("target generation set to next\n"))
-	return nil
+	_, err = ctx.Stdout.Write([]byte(fmt.Sprintf("target generation set to %q\n", c.branchName)))
+	return err
 }

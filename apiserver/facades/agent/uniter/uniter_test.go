@@ -1034,7 +1034,7 @@ func (s *uniterSuite) TestClosePorts(c *gc.C) {
 func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpress.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"blog-title": "sauceror central"})
+	err = s.wordpress.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "sauceror central"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.resources.Count(), gc.Equals, 0)

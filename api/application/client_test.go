@@ -25,6 +25,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+const newBranchName = "new-branch"
+
 type applicationSuite struct {
 	testing.IsolationSuite
 }
@@ -237,13 +239,13 @@ func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
 		args, ok := a.(params.ApplicationGet)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ApplicationName, gc.Equals, "application")
-		c.Assert(args.Generation, gc.Equals, model.GenerationNext)
+		c.Assert(args.Generation, gc.Equals, newBranchName)
 
 		result := response.(*params.StringResult)
 		result.Result = "curl"
 		return nil
 	})
-	curl, err := client.GetCharmURL(model.GenerationNext, "application")
+	curl, err := client.GetCharmURL(newBranchName, "application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("curl"))
 	c.Assert(called, jc.IsTrue)
@@ -274,7 +276,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 			"b": {Count: toUint64Ptr(123)},
 			"c": {Size: toUint64Ptr(123)},
 		})
-		c.Assert(args.Generation, gc.Equals, model.GenerationNext)
+		c.Assert(args.Generation, gc.Equals, newBranchName)
 
 		return nil
 	})
@@ -297,7 +299,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 			"c": {Size: 123},
 		},
 	}
-	err := client.SetCharm(model.GenerationNext, cfg)
+	err := client.SetCharm(newBranchName, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -723,8 +725,8 @@ func (s *applicationSuite) TestGetConfigV6(c *gc.C) {
 
 func (s *applicationSuite) TestGetConfigV9(c *gc.C) {
 	args := params.ApplicationGetArgs{Args: []params.ApplicationGet{
-		{ApplicationName: "foo", Generation: model.GenerationNext},
-		{ApplicationName: "bar", Generation: model.GenerationNext},
+		{ApplicationName: "foo", Generation: newBranchName},
+		{ApplicationName: "bar", Generation: newBranchName},
 	}}
 	s.assertGetConfig(c, 9, "CharmConfig", args)
 }
@@ -776,7 +778,7 @@ func (s *applicationSuite) assertGetConfig(c *gc.C, version int, method string, 
 		BestVersion: version,
 	})
 
-	results, err := client.GetConfig(model.GenerationNext, "foo", "bar")
+	results, err := client.GetConfig(newBranchName, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []map[string]interface{}{
 		fooConfig, barConfig,
@@ -815,7 +817,7 @@ func (s *applicationSuite) TestGetConfigAPIv4(c *gc.C) {
 				c.Assert(request, gc.Equals, "Get")
 				args, ok := a.(params.ApplicationGet)
 				c.Assert(ok, jc.IsTrue)
-				c.Assert(args.Generation, gc.Equals, model.GenerationNext)
+				c.Assert(args.Generation, gc.Equals, newBranchName)
 
 				result, ok := response.(*params.ApplicationGetResults)
 				c.Assert(ok, jc.IsTrue)
@@ -863,7 +865,7 @@ func (s *applicationSuite) TestGetConfigAPIv4(c *gc.C) {
 		},
 	}
 
-	results, err := client.GetConfig(model.GenerationNext, "foo", "bar")
+	results, err := client.GetConfig(newBranchName, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []map[string]interface{}{
 		expectedFooConfig, expectedBarConfig,
@@ -985,7 +987,7 @@ func (s *applicationSuite) TestSetApplicationConfig(c *gc.C) {
 					Args: []params.ApplicationConfigSet{{
 						ApplicationName: "foo",
 						Config:          fooConfig,
-						Generation:      model.GenerationNext,
+						Generation:      newBranchName,
 					}}})
 				result, ok := response.(*params.ErrorResults)
 				c.Assert(ok, jc.IsTrue)
@@ -998,7 +1000,7 @@ func (s *applicationSuite) TestSetApplicationConfig(c *gc.C) {
 		BestVersion: 6,
 	})
 
-	err := client.SetApplicationConfig(model.GenerationNext, "foo", fooConfig)
+	err := client.SetApplicationConfig(newBranchName, "foo", fooConfig)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -1013,7 +1015,7 @@ func (s *applicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 					Args: []params.ApplicationUnset{{
 						ApplicationName: "foo",
 						Options:         []string{"option"},
-						Generation:      model.GenerationNext,
+						Generation:      newBranchName,
 					}}})
 				result, ok := response.(*params.ErrorResults)
 				c.Assert(ok, jc.IsTrue)
@@ -1026,7 +1028,7 @@ func (s *applicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 		BestVersion: 6,
 	})
 
-	err := client.UnsetApplicationConfig(model.GenerationNext, "foo", []string{"option"})
+	err := client.UnsetApplicationConfig(newBranchName, "foo", []string{"option"})
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -1040,7 +1042,7 @@ func (s *applicationSuite) TestSetApplicationConfigAPIv5(c *gc.C) {
 		BestVersion: 5,
 	})
 
-	err := client.SetApplicationConfig(model.GenerationCurrent, "foo", map[string]string{})
+	err := client.SetApplicationConfig(model.GenerationMaster, "foo", map[string]string{})
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
@@ -1054,7 +1056,7 @@ func (s *applicationSuite) TestUnsetApplicationConfigAPIv5(c *gc.C) {
 		BestVersion: 5,
 	})
 
-	err := client.UnsetApplicationConfig(model.GenerationCurrent, "foo", []string{})
+	err := client.UnsetApplicationConfig(model.GenerationMaster, "foo", []string{})
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 

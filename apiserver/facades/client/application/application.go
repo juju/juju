@@ -673,7 +673,7 @@ func checkMachinePlacement(backend Backend, args params.ApplicationDeploy) error
 // applicationSetSettingsStrings updates the settings for the given application,
 // taking the configuration from a map of strings.
 func applicationSetSettingsStrings(
-	application Application, gen model.GenerationVersion, settings map[string]string,
+	application Application, gen string, settings map[string]string,
 ) error {
 	ch, _, err := application.Charm()
 	if err != nil {
@@ -794,8 +794,8 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 		}
 		configChange = true
 	}
-	if configChange && args.Generation == model.GenerationNext {
-		if err := api.addAppToGeneration(args.ApplicationName); err != nil {
+	if configChange && args.Generation != model.GenerationMaster {
+		if err := api.addAppToBranch(args.Generation, args.ApplicationName); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1032,7 +1032,7 @@ func charmConfigFromGetYaml(yamlContents map[string]interface{}) (charm.Settings
 // applicationSetCharmConfigYAML updates the charm config for the
 // given application, taking the configuration from a YAML string.
 func applicationSetCharmConfigYAML(
-	appName string, application Application, gen model.GenerationVersion, settings string,
+	appName string, application Application, gen string, settings string,
 ) error {
 	b := []byte(settings)
 	var all map[string]interface{}
@@ -2037,14 +2037,14 @@ func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfig
 			continue
 		}
 
-		config, err := api.getCharmConfig(model.GenerationCurrent, tag.Id())
+		config, err := api.getCharmConfig(model.GenerationMaster, tag.Id())
 		results.Results[i].Config = config
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
 }
 
-func (api *APIBase) getCharmConfig(gen model.GenerationVersion, appName string) (map[string]interface{}, error) {
+func (api *APIBase) getCharmConfig(gen string, appName string) (map[string]interface{}, error) {
 	app, err := api.backend.Application(appName)
 	if err != nil {
 		return nil, err
@@ -2115,8 +2115,8 @@ func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error 
 		if err := app.UpdateCharmConfig(arg.Generation, charmConfigChanges); err != nil {
 			return errors.Annotate(err, "updating application charm settings")
 		}
-		if arg.Generation == model.GenerationNext {
-			if err := api.addAppToGeneration(arg.ApplicationName); err != nil {
+		if arg.Generation != model.GenerationMaster {
+			if err := api.addAppToBranch(arg.Generation, arg.ApplicationName); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -2124,8 +2124,8 @@ func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error 
 	return nil
 }
 
-func (api *APIBase) addAppToGeneration(appName string) error {
-	gen, err := api.backend.NextGeneration()
+func (api *APIBase) addAppToBranch(branchName string, appName string) error {
+	gen, err := api.backend.Branch(branchName)
 	if err != nil {
 		return errors.Annotate(err, "retrieving next generation")
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -47,7 +46,7 @@ type Backend interface {
 	Resources() (Resources, error)
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
-	NextGeneration() (Generation, error)
+	Branch(string) (Generation, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -70,7 +69,7 @@ type Application interface {
 	CharmURL() (*charm.URL, bool)
 	Channel() csparams.Channel
 	ClearExposed() error
-	CharmConfig(model.GenerationVersion) (charm.Settings, error)
+	CharmConfig(string) (charm.Settings, error)
 	Constraints() (constraints.Value, error)
 	Destroy() error
 	DestroyOperation() *state.DestroyApplicationOperation
@@ -87,7 +86,7 @@ type Application interface {
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
-	UpdateCharmConfig(model.GenerationVersion, charm.Settings) error
+	UpdateCharmConfig(string, charm.Settings) error
 	UpdateApplicationConfig(application.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 	SetScale(int) error
 	ChangeScale(int) (int, error)
@@ -352,8 +351,8 @@ func (s stateShim) OfferConnectionForRelation(key string) (OfferConnection, erro
 	return s.State.OfferConnectionForRelation(key)
 }
 
-func (s stateShim) NextGeneration() (Generation, error) {
-	gen, err := s.State.NextGeneration()
+func (s stateShim) Branch(name string) (Generation, error) {
+	gen, err := s.State.Branch(name)
 	if err != nil {
 		return nil, err
 	}

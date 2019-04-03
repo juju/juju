@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -124,8 +123,8 @@ func (m *mockApplication) CharmURL() (curl *charm.URL, force bool) {
 	return m.curl, true
 }
 
-func (m *mockApplication) CharmConfig(gen model.GenerationVersion) (charm.Settings, error) {
-	m.MethodCall(m, "CharmConfig", gen)
+func (m *mockApplication) CharmConfig(branchName string) (charm.Settings, error) {
+	m.MethodCall(m, "CharmConfig", branchName)
 	return m.charm.config.DefaultSettings(), m.NextErr()
 }
 
@@ -232,8 +231,8 @@ func (a *mockApplication) UpdateApplicationConfig(
 	return a.NextErr()
 }
 
-func (a *mockApplication) UpdateCharmConfig(gen model.GenerationVersion, settings charm.Settings) error {
-	a.MethodCall(a, "UpdateCharmConfig", gen, settings)
+func (a *mockApplication) UpdateCharmConfig(branchName string, settings charm.Settings) error {
+	a.MethodCall(a, "UpdateCharmConfig", branchName, settings)
 	return a.NextErr()
 }
 
@@ -661,7 +660,10 @@ func (m *mockBackend) SaveController(controllerInfo crossmodel.ControllerInfo, m
 	return &mockExternalController{controllerInfo.ControllerTag.Id(), controllerInfo}, nil
 }
 
-func (m *mockBackend) NextGeneration() (application.Generation, error) {
+func (m *mockBackend) Branch(branchName string) (application.Generation, error) {
+	if branchName != "new-branch" {
+		return nil, errors.NotFoundf("branch %q", branchName)
+	}
 	if m.generation == nil {
 		m.generation = &mockGeneration{}
 	}

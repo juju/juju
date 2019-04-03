@@ -32,19 +32,6 @@ func (m *MockAdvanceGenerationCommandAPI) EXPECT() *MockAdvanceGenerationCommand
 	return m.recorder
 }
 
-// AdvanceGeneration mocks base method
-func (m *MockAdvanceGenerationCommandAPI) AdvanceGeneration(arg0 string, arg1 []string) (bool, error) {
-	ret := m.ctrl.Call(m, "AdvanceGeneration", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AdvanceGeneration indicates an expected call of AdvanceGeneration
-func (mr *MockAdvanceGenerationCommandAPIMockRecorder) AdvanceGeneration(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdvanceGeneration", reflect.TypeOf((*MockAdvanceGenerationCommandAPI)(nil).AdvanceGeneration), arg0, arg1)
-}
-
 // Close mocks base method
 func (m *MockAdvanceGenerationCommandAPI) Close() error {
 	ret := m.ctrl.Call(m, "Close")
@@ -55,4 +42,16 @@ func (m *MockAdvanceGenerationCommandAPI) Close() error {
 // Close indicates an expected call of Close
 func (mr *MockAdvanceGenerationCommandAPIMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockAdvanceGenerationCommandAPI)(nil).Close))
+}
+
+// TrackBranch mocks base method
+func (m *MockAdvanceGenerationCommandAPI) TrackBranch(arg0, arg1 string, arg2 []string) error {
+	ret := m.ctrl.Call(m, "TrackBranch", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// TrackBranch indicates an expected call of TrackBranch
+func (mr *MockAdvanceGenerationCommandAPIMockRecorder) TrackBranch(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrackBranch", reflect.TypeOf((*MockAdvanceGenerationCommandAPI)(nil).TrackBranch), arg0, arg1, arg2)
 }

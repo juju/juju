@@ -3,25 +3,16 @@
 
 package model
 
-// GenerationVersion indicates a generation to use for model config.
-type GenerationVersion string
+// TODO (manadart 2019-04-21) Change the nomenclature here to indicate "branch"
+// instead of "generation", and remove Current/Next.
 
 const (
-	// GenerationCurrent indicates the current generation for model config.
-	// This is the default state of a model.
-	GenerationCurrent GenerationVersion = "current"
+	// GenerationMaster is used to indicate the main model configuration,
+	// i.e. that not dealing with in-flight branches.
+	GenerationMaster = "master"
 
-	// GenerationNext indicates the next generation of model config.
-	// Models with an active "next" generation apply the generation config
-	// selectively to units added to the generation.
-	GenerationNext GenerationVersion = "next"
+	generationKeySuffix = "#next"
 )
-
-func (g GenerationVersion) String() string {
-	return string(g)
-}
-
-const generationKeySuffix = "#next"
 
 // NextGenerationKey adds a suffix to the input key that designates it as being
 // for "next" generation config, and returns the result.
@@ -61,4 +52,4 @@ type Generation struct {
 
 // GenerationSummaries is a type alias for a representation
 // of changes-by-generation.
-type GenerationSummaries = map[GenerationVersion]Generation
+type GenerationSummaries = map[string]Generation

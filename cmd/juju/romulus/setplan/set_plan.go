@@ -86,7 +86,7 @@ func (c *setPlanCommand) Init(args []string) error {
 }
 
 func (c *setPlanCommand) requestMetricCredentials(client *application.Client, ctx *cmd.Context) ([]byte, error) {
-	charmURL, err := client.GetCharmURL(model.GenerationCurrent, c.Application)
+	charmURL, err := client.GetCharmURL(model.GenerationMaster, c.Application)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

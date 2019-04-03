@@ -128,9 +128,9 @@ func applicationCharmConfigKey(appName string, curl *charm.URL) string {
 // If the current generation is requested, there is no fallback.
 // TODO (manadart 2019-02-21) This will eventually strangle out usage of the
 // standard charmConfigKey at which point it should replace it.
-func (a *Application) charmConfigKeyGeneration(gen model.GenerationVersion) (string, string) {
+func (a *Application) charmConfigKeyGeneration(gen string) (string, string) {
 	key := applicationCharmConfigKey(a.doc.Name, a.doc.CharmURL)
-	if gen == model.GenerationCurrent {
+	if gen == model.GenerationMaster {
 		return key, ""
 	}
 	// TODO (manadart 2019-02-21) If specific generation version tracking is
@@ -2064,7 +2064,7 @@ func charmSettingsWithDefaults(st *State, curl *charm.URL, requestKey, fallbackK
 }
 
 // CharmConfig returns the raw user configuration for the application's charm.
-func (a *Application) CharmConfig(gen model.GenerationVersion) (charm.Settings, error) {
+func (a *Application) CharmConfig(gen string) (charm.Settings, error) {
 	if a.doc.CharmURL == nil {
 		return nil, fmt.Errorf("application charm not set")
 	}
@@ -2078,7 +2078,7 @@ func (a *Application) CharmConfig(gen model.GenerationVersion) (charm.Settings, 
 
 // UpdateCharmConfig changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
-func (a *Application) UpdateCharmConfig(gen model.GenerationVersion, changes charm.Settings) error {
+func (a *Application) UpdateCharmConfig(gen string, changes charm.Settings) error {
 	ch, _, err := a.Charm()
 	if err != nil {
 		return errors.Trace(err)

@@ -74,7 +74,8 @@ type ModelDetails struct {
 	ModelType model.ModelType `yaml:"type"`
 
 	// ModelGeneration is the generation of the model.
-	ModelGeneration model.GenerationVersion `yaml:"generation"`
+	// TODO (manadart 2019-03-25): Rename for branch nomenclature.
+	ModelGeneration string `yaml:"generation"`
 }
 
 // AccountDetails holds details of an account.

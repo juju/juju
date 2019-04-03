@@ -959,7 +959,7 @@ func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
 type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *gc.C, ctx *context) {
-	err := ctx.application.UpdateCharmConfig(model.GenerationCurrent, corecharm.Settings(s))
+	err := ctx.application.UpdateCharmConfig(model.GenerationMaster, corecharm.Settings(s))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

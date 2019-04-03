@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -74,9 +73,9 @@ type CharmAPIClient interface {
 // CharmUpgradeClient defines a subset of the application facade, as required
 // by the upgrade-charm command.
 type CharmUpgradeClient interface {
-	GetCharmURL(model.GenerationVersion, string) (*charm.URL, error)
-	Get(model.GenerationVersion, string) (*params.ApplicationGetResults, error)
-	SetCharm(model.GenerationVersion, application.SetCharmConfig) error
+	GetCharmURL(string, string) (*charm.URL, error)
+	Get(string, string) (*params.ApplicationGetResults, error)
+	SetCharm(string, application.SetCharmConfig) error
 }
 
 // CharmClient defines a subset of the charms facade, as required

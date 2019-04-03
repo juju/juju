@@ -487,9 +487,9 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
 
-	exportedCharmConfig, err := exported.CharmConfig(model.GenerationCurrent)
+	exportedCharmConfig, err := exported.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
-	importedCharmConfig, err := imported.CharmConfig(model.GenerationCurrent)
+	importedCharmConfig, err := imported.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedCharmConfig, jc.DeepEquals, exportedCharmConfig)
 

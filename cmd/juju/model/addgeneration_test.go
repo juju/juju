@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/model/mocks"
-	coremodel "github.com/juju/juju/core/model"
 )
 
 type AddGenerationSuite struct {
@@ -22,55 +21,54 @@ type AddGenerationSuite struct {
 
 var _ = gc.Suite(&AddGenerationSuite{})
 
-func (s *AddGenerationSuite) runInit(args ...string) error {
-	cmd := model.NewAddGenerationCommandForTest(nil, s.store)
-	return cmdtesting.InitCommand(cmd, args)
-}
-
 func (s *AddGenerationSuite) TestInit(c *gc.C) {
-	err := s.runInit()
+	err := s.runInit(s.branchName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *AddGenerationSuite) TestInitFail(c *gc.C) {
-	err := s.runInit("test")
-	c.Assert(err, gc.ErrorMatches, "No arguments allowed")
-}
-
-func (s *AddGenerationSuite) runCommand(c *gc.C, api model.AddGenerationCommandAPI) (*cmd.Context, error) {
-	cmd := model.NewAddGenerationCommandForTest(api, s.store)
-	return cmdtesting.RunCommand(c, cmd)
-}
-
-func setUpMocks(c *gc.C) (*gomock.Controller, *mocks.MockAddGenerationCommandAPI) {
-	mockController := gomock.NewController(c)
-	mockAddGenerationCommandAPI := mocks.NewMockAddGenerationCommandAPI(mockController)
-	mockAddGenerationCommandAPI.EXPECT().Close()
-	return mockController, mockAddGenerationCommandAPI
+	err := s.runInit()
+	c.Assert(err, gc.ErrorMatches, "must specify a branch name")
 }
 
 func (s *AddGenerationSuite) TestRunCommand(c *gc.C) {
-	mockController, mockAddGenerationCommandAPI := setUpMocks(c)
-	defer mockController.Finish()
+	ctrl, api := setUpMocks(c)
+	defer ctrl.Finish()
 
-	mockAddGenerationCommandAPI.EXPECT().AddGeneration(gomock.Any()).Return(nil)
+	api.EXPECT().AddGeneration(gomock.Any(), s.branchName).Return(nil)
 
-	ctx, err := s.runCommand(c, mockAddGenerationCommandAPI)
+	ctx, err := s.runCommand(c, api)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "target generation set to next\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `target generation set to "`+s.branchName+"\"\n")
 
-	// ensure the model's store has been updated to 'next'.
-	details, err := s.store.ModelByName(s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
+	// Ensure the local store has "new-branch" as the target.
+	details, err := s.store.ModelByName(
+		s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationNext)
+	c.Assert(details.ModelGeneration, gc.Equals, s.branchName)
 }
 
 func (s *AddGenerationSuite) TestRunCommandFail(c *gc.C) {
-	mockController, mockAddGenerationCommandAPI := setUpMocks(c)
-	defer mockController.Finish()
+	ctrl, api := setUpMocks(c)
+	defer ctrl.Finish()
 
-	mockAddGenerationCommandAPI.EXPECT().AddGeneration(gomock.Any()).Return(errors.Errorf("failme")).Times(1)
+	api.EXPECT().AddGeneration(gomock.Any(), s.branchName).Return(errors.Errorf("fail"))
 
-	_, err := s.runCommand(c, mockAddGenerationCommandAPI)
-	c.Assert(err, gc.ErrorMatches, "failme")
+	_, err := s.runCommand(c, api)
+	c.Assert(err, gc.ErrorMatches, "fail")
+}
+
+func (s *AddGenerationSuite) runInit(args ...string) error {
+	return cmdtesting.InitCommand(model.NewAddGenerationCommandForTest(nil, s.store), args)
+}
+
+func (s *AddGenerationSuite) runCommand(c *gc.C, api model.AddGenerationCommandAPI) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, model.NewAddGenerationCommandForTest(api, s.store), s.branchName)
+}
+
+func setUpMocks(c *gc.C) (*gomock.Controller, *mocks.MockAddGenerationCommandAPI) {
+	ctrl := gomock.NewController(c)
+	api := mocks.NewMockAddGenerationCommandAPI(ctrl)
+	api.EXPECT().Close()
+	return ctrl, api
 }

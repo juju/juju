@@ -27,92 +27,65 @@ var _ = gc.Suite(&advanceGenerationSuite{})
 func (s *advanceGenerationSuite) SetUpTest(c *gc.C) {
 	s.generationBaseSuite.SetUpTest(c)
 
-	// Update the local store to indicate we are on the "next" generation.
+	// Update the local store to indicate we are on the "new-branch" branch.
 	c.Assert(s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
 		ModelUUID:       testing.ModelTag.Id(),
 		ModelType:       coremodel.IAAS,
-		ModelGeneration: coremodel.GenerationNext,
+		ModelGeneration: s.branchName,
 	}), jc.ErrorIsNil)
 }
 
-func (s *advanceGenerationSuite) runInit(args ...string) error {
-	cmd := model.NewAdvanceGenerationCommandForTest(nil, s.store)
-	return cmdtesting.InitCommand(cmd, args)
-}
-
 func (s *advanceGenerationSuite) TestInitApplication(c *gc.C) {
-	err := s.runInit("ubuntu")
+	err := s.runInit(s.branchName, "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *advanceGenerationSuite) TestInitUnit(c *gc.C) {
-	err := s.runInit("ubuntu/0")
+	err := s.runInit(s.branchName, "ubuntu/0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *advanceGenerationSuite) TestInitEmpty(c *gc.C) {
 	err := s.runInit()
-	c.Assert(err, gc.ErrorMatches, `unit and/or application names\(s\) must be specified`)
+	c.Assert(err, gc.ErrorMatches, `a branch name plus unit and/or application names\(s\) must be specified`)
 }
 
 func (s *advanceGenerationSuite) TestInitInvalid(c *gc.C) {
-	err := s.runInit("test me")
+	err := s.runInit(s.branchName, "test me")
 	c.Assert(err, gc.ErrorMatches, `invalid application or unit name "test me"`)
 }
 
-func (s *advanceGenerationSuite) runCommand(c *gc.C, api model.AdvanceGenerationCommandAPI, args ...string) (*cmd.Context, error) {
-	cmd := model.NewAdvanceGenerationCommandForTest(api, s.store)
-	return cmdtesting.RunCommand(c, cmd, args...)
-}
-
-func setUpAdvanceMocks(c *gc.C) (*gomock.Controller, *mocks.MockAdvanceGenerationCommandAPI) {
-	mockController := gomock.NewController(c)
-	mockAdvanceGenerationCommandAPI := mocks.NewMockAdvanceGenerationCommandAPI(mockController)
-	mockAdvanceGenerationCommandAPI.EXPECT().Close()
-	return mockController, mockAdvanceGenerationCommandAPI
-}
-
-func (s *advanceGenerationSuite) TestRunCommandNotCompleted(c *gc.C) {
+func (s *advanceGenerationSuite) TestRunCommand(c *gc.C) {
 	mockController, api := setUpAdvanceMocks(c)
 	defer mockController.Finish()
 
-	api.EXPECT().AdvanceGeneration(gomock.Any(), []string{"ubuntu/0", "redis"}).Return(false, nil)
+	api.EXPECT().TrackBranch(gomock.Any(), s.branchName, []string{"ubuntu/0", "redis"}).Return(nil)
 
-	_, err := s.runCommand(c, api, "ubuntu/0", "redis")
+	_, err := s.runCommand(c, api, s.branchName, "ubuntu/0", "redis")
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the generation did not change in the local store.
-	cName := s.store.CurrentControllerName
-	details, err := s.store.ModelByName(cName, s.store.Models[cName].CurrentModel)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationNext)
-}
-
-func (s *advanceGenerationSuite) TestRunCommandCompleted(c *gc.C) {
-	mockController, api := setUpAdvanceMocks(c)
-	defer mockController.Finish()
-
-	api.EXPECT().AdvanceGeneration(gomock.Any(), []string{"ubuntu/0", "redis"}).Return(true, nil)
-
-	ctx, err := s.runCommand(c, api, "ubuntu/0", "redis")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the generation was changed to "current" in the local store.
-	cName := s.store.CurrentControllerName
-	details, err := s.store.ModelByName(cName, s.store.Models[cName].CurrentModel)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationCurrent)
-
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
-		"generation automatically completed; target generation set to \"current\"\n")
 }
 
 func (s *advanceGenerationSuite) TestRunCommandFail(c *gc.C) {
-	mockController, api := setUpAdvanceMocks(c)
-	defer mockController.Finish()
+	ctrl, api := setUpAdvanceMocks(c)
+	defer ctrl.Finish()
 
-	api.EXPECT().AdvanceGeneration(gomock.Any(), []string{"ubuntu/0"}).Return(false, errors.Errorf("failme"))
+	api.EXPECT().TrackBranch(gomock.Any(), s.branchName, []string{"ubuntu/0"}).Return(errors.Errorf("fail"))
 
-	_, err := s.runCommand(c, api, "ubuntu/0")
-	c.Assert(err, gc.ErrorMatches, "failme")
+	_, err := s.runCommand(c, api, s.branchName, "ubuntu/0")
+	c.Assert(err, gc.ErrorMatches, "fail")
+}
+
+func (s *advanceGenerationSuite) runInit(args ...string) error {
+	return cmdtesting.InitCommand(model.NewAdvanceGenerationCommandForTest(nil, s.store), args)
+}
+
+func (s *advanceGenerationSuite) runCommand(c *gc.C, api model.AdvanceGenerationCommandAPI, args ...string) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, model.NewAdvanceGenerationCommandForTest(api, s.store), args...)
+}
+
+func setUpAdvanceMocks(c *gc.C) (*gomock.Controller, *mocks.MockAdvanceGenerationCommandAPI) {
+	ctrl := gomock.NewController(c)
+	api := mocks.NewMockAdvanceGenerationCommandAPI(ctrl)
+	api.EXPECT().Close()
+	return ctrl, api
 }

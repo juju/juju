@@ -654,7 +654,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				app, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = app.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"blog-title": "awesome"})
+				err = app.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "awesome"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -1529,7 +1529,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	outsettings, err := wordpress.CharmConfig(model.GenerationCurrent)
+	outsettings, err := wordpress.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {
@@ -1577,7 +1577,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
 	c.Assert(gitlab.GetScale(), gc.Equals, 0)
-	outsettings, err := gitlab.CharmConfig(model.GenerationCurrent)
+	outsettings, err := gitlab.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {
@@ -1619,7 +1619,7 @@ func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {
 
 	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings})
 	c.Assert(err, jc.ErrorIsNil)
-	outsettings, err := wordpress.CharmConfig(model.GenerationCurrent)
+	outsettings, err := wordpress.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {

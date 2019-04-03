@@ -18,7 +18,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -463,7 +462,7 @@ func (s *DeployLocalSuite) assertCharm(c *gc.C, app application.Application, exp
 }
 
 func (s *DeployLocalSuite) assertSettings(c *gc.C, app application.Application, settings charm.Settings) {
-	settings, err := app.CharmConfig(model.GenerationNext)
+	settings, err := app.CharmConfig("new-branch")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := s.charm.Config().DefaultSettings()
 	for name, value := range settings {

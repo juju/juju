@@ -21,71 +21,64 @@ type switchGenerationSuite struct {
 
 var _ = gc.Suite(&switchGenerationSuite{})
 
-func (s *switchGenerationSuite) runInit(args ...string) error {
-	cmd := model.NewSwitchGenerationCommandForTest(nil, s.store)
-	return cmdtesting.InitCommand(cmd, args)
-}
-
-func (s *switchGenerationSuite) TestInitNext(c *gc.C) {
-	err := s.runInit("next")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *switchGenerationSuite) TestInitCurrent(c *gc.C) {
-	err := s.runInit("current")
+func (s *switchGenerationSuite) TestInit(c *gc.C) {
+	err := s.runInit(s.branchName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *switchGenerationSuite) TestInitFail(c *gc.C) {
 	err := s.runInit()
-	c.Assert(err, gc.ErrorMatches, "Must specify 'current' or 'next'")
-}
-
-func (s *switchGenerationSuite) runCommand(c *gc.C, api model.SwitchGenerationCommandAPI, args ...string) (*cmd.Context, error) {
-	cmd := model.NewSwitchGenerationCommandForTest(api, s.store)
-	return cmdtesting.RunCommand(c, cmd, args...)
-}
-
-func setUpSwitchMocks(c *gc.C) (*gomock.Controller, *mocks.MockSwitchGenerationCommandAPI) {
-	mockController := gomock.NewController(c)
-	mockSwitchGenerationCommandAPI := mocks.NewMockSwitchGenerationCommandAPI(mockController)
-	mockSwitchGenerationCommandAPI.EXPECT().Close()
-	return mockController, mockSwitchGenerationCommandAPI
+	c.Assert(err, gc.ErrorMatches, "must specify a branch name to switch to")
 }
 
 func (s *switchGenerationSuite) TestRunCommandCurrent(c *gc.C) {
-	ctx, err := s.runCommand(c, nil, "current")
+	ctx, err := s.runCommand(c, nil, coremodel.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "target generation set to current\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "target generation set to \"master\"\n")
 
 	cName := s.store.CurrentControllerName
 	details, err := s.store.ModelByName(cName, s.store.Models[cName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationCurrent)
+	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationMaster)
 }
 
 func (s *switchGenerationSuite) TestRunCommandNextGenExists(c *gc.C) {
-	mockController, mockSwitchGenerationCommandAPI := setUpSwitchMocks(c)
-	defer mockController.Finish()
+	ctrl, api := setUpSwitchMocks(c)
+	defer ctrl.Finish()
 
-	mockSwitchGenerationCommandAPI.EXPECT().HasNextGeneration(gomock.Any()).Return(true, nil)
+	api.EXPECT().HasActiveBranch(gomock.Any(), s.branchName).Return(true, nil)
 
-	ctx, err := s.runCommand(c, mockSwitchGenerationCommandAPI, "next")
+	ctx, err := s.runCommand(c, api, s.branchName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "target generation set to next\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "target generation set to \"new-branch\"\n")
 
 	cName := s.store.CurrentControllerName
 	details, err := s.store.ModelByName(cName, s.store.Models[cName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationNext)
+	c.Assert(details.ModelGeneration, gc.Equals, s.branchName)
 }
 
 func (s *switchGenerationSuite) TestRunCommandNextNoGenError(c *gc.C) {
-	mockController, mockSwitchGenerationCommandAPI := setUpSwitchMocks(c)
-	defer mockController.Finish()
+	ctrl, api := setUpSwitchMocks(c)
+	defer ctrl.Finish()
 
-	mockSwitchGenerationCommandAPI.EXPECT().HasNextGeneration(gomock.Any()).Return(false, nil)
+	api.EXPECT().HasActiveBranch(gomock.Any(), s.branchName).Return(false, nil)
 
-	_, err := s.runCommand(c, mockSwitchGenerationCommandAPI, "next")
-	c.Assert(err, gc.ErrorMatches, "this model has no next generation")
+	_, err := s.runCommand(c, api, s.branchName)
+	c.Assert(err, gc.ErrorMatches, `this model has no active branch "`+s.branchName+`"`)
+}
+
+func (s *switchGenerationSuite) runInit(args ...string) error {
+	return cmdtesting.InitCommand(model.NewSwitchGenerationCommandForTest(nil, s.store), args)
+}
+
+func (s *switchGenerationSuite) runCommand(c *gc.C, api model.SwitchGenerationCommandAPI, args ...string) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, model.NewSwitchGenerationCommandForTest(api, s.store), args...)
+}
+
+func setUpSwitchMocks(c *gc.C) (*gomock.Controller, *mocks.MockSwitchGenerationCommandAPI) {
+	ctrl := gomock.NewController(c)
+	api := mocks.NewMockSwitchGenerationCommandAPI(ctrl)
+	api.EXPECT().Close()
+	return ctrl, api
 }

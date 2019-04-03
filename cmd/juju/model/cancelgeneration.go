@@ -4,6 +4,8 @@
 package model
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -41,19 +43,22 @@ type cancelGenerationCommand struct {
 	modelcmd.ModelCommandBase
 
 	api CancelGenerationCommandAPI
+
+	branchName string
 }
 
 // CancelGenerationCommandAPI defines an API interface to be used during testing.
 //go:generate mockgen -package mocks -destination ./mocks/cancelgeneration_mock.go github.com/juju/juju/cmd/juju/model CancelGenerationCommandAPI
 type CancelGenerationCommandAPI interface {
 	Close() error
-	CancelGeneration(string) error
+	CommitBranch(string, string) (int, error)
 }
 
 // Info implements part of the cmd.Command interface.
 func (c *cancelGenerationCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:    "cancel-generation",
+		Args:    "<branch name>",
 		Purpose: cancelGenerationSummary,
 		Doc:     cancelGenerationDoc,
 	}
@@ -67,9 +72,10 @@ func (c *cancelGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements part of the cmd.Command interface.
 func (c *cancelGenerationCommand) Init(args []string) error {
-	if len(args) != 0 {
-		return errors.Errorf("No arguments allowed")
+	if len(args) != 1 {
+		return errors.Errorf("must specify a branch name to commit")
 	}
+	c.branchName = args[0]
 	return nil
 }
 
@@ -93,23 +99,26 @@ func (c *cancelGenerationCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
 
-	if err = client.CancelGeneration(modelDetails.ModelUUID); err != nil {
+	newGenId, err := client.CommitBranch(modelDetails.ModelUUID, c.branchName)
+	if err != nil {
 		return err
 	}
 
-	// Now update the model store with the 'current' generation for this
-	// model.
-	if err = c.SetModelGeneration(model.GenerationCurrent); err != nil {
+	// Set the active branch to be the master.
+	if err = c.SetModelGeneration(model.GenerationMaster); err != nil {
 		return err
 	}
 
-	ctx.Stdout.Write([]byte("remaining incomplete changes dropped and target generation set to current\n"))
-	return nil
+	msg := fmt.Sprintf("changes committed; model is now at generation %d\nactive branch set to %q",
+		newGenId, model.GenerationMaster)
+
+	_, err = ctx.Stdout.Write([]byte(msg))
+	return err
 }

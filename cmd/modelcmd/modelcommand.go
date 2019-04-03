@@ -70,10 +70,10 @@ type ModelCommand interface {
 
 	// ModelGeneration sets the model generation for this command and updates
 	// the store.
-	SetModelGeneration(model.GenerationVersion) error
+	SetModelGeneration(string) error
 
 	// ModelGeneration returns the generation of the model.
-	ModelGeneration() (model.GenerationVersion, error)
+	ModelGeneration() (string, error)
 
 	// ControllerName returns the name of the controller that contains
 	// the model returned by ModelName().
@@ -101,7 +101,7 @@ type ModelCommandBase struct {
 	// respectively.
 	_modelName       string
 	_modelType       model.ModelType
-	_modelGeneration model.GenerationVersion
+	_modelGeneration string
 	_controllerName  string
 
 	allowDefaultModel bool
@@ -237,7 +237,7 @@ func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
 }
 
 // SetModelGeneration implements the ModelCommand interface.
-func (c *ModelCommandBase) SetModelGeneration(generation model.GenerationVersion) error {
+func (c *ModelCommandBase) SetModelGeneration(generation string) error {
 	_, modelDetails, err := c.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
@@ -251,7 +251,7 @@ func (c *ModelCommandBase) SetModelGeneration(generation model.GenerationVersion
 }
 
 // ModelGeneration implements the ModelCommand interface.
-func (c *ModelCommandBase) ModelGeneration() (model.GenerationVersion, error) {
+func (c *ModelCommandBase) ModelGeneration() (string, error) {
 	if c._modelGeneration != "" {
 		return c._modelGeneration, nil
 	}

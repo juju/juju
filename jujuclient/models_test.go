@@ -105,7 +105,11 @@ func (s *ModelsSuite) TestSetCurrentModel(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestUpdateModelNewController(c *gc.C) {
-	testModelDetails := jujuclient.ModelDetails{ModelUUID: "test.uuid", ModelType: model.IAAS, ModelGeneration: model.GenerationCurrent}
+	testModelDetails := jujuclient.ModelDetails{
+		ModelUUID:       "test.uuid",
+		ModelType:       model.IAAS,
+		ModelGeneration: model.GenerationMaster,
+	}
 	err := s.store.UpdateModel("new-controller", "admin/new-model", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	models, err := s.store.AllModels("new-controller")
@@ -116,7 +120,11 @@ func (s *ModelsSuite) TestUpdateModelNewController(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestUpdateModelExistingControllerAndModelNewModel(c *gc.C) {
-	testModelDetails := jujuclient.ModelDetails{ModelUUID: "test.uuid", ModelType: model.IAAS, ModelGeneration: model.GenerationCurrent}
+	testModelDetails := jujuclient.ModelDetails{
+		ModelUUID:       "test.uuid",
+		ModelType:       model.IAAS,
+		ModelGeneration: model.GenerationMaster,
+	}
 	err := s.store.UpdateModel("kontroll", "admin/new-model", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	models, err := s.store.AllModels("kontroll")
@@ -129,7 +137,11 @@ func (s *ModelsSuite) TestUpdateModelExistingControllerAndModelNewModel(c *gc.C)
 }
 
 func (s *ModelsSuite) TestUpdateModelOverwrites(c *gc.C) {
-	testModelDetails := jujuclient.ModelDetails{ModelUUID: "test.uuid", ModelType: model.IAAS, ModelGeneration: model.GenerationCurrent}
+	testModelDetails := jujuclient.ModelDetails{
+		ModelUUID:       "test.uuid",
+		ModelType:       model.IAAS,
+		ModelGeneration: model.GenerationMaster,
+	}
 	for i := 0; i < 2; i++ {
 		// Twice so we exercise the code path of updating with
 		// identical details.
@@ -158,7 +170,11 @@ controllers:
 `[1:]), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testModelDetails := jujuclient.ModelDetails{ModelUUID: "test.uuid", ModelType: model.IAAS, ModelGeneration: model.GenerationCurrent}
+	testModelDetails := jujuclient.ModelDetails{
+		ModelUUID:       "test.uuid",
+		ModelType:       model.IAAS,
+		ModelGeneration: model.GenerationMaster,
+	}
 	err = s.store.UpdateModel("ctrl", "admin/admin", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	models, err := s.store.AllModels("ctrl")
