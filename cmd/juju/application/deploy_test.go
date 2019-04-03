@@ -6,9 +6,7 @@ package application
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -31,18 +29,10 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
 	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/juju/charmstore.v5"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
@@ -50,7 +40,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -66,21 +55,8 @@ import (
 type DeploySuiteBase struct {
 	testing.RepoSuite
 	coretesting.CmdBlockHelper
-	charmstore charmstoreForDeploy
-	charmrepo  charmrepoForDeploy
-}
-
-type fakeCharmstoreClientShim struct {
-	internal jjcharmstore.ChannelAwareFakeClient
-}
-
-func (c fakeCharmstoreClientShim) Get(path string, extra interface{}) error {
-	return c.internal.Get(path, extra)
-}
-
-func (c fakeCharmstoreClientShim) WithChannel(channel csparams.Channel) charmstoreForDeploy {
-	cstore := c.internal.WithChannel(channel)
-	return fakeCharmstoreClientShim{*cstore}
+	charmstore CharmstoreForDeploy
+	charmrepo  CharmrepoForDeploy
 }
 
 func (s *DeploySuiteBase) runDeploy(c *gc.C, args ...string) error {
@@ -651,7 +627,8 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	err = s.ControllerStore.SetModels("kontroll", otherModels)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
+	client := &charmstoreTestcharmsClientShim{s.client}
+	_, ch := testcharms.UploadCharmWithSeries(c, client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
 	err = runDeploy(c, "bitcoin-miner", "-m", m.Name(), "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -933,9 +910,10 @@ var deployAuthorizationTests = []struct {
 }}
 
 func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
+	client := &charmstoreTestcharmsClientShim{s.client}
 	// Upload the two charms required to upload the bundle.
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-0", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-1", "wordpress")
+	testcharms.UploadCharm(c, client, "trusty/mysql-0", "mysql")
+	testcharms.UploadCharm(c, client, "trusty/wordpress-1", "wordpress")
 
 	// Run the tests.
 	for i, test := range deployAuthorizationTests {
@@ -944,9 +922,9 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 		// Upload the charm or bundle under test.
 		url := charm.MustParseURL(test.uploadURL)
 		if url.Series == "bundle" {
-			url, _ = testcharms.UploadBundle(c, s.client, test.uploadURL, "wordpress-simple")
+			url, _ = testcharms.UploadBundle(c, client, test.uploadURL, "wordpress-simple")
 		} else {
-			url, _ = testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
+			url, _ = testcharms.UploadCharm(c, client, test.uploadURL, "wordpress")
 		}
 
 		// Change the ACL of the uploaded entity if required in this case.
@@ -963,7 +941,8 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 }
 
 func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
-	_, ch := testcharms.UploadCharm(c, s.client, "trusty/terms1-1", "terms1")
+	client := &charmstoreTestcharmsClientShim{s.client}
+	_, ch := testcharms.UploadCharm(c, client, "trusty/terms1-1", "terms1")
 	_, stdErr, err := runDeployWithOutput(c, "trusty/terms1")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
@@ -981,11 +960,12 @@ Deployment under prior agreement to terms: term1/1 term3/1
 }
 
 func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
-	s.termsDischargerError = &httpbakery.Error{
-		Message: "term agreement required: term/1 term/2",
-		Code:    "term agreement required",
-	}
-	testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
+	// s.termsDischargerError = &httpbakery.Error{
+	// 	Message: "term agreement required: term/1 term/2",
+	// 	Code:    "term agreement required",
+	// }
+	client := &charmstoreTestcharmsClientShim{s.client}
+	testcharms.UploadCharm(c, client, "quantal/terms1-1", "terms1")
 	err := runDeploy(c, "quantal/terms1")
 	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	c.Assert(err, gc.ErrorMatches, expectedError)
@@ -1023,109 +1003,115 @@ const (
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
 	testing.JujuConnSuite
-	handler              charmstore.HTTPCloseHandler
-	srv                  *httptest.Server
-	srvSession           *mgo.Session
-	client               *csclient.Client
-	discharger           *bakerytest.Discharger
-	termsDischarger      *bakerytest.Discharger
-	termsDischargerError error
-	termsString          string
+	client      CharmstoreForDeploy
+	charmrepo   CharmrepoForDeploy
+	termsString string
+	// handler              charmstore.HTTPCloseHandler
+	// srv                  *httptest.Server
+	// srvSession           *mgo.Session
+	// client               *csclient.Client
+	// discharger           *bakerytest.Discharger
+	// termsDischarger      *bakerytest.Discharger
+	// termsDischargerError error
 }
 
 func (s *charmStoreSuite) SetUpTest(c *gc.C) {
-	// Set up the third party discharger.
-	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
-		cookie, err := req.Cookie(clientUserCookie)
-		if err != nil {
-			return nil, errors.Annotate(err, "discharge denied to non-clients")
-		}
-		return []checkers.Caveat{
-			checkers.DeclaredCaveat("username", cookie.Value),
-		}, nil
-	})
+	// // Set up the third party discharger.
+	// s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
+	// 	cookie, err := req.Cookie(clientUserCookie)
+	// 	if err != nil {
+	// 		return nil, errors.Annotate(err, "discharge denied to non-clients")
+	// 	}
+	// 	return []checkers.Caveat{
+	// 		checkers.DeclaredCaveat("username", cookie.Value),
+	// 	}, nil
+	// })
 
-	s.termsDischargerError = nil
-	// Set up the third party terms discharger.
-	s.termsDischarger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
-		s.termsString = arg
-		return nil, s.termsDischargerError
-	})
+	// s.termsDischargerError = nil
+	// // Set up the third party terms discharger.
+	// s.termsDischarger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
+	// 	s.termsString = arg
+	// 	return nil, s.termsDischargerError
+	// })
 	s.termsString = ""
 
-	// Grab a db session to setup the charmstore with (so we can grab the
-	// URL to use for the controller config.)
-	srvSession, err := jujutesting.MgoServer.Dial()
-	c.Assert(err, gc.IsNil)
-	s.srvSession = srvSession
+	// // Grab a db session to setup the charmstore with (so we can grab the
+	// // URL to use for the controller config.)
+	// srvSession, err := jujutesting.MgoServer.Dial()
+	// c.Assert(err, gc.IsNil)
+	// s.srvSession = srvSession
 
-	// Set up the testing charm store server.
-	db := s.srvSession.DB("juju-testing")
-	keyring := bakery.NewPublicKeyRing()
-	pk, err := httpbakery.PublicKeyForLocation(http.DefaultClient, s.discharger.Location())
-	c.Assert(err, gc.IsNil)
-	err = keyring.AddPublicKeyForLocation(s.discharger.Location(), true, pk)
-	c.Assert(err, gc.IsNil)
+	// // Set up the testing charm store server.
+	// db := s.srvSession.DB("juju-testing")
+	// keyring := bakery.NewPublicKeyRing()
+	// pk, err := httpbakery.PublicKeyForLocation(http.DefaultClient, s.discharger.Location())
+	// c.Assert(err, gc.IsNil)
+	// err = keyring.AddPublicKeyForLocation(s.discharger.Location(), true, pk)
+	// c.Assert(err, gc.IsNil)
 
-	pk, err = httpbakery.PublicKeyForLocation(http.DefaultClient, s.termsDischarger.Location())
-	c.Assert(err, gc.IsNil)
-	err = keyring.AddPublicKeyForLocation(s.termsDischarger.Location(), true, pk)
-	c.Assert(err, gc.IsNil)
+	// pk, err = httpbakery.PublicKeyForLocation(http.DefaultClient, s.termsDischarger.Location())
+	// c.Assert(err, gc.IsNil)
+	// err = keyring.AddPublicKeyForLocation(s.termsDischarger.Location(), true, pk)
+	// c.Assert(err, gc.IsNil)
 
-	params := charmstore.ServerParams{
-		AuthUsername:     "test-user",
-		AuthPassword:     "test-password",
-		IdentityLocation: s.discharger.Location(),
-		PublicKeyLocator: keyring,
-		TermsLocation:    s.termsDischarger.Location(),
-	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
-	c.Assert(err, jc.ErrorIsNil)
-	s.handler = handler
-	s.srv = httptest.NewServer(handler)
-	c.Logf("started charmstore on %v", s.srv.URL)
+	// params := charmstore.ServerParams{
+	// 	AuthUsername:     "test-user",
+	// 	AuthPassword:     "test-password",
+	// 	IdentityLocation: s.discharger.Location(),
+	// 	PublicKeyLocator: keyring,
+	// 	TermsLocation:    s.termsDischarger.Location(),
+	// }
+	// handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
+	// c.Assert(err, jc.ErrorIsNil)
+	// s.handler = handler
+	// s.srv = httptest.NewServer(handler)
+	// c.Logf("started charmstore on %v", s.srv.URL)
 
-	s.client = csclient.New(csclient.Params{
-		URL:      s.srv.URL,
-		User:     params.AuthUsername,
-		Password: params.AuthPassword,
-	})
+	// s.client = csclient.New(csclient.Params{
+	// 	URL:      s.srv.URL,
+	// 	User:     params.AuthUsername,
+	// 	Password: params.AuthPassword,
+	// })
 
-	// Set charmstore URL config so the config is set during bootstrap
-	if s.ControllerConfigAttrs == nil {
-		s.ControllerConfigAttrs = make(map[string]interface{})
-	}
-	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
+	// // Set charmstore URL config so the config is set during bootstrap
+	// if s.ControllerConfigAttrs == nil {
+	// 	s.ControllerConfigAttrs = make(map[string]interface{})
+	// }
+	// s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
 	s.JujuConnSuite.SetUpTest(c)
 
-	// Initialize the charm cache dir.
-	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
+	// // Initialize the charm cache dir.
+	// s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 
-	// Point the CLI to the charm store testing server, injecting a cookie of our choosing.
-	actualNewCharmStoreClient := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func(client *httpbakery.Client, _ string) *csclient.Client {
-		// Add a cookie so that the discharger can detect whether the
-		// HTTP client is the juju environment or the juju client.
-		lurl, err := url.Parse(s.discharger.Location())
-		c.Assert(err, jc.ErrorIsNil)
-		client.Jar.SetCookies(lurl, []*http.Cookie{{
-			Name:  clientUserCookie,
-			Value: clientUserName,
-		}})
-		return actualNewCharmStoreClient(client, s.srv.URL)
-	})
+	// 	// Point the CLI to the charm store testing server, injecting a cookie of our choosing.
+	// 	actualNewCharmStoreClient := newCharmStoreClient
+	// 	s.PatchValue(&newCharmStoreClient, func(client *httpbakery.Client, _ string) *csclient.Client {
+	// 		// Add a cookie so that the discharger can detect whether the
+	// 		// HTTP client is the juju environment or the juju client.
+	// 		lurl, err := url.Parse(s.discharger.Location())
+	// 		c.Assert(err, jc.ErrorIsNil)
+	// 		client.Jar.SetCookies(lurl, []*http.Cookie{{
+	// 			Name:  clientUserCookie,
+	// 			Value: clientUserName,
+	// 		}})
+	// 		return actualNewCharmStoreClient(client, s.srv.URL)
+	// 	})
 
-	// Point the Juju API server to the charm store testing server.
-	s.PatchValue(&csclient.ServerURL, s.srv.URL)
+	// 	// Point the Juju API server to the charm store testing server.
+	// 	s.PatchValue(&csclient.ServerURL, s.srv.URL)
+	repo := jjcharmstore.NewRepository()
+	client := jjcharmstore.NewFakeClient(repo).WithChannel(csparams.StableChannel)
+	s.charmrepo = repo
+	s.client = &fakeCharmstoreClientShim{*client} // &charmstoreTestcharmsClientShim{client}
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {
 	// We have to close all of these things before the connsuite tear down due to the
 	// dirty socket detection in the base mgo suite.
-	s.srv.Close()
-	s.handler.Close()
-	s.srvSession.Close()
-	s.discharger.Close()
+	// s.srv.Close()
+	// s.handler.Close()
+	// s.srvSession.Close()
+	// s.discharger.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -1250,7 +1236,8 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
+	client := &charmstoreTestcharmsClientShim{s.client}
+	testcharms.UploadCharm(c, client, "cs:quantal/metered-1", "metered")
 	charmDir := testcharms.Repo.CharmDir("metered")
 
 	cfgAttrs := map[string]interface{}{
@@ -1298,7 +1285,8 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
+	client := &charmstoreTestcharmsClientShim{s.client}
+	testcharms.UploadCharm(c, client, "cs:quantal/metered-1", "metered")
 	charmDir := testcharms.Repo.CharmDir("metered")
 
 	cfgAttrs := map[string]interface{}{
@@ -1340,7 +1328,8 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 
 func (s *DeployCharmStoreSuite) TestSetMetricCredentialsNotCalledForUnmeteredCharm(c *gc.C) {
 	charmDir := testcharms.Repo.CharmDir("dummy")
-	testcharms.UploadCharm(c, s.client, "cs:quantal/dummy-1", "dummy")
+	client := &charmstoreTestcharmsClientShim{s.client}
+	testcharms.UploadCharm(c, client, "cs:quantal/dummy-1", "dummy")
 
 	cfgAttrs := map[string]interface{}{
 		"name": "name",
@@ -1384,7 +1373,8 @@ name: metered
 description: metered charm
 summary: summary
 `
-	url, ch := testcharms.UploadCharmWithMeta(c, s.client, "cs:~user/quantal/metered", meteredMetaYAML, metricsYAML, 1)
+	client := &charmstoreTestcharmsClientShim{s.client}
+	url, ch := testcharms.UploadCharmWithMeta(c, client, "cs:~user/quantal/metered", meteredMetaYAML, metricsYAML, 1)
 
 	cfgAttrs := map[string]interface{}{
 		"name": "name",
@@ -1425,7 +1415,8 @@ name: metered
 description: metered charm
 summary: summary
 `
-	url, ch := testcharms.UploadCharmWithMeta(c, s.client, "cs:~user/quantal/metered", meteredMetaYAML, metricsYAML, 1)
+	client := &charmstoreTestcharmsClientShim{s.client}
+	url, ch := testcharms.UploadCharmWithMeta(c, client, "cs:~user/quantal/metered", meteredMetaYAML, metricsYAML, 1)
 
 	stub := &jujutesting.Stub{}
 	handler := &testMetricsRegistrationHandler{Stub: stub}
@@ -1468,7 +1459,8 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 	_, err = s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, ch := testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-extra-bindings-1", "wordpress-extra-bindings")
+	client := &charmstoreTestcharmsClientShim{s.client}
+	_, ch := testcharms.UploadCharm(c, client, "cs:quantal/wordpress-extra-bindings-1", "wordpress-extra-bindings")
 	err = runDeploy(c, "cs:quantal/wordpress-extra-bindings-1", "--bind", "db=db db-client=db public admin-api=public")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
@@ -1499,7 +1491,8 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 	defer server.Close()
 
 	meteredCharmURL := charm.MustParseURL("cs:quantal/metered-1")
-	testcharms.UploadCharm(c, s.client, meteredCharmURL.String(), "metered")
+	client := &charmstoreTestcharmsClientShim{s.client}
+	testcharms.UploadCharm(c, client, meteredCharmURL.String(), "metered")
 	charmDir := testcharms.Repo.CharmDir("metered")
 
 	cfgAttrs := map[string]interface{}{

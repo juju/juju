@@ -5,6 +5,7 @@ package application
 
 import (
 	"archive/zip"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
+	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
@@ -137,29 +139,45 @@ type modelConfigClient struct {
 	*modelconfig.Client
 }
 
-// charmrepoForDeploy is a stripped-down version of the
+// CharmrepoForDeploy is a stripped-down version of the
 // gopkg.in/juju/charmrepo.v3 Interface interface. It is
 // used by tests that embed a DeploySuiteBase.
-type charmrepoForDeploy interface {
+type CharmrepoForDeploy interface {
 	Get(charmURL *charm.URL) (charm.Charm, error)
 	GetBundle(bundleURL *charm.URL) (charm.Bundle, error)
 	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
 }
 
 type charmRepoClient struct {
-	charmrepoForDeploy
+	CharmrepoForDeploy
 }
 
-// charmstoreForDeploy is a subset of the methods implemented
-// by gopkg.in/juju/charmrepo.v3/csclient.Client. It is
-// used by tests that embed a DeploySuiteBase.
-type charmstoreForDeploy interface {
+// CharmstoreForDeploy is a subset of the charmstore client functionality
+// to support charm and bundle deployment.
+//
+// CharmstoreForDeploy is used by tests that embed test suites
+// that use charmstore deployment functionality,
+// such as DeploySuiteBase and charmStoreSuite.
+//
+// CharmstoreForDeploy is related to the testcharms.charmstoreClient interface
+// and gopkg.in/juju/charmstore.v5/csWrapper. The authoritative implementation
+// is provided by gopkg.in/juju/charmrepo.v3/csclient.Client.
+type CharmstoreForDeploy interface {
 	Get(endpoint string, extra interface{}) error
-	WithChannel(csparams.Channel) charmstoreForDeploy
+	Put(endpoint string, extra interface{}) error
+	AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error)
+	ListResources(id *charm.URL) ([]params.Resource, error)
+	Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error
+	UploadBundle(id *charm.URL, b charm.Bundle) (*charm.URL, error)
+	UploadBundleWithRevision(id *charm.URL, b charm.Bundle, promulgatedRevision int) error
+	UploadCharm(id *charm.URL, ch charm.Charm) (*charm.URL, error)
+	UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
+	UploadResource(id *charm.URL, name, path string, file io.ReaderAt, size int64, progress csclient.Progress) (revision int, err error)
+	WithChannel(csparams.Channel) CharmstoreForDeploy
 }
 
 type charmstoreClient struct {
-	charmstoreForDeploy
+	CharmstoreForDeploy
 }
 
 type annotationsClient struct {

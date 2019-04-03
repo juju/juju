@@ -24,11 +24,16 @@
 package charmstore
 
 import (
+	"bytes"
+	"crypto/sha512"
+	"fmt"
 	"io"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 )
 
@@ -103,6 +108,54 @@ func (c FakeClient) Get(path string, value interface{}) error {
 	return c.repo.resourcesData.Get(path, value)
 }
 
+// Put uploads data to path, overwriting any data that is already present
+func (c FakeClient) Put(path string, value interface{}) error {
+	return c.repo.resourcesData.Put(path, value)
+}
+
+// AddDockerResource adds a docker resource to the repository
+func (c FakeClient) AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error) {
+	return -1, nil
+}
+
+func (c FakeClient) UploadCharm(id *charm.URL, charmData charm.Charm) (*charm.URL, error) {
+	return c.repo.UploadCharm(id, charmData)
+}
+
+func (c FakeClient) UploadCharmWithRevision(id *charm.URL, charmData charm.Charm, promulgatedRevision int) error {
+	return c.repo.UploadCharmWithRevision(id, charmData, promulgatedRevision)
+}
+
+func (c FakeClient) UploadBundle(id *charm.URL, bundleData charm.Bundle) (*charm.URL, error) {
+	return c.repo.UploadBundle(id, bundleData)
+}
+
+func (c FakeClient) UploadBundleWithRevision(id *charm.URL, bundleData charm.Bundle, promulgatedRevision int) error {
+	return c.repo.UploadBundleWithRevision(id, bundleData, promulgatedRevision)
+}
+
+func (c FakeClient) UploadResource(id *charm.URL, name, path string, file io.ReaderAt, size int64, progress csclient.Progress) (revision int, err error) {
+	return c.repo.UploadResource(id, name, path, file, size, progress)
+}
+
+// ListResources returns Resource metadata for resources that have been
+// uploaded to the repository for id. To upload a resource, use UploadResource.
+// Although id is type *charm.URL, resources are not restricted to charms. That
+// type is also used for other entities in the charmstore, such as bundles.
+//
+// Returns an error that satisfies errors.IsNotFound when no resources
+// are present for id.
+func (c FakeClient) ListResources(channel params.Channel, id *charm.URL) ([]params.Resource, error) {
+	originalChannel := c.repo.channel
+	defer func() { c.repo.channel = originalChannel }()
+	c.repo.channel = channel
+	return c.repo.ListResources(id)
+}
+
+func (c FakeClient) Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error {
+	return c.repo.Publish(id, channels, resources)
+}
+
 func (c FakeClient) WithChannel(channel params.Channel) *ChannelAwareFakeClient {
 	return &ChannelAwareFakeClient{channel, c}
 }
@@ -127,6 +180,50 @@ type ChannelAwareFakeClient struct {
 
 func (c ChannelAwareFakeClient) Get(path string, value interface{}) error {
 	return c.charmstore.Get(path, value)
+}
+
+// Put uploads data to path, overwriting any data that is already present
+func (c ChannelAwareFakeClient) Put(path string, value interface{}) error {
+	return c.charmstore.Put(path, value)
+}
+
+func (c ChannelAwareFakeClient) AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error) {
+	return c.charmstore.AddDockerResource(id, resourceName, imageName, digest)
+}
+
+func (c ChannelAwareFakeClient) UploadCharm(id *charm.URL, ch charm.Charm) (*charm.URL, error) {
+	return c.charmstore.UploadCharm(id, ch)
+}
+
+func (c ChannelAwareFakeClient) UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error {
+	return c.charmstore.UploadCharmWithRevision(id, ch, promulgatedRevision)
+}
+
+func (c ChannelAwareFakeClient) UploadBundle(id *charm.URL, bundle charm.Bundle) (*charm.URL, error) {
+	return c.charmstore.UploadBundle(id, bundle)
+}
+
+func (c ChannelAwareFakeClient) UploadBundleWithRevision(id *charm.URL, bundle charm.Bundle, promulgatedRevision int) error {
+	return c.charmstore.UploadBundleWithRevision(id, bundle, promulgatedRevision)
+}
+
+func (c ChannelAwareFakeClient) UploadResource(id *charm.URL, name, path string, file io.ReaderAt, size int64, progress csclient.Progress) (revision int, err error) {
+	return c.charmstore.UploadResource(id, name, path, file, size, progress)
+}
+
+// ListResources returns Resource metadata for resources that have been
+// uploaded to the repository for id. To upload a resource, use UploadResource.
+// Although id is type *charm.URL, resources are not restricted to charms. That
+// type is also used for other entities in the charmstore, such as bundles.
+//
+// Returns an error that satisfies errors.IsNotFound when no resources
+// are present for id.
+func (c ChannelAwareFakeClient) ListResources(id *charm.URL) ([]params.Resource, error) {
+	return c.charmstore.ListResources(c.channel, id)
+}
+
+func (c ChannelAwareFakeClient) Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error {
+	return c.charmstore.Publish(id, channels, resources)
 }
 
 func (c ChannelAwareFakeClient) WithChannel(channel params.Channel) *ChannelAwareFakeClient {
@@ -157,6 +254,7 @@ type Repository struct {
 	revisions     map[params.Channel]map[charm.URL]int
 	added         map[string][]charm.URL
 	resourcesData datastore
+	published     map[params.Channel]set.Strings
 	generations   map[model.GenerationVersion]string
 }
 
@@ -170,6 +268,7 @@ func NewRepository() *Repository {
 		resources:     make(map[params.Channel]map[charm.URL][]params.Resource),
 		revisions:     make(map[params.Channel]map[charm.URL]int),
 		added:         make(map[string][]charm.URL),
+		published:     make(map[params.Channel]set.Strings),
 		resourcesData: make(datastore),
 	}
 	for _, channel := range params.OrderedChannels {
@@ -177,6 +276,7 @@ func NewRepository() *Repository {
 		repo.bundles[channel] = make(map[charm.URL]charm.Bundle)
 		repo.resources[channel] = make(map[charm.URL][]params.Resource)
 		repo.revisions[channel] = make(map[charm.URL]int)
+		repo.published[channel] = set.NewStrings()
 	}
 	return &repo
 }
@@ -222,4 +322,114 @@ func (r Repository) GetBundle(id *charm.URL) (charm.Bundle, error) {
 		return bundleData, errors.NotFoundf(id.String())
 	}
 	return bundleData, nil
+}
+
+// ListResources returns Resource metadata for resources that have been
+// uploaded to the repository for id. To upload a resource, use UploadResource.
+// Although id is type *charm.URL, resources are not restricted to charms. That
+// type is also used for other entities in the charmstore, such as bundles.
+//
+// Returns an error that satisfies errors.IsNotFound when no resources
+// are present for id.
+func (r Repository) ListResources(id *charm.URL) ([]params.Resource, error) {
+	resources := r.resources[r.channel][*id]
+	if len(resources) == 0 {
+		return resources, errors.NotFoundf("no resources for %v", id)
+	}
+	return resources, nil
+}
+
+func (r Repository) UploadCharm(id *charm.URL, charmData charm.Charm) (*charm.URL, error) {
+	if len(r.charms[r.channel]) == 0 {
+		r.charms[r.channel] = make(map[charm.URL]charm.Charm)
+	}
+	withRevision := r.addRevision(id)
+	r.charms[r.channel][*withRevision] = charmData
+	return withRevision, nil
+}
+
+func (r Repository) UploadCharmWithRevision(id *charm.URL, charmData charm.Charm, promulgatedRevision int) error {
+	if len(r.revisions[r.channel]) == 0 {
+		r.revisions[r.channel] = make(map[charm.URL]int)
+	}
+	r.revisions[r.channel][*id] = promulgatedRevision
+	_, err := r.UploadCharm(id, charmData)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (r Repository) UploadBundle(id *charm.URL, bundleData charm.Bundle) (*charm.URL, error) {
+	r.bundles[r.channel][*id] = bundleData
+	return id, nil
+}
+
+func (r Repository) UploadBundleWithRevision(id *charm.URL, bundleData charm.Bundle, promulgatedRevision int) error {
+	_, err := r.UploadBundle(id, bundleData)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	r.revisions[r.channel][*id] = promulgatedRevision
+	return nil
+}
+
+// UploadResource "uploads" data from file and stores it at path
+func (r Repository) UploadResource(id *charm.URL, name, path string, file io.ReaderAt, size int64, progress csclient.Progress) (revision int, err error) {
+	if len(r.resources[r.channel]) == 0 {
+		r.resources[r.channel] = make(map[charm.URL][]params.Resource)
+	}
+	resources, err := r.ListResources(id)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+	revision = len(resources)
+	if len(resources) == 0 {
+		r.resources[r.channel][*id] = make([]params.Resource, 1)
+	}
+	data := []byte{}
+	_, err = file.ReadAt(data, 0)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+
+	hash, err := signature(bytes.NewBuffer(data))
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+	r.resources[r.channel][*id] = append(resources, params.Resource{
+		Name:        name,
+		Path:        path,
+		Revision:    revision,
+		Size:        size,
+		Fingerprint: hash,
+	})
+
+	err = r.resourcesData.Put(path, data)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+	return revision, nil
+}
+
+// Publish marks a charm or bundle as published within channels.
+// In this implementation, the resources parameter is ignored.
+func (r Repository) Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error {
+	for _, channel := range channels {
+		published := r.published[channel]
+		published.Add(id.String())
+		r.published[channel] = published
+	}
+	return nil
+}
+
+// signature creates a SHA384 digest from r
+func signature(r io.Reader) (hash []byte, err error) {
+	h := sha512.New384()
+	_, err = io.Copy(h, r)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	hash = []byte(fmt.Sprintf("%x", h.Sum(nil)))
+	return hash, nil
 }

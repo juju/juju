@@ -15,9 +15,11 @@ import (
 	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
+	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/testcharms"
 )
 
 // NewDeployCommandForTest returns a command to deploy applications intended to be used only in tests.
@@ -68,7 +70,7 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 
 // NewDeployCommandForTest2 returns a command to deploy applications intended to be used only in tests
 // that do not use gomock.
-func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo charmrepoForDeploy) modelcmd.ModelCommand {
+func NewDeployCommandForTest2(charmstore CharmstoreForDeploy, charmrepo CharmrepoForDeploy) modelcmd.ModelCommand {
 	deployCmd := &DeployCommand{
 		Steps: []DeployStep{
 			&RegisterMeteredCharm{
@@ -274,4 +276,12 @@ func NewShowCommandForTest(api ApplicationsInfoAPI, store jujuclient.ClientStore
 	}}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
+}
+
+func WrapTestcharmsCharmstoreClient(client CharmstoreForDeploy) testcharms.CharmstoreClient {
+	return &charmstoreTestcharmsClientShim{client}
+}
+
+func WrapJujuCoreCharmstoreClient(client jjcharmstore.ChannelAwareFakeClient) CharmstoreForDeploy {
+	return &fakeCharmstoreClientShim{client}
 }

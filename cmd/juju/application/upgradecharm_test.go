@@ -665,7 +665,7 @@ var upgradeCharmAuthorizationTests = []struct {
 }}
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/wordpress-0", "wordpress")
+	testcharms.UploadCharm(c, &charmstoreTestcharmsClientShim{s.client}, "cs:~other/trusty/wordpress-0", "wordpress")
 	err := runDeploy(c, "cs:~other/trusty/wordpress-0")
 
 	riak, err := s.State.Application("wordpress")
@@ -685,7 +685,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	for i, test := range upgradeCharmAuthorizationTests {
 		c.Logf("test %d: %s", i, test.about)
-		url, _ := testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
+		url, _ := testcharms.UploadCharm(c, &charmstoreTestcharmsClientShim{s.client}, test.uploadURL, "wordpress")
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
@@ -705,8 +705,8 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C
 }
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/riak-0", "riak")
-	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/anotherriak-7", "riak")
+	testcharms.UploadCharm(c, &charmstoreTestcharmsClientShim{s.client}, "cs:~other/trusty/riak-0", "riak")
+	testcharms.UploadCharm(c, &charmstoreTestcharmsClientShim{s.client}, "cs:~other/trusty/anotherriak-7", "riak")
 	err := runDeploy(c, "cs:~other/trusty/riak-0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -739,7 +739,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
 	err = unit.RemoveUpgradeCharmProfileData()
 	c.Assert(err, jc.ErrorIsNil)
 
-	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/anotherriak-42", "riak")
+	testcharms.UploadCharm(c, &charmstoreTestcharmsClientShim{s.client}, "cs:~other/trusty/anotherriak-42", "riak")
 	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/anotherriak-42")
 	c.Assert(err, jc.ErrorIsNil)
 	curl = s.assertUpgraded(c, riak, 42, false)
@@ -747,7 +747,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
 }
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) {
-	id, ch := testcharms.UploadCharm(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress")
+	id, ch := testcharms.UploadCharm(c, &charmstoreTestcharmsClientShim{s.client}, "cs:~client-username/trusty/wordpress-0", "wordpress")
 	err := runDeploy(c, "cs:~client-username/trusty/wordpress-0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -778,7 +778,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) 
 }
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmShouldRespectDeployedChannelByDefault(c *gc.C) {
-	id, ch := testcharms.UploadCharm(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress")
+	id, ch := testcharms.UploadCharm(c, &charmstoreTestcharmsClientShim{s.client}, "cs:~client-username/trusty/wordpress-0", "wordpress")
 
 	// publish charm to beta channel
 	id.Revision = 1
@@ -824,7 +824,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmShouldRespectDeployed
 }
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeWithTermsNotSigned(c *gc.C) {
-	id, ch := testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
+	id, ch := testcharms.UploadCharm(c, &charmstoreTestcharmsClientShim{s.client}, "quantal/terms1-1", "terms1")
 	err := runDeploy(c, "quantal/terms1")
 	c.Assert(err, jc.ErrorIsNil)
 	id.Revision = id.Revision + 1
@@ -832,10 +832,10 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeWithTermsNotSigned(c *gc.C
 	c.Assert(err, gc.IsNil)
 	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.StableChannel}, nil)
 	c.Assert(err, gc.IsNil)
-	s.termsDischargerError = &httpbakery.Error{
-		Message: "term agreement required: term/1 term/2",
-		Code:    "term agreement required",
-	}
+	// s.termsDischargerError = &httpbakery.Error{
+	// 	Message: "term agreement required: term/1 term/2",
+	// 	Code:    "term agreement required",
+	// }
 	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	err = runUpgradeCharm(c, "terms1")
 	c.Assert(err, gc.ErrorMatches, expectedError)

@@ -6,29 +6,24 @@ package application_test
 import (
 	"bytes"
 	"io/ioutil"
-	"net/http/httptest"
 	"path"
 	"sort"
 	"strings"
 	"time"
 
+	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/model"
 
 	"github.com/juju/cmd/cmdtesting"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	"gopkg.in/juju/charmstore.v5"
+	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/component/all"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/resource"
@@ -130,49 +125,56 @@ resources:
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
 	jujutesting.JujuConnSuite
-	handler    charmstore.HTTPCloseHandler
-	srv        *httptest.Server
-	srvSession *mgo.Session
-	client     *csclient.Client
+	// handler    charmstore.HTTPCloseHandler
+	// srv        *httptest.Server
+	// srvSession *mgo.Session
+	// client     *csclient.Client
+	client    application.CharmstoreForDeploy
+	charmrepo application.CharmrepoForDeploy
 }
 
 func (s *charmStoreSuite) SetUpTest(c *gc.C) {
-	srvSession, err := gitjujutesting.MgoServer.Dial()
-	c.Assert(err, gc.IsNil)
-	s.srvSession = srvSession
+	// srvSession, err := gitjujutesting.MgoServer.Dial()
+	// c.Assert(err, gc.IsNil)
+	// s.srvSession = srvSession
 
-	// Set up the charm store testing server.
-	db := s.srvSession.DB("juju-testing")
-	params := charmstore.ServerParams{
-		AuthUsername: "test-user",
-		AuthPassword: "test-password",
-	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
-	c.Assert(err, jc.ErrorIsNil)
-	s.handler = handler
-	s.srv = httptest.NewServer(handler)
-	s.client = csclient.New(csclient.Params{
-		URL:      s.srv.URL,
-		User:     params.AuthUsername,
-		Password: params.AuthPassword,
-	})
+	// // Set up the charm store testing server.
+	// db := s.srvSession.DB("juju-testing")
+	// params := charmstore.ServerParams{
+	// 	AuthUsername: "test-user",
+	// 	AuthPassword: "test-password",
+	// }
+	// handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
+	// c.Assert(err, jc.ErrorIsNil)
+	// s.handler = handler
+	// s.srv = httptest.NewServer(handler)
+	// s.client = csclient.New(csclient.Params{
+	// 	URL:      s.srv.URL,
+	// 	User:     params.AuthUsername,
+	// 	Password: params.AuthPassword,
+	// })
 
-	// Set charmstore URL config so the config is set during bootstrap
-	if s.ControllerConfigAttrs == nil {
-		s.ControllerConfigAttrs = make(map[string]interface{})
-	}
-	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
+	// // Set charmstore URL config so the config is set during bootstrap
+	// if s.ControllerConfigAttrs == nil {
+	// 	s.ControllerConfigAttrs = make(map[string]interface{})
+	// }
+	// s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
+
+	repo := jjcharmstore.NewRepository()
+	client := jjcharmstore.NewFakeClient(repo).WithChannel(csparams.StableChannel)
+	s.charmrepo = repo
+	s.client = application.WrapJujuCoreCharmstoreClient(*client)
 
 	s.JujuConnSuite.SetUpTest(c)
 
-	// Initialize the charm cache dir.
-	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
+	// // Initialize the charm cache dir.
+	// s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {
-	s.handler.Close()
-	s.srv.Close()
-	s.srvSession.Close()
+	// s.handler.Close()
+	// s.srv.Close()
+	// s.srvSession.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -194,7 +196,8 @@ func (s *UpgradeCharmStoreResourceSuite) SetUpSuite(c *gc.C) {
 // charmstore endpoints are implemented.
 
 func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/starsay-1", "starsay")
+	client := application.WrapTestcharmsCharmstoreClient(s.client)
+	testcharms.UploadCharm(c, client, "trusty/starsay-1", "starsay")
 
 	// let's make a fake resource file to upload
 	resourceContent := "some-data"
@@ -290,7 +293,7 @@ Deploying charm "cs:trusty/starsay-1".`
 
 	sort.Sort(csbyname(oldCharmStoreResources))
 
-	testcharms.UploadCharm(c, s.client, "trusty/starsay-2", "starsay")
+	testcharms.UploadCharm(c, application.WrapTestcharmsCharmstoreClient(s.client), "trusty/starsay-2", "starsay")
 
 	_, err = cmdtesting.RunCommand(c, application.NewUpgradeCharmCommand(), "starsay")
 	c.Assert(err, jc.ErrorIsNil)
