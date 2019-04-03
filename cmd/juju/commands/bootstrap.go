@@ -10,6 +10,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -770,6 +771,9 @@ See `[1:] + "`juju kill-controller`" + `.`)
 			if err != nil {
 				return errors.Trace(err)
 			}
+			if len(svc.Addresses) == 0 {
+				return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
+			}
 			addrs = svc.Addresses
 		} else {
 			// TODO(caas): this should never happen.
@@ -792,8 +796,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		)
 	}
 
-	if err = controllerDataRefresher(); err != nil {
-		// write controller info to juju data.
+	if err = k8sprovider.ReScheduler(controllerDataRefresher, errors.IsNotProvisioned, 2*time.Minute); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -814,7 +817,6 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		isCAASController,
 		c.controllerName,
 		c.hostedModelName,
-		controllerDataRefresher,
 	)
 }
 

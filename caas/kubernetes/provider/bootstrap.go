@@ -4,9 +4,13 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
+	"reflect"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -97,6 +101,37 @@ func controllerCorelation(broker *kubernetesClient) (*kubernetesClient, error) {
 // DecideControllerNamespace decides the namespace name to use for a new controller.
 func DecideControllerNamespace(controllerName string) string {
 	return "controller-" + controllerName
+}
+
+// ReScheduler executes a function and keep retrying if the function returns an expected error.
+func ReScheduler(
+	do func() error,
+	expectedErrorChecker func(error) bool,
+	timeout time.Duration,
+) (err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	retryInterval := 3 * time.Second
+	for {
+		select {
+		case <-time.After(retryInterval):
+			err = do()
+			if err == nil {
+				return nil
+			}
+			if !expectedErrorChecker(err) {
+				return errors.Trace(err)
+			}
+			logger.Debugf("%q got expected error %v, retry in %q",
+				runtime.FuncForPC(reflect.ValueOf(do).Pointer()).Name(), err,
+				retryInterval,
+			)
+			// got expected error, keep retrying.
+		case <-ctx.Done():
+			err = ctx.Err()
+			return errors.Trace(err)
+		}
+	}
 }
 
 func newcontrollerStack(
@@ -324,20 +359,30 @@ func (c controllerStack) createControllerService() error {
 		c.broker.deleteService(svcName)
 	})
 
-	// get the service by app name;
-	svc, err := c.broker.GetService(c.stackName)
-	if err != nil {
-		return errors.Annotate(err, "getting controller service")
-	}
-	logger.Criticalf("controller svc -> %v", svc)
-	// TODO(xxxxxxxxxxxxxxxxxxxxxxxxxx): we need keep polling until we got an expected accessible address
-	// then write into controller config or fail the bootstrap process!!!!!!
 	controllerConfig := c.pcfg.Bootstrap.ControllerConfig
-	publicAddress := network.AddressesWithPort(svc.Addresses, controllerConfig.APIPort())[0].String()
-	if err := controllerConfig.SetAutocertDNSName(publicAddress); err != nil {
-		return errors.Annotatef(err, "setting controller public DNS to %v", publicAddress)
+
+	publicAddressPoller := func() error {
+		// get the service by app name;
+		svc, err := c.broker.GetService(c.stackName)
+		if err != nil {
+			return errors.Annotate(err, "getting controller service")
+		}
+		if len(svc.Addresses) == 0 {
+			return errors.NotProvisionedf("controller service address")
+		}
+
+		publicAddress := network.AddressesWithPort(
+			svc.Addresses, controllerConfig.APIPort(),
+		)[0].String()
+		return errors.Annotatef(
+			controllerConfig.SetAutocertDNSName(publicAddress),
+			"setting controller public DNS to %v", publicAddress,
+		)
 	}
-	return nil
+
+	return errors.Trace(
+		ReScheduler(publicAddressPoller, errors.IsNotProvisioned, 2*time.Minute),
+	)
 }
 
 func (c controllerStack) addCleanUp(cleanUp func()) {
