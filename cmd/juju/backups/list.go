@@ -54,6 +54,9 @@ func (c *listCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *listCommand) Run(ctx *cmd.Context) error {
+	if err := c.validateIaasController(c.Info().Name); err != nil {
+		return errors.Trace(err)
+	}
 	if c.Log != nil {
 		if err := c.Log.Start(ctx); err != nil {
 			return err

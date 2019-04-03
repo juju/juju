@@ -12,7 +12,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -528,23 +527,24 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create config")
 	}
-
+	controllerConfig, err := m.state.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller config")
+	}
 	broker, err := m.getBroker(environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: newConfig,
+		ControllerUUID: controllerConfig.ControllerUUID(),
+		Cloud:          cloudSpec,
+		Config:         newConfig,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to open kubernetes client")
 	}
 
-	// CAAS models exist in a namespace which must be unique.
-	namespaces, err := broker.Namespaces()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to list namespaces")
-	}
-	nsSet := set.NewStrings(namespaces...)
-	if nsSet.Contains(createArgs.Name) {
-		return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("namespace called %q already exists, would clash with model name", createArgs.Name))
+	if err = broker.Create(
+		m.callContext,
+		environs.CreateParams{ControllerUUID: controllerConfig.ControllerUUID()},
+	); err != nil {
+		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
 	}
 
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
@@ -579,18 +579,19 @@ func (m *ModelManagerAPI) newModel(
 		return nil, errors.Annotate(err, "failed to create config")
 	}
 
-	// Create the Environ.
-	env, err := environs.New(environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: newConfig,
-	})
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to open environ")
-	}
-
 	controllerCfg, err := m.state.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	// Create the Environ.
+	env, err := environs.New(environs.OpenParams{
+		ControllerUUID: controllerCfg.ControllerUUID(),
+		Cloud:          cloudSpec,
+		Config:         newConfig,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to open environ")
 	}
 
 	err = env.Create(

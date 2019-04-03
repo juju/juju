@@ -749,7 +749,7 @@ func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreatePa
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
 	ecfg := e.ecfgUnlocked

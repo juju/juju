@@ -64,6 +64,7 @@ func (s *ControllerSuite) TestAddModel(c *gc.C) {
 			"name":              "model-owner/test-model",
 			"life":              life.Value("alive"),
 			"application-count": 0,
+			"charm-count":       0,
 			"machine-count":     0,
 			"unit-count":        0,
 		}})
@@ -106,6 +107,34 @@ func (s *ControllerSuite) TestRemoveApplication(c *gc.C) {
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["application-count"], gc.Equals, 0)
+}
+
+func (s *ControllerSuite) TestAddCharm(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, charmChange, events)
+
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod.Report()["charm-count"], gc.Equals, 1)
+
+	app, err := mod.Charm(charmChange.CharmURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(app, gc.NotNil)
+}
+
+func (s *ControllerSuite) TestRemoveCharm(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, charmChange, events)
+
+	remove := cache.RemoveCharm{
+		ModelUUID: modelChange.ModelUUID,
+		CharmURL:  charmChange.CharmURL,
+	}
+	s.processChange(c, remove, events)
+
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod.Report()["charm-count"], gc.Equals, 0)
 }
 
 func (s *ControllerSuite) TestAddMachine(c *gc.C) {
@@ -184,6 +213,10 @@ func (s *ControllerSuite) captureEvents(c *gc.C) <-chan interface{} {
 		case cache.ApplicationChange:
 			send = true
 		case cache.RemoveApplication:
+			send = true
+		case cache.CharmChange:
+			send = true
+		case cache.RemoveCharm:
 			send = true
 		case cache.MachineChange:
 			send = true

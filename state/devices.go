@@ -5,9 +5,8 @@ package state
 
 import (
 	"github.com/juju/errors"
-	charm "gopkg.in/juju/charm.v6"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/environs/config"
@@ -75,15 +74,6 @@ func createDeviceConstraintsOp(id string, cons map[string]DeviceConstraints) txn
 		Insert: &deviceConstraintsDoc{
 			Constraints: cons,
 		},
-	}
-}
-
-func replaceDeviceConstraintsOp(id string, cons map[string]DeviceConstraints) txn.Op {
-	return txn.Op{
-		C:      deviceConstraintsC,
-		Id:     id,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"constraints", cons}}}},
 	}
 }
 

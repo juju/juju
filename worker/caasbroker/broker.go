@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
@@ -20,6 +21,7 @@ var logger = loggo.GetLogger("juju.worker.caas")
 type ConfigAPI interface {
 	CloudSpec() (environs.CloudSpec, error)
 	ModelConfig() (*config.Config, error)
+	ControllerConfig() (controller.Config, error)
 }
 
 // Config describes the dependencies of a Tracker.
@@ -67,9 +69,14 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	ctrlCfg, err := config.ConfigAPI.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	broker, err := config.NewContainerBrokerFunc(environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: cfg,
+		ControllerUUID: ctrlCfg.ControllerUUID(),
+		Cloud:          cloudSpec,
+		Config:         cfg,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create caas broker")

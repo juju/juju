@@ -78,9 +78,8 @@ func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 }
 
 type maasEnviron struct {
-	name  string
-	cloud environs.CloudSpec
-	uuid  string
+	name string
+	uuid string
 
 	// archMutex gates access to supportedArchitectures
 	archMutex sync.Mutex
@@ -123,15 +122,16 @@ func NewEnviron(cloud environs.CloudSpec, cfg *config.Config, getCaps MaasCapabi
 	env := &maasEnviron{
 		name:            cfg.Name(),
 		uuid:            cfg.UUID(),
-		cloud:           cloud,
 		GetCapabilities: getCaps,
 	}
-	err := env.SetConfig(cfg)
-	if err != nil {
-		return nil, err
+	if err := env.SetConfig(cfg); err != nil {
+		return nil, errors.Trace(err)
 	}
-	env.storageUnlocked = NewStorage(env)
+	if err := env.SetCloudSpec(cloud); err != nil {
+		return nil, errors.Trace(err)
+	}
 
+	var err error
 	env.namespace, err = instance.NewNamespace(cfg.UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -144,7 +144,7 @@ func (env *maasEnviron) usingMAAS2() bool {
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (env *maasEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (env *maasEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(env, nil); err != nil {
 			return err
@@ -268,11 +268,19 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 
 	env.ecfgUnlocked = ecfg
 
-	maasServer, err := parseCloudEndpoint(env.cloud.Endpoint)
+	return nil
+}
+
+// SetCloudSpec is specified in the environs.Environ interface.
+func (env *maasEnviron) SetCloudSpec(spec environs.CloudSpec) error {
+	env.ecfgMutex.Lock()
+	defer env.ecfgMutex.Unlock()
+
+	maasServer, err := parseCloudEndpoint(spec.Endpoint)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	maasOAuth, err := parseOAuthToken(*env.cloud.Credential)
+	maasOAuth, err := parseOAuthToken(*spec.Credential)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -308,6 +316,8 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 		env.maasController = controller
 	}
 	env.apiVersion = apiVersion
+	env.storageUnlocked = NewStorage(env)
+
 	return nil
 }
 

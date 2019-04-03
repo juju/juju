@@ -29,20 +29,23 @@ var _ = gc.Suite(&removeSuite{})
 func (s *removeSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.api = &fakeRemoveCloudAPI{}
-	s.store = jujuclient.NewMemStore()
+	store := jujuclient.NewMemStore()
+	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
+	store.CurrentControllerName = "mycontroller"
+	s.store = store
 }
 
 func (s *removeSuite) TestRemoveBadArgs(c *gc.C) {
 	cmd := cloud.NewRemoveCloudCommand()
-	_, err := cmdtesting.RunCommand(c, cmd)
+	_, err := cmdtesting.RunCommand(c, cmd, "--local")
 	c.Assert(err, gc.ErrorMatches, "Usage: juju remove-cloud <cloud name>")
-	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "extra")
+	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "extra", "--local")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *removeSuite) TestRemoveNotFound(c *gc.C) {
-	cmd := cloud.NewRemoveCloudCommand()
-	ctx, err := cmdtesting.RunCommand(c, cmd, "fnord")
+	cmd := cloud.NewRemoveCloudCommandForTest(s.store, nil)
+	ctx, err := cmdtesting.RunCommand(c, cmd, "fnord", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No personal cloud called \"fnord\" exists\n")
 }
@@ -71,19 +74,17 @@ clouds:
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *removeSuite) TestRemoveCloud(c *gc.C) {
-	var controllerAPICalled string
+func (s *removeSuite) TestRemoveCloudLocal(c *gc.C) {
 	cmd := cloud.NewRemoveCloudCommandForTest(
 		s.store,
 		func(controllerName string) (cloud.RemoveCloudAPI, error) {
-			controllerAPICalled = controllerName
+			c.Fail()
 			return s.api, nil
 		})
 	s.createTestCloudData(c)
 	assertPersonalClouds(c, "homestack", "homestack2")
-	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack", "--local")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerAPICalled, gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of personal cloud \"homestack\"\n")
 	assertPersonalClouds(c, "homestack2")
 }
@@ -96,7 +97,7 @@ func (s *removeSuite) TestRemoveCloudController(c *gc.C) {
 			controllerAPICalled = controllerName
 			return s.api, nil
 		})
-	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack", "--controller", "mycontroller")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
 	s.api.CheckCallNames(c, "RemoveCloud", "Close")
@@ -105,7 +106,7 @@ func (s *removeSuite) TestRemoveCloudController(c *gc.C) {
 
 func (s *removeSuite) TestCannotRemovePublicCloud(c *gc.C) {
 	s.createTestCloudData(c)
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No personal cloud called \"prodstack\" exists\n")
 }

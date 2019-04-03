@@ -13,6 +13,7 @@ import (
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 )
 
 type mockEnviron struct {
@@ -58,19 +60,25 @@ type mockCharm struct {
 	jtesting.Stub
 
 	charm.Charm
-	config *charm.Config
-	meta   *charm.Meta
+	config     *charm.Config
+	meta       *charm.Meta
+	lxdProfile *charm.LXDProfile
 }
 
-func (m *mockCharm) Meta() *charm.Meta {
-	m.MethodCall(m, "Meta")
-	return m.meta
+func (c *mockCharm) Meta() *charm.Meta {
+	c.MethodCall(c, "Meta")
+	return c.meta
 }
 
 func (c *mockCharm) Config() *charm.Config {
 	c.MethodCall(c, "Config")
 	c.PopNoErr()
 	return c.config
+}
+
+func (c *mockCharm) LXDProfile() *charm.LXDProfile {
+	c.MethodCall(c, "LXDProfile")
+	return c.lxdProfile
 }
 
 type mockApplication struct {
@@ -93,6 +101,7 @@ type mockApplication struct {
 	channel                  csparams.Channel
 	exposed                  bool
 	remote                   bool
+	agentTools               *tools.Tools
 }
 
 func (m *mockApplication) Name() string {
@@ -246,6 +255,11 @@ func (a *mockApplication) IsExposed() bool {
 func (a *mockApplication) IsRemote() bool {
 	a.MethodCall(a, "IsRemote")
 	return a.remote
+}
+
+func (a *mockApplication) AgentTools() (*tools.Tools, error) {
+	a.MethodCall(a, "AgentTools")
+	return a.agentTools, a.NextErr()
 }
 
 type mockNotifyWatcher struct {
@@ -411,6 +425,7 @@ func newMockModel() mockModel {
 		cfg: map[string]interface{}{
 			"operator-storage": "k8s-operator-storage",
 			"workload-storage": "k8s-storage",
+			"agent-version":    "2.6.0",
 		},
 	}
 }
@@ -440,6 +455,19 @@ func (m *mockModel) ModelConfig() (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
 	attrs := coretesting.FakeConfig().Merge(m.cfg)
 	return config.New(config.UseDefaults, attrs)
+}
+
+func (m *mockModel) AgentVersion() (version.Number, error) {
+	m.MethodCall(m, "AgentVersion")
+	cfg, err := m.ModelConfig()
+	if err != nil {
+		return version.Number{}, err
+	}
+	ver, ok := cfg.AgentVersion()
+	if !ok {
+		return version.Number{}, errors.NotFoundf("agent version")
+	}
+	return ver, nil
 }
 
 type mockMachine struct {
@@ -714,9 +742,10 @@ func (r *mockRelation) Destroy() error {
 type mockUnit struct {
 	application.Unit
 	jtesting.Stub
-	tag       names.UnitTag
-	machineId string
-	name      string
+	tag        names.UnitTag
+	machineId  string
+	name       string
+	agentTools *tools.Tools
 }
 
 func (u *mockUnit) Tag() names.Tag {
@@ -761,6 +790,11 @@ func (u *mockUnit) AssignedMachineId() (string, error) {
 func (u *mockUnit) Name() string {
 	u.MethodCall(u, "Name")
 	return u.name
+}
+
+func (u *mockUnit) AgentTools() (*tools.Tools, error) {
+	u.MethodCall(u, "AgentTools")
+	return u.agentTools, u.NextErr()
 }
 
 type mockStorageAttachment struct {

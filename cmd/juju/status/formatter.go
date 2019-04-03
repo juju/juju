@@ -315,10 +315,19 @@ func (sf *statusFormatter) formatRelation(rel params.RelationStatus) relationSta
 	return out
 }
 
+func typedNilCheck(err *params.Error) error {
+	// When the api comes back over the wire, the error is a typed-nil.
+	// Maning that when we check against nil, we see nil, but it isn't nil.
+	if err == nil {
+		return nil
+	}
+	return err
+}
+
 func (sf *statusFormatter) getApplicationStatusInfo(application params.ApplicationStatus) statusInfoContents {
 	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
-		Err:     application.Status.Err,
+		Err:     typedNilCheck(application.Status.Err),
 		Current: status.Status(application.Status.Status),
 		Message: application.Status.Info,
 		Version: application.Status.Version,
@@ -332,7 +341,7 @@ func (sf *statusFormatter) getApplicationStatusInfo(application params.Applicati
 func (sf *statusFormatter) getRemoteApplicationStatusInfo(application params.RemoteApplicationStatus) statusInfoContents {
 	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
-		Err:     application.Status.Err,
+		Err:     typedNilCheck(application.Status.Err),
 		Current: status.Status(application.Status.Status),
 		Message: application.Status.Info,
 		Version: application.Status.Version,
@@ -407,7 +416,7 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 func (sf *statusFormatter) getStatusInfoContents(inst params.DetailedStatus) statusInfoContents {
 	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
-		Err:     inst.Err,
+		Err:     typedNilCheck(inst.Err),
 		Current: status.Status(inst.Status),
 		Message: inst.Info,
 		Version: inst.Version,
@@ -425,7 +434,7 @@ func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusI
 	}
 	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
-		Err:     unit.WorkloadStatus.Err,
+		Err:     typedNilCheck(unit.WorkloadStatus.Err),
 		Current: status.Status(unit.WorkloadStatus.Status),
 		Message: unit.WorkloadStatus.Info,
 		Version: unit.WorkloadStatus.Version,
@@ -439,7 +448,7 @@ func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusI
 func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfoContents {
 	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
-		Err:     unit.AgentStatus.Err,
+		Err:     typedNilCheck(unit.AgentStatus.Err),
 		Current: status.Status(unit.AgentStatus.Status),
 		Message: unit.AgentStatus.Info,
 		Version: unit.AgentStatus.Version,

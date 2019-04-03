@@ -72,6 +72,14 @@ func (st *mockState) Model() (caasunitprovisioner.Model, error) {
 	return &st.model, nil
 }
 
+func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Value, error) {
+	st.MethodCall(st, "ResolveConstraints", cons)
+	if err := st.NextErr(); err != nil {
+		return constraints.Value{}, err
+	}
+	return cons, nil
+}
+
 type mockModel struct {
 	testing.Stub
 	podSpecWatcher *statetesting.MockNotifyWatcher

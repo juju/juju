@@ -43,12 +43,12 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
@@ -72,9 +72,17 @@ const (
 	gpuAffinityNodeSelectorKey = "gpu"
 
 	jujudToolDir = "/var/lib/juju/tools"
+
+	annotationPrefix = "juju.io"
 )
 
-var defaultPropagationPolicy = v1.DeletePropagationForeground
+var (
+	defaultPropagationPolicy = v1.DeletePropagationForeground
+
+	annotationModelUUIDKey              = annotationPrefix + "/" + "model"
+	annotationControllerUUIDKey         = annotationPrefix + "/" + "controller"
+	annotationControllerIsControllerKey = annotationPrefix + "/" + "is-controller"
+)
 
 type kubernetesClient struct {
 	clock jujuclock.Clock
@@ -84,6 +92,8 @@ type kubernetesClient struct {
 	// namespace is the k8s namespace to use when
 	// creating k8s resources.
 	namespace string
+
+	annotations k8sannotations.Annotation
 
 	lock   sync.Mutex
 	envCfg *config.Config
@@ -111,12 +121,14 @@ type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clo
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
 func NewK8sBroker(
+	controllerUUID string,
 	k8sRestConfig *rest.Config,
 	cfg *config.Config,
 	newClient NewK8sClientFunc,
 	newWatcher NewK8sWatcherFunc,
 	clock jujuclock.Clock,
-) (caas.Broker, error) {
+) (*kubernetesClient, error) {
+
 	k8sClient, apiextensionsClient, err := newClient(k8sRestConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -125,34 +137,38 @@ func NewK8sBroker(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelUUID := newCfg.UUID()
-	namespace := newCfg.Name()
-	if namespace == environsbootstrap.ControllerModelName {
-		// namespace format: <controller>-<controller-model-UUID> for juju controller to achieve:
-		// 1. multi controllers running in same k8s cluster;
-		// 2. avoid potential conflict if there is existing namespace named "controller"(warning:
-		//    an non juju related existing namespace could be destroyed if bootstrapping failed due
-		//    to AlreadyExistedNamespace error);
 
-		// IMPORTANT!
-		// TODO(bootstrap): do we want to run multi controller in same k8s cluster or always run one?
-		// Solution(potential): we SHOULD label all namespaces(controller ns, model ns) with controller ID,
-		// and always check if the controller owns(created) the namespace whenever it tries to
-		// CRUD any resources inside the namespace.
-		// Note: we should consider above `Solution` even we always run single controller per cluster, because
-		// we should NEVER allow juju controller to touch any namespace that was NOT created by JUJU.
-		namespace += "-" + modelUUID[:8]
-		logger.Debugf("found config name %q, so naming namespace to %q", newCfg.Name(), namespace)
+	modelUUID := newCfg.UUID()
+	if modelUUID == "" {
+		return nil, errors.NotValidf("modelUUID is required")
 	}
-	return &kubernetesClient{
+	client := &kubernetesClient{
 		clock:               clock,
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
-		namespace:           namespace,
 		envCfg:              newCfg.Config,
+		namespace:           newCfg.Name(),
 		modelUUID:           modelUUID,
 		newWatcher:          newWatcher,
-	}, nil
+		annotations: k8sannotations.New(nil).
+			Add(annotationModelUUIDKey, modelUUID),
+	}
+
+	if controllerUUID != "" {
+		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
+		client.annotations.Add(annotationControllerUUIDKey, controllerUUID)
+	}
+	return client, nil
+}
+
+// GetAnnotations returns current namespace's annotations.
+func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
+	return k.annotations
+}
+
+// addAnnotations set an annotation to current namespace's annotations.
+func (k *kubernetesClient) addAnnotations(key, value string) k8sannotations.Annotation {
+	return k.annotations.Add(key, value)
 }
 
 // Config returns environ config.
@@ -184,15 +200,46 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 	return storageClass, errors.Trace(err)
 }
 
-// PrepareForBootstrap prepares for bootstrapping a controller.
-func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
-	_, err := k.validateOperatorStorage()
-	return err
+// PrepareForBootstrap prepares for bootstraping a controller.
+func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
+	alreadyExistErr := errors.NewAlreadyExists(nil,
+		fmt.Sprintf(`a controller called %q already exists on this k8s cluster.
+Please bootstrap again and choose a different controller name.`, k.namespace),
+	)
+
+	k.namespace = DecideControllerNamespace(controllerName)
+
+	// ensure no existing namespace has the same name.
+	_, err := k.getNamespaceByName(k.namespace)
+	if err == nil {
+		return alreadyExistErr
+	}
+	if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	// Good, no existing namespace has the same name.
+	// Now, try to find if there is any existing controller running in this cluster.
+	// Note: we have to do this check before we are confident to support multi controllers running in same k8s cluster.
+
+	_, err = k.listNamespacesByAnnotations(k.annotations)
+	if err == nil {
+		return alreadyExistErr
+	}
+	if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	// All good, no existing controller found on the cluster.
+	// The namespace will be set to controller-name in newcontrollerStack.
+
+	// do validation on storage class.
+	_, err = k.validateOperatorStorage()
+	return errors.Trace(err)
 }
 
 // Create implements environs.BootstrapEnviron.
 func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreateParams) error {
-	return nil
+	// must raise errors.AlreadyExistsf if it's already exist.
+	return k.createNamespace(k.namespace)
 }
 
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
@@ -222,8 +269,47 @@ func (k *kubernetesClient) Bootstrap(
 
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
+		// validate hosted model name if we need to create it.
+		if hostedModelName, has := pcfg.GetHostedModel(); has {
+			_, err := k.getNamespaceByName(hostedModelName)
+			if err == nil {
+				return errors.NewAlreadyExists(nil,
+					fmt.Sprintf(`
+namespace %q already exists in the cluster,
+please choose a different hosted model name then try again.`, hostedModelName),
+				)
+			}
+			if !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			// hosted model is all good.
+		}
+
+		// we use controller name to name controller namespace in bootstrap time.
+		setControllerNamespace := func(controllerName string, broker *kubernetesClient) error {
+			nsName := DecideControllerNamespace(controllerName)
+
+			_, err := broker.GetNamespace(nsName)
+			if errors.IsNotFound(err) {
+				// all good.
+				broker.SetNamespace(nsName)
+				// ensure controller specific annotations.
+				_ = broker.addAnnotations(annotationControllerIsControllerKey, "true")
+				return nil
+			}
+			if err == nil {
+				// this should never happen because we avoid it in broker.PrepareForBootstrap before reaching here.
+				return errors.NotValidf("existing namespace %q found", broker.namespace)
+			}
+			return errors.Trace(err)
+		}
+
+		if err := setControllerNamespace(pcfg.ControllerName, k); err != nil {
+			return errors.Trace(err)
+		}
+
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
-		controllerStack, err := newcontrollerStack(JujuControllerStackName, storageClass, k, pcfg)
+		controllerStack, err := newcontrollerStack(ctx, JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -243,6 +329,12 @@ func (k *kubernetesClient) Bootstrap(
 
 // DestroyController implements the Environ interface.
 func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
+	k.annotations.Merge(
+		k8sannotations.New(nil).
+			Add(annotationControllerUUIDKey, controllerUUID).
+			Add(annotationControllerIsControllerKey, "true"),
+	)
 	return k.Destroy(ctx)
 }
 
@@ -310,92 +402,12 @@ func (k *kubernetesClient) APIVersion() (string, error) {
 	return version, nil
 }
 
-// Namespaces returns names of the namespaces on the cluster.
-func (k *kubernetesClient) Namespaces() ([]string, error) {
-	namespaces := k.CoreV1().Namespaces()
-	ns, err := namespaces.List(v1.ListOptions{IncludeUninitialized: true})
-	if err != nil {
-		return nil, errors.Annotate(err, "listing namespaces")
-	}
-	result := make([]string, len(ns.Items))
-	for i, n := range ns.Items {
-		result[i] = n.Name
-	}
-	return result, nil
-}
-
-// GetNamespace returns the namespace for the specified name or current namespace.
-func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
-	ns, err := k.CoreV1().Namespaces().Get(name, v1.GetOptions{IncludeUninitialized: true})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("namespace %q", name)
-	}
-	if err != nil {
-		return nil, errors.Annotate(err, "getting namespaces")
-	}
-	return ns, nil
-}
-
-// GetCurrentNamespace returns current namespace name.
-func (k *kubernetesClient) GetCurrentNamespace() string {
-	return k.namespace
-}
-
-// EnsureNamespace ensures this broker's namespace is created.
-func (k *kubernetesClient) EnsureNamespace() error {
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: k.namespace}}
-	namespaces := k.CoreV1().Namespaces()
-	_, err := namespaces.Update(ns)
-	if k8serrors.IsNotFound(err) {
-		_, err = namespaces.Create(ns)
-	}
-	return errors.Trace(err)
-}
-
-// createNamespace creates a named namespace.
-func (k *kubernetesClient) createNamespace(name string) error {
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
-	_, err := k.CoreV1().Namespaces().Create(ns)
-	if k8serrors.IsAlreadyExists(err) {
-		return errors.AlreadyExistsf("namespace %q already exists", name)
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteNamespace() error {
-	// deleteNamespace is used as a means to implement Destroy().
-	// All model resources are provisioned in the namespace;
-	// deleting the namespace will also delete those resources.
-	err := k.CoreV1().Namespaces().Delete(k.namespace, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-// WatchNamespace returns a watcher which notifies when there
-// are changes to current namespace.
-func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
-	w, err := k.CoreV1().Namespaces().Watch(
-		v1.ListOptions{
-			FieldSelector:        fields.OneTermEqualSelector("metadata.name", k.namespace).String(),
-			IncludeUninitialized: true,
-		},
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return k.newWatcher(w, k.namespace, k.clock)
-}
-
 // ensureOCIImageSecret ensures a secret exists for use with retrieving images from private registries
 func (k *kubernetesClient) ensureOCIImageSecret(
 	imageSecretName,
 	appName string,
 	imageDetails *caas.ImageDetails,
-	annotations map[string]string,
+	annotations k8sannotations.Annotation,
 ) error {
 	if imageDetails.Password == "" {
 		return errors.New("attempting to create a secret with no password")
@@ -410,7 +422,7 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 			Name:        imageSecretName,
 			Namespace:   k.namespace,
 			Labels:      map[string]string{labelApplication: appName},
-			Annotations: annotations},
+			Annotations: annotations.ToMap()},
 		Type: core.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
 			core.DockerConfigJsonKey: secretData,
@@ -483,12 +495,6 @@ func (k *kubernetesClient) OperatorExists(appName string) (bool, error) {
 func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
 	logger.Debugf("creating/updating %s operator", appName)
 
-	// TODO(caas) - this is a stop gap until we implement a CAAS model manager worker
-	// First up, ensure the namespace eis there if not already created.
-	if err := k.EnsureNamespace(); err != nil {
-		return errors.Annotatef(err, "ensuring operator namespace %v", k.namespace)
-	}
-
 	operatorName := k.operatorName(appName)
 	// TODO(caas) use secrets for storing agent password?
 	if config.AgentConf == nil {
@@ -505,8 +511,8 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		}
 	}
 
-	annotations := translateJujuAnnotations(config.ResourceTags)
-	annotations[labelVersion] = config.Version.String()
+	annotations := resourceTagsToAnnotations(config.ResourceTags).
+		Add(labelVersion, config.Version.String())
 
 	// Set up the parameters for creating charm storage.
 	operatorVolumeClaim := "charm"
@@ -539,14 +545,21 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	if err != nil {
 		return errors.Annotate(err, "finding operator volume claim")
 	}
-	storageAnnotations := translateJujuAnnotations(config.CharmStorage.ResourceTags)
+
 	pvc := &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        params.pvcName,
-			Annotations: storageAnnotations},
+			Annotations: resourceTagsToAnnotations(config.CharmStorage.ResourceTags).ToMap()},
 		Spec: *pvcSpec,
 	}
-	pod := operatorPod(operatorName, appName, agentPath, config.OperatorImagePath, config.Version.String(), annotations)
+	pod := operatorPod(
+		operatorName,
+		appName,
+		agentPath,
+		config.OperatorImagePath,
+		config.Version.String(),
+		annotations.Copy(),
+	)
 	// Take a copy for use with statefulset.
 	podWithoutStorage := pod
 
@@ -556,7 +569,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		ObjectMeta: v1.ObjectMeta{
 			Name:        operatorName,
 			Labels:      map[string]string{labelOperator: appName},
-			Annotations: annotations},
+			Annotations: annotations.ToMap()},
 		Spec: apps.StatefulSetSpec{
 			Replicas: &numPods,
 			Selector: &v1.LabelSelector{
@@ -916,47 +929,33 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 
 // EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
 func (k *kubernetesClient) EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error {
-	for _, t := range podSpec.CustomResourceDefinitions {
-		crd, err := k.ensureCustomResourceDefinitionTemplate(&t)
+	for name, crd := range podSpec.CustomResourceDefinitions {
+		crd, err := k.ensureCustomResourceDefinitionTemplate(name, crd)
 		if err != nil {
-			return errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", t.Kind))
+			return errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", name))
 		}
 		logger.Debugf("ensured custom resource definition %q", crd.ObjectMeta.Name)
 	}
 	return nil
 }
 
-func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(t *caas.CustomResourceDefinition) (
+func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(name string, spec apiextensionsv1beta1.CustomResourceDefinitionSpec) (
 	crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
-	singularName := strings.ToLower(t.Kind)
-	pluralName := fmt.Sprintf("%ss", singularName)
-	crdFullName := fmt.Sprintf("%s.%s", pluralName, t.Group)
 	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      crdFullName,
+			Name:      name,
 			Namespace: k.namespace,
 		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   t.Group,
-			Version: t.Version,
-			Scope:   apiextensionsv1beta1.ResourceScope(t.Scope),
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:   pluralName,
-				Kind:     t.Kind,
-				Singular: singularName,
-			},
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: t.Validation.Properties,
-				},
-			},
-		},
+		Spec: spec,
 	}
 	apiextensionsV1beta1 := k.apiextensionsClient.ApiextensionsV1beta1()
 	logger.Debugf("creating crd %#v", crdIn)
 	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
 	if k8serrors.IsAlreadyExists(err) {
-		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Get(crdFullName, v1.GetOptions{})
+		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Get(name, v1.GetOptions{})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		resourceVersion := crd.ObjectMeta.GetResourceVersion()
 		crdIn.ObjectMeta.SetResourceVersion(resourceVersion)
 		logger.Debugf("existing crd with resource version %q found, so update it %#v", resourceVersion, crdIn)
@@ -965,16 +964,18 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(t *caas.Custom
 	return
 }
 
-func translateJujuAnnotations(in map[string]string) map[string]string {
-	out := make(map[string]string)
+func resourceTagsToAnnotations(in map[string]string) k8sannotations.Annotation {
+	tagsAnnotationsMap := map[string]string{
+		tags.JujuController: "juju.io/controller",
+		tags.JujuModel:      "juju.io/model",
+	}
+
+	out := k8sannotations.New(nil)
 	for k, v := range in {
-		if k == tags.JujuController {
-			k = "juju.io/controller"
+		if annotationKey, ok := tagsAnnotationsMap[k]; ok {
+			k = annotationKey
 		}
-		if k == tags.JujuModel {
-			k = "juju.io/model"
-		}
-		out[k] = v
+		out.Add(k, v)
 	}
 	return out
 }
@@ -1111,14 +1112,14 @@ func (k *kubernetesClient) EnsureService(
 			})
 	}
 
-	annotations := translateJujuAnnotations(params.ResourceTags)
+	annotations := resourceTagsToAnnotations(params.ResourceTags)
 
 	for _, c := range params.PodSpec.Containers {
 		if c.ImageDetails.Password == "" {
 			continue
 		}
 		imageSecretName := appSecretName(deploymentName, c.Name)
-		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, annotations); err != nil {
+		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, annotations.Copy()); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
@@ -1156,12 +1157,12 @@ func (k *kubernetesClient) EnsureService(
 
 	numPods := int32(numUnits)
 	if useStatefulSet {
-		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations.Copy(), unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	} else {
-		if err := k.configureDeployment(appName, deploymentName, annotations, unitSpec, params.PodSpec.Containers, &numPods); err != nil {
+		if err := k.configureDeployment(appName, deploymentName, annotations.Copy(), unitSpec, params.PodSpec.Containers, &numPods); err != nil {
 			return errors.Annotate(err, "creating or updating DeploymentController")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -1179,19 +1180,16 @@ func (k *kubernetesClient) EnsureService(
 	if !params.PodSpec.OmitServiceFrontend {
 		// Merge any service annotations from the charm.
 		if unitSpec.Service != nil {
-			for k, v := range unitSpec.Service.Annotations {
-				annotations[k] = v
-			}
+			annotations.Merge(k8sannotations.New(unitSpec.Service.Annotations))
 		}
 		// Merge any service annotations from the CLI.
 		deployAnnotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
 		if err != nil {
 			return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
 		}
-		for k, v := range deployAnnotations {
-			annotations[k] = v
-		}
-		config[serviceAnnotationsKey] = annotations
+		annotations.Merge(k8sannotations.New(deployAnnotations))
+
+		config[serviceAnnotationsKey] = annotations.ToMap()
 		if err := k.configureService(appName, deploymentName, ports, config); err != nil {
 			return errors.Annotatef(err, "creating or updating service for %v", appName)
 		}
@@ -1226,7 +1224,12 @@ func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 }
 
 func (k *kubernetesClient) configureStorage(
-	podSpec *core.PodSpec, statefulSet *apps.StatefulSetSpec, appName, randPrefix string, legacy bool, filesystems []storage.KubernetesFilesystemParams,
+	podSpec *core.PodSpec,
+	statefulSet *apps.StatefulSetSpec,
+	appName,
+	randPrefix string,
+	legacy bool,
+	filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	baseDir, err := paths.StorageDir(CAASProviderType)
 	if err != nil {
@@ -1299,12 +1302,13 @@ func (k *kubernetesClient) configureStorage(
 		if err != nil {
 			return errors.Annotatef(err, "finding volume for %s", fs.StorageName)
 		}
-		annotations := translateJujuAnnotations(fs.ResourceTags)
-		annotations[labelStorage] = fs.StorageName
+
 		pvc := core.PersistentVolumeClaim{
 			ObjectMeta: v1.ObjectMeta{
-				Name:        params.pvcName,
-				Annotations: annotations},
+				Name: params.pvcName,
+				Annotations: resourceTagsToAnnotations(fs.ResourceTags).
+					Add(labelStorage, fs.StorageName).ToMap(),
+			},
 			Spec: *pvcSpec,
 		}
 		logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, pvc)
@@ -1375,20 +1379,19 @@ func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers [
 	return nil
 }
 
-func podAnnotations(annotations map[string]string) map[string]string {
-	podAnnotations := make(map[string]string)
-	for k, v := range annotations {
-		podAnnotations[k] = v
-	}
+func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annotation {
 	// Add standard security annotations.
-	podAnnotations["apparmor.security.beta.kubernetes.io/pod"] = "runtime/default"
-	podAnnotations["seccomp.security.beta.kubernetes.io/pod"] = "docker/default"
-
-	return podAnnotations
+	return annotations.
+		Add("apparmor.security.beta.kubernetes.io/pod", "runtime/default").
+		Add("seccomp.security.beta.kubernetes.io/pod", "docker/default")
 }
 
 func (k *kubernetesClient) configureDeployment(
-	appName, deploymentName string, annotations map[string]string, unitSpec *unitSpec, containers []caas.ContainerSpec, replicas *int32,
+	appName, deploymentName string,
+	annotations k8sannotations.Annotation,
+	unitSpec *unitSpec,
+	containers []caas.ContainerSpec,
+	replicas *int32,
 ) error {
 	logger.Debugf("creating/updating deployment for %s", appName)
 
@@ -1405,7 +1408,7 @@ func (k *kubernetesClient) configureDeployment(
 		ObjectMeta: v1.ObjectMeta{
 			Name:        deploymentName,
 			Labels:      map[string]string{labelApplication: appName},
-			Annotations: annotations},
+			Annotations: annotations.ToMap()},
 		Spec: apps.DeploymentSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
@@ -1415,7 +1418,7 @@ func (k *kubernetesClient) configureDeployment(
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
 					Labels:       map[string]string{labelApplication: appName},
-					Annotations:  podAnnotations(annotations),
+					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
 				},
 				Spec: podSpec,
 			},
@@ -1445,7 +1448,7 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func (k *kubernetesClient) configureStatefulSet(
-	appName, deploymentName, randPrefix string, annotations map[string]string, unitSpec *unitSpec,
+	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, unitSpec *unitSpec,
 	containers []caas.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
@@ -1454,15 +1457,14 @@ func (k *kubernetesClient) configureStatefulSet(
 	cfgName := func(fileSetName string) string {
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
-	statefulSetAnnotations := make(map[string]string)
-	for k, v := range annotations {
-		statefulSetAnnotations[k] = v
-	}
-	statefulSetAnnotations[labelApplicationUUID] = randPrefix
+
 	statefulset := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        deploymentName,
-			Annotations: statefulSetAnnotations},
+			Name: deploymentName,
+			Annotations: k8sannotations.New(nil).
+				Merge(annotations).
+				Add(labelApplicationUUID, randPrefix).ToMap(),
+		},
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
@@ -1471,7 +1473,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:      map[string]string{labelApplication: appName},
-					Annotations: podAnnotations(annotations),
+					Annotations: podAnnotations(annotations.Copy()).ToMap(),
 				},
 			},
 			PodManagementPolicy: apps.ParallelPodManagement,
@@ -2166,7 +2168,7 @@ func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) 
 
 // operatorPod returns a *core.Pod for the operator pod
 // of the specified application.
-func operatorPod(podName, appName, agentPath, operatorImagePath, version string, annotations map[string]string) *core.Pod {
+func operatorPod(podName, appName, agentPath, operatorImagePath, version string, annotations k8sannotations.Annotation) *core.Pod {
 	configMapName := operatorConfigMapName(podName)
 	configVolName := configMapName
 
@@ -2175,15 +2177,14 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 	}
 
 	appTag := names.NewApplicationTag(appName)
-	podAnnotations := podAnnotations(annotations)
-	podAnnotations[labelVersion] = version
 	jujudCmd := fmt.Sprintf("./jujud caasoperator --application-name=%s --debug", appName)
 
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        podName,
-			Annotations: podAnnotations,
-			Labels:      map[string]string{labelOperator: appName},
+			Name: podName,
+			Annotations: podAnnotations(annotations.Copy()).
+				Add(labelVersion, version).ToMap(),
+			Labels: map[string]string{labelOperator: appName},
 		},
 		Spec: core.PodSpec{
 			Containers: []core.Container{{

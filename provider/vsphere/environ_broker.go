@@ -242,6 +242,11 @@ func (env *sessionEnviron) newRawInstance(
 	createVMArgs.ResourcePool = availZone.pool.Reference()
 
 	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
+	if vsphereclient.IsExtendDiskError(err) {
+		// Ensure we don't try to make the same extension across
+		// different resource groups.
+		err = common.ZoneIndependentError(err)
+	}
 	if err != nil {
 		HandleCredentialError(err, ctx)
 		return nil, nil, errors.Trace(err)

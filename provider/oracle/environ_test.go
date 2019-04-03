@@ -119,7 +119,7 @@ func (e *environSuite) TestInstanceAvailabilityZoneNamesWithErrors(c *gc.C) {
 
 func (e *environSuite) TestPrepareForBootstrap(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
-	err := e.env.PrepareForBootstrap(ctx)
+	err := e.env.PrepareForBootstrap(ctx, "controller-1")
 	c.Assert(err, gc.IsNil)
 }
 
@@ -140,7 +140,7 @@ func (e *environSuite) TestPrepareForBootstrapWithErrors(c *gc.C) {
 	c.Assert(environ, gc.NotNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	err = environ.PrepareForBootstrap(ctx)
+	err = environ.PrepareForBootstrap(ctx, "controller-1")
 	c.Assert(err, gc.NotNil)
 }
 

@@ -8,11 +8,14 @@ package application
 
 import (
 	"fmt"
+	"math"
 	"net"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
+	"github.com/juju/utils/featureflag"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -31,14 +34,17 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.application")
@@ -714,6 +720,21 @@ func parseSettingsCompatible(charmConfig *charm.Config, settings map[string]stri
 	return changes, nil
 }
 
+type setCharmParams struct {
+	AppName               string
+	Application           Application
+	Channel               csparams.Channel
+	ConfigSettingsStrings map[string]string
+	ConfigSettingsYAML    string
+	ResourceIDs           map[string]string
+	StorageConstraints    map[string]params.StorageConstraints
+	Force                 forceParams
+}
+
+type forceParams struct {
+	ForceSeries, ForceUnits, Force bool
+}
+
 // Update updates the application attributes, including charm URL,
 // minimum number of units, charm config and constraints.
 // All parameters in params.ApplicationUpdate except the application name are optional.
@@ -735,18 +756,18 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 		// For now we do not support changing the channel through Update().
 		// TODO(ericsnow) Support it?
 		channel := app.Channel()
-		if err = api.applicationSetCharm(
-			args.ApplicationName,
-			app,
+		if err = api.updateCharm(
+			setCharmParams{
+				AppName:     args.ApplicationName,
+				Application: app,
+				Channel:     channel,
+				Force: forceParams{
+					ForceSeries: args.ForceSeries,
+					ForceUnits:  args.ForceCharmURL,
+					Force:       args.Force,
+				},
+			},
 			args.CharmURL,
-			channel,
-			nil, // charm settings (strings map)
-			"",  // charm settings (YAML)
-			args.ForceSeries,
-			args.ForceCharmURL,
-			args.Force,
-			nil, // resource IDs
-			nil, // storage constraints
 		); err != nil {
 			return errors.Trace(err)
 		}
@@ -784,6 +805,24 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 		return app.SetConstraints(*args.Constraints)
 	}
 	return nil
+}
+
+// updateCharm parses the charm url and then grabs the charm from the backend.
+// this is analogous to setCharmWithAgentValidation, minus the validation around
+// setting the profile charm.
+func (api *APIBase) updateCharm(
+	params setCharmParams,
+	url string,
+) error {
+	curl, err := charm.ParseURL(url)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	charm, err := api.backend.Charm(curl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.applicationSetCharm(params, charm)
 }
 
 // UpdateApplicationSeries updates the application series. Series for
@@ -847,61 +886,97 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := application.SetCharmProfile(args.CharmURL); err != nil {
-		return errors.Annotatef(err, "unable to set charm profile")
-	}
-
 	channel := csparams.Channel(args.Channel)
-	return api.applicationSetCharm(
-		args.ApplicationName,
-		application,
+	return api.setCharmWithAgentValidation(
+		setCharmParams{
+			AppName:               args.ApplicationName,
+			Application:           application,
+			Channel:               channel,
+			ConfigSettingsStrings: args.ConfigSettings,
+			ConfigSettingsYAML:    args.ConfigSettingsYAML,
+			ResourceIDs:           args.ResourceIDs,
+			StorageConstraints:    args.StorageConstraints,
+			Force: forceParams{
+				ForceSeries: args.ForceSeries,
+				ForceUnits:  args.ForceUnits,
+				Force:       args.Force,
+			},
+		},
 		args.CharmURL,
-		channel,
-		args.ConfigSettings,
-		args.ConfigSettingsYAML,
-		args.ForceSeries,
-		args.ForceUnits,
-		args.Force,
-		args.ResourceIDs,
-		args.StorageConstraints,
 	)
 }
 
-// applicationSetCharm sets the charm for the given for the application.
-func (api *APIBase) applicationSetCharm(
-	appName string,
-	application Application,
+// setCharmWithAgentValidation checks the agent versions of the application
+// and unit before continuing on. These checks are important to prevent old
+// code running at the same time as the new code. If you encounter the error,
+// the correct and only work around is to upgrade the units to match the
+// controller.
+func (api *APIBase) setCharmWithAgentValidation(
+	params setCharmParams,
 	url string,
-	channel csparams.Channel,
-	configSettingsStrings map[string]string,
-	configSettingsYAML string,
-	forceSeries,
-	forceUnits,
-	force bool,
-	resourceIDs map[string]string,
-	storageConstraints map[string]params.StorageConstraints,
 ) error {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	sch, err := api.backend.Charm(curl)
+	newCharm, err := api.backend.Charm(curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	application := params.Application
+	// Check if the controller agent tools version is greater than the
+	// version we support for the new LXD profiles.
+	// Then check all the units, to see what their agent tools versions is
+	// so that we can ensure that everyone is aligned. If the units version
+	// is too low (i.e. less than the 2.6.0 epoch), then show an error
+	// message that the operator should upgrade to receive the latest
+	// LXD Profile changes.
+	if featureflag.Enabled(feature.InstanceMutater) {
+		// Ensure that we only check agent versions of a charm when we have a
+		// non-empty profile. So this check will only be run in the following
+		// scenarios; adding a profile, upgrading a profile. Removal of a
+		// profile, that had an existing charm, will check if there is currently
+		// an existing charm and if so, run the check.
+		// Checking that is possible, but that would require asking every unit
+		// machines what profiles they currently have and matching with the
+		// incoming update. This could be very costly when you have lots of
+		// machines.
+		currentCharm, _, err := application.Charm()
+		if err != nil {
+			logger.Debugf("Unable to locate current charm: %v", err)
+		}
+		if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: currentCharm}) ||
+			lxdprofile.NotEmpty(lxdCharmProfiler{Charm: newCharm}) {
+			if err := validateAgentVersions(application, api.model); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	if err := application.SetCharmProfile(url); err != nil {
+		return errors.Annotatef(err, "unable to set charm profile")
+	}
+	return api.applicationSetCharm(params, newCharm)
+}
+
+// applicationSetCharm sets the charm for the given for the application.
+func (api *APIBase) applicationSetCharm(
+	params setCharmParams,
+	stateCharm Charm,
+) error {
+	var err error
 	var settings charm.Settings
-	if configSettingsYAML != "" {
-		settings, err = sch.Config().ParseSettingsYAML([]byte(configSettingsYAML), appName)
-	} else if len(configSettingsStrings) > 0 {
-		settings, err = parseSettingsCompatible(sch.Config(), configSettingsStrings)
+	if params.ConfigSettingsYAML != "" {
+		settings, err = stateCharm.Config().ParseSettingsYAML([]byte(params.ConfigSettingsYAML), params.AppName)
+	} else if len(params.ConfigSettingsStrings) > 0 {
+		settings, err = parseSettingsCompatible(stateCharm.Config(), params.ConfigSettingsStrings)
 	}
 	if err != nil {
 		return errors.Annotate(err, "parsing config settings")
 	}
 	var stateStorageConstraints map[string]state.StorageConstraints
-	if len(storageConstraints) > 0 {
+	if len(params.StorageConstraints) > 0 {
 		stateStorageConstraints = make(map[string]state.StorageConstraints)
-		for name, cons := range storageConstraints {
+		for name, cons := range params.StorageConstraints {
 			stateCons := state.StorageConstraints{Pool: cons.Pool}
 			if cons.Size != nil {
 				stateCons.Size = *cons.Size
@@ -912,17 +987,18 @@ func (api *APIBase) applicationSetCharm(
 			stateStorageConstraints[name] = stateCons
 		}
 	}
+	force := params.Force
 	cfg := state.SetCharmConfig{
-		Charm:              api.stateCharm(sch),
-		Channel:            channel,
+		Charm:              api.stateCharm(stateCharm),
+		Channel:            params.Channel,
 		ConfigSettings:     settings,
-		ForceSeries:        forceSeries,
-		ForceUnits:         forceUnits,
-		Force:              force,
-		ResourceIDs:        resourceIDs,
+		ForceSeries:        force.ForceSeries,
+		ForceUnits:         force.ForceUnits,
+		Force:              force.Force,
+		ResourceIDs:        params.ResourceIDs,
 		StorageConstraints: stateStorageConstraints,
 	}
-	return application.SetCharm(cfg)
+	return params.Application.SetCharm(cfg)
 }
 
 // charmConfigFromGetYaml will parse a yaml produced by juju get and generate
@@ -2198,4 +2274,90 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 		}
 	}
 	return params.ApplicationInfoResults{out}, nil
+}
+
+// lxdCharmProfiler massages a *state.Charm into a LXDProfiler
+// inside of the core package.
+type lxdCharmProfiler struct {
+	Charm Charm
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.Charm == nil {
+		return nil
+	}
+	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
+		return profiler.LXDProfile()
+	}
+	return nil
+}
+
+// AgentTools is a point of use agent tools requester.
+type AgentTools interface {
+	AgentTools() (*tools.Tools, error)
+}
+
+// AgentVersioner is a point of use agent version object.
+type AgentVersioner interface {
+	AgentVersion() (version.Number, error)
+}
+
+var (
+	// ErrInvalidAgentVersions is a sentinal error for when we can no longer
+	// upgrade juju using 2.5.x agents with 2.6 or greater controllers.
+	ErrInvalidAgentVersions = errors.Errorf(
+		"Unable to upgrade LXDProfile charms with the current model version. " +
+			"Please run juju upgrade-juju to upgrade the current model to match your controller.")
+)
+
+func getAgentToolsVersion(agentTools AgentTools) (version.Number, error) {
+	tools, err := agentTools.AgentTools()
+	if err != nil {
+		return version.Zero, err
+	}
+	return tools.Version.Number, nil
+}
+
+func getAgentVersion(versioner AgentVersioner) (version.Number, error) {
+	agent, err := versioner.AgentVersion()
+	if err != nil {
+		return version.Zero, err
+	}
+	return agent, nil
+}
+
+func validateAgentVersions(application Application, versioner AgentVersioner) error {
+	// The epoch is set like this, because beta tags are less than release tags.
+	// So 2.6-beta1.1 < 2.6.0, even though the patch is greater than 0. To
+	// prevent the miss-match, we add the upper epoch limit.
+	epoch := version.Number{Major: 2, Minor: 5, Patch: math.MaxInt32}
+
+	// Locate the agent tools version to limit the amount of checking we
+	// required to do over all. We check for NotFound to also use that as a
+	// fallthrough to check the agent version as well. This should take care
+	// of places where the application.AgentTools version is not set (IAAS).
+	ver, err := getAgentToolsVersion(application)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if errors.IsNotFound(err) || ver.Compare(epoch) >= 0 {
+		// Check to see if the model config version is valid
+		// Arguably we could check on the per-unit level, as that is the
+		// *actual* version of the agent that is running, looking at the
+		// versioner (alias to model config), we get the intent of the move
+		// to that version.
+		// This should be enough for a pre-flight check, rather than querying
+		// potentially thousands of units (think large production stacks).
+		modelVer, modelErr := getAgentVersion(versioner)
+		if modelErr != nil {
+			// If we can't find the model config version, then we can't do the
+			// comparison check.
+			return errors.Trace(modelErr)
+		}
+		if modelVer.Compare(epoch) < 0 {
+			return ErrInvalidAgentVersions
+		}
+	}
+	return nil
 }

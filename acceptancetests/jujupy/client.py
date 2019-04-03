@@ -103,6 +103,7 @@ KVM_MACHINE = 'kvm'
 LXC_MACHINE = 'lxc'
 LXD_MACHINE = 'lxd'
 
+_DEFAULT_POLL_TIMEOUT = 5
 _DEFAULT_BUNDLE_TIMEOUT = 3600
 
 log = logging.getLogger("jujupy")
@@ -1271,7 +1272,7 @@ class ModelClient:
 
     def deploy(self, charm, repository=None, to=None, series=None,
                service=None, force=False, resource=None, num=None,
-               constraints=None, alias=None, bind=None, **kwargs):
+               constraints=None, alias=None, bind=None, wait_timeout=None, **kwargs):
         args = [charm]
         if service is not None:
             args.extend([service])
@@ -1298,7 +1299,9 @@ class ModelClient:
             else:
                 args.extend(['--{}'.format(key), value])
         retvar, ct = self.juju('deploy', tuple(args))
-        return retvar, CommandComplete(WaitAgentsStarted(), ct)
+        # Unfortunately some times we need to up the wait condition timeout if
+        # we're deploying a complex set of machines/containers.
+        return retvar, CommandComplete(WaitAgentsStarted(wait_timeout), ct)
 
     def attach(self, service, resource):
         args = (service, resource)
@@ -1437,7 +1440,7 @@ class ModelClient:
                             break
                         status.raise_highest_error(ignore_recoverable=True)
                         reporter.update(states)
-                        time.sleep(1)
+                        time.sleep(_DEFAULT_POLL_TIMEOUT)
                     else:
                         if status is not None:
                             log.error(status.status_text)
@@ -1654,7 +1657,7 @@ class ModelClient:
                     status = self.get_status()
                     if status.get_service_count() >= service_count:
                         return
-                    time.sleep(1)
+                    time.sleep(_DEFAULT_POLL_TIMEOUT)
                 else:
                     raise ApplicationsNotStarted(self.env.environment, status)
 
@@ -1699,7 +1702,7 @@ class ModelClient:
                     return
                 if not quiet:
                     reporter.update(states)
-                time.sleep(1)
+                time.sleep(_DEFAULT_POLL_TIMEOUT)
             else:
                 status.raise_highest_error(ignore_recoverable=False)
         except StatusTimeout:

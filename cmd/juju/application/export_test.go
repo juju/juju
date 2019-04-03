@@ -5,13 +5,119 @@ package application
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/romulus"
+	"gopkg.in/juju/charmrepo.v3"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/annotations"
+	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
+	apicharms "github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/resource/resourceadapters"
 )
+
+// NewDeployCommandForTest returns a command to deploy applications intended to be used only in tests.
+func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
+	deployCmd := &DeployCommand{
+		Steps:      steps,
+		NewAPIRoot: newAPIRoot,
+	}
+	if newAPIRoot == nil {
+		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
+			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			bakeryClient, err := deployCmd.BakeryClient()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
+
+			return &deployAPIAdapter{
+				Connection:        apiRoot,
+				apiClient:         &apiClient{Client: apiRoot.Client()},
+				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
+				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
+				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
+				charmstoreClient:  &charmstoreClient{&charmstoreClientShim{cstoreClient}},
+				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
+				charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
+				plansClient:       &plansClient{planURL: mURL},
+			}, nil
+		}
+	}
+	return modelcmd.Wrap(deployCmd)
+}
+
+// NewDeployCommandForTest2 returns a command to deploy applications intended to be used only in tests
+// that do not use gomock.
+func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo charmrepoForDeploy) modelcmd.ModelCommand {
+	deployCmd := &DeployCommand{
+		Steps: []DeployStep{
+			&RegisterMeteredCharm{
+				PlanURL:      romulus.DefaultAPIRoot,
+				RegisterPath: "/plan/authorize",
+				QueryPath:    "/charm",
+			},
+			&ValidateLXDProfileCharm{},
+		},
+	}
+
+	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
+		if charmstore == nil {
+			return nil, errors.NotValidf("charmstore argument must be supplied")
+		}
+
+		if charmrepo == nil {
+			return nil, errors.NotValidf("charmrepo argument must be supplied")
+		}
+
+		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		charmstore := charmstore.WithChannel(deployCmd.Channel)
+
+		return &deployAPIAdapter{
+			Connection:        apiRoot,
+			apiClient:         &apiClient{Client: apiRoot.Client()},
+			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
+			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
+			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
+			charmstoreClient:  &charmstoreClient{charmstore},
+			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
+			charmRepoClient:   &charmRepoClient{charmrepo},
+			plansClient:       &plansClient{planURL: mURL},
+		}, nil
+	}
+
+	return modelcmd.Wrap(deployCmd)
+}
 
 func NewUpgradeCharmCommandForTest(
 	store jujuclient.ClientStore,

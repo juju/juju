@@ -336,6 +336,15 @@ func (c *CommandBase) ModelUUIDs(store jujuclient.ClientStore, controllerName st
 	return result, nil
 }
 
+// ControllerUUID returns the controller UUID for specified controller name.
+func (c *CommandBase) ControllerUUID(store jujuclient.ClientStore, controllerName string) (string, error) {
+	ctrl, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return "", errors.Annotate(err, "resolving controller name")
+	}
+	return ctrl.ControllerUUID, nil
+}
+
 // getAPIContext returns an apiContext for the given controller.
 // It will return the same context if called twice for the same controller.
 // The context will be closed when closeAPIContexts is called.

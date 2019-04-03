@@ -6,6 +6,7 @@ package instancemutater
 import (
 	"time"
 
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -62,4 +63,16 @@ type LXDProfile interface {
 	Devices() map[string]map[string]string
 	Empty() bool
 	ValidateConfigDevices() error
+}
+
+// ModelCache represents point of use methods from the cache
+// model
+type ModelCache interface {
+	Machine(machineId string) (ModelCacheMachine, error)
+	WatchMachines() cache.StringsWatcher
+}
+
+// ModelCacheMachine represents a point of use Machine from the cache package.
+type ModelCacheMachine interface {
+	WatchApplicationLXDProfiles() (cache.NotifyWatcher, error)
 }

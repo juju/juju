@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 )
@@ -99,9 +98,6 @@ type Broker interface {
 
 	// APIVersion returns the master kubelet API version.
 	APIVersion() (string, error)
-
-	// Destroy terminates all containers and other resources in this broker's namespace.
-	Destroy(context.ProviderCallContext) error
 
 	// EnsureOperator creates or updates an operator pod for running
 	// a charm for the specified application.
@@ -191,9 +187,6 @@ type ServiceGetterSetter interface {
 type NamespaceGetterSetter interface {
 	// Namespaces returns name names of the namespaces on the cluster.
 	Namespaces() ([]string, error)
-
-	// EnsureNamespace ensures this broker's namespace is created.
-	EnsureNamespace() error
 
 	// GetNamespace returns the namespace for the specified name or current namespace.
 	GetNamespace(name string) (*core.Namespace, error)

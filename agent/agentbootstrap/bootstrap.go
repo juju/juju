@@ -191,6 +191,11 @@ func ensureHostedModel(
 	adminUser names.UserTag,
 	cloudCredentialTag names.CloudCredentialTag,
 ) error {
+	if len(args.HostedModelConfig) == 0 {
+		logger.Debugf("no hosted model configured")
+		return nil
+	}
+
 	// Create the initial hosted model, with the model config passed to
 	// bootstrap, which contains the UUID, name for the hosted model,
 	// and any user supplied config. We also copy the authorized-keys
@@ -225,8 +230,9 @@ func ensureHostedModel(
 	}
 
 	openParams := environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: hostedModelConfig,
+		ControllerUUID: controllerUUID,
+		Cloud:          cloudSpec,
+		Config:         hostedModelConfig,
 	}
 	var hostedModelEnv environs.BootstrapEnviron
 	if isCAAS {

@@ -17,18 +17,23 @@ import (
 
 //go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Context,Resources,Authorizer
 //go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Model,Machine,Unit,Application,Charm,LXDProfile
+//go:generate mockgen -package mocks -destination mocks/modelcache_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater ModelCache,ModelCacheMachine
 //go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
+//go:generate mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/cache NotifyWatcher,StringsWatcher
 
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
 
 // InstanceMutaterV1 defines the methods on the instance mutater API facade, version 1.
 type InstanceMutaterV1 interface {
-	CharmProfilingInfo(params.CharmProfilingInfoArg) (params.CharmProfilingInfoResult, error)
-	Life(args params.Entities) (params.LifeResults, error)
-	SetCharmProfiles(params.SetProfileArgs) (params.ErrorResults, error)
-	SetUpgradeCharmProfileComplete(params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error)
-	WatchUnits(args params.Entities) (params.StringsWatchResults, error)
 	WatchModelMachines() (params.StringsWatchResult, error)
+	WatchUnits(args params.Entities) (params.StringsWatchResults, error)
+	Life(args params.Entities) (params.LifeResults, error)
+
+	CharmProfilingInfo(arg params.CharmProfilingInfoArg) (params.CharmProfilingInfoResult, error)
+	SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error)
+	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
+	WatchMachines() (params.StringsWatchResult, error)
+	WatchApplicationLXDProfiles(args params.Entities) (params.NotifyWatchResults, error)
 }
 
 type InstanceMutaterAPI struct {
@@ -37,6 +42,9 @@ type InstanceMutaterAPI struct {
 	*common.LifeGetter
 
 	st          InstanceMutaterState
+	model       ModelCache
+	resources   facade.Resources
+	authorizer  facade.Authorizer
 	getAuthFunc common.GetAuthFunc
 }
 
@@ -48,12 +56,23 @@ var (
 // NewFacadeV1 is used for API registration.
 func NewFacadeV1(ctx facade.Context) (*InstanceMutaterAPI, error) {
 	st := &instanceMutaterStateShim{State: ctx.State()}
-	return NewInstanceMutaterAPI(st, ctx.Resources(), ctx.Auth())
+
+	model, err := ctx.Controller().Model(st.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelCache := &modelCacheShim{Model: model}
+
+	return NewInstanceMutaterAPI(st, modelCache, ctx.Resources(), ctx.Auth())
 }
 
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
 // charm profiles on juju lxd machines and containers.
-func NewInstanceMutaterAPI(st InstanceMutaterState, resources facade.Resources, authorizer facade.Authorizer) (*InstanceMutaterAPI, error) {
+func NewInstanceMutaterAPI(st InstanceMutaterState,
+	model ModelCache,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*InstanceMutaterAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
@@ -64,6 +83,9 @@ func NewInstanceMutaterAPI(st InstanceMutaterState, resources facade.Resources, 
 		UnitsWatcher:         common.NewUnitsWatcher(st, resources, getAuthFunc),
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
 		st:                   st,
+		model:                model,
+		resources:            resources,
+		authorizer:           authorizer,
 		getAuthFunc:          getAuthFunc,
 	}, nil
 }
@@ -147,6 +169,81 @@ func (api *InstanceMutaterAPI) SetCharmProfiles(args params.SetProfileArgs) (par
 		results[i].Error = common.ServerError(err)
 	}
 	return params.ErrorResults{Results: results}, nil
+}
+
+// WatchMachines starts a watcher to track machines.
+// WatchMachines does not consume the initial event of the watch response, as
+// that returns the initial set of machines that are currently available.
+func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	if !api.authorizer.AuthController() {
+		return result, common.ErrPerm
+	}
+
+	watch := api.model.WatchMachines()
+	if changes, ok := <-watch.Changes(); ok {
+		result.StringsWatcherId = api.resources.Register(watch)
+		result.Changes = changes
+	} else {
+		return result, errors.Errorf("cannot obtain initial model machines")
+	}
+	return result, nil
+}
+
+// WatchApplicationLXDProfiles starts a watcher to track Applications with
+// LXD Profiles.
+func (api *InstanceMutaterAPI) WatchApplicationLXDProfiles(args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := api.getAuthFunc()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		entityResult, err := api.watchOneEntityApplication(canAccess, tag)
+		result.Results[i] = entityResult
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFunc, tag names.MachineTag) (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+	machine, err := api.getCacheMachine(canAccess, tag)
+	if err != nil {
+		return result, err
+	}
+	watch, err := machine.WatchApplicationLXDProfiles()
+	if err != nil {
+		return result, err
+	}
+	// Consume the initial event before sending the result.
+	if _, ok := <-watch.Changes(); ok {
+		result.NotifyWatcherId = api.resources.Register(watch)
+	} else {
+		return result, errors.Errorf("cannot obtain initial machine watch application LXD profiles")
+	}
+	return result, nil
+}
+
+func (api *InstanceMutaterAPI) getCacheMachine(canAccess common.AuthFunc, tag names.MachineTag) (ModelCacheMachine, error) {
+	if !canAccess(tag) {
+		return nil, common.ErrPerm
+	}
+	machine, err := api.model.Machine(tag.Id())
+	if err != nil {
+		return nil, err
+	}
+	return machine, nil
 }
 
 func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {

@@ -60,9 +60,14 @@ Adds a k8s endpoint and credential to Juju.`[1:]
 
 var usageAddCAASDetails = `
 Creates a user-defined cloud based on a k8s cluster.
+
 The new k8s cloud can then be used to bootstrap into, or it
-can be added to an existing controller with the --controller option.
-Specify non default kubeconfig file location using $KUBECONFIG
+can be added to an existing controller; the current controller
+is used unless the --controller option is specified. If you just
+want to update the local cache and not a running controller, use
+the --local option.
+
+Specify a non default kubeconfig file location using $KUBECONFIG
 environment variable or pipe in file content from stdin.
 
 The config file can contain definitions for different k8s clusters,
@@ -80,6 +85,7 @@ necessary parameters directly.
 
 Examples:
     juju add-k8s myk8scloud
+    juju add-k8s myk8scloud --local
     juju add-k8s myk8scloud --controller mycontroller
     juju add-k8s --context-name mycontext myk8scloud
     juju add-k8s myk8scloud --region <cloudType/region>
@@ -102,7 +108,7 @@ See also:
 
 // AddCAASCommand is the command that allows you to add a caas and credential
 type AddCAASCommand struct {
-	modelcmd.CommandBase
+	modelcmd.OptionalControllerCommand
 
 	// These attributes are used when adding a cluster to a controller.
 	controllerName  string
@@ -153,9 +159,11 @@ type AddCAASCommand struct {
 
 // NewAddCAASCommand returns a command to add caas information.
 func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
+	store := jujuclient.NewFileClientStore()
 	cmd := &AddCAASCommand{
-		cloudMetadataStore: cloudMetadataStore,
-		store:              jujuclient.NewFileClientStore(),
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		cloudMetadataStore:        cloudMetadataStore,
+		store:                     store,
 		newClientConfigReader: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
@@ -185,9 +193,7 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 
 // SetFlags initializes the flags supported by the command.
 func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
-	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
-	f.StringVar(&c.controllerName, "controller", "", "")
+	c.OptionalControllerCommand.SetFlags(f)
 	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
 	f.StringVar(&c.contextName, "context-name", "", "Specify the k8s context to import")
 	f.StringVar(&c.hostCloudRegion, "region", "", "kubernetes cluster cloud and/or region")
@@ -243,6 +249,10 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 		}
 	}
 
+	c.controllerName, err = c.ControllerNameFromArg()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return cmd.CheckEmpty(args[1:])
 }
 
@@ -550,7 +560,17 @@ func (c *AddCAASCommand) newK8sBrokerGetter() BrokerGetter {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return caas.New(environs.OpenParams{Cloud: cloudSpec, Config: cfg})
+		openParams := environs.OpenParams{
+			Cloud: cloudSpec, Config: cfg,
+		}
+		if c.controllerName != "" {
+			ctrlUUID, err := c.ControllerUUID(c.store, c.controllerName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			openParams.ControllerUUID = ctrlUUID
+		}
+		return caas.New(openParams)
 	}
 }
 

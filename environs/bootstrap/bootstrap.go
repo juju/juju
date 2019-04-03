@@ -65,6 +65,9 @@ type BootstrapParams struct {
 	// BootstrapConstraints does not affect the model constraints.
 	BootstrapConstraints constraints.Value
 
+	// ControllerName is the controller name.
+	ControllerName string
+
 	// BootstrapSeries, if specified, is the series to use for the
 	// initial bootstrap machine.
 	BootstrapSeries string
@@ -215,6 +218,7 @@ func bootstrapCAAS(
 
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		args.ControllerConfig,
+		args.ControllerName,
 		result.Series,
 	)
 	if err != nil {

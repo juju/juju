@@ -63,6 +63,9 @@ type ControllerPodConfig struct {
 	// ControllerTag identifies the controller.
 	ControllerTag names.ControllerTag
 
+	// ControllerName is the controller name.
+	ControllerName string
+
 	// TODO(bootstrap): remove me.
 	// PodNonce is set at provisioning/bootstrap time and used to
 	// ensure the agent is running on the correct instance.
@@ -203,6 +206,10 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	if cfg.PodNonce == "" {
 		return errors.New("missing pod nonce")
 	}
+	if cfg.ControllerName == "" {
+		return errors.New("missing controller name")
+	}
+
 	if cfg.Controller != nil {
 		if err := cfg.verifyControllerConfig(); err != nil {
 			return errors.Trace(err)
@@ -228,7 +235,7 @@ func (cfg *ControllerPodConfig) GetControllerImagePath() string {
 	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion)
 }
 
-// GetJUjuDbOCIImagePath returns the juju-db oci image path.
+// GetJujuDbOCIImagePath returns the juju-db oci image path.
 func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() string {
 	imageRepo := cfg.Controller.Config.CAASImageRepo()
 	if imageRepo == "" {
@@ -248,6 +255,9 @@ func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) st
 	imageRepo := controllerCfg.CAASImageRepo()
 	if imageRepo == "" {
 		imageRepo = jujudOCINamespace
+	}
+	if ver == version.Zero {
+		return fmt.Sprintf("%s/%s", imageRepo, jujudOCIName)
 	}
 	return fmt.Sprintf("%s/%s:%s", imageRepo, jujudOCIName, ver.String())
 }
@@ -282,6 +292,17 @@ func (cfg *ControllerPodConfig) verifyControllerConfig() (err error) {
 	return nil
 }
 
+// GetHostedModel checks if hosted model was requested to create.
+func (cfg *ControllerPodConfig) GetHostedModel() (string, bool) {
+	hasHostedModel := len(cfg.Bootstrap.HostedModelConfig) > 0
+	if hasHostedModel {
+		modelName := cfg.Bootstrap.HostedModelConfig[config.NameKey].(string)
+		logger.Debugf("configured hosted model %q for bootstrapping", modelName)
+		return modelName, true
+	}
+	return "", false
+}
+
 // VerifyConfig verifies that the BootstrapConfig is valid.
 func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if cfg.ControllerModelConfig == nil {
@@ -301,9 +322,6 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	}
 	if cfg.StateServingInfo.APIPort == 0 {
 		return errors.New("missing API port")
-	}
-	if len(cfg.HostedModelConfig) == 0 {
-		return errors.New("missing hosted model config")
 	}
 	return nil
 }
@@ -326,6 +344,7 @@ func NewControllerPodConfig(
 	controllerTag names.ControllerTag,
 	podID,
 	podNonce,
+	controllerName,
 	series string,
 	apiInfo *api.Info,
 ) (*ControllerPodConfig, error) {
@@ -346,16 +365,13 @@ func NewControllerPodConfig(
 		DataDir:         dataDir,
 		LogDir:          path.Join(logDir, "juju"),
 		MetricsSpoolDir: metricsSpoolDir,
-		// CAAS only has JobManageModel.
-		Jobs: []multiwatcher.MachineJob{
-			multiwatcher.JobManageModel,
-		},
-		Tags: map[string]string{},
+		Tags:            map[string]string{},
 		// Parameter entries.
-		ControllerTag: controllerTag,
-		MachineId:     podID,
-		PodNonce:      podNonce,
-		APIInfo:       apiInfo,
+		ControllerTag:  controllerTag,
+		MachineId:      podID,
+		PodNonce:       podNonce,
+		ControllerName: controllerName,
+		APIInfo:        apiInfo,
 	}
 	return pcfg, nil
 }
@@ -363,10 +379,12 @@ func NewControllerPodConfig(
 // NewBootstrapControllerPodConfig sets up a basic pod configuration for a
 // bootstrap pod.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapControllerPodConfig(config controller.Config, series string) (*ControllerPodConfig, error) {
+func NewBootstrapControllerPodConfig(config controller.Config, controllerName, series string) (*ControllerPodConfig, error) {
 	// For a bootstrap pod, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
-	pcfg, err := NewControllerPodConfig(names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, series, nil)
+	pcfg, err := NewControllerPodConfig(
+		names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, controllerName, series, nil,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -395,6 +413,7 @@ func NewBootstrapControllerPodConfig(config controller.Config, series string) (*
 			},
 		},
 	}
+
 	pcfg.Jobs = []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,

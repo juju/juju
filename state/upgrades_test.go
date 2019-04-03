@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	mongoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
@@ -338,6 +339,10 @@ type expectUpgradedData struct {
 }
 
 func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*StatePool) error, expect ...expectUpgradedData) {
+	s.assertUpgradedDataWithFilter(c, upgrade, nil, expect...)
+}
+
+func (s *upgradesSuite) assertUpgradedDataWithFilter(c *gc.C, upgrade func(*StatePool) error, filter bson.D, expect ...expectUpgradedData) {
 	// Two rounds to check idempotency.
 	for i := 0; i < 2; i++ {
 		c.Logf("Run: %d", i)
@@ -346,7 +351,7 @@ func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*StatePool) err
 
 		for _, expect := range expect {
 			var docs []bson.M
-			err = expect.coll.Find(nil).Sort("_id").All(&docs)
+			err = expect.coll.Find(filter).Sort("_id").All(&docs)
 			c.Assert(err, jc.ErrorIsNil)
 			for i, d := range docs {
 				doc := d
@@ -1473,9 +1478,9 @@ func (s *upgradesSuite) TestSplitLogsIgnoresDupeRecordsAlreadyThere(c *gc.C) {
 
 func (s *upgradesSuite) TestSplitLogsHandlesNoLogsCollection(c *gc.C) {
 	db := s.state.MongoSession().DB(logsDB)
-	names, err := db.CollectionNames()
+	cols, err := db.CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(set.NewStrings(names...).Contains("logs"), jc.IsFalse)
+	c.Assert(set.NewStrings(cols...).Contains("logs"), jc.IsFalse)
 
 	err = SplitLogCollections(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1960,9 +1965,9 @@ func (s *upgradesSuite) TestMoveOldAuditLogNoRecords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.state.MongoSession().DB("juju")
-	names, err := db.CollectionNames()
+	cols, err := db.CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
+	c.Assert(set.NewStrings(cols...).Contains("audit.log"), jc.IsFalse)
 
 	err = MoveOldAuditLog(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1986,9 +1991,9 @@ func (s *upgradesSuite) TestMoveOldAuditLogRename(c *gc.C) {
 	)
 
 	db := s.state.MongoSession().DB("juju")
-	names, err := db.CollectionNames()
+	cols, err := db.CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
+	c.Assert(set.NewStrings(cols...).Contains("audit.log"), jc.IsFalse)
 }
 
 func (s *upgradesSuite) TestMigrateLeasesToGlobalTimeWithNewTarget(c *gc.C) {
@@ -2371,9 +2376,9 @@ func (s *upgradesSuite) TestRemoveVotingMachineIds(c *gc.C) {
 func (s *upgradesSuite) TestUpgradeContainerImageStreamDefault(c *gc.C) {
 	// Value not set
 	m1 := s.makeModel(c, "m1", coretesting.Attrs{
-		"other-setting": "val",
-		unescapeReplacer.Replace("dotted.setting"): "value",
-		unescapeReplacer.Replace("dollar$setting"): "value",
+		"other-setting":  "val",
+		"dotted.setting": "value",
+		"dollar$setting": "value",
 	})
 	defer m1.Close()
 	// Value set to the empty string
@@ -2468,10 +2473,10 @@ func (s *upgradesSuite) TestRemoveContainerImageStreamFromNonModelSettings(c *gc
 		bson.M{
 			"_id": "not-a-model",
 			"settings": bson.M{
-				"container-image-stream":                   "released",
-				"other-setting":                            "val",
-				unescapeReplacer.Replace("dotted.setting"): "value",
-				unescapeReplacer.Replace("dollar$setting"): "value",
+				"container-image-stream":               "released",
+				"other-setting":                        "val",
+				mongoutils.EscapeKey("dotted.setting"): "value",
+				mongoutils.EscapeKey("dollar$setting"): "value",
 			},
 		},
 	)
@@ -2994,6 +2999,110 @@ func (s *upgradesSuite) TestUpdateKubernetesStorageConfig(c *gc.C) {
 		c.Assert(settings["operator-storage"], gc.Equals, "storage-provisioner")
 		c.Assert(settings["workload-storage"], gc.Equals, "storage-provisioner")
 	}
+}
+
+func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
+	coll, closer := s.state.db().GetRawCollection(statusesC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-old", coretesting.Attrs{})
+	defer model1.Close()
+	model2 := s.makeModel(c, "model-new", coretesting.Attrs{})
+	defer model2.Close()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	s.makeMachine(c, uuid1, "0", Alive)
+	s.makeMachine(c, uuid2, "1", Dying)
+
+	expected := bsonMById{
+		{
+			"_id":        uuid1 + ":m#0#modification",
+			"model-uuid": uuid1,
+			"status":     "idle",
+			"statusinfo": "",
+			"statusdata": bson.M{},
+			"neverset":   false,
+			"updated":    int64(1),
+		}, {
+			"_id":        uuid2 + ":m#1#modification",
+			"model-uuid": uuid2,
+			"status":     "idle",
+			"statusinfo": "",
+			"statusdata": bson.M{},
+			"neverset":   false,
+			"updated":    int64(1),
+		},
+	}
+
+	sort.Sort(expected)
+	c.Log(pretty.Sprint(expected))
+	s.assertUpgradedDataWithFilter(c, EnsureDefaultModificationStatus,
+		bson.D{{"_id", bson.RegEx{"#modification$", ""}}},
+		expectUpgradedData{coll, expected},
+	)
+}
+
+func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {
+	coll, closer := s.state.db().GetRawCollection(machinesC)
+	defer closer()
+
+	err := coll.Insert(machineDoc{
+		DocID:     ensureModelUUID(uuid, id),
+		Id:        id,
+		ModelUUID: uuid,
+		Life:      life,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestEnsureApplicationDeviceConstraints(c *gc.C) {
+	coll, closer := s.state.db().GetRawCollection(deviceConstraintsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-old", coretesting.Attrs{})
+	defer model1.Close()
+	model2 := s.makeModel(c, "model-new", coretesting.Attrs{})
+	defer model2.Close()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	s.makeApplication(c, uuid1, "app1", Alive)
+	s.makeApplication(c, uuid2, "app2", Dying)
+
+	expected := bsonMById{
+		{
+			"_id":         uuid1 + ":adc#app1#cs:test-charm",
+			"constraints": bson.M{},
+		}, {
+			"_id":         uuid2 + ":adc#app2#cs:test-charm",
+			"constraints": bson.M{},
+		},
+	}
+
+	sort.Sort(expected)
+	c.Log(pretty.Sprint(expected))
+	s.assertUpgradedDataWithFilter(c, EnsureApplicationDeviceConstraints,
+		bson.D{{"_id", bson.RegEx{":adc#", ""}}},
+		expectUpgradedData{coll, expected},
+	)
+}
+
+func (s *upgradesSuite) makeApplication(c *gc.C, uuid, name string, life Life) {
+	coll, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	curl := charm.MustParseURL("test-charm")
+	err := coll.Insert(applicationDoc{
+		DocID:     ensureModelUUID(uuid, name),
+		Name:      name,
+		ModelUUID: uuid,
+		CharmURL:  curl,
+		Life:      life,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type docById []bson.M

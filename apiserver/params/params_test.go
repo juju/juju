@@ -83,6 +83,18 @@ var marshalTestCases = []struct {
 	},
 	json: `["application","change",{"model-uuid": "uuid", "charm-url": "cs:quantal/name","name":"Benji","exposed":true,"life":"dying","owner-tag":"test-owner","workload-version":"42.47","min-units":42,"constraints":{"arch":"armhf", "mem": 1024},"config": {"hello":"goodbye","foo":false},"subordinate":false,"status":{"current":"active", "message":"all good", "version": ""}}]`,
 }, {
+	about: "CharmInfo Delta",
+	value: multiwatcher.Delta{
+		Entity: &multiwatcher.CharmInfo{
+			ModelUUID:    "uuid",
+			CharmURL:     "cs:quantal/name",
+			Life:         multiwatcher.Life("dying"),
+			CharmVersion: "3",
+			LXDProfile:   &multiwatcher.Profile{},
+		},
+	},
+	json: `["charm","change",{"model-uuid": "uuid", "charm-url": "cs:quantal/name", "charm-version":"3", "life":"dying","profile":{}}]`,
+}, {
 	about: "UnitInfo Delta",
 	value: multiwatcher.Delta{
 		Entity: &multiwatcher.UnitInfo{

@@ -96,6 +96,14 @@ func (w *applicationWorker) loop() (err error) {
 }
 
 func (w *applicationWorker) processApplicationChange() (err error) {
+	defer func() {
+		if errors.IsNotFound(err) {
+			// ignore not found error because the ip could be not ready yet at this stage.
+			logger.Warningf("processing change for application %q, %v", w.application, err)
+			err = nil
+		}
+	}()
+
 	exposed, err := w.applicationGetter.IsExposed(w.application)
 	if err != nil {
 		return errors.Trace(err)

@@ -211,7 +211,8 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			},
 		}},
 	})
-	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig")
+	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig", "ResolveConstraints")
+	s.st.CheckCall(c, 3, "ResolveConstraints", constraints.MustParse("mem=64G"))
 	s.storage.CheckCallNames(c, "UnitStorageAttachments", "StorageInstance", "FilesystemAttachment")
 	s.storagePoolManager.CheckCallNames(c, "Get")
 }

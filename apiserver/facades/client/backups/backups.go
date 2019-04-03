@@ -31,6 +31,7 @@ type Backend interface {
 	MongoSession() *mgo.Session
 	MongoVersion() (string, error)
 	ModelTag() names.ModelTag
+	ModelType() state.ModelType
 	ControllerTag() names.ControllerTag
 	ModelConfig() (*config.Config, error)
 	ControllerConfig() (controller.Config, error)
@@ -74,6 +75,10 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 	// For now, backup operations are only permitted on the controller model.
 	if !backend.IsController() {
 		return nil, errors.New("backups are only supported from the controller model\nUse juju switch to select the controller model")
+	}
+
+	if backend.ModelType() == state.ModelTypeCAAS {
+		return nil, errors.NotSupportedf("backups on kubernetes controllers")
 	}
 
 	// Get the backup paths.

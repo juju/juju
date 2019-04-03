@@ -11,10 +11,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/utils"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
+	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -59,16 +63,12 @@ func tryAPI(c *modelcmd.ModelCommandBase) error {
 // WaitForAgentInitialisation polls the bootstrapped controller with a read-only
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
-func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName, hostedModelName string) error {
+func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, isCAASController bool, controllerName, hostedModelName string) (err error) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempts := utils.AttemptStrategy{
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
 	}
-	var (
-		apiAttempts int
-		err         error
-	)
 
 	// Make a best effort to find the new controller address so we can print it.
 	addressInfo := ""
@@ -81,13 +81,17 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 	}
 
 	ctx.Infof("Contacting Juju controller%s to verify accessibility...", addressInfo)
-	apiAttempts = 1
+	apiAttempts := 1
 	for attempt := attempts.Start(); attempt.Next(); apiAttempts++ {
 		err = tryAPI(c)
 		if err == nil {
-			ctx.Infof("Bootstrap complete, %q controller now available", controllerName)
-			ctx.Infof("Controller machines are in the %q model", bootstrap.ControllerModelName)
-			ctx.Infof("Initial model %q added", hostedModelName)
+			msg := fmt.Sprintf("\nBootstrap complete, controller %q now is available", controllerName)
+			if isCAASController {
+				msg += fmt.Sprintf(" in namespace %q", caasprovider.DecideControllerNamespace(controllerName))
+			} else {
+				msg += fmt.Sprintf("\nController machines are in the %q model", bootstrap.ControllerModelName)
+			}
+			ctx.Infof(msg)
 			break
 		}
 		// As the API server is coming up, it goes through a number of steps.
@@ -130,4 +134,25 @@ func BootstrapEndpointAddresses(environ environs.InstanceBroker, callContext con
 		return nil, errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}
 	return netAddrs, nil
+}
+
+// ValidateIaasController returns an error if the controller
+// is not an IAAS controller.
+func ValidateIaasController(c modelcmd.CommandBase, cmdName, controllerName string, store jujuclient.ClientStore) error {
+	// Ensure controller model is cached.
+	controllerModel := jujuclient.JoinOwnerModelName(
+		names.NewUserTag(environs.AdminUser), bootstrap.ControllerModelName)
+	_, err := c.ModelUUIDs(store, controllerName, []string{controllerModel})
+	if err != nil {
+		return errors.Annotatef(err, "cannot get controller model uuid")
+	}
+
+	details, err := store.ModelByName(controllerName, controllerModel)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if details.ModelType == model.IAAS {
+		return nil
+	}
+	return errors.Errorf("Juju command %q not supported on kubernetes controllers", cmdName)
 }

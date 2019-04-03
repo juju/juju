@@ -53,6 +53,10 @@ type ControllerGauges struct {
 	ApplicationConfigReads   prometheus.Gauge
 	ApplicationHashCacheHit  prometheus.Gauge
 	ApplicationHashCacheMiss prometheus.Gauge
+
+	LXDProfileChangeError prometheus.Gauge
+	LXDProfileChangeHit   prometheus.Gauge
+	LXDProfileChangeMiss  prometheus.Gauge
 }
 
 func createControllerGauges() *ControllerGauges {
@@ -99,6 +103,27 @@ func createControllerGauges() *ControllerGauges {
 				Help:      "The number of times the application config change hash was generated.",
 			},
 		),
+		LXDProfileChangeError: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "lxdprofile_change_error",
+				Help:      "The number of times there was an error calculating LXD profile changes.",
+			},
+		),
+		LXDProfileChangeHit: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "lxdprofile_change_hit",
+				Help:      "The number of times an LXD Profile change was found.",
+			},
+		),
+		LXDProfileChangeMiss: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "lxdprofile_change_miss",
+				Help:      "The number of times an LXD Profile change was not found.",
+			},
+		),
 	}
 }
 
@@ -111,6 +136,10 @@ func (c *ControllerGauges) Collect(ch chan<- prometheus.Metric) {
 	c.ApplicationConfigReads.Collect(ch)
 	c.ApplicationHashCacheHit.Collect(ch)
 	c.ApplicationHashCacheMiss.Collect(ch)
+
+	c.LXDProfileChangeError.Collect(ch)
+	c.LXDProfileChangeHit.Collect(ch)
+	c.LXDProfileChangeMiss.Collect(ch)
 }
 
 // Collector is a prometheus.Collector that collects metrics about

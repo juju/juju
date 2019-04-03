@@ -294,7 +294,7 @@ func (e *Environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.I
 }
 
 // PrepareForBootstrap implements environs.Environ.
-func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	if ctx.ShouldVerifyCredentials() {
 		logger.Infof("Logging into the oracle cloud infrastructure")
 		if err := e.ping(); err != nil {

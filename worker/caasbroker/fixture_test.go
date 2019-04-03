@@ -10,8 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type fixture struct {
@@ -55,6 +58,16 @@ func (context *runContext) ModelConfig() (*config.Config, error) {
 		return nil, err
 	}
 	return config.New(config.UseDefaults, context.config)
+}
+
+func (context *runContext) ControllerConfig() (controller.Config, error) {
+	context.mu.Lock()
+	defer context.mu.Unlock()
+	context.stub.AddCall("ControllerConfig")
+	if err := context.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return jujutesting.FakeControllerConfig(), nil
 }
 
 func (context *runContext) CheckCallNames(c *gc.C, names ...string) {

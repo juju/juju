@@ -4,6 +4,7 @@
 package cache
 
 import (
+	"regexp"
 	"sort"
 	"sync"
 
@@ -237,24 +238,54 @@ func (w *stringsWatcherBase) amendBufferedChange(values []string) {
 	}
 }
 
-// ChangeWatcher notifies that something changed, with
-// the given slice of strings.  An initial event is sent
-// with the input given at creation.
-type ChangeWatcher struct {
+// PredicateStringsWatcher notifies that something changed, with
+// a slice of strings.  The predicateFunc will test the values
+// before notification. An initial event is sent with the input
+// given at creation.
+type PredicateStringsWatcher struct {
 	*stringsWatcherBase
+
+	fn predicateFunc
 }
 
-func newAddRemoveWatcher(values ...string) *ChangeWatcher {
-	return &ChangeWatcher{
+// newChangeWatcher provides a PredicateStringsWatcher which notifies
+// with all strings passed to it.
+func newChangeWatcher(values ...string) *PredicateStringsWatcher {
+	return &PredicateStringsWatcher{
 		stringsWatcherBase: newStringsWatcherBase(values...),
+		fn:                 func(string) bool { return true },
 	}
 }
 
-func (w *ChangeWatcher) changed(topic string, value interface{}) {
+func regexpPredicate(compiled *regexp.Regexp) func(string) bool {
+	return func(value string) bool { return compiled.MatchString(value) }
+}
+
+type predicateFunc func(string) bool
+
+// newPredicateStringsWatcher provides a PredicateStringsWatcher which notifies
+// with any string which passes the predicateFunc.
+func newPredicateStringsWatcher(fn predicateFunc, values ...string) *PredicateStringsWatcher {
+	return &PredicateStringsWatcher{
+		stringsWatcherBase: newStringsWatcherBase(values...),
+		fn:                 fn,
+	}
+}
+
+func (w *PredicateStringsWatcher) changed(topic string, value interface{}) {
 	strings, ok := value.([]string)
 	if !ok {
 		logger.Errorf("programming error, value not of type []string")
 	}
 
-	w.notify(strings)
+	matches := set.NewStrings()
+	for _, s := range strings {
+		if w.fn(s) {
+			matches.Add(s)
+		}
+	}
+
+	if !matches.IsEmpty() {
+		w.notify(matches.Values())
+	}
 }

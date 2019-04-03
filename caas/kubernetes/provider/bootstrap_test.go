@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -36,10 +38,23 @@ type bootstrapSuite struct {
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+
+	controllerName := "controller-1"
+
 	s.BaseSuite.SetUpTest(c)
 
+	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
+		config.NameKey:              "controller",
+		provider.OperatorStorageKey: "",
+		provider.WorkloadStorageKey: "",
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	s.cfg = cfg
+
+	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
+
 	s.controllerCfg = testing.FakeControllerConfig()
-	pcfg, err := podcfg.NewBootstrapControllerPodConfig(s.controllerCfg, "bionic")
+	pcfg, err := podcfg.NewBootstrapControllerPodConfig(s.controllerCfg, controllerName, "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 
 	pcfg.JujuVersion = jujuversion.Current
@@ -72,17 +87,88 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	}
 	s.pcfg = pcfg
 	s.controllerStackerGetter = func() provider.ControllerStackerForTest {
-		controllerStacker, err := provider.NewcontrollerStackForTest("juju-controller-test", "some-storage", s.broker, s.pcfg)
+		controllerStacker, err := provider.NewcontrollerStackForTest(
+			envtesting.BootstrapContext(c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
+		)
 		c.Assert(err, jc.ErrorIsNil)
 		return controllerStacker
 	}
 }
 
-func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
-	ctrl := s.setupBroker(c)
+func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	existingNs := core.Namespace{}
+	existingNs.SetName("controller-1")
+	existingNs.SetAnnotations(map[string]string{
+		"juju.io/model":         s.cfg.UUID(),
+		"juju.io/controller":    s.controllerUUID,
+		"juju.io/is-controller": "true",
+	})
+
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller")
+	c.Assert(s.broker.GetAnnotations().ToMap(), jc.DeepEquals, map[string]string{
+		"juju.io/model":      s.cfg.UUID(),
+		"juju.io/controller": s.controllerUUID,
+	})
+
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
+			Return(&core.NamespaceList{Items: []core.Namespace{existingNs}}, nil),
+	)
+	var err error
+	s.broker, err = provider.ControllerCorelation(s.broker)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(
+		// "is-controller" is set as well.
+		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
+		map[string]string{
+			"juju.io/model":         s.cfg.UUID(),
+			"juju.io/controller":    s.controllerUUID,
+			"juju.io/is-controller": "true",
+		},
+	)
+	// controller namespace linked back(changed from 'controller' to 'controller-1')
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-1")
+}
+
+func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	// Eventually the namespace wil be set to controllerName.
+	// So we have to specify the final namespace(controllerName) for later use.
+	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.pcfg.ControllerName)
+
+	s.setupBroker(c, ctrl, newK8sRestClientFunc)
+	// Broker's namespace is "controller" now - controllerModelConfig.Name()
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller")
+	c.Assert(
+		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
+		map[string]string{
+			"juju.io/model":      s.cfg.UUID(),
+			"juju.io/controller": s.controllerUUID,
+		},
+	)
+
+	// These two are done in broker.Bootstrap method actually.
+	s.broker.SetNamespace("controller-1")
+	s.broker.GetAnnotations().Add("juju.io/is-controller", "true")
+
 	controllerStacker := s.controllerStackerGetter()
+	// Broker's namespace should be set to controller name now.
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-1")
+	c.Assert(
+		// "is-controller" is set as well.
+		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
+		map[string]string{
+			"juju.io/model":         s.cfg.UUID(),
+			"juju.io/controller":    s.controllerUUID,
+			"juju.io/is-controller": "true",
+		},
+	)
+
 	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
 
 	scName := "some-storage"
@@ -92,12 +178,14 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: s.namespace}}
+	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: s.getNamespace()}}
+	ns.Name = s.getNamespace()
+	s.ensureJujuNamespaceAnnotations(true, ns)
 	svc := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-service",
 			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.getNamespace(),
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "juju-controller-test"},
@@ -122,7 +210,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
 			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.getNamespace(),
 		},
 		Type: core.SecretTypeOpaque,
 	}
@@ -130,7 +218,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
 			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.getNamespace(),
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -141,7 +229,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-secret",
 			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.getNamespace(),
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -154,7 +242,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
 			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.getNamespace(),
 		},
 	}
 	bootstrapParamsContent, err := s.pcfg.Bootstrap.StateInitializationParams.Marshal()
@@ -163,7 +251,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
 			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.getNamespace(),
 		},
 		Data: map[string]string{
 			"bootstrap-params": string(bootstrapParamsContent),
@@ -173,7 +261,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",
 			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.getNamespace(),
 		},
 		Data: map[string]string{
 			"bootstrap-params": string(bootstrapParamsContent),
@@ -187,7 +275,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test",
 			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.namespace,
+			Namespace: s.getNamespace(),
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: "juju-controller-test-service",
@@ -215,7 +303,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:    map[string]string{"juju-app": "juju-controller-test"},
-					Namespace: s.namespace,
+					Namespace: s.getNamespace(),
 				},
 				Spec: core.PodSpec{
 					RestartPolicy: core.RestartPolicyAlways,
@@ -471,8 +559,10 @@ test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /va
 			Return(configMapWithAgentConfAdded, nil),
 
 		// Check the operator storage exists.
-		s.mockStorageClass.EXPECT().Get("test-some-storage", v1.GetOptions{}).Times(1).
+		// first check if <namespace>-<storage-class> exist or not.
+		s.mockStorageClass.EXPECT().Get("controller-1-some-storage", v1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
+		// not found, fallback to <storage-class>.
 		s.mockStorageClass.EXPECT().Get("some-storage", v1.GetOptions{}).Times(1).
 			Return(&sc, nil),
 

@@ -96,6 +96,7 @@ func (s *MachineShowCommandSuite) TestShowMachine(c *gc.C) {
 		"            type: unix-char\n",
 	)
 }
+
 func (s *MachineShowCommandSuite) TestShowSingleMachine(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineShowCommand(), "0")
 	c.Assert(err, jc.ErrorIsNil)

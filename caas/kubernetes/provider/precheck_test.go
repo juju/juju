@@ -26,7 +26,7 @@ func (s *PrecheckSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *PrecheckSuite) TestSuccess(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
@@ -37,7 +37,7 @@ func (s *PrecheckSuite) TestSuccess(c *gc.C) {
 }
 
 func (s *PrecheckSuite) TestWrongSeries(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
@@ -47,7 +47,7 @@ func (s *PrecheckSuite) TestWrongSeries(c *gc.C) {
 }
 
 func (s *PrecheckSuite) TestUnsupportedConstraints(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
@@ -58,7 +58,7 @@ func (s *PrecheckSuite) TestUnsupportedConstraints(c *gc.C) {
 }
 
 func (s *PrecheckSuite) TestPlacementNotAllowed(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{
@@ -69,7 +69,7 @@ func (s *PrecheckSuite) TestPlacementNotAllowed(c *gc.C) {
 }
 
 func (s *PrecheckSuite) TestInvalidConstraints(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	err := s.broker.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{

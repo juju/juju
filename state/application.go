@@ -1180,6 +1180,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	// we don't need to check that this is a charm.LXDProfiler, as we can
 	// state that the function exists.
 	if profile := cfg.Charm.LXDProfile(); profile != nil {
+		// Validate the config devices, to ensure we don't apply an invalid
+		// profile, if we know it's never going to work.
 		if err := profile.ValidateConfigDevices(); err != nil && !cfg.Force {
 			return errors.Annotate(err, "validating lxd profile")
 		}
@@ -1496,7 +1498,7 @@ func (a *Application) addUnitOps(
 		if err != nil {
 			return "", nil, err
 		}
-		cons, err = a.st.resolveConstraints(scons)
+		cons, err = a.st.ResolveConstraints(scons)
 		if err != nil {
 			return "", nil, err
 		}
@@ -2173,7 +2175,7 @@ func (a *Application) LeaderSettings() (map[string]string, error) {
 	}
 	result := make(map[string]string)
 	for escapedKey, interfaceValue := range doc.Settings {
-		key := unescapeReplacer.Replace(escapedKey)
+		key := mgoutils.UnescapeKey(escapedKey)
 		if value, _ := interfaceValue.(string); value != "" {
 			// Empty strings are technically bad data -- when set, they clear.
 			result[key] = value
@@ -2200,7 +2202,7 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 	sets := bson.M{}
 	unsets := bson.M{}
 	for unescapedKey, value := range updates {
-		key := escapeReplacer.Replace(unescapedKey)
+		key := mgoutils.EscapeKey(unescapedKey)
 		if value == "" {
 			unsets[key] = 1
 		} else {

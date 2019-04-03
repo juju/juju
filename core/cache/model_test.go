@@ -25,18 +25,13 @@ func (s *ModelSuite) SetUpTest(c *gc.C) {
 	s.entitySuite.SetUpTest(c)
 }
 
-func (s *ModelSuite) newModel(details cache.ModelChange) *cache.Model {
-	m := cache.NewModel(s.gauges, s.hub)
-	m.SetDetails(details)
-	return m
-}
-
 func (s *ModelSuite) TestReport(c *gc.C) {
 	m := s.newModel(modelChange)
 	c.Assert(m.Report(), jc.DeepEquals, map[string]interface{}{
 		"name":              "model-owner/test-model",
 		"life":              life.Value("alive"),
 		"application-count": 0,
+		"charm-count":       0,
 		"machine-count":     0,
 		"unit-count":        0,
 	})
@@ -157,9 +152,21 @@ func (s *ModelSuite) TestApplicationNotFoundError(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
+func (s *ModelSuite) TestCharmNotFoundError(c *gc.C) {
+	m := s.newModel(modelChange)
+	_, err := m.Charm("nope")
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
 func (s *ModelSuite) TestMachineNotFoundError(c *gc.C) {
 	m := s.newModel(modelChange)
 	_, err := m.Machine("nope")
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *ModelSuite) TestUnitNotFoundError(c *gc.C) {
+	m := s.newModel(modelChange)
+	_, err := m.Unit("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -248,7 +255,7 @@ func (s *ControllerSuite) newWithMachine(c *gc.C) (*cache.Controller, <-chan int
 	return controller, events
 }
 
-func (s *ControllerSuite) setupWithWatchMachine(c *gc.C) (*cache.ChangeWatcher, <-chan interface{}) {
+func (s *ControllerSuite) setupWithWatchMachine(c *gc.C) (*cache.PredicateStringsWatcher, <-chan interface{}) {
 	controller, events := s.newWithMachine(c)
 	m, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)

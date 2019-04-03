@@ -159,14 +159,13 @@ func annotationRemoveOp(mb modelBackend, id string) txn.Op {
 // are non-empty.
 func setUnsetUpdateAnnotations(set, unset bson.M) bson.D {
 	var update bson.D
-	replace := inSubdocReplacer("annotations")
 	if len(set) > 0 {
-		set = bson.M(copyMap(map[string]interface{}(set), replace))
-		update = append(update, bson.DocElem{"$set", set})
+		set = bson.M(subDocKeys(map[string]interface{}(set), "annotations"))
+		update = append(update, bson.DocElem{Name: "$set", Value: set})
 	}
 	if len(unset) > 0 {
-		unset = bson.M(copyMap(map[string]interface{}(unset), replace))
-		update = append(update, bson.DocElem{"$unset", unset})
+		unset = bson.M(subDocKeys(map[string]interface{}(unset), "annotations"))
+		update = append(update, bson.DocElem{Name: "$unset", Value: unset})
 	}
 	return update
 }

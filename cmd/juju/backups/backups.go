@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/backups"
 	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	statebackups "github.com/juju/juju/state/backups"
 )
@@ -68,6 +69,14 @@ func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}
+}
+
+func (c *CommandBase) validateIaasController(cmdName string) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return common.ValidateIaasController(c.CommandBase, cmdName, controllerName, c.ClientStore())
 }
 
 var newAPIClient = func(c *CommandBase) (APIClient, error) {
@@ -137,7 +146,7 @@ var getArchive = func(filename string) (rc ArchiveReader, metaResult *params.Bac
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	_, err = archive.Seek(0, os.SEEK_SET)
+	_, err = archive.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -170,7 +179,7 @@ var getArchive = func(filename string) (rc ArchiveReader, metaResult *params.Bac
 	if meta.Finished == nil || meta.Finished.IsZero() {
 		meta.Finished = fileMeta.Finished
 	}
-	_, err = archive.Seek(0, os.SEEK_SET)
+	_, err = archive.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

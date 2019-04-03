@@ -10,8 +10,15 @@ import (
 	"github.com/juju/pubsub"
 )
 
-const modelConfigChange = "model-config-change"
-const modelMachineChange = "model-machine-change"
+const (
+	// a machine has been added or removed from the model.
+	modelAddRemoveMachine = "model-add-remove-machine"
+	// model config has changed.
+	modelConfigChange = "model-config-change"
+	// a unit in the model has been changed such than a lxd profile change
+	// maybe be necessary has been made.
+	modelUnitLXDProfileChange = "model-unit-lxd-profile-change"
+)
 
 func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 	m := &Model{
@@ -20,6 +27,7 @@ func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 		// when many models.
 		hub:          hub,
 		applications: make(map[string]*Application),
+		charms:       make(map[string]*Charm),
 		machines:     make(map[string]*Machine),
 		units:        make(map[string]*Unit),
 	}
@@ -37,6 +45,7 @@ type Model struct {
 	configHash   string
 	hashCache    *hashCache
 	applications map[string]*Application
+	charms       map[string]*Charm
 	machines     map[string]*Machine
 	units        map[string]*Unit
 }
@@ -53,6 +62,11 @@ func (m *Model) Config() map[string]interface{} {
 	return cfg
 }
 
+// Name returns the current model's name.
+func (m *Model) Name() string {
+	return m.details.Name
+}
+
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
 	return newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange))
@@ -67,6 +81,7 @@ func (m *Model) Report() map[string]interface{} {
 		"name":              m.details.Owner + "/" + m.details.Name,
 		"life":              m.details.Life,
 		"application-count": len(m.applications),
+		"charm-count":       len(m.charms),
 		"machine-count":     len(m.machines),
 		"unit-count":        len(m.units),
 	}
@@ -85,6 +100,19 @@ func (m *Model) Application(appName string) (*Application, error) {
 	return app, nil
 }
 
+// Charm returns the charm for the input charmURL.
+// If the charm is not found, a NotFoundError is returned.
+func (m *Model) Charm(charmURL string) (*Charm, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	charm, found := m.charms[charmURL]
+	if !found {
+		return nil, errors.NotFoundf("charm %q", charmURL)
+	}
+	return charm, nil
+}
+
 // Machine returns the machine with the input id.
 // If the machine is not found, a NotFoundError is returned.
 func (m *Model) Machine(machineId string) (*Machine, error) {
@@ -98,10 +126,13 @@ func (m *Model) Machine(machineId string) (*Machine, error) {
 	return machine, nil
 }
 
-// WatchMachines creates a ChangeWatcher (strings watcher) to notify about
+// WatchMachines returns a PredicateStringsWatcher to notify about
 // added and removed machines in the model.  The initial event contains
 // a slice of the current machine ids.
-func (m *Model) WatchMachines() *ChangeWatcher {
+func (m *Model) WatchMachines() *PredicateStringsWatcher {
+	m.mu.Lock()
+
+	// Gather initial slice of machines in this model.
 	machines := make([]string, len(m.machines))
 	i := 0
 	for k := range m.machines {
@@ -109,8 +140,8 @@ func (m *Model) WatchMachines() *ChangeWatcher {
 		i += 1
 	}
 
-	w := newAddRemoveWatcher(machines...)
-	unsub := m.hub.Subscribe(m.topic(modelMachineChange), w.changed)
+	w := newChangeWatcher(machines...)
+	unsub := m.hub.Subscribe(m.topic(modelAddRemoveMachine), w.changed)
 
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -118,6 +149,7 @@ func (m *Model) WatchMachines() *ChangeWatcher {
 		return nil
 	})
 
+	m.mu.Unlock()
 	return w
 }
 
@@ -155,6 +187,27 @@ func (m *Model) removeApplication(ch RemoveApplication) {
 	m.mu.Unlock()
 }
 
+// updateCharm adds or updates the charm in the model.
+func (m *Model) updateCharm(ch CharmChange) {
+	m.mu.Lock()
+
+	charm, found := m.charms[ch.CharmURL]
+	if !found {
+		charm = newCharm(m.metrics, m.hub)
+		m.charms[ch.CharmURL] = charm
+	}
+	charm.setDetails(ch)
+
+	m.mu.Unlock()
+}
+
+// removeCharm removes the charm from the model.
+func (m *Model) removeCharm(ch RemoveCharm) {
+	m.mu.Lock()
+	delete(m.charms, ch.CharmURL)
+	m.mu.Unlock()
+}
+
 // updateUnit adds or updates the unit in the model.
 func (m *Model) updateUnit(ch UnitChange) {
 	m.mu.Lock()
@@ -163,6 +216,7 @@ func (m *Model) updateUnit(ch UnitChange) {
 	if !found {
 		unit = newUnit(m.metrics, m.hub)
 		m.units[ch.Name] = unit
+		m.hub.Publish(m.topic(modelUnitLXDProfileChange), unit)
 	}
 	unit.setDetails(ch)
 
@@ -172,6 +226,10 @@ func (m *Model) updateUnit(ch UnitChange) {
 // removeUnit removes the unit from the model.
 func (m *Model) removeUnit(ch RemoveUnit) {
 	m.mu.Lock()
+	unit, ok := m.units[ch.Name]
+	if ok {
+		m.hub.Publish(m.topic(modelUnitLXDProfileChange), []string{ch.Name, unit.details.Application})
+	}
 	delete(m.units, ch.Name)
 	m.mu.Unlock()
 }
@@ -182,9 +240,9 @@ func (m *Model) updateMachine(ch MachineChange) {
 
 	machine, found := m.machines[ch.Id]
 	if !found {
-		machine = newMachine(m.metrics, m.hub)
+		machine = newMachine(m)
 		m.machines[ch.Id] = machine
-		m.hub.Publish(m.topic(modelMachineChange), []string{ch.Id})
+		m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
 	}
 	machine.setDetails(ch)
 
@@ -195,13 +253,17 @@ func (m *Model) updateMachine(ch MachineChange) {
 func (m *Model) removeMachine(ch RemoveMachine) {
 	m.mu.Lock()
 	delete(m.machines, ch.Id)
-	m.hub.Publish(m.topic(modelMachineChange), []string{ch.Id})
+	m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
 	m.mu.Unlock()
 }
 
 // topic prefixes the input string with the model UUID.
 func (m *Model) topic(suffix string) string {
-	return m.details.ModelUUID + ":" + suffix
+	return modelTopic(m.details.ModelUUID, suffix)
+}
+
+func modelTopic(modeluuid, suffix string) string {
+	return modeluuid + ":" + suffix
 }
 
 func (m *Model) setDetails(details ModelChange) {

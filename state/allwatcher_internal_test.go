@@ -33,6 +33,7 @@ var (
 	_ backingEntityDoc = (*backingMachine)(nil)
 	_ backingEntityDoc = (*backingUnit)(nil)
 	_ backingEntityDoc = (*backingApplication)(nil)
+	_ backingEntityDoc = (*backingCharm)(nil)
 	_ backingEntityDoc = (*backingRemoteApplication)(nil)
 	_ backingEntityDoc = (*backingApplicationOffer)(nil)
 	_ backingEntityDoc = (*backingRelation)(nil)
@@ -150,6 +151,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		Annotations: pairs,
 	})
 
+	add(&multiwatcher.CharmInfo{
+		ModelUUID: modelUUID,
+		CharmURL:  applicationCharmURL(wordpress).String(),
+		Life:      multiwatcher.Life("alive"),
+	})
+
 	logging := AddTestingApplication(c, st, "logging", AddTestingCharm(c, st, "logging"))
 	add(&multiwatcher.ApplicationInfo{
 		ModelUUID:   modelUUID,
@@ -164,6 +171,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Data:    map[string]interface{}{},
 			Since:   &now,
 		},
+	})
+
+	add(&multiwatcher.CharmInfo{
+		ModelUUID: modelUUID,
+		CharmURL:  applicationCharmURL(logging).String(),
+		Life:      multiwatcher.Life("alive"),
 	})
 
 	eps, err := st.InferEndpoints("logging", "wordpress")
@@ -315,6 +328,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Data:    map[string]interface{}{},
 			Since:   &now,
 		},
+	})
+
+	add(&multiwatcher.CharmInfo{
+		ModelUUID: modelUUID,
+		CharmURL:  applicationCharmURL(mysql).String(),
+		Life:      multiwatcher.Life("alive"),
 	})
 
 	// Set up a remote application related to the offer.
@@ -579,6 +598,10 @@ func (s *allWatcherStateSuite) TestChangeRelations(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestChangeApplications(c *gc.C) {
 	testChangeApplications(c, s.owner, s.performChangeTestCases)
+}
+
+func (s *allWatcherStateSuite) TestChangeCharms(c *gc.C) {
+	testChangeCharms(c, s.owner, s.performChangeTestCases)
 }
 
 func (s *allWatcherStateSuite) TestChangeApplicationsConstraints(c *gc.C) {
@@ -993,7 +1016,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	wpTime := s.state.clock().Now()
 
 	// Look for the state changes from the allwatcher.
-	deltas = tw.All(5)
+	deltas = tw.All(6)
 
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
@@ -1044,6 +1067,12 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Addresses: []multiwatcher.Address{},
 			HasVote:   false,
 			WantsVote: false,
+		},
+	}, {
+		Entity: &multiwatcher.CharmInfo{
+			ModelUUID: s.state.ModelUUID(),
+			CharmURL:  "local:quantal/quantal-wordpress-3",
+			Life:      multiwatcher.Life("alive"),
 		},
 	}, {
 		Entity: &multiwatcher.ApplicationInfo{
@@ -1102,13 +1131,13 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			about: "applications",
 			triggerEvent: func(st *State) int {
 				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 1
+				return 2
 			},
 		}, {
 			about: "units",
 			setUpState: func(st *State) int {
 				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 1
+				return 2
 			},
 			triggerEvent: func(st *State) int {
 				app, err := st.Application("wordpress")
@@ -1123,7 +1152,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			setUpState: func(st *State) int {
 				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 				AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
-				return 2
+				return 4
 			},
 			triggerEvent: func(st *State) int {
 				eps, err := st.InferEndpoints("mysql", "wordpress")
@@ -1187,7 +1216,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
 				now := testing.ZeroTime()
-				m.SetInstanceStatus(status.StatusInfo{
+				err = m.SetInstanceStatus(status.StatusInfo{
 					Status:  status.Error,
 					Message: "pete tong",
 					Since:   &now,
@@ -1199,7 +1228,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			about: "constraints",
 			setUpState: func(st *State) int {
 				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 1
+				return 2
 			},
 			triggerEvent: func(st *State) int {
 				app, err := st.Application("wordpress")
@@ -1214,7 +1243,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			about: "settings",
 			setUpState: func(st *State) int {
 				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 1
+				return 2
 			},
 			triggerEvent: func(st *State) int {
 				app, err := st.Application("wordpress")
@@ -1249,7 +1278,6 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 					w.AssertChanges(c, expected)
 					otherW.AssertNoChange(c)
 				}
-				c.Logf("triggering event")
 				expected := test.triggerEvent(st)
 				// Check event was isolated to the correct watcher.
 				w.AssertChanges(c, expected)
@@ -1882,7 +1910,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 	// Look for the state changes from the allwatcher.
 	later := st2.clock().Now()
-	deltas = tw.All(7)
+	deltas = tw.All(8)
 
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
@@ -1933,6 +1961,12 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Addresses: []multiwatcher.Address{},
 			HasVote:   false,
 			WantsVote: false,
+		},
+	}, {
+		Entity: &multiwatcher.CharmInfo{
+			ModelUUID: st1.ModelUUID(),
+			CharmURL:  "local:quantal/quantal-wordpress-3",
+			Life:      multiwatcher.Life("alive"),
 		},
 	}, {
 		Entity: &multiwatcher.ApplicationInfo{
@@ -2707,6 +2741,49 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 					C:  "settings",
 					Id: st.docID("a#foo"),
 				}}
+		},
+	}
+	runChangeTests(c, changeTestFuncs)
+}
+
+func testChangeCharms(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
+	changeTestFuncs := []changeTestFunc{
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "no charm in state, no charm in store -> do nothing",
+				change: watcher.Change{
+					C:  "charms",
+					Id: st.docID("wordpress"),
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "charm is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.CharmInfo{
+						ModelUUID: st.ModelUUID(),
+						CharmURL:  "local:quantal/quantal-wordpress-2",
+					},
+				},
+				change: watcher.Change{
+					C:  "charms",
+					Id: st.docID("local:quantal/quantal-wordpress-2"),
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			charm := AddTestingCharm(c, st, "wordpress")
+			return changeTestCase{
+				about: "charm is added if it's in backing but not in Store",
+				change: watcher.Change{
+					C:  "charms",
+					Id: st.docID(charm.URL().String()),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.CharmInfo{
+						ModelUUID: st.ModelUUID(),
+						CharmURL:  charm.URL().String(),
+						Life:      multiwatcher.Life("alive"),
+					}}}
 		},
 	}
 	runChangeTests(c, changeTestFuncs)
@@ -3882,7 +3959,7 @@ func (tw *testWatcher) AssertNoChange(c *gc.C) {
 	select {
 	case d := <-tw.deltas:
 		if len(d) > 0 {
-			c.Error("change detected")
+			c.Errorf("change detected (%#v)", d)
 		}
 	case <-time.After(testing.ShortWait):
 		// expected

@@ -204,15 +204,15 @@ func (mr *MockEnvironMockRecorder) PrecheckInstance(arg0, arg1 interface{}) *gom
 }
 
 // PrepareForBootstrap mocks base method
-func (m *MockEnviron) PrepareForBootstrap(arg0 environs.BootstrapContext) error {
-	ret := m.ctrl.Call(m, "PrepareForBootstrap", arg0)
+func (m *MockEnviron) PrepareForBootstrap(arg0 environs.BootstrapContext, arg1 string) error {
+	ret := m.ctrl.Call(m, "PrepareForBootstrap", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PrepareForBootstrap indicates an expected call of PrepareForBootstrap
-func (mr *MockEnvironMockRecorder) PrepareForBootstrap(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareForBootstrap", reflect.TypeOf((*MockEnviron)(nil).PrepareForBootstrap), arg0)
+func (mr *MockEnvironMockRecorder) PrepareForBootstrap(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareForBootstrap", reflect.TypeOf((*MockEnviron)(nil).PrepareForBootstrap), arg0, arg1)
 }
 
 // Provider mocks base method

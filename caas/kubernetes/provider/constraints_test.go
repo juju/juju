@@ -27,7 +27,7 @@ func (s *ConstraintsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ConstraintsSuite) TestConstraintsValidatorOkay(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	validator, err := s.broker.ConstraintsValidator(context.NewCloudCallContext())
@@ -41,7 +41,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorOkay(c *gc.C) {
 }
 
 func (s *ConstraintsSuite) TestConstraintsValidatorEmpty(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	validator, err := s.broker.ConstraintsValidator(context.NewCloudCallContext())
@@ -54,7 +54,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 }
 
 func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	validator, err := s.broker.ConstraintsValidator(context.NewCloudCallContext())

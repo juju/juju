@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type showSuite struct {
@@ -23,7 +22,7 @@ var _ = gc.Suite(&showSuite{})
 
 func (s *showSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.subcommand = backups.NewShowCommandForTest(jujuclienttesting.MinimalStore())
+	s.subcommand = backups.NewShowCommandForTest(s.store)
 }
 
 func (s *showSuite) TestOkay(c *gc.C) {

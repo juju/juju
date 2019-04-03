@@ -18,13 +18,16 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller"
+	controllerapi "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/credentialmanager"
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -103,12 +106,13 @@ type destroyControllerAPI interface {
 	Close() error
 	BestAPIVersion() int
 	ModelConfig() (map[string]interface{}, error)
-	HostedModelConfigs() ([]controller.HostedConfig, error)
+	HostedModelConfigs() ([]controllerapi.HostedConfig, error)
 	CloudSpec(names.ModelTag) (environs.CloudSpec, error)
-	DestroyController(controller.DestroyControllerParams) error
+	DestroyController(controllerapi.DestroyControllerParams) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
+	ControllerConfig() (controller.Config, error)
 }
 
 type storageAPI interface {
@@ -233,7 +237,7 @@ upgrade the controller to version 2.3 or greater.
 			// is specified, respectively.
 			destroyStorage = &c.destroyStorage
 		}
-		err = api.DestroyController(controller.DestroyControllerParams{
+		err = api.DestroyController(controllerapi.DestroyControllerParams{
 			DestroyModels:  c.destroyModels,
 			DestroyStorage: destroyStorage,
 		})
@@ -488,7 +492,7 @@ func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return controller.NewClient(root), nil
+	return controllerapi.NewClient(root), nil
 }
 
 func (c *destroyCommand) getStorageAPI(modelName string) (storageAPI, error) {
@@ -531,7 +535,7 @@ func (c *destroyCommandBase) getControllerEnviron(
 	store jujuclient.ClientStore,
 	controllerName string,
 	sysAPI destroyControllerAPI,
-) (environs.Environ, error) {
+) (environs.BootstrapEnviron, error) {
 	// TODO: (hml) 2018-08-01
 	// We should try to destroy via the API first, from store is a
 	// fall back position.
@@ -548,7 +552,7 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,
 	controllerName string,
-) (environs.Environ, error) {
+) (environs.BootstrapEnviron, error) {
 	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
 		ctx, store, environs.GlobalProviderRegistry(),
 	)(controllerName)
@@ -563,10 +567,20 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return environs.New(environs.OpenParams{
-		Cloud:  params.Cloud,
-		Config: cfg,
-	})
+	ctrlUUID, err := c.ControllerUUID(store, controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	openParams := environs.OpenParams{
+		ControllerUUID: ctrlUUID,
+		Cloud:          params.Cloud,
+		Config:         cfg,
+	}
+	if bootstrapConfig.CloudType == cloud.CloudTypeCAAS {
+		return caas.New(openParams)
+	}
+	return environs.New(openParams)
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromAPI(
@@ -590,9 +604,14 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting cloud spec from API")
 	}
+	ctrlCfg, err := api.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller config from API")
+	}
 	return environs.New(environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: cfg,
+		ControllerUUID: ctrlCfg.ControllerUUID(),
+		Cloud:          cloudSpec,
+		Config:         cfg,
 	})
 }
 

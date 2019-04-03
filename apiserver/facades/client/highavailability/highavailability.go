@@ -48,6 +48,15 @@ func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authori
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.Type() == state.ModelTypeCAAS {
+		return nil, errors.NotSupportedf("high availability on kubernetes controllers")
+	}
+
 	return &HighAvailabilityAPI{
 		state:      st,
 		resources:  resources,
@@ -197,7 +206,7 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 	if len(badIds) > 0 {
 		return errors.Errorf(
 			"juju-ha-space is not set and a unique usable address was not found for machines: %s"+
-				"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication",
+				"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication",
 			strings.Join(badIds, ", "),
 		)
 	}

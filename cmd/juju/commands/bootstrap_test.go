@@ -116,7 +116,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 		panic("tests must call setupAutoUploadTest or otherwise patch envtools.BundleTools")
 	})
 
-	s.PatchValue(&waitForAgentInitialisation, func(*cmd.Context, *modelcmd.ModelCommandBase, string, string) error {
+	s.PatchValue(&waitForAgentInitialisation, func(*cmd.Context, *modelcmd.ModelCommandBase, bool, string, string) error {
 		return nil
 	})
 
@@ -1217,7 +1217,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.PrepareForBootstrap(envtesting.BootstrapContext(c))
+	err = env.PrepareForBootstrap(envtesting.BootstrapContext(c), "controller-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check the available tools which are the 1.2.0 envtools.
@@ -1875,7 +1875,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 
 	// Record the controller name seen by ModelCommandBase at the end of bootstrap.
 	var seenControllerName string
-	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, controllerName, _ string) error {
+	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _ bool, controllerName, _ string) error {
 		seenControllerName = controllerName
 		return nil
 	})

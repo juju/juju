@@ -188,8 +188,14 @@ func buildOpenParams(backend PersistentBackend, credentialTag names.CloudCredent
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
+
+	controllerConfig, err := backend.ControllerConfig()
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
 	return environs.OpenParams{
-		Cloud:  tempCloudSpec,
-		Config: cfg,
+		ControllerUUID: controllerConfig.ControllerUUID(),
+		Cloud:          tempCloudSpec,
+		Config:         cfg,
 	}, nil
 }

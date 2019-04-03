@@ -1392,7 +1392,7 @@ func (c *statusContext) processUnitAndAgentStatus(unit *state.Unit) (agentStatus
 // of a status getter.
 // TODO: make this a function that just returns a type.
 func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo status.StatusInfo, err error) {
-	agent.Err = err
+	agent.Err = common.ServerError(err)
 	agent.Status = statusInfo.Status.String()
 	agent.Info = statusInfo.Message
 	agent.Data = filterStatusData(statusInfo.Data)

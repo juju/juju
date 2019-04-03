@@ -33,23 +33,23 @@ type environ struct {
 	cloud    environs.CloudSpec
 	provider *environProvider
 
-	name   string
-	uuid   string
-	server Server
-	base   baseProvider
+	name string
+	uuid string
+	base baseProvider
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
 
-	lock sync.Mutex
-	ecfg *environConfig
+	// lock protects the *Unlocked fields below.
+	lock           sync.Mutex
+	ecfgUnlocked   *environConfig
+	serverUnlocked Server
 }
 
 func newEnviron(
-	_ *environProvider,
+	p *environProvider,
 	spec environs.CloudSpec,
 	cfg *config.Config,
-	serverFactory ServerFactory,
 ) (*environ, error) {
 	ecfg, err := newValidConfig(cfg)
 	if err != nil {
@@ -61,22 +61,18 @@ func newEnviron(
 		return nil, errors.Trace(err)
 	}
 
-	server, err := serverFactory.RemoteServer(spec)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	env := &environ{
-		cloud:     spec,
-		name:      ecfg.Name(),
-		uuid:      ecfg.UUID(),
-		server:    server,
-		namespace: namespace,
-		ecfg:      ecfg,
+		provider:     p,
+		cloud:        spec,
+		name:         ecfg.Name(),
+		uuid:         ecfg.UUID(),
+		namespace:    namespace,
+		ecfgUnlocked: ecfg,
 	}
 	env.base = common.DefaultProvider{Env: env}
 
-	if err := env.initProfile(); err != nil {
+	err = env.SetCloudSpec(spec)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -86,7 +82,7 @@ func newEnviron(
 func (env *environ) initProfile() error {
 	pName := env.profileName()
 
-	hasProfile, err := env.server.HasProfile(pName)
+	hasProfile, err := env.serverUnlocked.HasProfile(pName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -98,7 +94,7 @@ func (env *environ) initProfile() error {
 		"boot.autostart":   "true",
 		"security.nesting": "true",
 	}
-	return env.server.CreateProfileWithConfig(pName, cfg)
+	return env.serverUnlocked.CreateProfileWithConfig(pName, cfg)
 }
 
 func (env *environ) profileName() string {
@@ -123,20 +119,42 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	env.ecfg = ecfg
+	env.ecfgUnlocked = ecfg
 	return nil
+}
+
+// SetCloudSpec is specified in the environs.Environ interface.
+func (env *environ) SetCloudSpec(spec environs.CloudSpec) error {
+	env.lock.Lock()
+	defer env.lock.Unlock()
+
+	serverFactory := env.provider.serverFactory
+	server, err := serverFactory.RemoteServer(spec)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	env.serverUnlocked = server
+	return env.initProfile()
+}
+
+func (env *environ) server() Server {
+	env.lock.Lock()
+	defer env.lock.Unlock()
+
+	return env.serverUnlocked
 }
 
 // Config returns the configuration data with which the env was created.
 func (env *environ) Config() *config.Config {
 	env.lock.Lock()
-	cfg := env.ecfg.Config
-	env.lock.Unlock()
+	defer env.lock.Unlock()
+
+	cfg := env.ecfgUnlocked.Config
 	return cfg
 }
 
 // PrepareForBootstrap implements environs.Environ.
-func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	return nil
 }
 
@@ -206,7 +224,7 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	}
 	logger.Debugf("removing instances: %v", names)
 
-	return errors.Trace(env.server.RemoveContainers(names))
+	return errors.Trace(env.server().RemoveContainers(names))
 }
 
 // lxdAvailabilityZone wraps a LXD cluster member as an availability zone.
@@ -230,18 +248,19 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common
 	// If we are not using a clustered server (which includes those not
 	// supporting the clustering API) just represent the single server as the
 	// only availability zone.
-	if !env.server.IsClustered() {
+	server := env.server()
+	if !server.IsClustered() {
 		return []common.AvailabilityZone{
 			&lxdAvailabilityZone{
 				ClusterMember: api.ClusterMember{
-					ServerName: env.server.Name(),
+					ServerName: server.Name(),
 					Status:     "ONLINE",
 				},
 			},
 		}, nil
 	}
 
-	nodes, err := env.server.GetClusterMembers()
+	nodes, err := server.GetClusterMembers()
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Annotate(err, "listing cluster members")
@@ -266,9 +285,10 @@ func (env *environ) InstanceAvailabilityZoneNames(
 
 	// If not clustered, just report all input IDs as being in the zone
 	// represented by the single server.
-	if !env.server.IsClustered() {
+	server := env.server()
+	if !server.IsClustered() {
 		zones := make([]string, len(ids))
-		n := env.server.Name()
+		n := server.Name()
 		for i := range zones {
 			zones[i] = n
 		}
@@ -301,7 +321,8 @@ func (env *environ) DeriveAvailabilityZones(
 
 // MaybeWriteLXDProfile implements environs.LXDProfiler.
 func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
-	hasProfile, err := env.server.HasProfile(pName)
+	server := env.server()
+	hasProfile, err := server.HasProfile(pName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -313,7 +334,7 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) er
 		Name:       pName,
 		ProfilePut: api.ProfilePut(*put),
 	}
-	if err = env.server.CreateProfile(post); err != nil {
+	if err = server.CreateProfile(post); err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("wrote lxd profile %q", pName)
@@ -322,7 +343,7 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) er
 
 // LXDProfileNames implements environs.LXDProfiler.
 func (env *environ) LXDProfileNames(containerName string) ([]string, error) {
-	return env.server.GetContainerProfiles(containerName)
+	return env.server().GetContainerProfiles(containerName)
 }
 
 // ReplaceLXDProfile implements environs.LXDProfiler.
@@ -332,11 +353,12 @@ func (env *environ) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile s
 			return []string{}, errors.Trace(err)
 		}
 	}
-	if err := env.server.ReplaceOrAddContainerProfile(instId, oldProfile, newProfile); err != nil {
+	server := env.server()
+	if err := server.ReplaceOrAddContainerProfile(instId, oldProfile, newProfile); err != nil {
 		return []string{}, errors.Trace(err)
 	}
 	if oldProfile != "" {
-		if err := env.server.DeleteProfile(oldProfile); err != nil {
+		if err := server.DeleteProfile(oldProfile); err != nil {
 			// most likely the failure is because the profile is already in use
 			logger.Debugf("failed to delete profile %q: %s", oldProfile, err)
 		}

@@ -47,7 +47,9 @@ def deploy_bundle(client, charm_bundle):
         )
     else:
         bundle = charm_bundle
-    _, primary = client.deploy(bundle)
+    # bump the timeout of the wait_timeout to ensure that we can give more time
+    # for complex deploys.
+    _, primary = client.deploy(bundle, wait_timeout=1800)
     client.wait_for(primary)
 
 def assess_profile_machines(client):

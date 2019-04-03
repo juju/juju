@@ -195,7 +195,7 @@ func (e *fakeEnviron) Create(callCtx context.ProviderCallContext, args environs.
 	return nil
 }
 
-func (e *fakeEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (e *fakeEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	e.Push("PrepareForBootstrap", ctx)
 	return nil
 }

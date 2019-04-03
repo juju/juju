@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	jujuesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&CheckMachinesSuite{})
@@ -419,6 +420,10 @@ func createModelBackend(c *gc.C) *mockPersistedBackend {
 	backend.modelFunc = func() (credentialcommon.Model, error) {
 		return createTestModel(), backend.NextErr()
 	}
+	backend.controllerConfigFunc = func() (credentialcommon.ControllerConfig, error) {
+		return testControllerConfig, backend.NextErr()
+	}
+
 	backend.cloudFunc = func(name string) (cloud.Cloud, error) {
 		return cloud.Cloud{
 			Name:      "nuage",
@@ -492,9 +497,10 @@ type mockPersistedBackend struct {
 	*testing.Stub
 	allMachinesFunc func() ([]credentialcommon.Machine, error)
 
-	modelFunc           func() (credentialcommon.Model, error)
-	cloudFunc           func(name string) (cloud.Cloud, error)
-	cloudCredentialFunc func(tag names.CloudCredentialTag) (state.Credential, error)
+	modelFunc            func() (credentialcommon.Model, error)
+	controllerConfigFunc func() (credentialcommon.ControllerConfig, error)
+	cloudFunc            func(name string) (cloud.Cloud, error)
+	cloudCredentialFunc  func(tag names.CloudCredentialTag) (state.Credential, error)
 }
 
 func (m *mockPersistedBackend) AllMachines() ([]credentialcommon.Machine, error) {
@@ -505,6 +511,11 @@ func (m *mockPersistedBackend) AllMachines() ([]credentialcommon.Machine, error)
 func (m *mockPersistedBackend) Model() (credentialcommon.Model, error) {
 	m.MethodCall(m, "Model")
 	return m.modelFunc()
+}
+
+func (m *mockPersistedBackend) ControllerConfig() (credentialcommon.ControllerConfig, error) {
+	m.MethodCall(m, "ControllerConfig")
+	return m.controllerConfigFunc()
 }
 
 func (m *mockPersistedBackend) Cloud(name string) (cloud.Cloud, error) {
@@ -576,6 +587,7 @@ var (
 			"password": "password",
 		},
 	)
+	testControllerConfig = jujuesting.FakeControllerConfig()
 )
 
 type mockEnviron struct {
