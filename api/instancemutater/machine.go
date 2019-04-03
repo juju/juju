@@ -169,8 +169,14 @@ func (m *Machine) WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error) {
 type UnitProfileInfo struct {
 	ModelName       string
 	InstanceId      instance.Id
-	ProfileChanges  []lxdprofile.Profile
+	ProfileChanges  []UnitProfileChanges
 	CurrentProfiles []string
+}
+
+type UnitProfileChanges struct {
+	ApplicationName string
+	Revision        int
+	Profile         lxdprofile.Profile
 }
 
 // CharmProfilingInfo implements MutaterMachine.CharmProfilingInfo.
@@ -189,12 +195,16 @@ func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
 		ModelName:       result.ModelName,
 		CurrentProfiles: result.CurrentProfiles,
 	}
-	profileChanges := make([]lxdprofile.Profile, len(result.ProfileChanges))
+	profileChanges := make([]UnitProfileChanges, len(result.ProfileChanges))
 	for i, change := range result.ProfileChanges {
-		profileChanges[i] = lxdprofile.Profile{
-			Config:      change.Profile.Config,
-			Description: change.Profile.Description,
-			Devices:     change.Profile.Devices,
+		profileChanges[i] = UnitProfileChanges{
+			ApplicationName: change.ApplicationName,
+			Revision:        change.Revision,
+			Profile: lxdprofile.Profile{
+				Config:      change.Profile.Config,
+				Description: change.Profile.Description,
+				Devices:     change.Profile.Devices,
+			},
 		}
 		if change.Error != nil {
 			return nil, change.Error
