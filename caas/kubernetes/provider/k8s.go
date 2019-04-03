@@ -817,7 +817,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	return errors.Trace(k.deleteDeployment(operatorName))
 }
 
-func getLoadBalancerIP(svc *core.Service) string {
+func getLoadBalancerAddress(svc *core.Service) string {
 	// reason we have this is because different cloud provider
 	// has different way to report back LB address.
 	// This should cover most of case now.
@@ -863,16 +863,11 @@ func getSvcAddresses(svc *core.Service) []network.Address {
 	case core.ServiceTypeClusterIP:
 		appendAddrs(network.ScopeCloudLocal, clusterIP)
 	case core.ServiceTypeExternalName:
-		appendAddrs(network.ScopeCloudLocal, svc.Spec.ExternalName)
+		appendAddrs(network.ScopePublic, svc.Spec.ExternalName)
 	case core.ServiceTypeNodePort:
 		appendAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)
 	case core.ServiceTypeLoadBalancer:
-		appendAddrs(network.ScopePublic, getLoadBalancerIP(svc))
-	}
-	if len(netAddrs) == 0 && clusterIP != "" {
-		// fallback to ClusterIP, usually it's not empty.
-		logger.Debugf("fallback to clusterIP %q, desired IP was empty for %q type service %q", clusterIP, t, svc.Name)
-		appendAddrs(network.ScopeCloudLocal, clusterIP)
+		appendAddrs(network.ScopePublic, getLoadBalancerAddress(svc))
 	}
 	return netAddrs
 }
