@@ -41,6 +41,9 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"clock",
 		"compute-provisioner",
 		"environ-tracker",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
+		"environ-upgrader",
 		"firewaller",
 		"instance-poller",
 		"is-responsible-flag",
@@ -50,9 +53,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
-		"model-upgrader",
 		"not-alive-flag",
 		"not-dead-flag",
 		"remote-relations",
@@ -87,14 +87,14 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"caas-unit-provisioner",
 		"charm-revision-updater",
 		"clock",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
+		"environ-upgrader",
 		"is-responsible-flag",
 		"log-forwarder",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
-		"model-upgrader",
 		"not-alive-flag",
 		"not-dead-flag",
 		"remote-relations",
@@ -116,9 +116,9 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		"not-dead-flag",
 		// model upgrade manifolds are run on all
 		// controller agents, "responsible" or not.
-		"model-upgrade-gate",
-		"model-upgraded-flag",
-		"model-upgrader",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
+		"environ-upgrader",
 		"valid-credential-flag",
 	)
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
@@ -196,8 +196,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"agent": {},
@@ -216,8 +216,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"caas-operator-provisioner": {
@@ -228,8 +228,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"caas-storage-provisioner": {
@@ -240,8 +240,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag",
 		"valid-credential-flag"},
 
@@ -253,8 +253,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"charm-revision-updater": {
@@ -264,8 +264,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"clock": {},
@@ -284,8 +284,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"clock",
 		"is-responsible-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"migration-inactive-flag": {
@@ -293,8 +293,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"clock",
 		"is-responsible-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"migration-master": {
@@ -303,15 +303,15 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
-	"model-upgrade-gate": {},
+	"environ-upgrade-gate": {},
 
-	"model-upgraded-flag": {"model-upgrade-gate"},
+	"environ-upgraded-flag": {"environ-upgrade-gate"},
 
-	"model-upgrader": {"agent", "api-caller", "model-upgrade-gate"},
+	"environ-upgrader": {"agent", "api-caller", "environ-upgrade-gate"},
 
 	"not-alive-flag": {"agent", "api-caller"},
 
@@ -324,8 +324,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"state-cleaner": {
@@ -335,8 +335,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"status-history-pruner": {
@@ -347,8 +347,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"undertaker": {
@@ -357,8 +357,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"caas-broker-tracker",
 		"clock",
 		"is-responsible-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-alive-flag",
 		"valid-credential-flag",
 	},
@@ -376,8 +376,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag",
 		"valid-credential-flag",
 	},
@@ -395,8 +395,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"charm-revision-updater": {
@@ -406,8 +406,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"clock": {},
@@ -420,8 +420,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag",
 		"valid-credential-flag",
 	},
@@ -442,8 +442,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag",
 		"valid-credential-flag",
 	},
@@ -456,8 +456,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag",
 		"valid-credential-flag",
 	},
@@ -479,8 +479,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag",
 		"valid-credential-flag",
 	},
@@ -492,8 +492,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"migration-fortress": {
@@ -501,8 +501,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"clock",
 		"is-responsible-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"migration-inactive-flag": {
@@ -510,8 +510,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"clock",
 		"is-responsible-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"migration-master": {
@@ -520,21 +520,21 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
-	"model-upgrade-gate": {},
+	"environ-upgrade-gate": {},
 
-	"model-upgraded-flag": {"model-upgrade-gate"},
+	"environ-upgraded-flag": {"environ-upgrade-gate"},
 
-	"model-upgrader": {
+	"environ-upgrader": {
 		"agent",
 		"api-caller",
 		"clock",
 		"environ-tracker",
 		"is-responsible-flag",
-		"model-upgrade-gate",
+		"environ-upgrade-gate",
 		"valid-credential-flag",
 	},
 
@@ -549,8 +549,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"state-cleaner": {
@@ -560,8 +560,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"status-history-pruner": {
@@ -572,8 +572,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag",
 		"valid-credential-flag",
 	},
@@ -586,8 +586,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag",
 		"valid-credential-flag",
 	},
@@ -598,8 +598,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"clock",
 		"environ-tracker",
 		"is-responsible-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-alive-flag",
 		"valid-credential-flag",
 	},
@@ -611,8 +611,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"model-upgrade-gate",
-		"model-upgraded-flag",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
 		"not-dead-flag"},
 
 	"valid-credential-flag": {"agent", "api-caller"},

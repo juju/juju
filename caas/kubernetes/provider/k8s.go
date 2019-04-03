@@ -22,6 +22,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -1195,6 +1196,30 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 	return nil
+}
+
+// Upgrade sets the OCI image for the app to the specified version.
+func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
+	deploymentName := k.deploymentName(appName)
+	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	existingStatefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	// TODO(wallyworld) - only support stateful set at the moment
+	if err != nil {
+		return errors.NotSupportedf("upgrading %v", appName)
+	}
+	for i, c := range existingStatefulSet.Spec.Template.Spec.Containers {
+		if !podcfg.IsJujuOCIImage(c.Image) {
+			continue
+		}
+		tagSep := strings.LastIndex(c.Image, ":")
+		c.Image = fmt.Sprintf("%s:%s", c.Image[:tagSep], vers.String())
+		existingStatefulSet.Spec.Template.Spec.Containers[i] = c
+	}
+	_, err = statefulsets.Update(existingStatefulSet)
+	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {

@@ -18,6 +18,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"Agent",
 	"Annotations",
 	"Application",
+	"Block",
 	"CharmRevisionUpdater",
 	"Charms",
 	"Cleaner",
@@ -56,6 +57,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"StringsWatcher",
 	"Undertaker",
 	"Uniter",
+	"Upgrader",
 	"VolumeAttachmentsWatcher",
 
 	// for caas controller.
@@ -66,9 +68,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"ProxyUpdater",
 	"Machiner",
 	"ExternalControllerUpdater",
-	"Upgrader",
 	"FanConfigurer",
-	"Block",
 )
 
 // caasModelFacadeNames lists facades that are only used with CAAS

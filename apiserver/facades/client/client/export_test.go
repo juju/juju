@@ -13,6 +13,6 @@ var (
 	MatchSubnet     = matchSubnet
 )
 
-func SetNewEnviron(c *Client, newEnviron func() (environs.Environ, error)) {
+func SetNewEnviron(c *Client, newEnviron func() (environs.BootstrapEnviron, error)) {
 	c.newEnviron = newEnviron
 }

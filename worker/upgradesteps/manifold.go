@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/gate"
 )
@@ -23,8 +22,7 @@ type ManifoldConfig struct {
 	APICallerName        string
 	UpgradeStepsGateName string
 	OpenStateForUpgrade  func() (*state.StatePool, error)
-	PreUpgradeSteps      func(*state.StatePool, agent.Config, bool, bool) error
-	NewEnvironFunc       environs.NewEnvironFunc
+	PreUpgradeSteps      func(*state.StatePool, agent.Config, bool, bool, bool) error
 	NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
 }
 
@@ -93,7 +91,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				config.OpenStateForUpgrade,
 				config.PreUpgradeSteps,
 				statusSetter,
-				config.NewEnvironFunc,
 			)
 		},
 	}

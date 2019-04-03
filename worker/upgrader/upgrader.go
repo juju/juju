@@ -110,9 +110,9 @@ func (u *Upgrader) Stop() error {
 	return u.Wait()
 }
 
-// allowedTargetVersion checks if targetVersion is too different from
+// AllowedTargetVersion checks if targetVersion is too different from
 // curVersion to allow a downgrade.
-func allowedTargetVersion(
+func AllowedTargetVersion(
 	origAgentVersion version.Number,
 	curVersion version.Number,
 	upgradeStepsRunning bool,
@@ -196,7 +196,7 @@ func (u *Upgrader) loop() error {
 		if wantVersion == jujuversion.Current {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
-		} else if !allowedTargetVersion(
+		} else if !AllowedTargetVersion(
 			u.config.OrigAgentVersion,
 			jujuversion.Current,
 			!u.config.UpgradeStepsWaiter.IsUnlocked(),

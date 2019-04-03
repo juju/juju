@@ -8,6 +8,7 @@ import (
 	"net"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -154,25 +155,6 @@ func (cfg *ControllerPodConfig) APIHostAddrs() []string {
 	return hosts
 }
 
-// APIHosts returns api a list of server addresses.
-func (cfg *ControllerPodConfig) APIHosts() []string {
-	var hosts []string
-	if cfg.Bootstrap != nil {
-		hosts = append(hosts, "localhost")
-	}
-	if cfg.APIInfo != nil {
-		for _, addr := range cfg.APIInfo.Addrs {
-			host, _, err := net.SplitHostPort(addr)
-			if err != nil {
-				logger.Errorf("Can't split API address %q to host:port - %q", host, err)
-				continue
-			}
-			hosts = append(hosts, host)
-		}
-	}
-	return hosts
-}
-
 // VerifyConfig verifies that the ControllerPodConfig is valid.
 func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid controller pod configuration")
@@ -243,6 +225,11 @@ func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() string {
 	}
 	v := jujudbVersion
 	return fmt.Sprintf("%s/%s:%d.%d", imageRepo, jujudbOCIName, v.Major, v.Minor)
+}
+
+// IsJujuOCIImage returns true if the image path is for a Juju operator.
+func IsJujuOCIImage(imagePath string) bool {
+	return strings.Contains(imagePath, jujudOCIName+":")
 }
 
 // GetJujuOCIImagePath returns the jujud oci image path.

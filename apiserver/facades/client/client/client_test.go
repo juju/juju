@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -50,7 +51,8 @@ import (
 type serverSuite struct {
 	baseSuite
 	client     *client.Client
-	newEnviron func() (environs.Environ, error)
+	newEnviron func() (environs.BootstrapEnviron, error)
+	newBroker  func() (environs.BootstrapEnviron, error)
 }
 
 var _ = gc.Suite(&serverSuite{})
@@ -76,10 +78,10 @@ func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.A
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.newEnviron = func() (environs.Environ, error) {
+	s.newEnviron = func() (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(stateenvirons.EnvironConfigGetter{State: st, Model: m}, environs.New)
 	}
-	client.SetNewEnviron(apiserverClient, func() (environs.Environ, error) {
+	client.SetNewEnviron(apiserverClient, func() (environs.BootstrapEnviron, error) {
 		return s.newEnviron()
 	})
 	return apiserverClient
@@ -320,7 +322,7 @@ func (s *serverSuite) TestUserModelSetModelAgentVersionNotAffectedByMigration(c 
 	}
 	client := s.clientForState(c, otherSt)
 
-	s.newEnviron = func() (environs.Environ, error) {
+	s.newEnviron = func() (environs.BootstrapEnviron, error) {
 		return &mockEnviron{}, nil
 	}
 
@@ -343,7 +345,7 @@ func (m *mockEnviron) AllInstances(context.ProviderCallContext) ([]instances.Ins
 
 func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr string) {
 	env := &mockEnviron{err: envError}
-	s.newEnviron = func() (environs.Environ, error) {
+	s.newEnviron = func() (environs.BootstrapEnviron, error) {
 		return env, nil
 	}
 	args := params.SetModelAgentVersion{
@@ -366,6 +368,42 @@ func (s *serverSuite) TestCheckProviderAPISuccess(c *gc.C) {
 
 func (s *serverSuite) TestCheckProviderAPIFail(c *gc.C) {
 	s.assertCheckProviderAPI(c, errors.New("instances error"), "cannot make API call to provider: instances error")
+}
+
+type mockBroker struct {
+	caas.Broker
+	getMetadataCalled bool
+	err               error
+}
+
+func (m *mockBroker) GetClusterMetadata(storageClass string) (result *caas.ClusterMetadata, err error) {
+	m.getMetadataCalled = true
+	return nil, m.err
+}
+
+func (s *serverSuite) assertCheckCAASProviderAPI(c *gc.C, envError error, expectErr string) {
+	env := &mockBroker{err: envError}
+	s.newEnviron = func() (environs.BootstrapEnviron, error) {
+		return env, nil
+	}
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse("9.8.7"),
+	}
+	err := s.client.SetModelAgentVersion(args)
+	c.Assert(env.getMetadataCalled, jc.IsTrue)
+	if expectErr != "" {
+		c.Assert(err, gc.ErrorMatches, expectErr)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func (s *serverSuite) TestCheckCAASProviderAPISuccess(c *gc.C) {
+	s.assertCheckCAASProviderAPI(c, nil, "")
+}
+
+func (s *serverSuite) TestCheckCAASProviderAPIFail(c *gc.C) {
+	s.assertCheckCAASProviderAPI(c, errors.New("metadata error"), "cannot make API call to provider: metadata error")
 }
 
 func (s *serverSuite) assertSetModelAgentVersion(c *gc.C) {

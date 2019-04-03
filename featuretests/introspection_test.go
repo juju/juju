@@ -10,15 +10,15 @@ import (
 	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/state"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/agent"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/introspect"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/logsender"
@@ -52,7 +52,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 
 // startMachineAgent starts a controller machine agent and returns the path
 // of its unix socket.
-func (s *introspectionSuite) startMachineAgent(c *gc.C, isCaas bool) (*agentcmd.MachineAgent, string) {
+func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent, string) {
 	// Create a machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs:  []state.MachineJob{state.JobManageModel},
@@ -73,7 +73,7 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C, isCaas bool) (*agentcmd.
 		noPreUpgradeSteps,
 		rootDir,
 	)
-	a, err := machineAgentFactory(m.Id(), isCaas)
+	a, err := machineAgentFactory(m.Id(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start the agent.
@@ -96,8 +96,8 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C, isCaas bool) (*agentcmd.
 	return a, rootDir
 }
 
-func (s *introspectionSuite) assertPrometheusMetrics(c *gc.C, isCaas bool) {
-	a, socketPath := s.startMachineAgent(c, isCaas)
+func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
+	a, socketPath := s.startMachineAgent(c)
 	defer a.Stop()
 
 	expected := []string{
@@ -136,12 +136,4 @@ func (s *introspectionSuite) assertPrometheusMetrics(c *gc.C, isCaas bool) {
 		}
 	}
 	c.Fatal("timed out waiting for metrics")
-}
-
-func (s *introspectionSuite) TestPrometheusMetricsCaas(c *gc.C) {
-	s.assertPrometheusMetrics(c, true)
-}
-
-func (s *introspectionSuite) TestPrometheusMetricsIaas(c *gc.C) {
-	s.assertPrometheusMetrics(c, false)
 }

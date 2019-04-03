@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/api"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -96,9 +95,8 @@ func NewWorker(
 	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
 	openState func() (*state.StatePool, error),
-	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMasterServer bool) error,
+	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMasterServer, isCaas bool) error,
 	machine StatusSetter,
-	newEnvironFunc environs.NewEnvironFunc,
 ) (worker.Worker, error) {
 	w := &upgradesteps{
 		upgradeComplete: upgradeComplete,
@@ -121,7 +119,7 @@ type upgradesteps struct {
 	apiConn         api.Connection
 	jobs            []multiwatcher.MachineJob
 	openState       func() (*state.StatePool, error)
-	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMaster bool) error
+	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMaster, isCaas bool) error
 	machine         StatusSetter
 
 	fromVersion  version.Number
@@ -129,6 +127,7 @@ type upgradesteps struct {
 	tag          names.Tag
 	isMaster     bool
 	isController bool
+	isCaas       bool
 	pool         *state.StatePool
 }
 
@@ -203,6 +202,13 @@ func (w *upgradesteps) run() error {
 		if w.isMaster, err = IsMachineMaster(w.pool, w.tag.Id()); err != nil {
 			return errors.Trace(err)
 		}
+
+		st := w.pool.SystemState()
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		w.isCaas = model.Type() == state.ModelTypeCAAS
 	}
 
 	if err := w.runUpgrades(); err != nil {
@@ -252,7 +258,7 @@ func (w *upgradesteps) runUpgrades() error {
 
 func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	logger.Infof("checking that upgrade can proceed")
-	if err := w.preUpgradeSteps(w.pool, w.agent.CurrentConfig(), w.pool != nil, w.isMaster); err != nil {
+	if err := w.preUpgradeSteps(w.pool, w.agent.CurrentConfig(), w.pool != nil, w.isMaster, w.isCaas); err != nil {
 		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
 	}
 
