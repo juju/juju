@@ -1486,7 +1486,6 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 	}
 
 	// Collect distinct placements that need to be checked.
-	placements := set.NewStrings()
 	for _, placement := range args.Placement {
 		data, err := st.parsePlacement(placement)
 		if err != nil {
@@ -1507,25 +1506,27 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 					err, "cannot deploy to machine %s", m,
 				)
 			}
-			// We've checked the machine placement, there's not a
-			// provider-specific placement that needs checking
-			// (although the instance creation still needs to be
-			// checked).
-			placements.Add("")
+			// This placement directive indicates that we're putting a
+			// unit on a pre-existing machine. There's no need to
+			// precheck the args since we're not starting an instance.
 
 		case directivePlacement:
-			placements.Add(data.directive)
+			if err := st.precheckInstance(
+				args.Series,
+				args.Constraints,
+				data.directive,
+				volumeAttachments,
+			); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
-	// We still want to check the constraints if there's no placement.
-	if placements.Size() == 0 {
-		placements.Add("")
-	}
-	for _, placement := range placements.SortedValues() {
+	// We want to check the constraints if there's no placement at all.
+	if len(args.Placement) == 0 {
 		if err := st.precheckInstance(
 			args.Series,
 			args.Constraints,
-			placement,
+			"",
 			volumeAttachments,
 		); err != nil {
 			return errors.Trace(err)
