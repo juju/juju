@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -148,11 +149,28 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	recorderFactory := observer.NewRecorderFactory(
-		a.apiObserver, auditRecorder, auditConfig.CaptureAPIArgs)
+		a.apiObserver, auditRecorder, auditConfig.CaptureAPIArgs,
+	)
+
+	servers := params.FromNetworkHostsPorts(hostPorts)
+	model, err := a.srv.shared.statePool.SystemState().Model()
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
+	if model.Type() == state.ModelTypeCAAS {
+		publicDNS, err := network.ParseHostPorts(a.srv.publicDNSName())
+		if err != nil {
+			return fail, errors.Trace(err)
+		}
+		servers = append(
+			servers,
+			params.FromNetworkHostsPorts([][]network.HostPort{publicDNS})...,
+		)
+	}
 
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
 	return params.LoginResult{
-		Servers:       params.FromNetworkHostsPorts(hostPorts),
+		Servers:       servers,
 		ControllerTag: a.root.model.ControllerTag().String(),
 		UserInfo:      authResult.userInfo,
 		ServerVersion: jujuversion.Current.String(),
