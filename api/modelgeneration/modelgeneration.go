@@ -28,10 +28,10 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// AddGeneration adds a model generation to the config.
-func (c *Client) AddGeneration(modelUUID, branchName string) error {
+// AddBranch adds a new branch to the model.
+func (c *Client) AddBranch(modelUUID, branchName string) error {
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("AddGeneration", argForBranch(modelUUID, branchName), &result)
+	err := c.facade.FacadeCall("AddBranch", argForBranch(modelUUID, branchName), &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

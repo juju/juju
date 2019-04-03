@@ -1835,7 +1835,7 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsBranch(c *gc.C
 	app := s.AddTestingApplication(c, "dummy", ch)
 
 	const newBranch = "newBranch"
-	c.Assert(s.State.AddGeneration(newBranch, "user"), jc.ErrorIsNil)
+	c.Assert(s.State.AddBranch(newBranch, "user"), jc.ErrorIsNil)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1883,7 +1883,7 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLNextGen(c *gc.C) 
 	app := s.AddTestingApplication(c, "dummy", ch)
 
 	const newBranch = "newBranch"
-	c.Assert(s.State.AddGeneration(newBranch, "user"), jc.ErrorIsNil)
+	c.Assert(s.State.AddBranch(newBranch, "user"), jc.ErrorIsNil)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{

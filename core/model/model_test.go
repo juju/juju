@@ -37,3 +37,21 @@ func (*ModelSuite) TestValidateSeries(c *gc.C) {
 		}
 	}
 }
+
+func (*ModelSuite) TestValidateBranchName(c *gc.C) {
+	for _, t := range []struct {
+		branchName string
+		valid      bool
+	}{
+		{"", false},
+		{model.GenerationMaster, false},
+		{"something else", true},
+	} {
+		err := model.ValidateBranchName(t.branchName)
+		if t.valid {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err, jc.Satisfies, errors.IsNotValid)
+		}
+	}
+}

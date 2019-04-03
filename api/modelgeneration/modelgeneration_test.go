@@ -56,10 +56,10 @@ func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
 		BranchName: s.branchName,
 	}
 
-	s.fCaller.EXPECT().FacadeCall("AddGeneration", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall("AddBranch", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	err := api.AddGeneration(s.tag.Id(), s.branchName)
+	err := api.AddBranch(s.tag.Id(), s.branchName)
 	c.Assert(err, gc.IsNil)
 }
 

@@ -3,6 +3,10 @@
 
 package model
 
+import (
+	errors "github.com/juju/errors"
+)
+
 // TODO (manadart 2019-04-21) Change the nomenclature here to indicate "branch"
 // instead of "generation", and remove Current/Next.
 
@@ -13,6 +17,18 @@ const (
 
 	generationKeySuffix = "#next"
 )
+
+// ValidateBranchName returns an error if the input name is not suitable for
+// identifying a new in-flight branch.
+func ValidateBranchName(name string) error {
+	if name == "" {
+		return errors.NotValidf("empty branch name")
+	}
+	if name == GenerationMaster {
+		return errors.NotValidf("branch name %q", GenerationMaster)
+	}
+	return nil
+}
 
 // NextGenerationKey adds a suffix to the input key that designates it as being
 // for "next" generation config, and returns the result.
