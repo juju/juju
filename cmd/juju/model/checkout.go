@@ -32,14 +32,14 @@ See also:
 `
 )
 
-// NewSwitchGenerationCommand wraps switchGenerationCommand with sane model settings.
-func NewSwitchGenerationCommand() cmd.Command {
-	return modelcmd.Wrap(&switchGenerationCommand{})
+// NewCheckoutCommand wraps checkoutCommand with sane model settings.
+func NewCheckoutCommand() cmd.Command {
+	return modelcmd.Wrap(&checkoutCommand{})
 }
 
-// switchGenerationCommand is the simplified command for accessing and setting
+// checkoutCommand is the simplified command for accessing and setting
 // attributes related to switching model generations.
-type switchGenerationCommand struct {
+type checkoutCommand struct {
 	modelcmd.ModelCommandBase
 
 	api CheckoutCommandAPI
@@ -55,7 +55,7 @@ type CheckoutCommandAPI interface {
 }
 
 // Info implements part of the cmd.Command interface.
-func (c *switchGenerationCommand) Info() *cmd.Info {
+func (c *checkoutCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:    "switch-generation",
 		Args:    "<branch name>",
@@ -66,12 +66,12 @@ func (c *switchGenerationCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements part of the cmd.Command interface.
-func (c *switchGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *checkoutCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 }
 
 // Init implements part of the cmd.Command interface.
-func (c *switchGenerationCommand) Init(args []string) error {
+func (c *checkoutCommand) Init(args []string) error {
 	if len(args) != 1 {
 		return errors.Errorf("must specify a branch name to switch to")
 	}
@@ -82,7 +82,7 @@ func (c *switchGenerationCommand) Init(args []string) error {
 // getAPI returns the API. This allows passing in a test SwitchGenerationCommandAPI
 // Run (cmd.Command) sets the active generation in the local store.
 // implementation.
-func (c *switchGenerationCommand) getAPI() (CheckoutCommandAPI, error) {
+func (c *checkoutCommand) getAPI() (CheckoutCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -95,7 +95,7 @@ func (c *switchGenerationCommand) getAPI() (CheckoutCommandAPI, error) {
 }
 
 // Run (cmd.Command) sets the active branch in the local store.
-func (c *switchGenerationCommand) Run(ctx *cmd.Context) error {
+func (c *checkoutCommand) Run(ctx *cmd.Context) error {
 	// If the active branch is not being set to the (default) master,
 	// then first ensure that a branch with the supplied name exists.
 	if c.branchName != model.GenerationMaster {

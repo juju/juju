@@ -205,8 +205,8 @@ func NewTrackBranchCommandForTest(api TrackBranchCommandAPI, store jujuclient.Cl
 	return modelcmd.Wrap(cmd)
 }
 
-func NewSwitchGenerationCommandForTest(api CheckoutCommandAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &switchGenerationCommand{
+func NewCheckoutCommandForTest(api CheckoutCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &checkoutCommand{
 		api: api,
 	}
 	cmd.SetClientStore(store)

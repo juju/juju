@@ -69,11 +69,11 @@ func (s *checkoutSuite) TestRunCommandNextNoGenError(c *gc.C) {
 }
 
 func (s *checkoutSuite) runInit(args ...string) error {
-	return cmdtesting.InitCommand(model.NewSwitchGenerationCommandForTest(nil, s.store), args)
+	return cmdtesting.InitCommand(model.NewCheckoutCommandForTest(nil, s.store), args)
 }
 
 func (s *checkoutSuite) runCommand(c *gc.C, api model.CheckoutCommandAPI, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, model.NewSwitchGenerationCommandForTest(api, s.store), args...)
+	return cmdtesting.RunCommand(c, model.NewCheckoutCommandForTest(api, s.store), args...)
 }
 
 func setUpSwitchMocks(c *gc.C) (*gomock.Controller, *mocks.MockCheckoutCommandAPI) {
