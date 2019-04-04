@@ -557,7 +557,6 @@ func Bootstrap(
 		ModelConstraints: args.ModelConstraints,
 		BootstrapSeries:  args.BootstrapSeries,
 		Placement:        args.Placement,
-		// ControllerServiceType: args.ControllerServiceType,
 	}
 	doBootstrap := bootstrapIAAS
 	if jujucloud.CloudIsCAAS(args.Cloud) {

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/retry"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
@@ -145,6 +146,7 @@ const defaultHostedModelName = "default"
 
 func newBootstrapCommand() cmd.Command {
 	command := &bootstrapCommand{}
+	command.clock = jujuclock.WallClock
 	command.CanClearCurrentModel = true
 	return modelcmd.Wrap(command,
 		modelcmd.WrapSkipModelFlags,
@@ -156,6 +158,8 @@ func newBootstrapCommand() cmd.Command {
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
 	modelcmd.ModelCommandBase
+
+	clock jujuclock.Clock
 
 	Constraints              constraints.Value
 	ConstraintsStr           string
@@ -796,7 +800,24 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		)
 	}
 
-	if err = k8sprovider.ReScheduler(controllerDataRefresher, errors.IsNotProvisioned, jujuclock.WallClock, 3*time.Minute); err != nil {
+	// if err = k8sprovider.ReScheduler(controllerDataRefresher, errors.IsNotProvisioned, jujuclock.WallClock, 3*time.Minute); err != nil {
+	// 	return errors.Trace(err)
+	// }
+
+	retryCallArgs := retry.CallArgs{
+		Attempts:    20,
+		Delay:       3 * time.Second,
+		MaxDuration: time.Minute,
+		Clock:       c.clock,
+		Func:        controllerDataRefresher,
+		IsFatalError: func(err error) bool {
+			return !errors.IsNotProvisioned(err)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("polling k8s controller svc DNS, in %q attempt, got error %v", attempt, err)
+		},
+	}
+	if err = retry.Call(retryCallArgs); err != nil {
 		return errors.Trace(err)
 	}
 

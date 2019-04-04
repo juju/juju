@@ -887,7 +887,7 @@ func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 	}
 	service := servicesList.Items[0]
 	result := caas.Service{
-		Id: string(service.UID),
+		Id: string(service.GetUID()),
 	}
 	result.Addresses = getSvcAddresses(&servicesList.Items[0])
 

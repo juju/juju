@@ -19,6 +19,14 @@ import (
 	"github.com/juju/juju/caas"
 )
 
+var preferredControllerServiceTypes = map[string]core.ServiceType{
+	K8sCloudAzure:    core.ServiceTypeLoadBalancer,
+	K8sCloudCDK:      core.ServiceTypeLoadBalancer,
+	K8sCloudEC2:      core.ServiceTypeLoadBalancer,
+	K8sCloudGCE:      core.ServiceTypeLoadBalancer,
+	K8sCloudMicrok8s: core.ServiceTypeClusterIP,
+}
+
 // newLabelRequirements creates a list of k8s node label requirements.
 // This should be called inside package init function to panic earlier
 // if there is a invalid requirement definition.

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
@@ -185,7 +186,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: s.getNamespace()}}
 	ns.Name = s.getNamespace()
 	s.ensureJujuNamespaceAnnotations(true, ns)
-	svc := &core.Service{
+	svcNotProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-service",
 			Labels:    map[string]string{"juju-app": "juju-controller-test"},
@@ -204,7 +205,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
-	svcProvisioned := core.Service{
+	svcPublicIP := "1.1.1.1"
+	svcProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-service",
 			Labels:    map[string]string{"juju-app": "juju-controller-test"},
@@ -220,7 +222,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Port:       17070,
 				},
 			},
-			ClusterIP: "1.1.1.1",
+			ClusterIP: svcPublicIP,
 		},
 	}
 
@@ -264,6 +266,13 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 	bootstrapParamsContent, err := s.pcfg.Bootstrap.StateInitializationParams.Marshal()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var bootstrapParams instancecfg.StateInitializationParams
+	bootstrapParams.Unmarshal(bootstrapParamsContent)
+	bootstrapParams.ControllerDNS = svcPublicIP + ":17070"
+
+	bootstrapParamsContent, err = bootstrapParams.Marshal()
 	c.Assert(err, jc.ErrorIsNil)
 	configMapWithBootstrapParamsAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
@@ -539,14 +548,24 @@ test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /va
 		// ensure service
 		s.mockServices.EXPECT().Get("juju-controller-test-service", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(svc).Times(1).
+		s.mockServices.EXPECT().Update(svcNotProvisioned).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(svc).Times(1).
-			Return(svc, nil),
+		s.mockServices.EXPECT().Create(svcNotProvisioned).Times(1).
+			Return(svcNotProvisioned, nil),
 
-		// below calls are for GetService.
+		// below calls are for GetService - 1st address no provisioned yet.
 		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).Times(1).
-			Return(&core.ServiceList{Items: []core.Service{svcProvisioned}}, nil),
+			Return(&core.ServiceList{Items: []core.Service{*svcNotProvisioned}}, nil),
+		s.mockStatefulSets.EXPECT().Get("juju-operator-juju-controller-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+
+		// below calls are for GetService - 2nd address is ready.
+		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).Times(1).
+			Return(&core.ServiceList{Items: []core.Service{*svcProvisioned}}, nil),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-juju-controller-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -604,7 +623,7 @@ test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /va
 		errChan <- controllerStacker.Deploy()
 	}()
 
-	err = s.clock.WaitAdvance(3*time.Second, testing.LongWait, 2)
+	err = s.clock.WaitAdvance(3*time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

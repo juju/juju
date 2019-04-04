@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	testclock "github.com/juju/clock/testclock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -68,6 +69,9 @@ type BootstrapSuite struct {
 	envtesting.ToolsFixture
 	store *jujuclient.MemStore
 	tw    loggo.TestWriter
+
+	bootstrapCmd bootstrapCommand
+	clock        *testclock.Clock
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -131,6 +135,9 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 		_, err := loggo.RemoveWriter("bootstrap-test")
 		c.Assert(err, jc.ErrorIsNil)
 	})
+
+	s.clock = testclock.NewClock(time.Now())
+	s.bootstrapCmd = bootstrapCommand{clock: s.clock}
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -167,7 +174,8 @@ func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
 
 func (s *BootstrapSuite) newBootstrapCommandWrapper(disableGUI bool) cmd.Command {
 	c := &bootstrapCommandWrapper{
-		disableGUI: disableGUI,
+		bootstrapCommand: s.bootstrapCmd,
+		disableGUI:       disableGUI,
 	}
 	c.SetClientStore(s.store)
 	return modelcmd.Wrap(c)
@@ -755,7 +763,7 @@ func (s *BootstrapSuite) TestBootstrapRegionConfigAttributesOverCloudConfig(c *g
 	   Only the region config values should be found */
 	s.patchVersionAndSeries(c, "raring")
 
-	bootstrapCmd := bootstrapCommand{Region: "region-2"}
+	s.bootstrapCmd.Region = "region-2"
 	ctx := cmdtesting.Context(c)
 
 	// The OpenStack provider has a config attribute of network we can use.
@@ -767,18 +775,18 @@ func (s *BootstrapSuite) TestBootstrapRegionConfigAttributesOverCloudConfig(c *g
 	testCloud, err := cloud.CloudByName("dummy-cloud-with-region-config")
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: "cloud-network"},
 		"inheritedControllerAttrs": {key: "cloud-network"},
 		"userConfigAttrs":          {},
 	})
 
 	// Second test that network in the region config overwrites the cloud config network value.
-	bootstrapCmd = bootstrapCommand{Region: "region-1"}
+	s.bootstrapCmd.Region = "region-1"
 	testCloud, err = cloud.CloudByName("dummy-cloud-with-region-config")
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: "region-network"},
 		"inheritedControllerAttrs": {key: "region-network"},
 		"userConfigAttrs":          {},
@@ -791,7 +799,6 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *gc.C) {
 	   config and ensure that it ends up as true in the model config. */
 	s.patchVersionAndSeries(c, "raring")
 
-	bootstrapCmd := bootstrapCommand{}
 	ctx := cmdtesting.Context(c)
 
 	// The OpenStack provider has a default of "use-floating-ip": false, so we
@@ -804,7 +811,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	key := "use-floating-ip"
-	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {},
@@ -812,8 +819,8 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *gc.C) {
 
 	// Second test that use-floating-ip passed on the command line overwrites the
 	// provider default of false with true
-	bootstrapCmd.config.Set("use-floating-ip=true")
-	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	s.bootstrapCmd.config.Set("use-floating-ip=true")
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: true},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {key: true},
@@ -826,7 +833,6 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
 	   config and ensure that it ends up as true in the model config. */
 	s.patchVersionAndSeries(c, "raring")
 
-	bootstrapCmd := bootstrapCommand{}
 	ctx := cmdtesting.Context(c)
 
 	// The OpenStack provider has a default of "use-floating-ip": false, so we
@@ -839,7 +845,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	key := "use-floating-ip"
-	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {},
@@ -849,8 +855,8 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
 	// inherited attribute
 	testCloud, err = cloud.CloudByName("dummy-cloud-with-config")
 	c.Assert(err, jc.ErrorIsNil)
-	bootstrapCmd.config.Set("use-floating-ip=false")
-	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	s.bootstrapCmd.config.Set("use-floating-ip=false")
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {key: true},
 		"userConfigAttrs":          {key: false},
@@ -1804,33 +1810,32 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, `
-You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
-Cloud                            Credentials  Default Region
-aws                              fred         us-west-1
-                                 mary         
-aws-china                                     
-aws-gov                                       
-azure                                         
-azure-china                                   
-cloudsigma                                    
-google                                        
-joyent                                        
-oracle                                        
-oracle-classic                                
-rackspace                                     
-localhost                                     
-dummy-cloud                      joe          home
-dummy-cloud-dummy-region-config               
-dummy-cloud-with-config                       
-dummy-cloud-with-region-config                
-dummy-cloud-without-regions                   
-many-credentials-no-auth-types                
-
-You will need to have a credential if you want to bootstrap on a cloud, see
-‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
-listed is the default. Add more clouds with ‘juju add-cloud’.
-`[1:])
+	expectedOut := "You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.\n" +
+		"Cloud                            Credentials  Default Region\n" +
+		"aws                              fred         us-west-1\n" +
+		"                                 mary         \n" +
+		"aws-china                                     \n" +
+		"aws-gov                                       \n" +
+		"azure                                         \n" +
+		"azure-china                                   \n" +
+		"cloudsigma                                    \n" +
+		"google                                        \n" +
+		"joyent                                        \n" +
+		"oracle                                        \n" +
+		"oracle-classic                                \n" +
+		"rackspace                                     \n" +
+		"localhost                                     \n" +
+		"dummy-cloud                      joe          home\n" +
+		"dummy-cloud-dummy-region-config               \n" +
+		"dummy-cloud-with-config                       \n" +
+		"dummy-cloud-with-region-config                \n" +
+		"dummy-cloud-without-regions                   \n" +
+		"many-credentials-no-auth-types                \n" +
+		"\n" +
+		"You will need to have a credential if you want to bootstrap on a cloud, see\n" +
+		"‘juju autoload-credentials’ and ‘juju add-credential’. The first credential\n" +
+		"listed is the default. Add more clouds with ‘juju add-cloud’.\n"
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, expectedOut)
 }
 
 func (s *BootstrapSuite) TestBootstrapPrintCloudRegions(c *gc.C) {

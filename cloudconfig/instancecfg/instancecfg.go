@@ -27,6 +27,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
@@ -296,7 +297,7 @@ type StateInitializationParams struct {
 	// machine.
 	BootstrapMachineConstraints constraints.Value
 
-	// BootstrapMachineHardwareCharacteristics contains the harrdware
+	// BootstrapMachineHardwareCharacteristics contains the hardware
 	// characteristics of the bootstrap machine instance being initialized.
 	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics
 
@@ -307,6 +308,11 @@ type StateInitializationParams struct {
 	// to store in environment storage at bootstrap time. This is ignored
 	// in non-bootstrap instances.
 	CustomImageMetadata []*imagemetadata.ImageMetadata
+
+	// ControllerDNS is the controller service DNS.
+	ControllerDNS string
+
+	ControllerService *caas.Service
 }
 
 type stateInitializationParamsInternal struct {

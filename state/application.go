@@ -2999,11 +2999,11 @@ func (a *Application) SetAgentPresence() (*presence.Pinger, error) {
 }
 
 // UpdateCloudService updates the cloud service details for the application.
-func (a *Application) UpdateCloudService(providerId string, addreses []network.Address) error {
+func (a *Application) UpdateCloudService(providerId string, addresses []network.Address) error {
 	doc := cloudServiceDoc{
 		Id:         a.globalKey(),
 		ProviderId: providerId,
-		Addresses:  fromNetworkAddresses(addreses, OriginProvider),
+		Addresses:  fromNetworkAddresses(addresses, OriginProvider),
 	}
 	ops, err := a.saveServiceOps(doc)
 	if err != nil {

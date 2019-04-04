@@ -6,14 +6,13 @@ package provider
 import (
 	"fmt"
 	"path/filepath"
-	"reflect"
-	"runtime"
 	"strings"
 	"time"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -102,36 +101,6 @@ func controllerCorelation(broker *kubernetesClient) (*kubernetesClient, error) {
 // DecideControllerNamespace decides the namespace name to use for a new controller.
 func DecideControllerNamespace(controllerName string) string {
 	return "controller-" + controllerName
-}
-
-// ReScheduler executes a function and keep retrying until timeout if the function returns an expected error.
-func ReScheduler(
-	do func() error,
-	expectedErrorChecker func(error) bool,
-	clock jujuclock.Clock,
-	timeout time.Duration,
-) (err error) {
-	retryInterval := 3 * time.Second
-	for {
-		select {
-		case <-clock.After(retryInterval):
-			err = do()
-			logger.Criticalf("do --> %v", err)
-			if err == nil {
-				return nil
-			}
-			if !expectedErrorChecker(err) {
-				return errors.Trace(err)
-			}
-			logger.Debugf("%q got expected error %v, retry in %q",
-				runtime.FuncForPC(reflect.ValueOf(do).Pointer()).Name(), err,
-				retryInterval,
-			)
-			// got expected error, keep retrying.
-		case <-clock.After(timeout):
-			return errors.Timeoutf("%q exceeded", timeout.String())
-		}
-	}
 }
 
 func newcontrollerStack(
@@ -360,8 +329,6 @@ func (c controllerStack) createControllerService() error {
 		c.broker.deleteService(svcName)
 	})
 
-	controllerConfig := c.pcfg.Bootstrap.ControllerConfig
-
 	publicAddressPoller := func() error {
 		// get the service by app name;
 		svc, err := c.broker.GetService(c.stackName)
@@ -372,18 +339,27 @@ func (c controllerStack) createControllerService() error {
 			return errors.NotProvisionedf("controller service address")
 		}
 
-		publicAddress := network.AddressesWithPort(
-			svc.Addresses, controllerConfig.APIPort(),
-		)[0].String()
-		return errors.Annotatef(
-			controllerConfig.SetAutocertDNSName(publicAddress),
-			"setting controller public DNS to %v", publicAddress,
-		)
+		// publicAddress := network.AddressesWithPort(
+		// 	svc.Addresses, c.pcfg.Bootstrap.ControllerConfig.APIPort(),
+		// )[0].String()
+		c.pcfg.Bootstrap.StateInitializationParams.ControllerService = svc
+		return nil
 	}
-	// keep polling the svc public address until timeout in 3 minutes(this should be enough time to provision the LB).
-	return errors.Trace(
-		ReScheduler(publicAddressPoller, errors.IsNotProvisioned, c.clock, 3*time.Minute),
-	)
+
+	retryCallArgs := retry.CallArgs{
+		Attempts:    60,
+		Delay:       3 * time.Second,
+		MaxDuration: 3 * time.Minute,
+		Clock:       c.clock,
+		Func:        publicAddressPoller,
+		IsFatalError: func(err error) bool {
+			return !errors.IsNotProvisioned(err)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("polling k8s controller svc DNS, in %q attempt, got error %v", attempt, err)
+		},
+	}
+	return errors.Trace(retry.Call(retryCallArgs))
 }
 
 func (c controllerStack) addCleanUp(cleanUp func()) {
