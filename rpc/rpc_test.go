@@ -756,6 +756,19 @@ func (e *codedError) ErrorCode() string {
 	return e.code
 }
 
+type moreInfoError struct {
+	m    string
+	info map[string]interface{}
+}
+
+func (e *moreInfoError) Error() string {
+	return e.m
+}
+
+func (e *moreInfoError) ErrorInfo() map[string]interface{} {
+	return e.info
+}
+
 func (*rpcSuite) TestErrorCode(c *gc.C) {
 	root := &Root{
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
@@ -765,6 +778,21 @@ func (*rpcSuite) TestErrorCode(c *gc.C) {
 	err := client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `message \(code\)`)
 	c.Assert(errors.Cause(err).(rpc.ErrorCoder).ErrorCode(), gc.Equals, "code")
+}
+
+func (*rpcSuite) TestErrorInfo(c *gc.C) {
+	info := map[string]interface{}{
+		"foo": "bar",
+		"baz": true,
+	}
+	root := &Root{
+		errorInst: &ErrorMethods{&moreInfoError{"message", info}},
+	}
+	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+	err := client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `message`)
+	c.Assert(errors.Cause(err).(rpc.ErrorInfoProvider).ErrorInfo(), gc.DeepEquals, info)
 }
 
 func (*rpcSuite) TestTransformErrors(c *gc.C) {

@@ -44,6 +44,10 @@ func (e *RequestError) ErrorCode() string {
 	return e.Code
 }
 
+func (e *RequestError) ErrorInfo() map[string]interface{} {
+	return e.Info
+}
+
 // UnmarshalInfo attempts to unmarshal the information contained in the Info
 // field of a RequestError into an object instance a pointer to which is passed
 // via the to argument. The method will return an error if a non-pointer arg

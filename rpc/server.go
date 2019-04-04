@@ -333,11 +333,16 @@ func (conn *Conn) Close() error {
 	return conn.inputLoopError
 }
 
-// ErrorCoder represents an any error that has an associated
-// error code. An error code is a short string that represents the
-// kind of an error.
+// ErrorCoder represents any error that has an associated error code. An error
+// code is a short string that represents the kind of an error.
 type ErrorCoder interface {
 	ErrorCode() string
+}
+
+// ErrorInfoProvider represents any error that can provide additional error
+// information as a map.
+type ErrorInfoProvider interface {
+	ErrorInfo() map[string]interface{}
 }
 
 // Root represents a type that can be used to lookup a Method and place
@@ -491,6 +496,9 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, recorder Recorde
 		hdr.ErrorCode = ""
 	}
 	hdr.Error = err.Error()
+	if err, ok := err.(ErrorInfoProvider); ok {
+		hdr.ErrorInfo = err.ErrorInfo()
+	}
 	if err := recorder.HandleReply(reqHdr.Request, hdr, struct{}{}); err != nil {
 		logger.Errorf("error recording reply %+v: %T %+v", hdr, err, err)
 	}
