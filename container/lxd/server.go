@@ -244,11 +244,8 @@ func (s *Server) UpdateContainerProfiles(name string, profiles []string) error {
 	}
 
 	op := resp.Get()
-	logger.Debugf("updated %q, waiting on %s", name, op.Description)
+	logger.Debugf("updated %q profiles, waiting on %s", name, op.Description)
 	err = resp.Wait()
-	if err != nil {
-		logger.Tracef("updating %q failed on %q", name, err)
-	}
 	return errors.Trace(err)
 }
 
