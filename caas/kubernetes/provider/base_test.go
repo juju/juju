@@ -120,7 +120,7 @@ func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 }
 
 func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller, newK8sRestClientFunc provider.NewK8sClientFunc) *gomock.Controller {
-	s.clock = testclock.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Now())
 	newK8sWatcherForTest := func(wi watch.Interface, name string, clock jujuclock.Clock) (*provider.KubernetesWatcher, error) {
 		w, err := provider.NewKubernetesWatcher(wi, name, clock)
 		c.Assert(err, jc.ErrorIsNil)

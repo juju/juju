@@ -176,6 +176,10 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "cannot initialize bootstrap machine")
 	}
 
+	if err := initControllerApplicationAndCloudService(isCAAS, st, args); err != nil {
+		return nil, nil, errors.Annotate(err, "cannot initialize application and cloud service")
+	}
+
 	if err := ensureHostedModel(isCAAS, args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
 		return nil, nil, errors.Annotate(err, "ensuring hosted model")
 	}
@@ -389,6 +393,31 @@ func initBootstrapMachine(
 	}
 	c.SetPassword(newPassword)
 	return m, nil
+}
+
+// initControllerApplicationAndCloudService creates application and cloud service for controller service.
+func initControllerApplicationAndCloudService(
+	isCAAS bool, st *state.State, args InitializeStateParams,
+) error {
+	if !isCAAS {
+		// IAAS does have controller application at all.
+		return nil
+	}
+	if args.ControllerService == nil {
+		return errors.NotValidf("controller service was missing in bootstrap-params")
+	}
+
+	appArgs := state.AddApplicationArgs{
+		Name: args.ControllerModelConfig.Name(),
+	}
+	app, err := st.AddApplication(appArgs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(
+		app.UpdateCloudService(args.ControllerService.Id, args.ControllerService.Addresses),
+	)
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
