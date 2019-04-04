@@ -16,23 +16,23 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 )
 
-type cancelGenerationSuite struct {
+type commitSuite struct {
 	generationBaseSuite
 }
 
-var _ = gc.Suite(&cancelGenerationSuite{})
+var _ = gc.Suite(&commitSuite{})
 
-func (s *cancelGenerationSuite) TestInit(c *gc.C) {
+func (s *commitSuite) TestInit(c *gc.C) {
 	err := s.runInit(s.branchName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cancelGenerationSuite) TestInitFail(c *gc.C) {
+func (s *commitSuite) TestInitFail(c *gc.C) {
 	err := s.runInit()
 	c.Assert(err, gc.ErrorMatches, "must specify a branch name to commit")
 }
 
-func (s *cancelGenerationSuite) TestRunCommandAborted(c *gc.C) {
+func (s *commitSuite) TestRunCommandAborted(c *gc.C) {
 	ctrl, api := setUpCancelMocks(c)
 	defer ctrl.Finish()
 
@@ -42,7 +42,8 @@ func (s *cancelGenerationSuite) TestRunCommandAborted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Branch "new-branch" had no changes to commit and was aborted
-Active branch set to "master"`[1:])
+Active branch set to "master"
+`[1:])
 
 	// Ensure the local store has "master" as the target.
 	details, err := s.store.ModelByName(
@@ -51,7 +52,7 @@ Active branch set to "master"`[1:])
 	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationMaster)
 }
 
-func (s *cancelGenerationSuite) TestRunCommandCommitted(c *gc.C) {
+func (s *commitSuite) TestRunCommandCommitted(c *gc.C) {
 	ctrl, api := setUpCancelMocks(c)
 	defer ctrl.Finish()
 
@@ -61,7 +62,8 @@ func (s *cancelGenerationSuite) TestRunCommandCommitted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Branch "new-branch" committed; model is now at generation 3
-Active branch set to "master"`[1:])
+Active branch set to "master"
+`[1:])
 
 	// Ensure the local store has "master" as the target.
 	details, err := s.store.ModelByName(
@@ -70,7 +72,7 @@ Active branch set to "master"`[1:])
 	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationMaster)
 }
 
-func (s *cancelGenerationSuite) TestRunCommandFail(c *gc.C) {
+func (s *commitSuite) TestRunCommandFail(c *gc.C) {
 	ctrl, api := setUpCancelMocks(c)
 	defer ctrl.Finish()
 
@@ -80,11 +82,11 @@ func (s *cancelGenerationSuite) TestRunCommandFail(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "fail")
 }
 
-func (s *cancelGenerationSuite) runInit(args ...string) error {
+func (s *commitSuite) runInit(args ...string) error {
 	return cmdtesting.InitCommand(model.NewCommitCommandForTest(nil, s.store), args)
 }
 
-func (s *cancelGenerationSuite) runCommand(c *gc.C, api model.CommitCommandAPI) (*cmd.Context, error) {
+func (s *commitSuite) runCommand(c *gc.C, api model.CommitCommandAPI) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, model.NewCommitCommandForTest(api, s.store), s.branchName)
 }
 

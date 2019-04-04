@@ -1,4 +1,4 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package model
@@ -27,11 +27,11 @@ Examples:
     juju commit upgrade-postgresql
 
 See also:
-	branch
+    branch
     track
     checkout
     abort
-	diff
+    diff
 `
 )
 
@@ -128,7 +128,7 @@ func (c *commitCommand) Run(ctx *cmd.Context) error {
 	} else {
 		msg = msg + fmt.Sprintf("committed; model is now at generation %d", newGenId)
 	}
-	msg = msg + fmt.Sprintf("\nActive branch set to %q", model.GenerationMaster)
+	msg = msg + fmt.Sprintf("\nActive branch set to %q\n", model.GenerationMaster)
 
 	_, err = ctx.Stdout.Write([]byte(msg))
 	return err
