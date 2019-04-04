@@ -29,17 +29,17 @@ controllers:
       admin/admin:
         uuid: ghi
         type: iaas
-        generation: master
+        branch: master
   kontroll:
     models:
       admin/admin:
         uuid: abc
         type: iaas
-        generation: master
+        branch: master
       admin/my-model:
         uuid: def
         type: iaas
-        generation: master
+        branch: master
     current-model: admin/my-model
 `
 
@@ -74,19 +74,19 @@ var testControllerModels = map[string]*jujuclient.ControllerModels{
 }
 
 var kontrollAdminModelDetails = jujuclient.ModelDetails{
-	ModelUUID:       "abc",
-	ModelType:       model.IAAS,
-	ModelGeneration: model.GenerationMaster,
+	ModelUUID:    "abc",
+	ModelType:    model.IAAS,
+	ActiveBranch: model.GenerationMaster,
 }
 var kontrollMyModelModelDetails = jujuclient.ModelDetails{
-	ModelUUID:       "def",
-	ModelType:       model.IAAS,
-	ModelGeneration: model.GenerationMaster,
+	ModelUUID:    "def",
+	ModelType:    model.IAAS,
+	ActiveBranch: model.GenerationMaster,
 }
 var ctrlAdminModelDetails = jujuclient.ModelDetails{
-	ModelUUID:       "ghi",
-	ModelType:       model.IAAS,
-	ModelGeneration: model.GenerationMaster,
+	ModelUUID:    "ghi",
+	ModelType:    model.IAAS,
+	ActiveBranch: model.GenerationMaster,
 }
 
 func (s *ModelsFileSuite) TestWriteFile(c *gc.C) {

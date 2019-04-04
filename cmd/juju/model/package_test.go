@@ -39,9 +39,9 @@ func (s *generationBaseSuite) SetUpTest(c *gc.C) {
 		User: "admin",
 	}
 	err := s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
-		ModelUUID:       jujutesting.ModelTag.Id(),
-		ModelType:       model.IAAS,
-		ModelGeneration: model.GenerationMaster,
+		ModelUUID:    jujutesting.ModelTag.Id(),
+		ModelType:    model.IAAS,
+		ActiveBranch: model.GenerationMaster,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"

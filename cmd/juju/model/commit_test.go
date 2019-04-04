@@ -49,7 +49,7 @@ Active branch set to "master"
 	details, err := s.store.ModelByName(
 		s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationMaster)
+	c.Assert(details.ActiveBranch, gc.Equals, coremodel.GenerationMaster)
 }
 
 func (s *commitSuite) TestRunCommandCommitted(c *gc.C) {
@@ -69,7 +69,7 @@ Active branch set to "master"
 	details, err := s.store.ModelByName(
 		s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationMaster)
+	c.Assert(details.ActiveBranch, gc.Equals, coremodel.GenerationMaster)
 }
 
 func (s *commitSuite) TestRunCommandFail(c *gc.C) {

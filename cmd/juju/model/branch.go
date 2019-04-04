@@ -56,7 +56,7 @@ type branchCommand struct {
 }
 
 // BranchCommandAPI describes API methods required
-// to execute the branch command..
+// to execute the branch command.
 //go:generate mockgen -package mocks -destination ./mocks/branch_mock.go github.com/juju/juju/cmd/juju/model BranchCommandAPI
 type BranchCommandAPI interface {
 	Close() error
@@ -124,7 +124,7 @@ func (c *branchCommand) Run(ctx *cmd.Context) error {
 
 	// Now update the model store with the 'next' generation for this
 	// model.
-	if err = c.SetModelGeneration(c.branchName); err != nil {
+	if err = c.SetActiveBranch(c.branchName); err != nil {
 		return err
 	}
 

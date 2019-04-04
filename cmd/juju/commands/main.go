@@ -343,7 +343,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(model.NewBranchCommand())
 		r.Register(model.NewCommitCommand())
 		r.Register(model.NewTrackBranchCommand())
-		r.Register(model.NewSwitchGenerationCommand())
+		r.Register(model.NewCheckoutCommand())
 		r.Register(model.NewShowGenerationCommand())
 	}
 

@@ -609,11 +609,11 @@ func (s *store) SetModels(controllerName string, models map[string]ModelDetails)
 			if ok && details == oldDetails {
 				continue
 			}
-			if details.ModelGeneration == "" {
-				if oldDetails.ModelGeneration != "" {
-					details.ModelGeneration = oldDetails.ModelGeneration
+			if details.ActiveBranch == "" {
+				if oldDetails.ActiveBranch != "" {
+					details.ActiveBranch = oldDetails.ActiveBranch
 				} else {
-					details.ModelGeneration = model.GenerationMaster
+					details.ActiveBranch = model.GenerationMaster
 				}
 			}
 			storedModels.Models[modelName] = details
