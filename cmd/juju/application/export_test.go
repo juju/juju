@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -68,7 +69,7 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 
 // NewDeployCommandForTest2 returns a command to deploy applications intended to be used only in tests
 // that do not use gomock.
-func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo charmrepoForDeploy) modelcmd.ModelCommand {
+func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo *charmstore.Repository) modelcmd.ModelCommand {
 	deployCmd := &DeployCommand{
 		Steps: []DeployStep{
 			&RegisterMeteredCharm{

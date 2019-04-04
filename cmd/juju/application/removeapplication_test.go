@@ -142,14 +142,14 @@ func (s *RemoveApplicationSuite) TestInvalidArgs(c *gc.C) {
 }
 
 type RemoveCharmStoreCharmsSuite struct {
-	charmStoreSuite
+	legacyCharmStoreSuite
 	ctx *cmd.Context
 }
 
 var _ = gc.Suite(&RemoveCharmStoreCharmsSuite{})
 
 func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
-	s.charmStoreSuite.SetUpTest(c)
+	s.legacyCharmStoreSuite.SetUpTest(c)
 
 	s.ctx = cmdtesting.Context(c)
 

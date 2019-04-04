@@ -621,7 +621,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C)
 
 type UpgradeCharmCharmStoreStateSuite struct {
 	BaseUpgradeCharmStateSuite
-	charmStoreSuite
+	legacyCharmStoreSuite
 }
 
 var _ = gc.Suite(&UpgradeCharmCharmStoreStateSuite{})

@@ -5,6 +5,7 @@ package application
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -67,9 +68,11 @@ type DeploySuiteBase struct {
 	testing.RepoSuite
 	coretesting.CmdBlockHelper
 	charmstore charmstoreForDeploy
-	charmrepo  charmrepoForDeploy
+	charmrepo  *jjcharmstore.Repository
 }
 
+// fakeCharmstoreClientShim allows a jjcharmstore.ChannelAwareFakeClient to
+// masquarade as a charmstoreForDeploy implementer
 type fakeCharmstoreClientShim struct {
 	internal jjcharmstore.ChannelAwareFakeClient
 }
@@ -83,13 +86,64 @@ func (c fakeCharmstoreClientShim) WithChannel(channel csparams.Channel) charmsto
 	return fakeCharmstoreClientShim{*cstore}
 }
 
+// testcharmsCharmstoreClientShim allows a jjcharmstore.ChannelAwareFakeClient to
+// masquarade as a testcharms.CharmstoreClient implementer
+type testcharmsCharmstoreClientShim struct {
+	internal jjcharmstore.ChannelAwareFakeClient
+}
+
+func (c testcharmsCharmstoreClientShim) Get(path string, extra interface{}) error {
+	return c.internal.Get(path, extra)
+}
+
+// Put uploads data to path, overwriting any data that is already present
+func (c testcharmsCharmstoreClientShim) Put(path string, value interface{}) error {
+	return c.internal.Put(path, value)
+}
+
+func (c testcharmsCharmstoreClientShim) WithChannel(channel csparams.Channel) testcharms.CharmstoreClient {
+	client := c.internal.WithChannel(channel)
+	return &testcharmsCharmstoreClientShim{*client}
+}
+
+func (c testcharmsCharmstoreClientShim) AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error) {
+	return c.internal.AddDockerResource(id, resourceName, imageName, digest)
+}
+
+func (c testcharmsCharmstoreClientShim) ListResources(id *charm.URL) ([]csparams.Resource, error) {
+	return c.internal.ListResources(id)
+}
+
+func (c testcharmsCharmstoreClientShim) UploadCharm(id *charm.URL, ch charm.Charm) (*charm.URL, error) {
+	return c.internal.UploadCharm(id, ch)
+}
+
+func (c testcharmsCharmstoreClientShim) UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error {
+	return c.internal.UploadCharmWithRevision(id, ch, promulgatedRevision)
+}
+
+func (c testcharmsCharmstoreClientShim) UploadBundle(id *charm.URL, bundle charm.Bundle) (*charm.URL, error) {
+	return c.internal.UploadBundle(id, bundle)
+}
+
+func (c testcharmsCharmstoreClientShim) UploadBundleWithRevision(id *charm.URL, bundle charm.Bundle, promulgatedRevision int) error {
+	return c.internal.UploadBundleWithRevision(id, bundle, promulgatedRevision)
+}
+
+func (c testcharmsCharmstoreClientShim) UploadResource(id *charm.URL, name, path string, file io.ReaderAt, size int64, progress csclient.Progress) (revision int, err error) {
+	return c.internal.UploadResource(id, name, path, file, size, progress)
+}
+
+func (c testcharmsCharmstoreClientShim) Publish(id *charm.URL, channels []csparams.Channel, resources map[string]int) error {
+	return c.internal.Publish(id, channels, resources)
+}
+
 func (s *DeploySuiteBase) runDeploy(c *gc.C, args ...string) error {
 	_, _, err := s.runDeployWithOutput(c, args...)
 	return err
 }
 
 func (s *DeploySuiteBase) runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
-	//TODO(tsm) eliminate code duplication w/ function call
 	ctx, err := cmdtesting.RunCommand(c, NewDeployCommandForTest2(s.charmstore, s.charmrepo), args...)
 	return strings.Trim(cmdtesting.Stdout(ctx), "\n"),
 		strings.Trim(cmdtesting.Stderr(ctx), "\n"),
@@ -160,7 +214,7 @@ var initErrorTests = []struct {
 func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
-		err := cmdtesting.InitCommand(NewDeployCommand(), t.args)
+		err := cmdtesting.InitCommand(NewDeployCommandForTest2(s.charmstore, s.charmrepo), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -510,7 +564,7 @@ func (*fakeBroker) ValidateStorageClass(_ map[string]interface{}) error {
 }
 
 type CAASDeploySuiteBase struct {
-	charmStoreSuite
+	legacyCharmStoreSuite
 
 	series     string
 	CharmsPath string
@@ -520,7 +574,7 @@ func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
 	s.series = "kubernetes"
 	s.CharmsPath = c.MkDir()
 
-	s.charmStoreSuite.SetUpTest(c)
+	s.legacyCharmStoreSuite.SetUpTest(c)
 
 	unregister := caas.RegisterContainerProvider("kubernetes-test", &fakeProvider{})
 	s.AddCleanup(func(_ *gc.C) { unregister() })
@@ -872,8 +926,115 @@ func setupConfigFile(c *gc.C, dir string) string {
 	return path
 }
 
+type charmstoreSuite struct {
+	testing.JujuConnSuite
+
+	charmstore charmstoreForDeploy
+	charmrepo  *jjcharmstore.Repository
+	client     testcharms.CharmstoreClient
+
+	termsDischargerError error
+	termsString          string
+}
+
+func (s *charmstoreSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	repo := jjcharmstore.NewRepository()
+	client := jjcharmstore.NewFakeClient(repo).WithChannel(csparams.StableChannel)
+	s.charmrepo = repo
+	s.charmstore = &fakeCharmstoreClientShim{*client}
+	s.client = &testcharmsCharmstoreClientShim{*client}
+
+	// Initialize the charm cache dir.
+	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
+}
+
+func (s *charmstoreSuite) TearDownTest(c *gc.C) {
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+// changeReadPerm changes the read permission of the given charm URL.
+// The charm must be present in the testing charm store.
+func (s *charmstoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...string) {
+	err := s.client.Put("/"+url.Path()+"/meta/perm/read", perms)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertCharmsUploaded checks that the given charm ids have been uploaded.
+func (s *charmstoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
+	charms, err := s.State.AllCharms()
+	c.Assert(err, jc.ErrorIsNil)
+	uploaded := make([]string, len(charms))
+	for i, charm := range charms {
+		uploaded[i] = charm.URL().String()
+	}
+	c.Assert(uploaded, jc.SameContents, ids)
+}
+
+// assertApplicationsDeployed checks that the given applications have been deployed.
+func (s *charmstoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]applicationInfo) {
+	applications, err := s.State.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	deployed := make(map[string]applicationInfo, len(applications))
+	for _, app := range applications {
+		curl, _ := app.CharmURL()
+		c.Assert(err, jc.ErrorIsNil)
+		config, err := app.CharmConfig(model.GenerationMaster)
+		c.Assert(err, jc.ErrorIsNil)
+		constraints, err := app.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		storage, err := app.StorageConstraints()
+		c.Assert(err, jc.ErrorIsNil)
+		if len(storage) == 0 {
+			storage = nil
+		}
+		devices, err := app.DeviceConstraints()
+		c.Assert(err, jc.ErrorIsNil)
+		if len(devices) == 0 {
+			devices = nil
+		}
+		deployed[app.Name()] = applicationInfo{
+			charm:       curl.String(),
+			config:      config,
+			constraints: constraints,
+			exposed:     app.IsExposed(),
+			scale:       app.GetScale(),
+			storage:     storage,
+			devices:     devices,
+		}
+	}
+	c.Assert(deployed, jc.DeepEquals, info)
+}
+
+// assertDeployedApplicationBindings checks that applications were deployed into the
+// expected spaces. It is separate to assertApplicationsDeployed because it is only
+// relevant to a couple of tests.
+func (s *charmstoreSuite) assertDeployedApplicationBindings(c *gc.C, info map[string]applicationInfo) {
+	applications, err := s.State.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, application := range applications {
+		endpointBindings, err := application.EndpointBindings()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(endpointBindings, jc.DeepEquals, info[application.Name()].endpointBindings)
+	}
+}
+
+func (s *charmstoreSuite) runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
+	ctx, err := cmdtesting.RunCommand(c, NewDeployCommandForTest2(s.charmstore, s.charmrepo), args...)
+	return strings.Trim(cmdtesting.Stdout(ctx), "\n"),
+		strings.Trim(cmdtesting.Stderr(ctx), "\n"),
+		err
+}
+
+func (s *charmstoreSuite) runDeploy(c *gc.C, args ...string) error {
+	_, _, err := s.runDeployWithOutput(c, args...)
+	return err
+}
+
 type DeployCharmStoreSuite struct {
-	charmStoreSuite
+	legacyCharmStoreSuite
 }
 
 var _ = gc.Suite(&DeployCharmStoreSuite{})
@@ -953,7 +1114,7 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
-		_, err := cmdtesting.RunCommand(c, NewDeployCommand(), test.deployURL, fmt.Sprintf("wordpress%d", i))
+		err := runDeploy(c, test.deployURL, fmt.Sprintf("wordpress%d", i))
 		if test.expectError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectError)
 			continue
@@ -1019,21 +1180,21 @@ const (
 	clientUserName = "client-username"
 )
 
-// charmStoreSuite is a suite fixture that puts the machinery in
+// legacyCharmStoreSuite is a suite fixture that puts the machinery in
 // place to allow testing code that calls addCharmViaAPI.
-type charmStoreSuite struct {
+type legacyCharmStoreSuite struct {
 	testing.JujuConnSuite
 	handler              charmstore.HTTPCloseHandler
 	srv                  *httptest.Server
 	srvSession           *mgo.Session
-	client               *csclient.Client
+	client               charmstoreClientToTestcharmsClientShim
 	discharger           *bakerytest.Discharger
 	termsDischarger      *bakerytest.Discharger
 	termsDischargerError error
 	termsString          string
 }
 
-func (s *charmStoreSuite) SetUpTest(c *gc.C) {
+func (s *legacyCharmStoreSuite) SetUpTest(c *gc.C) {
 	// Set up the third party discharger.
 	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
 		cookie, err := req.Cookie(clientUserCookie)
@@ -1085,11 +1246,12 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	s.srv = httptest.NewServer(handler)
 	c.Logf("started charmstore on %v", s.srv.URL)
 
-	s.client = csclient.New(csclient.Params{
+	client := csclient.New(csclient.Params{
 		URL:      s.srv.URL,
 		User:     params.AuthUsername,
 		Password: params.AuthPassword,
 	})
+	s.client = charmstoreClientToTestcharmsClientShim{client}
 
 	// Set charmstore URL config so the config is set during bootstrap
 	if s.ControllerConfigAttrs == nil {
@@ -1119,7 +1281,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&csclient.ServerURL, s.srv.URL)
 }
 
-func (s *charmStoreSuite) TearDownTest(c *gc.C) {
+func (s *legacyCharmStoreSuite) TearDownTest(c *gc.C) {
 	// We have to close all of these things before the connsuite tear down due to the
 	// dirty socket detection in the base mgo suite.
 	s.srv.Close()
@@ -1131,13 +1293,13 @@ func (s *charmStoreSuite) TearDownTest(c *gc.C) {
 
 // changeReadPerm changes the read permission of the given charm URL.
 // The charm must be present in the testing charm store.
-func (s *charmStoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...string) {
+func (s *legacyCharmStoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...string) {
 	err := s.client.Put("/"+url.Path()+"/meta/perm/read", perms)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 // assertCharmsUploaded checks that the given charm ids have been uploaded.
-func (s *charmStoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
+func (s *legacyCharmStoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
 	charms, err := s.State.AllCharms()
 	c.Assert(err, jc.ErrorIsNil)
 	uploaded := make([]string, len(charms))
@@ -1162,7 +1324,7 @@ type applicationInfo struct {
 // assertDeployedApplicationBindings checks that applications were deployed into the
 // expected spaces. It is separate to assertApplicationsDeployed because it is only
 // relevant to a couple of tests.
-func (s *charmStoreSuite) assertDeployedApplicationBindings(c *gc.C, info map[string]applicationInfo) {
+func (s *legacyCharmStoreSuite) assertDeployedApplicationBindings(c *gc.C, info map[string]applicationInfo) {
 	applications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1173,7 +1335,7 @@ func (s *charmStoreSuite) assertDeployedApplicationBindings(c *gc.C, info map[st
 	}
 }
 
-func (s *charmStoreSuite) combinedSettings(ch charm.Charm, inSettings charm.Settings) charm.Settings {
+func (s *legacyCharmStoreSuite) combinedSettings(ch charm.Charm, inSettings charm.Settings) charm.Settings {
 	result := ch.Config().DefaultSettings()
 	for name, value := range inSettings {
 		result[name] = value
@@ -1182,7 +1344,7 @@ func (s *charmStoreSuite) combinedSettings(ch charm.Charm, inSettings charm.Sett
 }
 
 // assertApplicationsDeployed checks that the given applications have been deployed.
-func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]applicationInfo) {
+func (s *legacyCharmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]applicationInfo) {
 	applications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	deployed := make(map[string]applicationInfo, len(applications))
@@ -1217,7 +1379,7 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]ap
 }
 
 // assertRelationsEstablished checks that the given relations have been set.
-func (s *charmStoreSuite) assertRelationsEstablished(c *gc.C, relations ...string) {
+func (s *legacyCharmStoreSuite) assertRelationsEstablished(c *gc.C, relations ...string) {
 	rs, err := s.State.AllRelations()
 	c.Assert(err, jc.ErrorIsNil)
 	established := make([]string, len(rs))
@@ -1229,7 +1391,7 @@ func (s *charmStoreSuite) assertRelationsEstablished(c *gc.C, relations ...strin
 
 // assertUnitsCreated checks that the given units have been created. The
 // expectedUnits argument maps unit names to machine names.
-func (s *charmStoreSuite) assertUnitsCreated(c *gc.C, expectedUnits map[string]string) {
+func (s *legacyCharmStoreSuite) assertUnitsCreated(c *gc.C, expectedUnits map[string]string) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	created := make(map[string]string)
