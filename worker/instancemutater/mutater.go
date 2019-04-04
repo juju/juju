@@ -4,15 +4,16 @@
 package instancemutater
 
 import (
+	"fmt"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/lxc/lxd/shared/logger"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/instancemutater"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 )
@@ -29,7 +30,6 @@ type lifetimeContext interface {
 
 type machineContext interface {
 	lifetimeContext
-	//Logger
 	getBroker() environs.LXDProfiler
 }
 
@@ -41,11 +41,9 @@ type mutaterMachine struct {
 }
 
 type mutaterContext interface {
-	//lifetimeContext
 	machineContext
 	newMachineContext() machineContext
 	getMachine(tag names.MachineTag) (instancemutater.MutaterMachine, error)
-	//getBroker() environs.LXDProfiler
 }
 
 type mutater struct {
@@ -62,17 +60,10 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 
 			api, err := m.context.getMachine(tag)
 			if err != nil {
-				// If the machine is not found, don't fail in hard way and
-				// continue onwards until a mach is found for a subsequent
-				// tag.
-				//if errors.IsNotFound(err) {
-				//	continue
-				//}
 				return errors.Trace(err)
 			}
 
 			id := api.Tag().Id()
-			m.logger.Tracef("startMachines added machine %s", id)
 			c = make(chan struct{})
 			m.machines[tag] = c
 
@@ -124,6 +115,7 @@ func runMachine(machine mutaterMachine, changed <-chan struct{}, died chan<- ins
 	}
 }
 
+// watchProfileChanges, any error returned will cause the worker to restart.
 func (m mutaterMachine) watchProfileChangesLoop(profileChangeWatcher watcher.NotifyWatcher) error {
 	m.logger.Tracef("watching change on mutaterMachine %s", m.id)
 	for {
@@ -131,15 +123,12 @@ func (m mutaterMachine) watchProfileChangesLoop(profileChangeWatcher watcher.Not
 		case <-m.context.dying():
 			return m.context.errDying()
 		case <-profileChangeWatcher.Changes():
-			logger.Debugf("mutaterMachine-%s Received notification profile verification and change needed", m.id)
-
 			info, err := m.machineApi.CharmProfilingInfo()
-			if err != nil && !params.IsCodeNotProvisioned(err) {
-				logger.Errorf("")
-				continue
+			if err != nil {
+				return errors.Annotatef(err, "machine-%s", m.id)
 			}
 			if err = m.processMachineProfileChanges(info); err != nil {
-				return errors.Annotatef(err, "trigger worker restart, mutaterMachine-%s", m.id)
+				return err
 			}
 		}
 	}
@@ -152,10 +141,29 @@ func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 		return nil
 	}
 
-	expectedProfiles, post, err := m.gatherProfileData(info)
-	if err != nil {
-		return errors.Annotatef(err, "processMachineProfileChanges %s.gatherProfileData(info):", m.id)
+	report := func(retErr error) error {
+		if retErr != nil {
+			if err := m.machineApi.SetModificationStatus(status.Error, fmt.Sprintf("cannot upgrade machine's lxd profile: %s", retErr.Error()), nil); err != nil {
+				m.logger.Errorf("cannot set modification status of machine %q error: %v", m.id, err)
+			}
+		} else {
+			if err := m.machineApi.SetModificationStatus(status.Idle, "", nil); err != nil {
+				m.logger.Errorf("cannot reset modification status of machine %q idle: %v", m.id, err)
+			}
+		}
+		return retErr
 	}
+
+	// Convert info.ProfileChanges into a struct which can be used to
+	// add or remove profiles from a machine.  Use it to create a list
+	// of expected profiles.
+	post, err := m.gatherProfileData(info)
+	if err != nil {
+		return report(errors.Annotatef(err, "processMachineProfileChanges %s.gatherProfileData(info):", m.id))
+	}
+	// All juju lxd machines use these 2 profiles, independent of charm
+	// profiles.
+	expectedProfiles := []string{"default", "juju-" + info.ModelName}
 	for _, p := range post {
 		if p.Profile != nil {
 			expectedProfiles = append(expectedProfiles, p.Name)
@@ -164,44 +172,50 @@ func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 
 	verified, err := m.verifyCurrentProfiles(string(info.InstanceId), expectedProfiles)
 	if err != nil {
-		return errors.Annotatef(err, "processMachineProfileChanges %s.verifyCurrentProfiles():", m.id)
+		return report(errors.Annotatef(err, "processMachineProfileChanges %s.verifyCurrentProfiles():", m.id))
 	}
 	if verified {
 		m.logger.Tracef("no changes necessary to machine-%s lxd profiles", m.id)
-		return nil
+		return report(nil)
 	}
 
-	m.logger.Tracef("machine-%s (%s) assign profiles %q", m.id, string(info.InstanceId), expectedProfiles)
+	m.logger.Tracef("machine-%s (%s) assign profiles %q, %#v", m.id, string(info.InstanceId), expectedProfiles, post)
 	broker := m.context.getBroker()
 	currentProfiles, err := broker.AssignProfiles(string(info.InstanceId), expectedProfiles, post)
 	if err != nil {
-		return errors.Annotatef(err, "processMachineProfileChanges %s broker.AssignProfiles():", m.id)
+		return report(errors.Annotatef(err, "processMachineProfileChanges %s broker.AssignProfiles():", m.id))
 	}
 
-	return m.machineApi.SetCharmProfiles(currentProfiles)
+	return report(m.machineApi.SetCharmProfiles(currentProfiles))
 }
 
-func (m mutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo) ([]string, []lxdprofile.ProfilePost, error) {
-	expectedProfiles := []string{"default", "juju-" + info.ModelName}
-	result := make([]lxdprofile.ProfilePost, len(info.ProfileChanges))
-	for i, pu := range info.ProfileChanges {
+func (m mutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo) ([]lxdprofile.ProfilePost, error) {
+	var result []lxdprofile.ProfilePost
+	for _, pu := range info.ProfileChanges {
 		oldName, err := lxdprofile.MatchProfileNameByAppName(info.CurrentProfiles, pu.ApplicationName)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		if pu.Profile.Empty() && oldName != "" {
+		if pu.Profile.Empty() && oldName == "" {
 			// There is no new Profile and no Profile for this application applied
-			// already, move on.
+			// already, move on.  A charm without an lxd profile.
 			continue
 		}
 		name := lxdprofile.Name(info.ModelName, pu.ApplicationName, pu.Revision)
-		result[i] = lxdprofile.ProfilePost{Name: name}
-		if !pu.Profile.Empty() {
-			result[i].Profile = &pu.Profile
-			expectedProfiles = append(expectedProfiles, name)
+		if oldName != "" && name != oldName {
+			// add the old profile name to the result, so the profile can
+			// be deleted from the lxd server.
+			result = append(result, lxdprofile.ProfilePost{Name: oldName})
 		}
+		add := lxdprofile.ProfilePost{Name: name}
+		// should not happen, but you never know.
+		if !pu.Profile.Empty() {
+			add.Profile = &pu.Profile
+		}
+		result = append(result, add)
 	}
-	return expectedProfiles, result, nil
+	m.logger.Tracef("%s.data gathered %#v", m.id, result)
+	return result, nil
 }
 
 func (m mutaterMachine) verifyCurrentProfiles(instId string, expectedProfiles []string) (bool, error) {
