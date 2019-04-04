@@ -54,7 +54,16 @@ func (a *Application) Config() map[string]interface{} {
 
 // WatchConfig creates a watcher for the application config.
 func (a *Application) WatchConfig(keys ...string) *ConfigWatcher {
-	return newConfigWatcher(keys, a.hashCache, a.hub, a.topic(applicationConfigChange))
+	w := newConfigWatcher(keys, a.hashCache, a.hub, a.topic(applicationConfigChange))
+	a.registerWatcher(w)
+	return w
+}
+
+func (a *Application) RemovalDelta() interface{} {
+	return RemoveApplication{
+		ModelUUID: a.details.ModelUUID,
+		Name:      a.details.Name,
+	}
 }
 
 // appCharmUrlChange contains an appName and it's charm URL.  To be used

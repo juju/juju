@@ -72,32 +72,36 @@ func (c *Controller) loop() error {
 		case <-c.tomb.Dying():
 			return nil
 		case change := <-c.config.Changes:
-			switch ch := change.(type) {
-			case ModelChange:
-				c.updateModel(ch)
-			case RemoveModel:
-				c.removeModel(ch)
-			case ApplicationChange:
-				c.updateApplication(ch)
-			case RemoveApplication:
-				c.removeApplication(ch)
-			case CharmChange:
-				c.updateCharm(ch)
-			case RemoveCharm:
-				c.removeCharm(ch)
-			case MachineChange:
-				c.updateMachine(ch)
-			case RemoveMachine:
-				c.removeMachine(ch)
-			case UnitChange:
-				c.updateUnit(ch)
-			case RemoveUnit:
-				c.removeUnit(ch)
-			}
-			if c.config.Notify != nil {
-				c.config.Notify(change)
-			}
+			c.dispatch(change)
 		}
+	}
+}
+
+func (c *Controller) dispatch(change interface{}) {
+	switch ch := change.(type) {
+	case ModelChange:
+		c.updateModel(ch)
+	case RemoveModel:
+		c.removeModel(ch)
+	case ApplicationChange:
+		c.updateApplication(ch)
+	case RemoveApplication:
+		c.removeApplication(ch)
+	case CharmChange:
+		c.updateCharm(ch)
+	case RemoveCharm:
+		c.removeCharm(ch)
+	case MachineChange:
+		c.updateMachine(ch)
+	case RemoveMachine:
+		c.removeMachine(ch)
+	case UnitChange:
+		c.updateUnit(ch)
+	case RemoveUnit:
+		c.removeUnit(ch)
+	}
+	if c.config.Notify != nil {
+		c.config.Notify(change)
 	}
 }
 
@@ -124,11 +128,23 @@ func (c *Controller) Mark() map[string]int {
 // stale and if the item hasn't been updated in between Mark and Sweep, then
 // the item will be removed.
 // The result from the sweep is how many items are removed per model.
-func (c *Controller) Sweep() map[string]*SweepChecker {
-	result := make(map[string]*SweepChecker)
+func (c *Controller) Sweep() map[string]SweepInfo {
+	result := make(map[string]SweepInfo)
 	c.mu.Lock()
 	for uuid, model := range c.models {
-		result[uuid] = model.sweep()
+		deltas := model.sweep()
+		// Go through all the deltas and dispatch the removal deltas we
+		// collated in the sweep. This enables us to reuse the same code paths
+		// for removing entities and also we can notify others of the removal
+		// at the same time.
+		for _, delta := range deltas.Deltas {
+			c.dispatch(delta)
+		}
+		// Populate the result set after the deltas have been dispatched.
+		result[uuid] = SweepInfo{
+			Active: deltas.Active,
+			Stale:  len(deltas.Deltas),
+		}
 	}
 	c.metrics.GCSweep.Inc()
 	c.mu.Unlock()

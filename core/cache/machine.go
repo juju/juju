@@ -110,6 +110,7 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 	})
 
 	m.model.mu.Unlock()
+	m.registerWatcher(w)
 	return w, nil
 }
 
@@ -170,7 +171,15 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 		hub:          m.model.hub,
 	})
 	m.model.mu.Unlock()
+	m.registerWatcher(w)
 	return w, nil
+}
+
+func (m *Machine) RemovalDelta() interface{} {
+	return RemoveMachine{
+		ModelUUID: m.details.ModelUUID,
+		Id:        m.details.Id,
+	}
 }
 
 func (m *Machine) containerRegexp() (*regexp.Regexp, error) {

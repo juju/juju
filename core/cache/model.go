@@ -75,39 +75,43 @@ func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
 func (m *Model) mark() int {
 	var result int
 	m.mu.Lock()
-	for _, app := range m.applications {
-		app.mark()
+	for _, entity := range m.applications {
+		entity.mark()
+		result++
+	}
+	for _, entity := range m.charms {
+		entity.mark()
+		result++
+	}
+	for _, entity := range m.machines {
+		entity.mark()
+		result++
+	}
+	for _, entity := range m.units {
+		entity.mark()
 		result++
 	}
 	m.mu.Unlock()
 	return result
 }
 
-func (m *Model) sweep() *SweepChecker {
-	checker := &SweepChecker{}
+func (m *Model) sweep() *SweepDeltas {
+	deltas := &SweepDeltas{}
 	m.mu.Lock()
-	for key, app := range m.applications {
-		if checker.Check(app) {
-			delete(m.applications, key)
-		}
+	for _, entity := range m.applications {
+		deltas.Merge(entity.sweep())
 	}
-	for key, charm := range m.charms {
-		if checker.Check(charm) {
-			delete(m.charms, key)
-		}
+	for _, entity := range m.charms {
+		deltas.Merge(entity.sweep())
 	}
-	for key, machine := range m.machines {
-		if checker.Check(machine) {
-			delete(m.machines, key)
-		}
+	for _, entity := range m.machines {
+		deltas.Merge(entity.sweep())
 	}
-	for key, unit := range m.units {
-		if checker.Check(unit) {
-			delete(m.units, key)
-		}
+	for _, entity := range m.units {
+		deltas.Merge(entity.sweep())
 	}
 	m.mu.Unlock()
-	return checker
+	return deltas
 }
 
 // Report returns information that is used in the dependency engine report.
@@ -221,7 +225,10 @@ func (m *Model) updateApplication(ch ApplicationChange) {
 // removeApplication removes the application from the model.
 func (m *Model) removeApplication(ch RemoveApplication) {
 	m.mu.Lock()
-	delete(m.applications, ch.Name)
+	if entity, ok := m.applications[ch.Name]; ok {
+		entity.remove()
+		delete(m.applications, ch.Name)
+	}
 	m.mu.Unlock()
 }
 
@@ -242,7 +249,10 @@ func (m *Model) updateCharm(ch CharmChange) {
 // removeCharm removes the charm from the model.
 func (m *Model) removeCharm(ch RemoveCharm) {
 	m.mu.Lock()
-	delete(m.charms, ch.CharmURL)
+	if entity, ok := m.charms[ch.CharmURL]; ok {
+		entity.remove()
+		delete(m.charms, ch.CharmURL)
+	}
 	m.mu.Unlock()
 }
 
@@ -264,11 +274,11 @@ func (m *Model) updateUnit(ch UnitChange) {
 // removeUnit removes the unit from the model.
 func (m *Model) removeUnit(ch RemoveUnit) {
 	m.mu.Lock()
-	unit, ok := m.units[ch.Name]
-	if ok {
-		m.hub.Publish(m.topic(modelUnitLXDProfileChange), []string{ch.Name, unit.details.Application})
+	if entity, ok := m.units[ch.Name]; ok {
+		entity.remove()
+		delete(m.units, ch.Name)
+		m.hub.Publish(m.topic(modelUnitLXDProfileChange), []string{ch.Name, entity.details.Application})
 	}
-	delete(m.units, ch.Name)
 	m.mu.Unlock()
 }
 
@@ -290,8 +300,11 @@ func (m *Model) updateMachine(ch MachineChange) {
 // removeMachine removes the machine from the model.
 func (m *Model) removeMachine(ch RemoveMachine) {
 	m.mu.Lock()
-	delete(m.machines, ch.Id)
-	m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
+	if entity, ok := m.machines[ch.Id]; ok {
+		entity.remove()
+		delete(m.machines, ch.Id)
+		m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
+	}
 	m.mu.Unlock()
 }
 

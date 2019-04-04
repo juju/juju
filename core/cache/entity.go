@@ -19,8 +19,9 @@ const (
 
 // Entity represents a base entity within the model cache
 type Entity struct {
-	state State
-	mu    sync.Mutex
+	state    State
+	mu       sync.Mutex
+	watchers []Watcher
 }
 
 func (e *Entity) mark() {
@@ -29,32 +30,57 @@ func (e *Entity) mark() {
 	e.mu.Unlock()
 }
 
-func (e *Entity) isStale() bool {
+func (e *Entity) sweep() *SweepDeltas {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.state == Stale
-}
 
-// staler represents a way to call isStale on any entity model item, without
-// casting between the item and the base entity item.
-type staler interface {
-	isStale() bool
-}
+	if e.state == Stale {
+		var deltas []interface{}
+		if delta := e.RemovalDelta(); delta != nil {
+			deltas = append(deltas, delta)
+		}
 
-// SweepChecker represents a checker to walk over all entities in a cache
-// to see which are active and stale.
-type SweepChecker struct {
-	Active, Stale int
-}
-
-// Check takes an Entity and works out if an entity is stale or active.
-// Returns true if additional work when it's stale is required.
-func (s *SweepChecker) Check(e staler) bool {
-	res := e.isStale()
-	if res {
-		s.Stale++
-	} else {
-		s.Active++
+		return &SweepDeltas{
+			Deltas: deltas,
+		}
 	}
-	return res
+	return &SweepDeltas{
+		Active: 1,
+	}
+}
+
+func (e *Entity) registerWatcher(w Watcher) {
+	e.mu.Lock()
+	e.watchers = append(e.watchers, w)
+	e.mu.Unlock()
+}
+
+func (e *Entity) remove() {
+	for _, watcher := range e.watchers {
+		watcher.Kill()
+	}
+}
+
+// RemovalDelta is called when the entity is marked as stale. The return value
+// is then the RemoveEntity struct for the entity.
+func (e *Entity) RemovalDelta() interface{} {
+	return nil
+}
+
+// SweepInfo represents the information gathered whilst doing a sweep
+type SweepInfo struct {
+	Stale  int
+	Active int
+}
+
+// SweepDeltas represents what deltas are required when walking over all
+// entities in a cache to see which are active and stale.
+type SweepDeltas struct {
+	Deltas []interface{}
+	Active int
+}
+
+func (d *SweepDeltas) Merge(o *SweepDeltas) {
+	d.Deltas = append(d.Deltas, o.Deltas)
+	d.Active += o.Active
 }

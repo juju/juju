@@ -31,6 +31,13 @@ func (u *Unit) Application() string {
 	return u.details.Application
 }
 
+func (u *Unit) RemovalDelta() interface{} {
+	return RemoveUnit{
+		ModelUUID: u.details.ModelUUID,
+		Name:      u.details.Name,
+	}
+}
+
 func (u *Unit) setDetails(details UnitChange) {
 	u.mu.Lock()
 	if u.details.MachineId != details.MachineId {

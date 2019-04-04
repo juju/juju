@@ -33,6 +33,13 @@ func (c *Charm) LXDProfile() lxdprofile.Profile {
 	return c.details.LXDProfile
 }
 
+func (c *Charm) RemovalDelta() interface{} {
+	return RemoveCharm{
+		ModelUUID: c.details.ModelUUID,
+		CharmURL:  c.details.CharmURL,
+	}
+}
+
 func (c *Charm) setDetails(details CharmChange) {
 	c.mu.Lock()
 	c.state = Active
