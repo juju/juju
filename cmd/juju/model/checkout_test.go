@@ -31,7 +31,7 @@ func (s *checkoutSuite) TestInitFail(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "must specify a branch name to switch to")
 }
 
-func (s *checkoutSuite) TestRunCommandCurrent(c *gc.C) {
+func (s *checkoutSuite) TestRunCommandMaster(c *gc.C) {
 	ctx, err := s.runCommand(c, nil, coremodel.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Active branch set to \"master\"\n")
@@ -42,7 +42,7 @@ func (s *checkoutSuite) TestRunCommandCurrent(c *gc.C) {
 	c.Assert(details.ActiveBranch, gc.Equals, coremodel.GenerationMaster)
 }
 
-func (s *checkoutSuite) TestRunCommandNextGenExists(c *gc.C) {
+func (s *checkoutSuite) TestRunCommandBranchExists(c *gc.C) {
 	ctrl, api := setUpSwitchMocks(c)
 	defer ctrl.Finish()
 
@@ -58,7 +58,7 @@ func (s *checkoutSuite) TestRunCommandNextGenExists(c *gc.C) {
 	c.Assert(details.ActiveBranch, gc.Equals, s.branchName)
 }
 
-func (s *checkoutSuite) TestRunCommandNextNoGenError(c *gc.C) {
+func (s *checkoutSuite) TestRunCommandNoBranchError(c *gc.C) {
 	ctrl, api := setUpSwitchMocks(c)
 	defer ctrl.Finish()
 

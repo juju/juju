@@ -86,8 +86,8 @@ func (c *checkoutCommand) Init(args []string) error {
 	return nil
 }
 
-// getAPI returns the API. This allows passing in a test SwitchGenerationCommandAPI
-// implementation.
+// getAPI returns the API that supplies methods
+// required to execute this command.
 func (c *checkoutCommand) getAPI() (CheckoutCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
