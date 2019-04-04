@@ -24,12 +24,16 @@ type Entity struct {
 	watchers []Watcher
 }
 
+// mark updates the state to be classified as stale.
 func (e *Entity) mark() {
 	e.mu.Lock()
 	e.state = Stale
 	e.mu.Unlock()
 }
 
+// sweep goes through and creates a set of deltas for the entity. That way
+// we can feed that back into the controller so it cleans up the entities in
+// one code path.
 func (e *Entity) sweep() *SweepDeltas {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -49,12 +53,16 @@ func (e *Entity) sweep() *SweepDeltas {
 	}
 }
 
+// registerWatcher allows the tracking of a watcher, so when removing we can
+// kill the watcher.
 func (e *Entity) registerWatcher(w Watcher) {
 	e.mu.Lock()
 	e.watchers = append(e.watchers, w)
 	e.mu.Unlock()
 }
 
+// remove is called when the entity is being cleaned up, so it can kill the
+// watchers.
 func (e *Entity) remove() {
 	for _, watcher := range e.watchers {
 		watcher.Kill()

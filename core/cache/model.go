@@ -4,8 +4,6 @@
 package cache
 
 import (
-	"sync"
-
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 )
@@ -37,9 +35,10 @@ func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 // Model is a cached model in the controller. The model is kept up to
 // date with changes flowing into the cached controller.
 type Model struct {
+	Entity
+
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
-	mu      sync.Mutex
 
 	details      ModelChange
 	configHash   string
@@ -69,49 +68,9 @@ func (m *Model) Name() string {
 
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
-	return newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange))
-}
-
-func (m *Model) mark() int {
-	var result int
-	m.mu.Lock()
-	for _, entity := range m.applications {
-		entity.mark()
-		result++
-	}
-	for _, entity := range m.charms {
-		entity.mark()
-		result++
-	}
-	for _, entity := range m.machines {
-		entity.mark()
-		result++
-	}
-	for _, entity := range m.units {
-		entity.mark()
-		result++
-	}
-	m.mu.Unlock()
-	return result
-}
-
-func (m *Model) sweep() *SweepDeltas {
-	deltas := &SweepDeltas{}
-	m.mu.Lock()
-	for _, entity := range m.applications {
-		deltas.Merge(entity.sweep())
-	}
-	for _, entity := range m.charms {
-		deltas.Merge(entity.sweep())
-	}
-	for _, entity := range m.machines {
-		deltas.Merge(entity.sweep())
-	}
-	for _, entity := range m.units {
-		deltas.Merge(entity.sweep())
-	}
-	m.mu.Unlock()
-	return deltas
+	w := newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange))
+	m.registerWatcher(w)
+	return w
 }
 
 // Report returns information that is used in the dependency engine report.
@@ -192,6 +151,7 @@ func (m *Model) WatchMachines() *PredicateStringsWatcher {
 	})
 
 	m.mu.Unlock()
+	m.registerWatcher(w)
 	return w
 }
 
@@ -206,6 +166,48 @@ func (m *Model) Unit(unitName string) (*Unit, error) {
 		return nil, errors.NotFoundf("unit %q", unitName)
 	}
 	return unit, nil
+}
+
+func (m *Model) mark() int {
+	var result int
+	m.mu.Lock()
+	for _, entity := range m.applications {
+		entity.mark()
+		result++
+	}
+	for _, entity := range m.charms {
+		entity.mark()
+		result++
+	}
+	for _, entity := range m.machines {
+		entity.mark()
+		result++
+	}
+	for _, entity := range m.units {
+		entity.mark()
+		result++
+	}
+	m.mu.Unlock()
+	return result
+}
+
+func (m *Model) sweep() *SweepDeltas {
+	deltas := &SweepDeltas{}
+	m.mu.Lock()
+	for _, entity := range m.applications {
+		deltas.Merge(entity.sweep())
+	}
+	for _, entity := range m.charms {
+		deltas.Merge(entity.sweep())
+	}
+	for _, entity := range m.machines {
+		deltas.Merge(entity.sweep())
+	}
+	for _, entity := range m.units {
+		deltas.Merge(entity.sweep())
+	}
+	m.mu.Unlock()
+	return deltas
 }
 
 // updateApplication adds or updates the application in the model.

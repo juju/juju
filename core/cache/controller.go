@@ -77,6 +77,8 @@ func (c *Controller) loop() error {
 	}
 }
 
+// dispatch will take a change event and depending on the type, trigger a update
+// to the controller.
 func (c *Controller) dispatch(change interface{}) {
 	switch ch := change.(type) {
 	case ModelChange:
@@ -211,7 +213,10 @@ func (c *Controller) updateModel(ch ModelChange) {
 // removeModel removes the model from the cache.
 func (c *Controller) removeModel(ch RemoveModel) {
 	c.mu.Lock()
-	delete(c.models, ch.ModelUUID)
+	if entity, ok := c.models[ch.ModelUUID]; ok {
+		entity.remove()
+		delete(c.models, ch.ModelUUID)
+	}
 	c.mu.Unlock()
 }
 
