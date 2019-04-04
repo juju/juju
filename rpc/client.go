@@ -28,6 +28,7 @@ type Call struct {
 type RequestError struct {
 	Message string
 	Code    string
+	Info    map[string]interface{}
 }
 
 func (e *RequestError) Error() string {
@@ -111,6 +112,7 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		call.Error = &RequestError{
 			Message: hdr.Error,
 			Code:    hdr.ErrorCode,
+			Info:    hdr.ErrorInfo,
 		}
 		err = conn.readBody(nil, false)
 		call.done()

@@ -65,6 +65,10 @@ type Header struct {
 	// ErrorCode holds the code of the error, if any.
 	ErrorCode string
 
+	// ErrorInfo holds an optional set of additional information for an
+	// error, if any.
+	ErrorInfo map[string]interface{}
+
 	// Version defines the wire format of the request and response structure.
 	Version int
 }
