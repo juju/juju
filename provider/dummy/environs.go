@@ -62,6 +62,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -1908,6 +1909,11 @@ func (env *environ) LXDProfileNames(containerName string) ([]string, error) {
 // ReplaceOrAddInstanceProfile implements environs.LXDProfiler.
 func (env *environ) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
 	return []string{newProfile}, nil
+}
+
+// AssignProfiles implements environs.LXDProfiler.
+func (env *environ) AssignProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+	return profilesNames, nil
 }
 
 // SSHAddresses implements environs.SSHAddresses.
