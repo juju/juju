@@ -189,8 +189,8 @@ func NewBranchCommandForTest(api BranchCommandAPI, store jujuclient.ClientStore)
 	return modelcmd.Wrap(cmd)
 }
 
-func NewCancelGenerationCommandForTest(api CancelGenerationCommandAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &cancelGenerationCommand{
+func NewCommitCommandForTest(api CommitCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &commitCommand{
 		api: api,
 	}
 	cmd.SetClientStore(store)
