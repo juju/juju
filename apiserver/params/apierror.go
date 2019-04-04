@@ -4,7 +4,9 @@
 package params
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2-unstable"
@@ -18,18 +20,58 @@ var MigrationInProgressError = errors.New(CodeMigrationInProgress)
 
 // Error is the type of error returned by any call to the state API.
 type Error struct {
-	Message string     `json:"message"`
-	Code    string     `json:"code"`
-	Info    *ErrorInfo `json:"info,omitempty"`
+	Message string                 `json:"message"`
+	Code    string                 `json:"code"`
+	Info    map[string]interface{} `json:"info,omitempty"`
 }
 
-// ErrorInfo holds additional information provided by an error.
-// Note that although these fields are compatible with the
-// same fields in httpbakery.ErrorInfo, the Juju API server does
-// not implement endpoints directly compatible with that protocol
-// because the error response format varies according to
-// the endpoint.
-type ErrorInfo struct {
+func (e Error) Error() string {
+	return e.Message
+}
+
+func (e Error) ErrorCode() string {
+	return e.Code
+}
+
+// ErrorInfo implements the rpc.ErrorInfoProvider interface which enables
+// API error attachments to be returned as part of RPC error responses.
+func (e Error) ErrorInfo() map[string]interface{} {
+	return e.Info
+}
+
+// GoString implements fmt.GoStringer.  It means that a *Error shows its
+// contents correctly when printed with %#v.
+func (e Error) GoString() string {
+	return fmt.Sprintf("&params.Error{Message: %q, Code: %q}", e.Message, e.Code)
+}
+
+// UnmarshalInfo attempts to unmarshal the information contained in the Info
+// field of a RequestError into an AdditionalErrorInfo instance a pointer to
+// which is passed via the to argument. The method will return an error if a
+// non-pointer arg is provided.
+func (e Error) UnmarshalInfo(to interface{}) error {
+	if reflect.ValueOf(to).Kind() != reflect.Ptr {
+		return errors.New("UnmarshalInfo expects a pointer as an argument")
+	}
+
+	data, err := json.Marshal(e.Info)
+	if err != nil {
+		return errors.Annotate(err, "could not marshal error information")
+	}
+	err = json.Unmarshal(data, to)
+	if err != nil {
+		return errors.Annotate(err, "could not unmarshal error information to provided target")
+	}
+
+	return nil
+}
+
+// DischargeRequiredErrorInfo provides additional macaroon information for
+// DischargeRequired errors. Note that although these fields are compatible
+// with the same fields in httpbakery.ErrorInfo, the Juju API server does not
+// implement endpoints directly compatible with that protocol because the error
+// response format varies according to the endpoint.
+type DischargeRequiredErrorInfo struct {
 	// Macaroon may hold a macaroon that, when
 	// discharged, may allow access to the juju API.
 	// This field is associated with the ErrDischargeRequired
@@ -44,18 +86,16 @@ type ErrorInfo struct {
 	MacaroonPath string `json:"macaroon-path,omitempty"`
 }
 
-func (e Error) Error() string {
-	return e.Message
-}
-
-func (e Error) ErrorCode() string {
-	return e.Code
-}
-
-// GoString implements fmt.GoStringer.  It means that a *Error shows its
-// contents correctly when printed with %#v.
-func (e Error) GoString() string {
-	return fmt.Sprintf("&params.Error{Message: %q, Code: %q}", e.Message, e.Code)
+// AsMap encodes the error info as a map that can be attached to an Error.
+func (e DischargeRequiredErrorInfo) AsMap() map[string]interface{} {
+	out := make(map[string]interface{})
+	if e.Macaroon != nil {
+		out["macaroon"] = e.Macaroon
+	}
+	if e.MacaroonPath != "" {
+		out["macaroon-path"] = e.MacaroonPath
+	}
+	return out
 }
 
 // The Code constants hold error codes for some kinds of error.

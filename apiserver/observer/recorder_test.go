@@ -188,7 +188,9 @@ func (s *recorderSuite) TestReplyResultSlice(c *gc.C) {
 				Error: &params.Error{
 					Message: "something bad",
 					Code:    "fall-down-go-boom",
-					Info:    &params.ErrorInfo{MacaroonPath: "somewhere"},
+					Info: params.DischargeRequiredErrorInfo{
+						MacaroonPath: "somewhere",
+					}.AsMap(),
 				},
 			}},
 		},

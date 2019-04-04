@@ -201,12 +201,17 @@ func bakeryError(err error) error {
 	}
 	// It's a discharge-required error, so make an appropriate httpbakery
 	// error from it.
+	var info params.DischargeRequiredErrorInfo
+	if errUnmarshal := errResp.UnmarshalInfo(&info); errUnmarshal != nil {
+		return errors.Annotatef(err, "unable to extract macaroon details from discharge-required response error")
+	}
+
 	return &httpbakery.Error{
 		Message: err.Error(),
 		Code:    httpbakery.ErrDischargeRequired,
 		Info: &httpbakery.ErrorInfo{
-			Macaroon:     errResp.Info.Macaroon,
-			MacaroonPath: errResp.Info.MacaroonPath,
+			Macaroon:     info.Macaroon,
+			MacaroonPath: info.MacaroonPath,
 		},
 	}
 }

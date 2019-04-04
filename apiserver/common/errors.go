@@ -196,11 +196,15 @@ func ServerError(err error) *params.Error {
 		return nil
 	}
 	logger.Tracef("server RPC error %v", errors.Details(err))
-	msg := err.Error()
+
+	var (
+		info map[string]interface{}
+		msg  = err.Error()
+	)
+
 	// Skip past annotations when looking for the code.
 	err = errors.Cause(err)
 	code, ok := singletonCode(err)
-	var info *params.ErrorInfo
 	switch {
 	case ok:
 	case errors.IsUnauthorized(err):
@@ -243,18 +247,18 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotImplemented
 	case state.IsIncompatibleSeriesError(err):
 		code = params.CodeIncompatibleSeries
+	case IsDischargeRequiredError(err):
+		dischErr := errors.Cause(err).(*DischargeRequiredError)
+		code = params.CodeDischargeRequired
+		info = params.DischargeRequiredErrorInfo{
+			Macaroon: dischErr.Macaroon,
+			// One macaroon fits all.
+			MacaroonPath: "/",
+		}.AsMap()
 	default:
-		if err, ok := err.(*DischargeRequiredError); ok {
-			code = params.CodeDischargeRequired
-			info = &params.ErrorInfo{
-				Macaroon: err.Macaroon,
-				// One macaroon fits all.
-				MacaroonPath: "/",
-			}
-			break
-		}
 		code = params.ErrCode(err)
 	}
+
 	return &params.Error{
 		Message: msg,
 		Code:    code,

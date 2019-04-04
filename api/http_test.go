@@ -46,7 +46,7 @@ var httpClientTests = []struct {
 	expectResponse  interface{}
 	expectError     string
 	expectErrorCode string
-	expectErrorInfo *params.ErrorInfo
+	expectErrorInfo map[string]interface{}
 }{{
 	about: "success",
 	handler: func(w http.ResponseWriter, req *http.Request) {
@@ -109,18 +109,18 @@ var httpClientTests = []struct {
 		httprequest.WriteJSON(w, http.StatusBadRequest, params.CharmsResponse{
 			Error:     "some error",
 			ErrorCode: params.CodeBadRequest,
-			ErrorInfo: &params.ErrorInfo{
+			ErrorInfo: params.DischargeRequiredErrorInfo{
 				MacaroonPath: "foo",
-			},
+			}.AsMap(),
 		})
 	},
 	expectError:     `.*some error$`,
 	expectErrorCode: params.CodeBadRequest,
-	expectErrorInfo: &params.ErrorInfo{
+	expectErrorInfo: params.DischargeRequiredErrorInfo{
 		MacaroonPath: "foo",
-	},
+	}.AsMap(),
 }, {
-	about: "discharge-required response with no error info",
+	about: "discharge-required response with no attached info",
 	handler: func(w http.ResponseWriter, req *http.Request) {
 		httprequest.WriteJSON(w, http.StatusUnauthorized, params.Error{
 			Message: "some error",
@@ -135,7 +135,9 @@ var httpClientTests = []struct {
 		httprequest.WriteJSON(w, http.StatusUnauthorized, params.Error{
 			Message: "some error",
 			Code:    params.CodeDischargeRequired,
-			Info:    &params.ErrorInfo{},
+			Info: params.DischargeRequiredErrorInfo{
+				MacaroonPath: "/",
+			}.AsMap(),
 		})
 	},
 	expectError: `GET http://.*/: no macaroon found in discharge-required response`,

@@ -176,7 +176,7 @@ var errorTransformTests = []struct {
 	code:   params.CodeDischargeRequired,
 	helperFunc: func(err error) bool {
 		err1, ok := err.(*params.Error)
-		if !ok || err1.Info == nil || err1.Info.Macaroon != sampleMacaroon {
+		if !ok || err1.Info == nil || err1.Info["macaroon"] != sampleMacaroon {
 			return false
 		}
 		return true

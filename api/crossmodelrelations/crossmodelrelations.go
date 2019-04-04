@@ -53,7 +53,12 @@ func (c *Client) handleError(apiErr error) (macaroon.Slice, error) {
 		return nil, errors.Annotatef(apiErr, "no error info found in discharge-required response error")
 	}
 	logger.Debugf("attempting to discharge macaroon due to error: %v", apiErr)
-	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(errResp.Info.Macaroon)
+	var info params.DischargeRequiredErrorInfo
+	if errUnmarshal := errResp.UnmarshalInfo(&info); errUnmarshal != nil {
+		return nil, errors.Annotatef(apiErr, "unable to extract macaroon details from discharge-required response error")
+	}
+
+	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(info.Macaroon)
 	if err == nil && logger.IsTraceEnabled() {
 		logger.Tracef("discharge macaroon ids:")
 		for _, m := range ms {
