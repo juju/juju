@@ -155,7 +155,7 @@ func (c *cacheWorker) loop() error {
 				stale += result
 			}
 			c.sweepRequired = stale > 0
-			c.config.Logger.Tracef("watcher marked %d stale entities", stale)
+			c.config.Logger.Tracef("marked %d stale entities", stale)
 
 			watcher := pool.SystemState().WatchAllModels(pool)
 			c.watcher = watcher
@@ -191,10 +191,6 @@ func (c *cacheWorker) loop() error {
 					}
 				}
 			}
-
-			// In theory we could just create a new controller and just apply
-			// the new delta's to that. We can track if a new controller is
-			// required in the same vein as sweepRequired.
 			c.mu.Lock()
 			if c.sweepRequired {
 				c.sweepRequired = false
@@ -204,7 +200,7 @@ func (c *cacheWorker) loop() error {
 				for _, sweepResult := range result {
 					stale += sweepResult.Stale
 				}
-				c.config.Logger.Tracef("watcher released %d stale entities", stale)
+				c.config.Logger.Tracef("sweeped %d stale entities", stale)
 			}
 			c.mu.Unlock()
 		}
