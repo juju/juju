@@ -1212,6 +1212,60 @@ func (s *rpcSuite) TestRecorderErrorPreventsRequest(c *gc.C) {
 	c.Assert(root.calls, gc.HasLen, 0)
 }
 
+func (s *rpcSuite) TestRequestErrorInfoUnmarshaling(c *gc.C) {
+	type nestedStruct struct {
+		Baz bool
+	}
+	type someStruct struct {
+		Foo    string
+		Nested nestedStruct
+	}
+
+	specs := []struct {
+		descr string
+		info  map[string]interface{}
+		to    interface{}
+		exp   interface{}
+		err   string
+	}{
+		{
+			descr: "unmarshal to struct",
+			info: map[string]interface{}{
+				"Foo": "bar",
+				"Nested": map[string]interface{}{
+					"Baz": true,
+				},
+			},
+			to: new(someStruct),
+			exp: &someStruct{
+				Foo:    "bar",
+				Nested: nestedStruct{Baz: true},
+			},
+		},
+		{
+			descr: "unmarshal to non-pointer",
+			info:  map[string]interface{}{"Foo": "bar"},
+			to:    42,
+			err:   "UnmarshalInfo expects a pointer as an argument",
+		},
+	}
+
+	for specIndex, spec := range specs {
+		c.Logf("test %d: %s", specIndex, spec.descr)
+
+		re := &rpc.RequestError{
+			Info: spec.info,
+		}
+		err := re.UnmarshalInfo(spec.to)
+		if spec.err == "" {
+			c.Assert(err, gc.IsNil)
+			c.Assert(spec.to, gc.DeepEquals, spec.exp)
+		} else {
+			c.Assert(err, gc.ErrorMatches, spec.err)
+		}
+	}
+}
+
 func chanReadError(c *gc.C, ch <-chan error, what string) error {
 	select {
 	case e := <-ch:
