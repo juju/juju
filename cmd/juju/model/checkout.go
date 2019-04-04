@@ -20,7 +20,7 @@ import (
 const (
 	checkoutSummary = "Work on the supplied branch."
 	checkoutDoc     = `
-Makes the supplied branch active, causing changes to charm configuration,
+Switch to the supplied branch, causing changes to charm configuration,
 charm URL or resources to apply only to units tracking the branch.
 Changing the branch to "master" causes changes to be applied to all units
 as usual.
