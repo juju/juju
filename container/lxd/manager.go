@@ -347,26 +347,23 @@ func (m *containerManager) ReplaceOrAddInstanceProfile(instId, oldProfile, newPr
 
 // AssignProfiles implements environs.LXDProfiler.
 func (m *containerManager) AssignProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
-	defer func() ([]string, error) {
-		if err != nil {
-			var err2 error
-			current, err2 = m.LXDProfileNames(instId)
-			if err2 != nil {
-				logger.Errorf("secondary error, retrieving profile names: %s", err2)
-			}
+	report := func(err error) ([]string, error) {
+		// Always return the current profiles assigned to the instance.
+		currentProfiles, err2 := m.LXDProfileNames(instId)
+		if err != nil && err2 != nil {
+			logger.Errorf("secondary error, retrieving profile names: %s", err2)
 		}
-		return current, err
-	}()
-
-	deleteProfiles := []string{}
+		return currentProfiles, err
+	}
 
 	// Write any new profilePosts and gather a slice of profile
 	// names to be deleted, after removal.
+	var deleteProfiles []string
 	for _, p := range profilePosts {
 		if p.Profile != nil {
 			pr := charm.LXDProfile(*p.Profile)
 			if err := m.MaybeWriteLXDProfile(p.Name, &pr); err != nil {
-				return nil, err
+				return report(err)
 			}
 		} else {
 			deleteProfiles = append(deleteProfiles, p.Name)
@@ -374,7 +371,7 @@ func (m *containerManager) AssignProfiles(instId string, profilesNames []string,
 	}
 
 	if err := m.server.UpdateContainerProfiles(instId, profilesNames); err != nil {
-		return []string{}, errors.Trace(err)
+		return report(errors.Trace(err))
 	}
 
 	for _, name := range deleteProfiles {
@@ -383,5 +380,5 @@ func (m *containerManager) AssignProfiles(instId string, profilesNames []string,
 			logger.Debugf("failed to delete profile %q: %s", name, err)
 		}
 	}
-	return m.LXDProfileNames(instId)
+	return report(nil)
 }
