@@ -9,7 +9,7 @@ import (
 
 // Unit represents an unit in a cached model.
 type Unit struct {
-	*Entity
+	Entity
 
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
@@ -20,7 +20,6 @@ type Unit struct {
 
 func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Unit {
 	u := &Unit{
-		Entity:  &Entity{},
 		metrics: metrics,
 		hub:     hub,
 	}

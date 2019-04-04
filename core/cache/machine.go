@@ -16,15 +16,14 @@ import (
 
 func newMachine(model *Model) *Machine {
 	m := &Machine{
-		Entity: &Entity{},
-		model:  model,
+		model: model,
 	}
 	return m
 }
 
 // Machine represents a machine in a model.
 type Machine struct {
-	*Entity
+	Entity
 
 	model *Model
 

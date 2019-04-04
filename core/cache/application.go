@@ -16,7 +16,6 @@ const (
 
 func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Application {
 	a := &Application{
-		Entity:  &Entity{},
 		metrics: metrics,
 		hub:     hub,
 	}
@@ -25,7 +24,7 @@ func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Applicati
 
 // Application represents an application in a model.
 type Application struct {
-	*Entity
+	Entity
 
 	// Link to model?
 	metrics *ControllerGauges
