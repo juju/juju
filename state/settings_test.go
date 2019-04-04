@@ -10,7 +10,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/model"
+	coresettings "github.com/juju/juju/core/settings"
 )
 
 type SettingsSuite struct {
@@ -74,9 +74,9 @@ func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {
 	node.Update(options)
 	changes, err := node.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemAdded, "alpha", nil, "beta"},
-		{ItemAdded, "one", nil, 1},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeAddition("alpha", "beta"),
+		coresettings.MakeAddition("one", 1),
 	})
 
 	// Check local state.
@@ -108,9 +108,9 @@ func (s *SettingsSuite) TestConflictOnSet(c *gc.C) {
 	nodeTwo.Update(optionsOld)
 	changes, err := nodeTwo.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemAdded, "alpha", nil, "beta"},
-		{ItemAdded, "one", nil, 1},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeAddition("alpha", "beta"),
+		coresettings.MakeAddition("one", 1),
 	})
 
 	// First test node one.
@@ -121,9 +121,9 @@ func (s *SettingsSuite) TestConflictOnSet(c *gc.C) {
 	nodeOne.Update(optionsNew)
 	changes, err = nodeOne.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemModified, "alpha", "beta", "gamma"},
-		{ItemModified, "one", 1, "two"},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeModification("alpha", "beta", "gamma"),
+		coresettings.MakeModification("one", 1, "two"),
 	})
 
 	// Verify that node one reports as expected.
@@ -142,10 +142,10 @@ func (s *SettingsSuite) TestConflictOnSet(c *gc.C) {
 	expected := map[string]interface{}{"alpha": "cappa", "new": "next"}
 	changes, err = nodeTwo.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemModified, "alpha", "beta", "cappa"},
-		{ItemAdded, "new", nil, "next"},
-		{ItemDeleted, "one", 1, nil},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeModification("alpha", "beta", "cappa"),
+		coresettings.MakeAddition("new", "next"),
+		coresettings.MakeDeletion("one", 1),
 	})
 	c.Assert(expected, gc.DeepEquals, nodeTwo.Map())
 
@@ -162,9 +162,9 @@ func (s *SettingsSuite) TestSetItem(c *gc.C) {
 	node.Set("one", 1)
 	changes, err := node.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemAdded, "alpha", nil, "beta"},
-		{ItemAdded, "one", nil, 1},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeAddition("alpha", "beta"),
+		coresettings.MakeAddition("one", 1),
 	})
 	// Check local state.
 	c.Assert(node.Map(), gc.DeepEquals, options)
@@ -188,9 +188,9 @@ func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
 	node.Set("$bar", 1)
 	changes, err := node.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemAdded, "$bar", nil, 1},
-		{ItemAdded, "foo.alpha", nil, "beta"},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeAddition("$bar", 1),
+		coresettings.MakeAddition("foo.alpha", "beta"),
 	})
 	// Check local state.
 	c.Assert(node.Map(), gc.DeepEquals, options)
@@ -315,9 +315,9 @@ func (s *SettingsSuite) TestMultipleReads(c *gc.C) {
 	nodeOne.Update(map[string]interface{}{"alpha": "beta", "foo": "bar"})
 	changes, err := nodeOne.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemAdded, "alpha", nil, "beta"},
-		{ItemAdded, "foo", nil, "bar"},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeAddition("alpha", "beta"),
+		coresettings.MakeAddition("foo", "bar"),
 	})
 
 	// A write retains the newly set values.
@@ -334,8 +334,8 @@ func (s *SettingsSuite) TestMultipleReads(c *gc.C) {
 	nodeTwo.Update(map[string]interface{}{"foo": "different"})
 	changes, err = nodeTwo.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemModified, "foo", "bar", "different"},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeModification("foo", "bar", "different"),
 	})
 
 	// This should pull in the new state into node one.
@@ -355,14 +355,14 @@ func (s *SettingsSuite) TestDeleteEmptiesState(c *gc.C) {
 	node.Set("a", "foo")
 	changes, err := node.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemAdded, "a", nil, "foo"},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeAddition("a", "foo"),
 	})
 	node.Delete("a")
 	changes, err = node.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemDeleted, "a", "foo", nil},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeDeletion("a", "foo"),
 	})
 	c.Assert(node.Map(), gc.DeepEquals, map[string]interface{}{})
 }
@@ -374,22 +374,22 @@ func (s *SettingsSuite) TestReadResync(c *gc.C) {
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemAdded, "a", nil, "foo"},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeAddition("a", "foo"),
 	})
 	nodeTwo, err := s.readSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	nodeTwo.Delete("a")
 	changes, err = nodeTwo.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemDeleted, "a", "foo", nil},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeDeletion("a", "foo"),
 	})
 	nodeTwo.Set("a", "bar")
 	changes, err = nodeTwo.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemAdded, "a", nil, "bar"},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeAddition("a", "bar"),
 	})
 	// Read of node one should pick up the new value.
 	err = nodeOne.Read()
@@ -406,17 +406,17 @@ func (s *SettingsSuite) TestMultipleWrites(c *gc.C) {
 	node.Update(map[string]interface{}{"foo": "bar", "this": "that"})
 	changes, err := node.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemAdded, "foo", nil, "bar"},
-		{ItemAdded, "this", nil, "that"},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeAddition("foo", "bar"),
+		coresettings.MakeAddition("this", "that"),
 	})
 	node.Delete("this")
 	node.Set("another", "value")
 	changes, err = node.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemAdded, "another", nil, "value"},
-		{ItemDeleted, "this", "that", nil},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeAddition("another", "value"),
+		coresettings.MakeDeletion("this", "that"),
 	})
 
 	expected := map[string]interface{}{"foo": "bar", "another": "value"}
@@ -424,7 +424,7 @@ func (s *SettingsSuite) TestMultipleWrites(c *gc.C) {
 
 	changes, err = node.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{})
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{})
 
 	err = node.Read()
 	c.Assert(err, jc.ErrorIsNil)
@@ -432,7 +432,7 @@ func (s *SettingsSuite) TestMultipleWrites(c *gc.C) {
 
 	changes, err = node.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{})
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{})
 }
 
 func (s *SettingsSuite) TestMultipleWritesAreStable(c *gc.C) {
@@ -472,8 +472,8 @@ func (s *SettingsSuite) TestWriteTwice(c *gc.C) {
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemAdded, "a", nil, "foo"},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeAddition("a", "foo"),
 	})
 
 	nodeTwo, err := s.readSettings()
@@ -481,15 +481,15 @@ func (s *SettingsSuite) TestWriteTwice(c *gc.C) {
 	nodeTwo.Set("a", "bar")
 	changes, err = nodeTwo.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{
-		{ItemModified, "a", "foo", "bar"},
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{
+		coresettings.MakeModification("a", "foo", "bar"),
 	})
 
 	// Shouldn't write again. Changes were already
 	// flushed and acted upon by other parties.
 	changes, err = nodeOne.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes, gc.DeepEquals, []ItemChange{})
+	c.Assert(changes, gc.DeepEquals, []coresettings.ItemChange{})
 
 	err = nodeOne.Read()
 	c.Assert(err, jc.ErrorIsNil)
@@ -541,34 +541,6 @@ func (s *SettingsSuite) TestReplaceSettingsNotFound(c *gc.C) {
 	options := map[string]interface{}{"alpha": "beta", "foo2": "zap100"}
 	err := replaceSettings(s.state.db(), s.collection, s.key, options)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *SettingsSuite) TestReadSettingsWithFallback(c *gc.C) {
-	s1, err := s.createSettings(s.key, map[string]interface{}{"foo1": []interface{}{"bar1"}})
-	c.Assert(err, jc.ErrorIsNil)
-
-	nextGenKey := model.NextGenerationKey(s.key)
-
-	// Without a fallback, we get a not found error.
-	_, err = readSettingsOrCreateFromFallback(s.state.db(), s.collection, nextGenKey, "")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-
-	// Next generation settings do not exist; fallback should create them.
-	s2, err := readSettingsOrCreateFromFallback(s.state.db(), s.collection, nextGenKey, s.key)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s2.key, gc.DeepEquals, nextGenKey)
-	c.Check(s2.Map(), gc.DeepEquals, s1.Map())
-
-	// If they exist, writing is successful.
-	s2.Set("new", "value")
-	_, err = s2.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Original settings are unchanged.
-	s1, err = s.readSettings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s1.Map(), gc.DeepEquals, map[string]interface{}{"foo1": []interface{}{"bar1"}})
-
 }
 
 func (s *SettingsSuite) TestUpdatingInterfaceSliceValue(c *gc.C) {

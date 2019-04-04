@@ -13,13 +13,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/mongo/utils"
-)
-
-const (
-	ItemAdded = iota
-	ItemModified
-	ItemDeleted
 )
 
 // settingsDoc is the mongo document representation for
@@ -52,37 +47,6 @@ func (m settingsMap) GetBSON() (interface{}, error) {
 	escapedMap := utils.EscapeKeys(m)
 	return escapedMap, nil
 }
-
-// ItemChange represents the change of an item in a settings.
-type ItemChange struct {
-	Type     int
-	Key      string
-	OldValue interface{}
-	NewValue interface{}
-}
-
-// String returns the item change in a readable format.
-func (ic *ItemChange) String() string {
-	switch ic.Type {
-	case ItemAdded:
-		return fmt.Sprintf("setting added: %v = %v", ic.Key, ic.NewValue)
-	case ItemModified:
-		return fmt.Sprintf("setting modified: %v = %v (was %v)",
-			ic.Key, ic.NewValue, ic.OldValue)
-	case ItemDeleted:
-		return fmt.Sprintf("setting deleted: %v (was %v)", ic.Key, ic.OldValue)
-	}
-	return fmt.Sprintf("unknown setting change type %d: %v = %v (was %v)",
-		ic.Type, ic.Key, ic.NewValue, ic.OldValue)
-}
-
-// itemChangeSlice contains a slice of item changes in a config node.
-// It implements the sort interface to sort the items changes by key.
-type itemChangeSlice []ItemChange
-
-func (ics itemChangeSlice) Len() int           { return len(ics) }
-func (ics itemChangeSlice) Less(i, j int) bool { return ics[i].Key < ics[j].Key }
-func (ics itemChangeSlice) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i] }
 
 // A Settings manages changes to settings as a delta in memory and merges
 // them back in the database when explicitly requested.
@@ -159,8 +123,8 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 
 // settingsUpdateOps returns the item changes and txn ops necessary
 // to write the changes made to c back onto its node.
-func (s *Settings) settingsUpdateOps() ([]ItemChange, []txn.Op) {
-	var changes []ItemChange
+func (s *Settings) settingsUpdateOps() ([]settings.ItemChange, []txn.Op) {
+	var changes []settings.ItemChange
 	updates := bson.M{}
 	deletions := bson.M{}
 	for key := range cacheKeys(s.disk, s.core) {
@@ -169,17 +133,17 @@ func (s *Settings) settingsUpdateOps() ([]ItemChange, []txn.Op) {
 		if reflect.DeepEqual(live, old) {
 			continue
 		}
-		var change ItemChange
+		var change settings.ItemChange
 		escapedKey := utils.EscapeKey(key)
 		switch {
 		case inCore && onDisk:
-			change = ItemChange{ItemModified, key, old, live}
+			change = settings.MakeModification(key, old, live)
 			updates[escapedKey] = live
 		case inCore && !onDisk:
-			change = ItemChange{ItemAdded, key, nil, live}
+			change = settings.MakeAddition(key, live)
 			updates[escapedKey] = live
 		case onDisk && !inCore:
-			change = ItemChange{ItemDeleted, key, old, live}
+			change = settings.MakeDeletion(key, old)
 			deletions[escapedKey] = 1
 		default:
 			panic("unreachable")
@@ -187,9 +151,9 @@ func (s *Settings) settingsUpdateOps() ([]ItemChange, []txn.Op) {
 		changes = append(changes, change)
 	}
 	if len(changes) == 0 {
-		return []ItemChange{}, nil
+		return []settings.ItemChange{}, nil
 	}
-	sort.Sort(itemChangeSlice(changes))
+	sort.Sort(settings.ItemChanges(changes))
 	ops := []txn.Op{{
 		C:      s.collection,
 		Id:     s.key,
@@ -214,7 +178,7 @@ func (s *Settings) write(ops []txn.Op) error {
 // Write writes changes made to c back onto its node.  Changes are written
 // as a delta applied on top of the latest version of the node, to prevent
 // overwriting unrelated changes made to the node since it was last read.
-func (s *Settings) Write() ([]ItemChange, error) {
+func (s *Settings) Write() ([]settings.ItemChange, error) {
 	changes, ops := s.settingsUpdateOps()
 	if len(ops) > 0 {
 		err := s.write(ops)
@@ -375,12 +339,12 @@ func replaceSettings(db Database, collection, key string, values map[string]inte
 
 // listSettings returns all the settings with the specified key prefix.
 func listSettings(backend modelBackend, collection, keyPrefix string) (map[string]map[string]interface{}, error) {
-	settings, closer := backend.db().GetRawCollection(collection)
+	col, closer := backend.db().GetRawCollection(collection)
 	defer closer()
 
 	var matchingSettings []settingsDoc
 	findExpr := fmt.Sprintf("^%s.*$", backend.docID(keyPrefix))
-	if err := settings.Find(bson.D{{"_id", bson.D{{"$regex", findExpr}}}}).All(&matchingSettings); err != nil {
+	if err := col.Find(bson.D{{"_id", bson.D{{"$regex", findExpr}}}}).All(&matchingSettings); err != nil {
 		return nil, err
 	}
 	result := make(map[string]map[string]interface{})
@@ -493,10 +457,10 @@ func (s *StateSettings) CreateSettings(key string, settings map[string]interface
 
 // ReadSettings exposes readSettings on state for use outside the state package.
 func (s *StateSettings) ReadSettings(key string) (map[string]interface{}, error) {
-	if settings, err := readSettings(s.backend.db(), s.collection, key); err != nil {
+	if s, err := readSettings(s.backend.db(), s.collection, key); err != nil {
 		return nil, err
 	} else {
-		return settings.Map(), nil
+		return s.Map(), nil
 	}
 }
 
