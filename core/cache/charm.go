@@ -4,8 +4,6 @@
 package cache
 
 import (
-	"sync"
-
 	"github.com/juju/pubsub"
 
 	"github.com/juju/juju/core/lxdprofile"
@@ -13,6 +11,7 @@ import (
 
 func newCharm(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Charm {
 	c := &Charm{
+		Entity:  &Entity{},
 		metrics: metrics,
 		hub:     hub,
 	}
@@ -21,10 +20,11 @@ func newCharm(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Charm {
 
 // Charm represents an charm in a model.
 type Charm struct {
+	*Entity
+
 	// Link to model?
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
-	mu      sync.Mutex
 
 	details CharmChange
 }
@@ -36,6 +36,7 @@ func (c *Charm) LXDProfile() lxdprofile.Profile {
 
 func (c *Charm) setDetails(details CharmChange) {
 	c.mu.Lock()
+	c.state = Active
 	c.details = details
 	c.mu.Unlock()
 }

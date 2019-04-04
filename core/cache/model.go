@@ -72,6 +72,56 @@ func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
 	return newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange))
 }
 
+func (m *Model) mark() int {
+	var result int
+	m.mu.Lock()
+	for _, app := range m.applications {
+		app.mark()
+		result++
+	}
+	m.mu.Unlock()
+	return result
+}
+
+func (m *Model) sweep() SweepPhaseResult {
+	var result SweepPhaseResult
+	m.mu.Lock()
+	for key, app := range m.applications {
+		if app.isStale() {
+			delete(m.applications, key)
+			result.Stale++
+		} else {
+			result.Active++
+		}
+	}
+	for key, charm := range m.charms {
+		if charm.isStale() {
+			delete(m.charms, key)
+			result.Stale++
+		} else {
+			result.Active++
+		}
+	}
+	for key, machine := range m.machines {
+		if machine.isStale() {
+			delete(m.machines, key)
+			result.Stale++
+		} else {
+			result.Active++
+		}
+	}
+	for key, unit := range m.units {
+		if unit.isStale() {
+			delete(m.units, key)
+			result.Stale++
+		} else {
+			result.Active++
+		}
+	}
+	m.mu.Unlock()
+	return result
+}
+
 // Report returns information that is used in the dependency engine report.
 func (m *Model) Report() map[string]interface{} {
 	m.mu.Lock()
@@ -137,7 +187,7 @@ func (m *Model) WatchMachines() *PredicateStringsWatcher {
 	i := 0
 	for k := range m.machines {
 		machines[i] = k
-		i += 1
+		i++
 	}
 
 	w := newChangeWatcher(machines...)

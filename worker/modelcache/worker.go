@@ -147,6 +147,7 @@ func (c *cacheWorker) loop() error {
 				// Continue through.
 			}
 			allWatcherStarts.Inc()
+			c.controller.Mark()
 			watcher := pool.SystemState().WatchAllModels(pool)
 			c.watcher = watcher
 			c.mu.Unlock()
@@ -154,6 +155,12 @@ func (c *cacheWorker) loop() error {
 			err := c.processWatcher(watcher, watcherChanges)
 			if err == nil {
 				// We are done, so exit
+				result := c.controller.Sweep()
+				var stale int
+				for _, sweepResult := range result {
+					stale += sweepResult.Stale
+				}
+				c.config.Logger.Tracef("watcher released %d stale entities", stale)
 				_ = watcher.Stop()
 				return
 			}

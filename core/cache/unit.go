@@ -4,16 +4,15 @@
 package cache
 
 import (
-	"sync"
-
 	"github.com/juju/pubsub"
 )
 
 // Unit represents an unit in a cached model.
 type Unit struct {
+	*Entity
+
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
-	mu      sync.Mutex
 
 	details    UnitChange
 	configHash string
@@ -21,6 +20,7 @@ type Unit struct {
 
 func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Unit {
 	u := &Unit{
+		Entity:  &Entity{},
 		metrics: metrics,
 		hub:     hub,
 	}
@@ -37,6 +37,7 @@ func (u *Unit) setDetails(details UnitChange) {
 	if u.details.MachineId != details.MachineId {
 		u.hub.Publish(u.modelTopic(modelUnitLXDProfileChange), u)
 	}
+	u.state = Active
 	u.details = details
 
 	// TODO (manadart 2019-02-11): Maintain hash and publish changes.

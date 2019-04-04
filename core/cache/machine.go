@@ -6,7 +6,6 @@ package cache
 import (
 	"fmt"
 	"regexp"
-	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -17,15 +16,17 @@ import (
 
 func newMachine(model *Model) *Machine {
 	m := &Machine{
-		model: model,
+		Entity: &Entity{},
+		model:  model,
 	}
 	return m
 }
 
 // Machine represents a machine in a model.
 type Machine struct {
+	*Entity
+
 	model *Model
-	mu    sync.Mutex
 
 	modelUUID  string
 	details    MachineChange
@@ -184,7 +185,8 @@ func (m *Machine) modelTopic(suffix string) string {
 
 func (m *Machine) setDetails(details MachineChange) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+
+	m.state = Active
 	m.details = details
 
 	configHash, err := hash(details.Config)
@@ -196,4 +198,5 @@ func (m *Machine) setDetails(details MachineChange) {
 		m.configHash = configHash
 		// TODO: publish config change...
 	}
+	m.mu.Unlock()
 }

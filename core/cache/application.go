@@ -4,8 +4,6 @@
 package cache
 
 import (
-	"sync"
-
 	"github.com/juju/pubsub"
 )
 
@@ -18,6 +16,7 @@ const (
 
 func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Application {
 	a := &Application{
+		Entity:  &Entity{},
 		metrics: metrics,
 		hub:     hub,
 	}
@@ -26,10 +25,11 @@ func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Applicati
 
 // Application represents an application in a model.
 type Application struct {
+	*Entity
+
 	// Link to model?
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
-	mu      sync.Mutex
 
 	details    ApplicationChange
 	configHash string
@@ -72,6 +72,7 @@ func (a *Application) setDetails(details ApplicationChange) {
 		a.hub.Publish(a.modelTopic(applicationCharmURLChange), appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL})
 	}
 
+	a.state = Active
 	a.details = details
 	hashCache, configHash := newHashCache(
 		details.Config, a.metrics.ApplicationHashCacheHit, a.metrics.ApplicationHashCacheMiss)

@@ -101,6 +101,44 @@ func (c *Controller) loop() error {
 	}
 }
 
+// Mark will go through and mark all the items within a model, that is in the
+// controller as stale. It is then up to the Sweep phase of the garbage
+// collection to remove stale items within models that have not been up dated
+// and are still classified as stale.
+// The result from Mark is how many items have been marked during marking phase.
+// The two phase garbage collection is required to prevent stale items within
+// models from existing if the all watcher is restarted and old deltas exist,
+// when they shouldn't.
+func (c *Controller) Mark() map[string]int {
+	result := make(map[string]int)
+	c.mu.Lock()
+	for uuid, model := range c.models {
+		result[uuid] = model.mark()
+	}
+	c.metrics.GCMark.Inc()
+	c.mu.Unlock()
+	return result
+}
+
+type SweepPhaseResult struct {
+	Active, Stale int
+}
+
+// Sweep goes through all the items within a model that have been marked as
+// stale and if the item hasn't been updated in between Mark and Sweep, then
+// the item will be removed.
+// The result from the sweep is how many items are removed per model.
+func (c *Controller) Sweep() map[string]SweepPhaseResult {
+	result := make(map[string]SweepPhaseResult)
+	c.mu.Lock()
+	for uuid, model := range c.models {
+		result[uuid] = model.sweep()
+	}
+	c.metrics.GCSweep.Inc()
+	c.mu.Unlock()
+	return result
+}
+
 // Report returns information that is used in the dependency engine report.
 func (c *Controller) Report() map[string]interface{} {
 	result := make(map[string]interface{})
