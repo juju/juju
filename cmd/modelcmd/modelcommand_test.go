@@ -170,19 +170,19 @@ func (s *ModelCommandSuite) TestModelGeneration(c *gc.C) {
 		User: "bar", Password: "hunter2",
 	}
 	err := s.store.UpdateModel("foo", "adminfoo/currentfoo",
-		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS, ModelGeneration: "new-branch"})
+		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS, ActiveBranch: "new-branch"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.store.SetCurrentModel("foo", "adminfoo/currentfoo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmd, err := runTestCommand(c, s.store)
 	c.Assert(err, jc.ErrorIsNil)
-	modelGeneration, err := cmd.ModelGeneration()
+	modelGeneration, err := cmd.ActiveBranch()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelGeneration, gc.Equals, "new-branch")
 
-	c.Assert(cmd.SetModelGeneration(model.GenerationMaster), jc.ErrorIsNil)
-	modelGeneration, err = cmd.ModelGeneration()
+	c.Assert(cmd.SetActiveBranch(model.GenerationMaster), jc.ErrorIsNil)
+	modelGeneration, err = cmd.ActiveBranch()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelGeneration, gc.Equals, model.GenerationMaster)
 }

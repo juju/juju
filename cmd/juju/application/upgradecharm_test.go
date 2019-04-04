@@ -126,7 +126,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 	}
 	store.Models["foo"] = &jujuclient.ControllerModels{
 		CurrentModel: "admin/bar",
-		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {ModelGeneration: model.GenerationMaster}},
+		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {ActiveBranch: model.GenerationMaster}},
 	}
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		s.AddCall("OpenAPI")

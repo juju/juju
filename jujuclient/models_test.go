@@ -106,9 +106,9 @@ func (s *ModelsSuite) TestSetCurrentModel(c *gc.C) {
 
 func (s *ModelsSuite) TestUpdateModelNewController(c *gc.C) {
 	testModelDetails := jujuclient.ModelDetails{
-		ModelUUID:       "test.uuid",
-		ModelType:       model.IAAS,
-		ModelGeneration: model.GenerationMaster,
+		ModelUUID:    "test.uuid",
+		ModelType:    model.IAAS,
+		ActiveBranch: model.GenerationMaster,
 	}
 	err := s.store.UpdateModel("new-controller", "admin/new-model", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,9 +121,9 @@ func (s *ModelsSuite) TestUpdateModelNewController(c *gc.C) {
 
 func (s *ModelsSuite) TestUpdateModelExistingControllerAndModelNewModel(c *gc.C) {
 	testModelDetails := jujuclient.ModelDetails{
-		ModelUUID:       "test.uuid",
-		ModelType:       model.IAAS,
-		ModelGeneration: model.GenerationMaster,
+		ModelUUID:    "test.uuid",
+		ModelType:    model.IAAS,
+		ActiveBranch: model.GenerationMaster,
 	}
 	err := s.store.UpdateModel("kontroll", "admin/new-model", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,9 +138,9 @@ func (s *ModelsSuite) TestUpdateModelExistingControllerAndModelNewModel(c *gc.C)
 
 func (s *ModelsSuite) TestUpdateModelOverwrites(c *gc.C) {
 	testModelDetails := jujuclient.ModelDetails{
-		ModelUUID:       "test.uuid",
-		ModelType:       model.IAAS,
-		ModelGeneration: model.GenerationMaster,
+		ModelUUID:    "test.uuid",
+		ModelType:    model.IAAS,
+		ActiveBranch: model.GenerationMaster,
 	}
 	for i := 0; i < 2; i++ {
 		// Twice so we exercise the code path of updating with
@@ -171,9 +171,9 @@ controllers:
 	c.Assert(err, jc.ErrorIsNil)
 
 	testModelDetails := jujuclient.ModelDetails{
-		ModelUUID:       "test.uuid",
-		ModelType:       model.IAAS,
-		ModelGeneration: model.GenerationMaster,
+		ModelUUID:    "test.uuid",
+		ModelType:    model.IAAS,
+		ActiveBranch: model.GenerationMaster,
 	}
 	err = s.store.UpdateModel("ctrl", "admin/admin", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)

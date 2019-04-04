@@ -1,4 +1,4 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package model_test
@@ -34,12 +34,12 @@ func (s *checkoutSuite) TestInitFail(c *gc.C) {
 func (s *checkoutSuite) TestRunCommandCurrent(c *gc.C) {
 	ctx, err := s.runCommand(c, nil, coremodel.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "target generation set to \"master\"\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Active branch set to \"master\"\n")
 
 	cName := s.store.CurrentControllerName
 	details, err := s.store.ModelByName(cName, s.store.Models[cName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ModelGeneration, gc.Equals, coremodel.GenerationMaster)
+	c.Assert(details.ActiveBranch, gc.Equals, coremodel.GenerationMaster)
 }
 
 func (s *checkoutSuite) TestRunCommandNextGenExists(c *gc.C) {
@@ -50,12 +50,12 @@ func (s *checkoutSuite) TestRunCommandNextGenExists(c *gc.C) {
 
 	ctx, err := s.runCommand(c, api, s.branchName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "target generation set to \"new-branch\"\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Active branch set to \"new-branch\"\n")
 
 	cName := s.store.CurrentControllerName
 	details, err := s.store.ModelByName(cName, s.store.Models[cName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ModelGeneration, gc.Equals, s.branchName)
+	c.Assert(details.ActiveBranch, gc.Equals, s.branchName)
 }
 
 func (s *checkoutSuite) TestRunCommandNextNoGenError(c *gc.C) {

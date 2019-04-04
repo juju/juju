@@ -1,4 +1,4 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package model
@@ -18,17 +18,23 @@ import (
 )
 
 const (
-	switchGenerationSummary = "Switch to the given generation."
-	switchGenerationDoc     = `
-Switch to the given generation, either current or next. 
+	checkoutSummary = "Work on the supplied branch."
+	checkoutDoc     = `
+Makes the supplied branch active, causing changes to charm configuration,
+charm URL or resources to apply only to units tracking the branch.
+Changing the branch to "master" causes changes to be applied to all units
+as usual.
 
 Examples:
-    juju switch-generation next
+    juju checkout test-branch
+    juju checkout master
 
 See also:
-    add-generation
-    advance-generation
-    cancel-generation
+    branch
+    track
+    commit
+    abort
+    diff
 `
 )
 
@@ -37,8 +43,8 @@ func NewCheckoutCommand() cmd.Command {
 	return modelcmd.Wrap(&checkoutCommand{})
 }
 
-// checkoutCommand is the simplified command for accessing and setting
-// attributes related to switching model generations.
+// checkoutCommand supplies the "checkout" CLI command used to switch the
+// active branch for this operator.
 type checkoutCommand struct {
 	modelcmd.ModelCommandBase
 
@@ -47,7 +53,8 @@ type checkoutCommand struct {
 	branchName string
 }
 
-// CheckoutCommandAPI defines an API interface to be used during testing.
+// CheckoutCommandAPI describes API methods required
+// to execute the checkout command.
 //go:generate mockgen -package mocks -destination ./mocks/checkout_mock.go github.com/juju/juju/cmd/juju/model CheckoutCommandAPI
 type CheckoutCommandAPI interface {
 	Close() error
@@ -57,10 +64,10 @@ type CheckoutCommandAPI interface {
 // Info implements part of the cmd.Command interface.
 func (c *checkoutCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "switch-generation",
+		Name:    "checkout",
 		Args:    "<branch name>",
-		Purpose: switchGenerationSummary,
-		Doc:     switchGenerationDoc,
+		Purpose: checkoutSummary,
+		Doc:     checkoutDoc,
 	}
 	return jujucmd.Info(info)
 }
@@ -80,7 +87,6 @@ func (c *checkoutCommand) Init(args []string) error {
 }
 
 // getAPI returns the API. This allows passing in a test SwitchGenerationCommandAPI
-// Run (cmd.Command) sets the active generation in the local store.
 // implementation.
 func (c *checkoutCommand) getAPI() (CheckoutCommandAPI, error) {
 	if c.api != nil {
@@ -118,10 +124,10 @@ func (c *checkoutCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	if err := c.SetModelGeneration(c.branchName); err != nil {
+	if err := c.SetActiveBranch(c.branchName); err != nil {
 		return err
 	}
-	msg := fmt.Sprintf("target generation set to %q\n", c.branchName)
+	msg := fmt.Sprintf("Active branch set to %q\n", c.branchName)
 	_, err := ctx.Stdout.Write([]byte(msg))
 	return err
 }

@@ -51,7 +51,7 @@ func (s *branchSuite) TestRunCommand(c *gc.C) {
 	details, err := s.store.ModelByName(
 		s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ModelGeneration, gc.Equals, s.branchName)
+	c.Assert(details.ActiveBranch, gc.Equals, s.branchName)
 }
 
 func (s *branchSuite) TestRunCommandFail(c *gc.C) {

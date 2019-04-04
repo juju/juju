@@ -178,7 +178,7 @@ func (c *configCommand) Init(args []string) error {
 
 func (c *configCommand) validateGeneration() error {
 	if c.branchName == "" {
-		branchName, err := c.ModelGeneration()
+		branchName, err := c.ActiveBranch()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -431,7 +431,7 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 
 	if featureflag.Enabled(feature.Generations) && err == nil {
 		var gen string
-		gen, err = c.ModelGeneration()
+		gen, err = c.ActiveBranch()
 		if err == nil {
 			_, err = ctx.Stdout.Write([]byte(fmt.Sprintf("\nchanges will be targeted to generation: %s\n", gen)))
 		}

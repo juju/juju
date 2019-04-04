@@ -290,7 +290,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	generation, err := c.ModelGeneration()
+	generation, err := c.ActiveBranch()
 	if err != nil {
 		return errors.Trace(err)
 	}

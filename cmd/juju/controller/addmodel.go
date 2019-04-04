@@ -253,7 +253,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	}
 	if featureflag.Enabled(feature.Generations) {
 		// Default target is the master branch.
-		details.ModelGeneration = coremodel.GenerationMaster
+		details.ActiveBranch = coremodel.GenerationMaster
 	}
 	if modelOwner == accountDetails.User {
 		if err := store.UpdateModel(controllerName, c.Name, details); err != nil {

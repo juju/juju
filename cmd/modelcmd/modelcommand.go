@@ -68,12 +68,12 @@ type ModelCommand interface {
 	// ModelType returns the type of the model.
 	ModelType() (model.ModelType, error)
 
-	// ModelGeneration sets the model generation for this command and updates
-	// the store.
-	SetModelGeneration(string) error
+	// SetActiveBranch sets the branch to use for this command,
+	// then updates the model's active branch in the local store.
+	SetActiveBranch(string) error
 
-	// ModelGeneration returns the generation of the model.
-	ModelGeneration() (string, error)
+	// ActiveBranch returns the current active branch for this model.
+	ActiveBranch() (string, error)
 
 	// ControllerName returns the name of the controller that contains
 	// the model returned by ModelName().
@@ -99,10 +99,10 @@ type ModelCommandBase struct {
 	// are only valid after maybeInitModel is called, and should in general
 	// not be accessed directly, but through ModelName and ControllerName
 	// respectively.
-	_modelName       string
-	_modelType       model.ModelType
-	_modelGeneration string
-	_controllerName  string
+	_modelName      string
+	_modelType      model.ModelType
+	_activeBranch   string
+	_controllerName string
 
 	allowDefaultModel bool
 
@@ -237,23 +237,23 @@ func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
 }
 
 // SetModelGeneration implements the ModelCommand interface.
-func (c *ModelCommandBase) SetModelGeneration(generation string) error {
+func (c *ModelCommandBase) SetActiveBranch(branchName string) error {
 	_, modelDetails, err := c.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
-	modelDetails.ModelGeneration = generation
+	modelDetails.ActiveBranch = branchName
 	if err = c.store.UpdateModel(c._controllerName, c._modelName, *modelDetails); err != nil {
 		return err
 	}
-	c._modelGeneration = generation
+	c._activeBranch = branchName
 	return nil
 }
 
-// ModelGeneration implements the ModelCommand interface.
-func (c *ModelCommandBase) ModelGeneration() (string, error) {
-	if c._modelGeneration != "" {
-		return c._modelGeneration, nil
+// ActiveBranch implements the ModelCommand interface.
+func (c *ModelCommandBase) ActiveBranch() (string, error) {
+	if c._activeBranch != "" {
+		return c._activeBranch, nil
 	}
 	// If we need to look up the model generation, we need to ensure we
 	// have access to the model details.
@@ -270,8 +270,8 @@ func (c *ModelCommandBase) ModelGeneration() (string, error) {
 			return "", errors.Trace(err)
 		}
 	}
-	c._modelGeneration = details.ModelGeneration
-	return c._modelGeneration, nil
+	c._activeBranch = details.ActiveBranch
+	return c._activeBranch, nil
 }
 
 // ControllerName implements the ModelCommand interface.

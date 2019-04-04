@@ -115,7 +115,7 @@ func (c *commitCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Set the active branch to be the master.
-	if err = c.SetModelGeneration(model.GenerationMaster); err != nil {
+	if err = c.SetActiveBranch(model.GenerationMaster); err != nil {
 		return err
 	}
 

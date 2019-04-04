@@ -29,9 +29,9 @@ func (s *trackBranchSuite) SetUpTest(c *gc.C) {
 
 	// Update the local store to indicate we are on the "new-branch" branch.
 	c.Assert(s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
-		ModelUUID:       testing.ModelTag.Id(),
-		ModelType:       coremodel.IAAS,
-		ModelGeneration: s.branchName,
+		ModelUUID:    testing.ModelTag.Id(),
+		ModelType:    coremodel.IAAS,
+		ActiveBranch: s.branchName,
 	}), jc.ErrorIsNil)
 }
 
