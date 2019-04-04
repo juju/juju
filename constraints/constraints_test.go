@@ -254,6 +254,23 @@ var parseConstraintsTests = []struct {
 		err:     `bad "root-disk" constraint: already set`,
 	},
 
+	// root-disk-source in detail.
+	{
+		summary: "set root-disk-source empty",
+		args:    []string{"root-disk-source="},
+	}, {
+		summary: "set root-disk-source to a value",
+		args:    []string{"root-disk-source=sourcename"},
+	}, {
+		summary: "double set root-disk-source together",
+		args:    []string{"root-disk-source=sourcename root-disk-source=somethingelse"},
+		err:     `bad "root-disk-source" constraint: already set`,
+	}, {
+		summary: "double set root-disk-source separately",
+		args:    []string{"root-disk-source=sourcename", "root-disk-source=somethingelse"},
+		err:     `bad "root-disk-source" constraint: already set`,
+	},
+
 	// tags
 	{
 		summary: "single tag",
@@ -463,6 +480,15 @@ func (s *ConstraintsSuite) TestHasZones(c *gc.C) {
 	c.Check(con.HasZones(), jc.IsFalse)
 }
 
+func (s *ConstraintsSuite) TestHasRootDiskSource(c *gc.C) {
+	con := constraints.MustParse("root-disk-source=pilgrim")
+	c.Check(con.HasRootDiskSource(), jc.IsTrue)
+	con = constraints.MustParse("root-disk-source=")
+	c.Check(con.HasRootDiskSource(), jc.IsFalse)
+	con = constraints.MustParse("root-disk=32G")
+	c.Check(con.HasRootDiskSource(), jc.IsFalse)
+}
+
 func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
 	con := constraints.Value{}
 	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
@@ -529,6 +555,8 @@ var constraintsRoundtripTests = []roundTrip{
 	{"RootDisk1", constraints.Value{RootDisk: nil}},
 	{"RootDisk2", constraints.Value{RootDisk: uint64p(0)}},
 	{"RootDisk2", constraints.Value{RootDisk: uint64p(109876)}},
+	{"RootDiskSource1", constraints.Value{RootDiskSource: nil}},
+	{"RootDiskSource2", constraints.Value{RootDiskSource: strp("identikit")}},
 	{"Tags1", constraints.Value{Tags: nil}},
 	{"Tags2", constraints.Value{Tags: &[]string{}}},
 	{"Tags3", constraints.Value{Tags: &[]string{"foo", "bar"}}},
@@ -541,16 +569,17 @@ var constraintsRoundtripTests = []roundTrip{
 	{"Zones2", constraints.Value{Zones: &[]string{}}},
 	{"Zones3", constraints.Value{Zones: &[]string{"az1", "az2"}}},
 	{"All", constraints.Value{
-		Arch:         strp("i386"),
-		Container:    ctypep("lxd"),
-		CpuCores:     uint64p(4096),
-		CpuPower:     uint64p(9001),
-		Mem:          uint64p(18000000000),
-		RootDisk:     uint64p(24000000000),
-		Tags:         &[]string{"foo", "bar"},
-		Spaces:       &[]string{"space1", "^space2"},
-		InstanceType: strp("foo"),
-		Zones:        &[]string{"az1", "az2"},
+		Arch:           strp("i386"),
+		Container:      ctypep("lxd"),
+		CpuCores:       uint64p(4096),
+		CpuPower:       uint64p(9001),
+		Mem:            uint64p(18000000000),
+		RootDisk:       uint64p(24000000000),
+		RootDiskSource: strp("cave"),
+		Tags:           &[]string{"foo", "bar"},
+		Spaces:         &[]string{"space1", "^space2"},
+		InstanceType:   strp("foo"),
+		Zones:          &[]string{"az1", "az2"},
 	}},
 }
 

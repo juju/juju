@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"github.com/vmware/govmomi/vim25/mo"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/environs"
@@ -236,15 +237,11 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 	// Remove VMDK cache(s). The user can specify the datastore, and can
 	// change it over time; or if not specified, any accessible datastore
 	// will be used. We must check them all.
-	datastores, err := env.client.Datastores(env.ctx)
+	datastores, err := env.accessibleDatastores(ctx)
 	if err != nil {
-		HandleCredentialError(err, ctx)
 		return errors.Annotate(err, "listing datastores")
 	}
 	for _, ds := range datastores {
-		if !ds.Summary.Accessible {
-			continue
-		}
 		datastorePath := fmt.Sprintf("[%s] %s", ds.Name, vmdkDirectoryName(controllerUUID))
 		logger.Debugf("deleting: %s", datastorePath)
 		if err := env.client.DeleteDatastoreFile(env.ctx, datastorePath); err != nil {
@@ -253,4 +250,20 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 		}
 	}
 	return nil
+}
+
+func (env *sessionEnviron) accessibleDatastores(ctx callcontext.ProviderCallContext) ([]*mo.Datastore, error) {
+	datastores, err := env.client.Datastores(env.ctx)
+	if err != nil {
+		HandleCredentialError(err, ctx)
+		return nil, errors.Trace(err)
+	}
+	var results []*mo.Datastore
+	for _, ds := range datastores {
+		if !ds.Summary.Accessible {
+			continue
+		}
+		results = append(results, ds)
+	}
+	return results, nil
 }

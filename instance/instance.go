@@ -73,6 +73,9 @@ type HardwareCharacteristics struct {
 	// RootDisk is the size of the disk in megabytes.
 	RootDisk *uint64 `json:"root-disk,omitempty" yaml:"rootdisk,omitempty"`
 
+	// RootDiskSource is where the disk storage resides.
+	RootDiskSource *string `json:"root-disk-source,omitempty" yaml:"rootdisksource,omitempty"`
+
 	// CpuCores is the number of logical cores the processor has.
 	CpuCores *uint64 `json:"cpu-cores,omitempty" yaml:"cpucores,omitempty"`
 
@@ -102,6 +105,9 @@ func (hc HardwareCharacteristics) String() string {
 	}
 	if hc.RootDisk != nil {
 		strs = append(strs, fmt.Sprintf("root-disk=%dM", *hc.RootDisk))
+	}
+	if hc.RootDiskSource != nil {
+		strs = append(strs, fmt.Sprintf("root-disk-source=%s", *hc.RootDiskSource))
 	}
 	if hc.Tags != nil && len(*hc.Tags) > 0 {
 		strs = append(strs, fmt.Sprintf("tags=%s", strings.Join(*hc.Tags, ",")))
@@ -160,6 +166,8 @@ func (hc *HardwareCharacteristics) setRaw(raw string) error {
 		err = hc.setMem(str)
 	case "root-disk":
 		err = hc.setRootDisk(str)
+	case "root-disk-source":
+		err = hc.setRootDiskSource(str)
 	case "tags":
 		err = hc.setTags(str)
 	case "availability-zone":
@@ -213,6 +221,16 @@ func (hc *HardwareCharacteristics) setRootDisk(str string) (err error) {
 		return fmt.Errorf("already set")
 	}
 	hc.RootDisk, err = parseSize(str)
+	return
+}
+
+func (hc *HardwareCharacteristics) setRootDiskSource(str string) (err error) {
+	if hc.RootDiskSource != nil {
+		return fmt.Errorf("already set")
+	}
+	if str != "" {
+		hc.RootDiskSource = &str
+	}
 	return
 }
 

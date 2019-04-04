@@ -114,6 +114,11 @@ func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *gc.C) {
 }
 
 func (s *PrecheckerSuite) addOneMachine(c *gc.C, modelCons constraints.Value, placement string) (state.MachineTemplate, error) {
+	_, template, err := s.addMachine(c, modelCons, placement)
+	return template, err
+}
+
+func (s *PrecheckerSuite) addMachine(c *gc.C, modelCons constraints.Value, placement string) (*state.Machine, state.MachineTemplate, error) {
 	err := s.State.SetModelConstraints(modelCons)
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
@@ -124,8 +129,8 @@ func (s *PrecheckerSuite) addOneMachine(c *gc.C, modelCons constraints.Value, pl
 		Jobs:        oneJob,
 		Placement:   placement,
 	}
-	_, err = s.State.AddOneMachine(template)
-	return template, err
+	machine, err := s.State.AddOneMachine(template)
+	return machine, template, err
 }
 
 func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
@@ -242,4 +247,70 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 		Volume:   volumeTags[0],
 		VolumeId: "foo",
 	}})
+}
+
+func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
+	s.prechecker.precheckInstanceError = errors.Errorf("failed for some reason")
+	ch := s.AddTestingCharm(c, "wordpress")
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        "wordpress",
+		Charm:       ch,
+		NumUnits:    1,
+		Constraints: constraints.MustParse("root-disk=20G"),
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": failed for some reason`)
+	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
+		Series:      "quantal",
+		Constraints: constraints.MustParse("root-disk=20G"),
+	})
+}
+
+func (s *PrecheckerSuite) TestPrecheckAddApplicationAllMachinePlacement(c *gc.C) {
+	m1, _, err := s.addMachine(c, constraints.MustParse(""), "")
+	c.Assert(err, jc.ErrorIsNil)
+	m2, _, err := s.addMachine(c, constraints.MustParse(""), "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure the prechecker isn't called.
+	s.prechecker.precheckInstanceError = errors.Errorf("boom!")
+
+	ch := s.AddTestingCharm(c, "wordpress")
+	_, err = s.State.AddApplication(state.AddApplicationArgs{
+		Name:     "wordpress",
+		Series:   "precise",
+		Charm:    ch,
+		NumUnits: 2,
+		Placement: []*instance.Placement{
+			instance.MustParsePlacement(m1.Id()),
+			instance.MustParsePlacement(m2.Id()),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
+	m1, _, err := s.addMachine(c, constraints.MustParse(""), "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure the prechecker still gets called if there's a machine
+	// placement and a directive that needs to be passed to the
+	// provider.
+
+	s.prechecker.precheckInstanceError = errors.Errorf("hey now")
+	ch := s.AddTestingCharm(c, "wordpress")
+	_, err = s.State.AddApplication(state.AddApplicationArgs{
+		Name:     "wordpress",
+		Series:   "precise",
+		Charm:    ch,
+		NumUnits: 2,
+		Placement: []*instance.Placement{
+			{Scope: instance.MachineScope, Directive: m1.Id()},
+			{Scope: s.State.ModelUUID(), Directive: "somewhere"},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": hey now`)
+	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
+		Series:    "precise",
+		Placement: "somewhere",
+	})
 }

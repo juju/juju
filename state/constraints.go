@@ -17,50 +17,53 @@ import (
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
 type constraintsDoc struct {
-	ModelUUID    string `bson:"model-uuid"`
-	Arch         *string
-	CpuCores     *uint64
-	CpuPower     *uint64
-	Mem          *uint64
-	RootDisk     *uint64
-	InstanceType *string
-	Container    *instance.ContainerType
-	Tags         *[]string
-	Spaces       *[]string
-	VirtType     *string
-	Zones        *[]string
+	ModelUUID      string `bson:"model-uuid"`
+	Arch           *string
+	CpuCores       *uint64
+	CpuPower       *uint64
+	Mem            *uint64
+	RootDisk       *uint64
+	RootDiskSource *string
+	InstanceType   *string
+	Container      *instance.ContainerType
+	Tags           *[]string
+	Spaces         *[]string
+	VirtType       *string
+	Zones          *[]string
 }
 
 func (doc constraintsDoc) value() constraints.Value {
 	result := constraints.Value{
-		Arch:         doc.Arch,
-		CpuCores:     doc.CpuCores,
-		CpuPower:     doc.CpuPower,
-		Mem:          doc.Mem,
-		RootDisk:     doc.RootDisk,
-		InstanceType: doc.InstanceType,
-		Container:    doc.Container,
-		Tags:         doc.Tags,
-		Spaces:       doc.Spaces,
-		VirtType:     doc.VirtType,
-		Zones:        doc.Zones,
+		Arch:           doc.Arch,
+		CpuCores:       doc.CpuCores,
+		CpuPower:       doc.CpuPower,
+		Mem:            doc.Mem,
+		RootDisk:       doc.RootDisk,
+		RootDiskSource: doc.RootDiskSource,
+		InstanceType:   doc.InstanceType,
+		Container:      doc.Container,
+		Tags:           doc.Tags,
+		Spaces:         doc.Spaces,
+		VirtType:       doc.VirtType,
+		Zones:          doc.Zones,
 	}
 	return result
 }
 
 func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 	result := constraintsDoc{
-		Arch:         cons.Arch,
-		CpuCores:     cons.CpuCores,
-		CpuPower:     cons.CpuPower,
-		Mem:          cons.Mem,
-		RootDisk:     cons.RootDisk,
-		InstanceType: cons.InstanceType,
-		Container:    cons.Container,
-		Tags:         cons.Tags,
-		Spaces:       cons.Spaces,
-		VirtType:     cons.VirtType,
-		Zones:        cons.Zones,
+		Arch:           cons.Arch,
+		CpuCores:       cons.CpuCores,
+		CpuPower:       cons.CpuPower,
+		Mem:            cons.Mem,
+		RootDisk:       cons.RootDisk,
+		RootDiskSource: cons.RootDiskSource,
+		InstanceType:   cons.InstanceType,
+		Container:      cons.Container,
+		Tags:           cons.Tags,
+		Spaces:         cons.Spaces,
+		VirtType:       cons.VirtType,
+		Zones:          cons.Zones,
 	}
 	return result
 }
