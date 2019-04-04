@@ -158,14 +158,28 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		return fail, errors.Trace(err)
 	}
 	if model.Type() == state.ModelTypeCAAS {
-		publicDNS, err := network.ParseHostPorts(a.srv.publicDNSName())
+		app, err := a.root.state.Application(model.Name())
 		if err != nil {
 			return fail, errors.Trace(err)
 		}
-		servers = append(
-			servers,
-			params.FromNetworkHostsPorts([][]network.HostPort{publicDNS})...,
+		svcInfo, err := app.ServiceInfo()
+		if err != nil {
+			return fail, errors.Trace(err)
+		}
+		controllerConfig, err := a.root.state.ControllerConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		servers = params.FromNetworkHostsPorts(
+			[][]network.HostPort{
+				network.AddressesWithPort(svcInfo.Addresses, controllerConfig.APIPort()),
+			},
 		)
+		// publicDNS, err := network.ParseHostPorts(a.srv.publicDNSName())
+		// if err != nil {
+		// 	return fail, errors.Trace(err)
+		// }
+		// servers = params.FromNetworkHostsPorts([][]network.HostPort{publicDNS})
 	}
 
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
