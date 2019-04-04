@@ -42,14 +42,14 @@ func NewSwitchGenerationCommand() cmd.Command {
 type switchGenerationCommand struct {
 	modelcmd.ModelCommandBase
 
-	api SwitchGenerationCommandAPI
+	api CheckoutCommandAPI
 
 	branchName string
 }
 
-// SwitchGenerationCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package mocks -destination ./mocks/switchgeneration_mock.go github.com/juju/juju/cmd/juju/model SwitchGenerationCommandAPI
-type SwitchGenerationCommandAPI interface {
+// CheckoutCommandAPI defines an API interface to be used during testing.
+//go:generate mockgen -package mocks -destination ./mocks/checkout_mock.go github.com/juju/juju/cmd/juju/model CheckoutCommandAPI
+type CheckoutCommandAPI interface {
 	Close() error
 	HasActiveBranch(string, string) (bool, error)
 }
@@ -82,7 +82,7 @@ func (c *switchGenerationCommand) Init(args []string) error {
 // getAPI returns the API. This allows passing in a test SwitchGenerationCommandAPI
 // Run (cmd.Command) sets the active generation in the local store.
 // implementation.
-func (c *switchGenerationCommand) getAPI() (SwitchGenerationCommandAPI, error) {
+func (c *switchGenerationCommand) getAPI() (CheckoutCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}

@@ -72,13 +72,13 @@ func (s *checkoutSuite) runInit(args ...string) error {
 	return cmdtesting.InitCommand(model.NewSwitchGenerationCommandForTest(nil, s.store), args)
 }
 
-func (s *checkoutSuite) runCommand(c *gc.C, api model.SwitchGenerationCommandAPI, args ...string) (*cmd.Context, error) {
+func (s *checkoutSuite) runCommand(c *gc.C, api model.CheckoutCommandAPI, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, model.NewSwitchGenerationCommandForTest(api, s.store), args...)
 }
 
-func setUpSwitchMocks(c *gc.C) (*gomock.Controller, *mocks.MockSwitchGenerationCommandAPI) {
+func setUpSwitchMocks(c *gc.C) (*gomock.Controller, *mocks.MockCheckoutCommandAPI) {
 	ctrl := gomock.NewController(c)
-	api := mocks.NewMockSwitchGenerationCommandAPI(ctrl)
+	api := mocks.NewMockCheckoutCommandAPI(ctrl)
 	api.EXPECT().Close()
 	return ctrl, api
 }
