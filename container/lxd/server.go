@@ -180,6 +180,9 @@ func (s *Server) GetContainerProfiles(name string) ([]string, error) {
 	return container.Profiles, nil
 }
 
+// TODO: HML 2-apr-2019
+// remove when provisioner_task processProfileChanges() is
+// removed.
 // ReplaceOrAddContainerProfile updates the profiles for the container with the
 // input name, using the input values.
 func (s *Server) ReplaceOrAddContainerProfile(name, oldProfile, newProfile string) error {
@@ -223,6 +226,27 @@ func addRemoveReplaceProfileName(profiles []string, oldProfile, newProfile strin
 		}
 	}
 	return profiles
+}
+
+// UpdateContainerProfiles applies the given profiles (by name) to the
+// named container.  It is assumed the profiles have all been added to
+// the server before hand.
+func (s *Server) UpdateContainerProfiles(name string, profiles []string) error {
+	container, eTag, err := s.GetContainer(name)
+	if err != nil {
+		return errors.Trace(errors.Annotatef(err, "failed to get %q", name))
+	}
+
+	container.Profiles = profiles
+	resp, err := s.UpdateContainer(name, container.Writable(), eTag)
+	if err != nil {
+		return errors.Trace(errors.Annotatef(err, "failed to update %q with profiles", name))
+	}
+
+	op := resp.Get()
+	logger.Debugf("updated %q profiles, waiting on %s", name, op.Description)
+	err = resp.Wait()
+	return errors.Trace(err)
 }
 
 // CreateClientCertificate adds the input certificate to the server,

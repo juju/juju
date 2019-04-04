@@ -5,16 +5,16 @@
 package testing
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
 	container "github.com/juju/juju/container"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
+	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	environs "github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/instances"
+	instances "github.com/juju/juju/environs/instances"
 	charm_v6 "gopkg.in/juju/charm.v6"
+	reflect "reflect"
 )
 
 // MockTestLXDManager is a mock of TestLXDManager interface
@@ -38,6 +38,19 @@ func NewMockTestLXDManager(ctrl *gomock.Controller) *MockTestLXDManager {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockTestLXDManager) EXPECT() *MockTestLXDManagerMockRecorder {
 	return m.recorder
+}
+
+// AssignProfiles mocks base method
+func (m *MockTestLXDManager) AssignProfiles(arg0 string, arg1 []string, arg2 []lxdprofile.ProfilePost) ([]string, error) {
+	ret := m.ctrl.Call(m, "AssignProfiles", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AssignProfiles indicates an expected call of AssignProfiles
+func (mr *MockTestLXDManagerMockRecorder) AssignProfiles(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignProfiles", reflect.TypeOf((*MockTestLXDManager)(nil).AssignProfiles), arg0, arg1, arg2)
 }
 
 // CreateContainer mocks base method
