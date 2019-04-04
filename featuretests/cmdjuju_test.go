@@ -257,9 +257,9 @@ settings:
 
 	// Ensure the new CAAS model is in the local store.
 	modelDetails := jujuclient.ModelDetails{
-		ModelUUID:       st.ModelUUID(),
-		ModelType:       "caas",
-		ModelGeneration: "current",
+		ModelUUID:    st.ModelUUID(),
+		ModelType:    "caas",
+		ActiveBranch: "current",
 	}
 	c.Assert(s.ControllerStore.UpdateModel("kontroll", "admin/caas-model", modelDetails), jc.ErrorIsNil)
 
