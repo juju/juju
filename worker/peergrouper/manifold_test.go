@@ -60,12 +60,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		StateName:          "state",
 		Hub:                s.hub,
 		NewWorker:          s.newWorker,
-		ControllerSupportsSpaces: func(st *state.State) (bool, error) {
-			if st != s.State {
-				return false, errors.New("invalid state")
-			}
-			return true, nil
-		},
 	})
 }
 
@@ -124,11 +118,11 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		APIHostPortsSetter: &peergrouper.CachingAPIHostPortsSetter{
 			APIHostPortsSetter: s.State,
 		},
-		Clock:          s.clock,
-		Hub:            s.hub,
-		SupportsSpaces: true,
-		MongoPort:      1234,
-		APIPort:        5678,
+		Clock:      s.clock,
+		Hub:        s.hub,
+		MongoPort:  1234,
+		APIPort:    5678,
+		SupportsHA: true,
 	})
 }
 

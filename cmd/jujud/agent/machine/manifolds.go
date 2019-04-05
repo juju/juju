@@ -241,11 +241,6 @@ type ManifoldsConfig struct {
 	// the specified UUID and type.
 	NewModelWorker func(modelUUID string, modelType state.ModelType) (worker.Worker, error)
 
-	// ControllerSupportsSpaces is a function that reports whether or
-	// not the controller model, represented by the given *state.State,
-	// supports network spaces.
-	ControllerSupportsSpaces func(*state.State) (bool, error)
-
 	// MachineLock is a central source for acquiring the machine lock.
 	// This is used by a number of workers to ensure serialisation of actions
 	// across the machine.
@@ -724,13 +719,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
-			AgentName:                agentName,
-			ClockName:                clockName,
-			ControllerPortName:       controllerPortName,
-			StateName:                stateName,
-			Hub:                      config.CentralHub,
-			NewWorker:                peergrouper.New,
-			ControllerSupportsSpaces: config.ControllerSupportsSpaces,
+			AgentName:          agentName,
+			ClockName:          clockName,
+			ControllerPortName: controllerPortName,
+			StateName:          stateName,
+			Hub:                config.CentralHub,
+			NewWorker:          peergrouper.New,
 		})),
 
 		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{

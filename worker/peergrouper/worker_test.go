@@ -133,7 +133,7 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 	logger.Infof("starting worker")
-	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 	defer workertest.CleanKill(c, w)
 
 	// Due to the inherit complexity of the multiple goroutines running
@@ -256,7 +256,7 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	mustNext(c, memberWatcher, "waiting for SetHasVote failure")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
-	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 	defer workertest.DirtyKill(c, w)
 
 	// Wait for the worker to set the initial members.
@@ -271,7 +271,7 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	// Start the worker again - although the membership should
 	// not change, the HasVote status should be updated correctly.
 	st.errors.resetErrors()
-	w = s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	w = s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 	defer workertest.CleanKill(c, w)
 
 	// Watch all the machines for changes, so we can check
@@ -321,7 +321,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
-		w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+		w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 		defer workertest.CleanKill(c, w)
 
 		// Wait for the worker to set the initial members.
@@ -336,6 +336,42 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		expectMembers := mkMembers("0v 1 2", ipVersion)
 		expectMembers[1].Address = net.JoinHostPort(ipVersion.extraHost, fmt.Sprint(mongoPort))
 		assertMembers(c, memberWatcher.Value(), expectMembers)
+	})
+}
+
+func (s *workerSuite) TestAddressChangeNoHA(c *gc.C) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
+		st := NewFakeState()
+		InitState(c, st, 3, ipVersion)
+
+		memberWatcher := st.session.members.Watch()
+		mustNext(c, memberWatcher, "init")
+		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
+
+		logger.Infof("starting worker")
+		w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, false)
+		defer workertest.CleanKill(c, w)
+
+		// There must be no replicaset updates.
+		type voyeurResult struct {
+			ok  bool
+			val interface{}
+		}
+		done := make(chan voyeurResult)
+		go func() {
+			ok := memberWatcher.Next()
+			val := memberWatcher.Value()
+			if ok {
+				members := val.([]replicaset.Member)
+				val = "\n" + prettyReplicaSetMembersSlice(members)
+			}
+			done <- voyeurResult{ok, val}
+		}()
+		select {
+		case <-done:
+			c.Fatalf("unexpected event")
+		case <-time.After(coretesting.ShortWait):
+		}
 	})
 }
 
@@ -372,7 +408,7 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 			InitState(c, st, 3, ipVersion)
 			st.errors.setErrorFor(testCase.errPattern, errors.New("sample"))
 
-			w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+			w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 			defer workertest.DirtyKill(c, w)
 
 			for j := 0; j < testCase.advanceCount; j++ {
@@ -404,7 +440,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 			return setErr
 		})
 
-		w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+		w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 		defer workertest.CleanKill(c, w)
 
 		// Just watch three error retries
@@ -438,7 +474,7 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
-		w := s.newWorker(c, st, st.session, SetAPIHostPortsFunc(publish))
+		w := s.newWorker(c, st, st.session, SetAPIHostPortsFunc(publish), true)
 		defer workertest.CleanKill(c, w)
 
 		select {
@@ -483,7 +519,7 @@ func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.hub = hub
 
-	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 	defer workertest.CleanKill(c, w)
 
 	expected := apiserver.Details{
@@ -525,6 +561,7 @@ func (s *workerSuite) TestControllersPublishedWithControllerAPIPort(c *gc.C) {
 		APIPort:            apiPort,
 		ControllerAPIPort:  controllerAPIPort,
 		Hub:                s.hub,
+		SupportsHA:         true,
 	})
 	defer workertest.CleanKill(c, w)
 
@@ -570,7 +607,7 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.hub = hub
 
-	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 	defer workertest.CleanKill(c, w)
 
 	expected := apiserver.Details{
@@ -688,7 +725,7 @@ func (s *workerSuite) runUntilPublish(c *gc.C, st *fakeState, errMsg string) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.hub = hub
 
-	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 	defer func() {
 		if errMsg == "" {
 			workertest.CleanKill(c, w)
@@ -727,7 +764,7 @@ func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestI
 	c.Assert(err, jc.ErrorIsNil)
 	s.hub = hub
 
-	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -778,7 +815,7 @@ func (s *workerSuite) doTestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWith
 	c *gc.C, ipVersion TestIPVersion,
 ) {
 	st := haSpaceTestCommonSetup(c, ipVersion, "0v")
-	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}).Wait()
+	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true).Wait()
 	errMsg := `computing desired peer group: updating member addresses: ` +
 		`juju-ha-space is not set and these machines have more than one usable address: 1[12], 1[12]` +
 		"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication"
@@ -806,7 +843,7 @@ func (s *workerSuite) doTestErrorAndStatusForHASpaceWithNoAddresses(
 	st := haSpaceTestCommonSetup(c, ipVersion, "0v")
 	st.setHASpace("nope")
 
-	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}).Wait()
+	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true).Wait()
 	errMsg := `computing desired peer group: updating member addresses: ` +
 		`no usable Mongo addresses found in configured juju-ha-space "nope" for machines: 1[012], 1[012], 1[012]`
 	c.Check(err, gc.ErrorMatches, errMsg)
@@ -857,7 +894,7 @@ func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersi
 	st := NewFakeState()
 	InitState(c, st, 3, ipVersion)
 
-	w := s.newWorker(c, st, st.session, SetAPIHostPortsFunc(publish))
+	w := s.newWorker(c, st, st.session, SetAPIHostPortsFunc(publish), true)
 	defer workertest.CleanKill(c, w)
 
 	retryInterval := initialRetryInterval
@@ -880,7 +917,7 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	st.machine("10").SetHasVote(true)
 	st.session.setStatus(mkStatuses("0p", testIPv4))
 
-	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 	defer func() {
 		if r := recover(); r != nil {
 			// we aren't exiting cleanly, so kill the worker
@@ -1095,6 +1132,7 @@ func (s *workerSuite) newWorker(
 	st State,
 	session MongoSession,
 	apiHostPortsSetter APIHostPortsSetter,
+	supportsHA bool,
 ) worker.Worker {
 	return s.newWorkerWithConfig(c, Config{
 		State:              st,
@@ -1103,5 +1141,6 @@ func (s *workerSuite) newWorker(
 		MongoPort:          mongoPort,
 		APIPort:            apiPort,
 		Hub:                s.hub,
+		SupportsHA:         supportsHA,
 	})
 }
