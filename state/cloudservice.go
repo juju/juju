@@ -11,8 +11,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// CloudService represents the state of a CAAS service.
-type CloudService interface {
+// CloudServicer represents the state of a CAAS service.
+type CloudServicer interface {
 	// ProviderId returns the id assigned to the service
 	// by the cloud.
 	ProviderId() string
@@ -21,60 +21,78 @@ type CloudService interface {
 	Addresses() []network.Address
 }
 
-// cloudService is an implementation of CloudService.
-type cloudService struct {
+// CloudService is an implementation of CloudService.
+type CloudService struct {
+	st  *State
 	doc cloudServiceDoc
 }
 
 type cloudServiceDoc struct {
-	// Id holds cloud service document key.
-	// It is the global key of the application represented
-	// by this service.
-	Id string `bson:"_id"`
+	// DocID holds cloud service document key.
+	DocID string `bson:"_id"`
 
 	ProviderId string    `bson:"provider-id"`
 	Addresses  []address `bson:"addresses"`
 }
 
+func newCloudService(st *State, doc *cloudServiceDoc) *CloudService {
+	svc := &CloudService{
+		st:  st,
+		doc: *doc,
+	}
+	return svc
+}
+
 // Id implements CloudService.
-func (c *cloudService) Id() string {
-	return c.doc.Id
+func (c *CloudService) Id() string {
+	return c.doc.DocID
 }
 
 // ProviderId implements CloudService.
-func (c *cloudService) ProviderId() string {
+func (c *CloudService) ProviderId() string {
 	return c.doc.ProviderId
 }
 
-// Address implements CloudService.
-func (c *cloudService) Addresses() []network.Address {
+// Addresses implements CloudService.
+func (c *CloudService) Addresses() []network.Address {
 	return networkAddresses(c.doc.Addresses)
 }
 
-func (a *Application) cloudService() (*cloudServiceDoc, error) {
-	coll, closer := a.st.db().GetCollection(cloudServicesC)
+func (c *CloudService) cloudService() (cloudServiceDoc, error) {
+	coll, closer := c.st.db().GetCollection(cloudServicesC)
 	defer closer()
 
 	var doc cloudServiceDoc
-	err := coll.FindId(a.globalKey()).One(&doc)
+	err := coll.FindId(c.Id()).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("cloud service for application %v", a.Name())
+		return cloudServiceDoc{}, errors.NotFoundf("cloud service %v", c.Id())
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return cloudServiceDoc{}, errors.Trace(err)
 	}
-	return &doc, nil
+	return doc, nil
 }
 
-func (a *Application) saveServiceOps(doc cloudServiceDoc) ([]txn.Op, error) {
-	existing, err := a.cloudService()
+// Refresh refreshes the content of cloud service from the underlying state.
+// It returns an error that satisfies errors.IsNotFound if the cloud service has been removed.
+func (c *CloudService) Refresh() error {
+	doc, err := c.cloudService()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.doc = doc
+	return nil
+}
+
+func (c *CloudService) saveServiceOps(doc cloudServiceDoc) ([]txn.Op, error) {
+	existing, err := c.cloudService()
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 	if err != nil {
 		return []txn.Op{{
 			C:      cloudServicesC,
-			Id:     doc.Id,
+			Id:     doc.DocID,
 			Assert: txn.DocMissing,
 			Insert: doc,
 		}}, nil
@@ -89,7 +107,7 @@ func (a *Application) saveServiceOps(doc cloudServiceDoc) ([]txn.Op, error) {
 	}
 	return []txn.Op{{
 		C:      cloudServicesC,
-		Id:     existing.Id,
+		Id:     existing.DocID,
 		Assert: asserts,
 		Update: bson.D{
 			{"$set",

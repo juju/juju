@@ -1118,6 +1118,48 @@ var (
 	errLocalApplicationExists          = errors.Errorf("application already exists")
 )
 
+type AddCloudServiceArgs struct {
+	// Id is the application Name if it's a part of application;
+	// Id will be empty and ProviderId will be the docID for
+	// a controller(controller does Not have an application).
+	Id         string
+	ProviderId string
+	Addresses  []network.Address
+}
+
+// AddCloudService creates a cloud service.
+func (st *State) AddCloudService(args AddCloudServiceArgs) (_ *CloudService, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add cloud service %q", args.ProviderId)
+
+	doc := cloudServiceDoc{
+		DocID:      args.Id,
+		ProviderId: args.ProviderId,
+		Addresses:  fromNetworkAddresses(args.Addresses, OriginProvider),
+	}
+	svc := newCloudService(st, &doc)
+
+	ops, err := svc.saveServiceOps(doc)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err = st.db().RunTransaction(ops); err == nil {
+		if err = svc.Refresh(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc, nil
+	}
+	return nil, errors.Trace(err)
+}
+
+// CloudService returns a cloud service state by Id.
+func (st *State) CloudService(Id string) (svc *CloudService, err error) {
+	svc = newCloudService(st, &cloudServiceDoc{DocID: st.docID(Id)})
+	if err = svc.Refresh(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return svc, nil
+}
+
 type AddApplicationArgs struct {
 	Name              string
 	Series            string
