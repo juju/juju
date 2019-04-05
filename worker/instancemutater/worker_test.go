@@ -16,6 +16,9 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	apiinstancemutater "github.com/juju/juju/api/instancemutater"
+	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/instancemutater"
 	"github.com/juju/juju/worker/instancemutater/mocks"
@@ -148,8 +151,46 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 		s.expectFacadeMachineTag,
 		s.notifyAppLXDProfile(1, s.closeDone),
 		s.expectMachineTag,
+		s.expectCharmProfilingInfo(3),
+		s.expectLXDProfileNames,
+		s.expectSetCharmProfiles,
+		s.expectAssignProfiles,
+		s.expectModificationStatusIdle,
 	)
+	s.cleanKill(c, w)
+}
 
+func (s *workerSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	w := s.workerForScenario(c,
+		s.ignoreLogging(c),
+		s.notifyMachines([][]string{
+			{"0"},
+		}, s.noopDone),
+		s.expectFacadeMachineTag,
+		s.notifyAppLXDProfile(1, s.closeDone),
+		s.expectMachineTag,
+		s.expectCharmProfilingInfo(2),
+		s.expectLXDProfileNames,
+		s.expectModificationStatusIdle,
+	)
+	s.cleanKill(c, w)
+}
+
+func (s *workerSuite) TestNoChangeFoundOne(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	w := s.workerForScenario(c,
+		s.ignoreLogging(c),
+		s.notifyMachines([][]string{
+			{"0"},
+		}, s.noopDone),
+		s.expectFacadeMachineTag,
+		s.notifyAppLXDProfile(1, s.closeDone),
+		s.expectMachineTag,
+		s.expectCharmProfilingInfoSimpleNoChange,
+	)
 	s.cleanKill(c, w)
 }
 
@@ -164,7 +205,7 @@ func (s *workerSuite) TestNoMachineFound(c *gc.C) {
 		s.expectFacadeReturnsNoMachine,
 	)
 
-	s.cleanKill(c, w)
+	s.errorKill(c, w)
 }
 
 func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
@@ -226,6 +267,46 @@ func (s *workerSuite) expectMachineTag() {
 	s.machine.EXPECT().Tag().Return(s.machineTag).AnyTimes()
 }
 
+func (s *workerSuite) expectCharmProfilingInfoSimpleNoChange() {
+	s.machine.EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, nil)
+}
+
+func (s *workerSuite) expectLXDProfileNames() {
+	s.environ.MockLXDProfiler.EXPECT().LXDProfileNames("juju-23423-0").Return([]string{"default", "juju-testing", "juju-testing-one-2"}, nil)
+}
+
+func (s *workerSuite) expectCharmProfilingInfo(rev int) func() {
+	return func() {
+		s.machine.EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{
+			CurrentProfiles: []string{"default", "juju-testing", "juju-testing-one-2"},
+			InstanceId:      "juju-23423-0",
+			ModelName:       "testing",
+			ProfileChanges: []apiinstancemutater.UnitProfileChanges{
+				{
+					ApplicationName: "one",
+					Revision:        rev,
+					Profile: lxdprofile.Profile{
+						Config: map[string]string{"hi": "bye"},
+					},
+				},
+			},
+		}, nil)
+	}
+}
+
+func (s *workerSuite) expectModificationStatusIdle() {
+	s.machine.EXPECT().SetModificationStatus(status.Idle, "", nil).Return(nil)
+}
+
+func (s *workerSuite) expectAssignProfiles() {
+	profiles := []string{"default", "juju-testing", "juju-testing-one-3"}
+	s.environ.MockLXDProfiler.EXPECT().AssignProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
+}
+
+func (s *workerSuite) expectSetCharmProfiles() {
+	s.machine.EXPECT().SetCharmProfiles([]string{"default", "juju-testing", "juju-testing-one-3"})
+}
+
 // notifyMachines returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
@@ -285,6 +366,17 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 		c.Errorf("timed out waiting for notifications to be consumed")
 	}
 	workertest.CleanKill(c, w)
+}
+
+// errorKill waits for notifications to be processed, then waits for the input
+// worker to be killed cleanly. If either ops time out, the test fails.
+func (s *workerSuite) errorKill(c *gc.C, w worker.Worker) {
+	select {
+	case <-s.done:
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for notifications to be consumed")
+	}
+	workertest.DirtyKill(c, w)
 }
 
 // ignoreLogging turns the suite's mock logger into a sink, with no validation.
