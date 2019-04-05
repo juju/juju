@@ -1638,9 +1638,13 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
 			// Since we can force this now, let's.. There is no point hanging on to the old charm.
-			decOps, _, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL, true, true)
+			decOps, opErrs, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL, true, true)
 			if err != nil {
-				return nil, errors.Trace(err)
+				// No need to stop further processing if the old key could not be removed.
+				logger.Errorf("could not remove old charm references for %v:%v", u.doc.CharmURL, err)
+			}
+			if len(opErrs) != 0 {
+				logger.Errorf("could not remove old charm references for %v:%v", u.doc.CharmURL, opErrs)
 			}
 			ops = append(ops, decOps...)
 		}

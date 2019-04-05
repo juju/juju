@@ -867,11 +867,14 @@ func (a *Application) changeCharmOps(
 	if oldKey != nil {
 		// Since we can force this now, let's.. There is no point hanging on
 		// to the old key.
-		decOps, _, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true, true) // current charm
+		var opErrs []error
+		decOps, opErrs, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true, true) // current charm
 		if err != nil {
-			// TODO (anastasiamac) The question is do we really need to stop further processing
-			// if the old key could not be removed?
-			return nil, errors.Trace(err)
+			// No need to stop further processing if the old key could not be removed.
+			logger.Errorf("could not remove old charm references for %v:%v", oldKey, err)
+		}
+		if len(opErrs) != 0 {
+			logger.Errorf("could not remove old charm references for %v:%v", oldKey, opErrs)
 		}
 	}
 
