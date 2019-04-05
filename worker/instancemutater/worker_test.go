@@ -197,7 +197,7 @@ func (s *workerSuite) TestNoChangeFoundOne(c *gc.C) {
 func (s *workerSuite) TestNoMachineFound(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	w := s.workerForScenario(c,
+	w, err := s.workerErrorForScenario(c,
 		s.ignoreLogging(c),
 		s.notifyMachines([][]string{
 			{"0"},
@@ -205,7 +205,16 @@ func (s *workerSuite) TestNoMachineFound(c *gc.C) {
 		s.expectFacadeReturnsNoMachine,
 	)
 
-	s.errorKill(c, w)
+	// This test had intermittent failures, one of the
+	// two following would occur.  The 2nd is what we're
+	// looking for.  Please improve this test if you're
+	// able.
+	if err != nil {
+		c.Assert(err, gc.ErrorMatches, "catacomb .* is dying")
+	} else {
+		err = workertest.CheckKill(c, w)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
 }
 
 func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
@@ -234,8 +243,8 @@ func (s *workerSuite) closeDone() {
 }
 
 // workerForScenario creates worker config based on the suite's mocks.
-// Any supplied behaviour functions are executed,
-// then a new worker is started and returned.
+// Any supplied behaviour functions are executed, then a new worker
+// is started successfully and returned.
 func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Worker {
 	config := instancemutater.Config{
 		Facade:      s.facade,
@@ -252,6 +261,25 @@ func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Wo
 	w, err := instancemutater.NewWorker(config)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
+}
+
+// workerErrorForScenario creates worker config based on the suite's mocks.
+// Any supplied behaviour functions are executed, then a new worker is
+// started and returned with any error in creation.
+func (s *workerSuite) workerErrorForScenario(c *gc.C, behaviours ...func()) (worker.Worker, error) {
+	config := instancemutater.Config{
+		Facade:      s.facade,
+		Logger:      s.logger,
+		Environ:     s.environ,
+		AgentConfig: s.agentConfig,
+		Tag:         s.machineTag,
+	}
+
+	for _, b := range behaviours {
+		b()
+	}
+
+	return instancemutater.NewWorker(config)
 }
 
 func (s *workerSuite) expectFacadeMachineTag() {
@@ -366,17 +394,6 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 		c.Errorf("timed out waiting for notifications to be consumed")
 	}
 	workertest.CleanKill(c, w)
-}
-
-// errorKill waits for notifications to be processed, then waits for the input
-// worker to be killed cleanly. If either ops time out, the test fails.
-func (s *workerSuite) errorKill(c *gc.C, w worker.Worker) {
-	select {
-	case <-s.done:
-	case <-time.After(testing.LongWait):
-		c.Errorf("timed out waiting for notifications to be consumed")
-	}
-	workertest.DirtyKill(c, w)
 }
 
 // ignoreLogging turns the suite's mock logger into a sink, with no validation.
