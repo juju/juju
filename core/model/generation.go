@@ -4,7 +4,9 @@
 package model
 
 import (
-	errors "github.com/juju/errors"
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/settings"
 )
 
 // TODO (manadart 2019-04-21) Change the nomenclature here to indicate "branch"
@@ -35,6 +37,11 @@ func ValidateBranchName(name string) error {
 func NextGenerationKey(key string) string {
 	return key + generationKeySuffix
 }
+
+// BranchCharmConfig is a type alias for representing charm configuration
+// changes made under a branch.
+// It is collections of settings changes keyed on application name.
+type BranchCharmConfig = map[string]settings.ItemChanges
 
 // GenerationApplication represents changes to an application
 // made under a generation.

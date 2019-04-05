@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/model"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -42,6 +44,11 @@ type generationDoc struct {
 	// which indicates that it has configuration changes applied in the
 	// generation, but no units currently set to be in it.
 	AssignedUnits map[string][]string `bson:"assigned-units"`
+
+	// Config is all changes made to charm configuration under this branch.
+	Config model.BranchCharmConfig `bson:"charm-config"`
+
+	// TODO (manadart 2019-04-02): CharmURLs, Resources.
 
 	// Created is a Unix timestamp indicating when this generation was created.
 	Created int64 `bson:"created"`
@@ -82,6 +89,11 @@ func (g *Generation) ModelUUID() string {
 // that have been assigned to this generation.
 func (g *Generation) AssignedUnits() map[string][]string {
 	return g.doc.AssignedUnits
+}
+
+// Config returns all changed charm configuration for the generation.
+func (g *Generation) Config() model.BranchCharmConfig {
+	return g.doc.Config
 }
 
 // Created returns the Unix timestamp at generation creation.
@@ -249,6 +261,70 @@ func assignGenerationUnitTxnOps(id, appName string, unit *Unit) []txn.Op {
 			},
 		},
 	}
+}
+
+// UpdateCharmConfig applies the input changes to the input application's
+// charm configuration under this branch.
+// the incoming charm settings are assumed to have been validated.
+func (g *Generation) UpdateCharmConfig(appName string, master *Settings, validChanges charm.Settings) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := g.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if err := g.CheckNotComplete(); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if g.doc.Config == nil {
+			g.doc.Config = make(model.BranchCharmConfig)
+		}
+
+		// Apply the current branch deltas to the master settings.
+		branchDelta, branchHasDelta := g.doc.Config[appName]
+		if branchHasDelta {
+			master.applyChanges(branchDelta)
+		}
+
+		// Now apply the incoming changes on top.
+		for k, v := range validChanges {
+			if v == nil {
+				master.Delete(k)
+			} else {
+				master.Set(k, v)
+			}
+		}
+
+		// Now get the resulting delta.
+		newDelta := master.changes()
+
+		// Ensure that the old values from the delta always indicate their
+		// original values.
+		if branchHasDelta {
+			if err := newDelta.ApplyDeltaSource(branchDelta); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		g.doc.Config[appName] = newDelta
+
+		return []txn.Op{
+			{
+				C:  generationsC,
+				Id: g.doc.DocId,
+				Assert: bson.D{{"$and", []bson.D{
+					{{"completed", 0}},
+					{{"txn-revno", g.doc.TxnRevno}},
+				}}},
+				Update: bson.D{
+					{"$set", bson.D{{"charm-config", g.doc.Config}}},
+				},
+			},
+		}, nil
+	}
+
+	return errors.Trace(g.st.db().Run(buildTxn))
 }
 
 // Commit marks the generation as completed and assigns it the next value from
