@@ -1304,6 +1304,10 @@ func (m *Model) destroyOps(
 				// cleanup, so the storage can be destroyed/released
 				// according to the parameters.
 				*args.DestroyStorage,
+				// TODO (anastasiamac 2019-04-04) Once we implement
+				// 'destroy-model --force' this will be passed in from the user.
+				// For now, hardcode.
+				false,
 			))
 		}
 	}

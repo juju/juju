@@ -83,8 +83,8 @@ type StorageBackend interface {
 	AllStorageInstances() ([]state.StorageInstance, error)
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
-	ReleaseStorageInstance(names.StorageTag, bool) error
-	DetachStorage(names.StorageTag, names.UnitTag) error
+	ReleaseStorageInstance(names.StorageTag, bool, bool) error
+	DetachStorage(names.StorageTag, names.UnitTag, bool) error
 
 	Filesystem(names.FilesystemTag) (state.Filesystem, error)
 	FilesystemAttachment(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)

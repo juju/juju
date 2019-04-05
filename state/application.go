@@ -2028,9 +2028,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 		}
 		errs = append(errs, err)
 	} else {
-		// TODO (anastasiamac 2019-03-29) There is a lot of logic in here...
-		// Should this also accept a force flag?
-		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag())
+		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag(), force)
 		if err != nil {
 			if !force {
 				return nil, errs, errors.Trace(err)

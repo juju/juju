@@ -251,19 +251,16 @@ func copyAttributes(values attributeMap) attributeMap {
 // Destroy in addition to doing what Destroy() does,
 // when force is passed in as 'true', forces th destruction of remote application,
 // ignoring errors.
-func (s *RemoteApplication) DestroyWithForce(force bool) error {
-	// TODO (anastasiamac 2019-04-2) First return here is operational errors.
-	// We might want to consider to pass them up to notify users of non-fatal
-	// errors we have encountered.
-	_, err := s.internalDestroy(force)
-	return err
+func (s *RemoteApplication) DestroyWithForce(force bool) ([]error, error) {
+	return s.internalDestroy(force)
 }
 
 // Destroy ensures that this remote application reference and all its relations
 // will be removed at some point; if no relation involving the
 // application has any units in scope, they are all removed immediately.
 func (s *RemoteApplication) Destroy() error {
-	return s.DestroyWithForce(false)
+	_, err := s.DestroyWithForce(false)
+	return err
 }
 
 func (s *RemoteApplication) internalDestroy(force bool) (errs []error, err error) {
@@ -358,7 +355,9 @@ func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
 				if countRemoteUnits := len(remoteUnits); countRemoteUnits != 0 {
 					logger.Debugf("got %v relation units to clean", countRemoteUnits)
 					for _, ru := range remoteUnits {
-						if err := ru.LeaveScopeWithForce(force); err != nil {
+						opErrs, err := ru.LeaveScopeWithForce(force)
+						errs = append(errs, opErrs...)
+						if err != nil {
 							errs = append(errs, err)
 							failRels = err
 							continue

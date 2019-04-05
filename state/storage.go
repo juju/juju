@@ -366,9 +366,9 @@ func IsStorageAttachedError(err error) bool {
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then DestroyStorageInstance will return an error
 // satisfying IsStorageAttachedError.
-func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error) {
+func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage %q", tag.Id())
-	return sb.destroyStorageInstance(tag, destroyAttachments, false)
+	return sb.destroyStorageInstance(tag, destroyAttachments, false, force)
 }
 
 // ReleaseStorageInstance ensures that the storage instance will be removed at
@@ -379,15 +379,16 @@ func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAt
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then ReleaseStorageInstance will return an error
 // satisfying IsStorageAttachedError.
-func (sb *storageBackend) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error) {
+func (sb *storageBackend) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot release storage %q", tag.Id())
-	return sb.destroyStorageInstance(tag, destroyAttachments, true)
+	return sb.destroyStorageInstance(tag, destroyAttachments, true, force)
 }
 
 func (sb *storageBackend) destroyStorageInstance(
 	tag names.StorageTag,
 	destroyAttachments bool,
 	releaseMachineStorage bool,
+	force bool,
 ) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := sb.storageInstance(tag)
@@ -398,14 +399,18 @@ func (sb *storageBackend) destroyStorageInstance(
 			return nil, errors.Trace(err)
 		}
 		switch ops, err := sb.destroyStorageInstanceOps(
-			s, destroyAttachments, releaseMachineStorage,
+			s, destroyAttachments, releaseMachineStorage, force,
 		); err {
 		case errAlreadyDying:
 			return nil, jujutxn.ErrNoOperations
 		case nil:
 			return ops, nil
 		default:
-			return nil, errors.Trace(err)
+			if !force {
+				return nil, errors.Trace(err)
+			}
+			logger.Warningf("could not destroy storage instance %v: %v", tag.Id(), err)
+			return ops, nil
 		}
 	}
 	return sb.mb.db().Run(buildTxn)
@@ -415,9 +420,12 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	s *storageInstance,
 	destroyAttachments bool,
 	releaseStorage bool,
+	force bool,
 ) ([]txn.Op, error) {
 	if s.doc.Life == Dying {
-		return nil, errAlreadyDying
+		if !force {
+			return nil, errAlreadyDying
+		}
 	}
 	if s.doc.AttachmentCount == 0 {
 		// There are no attachments remaining, so we can
@@ -425,7 +433,7 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
 		assert := append(hasNoAttachments, isAliveDoc...)
 		s.doc.Releasing = releaseStorage
-		return removeStorageInstanceOps(s, assert)
+		return removeStorageInstanceOps(s, assert, force)
 	}
 	if !destroyAttachments {
 		// There are storage attachments, and we've been instructed
@@ -467,10 +475,10 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	}
 	update := bson.D{{"$set", setFields}}
 	ops := []txn.Op{
-		newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id),
+		newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id, force),
 	}
 	if owner != nil && sb.modelType == ModelTypeCAAS {
-		ops = append(ops, newCleanupOp(cleanupDyingUnitResources, owner.Id()))
+		ops = append(ops, newCleanupOp(cleanupDyingUnitResources, owner.Id(), force))
 	}
 	ops = append(ops, validateRemoveOps...)
 	ops = append(ops, txn.Op{
@@ -498,7 +506,7 @@ func checkStoragePoolReleasable(im *storageBackend, pool string) error {
 
 // removeStorageInstanceOps removes the storage instance with the given
 // tag from state, if the specified assertions hold true.
-func removeStorageInstanceOps(si *storageInstance, assert bson.D) ([]txn.Op, error) {
+func removeStorageInstanceOps(si *storageInstance, assert bson.D, force bool) ([]txn.Op, error) {
 	// Remove the storage instance document, ensuring the owner does not
 	// change from what's passed in.
 	owner := si.maybeOwner()
@@ -519,7 +527,10 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D) ([]txn.Op, err
 		// owner's charm storage requirements.
 		validateRemoveOps, err := validateRemoveOwnerStorageInstanceOps(si)
 		if err != nil {
-			return nil, errors.Trace(err)
+			if !force {
+				return nil, errors.Trace(err)
+			}
+			logger.Warningf("could not validate owner for storage instance %v during remove: %v", si.StorageTag().Id(), err)
 		}
 		ops = append(ops, validateRemoveOps...)
 
@@ -527,9 +538,13 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D) ([]txn.Op, err
 		// up a slot for a new storage instance to be attached.
 		decrefOp, err := decrefEntityStorageOp(si.sb.mb, owner, si.StorageName())
 		if err != nil {
-			return nil, errors.Trace(err)
+			if !force {
+				return nil, errors.Trace(err)
+			}
+			logger.Warningf("could not decrement owner count for storage instance %v during remove: %v", si.StorageTag().Id(), err)
+		} else {
+			ops = append(ops, decrefOp)
 		}
-		ops = append(ops, decrefOp)
 	}
 
 	machineStorageOp := func(c string, id string) txn.Op {
@@ -552,12 +567,18 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D) ([]txn.Op, err
 		))
 		fsOps, err := destroyFilesystemOps(si.sb, filesystem, si.doc.Releasing, nil)
 		if err != nil {
-			return nil, errors.Trace(err)
+			if !force {
+				return nil, errors.Trace(err)
+			}
+			logger.Warningf("could not get operations to destroy filesystem %v when removing storage instance %v: %v", filesystem.FilesystemTag().Id(), si.StorageTag().Id(), err)
 		}
 		ops = append(ops, fsOps...)
 		haveFilesystem = true
 	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
+		if !force {
+			return nil, errors.Trace(err)
+		}
+		logger.Warningf("could not get filesystem when removing storage instance %v: %v", si.StorageTag().Id(), err)
 	}
 	volume, err := si.sb.storageInstanceVolume(si.StorageTag())
 	if err == nil {
@@ -571,12 +592,18 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D) ([]txn.Op, err
 		if !haveFilesystem {
 			volOps, err := destroyVolumeOps(si.sb, volume, si.doc.Releasing, nil)
 			if err != nil {
-				return nil, errors.Trace(err)
+				if !force {
+					return nil, errors.Trace(err)
+				}
+				logger.Warningf("could not get operations to destroy volume %v when removing storage instance %v: %v", volume.Tag().Id(), si.StorageTag().Id(), err)
 			}
 			ops = append(ops, volOps...)
 		}
 	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
+		if !force {
+			return nil, errors.Trace(err)
+		}
+		logger.Warningf("could not get volume when removing storage instance %v: %v", si.StorageTag().Id(), err)
 	}
 	return ops, nil
 }
@@ -1166,7 +1193,7 @@ func (sb *storageBackend) DestroyUnitStorageAttachments(unit names.UnitTag) (err
 
 // DetachStorage ensures that the storage attachment will be
 // removed at some point.
-func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.UnitTag) (err error) {
+func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.UnitTag, force bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := sb.storageAttachment(storage, unit)
@@ -1279,7 +1306,7 @@ func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.Uni
 		}
 		if removeStorageAttachment {
 			// Short-circuit the removal of the storage attachment.
-			return removeStorageAttachmentOps(sb, s, si, assert, ops...)
+			return removeStorageAttachmentOps(sb, s, si, force, assert, ops...)
 		}
 		return append(ops, detachStorageOps(storage, unit)...), nil
 	}
@@ -1332,7 +1359,7 @@ func (sb *storageBackend) storageHostAttachment(
 // Remove removes the storage attachment from state, and may remove its storage
 // instance as well, if the storage instance is Dying and no other references to
 // it exist. It will fail if the storage attachment is not Dying.
-func (sb *storageBackend) RemoveStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {
+func (sb *storageBackend) RemoveStorageAttachment(storage names.StorageTag, unit names.UnitTag, force bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := sb.storageAttachment(storage, unit)
@@ -1343,6 +1370,7 @@ func (sb *storageBackend) RemoveStorageAttachment(storage names.StorageTag, unit
 			return nil, errors.Trace(err)
 		}
 		if s.doc.Life != Dying {
+			// TODO (anastasiamac 2019-04-05) We might want to ignore this when forcing...
 			return nil, errors.New("storage attachment is not dying")
 		}
 		inst, err := sb.storageInstance(storage)
@@ -1353,7 +1381,7 @@ func (sb *storageBackend) RemoveStorageAttachment(storage names.StorageTag, unit
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := removeStorageAttachmentOps(sb, s, inst, bson.D{{"life", Dying}})
+		ops, err := removeStorageAttachmentOps(sb, s, inst, force, bson.D{{"life", Dying}})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1366,6 +1394,7 @@ func removeStorageAttachmentOps(
 	im *storageBackend,
 	s *storageAttachment,
 	si *storageInstance,
+	force bool,
 	assert interface{},
 	baseOps ...txn.Op,
 ) ([]txn.Op, error) {
@@ -1387,9 +1416,12 @@ func removeStorageAttachmentOps(
 			// The storage instance is dying: no more attachments
 			// can be added to the instance, so it can be removed.
 			hasLastRef := bson.D{{"life", Dying}, {"attachmentcount", 1}}
-			siOps, err := removeStorageInstanceOps(si, hasLastRef)
+			siOps, err := removeStorageInstanceOps(si, hasLastRef, force)
 			if err != nil {
-				return nil, errors.Trace(err)
+				if !force {
+					return nil, errors.Trace(err)
+				}
+				logger.Warningf("could not determine operations for storage instance %v removal: %v", si.StorageTag().Id(), err)
 			}
 			return append(ops, siOps...), nil
 		} else if si.doc.Owner == names.NewUnitTag(s.doc.Unit).String() {
@@ -1398,7 +1430,10 @@ func removeStorageAttachmentOps(
 			siAssert = bson.D{{"owner", si.doc.Owner}}
 			validateRemoveOps, err := validateRemoveOwnerStorageInstanceOps(si)
 			if err != nil {
-				return nil, errors.Trace(err)
+				if !force {
+					return nil, errors.Trace(err)
+				}
+				logger.Warningf("error validating owner for storage instance %v removal: %v", si.StorageTag().Id(), err)
 			}
 			ops = append(ops, validateRemoveOps...)
 
@@ -1409,7 +1444,10 @@ func removeStorageAttachmentOps(
 			})
 			decrefOp, err := decrefEntityStorageOp(im.mb, s.Unit(), si.StorageName())
 			if err != nil {
-				return nil, errors.Trace(err)
+				if !force {
+					return nil, errors.Trace(err)
+				}
+				logger.Warningf("could not decrease refcount for storage instance %v removal: %v", si.StorageTag().Id(), err)
 			}
 			ops = append(ops, decrefOp)
 		}
@@ -1444,7 +1482,10 @@ func removeStorageAttachmentOps(
 	// filesystem, detach the volume/filesystem too.
 	detachOps, err := im.detachStorageAttachmentOps(si, s.Unit())
 	if err != nil {
-		return nil, errors.Trace(err)
+		if !force {
+			return nil, errors.Trace(err)
+		}
+		logger.Warningf("could not determine operations to detach storage attachments for storage instance %v unit %v: %v", si.StorageTag().Id(), s.Unit().Id(), err)
 	}
 	ops = append(ops, detachOps...)
 
@@ -1582,7 +1623,7 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 
 // removeStorageInstancesOps returns the transaction operations to remove all
 // storage instances owned by the specified entity.
-func removeStorageInstancesOps(im *storageBackend, owner names.Tag) ([]txn.Op, error) {
+func removeStorageInstancesOps(im *storageBackend, owner names.Tag, force bool) ([]txn.Op, error) {
 	coll, closer := im.mb.db().GetCollection(storageInstancesC)
 	defer closer()
 
@@ -1592,13 +1633,18 @@ func removeStorageInstancesOps(im *storageBackend, owner names.Tag) ([]txn.Op, e
 		return nil, errors.Annotatef(err, "cannot get storage instances for %s", owner)
 	}
 	ops := make([]txn.Op, 0, len(docs))
+	var removalErr error
 	for _, doc := range docs {
 		si := &storageInstance{im, doc}
-		storageInstanceOps, err := removeStorageInstanceOps(si, nil)
+		storageInstanceOps, err := removeStorageInstanceOps(si, nil, force)
 		if err != nil {
-			return nil, errors.Trace(err)
+			removalErr = errors.Trace(err)
+			logger.Warningf("error determining operations for storage instance %v removal: %v", si.StorageTag().Id(), err)
 		}
 		ops = append(ops, storageInstanceOps...)
+	}
+	if !force && removalErr != nil {
+		return nil, removalErr
 	}
 	return ops, nil
 }

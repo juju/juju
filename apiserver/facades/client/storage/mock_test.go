@@ -64,10 +64,10 @@ type mockStorageAccessor struct {
 	allFilesystems                      func() ([]state.Filesystem, error)
 	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
 	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
-	destroyStorageInstance              func(names.StorageTag, bool) error
-	releaseStorageInstance              func(names.StorageTag, bool) error
+	destroyStorageInstance              func(names.StorageTag, bool, bool) error
+	releaseStorageInstance              func(names.StorageTag, bool, bool) error
 	attachStorage                       func(names.StorageTag, names.UnitTag) error
-	detachStorage                       func(names.StorageTag, names.UnitTag) error
+	detachStorage                       func(names.StorageTag, names.UnitTag, bool) error
 	addExistingFilesystem               func(state.FilesystemInfo, *state.VolumeInfo, string) (names.StorageTag, error)
 }
 
@@ -167,16 +167,16 @@ func (st *mockStorageAccessor) AttachStorage(storage names.StorageTag, unit name
 	return st.attachStorage(storage, unit)
 }
 
-func (st *mockStorageAccessor) DetachStorage(storage names.StorageTag, unit names.UnitTag) error {
-	return st.detachStorage(storage, unit)
+func (st *mockStorageAccessor) DetachStorage(storage names.StorageTag, unit names.UnitTag, force bool) error {
+	return st.detachStorage(storage, unit, force)
 }
 
-func (st *mockStorageAccessor) DestroyStorageInstance(tag names.StorageTag, destroyAttached bool) error {
-	return st.destroyStorageInstance(tag, destroyAttached)
+func (st *mockStorageAccessor) DestroyStorageInstance(tag names.StorageTag, destroyAttached bool, force bool) error {
+	return st.destroyStorageInstance(tag, destroyAttached, force)
 }
 
-func (st *mockStorageAccessor) ReleaseStorageInstance(tag names.StorageTag, destroyAttached bool) error {
-	return st.releaseStorageInstance(tag, destroyAttached)
+func (st *mockStorageAccessor) ReleaseStorageInstance(tag names.StorageTag, destroyAttached bool, force bool) error {
+	return st.releaseStorageInstance(tag, destroyAttached, force)
 }
 
 func (st *mockStorageAccessor) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {

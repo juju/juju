@@ -19,7 +19,7 @@ type storageAccess interface {
 type storageInterface interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
-	RemoveStorageAttachment(names.StorageTag, names.UnitTag) error
+	RemoveStorageAttachment(names.StorageTag, names.UnitTag, bool) error
 	DestroyUnitStorageAttachments(names.UnitTag) error
 	StorageAttachment(names.StorageTag, names.UnitTag) (state.StorageAttachment, error)
 	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)

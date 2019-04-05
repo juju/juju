@@ -338,7 +338,9 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 	if err != nil {
 		return err
 	}
-	err = s.storage.RemoveStorageAttachment(storageTag, unitTag)
+	// TODO (anastasiamac 2019-04-04) We can now force storage removal
+	// but for now, while we have not an arg passed in, just hardcode.
+	err = s.storage.RemoveStorageAttachment(storageTag, unitTag, false)
 	if errors.IsNotFound(err) {
 		err = nil
 	}

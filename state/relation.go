@@ -432,7 +432,8 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 	ops = append(ops, tokenOps...)
 	offerOps := removeOfferConnectionsForRelationOps(r.Id())
 	ops = append(ops, offerOps...)
-	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()), force)
+	// This cleanup does not need to be forced.
+	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), errs, nil
 }
 

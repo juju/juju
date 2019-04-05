@@ -274,12 +274,8 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 // LeaveScopeWithForce in addition to doing what LeaveScope() does,
 // when force is passed in as 'true', forces relation unit to leave scope,
 // ignoring errors.
-func (ru *RelationUnit) LeaveScopeWithForce(force bool) error {
-	// TODO (anastasiamac 2019-04-2) First return here is operational errors.
-	// We might want to consider to pass them up to notify users of non-fatal
-	// errors we have encountered.
-	_, err := ru.internalLeaveScope(force)
-	return err
+func (ru *RelationUnit) LeaveScopeWithForce(force bool) ([]error, error) {
+	return ru.internalLeaveScope(force)
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -288,7 +284,8 @@ func (ru *RelationUnit) LeaveScopeWithForce(force bool) error {
 // leaves, it is removed immediately. It is not an error to leave a scope
 // that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
-	return ru.LeaveScopeWithForce(false)
+	_, err := ru.LeaveScopeWithForce(false)
+	return err
 }
 
 func (ru *RelationUnit) internalLeaveScope(force bool) ([]error, error) {

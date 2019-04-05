@@ -1629,7 +1629,7 @@ func (s *MigrationImportSuite) TestStorageDetached(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	err = sb.DetachStorage(storageTag, u.UnitTag())
+	err = sb.DetachStorage(storageTag, u.UnitTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

@@ -467,14 +467,24 @@ func (op *UpdateUnitOperation) Done(err error) error {
 // life is just set to Dying; but if a principal unit that is not assigned
 // to a provisioned machine is Destroyed, it will be removed from state
 // directly.
-func (u *Unit) Destroy() (err error) {
+func (u *Unit) Destroy() error {
+	_, err := u.DestroyWithForce(false)
+	return err
+}
+
+// DestroyWithForce does the same thing as Destroy() but
+// ignores errors.
+func (u *Unit) DestroyWithForce(force bool) (errs []error, err error) {
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
 			u.doc.Life = Dying
 		}
 	}()
-	return u.st.ApplyOperation(u.DestroyOperation())
+	op := u.DestroyOperation()
+	op.Force = force
+	err = u.st.ApplyOperation(op)
+	return op.Errors, err
 }
 
 // DestroyOperation returns a model operation that will destroy the unit.
