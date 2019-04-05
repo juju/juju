@@ -271,6 +271,8 @@ func (st *State) ReadSettings(collection, key string) (*Settings, error) {
 	return readSettings(st.db(), collection, key)
 }
 
+// TODO (manadart 2019-04-05): Remove this method when logic to apply deltas
+// from branches is implemented.
 // readSettingsOrCreateFromFallback attempts to retrieve settings first for the
 // requested key, then if not found, a non-empty fallback key.
 // If the fallback is used, the settings are created for the requested key.
