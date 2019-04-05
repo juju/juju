@@ -389,14 +389,14 @@ type OptionalControllerCommand struct {
 	CommandBase
 	Store jujuclient.ClientStore
 
-	noContoller    bool
+	Local          bool
 	controllerName string
 }
 
 // SetFlags initializes the flags supported by the command.
 func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.noContoller, "local", false, "Local operation only; controller not affected")
+	f.BoolVar(&c.Local, "local", false, "Local operation only; controller not affected")
 	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
 	f.StringVar(&c.controllerName, "controller", "", "")
 }
@@ -405,7 +405,7 @@ func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 // A non default controller can be chosen using the --controller option.
 // Use the --local arg to return an empty string, meaning no controller is selected.
 func (c *OptionalControllerCommand) ControllerNameFromArg() (string, error) {
-	if c.noContoller {
+	if c.Local {
 		return "", nil
 	}
 	controllerName := c.controllerName
@@ -415,7 +415,7 @@ func (c *OptionalControllerCommand) ControllerNameFromArg() (string, error) {
 			return "", errors.Trace(err)
 		}
 		if len(all) == 0 {
-			return "", errors.New(ErrNoControllersDefined.Error() + "\nUse --local to update the local cache.")
+			return "", errors.Trace(ErrNoControllersDefined)
 		}
 		controllerName, err = DetermineCurrentController(c.Store)
 		if err != nil {
@@ -423,7 +423,7 @@ func (c *OptionalControllerCommand) ControllerNameFromArg() (string, error) {
 		}
 	}
 	if controllerName == "" {
-		return "", errors.New(ErrNoCurrentController.Error() + "\nUse --local to update the local cache.")
+		return "", errors.Trace(ErrNoCurrentController)
 	}
 	return controllerName, nil
 }

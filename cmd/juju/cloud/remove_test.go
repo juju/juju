@@ -5,6 +5,7 @@ package cloud_test
 
 import (
 	"io/ioutil"
+	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
 	jujutesting "github.com/juju/testing"
@@ -21,7 +22,7 @@ import (
 type removeSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api   *fakeRemoveCloudAPI
-	store jujuclient.ClientStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&removeSuite{})
@@ -87,6 +88,25 @@ func (s *removeSuite) TestRemoveCloudLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of personal cloud \"homestack\"\n")
 	assertPersonalClouds(c, "homestack2")
+}
+
+func (s *removeSuite) TestRemoveCloudDefaultLocal(c *gc.C) {
+	s.store.Controllers = nil
+	cmd := cloud.NewRemoveCloudCommandForTest(
+		s.store,
+		func(controllerName string) (cloud.RemoveCloudAPI, error) {
+			c.Fail()
+			return s.api, nil
+		})
+	s.createTestCloudData(c)
+	assertPersonalClouds(c, "homestack", "homestack2")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of personal cloud \"homestack\"\n")
+	assertPersonalClouds(c, "homestack2")
+	out := cmdtesting.Stdout(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `There are no controllers running.Removing cloud from local cache. You will no longer be able to bootstrap on this cloud.*`)
 }
 
 func (s *removeSuite) TestRemoveCloudController(c *gc.C) {

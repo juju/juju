@@ -6,6 +6,7 @@ package cloud_test
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -23,7 +24,7 @@ import (
 type updateCloudSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api   *fakeUpdateCloudAPI
-	store jujuclient.ClientStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&updateCloudSuite{})
@@ -88,6 +89,19 @@ func (s *updateCloudSuite) TestUpdateLocalCacheFromFile(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName, "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.Calls(), gc.HasLen, 0)
+}
+
+func (s *updateCloudSuite) TestUpdateFromFileDefaultLocal(c *gc.C) {
+	s.store.Controllers = nil
+	cmd, fileName := s.setupCloudFileScenario(c, func(controllerName string) (cloud.UpdateCloudAPI, error) {
+		return nil, errors.New("")
+	})
+	ctx, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.Calls(), gc.HasLen, 0)
+	out := cmdtesting.Stdout(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `There are no controllers running.Updating cloud in local cache so you can use it to bootstrap a controller.*`)
 }
 
 func (s *updateCloudSuite) TestUpdateLocalCacheBadFile(c *gc.C) {

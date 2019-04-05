@@ -24,7 +24,7 @@ import (
 type listSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api   *fakeListCloudsAPI
-	store jujuclient.ClientStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&listSuite{})
@@ -46,6 +46,23 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 
 	// Check that we are producing the expected fields
 	c.Assert(out, gc.Matches, `Cloud +Regions +Default +Type +Description.*`)
+	// // Just check couple of snippets of the output to make sure it looks ok.
+	c.Assert(out, gc.Matches, `.*aws +[0-9]+ +[a-z0-9-]+ +ec2 +Amazon Web Services.*`)
+	c.Assert(out, gc.Matches, `.*azure +[0-9]+ +[a-z0-9-]+ +azure +Microsoft Azure.*`)
+	// LXD should be there too.
+	c.Assert(out, gc.Matches, `.*localhost[ ]*1[ ]*localhost[ ]*lxd.*`)
+}
+
+func (s *listSuite) TestListPublicLocalDefault(c *gc.C) {
+	s.store.Controllers = nil
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil))
+	c.Assert(err, jc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+
+	c.Assert(out, gc.Matches, `There are no controllers running.You can bootstrap a new controller using one of these clouds:.*`)
+	// Check that we are producing the expected fields
+	c.Assert(out, gc.Matches, `.*Cloud +Regions +Default +Type +Description.*`)
 	// // Just check couple of snippets of the output to make sure it looks ok.
 	c.Assert(out, gc.Matches, `.*aws +[0-9]+ +[a-z0-9-]+ +ec2 +Amazon Web Services.*`)
 	c.Assert(out, gc.Matches, `.*azure +[0-9]+ +[a-z0-9-]+ +azure +Microsoft Azure.*`)

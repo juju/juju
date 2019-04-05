@@ -109,7 +109,7 @@ func (c *updateCloudCommand) Init(args []string) error {
 
 	var err error
 	c.controllerName, err = c.ControllerNameFromArg()
-	if err != nil {
+	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
 
@@ -148,6 +148,10 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *updateCloudCommand) updateLocalCacheFromFile(ctxt *cmd.Context) error {
+	if !c.Local {
+		ctxt.Stdout.Write(
+			[]byte("There are no controllers running.\nUpdating cloud in local cache so you can use it to bootstrap a controller.\n"))
+	}
 	r := cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,
 	}

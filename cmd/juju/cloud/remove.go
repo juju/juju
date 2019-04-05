@@ -83,7 +83,7 @@ func (c *removeCloudCommand) Init(args []string) (err error) {
 	}
 	c.Cloud = args[0]
 	c.controllerName, err = c.ControllerNameFromArg()
-	if err != nil {
+	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
 	return cmd.CheckEmpty(args[1:])
@@ -91,6 +91,10 @@ func (c *removeCloudCommand) Init(args []string) (err error) {
 
 func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.controllerName == "" {
+		if c.controllerName == "" && !c.Local {
+			ctxt.Stdout.Write(
+				[]byte("There are no controllers running.\nRemoving cloud from local cache. You will no longer be able to bootstrap on this cloud.\n"))
+		}
 		return c.removeLocalCloud(ctxt)
 	}
 	return c.removeControllerCloud(ctxt)

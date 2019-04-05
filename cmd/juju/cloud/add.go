@@ -221,7 +221,7 @@ func (c *AddCloudCommand) Init(args []string) (err error) {
 		return cmd.CheckEmpty(args[2:])
 	}
 	c.controllerName, err = c.ControllerNameFromArg()
-	if err != nil {
+	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
 	return nil
@@ -297,6 +297,10 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	if c.controllerName == "" {
+		if !c.Local {
+			ctxt.Stdout.Write(
+				[]byte("There are no controllers running.\nAdding cloud to local cache so you can use it to bootstrap a controller.\n"))
+		}
 		return addLocalCloud(c.cloudMetadataStore, *newCloud)
 	}
 

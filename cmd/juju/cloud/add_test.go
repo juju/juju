@@ -32,7 +32,7 @@ import (
 type addSuite struct {
 	jujutesting.IsolationSuite
 
-	store jujuclient.ClientStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&addSuite{})
@@ -292,6 +292,29 @@ func (s *addSuite) TestAddNew(c *gc.C) {
 	_, err = s.runCommand(c, fake, "garage-maas", cloudFile.Name(), "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(numCallsToWrite(), gc.Equals, 1)
+}
+
+func (s *addSuite) TestAddLocalDefault(c *gc.C) {
+	s.store.Controllers = nil
+	cloudFile := prepareTestCloudYaml(c, garageMaasYamlFile)
+	defer cloudFile.Close()
+	defer os.Remove(cloudFile.Name())
+
+	mockCloud, err := jujucloud.ParseCloudMetadataFile(cloudFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	fake := newFakeCloudMetadataStore()
+	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
+	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
+	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
+
+	ctx, err := s.runCommand(c, fake, "garage-maas", cloudFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(numCallsToWrite(), gc.Equals, 1)
+	out := cmdtesting.Stdout(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `There are no controllers running.Adding cloud to local cache so you can use it to bootstrap a controller.*`)
 }
 
 func (s *addSuite) TestAddNewInvalidAuthType(c *gc.C) {

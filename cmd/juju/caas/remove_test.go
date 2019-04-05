@@ -4,6 +4,8 @@
 package caas_test
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -19,7 +21,7 @@ import (
 
 type fakeCredentialStore struct {
 	jujutesting.Stub
-	jujuclient.ClientStore
+	*jujuclient.MemStore
 }
 
 func (fcs *fakeCredentialStore) CredentialForCloud(string) (*cloud.CloudCredential, error) {
@@ -63,7 +65,7 @@ func (s *removeCAASSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.fakeCloudAPI = &fakeRemoveCloudAPI{}
 	s.store = &fakeCredentialStore{
-		ClientStore: NewMockClientStore(),
+		MemStore: NewMockClientStore(),
 	}
 
 	var logger loggo.Logger
@@ -122,6 +124,24 @@ func (s *removeCAASSuite) TestRemoveLocalOnly(c *gc.C) {
 	cmd := s.makeCommand()
 	_, err := s.runCommand(c, cmd, "myk8s", "--local")
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.fakeCloudAPI.CheckNoCalls(c)
+
+	s.cloudMetadataStore.CheckCallNames(c, "PersonalCloudMetadata", "WritePersonalCloudMetadata")
+	s.cloudMetadataStore.CheckCall(c, 1, "WritePersonalCloudMetadata", map[string]cloud.Cloud{})
+
+	s.store.CheckCallNames(c, "UpdateCredential")
+	s.store.CheckCall(c, 0, "UpdateCredential", "myk8s", cloud.CloudCredential{})
+}
+
+func (s *removeCAASSuite) TestRemoveDefaultLocal(c *gc.C) {
+	s.store.Controllers = nil
+	cmd := s.makeCommand()
+	ctx, err := s.runCommand(c, cmd, "myk8s")
+	c.Assert(err, jc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `There are no controllers running.Removing cluster from local cache. You will no longer be able to bootstrap on this cluster.*`)
 
 	s.fakeCloudAPI.CheckNoCalls(c)
 

@@ -250,7 +250,7 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 	}
 
 	c.controllerName, err = c.ControllerNameFromArg()
-	if err != nil {
+	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
 	return cmd.CheckEmpty(args[1:])
