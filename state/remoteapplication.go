@@ -283,9 +283,7 @@ func (s *RemoteApplication) internalDestroy(force bool) (errs []error, err error
 			}
 		}
 		ops, opErrs, err := app.destroyOps(force)
-		if len(opErrs) != 0 {
-			errs = append(errs, opErrs...)
-		}
+		errs = append(errs, opErrs...)
 		switch err {
 		case errRefresh:
 		case errAlreadyDying:
@@ -370,9 +368,7 @@ func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
 			}
 
 			relOps, isRemove, opErrs, err := rel.destroyOps(s.doc.Name, force)
-			if len(opErrs) != 0 {
-				errs = append(errs, opErrs...)
-			}
+			errs = append(errs, opErrs...)
 			if err == errAlreadyDying {
 				relOps = []txn.Op{{
 					C:      relationsC,
@@ -387,9 +383,7 @@ func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
 			if isRemove {
 				removeCount++
 			}
-			if len(relOps) != 0 {
-				ops = append(ops, relOps...)
-			}
+			ops = append(ops, relOps...)
 		}
 		if !force && failRels != nil {
 			return nil, errs, errors.Trace(failRels)
@@ -406,9 +400,7 @@ func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
 			}
 			errs = append(errs, err)
 		}
-		if len(removeOps) != 0 {
-			ops = append(ops, removeOps...)
-		}
+		ops = append(ops, removeOps...)
 		return ops, errs, nil
 	}
 	// In all other cases, application removal will be handled as a consequence

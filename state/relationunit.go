@@ -361,18 +361,14 @@ func (ru *RelationUnit) internalLeaveScope(force bool) ([]error, error) {
 			})
 		} else {
 			relOps, opErrs, err := ru.relation.removeOps("", ru.unitName, force)
-			if len(opErrs) != 0 {
-				errs = append(errs, opErrs...)
-			}
+			errs = append(errs, opErrs...)
 			if err != nil {
 				if !force {
 					return nil, err
 				}
 				errs = append(errs, err)
 			}
-			if len(relOps) != 0 {
-				ops = append(ops, relOps...)
-			}
+			ops = append(ops, relOps...)
 		}
 		return ops, nil
 	}

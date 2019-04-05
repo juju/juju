@@ -335,9 +335,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	failedRels := false
 	for _, rel := range rels {
 		relOps, isRemove, opErrs, err := rel.destroyOps(op.app.doc.Name, op.Force)
-		if len(opErrs) != 0 {
-			op.AddError(opErrs...)
-		}
+		op.AddError(opErrs...)
 		if err == errAlreadyDying {
 			relOps = []txn.Op{{
 				C:      relationsC,
@@ -364,9 +362,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		}
 		op.AddError(err)
 	}
-	if len(resOps) != 0 {
-		ops = append(ops, resOps...)
-	}
+	ops = append(ops, resOps...)
 
 	// We can't delete an application if it is being offered.
 	// TODO (anastasiamac 2019-03-29) Should we force remove applications with offers now?
@@ -395,9 +391,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	if op.app.doc.UnitCount == 0 && op.app.doc.RelationCount == removeCount {
 		hasLastRefs := bson.D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
 		removeOps, opErrs, err := op.app.removeOps(hasLastRefs, op.Force)
-		if len(opErrs) != 0 {
-			op.AddError(opErrs...)
-		}
+		op.AddError(opErrs...)
 		if err != nil {
 			if !op.Force {
 				return nil, errors.Trace(err)
@@ -486,10 +480,7 @@ func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, []error, 
 		}
 		errs = append(errs, err)
 	}
-
-	if len(removeOfferOps) != 0 {
-		ops = append(ops, removeOfferOps...)
-	}
+	ops = append(ops, removeOfferOps...)
 
 	// Note that appCharmDecRefOps might not catch the final decref
 	// when run in a transaction that decrefs more than once. So we
@@ -498,18 +489,14 @@ func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, []error, 
 	name := a.doc.Name
 	curl := a.doc.CharmURL
 	charmOps, opErrs, err := appCharmDecRefOps(a.st, name, curl, false, force)
-	if len(opErrs) != 0 {
-		errs = append(errs, opErrs...)
-	}
+	errs = append(errs, opErrs...)
 	if err != nil {
 		if !force {
 			return nil, errs, errors.Trace(err)
 		}
 		errs = append(errs, err)
 	}
-	if len(charmOps) != 0 {
-		ops = append(ops, charmOps...)
-	}
+	ops = append(ops, charmOps...)
 	// By the time we get to here, all units and charm refs have been removed,
 	// so it's safe to do this additional cleanup.
 	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
@@ -1741,9 +1728,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		if err != nil && err != jujutxn.ErrNoOperations {
 			return "", nil, errors.Trace(err)
 		}
-		if len(subCharmProfileOps) > 0 {
-			ops = append(ops, subCharmProfileOps...)
-		}
+		ops = append(ops, subCharmProfileOps...)
 	} else {
 		ops = append(ops, createConstraintsOp(agentGlobalKey, args.cons))
 	}
@@ -1977,9 +1962,7 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.Op, []error, error) {
 	errs := []error{}
 	hostOps, opErrs, err := u.destroyHostOps(a, force)
-	if len(opErrs) != 0 {
-		errs = append(errs, opErrs...)
-	}
+	errs = append(errs, opErrs...)
 	if err != nil {
 		if !force {
 			return nil, errs, errors.Trace(err)
@@ -2020,15 +2003,9 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 		annotationRemoveOp(a.st, u.globalKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name, force),
 	}
-	if len(portsOps) != 0 {
-		ops = append(ops, portsOps...)
-	}
-	if len(resOps) != 0 {
-		ops = append(ops, resOps...)
-	}
-	if len(hostOps) != 0 {
-		ops = append(ops, hostOps...)
-	}
+	ops = append(ops, portsOps...)
+	ops = append(ops, resOps...)
+	ops = append(ops, hostOps...)
 
 	model, err := a.st.Model()
 	if err != nil {
@@ -2058,9 +2035,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 			}
 			errs = append(errs, err)
 		}
-		if len(storageInstanceOps) != 0 {
-			ops = append(ops, storageInstanceOps...)
-		}
+		ops = append(ops, storageInstanceOps...)
 	}
 
 	if u.doc.CharmURL != nil {
@@ -2068,9 +2043,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 		// cleanup to happen; otherwise we just do it when the app itself is removed.
 		maybeDoFinal := u.doc.CharmURL != a.doc.CharmURL
 		decOps, opErrs, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, force)
-		if len(opErrs) != 0 {
-			errs = append(errs, opErrs...)
-		}
+		errs = append(errs, opErrs...)
 		if errors.IsNotFound(err) {
 			return nil, errs, errRefresh
 		} else if err != nil {
@@ -2079,25 +2052,19 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 			}
 			errs = append(errs, err)
 		}
-		if len(decOps) != 0 {
-			ops = append(ops, decOps...)
-		}
+		ops = append(ops, decOps...)
 	}
 	if a.doc.Life == Dying && a.doc.RelationCount == 0 && a.doc.UnitCount == 1 {
 		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 0}, {"unitcount", 1}}
 		removeOps, opErrs, err := a.removeOps(hasLastRef, force)
-		if len(opErrs) != 0 {
-			errs = append(errs, opErrs...)
-		}
+		errs = append(errs, opErrs...)
 		if err != nil {
 			if !force {
 				return nil, errs, errors.Trace(err)
 			}
 			errs = append(errs, err)
 		}
-		if len(removeOps) != 0 {
-			return append(ops, removeOps...), errs, nil
-		}
+		return append(ops, removeOps...), errs, nil
 	}
 	appOp := txn.Op{
 		C:      applicationsC,

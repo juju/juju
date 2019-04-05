@@ -685,9 +685,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	}
 
 	removeOps, opErrs, err := op.unit.removeOps(removeAsserts, op.Force)
-	if len(opErrs) != 0 {
-		op.AddError(opErrs...)
-	}
+	op.AddError(opErrs...)
 	if err == errAlreadyRemoved {
 		return nil, errAlreadyDying
 	} else if err != nil {
@@ -697,9 +695,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		op.AddError(err)
 	}
 	ops := []txn.Op{statusOp, minUnitsOp}
-	if len(removeOps) != 0 {
-		ops = append(ops, removeOps...)
-	}
+	ops = append(ops, removeOps...)
 	return ops, nil
 }
 
@@ -801,9 +797,7 @@ func (u *Unit) destroyHostOps(a *Application, force bool) (ops []txn.Op, errs []
 			}
 			errs = append(errs, err)
 		}
-		if len(profileOps) > 0 {
-			ops = append(ops, profileOps...)
-		}
+		ops = append(ops, profileOps...)
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can
@@ -1032,9 +1026,7 @@ func (u *Unit) internalRemove(force bool) (errs []error, err error) {
 			}
 		}
 		ops, opErrs, err := unit.removeOps(isDeadDoc, force)
-		if len(opErrs) != 0 {
-			errs = append(errs, opErrs...)
-		}
+		errs = append(errs, opErrs...)
 		switch err {
 		case errRefresh:
 		case errAlreadyDying:
@@ -1650,9 +1642,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if len(decOps) != 0 {
-				ops = append(ops, decOps...)
-			}
+			ops = append(ops, decOps...)
 		}
 		return ops, nil
 	}

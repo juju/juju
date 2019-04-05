@@ -334,9 +334,7 @@ func (r *Relation) internalDestroy(force bool) (errs []error, err error) {
 			}
 		}
 		ops, _, opErrs, err := rel.destroyOps("", force)
-		if len(opErrs) != 0 {
-			errs = append(errs, opErrs...)
-		}
+		errs = append(errs, opErrs...)
 		if err == errAlreadyDying {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -417,20 +415,14 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 				if err != nil {
 					errs = append(errs, err)
 				}
-				if len(epOps) != 0 {
-					ops = append(ops, epOps...)
-				}
+				ops = append(ops, epOps...)
 			} else {
 				epOps, opErrs, err := r.removeLocalEndpointOps(ep, departingUnitName, force)
-				if len(opErrs) != 0 {
-					errs = append(errs, opErrs...)
-				}
+				errs = append(errs, opErrs...)
 				if err != nil {
 					errs = append(errs, err)
 				}
-				if len(epOps) != 0 {
-					ops = append(ops, epOps...)
-				}
+				ops = append(ops, epOps...)
 			}
 		}
 	}
