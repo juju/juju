@@ -153,33 +153,25 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	)
 
 	servers := params.FromNetworkHostsPorts(hostPorts)
-	model, err := a.srv.shared.statePool.SystemState().Model()
+	ctrlModelSt := a.srv.shared.statePool.SystemState()
+	model, err := ctrlModelSt.Model()
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
 	if model.Type() == state.ModelTypeCAAS {
-		app, err := a.root.state.Application(model.Name())
+		controllerConfig, err := ctrlModelSt.ControllerConfig()
 		if err != nil {
 			return fail, errors.Trace(err)
 		}
-		svcInfo, err := app.ServiceInfo()
+		svcInfo, err := ctrlModelSt.CloudService(controllerConfig.ControllerUUID())
 		if err != nil {
 			return fail, errors.Trace(err)
-		}
-		controllerConfig, err := a.root.state.ControllerConfig()
-		if err != nil {
-			return nil, errors.Trace(err)
 		}
 		servers = params.FromNetworkHostsPorts(
 			[][]network.HostPort{
-				network.AddressesWithPort(svcInfo.Addresses, controllerConfig.APIPort()),
+				network.AddressesWithPort(svcInfo.Addresses(), controllerConfig.APIPort()),
 			},
 		)
-		// publicDNS, err := network.ParseHostPorts(a.srv.publicDNSName())
-		// if err != nil {
-		// 	return fail, errors.Trace(err)
-		// }
-		// servers = params.FromNetworkHostsPorts([][]network.HostPort{publicDNS})
 	}
 
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
