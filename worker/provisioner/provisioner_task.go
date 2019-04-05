@@ -13,6 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -213,8 +215,10 @@ func (task *provisionerTask) loop() error {
 			if !ok {
 				return errors.New("profile watcher closed channel")
 			}
-			if err := task.processProfileChanges(ids); err != nil {
-				return errors.Annotate(err, "failed to process updated charm profiles")
+			if !featureflag.Enabled(feature.InstanceMutater) {
+				if err := task.processProfileChanges(ids); err != nil {
+					return errors.Annotate(err, "failed to process updated charm profiles")
+				}
 			}
 		}
 	}

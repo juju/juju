@@ -217,14 +217,18 @@ func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
 	}
 	profileChanges := make([]UnitProfileChanges, len(result.ProfileChanges))
 	for i, change := range result.ProfileChanges {
-		profileChanges[i] = UnitProfileChanges{
-			ApplicationName: change.ApplicationName,
-			Revision:        change.Revision,
-			Profile: lxdprofile.Profile{
+		var profile lxdprofile.Profile
+		if change.Profile != nil {
+			profile = lxdprofile.Profile{
 				Config:      change.Profile.Config,
 				Description: change.Profile.Description,
 				Devices:     change.Profile.Devices,
-			},
+			}
+		}
+		profileChanges[i] = UnitProfileChanges{
+			ApplicationName: change.ApplicationName,
+			Revision:        change.Revision,
+			Profile:         profile,
 		}
 		if change.Error != nil {
 			return nil, change.Error

@@ -186,6 +186,31 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 	c.Assert(info.ProfileChanges[0].Profile.Description, gc.Equals, "Test Profile")
 }
 
+func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChangesWithNoProfile(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	args := params.Entity{Tag: s.tag.String()}
+	results := params.CharmProfilingInfoResult{
+		InstanceId:      instance.Id("juju-gd4c23-0"),
+		ModelName:       "default",
+		CurrentProfiles: []string{"juju-default-neutron-ovswitch-255"},
+		Error:           nil,
+		ProfileChanges: []params.ProfileInfoResult{{
+			Profile: nil,
+		}},
+	}
+
+	fExp := s.fCaller.EXPECT()
+	fExp.FacadeCall("CharmProfilingInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
+
+	info, err := s.setupMachine().CharmProfilingInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.InstanceId, gc.Equals, results.InstanceId)
+	c.Assert(info.ModelName, gc.Equals, results.ModelName)
+	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
+	c.Assert(info.ProfileChanges[0].Profile.Description, gc.Equals, "")
+}
+
 func (s *instanceMutaterMachineSuite) TestSetModificationStatus(c *gc.C) {
 	defer s.setup(c).Finish()
 
