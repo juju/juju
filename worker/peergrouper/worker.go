@@ -125,10 +125,12 @@ type Config struct {
 	APIHostPortsSetter APIHostPortsSetter
 	MongoSession       MongoSession
 	Clock              clock.Clock
-	SupportsSpaces     bool
 	MongoPort          int
 	APIPort            int
 	ControllerAPIPort  int
+
+	// Kubernetes controllers do not support HA yet.
+	SupportsHA bool
 
 	// Hub is the central hub of the apiserver,
 	// and is used to publish the details of the
@@ -591,7 +593,9 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	if err := setHasVote(added, true); err != nil {
 		return nil, errors.Annotate(err, "adding new voters")
 	}
-	if desired.isChanged {
+	// Currently k8s controllers do not support HA, so only update
+	// the replicaset config if HA is enabled and there is a change.
+	if w.config.SupportsHA && desired.isChanged {
 		ms := make([]replicaset.Member, 0, len(desired.members))
 		for _, m := range desired.members {
 			ms = append(ms, *m)

@@ -547,28 +547,6 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			}, handle)
 		}
 
-		// We need to pass this in for the peergrouper, which wants to
-		// know whether the controller model supports spaces.
-		//
-		// TODO(axw) this seems unnecessary, and perhaps even wrong.
-		// Even if the provider supports spaces, you could have manual
-		// machines in the mix, in which case they won't necessarily
-		// be in the same space. I think the peergrouper should just
-		// check what spaces the machines are in, rather than trying
-		// to short cut anything.
-		controllerSupportsSpaces := func(st *state.State) (bool, error) {
-			env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
-			if err != nil {
-				return false, errors.Annotate(err, "getting environ from state")
-			}
-			return environs.SupportsSpaces(state.CallContext(st), env), nil
-		}
-		if a.isCaasMachineAgent {
-			controllerSupportsSpaces = func(st *state.State) (bool, error) {
-				return false, nil
-			}
-		}
-
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:    previousAgentVersion,
 			AgentName:               agentName,
@@ -602,7 +580,6 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			SetStatePool:                      statePoolReporter.set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
-			ControllerSupportsSpaces:          controllerSupportsSpaces,
 			MuxShutdownWait:                   1 * time.Minute,
 			NewContainerBrokerFunc:            newCAASBroker,
 		}
