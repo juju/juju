@@ -3,7 +3,11 @@
 
 package settings
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/juju/errors"
+)
 
 const (
 	added = iota
@@ -19,18 +23,30 @@ type ItemChange struct {
 	NewValue interface{} `bson:"new,omitempty"`
 }
 
+func (c *ItemChange) IsAddition() bool {
+	return c.Type == added
+}
+
+func (c *ItemChange) IsModification() bool {
+	return c.Type == modified
+}
+
+func (c *ItemChange) IsDeletion() bool {
+	return c.Type == deleted
+}
+
 // String returns the item change in a readable format.
-func (ic *ItemChange) String() string {
-	switch ic.Type {
+func (c *ItemChange) String() string {
+	switch c.Type {
 	case added:
-		return fmt.Sprintf("setting added: %v = %v", ic.Key, ic.NewValue)
+		return fmt.Sprintf("setting added: %v = %v", c.Key, c.NewValue)
 	case modified:
 		return fmt.Sprintf("setting modified: %v = %v (was %v)",
-			ic.Key, ic.NewValue, ic.OldValue)
+			c.Key, c.NewValue, c.OldValue)
 	case deleted:
-		return fmt.Sprintf("setting deleted: %v (was %v)", ic.Key, ic.OldValue)
+		return fmt.Sprintf("setting deleted: %v (was %v)", c.Key, c.OldValue)
 	}
-	return fmt.Sprintf("unknown setting change type %d: %v = %v (was %v)", ic.Type, ic.Key, ic.NewValue, ic.OldValue)
+	return fmt.Sprintf("unknown setting change type %d: %v = %v (was %v)", c.Type, c.Key, c.NewValue, c.OldValue)
 }
 
 // MakeAddition returns an itemChange indicating a modification of the input
@@ -68,6 +84,22 @@ func MakeDeletion(key string, oldVal interface{}) ItemChange {
 // It implements the sort interface to sort the items changes by key.
 type ItemChanges []ItemChange
 
-func (ics ItemChanges) Len() int           { return len(ics) }
-func (ics ItemChanges) Less(i, j int) bool { return ics[i].Key < ics[j].Key }
-func (ics ItemChanges) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i] }
+// Map is a convenience method for working with collections of changes.
+// It returns a map representation of the change collection,
+// indexed with the change key.
+// An error return indicates that the collection had duplicate keys.
+func (c ItemChanges) Map() (map[string]ItemChange, error) {
+	m := make(map[string]ItemChange, len(c))
+	for _, ch := range c {
+		k := ch.Key
+		if _, ok := m[k]; ok {
+			return nil, errors.Errorf("duplicated key in settings collection: %q", k)
+		}
+		m[k] = ch
+	}
+	return m, nil
+}
+
+func (c ItemChanges) Len() int           { return len(c) }
+func (c ItemChanges) Less(i, j int) bool { return c[i].Key < c[j].Key }
+func (c ItemChanges) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }

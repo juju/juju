@@ -72,6 +72,15 @@ type Settings struct {
 	version int64
 }
 
+func newSettings(db Database, collection, key string) *Settings {
+	return &Settings{
+		db:         db,
+		collection: collection,
+		key:        key,
+		core:       make(map[string]interface{}),
+	}
+}
+
 // Keys returns the current keys in alphabetical order.
 func (s *Settings) Keys() []string {
 	keys := []string{}
@@ -110,6 +119,65 @@ func (s *Settings) Delete(key string) {
 	delete(s.core, key)
 }
 
+// settingsUpdateOps returns the item changes and txn ops necessary
+// to write the changes made to settings back to the database.
+func (s *Settings) settingsUpdateOps() (settings.ItemChanges, []txn.Op) {
+	changes := s.changes()
+	if len(changes) == 0 {
+		return changes, nil
+	}
+
+	updates := bson.M{}
+	deletions := bson.M{}
+	for _, ch := range changes {
+		k := utils.EscapeKey(ch.Key)
+		switch {
+		case ch.IsAddition(), ch.IsModification():
+			updates[k] = ch.NewValue
+		case ch.IsDeletion():
+			deletions[k] = 1
+		}
+	}
+
+	ops := []txn.Op{{
+		C:      s.collection,
+		Id:     s.key,
+		Assert: txn.DocExists,
+		Update: setUnsetUpdateSettings(updates, deletions),
+	}}
+	return changes, ops
+}
+
+// changes compares the live settings with those that were retrieved from the
+// database in order to generate a set of changes.
+func (s *Settings) changes() settings.ItemChanges {
+	var changes []settings.ItemChange
+
+	for key := range cacheKeys(s.disk, s.core) {
+		old, onDisk := s.disk[key]
+		live, inCore := s.core[key]
+		if reflect.DeepEqual(live, old) {
+			continue
+		}
+		var change settings.ItemChange
+		switch {
+		case inCore && onDisk:
+			change = settings.MakeModification(key, old, live)
+		case inCore && !onDisk:
+			change = settings.MakeAddition(key, live)
+		case onDisk && !inCore:
+			change = settings.MakeDeletion(key, old)
+		default:
+			panic("unreachable")
+		}
+		changes = append(changes, change)
+	}
+
+	res := settings.ItemChanges(changes)
+	sort.Sort(res)
+	return res
+}
+
 // cacheKeys returns the keys of all caches as a key=>true map.
 func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 	keys := make(map[string]bool)
@@ -119,48 +187,6 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 		}
 	}
 	return keys
-}
-
-// settingsUpdateOps returns the item changes and txn ops necessary
-// to write the changes made to c back onto its node.
-func (s *Settings) settingsUpdateOps() ([]settings.ItemChange, []txn.Op) {
-	var changes []settings.ItemChange
-	updates := bson.M{}
-	deletions := bson.M{}
-	for key := range cacheKeys(s.disk, s.core) {
-		old, onDisk := s.disk[key]
-		live, inCore := s.core[key]
-		if reflect.DeepEqual(live, old) {
-			continue
-		}
-		var change settings.ItemChange
-		escapedKey := utils.EscapeKey(key)
-		switch {
-		case inCore && onDisk:
-			change = settings.MakeModification(key, old, live)
-			updates[escapedKey] = live
-		case inCore && !onDisk:
-			change = settings.MakeAddition(key, live)
-			updates[escapedKey] = live
-		case onDisk && !inCore:
-			change = settings.MakeDeletion(key, old)
-			deletions[escapedKey] = 1
-		default:
-			panic("unreachable")
-		}
-		changes = append(changes, change)
-	}
-	if len(changes) == 0 {
-		return []settings.ItemChange{}, nil
-	}
-	sort.Sort(settings.ItemChanges(changes))
-	ops := []txn.Op{{
-		C:      s.collection,
-		Id:     s.key,
-		Assert: txn.DocExists,
-		Update: setUnsetUpdateSettings(updates, deletions),
-	}}
-	return changes, ops
 }
 
 func (s *Settings) write(ops []txn.Op) error {
@@ -178,7 +204,7 @@ func (s *Settings) write(ops []txn.Op) error {
 // Write writes changes made to c back onto its node.  Changes are written
 // as a delta applied on top of the latest version of the node, to prevent
 // overwriting unrelated changes made to the node since it was last read.
-func (s *Settings) Write() ([]settings.ItemChange, error) {
+func (s *Settings) Write() (settings.ItemChanges, error) {
 	changes, ops := s.settingsUpdateOps()
 	if len(ops) > 0 {
 		err := s.write(ops)
@@ -187,15 +213,6 @@ func (s *Settings) Write() ([]settings.ItemChange, error) {
 		}
 	}
 	return changes, nil
-}
-
-func newSettings(db Database, collection, key string) *Settings {
-	return &Settings{
-		db:         db,
-		collection: collection,
-		key:        key,
-		core:       make(map[string]interface{}),
-	}
 }
 
 // Read (re)reads the node data into c.
@@ -235,6 +252,18 @@ func readSettingsDocInto(db Database, collection, key string, out interface{}) e
 		err = errors.NotFoundf("settings")
 	}
 	return err
+}
+
+// applyChanges
+func (s *Settings) applyChanges(changes settings.ItemChanges) {
+	for _, ch := range changes {
+		switch {
+		case ch.IsAddition(), ch.IsModification():
+			s.Set(ch.Key, ch.NewValue)
+		case ch.IsDeletion():
+			s.Delete(ch.Key)
+		}
+	}
 }
 
 // ReadSettings returns the settings for the given key.
