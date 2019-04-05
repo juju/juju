@@ -870,8 +870,7 @@ func (a *Application) changeCharmOps(
 		var opErrs []error
 		decOps, opErrs, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true, true) // current charm
 		if err != nil {
-			// No need to stop further processing if the old key could not be removed.
-			logger.Errorf("could not remove old charm references for %v:%v", oldKey, err)
+			return nil, errors.Annotatef(err, "could not remove old charm references for %v", oldKey)
 		}
 		if len(opErrs) != 0 {
 			logger.Errorf("could not remove old charm references for %v:%v", oldKey, opErrs)

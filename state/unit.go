@@ -964,18 +964,17 @@ func (u *Unit) EnsureDead() (err error) {
 // Remove removes the unit from state, and may remove its application as well, if
 // the application is Dying and no other references to it exist. It will fail if
 // the unit is not Dead.
-func (u *Unit) Remove() (err error) {
-	return u.RemoveWithForce(false)
+func (u *Unit) Remove() error {
+	_, err := u.RemoveWithForce(false)
+	return err
 }
 
-// ForceRemove removes the unit from state similar to the unit.Remove() but
+// RemoveWithForce removes the unit from state similar to the unit.Remove() but
 // it ignores errors.
-func (u *Unit) RemoveWithForce(force bool) error {
-	// TODO (anastasiamac 2019-04-2) First return here is operational errors.
-	// We might want to consider to pass them up to notify users of non-fatal
-	// errors we have encountered.
-	_, err := u.internalRemove(force)
-	return err
+// In addition, this function also returns all non-fatal operational errors
+// encountered.
+func (u *Unit) RemoveWithForce(force bool) ([]error, error) {
+	return u.internalRemove(force)
 }
 
 func (u *Unit) internalRemove(force bool) (errs []error, err error) {
@@ -1006,7 +1005,6 @@ func (u *Unit) internalRemove(force bool) (errs []error, err error) {
 			if err := ru.LeaveScope(); err != nil {
 				errs = append(errs, err)
 				failRelations = err
-				continue
 			}
 		}
 		if !force && failRelations != nil {

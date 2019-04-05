@@ -250,18 +250,17 @@ func (r *Relation) checkConsumePermission(offerUUID, userId string) (bool, error
 }
 
 // DestroyWithForce may force the destruction of the relation.
-func (r *Relation) DestroyWithForce(force bool) error {
-	// TODO (anastasiamac 2019-04-2) First return here is operational errors.
-	// We might want to consider to pass them up to notify users of non-fatal
-	// errors we have encountered.
-	_, err := r.internalDestroy(force)
-	return err
+// In addition, this function also returns all non-fatal operational errors
+// encountered.
+func (r *Relation) DestroyWithForce(force bool) ([]error, error) {
+	return r.internalDestroy(force)
 }
 
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() error {
-	return r.DestroyWithForce(false)
+	_, err := r.DestroyWithForce(false)
+	return err
 }
 
 func (r *Relation) internalDestroy(force bool) (errs []error, err error) {
