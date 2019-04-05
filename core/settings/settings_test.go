@@ -57,3 +57,27 @@ func (*settingsSuite) TestItemTypeString(c *gc.C) {
 	c.Check(d.String(), gc.Equals, "setting deleted: key3 (was gone-val)")
 	c.Check(e.String(), gc.Equals, "unknown setting change type 4: key4 = new-val (was old-val)")
 }
+
+func (*settingsSuite) TestApplyDeltaSource(c *gc.C) {
+	latest := ItemChanges{
+		MakeAddition("key1", "new-val"),
+		MakeModification("key2", "old-val", "other-val"),
+		MakeModification("key3", "another-old-val", "another-val"),
+		MakeDeletion("key4", "gone-val"),
+	}
+
+	original := ItemChanges{
+		MakeModification("key2", "older-val", "less-new-val"),
+		MakeDeletion("key4", "older-gone-val"),
+	}
+
+	// The old values present in original are represented against the
+	// matching keys in latest.
+	c.Assert(latest.ApplyDeltaSource(original), jc.ErrorIsNil)
+	c.Check(latest, gc.DeepEquals, ItemChanges{
+		MakeAddition("key1", "new-val"),
+		MakeModification("key2", "older-val", "other-val"),
+		MakeModification("key3", "another-old-val", "another-val"),
+		MakeDeletion("key4", "older-gone-val"),
+	})
+}

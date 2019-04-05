@@ -84,6 +84,23 @@ func MakeDeletion(key string, oldVal interface{}) ItemChange {
 // It implements the sort interface to sort the items changes by key.
 type ItemChanges []ItemChange
 
+// ApplyDeltaSource turns this second-order delta into a first-older delta
+// by replacing the OldValue for any key present in the input ItemChange
+// collection.
+func (c ItemChanges) ApplyDeltaSource(oldChanges ItemChanges) error {
+	m, err := oldChanges.Map()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for i, ch := range c {
+		if old, ok := m[ch.Key]; ok {
+			c[i].OldValue = old.OldValue
+		}
+	}
+	return nil
+}
+
 // Map is a convenience method for working with collections of changes.
 // It returns a map representation of the change collection,
 // indexed with the change key.
