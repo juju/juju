@@ -225,7 +225,10 @@ func (s *applicationOffers) Remove(offerName string, force bool) (err error) {
 					}
 				}
 
-				relOps, _, err := rel.destroyOps("")
+				relOps, _, opErrs, err := rel.destroyOps("", force)
+				if len(opErrs) != 0 {
+					logger.Warningf("errors while getting operations to destroy remote application relation %v: %v", remoteApp.Name(), opErrs)
+				}
 				if err == errAlreadyDying {
 					continue
 				} else if err != nil {

@@ -1370,9 +1370,15 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		}
 		op := unit.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
+		op.Force = arg.Force
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, errors.Trace(err)
 		}
+		// TODO (anastasiamac 2019-03-29) we want to return errors and info when forced..
+		//  maybe always, so that we can report how many errors we are getting/got.
+		// At the moment, this only returns the intent not the actual result.
+		// However, there is a provision for this functionality for the near-future: destroy operation itself
+		// contains Errors that have been encountered during its application.
 		return &info, nil
 	}
 	results := make([]params.DestroyUnitResult, len(args.Units))
@@ -1495,9 +1501,15 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		}
 		op := app.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
+		op.Force = arg.Force
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, err
 		}
+		// TODO (anastasiamac 2019-03-29) we want to return errors and info when forced..
+		//  maybe always, so that we can report how many errors we are getting/got.
+		// At the moment, this only returns the intent not the actual result.
+		// However, there is a provision for this functionality for the near-future: destroy operation itself
+		// contains Errors that have been encountered during its application.
 		return &info, nil
 	}
 	results := make([]params.DestroyApplicationResult, len(args.Applications))
@@ -1532,6 +1544,8 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 			results[i].Error = common.ServerError(err)
 			continue
 		}
+		// TODO (anastasiamac 2019-03-29) This may need to be forced too.
+		// see https://bugs.launchpad.net/juju/+bug/1822050
 		err = app.Destroy()
 		if err != nil {
 			results[i].Error = common.ServerError(err)

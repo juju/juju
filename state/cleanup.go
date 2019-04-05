@@ -377,6 +377,7 @@ func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
 // application is destroyed.
 func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
 	var destroyStorage bool
+	var force bool
 	switch n := len(cleanupArgs); n {
 	case 0:
 		// Old cleanups have no args, so follow the old behaviour.
@@ -384,8 +385,15 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
 			return errors.Annotate(err, "unmarshalling cleanup args")
 		}
+	case 2:
+		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'destroyStorage'")
+		}
+		if err := cleanupArgs[1].Unmarshal(&force); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+		}
 	default:
-		return errors.Errorf("expected 0-1 arguments, got %d", n)
+		return errors.Errorf("expected 0-2 arguments, got %d", n)
 	}
 
 	// This won't miss units, because a Dying application cannot have units
@@ -445,6 +453,7 @@ func (st *State) cleanupCharm(charmURL string) error {
 // they are cleaned up as well.
 func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	var destroyStorage bool
+	var force bool
 	switch n := len(cleanupArgs); n {
 	case 0:
 		// Old cleanups have no args, so follow the old behaviour.
@@ -452,8 +461,15 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
 			return errors.Annotate(err, "unmarshalling cleanup args")
 		}
+	case 2:
+		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'destroyStorage'")
+		}
+		if err := cleanupArgs[1].Unmarshal(&force); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+		}
 	default:
-		return errors.Errorf("expected 0-1 arguments, got %d", n)
+		return errors.Errorf("expected 0-2 arguments, got %d", n)
 	}
 
 	unit, err := st.Unit(name)
@@ -888,6 +904,7 @@ func (st *State) obliterateUnit(unitName string) error {
 	if err := unit.EnsureDead(); err != nil {
 		return err
 	}
+	// TODO (anastasiamac) This needs to work with force
 	return unit.Remove()
 }
 

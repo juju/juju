@@ -4623,7 +4623,7 @@ func (s *StateSuite) TestWatchRelationIngressNetworks(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Delete relation.
-	state.RemoveRelation(c, rel)
+	state.RemoveRelation(c, rel, false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange()
 	wc.AssertNoChange()
@@ -4686,7 +4686,7 @@ func (s *StateSuite) TestWatchRelationEgressNetworks(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Delete relation.
-	state.RemoveRelation(c, rel)
+	state.RemoveRelation(c, rel, false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange()
 	wc.AssertNoChange()
