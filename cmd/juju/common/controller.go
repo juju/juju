@@ -27,11 +27,8 @@ import (
 )
 
 var (
-	bootstrapReadyPollDelay     = 1 * time.Second
-	bootstrapReadyPollTotalTime = 2 * time.Minute // for testing, DOES it actually work?
-	// bootstrapReadyPollTotalTime = 10 * time.Minute
-	// bootstrapReadyPollCount = 60
-	bootstrapReadyPollCount = 15
+	bootstrapReadyPollDelay = 1 * time.Second
+	bootstrapReadyPollCount = 60
 	blockAPI                = getBlockAPI
 )
 
@@ -75,8 +72,6 @@ func WaitForAgentInitialisation(
 ) (err error) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempts := utils.AttemptStrategy{
-		// added total time to try for more stable of when we should give up;
-		Total: bootstrapReadyPollTotalTime,
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
 	}
@@ -118,8 +113,6 @@ func WaitForAgentInitialisation(
 		errorMessage := errors.Cause(err).Error()
 		switch {
 		case errors.Cause(err) == io.EOF,
-			strings.HasSuffix(errorMessage, "connection refused"), // added for testing
-			strings.HasSuffix(errorMessage, "timeout"),
 			strings.HasSuffix(errorMessage, "connection is shut down"),
 			strings.HasSuffix(errorMessage, "no api connection available"),
 			strings.Contains(errorMessage, "spaces are still being discovered"):

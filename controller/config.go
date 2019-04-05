@@ -529,15 +529,6 @@ func (c Config) AutocertDNSName() string {
 	return c.asString(AutocertDNSNameKey)
 }
 
-// SetAutocertDNSName sets controller public DNS.
-func (c Config) SetAutocertDNSName(controllerDNS string) error {
-	if c.AutocertDNSName() != "" {
-		return errors.NotSupportedf("reset controller config %q", AutocertDNSNameKey)
-	}
-	c[AutocertDNSNameKey] = controllerDNS
-	return nil
-}
-
 // IdentityPublicKey returns the public key of the identity manager.
 func (c Config) IdentityPublicKey() *bakery.PublicKey {
 	key := c.asString(IdentityPublicKey)

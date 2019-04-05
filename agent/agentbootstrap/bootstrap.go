@@ -419,7 +419,7 @@ func initControllerCloudService(
 ) error {
 	if !isCAAS {
 		// IAAS does have controller cloud service for now.
-		logger.Debugf("no cloud service need to be created for IAAS model")
+		logger.Debugf("no cloud service needs to be created for IAAS model")
 		return nil
 	}
 
@@ -442,14 +442,14 @@ func initControllerCloudService(
 		return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
 	}
 	svcId := args.ControllerConfig.ControllerUUID()
-	// svcId := args.ControllerModelConfig.Name()
 	logger.Infof("creating cloud service for k8s controller %q", svcId)
-	newSvc, err := st.AddCloudService(state.AddCloudServiceArgs{
+	cloudSvc, err := st.AddCloudService(state.AddCloudServiceArgs{
 		Id:         svcId,
 		ProviderId: svc.Id,
 		Addresses:  svc.Addresses,
 	})
-	return errors.Annotatef(err, "creating cloud service %q", svc.Id)
+	logger.Debugf("created cloud service %v for controller", cloudSvc)
+	return errors.Trace(err)
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.

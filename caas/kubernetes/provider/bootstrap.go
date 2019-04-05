@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
 )
 
 const (
@@ -338,11 +337,8 @@ func (c controllerStack) createControllerService() error {
 		if len(svc.Addresses) == 0 {
 			return errors.NotProvisionedf("controller service address")
 		}
-
-		// publicAddress := network.AddressesWithPort(
-		// 	svc.Addresses, c.pcfg.Bootstrap.ControllerConfig.APIPort(),
-		// )[0].String()
-		c.pcfg.Bootstrap.StateInitializationParams.ControllerService = svc
+		// we need to ensure svc DNS has been provisioned already here because
+		// we do Not want bootstrap-state cmd wait instead.
 		return nil
 	}
 

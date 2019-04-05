@@ -144,7 +144,7 @@ OPERATOR_IMAGE_BUILD_SRC ?= true
 OPERATOR_IMAGE_TAG       ?= $(shell jujud version | rev | cut -d- -f3- | rev)
 OPERATOR_IMAGE_PATH      = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}
 
-operator-image: 
+operator-image:
     ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
 		@make install
     else

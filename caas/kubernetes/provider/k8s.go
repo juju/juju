@@ -828,7 +828,7 @@ func getLoadBalancerAddress(svc *core.Service) string {
 
 	ing := svc.Status.LoadBalancer.Ingress
 	if len(ing) == 0 {
-		return lpAdd
+		return ""
 	}
 
 	// It usually has only one record.

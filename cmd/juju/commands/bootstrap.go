@@ -800,10 +800,6 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		)
 	}
 
-	// if err = k8sprovider.ReScheduler(controllerDataRefresher, errors.IsNotProvisioned, jujuclock.WallClock, 3*time.Minute); err != nil {
-	// 	return errors.Trace(err)
-	// }
-
 	retryCallArgs := retry.CallArgs{
 		Attempts:    20,
 		Delay:       3 * time.Second,

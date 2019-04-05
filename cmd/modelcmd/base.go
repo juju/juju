@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -439,8 +438,6 @@ func newAPIConnectionParams(
 	}
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bakery
-	// we should not use default timeout - 10 minutes.
-	dialOpts.Timeout = 15 * time.Second
 
 	if accountDetails != nil {
 		bakery.WebPageVisitor = httpbakery.NewMultiVisitor(
