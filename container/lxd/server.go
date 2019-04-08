@@ -246,7 +246,7 @@ func (s *Server) UpdateContainerProfiles(name string, profiles []string) error {
 	op := resp.Get()
 	logger.Debugf("updated %q profiles, waiting on %s", name, op.Description)
 	err = resp.Wait()
-	return errors.Trace(err)
+	return errors.Trace(errors.Annotatef(err, "update failed"))
 }
 
 // CreateClientCertificate adds the input certificate to the server,
