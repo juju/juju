@@ -817,23 +817,12 @@ func (u *Unit) destroyHostOps(a *Application, force bool) (ops []txn.Op, errs []
 	machineUpdate := bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}}
 	var cleanupOps []txn.Op
 	if machineCheck && containerCheck {
-		err = m.advanceLifecycle(Dying, force)
-		if err != nil {
-			// TODO (anastasiamac) need to do more than log
-			logger.Warningf("could not advence machine %v state to Dying: %v", m.Id(), err)
-		}
-		if force {
+		machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
+		if !force {
+			cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id, force)}
+		} else {
 			cleanupOps = []txn.Op{newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}
 		}
-
-		// TODO (anastasiamac) This looks like a poor duplicatin of
-		// m. m.advanceLifecycle(Dying, false)
-		//machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
-		//if !force {
-		//	cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id, force)}
-		//} else {
-		//	cleanupOps = []txn.Op{newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}
-		//}
 	}
 
 	ops = append(ops, txn.Op{
