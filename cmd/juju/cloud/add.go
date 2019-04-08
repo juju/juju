@@ -298,8 +298,8 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 
 	if c.controllerName == "" {
 		if !c.Local {
-			ctxt.Stdout.Write(
-				[]byte("There are no controllers running.\nAdding cloud to local cache so you can use it to bootstrap a controller.\n"))
+			ctxt.Infof(
+				"There are no controllers running.\nAdding cloud to local cache so you can use it to bootstrap a controller.\n")
 		}
 		return addLocalCloud(c.cloudMetadataStore, *newCloud)
 	}
@@ -316,7 +316,12 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		return err
 	}
 	// Add a credential for the newly added cloud.
-	return c.addCredentialToController(ctxt, *newCloud, api)
+	err = c.addCredentialToController(ctxt, *newCloud, api)
+	if err != nil {
+		return err
+	}
+	ctxt.Infof("Cloud %q added to controller %q.", c.Cloud, c.controllerName)
+	return nil
 }
 
 func cloudFromLocal(cloudName string) (*jujucloud.Cloud, error) {

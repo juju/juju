@@ -312,7 +312,7 @@ func (s *addSuite) TestAddLocalDefault(c *gc.C) {
 	ctx, err := s.runCommand(c, fake, "garage-maas", cloudFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(numCallsToWrite(), gc.Equals, 1)
-	out := cmdtesting.Stdout(ctx)
+	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	c.Assert(out, gc.Matches, `There are no controllers running.Adding cloud to local cache so you can use it to bootstrap a controller.*`)
 }
@@ -396,7 +396,7 @@ func (s *addSuite) setupControllerCloudScenario(c *gc.C) (
 
 func (s *addSuite) TestAddToController(c *gc.C) {
 	cloudFileName, cmd, _, api, cred, _ := s.setupControllerCloudScenario(c)
-	_, err := cmdtesting.RunCommand(
+	ctx, err := cmdtesting.RunCommand(
 		c, cmd, "garage-maas", cloudFileName)
 	c.Assert(err, jc.ErrorIsNil)
 	api.CheckCallNames(c, "AddCloud", "AddCredential", "Close")
@@ -408,6 +408,9 @@ func (s *addSuite) TestAddToController(c *gc.C) {
 		Endpoint:    "http://garagemaas",
 	})
 	api.CheckCall(c, 1, "AddCredential", "cloudcred-garage-maas_fred_default", cred)
+	out := cmdtesting.Stderr(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `Cloud "garage-maas" added to controller "mycontroller".`)
 }
 
 func (s *addSuite) TestAddLocal(c *gc.C) {

@@ -57,11 +57,13 @@ func (s *listSuite) TestListPublicLocalDefault(c *gc.C) {
 	s.store.Controllers = nil
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil))
 	c.Assert(err, jc.ErrorIsNil)
-	out := cmdtesting.Stdout(ctx)
+	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
-
 	c.Assert(out, gc.Matches, `There are no controllers running.You can bootstrap a new controller using one of these clouds:.*`)
+
 	// Check that we are producing the expected fields
+	out = cmdtesting.Stdout(ctx)
+	out = strings.Replace(out, "\n", "", -1)
 	c.Assert(out, gc.Matches, `.*Cloud +Regions +Default +Type +Description.*`)
 	// // Just check couple of snippets of the output to make sure it looks ok.
 	c.Assert(out, gc.Matches, `.*aws +[0-9]+ +[a-z0-9-]+ +ec2 +Amazon Web Services.*`)
@@ -174,7 +176,12 @@ func (s *listSuite) TestListTabular(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "Close")
 	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
-	out := cmdtesting.Stdout(ctx)
+
+	out := cmdtesting.Stderr(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `Clouds on controller "mycontroller":.*`)
+
+	out = cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, `
 Cloud    Regions  Default  Type       Description
 antnest        1  default  openstack  

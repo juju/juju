@@ -92,8 +92,8 @@ func (c *removeCloudCommand) Init(args []string) (err error) {
 func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.controllerName == "" {
 		if c.controllerName == "" && !c.Local {
-			ctxt.Stdout.Write(
-				[]byte("There are no controllers running.\nRemoving cloud from local cache. You will no longer be able to bootstrap on this cloud.\n"))
+			return errors.Errorf(
+				"There are no controllers running.\nTo remove cloud %q from the local cache, use the --local option.", c.Cloud)
 		}
 		return c.removeLocalCloud(ctxt)
 	}

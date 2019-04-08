@@ -163,8 +163,12 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 		output = details.all()
 	default:
 		if c.controllerName == "" && !c.Local {
-			ctxt.Stdout.Write(
-				[]byte("There are no controllers running.\nYou can bootstrap a new controller using one of these clouds:\n"))
+			ctxt.Infof(
+				"There are no controllers running.\nYou can bootstrap a new controller using one of these clouds:\n")
+		}
+		if c.controllerName != "" {
+			ctxt.Infof(
+				"Clouds on controller %q:\n\n", c.controllerName)
 		}
 		output = details
 	}

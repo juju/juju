@@ -99,7 +99,7 @@ func (s *updateCloudSuite) TestUpdateFromFileDefaultLocal(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.Calls(), gc.HasLen, 0)
-	out := cmdtesting.Stdout(ctx)
+	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	c.Assert(out, gc.Matches, `There are no controllers running.Updating cloud in local cache so you can use it to bootstrap a controller.*`)
 }
@@ -120,7 +120,7 @@ func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
 		controllerNameCalled = controllerName
 		return s.api, nil
 	})
-	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName)
+	ctx, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "UpdateCloud", "Close")
 	c.Assert(controllerNameCalled, gc.Equals, "mycontroller")
@@ -131,6 +131,9 @@ func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
 		AuthTypes:   jujucloud.AuthTypes{"oauth1"},
 		Endpoint:    "http://garagemaas",
 	})
+	out := cmdtesting.Stderr(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `Cloud "garage-maas" updated on controller "mycontroller".`)
 }
 
 func (s *updateCloudSuite) TestUpdateControllerLocalCacheBadFile(c *gc.C) {

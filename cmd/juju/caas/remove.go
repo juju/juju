@@ -97,8 +97,8 @@ func (c *RemoveCAASCommand) Init(args []string) (err error) {
 // Run is defined on the Command interface.
 func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 	if c.controllerName == "" && !c.Local {
-		ctxt.Stdout.Write(
-			[]byte("There are no controllers running.\nRemoving cluster from local cache. You will no longer be able to bootstrap on this cluster.\n"))
+		return errors.Errorf(
+			"There are no controllers running.\nTo remove cloud %q from the local cache, use the --local option.", c.cloudName)
 	}
 	if err := removeCloudFromLocal(c.cloudMetadataStore, c.cloudName); err != nil {
 		return errors.Annotatef(err, "cannot remove cloud from local cache")

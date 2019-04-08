@@ -90,7 +90,7 @@ func (s *removeSuite) TestRemoveCloudLocal(c *gc.C) {
 	assertPersonalClouds(c, "homestack2")
 }
 
-func (s *removeSuite) TestRemoveCloudDefaultLocal(c *gc.C) {
+func (s *removeSuite) TestRemoveCloudNoControllers(c *gc.C) {
 	s.store.Controllers = nil
 	cmd := cloud.NewRemoveCloudCommandForTest(
 		s.store,
@@ -100,13 +100,11 @@ func (s *removeSuite) TestRemoveCloudDefaultLocal(c *gc.C) {
 		})
 	s.createTestCloudData(c)
 	assertPersonalClouds(c, "homestack", "homestack2")
-	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of personal cloud \"homestack\"\n")
-	assertPersonalClouds(c, "homestack2")
-	out := cmdtesting.Stdout(ctx)
-	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Matches, `There are no controllers running.Removing cloud from local cache. You will no longer be able to bootstrap on this cloud.*`)
+	_, err := cmdtesting.RunCommand(c, cmd, "homestack")
+	c.Assert(err, gc.NotNil)
+	msg := err.Error()
+	msg = strings.Replace(msg, "\n", "", -1)
+	c.Assert(msg, gc.Matches, `There are no controllers running.To remove cloud "homestack" from the local cache, use the --local option.*`)
 }
 
 func (s *removeSuite) TestRemoveCloudController(c *gc.C) {
