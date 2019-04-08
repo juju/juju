@@ -371,6 +371,7 @@ var defaultCloudDescription = map[string]string{
 	"maas":        "Metal As A Service",
 	"openstack":   "Openstack Cloud",
 	"oracle":      "Oracle Compute Cloud Service",
+	"kubernetes":  "Kubernetes",
 }
 
 // WritePublicCloudMetadata marshals to YAML and writes the cloud metadata

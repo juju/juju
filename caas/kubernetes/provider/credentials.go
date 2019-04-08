@@ -113,3 +113,25 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
 	return &args.Credential, nil
 }
+
+// RegisterCredentials is part of the environs.ProviderCredentialsRegister interface.
+func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
+	cloudName := cld.Name
+	if cloudName != builtinMicroK8sName {
+		return make(map[string]*cloud.CloudCredential), nil
+	}
+	_, cred, _, err := attemptMicroK8sCloud(defaultRunner{})
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return map[string]*cloud.CloudCredential{
+		cloudName: {
+			DefaultCredential: cloudName,
+			AuthCredentials: map[string]cloud.Credential{
+				cloudName: cred,
+			},
+		},
+	}, nil
+}

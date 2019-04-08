@@ -356,22 +356,30 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	}
 
 	config := provider.KubeCloudParams{
-		ClusterName:     clusterName,
-		CaasName:        c.caasName,
-		ContextName:     c.contextName,
-		HostCloudRegion: c.hostCloudRegion,
+		ClusterName:        clusterName,
+		CaasName:           c.caasName,
+		ContextName:        c.contextName,
+		HostCloudRegion:    c.hostCloudRegion,
+		CaasType:           c.caasType,
+		ClientConfigGetter: c.newClientConfigReader,
+	}
+
+	storageParams := provider.KubeCloudStorageParams{
 		WorkloadStorage: c.workloadStorage,
-		CaasType:        c.caasType,
+		HostCloudRegion: c.hostCloudRegion,
 		Errors: provider.KubeCloudParamErrors{
 			ClusterQuery:         clusterQueryErrMsg,
 			UnknownCluster:       unknownClusterErrMsg,
 			NoRecommendedStorage: noRecommendedStorageErrMsg,
 		},
 		ClusterMetadataCheckerGetter: c.brokerGetter,
-		ClientConfigGetter:           c.newClientConfigReader,
-		ClusterMetadataCheckerFunc:   c.getClusterMetadataFunc(ctx),
+		GetClusterMetadataFunc:       c.getClusterMetadataFunc(ctx),
 	}
-	newCloud, credential, credentialName, storageMsg, err := provider.CloudFromKubeConfig(rdr, config)
+	newCloud, credential, credentialName, err := provider.CloudFromKubeConfig(rdr, config)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	storageMsg, err := provider.UpdateKubeCloudWithStorage(&newCloud, credential, storageParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -476,7 +484,7 @@ func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (_ string, err 
 	return "", errors.NotValidf("cloud region %q", cloudRegion)
 }
 
-func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.ClusterMetadataCheckerFunc {
+func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.GetClusterMetadataFunc {
 	return func(broker caas.ClusterMetadataChecker) (*caas.ClusterMetadata, error) {
 		interrupted := make(chan os.Signal, 1)
 		defer close(interrupted)
