@@ -334,6 +334,123 @@ func (s *ControllerSuite) TestMarkWithSweepAndUpdateCalls(c *gc.C) {
 	})
 }
 
+func (s *ControllerSuite) TestMarkAndSweepCleansUpAppWatcher(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, modelChange, events)
+	s.processChange(c, appChange, events)
+
+	model, err := controller.Model("model-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+
+	app, err := model.Application("application-name")
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := app.WatchConfig()
+	wc := NewNotifyWatcherC(c, w)
+	wc.AssertOneChange()
+
+	markResult := controller.Mark()
+	c.Check(markResult, gc.DeepEquals, map[string]int{
+		"model-uuid": 2,
+	})
+
+	// ensure we don't wipe out the model, otherwise the application is no
+	// longer accessible.
+	s.processChange(c, modelChange, events)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		c.Check(s.nextChange(c, events), gc.DeepEquals, removeApp)
+	}()
+
+	sweepResult := controller.Sweep()
+	c.Check(sweepResult, gc.DeepEquals, map[string]cache.SweepInfo{
+		"model-uuid": {
+			Stale:  1,
+			Active: 1,
+		},
+	})
+
+	wg.Wait()
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(controller.ModelUUIDs(), gc.DeepEquals, []string{"model-uuid"})
+	c.Check(controller.Report(), gc.DeepEquals, map[string]interface{}{
+		"model-uuid": map[string]interface{}{
+			"name":              "model-owner/test-model",
+			"life":              life.Value("alive"),
+			"application-count": 0,
+			"charm-count":       0,
+			"machine-count":     0,
+			"unit-count":        0,
+		},
+	})
+}
+
+func (s *ControllerSuite) TestMarkAndSweepCleansUpAppWatcherCleanlyEvenWhenWatcherIsAlreadyKilled(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, modelChange, events)
+	s.processChange(c, appChange, events)
+
+	model, err := controller.Model("model-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+
+	app, err := model.Application("application-name")
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := app.WatchConfig()
+	wc := NewNotifyWatcherC(c, w)
+	wc.AssertOneChange()
+
+	markResult := controller.Mark()
+	c.Check(markResult, gc.DeepEquals, map[string]int{
+		"model-uuid": 2,
+	})
+
+	// ensure we don't wipe out the model, otherwise the application is no
+	// longer accessible.
+	s.processChange(c, modelChange, events)
+	w.Kill()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		c.Check(s.nextChange(c, events), gc.DeepEquals, removeApp)
+	}()
+
+	sweepResult := controller.Sweep()
+	c.Check(sweepResult, gc.DeepEquals, map[string]cache.SweepInfo{
+		"model-uuid": {
+			Stale:  1,
+			Active: 1,
+		},
+	})
+
+	wg.Wait()
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(controller.ModelUUIDs(), gc.DeepEquals, []string{"model-uuid"})
+	c.Check(controller.Report(), gc.DeepEquals, map[string]interface{}{
+		"model-uuid": map[string]interface{}{
+			"name":              "model-owner/test-model",
+			"life":              life.Value("alive"),
+			"application-count": 0,
+			"charm-count":       0,
+			"machine-count":     0,
+			"unit-count":        0,
+		},
+	})
+}
+
 func (s *ControllerSuite) new(c *gc.C) (*cache.Controller, <-chan interface{}) {
 	events := s.captureEvents(c)
 	controller, err := cache.NewController(s.config)

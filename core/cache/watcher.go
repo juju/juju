@@ -66,6 +66,11 @@ func (w *notifyWatcherBase) Changes() <-chan struct{} {
 // Kill is part of the worker.Worker interface.
 func (w *notifyWatcherBase) Kill() {
 	w.mu.Lock()
+	if w.closed {
+		w.mu.Unlock()
+		return
+	}
+
 	w.closed = true
 	close(w.changes)
 	w.mu.Unlock()

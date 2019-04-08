@@ -191,7 +191,7 @@ func (c *cacheWorker) loop() error {
 					}
 				}
 			}
-			c.mu.Lock()
+
 			if c.sweepRequired {
 				c.sweepRequired = false
 
@@ -202,7 +202,6 @@ func (c *cacheWorker) loop() error {
 				}
 				c.config.Logger.Tracef("sweeped %d stale entities", stale)
 			}
-			c.mu.Unlock()
 		}
 	}
 }
