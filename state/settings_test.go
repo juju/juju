@@ -571,9 +571,9 @@ func (s *SettingsSuite) TestUpdatingInterfaceSliceValue(c *gc.C) {
 
 func (s *SettingsSuite) TestApplyAndRetrieveChanges(c *gc.C) {
 	s1, err := s.createSettings(s.key, map[string]interface{}{
-		"foo":    "bar",
-		"alpha":  "beta",
-		"number": 1,
+		"foo.dot":      "bar",
+		"alpha$dollar": "beta",
+		"number":       1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s1.Write()
@@ -585,18 +585,18 @@ func (s *SettingsSuite) TestApplyAndRetrieveChanges(c *gc.C) {
 	// Add, update, update one not present, delete, delete one not present,
 	// leave one alone.
 	s2.applyChanges(coresettings.ItemChanges{
-		coresettings.MakeModification("foo", "no-matter", "new-bar"),
+		coresettings.MakeModification("foo.dot", "no-matter", "new-bar"),
 		coresettings.MakeModification("make", "no-matter", "new"),
-		coresettings.MakeDeletion("alpha", "no-matter"),
+		coresettings.MakeDeletion("alpha$dollar", "no-matter"),
 		coresettings.MakeDeletion("what", "the"),
 		coresettings.MakeAddition("new", "noob"),
 	})
 
 	// Updating one not present = addition, deleting one not present = no-op.
 	exp := coresettings.ItemChanges{
-		coresettings.MakeModification("foo", "bar", "new-bar"),
+		coresettings.MakeModification("foo.dot", "bar", "new-bar"),
 		coresettings.MakeAddition("make", "new"),
-		coresettings.MakeDeletion("alpha", "beta"),
+		coresettings.MakeDeletion("alpha$dollar", "beta"),
 		coresettings.MakeAddition("new", "noob"),
 	}
 	sort.Sort(exp)
