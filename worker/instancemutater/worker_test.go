@@ -217,6 +217,24 @@ func (s *workerSuite) TestNoMachineFound(c *gc.C) {
 	}
 }
 
+func (s *workerSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	w := s.workerForScenario(c,
+		s.ignoreLogging(c),
+		s.notifyMachines([][]string{
+			{"0"},
+		}, s.noopDone),
+		s.expectFacadeMachineTag,
+		s.notifyAppLXDProfile(1, s.closeDone),
+		s.expectMachineTag,
+		s.expectCharmProfileInfoNotProvisioned,
+	)
+
+	err := s.errorKill(c, w)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+}
+
 func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -322,6 +340,10 @@ func (s *workerSuite) expectCharmProfilingInfo(rev int) func() {
 	}
 }
 
+func (s *workerSuite) expectCharmProfileInfoNotProvisioned() {
+	s.machine.EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, errors.NotProvisionedf("machine 0"))
+}
+
 func (s *workerSuite) expectModificationStatusIdle() {
 	s.machine.EXPECT().SetModificationStatus(status.Idle, "", nil).Return(nil)
 }
@@ -394,6 +416,18 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 		c.Errorf("timed out waiting for notifications to be consumed")
 	}
 	workertest.CleanKill(c, w)
+}
+
+// errorKill waits for notifications to be processed, then waits for the input
+// worker to be killed.  Any error is returned to the caller. If either ops
+// time out, the test fails.
+func (s *workerSuite) errorKill(c *gc.C, w worker.Worker) error {
+	select {
+	case <-s.done:
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for notifications to be consumed")
+	}
+	return workertest.CheckKill(c, w)
 }
 
 // ignoreLogging turns the suite's mock logger into a sink, with no validation.
