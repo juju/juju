@@ -16,6 +16,9 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	apiinstancemutater "github.com/juju/juju/api/instancemutater"
+	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/instancemutater"
 	"github.com/juju/juju/worker/instancemutater/mocks"
@@ -148,15 +151,53 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 		s.expectFacadeMachineTag,
 		s.notifyAppLXDProfile(1, s.closeDone),
 		s.expectMachineTag,
+		s.expectCharmProfilingInfo(3),
+		s.expectLXDProfileNames,
+		s.expectSetCharmProfiles,
+		s.expectAssignProfiles,
+		s.expectModificationStatusIdle,
 	)
+	s.cleanKill(c, w)
+}
 
+func (s *workerSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	w := s.workerForScenario(c,
+		s.ignoreLogging(c),
+		s.notifyMachines([][]string{
+			{"0"},
+		}, s.noopDone),
+		s.expectFacadeMachineTag,
+		s.notifyAppLXDProfile(1, s.closeDone),
+		s.expectMachineTag,
+		s.expectCharmProfilingInfo(2),
+		s.expectLXDProfileNames,
+		s.expectModificationStatusIdle,
+	)
+	s.cleanKill(c, w)
+}
+
+func (s *workerSuite) TestNoChangeFoundOne(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	w := s.workerForScenario(c,
+		s.ignoreLogging(c),
+		s.notifyMachines([][]string{
+			{"0"},
+		}, s.noopDone),
+		s.expectFacadeMachineTag,
+		s.notifyAppLXDProfile(1, s.closeDone),
+		s.expectMachineTag,
+		s.expectCharmProfilingInfoSimpleNoChange,
+	)
 	s.cleanKill(c, w)
 }
 
 func (s *workerSuite) TestNoMachineFound(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	w := s.workerForScenario(c,
+	w, err := s.workerErrorForScenario(c,
 		s.ignoreLogging(c),
 		s.notifyMachines([][]string{
 			{"0"},
@@ -164,7 +205,16 @@ func (s *workerSuite) TestNoMachineFound(c *gc.C) {
 		s.expectFacadeReturnsNoMachine,
 	)
 
-	s.cleanKill(c, w)
+	// This test had intermittent failures, one of the
+	// two following would occur.  The 2nd is what we're
+	// looking for.  Please improve this test if you're
+	// able.
+	if err != nil {
+		c.Assert(err, gc.ErrorMatches, "catacomb .* is dying")
+	} else {
+		err = workertest.CheckKill(c, w)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
 }
 
 func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
@@ -193,8 +243,8 @@ func (s *workerSuite) closeDone() {
 }
 
 // workerForScenario creates worker config based on the suite's mocks.
-// Any supplied behaviour functions are executed,
-// then a new worker is started and returned.
+// Any supplied behaviour functions are executed, then a new worker
+// is started successfully and returned.
 func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Worker {
 	config := instancemutater.Config{
 		Facade:      s.facade,
@@ -213,6 +263,25 @@ func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Wo
 	return w
 }
 
+// workerErrorForScenario creates worker config based on the suite's mocks.
+// Any supplied behaviour functions are executed, then a new worker is
+// started and returned with any error in creation.
+func (s *workerSuite) workerErrorForScenario(c *gc.C, behaviours ...func()) (worker.Worker, error) {
+	config := instancemutater.Config{
+		Facade:      s.facade,
+		Logger:      s.logger,
+		Environ:     s.environ,
+		AgentConfig: s.agentConfig,
+		Tag:         s.machineTag,
+	}
+
+	for _, b := range behaviours {
+		b()
+	}
+
+	return instancemutater.NewWorker(config)
+}
+
 func (s *workerSuite) expectFacadeMachineTag() {
 	s.facade.EXPECT().Machine(s.machineTag).Return(s.machine, nil)
 	s.machine.EXPECT().Tag().Return(s.machineTag)
@@ -224,6 +293,46 @@ func (s *workerSuite) expectFacadeReturnsNoMachine() {
 
 func (s *workerSuite) expectMachineTag() {
 	s.machine.EXPECT().Tag().Return(s.machineTag).AnyTimes()
+}
+
+func (s *workerSuite) expectCharmProfilingInfoSimpleNoChange() {
+	s.machine.EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, nil)
+}
+
+func (s *workerSuite) expectLXDProfileNames() {
+	s.environ.MockLXDProfiler.EXPECT().LXDProfileNames("juju-23423-0").Return([]string{"default", "juju-testing", "juju-testing-one-2"}, nil)
+}
+
+func (s *workerSuite) expectCharmProfilingInfo(rev int) func() {
+	return func() {
+		s.machine.EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{
+			CurrentProfiles: []string{"default", "juju-testing", "juju-testing-one-2"},
+			InstanceId:      "juju-23423-0",
+			ModelName:       "testing",
+			ProfileChanges: []apiinstancemutater.UnitProfileChanges{
+				{
+					ApplicationName: "one",
+					Revision:        rev,
+					Profile: lxdprofile.Profile{
+						Config: map[string]string{"hi": "bye"},
+					},
+				},
+			},
+		}, nil)
+	}
+}
+
+func (s *workerSuite) expectModificationStatusIdle() {
+	s.machine.EXPECT().SetModificationStatus(status.Idle, "", nil).Return(nil)
+}
+
+func (s *workerSuite) expectAssignProfiles() {
+	profiles := []string{"default", "juju-testing", "juju-testing-one-3"}
+	s.environ.MockLXDProfiler.EXPECT().AssignProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
+}
+
+func (s *workerSuite) expectSetCharmProfiles() {
+	s.machine.EXPECT().SetCharmProfiles([]string{"default", "juju-testing", "juju-testing-one-3"})
 }
 
 // notifyMachines returns a suite behaviour that will cause the instance mutator

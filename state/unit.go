@@ -491,6 +491,26 @@ type DestroyUnitOperation struct {
 	// to the unit is destroyed. If this is false, then detachable
 	// storage will be detached and left in the model.
 	DestroyStorage bool
+
+	// Force controls whether or not the destruction of a unit
+	// will be forced, i.e. ignore operational errors.
+	Force bool
+
+	// Errors contains errors encountered while applying this operation.
+	// Generally, these are non-fatal errors that have been encountered
+	// during, say, force. They may not have prevented the operation from being
+	// aborted but the user might still want to know about them.
+	Errors []error
+}
+
+// AddError adds an error to the collection of errors for this operation.
+func (op *DestroyUnitOperation) AddError(one ...error) {
+	op.Errors = append(op.Errors, one...)
+}
+
+// LastError returns last added error for this operation.
+func (op *DestroyUnitOperation) LastError() error {
+	return op.Errors[len(op.Errors)-1]
 }
 
 // Build is part of the ModelOperation interface.
@@ -502,13 +522,17 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 			return nil, err
 		}
 	}
-	switch ops, err := op.unit.destroyOps(op.DestroyStorage); err {
+	switch ops, err := op.destroyOps(); err {
 	case errRefresh:
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
 	case nil:
 		return ops, nil
 	default:
+		if op.Force {
+			logger.Warningf("forcing destroy unit for %v despite error %v", op.unit.Name(), err)
+			return ops, nil
+		}
 		return nil, err
 	}
 	return nil, jujutxn.ErrNoOperations
@@ -517,23 +541,41 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 // Done is part of the ModelOperation interface.
 func (op *DestroyUnitOperation) Done(err error) error {
 	if err != nil {
-		return errors.Annotatef(err, "cannot destroy unit %q", op.unit)
+		if !op.Force {
+			return errors.Annotatef(err, "cannot destroy unit %q", op.unit)
+		}
+		op.AddError(errors.Errorf("force destroy unit %q proceeded despite encountering ERROR %v", op.unit, err))
 	}
-	if err := op.unit.eraseHistory(); err != nil {
-		logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
+	if err := op.eraseHistory(); err != nil {
+		if !op.Force {
+			logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
+		}
+		op.AddError(errors.Errorf("force erase unit's %q history proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
 	}
 	return nil
 }
 
-func (u *Unit) eraseHistory() error {
-	if err := eraseStatusHistory(u.st, u.globalKey()); err != nil {
-		return errors.Annotate(err, "workload")
+func (op *DestroyUnitOperation) eraseHistory() error {
+	if err := eraseStatusHistory(op.unit.st, op.unit.globalKey()); err != nil {
+		one := errors.Annotate(err, "workload")
+		if !op.Force {
+			return one
+		}
+		op.AddError(one)
 	}
-	if err := eraseStatusHistory(u.st, u.globalAgentKey()); err != nil {
-		return errors.Annotate(err, "agent")
+	if err := eraseStatusHistory(op.unit.st, op.unit.globalAgentKey()); err != nil {
+		one := errors.Annotate(err, "agent")
+		if !op.Force {
+			return one
+		}
+		op.AddError(one)
 	}
-	if err := eraseStatusHistory(u.st, u.globalWorkloadVersionKey()); err != nil {
-		return errors.Annotate(err, "version")
+	if err := eraseStatusHistory(op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
+		one := errors.Annotate(err, "version")
+		if !op.Force {
+			return one
+		}
+		op.AddError(one)
 	}
 	return nil
 }
@@ -541,9 +583,11 @@ func (u *Unit) eraseHistory() error {
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
 // operations recalculated.
-func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
-	if u.doc.Life != Alive {
-		return nil, errAlreadyDying
+func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
+	if op.unit.doc.Life != Alive {
+		if !op.Force {
+			return nil, errAlreadyDying
+		}
 	}
 
 	// Where possible, we'd like to be able to short-circuit unit destruction
@@ -567,44 +611,66 @@ func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	// lose much time and (2) by maintaining this restriction, I can reduce
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
-	minUnitsOp := minUnitsTriggerOp(u.st, u.ApplicationName())
-	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name, destroyStorage)
+	minUnitsOp := minUnitsTriggerOp(op.unit.st, op.unit.ApplicationName())
+	cleanupOp := newCleanupOp(cleanupDyingUnit, op.unit.doc.Name, op.DestroyStorage, op.Force)
 	setDyingOp := txn.Op{
 		C:      unitsC,
-		Id:     u.doc.DocID,
+		Id:     op.unit.doc.DocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}
-	setDyingOps := []txn.Op{setDyingOp, cleanupOp, minUnitsOp}
-	if u.doc.Principal != "" {
-		return setDyingOps, nil
-	} else if len(u.doc.Subordinates)+u.doc.StorageAttachmentCount != 0 {
-		return setDyingOps, nil
+	setDyingOps := func(dyingErr error) ([]txn.Op, error) {
+		if !op.Force && dyingErr != nil {
+			// If we are not forcing removal, we care about the errors as they will stop removal.
+			// Don't return operations.
+			return nil, dyingErr
+		}
+		// If we are forcing, we care about the errors as we want report them to the user.
+		// But we also want operations to power through the removal.
+		op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.Name(), dyingErr))
+		return []txn.Op{setDyingOp, cleanupOp, minUnitsOp}, nil
+	}
+	if op.unit.doc.Principal != "" {
+		return setDyingOps(nil)
+	} else if len(op.unit.doc.Subordinates)+op.unit.doc.StorageAttachmentCount != 0 {
+		return setDyingOps(nil)
 	}
 
 	// See if the unit agent has started running.
 	// If so then we can't set directly to dead.
-	isAssigned := u.doc.MachineId != ""
-	shouldBeAssigned := u.ShouldBeAssigned()
-	agentStatusDocId := u.globalAgentKey()
-	agentStatusInfo, agentErr := getStatus(u.st.db(), agentStatusDocId, "agent")
+	isAssigned := op.unit.doc.MachineId != ""
+	shouldBeAssigned := op.unit.ShouldBeAssigned()
+	agentStatusDocId := op.unit.globalAgentKey()
+	agentStatusInfo, agentErr := getStatus(op.unit.st.db(), agentStatusDocId, "agent")
 	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
-		return nil, errors.Trace(agentErr)
+		if !op.Force {
+			return nil, errors.Trace(agentErr)
+		}
 	}
-	if (isAssigned || !shouldBeAssigned) && agentStatusInfo.Status != status.Allocating {
-		return setDyingOps, nil
+
+	// This has to be a function since we want to delay the evaluation of the value,
+	// in case agent erred out.
+	notAllocating := func() bool {
+		return (isAssigned || !shouldBeAssigned) && agentStatusInfo.Status != status.Allocating
+	}
+	if agentErr != nil || notAllocating() {
+		return setDyingOps(agentErr)
 	}
 	switch agentStatusInfo.Status {
 	case status.Error, status.Allocating:
 	default:
-		return nil, errors.Errorf("unexpected unit state - unit with status %v is not deployed", agentStatusInfo.Status)
+		err := errors.Errorf("unexpected unit state - unit with status %v is not deployed", agentStatusInfo.Status)
+		if !op.Force {
+			return nil, err
+		}
+		op.AddError(err)
 	}
 
 	statusOp := txn.Op{
 		C:      statusesC,
-		Id:     u.st.docID(agentStatusDocId),
+		Id:     op.unit.st.docID(agentStatusDocId),
 		Assert: bson.D{{"status", agentStatusInfo.Status}},
 	}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
@@ -618,45 +684,51 @@ func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 		removeAsserts = append(removeAsserts, bson.DocElem{"machineid", ""})
 	}
 
-	removeOps, err := u.removeOps(removeAsserts)
+	removeOps, opErrs, err := op.unit.removeOps(removeAsserts, op.Force)
+	op.AddError(opErrs...)
 	if err == errAlreadyRemoved {
 		return nil, errAlreadyDying
 	} else if err != nil {
-		return nil, err
+		if !op.Force {
+			return nil, err
+		}
+		op.AddError(err)
 	}
 	ops := []txn.Op{statusOp, minUnitsOp}
-	return append(ops, removeOps...), nil
+	ops = append(ops, removeOps...)
+	return ops, nil
 }
 
 // destroyHostOps returns all necessary operations to destroy the application unit's host machine,
 // or ensure that the conditions preventing its destruction remain stable through the transaction.
-func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
+func (u *Unit) destroyHostOps(a *Application, force bool) (ops []txn.Op, errs []error, err error) {
 	if a.doc.Subordinate {
 		return []txn.Op{{
 			C:      unitsC,
 			Id:     u.st.docID(u.doc.Principal),
 			Assert: txn.DocExists,
 			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
-		}}, nil
+		}}, nil, nil
 	} else if u.doc.MachineId == "" {
 		unitLogger.Tracef("unit %v unassigned", u)
-		return nil, nil
+		return nil, nil, nil
 	}
-
-	machineUpdate := bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}}
 
 	m, err := u.st.Machine(u.doc.MachineId)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, nil
+			return nil, nil, nil
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
 	containerCheck := true // whether container conditions allow destroying the host machine
 	containers, err := m.Containers()
 	if err != nil {
-		return nil, err
+		if !force {
+			return nil, errs, err
+		}
+		errs = append(errs, err)
 	}
 	if len(containers) > 0 {
 		ops = append(ops, txn.Op{
@@ -720,19 +792,21 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 		// Remove any charm profile applied to the machine for this unit.
 		profileOps, err := u.keepMachineRemoveProfileOps(m)
 		if err != nil {
-			return nil, err
+			if !force {
+				return nil, errs, err
+			}
+			errs = append(errs, err)
 		}
-		if len(profileOps) > 0 {
-			ops = append(ops, profileOps...)
-		}
+		ops = append(ops, profileOps...)
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can
 	// destroy it, in addition to removing the unit principal.
+	machineUpdate := bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}}
 	var cleanupOps []txn.Op
 	if machineCheck && containerCheck {
 		machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
-		cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id)}
+		cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id, force)}
 	}
 
 	ops = append(ops, txn.Op{
@@ -741,9 +815,8 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 		Assert: machineAssert,
 		Update: machineUpdate,
 	})
-	ops = append(ops, cleanupOps...)
 
-	return ops, nil
+	return append(ops, cleanupOps...), errs, nil
 }
 
 func (u *Unit) keepMachineRemoveProfileOps(m *Machine) ([]txn.Op, error) {
@@ -808,15 +881,16 @@ func (u *Unit) keepMachineRemoveProfileOps(m *Machine) ([]txn.Op, error) {
 
 // removeOps returns the operations necessary to remove the unit, assuming
 // the supplied asserts apply to the unit document.
-func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
+func (u *Unit) removeOps(asserts bson.D, force bool) ([]txn.Op, []error, error) {
 	app, err := u.st.Application(u.doc.Application)
 	if errors.IsNotFound(err) {
 		// If the application has been removed, the unit must already have been.
-		return nil, errAlreadyRemoved
+		return nil, nil, errAlreadyRemoved
 	} else if err != nil {
-		return nil, err
+		// If we cannot find application, no amount of force will succeed after this point.
+		return nil, nil, err
 	}
-	return app.removeUnitOps(u, asserts)
+	return app.removeUnitOps(u, asserts, force)
 }
 
 // ErrUnitHasSubordinates is a standard error to indicate that a Unit
@@ -890,12 +964,24 @@ func (u *Unit) EnsureDead() (err error) {
 // Remove removes the unit from state, and may remove its application as well, if
 // the application is Dying and no other references to it exist. It will fail if
 // the unit is not Dead.
-func (u *Unit) Remove() (err error) {
+func (u *Unit) Remove() error {
+	_, err := u.RemoveWithForce(false)
+	return err
+}
+
+// RemoveWithForce removes the unit from state similar to the unit.Remove() but
+// it ignores errors.
+// In addition, this function also returns all non-fatal operational errors
+// encountered.
+func (u *Unit) RemoveWithForce(force bool) ([]error, error) {
+	return u.internalRemove(force)
+}
+
+func (u *Unit) internalRemove(force bool) (errs []error, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
-		return errors.New("unit is not dead")
+		return errs, errors.New("unit is not dead")
 	}
-
 	// Now the unit is Dead, we can be sure that it's impossible for it to
 	// enter relation scopes (once it's Dying, we can be sure of this; but
 	// EnsureDead does not require that it already be Dying, so this is the
@@ -903,15 +989,26 @@ func (u *Unit) Remove() (err error) {
 	// the impact of unit agent bugs that leave relation scopes occupied).
 	relations, err := applicationRelations(u.st, u.doc.Application)
 	if err != nil {
-		return err
-	}
-	for _, rel := range relations {
-		ru, err := rel.Unit(u)
-		if err != nil {
-			return err
+		if !force {
+			return errs, err
 		}
-		if err := ru.LeaveScope(); err != nil {
-			return err
+		errs = append(errs, err)
+	} else {
+		var failRelations error
+		for _, rel := range relations {
+			ru, err := rel.Unit(u)
+			if err != nil {
+				errs = append(errs, err)
+				failRelations = err
+				continue
+			}
+			if err := ru.LeaveScope(); err != nil {
+				errs = append(errs, err)
+				failRelations = err
+			}
+		}
+		if !force && failRelations != nil {
+			return errs, failRelations
 		}
 	}
 
@@ -926,7 +1023,9 @@ func (u *Unit) Remove() (err error) {
 				return nil, err
 			}
 		}
-		switch ops, err := unit.removeOps(isDeadDoc); err {
+		ops, opErrs, err := unit.removeOps(isDeadDoc, force)
+		errs = append(errs, opErrs...)
+		switch err {
 		case errRefresh:
 		case errAlreadyDying:
 			return nil, jujutxn.ErrNoOperations
@@ -937,7 +1036,14 @@ func (u *Unit) Remove() (err error) {
 		}
 		return nil, jujutxn.ErrNoOperations
 	}
-	return unit.st.db().Run(buildTxn)
+	err = unit.st.db().Run(buildTxn)
+	if !force {
+		return errs, err
+	}
+	if err != nil {
+		errs = append(errs, err)
+	}
+	return errs, nil
 }
 
 // Resolved returns the resolved mode for the unit.
@@ -1529,9 +1635,14 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			})
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
-			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL, true)
+			// Since we can force this now, let's.. There is no point hanging on to the old charm.
+			decOps, opErrs, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL, true, true)
 			if err != nil {
-				return nil, errors.Trace(err)
+				// No need to stop further processing if the old key could not be removed.
+				logger.Errorf("could not remove old charm references for %v:%v", u.doc.CharmURL, err)
+			}
+			if len(opErrs) != 0 {
+				logger.Errorf("could not remove old charm references for %v:%v", u.doc.CharmURL, opErrs)
 			}
 			ops = append(ops, decOps...)
 		}

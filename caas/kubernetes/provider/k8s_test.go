@@ -1825,3 +1825,35 @@ func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
 		c.Fatal("timed out waiting for event")
 	}
 }
+
+func (s *K8sBrokerSuite) TestUpgrade(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	ss := apps.StatefulSet{
+		ObjectMeta: v1.ObjectMeta{Name: "test"},
+		Spec: apps.StatefulSetSpec{
+			Template: core.PodTemplateSpec{
+				Spec: core.PodSpec{
+					Containers: []core.Container{
+						{Image: "foo"},
+						{Image: "jujud-operator:1.1.1"},
+					},
+				},
+			},
+		},
+	}
+	updated := ss
+	updated.Spec.Template.Spec.Containers[1].Image = "juju-operator:6.6.6"
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(&ss, nil),
+		s.mockStatefulSets.EXPECT().Update(&updated).Times(1).
+			Return(nil, nil),
+	)
+
+	err := s.broker.Upgrade("test", version.MustParse("6.6.6"))
+	c.Assert(err, jc.ErrorIsNil)
+}

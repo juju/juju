@@ -60,10 +60,10 @@ type ApplicationAPI interface {
 	AddUnits(application.AddUnitsParams) ([]string, error)
 	Expose(application string) error
 	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
-	GetConfig(generation model.GenerationVersion, appNames ...string) ([]map[string]interface{}, error)
+	GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error)
 	GetConstraints(appNames ...string) ([]constraints.Value, error)
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
-	SetCharm(model.GenerationVersion, application.SetCharmConfig) error
+	SetCharm(string, application.SetCharmConfig) error
 	SetConstraints(application string, constraints constraints.Value) error
 	Update(apiparams.ApplicationUpdate) error
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)

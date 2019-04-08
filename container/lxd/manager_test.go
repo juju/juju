@@ -14,6 +14,7 @@ import (
 	lxdclient "github.com/lxc/lxd/client"
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -22,13 +23,13 @@ import (
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"gopkg.in/juju/charm.v6"
 )
 
 func Test(t *stdtesting.T) {
@@ -37,28 +38,34 @@ func Test(t *stdtesting.T) {
 
 type managerSuite struct {
 	lxdtesting.BaseSuite
+
+	cSvr           *lxdtesting.MockContainerServer
+	createRemoteOp *lxdtesting.MockRemoteOperation
+	deleteOp       *lxdtesting.MockOperation
+	startOp        *lxdtesting.MockOperation
+	stopOp         *lxdtesting.MockOperation
+	updateOp       *lxdtesting.MockOperation
+	manager        container.Manager
 }
 
 var _ = gc.Suite(&managerSuite{})
 
-func (s *managerSuite) patch(svr lxdclient.ImageServer) {
-	lxd.PatchConnectRemote(s, map[string]lxdclient.ImageServer{"cloud-images.ubuntu.com": svr})
+func (s *managerSuite) patch() {
+	lxd.PatchConnectRemote(s, map[string]lxdclient.ImageServer{"cloud-images.ubuntu.com": s.cSvr})
 	lxd.PatchGenerateVirtualMACAddress(s)
 }
 
-func (s *managerSuite) makeManager(c *gc.C, svr lxdclient.ContainerServer) container.Manager {
-	return s.makeManagerForConfig(c, getBaseConfig(), svr)
+func (s *managerSuite) makeManager(c *gc.C) {
+	s.makeManagerForConfig(c, getBaseConfig())
 }
 
-func (s *managerSuite) makeManagerForConfig(
-	c *gc.C, cfg container.ManagerConfig, cSvr lxdclient.ContainerServer,
-) container.Manager {
-	svr, err := lxd.NewServer(cSvr)
+func (s *managerSuite) makeManagerForConfig(c *gc.C, cfg container.ManagerConfig) {
+	svr, err := lxd.NewServer(s.cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	manager, err := lxd.NewContainerManager(cfg, svr)
 	c.Assert(err, jc.ErrorIsNil)
-	return manager
+	s.manager = manager
 }
 
 func getBaseConfig() container.ManagerConfig {
@@ -119,31 +126,25 @@ func prepNetworkConfig() *container.NetworkConfig {
 }
 
 func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setup(c)
 	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
-	s.patch(cSvr)
+	s.patch()
+	s.makeManager(c)
 
-	manager := s.makeManager(c, cSvr)
 	iCfg := prepInstanceConfig(c)
-	hostName, err := manager.Namespace().Hostname(iCfg.MachineId)
+	hostName, err := s.manager.Namespace().Hostname(iCfg.MachineId)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Operation arrangements.
-	startOp := lxdtesting.NewMockOperation(ctrl)
-	startOp.EXPECT().Wait().Return(nil)
+	s.expectStartOp(ctrl)
+	s.expectStopOp(ctrl)
+	s.expectDeleteOp(ctrl)
 
-	stopOp := lxdtesting.NewMockOperation(ctrl)
-	stopOp.EXPECT().Wait().Return(nil)
-
-	deleteOp := lxdtesting.NewMockOperation(ctrl)
-	deleteOp.EXPECT().Wait().Return(nil)
-
-	exp := cSvr.EXPECT()
+	exp := s.cSvr.EXPECT()
 
 	// Arrangements for the container creation.
-	expectCreateContainer(ctrl, cSvr, "juju/xenial/"+s.Arch(), "foo-target")
-	exp.UpdateContainerState(hostName, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(startOp, nil)
+	s.expectCreateContainer(ctrl)
+	exp.UpdateContainerState(hostName, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(s.startOp, nil)
 
 	exp.GetContainerState(hostName).Return(
 		&lxdapi.ContainerState{StatusCode: lxdapi.Running}, lxdtesting.ETag, nil).Times(2)
@@ -158,11 +159,11 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 		Force:    true,
 	}
 	gomock.InOrder(
-		exp.UpdateContainerState(hostName, stopReq, lxdtesting.ETag).Return(stopOp, nil),
-		exp.DeleteContainer(hostName).Return(deleteOp, nil),
+		exp.UpdateContainerState(hostName, stopReq, lxdtesting.ETag).Return(s.stopOp, nil),
+		exp.DeleteContainer(hostName).Return(s.deleteOp, nil),
 	)
 
-	instance, hc, err := manager.CreateContainer(
+	instance, hc, err := s.manager.CreateContainer(
 		iCfg, constraints.Value{}, "xenial", prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -174,22 +175,22 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
 	c.Check(*hc.AvailabilityZone, gc.Equals, "test-availability-zone")
 
-	err = manager.DestroyContainer(instanceId)
+	err = s.manager.DestroyContainer(instanceId)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupWithExtensions(c, "network")
 	defer ctrl.Finish()
-	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
-	s.patch(cSvr)
 
-	manager := s.makeManager(c, cSvr)
+	s.patch()
+
+	s.makeManager(c)
 	iCfg := prepInstanceConfig(c)
-	hostName, err := manager.Namespace().Hostname(iCfg.MachineId)
+	hostName, err := s.manager.Namespace().Hostname(iCfg.MachineId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	exp := cSvr.EXPECT()
+	exp := s.cSvr.EXPECT()
 
 	req := lxdapi.NetworkPut{
 		Config: map[string]string{
@@ -202,12 +203,10 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 		exp.UpdateNetwork(network.DefaultLXDBridge, req, lxdtesting.ETag).Return(nil),
 	)
 
-	expectCreateContainer(ctrl, cSvr, "juju/xenial/"+s.Arch(), "foo-target")
+	s.expectCreateContainer(ctrl)
+	s.expectStartOp(ctrl)
 
-	startOp := lxdtesting.NewMockOperation(ctrl)
-	startOp.EXPECT().Wait().Return(nil)
-
-	exp.UpdateContainerState(hostName, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(startOp, nil)
+	exp.UpdateContainerState(hostName, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(s.startOp, nil)
 	exp.GetContainer(hostName).Return(&lxdapi.Container{Name: hostName}, lxdtesting.ETag, nil)
 
 	// Supplying config for a single device with default bridge and without a
@@ -218,32 +217,26 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 		ConfigType:          network.ConfigDHCP,
 		ParentInterfaceName: network.DefaultLXDBridge,
 	}})
-	_, _, err = manager.CreateContainer(
+	_, _, err = s.manager.CreateContainer(
 		iCfg, constraints.Value{}, "xenial", netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *managerSuite) TestCreateContainerCreateFailed(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setup(c)
 	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
 
-	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
-	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
-	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Failure, Err: "create failed"}, nil)
+	s.expectCreateRemoteOp(ctrl, &lxdapi.Operation{StatusCode: lxdapi.Failure, Err: "create failed"})
 
-	exp := cSvr.EXPECT()
-
-	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}
 	image := lxdapi.Image{Filename: "this-is-our-image"}
-	gomock.InOrder(
-		exp.GetImageAlias("juju/xenial/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
-		exp.GetImage("foo-target").Return(&image, lxdtesting.ETag, nil),
-		exp.CreateContainerFromImage(cSvr, image, gomock.Any()).Return(createRemoteOp, nil),
-	)
+	s.expectGetImage(image, nil)
 
-	_, _, err := s.makeManager(c, cSvr).CreateContainer(
+	exp := s.cSvr.EXPECT()
+	exp.CreateContainerFromImage(s.cSvr, image, gomock.Any()).Return(s.createRemoteOp, nil)
+
+	s.makeManager(c)
+	_, _, err := s.manager.CreateContainer(
 		prepInstanceConfig(c),
 		constraints.Value{},
 		"xenial",
@@ -255,25 +248,18 @@ func (s *managerSuite) TestCreateContainerCreateFailed(c *gc.C) {
 }
 
 func (s *managerSuite) TestCreateContainerSpecCreationError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
+	defer s.setup(c).Finish()
 
 	// When the local image acquisition fails, this will cause the remote
 	// connection attempt to fail.
 	// This is our error condition exit from manager.getContainerSpec.
 	lxd.PatchConnectRemote(s, map[string]lxdclient.ImageServer{})
 
-	exp := cSvr.EXPECT()
-
-	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}
 	image := lxdapi.Image{Filename: "this-is-our-image"}
-	gomock.InOrder(
-		exp.GetImageAlias("juju/xenial/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
-		exp.GetImage("foo-target").Return(&image, lxdtesting.ETag, errors.New("not here")),
-	)
+	s.expectGetImage(image, errors.New("not here"))
 
-	_, _, err := s.makeManager(c, cSvr).CreateContainer(
+	s.makeManager(c)
+	_, _, err := s.manager.CreateContainer(
 		prepInstanceConfig(c),
 		constraints.Value{},
 		"xenial",
@@ -285,33 +271,28 @@ func (s *managerSuite) TestCreateContainerSpecCreationError(c *gc.C) {
 }
 
 func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setup(c)
 	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
-	s.patch(cSvr)
+	s.patch()
+	s.makeManager(c)
 
-	manager := s.makeManager(c, cSvr)
 	iCfg := prepInstanceConfig(c)
-	hostName, err := manager.Namespace().Hostname(iCfg.MachineId)
+	hostName, err := s.manager.Namespace().Hostname(iCfg.MachineId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	updateOp := lxdtesting.NewMockOperation(ctrl)
-	updateOp.EXPECT().Wait().Return(errors.New("start failed"))
+	s.expectUpdateOp(ctrl, "", errors.New("start failed"))
+	s.expectDeleteOp(ctrl)
+	s.expectCreateContainer(ctrl)
 
-	deleteOp := lxdtesting.NewMockOperation(ctrl)
-	deleteOp.EXPECT().Wait().Return(nil).AnyTimes()
-
-	exp := cSvr.EXPECT()
-
-	expectCreateContainer(ctrl, cSvr, "juju/xenial/"+s.Arch(), "foo-target")
+	exp := s.cSvr.EXPECT()
 	gomock.InOrder(
 		exp.UpdateContainerState(
-			hostName, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(updateOp, nil),
+			hostName, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(s.updateOp, nil),
 		exp.GetContainerState(hostName).Return(&lxdapi.ContainerState{StatusCode: lxdapi.Stopped}, lxdtesting.ETag, nil),
-		exp.DeleteContainer(hostName).Return(deleteOp, nil),
+		exp.DeleteContainer(hostName).Return(s.deleteOp, nil),
 	)
 
-	_, _, err = manager.CreateContainer(
+	_, _, err = s.manager.CreateContainer(
 		iCfg,
 		constraints.Value{},
 		"xenial",
@@ -322,31 +303,11 @@ func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*start failed")
 }
 
-// expectCreateContainer is a convenience function for the expectations
-// concerning a successful container creation based on a cached local
-// image.
-func expectCreateContainer(ctrl *gomock.Controller, svr *lxdtesting.MockContainerServer, aliasName, target string) {
-	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
-	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
-	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
-
-	exp := svr.EXPECT()
-
-	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: target}}
-	exp.GetImageAlias(aliasName).Return(alias, lxdtesting.ETag, nil)
-
-	image := lxdapi.Image{Filename: "this-is-our-image"}
-	exp.GetImage("foo-target").Return(&image, lxdtesting.ETag, nil)
-	exp.CreateContainerFromImage(svr, image, gomock.Any()).Return(createRemoteOp, nil)
-}
-
 func (s *managerSuite) TestListContainers(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
-	manager := s.makeManager(c, cSvr)
+	defer s.setup(c).Finish()
+	s.makeManager(c)
 
-	prefix := manager.Namespace().Prefix()
+	prefix := s.manager.Namespace().Prefix()
 	wrongPrefix := prefix[:len(prefix)-1] + "j"
 
 	containers := []lxdapi.Container{
@@ -359,9 +320,9 @@ func (s *managerSuite) TestListContainers(c *gc.C) {
 		{Name: "nothing-to-see-here-please"},
 	}
 
-	cSvr.EXPECT().GetContainers().Return(containers, nil)
+	s.cSvr.EXPECT().GetContainers().Return(containers, nil)
 
-	result, err := manager.ListContainers()
+	result, err := s.manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.HasLen, 2)
 	c.Check(string(result[0].Id()), gc.Equals, prefix+"-0")
@@ -369,18 +330,14 @@ func (s *managerSuite) TestListContainers(c *gc.C) {
 }
 
 func (s *managerSuite) TestIsInitialized(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
+	defer s.setup(c).Finish()
 
-	manager := s.makeManager(c, cSvr)
-	c.Check(manager.IsInitialized(), gc.Equals, true)
+	s.makeManager(c)
+	c.Check(s.manager.IsInitialized(), gc.Equals, true)
 }
 
 func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
+	defer s.setup(c).Finish()
 
 	interfaces := []network.InterfaceInfo{{
 		InterfaceName: "eth1",
@@ -388,8 +345,8 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		MTU:           9000,
 	}}
-
-	result, _, err := lxd.NetworkDevicesFromConfig(s.makeManager(c, cSvr), &container.NetworkConfig{
+	s.makeManager(c)
+	result, _, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
 		Interfaces: interfaces,
 	})
 
@@ -398,9 +355,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C
 }
 
 func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
+	defer s.setup(c).Finish()
 
 	interfaces := []network.InterfaceInfo{{
 		ParentInterfaceName: "br-eth0",
@@ -420,7 +375,8 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 		},
 	}
 
-	result, unknown, err := lxd.NetworkDevicesFromConfig(s.makeManager(c, cSvr), &container.NetworkConfig{
+	s.makeManager(c)
+	result, unknown, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
 		Device:     "lxdbr0",
 		Interfaces: interfaces,
 	})
@@ -431,9 +387,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 }
 
 func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
+	defer s.setup(c).Finish()
 
 	interfaces := []network.InterfaceInfo{{
 		ParentInterfaceName: "br-eth0",
@@ -442,7 +396,8 @@ func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
 		MACAddress:          "aa:bb:cc:dd:ee:f0",
 	}}
 
-	_, unknown, err := lxd.NetworkDevicesFromConfig(s.makeManager(c, cSvr), &container.NetworkConfig{
+	s.makeManager(c)
+	_, unknown, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
 		Device:     "lxdbr0",
 		Interfaces: interfaces,
 	})
@@ -452,14 +407,13 @@ func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
 }
 
 func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
-	s.patch(cSvr)
+	defer s.setup(c).Finish()
+	s.patch()
 
-	cSvr.EXPECT().GetProfile("default").Return(defaultProfileWithNIC(), lxdtesting.ETag, nil)
+	s.cSvr.EXPECT().GetProfile("default").Return(defaultProfileWithNIC(), lxdtesting.ETag, nil)
 
-	result, _, err := lxd.NetworkDevicesFromConfig(s.makeManager(c, cSvr), &container.NetworkConfig{})
+	s.makeManager(c)
+	result, _, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := map[string]map[string]string{
@@ -475,55 +429,46 @@ func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *gc.
 }
 
 func (s *managerSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
+	defer s.setup(c).Finish()
 
-	mgr := s.makeManager(c, cSvr)
+	s.makeManager(c)
 
-	sources, err := lxd.GetImageSources(mgr)
+	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
+	defer s.setup(c).Finish()
 
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageStreamKey] = "nope"
-	mgr := s.makeManagerForConfig(c, cfg, cSvr)
+	s.makeManagerForConfig(c, cfg)
 
-	sources, err := lxd.GetImageSources(mgr)
+	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
+	defer s.setup(c).Finish()
 
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageStreamKey] = "daily"
-	mgr := s.makeManagerForConfig(c, cfg, cSvr)
-
-	sources, err := lxd.GetImageSources(mgr)
+	s.makeManagerForConfig(c, cfg)
+	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesDailyRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
+	defer s.setup(c).Finish()
 
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
-	mgr := s.makeManagerForConfig(c, cfg, cSvr)
+	s.makeManagerForConfig(c, cfg)
 
-	sources, err := lxd.GetImageSources(mgr)
+	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedSources := []lxd.ServerSpec{
@@ -539,16 +484,14 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c
 }
 
 func (s *managerSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
+	defer s.setup(c).Finish()
 
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
 	cfg[config.ContainerImageStreamKey] = "daily"
-	mgr := s.makeManagerForConfig(c, cfg, cSvr)
+	s.makeManagerForConfig(c, cfg)
 
-	sources, err := lxd.GetImageSources(mgr)
+	sources, err := lxd.GetImageSources(s.manager)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedSources := []lxd.ServerSpec{
@@ -563,12 +506,10 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
 }
 
 func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
+	defer s.setup(c).Finish()
 
-	mgr := s.makeManager(c, cSvr)
-	proMgr, ok := mgr.(container.LXDProfileManager)
+	s.makeManager(c)
+	proMgr, ok := s.manager.(container.LXDProfileManager)
 	c.Assert(ok, jc.IsTrue)
 
 	put := charm.LXDProfile{
@@ -588,25 +529,19 @@ func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 		ProfilePut: lxdapi.ProfilePut(put),
 		Name:       "juju-default-lxd-0",
 	}
-	cSvr.EXPECT().CreateProfile(post).Return(nil).Times(1)
-	cSvr.EXPECT().GetProfileNames().Return([]string{"default", "custom"}, nil).Times(1)
+	s.cSvr.EXPECT().CreateProfile(post).Return(nil)
+	s.cSvr.EXPECT().GetProfileNames().Return([]string{"default", "custom"}, nil)
 
 	err := proMgr.MaybeWriteLXDProfile("juju-default-lxd-0", &put)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *managerSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setup(c)
 	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl)
-	// Operation arrangements.
-	updateOp := lxdtesting.NewMockOperation(ctrl)
-	updateOp.EXPECT().Wait().Return(nil)
-	updateOp.EXPECT().Get().Return(lxdapi.Operation{Description: "Updating ontainer"})
+	s.expectUpdateOp(ctrl, "Updating container", nil)
 
-	instId := "testme"
 	old := "old-profile"
-	oldProfiles := []string{"default", "juju-default", old}
 	new := "new-profile"
 	newProfiles := []string{"default", "juju-default", new}
 	put := charm.LXDProfile{
@@ -615,11 +550,137 @@ func (s *managerSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
 		},
 		Description: "test profile",
 	}
+	s.expectUpdateContainerProfiles(old, new, newProfiles, lxdapi.ProfilePut(put))
+
+	s.makeManager(c)
+	proMgr, ok := s.manager.(container.LXDProfileManager)
+	c.Assert(ok, jc.IsTrue)
+
+	obtained, err := proMgr.ReplaceOrAddInstanceProfile("testme", old, new, &put)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, newProfiles)
+}
+
+func (s *managerSuite) TestAssignProfiles(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+	s.expectUpdateOp(ctrl, "Updating container", nil)
+
+	old := "old-profile"
+	new := "new-profile"
+	newProfiles := []string{"default", "juju-default", new}
+	put := lxdprofile.Profile{
+		Config: map[string]string{
+			"security.nesting": "true",
+		},
+		Description: "test profile",
+	}
+	s.expectUpdateContainerProfiles(old, new, newProfiles, lxdapi.ProfilePut(put))
+	profilePosts := []lxdprofile.ProfilePost{
+		{
+			Name:    old,
+			Profile: nil,
+		}, {
+			Name:    new,
+			Profile: &put,
+		},
+	}
+
+	s.makeManager(c)
+	proMgr, ok := s.manager.(container.LXDProfileManager)
+	c.Assert(ok, jc.IsTrue)
+
+	obtained, err := proMgr.AssignProfiles("testme", newProfiles, profilePosts)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, newProfiles)
+}
+
+func (s *managerSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.cSvr = s.NewMockServer(ctrl)
+	return ctrl
+}
+
+func (s *managerSuite) setupWithExtensions(c *gc.C, extensions ...string) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.cSvr = s.NewMockServerWithExtensions(ctrl, extensions...)
+	return ctrl
+}
+
+// expectCreateContainer is a convenience function for the expectations
+// concerning a successful container creation based on a cached local
+// image.
+func (s *managerSuite) expectCreateContainer(ctrl *gomock.Controller) {
+	s.expectCreateRemoteOp(ctrl, &lxdapi.Operation{StatusCode: lxdapi.Success})
+
+	image := lxdapi.Image{Filename: "this-is-our-image"}
+	s.expectGetImage(image, nil)
+
+	exp := s.cSvr.EXPECT()
+	exp.CreateContainerFromImage(s.cSvr, image, gomock.Any()).Return(s.createRemoteOp, nil)
+}
+
+// expectCreateRemoteOp is a convenience function for the expectations
+// concerning successful remote operations.
+func (s *managerSuite) expectCreateRemoteOp(ctrl *gomock.Controller, op *lxdapi.Operation) {
+	s.createRemoteOp = lxdtesting.NewMockRemoteOperation(ctrl)
+	s.createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
+	s.createRemoteOp.EXPECT().GetTarget().Return(op, nil)
+}
+
+// expectDeleteOp is a convenience function for the expectations
+// concerning successful delete operations.
+func (s *managerSuite) expectDeleteOp(ctrl *gomock.Controller) {
+	s.deleteOp = lxdtesting.NewMockOperation(ctrl)
+	s.deleteOp.EXPECT().Wait().Return(nil).AnyTimes()
+}
+
+// expectDeleteOp is a convenience function for the expectations
+// concerning GetImage operations.
+func (s *managerSuite) expectGetImage(image lxdapi.Image, getImageErr error) {
+	target := "foo-target"
+	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: target}}
+
+	exp := s.cSvr.EXPECT()
+	gomock.InOrder(
+		exp.GetImageAlias("juju/xenial/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
+		exp.GetImage(target).Return(&image, lxdtesting.ETag, getImageErr),
+	)
+}
+
+// expectStartOp is a convenience function for the expectations
+// concerning a successful start operation.
+func (s *managerSuite) expectStartOp(ctrl *gomock.Controller) {
+	s.startOp = lxdtesting.NewMockOperation(ctrl)
+	s.startOp.EXPECT().Wait().Return(nil)
+}
+
+// expectStopOp is a convenience function for the expectations
+// concerning successful stop operation.
+func (s *managerSuite) expectStopOp(ctrl *gomock.Controller) {
+	s.stopOp = lxdtesting.NewMockOperation(ctrl)
+	s.stopOp.EXPECT().Wait().Return(nil)
+}
+
+// expectStopOp is a convenience function for the expectations
+// concerning an update operation.
+func (s *managerSuite) expectUpdateOp(ctrl *gomock.Controller, description string, waitErr error) {
+	s.updateOp = lxdtesting.NewMockOperation(ctrl)
+	s.updateOp.EXPECT().Wait().Return(waitErr)
+	if waitErr != nil {
+		return
+	}
+	s.updateOp.EXPECT().Get().Return(lxdapi.Operation{Description: description})
+}
+
+func (s *managerSuite) expectUpdateContainerProfiles(old, new string, newProfiles []string, put lxdapi.ProfilePut) {
+	instId := "testme"
+	oldProfiles := []string{"default", "juju-default", old}
 	post := lxdapi.ProfilesPost{
-		ProfilePut: lxdapi.ProfilePut(put),
+		ProfilePut: put,
 		Name:       new,
 	}
-	cExp := cSvr.EXPECT()
+	cExp := s.cSvr.EXPECT()
 	gomock.InOrder(
 		cExp.GetProfileNames().Return(oldProfiles, nil),
 		cExp.CreateProfile(post).Return(nil),
@@ -629,7 +690,7 @@ func (s *managerSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
 					Profiles: oldProfiles,
 				},
 			}, "", nil),
-		cExp.UpdateContainer(instId, gomock.Any(), gomock.Any()).Return(updateOp, nil),
+		cExp.UpdateContainer(instId, gomock.Any(), gomock.Any()).Return(s.updateOp, nil),
 		cExp.DeleteProfile(old).Return(nil),
 		cExp.GetContainer(instId).Return(
 			&lxdapi.Container{
@@ -638,12 +699,4 @@ func (s *managerSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
 				},
 			}, "", nil),
 	)
-
-	mgr := s.makeManager(c, cSvr)
-	proMgr, ok := mgr.(container.LXDProfileManager)
-	c.Assert(ok, jc.IsTrue)
-
-	obtained, err := proMgr.ReplaceOrAddInstanceProfile(instId, old, new, &put)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, newProfiles)
 }

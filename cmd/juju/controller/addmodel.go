@@ -252,7 +252,8 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		ModelType: model.Type,
 	}
 	if featureflag.Enabled(feature.Generations) {
-		details.ModelGeneration = coremodel.GenerationCurrent // This is the default generation.
+		// Default target is the master branch.
+		details.ActiveBranch = coremodel.GenerationMaster
 	}
 	if modelOwner == accountDetails.User {
 		if err := store.UpdateModel(controllerName, c.Name, details); err != nil {

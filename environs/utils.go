@@ -89,7 +89,7 @@ func APIInfo(ctx context.ProviderCallContext, controllerUUID, modelUUID, caCert 
 
 // CheckProviderAPI returns an error if a simple API call
 // to check a basic response from the specified environ fails.
-func CheckProviderAPI(env Environ, ctx context.ProviderCallContext) error {
+func CheckProviderAPI(env InstanceBroker, ctx context.ProviderCallContext) error {
 	// We will make a simple API call to the provider
 	// to ensure the underlying substrate is ok.
 	_, err := env.AllInstances(ctx)

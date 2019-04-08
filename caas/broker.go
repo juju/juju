@@ -157,6 +157,15 @@ type Broker interface {
 
 	// ServiceGetterSetter provides the API to get/set service.
 	ServiceGetterSetter
+
+	// Upgrader provides the API to perform upgrades.
+	Upgrader
+}
+
+// Upgrader provides the API to perform upgrades.
+type Upgrader interface {
+	// Upgrade sets the OCI image for the app to the specified version.
+	Upgrade(appName string, vers version.Number) error
 }
 
 // StorageValidator provides methods to validate storage.

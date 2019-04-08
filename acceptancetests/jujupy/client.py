@@ -1733,9 +1733,9 @@ class ModelClient:
             # merge_stderr is required for creating a backup
             output = self.get_juju_output('create-backup', merge_stderr=True)
         except subprocess.CalledProcessError as e:
-            log.info(e.output)
+            log.error('error creating backup {}'.format(e.output))
             raise
-        log.info(output)
+        log.info('backup file {}'.format(output))
         backup_file_pattern = re.compile(
             '(juju-backup-[0-9-]+\.(t|tar.)gz)'.encode('ascii'))
         match = backup_file_pattern.search(output)

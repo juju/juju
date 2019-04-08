@@ -281,15 +281,19 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 
 	// If the machine is been provisioned, fetch the instance id as required,
 	// and set instance id and hardware characteristics.
-	if m.Nonce != "" && info.InstanceId == "" {
-		instanceData, err := getInstanceData(st, m.Id)
-		if err == nil {
+	instanceData, err := getInstanceData(st, m.Id)
+	if err == nil {
+		if m.Nonce != "" && info.InstanceId == "" {
 			info.InstanceId = string(instanceData.InstanceId)
 			info.HardwareCharacteristics = hardwareCharacteristics(instanceData)
-		} else if !errors.IsNotFound(err) {
-			return err
 		}
+		// InstanceMutater needs the liveliness of the instanceData.CharmProfiles
+		// as this changes with charm-upgrades
+		info.CharmProfiles = instanceData.CharmProfiles
+	} else if !errors.IsNotFound(err) {
+		return err
 	}
+
 	store.Update(info)
 	return nil
 }
@@ -586,10 +590,11 @@ func (ch *backingCharm) mongoId() string {
 }
 
 func toMulitwatcherProfile(profile *charm.LXDProfile) *multiwatcher.Profile {
+	unescapedProfile := unescapeLXDProfile(profile)
 	return &multiwatcher.Profile{
-		Config:      profile.Config,
-		Description: profile.Description,
-		Devices:     profile.Devices,
+		Config:      unescapedProfile.Config,
+		Description: unescapedProfile.Description,
+		Devices:     unescapedProfile.Devices,
 	}
 }
 

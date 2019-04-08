@@ -5,13 +5,13 @@ package modelgeneration
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/permission"
 )
 
@@ -75,98 +75,71 @@ func (m *API) hasAdminAccess(modelTag names.ModelTag) (bool, error) {
 	return canWrite, err
 }
 
-// AddGeneration adds a "next" generation to the given model.
-func (m *API) AddGeneration(arg params.Entity) (params.ErrorResult, error) {
+// AddBranch adds a new branch with the input name to the model.
+func (m *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
-	modelTag, err := names.ParseModelTag(arg.Tag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	isModelAdmin, err := m.hasAdminAccess(modelTag)
-	if !isModelAdmin && !m.isControllerAdmin {
-		return result, common.ErrPerm
-	}
-
-	result.Error = common.ServerError(m.model.AddGeneration(m.apiUser.Name()))
-	return result, nil
-}
-
-// HasNextGeneration returns a true result if the input model has a "next"
-// generation that has not yet been completed.
-func (m *API) HasNextGeneration(arg params.Entity) (params.BoolResult, error) {
-	result := params.BoolResult{}
-	modelTag, err := names.ParseModelTag(arg.Tag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	isModelAdmin, err := m.hasAdminAccess(modelTag)
-	if !isModelAdmin && !m.isControllerAdmin {
-		return result, common.ErrPerm
-	}
-
-	if has, err := m.model.HasNextGeneration(); err != nil {
-		result.Error = common.ServerError(err)
-	} else {
-		result.Result = has
-	}
-	return result, nil
-}
-
-// AdvanceGeneration, adds the provided unit(s) and/or application(s) to
-// the "next" generation.  If the generation can auto complete, it is
-// made the "current" generation.
-func (m *API) AdvanceGeneration(arg params.AdvanceGenerationArg) (params.AdvanceGenerationResult, error) {
 	modelTag, err := names.ParseModelTag(arg.Model.Tag)
 	if err != nil {
-		return params.AdvanceGenerationResult{}, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
 	isModelAdmin, err := m.hasAdminAccess(modelTag)
 	if !isModelAdmin && !m.isControllerAdmin {
-		return params.AdvanceGenerationResult{}, common.ErrPerm
+		return result, common.ErrPerm
 	}
 
-	generation, err := m.model.NextGeneration()
+	if err := model.ValidateBranchName(arg.BranchName); err != nil {
+		result.Error = common.ServerError(err)
+	} else {
+		result.Error = common.ServerError(m.model.AddBranch(arg.BranchName, m.apiUser.Name()))
+	}
+	return result, nil
+}
+
+// TrackBranch marks the input units and/or applications as tracking the input
+// branch, causing them to realise changes made under that branch.
+func (m *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, error) {
+	modelTag, err := names.ParseModelTag(arg.Model.Tag)
 	if err != nil {
-		return params.AdvanceGenerationResult{}, errors.Trace(err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	isModelAdmin, err := m.hasAdminAccess(modelTag)
+	if !isModelAdmin && !m.isControllerAdmin {
+		return params.ErrorResults{}, common.ErrPerm
 	}
 
-	results := params.ErrorResults{
+	branch, err := m.model.Branch(arg.BranchName)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(arg.Entities)),
 	}
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		switch tag.Kind() {
 		case names.ApplicationTagKind:
-			results.Results[i].Error = common.ServerError(generation.AssignAllUnits(tag.Id()))
+			result.Results[i].Error = common.ServerError(branch.AssignAllUnits(tag.Id()))
 		case names.UnitTagKind:
-			results.Results[i].Error = common.ServerError(generation.AssignUnit(tag.Id()))
+			result.Results[i].Error = common.ServerError(branch.AssignUnit(tag.Id()))
 		default:
-			results.Results[i].Error = common.ServerError(
+			result.Results[i].Error = common.ServerError(
 				errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag))
 		}
-		if err := generation.Refresh(); err != nil {
-			return params.AdvanceGenerationResult{AdvanceResults: results}, errors.Trace(err)
-		}
-	}
-	result := params.AdvanceGenerationResult{AdvanceResults: results}
-
-	// Complete the generation if possible.
-	completed, err := generation.AutoComplete(m.apiUser.Name())
-	result.CompleteResult = params.BoolResult{
-		Result: completed,
-		Error:  common.ServerError(err),
 	}
 	return result, nil
 }
 
-// CancelGeneration cancels the "next" generation if cancel criteria are met.
-func (m *API) CancelGeneration(arg params.Entity) (params.ErrorResult, error) {
-	result := params.ErrorResult{}
-	modelTag, err := names.ParseModelTag(arg.Tag)
+// CommitBranch commits the input branch, making its changes applicable to
+// the whole model and marking it complete.
+func (m *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
+	result := params.IntResult{}
+
+	modelTag, err := names.ParseModelTag(arg.Model.Tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -175,20 +148,25 @@ func (m *API) CancelGeneration(arg params.Entity) (params.ErrorResult, error) {
 		return result, common.ErrPerm
 	}
 
-	generation, err := m.model.NextGeneration()
+	generation, err := m.model.Branch(arg.BranchName)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	result.Error = common.ServerError(generation.MakeCurrent(m.apiUser.Name()))
+
+	if genId, err := generation.Commit(m.apiUser.Name()); err != nil {
+		result.Error = common.ServerError(err)
+	} else {
+		result.Result = genId
+	}
 	return result, nil
 }
 
-// GenerationInfo will return details of the "next" generation,
-// including units on the generation and the configuration disjoint with the
-// current generation.
-// An error is returned if there is no active "next" generation.
-func (m *API) GenerationInfo(arg params.Entity) (params.GenerationResult, error) {
-	modelTag, err := names.ParseModelTag(arg.Tag)
+// BranchInfo will return details of branch identified by the input argument,
+// including units on the branch and the configuration disjoint with the
+// master generation.
+// An error is returned if no in-flight branch matching in input is found.
+func (m *API) BranchInfo(arg params.BranchArg) (params.GenerationResult, error) {
+	modelTag, err := names.ParseModelTag(arg.Model.Tag)
 	if err != nil {
 		return params.GenerationResult{}, errors.Trace(err)
 	}
@@ -197,7 +175,7 @@ func (m *API) GenerationInfo(arg params.Entity) (params.GenerationResult, error)
 		return params.GenerationResult{}, common.ErrPerm
 	}
 
-	gen, err := m.model.NextGeneration()
+	gen, err := m.model.Branch(arg.BranchName)
 	if err != nil {
 		return generationInfoError(err)
 	}
@@ -211,11 +189,11 @@ func (m *API) GenerationInfo(arg params.Entity) (params.GenerationResult, error)
 
 		// TODO (manadart 2019-02-22): As more aspects are made generational,
 		// each should go into its own method - charm, resources etc.
-		cfgCurrent, err := app.CharmConfig(model.GenerationCurrent)
+		cfgCurrent, err := app.CharmConfig(model.GenerationMaster)
 		if err != nil {
 			return generationInfoError(err)
 		}
-		cfgNext, err := app.CharmConfig(model.GenerationNext)
+		cfgNext, err := app.CharmConfig(arg.BranchName)
 		if err != nil {
 			return generationInfoError(err)
 		}
@@ -235,10 +213,36 @@ func (m *API) GenerationInfo(arg params.Entity) (params.GenerationResult, error)
 	}
 
 	return params.GenerationResult{Generation: params.Generation{
+		BranchName:   gen.BranchName(),
 		Created:      gen.Created(),
 		CreatedBy:    gen.CreatedBy(),
 		Applications: apps,
 	}}, nil
+}
+
+// HasActiveBranch returns a true result if the input model has an "in-flight"
+// branch matching the input name.
+func (m *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error) {
+	result := params.BoolResult{}
+	modelTag, err := names.ParseModelTag(arg.Model.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	isModelAdmin, err := m.hasAdminAccess(modelTag)
+	if !isModelAdmin && !m.isControllerAdmin {
+		return result, common.ErrPerm
+	}
+
+	if _, err := m.model.Branch(arg.BranchName); err != nil {
+		if errors.IsNotFound(err) {
+			result.Result = false
+		} else {
+			result.Error = common.ServerError(err)
+		}
+	} else {
+		result.Result = true
+	}
+	return result, nil
 }
 
 func generationInfoError(err error) (params.GenerationResult, error) {

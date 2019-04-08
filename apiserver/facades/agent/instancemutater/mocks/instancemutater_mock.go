@@ -7,7 +7,6 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/apiserver/facades/agent/instancemutater"
-	instance "github.com/juju/juju/core/instance"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
 	names_v2 "gopkg.in/juju/names.v2"
@@ -158,32 +157,6 @@ func NewMockMachine(ctrl *gomock.Controller) *MockMachine {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
-}
-
-// CharmProfiles mocks base method
-func (m *MockMachine) CharmProfiles() ([]string, error) {
-	ret := m.ctrl.Call(m, "CharmProfiles")
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CharmProfiles indicates an expected call of CharmProfiles
-func (mr *MockMachineMockRecorder) CharmProfiles() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfiles", reflect.TypeOf((*MockMachine)(nil).CharmProfiles))
-}
-
-// InstanceId mocks base method
-func (m *MockMachine) InstanceId() (instance.Id, error) {
-	ret := m.ctrl.Call(m, "InstanceId")
-	ret0, _ := ret[0].(instance.Id)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// InstanceId indicates an expected call of InstanceId
-func (mr *MockMachineMockRecorder) InstanceId() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMachine)(nil).InstanceId))
 }
 
 // SetCharmProfiles mocks base method

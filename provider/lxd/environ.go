@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -319,6 +320,10 @@ func (env *environ) DeriveAvailabilityZones(
 	return []string{p.nodeName}, nil
 }
 
+// TODO: HML 2-apr-2019
+// When provisioner_task processProfileChanges() is
+// removed, maybe change to take an lxdprofile.ProfilePost as
+// an arg.
 // MaybeWriteLXDProfile implements environs.LXDProfiler.
 func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
 	server := env.server()
@@ -346,6 +351,9 @@ func (env *environ) LXDProfileNames(containerName string) ([]string, error) {
 	return env.server().GetContainerProfiles(containerName)
 }
 
+// TODO: HML 2-apr-2019
+// remove when provisioner_task processProfileChanges() is
+// removed.
 // ReplaceLXDProfile implements environs.LXDProfiler.
 func (env *environ) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
 	if put != nil {
@@ -364,4 +372,43 @@ func (env *environ) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile s
 		}
 	}
 	return env.LXDProfileNames(instId)
+}
+
+// AssignProfiles implements environs.LXDProfiler.
+func (env *environ) AssignProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+	report := func(err error) ([]string, error) {
+		// Always return the current profiles assigned to the instance.
+		currentProfiles, err2 := env.LXDProfileNames(instId)
+		if err != nil && err2 != nil {
+			logger.Errorf("secondary error, retrieving profile names: %s", err2)
+		}
+		return currentProfiles, err
+	}
+
+	// Write any new profilePosts and gather a slice of profile
+	// names to be deleted, after removal.
+	var deleteProfiles []string
+	for _, p := range profilePosts {
+		if p.Profile != nil {
+			pr := charm.LXDProfile(*p.Profile)
+			if err := env.MaybeWriteLXDProfile(p.Name, &pr); err != nil {
+				return report(err)
+			}
+		} else {
+			deleteProfiles = append(deleteProfiles, p.Name)
+		}
+	}
+
+	server := env.server()
+	if err := server.UpdateContainerProfiles(instId, profilesNames); err != nil {
+		return report(errors.Trace(err))
+	}
+
+	for _, name := range deleteProfiles {
+		if err := server.DeleteProfile(name); err != nil {
+			// most likely the failure is because the profile is already in use
+			logger.Debugf("failed to delete profile %q: %s", name, err)
+		}
+	}
+	return report(nil)
 }

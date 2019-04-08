@@ -66,29 +66,51 @@ func appCharmIncRefOps(mb modelBackend, appName string, curl *charm.URL, canCrea
 // storage constraints documents for that pair, and schedule a cleanup
 // to see if the charm itself is now unreferenced and can be tidied
 // away itself.
-func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDoFinal bool) ([]txn.Op, error) {
+func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDoFinal, force bool) ([]txn.Op, []error, error) {
 	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
+	errs := []error{}
+	fail := func(e error) ([]txn.Op, []error, error) {
+		return nil, errs, errors.Trace(e)
+	}
+	ops := []txn.Op{}
 	charmKey := charmGlobalKey(curl)
 	charmOp, err := nsRefcounts.AliveDecRefOp(refcounts, charmKey)
 	if err != nil {
-		return nil, errors.Annotate(err, "charm reference")
+		err = errors.Annotate(err, "charm reference")
+		if !force {
+			return fail(err)
+		}
+		errs = append(errs, err)
+	} else {
+		ops = append(ops, charmOp)
 	}
 
 	settingsKey := applicationCharmConfigKey(appName, curl)
 	settingsOp, isFinal, err := nsRefcounts.DyingDecRefOp(refcounts, settingsKey)
 	if err != nil {
-		return nil, errors.Annotatef(err, "settings reference %s", settingsKey)
+		err = errors.Annotatef(err, "settings reference %s", settingsKey)
+		if !force {
+			return fail(err)
+		}
+		errs = append(errs, err)
+	} else {
+		ops = append(ops, settingsOp)
 	}
 
 	storageConstraintsKey := applicationStorageConstraintsKey(appName, curl)
 	storageConstraintsOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, storageConstraintsKey)
 	if err != nil {
-		return nil, errors.Annotatef(err, "storage constraints reference %s", storageConstraintsKey)
+		err = errors.Annotatef(err, "storage constraints reference %s", storageConstraintsKey)
+		if !force {
+			return fail(err)
+		}
+		errs = append(errs, err)
+	} else {
+		ops = append(ops, storageConstraintsOp)
 	}
 
-	ops := []txn.Op{settingsOp, storageConstraintsOp, charmOp}
 	if isFinal && maybeDoFinal {
 		// XXX(fwereade): this construction, in common with ~all
 		// our refcount logic, is safe in parallel but not in
@@ -97,7 +119,7 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDo
 		// see `Application.removeOps` for the workaround.
 		ops = append(ops, finalAppCharmRemoveOps(appName, curl)...)
 	}
-	return ops, nil
+	return ops, errs, nil
 }
 
 // finalAppCharmRemoveOps returns operations to delete the settings

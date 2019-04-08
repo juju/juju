@@ -3,25 +3,32 @@
 
 package model
 
-// GenerationVersion indicates a generation to use for model config.
-type GenerationVersion string
-
-const (
-	// GenerationCurrent indicates the current generation for model config.
-	// This is the default state of a model.
-	GenerationCurrent GenerationVersion = "current"
-
-	// GenerationNext indicates the next generation of model config.
-	// Models with an active "next" generation apply the generation config
-	// selectively to units added to the generation.
-	GenerationNext GenerationVersion = "next"
+import (
+	errors "github.com/juju/errors"
 )
 
-func (g GenerationVersion) String() string {
-	return string(g)
-}
+// TODO (manadart 2019-04-21) Change the nomenclature here to indicate "branch"
+// instead of "generation", and remove Current/Next.
 
-const generationKeySuffix = "#next"
+const (
+	// GenerationMaster is used to indicate the main model configuration,
+	// i.e. that not dealing with in-flight branches.
+	GenerationMaster = "master"
+
+	generationKeySuffix = "#next"
+)
+
+// ValidateBranchName returns an error if the input name is not suitable for
+// identifying a new in-flight branch.
+func ValidateBranchName(name string) error {
+	if name == "" {
+		return errors.NotValidf("empty branch name")
+	}
+	if name == GenerationMaster {
+		return errors.NotValidf("branch name %q", GenerationMaster)
+	}
+	return nil
+}
 
 // NextGenerationKey adds a suffix to the input key that designates it as being
 // for "next" generation config, and returns the result.
@@ -61,4 +68,4 @@ type Generation struct {
 
 // GenerationSummaries is a type alias for a representation
 // of changes-by-generation.
-type GenerationSummaries = map[GenerationVersion]Generation
+type GenerationSummaries = map[string]Generation

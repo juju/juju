@@ -430,7 +430,7 @@ func (c *bootstrapCommand) initializeHostedModel(
 	}
 
 	if featureflag.Enabled(feature.Generations) {
-		modelDetails.ModelGeneration = model.GenerationCurrent
+		modelDetails.ActiveBranch = model.GenerationMaster
 	}
 
 	if err := store.UpdateModel(

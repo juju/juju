@@ -18,13 +18,12 @@ import (
 // ManifoldConfig holds the information necessary to run a peergrouper
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName                string
-	ClockName                string
-	ControllerPortName       string
-	StateName                string
-	Hub                      Hub
-	NewWorker                func(Config) (worker.Worker, error)
-	ControllerSupportsSpaces func(*state.State) (bool, error)
+	AgentName          string
+	ClockName          string
+	ControllerPortName string
+	StateName          string
+	Hub                Hub
+	NewWorker          func(Config) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -43,9 +42,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
-	}
-	if config.ControllerSupportsSpaces == nil {
-		return errors.NotValidf("nil ControllerSupportsSpaces")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -103,11 +99,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if !ok {
 		return nil, errors.New("state serving info missing from agent config")
 	}
-
-	supportsSpaces, err := config.ControllerSupportsSpaces(st)
+	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	supportsHA := model.Type() != state.ModelTypeCAAS
 
 	w, err := config.NewWorker(Config{
 		State:              StateShim{st},
@@ -115,10 +111,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		APIHostPortsSetter: &CachingAPIHostPortsSetter{APIHostPortsSetter: st},
 		Clock:              clock,
 		Hub:                config.Hub,
-		SupportsSpaces:     supportsSpaces,
 		MongoPort:          stateServingInfo.StatePort,
 		APIPort:            stateServingInfo.APIPort,
 		ControllerAPIPort:  stateServingInfo.ControllerAPIPort,
+		SupportsHA:         supportsHA,
 	})
 	if err != nil {
 		stTracker.Done()

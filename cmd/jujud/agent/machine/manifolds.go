@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/crosscontroller"
 	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/machinelock"
@@ -43,6 +44,8 @@ import (
 	"github.com/juju/juju/worker/apiservercertwatcher"
 	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/caasbroker"
+	"github.com/juju/juju/worker/caascontrollerupgrader"
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/common"
@@ -165,7 +168,7 @@ type ManifoldsConfig struct {
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
-	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool) error
+	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool, bool) error
 
 	// LogSource defines the channel type used to send log message
 	// structs within the machine agent.
@@ -238,11 +241,6 @@ type ManifoldsConfig struct {
 	// the specified UUID and type.
 	NewModelWorker func(modelUUID string, modelType state.ModelType) (worker.Worker, error)
 
-	// ControllerSupportsSpaces is a function that reports whether or
-	// not the controller model, represented by the given *state.State,
-	// supports network spaces.
-	ControllerSupportsSpaces func(*state.State) (bool, error)
-
 	// MachineLock is a central source for acquiring the machine lock.
 	// This is used by a number of workers to ensure serialisation of actions
 	// across the machine.
@@ -252,6 +250,9 @@ type ManifoldsConfig struct {
 	// for all mux clients to gracefully terminate before the http-worker
 	// exits regardless.
 	MuxShutdownWait time.Duration
+
+	// NewContainerBrokerFunc is a function opens a CAAS provider.
+	NewContainerBrokerFunc caas.NewContainerBrokerFunc
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -454,19 +455,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: gate.NewFlagWorker,
 		}),
 
-		// The upgrader is a leaf worker that returns a specific error
-		// type recognised by the machine agent, causing other workers
-		// to be stopped and the agent to be restarted running the new
-		// tools. We should only need one of these in a consolidated
-		// agent, but we'll need to be careful about behavioural
-		// differences, and interactions with the upgrade-steps
-		// worker.
-		upgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
+		// The upgradesteps worker runs soon after the machine agent
+		// starts and runs any steps required to upgrade to the
+		// running jujud version. Once upgrade steps have run, the
+		// upgradesteps gate is unlocked and the worker exits.
+		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
-			UpgradeCheckGateName: upgradeCheckGateName,
-			PreviousAgentVersion: config.PreviousAgentVersion,
+			OpenStateForUpgrade:  config.OpenStateForUpgrade,
+			PreUpgradeSteps:      config.PreUpgradeSteps,
+			NewAgentStatusSetter: config.NewAgentStatusSetter,
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -720,13 +719,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
-			AgentName:                agentName,
-			ClockName:                clockName,
-			ControllerPortName:       controllerPortName,
-			StateName:                stateName,
-			Hub:                      config.CentralHub,
-			NewWorker:                peergrouper.New,
-			ControllerSupportsSpaces: config.ControllerSupportsSpaces,
+			AgentName:          agentName,
+			ClockName:          clockName,
+			ControllerPortName: controllerPortName,
+			StateName:          stateName,
+			Hub:                config.CentralHub,
+			NewWorker:          peergrouper.New,
 		})),
 
 		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{
@@ -878,17 +876,19 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     hostkeyreporter.NewWorker,
 		})),
 
-		// The upgradesteps worker runs soon after the machine agent
-		// starts and runs any steps required to upgrade to the
-		// running jujud version. Once upgrade steps have run, the
-		// upgradesteps gate is unlocked and the worker exits.
-		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+		// The upgrader is a leaf worker that returns a specific error
+		// type recognised by the machine agent, causing other workers
+		// to be stopped and the agent to be restarted running the new
+		// tools. We should only need one of these in a consolidated
+		// agent, but we'll need to be careful about behavioural
+		// differences, and interactions with the upgrade-steps
+		// worker.
+		upgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
-			OpenStateForUpgrade:  config.OpenStateForUpgrade,
-			PreUpgradeSteps:      config.PreUpgradeSteps,
-			NewAgentStatusSetter: config.NewAgentStatusSetter,
+			UpgradeCheckGateName: upgradeCheckGateName,
+			PreviousAgentVersion: config.PreviousAgentVersion,
 		}),
 
 		upgradeSeriesWorkerName: ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
@@ -934,7 +934,22 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // CAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a CAAS machine agent.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	return mergeManifolds(config, dependency.Manifolds{})
+	return mergeManifolds(config, dependency.Manifolds{
+		caasBrokerTrackerName: caasbroker.Manifold(caasbroker.ManifoldConfig{
+			APICallerName:          apiCallerName,
+			NewContainerBrokerFunc: config.NewContainerBrokerFunc,
+		}),
+
+		// TODO(caas) - when we support HA, only want this on primary
+		upgraderName: caascontrollerupgrader.Manifold(caascontrollerupgrader.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			UpgradeCheckGateName: upgradeCheckGateName,
+			BrokerName:           caasBrokerTrackerName,
+			PreviousAgentVersion: config.PreviousAgentVersion,
+		}),
+	})
 }
 
 func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) dependency.Manifolds {
@@ -1003,7 +1018,6 @@ const (
 	agentConfigUpdaterName = "agent-config-updater"
 	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
-	controllerName         = "controller"
 	controllerPortName     = "controller-port"
 	stateName              = "state"
 	apiCallerName          = "api-caller"
@@ -1058,8 +1072,7 @@ const (
 	leaseManagerName              = "lease-manager"
 	legacyLeasesFlagName          = "legacy-leases-flag"
 
-	upgradeSeriesEnabledName = "upgrade-series-enabled"
-	upgradeSeriesWorkerName  = "upgrade-series"
+	upgradeSeriesWorkerName = "upgrade-series"
 
 	httpServerName     = "http-server"
 	httpServerArgsName = "http-server-args"
@@ -1073,4 +1086,6 @@ const (
 	raftForwarderName = "raft-forwarder"
 
 	validCredentialFlagName = "valid-credential-flag"
+
+	caasBrokerTrackerName = "caas-broker-tracker"
 )

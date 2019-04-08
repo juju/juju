@@ -555,6 +555,11 @@ func (conn *StubClient) ReplaceOrAddContainerProfile(name, oldProfile, newProfil
 	return conn.NextErr()
 }
 
+func (conn *StubClient) UpdateContainerProfiles(name string, profiles []string) error {
+	conn.AddCall("UpdateContainerProfiles", name, profiles)
+	return conn.NextErr()
+}
+
 func (conn *StubClient) VerifyNetworkDevice(profile *api.Profile, ETag string) error {
 	conn.AddCall("VerifyNetworkDevice", profile, ETag)
 	return conn.NextErr()

@@ -34,7 +34,7 @@ type Logger interface {
 	Tracef(message string, args ...interface{})
 }
 
-// Config represents the configuration required to run a new instance mutater
+// Config represents the configuration required to run a new instance machineApi
 // worker.
 type Config struct {
 	Facade InstanceMutaterAPI
@@ -46,7 +46,7 @@ type Config struct {
 
 	AgentConfig agent.Config
 
-	// Tag is the current machine tag
+	// Tag is the current mutaterMachine tag
 	Tag names.Tag
 }
 
@@ -88,17 +88,25 @@ func NewWorker(config Config) (worker.Worker, error) {
 		config.Logger.Debugf("uninstalling, not an LXD capable broker")
 		return nil, dependency.ErrUninstall
 	}
-	w := &mutaterWorker{
-		logger:     config.Logger,
-		facade:     config.Facade,
-		broker:     broker,
-		machineTag: config.Tag.(names.MachineTag),
+	watcher, err := config.Facade.WatchModelMachines()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	err := catacomb.Invoke(catacomb.Plan{
+	w := &mutaterWorker{
+		logger:         config.Logger,
+		facade:         config.Facade,
+		broker:         broker,
+		machineTag:     config.Tag.(names.MachineTag),
+		machineWatcher: watcher,
+	}
+	err = catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
 	})
 	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := w.catacomb.Add(watcher); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return w, nil
@@ -107,21 +115,47 @@ func NewWorker(config Config) (worker.Worker, error) {
 type mutaterWorker struct {
 	catacomb catacomb.Catacomb
 
-	logger     Logger
-	broker     environs.LXDProfiler
-	machineTag names.MachineTag
-	facade     InstanceMutaterAPI
+	logger         Logger
+	broker         environs.LXDProfiler
+	machineTag     names.MachineTag
+	facade         InstanceMutaterAPI
+	machineWatcher watcher.StringsWatcher
 }
 
 func (w *mutaterWorker) loop() error {
-	watcher, err := w.facade.WatchModelMachines()
-	if err != nil {
-		return errors.Trace(err)
+	m := &mutater{
+		context:     w,
+		logger:      w.logger,
+		machines:    make(map[names.MachineTag]chan struct{}),
+		machineDead: make(chan instancemutater.MutaterMachine),
 	}
-	if err := w.catacomb.Add(watcher); err != nil {
-		return errors.Trace(err)
+	defer func() {
+		// TODO(fwereade): is this a home-grown sync.WaitGroup or something?
+		// strongly suspect these mutaterMachine goroutines could be managed rather
+		// less opaquely if we made them all workers.
+		for len(m.machines) > 0 {
+			delete(m.machines, (<-m.machineDead).Tag())
+		}
+	}()
+	for {
+		select {
+		case <-m.context.dying():
+			return m.context.errDying()
+		case ids, ok := <-w.machineWatcher.Changes():
+			if !ok {
+				return errors.New("machines watcher closed")
+			}
+			tags := make([]names.MachineTag, len(ids))
+			for i := range ids {
+				tags[i] = names.NewMachineTag(ids[i])
+			}
+			if err := m.startMachines(tags); err != nil {
+				return err
+			}
+		case d := <-m.machineDead:
+			delete(m.machines, d.Tag())
+		}
 	}
-	return watchMachinesLoop(w, w.logger, watcher)
 }
 
 // Kill implements worker.Worker.Kill.

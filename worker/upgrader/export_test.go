@@ -4,6 +4,5 @@
 package upgrader
 
 var (
-	RetryAfter           = &retryAfter
-	AllowedTargetVersion = allowedTargetVersion
+	RetryAfter = &retryAfter
 )

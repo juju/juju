@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/utils/set"
+	"github.com/juju/collections/set"
 )
 
 func NewLXDCharmProfiler(profile Profile) LXDProfiler {
@@ -21,6 +21,13 @@ type LXDProfiles struct {
 // Implements LXDProfiler interface.
 func (p LXDProfiles) LXDProfile() LXDProfile {
 	return p.Profile
+}
+
+// ProfilePost is a close representation of lxd api
+// ProfilesPost
+type ProfilePost struct {
+	Name    string
+	Profile *Profile
 }
 
 // Profile is a representation of charm.v6 LXDProfile

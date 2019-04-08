@@ -239,7 +239,7 @@ func opClientServiceSet(c *gc.C, st api.Connection, mst *state.State) (func(), e
 }
 
 func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := application.NewClient(st).Get(model.GenerationCurrent, "wordpress")
+	_, err := application.NewClient(st).Get(model.GenerationMaster, "wordpress")
 	if err != nil {
 		return func() {}, err
 	}
@@ -336,7 +336,7 @@ func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func
 			URL: charm.MustParseURL("local:quantal/wordpress"),
 		},
 	}
-	err := application.NewClient(st).SetCharm(model.GenerationCurrent, cfg)
+	err := application.NewClient(st).SetCharm(model.GenerationMaster, cfg)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}

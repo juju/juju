@@ -141,6 +141,7 @@ type MachineInfo struct {
 	SupportedContainers      []instance.ContainerType          `json:"supported-containers"`
 	SupportedContainersKnown bool                              `json:"supported-containers-known"`
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:"hardware-characteristics,omitempty"`
+	CharmProfiles            []string                          `json:"charm-profiles,omitempty"`
 	Jobs                     []MachineJob                      `json:"jobs"`
 	Addresses                []Address                         `json:"addresses"`
 	HasVote                  bool                              `json:"has-vote"`

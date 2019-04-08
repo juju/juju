@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/api/instancemutater/mocks"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/testing"
@@ -27,6 +28,7 @@ type instanceMutaterMachineSuite struct {
 	message  string
 	tag      names.MachineTag
 	unitName string
+	profiles []string
 
 	fCaller   *mocks.MockFacadeCaller
 	apiCaller *mocks.MockAPICaller
@@ -38,8 +40,31 @@ func (s *instanceMutaterMachineSuite) SetUpTest(c *gc.C) {
 	s.tag = names.NewMachineTag("0")
 	s.args = params.Entities{Entities: []params.Entity{{Tag: s.tag.String()}}}
 	s.unitName = "lxd-profile/0"
+	s.profiles = []string{"charm-app-x-0", "charm-app-y-1"}
 	s.message = lxdprofile.SuccessStatus
 	s.BaseSuite.SetUpTest(c)
+}
+
+func (s *instanceMutaterMachineSuite) TestSetCharmProfiles(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	m := s.machineForScenario(c,
+		s.expectSetCharmProfilesFacadeCall,
+	)
+
+	err := m.SetCharmProfiles(s.profiles)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *instanceMutaterMachineSuite) TestSetCharmProfilesError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	m := s.machineForScenario(c,
+		s.expectSetCharmProfilesFacadeCallReturnsError(errors.New("failed")),
+	)
+
+	err := m.SetCharmProfiles(s.profiles)
+	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
 func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteSuccess(c *gc.C) {
@@ -137,61 +162,53 @@ func (s *instanceMutaterMachineSuite) TestWatchApplicationLXDProfilesServerError
 func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	args := params.CharmProfilingInfoArg{
-		Entity:    params.Entity{Tag: s.tag.String()},
-		UnitNames: []string{s.unitName},
-	}
+	args := params.Entity{Tag: s.tag.String()}
 	results := params.CharmProfilingInfoResult{
-		Changes:         true,
+		InstanceId:      instance.Id("juju-gd4c23-0"),
+		ModelName:       "default",
 		CurrentProfiles: []string{"juju-default-neutron-ovswitch-255"},
 		Error:           nil,
-		ProfileChanges: []params.ProfileChangeResult{{
-			OldProfileName: "",
-			NewProfileName: "juju-default-lxd-profile-3",
+		ProfileChanges: []params.ProfileInfoResult{{
 			Profile: &params.CharmLXDProfile{
 				Description: "Test Profile",
 			},
-			Subordinate: true,
 		}},
 	}
 
 	fExp := s.fCaller.EXPECT()
 	fExp.FacadeCall("CharmProfilingInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
 
-	info, err := s.setupMachine().CharmProfilingInfo([]string{s.unitName})
+	info, err := s.setupMachine().CharmProfilingInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Changes, jc.IsTrue)
+	c.Assert(info.InstanceId, gc.Equals, results.InstanceId)
+	c.Assert(info.ModelName, gc.Equals, results.ModelName)
 	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
-	c.Assert(info.ProfileChanges[0].OldProfileName, gc.Equals, results.ProfileChanges[0].OldProfileName)
-	c.Assert(info.ProfileChanges[0].NewProfileName, gc.Equals, results.ProfileChanges[0].NewProfileName)
 	c.Assert(info.ProfileChanges[0].Profile.Description, gc.Equals, "Test Profile")
-	c.Assert(info.ProfileChanges[0].Subordinate, jc.IsTrue)
 }
 
-func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessNoChanges(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChangesWithNoProfile(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	args := params.CharmProfilingInfoArg{
-		Entity:    params.Entity{Tag: s.tag.String()},
-		UnitNames: []string{s.unitName},
-	}
+	args := params.Entity{Tag: s.tag.String()}
 	results := params.CharmProfilingInfoResult{
-		Changes:         false,
+		InstanceId:      instance.Id("juju-gd4c23-0"),
+		ModelName:       "default",
 		CurrentProfiles: []string{"juju-default-neutron-ovswitch-255"},
 		Error:           nil,
-		ProfileChanges: []params.ProfileChangeResult{{
-			NewProfileName: "juju-default-lxd-profile-3", // including to make sure it's not copied over.
+		ProfileChanges: []params.ProfileInfoResult{{
+			Profile: nil,
 		}},
 	}
 
 	fExp := s.fCaller.EXPECT()
 	fExp.FacadeCall("CharmProfilingInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
 
-	info, err := s.setupMachine().CharmProfilingInfo([]string{s.unitName})
+	info, err := s.setupMachine().CharmProfilingInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Changes, jc.IsFalse)
+	c.Assert(info.InstanceId, gc.Equals, results.InstanceId)
+	c.Assert(info.ModelName, gc.Equals, results.ModelName)
 	c.Assert(info.CurrentProfiles, gc.DeepEquals, results.CurrentProfiles)
-	c.Assert(info.ProfileChanges, gc.HasLen, 0)
+	c.Assert(info.ProfileChanges[0].Profile.Description, gc.Equals, "")
 }
 
 func (s *instanceMutaterMachineSuite) TestSetModificationStatus(c *gc.C) {
@@ -225,6 +242,17 @@ func (s *instanceMutaterMachineSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *instanceMutaterMachineSuite) setUpSetCharmProfilesArgs() params.SetProfileArgs {
+	return params.SetProfileArgs{
+		Args: []params.SetProfileArg{
+			{
+				Entity:   params.Entity{Tag: s.tag.String()},
+				Profiles: s.profiles,
+			},
+		},
+	}
+}
+
 func (s *instanceMutaterMachineSuite) setUpSetProfileUpgradeCompleteArgs() params.SetProfileUpgradeCompleteArgs {
 	return params.SetProfileUpgradeCompleteArgs{
 		Args: []params.SetProfileUpgradeCompleteArg{
@@ -247,6 +275,28 @@ func (s *instanceMutaterMachineSuite) machineForScenario(c *gc.C, behaviours ...
 	}
 
 	return s.setupMachine()
+}
+
+func (s *instanceMutaterMachineSuite) expectSetCharmProfilesFacadeCall() {
+	results := params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
+	args := s.setUpSetCharmProfilesArgs()
+
+	fExp := s.fCaller.EXPECT()
+	fExp.FacadeCall("SetCharmProfiles", args, gomock.Any()).SetArg(2, results).Return(nil)
+}
+
+func (s *instanceMutaterMachineSuite) expectSetCharmProfilesFacadeCallReturnsError(err error) func() {
+	return func() {
+		results := params.ErrorResults{
+			Results: []params.ErrorResult{
+				{Error: &params.Error{Message: err.Error()}},
+			},
+		}
+		args := s.setUpSetCharmProfilesArgs()
+
+		fExp := s.fCaller.EXPECT()
+		fExp.FacadeCall("SetCharmProfiles", args, gomock.Any()).SetArg(2, results).Return(nil)
+	}
 }
 
 func (s *instanceMutaterMachineSuite) expectSetUpgradeCharmProfileCompleteFacadeCall() {

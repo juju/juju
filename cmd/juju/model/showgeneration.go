@@ -40,11 +40,11 @@ See also:
 `
 )
 
-// AddGenerationCommandAPI defines an API interface to be used during testing.
+// ShowGenerationCommandAPI defines an API interface to be used during testing.
 //go:generate mockgen -package mocks -destination ./mocks/showgeneration_mock.go github.com/juju/juju/cmd/juju/model ShowGenerationCommandAPI
 type ShowGenerationCommandAPI interface {
 	Close() error
-	GenerationInfo(string, func(time.Time) string) (model.GenerationSummaries, error)
+	GenerationInfo(string, string, func(time.Time) string) (model.GenerationSummaries, error)
 }
 
 // addGenerationCommand is the simplified command for accessing and setting
@@ -52,9 +52,11 @@ type ShowGenerationCommandAPI interface {
 type showGenerationCommand struct {
 	modelcmd.ModelCommandBase
 
-	isoTime bool
-	api     ShowGenerationCommandAPI
-	out     cmd.Output
+	api ShowGenerationCommandAPI
+	out cmd.Output
+
+	isoTime    bool
+	branchName string
 }
 
 // NewShowGenerationCommand wraps showGenerationCommand with sane model settings.
@@ -66,6 +68,7 @@ func NewShowGenerationCommand() cmd.Command {
 func (c *showGenerationCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:    "show-generation",
+		Args:    "<branch name>",
 		Purpose: showGenerationSummary,
 		Doc:     showGenerationDoc,
 	}
@@ -81,9 +84,11 @@ func (c *showGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements part of the cmd.Command interface.
 func (c *showGenerationCommand) Init(args []string) error {
-	if len(args) != 0 {
-		return errors.Errorf("No arguments allowed")
+	if len(args) != 1 {
+		return errors.Errorf("must specify a branch name")
 	}
+	c.branchName = args[0]
+
 	// If use of ISO time not specified on command line, check env var.
 	if !c.isoTime {
 		var err error
@@ -129,7 +134,7 @@ func (c *showGenerationCommand) Run(ctx *cmd.Context) error {
 		return common.FormatTime(&t, c.isoTime)
 	}
 
-	deltas, err := client.GenerationInfo(modelDetails.ModelUUID, formatTime)
+	deltas, err := client.GenerationInfo(modelDetails.ModelUUID, c.branchName, formatTime)
 	if err != nil {
 		return errors.Trace(err)
 	}

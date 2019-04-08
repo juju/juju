@@ -37,16 +37,29 @@ func (m *MockMutaterMachine) EXPECT() *MockMutaterMachineMockRecorder {
 }
 
 // CharmProfilingInfo mocks base method
-func (m *MockMutaterMachine) CharmProfilingInfo(arg0 []string) (*instancemutater.ProfileInfo, error) {
-	ret := m.ctrl.Call(m, "CharmProfilingInfo", arg0)
-	ret0, _ := ret[0].(*instancemutater.ProfileInfo)
+func (m *MockMutaterMachine) CharmProfilingInfo() (*instancemutater.UnitProfileInfo, error) {
+	ret := m.ctrl.Call(m, "CharmProfilingInfo")
+	ret0, _ := ret[0].(*instancemutater.UnitProfileInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CharmProfilingInfo indicates an expected call of CharmProfilingInfo
-func (mr *MockMutaterMachineMockRecorder) CharmProfilingInfo(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfilingInfo", reflect.TypeOf((*MockMutaterMachine)(nil).CharmProfilingInfo), arg0)
+func (mr *MockMutaterMachineMockRecorder) CharmProfilingInfo() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfilingInfo", reflect.TypeOf((*MockMutaterMachine)(nil).CharmProfilingInfo))
+}
+
+// InstanceId mocks base method
+func (m *MockMutaterMachine) InstanceId() (string, error) {
+	ret := m.ctrl.Call(m, "InstanceId")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InstanceId indicates an expected call of InstanceId
+func (mr *MockMutaterMachineMockRecorder) InstanceId() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMutaterMachine)(nil).InstanceId))
 }
 
 // RemoveUpgradeCharmProfileData mocks base method

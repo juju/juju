@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
@@ -418,9 +417,6 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 		s.openStateForUpgrade,
 		s.preUpgradeSteps,
 		machineStatus,
-		func(environs.OpenParams) (environs.Environ, error) {
-			return nil, errors.NotImplementedf("NewEnviron")
-		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return worker.Wait(), config, machineStatus.Calls, doneLock
@@ -441,7 +437,7 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.StatePool, error) {
 	return pool, nil
 }
 
-func (s *UpgradeSuite) preUpgradeSteps(pool *state.StatePool, agentConf agent.Config, isController, isMasterController bool) error {
+func (s *UpgradeSuite) preUpgradeSteps(pool *state.StatePool, agentConf agent.Config, isController, isMaster, isCaas bool) error {
 	if s.preUpgradeError {
 		return errors.New("preupgrade error")
 	}

@@ -82,6 +82,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	c.Assert(err, jc.ErrorIsNil)
 	hc, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
+	cp, err := m.CharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProviderAddresses(network.NewAddress("example.com"))
 	c.Assert(err, jc.ErrorIsNil)
 	var addresses []multiwatcher.Address
@@ -113,6 +115,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 		Addresses:               addresses,
 		HardwareCharacteristics: hc,
+		CharmProfiles:           cp,
 		HasVote:                 true,
 		WantsVote:               false,
 	})
@@ -241,6 +244,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		c.Assert(err, jc.ErrorIsNil)
 		hc, err := m.HardwareCharacteristics()
 		c.Assert(err, jc.ErrorIsNil)
+		cp, err := m.CharmProfiles()
+		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.MachineInfo{
 			ModelUUID:  modelUUID,
 			Id:         fmt.Sprint(i + 1),
@@ -261,6 +266,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses:               []multiwatcher.Address{},
 			HardwareCharacteristics: hc,
+			CharmProfiles:           cp,
 			HasVote:                 false,
 			WantsVote:               false,
 		})
@@ -531,7 +537,7 @@ func applicationCharmURL(app *Application) *charm.URL {
 }
 
 func setApplicationConfigAttr(c *gc.C, app *Application, attr string, val interface{}) {
-	err := app.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{attr: val})
+	err := app.UpdateCharmConfig(model.GenerationMaster, charm.Settings{attr: val})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1000,6 +1006,9 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	}
 	err = m0.SetProvisioned(instance.Id("i-0"), "", "bootstrap_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
+	cp := []string{"charm-app-0"}
+	err = m0.SetCharmProfiles(cp)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = m1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1038,6 +1047,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Jobs:                    []multiwatcher.MachineJob{JobManageModel.ToParams()},
 			Addresses:               []multiwatcher.Address{},
 			HardwareCharacteristics: hc,
+			CharmProfiles:           cp,
 			HasVote:                 false,
 			WantsVote:               true,
 		},
@@ -1249,7 +1259,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				app, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = app.UpdateCharmConfig(model.GenerationCurrent, charm.Settings{"blog-title": "boring"})
+				err = app.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "boring"})
 				c.Assert(err, jc.ErrorIsNil)
 				return 1
 			},
@@ -1932,6 +1942,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Jobs:                    []multiwatcher.MachineJob{JobManageModel.ToParams()},
 			Addresses:               []multiwatcher.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			CharmProfiles:           []string{},
 			HasVote:                 false,
 			WantsVote:               true,
 		},
@@ -2258,6 +2269,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						Jobs:                     []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 						Addresses:                []multiwatcher.Address{},
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
+						CharmProfiles:            []string{},
 						SupportedContainers:      []instance.ContainerType{instance.LXD},
 						SupportedContainersKnown: true,
 					}}}

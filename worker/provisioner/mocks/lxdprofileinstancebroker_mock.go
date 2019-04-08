@@ -7,6 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	instance "github.com/juju/juju/core/instance"
+	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	environs "github.com/juju/juju/environs"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
@@ -48,6 +49,19 @@ func (m *MockLXDProfileInstanceBroker) AllInstances(arg0 context.ProviderCallCon
 // AllInstances indicates an expected call of AllInstances
 func (mr *MockLXDProfileInstanceBrokerMockRecorder) AllInstances(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllInstances", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).AllInstances), arg0)
+}
+
+// AssignProfiles mocks base method
+func (m *MockLXDProfileInstanceBroker) AssignProfiles(arg0 string, arg1 []string, arg2 []lxdprofile.ProfilePost) ([]string, error) {
+	ret := m.ctrl.Call(m, "AssignProfiles", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AssignProfiles indicates an expected call of AssignProfiles
+func (mr *MockLXDProfileInstanceBrokerMockRecorder) AssignProfiles(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignProfiles", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).AssignProfiles), arg0, arg1, arg2)
 }
 
 // LXDProfileNames mocks base method

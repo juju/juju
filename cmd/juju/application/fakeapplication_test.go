@@ -10,13 +10,12 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/model"
 )
 
 // fakeApplicationAPI is the fake application API for testing the application
 // update command.
 type fakeApplicationAPI struct {
-	generation  model.GenerationVersion
+	branchName  string
 	name        string
 	charmName   string
 	charmValues map[string]interface{}
@@ -47,11 +46,9 @@ func (f *fakeApplicationAPI) Close() error {
 	return nil
 }
 
-func (f *fakeApplicationAPI) Get(
-	generation model.GenerationVersion, application string,
-) (*params.ApplicationGetResults, error) {
-	if generation != f.generation {
-		return nil, errors.Errorf("expected generation %q, got %q", f.generation, generation)
+func (f *fakeApplicationAPI) Get(branchName, application string) (*params.ApplicationGetResults, error) {
+	if branchName != f.branchName {
+		return nil, errors.Errorf("expected branch %q, got %q", f.branchName, branchName)
 	}
 
 	if application != f.name {
@@ -107,11 +104,9 @@ func (f *fakeApplicationAPI) Set(application string, options map[string]string) 
 	return nil
 }
 
-func (f *fakeApplicationAPI) SetApplicationConfig(
-	generation model.GenerationVersion, application string, config map[string]string,
-) error {
-	if generation != f.generation {
-		return errors.Errorf("expected generation %q, got %q", f.generation, generation)
+func (f *fakeApplicationAPI) SetApplicationConfig(branchName, application string, config map[string]string) error {
+	if branchName != f.branchName {
+		return errors.Errorf("expected branch %q, got %q", f.branchName, branchName)
 	}
 	return f.Set(application, config)
 }
@@ -143,11 +138,9 @@ func (f *fakeApplicationAPI) Unset(application string, options []string) error {
 	return nil
 }
 
-func (f *fakeApplicationAPI) UnsetApplicationConfig(
-	generation model.GenerationVersion, application string, options []string,
-) error {
-	if generation != f.generation {
-		return errors.Errorf("expected generation %q, got %q", f.generation, generation)
+func (f *fakeApplicationAPI) UnsetApplicationConfig(branchName, application string, options []string) error {
+	if branchName != f.branchName {
+		return errors.Errorf("expected branch %q, got %q", f.branchName, branchName)
 	}
 	return f.Unset(application, options)
 }

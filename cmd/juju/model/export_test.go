@@ -181,32 +181,32 @@ func NewModelCredentialCommandForTest(modelClient ModelCredentialAPI, cloudClien
 	return modelcmd.Wrap(cmd)
 }
 
-func NewAddGenerationCommandForTest(api AddGenerationCommandAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &addGenerationCommand{
+func NewBranchCommandForTest(api BranchCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &branchCommand{
 		api: api,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
-func NewCancelGenerationCommandForTest(api CancelGenerationCommandAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &cancelGenerationCommand{
+func NewCommitCommandForTest(api CommitCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &commitCommand{
 		api: api,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
-func NewAdvanceGenerationCommandForTest(api AdvanceGenerationCommandAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &advanceGenerationCommand{
+func NewTrackBranchCommandForTest(api TrackBranchCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &trackBranchCommand{
 		api: api,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
-func NewSwitchGenerationCommandForTest(api SwitchGenerationCommandAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &switchGenerationCommand{
+func NewCheckoutCommandForTest(api CheckoutCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &checkoutCommand{
 		api: api,
 	}
 	cmd.SetClientStore(store)

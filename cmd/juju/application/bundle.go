@@ -907,7 +907,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 		ResourceIDs:     resNames2IDs,
 	}
 	// Bundles only ever deal with the current generation.
-	if err := h.api.SetCharm(model.GenerationCurrent, cfg); err != nil {
+	if err := h.api.SetCharm(model.GenerationMaster, cfg); err != nil {
 		return errors.Trace(err)
 	}
 	h.writeAddedResources(resNames2IDs)
@@ -940,7 +940,7 @@ func (h *bundleHandler) setOptions(change *bundlechanges.SetOptionsChange) error
 	if err := h.api.Update(params.ApplicationUpdate{
 		ApplicationName: p.Application,
 		SettingsYAML:    string(cfg),
-		Generation:      model.GenerationCurrent,
+		Generation:      model.GenerationMaster,
 	}); err != nil {
 		return errors.Annotatef(err, "cannot update options for application %q", p.Application)
 	}
@@ -1430,7 +1430,7 @@ func removeRelations(data [][]string, appName string) [][]string {
 type ModelExtractor interface {
 	GetAnnotations(tags []string) ([]params.AnnotationsGetResult, error)
 	GetConstraints(applications ...string) ([]constraints.Value, error)
-	GetConfig(generation model.GenerationVersion, applications ...string) ([]map[string]interface{}, error)
+	GetConfig(branchName string, applications ...string) ([]map[string]interface{}, error)
 	Sequences() (map[string]int, error)
 }
 
@@ -1537,7 +1537,7 @@ func buildModelRepresentation(
 	}
 
 	// When dealing with bundles the current model generation is always used.
-	configValues, err := apiRoot.GetConfig(model.GenerationCurrent, appNames...)
+	configValues, err := apiRoot.GetConfig(model.GenerationMaster, appNames...)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting application options")
 	}

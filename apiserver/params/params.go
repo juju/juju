@@ -414,6 +414,12 @@ type DestroyUnitParams struct {
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
 	Force bool
+
+	// Errors contains errors encountered while applying this operation.
+	// Generally, these are non-fatal errors that have been encountered
+	// during, say, force. They may not have prevented the operation from being
+	// aborted but the user might still want to know about them.
+	Errors []error
 }
 
 // Creds holds credentials for identifying an entity.
@@ -1072,6 +1078,13 @@ type ProfileArgs struct {
 	Args []ProfileArg `json:"args"`
 }
 
+type ProfileInfoResult struct {
+	ApplicationName string           `json:"application-name,omitempty"`
+	Revision        int              `json:"revision,omitempty"`
+	Profile         *CharmLXDProfile `json:"profile,omitempty"`
+	Error           *Error           `json:"error,omitempty"`
+}
+
 type ProfileChangeResult struct {
 	OldProfileName string           `json:"old-profile-name,omitempty"`
 	NewProfileName string           `json:"new-profile-name,omitempty"`
@@ -1103,31 +1116,18 @@ type SetProfileUpgradeCompleteArg struct {
 	Message  string `json:"message"`
 }
 
-// GenerationVersionArg contains a Model Entity to act in and the
-// GenerationVersion to switch to.
-type GenerationVersionArg struct {
-	Model   Entity                  `json:"model"`
-	Version model.GenerationVersion `json:"version"`
+// BranchArg represents an in-flight branch via its model and branch name.
+type BranchArg struct {
+	Model      Entity `json:"model"`
+	BranchName string `json:"branch"`
 }
 
-// AdvanceGenerationArg contains a Model Entity to act in and a slice of
-// Entities to advance into the 'next' generation.
-type AdvanceGenerationArg struct {
-	Model    Entity   `json:"model"`
-	Entities []Entity `json:"entities"`
-}
-
-// AdvanceGenerationResult contains the results of a call to AdvanceGeneration.
-type AdvanceGenerationResult struct {
-	// AdvanceResults contains the results from advancing each of the supplied
-	// entities to the next generation.
-	AdvanceResults ErrorResults `json:"advance-results"`
-
-	// CompletedResult will be non-empty when advancing units to the next
-	// generation invokes the generation's auto-completion.
-	// The results of rolling the next generation into the current will be
-	// represented here.
-	CompleteResult BoolResult `json:"complete-result,omitempty"`
+// BranchTrackArg identifies an in-flight branch and a collection of
+// entities that should be set to track changes made under the branch.
+type BranchTrackArg struct {
+	Model      Entity   `json:"model"`
+	BranchName string   `json:"branch"`
+	Entities   []Entity `json:"entities"`
 }
 
 // GenerationApplication represents changes to an application
@@ -1147,6 +1147,9 @@ type GenerationApplication struct {
 
 // Generation represents a model generation's details including config changes.
 type Generation struct {
+	// BranchName uniquely identifies a branch *amongst in-flight branches*.
+	BranchName string `json:"branch"`
+
 	// Created is the Unix timestamp at generation creation.
 	Created int64 `json:"created"`
 
@@ -1167,19 +1170,12 @@ type GenerationResult struct {
 	Error *Error `json:"error,omitempty"`
 }
 
-// CharmProfilingInfoArg contains a machine Entity with a slice of unit names
-// for which to gather info to apply lxd profiles for the machine based
-// on the unit.
-type CharmProfilingInfoArg struct {
-	Entity    Entity   `json:"entity"`
-	UnitNames []string `json:"unit-names"`
-}
-
 // CharmProfilingInfoResult contains the result based on ProfileInfoArg values
 // to update profiles on a machine.
 type CharmProfilingInfoResult struct {
-	Changes         bool                  `json:"changes"`
-	ProfileChanges  []ProfileChangeResult `json:"profile-changes"`
-	CurrentProfiles []string              `json:"current-profiles"`
-	Error           *Error                `json:"error"`
+	InstanceId      instance.Id         `json:"instance-id"`
+	ModelName       string              `json:"model-name"`
+	ProfileChanges  []ProfileInfoResult `json:"profile-changes"`
+	CurrentProfiles []string            `json:"current-profiles"`
+	Error           *Error              `json:"error"`
 }

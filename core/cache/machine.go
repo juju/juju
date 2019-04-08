@@ -11,6 +11,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/core/instance"
 )
 
 func newMachine(model *Model) *Machine {
@@ -33,6 +35,26 @@ type Machine struct {
 // Id returns the id string of this machine.
 func (m *Machine) Id() string {
 	return m.details.Id
+}
+
+// InstanceId returns the provider specific instance id for this machine and
+// returns not provisioned if instance id is empty
+func (m *Machine) InstanceId() (instance.Id, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.details.InstanceId == "" {
+		return "", errors.NotProvisionedf("machine %v", m.Id())
+	}
+	return instance.Id(m.details.InstanceId), nil
+}
+
+// CharmProfiles returns the cached list of charm profiles for the machine
+func (m *Machine) CharmProfiles() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.details.CharmProfiles
 }
 
 // Units returns all the units that have been assigned to the machine

@@ -377,36 +377,20 @@ type environProfileSuite struct {
 	lxd.EnvironSuite
 
 	callCtx context.ProviderCallContext
+
+	svr    *lxd.MockServer
+	lxdEnv environs.LXDProfiler
 }
 
 var _ = gc.Suite(&environProfileSuite{})
 
-func (s *environProfileSuite) TestMaybeWriteLXDProfile(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+func (s *environProfileSuite) TestMaybeWriteLXDProfileYes(c *gc.C) {
+	defer s.setup(c).Finish()
 
-	svr := lxd.NewMockServer(ctrl)
-	exp := svr.EXPECT()
-	gomock.InOrder(
-		exp.HasProfile("testname").Return(true, nil),
-		exp.HasProfile("testname").Return(false, nil),
-		exp.CreateProfile(api.ProfilesPost{
-			Name: "testname",
-			ProfilePut: api.ProfilePut{
-				Config: map[string]string{
-					"security.nesting": "true",
-				},
-				Description: "test profile",
-			},
-		}).Return(nil),
-	)
+	profile := "testname"
+	s.expectMaybeWriteLXDProfile(false, profile)
 
-	env := s.NewEnviron(c, svr, nil)
-	lxdEnv, ok := env.(environs.LXDProfiler)
-	c.Assert(ok, jc.IsTrue)
-	err := lxdEnv.MaybeWriteLXDProfile("testname", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = lxdEnv.MaybeWriteLXDProfile("testname", &charm.LXDProfile{
+	err := s.lxdEnv.MaybeWriteLXDProfile(profile, &charm.LXDProfile{
 		Config: map[string]string{
 			"security.nesting": "true",
 		},
@@ -415,21 +399,25 @@ func (s *environProfileSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *environProfileSuite) TestMaybeWriteLXDProfileNo(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	profile := "testname"
+	s.expectMaybeWriteLXDProfile(true, profile)
+
+	err := s.lxdEnv.MaybeWriteLXDProfile(profile, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *environProfileSuite) TestLXDProfileNames(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
-	svr := lxd.NewMockServer(ctrl)
-	exp := svr.EXPECT()
-
+	exp := s.svr.EXPECT()
 	exp.GetContainerProfiles("testname").Return([]string{
 		lxdprofile.Name("foo", "bar", 1),
 	}, nil)
 
-	env := s.NewEnviron(c, svr, nil)
-	lxdEnv, ok := env.(environs.LXDProfiler)
-	c.Assert(ok, jc.IsTrue)
-	result, err := lxdEnv.LXDProfileNames("testname")
+	result, err := s.lxdEnv.LXDProfileNames("testname")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []string{
 		lxdprofile.Name("foo", "bar", 1),
@@ -437,41 +425,125 @@ func (s *environProfileSuite) TestLXDProfileNames(c *gc.C) {
 }
 
 func (s *environProfileSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	instId := "testme"
 	old := "old-profile"
 	new := "new-profile"
 
-	svr := lxd.NewMockServer(ctrl)
-	exp := svr.EXPECT()
-	gomock.InOrder(
-		exp.HasProfile(new).Return(false, nil),
-		exp.CreateProfile(api.ProfilesPost{
-			Name: new,
-			ProfilePut: api.ProfilePut{
-				Config: map[string]string{
-					"security.nesting": "true",
-				},
-				Description: "test profile",
-			},
-		}).Return(nil),
-		exp.ReplaceOrAddContainerProfile(instId, old, new).Return(nil),
-		exp.DeleteProfile(old),
-		exp.GetContainerProfiles(instId).Return([]string{"default", "juju-default", new}, nil),
-	)
+	s.expectReplaceOrAddInstanceProfile(instId, old, new)
 
-	env := s.NewEnviron(c, svr, nil)
-	lxdEnv, ok := env.(environs.LXDProfiler)
-	c.Assert(ok, jc.IsTrue)
 	put := &charm.LXDProfile{
 		Config: map[string]string{
 			"security.nesting": "true",
 		},
 		Description: "test profile",
 	}
-	obtained, err := lxdEnv.ReplaceOrAddInstanceProfile(instId, old, new, put)
+	obtained, err := s.lxdEnv.ReplaceOrAddInstanceProfile(instId, old, new, put)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, []string{"default", "juju-default", new})
+}
+
+func (s *environProfileSuite) TestAssignProfiles(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	instId := "testme"
+	old := "old-profile"
+	new := "new-profile"
+	expectedProfiles := []string{"default", "juju-default", new}
+	s.expectAssignProfiles(instId, old, new, []string{}, expectedProfiles, nil)
+
+	obtained, err := s.lxdEnv.AssignProfiles(instId, expectedProfiles, []lxdprofile.ProfilePost{
+		{
+			Name:    old,
+			Profile: nil,
+		}, {
+			Name: new,
+			Profile: &lxdprofile.Profile{
+				Config: map[string]string{
+					"security.nesting": "true",
+				},
+				Description: "test profile",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, expectedProfiles)
+}
+
+func (s *environProfileSuite) TestAssignProfilesErrorReturnsCurrent(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	instId := "testme"
+	old := "old-profile"
+	new := "new-profile"
+	expectedProfiles := []string{"default", "juju-default", old}
+	newProfiles := []string{"default", "juju-default", new}
+	expectedErr := "fail UpdateContainerProfiles"
+	s.expectAssignProfiles(instId, old, new, expectedProfiles, newProfiles, errors.New(expectedErr))
+
+	obtained, err := s.lxdEnv.AssignProfiles(instId, newProfiles, []lxdprofile.ProfilePost{
+		{
+			Name:    old,
+			Profile: nil,
+		}, {
+			Name: new,
+			Profile: &lxdprofile.Profile{
+				Config: map[string]string{
+					"security.nesting": "true",
+				},
+				Description: "test profile",
+			},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, expectedErr)
+	c.Assert(obtained, gc.DeepEquals, []string{"default", "juju-default", old})
+}
+
+func (s *environProfileSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.svr = lxd.NewMockServer(ctrl)
+	lxdEnv, ok := s.NewEnviron(c, s.svr, nil).(environs.LXDProfiler)
+	c.Assert(ok, jc.IsTrue)
+	s.lxdEnv = lxdEnv
+
+	return ctrl
+}
+
+func (s *environProfileSuite) expectMaybeWriteLXDProfile(hasProfile bool, name string) {
+	exp := s.svr.EXPECT()
+	exp.HasProfile(name).Return(hasProfile, nil)
+	if !hasProfile {
+		exp.CreateProfile(api.ProfilesPost{
+			Name: name,
+			ProfilePut: api.ProfilePut{
+				Config: map[string]string{
+					"security.nesting": "true",
+				},
+				Description: "test profile",
+			},
+		}).Return(nil)
+	}
+}
+
+func (s *environProfileSuite) expectReplaceOrAddInstanceProfile(instId, old, new string) {
+	s.expectMaybeWriteLXDProfile(false, new)
+	exp := s.svr.EXPECT()
+	exp.ReplaceOrAddContainerProfile(instId, old, new)
+	exp.DeleteProfile(old)
+	exp.GetContainerProfiles(instId).Return([]string{"default", "juju-default", new}, nil)
+}
+
+func (s *environProfileSuite) expectAssignProfiles(instId, old, new string, oldProfiles, newProfiles []string, updateErr error) {
+	s.expectMaybeWriteLXDProfile(false, new)
+	exp := s.svr.EXPECT()
+	exp.UpdateContainerProfiles(instId, newProfiles).Return(updateErr)
+	if updateErr != nil {
+		exp.GetContainerProfiles(instId).Return(oldProfiles, nil)
+		return
+	}
+	if old != "" {
+		exp.DeleteProfile(old)
+	}
+	exp.GetContainerProfiles(instId).Return(newProfiles, nil)
 }
