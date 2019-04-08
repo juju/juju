@@ -15,12 +15,16 @@ const (
 	deleted
 )
 
-// ItemChange represents the change of an item in a settings.
+// ItemChange represents the change of an item in a settings collection.
 type ItemChange struct {
-	Type     int         `bson:"type"`
-	Key      string      `bson:"key"`
-	OldValue interface{} `bson:"old,omitempty"`
-	NewValue interface{} `bson:"new,omitempty"`
+	// Type is an enumeration indicating the type of settings change.
+	Type int
+	// Key is the setting being changed.
+	Key string
+	// OldValue is the previous value for the setting.
+	OldValue interface{}
+	// NewValue is the settings value resulting from this change.
+	NewValue interface{}
 }
 
 // IsAddition returns true if this change indicates a settings value
@@ -90,21 +94,50 @@ func MakeDeletion(key string, oldVal interface{}) ItemChange {
 // It implements the sort interface to sort the items changes by key.
 type ItemChanges []ItemChange
 
-// ApplyDeltaSource turns this second-order delta into a first-older delta
-// by replacing the OldValue for any key present in the input ItemChange
-// collection.
-func (c ItemChanges) ApplyDeltaSource(oldChanges ItemChanges) error {
+// ApplyDeltaSource uses this second-order delta generate a first-older delta
+// by comparing with the incoming changes collection.
+func (c ItemChanges) ApplyDeltaSource(oldChanges ItemChanges) (ItemChanges, error) {
 	m, err := oldChanges.Map()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	for i, ch := range c {
+	res := make(ItemChanges, len(c))
+	copy(res, c)
+
+	for i, ch := range res {
 		if old, ok := m[ch.Key]; ok {
-			c[i].OldValue = old.OldValue
+			switch {
+			case old.OldValue == nil && ch.IsModification():
+				// Any previous change with no old value indicates that the key
+				// was not defined in settings when the branch was created.
+				// Indicate the modification as an addition.
+				res[i] = MakeAddition(ch.Key, ch.NewValue)
+			case old.OldValue != nil && c[i].IsAddition():
+				// If a setting that existed at branch creation time has been
+				// deleted and re-added, indicate it as a modification.
+				res[i] = MakeModification(ch.Key, old.OldValue, ch.NewValue)
+			default:
+				// Preserve all old values.
+				res[i].OldValue = old.OldValue
+			}
+
+			// Remove the map entry to indicate we have dealt with the key.
+			delete(m, ch.Key)
 		}
 	}
-	return nil
+
+	// If there is an old change not present in this collection,
+	// then we know that the value has been reset to the original.
+	// We need to maintain a no-op entry in order to retain the old value from
+	// when the configuration setting was first touched.
+	// These values are not shown to an operator who views a "diff"
+	// for the branch.
+	for key, old := range m {
+		res = append(res, MakeModification(key, old.OldValue, old.OldValue))
+	}
+
+	return res, nil
 }
 
 // Map is a convenience method for working with collections of changes.

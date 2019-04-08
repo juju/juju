@@ -159,6 +159,7 @@ func (s *Settings) changes() settings.ItemChanges {
 		if reflect.DeepEqual(live, old) {
 			continue
 		}
+
 		var change settings.ItemChange
 		switch {
 		case inCore && onDisk:
@@ -172,7 +173,6 @@ func (s *Settings) changes() settings.ItemChanges {
 		}
 		changes = append(changes, change)
 	}
-
 	sort.Sort(changes)
 	return changes
 }

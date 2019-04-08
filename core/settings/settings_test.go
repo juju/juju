@@ -59,25 +59,36 @@ func (*settingsSuite) TestItemTypeString(c *gc.C) {
 }
 
 func (*settingsSuite) TestApplyDeltaSource(c *gc.C) {
+	original := ItemChanges{
+		MakeModification("key2", "older-val", "less-new-val"),
+		MakeAddition("key4", "older-gone-val"),
+		MakeDeletion("key5", "first-deleted-val"),
+		MakeDeletion("key6", "reverted-deleted-val"),
+	}
+
 	latest := ItemChanges{
 		MakeAddition("key1", "new-val"),
 		MakeModification("key2", "old-val", "other-val"),
 		MakeModification("key3", "another-old-val", "another-val"),
 		MakeDeletion("key4", "gone-val"),
-	}
-
-	original := ItemChanges{
-		MakeModification("key2", "older-val", "less-new-val"),
-		MakeDeletion("key4", "older-gone-val"),
+		MakeAddition("key5", "re-added-val"),
 	}
 
 	// The old values present in original are represented against the
 	// matching keys in latest.
-	c.Assert(latest.ApplyDeltaSource(original), jc.ErrorIsNil)
-	c.Check(latest, gc.DeepEquals, ItemChanges{
+	latest, err := latest.ApplyDeltaSource(original)
+	c.Assert(err, jc.ErrorIsNil)
+
+	exp := ItemChanges{
 		MakeAddition("key1", "new-val"),
 		MakeModification("key2", "older-val", "other-val"),
 		MakeModification("key3", "another-old-val", "another-val"),
-		MakeDeletion("key4", "older-gone-val"),
-	})
+		MakeDeletion("key4", nil),
+		MakeModification("key5", "first-deleted-val", "re-added-val"),
+		MakeModification("key6", "reverted-deleted-val", "reverted-deleted-val"),
+	}
+
+	for i, got := range latest {
+		c.Check(got, gc.DeepEquals, exp[i])
+	}
 }

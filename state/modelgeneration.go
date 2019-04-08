@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
@@ -17,8 +18,28 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/mongo/utils"
 )
+
+// itemChange is the state representation of a core settings ItemChange.
+type itemChange struct {
+	Type     int         `bson:"type"`
+	Key      string      `bson:"key"`
+	OldValue interface{} `bson:"old,omitempty"`
+	NewValue interface{} `bson:"new,omitempty"`
+}
+
+// coreChange returns the core package representation of this change.
+// Stored keys are unescaped.
+func (c *itemChange) coreChange() settings.ItemChange {
+	return settings.ItemChange{
+		Type:     c.Type,
+		Key:      utils.UnescapeKey(c.Key),
+		OldValue: c.OldValue,
+		NewValue: c.NewValue,
+	}
+}
 
 // generationDoc represents the state of a model generation in MongoDB.
 type generationDoc struct {
@@ -47,7 +68,7 @@ type generationDoc struct {
 	AssignedUnits map[string][]string `bson:"assigned-units"`
 
 	// Config is all changes made to charm configuration under this branch.
-	Config model.BranchCharmConfig `bson:"charm-config"`
+	Config map[string][]itemChange `bson:"charm-config"`
 
 	// TODO (manadart 2019-04-02): CharmURLs, Resources.
 
@@ -93,8 +114,18 @@ func (g *Generation) AssignedUnits() map[string][]string {
 }
 
 // Config returns all changed charm configuration for the generation.
-func (g *Generation) Config() model.BranchCharmConfig {
-	return g.doc.Config
+// The persisted objects are converted to core changes.
+func (g *Generation) Config() map[string]settings.ItemChanges {
+	changes := make(map[string]settings.ItemChanges, len(g.doc.Config))
+	for appName, appCfg := range g.doc.Config {
+		appChanges := make(settings.ItemChanges, len(appCfg))
+		for i, ch := range appCfg {
+			appChanges[i] = ch.coreChange()
+		}
+		sort.Sort(appChanges)
+		changes[appName] = appChanges
+	}
+	return changes
 }
 
 // Created returns the Unix timestamp at generation creation.
@@ -278,17 +309,14 @@ func (g *Generation) UpdateCharmConfig(appName string, master *Settings, validCh
 			return nil, errors.Trace(err)
 		}
 
-		if g.doc.Config == nil {
-			g.doc.Config = make(model.BranchCharmConfig)
-		}
-
 		// Apply the current branch deltas to the master settings.
-		branchDelta, branchHasDelta := g.doc.Config[appName]
+		branchChanges := g.Config()
+		branchDelta, branchHasDelta := branchChanges[appName]
 		if branchHasDelta {
 			master.applyChanges(branchDelta)
 		}
 
-		// Now apply the incoming changes on top.
+		// Now apply the incoming changes on top and generate a new delta.
 		for k, v := range validChanges {
 			if v == nil {
 				master.Delete(k)
@@ -296,19 +324,16 @@ func (g *Generation) UpdateCharmConfig(appName string, master *Settings, validCh
 				master.Set(k, v)
 			}
 		}
-
-		// Now get the resulting delta.
 		newDelta := master.changes()
 
-		// Ensure that the old values from the delta always indicate their
-		// original values.
+		// Ensure that the delta represents a change from master settings
+		// as they were when each setting was first modified under the branch.
 		if branchHasDelta {
-			if err := newDelta.ApplyDeltaSource(branchDelta); err != nil {
+			var err error
+			if newDelta, err = newDelta.ApplyDeltaSource(branchDelta); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-
-		g.doc.Config[appName] = newDelta
 
 		return []txn.Op{
 			{
@@ -319,7 +344,7 @@ func (g *Generation) UpdateCharmConfig(appName string, master *Settings, validCh
 					{{"txn-revno", g.doc.TxnRevno}},
 				}}},
 				Update: bson.D{
-					{"$set", bson.D{{"charm-config", g.doc.Config}}},
+					{"$set", bson.D{{"charm-config." + appName, makeItemChanges(newDelta)}}},
 				},
 			},
 		}, nil
@@ -546,4 +571,19 @@ func newGeneration(st *State, doc *generationDoc) *Generation {
 		st:  st,
 		doc: *doc,
 	}
+}
+
+// makeItemChanges generates a persistable collection of changes from a core
+// settings representation, with keys escaped for Mongo.
+func makeItemChanges(coreChanges settings.ItemChanges) []itemChange {
+	changes := make([]itemChange, len(coreChanges))
+	for i, c := range coreChanges {
+		changes[i] = itemChange{
+			Type:     c.Type,
+			Key:      utils.EscapeKey(c.Key),
+			OldValue: c.OldValue,
+			NewValue: c.NewValue,
+		}
+	}
+	return changes
 }
