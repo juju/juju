@@ -253,7 +253,8 @@ func readSettingsDocInto(db Database, collection, key string, out interface{}) e
 	return err
 }
 
-// applyChanges
+// applyChanges modifies the live settings
+// based on the input collection of changes.
 func (s *Settings) applyChanges(changes settings.ItemChanges) {
 	for _, ch := range changes {
 		switch {

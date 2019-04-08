@@ -1831,6 +1831,8 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsBranch(c *gc.C) {
+	c.Skip("To be rewritten when branch-based configuration reads are implemented.")
+
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
 
