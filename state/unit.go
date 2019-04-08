@@ -637,7 +637,9 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		}
 		// If we are forcing, we care about the errors as we want report them to the user.
 		// But we also want operations to power through the removal.
-		op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.Name(), dyingErr))
+		if dyingErr != nil {
+			op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.Name(), dyingErr))
+		}
 		return []txn.Op{setDyingOp, cleanupOp, minUnitsOp}, nil
 	}
 	if op.unit.doc.Principal != "" {
@@ -665,7 +667,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	notAllocating := func() bool {
 		return (isAssigned || !shouldBeAssigned) && agentStatusInfo.Status != status.Allocating
 	}
-	if agentErr != nil || notAllocating() {
+	if agentErr == nil && notAllocating() {
 		return setDyingOps(agentErr)
 	}
 	switch agentStatusInfo.Status {
@@ -815,8 +817,23 @@ func (u *Unit) destroyHostOps(a *Application, force bool) (ops []txn.Op, errs []
 	machineUpdate := bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}}
 	var cleanupOps []txn.Op
 	if machineCheck && containerCheck {
-		machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
-		cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id, force)}
+		err = m.advanceLifecycle(Dying, force)
+		if err != nil {
+			// TODO (anastasiamac) need to do more than log
+			logger.Warningf("could not advence machine %v state to Dying: %v", m.Id(), err)
+		}
+		if force {
+			cleanupOps = []txn.Op{newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}
+		}
+
+		// TODO (anastasiamac) This looks like a poor duplicatin of
+		// m. m.advanceLifecycle(Dying, false)
+		//machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
+		//if !force {
+		//	cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id, force)}
+		//} else {
+		//	cleanupOps = []txn.Op{newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}
+		//}
 	}
 
 	ops = append(ops, txn.Op{
