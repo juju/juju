@@ -23,14 +23,20 @@ type ItemChange struct {
 	NewValue interface{} `bson:"new,omitempty"`
 }
 
+// IsAddition returns true if this change indicates a settings value
+// not previously defines.
 func (c *ItemChange) IsAddition() bool {
 	return c.Type == added
 }
 
+// IsModification returns true if this change is an update of a previously
+// operator-defined setting.
 func (c *ItemChange) IsModification() bool {
 	return c.Type == modified
 }
 
+// Is deletion returns true if this change indicates the removal of a
+// previously operator-defined setting.
 func (c *ItemChange) IsDeletion() bool {
 	return c.Type == deleted
 }

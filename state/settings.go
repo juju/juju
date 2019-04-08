@@ -151,7 +151,7 @@ func (s *Settings) settingsUpdateOps() (settings.ItemChanges, []txn.Op) {
 // changes compares the live settings with those that were retrieved from the
 // database in order to generate a set of changes.
 func (s *Settings) changes() settings.ItemChanges {
-	var changes []settings.ItemChange
+	var changes settings.ItemChanges
 
 	for key := range cacheKeys(s.disk, s.core) {
 		old, onDisk := s.disk[key]
@@ -173,9 +173,8 @@ func (s *Settings) changes() settings.ItemChanges {
 		changes = append(changes, change)
 	}
 
-	res := settings.ItemChanges(changes)
-	sort.Sort(res)
-	return res
+	sort.Sort(changes)
+	return changes
 }
 
 // cacheKeys returns the keys of all caches as a key=>true map.
