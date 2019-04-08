@@ -572,13 +572,13 @@ func (root *Root) assertServerNotified(c *gc.C, p testCallParams, requestId uint
 		c.Assert(serverReply.body, gc.Equals, stringVal{p.request().Action + " ret"})
 	}
 	if p.retErr && p.testErr {
-		c.Assert(serverReply.hdr, gc.DeepEquals, rpc.Header{
+		c.Assert(serverReply.hdr, jc.DeepEquals, rpc.Header{
 			RequestId: requestId,
 			Error:     p.errorMessage(),
 			Version:   1,
 		})
 	} else {
-		c.Assert(serverReply.hdr, gc.DeepEquals, rpc.Header{
+		c.Assert(serverReply.hdr, jc.DeepEquals, rpc.Header{
 			RequestId: requestId,
 			Version:   1,
 		})
@@ -792,7 +792,7 @@ func (*rpcSuite) TestErrorInfo(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 	err := client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `message`)
-	c.Assert(errors.Cause(err).(rpc.ErrorInfoProvider).ErrorInfo(), gc.DeepEquals, info)
+	c.Assert(errors.Cause(err).(rpc.ErrorInfoProvider).ErrorInfo(), jc.DeepEquals, info)
 }
 
 func (*rpcSuite) TestTransformErrors(c *gc.C) {
@@ -1287,7 +1287,7 @@ func (s *rpcSuite) TestRequestErrorInfoUnmarshaling(c *gc.C) {
 		err := re.UnmarshalInfo(spec.to)
 		if spec.err == "" {
 			c.Assert(err, gc.IsNil)
-			c.Assert(spec.to, gc.DeepEquals, spec.exp)
+			c.Assert(spec.to, jc.DeepEquals, spec.exp)
 		} else {
 			c.Assert(err, gc.ErrorMatches, spec.err)
 		}
