@@ -14,6 +14,7 @@ func newCharm(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Charm {
 		metrics: metrics,
 		hub:     hub,
 	}
+	c.Entity.removalDelta = c.removalDelta
 	return c
 }
 
@@ -33,7 +34,7 @@ func (c *Charm) LXDProfile() lxdprofile.Profile {
 	return c.details.LXDProfile
 }
 
-func (c *Charm) RemovalDelta() interface{} {
+func (c *Charm) removalDelta() interface{} {
 	return RemoveCharm{
 		ModelUUID: c.details.ModelUUID,
 		CharmURL:  c.details.CharmURL,

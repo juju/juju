@@ -3,7 +3,9 @@
 
 package cache
 
-import "sync"
+import (
+	"sync"
+)
 
 // State represents the current entity lifecycle.
 type State uint8
@@ -19,9 +21,10 @@ const (
 
 // Entity represents a base entity within the model cache
 type Entity struct {
-	state    State
-	mu       sync.Mutex
-	watchers []Watcher
+	state        State
+	mu           sync.Mutex
+	removalDelta func() interface{}
+	watchers     []Watcher
 }
 
 // mark updates the state to be classified as stale.
@@ -40,7 +43,10 @@ func (e *Entity) sweep() *SweepDeltas {
 
 	if e.state == Stale {
 		var deltas []interface{}
-		if delta := e.RemovalDelta(); delta != nil {
+		if e.removalDelta == nil {
+			return &SweepDeltas{}
+		}
+		if delta := e.removalDelta(); delta != nil {
 			deltas = append(deltas, delta)
 		}
 
@@ -69,12 +75,6 @@ func (e *Entity) remove() {
 	}
 }
 
-// RemovalDelta is called when the entity is marked as stale. The return value
-// is then the RemoveEntity struct for the entity.
-func (e *Entity) RemovalDelta() interface{} {
-	return nil
-}
-
 // SweepInfo represents the information gathered whilst doing a sweep
 type SweepInfo struct {
 	Stale  int
@@ -89,6 +89,6 @@ type SweepDeltas struct {
 }
 
 func (d *SweepDeltas) Merge(o *SweepDeltas) {
-	d.Deltas = append(d.Deltas, o.Deltas)
+	d.Deltas = append(d.Deltas, o.Deltas...)
 	d.Active += o.Active
 }

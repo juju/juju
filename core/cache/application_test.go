@@ -77,3 +77,8 @@ var appChange = cache.ApplicationChange{
 	Status:          status.StatusInfo{Status: status.Active},
 	WorkloadVersion: "666",
 }
+
+var removeApp = cache.RemoveApplication{
+	ModelUUID: "model-uuid",
+	Name:      "application-name",
+}

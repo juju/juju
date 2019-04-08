@@ -257,3 +257,8 @@ var machineChange = cache.MachineChange{
 	HasVote:                  true,
 	WantsVote:                true,
 }
+
+var removeMachine = cache.RemoveMachine{
+	ModelUUID: "model-uuid",
+	Id:        "0",
+}

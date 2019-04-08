@@ -278,3 +278,7 @@ var modelChange = cache.ModelChange{
 		Status: status.Active,
 	},
 }
+
+var removeModel = cache.RemoveModel{
+	ModelUUID: "model-uuid",
+}

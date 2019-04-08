@@ -3,6 +3,7 @@
 package cache_test
 
 import (
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -191,6 +192,146 @@ func (s *ControllerSuite) TestRemoveUnit(c *gc.C) {
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["unit-count"], gc.Equals, 0)
+}
+
+func (s *ControllerSuite) TestMarkWithNoModels(c *gc.C) {
+	controller, err := cache.NewController(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result := controller.Mark()
+	c.Check(result, gc.HasLen, 0)
+
+	workertest.CleanKill(c, controller)
+}
+
+func (s *ControllerSuite) TestMarkWithModel(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, modelChange, events)
+
+	result := controller.Mark()
+	c.Check(result, gc.DeepEquals, map[string]int{
+		"model-uuid": 1,
+	})
+}
+
+func (s *ControllerSuite) TestMarkWithModelAndEntities(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, modelChange, events)
+	s.processChange(c, appChange, events)
+	s.processChange(c, machineChange, events)
+	s.processChange(c, unitChange, events)
+
+	result := controller.Mark()
+	c.Check(result, gc.DeepEquals, map[string]int{
+		"model-uuid": 4,
+	})
+}
+
+func (s *ControllerSuite) TestSweepWithNoModels(c *gc.C) {
+	controller, err := cache.NewController(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result := controller.Sweep()
+	c.Check(result, gc.HasLen, 0)
+
+	workertest.CleanKill(c, controller)
+}
+
+func (s *ControllerSuite) TestSweepAfterMarkWithNoModels(c *gc.C) {
+	controller, err := cache.NewController(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	markResult := controller.Mark()
+	c.Check(markResult, gc.HasLen, 0)
+
+	sweepResult := controller.Sweep()
+	c.Check(sweepResult, gc.HasLen, 0)
+
+	workertest.CleanKill(c, controller)
+}
+
+func (s *ControllerSuite) TestSweepAfterMarkWithModel(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, modelChange, events)
+	s.processChange(c, appChange, events)
+	s.processChange(c, machineChange, events)
+	s.processChange(c, unitChange, events)
+
+	markResult := controller.Mark()
+	c.Check(markResult, gc.DeepEquals, map[string]int{
+		"model-uuid": 4,
+	})
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		c.Check(s.nextChange(c, events), gc.DeepEquals, removeModel)
+		c.Check(s.nextChange(c, events), gc.DeepEquals, removeApp)
+		c.Check(s.nextChange(c, events), gc.DeepEquals, removeMachine)
+		c.Check(s.nextChange(c, events), gc.DeepEquals, removeUnit)
+	}()
+
+	sweepResult := controller.Sweep()
+	c.Check(sweepResult, gc.DeepEquals, map[string]cache.SweepInfo{
+		"model-uuid": {
+			Stale:  4,
+			Active: 0,
+		},
+	})
+
+	wg.Wait()
+
+	c.Check(controller.ModelUUIDs(), gc.HasLen, 0)
+	c.Check(controller.Report(), gc.HasLen, 0)
+}
+
+func (s *ControllerSuite) TestMarkWithSweepAndUpdateCalls(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, modelChange, events)
+	s.processChange(c, appChange, events)
+	s.processChange(c, machineChange, events)
+	s.processChange(c, unitChange, events)
+
+	markResult := controller.Mark()
+	c.Check(markResult, gc.DeepEquals, map[string]int{
+		"model-uuid": 4,
+	})
+
+	s.processChange(c, modelChange, events)
+	s.processChange(c, appChange, events)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		c.Check(s.nextChange(c, events), gc.DeepEquals, removeMachine)
+		c.Check(s.nextChange(c, events), gc.DeepEquals, removeUnit)
+	}()
+
+	sweepResult := controller.Sweep()
+	c.Check(sweepResult, gc.DeepEquals, map[string]cache.SweepInfo{
+		"model-uuid": {
+			Stale:  2,
+			Active: 2,
+		},
+	})
+
+	wg.Wait()
+
+	c.Check(controller.ModelUUIDs(), gc.DeepEquals, []string{"model-uuid"})
+	c.Check(controller.Report(), gc.DeepEquals, map[string]interface{}{
+		"model-uuid": map[string]interface{}{
+			"name":              "model-owner/test-model",
+			"life":              life.Value("alive"),
+			"application-count": 1,
+			"charm-count":       0,
+			"machine-count":     0,
+			"unit-count":        0,
+		},
+	})
 }
 
 func (s *ControllerSuite) new(c *gc.C) (*cache.Controller, <-chan interface{}) {

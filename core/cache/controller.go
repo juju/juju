@@ -132,16 +132,13 @@ func (c *Controller) Mark() map[string]int {
 // The result from the sweep is how many items are removed per model.
 func (c *Controller) Sweep() map[string]SweepInfo {
 	result := make(map[string]SweepInfo)
+	var group []interface{}
 	c.mu.Lock()
 	for uuid, model := range c.models {
 		deltas := model.sweep()
-		// Go through all the deltas and dispatch the removal deltas we
-		// collated in the sweep. This enables us to reuse the same code paths
-		// for removing entities and also we can notify others of the removal
-		// at the same time.
-		for _, delta := range deltas.Deltas {
-			c.dispatch(delta)
-		}
+		// Create a group of deltas, to work through once everything is
+		// collated.
+		group = append(group, deltas.Deltas...)
 		// Populate the result set after the deltas have been dispatched.
 		result[uuid] = SweepInfo{
 			Active: deltas.Active,
@@ -150,6 +147,15 @@ func (c *Controller) Sweep() map[string]SweepInfo {
 	}
 	c.metrics.GCSweep.Inc()
 	c.mu.Unlock()
+
+	// Go through all the deltas and dispatch the removal deltas we
+	// collated in the sweep. This enables us to reuse the same code paths
+	// for removing entities and also we can notify others of the removal
+	// at the same time.
+	for _, delta := range group {
+		c.dispatch(delta)
+	}
+
 	return result
 }
 

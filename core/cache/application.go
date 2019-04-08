@@ -19,6 +19,7 @@ func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Applicati
 		metrics: metrics,
 		hub:     hub,
 	}
+	a.Entity.removalDelta = a.removalDelta
 	return a
 }
 
@@ -59,7 +60,7 @@ func (a *Application) WatchConfig(keys ...string) *ConfigWatcher {
 	return w
 }
 
-func (a *Application) RemovalDelta() interface{} {
+func (a *Application) removalDelta() interface{} {
 	return RemoveApplication{
 		ModelUUID: a.details.ModelUUID,
 		Name:      a.details.Name,

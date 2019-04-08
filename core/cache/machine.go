@@ -18,6 +18,7 @@ func newMachine(model *Model) *Machine {
 	m := &Machine{
 		model: model,
 	}
+	m.Entity.removalDelta = m.removalDelta
 	return m
 }
 
@@ -175,7 +176,7 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 	return w, nil
 }
 
-func (m *Machine) RemovalDelta() interface{} {
+func (m *Machine) removalDelta() interface{} {
 	return RemoveMachine{
 		ModelUUID: m.details.ModelUUID,
 		Id:        m.details.Id,

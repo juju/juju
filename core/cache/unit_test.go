@@ -34,3 +34,8 @@ var unitChange = cache.UnitChange{
 	WorkloadStatus: status.StatusInfo{Status: status.Active},
 	AgentStatus:    status.StatusInfo{Status: status.Active},
 }
+
+var removeUnit = cache.RemoveUnit{
+	ModelUUID: "model-uuid",
+	Name:      "application-name/0",
+}

@@ -169,7 +169,11 @@ func (m *Model) Unit(unitName string) (*Unit, error) {
 }
 
 func (m *Model) mark() int {
-	var result int
+	// Result is set to 1, as the model also needs to be marked, so that's our
+	// initial state.
+	m.Entity.mark()
+	result := 1
+
 	m.mu.Lock()
 	for _, entity := range m.applications {
 		entity.mark()
@@ -194,6 +198,21 @@ func (m *Model) mark() int {
 func (m *Model) sweep() *SweepDeltas {
 	deltas := &SweepDeltas{}
 	m.mu.Lock()
+
+	// Walk through the model itself, so we can safely remove the model.
+	if m.state == Stale {
+		deltas.Merge(&SweepDeltas{
+			Deltas: []interface{}{RemoveModel{
+				ModelUUID: m.details.ModelUUID,
+			}},
+		})
+	} else {
+		deltas.Merge(&SweepDeltas{
+			Active: 1,
+		})
+	}
+
+	// Go through and sweep all the sub-related entities.
 	for _, entity := range m.applications {
 		deltas.Merge(entity.sweep())
 	}
@@ -213,6 +232,7 @@ func (m *Model) sweep() *SweepDeltas {
 // updateApplication adds or updates the application in the model.
 func (m *Model) updateApplication(ch ApplicationChange) {
 	m.mu.Lock()
+	m.state = Active
 
 	app, found := m.applications[ch.Name]
 	if !found {
@@ -237,6 +257,7 @@ func (m *Model) removeApplication(ch RemoveApplication) {
 // updateCharm adds or updates the charm in the model.
 func (m *Model) updateCharm(ch CharmChange) {
 	m.mu.Lock()
+	m.state = Active
 
 	charm, found := m.charms[ch.CharmURL]
 	if !found {
@@ -261,6 +282,7 @@ func (m *Model) removeCharm(ch RemoveCharm) {
 // updateUnit adds or updates the unit in the model.
 func (m *Model) updateUnit(ch UnitChange) {
 	m.mu.Lock()
+	m.state = Active
 
 	unit, found := m.units[ch.Name]
 	if !found {
@@ -287,6 +309,7 @@ func (m *Model) removeUnit(ch RemoveUnit) {
 // updateMachine adds or updates the machine in the model.
 func (m *Model) updateMachine(ch MachineChange) {
 	m.mu.Lock()
+	m.state = Active
 
 	machine, found := m.machines[ch.Id]
 	if !found {
@@ -322,6 +345,7 @@ func modelTopic(modeluuid, suffix string) string {
 func (m *Model) setDetails(details ModelChange) {
 	m.mu.Lock()
 
+	m.state = Active
 	m.details = details
 	hashCache, configHash := newHashCache(details.Config, m.metrics.ModelHashCacheHit, m.metrics.ModelHashCacheMiss)
 	if configHash != m.configHash {

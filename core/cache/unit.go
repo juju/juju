@@ -23,6 +23,7 @@ func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Unit {
 		metrics: metrics,
 		hub:     hub,
 	}
+	u.Entity.removalDelta = u.removalDelta
 	return u
 }
 
@@ -31,7 +32,7 @@ func (u *Unit) Application() string {
 	return u.details.Application
 }
 
-func (u *Unit) RemovalDelta() interface{} {
+func (u *Unit) removalDelta() interface{} {
 	return RemoveUnit{
 		ModelUUID: u.details.ModelUUID,
 		Name:      u.details.Name,
