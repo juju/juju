@@ -304,23 +304,21 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 	}
 
 	var force bool
-	switch n := len(cleanupArgs); n {
-	case 0:
-		// Old cleanups have no args, so follow the old
-		// behaviour: destroy the storage.
-	case 1:
-		if err := destroyStorageFromArg(); err != nil {
-			return err
+	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
+	if n := len(cleanupArgs); n > 0 {
+		if n > 2 {
+			return errors.Errorf("expected 0-2 arguments, got %d", n)
 		}
-	case 2:
-		if err := destroyStorageFromArg(); err != nil {
-			return err
+		if n >= 1 {
+			if err := destroyStorageFromArg(); err != nil {
+				return err
+			}
 		}
-		if err := cleanupArgs[1].Unmarshal(&force); err != nil {
-			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+		if n >= 2 {
+			if err := cleanupArgs[1].Unmarshal(&force); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+			}
 		}
-	default:
-		return errors.Errorf("expected 0-2 arguments, got %d", n)
 	}
 	storage, err := sb.AllStorageInstances()
 	if err != nil {
@@ -393,22 +391,21 @@ func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
 func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
 	var destroyStorage bool
 	var force bool
-	switch n := len(cleanupArgs); n {
-	case 0:
-		// Old cleanups have no args, so follow the old behaviour.
-	case 1:
-		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
-			return errors.Annotate(err, "unmarshalling cleanup args")
+	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
+	if n := len(cleanupArgs); n > 0 {
+		if n > 2 {
+			return errors.Errorf("expected 0-2 arguments, got %d", n)
 		}
-	case 2:
-		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
-			return errors.Annotate(err, "unmarshalling cleanup arg 'destroyStorage'")
+		if n >= 1 {
+			if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup args")
+			}
 		}
-		if err := cleanupArgs[1].Unmarshal(&force); err != nil {
-			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+		if n >= 2 {
+			if err := cleanupArgs[1].Unmarshal(&force); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+			}
 		}
-	default:
-		return errors.Errorf("expected 0-2 arguments, got %d", n)
 	}
 
 	// This won't miss units, because a Dying application cannot have units
@@ -470,22 +467,21 @@ func (st *State) cleanupCharm(charmURL string) error {
 func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	var destroyStorage bool
 	var force bool
-	switch n := len(cleanupArgs); n {
-	case 0:
-		// Old cleanups have no args, so follow the old behaviour.
-	case 1:
-		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
-			return errors.Annotate(err, "unmarshalling cleanup args")
+	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
+	if n := len(cleanupArgs); n > 0 {
+		if n > 2 {
+			return errors.Errorf("expected 0-2 arguments, got %d", n)
 		}
-	case 2:
-		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
-			return errors.Annotate(err, "unmarshalling cleanup arg 'destroyStorage'")
+		if n >= 1 {
+			if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup args")
+			}
 		}
-		if err := cleanupArgs[1].Unmarshal(&force); err != nil {
-			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+		if n >= 2 {
+			if err := cleanupArgs[1].Unmarshal(&force); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+			}
 		}
-	default:
-		return errors.Errorf("expected 0-2 arguments, got %d", n)
 	}
 
 	unit, err := st.Unit(name)
