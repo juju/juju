@@ -304,11 +304,9 @@ func getEnviron(isCAAS bool, modelConfig *config.Config, args InitializeStatePar
 		Config:         modelConfig,
 	}
 	if isCAAS {
-		env, err = caas.Open(provider, openParams)
-	} else {
-		env, err = environs.Open(provider, openParams)
+		return caas.Open(provider, openParams)
 	}
-	return env, nil
+	return environs.Open(provider, openParams)
 }
 
 func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {

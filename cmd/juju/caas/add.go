@@ -594,7 +594,7 @@ func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (_ string, err 
 		return "", errors.Annotate(err, "parsing cloud region")
 	}
 	// microk8s is special.
-	if cloudNameOrType == caas.Microk8s && region == caas.Microk8sRegion {
+	if cloudNameOrType == caas.K8sCloudMicrok8s && region == caas.Microk8sRegion {
 		return cloudRegion, nil
 	}
 

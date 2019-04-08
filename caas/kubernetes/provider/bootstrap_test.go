@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
@@ -268,12 +267,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	bootstrapParamsContent, err := s.pcfg.Bootstrap.StateInitializationParams.Marshal()
 	c.Assert(err, jc.ErrorIsNil)
 
-	var bootstrapParams instancecfg.StateInitializationParams
-	bootstrapParams.Unmarshal(bootstrapParamsContent)
-	bootstrapParams.ControllerDNS = svcPublicIP + ":17070"
-
-	bootstrapParamsContent, err = bootstrapParams.Marshal()
-	c.Assert(err, jc.ErrorIsNil)
 	configMapWithBootstrapParamsAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "juju-controller-test-configmap",

@@ -1119,9 +1119,8 @@ var (
 )
 
 type AddCloudServiceArgs struct {
-	// Id is the application Name if it's a part of application;
-	// Id will be empty and ProviderId will be the docID for
-	// a controller(controller does Not have an application).
+	// Id will be the application Name if it's a part of application,
+	// and will be controller UUID for k8s a controller(controller does Not have an application).
 	Id         string
 	ProviderId string
 	Addresses  []network.Address

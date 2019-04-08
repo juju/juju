@@ -647,8 +647,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
 		for _, f := range []func(runtime.Object){w.Add, w.Modify, w.Delete} {
 			if !w.IsStopped() {
-				err := clk.WaitAdvance(time.Second, testing.LongWait, 1)
-				c.Assert(err, jc.ErrorIsNil)
+				clk.WaitAdvance(time.Second, testing.LongWait, 1)
 				f(ns)
 			}
 		}

@@ -12,8 +12,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cmd/juju/interact"
 )
 
@@ -26,7 +26,7 @@ func newGKECluster() k8sCluster {
 }
 
 func (g *gke) cloud() string {
-	return provider.K8sCloudGCE
+	return caas.K8sCloudGCE
 }
 
 func (g *gke) ensureExecutable() error {

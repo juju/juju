@@ -20,11 +20,11 @@ import (
 )
 
 var preferredControllerServiceTypes = map[string]core.ServiceType{
-	K8sCloudAzure:    core.ServiceTypeLoadBalancer,
-	K8sCloudCDK:      core.ServiceTypeLoadBalancer,
-	K8sCloudEC2:      core.ServiceTypeLoadBalancer,
-	K8sCloudGCE:      core.ServiceTypeLoadBalancer,
-	K8sCloudMicrok8s: core.ServiceTypeClusterIP,
+	caas.K8sCloudAzure:    core.ServiceTypeLoadBalancer,
+	caas.K8sCloudCDK:      core.ServiceTypeLoadBalancer,
+	caas.K8sCloudEC2:      core.ServiceTypeLoadBalancer,
+	caas.K8sCloudGCE:      core.ServiceTypeLoadBalancer,
+	caas.K8sCloudMicrok8s: core.ServiceTypeClusterIP,
 }
 
 // newLabelRequirements creates a list of k8s node label requirements.
@@ -65,7 +65,7 @@ func getCloudRegionFromNodeMeta(node core.Node) (string, string) {
 	hostname = strings.ToLower(hostname)
 	hostLabel, _ := node.Labels["kubernetes.io/hostname"]
 	if node.Name == hostname && hostLabel == hostname {
-		return caas.Microk8s, caas.Microk8sRegion
+		return caas.K8sCloudMicrok8s, caas.Microk8sRegion
 	}
 	return "", ""
 }
@@ -90,11 +90,11 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 		return nil, errors.Annotate(err, "cannot determine cluster region")
 	}
 
-	serviceType, ok := preferredControllerServiceTypes[result.Cloud]
-	if !ok {
-		return nil, errors.NotFoundf("service type for %q", result.Cloud)
+	serviceType := core.ServiceTypeClusterIP
+	if v, ok := preferredControllerServiceTypes[result.Cloud]; ok {
+		serviceType = v
 	}
-	result.PreferredServiceType = serviceType
+	result.PreferredServiceType = string(serviceType)
 
 	if storageClass != "" {
 		sc, err := k.StorageV1().StorageClasses().Get(storageClass, v1.GetOptions{IncludeUninitialized: true})

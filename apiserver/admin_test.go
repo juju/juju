@@ -1334,6 +1334,21 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C)
 	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
 	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
+	c.Check(result.Servers, gc.DeepEquals,
+		params.FromNetworkHostsPorts(
+			parseHostPortsFromAddress(c, info.Addrs...),
+		),
+	)
+}
+
+func parseHostPortsFromAddress(c *gc.C, addresses ...string) [][]network.HostPort {
+	hps := make([][]network.HostPort, len(addresses))
+	for i, add := range addresses {
+		hp, err := network.ParseHostPorts(add)
+		c.Assert(err, jc.ErrorIsNil)
+		hps[i] = hp
+	}
+	return hps
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerSuperuserAccess(c *gc.C) {

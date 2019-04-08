@@ -1510,6 +1510,27 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestAddCloudService(c *gc.C) {
+	svc, err := s.State.AddCloudService(
+		state.AddCloudServiceArgs{
+			Id:         "cloud-svc-ID",
+			ProviderId: "dfsds-sdfsd-sdfds",
+			Addresses:  network.NewAddresses("1.1.1.1"),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svc.Refresh(), jc.ErrorIsNil)
+	c.Assert(state.LocalID(s.State, svc.Id()), gc.Equals, "cloud-svc-ID")
+	c.Assert(svc.ProviderId(), gc.Equals, "dfsds-sdfsd-sdfds")
+	c.Assert(svc.Addresses(), gc.DeepEquals, network.NewAddresses("1.1.1.1"))
+
+	getResult, err := s.State.CloudService("cloud-svc-ID")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state.LocalID(s.State, getResult.Id()), gc.Equals, "cloud-svc-ID")
+	c.Assert(getResult.ProviderId(), gc.Equals, "dfsds-sdfsd-sdfds")
+	c.Assert(getResult.Addresses(), gc.DeepEquals, network.NewAddresses("1.1.1.1"))
+}
+
 func (s *StateSuite) TestAddApplication(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "haha/borken", Charm: ch})

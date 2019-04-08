@@ -153,17 +153,18 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	)
 
 	servers := params.FromNetworkHostsPorts(hostPorts)
-	ctrlModelSt := a.srv.shared.statePool.SystemState()
-	model, err := ctrlModelSt.Model()
+	ctrlSt := a.srv.shared.statePool.SystemState()
+	model, err := ctrlSt.Model()
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
 	if model.Type() == state.ModelTypeCAAS {
-		controllerConfig, err := ctrlModelSt.ControllerConfig()
+		// we use k8s service DNS for k8s controller.
+		controllerConfig, err := ctrlSt.ControllerConfig()
 		if err != nil {
 			return fail, errors.Trace(err)
 		}
-		svcInfo, err := ctrlModelSt.CloudService(controllerConfig.ControllerUUID())
+		svcInfo, err := ctrlSt.CloudService(controllerConfig.ControllerUUID())
 		if err != nil {
 			return fail, errors.Trace(err)
 		}

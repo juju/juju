@@ -714,9 +714,13 @@ func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
 				StorageEndpoint:  "",
 				HostCloudRegion:  hostCloud,
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}{"operator-storage": "operator-sc", "controller-service-type": "", "workload-storage": ""},
-				RegionConfig:     cloud.RegionConfig(nil),
-				CACertificates:   []string{"A"},
+				Config: map[string]interface{}{
+					"operator-storage":        "operator-sc",
+					"controller-service-type": "",
+					"workload-storage":        "",
+				},
+				RegionConfig:   cloud.RegionConfig(nil),
+				CACertificates: []string{"A"},
 			},
 			"mrcloud1": {
 				Name:             "mrcloud1",
