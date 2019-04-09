@@ -9,8 +9,11 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/macaroon.v2-unstable"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.params")
 
 // UpgradeInProgressError signifies an upgrade is in progress.
 var UpgradeInProgressError = errors.New(CodeUpgradeInProgress)
@@ -88,14 +91,27 @@ type DischargeRequiredErrorInfo struct {
 
 // AsMap encodes the error info as a map that can be attached to an Error.
 func (e DischargeRequiredErrorInfo) AsMap() map[string]interface{} {
-	out := make(map[string]interface{})
-	if e.Macaroon != nil {
-		out["macaroon"] = e.Macaroon
+	return serializeToMap(e)
+}
+
+// serializeToMap is a convenience function for marshaling v into a
+// map[string]interface{}. It works by marshalling v into json and then
+// unmarshaling back to a map.
+func serializeToMap(v interface{}) map[string]interface{} {
+	data, err := json.Marshal(v)
+	if err != nil {
+		logger.Criticalf("serializeToMap: marshal to json failed: %v", err)
+		return nil
 	}
-	if e.MacaroonPath != "" {
-		out["macaroon-path"] = e.MacaroonPath
+
+	var asMap map[string]interface{}
+	err = json.Unmarshal(data, &asMap)
+	if err != nil {
+		logger.Criticalf("serializeToMap: unmarshal to map failed: %v", err)
+		return nil
 	}
-	return out
+
+	return asMap
 }
 
 // The Code constants hold error codes for some kinds of error.
