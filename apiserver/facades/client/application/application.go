@@ -1379,6 +1379,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		// At the moment, this only returns the intent not the actual result.
 		// However, there is a provision for this functionality for the near-future: destroy operation itself
 		// contains Errors that have been encountered during its application.
+		logger.Warningf("operational errors destroying unit %v: %v", unit.Name(), op.Errors)
 		return &info, nil
 	}
 	results := make([]params.DestroyUnitResult, len(args.Units))
@@ -1510,6 +1511,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		// At the moment, this only returns the intent not the actual result.
 		// However, there is a provision for this functionality for the near-future: destroy operation itself
 		// contains Errors that have been encountered during its application.
+		logger.Warningf("operational errors destroying application %v: %v", tag.Id(), op.Errors)
 		return &info, nil
 	}
 	results := make([]params.DestroyApplicationResult, len(args.Applications))

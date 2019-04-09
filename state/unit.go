@@ -467,14 +467,24 @@ func (op *UpdateUnitOperation) Done(err error) error {
 // life is just set to Dying; but if a principal unit that is not assigned
 // to a provisioned machine is Destroyed, it will be removed from state
 // directly.
-func (u *Unit) Destroy() (err error) {
+func (u *Unit) Destroy() error {
+	_, err := u.DestroyWithForce(false)
+	return err
+}
+
+// DestroyWithForce does the same thing as Destroy() but
+// ignores errors.
+func (u *Unit) DestroyWithForce(force bool) (errs []error, err error) {
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
 			u.doc.Life = Dying
 		}
 	}()
-	return u.st.ApplyOperation(u.DestroyOperation())
+	op := u.DestroyOperation()
+	op.Force = force
+	err = u.st.ApplyOperation(op)
+	return op.Errors, err
 }
 
 // DestroyOperation returns a model operation that will destroy the unit.
@@ -522,6 +532,9 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 			return nil, err
 		}
 	}
+	// When 'force' is set on the operation, this call will return both needed operations
+	// as well as all operational errors encountered.
+	// If the 'force' is not set, any error will be fatal and no operations will be returned.
 	switch ops, err := op.destroyOps(); err {
 	case errRefresh:
 	case errAlreadyDying:
@@ -583,6 +596,9 @@ func (op *DestroyUnitOperation) eraseHistory() error {
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
 // operations recalculated.
+// When 'force' is set on the operation, this call will return both needed operations
+// as well as all operational errors encountered.
+// If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	if op.unit.doc.Life != Alive {
 		if !op.Force {
@@ -627,7 +643,9 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		}
 		// If we are forcing, we care about the errors as we want report them to the user.
 		// But we also want operations to power through the removal.
-		op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.Name(), dyingErr))
+		if dyingErr != nil {
+			op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.Name(), dyingErr))
+		}
 		return []txn.Op{setDyingOp, cleanupOp, minUnitsOp}, nil
 	}
 	if op.unit.doc.Principal != "" {
@@ -655,7 +673,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	notAllocating := func() bool {
 		return (isAssigned || !shouldBeAssigned) && agentStatusInfo.Status != status.Allocating
 	}
-	if agentErr != nil || notAllocating() {
+	if agentErr == nil && notAllocating() {
 		return setDyingOps(agentErr)
 	}
 	switch agentStatusInfo.Status {
@@ -684,6 +702,9 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		removeAsserts = append(removeAsserts, bson.DocElem{"machineid", ""})
 	}
 
+	// When 'force' is set, this call will return both needed operations
+	// as well as all operational errors encountered.
+	// If the 'force' is not set, any error will be fatal and no operations will be returned.
 	removeOps, opErrs, err := op.unit.removeOps(removeAsserts, op.Force)
 	op.AddError(opErrs...)
 	if err == errAlreadyRemoved {
@@ -701,6 +722,9 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 
 // destroyHostOps returns all necessary operations to destroy the application unit's host machine,
 // or ensure that the conditions preventing its destruction remain stable through the transaction.
+// When 'force' is set, this call will return both needed operations
+// as well as all operational errors encountered.
+// If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (u *Unit) destroyHostOps(a *Application, force bool) (ops []txn.Op, errs []error, err error) {
 	if a.doc.Subordinate {
 		return []txn.Op{{
@@ -806,7 +830,11 @@ func (u *Unit) destroyHostOps(a *Application, force bool) (ops []txn.Op, errs []
 	var cleanupOps []txn.Op
 	if machineCheck && containerCheck {
 		machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
-		cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id, force)}
+		if !force {
+			cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id, force)}
+		} else {
+			cleanupOps = []txn.Op{newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}
+		}
 	}
 
 	ops = append(ops, txn.Op{
@@ -881,6 +909,9 @@ func (u *Unit) keepMachineRemoveProfileOps(m *Machine) ([]txn.Op, error) {
 
 // removeOps returns the operations necessary to remove the unit, assuming
 // the supplied asserts apply to the unit document.
+// When 'force' is set, this call will return both needed operations
+// as well as all operational errors encountered.
+// If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (u *Unit) removeOps(asserts bson.D, force bool) ([]txn.Op, []error, error) {
 	app, err := u.st.Application(u.doc.Application)
 	if errors.IsNotFound(err) {
@@ -964,6 +995,7 @@ func (u *Unit) EnsureDead() (err error) {
 // Remove removes the unit from state, and may remove its application as well, if
 // the application is Dying and no other references to it exist. It will fail if
 // the unit is not Dead.
+// TODO (anastasiamac) This should be an Operation akeen to Unit or Application DestroyOperation.
 func (u *Unit) Remove() error {
 	_, err := u.RemoveWithForce(false)
 	return err
@@ -977,6 +1009,9 @@ func (u *Unit) RemoveWithForce(force bool) ([]error, error) {
 	return u.internalRemove(force)
 }
 
+// When 'force' is set, this call will construct and apply needed operations
+// and return all operational errors encountered.
+// If the 'force' is not set, any error will be fatal and no operations will be applied.
 func (u *Unit) internalRemove(force bool) (errs []error, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
@@ -1023,6 +1058,9 @@ func (u *Unit) internalRemove(force bool) (errs []error, err error) {
 				return nil, err
 			}
 		}
+		// When 'force' is set, this call will return both needed operations
+		// as well as all operational errors encountered.
+		// If the 'force' is not set, any error will be fatal and no operations will be returned.
 		ops, opErrs, err := unit.removeOps(isDeadDoc, force)
 		errs = append(errs, opErrs...)
 		switch err {

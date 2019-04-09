@@ -209,7 +209,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, storageTag := range storageTags {
-		err = sb.DetachStorage(storageTag, unit.UnitTag())
+		err = sb.DetachStorage(storageTag, unit.UnitTag(), false)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	for _, volumeTag := range volumeTags {

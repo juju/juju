@@ -225,6 +225,9 @@ func (s *applicationOffers) Remove(offerName string, force bool) (err error) {
 					}
 				}
 
+				// When 'force' is set, this call will return both needed operations
+				// as well as all operational errors encountered.
+				// If the 'force' is not set, any error will be fatal and no operations will be returned.
 				relOps, _, opErrs, err := rel.destroyOps("", force)
 				if len(opErrs) != 0 {
 					logger.Warningf("errors while getting operations to destroy remote application relation %v: %v", remoteApp.Name(), opErrs)

@@ -251,21 +251,25 @@ func copyAttributes(values attributeMap) attributeMap {
 // Destroy in addition to doing what Destroy() does,
 // when force is passed in as 'true', forces th destruction of remote application,
 // ignoring errors.
-func (s *RemoteApplication) DestroyWithForce(force bool) error {
-	// TODO (anastasiamac 2019-04-2) First return here is operational errors.
-	// We might want to consider to pass them up to notify users of non-fatal
-	// errors we have encountered.
-	_, err := s.internalDestroy(force)
-	return err
+// TODO (anastasiamac) This needs to be converted to an Operation
+// similar to Unit and Application DestroyOperation to better separate logic
+// of building operations and related errors from the database errors of
+// applying these operations.
+func (s *RemoteApplication) DestroyWithForce(force bool) ([]error, error) {
+	return s.internalDestroy(force)
 }
 
 // Destroy ensures that this remote application reference and all its relations
 // will be removed at some point; if no relation involving the
 // application has any units in scope, they are all removed immediately.
 func (s *RemoteApplication) Destroy() error {
-	return s.DestroyWithForce(false)
+	_, err := s.DestroyWithForce(false)
+	return err
 }
 
+// When 'force' is set, this call will construct and apply needed operations
+// as well as return all operational errors encountered.
+// If the 'force' is not set, any error will be fatal and no operations will be applied.
 func (s *RemoteApplication) internalDestroy(force bool) (errs []error, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy remote application %q", s)
 	defer func() {
@@ -282,6 +286,9 @@ func (s *RemoteApplication) internalDestroy(force bool) (errs []error, err error
 				return nil, err
 			}
 		}
+		// When 'force' is set, this call will return both needed operations
+		// as well as all operational errors encountered.
+		// If the 'force' is not set, any error will be fatal and no operations will be returned.
 		ops, opErrs, err := app.destroyOps(force)
 		errs = append(errs, opErrs...)
 		switch err {
@@ -307,6 +314,9 @@ func (s *RemoteApplication) internalDestroy(force bool) (errs []error, err error
 // destroyOps returns the operations required to destroy the application. If it
 // returns errRefresh, the application should be refreshed and the destruction
 // operations recalculated.
+// When 'force' is set, this call will return both needed operations
+// as well as all operational errors encountered.
+// If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
 	if s.doc.Life == Dying {
 		if !force {
@@ -358,7 +368,10 @@ func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
 				if countRemoteUnits := len(remoteUnits); countRemoteUnits != 0 {
 					logger.Debugf("got %v relation units to clean", countRemoteUnits)
 					for _, ru := range remoteUnits {
-						if err := ru.LeaveScopeWithForce(force); err != nil {
+						// This call will not construct operations but will try to leave scope immediately.
+						opErrs, err := ru.LeaveScopeWithForce(force)
+						errs = append(errs, opErrs...)
+						if err != nil {
 							errs = append(errs, err)
 							failRels = err
 							continue
@@ -367,6 +380,9 @@ func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
 				}
 			}
 
+			// When 'force' is set, this call will return both needed operations
+			// as well as all operational errors encountered.
+			// If the 'force' is not set, any error will be fatal and no operations will be returned.
 			relOps, isRemove, opErrs, err := rel.destroyOps(s.doc.Name, force)
 			errs = append(errs, opErrs...)
 			if err == errAlreadyDying {

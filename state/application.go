@@ -285,6 +285,11 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 			return nil, err
 		}
 	}
+	// This call returns needed operations to destroy an application.
+	// All operational errors are added to 'op' struct
+	// and may be of interest to the user. Without 'force', these errors are considered fatal.
+	// If 'force' is specified, they are treated as non-fatal - they will not prevent further
+	// processing: we'll still try to remove application.
 	ops, err := op.destroyOps()
 	switch err {
 	case errRefresh:
@@ -309,6 +314,13 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 // destroyOps returns the operations required to destroy the application. If it
 // returns errRefresh, the application should be refreshed and the destruction
 // operations recalculated.
+//
+// When this operation has 'force' set, all operational errors are considered non-fatal
+// and are accumulated on the operation.
+// This method will return all operations we can construct despite errors.
+//
+// When the 'force' is not set, any operational errors will be considered fatal. All operations
+// constructed up until the error will be discarded and the error will be returned.
 func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	if op.app.doc.Life == Dying {
 		if !op.Force {
@@ -334,6 +346,10 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	removeCount := 0
 	failedRels := false
 	for _, rel := range rels {
+		// When forced, this call will return both operations to remove this
+		// relation as well as all operational errors encountered.
+		// If the 'force' is not set and the call came across some errors,
+		// these errors will be fatal and no operations will be returned.
 		relOps, isRemove, opErrs, err := rel.destroyOps(op.app.doc.Name, op.Force)
 		op.AddError(opErrs...)
 		if err == errAlreadyDying {
@@ -390,6 +406,10 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	// removed, the application can also be removed.
 	if op.app.doc.UnitCount == 0 && op.app.doc.RelationCount == removeCount {
 		hasLastRefs := bson.D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
+		// When forced, this call will return both operations to remove this
+		// application as well as all operational errors encountered.
+		// If the 'force' is not set and the call came across some errors,
+		// these errors will be fatal and no operations will be returned.
 		removeOps, opErrs, err := op.app.removeOps(hasLastRefs, op.Force)
 		op.AddError(opErrs...)
 		if err != nil {
@@ -463,6 +483,9 @@ func removeResourcesOps(st *State, applicationID string) ([]txn.Op, error) {
 // When force is set, the operation will proceed regardless of the errors,
 // and if any errors are encountered, all possible accumulated operations
 // as well as all encountered errors will be returned.
+// When 'force' is set, this call will return both operations to remove this
+// application as well as all operational errors encountered.
+// If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, []error, error) {
 	ops := []txn.Op{{
 		C:      applicationsC,
@@ -488,6 +511,9 @@ func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, []error, 
 	// do it explicitly below.
 	name := a.doc.Name
 	curl := a.doc.CharmURL
+	// When 'force' is set, this call will return both operations to delete application references
+	// to this charm as well as all operational errors encountered.
+	// If the 'force' is not set, any error will be fatal and no operations will be returned.
 	charmOps, opErrs, err := appCharmDecRefOps(a.st, name, curl, false, force)
 	errs = append(errs, opErrs...)
 	if err != nil {
@@ -1961,6 +1987,9 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
+// When 'force' is set, this call will return both needed operations
+// as well as all operational errors encountered.
+// If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.Op, []error, error) {
 	errs := []error{}
 	hostOps, opErrs, err := u.destroyHostOps(a, force)
@@ -2028,9 +2057,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 		}
 		errs = append(errs, err)
 	} else {
-		// TODO (anastasiamac 2019-03-29) There is a lot of logic in here...
-		// Should this also accept a force flag?
-		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag())
+		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag(), force)
 		if err != nil {
 			if !force {
 				return nil, errs, errors.Trace(err)
@@ -2044,6 +2071,9 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 		// If the unit has a different URL to the application, allow any final
 		// cleanup to happen; otherwise we just do it when the app itself is removed.
 		maybeDoFinal := u.doc.CharmURL != a.doc.CharmURL
+		// When 'force' is set, this call will return both needed operations
+		// as well as all operational errors encountered.
+		// If the 'force' is not set, any error will be fatal and no operations will be returned.
 		decOps, opErrs, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, force)
 		errs = append(errs, opErrs...)
 		if errors.IsNotFound(err) {
@@ -2058,6 +2088,9 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 	}
 	if a.doc.Life == Dying && a.doc.RelationCount == 0 && a.doc.UnitCount == 1 {
 		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 0}, {"unitcount", 1}}
+		// When 'force' is set, this call will return both needed operations
+		// as well as all operational errors encountered.
+		// If the 'force' is not set, any error will be fatal and no operations will be returned.
 		removeOps, opErrs, err := a.removeOps(hasLastRef, force)
 		errs = append(errs, opErrs...)
 		if err != nil {

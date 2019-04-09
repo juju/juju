@@ -284,8 +284,8 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 			s.stub.AddCall(addStorageForUnitCall)
 			return nil, nil
 		},
-		detachStorage: func(storage names.StorageTag, unit names.UnitTag) error {
-			s.stub.AddCall(detachStorageCall, storage, unit)
+		detachStorage: func(storage names.StorageTag, unit names.UnitTag, force bool) error {
+			s.stub.AddCall(detachStorageCall, storage, unit, force)
 			if storage == s.storageTag && unit == s.unitTag {
 				return nil
 			}
@@ -306,12 +306,12 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 				names.ReadableString(unit),
 			)
 		},
-		destroyStorageInstance: func(tag names.StorageTag, destroyAttached bool) error {
-			s.stub.AddCall(destroyStorageInstanceCall, tag, destroyAttached)
+		destroyStorageInstance: func(tag names.StorageTag, destroyAttached bool, force bool) error {
+			s.stub.AddCall(destroyStorageInstanceCall, tag, destroyAttached, force)
 			return errors.New("cannae do it")
 		},
-		releaseStorageInstance: func(tag names.StorageTag, destroyAttached bool) error {
-			s.stub.AddCall(releaseStorageInstanceCall, tag, destroyAttached)
+		releaseStorageInstance: func(tag names.StorageTag, destroyAttached bool, force bool) error {
+			s.stub.AddCall(releaseStorageInstanceCall, tag, destroyAttached, force)
 			return errors.New("cannae do it")
 		},
 		addExistingFilesystem: func(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error) {
