@@ -1880,7 +1880,9 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
-func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLNextGen(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLBranch(c *gc.C) {
+	c.Skip("To be rewritten when branch-based configuration reads are implemented.")
+
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
 
