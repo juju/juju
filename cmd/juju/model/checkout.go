@@ -20,10 +20,9 @@ import (
 const (
 	checkoutSummary = "Work on the supplied branch."
 	checkoutDoc     = `
-Switch to the supplied branch, causing changes to charm configuration,
-charm URL or resources to apply only to units tracking the branch.
-Changing the branch to "master" causes changes to be applied to all units
-as usual.
+Switch to the supplied branch, causing changes to charm configuration to apply 
+only to units tracking the branch. Changing the branch to "master" causes 
+changes to be applied to all units as usual.
 
 Examples:
     juju checkout test-branch
