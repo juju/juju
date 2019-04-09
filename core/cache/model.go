@@ -29,13 +29,17 @@ func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 		machines:     make(map[string]*Machine),
 		units:        make(map[string]*Unit),
 	}
+	// wire up the removalDelta so that the entity can collate all the deltas
+	// during a sweep phase. If this isn't correctly wired up, an error will be
+	// returned during the sweeping phase.
+	m.entity.removalDelta = m.removalDelta
 	return m
 }
 
 // Model is a cached model in the controller. The model is kept up to
 // date with changes flowing into the cached controller.
 type Model struct {
-	Entity
+	entity
 
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
@@ -69,7 +73,6 @@ func (m *Model) Name() string {
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
 	w := newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange))
-	m.registerWatcher(w)
 	return w
 }
 
@@ -151,7 +154,6 @@ func (m *Model) WatchMachines() *PredicateStringsWatcher {
 	})
 
 	m.mu.Unlock()
-	m.registerWatcher(w)
 	return w
 }
 
@@ -171,68 +173,91 @@ func (m *Model) Unit(unitName string) (*Unit, error) {
 func (m *Model) mark() int {
 	// Result is set to 1, as the model also needs to be marked, so that's our
 	// initial state.
-	m.Entity.mark()
+	m.entity.mark()
 	result := 1
 
 	m.mu.Lock()
-	for _, entity := range m.applications {
-		entity.mark()
+	for _, app := range m.applications {
+		app.mark()
 		result++
 	}
-	for _, entity := range m.charms {
-		entity.mark()
+	for _, charm := range m.charms {
+		charm.mark()
 		result++
 	}
-	for _, entity := range m.machines {
-		entity.mark()
+	for _, machine := range m.machines {
+		machine.mark()
 		result++
 	}
-	for _, entity := range m.units {
-		entity.mark()
+	for _, unit := range m.units {
+		unit.mark()
 		result++
 	}
 	m.mu.Unlock()
 	return result
 }
 
-func (m *Model) sweep() *SweepDeltas {
+func (m *Model) sweep() (*SweepDeltas, error) {
 	deltas := &SweepDeltas{}
 	m.mu.Lock()
 
 	// Walk through the model itself, so we can safely remove the model.
-	if m.state == Stale {
+	if m.freshness == stale {
 		deltas.Merge(&SweepDeltas{
-			Deltas: []interface{}{RemoveModel{
-				ModelUUID: m.details.ModelUUID,
-			}},
+			Deltas: []interface{}{m.removalDelta()},
 		})
 	} else {
 		deltas.Merge(&SweepDeltas{
-			Active: 1,
+			FreshCount: 1,
 		})
 	}
 
 	// Go through and sweep all the sub-related entities.
-	for _, entity := range m.applications {
-		deltas.Merge(entity.sweep())
+	for _, app := range m.applications {
+		appDelta, err := app.sweep()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		deltas.Merge(appDelta)
 	}
-	for _, entity := range m.charms {
-		deltas.Merge(entity.sweep())
+	for _, charm := range m.charms {
+		charmDelta, err := charm.sweep()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		deltas.Merge(charmDelta)
 	}
-	for _, entity := range m.machines {
-		deltas.Merge(entity.sweep())
+	for _, machine := range m.machines {
+		machineDelta, err := machine.sweep()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		deltas.Merge(machineDelta)
 	}
-	for _, entity := range m.units {
-		deltas.Merge(entity.sweep())
+	for _, unit := range m.units {
+		unitDelta, err := unit.sweep()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		deltas.Merge(unitDelta)
 	}
 	m.mu.Unlock()
-	return deltas
+	return deltas, nil
+}
+
+// removalDelta returns a delta that is required to remove the Model. If this
+// is not correctly wired up when setting up the Model, then a error will be
+// returned stating this fact when the Sweep phase of the GC.
+func (m *Model) removalDelta() interface{} {
+	return RemoveModel{
+		ModelUUID: m.details.ModelUUID,
+	}
 }
 
 // updateApplication adds or updates the application in the model.
 func (m *Model) updateApplication(ch ApplicationChange) {
 	m.mu.Lock()
-	m.state = Active
+	m.freshness = fresh
 
 	app, found := m.applications[ch.Name]
 	if !found {
@@ -247,8 +272,9 @@ func (m *Model) updateApplication(ch ApplicationChange) {
 // removeApplication removes the application from the model.
 func (m *Model) removeApplication(ch RemoveApplication) {
 	m.mu.Lock()
-	if entity, ok := m.applications[ch.Name]; ok {
-		entity.remove()
+	if _, ok := m.applications[ch.Name]; ok {
+		// TODO (stickupkid): ensure we clean up the application, so that it
+		// also cleans up the watchers
 		delete(m.applications, ch.Name)
 	}
 	m.mu.Unlock()
@@ -257,7 +283,7 @@ func (m *Model) removeApplication(ch RemoveApplication) {
 // updateCharm adds or updates the charm in the model.
 func (m *Model) updateCharm(ch CharmChange) {
 	m.mu.Lock()
-	m.state = Active
+	m.freshness = fresh
 
 	charm, found := m.charms[ch.CharmURL]
 	if !found {
@@ -272,8 +298,9 @@ func (m *Model) updateCharm(ch CharmChange) {
 // removeCharm removes the charm from the model.
 func (m *Model) removeCharm(ch RemoveCharm) {
 	m.mu.Lock()
-	if entity, ok := m.charms[ch.CharmURL]; ok {
-		entity.remove()
+	if _, ok := m.charms[ch.CharmURL]; ok {
+		// TODO (stickupkid): ensure we clean up the charm, so that it
+		// also cleans up the watchers
 		delete(m.charms, ch.CharmURL)
 	}
 	m.mu.Unlock()
@@ -282,7 +309,7 @@ func (m *Model) removeCharm(ch RemoveCharm) {
 // updateUnit adds or updates the unit in the model.
 func (m *Model) updateUnit(ch UnitChange) {
 	m.mu.Lock()
-	m.state = Active
+	m.freshness = fresh
 
 	unit, found := m.units[ch.Name]
 	if !found {
@@ -298,10 +325,11 @@ func (m *Model) updateUnit(ch UnitChange) {
 // removeUnit removes the unit from the model.
 func (m *Model) removeUnit(ch RemoveUnit) {
 	m.mu.Lock()
-	if entity, ok := m.units[ch.Name]; ok {
-		entity.remove()
+	if unit, ok := m.units[ch.Name]; ok {
+		// TODO (stickupkid): ensure we clean up the unit, so that it
+		// also cleans up the watchers
 		delete(m.units, ch.Name)
-		m.hub.Publish(m.topic(modelUnitLXDProfileChange), []string{ch.Name, entity.details.Application})
+		m.hub.Publish(m.topic(modelUnitLXDProfileChange), []string{ch.Name, unit.details.Application})
 	}
 	m.mu.Unlock()
 }
@@ -309,7 +337,7 @@ func (m *Model) removeUnit(ch RemoveUnit) {
 // updateMachine adds or updates the machine in the model.
 func (m *Model) updateMachine(ch MachineChange) {
 	m.mu.Lock()
-	m.state = Active
+	m.freshness = fresh
 
 	machine, found := m.machines[ch.Id]
 	if !found {
@@ -325,8 +353,9 @@ func (m *Model) updateMachine(ch MachineChange) {
 // removeMachine removes the machine from the model.
 func (m *Model) removeMachine(ch RemoveMachine) {
 	m.mu.Lock()
-	if entity, ok := m.machines[ch.Id]; ok {
-		entity.remove()
+	if _, ok := m.machines[ch.Id]; ok {
+		// TODO (stickupkid): ensure we clean up the machine, so that it
+		// also cleans up the watchers
 		delete(m.machines, ch.Id)
 		m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
 	}
@@ -345,7 +374,7 @@ func modelTopic(modeluuid, suffix string) string {
 func (m *Model) setDetails(details ModelChange) {
 	m.mu.Lock()
 
-	m.state = Active
+	m.freshness = fresh
 	m.details = details
 	hashCache, configHash := newHashCache(details.Config, m.metrics.ModelHashCacheHit, m.metrics.ModelHashCacheMiss)
 	if configHash != m.configHash {

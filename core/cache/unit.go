@@ -9,7 +9,7 @@ import (
 
 // Unit represents an unit in a cached model.
 type Unit struct {
-	Entity
+	entity
 
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
@@ -23,7 +23,10 @@ func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Unit {
 		metrics: metrics,
 		hub:     hub,
 	}
-	u.Entity.removalDelta = u.removalDelta
+	// wire up the removalDelta so that the entity can collate all the deltas
+	// during a sweep phase. If this isn't correctly wired up, an error will be
+	// returned during the sweeping phase.
+	u.entity.removalDelta = u.removalDelta
 	return u
 }
 
@@ -32,6 +35,9 @@ func (u *Unit) Application() string {
 	return u.details.Application
 }
 
+// removalDelta returns a delta that is required to remove the Unit. If this
+// is not correctly wired up when setting up the Unit, then a error will be
+// returned stating this fact when the Sweep phase of the GC.
 func (u *Unit) removalDelta() interface{} {
 	return RemoveUnit{
 		ModelUUID: u.details.ModelUUID,
@@ -44,7 +50,7 @@ func (u *Unit) setDetails(details UnitChange) {
 	if u.details.MachineId != details.MachineId {
 		u.hub.Publish(u.modelTopic(modelUnitLXDProfileChange), u)
 	}
-	u.state = Active
+	u.freshness = fresh
 	u.details = details
 
 	// TODO (manadart 2019-02-11): Maintain hash and publish changes.

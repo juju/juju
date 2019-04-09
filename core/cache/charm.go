@@ -14,13 +14,16 @@ func newCharm(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Charm {
 		metrics: metrics,
 		hub:     hub,
 	}
-	c.Entity.removalDelta = c.removalDelta
+	// wire up the removalDelta so that the entity can collate all the deltas
+	// during a sweep phase. If this isn't correctly wired up, an error will be
+	// returned during the sweeping phase.
+	c.entity.removalDelta = c.removalDelta
 	return c
 }
 
 // Charm represents an charm in a model.
 type Charm struct {
-	Entity
+	entity
 
 	// Link to model?
 	metrics *ControllerGauges
@@ -34,6 +37,9 @@ func (c *Charm) LXDProfile() lxdprofile.Profile {
 	return c.details.LXDProfile
 }
 
+// removalDelta returns a delta that is required to remove the Charm. If this
+// is not correctly wired up when setting up the Charm, then a error will be
+// returned stating this fact when the Sweep phase of the GC.
 func (c *Charm) removalDelta() interface{} {
 	return RemoveCharm{
 		ModelUUID: c.details.ModelUUID,
@@ -43,7 +49,7 @@ func (c *Charm) removalDelta() interface{} {
 
 func (c *Charm) setDetails(details CharmChange) {
 	c.mu.Lock()
-	c.state = Active
+	c.freshness = fresh
 	c.details = details
 	c.mu.Unlock()
 }

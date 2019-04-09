@@ -18,13 +18,16 @@ func newMachine(model *Model) *Machine {
 	m := &Machine{
 		model: model,
 	}
-	m.Entity.removalDelta = m.removalDelta
+	// wire up the removalDelta so that the entity can collate all the deltas
+	// during a sweep phase. If this isn't correctly wired up, an error will be
+	// returned during the sweeping phase.
+	m.entity.removalDelta = m.removalDelta
 	return m
 }
 
 // Machine represents a machine in a model.
 type Machine struct {
-	Entity
+	entity
 
 	model *Model
 
@@ -111,7 +114,6 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 	})
 
 	m.model.mu.Unlock()
-	m.registerWatcher(w)
 	return w, nil
 }
 
@@ -172,10 +174,12 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 		hub:          m.model.hub,
 	})
 	m.model.mu.Unlock()
-	m.registerWatcher(w)
 	return w, nil
 }
 
+// removalDelta returns a delta that is required to remove the Machine. If this
+// is not correctly wired up when setting up the Machine, then a error will be
+// returned stating this fact when the Sweep phase of the GC.
 func (m *Machine) removalDelta() interface{} {
 	return RemoveMachine{
 		ModelUUID: m.details.ModelUUID,
@@ -195,7 +199,7 @@ func (m *Machine) modelTopic(suffix string) string {
 func (m *Machine) setDetails(details MachineChange) {
 	m.mu.Lock()
 
-	m.state = Active
+	m.freshness = fresh
 	m.details = details
 
 	configHash, err := hash(details.Config)

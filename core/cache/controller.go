@@ -107,10 +107,10 @@ func (c *Controller) dispatch(change interface{}) {
 	}
 }
 
-// Mark will go through and mark all the items within a model, that is in the
-// controller as stale. It is then up to the Sweep phase of the garbage
-// collection to remove stale items within models that have not been up dated
-// and are still classified as stale.
+// Mark will walk over all the entities and attempt to mark them all as stale.
+// It is then up to the Sweep phase of the garbage collection to remove stale
+// items within models that have not been up the freshness and are still
+// classified as stale.
 // The result from Mark is how many items have been marked during marking phase.
 // The two phase garbage collection is required to prevent stale items within
 // models from existing if the all watcher is restarted and old deltas exist,
@@ -130,19 +130,23 @@ func (c *Controller) Mark() map[string]int {
 // stale and if the item hasn't been updated in between Mark and Sweep, then
 // the item will be removed.
 // The result from the sweep is how many items are removed per model.
-func (c *Controller) Sweep() map[string]SweepInfo {
+func (c *Controller) Sweep() (map[string]SweepInfo, error) {
 	result := make(map[string]SweepInfo)
-	var group []interface{}
+	var removalOps []interface{}
 	c.mu.Lock()
 	for uuid, model := range c.models {
-		deltas := model.sweep()
-		// Create a group of deltas, to work through once everything is
+		deltas, err := model.sweep()
+		if err != nil {
+			c.mu.Unlock()
+			return nil, errors.Trace(err)
+		}
+		// Create a removalOps of deltas, to work through once everything is
 		// collated.
-		group = append(group, deltas.Deltas...)
+		removalOps = append(removalOps, deltas.Deltas...)
 		// Populate the result set after the deltas have been dispatched.
 		result[uuid] = SweepInfo{
-			Active: deltas.Active,
-			Stale:  len(deltas.Deltas),
+			FreshCount: deltas.FreshCount,
+			StaleCount: len(deltas.Deltas),
 		}
 	}
 	c.metrics.GCSweep.Inc()
@@ -152,11 +156,10 @@ func (c *Controller) Sweep() map[string]SweepInfo {
 	// collated in the sweep. This enables us to reuse the same code paths
 	// for removing entities and also we can notify others of the removal
 	// at the same time.
-	for _, delta := range group {
+	for _, delta := range removalOps {
 		c.dispatch(delta)
 	}
-
-	return result
+	return result, nil
 }
 
 // Report returns information that is used in the dependency engine report.
@@ -219,8 +222,9 @@ func (c *Controller) updateModel(ch ModelChange) {
 // removeModel removes the model from the cache.
 func (c *Controller) removeModel(ch RemoveModel) {
 	c.mu.Lock()
-	if entity, ok := c.models[ch.ModelUUID]; ok {
-		entity.remove()
+	if _, ok := c.models[ch.ModelUUID]; ok {
+		// TODO (stickupkid): ensure we clean up the model, so that it
+		// also cleans up the watchers
 		delete(c.models, ch.ModelUUID)
 	}
 	c.mu.Unlock()

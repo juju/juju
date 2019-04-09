@@ -3,7 +3,6 @@
 package cache_test
 
 import (
-	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -231,7 +230,8 @@ func (s *ControllerSuite) TestSweepWithNoModels(c *gc.C) {
 	controller, err := cache.NewController(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result := controller.Sweep()
+	result, err := controller.Sweep()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.HasLen, 0)
 
 	workertest.CleanKill(c, controller)
@@ -244,7 +244,8 @@ func (s *ControllerSuite) TestSweepAfterMarkWithNoModels(c *gc.C) {
 	markResult := controller.Mark()
 	c.Check(markResult, gc.HasLen, 0)
 
-	sweepResult := controller.Sweep()
+	sweepResult, err := controller.Sweep()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sweepResult, gc.HasLen, 0)
 
 	workertest.CleanKill(c, controller)
@@ -262,27 +263,29 @@ func (s *ControllerSuite) TestSweepAfterMarkWithModel(c *gc.C) {
 		"model-uuid": 4,
 	})
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-
+	done := make(chan struct{})
 	go func() {
-		defer wg.Done()
 		c.Check(s.nextChange(c, events), gc.DeepEquals, removeModel)
 		c.Check(s.nextChange(c, events), gc.DeepEquals, removeApp)
 		c.Check(s.nextChange(c, events), gc.DeepEquals, removeMachine)
 		c.Check(s.nextChange(c, events), gc.DeepEquals, removeUnit)
+		done <- struct{}{}
 	}()
 
-	sweepResult := controller.Sweep()
+	sweepResult, err := controller.Sweep()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sweepResult, gc.DeepEquals, map[string]cache.SweepInfo{
 		"model-uuid": {
-			Stale:  4,
-			Active: 0,
+			StaleCount: 4,
+			FreshCount: 0,
 		},
 	})
 
-	wg.Wait()
-
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting %s for started", testing.LongWait)
+	}
 	c.Check(controller.ModelUUIDs(), gc.HasLen, 0)
 	c.Check(controller.Report(), gc.HasLen, 0)
 }
@@ -302,24 +305,27 @@ func (s *ControllerSuite) TestMarkWithSweepAndUpdateCalls(c *gc.C) {
 	s.processChange(c, modelChange, events)
 	s.processChange(c, appChange, events)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-
+	done := make(chan struct{})
 	go func() {
-		defer wg.Done()
 		c.Check(s.nextChange(c, events), gc.DeepEquals, removeMachine)
 		c.Check(s.nextChange(c, events), gc.DeepEquals, removeUnit)
+		done <- struct{}{}
 	}()
 
-	sweepResult := controller.Sweep()
+	sweepResult, err := controller.Sweep()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sweepResult, gc.DeepEquals, map[string]cache.SweepInfo{
 		"model-uuid": {
-			Stale:  2,
-			Active: 2,
+			StaleCount: 2,
+			FreshCount: 2,
 		},
 	})
 
-	wg.Wait()
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting %s for started", testing.LongWait)
+	}
 
 	c.Check(controller.ModelUUIDs(), gc.DeepEquals, []string{"model-uuid"})
 	c.Check(controller.Report(), gc.DeepEquals, map[string]interface{}{
@@ -327,123 +333,6 @@ func (s *ControllerSuite) TestMarkWithSweepAndUpdateCalls(c *gc.C) {
 			"name":              "model-owner/test-model",
 			"life":              life.Value("alive"),
 			"application-count": 1,
-			"charm-count":       0,
-			"machine-count":     0,
-			"unit-count":        0,
-		},
-	})
-}
-
-func (s *ControllerSuite) TestMarkAndSweepCleansUpAppWatcher(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, modelChange, events)
-	s.processChange(c, appChange, events)
-
-	model, err := controller.Model("model-uuid")
-	c.Assert(err, jc.ErrorIsNil)
-
-	app, err := model.Application("application-name")
-	c.Assert(err, jc.ErrorIsNil)
-
-	w := app.WatchConfig()
-	wc := NewNotifyWatcherC(c, w)
-	wc.AssertOneChange()
-
-	markResult := controller.Mark()
-	c.Check(markResult, gc.DeepEquals, map[string]int{
-		"model-uuid": 2,
-	})
-
-	// ensure we don't wipe out the model, otherwise the application is no
-	// longer accessible.
-	s.processChange(c, modelChange, events)
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		c.Check(s.nextChange(c, events), gc.DeepEquals, removeApp)
-	}()
-
-	sweepResult := controller.Sweep()
-	c.Check(sweepResult, gc.DeepEquals, map[string]cache.SweepInfo{
-		"model-uuid": {
-			Stale:  1,
-			Active: 1,
-		},
-	})
-
-	wg.Wait()
-
-	err = workertest.CheckKilled(c, w)
-	c.Check(err, jc.ErrorIsNil)
-
-	c.Check(controller.ModelUUIDs(), gc.DeepEquals, []string{"model-uuid"})
-	c.Check(controller.Report(), gc.DeepEquals, map[string]interface{}{
-		"model-uuid": map[string]interface{}{
-			"name":              "model-owner/test-model",
-			"life":              life.Value("alive"),
-			"application-count": 0,
-			"charm-count":       0,
-			"machine-count":     0,
-			"unit-count":        0,
-		},
-	})
-}
-
-func (s *ControllerSuite) TestMarkAndSweepCleansUpAppWatcherCleanlyEvenWhenWatcherIsAlreadyKilled(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, modelChange, events)
-	s.processChange(c, appChange, events)
-
-	model, err := controller.Model("model-uuid")
-	c.Assert(err, jc.ErrorIsNil)
-
-	app, err := model.Application("application-name")
-	c.Assert(err, jc.ErrorIsNil)
-
-	w := app.WatchConfig()
-	wc := NewNotifyWatcherC(c, w)
-	wc.AssertOneChange()
-
-	markResult := controller.Mark()
-	c.Check(markResult, gc.DeepEquals, map[string]int{
-		"model-uuid": 2,
-	})
-
-	// ensure we don't wipe out the model, otherwise the application is no
-	// longer accessible.
-	s.processChange(c, modelChange, events)
-	w.Kill()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		c.Check(s.nextChange(c, events), gc.DeepEquals, removeApp)
-	}()
-
-	sweepResult := controller.Sweep()
-	c.Check(sweepResult, gc.DeepEquals, map[string]cache.SweepInfo{
-		"model-uuid": {
-			Stale:  1,
-			Active: 1,
-		},
-	})
-
-	wg.Wait()
-
-	err = workertest.CheckKilled(c, w)
-	c.Check(err, jc.ErrorIsNil)
-
-	c.Check(controller.ModelUUIDs(), gc.DeepEquals, []string{"model-uuid"})
-	c.Check(controller.Report(), gc.DeepEquals, map[string]interface{}{
-		"model-uuid": map[string]interface{}{
-			"name":              "model-owner/test-model",
-			"life":              life.Value("alive"),
-			"application-count": 0,
 			"charm-count":       0,
 			"machine-count":     0,
 			"unit-count":        0,

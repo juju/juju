@@ -19,13 +19,16 @@ func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Applicati
 		metrics: metrics,
 		hub:     hub,
 	}
-	a.Entity.removalDelta = a.removalDelta
+	// wire up the removalDelta so that the entity can collate all the deltas
+	// during a sweep phase. If this isn't correctly wired up, an error will be
+	// returned during the sweeping phase.
+	a.entity.removalDelta = a.removalDelta
 	return a
 }
 
 // Application represents an application in a model.
 type Application struct {
-	Entity
+	entity
 
 	// Link to model?
 	metrics *ControllerGauges
@@ -56,10 +59,12 @@ func (a *Application) Config() map[string]interface{} {
 // WatchConfig creates a watcher for the application config.
 func (a *Application) WatchConfig(keys ...string) *ConfigWatcher {
 	w := newConfigWatcher(keys, a.hashCache, a.hub, a.topic(applicationConfigChange))
-	a.registerWatcher(w)
 	return w
 }
 
+// removalDelta returns a delta that is required to remove the Application. If this
+// is not correctly wired up when setting up the Application, then a error will be
+// returned stating this fact when the Sweep phase of the GC.
 func (a *Application) removalDelta() interface{} {
 	return RemoveApplication{
 		ModelUUID: a.details.ModelUUID,
@@ -81,7 +86,7 @@ func (a *Application) setDetails(details ApplicationChange) {
 		a.hub.Publish(a.modelTopic(applicationCharmURLChange), appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL})
 	}
 
-	a.state = Active
+	a.freshness = fresh
 	a.details = details
 	hashCache, configHash := newHashCache(
 		details.Config, a.metrics.ApplicationHashCacheHit, a.metrics.ApplicationHashCacheMiss)

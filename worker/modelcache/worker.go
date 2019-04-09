@@ -195,10 +195,14 @@ func (c *cacheWorker) loop() error {
 			if c.sweepRequired {
 				c.sweepRequired = false
 
-				result := c.controller.Sweep()
+				result, err := c.controller.Sweep()
+				if err != nil {
+					c.config.Logger.Errorf("sweep error %v", err)
+					continue
+				}
 				var stale int
 				for _, sweepResult := range result {
-					stale += sweepResult.Stale
+					stale += sweepResult.FreshCount
 				}
 				c.config.Logger.Tracef("sweeped %d stale entities", stale)
 			}

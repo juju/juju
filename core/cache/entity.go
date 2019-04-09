@@ -5,46 +5,50 @@ package cache
 
 import (
 	"sync"
+
+	"github.com/juju/errors"
 )
 
-// State represents the current entity lifecycle.
-type State uint8
+// entityFreshness represents the current entity lifecycle.
+type entityFreshness uint8
 
 const (
-	// Stale represents a lifecycle state that defines if an entity is stale
+	// stale represents a lifecycle state that defines if an entity is stale
 	// and isn't currently active.
-	Stale State = iota
+	stale entityFreshness = iota
 	// Active lifecycle state defines a entity state that represents a the
 	// entity is currently active.
-	Active
+	fresh
 )
 
-// Entity represents a base entity within the model cache
-type Entity struct {
-	state        State
+// entity represents a base entity within the model cache
+type entity struct {
+	freshness    entityFreshness
 	mu           sync.Mutex
 	removalDelta func() interface{}
 	watchers     []Watcher
 }
 
 // mark updates the state to be classified as stale.
-func (e *Entity) mark() {
+func (e *entity) mark() {
 	e.mu.Lock()
-	e.state = Stale
+	e.freshness = stale
 	e.mu.Unlock()
 }
 
 // sweep goes through and creates a set of deltas for the entity. That way
 // we can feed that back into the controller so it cleans up the entities in
 // one code path.
-func (e *Entity) sweep() *SweepDeltas {
+func (e *entity) sweep() (*SweepDeltas, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.state == Stale {
+	if e.freshness == stale {
 		var deltas []interface{}
 		if e.removalDelta == nil {
-			return &SweepDeltas{}
+			// If no removalDelta is found, this a programmatic error, but we
+			// should ensure that we surface that error accordingly.
+			return nil, errors.New("removalDelta is required when performing a sweep")
 		}
 		if delta := e.removalDelta(); delta != nil {
 			deltas = append(deltas, delta)
@@ -52,43 +56,28 @@ func (e *Entity) sweep() *SweepDeltas {
 
 		return &SweepDeltas{
 			Deltas: deltas,
-		}
+		}, nil
 	}
 	return &SweepDeltas{
-		Active: 1,
-	}
-}
-
-// registerWatcher allows the tracking of a watcher, so when removing we can
-// kill the watcher.
-func (e *Entity) registerWatcher(w Watcher) {
-	e.mu.Lock()
-	e.watchers = append(e.watchers, w)
-	e.mu.Unlock()
-}
-
-// remove is called when the entity is being cleaned up, so it can kill the
-// watchers.
-func (e *Entity) remove() {
-	for _, watcher := range e.watchers {
-		watcher.Kill()
-	}
+		FreshCount: 1,
+	}, nil
 }
 
 // SweepInfo represents the information gathered whilst doing a sweep
 type SweepInfo struct {
-	Stale  int
-	Active int
+	StaleCount int
+	FreshCount int
 }
 
 // SweepDeltas represents what deltas are required when walking over all
 // entities in a cache to see which are active and stale.
 type SweepDeltas struct {
-	Deltas []interface{}
-	Active int
+	Deltas     []interface{}
+	FreshCount int
 }
 
+// Merge concatenates two SweepDeltas together
 func (d *SweepDeltas) Merge(o *SweepDeltas) {
 	d.Deltas = append(d.Deltas, o.Deltas...)
-	d.Active += o.Active
+	d.FreshCount += o.FreshCount
 }
