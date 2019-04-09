@@ -3000,19 +3000,12 @@ func (a *Application) SetAgentPresence() (*presence.Pinger, error) {
 
 // UpdateCloudService updates the cloud service details for the application.
 func (a *Application) UpdateCloudService(providerId string, addresses []network.Address) error {
-	svc := newCloudService(a.st, &cloudServiceDoc{DocID: a.globalKey()})
-
-	ops, err := svc.saveServiceOps(
-		cloudServiceDoc{
-			DocID:      a.globalKey(),
-			ProviderId: providerId,
-			Addresses:  fromNetworkAddresses(addresses, OriginProvider),
-		},
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return a.st.db().RunTransaction(ops)
+	_, err := a.st.SaveCloudService(SaveCloudServiceArgs{
+		Id:         a.Name(),
+		ProviderId: providerId,
+		Addresses:  addresses,
+	})
+	return errors.Trace(err)
 }
 
 // ServiceInfo returns information about this application's cloud service.

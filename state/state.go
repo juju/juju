@@ -1118,45 +1118,40 @@ var (
 	errLocalApplicationExists          = errors.Errorf("application already exists")
 )
 
-type AddCloudServiceArgs struct {
+// SaveCloudServiceArgs defines the arguments for SaveCloudService method.
+type SaveCloudServiceArgs struct {
 	// Id will be the application Name if it's a part of application,
-	// and will be controller UUID for k8s a controller(controller does Not have an application).
+	// and will be controller UUID for k8s a controller(controller does not have an application),
+	// then is wrapped with applicationGlobalKey.
 	Id         string
 	ProviderId string
 	Addresses  []network.Address
 }
 
-// AddCloudService creates a cloud service.
-func (st *State) AddCloudService(args AddCloudServiceArgs) (_ *CloudService, err error) {
+// SaveCloudService creates a cloud service.
+func (st *State) SaveCloudService(args SaveCloudServiceArgs) (_ *CloudService, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add cloud service %q", args.ProviderId)
 
 	doc := cloudServiceDoc{
-		DocID:      args.Id,
+		DocID:      applicationGlobalKey(args.Id),
 		ProviderId: args.ProviderId,
 		Addresses:  fromNetworkAddresses(args.Addresses, OriginProvider),
 	}
 	svc := newCloudService(st, &doc)
+	buildTxn := func(int) ([]txn.Op, error) {
+		return svc.saveServiceOps(doc)
+	}
 
-	ops, err := svc.saveServiceOps(doc)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if err := st.db().Run(buildTxn); err != nil {
+		return nil, errors.Annotate(err, "failed to save cloud service")
 	}
-	if err = st.db().RunTransaction(ops); err == nil {
-		if err = svc.Refresh(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		return svc, nil
-	}
-	return nil, errors.Trace(err)
+	return svc, nil
 }
 
 // CloudService returns a cloud service state by Id.
-func (st *State) CloudService(Id string) (svc *CloudService, err error) {
-	svc = newCloudService(st, &cloudServiceDoc{DocID: st.docID(Id)})
-	if err = svc.Refresh(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return svc, nil
+func (st *State) CloudService(id string) (*CloudService, error) {
+	svc := newCloudService(st, &cloudServiceDoc{DocID: st.docID(applicationGlobalKey(id))})
+	return svc.CloudService()
 }
 
 type AddApplicationArgs struct {

@@ -818,9 +818,8 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 }
 
 func getLoadBalancerAddress(svc *core.Service) string {
-	// reason we have this is because different cloud provider
-	// has different way to report back LB address.
-	// This should cover most of case now.
+	// different cloud providers have a different way to report back the Load Balancer address.
+	// This covers the cases we know about so far.
 	lpAdd := svc.Spec.LoadBalancerIP
 	if lpAdd != "" {
 		return lpAdd

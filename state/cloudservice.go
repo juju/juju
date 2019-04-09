@@ -58,38 +58,48 @@ func (c *CloudService) Addresses() []network.Address {
 	return networkAddresses(c.doc.Addresses)
 }
 
-func (c *CloudService) cloudService() (cloudServiceDoc, error) {
+func (c *CloudService) cloudServiceDoc() (*cloudServiceDoc, error) {
 	coll, closer := c.st.db().GetCollection(cloudServicesC)
 	defer closer()
 
 	var doc cloudServiceDoc
 	err := coll.FindId(c.Id()).One(&doc)
 	if err == mgo.ErrNotFound {
-		return cloudServiceDoc{}, errors.NotFoundf("cloud service %v", c.Id())
+		return nil, errors.NotFoundf("cloud service %v", c.Id())
 	}
 	if err != nil {
-		return cloudServiceDoc{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return doc, nil
+	return &doc, nil
+}
+
+// CloudService return the content of cloud service from the underlying state.
+// It returns an error that satisfies errors.IsNotFound if the cloud service has been removed.
+func (c *CloudService) CloudService() (*CloudService, error) {
+	doc, err := c.cloudServiceDoc()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if doc == nil {
+		return nil, errors.NotFoundf("cloud service %v", c.Id())
+	}
+	c.doc = *doc
+	return c, nil
 }
 
 // Refresh refreshes the content of cloud service from the underlying state.
 // It returns an error that satisfies errors.IsNotFound if the cloud service has been removed.
 func (c *CloudService) Refresh() error {
-	doc, err := c.cloudService()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	c.doc = doc
-	return nil
+	_, err := c.CloudService()
+	return errors.Trace(err)
 }
 
 func (c *CloudService) saveServiceOps(doc cloudServiceDoc) ([]txn.Op, error) {
-	existing, err := c.cloudService()
+	existing, err := c.cloudServiceDoc()
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	if err != nil {
+	if err != nil || existing == nil {
 		return []txn.Op{{
 			C:      cloudServicesC,
 			Id:     doc.DocID,
@@ -97,22 +107,19 @@ func (c *CloudService) saveServiceOps(doc cloudServiceDoc) ([]txn.Op, error) {
 			Insert: doc,
 		}}, nil
 	}
-	var asserts bson.D
-	providerValueAssert := bson.DocElem{"provider-id", existing.ProviderId}
-	if existing.ProviderId != "" {
-		asserts = bson.D{providerValueAssert}
-	} else {
-		asserts = bson.D{{"$or",
-			[]bson.D{{providerValueAssert}, {{"provider-id", bson.D{{"$exists", false}}}}}}}
-	}
 	return []txn.Op{{
-		C:      cloudServicesC,
-		Id:     existing.DocID,
-		Assert: asserts,
+		C:  cloudServicesC,
+		Id: existing.DocID,
+		Assert: bson.D{{"$or", []bson.D{
+			{{"provider-id", doc.ProviderId}},
+			{{"provider-id", bson.D{{"$exists", false}}}},
+		}}},
 		Update: bson.D{
 			{"$set",
-				bson.D{{"provider-id", doc.ProviderId},
-					{"addresses", doc.Addresses}},
+				bson.D{
+					{"provider-id", doc.ProviderId},
+					{"addresses", doc.Addresses},
+				},
 			},
 		},
 	}}, nil

@@ -159,6 +159,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		return fail, errors.Trace(err)
 	}
 	if model.Type() == state.ModelTypeCAAS {
+		// TODO(caas): Add tests for this once we have a new test suite for replacing JujuConnSuite.
 		// we use k8s service DNS for k8s controller.
 		controllerConfig, err := ctrlSt.ControllerConfig()
 		if err != nil {

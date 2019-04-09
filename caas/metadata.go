@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/collections/set"
-	// core "k8s.io/api/core/v1"
 )
 
 const (

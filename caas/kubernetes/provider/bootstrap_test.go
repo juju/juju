@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -56,7 +57,6 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
 
 	s.controllerCfg = testing.FakeControllerConfig()
-	s.controllerCfg[controller.APIPort] = 17070
 	pcfg, err := podcfg.NewBootstrapControllerPodConfig(s.controllerCfg, controllerName, "bionic", "ClusterIP")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -182,6 +182,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
+	APIPort := s.controllerCfg.APIPort()
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: s.getNamespace()}}
 	ns.Name = s.getNamespace()
 	s.ensureJujuNamespaceAnnotations(true, ns)
@@ -197,8 +198,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
-					TargetPort: intstr.FromInt(17070),
-					Port:       17070,
+					TargetPort: intstr.FromInt(APIPort),
+					Port:       int32(APIPort),
 				},
 			},
 		},
@@ -217,8 +218,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
-					TargetPort: intstr.FromInt(17070),
-					Port:       17070,
+					TargetPort: intstr.FromInt(APIPort),
+					Port:       int32(APIPort),
 				},
 			},
 			ClusterIP: svcPublicIP,
@@ -400,7 +401,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	probCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
-			"--port=37017",
+			fmt.Sprintf("--port=%d", s.controllerCfg.StatePort()),
 			"--ssl",
 			"--sslAllowInvalidHostnames",
 			"--sslAllowInvalidCertificates",
@@ -422,7 +423,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				"--sslPEMKeyFile=/var/lib/juju/server.pem",
 				"--sslPEMKeyPassword=ignored",
 				"--sslMode=requireSSL",
-				"--port=37017",
+				fmt.Sprintf("--port=%d", s.controllerCfg.StatePort()),
 				"--journal",
 				"--replSet=juju",
 				"--quiet",
@@ -436,7 +437,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Ports: []core.ContainerPort{
 				{
 					Name:          "mongodb",
-					ContainerPort: int32(37017),
+					ContainerPort: int32(s.controllerCfg.StatePort()),
 					Protocol:      "TCP",
 				},
 			},
@@ -625,5 +626,4 @@ test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /va
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy error")
 	}
-
 }

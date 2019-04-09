@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
@@ -42,8 +41,7 @@ var (
 )
 
 type controllerStack struct {
-	ctx   environs.BootstrapContext
-	clock jujuclock.Clock
+	ctx environs.BootstrapContext
 
 	stackName   string
 	stackLabels map[string]string
@@ -143,7 +141,6 @@ func newcontrollerStack(
 
 	cs := controllerStack{
 		ctx:         ctx,
-		clock:       broker.clock,
 		stackName:   stackName,
 		stackLabels: map[string]string{labelApplication: stackName},
 		broker:      broker,
@@ -153,8 +150,8 @@ func newcontrollerStack(
 
 		storageSize:   storageSize,
 		storageClass:  storageClass,
-		portMongoDB:   37017,
-		portAPIServer: 17070,
+		portMongoDB:   pcfg.Bootstrap.ControllerConfig.StatePort(),
+		portAPIServer: pcfg.Bootstrap.ControllerConfig.APIPort(),
 
 		fileNameSharedSecret:    mongo.SharedSecretFile,
 		fileNameSSLKey:          mongo.FileNameDBSSLKey,
@@ -346,13 +343,13 @@ func (c controllerStack) createControllerService() error {
 		Attempts:    60,
 		Delay:       3 * time.Second,
 		MaxDuration: 3 * time.Minute,
-		Clock:       c.clock,
+		Clock:       c.broker.clock,
 		Func:        publicAddressPoller,
 		IsFatalError: func(err error) bool {
 			return !errors.IsNotProvisioned(err)
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("polling k8s controller svc DNS, in %q attempt, got error %v", attempt, err)
+			logger.Debugf("polling k8s controller svc DNS, in %d attempt, got error %v", attempt, err)
 		},
 	}
 	return errors.Trace(retry.Call(retryCallArgs))

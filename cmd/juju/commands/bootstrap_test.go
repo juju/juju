@@ -1810,32 +1810,33 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
-	expectedOut := "You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.\n" +
-		"Cloud                            Credentials  Default Region\n" +
-		"aws                              fred         us-west-1\n" +
-		"                                 mary         \n" +
-		"aws-china                                     \n" +
-		"aws-gov                                       \n" +
-		"azure                                         \n" +
-		"azure-china                                   \n" +
-		"cloudsigma                                    \n" +
-		"google                                        \n" +
-		"joyent                                        \n" +
-		"oracle                                        \n" +
-		"oracle-classic                                \n" +
-		"rackspace                                     \n" +
-		"localhost                                     \n" +
-		"dummy-cloud                      joe          home\n" +
-		"dummy-cloud-dummy-region-config               \n" +
-		"dummy-cloud-with-config                       \n" +
-		"dummy-cloud-with-region-config                \n" +
-		"dummy-cloud-without-regions                   \n" +
-		"many-credentials-no-auth-types                \n" +
-		"\n" +
-		"You will need to have a credential if you want to bootstrap on a cloud, see\n" +
-		"‘juju autoload-credentials’ and ‘juju add-credential’. The first credential\n" +
-		"listed is the default. Add more clouds with ‘juju add-cloud’.\n"
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, expectedOut)
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, `
+You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
+Cloud                            Credentials  Default Region
+aws                              fred         us-west-1
+                                 mary         
+aws-china                                     
+aws-gov                                       
+azure                                         
+azure-china                                   
+cloudsigma                                    
+google                                        
+joyent                                        
+oracle                                        
+oracle-classic                                
+rackspace                                     
+localhost                                     
+dummy-cloud                      joe          home
+dummy-cloud-dummy-region-config               
+dummy-cloud-with-config                       
+dummy-cloud-with-region-config                
+dummy-cloud-without-regions                   
+many-credentials-no-auth-types                
+
+You will need to have a credential if you want to bootstrap on a cloud, see
+‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
+listed is the default. Add more clouds with ‘juju add-cloud’.
+`[1:])
 }
 
 func (s *BootstrapSuite) TestBootstrapPrintCloudRegions(c *gc.C) {

@@ -177,11 +177,27 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "cannot initialize bootstrap machine")
 	}
 
-	if err := initControllerCloudService(isCAAS, st, args); err != nil {
-		return nil, nil, errors.Annotate(err, "cannot initialize cloud service")
+	cloudSpec, err := environs.MakeCloudSpec(
+		args.ControllerCloud,
+		args.ControllerCloudRegion,
+		args.ControllerCloudCredential,
+	)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
-	if err := ensureHostedModel(isCAAS, args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
+	provider, err := args.Provider(cloudSpec.Type)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "getting environ provider")
+	}
+
+	if isCAAS {
+		if err := initControllerCloudService(cloudSpec, provider, st, args); err != nil {
+			return nil, nil, errors.Annotate(err, "cannot initialize cloud service")
+		}
+	}
+
+	if err := ensureHostedModel(isCAAS, cloudSpec, provider, args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
 		return nil, nil, errors.Annotate(err, "ensuring hosted model")
 	}
 	return ctrl, m, nil
@@ -190,6 +206,8 @@ func InitializeState(
 // ensureHostedModel ensures hosted model.
 func ensureHostedModel(
 	isCAAS bool,
+	cloudSpec environs.CloudSpec,
+	provider environs.EnvironProvider,
 	args InitializeStateParams,
 	st *state.State,
 	ctrl *state.Controller,
@@ -211,16 +229,6 @@ func ensureHostedModel(
 	}
 	attrs[config.AuthorizedKeysKey] = args.ControllerModelConfig.AuthorizedKeys()
 
-	// Construct a CloudSpec to pass on to NewModelConfig below.
-	cloudSpec, err := environs.MakeCloudSpec(
-		args.ControllerCloud,
-		args.ControllerCloudRegion,
-		args.ControllerCloudCredential,
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	creator := modelmanager.ModelConfigCreator{Provider: args.Provider}
 	hostedModelConfig, err := creator.NewModelConfig(
 		cloudSpec, args.ControllerModelConfig, attrs,
@@ -228,20 +236,17 @@ func ensureHostedModel(
 	if err != nil {
 		return errors.Annotate(err, "creating hosted model config")
 	}
-	provider, err := args.Provider(cloudSpec.Type)
-	if err != nil {
-		return errors.Annotate(err, "getting environ provider")
-	}
+	controllerUUID := args.ControllerConfig.ControllerUUID()
 
-	var hostedModelEnv environs.BootstrapEnviron
-	if hostedModelEnv, err = getEnviron(isCAAS, hostedModelConfig, args); err != nil {
+	hostedModelEnv, err := getEnviron(controllerUUID, cloudSpec, hostedModelConfig, provider)
+	if err != nil {
 		return errors.Annotate(err, "opening hosted model environment")
 	}
 
 	if err := hostedModelEnv.Create(
 		state.CallContext(st),
 		environs.CreateParams{
-			ControllerUUID: args.ControllerConfig.ControllerUUID(),
+			ControllerUUID: controllerUUID,
 		}); err != nil {
 		return errors.Annotate(err, "creating hosted model environment")
 	}
@@ -283,27 +288,18 @@ func ensureHostedModel(
 	return nil
 }
 
-func getEnviron(isCAAS bool, modelConfig *config.Config, args InitializeStateParams) (env environs.BootstrapEnviron, err error) {
-	cloudSpec, err := environs.MakeCloudSpec(
-		args.ControllerCloud,
-		args.ControllerCloudRegion,
-		args.ControllerCloudCredential,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	provider, err := args.Provider(cloudSpec.Type)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting environ provider")
-	}
-
+func getEnviron(
+	controllerUUID string,
+	cloudSpec environs.CloudSpec,
+	modelConfig *config.Config,
+	provider environs.EnvironProvider,
+) (env environs.BootstrapEnviron, err error) {
 	openParams := environs.OpenParams{
-		ControllerUUID: args.ControllerConfig.ControllerUUID(),
+		ControllerUUID: controllerUUID,
 		Cloud:          cloudSpec,
 		Config:         modelConfig,
 	}
-	if isCAAS {
+	if cloudSpec.Type == cloud.CloudTypeCAAS {
 		return caas.Open(provider, openParams)
 	}
 	return environs.Open(provider, openParams)
@@ -413,15 +409,13 @@ func initBootstrapMachine(
 
 // initControllerCloudService creates cloud service for controller service.
 func initControllerCloudService(
-	isCAAS bool, st *state.State, args InitializeStateParams,
+	cloudSpec environs.CloudSpec,
+	provider environs.EnvironProvider,
+	st *state.State,
+	args InitializeStateParams,
 ) error {
-	if !isCAAS {
-		// IAAS does have controller cloud service for now.
-		logger.Debugf("no cloud service needs to be created for IAAS model")
-		return nil
-	}
-
-	env, err := getEnviron(isCAAS, args.ControllerModelConfig, args)
+	controllerUUID := args.ControllerConfig.ControllerUUID()
+	env, err := getEnviron(controllerUUID, cloudSpec, args.ControllerModelConfig, provider)
 	if err != nil {
 		return errors.Annotate(err, "getting environ")
 	}
@@ -429,7 +423,7 @@ func initControllerCloudService(
 	broker, ok := env.(caas.ServiceGetterSetter)
 	if !ok {
 		// this should never happen.
-		return errors.New("CAAS environ is not a broker")
+		return errors.Errorf("environ %T does not implement ServiceGetterSetter interface", env)
 	}
 	svc, err := broker.GetService(k8sprovider.JujuControllerStackName)
 	if err != nil {
@@ -439,9 +433,9 @@ func initControllerCloudService(
 		// this should never happen because we have already checked in k8s controller bootstrap stacker.
 		return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
 	}
-	svcId := args.ControllerConfig.ControllerUUID()
+	svcId := controllerUUID
 	logger.Infof("creating cloud service for k8s controller %q", svcId)
-	cloudSvc, err := st.AddCloudService(state.AddCloudServiceArgs{
+	cloudSvc, err := st.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         svcId,
 		ProviderId: svc.Id,
 		Addresses:  svc.Addresses,
