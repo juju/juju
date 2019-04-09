@@ -66,6 +66,9 @@ func appCharmIncRefOps(mb modelBackend, appName string, curl *charm.URL, canCrea
 // storage constraints documents for that pair, and schedule a cleanup
 // to see if the charm itself is now unreferenced and can be tidied
 // away itself.
+// When 'force' is set, this call will return both needed operations
+// as well as all operational errors encountered.
+// If the 'force' is not set, any error will be fatal and no operations will be returned.
 func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDoFinal, force bool) ([]txn.Op, []error, error) {
 	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()

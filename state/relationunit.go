@@ -274,6 +274,9 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 // LeaveScopeWithForce in addition to doing what LeaveScope() does,
 // when force is passed in as 'true', forces relation unit to leave scope,
 // ignoring errors.
+// TODO (anastasiamac) Need to consider to do this an Operation,
+// similar to Unit and Apllication DestroyOperation to better differentiate between
+// business logic and opeational errors and database errors.
 func (ru *RelationUnit) LeaveScopeWithForce(force bool) ([]error, error) {
 	return ru.internalLeaveScope(force)
 }
@@ -288,6 +291,9 @@ func (ru *RelationUnit) LeaveScope() error {
 	return err
 }
 
+// When 'force' is set, this call will construct and apply needed operations
+// and return all operational errors encountered.
+// If the 'force' is not set, any error will be fatal and no operations will be applied.
 func (ru *RelationUnit) internalLeaveScope(force bool) ([]error, error) {
 	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
@@ -357,6 +363,9 @@ func (ru *RelationUnit) internalLeaveScope(force bool) ([]error, error) {
 				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
 		} else {
+			// When 'force' is set, this call will return both needed operations
+			// as well as all operational errors encountered.
+			// If the 'force' is not set, any error will be fatal and no operations will be returned.
 			relOps, opErrs, err := ru.relation.removeOps("", ru.unitName, force)
 			errs = append(errs, opErrs...)
 			if err != nil {
