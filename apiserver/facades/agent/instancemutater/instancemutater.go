@@ -198,6 +198,35 @@ func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error
 	return result, nil
 }
 
+// WatchContainers starts a watcher to track Containers on a given
+// machine.
+func (api *InstanceMutaterAPI) WatchContainers(arg params.Entity) (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	canAccess, err := api.getAuthFunc()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	tag, err := names.ParseMachineTag(arg.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	machine, err := api.getCacheMachine(canAccess, tag)
+	if err != nil {
+		return result, err
+	}
+	watch, err := machine.WatchContainers()
+	if err != nil {
+		return result, err
+	}
+	if changes, ok := <-watch.Changes(); ok {
+		result.StringsWatcherId = api.resources.Register(watch)
+		result.Changes = changes
+	} else {
+		return result, errors.Errorf("cannot obtain initial machine containers")
+	}
+	return result, nil
+}
+
 // WatchApplicationLXDProfiles starts a watcher to track Applications with
 // LXD Profiles.
 func (api *InstanceMutaterAPI) WatchApplicationLXDProfiles(args params.Entities) (params.NotifyWatchResults, error) {

@@ -159,6 +159,10 @@ func (m *modelCacheMachine) WatchApplicationLXDProfiles() (cache.NotifyWatcher, 
 	return m.Machine.WatchApplicationLXDProfiles()
 }
 
+func (m *modelCacheMachine) WatchContainers() (cache.StringsWatcher, error) {
+	return m.Machine.WatchContainers()
+}
+
 func (m *modelCacheMachine) Units() ([]ModelCacheUnit, error) {
 	units, err := m.Machine.Units()
 	if err != nil {
