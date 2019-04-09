@@ -125,10 +125,10 @@ func (m mutaterMachine) watchProfileChangesLoop(profileChangeWatcher watcher.Not
 		case <-profileChangeWatcher.Changes():
 			info, err := m.machineApi.CharmProfilingInfo()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			if err = m.processMachineProfileChanges(info); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}
