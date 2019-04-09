@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
@@ -48,6 +50,7 @@ const (
 type cleanupDoc struct {
 	DocID  string        `bson:"_id"`
 	Kind   cleanupKind   `bson:"kind"`
+	When   time.Time     `bson:"when"`
 	Prefix string        `bson:"prefix"`
 	Args   []*cleanupArg `bson:"args,omitempty"`
 }
@@ -70,6 +73,10 @@ func (a *cleanupArg) SetBSON(raw bson.Raw) error {
 // newCleanupOp returns a txn.Op that creates a cleanup document with a unique
 // id and the supplied kind and prefix.
 func newCleanupOp(kind cleanupKind, prefix string, args ...interface{}) txn.Op {
+	return newCleanupAtOp(time.Now(), kind, prefix, args...)
+}
+
+func newCleanupAtOp(when time.Time, kind cleanupKind, prefix string, args ...interface{}) txn.Op {
 	var cleanupArgs []*cleanupArg
 	if len(args) > 0 {
 		cleanupArgs = make([]*cleanupArg, len(args))
@@ -80,6 +87,7 @@ func newCleanupOp(kind cleanupKind, prefix string, args ...interface{}) txn.Op {
 	doc := &cleanupDoc{
 		DocID:  bson.NewObjectId().Hex(),
 		Kind:   kind,
+		When:   time.Now(),
 		Prefix: prefix,
 		Args:   cleanupArgs,
 	}
@@ -112,7 +120,12 @@ func (st *State) Cleanup() (err error) {
 	modelUUID := st.ModelUUID()
 	modelId := modelUUID[:6]
 
-	iter := cleanups.Find(nil).Iter()
+	// Only look at cleanups that should be run now.
+	query := bson.M{"$or": []bson.M{
+		{"when": bson.M{"$lte": time.Now()}},
+		{"when": bson.M{"$exists": false}},
+	}}
+	iter := cleanups.Find(query).Iter()
 	defer closeIter(iter, &err, "reading cleanup document")
 	for iter.Next(&doc) {
 		var err error
