@@ -213,8 +213,8 @@ func NewCheckoutCommandForTest(api CheckoutCommandAPI, store jujuclient.ClientSt
 	return modelcmd.Wrap(cmd)
 }
 
-func NewShowGenerationCommandForTest(api DiffCommandAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &showGenerationCommand{
+func NewDiffCommandForTest(api DiffCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &diffCommand{
 		api: api,
 	}
 	cmd.SetClientStore(store)

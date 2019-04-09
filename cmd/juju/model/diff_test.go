@@ -16,25 +16,25 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 )
 
-type showGenerationSuite struct {
+type diffSuite struct {
 	generationBaseSuite
 
 	api *mocks.MockDiffCommandAPI
 }
 
-var _ = gc.Suite(&showGenerationSuite{})
+var _ = gc.Suite(&diffSuite{})
 
-func (s *showGenerationSuite) TestInit(c *gc.C) {
+func (s *diffSuite) TestInit(c *gc.C) {
 	err := s.runInit(s.branchName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *showGenerationSuite) TestInitFail(c *gc.C) {
+func (s *diffSuite) TestInitFail(c *gc.C) {
 	err := s.runInit()
 	c.Assert(err, gc.ErrorMatches, "must specify a branch name")
 }
 
-func (s *showGenerationSuite) TestRunCommandNextGenExists(c *gc.C) {
+func (s *diffSuite) TestRunCommandNextGenExists(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	result := map[string]coremodel.Generation{
@@ -65,7 +65,7 @@ new-branch:
 `[1:])
 }
 
-func (s *showGenerationSuite) TestRunCommandNextNoGenError(c *gc.C) {
+func (s *diffSuite) TestRunCommandNextNoGenError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.api.EXPECT().GenerationInfo(gomock.Any(), s.branchName, gomock.Any()).Return(
@@ -75,15 +75,15 @@ func (s *showGenerationSuite) TestRunCommandNextNoGenError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "this model has no next generation")
 }
 
-func (s *showGenerationSuite) runInit(args ...string) error {
-	return cmdtesting.InitCommand(model.NewShowGenerationCommandForTest(nil, s.store), args)
+func (s *diffSuite) runInit(args ...string) error {
+	return cmdtesting.InitCommand(model.NewDiffCommandForTest(nil, s.store), args)
 }
 
-func (s *showGenerationSuite) runCommand(c *gc.C) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, model.NewShowGenerationCommandForTest(s.api, s.store), s.branchName)
+func (s *diffSuite) runCommand(c *gc.C) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, model.NewDiffCommandForTest(s.api, s.store), s.branchName)
 }
 
-func (s *showGenerationSuite) setup(c *gc.C) *gomock.Controller {
+func (s *diffSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.api = mocks.NewMockDiffCommandAPI(ctrl)
 	s.api.EXPECT().Close()

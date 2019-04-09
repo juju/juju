@@ -56,7 +56,7 @@ type DiffCommandAPI interface {
 
 // addGenerationCommand is the simplified command for accessing and setting
 // attributes related to adding model generations.
-type showGenerationCommand struct {
+type diffCommand struct {
 	modelcmd.ModelCommandBase
 
 	api DiffCommandAPI
@@ -66,13 +66,13 @@ type showGenerationCommand struct {
 	branchName string
 }
 
-// NewShowGenerationCommand wraps showGenerationCommand with sane model settings.
-func NewShowGenerationCommand() cmd.Command {
-	return modelcmd.Wrap(&showGenerationCommand{})
+// NewDiffCommand wraps diffCommand with sane model settings.
+func NewDiffCommand() cmd.Command {
+	return modelcmd.Wrap(&diffCommand{})
 }
 
 // Info implements part of the cmd.Command interface.
-func (c *showGenerationCommand) Info() *cmd.Info {
+func (c *diffCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:    "show-generation",
 		Args:    "<branch name>",
@@ -83,14 +83,14 @@ func (c *showGenerationCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements part of the cmd.Command interface.
-func (c *showGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *diffCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 // Init implements part of the cmd.Command interface.
-func (c *showGenerationCommand) Init(args []string) error {
+func (c *diffCommand) Init(args []string) error {
 	if len(args) != 1 {
 		return errors.Errorf("must specify a branch name")
 	}
@@ -111,7 +111,7 @@ func (c *showGenerationCommand) Init(args []string) error {
 
 // getAPI returns the API. This allows passing in a test ShowGenerationCommandAPI
 // implementation.
-func (c *showGenerationCommand) getAPI() (DiffCommandAPI, error) {
+func (c *diffCommand) getAPI() (DiffCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -124,7 +124,7 @@ func (c *showGenerationCommand) getAPI() (DiffCommandAPI, error) {
 }
 
 // Run implements the meaty part of the cmd.Command interface.
-func (c *showGenerationCommand) Run(ctx *cmd.Context) error {
+func (c *diffCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
