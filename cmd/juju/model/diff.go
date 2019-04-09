@@ -22,27 +22,34 @@ import (
 )
 
 const (
-	showGenerationSummary = `Displays a summary of the active "next" generation.`
-	showGenerationDoc     = `
-Summary information includes each application that has changes made under the
-generation, with any units that have been advanced, and any changed config
-values made to the generations.
+	diffSummary = `Displays details of active branches.`
+	diffDoc     = `
+Details displayed include:
+- user who created the branch
+- when it was created
+- configuration changes made under the branch for each application
+- a summary of how many units are tracking the branch
+
+Supplying the --all flag will show units tracking the branch and those still
+tracking "master".
 
 Examples:
-    juju show-generation
-    juju show-generation --utc
+    juju diff
+	juju diff test-branch --all 	
+    juju diff --utc
 
 See also:
-    add-generation
-    advance-generation
-    cancel-generation
-    switch-generation
+    branch
+    track
+    checkout
+    commit
+    abort
 `
 )
 
 // ShowGenerationCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package mocks -destination ./mocks/showgeneration_mock.go github.com/juju/juju/cmd/juju/model ShowGenerationCommandAPI
-type ShowGenerationCommandAPI interface {
+//go:generate mockgen -package mocks -destination ./mocks/diff_mock.go github.com/juju/juju/cmd/juju/model DiffCommandAPI
+type DiffCommandAPI interface {
 	Close() error
 	GenerationInfo(string, string, func(time.Time) string) (model.GenerationSummaries, error)
 }
@@ -52,7 +59,7 @@ type ShowGenerationCommandAPI interface {
 type showGenerationCommand struct {
 	modelcmd.ModelCommandBase
 
-	api ShowGenerationCommandAPI
+	api DiffCommandAPI
 	out cmd.Output
 
 	isoTime    bool
@@ -69,8 +76,8 @@ func (c *showGenerationCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:    "show-generation",
 		Args:    "<branch name>",
-		Purpose: showGenerationSummary,
-		Doc:     showGenerationDoc,
+		Purpose: diffSummary,
+		Doc:     diffDoc,
 	}
 	return jujucmd.Info(info)
 }
@@ -104,7 +111,7 @@ func (c *showGenerationCommand) Init(args []string) error {
 
 // getAPI returns the API. This allows passing in a test ShowGenerationCommandAPI
 // implementation.
-func (c *showGenerationCommand) getAPI() (ShowGenerationCommandAPI, error) {
+func (c *showGenerationCommand) getAPI() (DiffCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}

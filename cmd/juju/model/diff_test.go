@@ -19,7 +19,7 @@ import (
 type showGenerationSuite struct {
 	generationBaseSuite
 
-	api *mocks.MockShowGenerationCommandAPI
+	api *mocks.MockDiffCommandAPI
 }
 
 var _ = gc.Suite(&showGenerationSuite{})
@@ -85,7 +85,7 @@ func (s *showGenerationSuite) runCommand(c *gc.C) (*cmd.Context, error) {
 
 func (s *showGenerationSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.api = mocks.NewMockShowGenerationCommandAPI(ctrl)
+	s.api = mocks.NewMockDiffCommandAPI(ctrl)
 	s.api.EXPECT().Close()
 	return ctrl
 }
