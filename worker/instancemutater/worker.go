@@ -48,6 +48,8 @@ type Config struct {
 
 	// Tag is the current mutaterMachine tag
 	Tag names.Tag
+
+	GetMachineWatcher func() (watcher.StringsWatcher, error)
 }
 
 // Validate checks for missing values from the configuration and checks that
@@ -71,13 +73,33 @@ func (config Config) Validate() error {
 	if _, ok := config.Tag.(names.MachineTag); !ok {
 		return errors.NotValidf("Tag")
 	}
+	if config.GetMachineWatcher == nil {
+		return errors.NotValidf("nil GetMachineWatcher")
+	}
 	return nil
 }
 
-// NewWorker returns a worker that keeps track of
-// the machines/containers in the state and polls their instance
-// for any changes.
-func NewWorker(config Config) (worker.Worker, error) {
+// NewEnvironWorker returns a worker that keeps track of
+// the machines in the state and polls their instance
+// for addition or removal changes.
+func NewEnvironWorker(config Config) (worker.Worker, error) {
+	config.GetMachineWatcher = config.Facade.WatchModelMachines
+	return newWorker(config)
+}
+
+// NewContainerWorker returns a worker that keeps track of
+// the containers in the state for this machine agent and
+// polls their instance for addition or removal changes.
+func NewContainerWorker(config Config) (worker.Worker, error) {
+	m, err := config.Facade.Machine(config.Tag.(names.MachineTag))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	config.GetMachineWatcher = m.WatchContainers
+	return newWorker(config)
+}
+
+func newWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -88,7 +110,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		config.Logger.Debugf("uninstalling, not an LXD capable broker")
 		return nil, dependency.ErrUninstall
 	}
-	watcher, err := config.Facade.WatchModelMachines()
+	watcher, err := config.GetMachineWatcher()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
