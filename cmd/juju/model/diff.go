@@ -47,15 +47,15 @@ See also:
 `
 )
 
-// ShowGenerationCommandAPI defines an API interface to be used during testing.
+// DiffCommandAPI describes API methods required to execute the diff command.
 //go:generate mockgen -package mocks -destination ./mocks/diff_mock.go github.com/juju/juju/cmd/juju/model DiffCommandAPI
 type DiffCommandAPI interface {
 	Close() error
-	GenerationInfo(string, string, func(time.Time) string) (model.GenerationSummaries, error)
+	BranchInfo(string, string, bool, func(time.Time) string) (model.GenerationSummaries, error)
 }
 
-// addGenerationCommand is the simplified command for accessing and setting
-// attributes related to adding model generations.
+// diffCommand supplies the "diff" CLI command used to show information about
+// active model branches.
 type diffCommand struct {
 	modelcmd.ModelCommandBase
 
@@ -64,6 +64,7 @@ type diffCommand struct {
 
 	isoTime    bool
 	branchName string
+	detailed   bool
 }
 
 // NewDiffCommand wraps diffCommand with sane model settings.
@@ -74,7 +75,7 @@ func NewDiffCommand() cmd.Command {
 // Info implements part of the cmd.Command interface.
 func (c *diffCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "show-generation",
+		Name:    "diff",
 		Args:    "<branch name>",
 		Purpose: diffSummary,
 		Doc:     diffDoc,
@@ -86,15 +87,19 @@ func (c *diffCommand) Info() *cmd.Info {
 func (c *diffCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	f.BoolVar(&c.detailed, "all", false, "Show branch unit detail")
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 // Init implements part of the cmd.Command interface.
 func (c *diffCommand) Init(args []string) error {
-	if len(args) != 1 {
-		return errors.Errorf("must specify a branch name")
+	lArgs := len(args)
+	if lArgs > 1 {
+		return errors.Errorf("expected at most 1 branch name, got %d arguments", lArgs)
 	}
-	c.branchName = args[0]
+	if lArgs == 1 {
+		c.branchName = args[0]
+	}
 
 	// If use of ISO time not specified on command line, check env var.
 	if !c.isoTime {
@@ -109,8 +114,8 @@ func (c *diffCommand) Init(args []string) error {
 	return nil
 }
 
-// getAPI returns the API. This allows passing in a test ShowGenerationCommandAPI
-// implementation.
+// getAPI returns the API that supplies methods
+// required to execute this command.
 func (c *diffCommand) getAPI() (DiffCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
@@ -141,7 +146,7 @@ func (c *diffCommand) Run(ctx *cmd.Context) error {
 		return common.FormatTime(&t, c.isoTime)
 	}
 
-	deltas, err := client.GenerationInfo(modelDetails.ModelUUID, c.branchName, formatTime)
+	deltas, err := client.BranchInfo(modelDetails.ModelUUID, c.branchName, c.detailed, formatTime)
 	if err != nil {
 		return errors.Trace(err)
 	}

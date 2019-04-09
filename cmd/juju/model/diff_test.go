@@ -24,14 +24,19 @@ type diffSuite struct {
 
 var _ = gc.Suite(&diffSuite{})
 
-func (s *diffSuite) TestInit(c *gc.C) {
+func (s *diffSuite) TestInitNoBranch(c *gc.C) {
+	err := s.runInit()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *diffSuite) TestInitBranchName(c *gc.C) {
 	err := s.runInit(s.branchName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *diffSuite) TestInitFail(c *gc.C) {
-	err := s.runInit()
-	c.Assert(err, gc.ErrorMatches, "must specify a branch name")
+	err := s.runInit("multiple", "branch", "names")
+	c.Assert(err, gc.ErrorMatches, "expected at most 1 branch name, got 3 arguments")
 }
 
 func (s *diffSuite) TestRunCommandNextGenExists(c *gc.C) {
@@ -48,7 +53,7 @@ func (s *diffSuite) TestRunCommandNextGenExists(c *gc.C) {
 			}},
 		},
 	}
-	s.api.EXPECT().GenerationInfo(gomock.Any(), s.branchName, gomock.Any()).Return(result, nil)
+	s.api.EXPECT().BranchInfo(gomock.Any(), s.branchName, false, gomock.Any()).Return(result, nil)
 
 	ctx, err := s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,7 +73,7 @@ new-branch:
 func (s *diffSuite) TestRunCommandNextNoGenError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.api.EXPECT().GenerationInfo(gomock.Any(), s.branchName, gomock.Any()).Return(
+	s.api.EXPECT().BranchInfo(gomock.Any(), s.branchName, false, gomock.Any()).Return(
 		nil, errors.New("this model has no next generation"))
 
 	_, err := s.runCommand(c)

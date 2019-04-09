@@ -104,11 +104,12 @@ func (c *Client) HasActiveBranch(modelUUID, branchName string) (bool, error) {
 	return result.Result, nil
 }
 
-// GenerationInfo returns a list of application with changes in the "next"
-// generation, with units moved to the generation, and any generational
-// configuration changes.
-func (c *Client) GenerationInfo(
-	modelUUID, branchName string, formatTime func(time.Time) string,
+// BranchInfo returns information about "in-flight" branches.
+// If a non-empty string is supplied for branch name, then only information
+// for that branch is returned.
+// Supplying true for detailed returns extra unit detail for the branch.
+func (c *Client) BranchInfo(
+	modelUUID, branchName string, detailed bool, formatTime func(time.Time) string,
 ) (model.GenerationSummaries, error) {
 	var result params.GenerationResult
 	err := c.facade.FacadeCall("BranchInfo", argForBranch(modelUUID, branchName), &result)
