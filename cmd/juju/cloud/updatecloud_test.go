@@ -6,6 +6,7 @@ package cloud_test
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -23,7 +24,7 @@ import (
 type updateCloudSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api   *fakeUpdateCloudAPI
-	store jujuclient.ClientStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&updateCloudSuite{})
@@ -90,6 +91,19 @@ func (s *updateCloudSuite) TestUpdateLocalCacheFromFile(c *gc.C) {
 	c.Assert(s.api.Calls(), gc.HasLen, 0)
 }
 
+func (s *updateCloudSuite) TestUpdateFromFileDefaultLocal(c *gc.C) {
+	s.store.Controllers = nil
+	cmd, fileName := s.setupCloudFileScenario(c, func(controllerName string) (cloud.UpdateCloudAPI, error) {
+		return nil, errors.New("")
+	})
+	ctx, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.Calls(), gc.HasLen, 0)
+	out := cmdtesting.Stderr(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `There are no controllers running.Updating cloud in local cache so you can use it to bootstrap a controller.*`)
+}
+
 func (s *updateCloudSuite) TestUpdateLocalCacheBadFile(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	badFileErr := errors.New("")
@@ -106,7 +120,7 @@ func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
 		controllerNameCalled = controllerName
 		return s.api, nil
 	})
-	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName)
+	ctx, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "UpdateCloud", "Close")
 	c.Assert(controllerNameCalled, gc.Equals, "mycontroller")
@@ -117,6 +131,9 @@ func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
 		AuthTypes:   jujucloud.AuthTypes{"oauth1"},
 		Endpoint:    "http://garagemaas",
 	})
+	out := cmdtesting.Stderr(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `Cloud "garage-maas" updated on controller "mycontroller".`)
 }
 
 func (s *updateCloudSuite) TestUpdateControllerLocalCacheBadFile(c *gc.C) {

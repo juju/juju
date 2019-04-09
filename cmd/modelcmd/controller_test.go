@@ -158,8 +158,7 @@ No controllers registered.
 
 Please either create a new controller using "juju bootstrap" or connect to
 another controller that you have been given access to using "juju register".
-
-Use --local to update the local cache.`[1:])
+`[1:])
 }
 
 func (s *OptionalControllerCommandSuite) TestControllerCommandCurrent(c *gc.C) {
