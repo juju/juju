@@ -54,7 +54,7 @@ func (api *APIBase) getConfig(
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	settings, err := app.CharmConfig(args.Generation)
+	settings, err := app.CharmConfig(args.BranchName)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}

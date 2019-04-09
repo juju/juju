@@ -185,9 +185,9 @@ type ApplicationGetArgs struct {
 type ApplicationGet struct {
 	ApplicationName string `json:"application"`
 
-	// Generation is the generation version that this
+	// BranchName identifies the "in-flight" branch that this
 	// request will retrieve application data for.
-	Generation string `json:"generation"`
+	BranchName string `json:"branch"`
 }
 
 // ApplicationGetResults holds results of the application Get call.

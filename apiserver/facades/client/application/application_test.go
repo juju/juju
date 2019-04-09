@@ -120,9 +120,9 @@ func (s *applicationSuite) TestCharmConfig(c *gc.C) {
 	// refactor these tests to account for it.
 	results, err := s.applicationAPI.CharmConfig(params.ApplicationGetArgs{
 		Args: []params.ApplicationGet{
-			{ApplicationName: "foo", Generation: model.GenerationMaster},
-			{ApplicationName: "bar", Generation: model.GenerationMaster},
-			{ApplicationName: "wat", Generation: model.GenerationMaster},
+			{ApplicationName: "foo", BranchName: model.GenerationMaster},
+			{ApplicationName: "bar", BranchName: model.GenerationMaster},
+			{ApplicationName: "wat", BranchName: model.GenerationMaster},
 		},
 	})
 	assertConfigTest(c, results, err, []params.ConfigResult{})
@@ -1831,8 +1831,6 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsBranch(c *gc.C) {
-	c.Skip("To be rewritten when branch-based configuration reads are implemented.")
-
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
 
@@ -1881,8 +1879,6 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLBranch(c *gc.C) {
-	c.Skip("To be rewritten when branch-based configuration reads are implemented.")
-
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
 

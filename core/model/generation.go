@@ -10,13 +10,9 @@ import (
 // TODO (manadart 2019-04-21) Change the nomenclature here to indicate "branch"
 // instead of "generation", and remove Current/Next.
 
-const (
-	// GenerationMaster is used to indicate the main model configuration,
-	// i.e. that not dealing with in-flight branches.
-	GenerationMaster = "master"
-
-	generationKeySuffix = "#next"
-)
+// GenerationMaster is used to indicate the main model configuration,
+// i.e. that not dealing with in-flight branches.
+const GenerationMaster = "master"
 
 // ValidateBranchName returns an error if the input name is not suitable for
 // identifying a new in-flight branch.
@@ -28,12 +24,6 @@ func ValidateBranchName(name string) error {
 		return errors.NotValidf("branch name %q", GenerationMaster)
 	}
 	return nil
-}
-
-// NextGenerationKey adds a suffix to the input key that designates it as being
-// for "next" generation config, and returns the result.
-func NextGenerationKey(key string) string {
-	return key + generationKeySuffix
 }
 
 // GenerationApplication represents changes to an application

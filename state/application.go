@@ -121,24 +121,6 @@ func applicationCharmConfigKey(appName string, curl *charm.URL) string {
 	return fmt.Sprintf("a#%s#%s", appName, curl)
 }
 
-// charmConfigKeyGeneration returns the charm-version-specific settings
-// collection key and possibly a fallback for the application, based on the
-// input generation.
-// If the next generation is requested, the fallback is the standard key.
-// If the current generation is requested, there is no fallback.
-// TODO (manadart 2019-02-21) This will eventually strangle out usage of the
-// standard charmConfigKey at which point it should replace it.
-func (a *Application) charmConfigKeyGeneration(gen string) (string, string) {
-	key := applicationCharmConfigKey(a.doc.Name, a.doc.CharmURL)
-	if gen == model.GenerationMaster {
-		return key, ""
-	}
-	// TODO (manadart 2019-02-21) If specific generation version tracking is
-	// required in future, here we will retrieve the generation document and
-	// suffix the key with some pattern including the generation ID.
-	return model.NextGenerationKey(key), key
-}
-
 // charmConfigKey returns the charm-version-specific settings collection
 // key for the application.
 func (a *Application) charmConfigKey() string {
@@ -2181,35 +2163,50 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 	return relations, nil
 }
 
-func charmSettingsWithDefaults(st *State, curl *charm.URL, requestKey, fallbackKey string) (charm.Settings, error) {
-	settings, err := readSettingsOrCreateFromFallback(st.db(), settingsC, requestKey, fallbackKey)
-	if err != nil {
-		return nil, err
+// CharmConfig returns the raw user configuration for the application's charm.
+func (a *Application) CharmConfig(branchName string) (charm.Settings, error) {
+	if a.doc.CharmURL == nil {
+		return nil, fmt.Errorf("application charm not set")
 	}
-	result := settings.Map()
 
-	chrm, err := st.Charm(curl)
+	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.Name(), branchName)
+	return s, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
+}
+
+func charmSettingsWithDefaults(st *State, cURL *charm.URL, appName, branchName string) (charm.Settings, error) {
+	cfg, err := branchCharmSettings(st, cURL, appName, branchName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	result = chrm.Config().DefaultSettings()
-	for name, value := range settings.Map() {
+
+	ch, err := st.Charm(cURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := ch.Config().DefaultSettings()
+	for name, value := range cfg.Map() {
 		result[name] = value
 	}
 	return result, nil
 }
 
-// CharmConfig returns the raw user configuration for the application's charm.
-func (a *Application) CharmConfig(gen string) (charm.Settings, error) {
-	if a.doc.CharmURL == nil {
-		return nil, fmt.Errorf("application charm not set")
-	}
-	k1, k2 := a.charmConfigKeyGeneration(gen)
-	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, k1, k2)
+func branchCharmSettings(st *State, cURL *charm.URL, appName, branchName string) (*Settings, error) {
+	key := applicationCharmConfigKey(appName, cURL)
+	cfg, err := readSettings(st.db(), settingsC, key)
 	if err != nil {
-		return nil, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
+		return nil, errors.Trace(err)
 	}
-	return s, nil
+
+	if branchName != model.GenerationMaster {
+		branch, err := st.Branch(branchName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cfg.applyChanges(branch.Config()[appName])
+	}
+
+	return cfg, nil
 }
 
 // UpdateCharmConfig changes a application's charm config settings. Values set

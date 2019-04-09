@@ -165,7 +165,7 @@ func (c *Client) GetCharmURL(branchName, applicationName string) (*charm.URL, er
 	result := new(params.StringResult)
 	args := params.ApplicationGet{
 		ApplicationName: applicationName,
-		Generation:      branchName,
+		BranchName:      branchName,
 	}
 	err := c.facade.FacadeCall("GetCharmURL", args, result)
 	if err != nil {
@@ -204,7 +204,7 @@ func (c *Client) GetConfig(branchName string, appNames ...string) ([]map[string]
 		// Version 9 of the API introduces generational config.
 		arg := params.ApplicationGetArgs{Args: make([]params.ApplicationGet, len(appNames))}
 		for i, appName := range appNames {
-			arg.Args[i] = params.ApplicationGet{ApplicationName: appName, Generation: branchName}
+			arg.Args[i] = params.ApplicationGet{ApplicationName: appName, BranchName: branchName}
 		}
 		callArg = arg
 	}
@@ -735,7 +735,7 @@ func (c *Client) Get(branchName, application string) (*params.ApplicationGetResu
 	var results params.ApplicationGetResults
 	args := params.ApplicationGet{
 		ApplicationName: application,
-		Generation:      branchName,
+		BranchName:      branchName,
 	}
 	err := c.facade.FacadeCall("Get", args, &results)
 	return &results, err
@@ -934,7 +934,7 @@ func (c *Client) ApplicationsInfo(applications []names.ApplicationTag) ([]params
 	for i, one := range applications {
 		all[i] = params.Entity{Tag: one.String()}
 	}
-	in := params.Entities{all}
+	in := params.Entities{Entities: all}
 	var out params.ApplicationInfoResults
 	err := c.facade.FacadeCall("ApplicationsInfo", in, &out)
 	if err != nil {

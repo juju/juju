@@ -271,29 +271,6 @@ func (st *State) ReadSettings(collection, key string) (*Settings, error) {
 	return readSettings(st.db(), collection, key)
 }
 
-// TODO (manadart 2019-04-05): Remove this method when logic to apply deltas
-// from branches is implemented.
-// readSettingsOrCreateFromFallback attempts to retrieve settings first for the
-// requested key, then if not found, a non-empty fallback key.
-// If the fallback is used, the settings are created for the requested key.
-func readSettingsOrCreateFromFallback(db Database, collection, requestKey, fallbackKey string) (*Settings, error) {
-	s, err := readSettings(db, collection, requestKey)
-	if err == nil {
-		return s, nil
-	}
-	if fallbackKey == "" {
-		return nil, errors.Trace(err)
-	}
-
-	if errors.IsNotFound(err) {
-		s, err = readSettings(db, collection, fallbackKey)
-	}
-	if err == nil {
-		s, err = createSettings(db, collection, requestKey, s.Map())
-	}
-	return s, errors.Trace(err)
-}
-
 // readSettings returns the Settings for key.
 func readSettings(db Database, collection, key string) (*Settings, error) {
 	s := newSettings(db, collection, key)

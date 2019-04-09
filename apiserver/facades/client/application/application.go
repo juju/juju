@@ -2025,7 +2025,7 @@ func (api *APIBase) CharmConfig(args params.ApplicationGetArgs) (params.Applicat
 		Results: make([]params.ConfigResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		config, err := api.getCharmConfig(arg.Generation, arg.ApplicationName)
+		config, err := api.getCharmConfig(arg.BranchName, arg.ApplicationName)
 		results.Results[i].Config = config
 		results.Results[i].Error = common.ServerError(err)
 	}

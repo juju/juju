@@ -149,8 +149,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	}
 
 	// TODO (manadart 2019-02-21) Factor the current generation into this call.
-	s, err := charmSettingsWithDefaults(
-		u.st, u.doc.CharmURL, applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL), "")
+	s, err := charmSettingsWithDefaults(u.st, u.doc.CharmURL, u.doc.Application, model.GenerationMaster)
 	if err != nil {
 		return nil, errors.Annotatef(err, "charm config for unit %q", u.Name())
 	}
