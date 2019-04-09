@@ -58,8 +58,7 @@ type ControllerGauges struct {
 	LXDProfileChangeHit   prometheus.Gauge
 	LXDProfileChangeMiss  prometheus.Gauge
 
-	GCMark  prometheus.Gauge
-	GCSweep prometheus.Gauge
+	GCCollection prometheus.Gauge
 }
 
 func createControllerGauges() *ControllerGauges {
@@ -127,18 +126,11 @@ func createControllerGauges() *ControllerGauges {
 				Help:      "The number of times an LXD Profile change was not found.",
 			},
 		),
-		GCMark: prometheus.NewGauge(
+		GCCollection: prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Namespace: metricsNamespace,
-				Name:      "cache_gc_mark",
-				Help:      "The number of marks the garbage collector on the cache has performed.",
-			},
-		),
-		GCSweep: prometheus.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: metricsNamespace,
-				Name:      "cache_gc_sweep",
-				Help:      "The number of sweeps the garbage collector on the cache has performed.",
+				Name:      "cache_gc_collection",
+				Help:      "The number of collections the garbage collector on the cache has performed.",
 			},
 		),
 	}
@@ -158,8 +150,7 @@ func (c *ControllerGauges) Collect(ch chan<- prometheus.Metric) {
 	c.LXDProfileChangeHit.Collect(ch)
 	c.LXDProfileChangeMiss.Collect(ch)
 
-	c.GCMark.Collect(ch)
-	c.GCSweep.Collect(ch)
+	c.GCCollection.Collect(ch)
 }
 
 // Collector is a prometheus.Collector that collects metrics about

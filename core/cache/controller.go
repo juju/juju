@@ -121,7 +121,6 @@ func (c *Controller) Mark() map[string]int {
 	for uuid, model := range c.models {
 		result[uuid] = model.mark()
 	}
-	c.metrics.GCMark.Inc()
 	c.mu.Unlock()
 	return result
 }
@@ -149,7 +148,6 @@ func (c *Controller) Sweep() (map[string]SweepInfo, error) {
 			StaleCount: len(deltas.Deltas),
 		}
 	}
-	c.metrics.GCSweep.Inc()
 	c.mu.Unlock()
 
 	// Go through all the deltas and dispatch the removal deltas we
@@ -159,6 +157,8 @@ func (c *Controller) Sweep() (map[string]SweepInfo, error) {
 	for _, delta := range removalOps {
 		c.dispatch(delta)
 	}
+	// Ensure we fire off the collection metric
+	c.metrics.GCCollection.Inc()
 	return result, nil
 }
 
