@@ -94,8 +94,12 @@ func MakeDeletion(key string, oldVal interface{}) ItemChange {
 // It implements the sort interface to sort the items changes by key.
 type ItemChanges []ItemChange
 
-// ApplyDeltaSource uses this second-order delta generate a first-older delta
-// by comparing with the incoming changes collection.
+// ApplyDeltaSource uses this second-order delta to generate a first-older
+// delta.
+// It accepts a collection of changes representing a previous state.
+// These are combined with the current changes to generate a new collection.
+// It addresses a requirement that each branch change should represent the
+// "from" state of master config at the time it is first created.
 func (c ItemChanges) ApplyDeltaSource(oldChanges ItemChanges) (ItemChanges, error) {
 	m, err := oldChanges.Map()
 	if err != nil {
@@ -128,9 +132,11 @@ func (c ItemChanges) ApplyDeltaSource(oldChanges ItemChanges) (ItemChanges, erro
 	}
 
 	// If there is an old change not present in this collection,
-	// then we know that the value has been reset to the original.
-	// We need to maintain a no-op entry in order to retain the old value from
-	// when the configuration setting was first touched.
+	// then we know that the setting was reset to its original value.
+	// If this setting is subsequently reinstated, it is possible to lose the
+	// original "from" value if master is updated in the meantime.
+	// So we maintain a no-op entry (same from/to) in order to retain the old
+	// value from when the configuration setting was first touched.
 	// These values are not shown to an operator who views a "diff"
 	// for the branch.
 	for key, old := range m {
