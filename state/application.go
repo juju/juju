@@ -2214,7 +2214,7 @@ func (a *Application) CharmConfig(gen string) (charm.Settings, error) {
 
 // UpdateCharmConfig changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
-func (a *Application) UpdateCharmConfig(gen string, changes charm.Settings) error {
+func (a *Application) UpdateCharmConfig(branchName string, changes charm.Settings) error {
 	ch, _, err := a.Charm()
 	if err != nil {
 		return errors.Trace(err)
@@ -2228,21 +2228,41 @@ func (a *Application) UpdateCharmConfig(gen string, changes charm.Settings) erro
 	// about every use case. This needs to be resolved some time; but at
 	// least the settings docs are keyed by charm url as well as application
 	// name, so the actual impact of a race is non-threatening.
-
-	k1, k2 := a.charmConfigKeyGeneration(gen)
-	node, err := readSettingsOrCreateFromFallback(a.st.db(), settingsC, k1, k2)
+	current, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
 	if err != nil {
 		return errors.Annotatef(err, "charm config for application %q", a.doc.Name)
 	}
-	for name, value := range changes {
+
+	if branchName == model.GenerationMaster {
+		return errors.Trace(a.updateMasterConfig(current, changes))
+	}
+	return errors.Trace(a.updateBranchConfig(branchName, current, changes))
+}
+
+// TODO (manadart 2019-04-03): Implement master config changes as
+// instantly committed branches.
+func (a *Application) updateMasterConfig(current *Settings, validChanges charm.Settings) error {
+	for name, value := range validChanges {
 		if value == nil {
-			node.Delete(name)
+			current.Delete(name)
 		} else {
-			node.Set(name, value)
+			current.Set(name, value)
 		}
 	}
-	_, err = node.Write()
+	_, err := current.Write()
 	return errors.Trace(err)
+}
+
+// updateBranchConfig compares the incoming charm settings to the current
+// settings to generate a collection of changes, which is used to update the
+// branch with the input name.
+func (a *Application) updateBranchConfig(branchName string, current *Settings, validChanges charm.Settings) error {
+	branch, err := a.st.Branch(branchName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(branch.UpdateCharmConfig(a.Name(), current, validChanges))
 }
 
 // ApplicationConfig returns the configuration for the application itself.

@@ -4,7 +4,7 @@
 package model
 
 import (
-	errors "github.com/juju/errors"
+	"github.com/juju/errors"
 )
 
 // TODO (manadart 2019-04-21) Change the nomenclature here to indicate "branch"

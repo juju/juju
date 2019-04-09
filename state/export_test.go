@@ -786,6 +786,15 @@ func GetControllerSettings(st *State) *Settings {
 	return newSettings(st.db(), controllersC, controllerSettingsGlobalKey)
 }
 
+// GetPopulatedSettings returns a reference to settings with the input values
+// populated. Attempting to read/write will cause nil-reference panics.
+func GetPopulatedSettings(cfg map[string]interface{}) *Settings {
+	return &Settings{
+		disk: copyMap(cfg, nil),
+		core: copyMap(cfg, nil),
+	}
+}
+
 // NewSLALevel returns a new SLA level.
 func NewSLALevel(level string) (slaLevel, error) {
 	return newSLALevel(level)

@@ -1098,8 +1098,7 @@ func (api *APIBase) Set(p params.ApplicationSet) error {
 		return err
 	}
 
-	return app.UpdateCharmConfig(p.Generation, changes)
-
+	return app.UpdateCharmConfig(model.GenerationMaster, changes)
 }
 
 // Unset implements the server side of Client.Unset.
