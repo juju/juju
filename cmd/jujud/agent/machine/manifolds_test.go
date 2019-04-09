@@ -138,7 +138,6 @@ func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"api-config-watcher",
 			"api-server",
 			"audit-config-updater",
-			"caas-broker-tracker",
 			"central-hub",
 			"certificate-updater",
 			"certificate-watcher",

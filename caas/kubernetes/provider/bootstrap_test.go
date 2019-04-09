@@ -474,7 +474,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Args: []string{
 				"-c",
 				`
-test -e ./jujud || cp /opt/jujud $(pwd)/jujud
+cp /opt/jujud $(pwd)/jujud
 
 test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /var/lib/juju/bootstrap-params --data-dir /var/lib/juju --debug --timeout 0s
 ./jujud machine --data-dir /var/lib/juju --machine-id 0 --debug

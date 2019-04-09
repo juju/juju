@@ -275,7 +275,7 @@ var operatorPodspec = core.PodSpec{
 		Args: []string{
 			"-c",
 			`
-test -e ./jujud || cp /opt/jujud $(pwd)/jujud
+cp /opt/jujud $(pwd)/jujud
 ./jujud caasoperator --application-name=test --debug
 `[1:],
 		},

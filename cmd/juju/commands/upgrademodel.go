@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
@@ -356,6 +357,95 @@ func (c *upgradeJujuCommand) getControllerAPI() (controllerAPI, error) {
 
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if modelType == model.CAAS {
+		return c.upgradeCAASModel(ctx)
+	}
+	return c.upgradeIAASModel(ctx)
+}
+
+func (c *upgradeJujuCommand) upgradeCAASModel(ctx *cmd.Context) (err error) {
+	if c.BuildAgent {
+		return errors.NotSupportedf("--build-agent for k8s model upgrades")
+	}
+	client, err := c.getJujuClientAPI()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	modelConfigClient, err := c.getModelConfigAPI()
+	if err != nil {
+		return err
+	}
+	defer modelConfigClient.Close()
+	controllerAPI, err := c.getControllerAPI()
+	if err != nil {
+		return err
+	}
+	defer controllerAPI.Close()
+
+	defer func() {
+		if err == errUpToDate {
+			ctx.Infof(err.Error())
+			err = nil
+		}
+	}()
+
+	// Determine the version to upgrade to.
+	attrs, err := modelConfigClient.ModelGet()
+	if err != nil {
+		return err
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return err
+	}
+
+	currentAgentVersion, ok := cfg.AgentVersion()
+	if !ok {
+		// Can't happen. In theory.
+		return errors.New("incomplete model configuration")
+	}
+
+	warnCompat, err := c.precheck(ctx, currentAgentVersion)
+	if err != nil {
+		return err
+	}
+
+	controllerCfg, err := controllerAPI.ControllerConfig()
+	if err != nil {
+		return err
+	}
+
+	context, err := initCAASVersions(controllerCfg, c.Version, currentAgentVersion, warnCompat)
+	if err != nil {
+		return err
+	}
+
+	if err := context.maybeChoosePackagedAgent(); err != nil {
+		ctx.Verbosef("%v", err)
+		return err
+	}
+
+	if err := context.validate(); err != nil {
+		return err
+	}
+	ctx.Verbosef("available agent images:\n%s", formatVersions(context.packagedAgents))
+	fmt.Fprintf(ctx.Stderr, "best version:\n    %v\n", context.chosen)
+	if warnCompat {
+		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", context.chosen, jujuversion.Current)
+	}
+	if c.DryRun {
+		fmt.Fprintf(ctx.Stderr, "%s\n", c.upgradeMessage)
+		return nil
+	}
+	return c.notifyControllerUpgrade(ctx, client, context)
+}
+
+func (c *upgradeJujuCommand) upgradeIAASModel(ctx *cmd.Context) (err error) {
 
 	client, err := c.getJujuClientAPI()
 	if err != nil {

@@ -4,6 +4,8 @@
 package params
 
 import (
+	"github.com/juju/version"
+
 	"github.com/juju/juju/core/constraints"
 )
 
@@ -98,4 +100,10 @@ type KubernetesDeviceParams struct {
 	Type       DeviceType        `bson:"type"`
 	Count      int64             `bson:"count"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
+}
+
+// KubernetesUpgradeArg holds args used to upgrade an operator.
+type KubernetesUpgradeArg struct {
+	AgentTag string         `json:"agent-tag"`
+	Version  version.Number `json:"version"`
 }

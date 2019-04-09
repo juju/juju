@@ -44,8 +44,7 @@ import (
 	"github.com/juju/juju/worker/apiservercertwatcher"
 	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/authenticationworker"
-	"github.com/juju/juju/worker/caasbroker"
-	"github.com/juju/juju/worker/caascontrollerupgrader"
+	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/common"
@@ -935,18 +934,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // various responsibilities of a CAAS machine agent.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
-		caasBrokerTrackerName: caasbroker.Manifold(caasbroker.ManifoldConfig{
-			APICallerName:          apiCallerName,
-			NewContainerBrokerFunc: config.NewContainerBrokerFunc,
-		}),
-
 		// TODO(caas) - when we support HA, only want this on primary
-		upgraderName: caascontrollerupgrader.Manifold(caascontrollerupgrader.ManifoldConfig{
+		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			UpgradeCheckGateName: upgradeCheckGateName,
-			BrokerName:           caasBrokerTrackerName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
 		}),
 	})
@@ -1086,6 +1079,4 @@ const (
 	raftForwarderName = "raft-forwarder"
 
 	validCredentialFlagName = "valid-credential-flag"
-
-	caasBrokerTrackerName = "caas-broker-tracker"
 )
