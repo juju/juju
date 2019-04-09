@@ -85,6 +85,7 @@ type ModelCacheMachine interface {
 	InstanceId() (instance.Id, error)
 	CharmProfiles() []string
 	WatchApplicationLXDProfiles() (cache.NotifyWatcher, error)
+	WatchContainers() (cache.StringsWatcher, error)
 	Units() ([]ModelCacheUnit, error)
 }
 
