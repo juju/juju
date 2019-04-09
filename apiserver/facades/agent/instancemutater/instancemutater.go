@@ -114,7 +114,7 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.Cha
 	}
 	lxdProfileInfo, err := api.machineLXDProfileInfo(m)
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = common.ServerError(errors.Annotatef(err, "%s", tag))
 	}
 
 	// use the results from the machineLXDProfileInfo and apply them to the
@@ -285,11 +285,8 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m ModelCacheMachine) (lxdPr
 	var empty lxdProfileInfo
 
 	instId, err := m.InstanceId()
-	if err != nil && params.IsCodeNotProvisioned(err) {
-		// There is nothing we can do with this machine at this point. The
-		// profiles will be applied when the machine is provisioned.
-		logger.Tracef("Attempting to apply a profile to a machine that isn't provisioned %q", instId)
-		return empty, nil
+	if err != nil {
+		return empty, errors.Trace(errors.Annotate(err, "attempting to get instanceId"))
 	}
 
 	units, err := m.Units()

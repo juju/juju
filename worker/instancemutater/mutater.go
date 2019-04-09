@@ -125,10 +125,10 @@ func (m mutaterMachine) watchProfileChangesLoop(profileChangeWatcher watcher.Not
 		case <-profileChangeWatcher.Changes():
 			info, err := m.machineApi.CharmProfilingInfo()
 			if err != nil {
-				return errors.Annotatef(err, "machine-%s", m.id)
+				return errors.Trace(err)
 			}
 			if err = m.processMachineProfileChanges(info); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}
@@ -159,8 +159,9 @@ func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 	// of expected profiles.
 	post, err := m.gatherProfileData(info)
 	if err != nil {
-		return report(errors.Annotatef(err, "processMachineProfileChanges %s.gatherProfileData(info):", m.id))
+		return report(errors.Annotatef(err, "%s", m.id))
 	}
+
 	// All juju lxd machines use these 2 profiles, independent of charm
 	// profiles.
 	expectedProfiles := []string{"default", "juju-" + info.ModelName}
@@ -172,7 +173,7 @@ func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 
 	verified, err := m.verifyCurrentProfiles(string(info.InstanceId), expectedProfiles)
 	if err != nil {
-		return report(errors.Annotatef(err, "processMachineProfileChanges %s.verifyCurrentProfiles():", m.id))
+		return report(errors.Annotatef(err, "%s", m.id))
 	}
 	if verified {
 		m.logger.Tracef("no changes necessary to machine-%s lxd profiles", m.id)
@@ -183,7 +184,8 @@ func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 	broker := m.context.getBroker()
 	currentProfiles, err := broker.AssignProfiles(string(info.InstanceId), expectedProfiles, post)
 	if err != nil {
-		return report(errors.Annotatef(err, "processMachineProfileChanges %s broker.AssignProfiles():", m.id))
+		m.logger.Errorf("failure to assign profiles %s to machine-%s: %s", expectedProfiles, m.id, err)
+		return report(err)
 	}
 
 	return report(m.machineApi.SetCharmProfiles(currentProfiles))
