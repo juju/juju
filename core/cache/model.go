@@ -137,11 +137,9 @@ func (m *Model) WatchMachines() *PredicateStringsWatcher {
 	m.mu.Lock()
 
 	// Gather initial slice of machines in this model.
-	machines := make([]string, len(m.machines))
-	i := 0
-	for k := range m.machines {
-		machines[i] = k
-		i++
+	machines := make([]string, 0, len(m.machines))
+	for id := range m.machines {
+		machines = append(machines, id)
 	}
 
 	w := newChangeWatcher(machines...)
