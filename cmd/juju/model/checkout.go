@@ -22,7 +22,8 @@ const (
 	checkoutDoc     = `
 Switch to the supplied branch, causing changes to charm configuration to apply 
 only to units tracking the branch. Changing the branch to "master" causes 
-changes to be applied to all units as usual.
+subsequent changes to be applied to all units that are not tracking an active
+branch.
 
 Examples:
     juju checkout test-branch
