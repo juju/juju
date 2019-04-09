@@ -45,6 +45,11 @@ func (u *Unit) removalDelta() interface{} {
 	}
 }
 
+// remove cleans up any associated data with the unit
+func (u *Unit) remove() {
+	// TODO (stickupkid): clean watchers
+}
+
 func (u *Unit) setDetails(details UnitChange) {
 	u.mu.Lock()
 	if u.details.MachineId != details.MachineId {

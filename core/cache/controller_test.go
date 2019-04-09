@@ -81,6 +81,21 @@ func (s *ControllerSuite) TestRemoveModel(c *gc.C) {
 	c.Check(controller.Report(), gc.HasLen, 0)
 }
 
+func (s *ControllerSuite) TestRemoveModelDeletesCascades(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, modelChange, events)
+	s.processChange(c, appChange, events)
+	s.processChange(c, charmChange, events)
+	s.processChange(c, machineChange, events)
+	s.processChange(c, unitChange, events)
+
+	remove := cache.RemoveModel{ModelUUID: modelChange.ModelUUID}
+	s.processChange(c, remove, events)
+
+	c.Check(controller.ModelUUIDs(), gc.HasLen, 0)
+	c.Check(controller.Report(), gc.HasLen, 0)
+}
+
 func (s *ControllerSuite) TestAddApplication(c *gc.C) {
 	controller, events := s.new(c)
 	s.processChange(c, appChange, events)

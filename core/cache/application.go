@@ -72,6 +72,11 @@ func (a *Application) removalDelta() interface{} {
 	}
 }
 
+// remove cleans up any associated data with the application
+func (a *Application) remove() {
+	// TODO (stickupkid): clean watchers
+}
+
 // appCharmUrlChange contains an appName and it's charm URL.  To be used
 // when publishing for applicationCharmURLChange.
 type appCharmUrlChange struct {

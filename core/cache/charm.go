@@ -47,6 +47,11 @@ func (c *Charm) removalDelta() interface{} {
 	}
 }
 
+// remove cleans up any associated data with the charm
+func (c *Charm) remove() {
+	// TODO (stickupkid): clean watchers
+}
+
 func (c *Charm) setDetails(details CharmChange) {
 	c.mu.Lock()
 	c.freshness = fresh

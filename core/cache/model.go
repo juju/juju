@@ -252,6 +252,29 @@ func (m *Model) removalDelta() interface{} {
 	}
 }
 
+// remove the other entities associated with the model, so everything is cleanly
+// cleaned up
+func (m *Model) remove() {
+	m.mu.Lock()
+	for key, app := range m.applications {
+		app.remove()
+		delete(m.applications, key)
+	}
+	for key, charm := range m.charms {
+		charm.remove()
+		delete(m.charms, key)
+	}
+	for key, machine := range m.machines {
+		machine.remove()
+		delete(m.machines, key)
+	}
+	for key, unit := range m.units {
+		unit.remove()
+		delete(m.units, key)
+	}
+	m.mu.Unlock()
+}
+
 // updateApplication adds or updates the application in the model.
 func (m *Model) updateApplication(ch ApplicationChange) {
 	m.mu.Lock()

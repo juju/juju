@@ -222,9 +222,8 @@ func (c *Controller) updateModel(ch ModelChange) {
 // removeModel removes the model from the cache.
 func (c *Controller) removeModel(ch RemoveModel) {
 	c.mu.Lock()
-	if _, ok := c.models[ch.ModelUUID]; ok {
-		// TODO (stickupkid): ensure we clean up the model, so that it
-		// also cleans up the watchers
+	if model, ok := c.models[ch.ModelUUID]; ok {
+		model.remove()
 		delete(c.models, ch.ModelUUID)
 	}
 	c.mu.Unlock()

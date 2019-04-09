@@ -187,6 +187,11 @@ func (m *Machine) removalDelta() interface{} {
 	}
 }
 
+// remove cleans up any associated data with the machine
+func (m *Machine) remove() {
+	// TODO (stickupkid): clean watchers
+}
+
 func (m *Machine) containerRegexp() (*regexp.Regexp, error) {
 	regExp := fmt.Sprintf("^%s%s", m.details.Id, names.ContainerSnippet)
 	return regexp.Compile(regExp)
