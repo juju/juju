@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -26,12 +27,22 @@ import (
 // I think that would be possible
 type kubernetesEnvironProvider struct {
 	environProviderCredentials
-	cmdRunner CommandRunner
+	cmdRunner          CommandRunner
+	builtinCloudGetter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error)
+	brokerGetter       func(environs.OpenParams) (caas.ClusterMetadataChecker, error)
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
 var providerInstance = kubernetesEnvironProvider{
-	cmdRunner: defaultRunner{},
+	environProviderCredentials: environProviderCredentials{
+		cmdRunner:          defaultRunner{},
+		builtinCloudGetter: attemptMicroK8sCloud,
+	},
+	cmdRunner:          defaultRunner{},
+	builtinCloudGetter: attemptMicroK8sCloud,
+	brokerGetter: func(args environs.OpenParams) (caas.ClusterMetadataChecker, error) {
+		return caas.New(args)
+	},
 }
 
 // Version is part of the EnvironProvider interface.

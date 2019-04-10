@@ -9,15 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
-)
-
-const (
-	builtinMicroK8sClusterName = "microk8s-cluster"
-	builtinMicroK8sName        = "microk8s"
-	builtinMicroK8sRegion      = "localhost"
 )
 
 func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error) {
@@ -30,10 +25,9 @@ func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Crede
 	rdr := bytes.NewReader(configContent)
 
 	cloudParams := KubeCloudParams{
-		ClusterName: builtinMicroK8sClusterName,
-		CaasName:    builtinMicroK8sName,
+		ClusterName: caas.MicroK8sClusterName,
+		CaasName:    caas.Microk8s,
 		CaasType:    CAASProviderType,
-
 		ClientConfigGetter: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
@@ -42,10 +36,16 @@ func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Crede
 }
 
 func getLocalMicroK8sConfig(cmdRunner CommandRunner) ([]byte, error) {
+	result, err := cmdRunner.RunCommands(exec.RunParams{
+		Commands: "which microk8s.config",
+	})
+	if err != nil || result.Code != 0 {
+		return []byte{}, errors.NotFoundf("microk8s")
+	}
 	execParams := exec.RunParams{
 		Commands: "microk8s.config",
 	}
-	result, err := cmdRunner.RunCommands(execParams)
+	result, err = cmdRunner.RunCommands(execParams)
 	if err != nil {
 		return []byte{}, err
 	}

@@ -11,6 +11,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
@@ -28,6 +30,8 @@ var (
 	CompileK8sCloudCheckers  = compileK8sCloudCheckers
 	CloudSpecToK8sRestConfig = cloudSpecToK8sRestConfig
 	ControllerCorelation     = controllerCorelation
+	GetLocalMicroK8sConfig   = getLocalMicroK8sConfig
+	AttemptMicroK8sCloud     = attemptMicroK8sCloud
 )
 
 type (
@@ -69,6 +73,23 @@ func PodSpec(u *unitSpec) core.PodSpec {
 
 func NewProvider() caas.ContainerEnvironProvider {
 	return kubernetesEnvironProvider{}
+}
+
+func NewProviderWithFakes(
+	runner CommandRunner,
+	getter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error),
+	brokerGetter func(environs.OpenParams) (caas.ClusterMetadataChecker, error)) caas.ContainerEnvironProvider {
+	return kubernetesEnvironProvider{
+		cmdRunner:          runner,
+		builtinCloudGetter: getter,
+		brokerGetter:       brokerGetter,
+	}
+}
+
+func NewProviderCredentials(getter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error)) environProviderCredentials {
+	return environProviderCredentials{
+		builtinCloudGetter: getter,
+	}
 }
 
 func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.Provider {

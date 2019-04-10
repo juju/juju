@@ -47,6 +47,9 @@ type AddCloudAPI interface {
 	Close() error
 }
 
+// BrokerGetter returns caas broker instance.
+type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error)
+
 var usageAddCAASSummary = `
 Adds a k8s endpoint and credential to Juju.`[1:]
 
@@ -137,7 +140,7 @@ type AddCAASCommand struct {
 	workloadStorage string
 
 	// brokerGetter returns caas broker instance.
-	brokerGetter provider.ClusterMetadataCheckerGetter
+	brokerGetter BrokerGetter
 
 	gke        bool
 	aks        bool
@@ -168,7 +171,7 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		return cloudapi.NewClient(root), nil
 	}
 
-	cmd.brokerGetter = cmd.newK8sClusterMetadataCheckerGetter()
+	cmd.brokerGetter = cmd.newK8sClusterBroker
 	cmd.getAllCloudDetails = jujucmdcloud.GetAllCloudDetails
 	return modelcmd.WrapBase(cmd)
 }
@@ -364,23 +367,33 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 		ClientConfigGetter: c.newClientConfigReader,
 	}
 
-	storageParams := provider.KubeCloudStorageParams{
-		WorkloadStorage: c.workloadStorage,
-		HostCloudRegion: c.hostCloudRegion,
-		Errors: provider.KubeCloudParamErrors{
-			ClusterQuery:         clusterQueryErrMsg,
-			UnknownCluster:       unknownClusterErrMsg,
-			NoRecommendedStorage: noRecommendedStorageErrMsg,
-		},
-		ClusterMetadataCheckerGetter: c.brokerGetter,
-		GetClusterMetadataFunc:       c.getClusterMetadataFunc(ctx),
-	}
 	newCloud, credential, credentialName, err := provider.CloudFromKubeConfig(rdr, config)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	broker, err := c.brokerGetter(newCloud, credential)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	storageParams := provider.KubeCloudStorageParams{
+		WorkloadStorage:        c.workloadStorage,
+		HostCloudRegion:        c.hostCloudRegion,
+		MetadataChecker:        broker,
+		GetClusterMetadataFunc: c.getClusterMetadataFunc(ctx),
+	}
+
 	storageMsg, err := provider.UpdateKubeCloudWithStorage(&newCloud, credential, storageParams)
 	if err != nil {
+		if provider.IsClusterQueryError(err) {
+			return errors.Annotate(err, clusterQueryErrMsg)
+		}
+		if provider.IsNoRecommendedStorageError(err) {
+			return errors.Errorf(noRecommendedStorageErrMsg, err.(provider.NoRecommendedStorageError).StorageProvider())
+		}
+		if provider.IsUnknownClusterError(err) {
+			return errors.Annotate(err, unknownClusterErrMsg)
+		}
 		return errors.Trace(err)
 	}
 
@@ -434,21 +447,19 @@ func (c *AddCAASCommand) addCloudToControllerWithRegion(apiClient AddCloudAPI, n
 	return nil
 }
 
-func (c *AddCAASCommand) newK8sClusterMetadataCheckerGetter() provider.ClusterMetadataCheckerGetter {
-	return func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error) {
-		openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
+func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error) {
+	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if c.controllerName != "" {
+		ctrlUUID, err := c.ControllerUUID(c.store, c.controllerName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if c.controllerName != "" {
-			ctrlUUID, err := c.ControllerUUID(c.store, c.controllerName)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			openParams.ControllerUUID = ctrlUUID
-		}
-		return caas.New(openParams)
+		openParams.ControllerUUID = ctrlUUID
 	}
+	return caas.New(openParams)
 }
 
 func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (_ string, err error) {

@@ -26,9 +26,6 @@ type ClientConfigFuncGetter func(string) (clientconfig.ClientConfigFunc, error)
 // GetClusterMetadataFunc returns the ClusterMetadata using the provided ClusterMetadataChecker
 type GetClusterMetadataFunc func(caas.ClusterMetadataChecker) (*caas.ClusterMetadata, error)
 
-// ClusterMetadataCheckerGetter returns a ClusterMetadataChecker that will generally be used by a GetClusterMetadataFunc
-type ClusterMetadataCheckerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error)
-
 // KubeCloudParams provides the needed information to extract a Cloud from available cluster information.
 type KubeCloudParams struct {
 	ClusterName        string
@@ -41,18 +38,10 @@ type KubeCloudParams struct {
 
 // KubeCloudStorageParams allows storage details to be determined for a K8s cloud.
 type KubeCloudStorageParams struct {
-	WorkloadStorage              string
-	HostCloudRegion              string
-	Errors                       KubeCloudParamErrors
-	ClusterMetadataCheckerGetter ClusterMetadataCheckerGetter
-	GetClusterMetadataFunc       GetClusterMetadataFunc
-}
-
-//KubeCloudParamErrors allows errors to be customised based on need (e.g. interactive CLI command or behind the scenes query).
-type KubeCloudParamErrors struct {
-	ClusterQuery         string
-	UnknownCluster       string
-	NoRecommendedStorage string
+	WorkloadStorage        string
+	HostCloudRegion        string
+	MetadataChecker        caas.ClusterMetadataChecker
+	GetClusterMetadataFunc GetClusterMetadataFunc
 }
 
 // CloudFromKubeConfig attempts to extract a cloud and credential details from the provided Kubeconfig.
@@ -106,22 +95,18 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Cred
 	fail := func(e error) (string, error) {
 		return "", e
 	}
-	broker, err := storageParams.ClusterMetadataCheckerGetter(*k8sCloud, credential)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
 
 	// Get the cluster metadata so we can see if there's suitable storage available.
-	clusterMetadata, err := storageParams.GetClusterMetadataFunc(broker)
+	clusterMetadata, err := storageParams.GetClusterMetadataFunc(storageParams.MetadataChecker)
 	if err != nil || clusterMetadata == nil {
-		return fail(errors.Annotate(err, storageParams.Errors.ClusterQuery))
+		return fail(errors.Wrap(err, ClusterQueryError{}))
 	}
 
 	if storageParams.HostCloudRegion == "" && clusterMetadata.Regions != nil && clusterMetadata.Regions.Size() > 0 {
 		storageParams.HostCloudRegion = clusterMetadata.Cloud + "/" + clusterMetadata.Regions.SortedValues()[0]
 	}
 	if storageParams.HostCloudRegion == "" {
-		return fail(errors.New(storageParams.Errors.ClusterQuery))
+		return fail(ClusterQueryError{})
 	}
 	_, region, err := ParseCloudRegion(storageParams.HostCloudRegion)
 	if err != nil {
@@ -134,13 +119,13 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Cred
 
 	// If the user has not specified storage, check that the cluster has Juju's opinionated defaults.
 	cloudType := strings.Split(storageParams.HostCloudRegion, "/")[0]
-	err = broker.CheckDefaultWorkloadStorage(cloudType, clusterMetadata.NominatedStorageClass)
+	err = storageParams.MetadataChecker.CheckDefaultWorkloadStorage(cloudType, clusterMetadata.NominatedStorageClass)
 	if errors.IsNotFound(err) {
-		return fail(errors.Errorf(storageParams.Errors.UnknownCluster, cloudType))
+		return fail(UnknownClusterError{cloudType})
 	}
 	if storageParams.WorkloadStorage == "" && caas.IsNonPreferredStorageError(err) {
 		npse := err.(*caas.NonPreferredStorageError)
-		return fail(errors.Errorf(storageParams.Errors.NoRecommendedStorage, npse.Name))
+		return fail(NoRecommendedStorageError{Message: err.Error(), ProviderName: npse.Name})
 	}
 	if err != nil && !caas.IsNonPreferredStorageError(err) {
 		return fail(errors.Trace(err))
@@ -150,7 +135,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Cred
 	var storageMsg string
 	if storageParams.WorkloadStorage != "" && caas.IsNonPreferredStorageError(err) {
 		preferredStorage := errors.Cause(err).(*caas.NonPreferredStorageError).PreferredStorage
-		sp, err := broker.EnsureStorageProvisioner(caas.StorageProvisioner{
+		sp, err := storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
 			Name:        storageParams.WorkloadStorage,
 			Provisioner: preferredStorage.Provisioner,
 			Parameters:  preferredStorage.Parameters,
@@ -233,4 +218,46 @@ func BaseKubeCloudOpenParams(cloud jujucloud.Cloud, credential jujucloud.Credent
 		Cloud: cloudSpec, Config: cfg,
 	}
 	return openParams, nil
+}
+
+// FinalizeCloud is part of the environs.CloudFinalizer interface.
+func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudContext, cld cloud.Cloud) (cloud.Cloud, error) {
+	cloudName := cld.Name
+	if cloudName != caas.Microk8s {
+		return cld, nil
+	}
+	// Need the credentials, need to query for those details
+	mk8sCloud, credential, _, err := p.builtinCloudGetter(p.cmdRunner)
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
+
+	openParams, err := BaseKubeCloudOpenParams(mk8sCloud, credential)
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
+	broker, err := p.brokerGetter(openParams)
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
+	storageUpdateParams := KubeCloudStorageParams{
+		MetadataChecker: broker,
+		GetClusterMetadataFunc: func(broker caas.ClusterMetadataChecker) (*caas.ClusterMetadata, error) {
+			clusterMetadata, err := broker.GetClusterMetadata("")
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return clusterMetadata, nil
+		},
+	}
+	_, err = UpdateKubeCloudWithStorage(&mk8sCloud, credential, storageUpdateParams)
+	for i := range mk8sCloud.Regions {
+		if mk8sCloud.Regions[i].Endpoint == "" {
+			mk8sCloud.Regions[i].Endpoint = mk8sCloud.Endpoint
+		}
+	}
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
+	return mk8sCloud, nil
 }

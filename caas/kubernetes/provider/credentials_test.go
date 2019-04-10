@@ -11,6 +11,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -88,4 +90,24 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 	)
 	expected.Label = `kubernetes credential "the-user"`
 	c.Assert(creds.AuthCredentials["the-user"], jc.DeepEquals, expected)
+}
+
+func (s *credentialsSuite) TestRegisterCredentialsNotMicrok8s(c *gc.C) {
+	p := provider.NewProviderCredentials(getterFunc(builtinCloudRet{}))
+	credentials, err := p.RegisterCredentials(cloud.Cloud{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentials, gc.HasLen, 0)
+}
+
+func (s *credentialsSuite) TestRegisterCredentialsMicrok8s(c *gc.C) {
+	p := provider.NewProviderCredentials(getterFunc(builtinCloudRet{cloud: defaultK8sCloud, credential: getDefaultCredential(), err: nil}))
+	credentials, err := p.RegisterCredentials(defaultK8sCloud)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentials, gc.HasLen, 1)
+	c.Assert(credentials[caas.Microk8s], gc.DeepEquals, &cloud.CloudCredential{
+		DefaultCredential: caas.Microk8s,
+		AuthCredentials: map[string]cloud.Credential{
+			caas.Microk8s: getDefaultCredential(),
+		},
+	})
 }
