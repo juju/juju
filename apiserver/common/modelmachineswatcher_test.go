@@ -67,38 +67,3 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(resources.Count(), gc.Equals, 0)
 }
-
-func (s *modelMachinesWatcherSuite) TestWatchModelMachinesWithAuthFunc(c *gc.C) {
-	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:        names.NewMachineTag("0"),
-		Controller: true,
-	}
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewModelMachinesWatcherWithAuthFunc(
-		&fakeModelMachinesWatcher{initial: []string{"foo"}},
-		resources,
-		authorizer.AuthController,
-	)
-	result, err := e.WatchModelMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{"1", []string{"foo"}, nil})
-	c.Assert(resources.Count(), gc.Equals, 1)
-}
-
-func (s *modelMachinesWatcherSuite) TestWatchWithAuthFuncResultsInAuthError(c *gc.C) {
-	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:        names.NewMachineTag("1"),
-		Controller: false,
-	}
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewModelMachinesWatcherWithAuthFunc(
-		&fakeModelMachinesWatcher{},
-		resources,
-		authorizer.AuthController,
-	)
-	_, err := e.WatchModelMachines()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(resources.Count(), gc.Equals, 0)
-}

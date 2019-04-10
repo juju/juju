@@ -15,26 +15,19 @@ import (
 // ModelMachinesWatcher implements a common WatchModelMachines
 // method for use by various facades.
 type ModelMachinesWatcher struct {
-	st        state.ModelMachinesWatcher
-	resources facade.Resources
-	canAccess AnonymousAuthFunc
+	st         state.ModelMachinesWatcher
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewModelMachinesWatcher returns a new ModelMachinesWatcher. The
-// facade.Authorizer#AuthController will be used on each invocation of
-// WatchModelMachines to determine current permissions.
-func NewModelMachinesWatcher(st state.ModelMachinesWatcher, resources facade.Resources, authorizer facade.Authorizer) *ModelMachinesWatcher {
-	return NewModelMachinesWatcherWithAuthFunc(st, resources, authorizer.AuthController)
-}
-
-// NewModelMachinesWatcherWithAuthFunc returns a new ModelMachinesWatcher. The
-// AnonymousAuthFunc will be used on each invocation of WatchModelMachines to
+// GetAuthFunc will be used on each invocation of WatchUnits to
 // determine current permissions.
-func NewModelMachinesWatcherWithAuthFunc(st state.ModelMachinesWatcher, resources facade.Resources, canAccess AnonymousAuthFunc) *ModelMachinesWatcher {
+func NewModelMachinesWatcher(st state.ModelMachinesWatcher, resources facade.Resources, authorizer facade.Authorizer) *ModelMachinesWatcher {
 	return &ModelMachinesWatcher{
-		st:        st,
-		resources: resources,
-		canAccess: canAccess,
+		st:         st,
+		resources:  resources,
+		authorizer: authorizer,
 	}
 }
 
@@ -43,7 +36,7 @@ func NewModelMachinesWatcherWithAuthFunc(st state.ModelMachinesWatcher, resource
 // model.
 func (e *ModelMachinesWatcher) WatchModelMachines() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
-	if !e.canAccess() {
+	if !e.authorizer.AuthController() {
 		return result, ErrPerm
 	}
 	watch := e.st.WatchModelMachines()

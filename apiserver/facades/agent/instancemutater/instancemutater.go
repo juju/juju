@@ -80,16 +80,14 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
 	return &InstanceMutaterAPI{
-		ModelMachinesWatcher: common.NewModelMachinesWatcherWithAuthFunc(st, resources, func() bool {
-			return authorizer.AuthMachineAgent() || authorizer.AuthController()
-		}),
-		UnitsWatcher: common.NewUnitsWatcher(st, resources, getAuthFunc),
-		LifeGetter:   common.NewLifeGetter(st, getAuthFunc),
-		st:           st,
-		model:        model,
-		resources:    resources,
-		authorizer:   authorizer,
-		getAuthFunc:  getAuthFunc,
+		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
+		UnitsWatcher:         common.NewUnitsWatcher(st, resources, getAuthFunc),
+		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
+		st:                   st,
+		model:                model,
+		resources:            resources,
+		authorizer:           authorizer,
+		getAuthFunc:          getAuthFunc,
 	}, nil
 }
 
