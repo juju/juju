@@ -61,13 +61,10 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	s.applicationAPI = &application.APIv9{api}
 }
 
-func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	v4 := &application.APIv4{&application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{s.applicationAPI}}}}}
-	results, err := v4.Get(params.ApplicationGet{
-		ApplicationName: "wordpress",
-		BranchName:      model.GenerationMaster,
-	})
+	results, err := v4.Get(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
@@ -84,13 +81,10 @@ func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetSmokeTestV5(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	v5 := &application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{s.applicationAPI}}}}
-	results, err := v5.Get(params.ApplicationGet{
-		ApplicationName: "wordpress",
-		BranchName:      model.GenerationMaster,
-	})
+	results, err := v5.Get(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
@@ -111,10 +105,7 @@ func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	results, err := s.applicationAPI.Get(params.ApplicationGet{
-		ApplicationName: "wordpress",
-		BranchName:      model.GenerationMaster,
-	})
+	results, err := s.applicationAPI.Get(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
@@ -140,7 +131,7 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -210,10 +201,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiV8 := &application.APIv8{&application.APIv9{api}}
 
-	results, err := apiV8.Get(params.ApplicationGet{
-		ApplicationName: "dashboard4miner",
-		BranchName:      model.GenerationMaster,
-	})
+	results, err := apiV8.Get(params.ApplicationGet{ApplicationName: "dashboard4miner"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
 		Application: "dashboard4miner",
