@@ -406,7 +406,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			EnvironName:   environTrackerName,
 			Logger:        loggo.GetLogger("juju.worker.instancemutater"),
 			NewClient:     instancemutater.NewClient,
-			NewWorker:     instancemutater.NewWorker,
+			NewWorker:     instancemutater.NewEnvironWorker,
 		}))
 	}
 

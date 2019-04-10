@@ -88,6 +88,17 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			},
 			err: "nil Tag not valid",
 		},
+		{
+			description: "Test no GetMachineWatcher",
+			config: instancemutater.Config{
+				Logger:      mocks.NewMockLogger(ctrl),
+				Facade:      mocks.NewMockInstanceMutaterAPI(ctrl),
+				Environ:     mocks.NewMockEnviron(ctrl),
+				AgentConfig: mocks.NewMockConfig(ctrl),
+				Tag:         names.NewMachineTag("3"),
+			},
+			err: "nil GetMachineWatcher not valid",
+		},
 	}
 	for i, test := range testcases {
 		c.Logf("%d %s", i, test.description)
@@ -100,12 +111,17 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	getMachineWatcher := func() (watcher.StringsWatcher, error) {
+		return &fakeStringsWatcher{}, nil
+	}
+
 	config := instancemutater.Config{
-		Facade:      mocks.NewMockInstanceMutaterAPI(ctrl),
-		Logger:      mocks.NewMockLogger(ctrl),
-		Environ:     mocks.NewMockEnviron(ctrl),
-		AgentConfig: mocks.NewMockConfig(ctrl),
-		Tag:         names.MachineTag{},
+		Facade:            mocks.NewMockInstanceMutaterAPI(ctrl),
+		Logger:            mocks.NewMockLogger(ctrl),
+		Environ:           mocks.NewMockEnviron(ctrl),
+		AgentConfig:       mocks.NewMockConfig(ctrl),
+		Tag:               names.MachineTag{},
+		GetMachineWatcher: getMachineWatcher,
 	}
 	err := config.Validate()
 	c.Assert(err, gc.IsNil)
@@ -126,6 +142,8 @@ type workerSuite struct {
 	// The done channel is used by tests to indicate that
 	// the worker has accomplished the scenario and can be stopped.
 	done chan struct{}
+
+	newWorkerFunc func(instancemutater.Config) (worker.Worker, error)
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -135,12 +153,19 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 
 	s.done = make(chan struct{})
 	s.machineTag = names.NewMachineTag("0")
+	s.newWorkerFunc = instancemutater.NewEnvironWorker
 }
+
+type workerEnvironSuite struct {
+	workerSuite
+}
+
+var _ = gc.Suite(&workerEnvironSuite{})
 
 // TestFullWorkflow uses the the expectation scenarios from each of the tests
 // below to compose a test of the whole instance mutator scenario, from start
-// to finish.
-func (s *workerSuite) TestFullWorkflow(c *gc.C) {
+// to finish for an EnvironWorker.
+func (s *workerEnvironSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	w := s.workerForScenario(c,
@@ -149,9 +174,9 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 			{"0"},
 		}, s.noopDone),
 		s.expectFacadeMachineTag,
-		s.notifyAppLXDProfile(1, s.closeDone),
+		s.notifyMachineAppLXDProfile(1, s.closeDone),
 		s.expectMachineTag,
-		s.expectCharmProfilingInfo(3),
+		s.expectMachineCharmProfilingInfo(3),
 		s.expectLXDProfileNames,
 		s.expectSetCharmProfiles,
 		s.expectAssignProfiles,
@@ -160,7 +185,7 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 	s.cleanKill(c, w)
 }
 
-func (s *workerSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
+func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	w := s.workerForScenario(c,
@@ -169,16 +194,16 @@ func (s *workerSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 			{"0"},
 		}, s.noopDone),
 		s.expectFacadeMachineTag,
-		s.notifyAppLXDProfile(1, s.closeDone),
+		s.notifyMachineAppLXDProfile(1, s.closeDone),
 		s.expectMachineTag,
-		s.expectCharmProfilingInfo(2),
+		s.expectMachineCharmProfilingInfo(2),
 		s.expectLXDProfileNames,
 		s.expectModificationStatusIdle,
 	)
 	s.cleanKill(c, w)
 }
 
-func (s *workerSuite) TestNoChangeFoundOne(c *gc.C) {
+func (s *workerEnvironSuite) TestNoChangeFoundOne(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	w := s.workerForScenario(c,
@@ -187,14 +212,14 @@ func (s *workerSuite) TestNoChangeFoundOne(c *gc.C) {
 			{"0"},
 		}, s.noopDone),
 		s.expectFacadeMachineTag,
-		s.notifyAppLXDProfile(1, s.closeDone),
+		s.notifyMachineAppLXDProfile(1, s.closeDone),
 		s.expectMachineTag,
 		s.expectCharmProfilingInfoSimpleNoChange,
 	)
 	s.cleanKill(c, w)
 }
 
-func (s *workerSuite) TestNoMachineFound(c *gc.C) {
+func (s *workerEnvironSuite) TestNoMachineFound(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	w, err := s.workerErrorForScenario(c,
@@ -217,7 +242,7 @@ func (s *workerSuite) TestNoMachineFound(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
+func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	w := s.workerForScenario(c,
@@ -226,7 +251,7 @@ func (s *workerSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
 			{"0"},
 		}, s.noopDone),
 		s.expectFacadeMachineTag,
-		s.notifyAppLXDProfile(1, s.closeDone),
+		s.notifyMachineAppLXDProfile(1, s.closeDone),
 		s.expectMachineTag,
 		s.expectCharmProfileInfoNotProvisioned,
 	)
@@ -276,7 +301,7 @@ func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Wo
 		b()
 	}
 
-	w, err := instancemutater.NewWorker(config)
+	w, err := s.newWorkerFunc(config)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
@@ -297,12 +322,12 @@ func (s *workerSuite) workerErrorForScenario(c *gc.C, behaviours ...func()) (wor
 		b()
 	}
 
-	return instancemutater.NewWorker(config)
+	return s.newWorkerFunc(config)
 }
 
 func (s *workerSuite) expectFacadeMachineTag() {
-	s.facade.EXPECT().Machine(s.machineTag).Return(s.machine, nil)
-	s.machine.EXPECT().Tag().Return(s.machineTag)
+	s.facade.EXPECT().Machine(s.machineTag).Return(s.machine, nil).AnyTimes()
+	s.machine.EXPECT().Tag().Return(s.machineTag).AnyTimes()
 }
 
 func (s *workerSuite) expectFacadeReturnsNoMachine() {
@@ -321,9 +346,13 @@ func (s *workerSuite) expectLXDProfileNames() {
 	s.environ.MockLXDProfiler.EXPECT().LXDProfileNames("juju-23423-0").Return([]string{"default", "juju-testing", "juju-testing-one-2"}, nil)
 }
 
-func (s *workerSuite) expectCharmProfilingInfo(rev int) func() {
+func (s *workerSuite) expectMachineCharmProfilingInfo(rev int) func() {
+	return s.expectCharmProfilingInfo(s.machine, rev)
+}
+
+func (s *workerSuite) expectCharmProfilingInfo(mock *mocks.MockMutaterMachine, rev int) func() {
 	return func() {
-		s.machine.EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{
+		mock.EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{
 			CurrentProfiles: []string{"default", "juju-testing", "juju-testing-one-2"},
 			InstanceId:      "juju-23423-0",
 			ModelName:       "testing",
@@ -385,7 +414,15 @@ func (s *workerSuite) notifyMachines(values [][]string, doneFn func()) func() {
 // notifyAppLXDProfile returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
-func (s *workerSuite) notifyAppLXDProfile(times int, doneFn func()) func() {
+func (s *workerSuite) notifyMachineAppLXDProfile(times int, doneFn func()) func() {
+	return s.notifyAppLXDProfile(s.machine, times, doneFn)
+}
+
+func (s *workerContainerSuite) notifyContainerAppLXDProfile(times int, doneFn func()) func() {
+	return s.notifyAppLXDProfile(s.container, times, doneFn)
+}
+
+func (s *workerSuite) notifyAppLXDProfile(mock *mocks.MockMutaterMachine, times int, doneFn func()) func() {
 	ch := make(chan struct{})
 
 	return func() {
@@ -399,7 +436,7 @@ func (s *workerSuite) notifyAppLXDProfile(times int, doneFn func()) func() {
 		s.appLXDProfileWorker.EXPECT().Kill().AnyTimes()
 		s.appLXDProfileWorker.EXPECT().Wait().Return(nil).AnyTimes()
 
-		s.machine.EXPECT().WatchApplicationLXDProfiles().Return(
+		mock.EXPECT().WatchApplicationLXDProfiles().Return(
 			&fakeNotifyWatcher{
 				Worker: s.appLXDProfileWorker,
 				ch:     ch,
@@ -457,6 +494,98 @@ func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
 	}
 
 	c.Logf("%s "+message, nArgs...)
+}
+
+type workerContainerSuite struct {
+	workerSuite
+
+	containerTag names.Tag
+	container    *mocks.MockMutaterMachine
+}
+
+var _ = gc.Suite(&workerContainerSuite{})
+
+func (s *workerContainerSuite) SetUpTest(c *gc.C) {
+	s.workerSuite.SetUpTest(c)
+
+	s.containerTag = names.NewMachineTag("0/lxd/0")
+	s.newWorkerFunc = instancemutater.NewContainerWorker
+}
+
+// TestFullWorkflow uses the the expectation scenarios from each of the tests
+// below to compose a test of the whole instance mutator scenario, from start
+// to finish for a ContainerWorker.
+func (s *workerContainerSuite) TestFullWorkflow(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	w := s.workerForScenario(c,
+		s.ignoreLogging(c),
+		s.notifyContainers([][]string{
+			{"0/lxd/0"},
+		}, s.noopDone),
+		s.expectFacadeMachineTag,
+		s.expectFacadeContainerTag,
+		s.notifyContainerAppLXDProfile(1, s.closeDone),
+		s.expectContainerTag,
+		s.expectContainerCharmProfilingInfo(3),
+		s.expectLXDProfileNames,
+		s.expectContainerSetCharmProfiles,
+		s.expectAssignProfiles,
+		s.expectContainerModificationStatusIdle,
+	)
+	s.cleanKill(c, w)
+}
+
+func (s *workerContainerSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := s.workerSuite.setup(c)
+	s.container = mocks.NewMockMutaterMachine(ctrl)
+	return ctrl
+}
+
+func (s *workerContainerSuite) expectFacadeContainerTag() {
+	s.facade.EXPECT().Machine(s.containerTag).Return(s.container, nil).AnyTimes()
+	s.container.EXPECT().Tag().Return(s.containerTag).AnyTimes()
+}
+
+func (s *workerContainerSuite) expectContainerTag() {
+	s.container.EXPECT().Tag().Return(s.containerTag).AnyTimes()
+}
+
+func (s *workerContainerSuite) expectContainerCharmProfilingInfo(rev int) func() {
+	return s.expectCharmProfilingInfo(s.container, rev)
+}
+
+func (s *workerContainerSuite) expectContainerModificationStatusIdle() {
+	s.container.EXPECT().SetModificationStatus(status.Idle, "", nil).Return(nil)
+}
+
+func (s *workerContainerSuite) expectContainerSetCharmProfiles() {
+	s.container.EXPECT().SetCharmProfiles([]string{"default", "juju-testing", "juju-testing-one-3"})
+}
+
+// notifyContainers returns a suite behaviour that will cause the instance mutator
+// watcher to send a number of notifications equal to the supplied argument.
+// Once notifications have been consumed, we notify via the suite's channel.
+func (s *workerContainerSuite) notifyContainers(values [][]string, doneFn func()) func() {
+	ch := make(chan []string)
+
+	return func() {
+		go func() {
+			for _, v := range values {
+				ch <- v
+			}
+			doneFn()
+		}()
+
+		s.machinesWorker.EXPECT().Kill().AnyTimes()
+		s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
+
+		s.machine.EXPECT().WatchContainers().Return(
+			&fakeStringsWatcher{
+				Worker: s.machinesWorker,
+				ch:     ch,
+			}, nil)
+	}
 }
 
 type environShim struct {
