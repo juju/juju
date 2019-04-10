@@ -403,7 +403,7 @@ func (s *workerSuite) notifyMachines(values [][]string, doneFn func()) func() {
 		s.machinesWorker.EXPECT().Kill().AnyTimes()
 		s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
 
-		s.facade.EXPECT().WatchModelMachines().Return(
+		s.facade.EXPECT().WatchMachines().Return(
 			&fakeStringsWatcher{
 				Worker: s.machinesWorker,
 				ch:     ch,
