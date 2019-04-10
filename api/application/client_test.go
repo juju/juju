@@ -1015,7 +1015,7 @@ func (s *applicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 					Args: []params.ApplicationUnset{{
 						ApplicationName: "foo",
 						Options:         []string{"option"},
-						Generation:      newBranchName,
+						BranchName:      newBranchName,
 					}}})
 				result, ok := response.(*params.ErrorResults)
 				c.Assert(ok, jc.IsTrue)
