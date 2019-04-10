@@ -34,11 +34,11 @@ type applicationSuite struct {
 var _ = gc.Suite(&applicationSuite{})
 
 func newClient(f basetesting.APICallerFunc) *application.Client {
-	return application.NewClient(basetesting.BestVersionCaller{f, 8})
+	return application.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 8})
 }
 
 func newClientV4(f basetesting.APICallerFunc) *application.Client {
-	return application.NewClient(basetesting.BestVersionCaller{f, 4})
+	return application.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 4})
 }
 
 func (s *applicationSuite) TestSetApplicationMetricCredentials(c *gc.C) {
@@ -239,7 +239,7 @@ func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
 		args, ok := a.(params.ApplicationGet)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ApplicationName, gc.Equals, "application")
-		c.Assert(args.Generation, gc.Equals, newBranchName)
+		c.Assert(args.BranchName, gc.Equals, newBranchName)
 
 		result := response.(*params.StringResult)
 		result.Result = "curl"
@@ -725,8 +725,8 @@ func (s *applicationSuite) TestGetConfigV6(c *gc.C) {
 
 func (s *applicationSuite) TestGetConfigV9(c *gc.C) {
 	args := params.ApplicationGetArgs{Args: []params.ApplicationGet{
-		{ApplicationName: "foo", Generation: newBranchName},
-		{ApplicationName: "bar", Generation: newBranchName},
+		{ApplicationName: "foo", BranchName: newBranchName},
+		{ApplicationName: "bar", BranchName: newBranchName},
 	}}
 	s.assertGetConfig(c, 9, "CharmConfig", args)
 }
@@ -817,7 +817,7 @@ func (s *applicationSuite) TestGetConfigAPIv4(c *gc.C) {
 				c.Assert(request, gc.Equals, "Get")
 				args, ok := a.(params.ApplicationGet)
 				c.Assert(ok, jc.IsTrue)
-				c.Assert(args.Generation, gc.Equals, newBranchName)
+				c.Assert(args.BranchName, gc.Equals, newBranchName)
 
 				result, ok := response.(*params.ApplicationGetResults)
 				c.Assert(ok, jc.IsTrue)
@@ -1015,7 +1015,7 @@ func (s *applicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 					Args: []params.ApplicationUnset{{
 						ApplicationName: "foo",
 						Options:         []string{"option"},
-						Generation:      newBranchName,
+						BranchName:      newBranchName,
 					}}})
 				result, ok := response.(*params.ErrorResults)
 				c.Assert(ok, jc.IsTrue)

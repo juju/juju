@@ -5,6 +5,7 @@ package application
 
 import (
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/schema"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
@@ -50,19 +51,27 @@ func (api *APIBase) getConfig(
 	if err := api.checkCanRead(); err != nil {
 		return params.ApplicationGetResults{}, err
 	}
+
 	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	settings, err := app.CharmConfig(args.Generation)
+
+	// We need a guard on the API server-side for direct API callers such as
+	// python-libjuju. Always default to the master branch.
+	if args.BranchName == "" {
+		args.BranchName = model.GenerationMaster
+	}
+	settings, err := app.CharmConfig(args.BranchName)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	charm, _, err := app.Charm()
+
+	ch, _, err := app.Charm()
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	configInfo := describe(settings, charm.Config())
+	configInfo := describe(settings, ch.Config())
 	appConfig, err := app.ApplicationConfig()
 	if err != nil {
 		return params.ApplicationGetResults{}, err
@@ -73,19 +82,19 @@ func (api *APIBase) getConfig(
 		return params.ApplicationGetResults{}, err
 	}
 	appConfigInfo := describeAppConfig(appConfig, providerSchema, caas.ConfigDefaults(providerDefaults))
-	var constraints constraints.Value
+	var cons constraints.Value
 	if app.IsPrincipal() {
-		constraints, err = app.Constraints()
+		cons, err = app.Constraints()
 		if err != nil {
 			return params.ApplicationGetResults{}, err
 		}
 	}
 	return params.ApplicationGetResults{
 		Application:       args.ApplicationName,
-		Charm:             charm.Meta().Name,
+		Charm:             ch.Meta().Name,
 		CharmConfig:       configInfo,
 		ApplicationConfig: appConfigInfo,
-		Constraints:       constraints,
+		Constraints:       cons,
 		Series:            app.Series(),
 		Channel:           string(app.Channel()),
 	}, nil

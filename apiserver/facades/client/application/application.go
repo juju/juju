@@ -1117,7 +1117,13 @@ func (api *APIBase) Unset(p params.ApplicationUnset) error {
 	for _, option := range p.Options {
 		settings[option] = nil
 	}
-	return app.UpdateCharmConfig(p.Generation, settings)
+
+	// We need a guard on the API server-side for direct API callers such as
+	// python-libjuju. Always default to the master branch.
+	if p.BranchName == "" {
+		p.BranchName = model.GenerationMaster
+	}
+	return app.UpdateCharmConfig(p.BranchName, settings)
 }
 
 // CharmRelations implements the server side of Application.CharmRelations.
@@ -1127,11 +1133,11 @@ func (api *APIBase) CharmRelations(p params.ApplicationCharmRelations) (params.A
 		return results, errors.Trace(err)
 	}
 
-	application, err := api.backend.Application(p.ApplicationName)
+	app, err := api.backend.Application(p.ApplicationName)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	endpoints, err := application.Endpoints()
+	endpoints, err := app.Endpoints()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -2025,7 +2031,7 @@ func (api *APIBase) CharmConfig(args params.ApplicationGetArgs) (params.Applicat
 		Results: make([]params.ConfigResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		config, err := api.getCharmConfig(arg.Generation, arg.ApplicationName)
+		config, err := api.getCharmConfig(arg.BranchName, arg.ApplicationName)
 		results.Results[i].Config = config
 		results.Results[i].Error = common.ServerError(err)
 	}
@@ -2052,6 +2058,7 @@ func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfig
 			continue
 		}
 
+		// Always deal with the master branch version of config.
 		config, err := api.getCharmConfig(model.GenerationMaster, tag.Id())
 		results.Results[i].Config = config
 		results.Results[i].Error = common.ServerError(err)
@@ -2195,8 +2202,14 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 			return errors.Annotate(err, "updating application config values")
 		}
 	}
+
 	if len(charmSettings) > 0 {
-		if err := app.UpdateCharmConfig(arg.Generation, charmSettings); err != nil {
+		// We need a guard on the API server-side for direct API callers such as
+		// python-libjuju. Always default to the master branch.
+		if arg.BranchName == "" {
+			arg.BranchName = model.GenerationMaster
+		}
+		if err := app.UpdateCharmConfig(arg.BranchName, charmSettings); err != nil {
 			return errors.Annotate(err, "updating application charm settings")
 		}
 	}

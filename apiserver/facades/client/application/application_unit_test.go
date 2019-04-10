@@ -1513,7 +1513,7 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
 			Options:         []string{"juju-external-hostname", "stringVal"},
-			Generation:      "new-branch",
+			BranchName:      "new-branch",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)

@@ -254,7 +254,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetCharmCharmSettingsForBranch(c *gc.C) {
-	c.Skip("To be rewritten when branch-based configuration reads are implemented.")
+	c.Assert(s.State.AddBranch("new-branch", "branch-user"), jc.ErrorIsNil)
 
 	newCh := s.AddConfigCharm(c, "mysql", stringConfig, 2)
 	err := s.mysql.SetCharm(state.SetCharmConfig{
