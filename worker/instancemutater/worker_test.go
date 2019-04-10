@@ -67,14 +67,14 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 				Logger: mocks.NewMockLogger(ctrl),
 				Facade: mocks.NewMockInstanceMutaterAPI(ctrl),
 			},
-			err: "nil Environ not valid",
+			err: "nil Broker not valid",
 		},
 		{
 			description: "Test no agent",
 			config: instancemutater.Config{
-				Logger:  mocks.NewMockLogger(ctrl),
-				Facade:  mocks.NewMockInstanceMutaterAPI(ctrl),
-				Environ: mocks.NewMockEnviron(ctrl),
+				Logger: mocks.NewMockLogger(ctrl),
+				Facade: mocks.NewMockInstanceMutaterAPI(ctrl),
+				Broker: mocks.NewMockLXDProfiler(ctrl),
 			},
 			err: "nil AgentConfig not valid",
 		},
@@ -83,7 +83,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			config: instancemutater.Config{
 				Logger:      mocks.NewMockLogger(ctrl),
 				Facade:      mocks.NewMockInstanceMutaterAPI(ctrl),
-				Environ:     mocks.NewMockEnviron(ctrl),
+				Broker:      mocks.NewMockLXDProfiler(ctrl),
 				AgentConfig: mocks.NewMockConfig(ctrl),
 			},
 			err: "nil Tag not valid",
@@ -93,7 +93,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			config: instancemutater.Config{
 				Logger:      mocks.NewMockLogger(ctrl),
 				Facade:      mocks.NewMockInstanceMutaterAPI(ctrl),
-				Environ:     mocks.NewMockEnviron(ctrl),
+				Broker:      mocks.NewMockLXDProfiler(ctrl),
 				AgentConfig: mocks.NewMockConfig(ctrl),
 				Tag:         names.NewMachineTag("3"),
 			},
@@ -118,7 +118,7 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 	config := instancemutater.Config{
 		Facade:            mocks.NewMockInstanceMutaterAPI(ctrl),
 		Logger:            mocks.NewMockLogger(ctrl),
-		Environ:           mocks.NewMockEnviron(ctrl),
+		Broker:            mocks.NewMockLXDProfiler(ctrl),
 		AgentConfig:       mocks.NewMockConfig(ctrl),
 		Tag:               names.MachineTag{},
 		GetMachineWatcher: getMachineWatcher,
@@ -132,13 +132,12 @@ type workerSuite struct {
 
 	logger              *mocks.MockLogger
 	facade              *mocks.MockInstanceMutaterAPI
-	environ             environShim
+	broker              *mocks.MockLXDProfiler
 	agentConfig         *mocks.MockConfig
 	machine             *mocks.MockMutaterMachine
 	machineTag          names.Tag
 	machinesWorker      *workermocks.MockWorker
 	appLXDProfileWorker *workermocks.MockWorker
-
 	// The done channel is used by tests to indicate that
 	// the worker has accomplished the scenario and can be stopped.
 	done chan struct{}
@@ -265,10 +264,7 @@ func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.logger = mocks.NewMockLogger(ctrl)
 	s.facade = mocks.NewMockInstanceMutaterAPI(ctrl)
-	s.environ = environShim{
-		MockEnviron:     mocks.NewMockEnviron(ctrl),
-		MockLXDProfiler: mocks.NewMockLXDProfiler(ctrl),
-	}
+	s.broker = mocks.NewMockLXDProfiler(ctrl)
 	s.agentConfig = mocks.NewMockConfig(ctrl)
 	s.machine = mocks.NewMockMutaterMachine(ctrl)
 	s.machinesWorker = workermocks.NewMockWorker(ctrl)
@@ -292,7 +288,7 @@ func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Wo
 	config := instancemutater.Config{
 		Facade:      s.facade,
 		Logger:      s.logger,
-		Environ:     s.environ,
+		Broker:      s.broker,
 		AgentConfig: s.agentConfig,
 		Tag:         s.machineTag,
 	}
@@ -313,7 +309,7 @@ func (s *workerSuite) workerErrorForScenario(c *gc.C, behaviours ...func()) (wor
 	config := instancemutater.Config{
 		Facade:      s.facade,
 		Logger:      s.logger,
-		Environ:     s.environ,
+		Broker:      s.broker,
 		AgentConfig: s.agentConfig,
 		Tag:         s.machineTag,
 	}
@@ -343,7 +339,7 @@ func (s *workerSuite) expectCharmProfilingInfoSimpleNoChange() {
 }
 
 func (s *workerSuite) expectLXDProfileNames() {
-	s.environ.MockLXDProfiler.EXPECT().LXDProfileNames("juju-23423-0").Return([]string{"default", "juju-testing", "juju-testing-one-2"}, nil)
+	s.broker.EXPECT().LXDProfileNames("juju-23423-0").Return([]string{"default", "juju-testing", "juju-testing-one-2"}, nil)
 }
 
 func (s *workerSuite) expectMachineCharmProfilingInfo(rev int) func() {
@@ -379,7 +375,7 @@ func (s *workerSuite) expectModificationStatusIdle() {
 
 func (s *workerSuite) expectAssignProfiles() {
 	profiles := []string{"default", "juju-testing", "juju-testing-one-3"}
-	s.environ.MockLXDProfiler.EXPECT().AssignProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
+	s.broker.EXPECT().AssignProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
 }
 
 func (s *workerSuite) expectSetCharmProfiles() {
@@ -586,11 +582,6 @@ func (s *workerContainerSuite) notifyContainers(values [][]string, doneFn func()
 				ch:     ch,
 			}, nil)
 	}
-}
-
-type environShim struct {
-	*mocks.MockEnviron
-	*mocks.MockLXDProfiler
 }
 
 type fakeStringsWatcher struct {

@@ -58,12 +58,22 @@ func (config ManifoldConfig) newWorker(environ environs.Environ, apiCaller base.
 		return nil, errors.Trace(err)
 	}
 
+	// If we don't have a LXDProfiler, we should uninstall the worker as quickly
+	// as possible.
+	broker, ok := environ.(environs.LXDProfiler)
+	if !ok {
+		// If we don't have an LXDProfiler broker, there is no need to
+		// run this worker.
+		config.Logger.Debugf("uninstalling, not an LXD capable broker")
+		return nil, dependency.ErrUninstall
+	}
+
 	facade := config.NewClient(apiCaller)
 	agentConfig := agent.CurrentConfig()
 	cfg := Config{
 		Logger:      config.Logger,
 		Facade:      facade,
-		Environ:     environ,
+		Broker:      broker,
 		AgentConfig: agentConfig,
 		Tag:         agentConfig.Tag(),
 	}

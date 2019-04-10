@@ -229,7 +229,7 @@ type manifoldSuite struct {
 	context     *mocks.MockContext
 	agent       *mocks.MockAgent
 	agentConfig *mocks.MockConfig
-	environ     *mocks.MockEnviron
+	environ     environShim
 	apiCaller   *mocks.MockAPICaller
 	worker      *mocks.MockWorker
 	api         *mocks.MockInstanceMutaterAPI
@@ -244,7 +244,10 @@ func (s *manifoldSuite) setup(c *gc.C) *gomock.Controller {
 	s.context = mocks.NewMockContext(ctrl)
 	s.agent = mocks.NewMockAgent(ctrl)
 	s.agentConfig = mocks.NewMockConfig(ctrl)
-	s.environ = mocks.NewMockEnviron(ctrl)
+	s.environ = environShim{
+		MockEnviron:     mocks.NewMockEnviron(ctrl),
+		MockLXDProfiler: mocks.NewMockLXDProfiler(ctrl),
+	}
 	s.apiCaller = mocks.NewMockAPICaller(ctrl)
 	s.worker = mocks.NewMockWorker(ctrl)
 	s.api = mocks.NewMockInstanceMutaterAPI(ctrl)
@@ -347,4 +350,9 @@ func (s *manifoldSuite) behaviourAgent() {
 
 	cExp := s.agentConfig.EXPECT()
 	cExp.Tag().Return(names.MachineTag{})
+}
+
+type environShim struct {
+	*mocks.MockEnviron
+	*mocks.MockLXDProfiler
 }
