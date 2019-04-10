@@ -221,13 +221,22 @@ func (st *State) APIHostPortsForClients() ([][]network.HostPort, error) {
 
 // APIHostPortsForAgents returns the collection of API addresses that should
 // be used by agents.
+// If the controller model is CAAS type, the return will be the controller
+// k8s service addresses in cloud service.
 // If there is no management network space configured for the controller,
 // or if the space is misconfigured, the return will be the same as
 // APIHostPortsForClients.
 // Otherwise the returned addresses will correspond with the management net space.
 // If there is no document at all, we simply fall back to APIHostPortsForClients.
 func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
-	hp, err := st.apiHostPortsForKey(apiHostPortsForAgentsKey)
+	if hps, err := st.apiHostPortsForOperator(); err == nil {
+		logger.Criticalf("APIHostPortsForAgents hps -> %v", hps)
+		return hps, nil
+	} else {
+		logger.Criticalf("APIHostPortsForAgents apiHostPortsForOperator err -> %v", err)
+	}
+
+	hps, err := st.apiHostPortsForKey(apiHostPortsForAgentsKey)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			logger.Debugf("No document for %s; using %s", apiHostPortsForAgentsKey, apiHostPortsKey)
@@ -235,7 +244,51 @@ func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
 		}
 		return nil, errors.Trace(err)
 	}
-	return hp, nil
+	return hps, nil
+}
+
+func (st *State) apiHostPortsForOperator() ([][]network.HostPort, error) {
+	controllerUUID := st.ControllerUUID()
+
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	controllerSt, err := st.newStateNoWorkers(st.ControllerModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerModel, err := controllerSt.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if m.Type() != ModelTypeCAAS || controllerModel.Type() != ModelTypeCAAS {
+		// only CAAS model has operator and only k8s controller has cloud service.
+		return nil, errors.NotValidf(
+			"cloud service host ports for %q controller %q, %q model %q",
+			controllerModel.Type(), controllerUUID,
+			m.Type(), m.Name(),
+		)
+	}
+
+	logger.Criticalf("apiHostPortsForOperator m.Type() -> %q", m.Type())
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	apiPort := controllerConfig.APIPort()
+	svc, err := controllerSt.CloudService(controllerUUID)
+	logger.Criticalf("apiHostPortsForOperator svc -> %v", svc)
+	logger.Criticalf("apiHostPortsForOperator apiPort -> %d", apiPort)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return [][]network.HostPort{
+		network.AddressesWithPort(svc.Addresses(), apiPort),
+	}, nil
+
 }
 
 // apiHostPortsForKey returns API addresses extracted from the document
