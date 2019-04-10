@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub"
+	utilsfeatureflag "github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
@@ -53,6 +55,7 @@ import (
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/externalcontrollerupdater"
 	"github.com/juju/juju/worker/fanconfigurer"
 	"github.com/juju/juju/worker/featureflag"
@@ -63,6 +66,7 @@ import (
 	"github.com/juju/juju/worker/httpserver"
 	"github.com/juju/juju/worker/httpserverargs"
 	"github.com/juju/juju/worker/identityfilewriter"
+	"github.com/juju/juju/worker/instancemutater"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -252,6 +256,10 @@ type ManifoldsConfig struct {
 
 	// NewContainerBrokerFunc is a function opens a CAAS provider.
 	NewContainerBrokerFunc caas.NewContainerBrokerFunc
+
+	// NewEnvironFunc is a function opens a provider "environment"
+	// (typically environs.New).
+	NewEnvironFunc environs.NewEnvironFunc
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -844,7 +852,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	if runtime.GOOS == "linux" {
 		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
 	}
-	return mergeManifolds(config, dependency.Manifolds{
+	manifolds := dependency.Manifolds{
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -927,7 +935,24 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                        config.Clock,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
-	})
+	}
+
+	if utilsfeatureflag.Enabled(feature.InstanceMutater) {
+		manifolds[environTrackerName] = ifNotMigrating(environ.Manifold(environ.ManifoldConfig{
+			APICallerName:  apiCallerName,
+			NewEnvironFunc: config.NewEnvironFunc,
+		}))
+		manifolds[instanceMutaterName] = ifNotMigrating(instancemutater.Manifold(instancemutater.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
+			Logger:        loggo.GetLogger("juju.worker.instancemutater"),
+			NewClient:     instancemutater.NewClient,
+			NewWorker:     instancemutater.NewWorker,
+		}))
+	}
+
+	return mergeManifolds(config, manifolds)
 }
 
 // CAASManifolds returns a set of co-configured manifolds covering the
@@ -961,6 +986,14 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 		Output: engine.ValueWorkerOutput,
 	}
 }
+
+// ifResponsible wraps a manifold such that it only runs if the
+// responsibility flag is set.
+var ifResponsible = engine.Housing{
+	Flags: []string{
+		isResponsibleFlagName,
+	},
+}.Decorate
 
 var ifFullyUpgraded = engine.Housing{
 	Flags: []string{
@@ -1053,6 +1086,8 @@ const (
 	leaseClockUpdaterName         = "lease-clock-updater"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
+	environTrackerName            = "environ-tracker"
+	instanceMutaterName           = "instance-mutater"
 	logPrunerName                 = "log-pruner"
 	txnPrunerName                 = "transaction-pruner"
 	certificateWatcherName        = "certificate-watcher"
@@ -1079,4 +1114,5 @@ const (
 	raftForwarderName = "raft-forwarder"
 
 	validCredentialFlagName = "valid-credential-flag"
+	isResponsibleFlagName   = "is-responsible-flag"
 )

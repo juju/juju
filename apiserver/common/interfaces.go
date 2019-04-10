@@ -10,6 +10,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// AnonymousAuthFunc returns whether a request is available to some operation.
+// Anonymous in regards that it doesn't require a tag to validate the
+// operation.
+// Uses compared to AuthFunc could be if you want to just validate that a
+// api call is available for controllers or machine agents.
+type AnonymousAuthFunc func() bool
+
 // AuthFunc returns whether the given entity is available to some operation.
 type AuthFunc func(tag names.Tag) bool
 
