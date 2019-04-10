@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caascontrollerupgrader
+package caasupgrader
 
 import (
 	"time"
@@ -14,25 +14,23 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/catacomb"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs/bootstrap"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/upgrader"
 )
 
-var logger = loggo.GetLogger("juju.worker.caascontrollerupgrader")
+var logger = loggo.GetLogger("juju.worker.caasupgrader")
 
 // Upgrader represents a worker that watches the state for upgrade
-// requests for a caas contrtoller model.
+// requests for a given CAAS agent.
 type Upgrader struct {
 	catacomb catacomb.Catacomb
 
-	client UpgraderClient
-	tag    names.Tag
-	config Config
-	broker caas.Broker
+	upgraderClient   UpgraderClient
+	operatorUpgrader CAASOperatorUpgrader
+	tag              names.Tag
+	config           Config
 }
 
 // UpgraderClient provides the facade methods used by the worker.
@@ -42,26 +40,30 @@ type UpgraderClient interface {
 	WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
 }
 
+type CAASOperatorUpgrader interface {
+	Upgrade(agentTag string, v version.Number) error
+}
+
 // Config contains the items the worker needs to start.
 type Config struct {
-	Client                      UpgraderClient
+	UpgraderClient              UpgraderClient
+	CAASOperatorUpgrader        CAASOperatorUpgrader
 	AgentTag                    names.Tag
 	OrigAgentVersion            version.Number
 	UpgradeStepsWaiter          gate.Waiter
 	InitialUpgradeCheckComplete gate.Unlocker
-	Broker                      caas.Broker
 }
 
-// NewControllerUpgrader returns a new upgrader worker. It watches changes to the
-// current version of the controller model. If an upgrade is needed, the worker
-// sets the version of the operator images for all controller operators.
+// NewUpgrader returns a new upgrader worker. It watches changes to the
+// current version of a CAAS agent. If an upgrade is needed, the worker
+// updates the docker image version for the specified agent.
 // TODO(caas) - support HA controllers
-func NewControllerUpgrader(config Config) (*Upgrader, error) {
+func NewUpgrader(config Config) (*Upgrader, error) {
 	u := &Upgrader{
-		broker: config.Broker,
-		client: config.Client,
-		tag:    config.AgentTag,
-		config: config,
+		upgraderClient:   config.UpgraderClient,
+		operatorUpgrader: config.CAASOperatorUpgrader,
+		tag:              config.AgentTag,
+		config:           config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -84,10 +86,11 @@ func (u *Upgrader) Wait() error {
 }
 
 func (u *Upgrader) loop() error {
-	// Start by reporting current tools which is used by the controller
-	// in communicating the desired version below.
-	if err := u.client.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current)); err != nil {
-		return errors.Annotate(err, "cannot set agent version")
+	// Only controllers set their version here - agents do it in the main agent worker loop.
+	if u.tag.Kind() == names.MachineTagKind {
+		if err := u.upgraderClient.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current)); err != nil {
+			return errors.Annotate(err, "cannot set agent version")
+		}
 	}
 
 	// We don't read on the dying channel until we have received the
@@ -101,7 +104,7 @@ func (u *Upgrader) loop() error {
 	// initial event, and we should assume that it'll break its contract
 	// sometime. So we allow the watcher to wait patiently for the event
 	// for a full minute; but after that we proceed regardless.
-	versionWatcher, err := u.client.WatchAPIVersion(u.tag.String())
+	versionWatcher, err := u.upgraderClient.WatchAPIVersion(u.tag.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -139,7 +142,7 @@ func (u *Upgrader) loop() error {
 			}
 		}
 
-		wantVersion, err := u.client.DesiredVersion(u.tag.String())
+		wantVersion, err := u.upgraderClient.DesiredVersion(u.tag.String())
 		if err != nil {
 			return err
 		}
@@ -159,11 +162,10 @@ func (u *Upgrader) loop() error {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		}
-		// TODO(caas) - currently just the controller agent, but need to handle all operators
-		logger.Infof("upgrade requested from %v to %v", jujuversion.Current, wantVersion)
-		err = u.broker.Upgrade(bootstrap.ControllerModelName, wantVersion)
+		logger.Debugf("upgrade requested for %v from %v to %v", u.tag, jujuversion.Current, wantVersion)
+		err = u.operatorUpgrader.Upgrade(u.tag.String(), wantVersion)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "requesting upgrade for %f from %v to %v", u.tag, jujuversion.Current, wantVersion)
 		}
 	}
 }

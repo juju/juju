@@ -205,6 +205,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		})
 	}
 
+	agentConfig := op.AgentConf.CurrentConfig()
 	manifolds := CaasOperatorManifolds(caasoperator.ManifoldsConfig{
 		Agent:                agent.APIHostPortsSetter{op},
 		AgentConfigChanged:   op.configChangedVal,
@@ -216,6 +217,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		UpgradeStepsLock:     op.upgradeComplete,
 		ValidateMigration:    op.validateMigration,
 		MachineLock:          op.machineLock,
+		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
 	})
 
 	engine, err := dependency.NewEngine(dependencyEngineConfig())

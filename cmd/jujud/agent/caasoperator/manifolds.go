@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/utils/voyeur"
+	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasoperator"
+	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
@@ -75,6 +77,10 @@ type ManifoldsConfig struct {
 	// This is used by a number of workers to ensure serialisation of actions
 	// across the machine.
 	MachineLock machinelock.Lock
+
+	// PreviousAgentVersion passes through the version the unit
+	// agent was running before the current restart.
+	PreviousAgentVersion version.Number
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -125,6 +131,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		upgradeStepsFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  upgradeStepsGateName,
 			NewWorker: gate.NewFlagWorker,
+		}),
+
+		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			PreviousAgentVersion: config.PreviousAgentVersion,
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -246,6 +258,7 @@ const (
 
 	upgradeStepsGateName = "upgrade-steps-gate"
 	upgradeStepsFlagName = "upgrade-steps-flag"
+	upgraderName         = "upgrader"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"

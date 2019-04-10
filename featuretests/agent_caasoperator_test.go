@@ -134,6 +134,7 @@ var (
 		"migration-minion",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+		"upgrader",
 	}
 	notMigratingCAASWorkers = []string{
 		"charm-dir",

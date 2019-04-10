@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the LGPLv3, see LICENSE file for details.
 
-package caascontrollerupgrader_test
+package caasupgrader_test
 
 import (
 	stdtesting "testing"
