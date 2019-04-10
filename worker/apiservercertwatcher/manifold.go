@@ -6,6 +6,7 @@ package apiservercertwatcher
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"strings"
 	"sync"
 
@@ -169,6 +170,15 @@ func (w *apiserverCertWatcher) update() error {
 		return errors.Annotatef(err, "parsing x509 cert")
 	}
 	tlsCert.Leaf = x509Cert
+
+	// Parse CA certificate and append it to the leaf certificate so a full
+	// certificate chain can be established if we want to use the cert for
+	// serving tls connections. CACert will always be valid so we can skip
+	// error checking.
+	pBlock, _ := pem.Decode([]byte(config.CACert()))
+	if pBlock != nil {
+		tlsCert.Certificate = append(tlsCert.Certificate, pBlock.Bytes)
+	}
 
 	w.currentRaw = info.Cert
 	w.mu.Lock()
