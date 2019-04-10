@@ -248,15 +248,73 @@ func copyAttributes(values attributeMap) attributeMap {
 	return result
 }
 
-// Destroy in addition to doing what Destroy() does,
+// DestroyRemoteApplicationOperation returns a model operation to destroy remote application.
+func (s *RemoteApplication) DestroyRemoteApplicationOperation(force bool) *DestroyRemoteApplicationOperation {
+	return &DestroyRemoteApplicationOperation{
+		app:             &RemoteApplication{st: s.st, doc: s.doc},
+		ForcedOperation: &ForcedOperation{Force: force},
+	}
+}
+
+// LeaveScopeOperation is a model operation to destroy remote application.
+type DestroyRemoteApplicationOperation struct {
+	*ForcedOperation
+
+	// app holds the remote application to destroy.
+	app *RemoteApplication
+}
+
+// Build is part of the ModelOperation interface.
+func (op *DestroyRemoteApplicationOperation) Build(attempt int) ([]txn.Op, error) {
+	if attempt > 0 {
+		if err := op.app.Refresh(); errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	// When 'force' is set on the operation, this call will return needed operations
+	// and accumulate all operational errors encountered in the operation.
+	// If the 'force' is not set, any error will be fatal and no operations will be returned.
+	switch ops, err := op.destroyOps(); err {
+	case errRefresh:
+	case errAlreadyDying:
+		return nil, jujutxn.ErrNoOperations
+	case nil:
+		return ops, nil
+	default:
+		if op.Force {
+			logger.Warningf("force destroy remote application %v despite error %v", op.app, err)
+			return ops, nil
+		}
+		return nil, err
+	}
+	return nil, jujutxn.ErrNoOperations
+}
+
+// Done is part of the ModelOperation interface.
+func (op *DestroyRemoteApplicationOperation) Done(err error) error {
+	if err != nil {
+		if !op.Force {
+			return errors.Annotatef(err, "cannot destroy remote application %q", op.app)
+		}
+		op.AddError(errors.Errorf("force destroy of remote application %v failed but proceeded despite encountering ERROR %v", op.app, err))
+	}
+	return nil
+}
+
+// DestroyWithForce in addition to doing what Destroy() does,
 // when force is passed in as 'true', forces th destruction of remote application,
 // ignoring errors.
-// TODO (anastasiamac) This needs to be converted to an Operation
-// similar to Unit and Application DestroyOperation to better separate logic
-// of building operations and related errors from the database errors of
-// applying these operations.
-func (s *RemoteApplication) DestroyWithForce(force bool) ([]error, error) {
-	return s.internalDestroy(force)
+func (s *RemoteApplication) DestroyWithForce(force bool) (opErrs []error, err error) {
+	defer func() {
+		if err == nil {
+			s.doc.Life = Dying
+		}
+	}()
+	op := s.DestroyRemoteApplicationOperation(force)
+	err = s.st.ApplyOperation(op)
+	return op.Errors, err
 }
 
 // Destroy ensures that this remote application reference and all its relations
@@ -267,124 +325,69 @@ func (s *RemoteApplication) Destroy() error {
 	return err
 }
 
-// When 'force' is set, this call will construct and apply needed operations
-// as well as return all operational errors encountered.
-// If the 'force' is not set, any error will be fatal and no operations will be applied.
-func (s *RemoteApplication) internalDestroy(force bool) (errs []error, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot destroy remote application %q", s)
-	defer func() {
-		if err == nil {
-			s.doc.Life = Dying
-		}
-	}()
-	app := &RemoteApplication{st: s.st, doc: s.doc}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := app.Refresh(); errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, err
-			}
-		}
-		// When 'force' is set, this call will return both needed operations
-		// as well as all operational errors encountered.
-		// If the 'force' is not set, any error will be fatal and no operations will be returned.
-		ops, opErrs, err := app.destroyOps(force)
-		errs = append(errs, opErrs...)
-		switch err {
-		case errRefresh:
-		case errAlreadyDying:
-			return nil, jujutxn.ErrNoOperations
-		case nil:
-			return ops, nil
-		default:
-			if !force {
-				return nil, err
-			}
-			if len(ops) != 0 {
-				errs = append(errs, errors.Errorf("force destroying remote application %v despite error %v", s.Name(), err))
-				return ops, nil
-			}
-		}
-		return nil, jujutxn.ErrTransientFailure
-	}
-	return errs, s.st.db().Run(buildTxn)
-}
-
 // destroyOps returns the operations required to destroy the application. If it
 // returns errRefresh, the application should be refreshed and the destruction
 // operations recalculated.
-// When 'force' is set, this call will return both needed operations
-// as well as all operational errors encountered.
+// When 'force' is set, this call will return needed operations
+// and accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
-	if s.doc.Life == Dying {
-		if !force {
-			return nil, nil, errAlreadyDying
+func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err error) {
+	if op.app.doc.Life == Dying {
+		if !op.Force {
+			return nil, errAlreadyDying
 		}
 	}
-	errs := []error{}
 	haveRels := true
-	rels, err := s.Relations()
+	rels, err := op.app.Relations()
 	if err != nil {
-		if !force {
-			return nil, errs, errors.Trace(err)
+		if !op.Force {
+			return nil, errors.Trace(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 		haveRels = false
 	}
 
-	if haveRels && len(rels) != s.doc.RelationCount {
-		// This is just an early bail out. The relations obtained may still
-		// be wrong, but that situation will be caught by a combination of
-		// asserts on relationcount and on each known relation, below.
-		return nil, errs, errRefresh
-	}
-
 	// We'll need status below when processing relations.
-	statusInfo, statusErr := s.Status()
+	statusInfo, statusErr := op.app.Status()
 	if statusErr != nil && !errors.IsNotFound(statusErr) {
-		if !force {
-			return nil, errs, statusErr
+		if !op.Force {
+			return nil, statusErr
 		}
-		errs = append(errs, statusErr)
+		op.AddError(statusErr)
 	}
 
-	var ops []txn.Op
 	removeCount := 0
 	if haveRels {
-		var failRels error
+		failRels := false
 		for _, rel := range rels {
 			// If the remote app has been terminated, we may have been offline
 			// and not noticed so need to clean up any exiting relation units.
 			if statusErr == nil && statusInfo.Status == status.Terminated {
-				logger.Debugf("forcing cleanup of units for %v", s.Name())
-				remoteUnits, err := rel.AllRemoteUnits(s.Name())
+				logger.Debugf("forcing cleanup of units for %v", op.app.Name())
+				remoteUnits, err := rel.AllRemoteUnits(op.app.Name())
 				if err != nil {
-					errs = append(errs, err)
-					failRels = err
+					op.AddError(err)
+					failRels = true
 					continue
 				}
 				if countRemoteUnits := len(remoteUnits); countRemoteUnits != 0 {
 					logger.Debugf("got %v relation units to clean", countRemoteUnits)
 					for _, ru := range remoteUnits {
 						// This call will not construct operations but will try to leave scope immediately.
-						opErrs, err := ru.LeaveScopeWithForce(force)
-						errs = append(errs, opErrs...)
+						opErrs, err := ru.LeaveScopeWithForce(op.Force)
+						op.AddError(opErrs...)
 						if err != nil {
-							errs = append(errs, err)
-							failRels = err
+							op.AddError(err)
+							failRels = true
 							continue
 						}
 					}
 				}
 			}
-
 			// When 'force' is set, this call will return both needed operations
 			// as well as all operational errors encountered.
 			// If the 'force' is not set, any error will be fatal and no operations will be returned.
-			relOps, isRemove, opErrs, err := rel.destroyOps(s.doc.Name, force)
-			errs = append(errs, opErrs...)
+			relOps, isRemove, err := rel.destroyOps(op.app.doc.Name, op.ForcedOperation)
 			if err == errAlreadyDying {
 				relOps = []txn.Op{{
 					C:      relationsC,
@@ -392,8 +395,8 @@ func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
 					Assert: bson.D{{"life", Dying}},
 				}}
 			} else if err != nil {
-				errs = append(errs, err)
-				failRels = err
+				op.AddError(err)
+				failRels = true
 				continue
 			}
 			if isRemove {
@@ -401,23 +404,23 @@ func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
 			}
 			ops = append(ops, relOps...)
 		}
-		if !force && failRels != nil {
-			return nil, errs, errors.Trace(failRels)
+		if !op.Force && failRels {
+			return nil, errors.Trace(op.LastError())
 		}
 	}
 	// If all of the application's known relations will be
 	// removed, the application can also be removed.
-	if s.doc.RelationCount == removeCount {
+	if op.app.doc.RelationCount == removeCount {
 		hasLastRefs := bson.D{{"life", Alive}, {"relationcount", removeCount}}
-		removeOps, err := s.removeOps(hasLastRefs)
+		removeOps, err := op.app.removeOps(hasLastRefs)
 		if err != nil {
-			if !force {
-				return nil, errs, errors.Trace(err)
+			if !op.Force {
+				return nil, errors.Trace(err)
 			}
-			errs = append(errs, err)
+			op.AddError(err)
 		}
 		ops = append(ops, removeOps...)
-		return ops, errs, nil
+		return ops, nil
 	}
 	// In all other cases, application removal will be handled as a consequence
 	// of the removal of the relation referencing it. If any  relations have
@@ -429,7 +432,7 @@ func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
 	// virtue of being a remove.
 	notLastRefs := bson.D{
 		{"life", Alive},
-		{"relationcount", s.doc.RelationCount},
+		{"relationcount", op.app.doc.RelationCount},
 	}
 	update := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	if removeCount != 0 {
@@ -438,11 +441,11 @@ func (s *RemoteApplication) destroyOps(force bool) ([]txn.Op, []error, error) {
 	}
 	ops = append(ops, txn.Op{
 		C:      remoteApplicationsC,
-		Id:     s.doc.DocID,
+		Id:     op.app.doc.DocID,
 		Assert: notLastRefs,
 		Update: update,
 	})
-	return ops, errs, nil
+	return ops, nil
 }
 
 // removeOps returns the operations required to remove the application. Supplied

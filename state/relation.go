@@ -28,11 +28,11 @@ func relationKey(endpoints []Endpoint) string {
 		eps = append(eps, ep)
 	}
 	sort.Sort(eps)
-	names := []string{}
+	endpointNames := []string{}
 	for _, ep := range eps {
-		names = append(names, ep.String())
+		endpointNames = append(endpointNames, ep.String())
 	}
-	return strings.Join(names, " ")
+	return strings.Join(endpointNames, " ")
 }
 
 // relationDoc is the internal representation of a Relation in MongoDB.
@@ -249,11 +249,68 @@ func (r *Relation) checkConsumePermission(offerUUID, userId string) (bool, error
 	return true, nil
 }
 
+// DestroyOperation returns a model operation that will allow relation to leave scope.
+func (r *Relation) DestroyOperation(force bool) *DestroyRelationOperation {
+	return &DestroyRelationOperation{
+		r:               &Relation{r.st, r.doc},
+		ForcedOperation: &ForcedOperation{Force: force},
+	}
+}
+
+// DestroyRelationOperation is a model operation destroy relation.
+type DestroyRelationOperation struct {
+	*ForcedOperation
+
+	// r holds the relation to destroy.
+	r *Relation
+}
+
+// Build is part of the ModelOperation interface.
+func (op *DestroyRelationOperation) Build(attempt int) ([]txn.Op, error) {
+	if attempt > 0 {
+		if err := op.r.Refresh(); errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	// When 'force' is set on the operation, this call will return needed operations
+	// and accumulate all operational errors encountered in the operation.
+	// If the 'force' is not set, any error will be fatal and no operations will be returned.
+	switch ops, err := op.internalDestroy(); err {
+	case errRefresh:
+	case errAlreadyDying:
+		return nil, jujutxn.ErrNoOperations
+	case nil:
+		return ops, nil
+	default:
+		if op.Force {
+			logger.Warningf("force destroying relation %v despite error %v", op.r, err)
+			return ops, nil
+		}
+		return nil, err
+	}
+	return nil, jujutxn.ErrNoOperations
+}
+
+// Done is part of the ModelOperation interface.
+func (op *DestroyRelationOperation) Done(err error) error {
+	if err != nil {
+		if !op.Force {
+			return errors.Annotatef(err, "cannot destroy relation %q", op.r)
+		}
+		op.AddError(errors.Errorf("forcefully destroying relation %v proceeded despite encountering ERROR %v", op.r, err))
+	}
+	return nil
+}
+
 // DestroyWithForce may force the destruction of the relation.
 // In addition, this function also returns all non-fatal operational errors
 // encountered.
 func (r *Relation) DestroyWithForce(force bool) ([]error, error) {
-	return r.internalDestroy(force)
+	op := r.DestroyOperation(force)
+	err := r.st.ApplyOperation(op)
+	return op.Errors, err
 }
 
 // Destroy ensures that the relation will be removed at some point; if no units
@@ -266,62 +323,58 @@ func (r *Relation) Destroy() error {
 // When 'force' is set, this call will construct and apply needed operations
 // as well as accumulate all operational errors encountered.
 // If the 'force' is not set, any error will be fatal and no operations will be applied.
-// TODO (anastasiamac) This needs to be changed to be an Operation
-// similar to Application and Unit DestroyOperation. This will stop
-// the confusion around what errors are operational, business logic related
-// and which are database errors.
-func (r *Relation) internalDestroy(force bool) (errs []error, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot destroy relation %q", r)
-	if len(r.doc.Endpoints) == 1 && r.doc.Endpoints[0].Role == charm.RolePeer {
+func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) {
+	if len(op.r.doc.Endpoints) == 1 && op.r.doc.Endpoints[0].Role == charm.RolePeer {
 		return nil, errors.Errorf("is a peer relation")
 	}
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
-			r.doc.Life = Dying
+			op.r.doc.Life = Dying
 		}
 	}()
-	rel := &Relation{r.st, r.doc}
+	rel := &Relation{op.r.st, op.r.doc}
 
-	fail := func(e error) ([]error, error) {
-		return errs, errors.Trace(e)
-	}
-	remoteApp, isCrossModel, err := r.RemoteApplication()
+	remoteApp, isCrossModel, err := op.r.RemoteApplication()
 	if err != nil {
-		if !force {
-			return fail(err)
+		if !op.Force {
+			return nil, errors.Trace(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 	} else {
 		// If the status of the consumed app is terminated, we will never
 		// get an orderly exit of units from scope so force the issue.
 		if isCrossModel {
 			statusInfo, err := remoteApp.Status()
 			if err != nil && !errors.IsNotFound(err) {
-				if !force {
-					return fail(err)
+				if !op.Force {
+					return nil, errors.Trace(err)
 				}
-				errs = append(errs, err)
+				op.AddError(err)
 			}
 			if err == nil && statusInfo.Status == status.Terminated {
 				logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
 				remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
 				if err != nil {
-					if !force {
-						return fail(err)
+					if !op.Force {
+						return nil, errors.Trace(err)
 					}
-					errs = append(errs, err)
+					op.AddError(err)
 				}
 				logger.Debugf("got %v relation units to clean", len(remoteUnits))
-				var failRemoteUnits error
+				failRemoteUnits := false
 				for _, ru := range remoteUnits {
-					if err := ru.LeaveScope(); err != nil {
-						errs = append(errs, err)
-						failRemoteUnits = err
+					// This will try to get relation unit to leave scope - it has its own transacation and
+					// will not return operations.
+					opErrs, err := ru.LeaveScopeWithForce(op.Force)
+					if err != nil {
+						op.AddError(err)
+						failRemoteUnits = true
 					}
+					op.AddError(opErrs...)
 				}
-				if !force && failRemoteUnits != nil {
-					return fail(failRemoteUnits)
+				if !op.Force && failRemoteUnits {
+					return nil, errors.Trace(op.LastError())
 				}
 			}
 		}
@@ -331,37 +384,19 @@ func (r *Relation) internalDestroy(force bool) (errs []error, err error) {
 	// in scope have changed between 0 and not-0. The chances of 5 successive
 	// attempts each hitting this change -- which is itself an unlikely one --
 	// are considered to be extremely small.
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := rel.Refresh(); errors.IsNotFound(err) {
-				return []txn.Op{}, nil
-			} else if err != nil {
-				return nil, err
-			}
+	// When 'force' is set, this call will return  needed operations
+	// and accumulate all operational errors encountered in the operation.
+	// If the 'force' is not set, any error will be fatal and no operations will be returned.
+	ops, _, err = rel.destroyOps("", op.ForcedOperation)
+	if err == errAlreadyDying {
+		return nil, jujutxn.ErrNoOperations
+	} else if err != nil {
+		if !op.Force {
+			return nil, err
 		}
-		// When 'force' is set, this call will return both needed operations
-		// as well as all operational errors encountered.
-		// If the 'force' is not set, any error will be fatal and no operations will be returned.
-		ops, _, opErrs, err := rel.destroyOps("", force)
-		errs = append(errs, opErrs...)
-		if err == errAlreadyDying {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			if !force {
-				return nil, err
-			}
-			errs = append(errs, err)
-		}
-		return ops, nil
+		op.AddError(err)
 	}
-	err = rel.st.db().Run(buildTxn)
-	if err != nil {
-		if !force {
-			return fail(err)
-		}
-		errs = append(errs, err)
-	}
-	return errs, nil
+	return ops, nil
 }
 
 // destroyOps returns the operations necessary to destroy the relation, and
@@ -372,31 +407,31 @@ func (r *Relation) internalDestroy(force bool) (errs []error, err error) {
 // When 'force' is set, this call will return both operations to remove this
 // relation as well as all operational errors encountered.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (r *Relation) destroyOps(ignoreApplication string, force bool) (ops []txn.Op, isRemove bool, opErrs []error, err error) {
+func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (ops []txn.Op, isRemove bool, err error) {
 	if r.doc.Life != Alive {
-		if !force {
-			return nil, false, nil, errAlreadyDying
+		if !op.Force {
+			return nil, false, errAlreadyDying
 		}
 	}
 	if r.doc.UnitCount == 0 {
 		// When 'force' is set, this call will return both needed operations
 		// as well as all operational errors encountered.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
-		removeOps, opErrs, err := r.removeOps(ignoreApplication, "", force)
+		removeOps, err := r.removeOps(ignoreApplication, "", op)
 		if err != nil {
-			if !force {
-				return nil, false, opErrs, err
+			if !op.Force {
+				return nil, false, err
 			}
 			logger.Warningf("ignoring error (%v) while constructing relation %v destroy operations since force is used", err, r)
 		}
-		return removeOps, true, opErrs, nil
+		return removeOps, true, nil
 	}
 	return []txn.Op{{
 		C:      relationsC,
 		Id:     r.doc.DocID,
 		Assert: bson.D{{"life", Alive}, {"unitcount", bson.D{{"$gt", 0}}}},
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}}, false, nil, nil
+	}}, false, nil
 }
 
 // removeOps returns the operations necessary to remove the relation. If
@@ -404,10 +439,10 @@ func (r *Relation) destroyOps(ignoreApplication string, force bool) (ops []txn.O
 // included; if departingUnitName is non-empty, this implies that the
 // relation's applications may be Dying and otherwise unreferenced, and may thus
 // require removal themselves.
-// When 'force' is set, this call will return both needed operations
-// as well as all operational errors encountered.
+// When 'force' is set, this call will return needed operations
+// and accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (r *Relation) removeOps(ignoreApplication string, departingUnitName string, force bool) ([]txn.Op, []error, error) {
+func (r *Relation) removeOps(ignoreApplication string, departingUnitName string, op *ForcedOperation) ([]txn.Op, error) {
 	relOp := txn.Op{
 		C:      relationsC,
 		Id:     r.doc.DocID,
@@ -419,29 +454,27 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 		relOp.Assert = bson.D{{"life", Alive}, {"unitcount", 0}}
 	}
 	ops := []txn.Op{relOp}
-	errs := []error{}
 	for _, ep := range r.doc.Endpoints {
 		if ep.ApplicationName == ignoreApplication {
 			continue
 		}
 		app, err := applicationByName(r.st, ep.ApplicationName)
 		if err != nil {
-			errs = append(errs, err)
+			op.AddError(err)
 		} else {
 			if app.IsRemote() {
 				epOps, err := r.removeRemoteEndpointOps(ep, departingUnitName != "")
 				if err != nil {
-					errs = append(errs, err)
+					op.AddError(err)
 				}
 				ops = append(ops, epOps...)
 			} else {
 				// When 'force' is set, this call will return both needed operations
 				// as well as all operational errors encountered.
 				// If the 'force' is not set, any error will be fatal and no operations will be returned.
-				epOps, opErrs, err := r.removeLocalEndpointOps(ep, departingUnitName, force)
-				errs = append(errs, opErrs...)
+				epOps, err := r.removeLocalEndpointOps(ep, departingUnitName, op)
 				if err != nil {
-					errs = append(errs, err)
+					op.AddError(err)
 				}
 				ops = append(ops, epOps...)
 			}
@@ -456,13 +489,13 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 	ops = append(ops, offerOps...)
 	// This cleanup does not need to be forced.
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
-	return append(ops, cleanupOp), errs, nil
+	return append(ops, cleanupOp), nil
 }
 
 // When 'force' is set, this call will return both needed operations
 // as well as all operational errors encountered.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string, force bool) ([]txn.Op, []error, error) {
+func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string, op *ForcedOperation) ([]txn.Op, error) {
 	var asserts bson.D
 	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
 	departingUnitApplicationMatchesEndpoint := func() bool {
@@ -488,13 +521,13 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 		hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
 		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
 		if err := applications.Find(removable).One(&app.doc); err == nil {
-			// When 'force' is set, this call will return both needed operations
-			// as well as all operational errors encountered.
+			// When 'force' is set, this call will return needed operations
+			// and accumulate all operational errors encountered in the operation.
 			// If the 'force' is not set, any error will be fatal and no operations will be returned.
-			return app.removeOps(hasLastRef, force)
+			return app.removeOps(hasLastRef, op)
 		} else if err != mgo.ErrNotFound {
-			if !force {
-				return nil, nil, err
+			if !op.Force {
+				return nil, err
 			}
 		}
 		// If not, we must check that this is still the case when the
@@ -510,7 +543,7 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 		Id:     r.st.docID(ep.ApplicationName),
 		Assert: asserts,
 		Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
-	}}, nil, nil
+	}}, nil
 }
 
 func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.Op, error) {
