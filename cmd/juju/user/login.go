@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
@@ -96,6 +97,7 @@ type loginCommand struct {
 	modelcmd.ControllerCommandBase
 	domain   string
 	username string
+	pollster *interact.Pollster
 
 	// controllerName holds the name of the current controller.
 	// We define this and the --controller flag here because
@@ -138,6 +140,9 @@ func (c *loginCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *loginCommand) Run(ctx *cmd.Context) error {
+	errout := interact.NewErrWriter(ctx.Stdout)
+	c.pollster = interact.New(ctx.Stdin, ctx.Stderr, errout)
+
 	err := c.run(ctx)
 	if err != nil && c.onRunError != nil {
 		c.onRunError()
@@ -303,7 +308,6 @@ func (c *loginCommand) publicControllerLogin(
 	}
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bclient
-
 	dial := func(d *jujuclient.AccountDetails) (api.Connection, error) {
 		var tag names.Tag
 		if d.User != "" {
@@ -383,20 +387,15 @@ Run "juju logout" first before attempting to log in as a different user.`,
 		if !params.IsCodeNoCreds(err) {
 			return nil, nil, errors.Trace(err)
 		}
+
 		// CodeNoCreds was returned, which means that external
 		// users are not supported. Fall back to prompting the
 		// user for their username and password.
-
-		fmt.Fprint(ctx.Stderr, "username: ")
-		u, err := readLine(ctx.Stdin)
-		if err != nil {
+		if username, err = c.pollster.Enter("username"); err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		if u == "" {
-			return nil, nil, errors.Errorf("you must specify a username")
-		}
-		username = u
 	}
+
 	// Log in without specifying a password in the account details. This
 	// will trigger macaroon-based authentication, which will prompt the
 	// user for their password.

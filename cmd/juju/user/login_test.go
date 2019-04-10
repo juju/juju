@@ -220,7 +220,8 @@ func (s *LoginCommandSuite) TestLoginWithExistingInvalidPassword(c *gc.C) {
 	stdout, stderr, code := runLogin(c, "other-user\n")
 	c.Check(code, gc.Equals, 0)
 	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `username: Welcome, other-user. (.|\n)+`)
+	c.Check(stderr, gc.Matches, `Enter username: 
+Welcome, other-user. (.|\n)+`)
 }
 
 func (s *LoginCommandSuite) TestLoginWithMacaroons(c *gc.C) {
@@ -252,7 +253,8 @@ func (s *LoginCommandSuite) TestLoginWithMacaroonsNotSupported(c *gc.C) {
 	stdout, stderr, code := runLogin(c, "new-user\n")
 	c.Check(stdout, gc.Equals, ``)
 	c.Check(stderr, gc.Matches, `
-username: Welcome, new-user. You are now logged into "testing".
+Enter username: 
+Welcome, new-user. You are now logged into "testing".
 
 There are no models available(.|\n)*`[1:])
 	c.Assert(code, gc.Equals, 0)
