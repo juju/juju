@@ -1828,14 +1828,14 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 	results := res.Results
 	c.Assert(results, gc.HasLen, 6)
 	c.Check(results[0].Error, gc.IsNil)
-	c.Check(*results[1].Error, gc.Equals,
+	c.Check(*results[1].Error, jc.DeepEquals,
 		*common.ServerError(errors.NotFoundf("machine 100")))
 	c.Check(*results[1].Error, jc.Satisfies, params.IsCodeNotFound)
 	c.Check(results[2].Error, gc.IsNil)
-	c.Check(*results[3].Error, gc.Equals,
+	c.Check(*results[3].Error, jc.DeepEquals,
 		*common.ServerError(errors.New("cannot remove machine 1: machine is not dead")))
-	c.Check(*results[4].Error, gc.Equals, *apiservertesting.ErrUnauthorized)
-	c.Check(*results[5].Error, gc.Equals,
+	c.Check(*results[4].Error, jc.DeepEquals, *apiservertesting.ErrUnauthorized)
+	c.Check(*results[5].Error, jc.DeepEquals,
 		*common.ServerError(errors.New(`"application-thing" is not a valid machine tag`)))
 
 	removals, err := s.State.AllMachineRemovals()

@@ -96,6 +96,19 @@ func (*suite) TestRead(c *gc.C) {
 		},
 		expectBody: new(map[string]interface{}),
 	}, {
+		msg: `{"request-id": 2, "error": "an error", "error-code": "a code", "error-info": {"foo": "bar", "baz": true}}`,
+		expectHdr: rpc.Header{
+			RequestId: 2,
+			Error:     "an error",
+			ErrorCode: "a code",
+			ErrorInfo: map[string]interface{}{
+				"foo": "bar",
+				"baz": true,
+			},
+			Version: 1,
+		},
+		expectBody: new(map[string]interface{}),
+	}, {
 		msg: `{"request-id": 3, "response": {"X": "result"}}`,
 		expectHdr: rpc.Header{
 			RequestId: 3,
@@ -180,6 +193,16 @@ func (*suite) TestWrite(c *gc.C) {
 		expect: `{"RequestId": 2, "Error": "an error", "ErrorCode": "a code"}`,
 	}, {
 		hdr: &rpc.Header{
+			RequestId: 2,
+			Error:     "an error",
+			ErrorCode: "a code",
+			ErrorInfo: map[string]interface{}{
+				"ignored": "for version0",
+			},
+		},
+		expect: `{"RequestId": 2, "Error": "an error", "ErrorCode": "a code"}`,
+	}, {
+		hdr: &rpc.Header{
 			RequestId: 3,
 		},
 		body:   &value{X: "result"},
@@ -216,6 +239,18 @@ func (*suite) TestWrite(c *gc.C) {
 			Version:   1,
 		},
 		expect: `{"request-id": 2, "error": "an error", "error-code": "a code"}`,
+	}, {
+		hdr: &rpc.Header{
+			RequestId: 2,
+			Error:     "an error",
+			ErrorCode: "a code",
+			ErrorInfo: map[string]interface{}{
+				"foo": "bar",
+				"baz": true,
+			},
+			Version: 1,
+		},
+		expect: `{"request-id": 2, "error": "an error", "error-code": "a code", "error-info": {"foo": "bar", "baz": true}}`,
 	}, {
 		hdr: &rpc.Header{
 			RequestId: 3,

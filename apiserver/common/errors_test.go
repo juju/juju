@@ -4,8 +4,10 @@
 package common_test
 
 import (
+	"encoding/json"
 	stderrors "errors"
 	"net/http"
+	"reflect"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -176,7 +178,8 @@ var errorTransformTests = []struct {
 	code:   params.CodeDischargeRequired,
 	helperFunc: func(err error) bool {
 		err1, ok := err.(*params.Error)
-		if !ok || err1.Info == nil || err1.Info.Macaroon != sampleMacaroon {
+		exp := asMap(sampleMacaroon)
+		if !ok || err1.Info == nil || !reflect.DeepEqual(err1.Info["macaroon"], exp) {
 			return false
 		}
 		return true
@@ -203,6 +206,14 @@ var sampleMacaroon = func() *macaroon.Macaroon {
 	}
 	return m
 }()
+
+func asMap(v interface{}) map[string]interface{} {
+	var m map[string]interface{}
+	d, _ := json.Marshal(v)
+	_ = json.Unmarshal(d, &m)
+
+	return m
+}
 
 type unhashableError []string
 

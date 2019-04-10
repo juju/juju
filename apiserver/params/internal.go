@@ -643,8 +643,7 @@ type CharmsResponse struct {
 	ErrorCode string `json:"error-code,omitempty"`
 
 	// ErrorInfo holds extra information associated with the error.
-	// Like ErrorCode, this should really be in an Error object.
-	ErrorInfo *ErrorInfo `json:"error-info,omitempty"`
+	ErrorInfo map[string]interface{} `json:"error-info,omitempty"`
 
 	CharmURL string   `json:"charm-url,omitempty"`
 	Files    []string `json:"files,omitempty"`

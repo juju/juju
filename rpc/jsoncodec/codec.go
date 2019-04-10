@@ -63,15 +63,16 @@ type inMsgV0 struct {
 }
 
 type inMsgV1 struct {
-	RequestId uint64          `json:"request-id"`
-	Type      string          `json:"type"`
-	Version   int             `json:"version"`
-	Id        string          `json:"id"`
-	Request   string          `json:"request"`
-	Params    json.RawMessage `json:"params"`
-	Error     string          `json:"error"`
-	ErrorCode string          `json:"error-code"`
-	Response  json.RawMessage `json:"response"`
+	RequestId uint64                 `json:"request-id"`
+	Type      string                 `json:"type"`
+	Version   int                    `json:"version"`
+	Id        string                 `json:"id"`
+	Request   string                 `json:"request"`
+	Params    json.RawMessage        `json:"params"`
+	Error     string                 `json:"error"`
+	ErrorCode string                 `json:"error-code"`
+	ErrorInfo map[string]interface{} `json:"error-info"`
+	Response  json.RawMessage        `json:"response"`
 }
 
 // outMsg holds an outgoing message.
@@ -88,15 +89,16 @@ type outMsgV0 struct {
 }
 
 type outMsgV1 struct {
-	RequestId uint64      `json:"request-id,omitempty"`
-	Type      string      `json:"type,omitempty"`
-	Version   int         `json:"version,omitempty"`
-	Id        string      `json:"id,omitempty"`
-	Request   string      `json:"request,omitempty"`
-	Params    interface{} `json:"params,omitempty"`
-	Error     string      `json:"error,omitempty"`
-	ErrorCode string      `json:"error-code,omitempty"`
-	Response  interface{} `json:"response,omitempty"`
+	RequestId uint64                 `json:"request-id,omitempty"`
+	Type      string                 `json:"type,omitempty"`
+	Version   int                    `json:"version,omitempty"`
+	Id        string                 `json:"id,omitempty"`
+	Request   string                 `json:"request,omitempty"`
+	Params    interface{}            `json:"params,omitempty"`
+	Error     string                 `json:"error,omitempty"`
+	ErrorCode string                 `json:"error-code,omitempty"`
+	ErrorInfo map[string]interface{} `json:"error-info,omitempty"`
+	Response  interface{}            `json:"response,omitempty"`
 }
 
 func (c *Codec) Close() error {
@@ -139,6 +141,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	}
 	hdr.Error = c.msg.Error
 	hdr.ErrorCode = c.msg.ErrorCode
+	hdr.ErrorInfo = c.msg.ErrorInfo
 	hdr.Version = version
 	return nil
 }
@@ -272,6 +275,7 @@ func newOutMsgV1(hdr *rpc.Header, body interface{}) outMsgV1 {
 		Request:   hdr.Request.Action,
 		Error:     hdr.Error,
 		ErrorCode: hdr.ErrorCode,
+		ErrorInfo: hdr.ErrorInfo,
 	}
 	if hdr.IsRequest() {
 		result.Params = body
