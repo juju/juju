@@ -3011,7 +3011,7 @@ func (a *Application) UpdateCloudService(providerId string, addresses []network.
 // ServiceInfo returns information about this application's cloud service.
 // This is only used for CAAS models.
 func (a *Application) ServiceInfo() (CloudService, error) {
-	svc, err := a.st.CloudService(a.globalKey())
+	svc, err := a.st.CloudService(a.Name())
 	if err != nil {
 		return CloudService{}, errors.Trace(err)
 	}
