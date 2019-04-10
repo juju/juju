@@ -52,21 +52,21 @@ func (api *APIBase) getConfig(
 		return params.ApplicationGetResults{}, err
 	}
 
-	// We need a guard on the API server-side for direct API callers such as
-	// python-libjuju. Always default to the master branch.
-	branchName := args.BranchName
-	if branchName == "" {
-		branchName = model.GenerationMaster
-	}
-
 	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	settings, err := app.CharmConfig(branchName)
+
+	// We need a guard on the API server-side for direct API callers such as
+	// python-libjuju. Always default to the master branch.
+	if args.BranchName == "" {
+		args.BranchName = model.GenerationMaster
+	}
+	settings, err := app.CharmConfig(args.BranchName)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
+
 	ch, _, err := app.Charm()
 	if err != nil {
 		return params.ApplicationGetResults{}, err

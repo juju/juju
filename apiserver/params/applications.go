@@ -154,9 +154,9 @@ type ApplicationExpose struct {
 type ApplicationSet struct {
 	ApplicationName string `json:"application"`
 
-	// Generation is the generation version that this request
-	// will set application configuration options for.
-	Generation string `json:"generation"`
+	// BranchName identifies the "in-flight" branch that this
+	// request will set configuration for.
+	BranchName string `json:"branch"`
 
 	Options map[string]string `json:"options"`
 }
@@ -167,9 +167,9 @@ type ApplicationSet struct {
 type ApplicationUnset struct {
 	ApplicationName string `json:"application"`
 
-	// Generation is the generation version that this request
-	// will unset application configuration options for.
-	Generation string `json:"generation"`
+	// BranchName identifies the "in-flight" branch that this
+	// request will unset configuration for.
+	BranchName string `json:"branch"`
 
 	Options []string `json:"options"`
 }

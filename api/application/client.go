@@ -870,7 +870,7 @@ func (c *Client) UnsetApplicationConfig(branchName, application string, options 
 	args := params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: application,
-			Generation:      branchName,
+			BranchName:      branchName,
 			Options:         options,
 		}},
 	}
