@@ -20,7 +20,8 @@ func IsClusterQueryError(err error) bool {
 
 // UnknownClusterError occurs when the provided cluster is not known to Juju.
 type UnknownClusterError struct {
-	Message string
+	Message   string
+	CloudName string
 }
 
 func (e UnknownClusterError) Error() string {

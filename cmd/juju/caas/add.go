@@ -386,13 +386,16 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	storageMsg, err := provider.UpdateKubeCloudWithStorage(&newCloud, credential, storageParams)
 	if err != nil {
 		if provider.IsClusterQueryError(err) {
+			if err.Error() == "" {
+				return errors.New(clusterQueryErrMsg)
+			}
 			return errors.Annotate(err, clusterQueryErrMsg)
 		}
 		if provider.IsNoRecommendedStorageError(err) {
 			return errors.Errorf(noRecommendedStorageErrMsg, err.(provider.NoRecommendedStorageError).StorageProvider())
 		}
 		if provider.IsUnknownClusterError(err) {
-			return errors.Annotate(err, unknownClusterErrMsg)
+			return errors.Errorf(unknownClusterErrMsg, err.(provider.UnknownClusterError).CloudName)
 		}
 		return errors.Trace(err)
 	}

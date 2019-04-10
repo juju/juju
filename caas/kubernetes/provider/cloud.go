@@ -98,8 +98,9 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Cred
 
 	// Get the cluster metadata so we can see if there's suitable storage available.
 	clusterMetadata, err := storageParams.GetClusterMetadataFunc(storageParams.MetadataChecker)
+
 	if err != nil || clusterMetadata == nil {
-		return fail(errors.Wrap(err, ClusterQueryError{}))
+		return fail(ClusterQueryError{Message: err.Error()})
 	}
 
 	if storageParams.HostCloudRegion == "" && clusterMetadata.Regions != nil && clusterMetadata.Regions.Size() > 0 {
@@ -121,7 +122,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Cred
 	cloudType := strings.Split(storageParams.HostCloudRegion, "/")[0]
 	err = storageParams.MetadataChecker.CheckDefaultWorkloadStorage(cloudType, clusterMetadata.NominatedStorageClass)
 	if errors.IsNotFound(err) {
-		return fail(UnknownClusterError{cloudType})
+		return fail(UnknownClusterError{CloudName: cloudType})
 	}
 	if storageParams.WorkloadStorage == "" && caas.IsNonPreferredStorageError(err) {
 		npse := err.(*caas.NonPreferredStorageError)

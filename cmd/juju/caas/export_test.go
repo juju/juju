@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -20,7 +19,7 @@ func NewAddCAASCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
 	store jujuclient.ClientStore,
 	addCloudAPIFunc func() (AddCloudAPI, error),
-	brokerGetter provider.ClusterMetadataCheckerGetter,
+	brokerGetter BrokerGetter,
 	k8sCluster k8sCluster,
 	newClientConfigReaderFunc func(string) (clientconfig.ClientConfigFunc, error),
 	getAllCloudDetails func() (map[string]*jujucmdcloud.CloudDetails, error),
