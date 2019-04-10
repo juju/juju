@@ -507,7 +507,7 @@ func (s *ApplicationSuite) assertDestroyApplication(c *gc.C, force bool) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyApplicationOperation{Force: force})
+	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyApplicationOperation{ForcedOperation: &state.ForcedOperation{Force: force}})
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
@@ -541,7 +541,8 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 		"ApplyOperation",
 	)
 	s.backend.CheckCall(c, 5, "ApplyOperation", &state.DestroyApplicationOperation{
-		DestroyStorage: true,
+		DestroyStorage:  true,
+		ForcedOperation: &state.ForcedOperation{},
 	})
 }
 
@@ -638,7 +639,7 @@ func (s *ApplicationSuite) assertDestroyUnit(c *gc.C, force bool) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyUnitOperation{Force: force})
+	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyUnitOperation{ForcedOperation: &state.ForcedOperation{Force: force}})
 	s.backend.CheckCall(c, 9, "ApplyOperation", &state.DestroyUnitOperation{
 		DestroyStorage: true,
 	})
