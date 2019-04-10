@@ -1118,6 +1118,42 @@ var (
 	errLocalApplicationExists          = errors.Errorf("application already exists")
 )
 
+// SaveCloudServiceArgs defines the arguments for SaveCloudService method.
+type SaveCloudServiceArgs struct {
+	// Id will be the application Name if it's a part of application,
+	// and will be controller UUID for k8s a controller(controller does not have an application),
+	// then is wrapped with applicationGlobalKey.
+	Id         string
+	ProviderId string
+	Addresses  []network.Address
+}
+
+// SaveCloudService creates a cloud service.
+func (st *State) SaveCloudService(args SaveCloudServiceArgs) (_ *CloudService, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add cloud service %q", args.ProviderId)
+
+	doc := cloudServiceDoc{
+		DocID:      applicationGlobalKey(args.Id),
+		ProviderId: args.ProviderId,
+		Addresses:  fromNetworkAddresses(args.Addresses, OriginProvider),
+	}
+	svc := newCloudService(st, &doc)
+	buildTxn := func(int) ([]txn.Op, error) {
+		return svc.saveServiceOps(doc)
+	}
+
+	if err := st.db().Run(buildTxn); err != nil {
+		return nil, errors.Annotate(err, "failed to save cloud service")
+	}
+	return svc, nil
+}
+
+// CloudService returns a cloud service state by Id.
+func (st *State) CloudService(id string) (*CloudService, error) {
+	svc := newCloudService(st, &cloudServiceDoc{DocID: st.docID(applicationGlobalKey(id))})
+	return svc.CloudService()
+}
+
 type AddApplicationArgs struct {
 	Name              string
 	Series            string

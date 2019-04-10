@@ -144,6 +144,10 @@ type BootstrapParams struct {
 	// CAPrivateKey is the controller's CA certificate private key.
 	CAPrivateKey string
 
+	// ControllerServiceType is the service type to use for a k8s controller.
+	// Optional: only for k8s controller.
+	ControllerServiceType string
+
 	// DialOpts contains the bootstrap dial options.
 	DialOpts environs.BootstrapDialOpts
 
@@ -220,6 +224,7 @@ func bootstrapCAAS(
 		args.ControllerConfig,
 		args.ControllerName,
 		result.Series,
+		args.ControllerServiceType,
 	)
 	if err != nil {
 		return errors.Trace(err)

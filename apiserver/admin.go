@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -148,11 +149,36 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	recorderFactory := observer.NewRecorderFactory(
-		a.apiObserver, auditRecorder, auditConfig.CaptureAPIArgs)
+		a.apiObserver, auditRecorder, auditConfig.CaptureAPIArgs,
+	)
+
+	servers := params.FromNetworkHostsPorts(hostPorts)
+	ctrlSt := a.srv.shared.statePool.SystemState()
+	model, err := ctrlSt.Model()
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
+	if model.Type() == state.ModelTypeCAAS {
+		// TODO(caas): Add tests for this once we have a new test suite for replacing JujuConnSuite.
+		// we use k8s service DNS for k8s controller.
+		controllerConfig, err := ctrlSt.ControllerConfig()
+		if err != nil {
+			return fail, errors.Trace(err)
+		}
+		svcInfo, err := ctrlSt.CloudService(controllerConfig.ControllerUUID())
+		if err != nil {
+			return fail, errors.Trace(err)
+		}
+		servers = params.FromNetworkHostsPorts(
+			[][]network.HostPort{
+				network.AddressesWithPort(svcInfo.Addresses(), controllerConfig.APIPort()),
+			},
+		)
+	}
 
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
 	return params.LoginResult{
-		Servers:       params.FromNetworkHostsPorts(hostPorts),
+		Servers:       servers,
 		ControllerTag: a.root.model.ControllerTag().String(),
 		UserInfo:      authResult.userInfo,
 		ServerVersion: jujuversion.Current.String(),

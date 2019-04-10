@@ -101,6 +101,9 @@ type ControllerPodConfig struct {
 // for a new juju caas pod. This is only relevant for the bootstrap pod.
 type BootstrapConfig struct {
 	instancecfg.BootstrapConfig
+
+	// ControllerServiceType is the service type to use for a k8s controller.
+	ControllerServiceType string
 }
 
 // ControllerConfig represents controller-specific initialization information
@@ -251,14 +254,18 @@ func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) st
 
 func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid bootstrap configuration")
+
 	if cfg.Controller == nil {
-		return errors.New("bootstrap config supplied without controller config")
+		return errors.New("controller pod config supplied without controller config")
 	}
 	if err := cfg.Bootstrap.VerifyConfig(); err != nil {
 		return errors.Trace(err)
 	}
 	if cfg.APIInfo.Tag != nil || cfg.Controller.MongoInfo.Tag != nil {
 		return errors.New("entity tag must be nil when bootstrapping")
+	}
+	if cfg.Bootstrap.ControllerServiceType == "" {
+		return errors.New("controller service type is required")
 	}
 	return nil
 }
@@ -366,7 +373,13 @@ func NewControllerPodConfig(
 // NewBootstrapControllerPodConfig sets up a basic pod configuration for a
 // bootstrap pod.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapControllerPodConfig(config controller.Config, controllerName, series string) (*ControllerPodConfig, error) {
+func NewBootstrapControllerPodConfig(
+	config controller.Config,
+	controllerName,
+	series,
+	controllerServiceType string,
+
+) (*ControllerPodConfig, error) {
 	// For a bootstrap pod, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
 	pcfg, err := NewControllerPodConfig(
@@ -386,7 +399,7 @@ func NewBootstrapControllerPodConfig(config controller.Config, controllerName, s
 	var mem uint64 = 123
 	var rootDisk uint64 = 123
 	pcfg.Bootstrap = &BootstrapConfig{
-		instancecfg.BootstrapConfig{
+		BootstrapConfig: instancecfg.BootstrapConfig{
 			StateInitializationParams: instancecfg.StateInitializationParams{
 				// TODO(bootstrap): remove me once agentbootstrap.initBootstrapMachine works for CAAS bootstrap in jujud.
 				BootstrapMachineHardwareCharacteristics: &instance.HardwareCharacteristics{
@@ -399,6 +412,7 @@ func NewBootstrapControllerPodConfig(config controller.Config, controllerName, s
 				BootstrapMachineConstraints: constraints.Value{Mem: &mem},
 			},
 		},
+		ControllerServiceType: controllerServiceType,
 	}
 
 	pcfg.Jobs = []multiwatcher.MachineJob{

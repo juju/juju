@@ -63,7 +63,13 @@ func tryAPI(c *modelcmd.ModelCommandBase) error {
 // WaitForAgentInitialisation polls the bootstrapped controller with a read-only
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
-func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, isCAASController bool, controllerName, hostedModelName string) (err error) {
+func WaitForAgentInitialisation(
+	ctx *cmd.Context,
+	c *modelcmd.ModelCommandBase,
+	isCAASController bool,
+	controllerName,
+	hostedModelName string,
+) (err error) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempts := utils.AttemptStrategy{
 		Min:   bootstrapReadyPollCount,
@@ -94,6 +100,7 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 			ctx.Infof(msg)
 			break
 		}
+
 		// As the API server is coming up, it goes through a number of steps.
 		// Initially the upgrade steps run, but the api server allows some
 		// calls to be processed during the upgrade, but not the list blocks.

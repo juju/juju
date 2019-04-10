@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -143,6 +144,7 @@ const defaultHostedModelName = "default"
 
 func newBootstrapCommand() cmd.Command {
 	command := &bootstrapCommand{}
+	command.clock = jujuclock.WallClock
 	command.CanClearCurrentModel = true
 	return modelcmd.Wrap(command,
 		modelcmd.WrapSkipModelFlags,
@@ -154,6 +156,8 @@ func newBootstrapCommand() cmd.Command {
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
 	modelcmd.ModelCommandBase
+
+	clock jujuclock.Clock
 
 	Constraints              constraints.Value
 	ConstraintsStr           string
@@ -465,7 +469,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			var msg string
 			if hostedModel == nil {
 				msg = `
-Now you can run 
+Now you can run
 	juju add-model <model-name>
 to create a new model to deploy k8s workloads.
 `
@@ -614,6 +618,7 @@ to create a new model to deploy k8s workloads.
 		RegionInheritedConfig:     cloud.RegionConfig,
 		AdminSecret:               config.bootstrap.AdminSecret,
 		CAPrivateKey:              config.bootstrap.CAPrivateKey,
+		ControllerServiceType:     config.bootstrap.ControllerServiceType,
 		JujuDbSnapPath:            c.JujuDbSnapPath,
 		JujuDbSnapAssertionsPath:  c.JujuDbSnapAssertionsPath,
 		DialOpts: environs.BootstrapDialOpts{
@@ -750,36 +755,51 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
-	var addrs []network.Address
-	if env, ok := environ.(environs.InstanceBroker); ok {
-		// IAAS.
-		addrs, err = common.BootstrapEndpointAddresses(env, cloudCallCtx)
-		if err != nil {
-			return errors.Trace(err)
+
+	controllerDataRefresher := func() error {
+		// this function allows polling address info later during retring.
+		// for example, the Load Balancer needs time to be provisioned.
+		var addrs []network.Address
+		if env, ok := environ.(environs.InstanceBroker); ok {
+			// IAAS.
+			addrs, err = common.BootstrapEndpointAddresses(env, cloudCallCtx)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else if env, ok := environ.(caas.ServiceGetterSetter); ok {
+			// CAAS.
+			var svc *caas.Service
+			svc, err = env.GetService(k8sprovider.JujuControllerStackName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if len(svc.Addresses) == 0 {
+				return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
+			}
+			addrs = svc.Addresses
+		} else {
+			// TODO(caas): this should never happen.
+			return errors.NewNotValid(nil, "unexpected error happened, IAAS mode should have environs.Environ implemented.")
 		}
-	} else if env, ok := environ.(caas.ServiceGetterSetter); ok {
-		// CAAS.
-		var svc *caas.Service
-		svc, err = env.GetService(k8sprovider.JujuControllerStackName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		addrs = svc.Addresses
-	} else {
-		// TODO(caas): this should never happen.
-		return errors.NewNotValid(nil, "unexpected error happened, IAAS mode should have environs.Environ implemented.")
+
+		return errors.Annotate(
+			juju.UpdateControllerDetailsFromLogin(
+				c.ClientStore(),
+				c.controllerName,
+				juju.UpdateControllerParams{
+					AgentVersion:           agentVersion.String(),
+					CurrentHostPorts:       [][]network.HostPort{network.AddressesWithPort(addrs, config.controller.APIPort())},
+					PublicDNSName:          newStringIfNonEmpty(config.controller.AutocertDNSName()),
+					MachineCount:           newInt(1),
+					ControllerMachineCount: newInt(1),
+				},
+			),
+			"saving bootstrap endpoint address",
+		)
 	}
-	if err := juju.UpdateControllerDetailsFromLogin(
-		c.ClientStore(),
-		c.controllerName,
-		juju.UpdateControllerParams{
-			AgentVersion:           agentVersion.String(),
-			CurrentHostPorts:       [][]network.HostPort{network.AddressesWithPort(addrs, config.controller.APIPort())},
-			PublicDNSName:          newStringIfNonEmpty(config.controller.AutocertDNSName()),
-			MachineCount:           newInt(1),
-			ControllerMachineCount: newInt(1),
-		}); err != nil {
-		return errors.Annotate(err, "saving bootstrap endpoint address")
+
+	if err = controllerDataRefresher(); err != nil {
+		return errors.Trace(err)
 	}
 
 	modelNameToSet := bootstrap.ControllerModelName
@@ -793,7 +813,13 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
-	return waitForAgentInitialisation(ctx, &c.ModelCommandBase, isCAASController, c.controllerName, c.hostedModelName)
+	return waitForAgentInitialisation(
+		ctx,
+		&c.ModelCommandBase,
+		isCAASController,
+		c.controllerName,
+		c.hostedModelName,
+	)
 }
 
 func (c *bootstrapCommand) handleCommandLineErrorsAndInfoRequests(ctx *cmd.Context) (bool, error) {

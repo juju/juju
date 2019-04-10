@@ -3052,25 +3052,21 @@ func (a *Application) SetAgentPresence() (*presence.Pinger, error) {
 }
 
 // UpdateCloudService updates the cloud service details for the application.
-func (a *Application) UpdateCloudService(providerId string, addreses []network.Address) error {
-	doc := cloudServiceDoc{
-		Id:         a.globalKey(),
+func (a *Application) UpdateCloudService(providerId string, addresses []network.Address) error {
+	_, err := a.st.SaveCloudService(SaveCloudServiceArgs{
+		Id:         a.Name(),
 		ProviderId: providerId,
-		Addresses:  fromNetworkAddresses(addreses, OriginProvider),
-	}
-	ops, err := a.saveServiceOps(doc)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return a.st.db().RunTransaction(ops)
+		Addresses:  addresses,
+	})
+	return errors.Trace(err)
 }
 
 // ServiceInfo returns information about this application's cloud service.
 // This is only used for CAAS models.
 func (a *Application) ServiceInfo() (CloudService, error) {
-	doc, err := a.cloudService()
+	svc, err := a.st.CloudService(a.Name())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return CloudService{}, errors.Trace(err)
 	}
-	return &cloudService{*doc}, nil
+	return *svc, nil
 }

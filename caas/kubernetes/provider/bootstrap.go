@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -148,8 +150,8 @@ func newcontrollerStack(
 
 		storageSize:   storageSize,
 		storageClass:  storageClass,
-		portMongoDB:   37017,
-		portAPIServer: 17070,
+		portMongoDB:   pcfg.Bootstrap.ControllerConfig.StatePort(),
+		portAPIServer: pcfg.Bootstrap.ControllerConfig.APIPort(),
 
 		fileNameSharedSecret:    mongo.SharedSecretFile,
 		fileNameSSLKey:          mongo.FileNameDBSSLKey,
@@ -302,14 +304,8 @@ func (c controllerStack) createControllerService() error {
 		},
 		Spec: core.ServiceSpec{
 			Selector: c.stackLabels,
-			Type:     core.ServiceType(defaultServiceType),
+			Type:     core.ServiceType(c.pcfg.Bootstrap.ControllerServiceType),
 			Ports: []core.ServicePort{
-				{
-					Name:       "mongodb",
-					TargetPort: intstr.FromInt(c.portMongoDB),
-					Port:       int32(c.portMongoDB),
-					Protocol:   "TCP",
-				},
 				{
 					Name:       "api-server",
 					TargetPort: intstr.FromInt(c.portAPIServer),
@@ -318,12 +314,45 @@ func (c controllerStack) createControllerService() error {
 			},
 		},
 	}
+
+	logger.Debugf("creating controller service: \n%+v", spec)
+	if err := c.broker.ensureK8sService(spec); err != nil {
+		return errors.Trace(err)
+	}
+
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q", svcName)
 		c.broker.deleteService(svcName)
 	})
-	logger.Debugf("creating controller service: \n%+v", spec)
-	return errors.Trace(c.broker.ensureService(spec))
+
+	publicAddressPoller := func() error {
+		// get the service by app name;
+		svc, err := c.broker.GetService(c.stackName)
+		if err != nil {
+			return errors.Annotate(err, "getting controller service")
+		}
+		if len(svc.Addresses) == 0 {
+			return errors.NotProvisionedf("controller service address")
+		}
+		// we need to ensure svc DNS has been provisioned already here because
+		// we do Not want bootstrap-state cmd wait instead.
+		return nil
+	}
+
+	retryCallArgs := retry.CallArgs{
+		Attempts:    60,
+		Delay:       3 * time.Second,
+		MaxDuration: 3 * time.Minute,
+		Clock:       c.broker.clock,
+		Func:        publicAddressPoller,
+		IsFatalError: func(err error) bool {
+			return !errors.IsNotProvisioned(err)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("polling k8s controller svc DNS, in %d attempt, got error %v", attempt, err)
+		},
+	}
+	return errors.Trace(retry.Call(retryCallArgs))
 }
 
 func (c controllerStack) addCleanUp(cleanUp func()) {

@@ -817,6 +817,30 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	return errors.Trace(k.deleteDeployment(operatorName))
 }
 
+func getLoadBalancerAddress(svc *core.Service) string {
+	// different cloud providers have a different way to report back the Load Balancer address.
+	// This covers the cases we know about so far.
+	lpAdd := svc.Spec.LoadBalancerIP
+	if lpAdd != "" {
+		return lpAdd
+	}
+
+	ing := svc.Status.LoadBalancer.Ingress
+	if len(ing) == 0 {
+		return ""
+	}
+
+	// It usually has only one record.
+	firstOne := ing[0]
+	if firstOne.IP != "" {
+		return firstOne.IP
+	}
+	if firstOne.Hostname != "" {
+		return firstOne.Hostname
+	}
+	return lpAdd
+}
+
 func getSvcAddresses(svc *core.Service) []network.Address {
 	var netAddrs []network.Address
 
@@ -831,22 +855,18 @@ func getSvcAddresses(svc *core.Service) []network.Address {
 			}
 		}
 	}
+
 	t := svc.Spec.Type
 	clusterIP := svc.Spec.ClusterIP
 	switch t {
 	case core.ServiceTypeClusterIP:
 		appendAddrs(network.ScopeCloudLocal, clusterIP)
 	case core.ServiceTypeExternalName:
-		appendAddrs(network.ScopeCloudLocal, svc.Spec.ExternalName)
+		appendAddrs(network.ScopePublic, svc.Spec.ExternalName)
 	case core.ServiceTypeNodePort:
 		appendAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)
 	case core.ServiceTypeLoadBalancer:
-		appendAddrs(network.ScopePublic, svc.Spec.LoadBalancerIP)
-	}
-	if len(netAddrs) == 0 && clusterIP != "" {
-		// fallback to ClusterIP, usually it's not empty.
-		logger.Debugf("fallback to clusterIP %q, desired IP was empty for %q type service %q", clusterIP, t, svc.Name)
-		appendAddrs(network.ScopeCloudLocal, clusterIP)
+		appendAddrs(network.ScopePublic, getLoadBalancerAddress(svc))
 	}
 	return netAddrs
 }
@@ -866,7 +886,7 @@ func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 	}
 	service := servicesList.Items[0]
 	result := caas.Service{
-		Id: string(service.UID),
+		Id: string(service.GetUID()),
 	}
 	result.Addresses = getSvcAddresses(&servicesList.Items[0])
 
@@ -1638,11 +1658,11 @@ func (k *kubernetesClient) configureService(
 			ExternalName:             config.GetString(serviceExternalNameKey, ""),
 		},
 	}
-	return k.ensureService(service)
+	return k.ensureK8sService(service)
 }
 
-// ensureService ensures a service resource.
-func (k *kubernetesClient) ensureService(spec *core.Service) error {
+// ensureK8sService ensures a k8s service resource.
+func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
 	services := k.CoreV1().Services(k.namespace)
 	// Set any immutable fields if the service already exists.
 	existing, err := services.Get(spec.Name, v1.GetOptions{IncludeUninitialized: true})

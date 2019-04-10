@@ -392,7 +392,7 @@ func (c Config) mustString(name string) string {
 	return value
 }
 
-// StatePort returns the controller port for the environment.
+// StatePort returns the mongo server port for the environment.
 func (c Config) StatePort() int {
 	return c.mustInt(StatePort)
 }

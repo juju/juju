@@ -164,6 +164,7 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot get controller details")
 	}
+
 	apiInfo := &api.Info{
 		Addrs:  controller.APIEndpoints,
 		CACert: controller.CACert,

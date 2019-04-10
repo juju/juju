@@ -19,7 +19,7 @@ const (
 
 var configSchema = environschema.Fields{
 	WorkloadStorageKey: {
-		Description: "The storage class used to provision workload storage.",
+		Description: "The preferred storage class used to provision workload storage.",
 		Type:        environschema.Tstring,
 		Group:       environschema.AccountGroup,
 	},

@@ -1348,7 +1348,7 @@ func (e *exporter) readAllCloudServices() (map[string]*cloudServiceDoc, error) {
 	e.logger.Debugf("found %d cloud service docs", len(docs))
 	result := make(map[string]*cloudServiceDoc)
 	for _, doc := range docs {
-		result[e.st.localID(doc.Id)] = &doc
+		result[e.st.localID(doc.DocID)] = &doc
 	}
 	return result, nil
 }
