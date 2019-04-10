@@ -593,14 +593,21 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Encourage load balancing by shuffling controller addresses.
+	addrs := info.Addrs[:]
+	rand.Shuffle(len(addrs), func(i, j int) { addrs[i], addrs[j] = addrs[j], addrs[i] })
+
+	if opts.VerifyCA != nil {
+		if err := verifyCAMulti(ctx, addrs, &opts); err != nil {
+			return nil, err
+		}
+	}
+
 	if opts.DialTimeout > 0 {
 		ctx1, cancel := utils.ContextWithTimeout(ctx, opts.Clock, opts.DialTimeout)
 		defer cancel()
 		ctx = ctx1
 	}
-	// Encourage load balancing by shuffling controller addresses.
-	addrs := info.Addrs[:]
-	rand.Shuffle(len(addrs), func(i, j int) { addrs[i], addrs[j] = addrs[j], addrs[i] })
 	dialInfo, err := dialWebsocketMulti(ctx, addrs, path, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -747,6 +754,141 @@ func (ap *addressProvider) next(ctx context.Context) (*resolvedAddress, error) {
 	next := ap.resolvedAddrs[0]
 	ap.resolvedAddrs = ap.resolvedAddrs[1:]
 	return next, nil
+}
+
+// caRetrieveRes is an adaptor for returning CA certificate lookup results via
+// calls to parallel.Try.
+type caRetrieveRes struct {
+	host     string
+	endpoint string
+	caCert   *x509.Certificate
+}
+
+func (caRetrieveRes) Close() error { return nil }
+
+// verifyCAMulti attempts to establish a TLS connection with one of the
+// provided addresses, retrieve the CA certificate and validate it using the
+// system root CAs. If that is not possible, the certificate verification will
+// be delegated to the VerifyCA implementation specified in opts.DialOpts.
+//
+// If VerifyCA does not return an error, the CA cert is assumed to be trusted
+// and will be appended to opt's certificate pool allowing secure websocket
+// connections to proceed without certificate verification errors. Otherwise,
+// the error reported by VerifyCA is returned back to the caller.
+//
+// For load-balancing purposes, all addresses are tested concurrently with the
+// first retrieved CA cert being used for the verification tests. In addition,
+// apart from the initial TLS handshake with the remote server, no other data
+// is exchanged with the remote server.
+func verifyCAMulti(ctx context.Context, addrs []string, opts *dialOpts) error {
+	dOpts := opts.DialOpts
+	if dOpts.DialTimeout > 0 {
+		ctx1, cancel := utils.ContextWithTimeout(ctx, dOpts.Clock, dOpts.DialTimeout)
+		defer cancel()
+		ctx = ctx1
+	}
+
+	try := parallel.NewTry(0, nil)
+	defer try.Kill()
+
+	addrProvider := newAddressProvider(addrs, opts.DNSCache, opts.IPAddrResolver)
+	tryRetrieveCaCertFn := func(ctx context.Context, addr *resolvedAddress) func(<-chan struct{}) (io.Closer, error) {
+		ipStr := net.JoinHostPort(addr.ip, addr.port)
+		return func(<-chan struct{}) (io.Closer, error) {
+			caCert, err := retrieveCACert(ctx, ipStr)
+			if err != nil {
+				return nil, err
+			}
+
+			return caRetrieveRes{
+				host:     addr.host,
+				endpoint: ipStr,
+				caCert:   caCert,
+			}, nil
+		}
+	}
+
+	for {
+		resolvedAddr, err := addrProvider.next(ctx)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			recordTryError(try, err)
+			continue
+		}
+
+		err = try.Start(tryRetrieveCaCertFn(ctx, resolvedAddr))
+		if err == parallel.ErrStopped {
+			break
+		} else if err != nil {
+			continue
+		}
+
+		select {
+		case <-opts.Clock.After(dOpts.DialAddressInterval):
+		case <-try.Dead():
+		}
+	}
+
+	try.Close()
+
+	// If we are unable to fetch the CA either because it is not presented
+	// by the remote server OR due to an unsuccessful connection attempt
+	// we should skip the verification path and dial the server as if no
+	// VerifyCA implementation was provided.
+	result, err := try.Result()
+	if err != nil || result == nil {
+		logger.Debugf("unable to retrieve CA cert from remote host; skipping CA verification")
+		return nil
+	}
+
+	// Try to verify CA cert using the system roots. If the verification
+	// succeeds then we are done; tls connections will work out of the box.
+	res := result.(caRetrieveRes)
+	if _, err = res.caCert.Verify(x509.VerifyOptions{}); err == nil {
+		logger.Debugf("remote CA certificate trusted by system roots")
+		return nil
+	}
+
+	// Invoke the CA verifier; if the CA should be trusted, append it to
+	// the dialOpts certPool and proceed with the actual connection attempt.
+	err = opts.VerifyCA(res.host, res.endpoint, res.caCert)
+	if err == nil {
+		if opts.certPool == nil {
+			opts.certPool = x509.NewCertPool()
+		}
+		opts.certPool.AddCert(res.caCert)
+	}
+
+	return err
+}
+
+// retrieveCACert establishes an insecure TLS connection to addr and attempts
+// to retrieve the CA cert presented by the server. If no CA cert is presented,
+// retrieveCACert will returns nil, nil.
+func retrieveCACert(ctx context.Context, addr string) (*x509.Certificate, error) {
+	netConn, err := new(net.Dialer).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	conn := tls.Client(netConn, &tls.Config{InsecureSkipVerify: true})
+	if err = conn.Handshake(); err != nil {
+		_ = netConn.Close()
+		return nil, err
+	}
+	defer func() {
+		_ = conn.Close()
+		_ = netConn.Close()
+	}()
+
+	for _, cert := range conn.ConnectionState().PeerCertificates {
+		if cert.IsCA {
+			return cert, nil
+		}
+	}
+
+	return nil, errors.New("no CA certificate presented by remote server")
 }
 
 // dialWebsocketMulti dials a websocket with one of the provided addresses, the
