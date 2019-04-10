@@ -641,7 +641,8 @@ func (s *ApplicationSuite) assertDestroyUnit(c *gc.C, force bool) {
 	)
 	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyUnitOperation{ForcedOperation: &state.ForcedOperation{Force: force}})
 	s.backend.CheckCall(c, 9, "ApplyOperation", &state.DestroyUnitOperation{
-		DestroyStorage: true,
+		DestroyStorage:  true,
+		ForcedOperation: &state.ForcedOperation{},
 	})
 }
 
