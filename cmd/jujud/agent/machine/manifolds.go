@@ -949,7 +949,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			BrokerName:    brokerTrackerName,
 			Logger:        loggo.GetLogger("juju.worker.instancemutater"),
 			NewClient:     instancemutater.NewClient,
-			NewWorker:     instancemutater.NewWorker,
+			NewWorker:     instancemutater.NewContainerWorker,
 		}))
 	}
 
