@@ -1106,5 +1106,4 @@ const (
 	raftForwarderName = "raft-forwarder"
 
 	validCredentialFlagName = "valid-credential-flag"
-	isResponsibleFlagName   = "is-responsible-flag"
 )
