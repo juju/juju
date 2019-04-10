@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
@@ -582,7 +583,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			NewModelWorker:                    a.startModelWorkers,
 			MuxShutdownWait:                   1 * time.Minute,
 			NewContainerBrokerFunc:            newCAASBroker,
-			NewEnvironFunc:                    newEnvirons,
+			NewBrokerFunc:                     newBroker,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasMachineAgent {
@@ -642,6 +643,7 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 var (
 	newEnvirons   = environs.New
 	newCAASBroker = caas.New
+	newBroker     = broker.New
 )
 
 // startAPIWorkers is called to start workers which rely on the

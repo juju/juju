@@ -30,29 +30,29 @@ func (s *manifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 
 	testcases := []struct {
 		description string
-		config      instancemutater.ManifoldConfig
+		config      instancemutater.ModelManifoldConfig
 		err         string
 	}{
 		{
 			description: "Test empty configuration",
-			config:      instancemutater.ManifoldConfig{},
+			config:      instancemutater.ModelManifoldConfig{},
 			err:         "nil Logger not valid",
 		},
 		{
 			description: "Test no logger",
-			config:      instancemutater.ManifoldConfig{},
+			config:      instancemutater.ModelManifoldConfig{},
 			err:         "nil Logger not valid",
 		},
 		{
 			description: "Test no new worker constructor",
-			config: instancemutater.ManifoldConfig{
+			config: instancemutater.ModelManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
 			},
 			err: "nil NewWorker not valid",
 		},
 		{
 			description: "Test no new client constructor",
-			config: instancemutater.ManifoldConfig{
+			config: instancemutater.ModelManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
 				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
@@ -62,7 +62,7 @@ func (s *manifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		},
 		{
 			description: "Test no agent name",
-			config: instancemutater.ManifoldConfig{
+			config: instancemutater.ModelManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
 				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
@@ -75,7 +75,7 @@ func (s *manifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		},
 		{
 			description: "Test no environ name",
-			config: instancemutater.ManifoldConfig{
+			config: instancemutater.ModelManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
 				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
@@ -89,7 +89,7 @@ func (s *manifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		},
 		{
 			description: "Test no api caller name",
-			config: instancemutater.ManifoldConfig{
+			config: instancemutater.ModelManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
 				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
@@ -114,7 +114,7 @@ func (s *manifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	config := instancemutater.ManifoldConfig{
+	config := instancemutater.ModelManifoldConfig{
 		Logger: mocks.NewMockLogger(ctrl),
 		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
 			return mocks.NewMockWorker(ctrl), nil
@@ -261,7 +261,7 @@ func (s *manifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
 	s.behaviourContext()
 	s.behaviourAgent()
 
-	config := instancemutater.ManifoldConfig{
+	config := instancemutater.ModelManifoldConfig{
 		EnvironName:   "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
@@ -273,7 +273,7 @@ func (s *manifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
 			return s.api
 		},
 	}
-	manifold := instancemutater.Manifold(config)
+	manifold := instancemutater.ModelManifold(config)
 	result, err := manifold.Start(s.context)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, s.worker)
@@ -285,7 +285,7 @@ func (s *manifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 	s.behaviourContext()
 	s.behaviourAgent()
 
-	config := instancemutater.ManifoldConfig{
+	config := instancemutater.ModelManifoldConfig{
 		EnvironName:   "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
@@ -297,7 +297,7 @@ func (s *manifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 			return s.api
 		},
 	}
-	manifold := instancemutater.Manifold(config)
+	manifold := instancemutater.ModelManifold(config)
 	_, err := manifold.Start(s.context)
 	c.Assert(err, gc.ErrorMatches, "cannot start machine instancemutater worker: errored")
 }
@@ -307,13 +307,13 @@ func (s *manifoldSuite) TestConfigValidatesForMissingWorker(c *gc.C) {
 
 	s.behaviourContext()
 
-	config := instancemutater.ManifoldConfig{
+	config := instancemutater.ModelManifoldConfig{
 		EnvironName:   "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
 		Logger:        s.logger,
 	}
-	manifold := instancemutater.Manifold(config)
+	manifold := instancemutater.ModelManifold(config)
 	_, err := manifold.Start(s.context)
 	c.Assert(err, gc.ErrorMatches, "nil NewWorker not valid")
 }
@@ -323,7 +323,7 @@ func (s *manifoldSuite) TestConfigValidatesForMissingClient(c *gc.C) {
 
 	s.behaviourContext()
 
-	config := instancemutater.ManifoldConfig{
+	config := instancemutater.ModelManifoldConfig{
 		EnvironName:   "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
@@ -332,7 +332,7 @@ func (s *manifoldSuite) TestConfigValidatesForMissingClient(c *gc.C) {
 			return s.worker, nil
 		},
 	}
-	manifold := instancemutater.Manifold(config)
+	manifold := instancemutater.ModelManifold(config)
 	_, err := manifold.Start(s.context)
 	c.Assert(err, gc.ErrorMatches, "nil NewClient not valid")
 }

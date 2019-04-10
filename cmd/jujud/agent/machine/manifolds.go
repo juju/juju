@@ -28,11 +28,11 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	containerbroker "github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/worker/apiservercertwatcher"
 	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/broker"
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/certupdater"
@@ -55,7 +56,6 @@ import (
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
-	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/externalcontrollerupdater"
 	"github.com/juju/juju/worker/fanconfigurer"
 	"github.com/juju/juju/worker/featureflag"
@@ -257,9 +257,8 @@ type ManifoldsConfig struct {
 	// NewContainerBrokerFunc is a function opens a CAAS provider.
 	NewContainerBrokerFunc caas.NewContainerBrokerFunc
 
-	// NewEnvironFunc is a function opens a provider "environment"
-	// (typically environs.New).
-	NewEnvironFunc environs.NewEnvironFunc
+	// NewBrokerFunc is a function opens a instance broker (LXD/KVM)
+	NewBrokerFunc containerbroker.NewBrokerFunc
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -938,14 +937,16 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 
 	if utilsfeatureflag.Enabled(feature.InstanceMutater) {
-		manifolds[environTrackerName] = ifNotMigrating(environ.Manifold(environ.ManifoldConfig{
-			APICallerName:  apiCallerName,
-			NewEnvironFunc: config.NewEnvironFunc,
+		manifolds[brokerTrackerName] = ifNotMigrating(broker.Manifold(broker.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Agent:         config.Agent,
+			MachineLock:   config.MachineLock,
+			NewBrokerFunc: config.NewBrokerFunc,
 		}))
-		manifolds[instanceMutaterName] = ifNotMigrating(instancemutater.Manifold(instancemutater.ManifoldConfig{
+		manifolds[instanceMutaterName] = ifNotMigrating(instancemutater.MachineManifold(instancemutater.MachineManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
+			BrokerName:    brokerTrackerName,
 			Logger:        loggo.GetLogger("juju.worker.instancemutater"),
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewWorker,
@@ -1106,4 +1107,6 @@ const (
 	raftForwarderName = "raft-forwarder"
 
 	validCredentialFlagName = "valid-credential-flag"
+
+	brokerTrackerName = "broker-tracker"
 )

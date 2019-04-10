@@ -185,6 +185,12 @@ type ProvisionerAPIV7 struct {
 // ProvisionerAPIV8 provides v8 of the provisioner facade.
 // Added ModificationStatus and SetModificationStatus
 type ProvisionerAPIV8 struct {
+	*ProvisionerAPIV9
+}
+
+// ProvisionerAPIV9 provides v9 of the provisioner facade.
+// Added SupportedContainers
+type ProvisionerAPIV9 struct {
 	*ProvisionerAPI
 }
 
@@ -226,11 +232,20 @@ func NewProvisionerAPIV7(st *state.State, resources facade.Resources, authorizer
 
 // NewProvisionerAPIV8 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV8(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV8, error) {
-	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	provisionerAPI, err := NewProvisionerAPIV9(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ProvisionerAPIV8{provisionerAPI}, nil
+}
+
+// NewProvisionerAPIV9 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV9(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV9, error) {
+	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV9{provisionerAPI}, nil
 }
 
 func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
@@ -431,6 +446,39 @@ func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersPar
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
+	}
+	return result, nil
+}
+
+func (p *ProvisionerAPIV8) SupportedContainers(_, _ struct{}) (params.MachineContainerResults, error) {
+	return params.MachineContainerResults{}, nil
+}
+
+// SupportedContainers returns the list of containers supported by the machines passed in args.
+func (p *ProvisionerAPIV9) SupportedContainers(args params.Entities) (params.MachineContainerResults, error) {
+	result := params.MachineContainerResults{
+		Results: make([]params.MachineContainerResult, len(args.Entities)),
+	}
+
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, arg := range args.Entities {
+		tag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			logger.Warningf("SupportedContainers called with %q which is not a valid machine tag: %v", arg.Tag, err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		containerTypes, determined := machine.SupportedContainers()
+		result.Results[i].ContainerTypes = containerTypes
+		result.Results[i].Determined = determined
 	}
 	return result, nil
 }

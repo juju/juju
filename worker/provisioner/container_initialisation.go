@@ -5,13 +5,9 @@ package provisioner
 
 import (
 	"fmt"
-	"os"
 	"sync/atomic"
-	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
@@ -19,24 +15,15 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
-	containerbroker "github.com/juju/juju/container/broker"
-	"github.com/juju/juju/container/factory"
+	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	workercommon "github.com/juju/juju/worker/common"
-)
-
-var (
-	systemNetworkInterfacesFile = "/etc/network/interfaces"
-	systemSbinIfup              = "/sbin/ifup"
-	systemNetplanDirectory      = "/etc/netplan"
-	activateBridgesTimeout      = 5 * time.Minute
 )
 
 // ContainerSetup is a StringsWatchHandler that is notified when containers
@@ -165,48 +152,44 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(
 
 	// Get the container manager config before other initialisation,
 	// so we know if there are issues with host machine config.
-	managerConfig, err := cs.getManagerConfig(containerType)
+	managerConfig, err := containerManagerConfig(containerType, cs.provisioner)
 	if err != nil {
 		return errors.Annotate(err, "generating container manager config")
+	}
+	managerConfigWithZones, err := broker.ConfigureAvailabilityZone(managerConfig, cs.machine)
+	if err != nil {
+		return errors.Annotate(err, "configuring availability zones")
 	}
 
 	if err := cs.initContainerDependencies(abort, containerType); err != nil {
 		return errors.Annotate(err, "setting up container dependencies on host machine")
 	}
 
-	toolsFinder := getToolsFinder(cs.provisioner)
-	broker, err := cs.getContainerBroker(containerType, toolsFinder, managerConfig)
+	instanceBroker, err := broker.New(broker.Config{
+		Name:          "provisioner",
+		ContainerType: containerType,
+		ManagerConfig: managerConfigWithZones,
+		APICaller:     cs.provisioner,
+		AgentConfig:   cs.config,
+		MachineTag:    cs.machine.MachineTag(),
+		MachineLock:   cs.machineLock,
+		GetNetConfig:  cs.getNetConfig,
+	})
 	if err != nil {
 		return errors.Annotate(err, "initialising container infrastructure on host machine")
 	}
 
+	toolsFinder := getToolsFinder(cs.provisioner)
 	return StartProvisioner(
 		cs.runner,
 		containerType,
 		cs.provisioner,
 		cs.config,
-		broker,
+		instanceBroker,
 		toolsFinder,
 		getDistributionGroupFinder(cs.provisioner),
 		cs.credentialAPI,
 	)
-}
-
-// getManagerConfig gets gets container manager config from the provisioner,
-// then decorates it with the host machine availability zone before returning.
-func (cs *ContainerSetup) getManagerConfig(containerType instance.ContainerType) (container.ManagerConfig, error) {
-	managerConfig, err := containerManagerConfig(containerType, cs.provisioner)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	availabilityZone, err := cs.machine.AvailabilityZone()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	managerConfig[container.ConfigAvailabilityZone] = availabilityZone
-
-	return managerConfig, nil
 }
 
 // initContainerDependencies ensures that the host machine is set-up to manage
@@ -242,8 +225,10 @@ func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, conta
 	return nil
 }
 
-// acquireLock tries to grab the machine lock (initLockName), and either
-// returns it in a locked state, or returns an error.
+func (cs *ContainerSetup) observeNetwork() ([]params.NetworkConfig, error) {
+	return cs.getNetConfig(common.DefaultNetworkConfigSource())
+}
+
 func (cs *ContainerSetup) acquireLock(comment string, abort <-chan struct{}) (func(), error) {
 	spec := machinelock.Spec{
 		Cancel:  abort,
@@ -251,54 +236,6 @@ func (cs *ContainerSetup) acquireLock(comment string, abort <-chan struct{}) (fu
 		Comment: comment,
 	}
 	return cs.machineLock.Acquire(spec)
-}
-
-func (cs *ContainerSetup) observeNetwork() ([]params.NetworkConfig, error) {
-	return cs.getNetConfig(common.DefaultNetworkConfigSource())
-}
-
-func defaultBridger() (network.Bridger, error) {
-	if _, err := os.Stat(systemSbinIfup); err == nil {
-		return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, systemNetworkInterfacesFile)
-	} else {
-		return network.DefaultNetplanBridger(activateBridgesTimeout, systemNetplanDirectory)
-	}
-}
-
-func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error {
-	preparer := NewHostPreparer(HostPreparerParams{
-		API:                cs.provisioner,
-		ObserveNetworkFunc: cs.observeNetwork,
-		AcquireLockFunc:    cs.acquireLock,
-		CreateBridger:      defaultBridger,
-		AbortChan:          abort,
-		MachineTag:         cs.machine.MachineTag(),
-		Logger:             log,
-	})
-	return preparer.Prepare(containerTag)
-}
-
-// getContainerArtifacts returns type-specific interfaces for
-// managing containers.
-func (cs *ContainerSetup) getContainerBroker(
-	containerType instance.ContainerType, toolsFinder ToolsFinder, managerConfig container.ManagerConfig,
-) (environs.InstanceBroker, error) {
-	manager, err := factory.NewContainerManager(containerType, managerConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	newBroker := containerbroker.NewKVMBroker
-	if containerType == instance.LXD {
-		newBroker = containerbroker.NewLXDBroker
-	}
-	broker, err := newBroker(cs.prepareHost, cs.provisioner, manager, cs.config)
-	if err != nil {
-		logger.Errorf("failed to create new %s broker", containerType)
-		return nil, errors.Trace(err)
-	}
-
-	return broker, nil
 }
 
 // TearDown is defined on the StringsWatchHandler interface. NoOp here.
