@@ -662,6 +662,93 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 	return jsoncodec.NewWebsocketConn(c), nil
 }
 
+type resolvedAddress struct {
+	host string
+	ip   string
+	port string
+}
+
+type addressProvider struct {
+	dnsCache       DNSCache
+	ipAddrResolver IPAddrResolver
+
+	// A pool of host addresses to be resolved to one or more IP addresses.
+	addrPool []string
+
+	// A pool of host addresses that got resolved via the DNS cache; these
+	// are kept separate so we can attempt to resolve them without the DNS
+	// cache when we run out of entries in AddrPool.
+	cachedAddrPool []string
+	resolvedAddrs  []*resolvedAddress
+}
+
+func newAddressProvider(initialAddrs []string, dnsCache DNSCache, ipAddrResolver IPAddrResolver) *addressProvider {
+	return &addressProvider{
+		dnsCache:       dnsCache,
+		ipAddrResolver: ipAddrResolver,
+		addrPool:       initialAddrs,
+	}
+}
+
+// next returns back either a successfully resolved address or the error that
+// occurred while attempting to resolve the next address candidate. Calls to
+// next return io.EOF to indicate that no more addresses are available.
+func (ap *addressProvider) next(ctx context.Context) (*resolvedAddress, error) {
+	if len(ap.resolvedAddrs) == 0 {
+		// If we have ran out of addresses to resolve but we have
+		// resolved some via the DNS cache, make another pass for
+		// those with an empty DNS cache to refresh any stale entries.
+		if len(ap.addrPool) == 0 && len(ap.cachedAddrPool) > 0 {
+			ap.addrPool = ap.cachedAddrPool
+			ap.cachedAddrPool = nil
+			ap.dnsCache = emptyDNSCache{ap.dnsCache}
+		}
+
+		// Resolve the next host from the address pool
+		if len(ap.addrPool) != 0 {
+			next := ap.addrPool[0]
+			ap.addrPool = ap.addrPool[1:]
+
+			host, port, err := net.SplitHostPort(next)
+			if err != nil {
+				return nil, errors.Errorf("invalid address %q: %v", next, err)
+			}
+
+			ips := ap.dnsCache.Lookup(host)
+			if len(ips) > 0 {
+				ap.cachedAddrPool = append(ap.cachedAddrPool, next)
+			} else if isNumericHost(host) {
+				ips = []string{host}
+			} else {
+				var err error
+				ips, err = lookupIPAddr(ctx, host, ap.ipAddrResolver)
+				if err != nil {
+					return nil, errors.Errorf("cannot resolve %q: %v", host, err)
+				}
+				ap.dnsCache.Add(host, ips)
+				logger.Debugf("looked up %v -> %v", host, ips)
+			}
+
+			for _, ip := range ips {
+				ap.resolvedAddrs = append(ap.resolvedAddrs, &resolvedAddress{
+					host: next,
+					ip:   ip,
+					port: port,
+				})
+			}
+		}
+	}
+
+	// Ran out of resolved addresses and cached addresses
+	if len(ap.resolvedAddrs) == 0 {
+		return nil, io.EOF
+	}
+
+	next := ap.resolvedAddrs[0]
+	ap.resolvedAddrs = ap.resolvedAddrs[1:]
+	return next, nil
+}
+
 // dialWebsocketMulti dials a websocket with one of the provided addresses, the
 // specified URL path, TLS configuration, and dial options. Each of the
 // specified addresses will be attempted concurrently, and the first
@@ -696,65 +783,31 @@ func dialWebsocketMulti(ctx context.Context, addrs []string, path string, opts d
 		cancel()
 	}()
 	tried := make(map[string]bool)
-	var cacheUsed []string
+	addrProvider := newAddressProvider(addrs, opts.DNSCache, opts.IPAddrResolver)
 	for {
-		if len(addrs) == 0 && len(cacheUsed) > 0 {
-			// We've tried all the addresses but for some
-			// of them we used cached values which might
-			// have become out of date, so retry them
-			// with no cache.
-			addrs = cacheUsed
-			cacheUsed = nil
-			opts.DNSCache = emptyDNSCache{opts.DNSCache}
-		}
-
-		if len(addrs) == 0 {
+		resolvedAddr, err := addrProvider.next(ctx)
+		if err == io.EOF {
 			break
-		}
-		addr := addrs[0]
-		addrs = addrs[1:]
-		host, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			// Defensive - this should never happen because
-			// the addresses are checked with Info.Validate
-			// beforehand.
-			err := errors.Errorf("invalid address %q: %v", addr, err)
+		} else if err != nil {
 			recordTryError(try, err)
 			continue
 		}
-		ips := opts.DNSCache.Lookup(host)
-		if len(ips) > 0 {
-			cacheUsed = append(cacheUsed, addr)
-		} else if isNumericHost(host) {
-			ips = []string{host}
-		} else {
-			var err error
-			ips, err = lookupIPAddr(ctx, host, opts.IPAddrResolver)
-			if err != nil {
-				err := errors.Errorf("cannot resolve %q: %v", host, err)
-				recordTryError(try, err)
-				continue
-			}
-			opts.DNSCache.Add(host, ips)
-			logger.Debugf("looked up %v -> %v", host, ips)
+
+		ipStr := net.JoinHostPort(resolvedAddr.ip, resolvedAddr.port)
+		if tried[ipStr] {
+			continue
 		}
-		for _, ip := range ips {
-			ipStr := net.JoinHostPort(ip, port)
-			if tried[ipStr] {
-				continue
-			}
-			tried[ipStr] = true
-			err := startDialWebsocket(ctx, try, ipStr, addr, path, opts)
-			if err == parallel.ErrStopped {
-				break
-			}
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			select {
-			case <-opts.Clock.After(opts.DialAddressInterval):
-			case <-try.Dead():
-			}
+		tried[ipStr] = true
+		err = startDialWebsocket(ctx, try, ipStr, resolvedAddr.host, path, opts)
+		if err == parallel.ErrStopped {
+			break
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		select {
+		case <-opts.Clock.After(opts.DialAddressInterval):
+		case <-try.Dead():
 		}
 	}
 	try.Close()
