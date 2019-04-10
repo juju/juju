@@ -987,14 +987,6 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 	}
 }
 
-// ifResponsible wraps a manifold such that it only runs if the
-// responsibility flag is set.
-var ifResponsible = engine.Housing{
-	Flags: []string{
-		isResponsibleFlagName,
-	},
-}.Decorate
-
 var ifFullyUpgraded = engine.Housing{
 	Flags: []string{
 		upgradeStepsFlagName,
