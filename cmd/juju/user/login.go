@@ -4,6 +4,9 @@
 package user
 
 import (
+	"bytes"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,11 +18,14 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/httprequest"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/authentication"
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	certutil "github.com/juju/juju/cert"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
@@ -308,11 +314,34 @@ func (c *loginCommand) publicControllerLogin(
 	}
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bclient
+	dialOpts.VerifyCA = c.promptUserToTrustCA(ctx)
+
+	// Keep track of existing visitors as the dial callback will create
+	// a new visitor each time it gets invoked.
+	existingVisitor := bclient.WebPageVisitor
+
 	dial := func(d *jujuclient.AccountDetails) (api.Connection, error) {
+		// Attach a web visitor for "juju_userpass" which will be
+		// invoked if we attempt to login without a password and the
+		// remote controller does not support an external identity
+		// provider.
 		var tag names.Tag
 		if d.User != "" {
 			tag = names.NewUserTag(d.User)
 		}
+
+		dialOpts.BakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(
+			authentication.NewVisitor(d.User, func(string) (string, error) {
+				// The visitor from the authentication package
+				// passes the username to the password getter
+				// func. As other password getters may rely on
+				// this we just provide a wrapper that calls
+				// pollster with the correct label.
+				return c.pollster.EnterPassword("password")
+			}),
+			existingVisitor,
+		)
+
 		return apiOpen(&c.CommandBase, &api.Info{
 			Tag:      tag,
 			Password: d.Password,
@@ -388,9 +417,12 @@ Run "juju logout" first before attempting to log in as a different user.`,
 			return nil, nil, errors.Trace(err)
 		}
 
-		// CodeNoCreds was returned, which means that external
-		// users are not supported. Fall back to prompting the
-		// user for their username and password.
+		// CodeNoCreds was returned, which means that external users
+		// are not supported. Ask the user to type in their username
+		// and try a macaroon-based authentication; if that also fails
+		// the server will fall back to juju_userpass authentication
+		// and the web page visitor registered with httpbakery will
+		// prompt for the user's password.
 		if username, err = c.pollster.Enter("username"); err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -500,6 +532,45 @@ func (c *loginCommand) getKnownControllerDomain(name, controllerName string) (st
 		return "", errors.Errorf("no host field found in response")
 	}
 	return resp.Host, nil
+}
+
+func (c *loginCommand) promptUserToTrustCA(ctx *cmd.Context) func(host, endpoint string, caCert *x509.Certificate) error {
+	trustedCache := make(map[string]struct{})
+
+	return func(host, endpoint string, caCert *x509.Certificate) error {
+		var buf bytes.Buffer
+		_ = pem.Encode(&buf, &pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: caCert.Raw,
+		})
+
+		fingerprint, err := certutil.Fingerprint(buf.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if _, alreadyTrusted := trustedCache[fingerprint]; alreadyTrusted {
+			return nil
+		}
+
+		var prettyName string
+		switch {
+		case host == endpoint:
+			prettyName = fmt.Sprintf("%q", host)
+		default:
+			prettyName = fmt.Sprintf("%q (%s)", host, endpoint)
+		}
+		fmt.Fprintf(ctx.Stderr, "Controller %s presented a CA cert that could not be verified.\nCA fingerprint: [%s]\n", prettyName, fingerprint)
+		trust, err := c.pollster.YN("Trust remote controller", false)
+		if !trust {
+			return errors.New("controller CA not trusted")
+		}
+
+		// memoize user response so we don't prompt them again if we
+		// try to dial again the same endpoint
+		trustedCache[fingerprint] = struct{}{}
+		return nil
+	}
 }
 
 func friendlyUserName(user string) string {

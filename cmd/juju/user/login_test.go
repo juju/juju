@@ -16,10 +16,12 @@ import (
 	"github.com/juju/juju/api"
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 type LoginCommandSuite struct {
@@ -258,6 +260,82 @@ Welcome, new-user. You are now logged into "testing".
 
 There are no models available(.|\n)*`[1:])
 	c.Assert(code, gc.Equals, 0)
+}
+
+func (s *LoginCommandSuite) TestLoginWithCAVerification(c *gc.C) {
+	caCert := testing.CACertX509
+	fingerprint, err := cert.Fingerprint(testing.CACert)
+	c.Assert(err, jc.ErrorIsNil)
+
+	specs := []struct {
+		descr    string
+		input    string
+		host     string
+		endpoint string
+		expRegex string
+		expCode  int
+	}{
+		{
+			descr:    "user trusts CA cert",
+			input:    "y\n",
+			host:     "myprivatecontroller:443",
+			endpoint: "127.0.0.1:443",
+			expRegex: `
+Controller "myprivatecontroller:443" (127.0.0.1:443) presented a CA cert that could not be verified.
+CA fingerprint: [` + fingerprint + `]
+Trust remote controller? (y/N): 
+Welcome, new-user. You are now logged into "foo".
+
+There are no models available. You can add models with
+"juju add-model", or you can ask an administrator or owner
+of a model to grant access to that model with "juju grant".
+`,
+		},
+		{
+			descr:    "user does not trust CA cert",
+			input:    "n\n",
+			host:     "myprivatecontroller:443",
+			endpoint: "127.0.0.1:443",
+			expRegex: `
+Controller "myprivatecontroller:443" (127.0.0.1:443) presented a CA cert that could not be verified.
+CA fingerprint: [` + fingerprint + `]
+Trust remote controller? (y/N): 
+ERROR cannot log into "myprivatecontroller:443": controller CA not trusted
+`,
+			expCode: 1,
+		},
+		{
+			descr:    "user does not trust CA cert when logging to a controller IP",
+			input:    "n\n",
+			host:     "127.0.0.1:443",
+			endpoint: "127.0.0.1:443",
+			expRegex: `
+Controller "127.0.0.1:443" presented a CA cert that could not be verified.
+CA fingerprint: [` + fingerprint + `]
+Trust remote controller? (y/N): 
+ERROR cannot log into "127.0.0.1:443": controller CA not trusted
+`,
+			expCode: 1,
+		},
+	}
+
+	for specIndex, spec := range specs {
+		c.Logf("test %d: %s", specIndex, spec.descr)
+		_ = s.store.RemoveAccount("foo")
+		_ = s.store.RemoveController("foo")
+
+		*user.APIOpen = func(c *modelcmd.CommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
+			if err := opts.VerifyCA(spec.host, spec.endpoint, caCert); err != nil {
+				return nil, err
+			}
+			return s.apiConnection, nil
+		}
+
+		stdout, stderr, code := runLogin(c, spec.input, spec.host, "-c", "foo", "-u", "new-user")
+		c.Check(stdout, gc.Equals, ``)
+		c.Check(stderr, gc.Equals, spec.expRegex[1:])
+		c.Assert(code, gc.Equals, spec.expCode)
+	}
 }
 
 func runLogin(c *gc.C, stdin string, args ...string) (stdout, stderr string, errCode int) {
