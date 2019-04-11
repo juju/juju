@@ -8,6 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
+
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -15,9 +19,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 )
 
 type remoteApplicationSuite struct {
@@ -720,11 +721,13 @@ func (s *remoteApplicationSuite) TestDestroySimple(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.application.Refresh(), jc.ErrorIsNil)
+	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 
 	// Destroy the remote application with no units in relation scope; check application and
 	// unit removed.
@@ -737,7 +740,7 @@ func (s *remoteApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithRemoteTokens(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
@@ -747,6 +750,9 @@ func (s *remoteApplicationSuite) TestDestroyWithRemoteTokens(c *gc.C) {
 	re := s.State.RemoteEntities()
 	relToken, err := re.ExportLocalEntity(rel.Tag())
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.application.Refresh(), jc.ErrorIsNil)
+	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -767,11 +773,13 @@ func (s *remoteApplicationSuite) TestDestroyWithRemoteTokens(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithOfferConnections(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.application.Refresh(), jc.ErrorIsNil)
+	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 
 	// Add a offer connection record so we can check it is cleaned up.
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
@@ -809,12 +817,15 @@ func (s *remoteApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, re
 	c.Assert(err, jc.ErrorIsNil)
 	rel0, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 
-	s.AddTestingApplication(c, "another", ch)
+	another := s.AddTestingApplication(c, "another", ch)
 	eps, err = s.State.InferEndpoints("another", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel1, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(another.Refresh(), jc.ErrorIsNil)
+	c.Assert(s.application.Refresh(), jc.ErrorIsNil)
 
 	// Add a separate reference to the first relation.
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
@@ -880,6 +891,9 @@ func (s *remoteApplicationSuite) assertDestroyAppWithStatus(c *gc.C, appStatus *
 	err = mysqlru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, mysqlru, true)
+
+	c.Assert(s.application.Refresh(), jc.ErrorIsNil)
+	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 
 	if appStatus != nil {
 		err = s.application.SetStatus(status.StatusInfo{Status: *appStatus})
@@ -1049,6 +1063,8 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.application.Refresh(), jc.ErrorIsNil)
+	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 
 	// Add a unit to the relation so the remote application is not
 	// short-circuit removed.

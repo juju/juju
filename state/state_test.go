@@ -3641,6 +3641,9 @@ func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsW
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteApp.Refresh(), jc.ErrorIsNil)
+	c.Assert(app.Refresh(), jc.ErrorIsNil)
+
 	wc.AssertChange("wordpress:db mysql:database")
 	wc.AssertNoChange()
 	return remoteApp, app, rel

@@ -347,6 +347,13 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 		haveRels = false
 	}
 
+	if haveRels && len(rels) != op.app.doc.RelationCount {
+		// This is just an early bail out. The relations obtained may still
+		// be wrong, but that situation will be caught by a combination of
+		// asserts on relationcount and on each known relation, below.
+		return nil, errRefresh
+	}
+
 	// We'll need status below when processing relations.
 	statusInfo, statusErr := op.app.Status()
 	if statusErr != nil && !errors.IsNotFound(statusErr) {

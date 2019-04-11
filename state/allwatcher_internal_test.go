@@ -3704,6 +3704,8 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 			c.Assert(err, jc.ErrorIsNil)
 			rel, err := st.AddRelation(eps[0], eps[1])
 			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
+			c.Assert(mysql.Refresh(), jc.ErrorIsNil)
 
 			wu, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
