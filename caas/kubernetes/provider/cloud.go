@@ -240,10 +240,8 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	}
 
 	// if storage is already defined there is no need to query the cluster
-	if opStorage, ok := cld.Config[OperatorStorageKey]; ok {
-		if opStorage != nil && opStorage != "" {
-			return cld, nil
-		}
+	if opStorage, ok := cld.Config[OperatorStorageKey]; ok && opStorage != "" {
+		return cld, nil
 	}
 
 	// Need the credentials, need to query for those details
@@ -321,6 +319,5 @@ func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 }
 
 type microk8sStatus struct {
-	Microk8s map[string]string `yaml:"microk8s"`
-	Addons   map[string]string `yaml:"addons"`
+	Addons map[string]string `yaml:"addons"`
 }
