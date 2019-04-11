@@ -299,16 +299,12 @@ func (st *State) apiHostPortsForCAAS(public bool) (addresses [][]network.HostPor
 		return [][]network.HostPort{network.AddressesWithPort(addrs, apiPort)}
 	}
 
-	if len(addrs) < 2 {
-		return addrsToHostPorts(addrs...), nil
-	}
-
 	// select public address.
 	if public {
 		addr, _ := network.SelectPublicAddress(addrs)
 		return addrsToHostPorts(addr), nil
 	}
-	// select private address.
+	// select internal address.
 	return addrsToHostPorts(network.SelectInternalAddresses(addrs, false)...), nil
 }
 
