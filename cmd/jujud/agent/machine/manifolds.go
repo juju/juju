@@ -46,11 +46,11 @@ import (
 	"github.com/juju/juju/worker/apiservercertwatcher"
 	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/authenticationworker"
-	"github.com/juju/juju/worker/broker"
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/common"
+	lxdbroker "github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/controllerport"
 	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/dblogpruner"
@@ -937,7 +937,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 
 	if utilsfeatureflag.Enabled(feature.InstanceMutater) {
-		manifolds[brokerTrackerName] = ifNotMigrating(broker.Manifold(broker.ManifoldConfig{
+		manifolds[brokerTrackerName] = ifNotMigrating(lxdbroker.Manifold(lxdbroker.ManifoldConfig{
 			APICallerName: apiCallerName,
 			AgentName:     agentName,
 			MachineLock:   config.MachineLock,
@@ -1079,7 +1079,6 @@ const (
 	leaseClockUpdaterName         = "lease-clock-updater"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
-	environTrackerName            = "environ-tracker"
 	instanceMutaterName           = "instance-mutater"
 	logPrunerName                 = "log-pruner"
 	txnPrunerName                 = "transaction-pruner"

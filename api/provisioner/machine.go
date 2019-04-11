@@ -611,7 +611,7 @@ func (m *Machine) SupportsNoContainers() error {
 	return m.SetSupportedContainers([]instance.ContainerType{}...)
 }
 
-// SupportsNoContainers implements MachineProvisioner.SupportedContainers.
+// SupportedContainers implements MachineProvisioner.SupportedContainers.
 func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool, error) {
 	var results params.MachineContainerResults
 	args := params.Entities{

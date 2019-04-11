@@ -31,6 +31,7 @@ var (
 	activateBridgesTimeout      = 5 * time.Minute
 )
 
+// NetConfigFunc returns a slice of NetworkConfig from a source config.
 type NetConfigFunc func(common.NetworkConfigSource) ([]params.NetworkConfig, error)
 
 // Config describes the resources used by the instance broker.
@@ -50,6 +51,9 @@ func (c Config) Validate() error {
 	if c.Name == "" {
 		return errors.NotValidf("empty Name")
 	}
+	if string(c.ContainerType) == "" {
+		return errors.NotValidf("empty ContainerType")
+	}
 	if c.APICaller == nil {
 		return errors.NotValidf("nil APICaller")
 	}
@@ -68,6 +72,11 @@ func (c Config) Validate() error {
 	return nil
 }
 
+// ContainerBrokerFunc is used to align the constructors of the various brokers
+// so that we can create them with the same arguments.
+type ContainerBrokerFunc func(PrepareHostFunc, APICalls, container.Manager, agent.Config) (environs.InstanceBroker, error)
+
+// New creates a new InstanceBroker from the Config
 func New(config Config) (environs.InstanceBroker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -78,9 +87,14 @@ func New(config Config) (environs.InstanceBroker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	newBroker := NewKVMBroker
-	if config.ContainerType == instance.LXD {
+	var newBroker ContainerBrokerFunc
+	switch config.ContainerType {
+	case instance.KVM:
+		newBroker = NewKVMBroker
+	case instance.LXD:
 		newBroker = NewLXDBroker
+	default:
+		return nil, errors.NotValidf("ContainerType %s", config.ContainerType)
 	}
 
 	broker, err := newBroker(prepareHost(config), config.APICaller, manager, config.AgentConfig)

@@ -455,7 +455,7 @@ func (p *ProvisionerAPIV8) SupportedContainers(_, _ struct{}) (params.MachineCon
 }
 
 // SupportedContainers returns the list of containers supported by the machines passed in args.
-func (p *ProvisionerAPIV9) SupportedContainers(args params.Entities) (params.MachineContainerResults, error) {
+func (p *ProvisionerAPI) SupportedContainers(args params.Entities) (params.MachineContainerResults, error) {
 	result := params.MachineContainerResults{
 		Results: make([]params.MachineContainerResult, len(args.Entities)),
 	}

@@ -65,13 +65,13 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"api-config-watcher",
 			"api-server",
 			"audit-config-updater",
+			"broker-tracker",
 			"central-hub",
 			"certificate-updater",
 			"certificate-watcher",
 			"clock",
 			"controller-port",
 			"disk-manager",
-			"environ-tracker",
 			"external-controller-updater",
 			"fan-configurer",
 			"global-clock-updater",
@@ -473,7 +473,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"environ-tracker": {
+	"broker-tracker": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -567,7 +567,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"environ-tracker",
+		"broker-tracker",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"upgrade-check-flag",

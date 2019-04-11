@@ -1,11 +1,12 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-package broker
+package containerbroker
 
 import (
 	"github.com/juju/errors"
 	names "gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/catacomb"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
 )
 
 // Config describes the dependencies of a Tracker.
@@ -76,22 +76,20 @@ func NewTracker(config Config) (*Tracker, error) {
 		return nil, errors.Annotatef(err, "expected 1 result, got %d", len(result))
 	}
 	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == params.Dead) {
-		return nil, worker.ErrTerminateAgent
+		return nil, dependency.ErrUninstall
 	}
 	machine := result[0].Machine
-	// Expose SupportedContainers <- ([]instance.ContainerType, bool)
-	// if anything but LXD worker.ErrTerminateAgent
 	instanceContainers, determined, err := machine.SupportedContainers()
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving supported container types")
 	}
-	if len(instanceContainers) == 0 && !determined {
-		return nil, errors.Annotate(err, "no container types deterimined")
+	if len(instanceContainers) == 0 || !determined {
+		return nil, errors.Annotate(err, "no container types determined")
 	}
 	// we only work on LXD, so check for that.
 	for _, containerType := range instanceContainers {
 		if containerType != instance.LXD {
-			return nil, worker.ErrTerminateAgent
+			return nil, dependency.ErrUninstall
 		}
 	}
 
