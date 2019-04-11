@@ -54,6 +54,7 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
 		BootstrapTimeout:        time.Second * 1,
 		BootstrapRetryDelay:     time.Second * 2,
 		BootstrapAddressesDelay: time.Second * 3,
+		ControllerServiceType:   "ClusterIP",
 	})
 }
 

@@ -230,10 +230,9 @@ func (st *State) APIHostPortsForClients() ([][]network.HostPort, error) {
 // If there is no document at all, we simply fall back to APIHostPortsForClients.
 func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
 	if hps, err := st.apiHostPortsForOperator(); err == nil {
-		logger.Criticalf("APIHostPortsForAgents hps -> %v", hps)
+		// TODO(caas): add test for this once we have the replacement for Jujuconnsuite.
+		logger.Debugf("K8s controller hostports for CAAS operator %v", hps)
 		return hps, nil
-	} else {
-		logger.Criticalf("APIHostPortsForAgents apiHostPortsForOperator err -> %v", err)
 	}
 
 	hps, err := st.apiHostPortsForKey(apiHostPortsForAgentsKey)
@@ -259,6 +258,8 @@ func (st *State) apiHostPortsForOperator() ([][]network.HostPort, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	defer controllerSt.Close()
+
 	controllerModel, err := controllerSt.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -267,28 +268,24 @@ func (st *State) apiHostPortsForOperator() ([][]network.HostPort, error) {
 	if m.Type() != ModelTypeCAAS || controllerModel.Type() != ModelTypeCAAS {
 		// only CAAS model has operator and only k8s controller has cloud service.
 		return nil, errors.NotValidf(
-			"cloud service host ports for %q controller %q, %q model %q",
+			"cloud service hostports for %q controller %q, %q model %q",
 			controllerModel.Type(), controllerUUID,
 			m.Type(), m.Name(),
 		)
 	}
 
-	logger.Criticalf("apiHostPortsForOperator m.Type() -> %q", m.Type())
 	controllerConfig, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	apiPort := controllerConfig.APIPort()
 	svc, err := controllerSt.CloudService(controllerUUID)
-	logger.Criticalf("apiHostPortsForOperator svc -> %v", svc)
-	logger.Criticalf("apiHostPortsForOperator apiPort -> %d", apiPort)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return [][]network.HostPort{
 		network.AddressesWithPort(svc.Addresses(), apiPort),
 	}, nil
-
 }
 
 // apiHostPortsForKey returns API addresses extracted from the document
