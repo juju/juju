@@ -229,6 +229,7 @@ type Service struct {
 	Id        string
 	Addresses []network.Address
 	Scale     *int
+	Status    status.StatusInfo
 }
 
 // FilesystemInfo represents information about a filesystem

@@ -42,6 +42,7 @@ type mockServiceBroker struct {
 	ensured        chan<- struct{}
 	deleted        chan<- struct{}
 	podSpec        *caas.PodSpec
+	serviceStatus  status.StatusInfo
 	serviceWatcher *watchertest.MockNotifyWatcher
 }
 
@@ -68,7 +69,10 @@ func (m *mockServiceBroker) EnsureCustomResourceDefinition(appName string, podSp
 func (m *mockServiceBroker) GetService(appName string) (*caas.Service, error) {
 	m.MethodCall(m, "Service", appName)
 	scale := 4
-	return &caas.Service{Id: "id", Scale: &scale, Addresses: []network.Address{{Value: "10.0.0.1"}}}, m.NextErr()
+	return &caas.Service{
+		Id: "id", Scale: &scale, Addresses: []network.Address{{Value: "10.0.0.1"}},
+		Status: m.serviceStatus,
+	}, m.NextErr()
 }
 
 func (m *mockServiceBroker) WatchService(appName string) (watcher.NotifyWatcher, error) {
