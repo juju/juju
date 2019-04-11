@@ -63,6 +63,7 @@ func (config ModelManifoldConfig) newWorker(environ environs.Environ, apiCaller 
 	if !ok {
 		// If we don't have an LXDProfiler broker, there is no need to
 		// run this worker.
+		config.Logger.Debugf("Uninstalling worker because the broker is not a LXDProfiler %T", environ)
 		return nil, dependency.ErrUninstall
 	}
 	facade := config.NewClient(apiCaller)
@@ -176,6 +177,7 @@ func (config MachineManifoldConfig) newWorker(instanceBroker environs.InstanceBr
 	if !ok {
 		// If we don't have an LXDProfiler broker, there is no need to
 		// run this worker.
+		config.Logger.Debugf("Uninstalling worker because the broker is not a LXDProfiler %T", instanceBroker)
 		return nil, dependency.ErrUninstall
 	}
 	facade := config.NewClient(apiCaller)
