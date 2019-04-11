@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 )
@@ -95,7 +96,17 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 
 	k8sCloud, credential, credentialName, err := provider.AttemptMicroK8sCloud(s.runner)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(k8sCloud, gc.DeepEquals, defaultK8sCloud)
+	c.Assert(k8sCloud, gc.DeepEquals, cloud.Cloud{
+		Name:           caas.K8sCloudMicrok8s,
+		Endpoint:       "http://1.1.1.1:8080",
+		Type:           cloud.CloudTypeCAAS,
+		AuthTypes:      []cloud.AuthType{cloud.UserPassAuthType},
+		CACertificates: []string{""},
+		Description:    cloud.DefaultCloudDescription(cloud.CloudTypeCAAS),
+		Regions: []cloud.Region{{
+			Name: "localhost",
+		}},
+	})
 	c.Assert(credential, gc.DeepEquals, getDefaultCredential())
 	c.Assert(credentialName, gc.Equals, "admin")
 }
