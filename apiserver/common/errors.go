@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -84,6 +85,27 @@ func IsUpgradeInProgressError(err error) bool {
 		return true
 	}
 	return errors.Cause(err) == params.UpgradeInProgressError
+}
+
+// RedirectError is the error returned when a model (previously accessible by
+// the user) has been migrated to a different controller.
+type RedirectError struct {
+	// Servers holds the sets of addresses of the redirected servers.
+	Servers [][]network.HostPort `json:"servers"`
+
+	// CACert holds the certificate of the remote server.
+	CACert string `json:"ca-cert"`
+}
+
+// Error implements the error interface.
+func (e *RedirectError) Error() string {
+	return fmt.Sprintf("redirection to alternative server required")
+}
+
+// IsRedirectError returns true if err is caused by a RedirectError.
+func IsRedirectError(err error) bool {
+	_, ok := errors.Cause(err).(*RedirectError)
+	return ok
 }
 
 var (
@@ -184,6 +206,8 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		status = http.StatusUnauthorized
 	case params.CodeRetry:
 		status = http.StatusServiceUnavailable
+	case params.CodeRedirect:
+		status = http.StatusMovedPermanently
 	}
 	return err1, status
 }
@@ -254,6 +278,13 @@ func ServerError(err error) *params.Error {
 			Macaroon: dischErr.Macaroon,
 			// One macaroon fits all.
 			MacaroonPath: "/",
+		}.AsMap()
+	case IsRedirectError(err):
+		redirErr := errors.Cause(err).(*RedirectError)
+		code = params.CodeRedirect
+		info = params.RedirectErrorInfo{
+			Servers: redirErr.Servers,
+			CACert:  redirErr.CACert,
 		}.AsMap()
 	default:
 		code = params.ErrCode(err)

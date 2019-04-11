@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -194,6 +195,18 @@ var errorTransformTests = []struct {
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeModelNotFound,
 }, {
+	err:    sampleRedirectError,
+	status: http.StatusMovedPermanently,
+	code:   params.CodeRedirect,
+	helperFunc: func(err error) bool {
+		err1, ok := err.(*params.Error)
+		exp := asMap(sampleRedirectError)
+		if !ok || err1.Info == nil || !reflect.DeepEqual(err1.Info, exp) {
+			return false
+		}
+		return true
+	},
+}, {
 	err:    nil,
 	code:   "",
 	status: http.StatusOK,
@@ -205,6 +218,14 @@ var sampleMacaroon = func() *macaroon.Macaroon {
 		panic(err)
 	}
 	return m
+}()
+
+var sampleRedirectError = func() *common.RedirectError {
+	hps, _ := network.ParseHostPorts("1.1.1.1:12345", "2.2.2.2:7337")
+	return &common.RedirectError{
+		Servers: [][]network.HostPort{hps},
+		CACert:  testing.ServerCert,
+	}
 }()
 
 func asMap(v interface{}) map[string]interface{} {
@@ -250,7 +271,8 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			params.CodeMachineHasAttachedStorage,
 			params.CodeDischargeRequired,
 			params.CodeModelNotFound,
-			params.CodeRetry:
+			params.CodeRetry,
+			params.CodeRedirect:
 			continue
 		case params.CodeOperationBlocked:
 			// ServerError doesn't actually have a case for this code.
