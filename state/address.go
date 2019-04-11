@@ -229,10 +229,21 @@ func (st *State) APIHostPortsForClients() ([][]network.HostPort, error) {
 // Otherwise the returned addresses will correspond with the management net space.
 // If there is no document at all, we simply fall back to APIHostPortsForClients.
 func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
-	if hps, err := st.apiHostPortsForOperator(); err == nil {
+	controllerSt, err := st.newStateNoWorkers(st.ControllerModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer controllerSt.Close()
+
+	isCAASCtrl, err := controllerSt.isCAASController()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if isCAASCtrl {
 		// TODO(caas): add test for this once we have the replacement for Jujuconnsuite.
-		logger.Debugf("K8s controller hostports for CAAS operator %v", hps)
-		return hps, nil
+		hps, err := controllerSt.apiHostPortsForOperator()
+		logger.Debugf("K8s controller hostports for CAAS operator %v, err %v", hps, err)
+		return hps, err
 	}
 
 	hps, err := st.apiHostPortsForKey(apiHostPortsForAgentsKey)
@@ -246,40 +257,22 @@ func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
 	return hps, nil
 }
 
-func (st *State) apiHostPortsForOperator() ([][]network.HostPort, error) {
-	controllerUUID := st.ControllerUUID()
-
+func (st *State) isCAASController() (bool, error) {
 	m, err := st.Model()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return false, errors.Trace(err)
 	}
+	return m.IsControllerModel() && m.Type() == ModelTypeCAAS, nil
+}
 
-	controllerSt, err := st.newStateNoWorkers(st.ControllerModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer controllerSt.Close()
-
-	controllerModel, err := controllerSt.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if m.Type() != ModelTypeCAAS || controllerModel.Type() != ModelTypeCAAS {
-		// only CAAS model has operator and only k8s controller has cloud service.
-		return nil, errors.NotValidf(
-			"cloud service hostports for %q controller %q, %q model %q",
-			controllerModel.Type(), controllerUUID,
-			m.Type(), m.Name(),
-		)
-	}
-
+func (st *State) apiHostPortsForOperator() ([][]network.HostPort, error) {
 	controllerConfig, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	apiPort := controllerConfig.APIPort()
-	svc, err := controllerSt.CloudService(controllerUUID)
+	svc, err := st.CloudService(st.ControllerUUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

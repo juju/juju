@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
-	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
@@ -64,10 +63,6 @@ const (
 	// refreshing the addresses, in seconds. Not too frequent, as we
 	// refresh addresses from the provider each time.
 	DefaultBootstrapSSHAddressesDelay = 10
-
-	// DefaultControllerServiceType is the default service type for k8s
-	// controller to use for creating k8s service resource.
-	DefaultControllerServiceType = string(core.ServiceTypeClusterIP)
 )
 
 // BootstrapConfigAttributes are attributes which may be defined by the
@@ -246,7 +241,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CACertKey + "-path":        schema.Omit,
 	CAPrivateKeyKey:            schema.Omit,
 	CAPrivateKeyKey + "-path":  schema.Omit,
-	ControllerServiceTypeKey:   DefaultControllerServiceType,
+	ControllerServiceTypeKey:   schema.Omit,
 	BootstrapTimeoutKey:        DefaultBootstrapSSHTimeout,
 	BootstrapRetryDelayKey:     DefaultBootstrapSSHRetryDelay,
 	BootstrapAddressesDelayKey: DefaultBootstrapSSHAddressesDelay,
