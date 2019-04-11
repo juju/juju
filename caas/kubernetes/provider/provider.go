@@ -22,8 +22,6 @@ import (
 	"github.com/juju/juju/environs/context"
 )
 
-// need to pass environProviderCredentials a cmdRunner too?
-// I think that would be possible
 type kubernetesEnvironProvider struct {
 	environProviderCredentials
 	cmdRunner          CommandRunner

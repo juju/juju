@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -55,6 +56,7 @@ func (s *builtinSuite) TestGetLocalMicroK8sConfigNotInstalled(c *gc.C) {
 
 	result, err := provider.GetLocalMicroK8sConfig(s.runner)
 	c.Assert(err, gc.ErrorMatches, `microk8s not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(result, gc.HasLen, 0)
 }
 

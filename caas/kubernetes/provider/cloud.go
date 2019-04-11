@@ -21,13 +21,13 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// ClientConfigFuncGetter returns a function that will provide the client reader
+// ClientConfigFuncGetter returns a function returning az reader that will read a k8s cluster config for a given cluster type
 type ClientConfigFuncGetter func(string) (clientconfig.ClientConfigFunc, error)
 
 // GetClusterMetadataFunc returns the ClusterMetadata using the provided ClusterMetadataChecker
 type GetClusterMetadataFunc func(caas.ClusterMetadataChecker) (*caas.ClusterMetadata, error)
 
-// KubeCloudParams provides the needed information to extract a Cloud from available cluster information.
+// KubeCloudParams defines the parameters used to extract a k8s cluster definition from kubeconfig data.
 type KubeCloudParams struct {
 	ClusterName        string
 	ContextName        string
@@ -37,7 +37,7 @@ type KubeCloudParams struct {
 	ClientConfigGetter ClientConfigFuncGetter
 }
 
-// KubeCloudStorageParams allows storage details to be determined for a K8s cloud.
+// KubeCloudStorageParams defines the parameters used to determine storage details for a k8s cluster.
 type KubeCloudStorageParams struct {
 	WorkloadStorage        string
 	HostCloudRegion        string
