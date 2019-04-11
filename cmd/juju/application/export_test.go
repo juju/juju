@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/romulus"
 	"gopkg.in/juju/charmrepo.v3"
+	"gopkg.in/juju/charmrepo.v3/csclient"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
@@ -22,17 +23,45 @@ import (
 )
 
 // NewDeployCommandForTest returns a command to deploy applications intended to be used only in tests.
-func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
+func NewDeployCommandForTest(api *fakeDeployAPI, steps []DeployStep) modelcmd.ModelCommand {
 	deployCmd := &DeployCommand{
-		Steps:      steps,
-		NewAPIRoot: newAPIRoot,
+		Steps: steps,
+		NewAPIRoot: func() (DeployAPI, error) {
+			return api, nil
+		},
+		NewCharmRepo: func() (charmrepoForDeploy, error) {
+			return api, nil
+		},
+		NewCharmAuthorizer: func() (charmAuthorizer, error) {
+			return api, nil
+		},
 	}
-	if newAPIRoot == nil {
+	// TODO - this is copied from production code - it doesn't belong in tests
+	if api == nil {
 		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return &deployAPIAdapter{
+				Connection:        apiRoot,
+				apiClient:         &apiClient{Client: apiRoot.Client()},
+				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
+				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
+				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
+				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
+				plansClient:       &plansClient{planURL: mURL},
+			}, nil
+		}
+		csClient := func(deployCmd *DeployCommand) (*csclient.Client, error) {
 			bakeryClient, err := deployCmd.BakeryClient()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -45,23 +74,23 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
+			return newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel), nil
+		}
+
+		deployCmd.NewCharmRepo = func() (charmrepoForDeploy, error) {
+			csClient, err := csClient(deployCmd)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
+			return &charmRepoClient{charmrepo.NewCharmStoreFromClient(csClient)}, nil
+		}
 
-			return &deployAPIAdapter{
-				Connection:        apiRoot,
-				apiClient:         &apiClient{Client: apiRoot.Client()},
-				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
-				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
-				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-				charmstoreClient:  &charmstoreClient{&charmstoreClientShim{cstoreClient}},
-				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-				charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
-				plansClient:       &plansClient{planURL: mURL},
-			}, nil
+		deployCmd.NewCharmAuthorizer = func() (charmAuthorizer, error) {
+			csClient, err := csClient(deployCmd)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return &charmstoreClient{&charmstoreClientShim{csClient}}, nil
 		}
 	}
 	return modelcmd.Wrap(deployCmd)
@@ -82,14 +111,6 @@ func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo *charmst
 	}
 
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
-		if charmstore == nil {
-			return nil, errors.NotValidf("charmstore argument must be supplied")
-		}
-
-		if charmrepo == nil {
-			return nil, errors.NotValidf("charmrepo argument must be supplied")
-		}
-
 		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -102,7 +123,6 @@ func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo *charmst
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		charmstore := charmstore.WithChannel(deployCmd.Channel)
 
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
@@ -110,11 +130,18 @@ func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo *charmst
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			charmstoreClient:  &charmstoreClient{charmstore},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			charmRepoClient:   &charmRepoClient{charmrepo},
 			plansClient:       &plansClient{planURL: mURL},
 		}, nil
+	}
+
+	charmstore = charmstore.WithChannel(deployCmd.Channel)
+	deployCmd.NewCharmRepo = func() (charmrepoForDeploy, error) {
+		return &charmRepoClient{charmrepo}, nil
+	}
+
+	deployCmd.NewCharmAuthorizer = func() (charmAuthorizer, error) {
+		return &charmstoreClient{charmstore}, nil
 	}
 
 	return modelcmd.Wrap(deployCmd)
@@ -126,6 +153,7 @@ func NewUpgradeCharmCommandForTest(
 	deployResources resourceadapters.DeployResourcesFunc,
 	resolveCharm ResolveCharmFunc,
 	newCharmAdder NewCharmAdderFunc,
+	newCharmAuth NewCharmAuthFunc,
 	newCharmClient func(base.APICallCloser) CharmClient,
 	newCharmUpgradeClient func(base.APICallCloser) CharmAPIClient,
 	newModelConfigGetter func(base.APICallCloser) ModelConfigGetter,
@@ -136,6 +164,7 @@ func NewUpgradeCharmCommandForTest(
 		DeployResources:       deployResources,
 		ResolveCharm:          resolveCharm,
 		NewCharmAdder:         newCharmAdder,
+		NewCharmAuth:          newCharmAuth,
 		NewCharmClient:        newCharmClient,
 		NewCharmUpgradeClient: newCharmUpgradeClient,
 		NewModelConfigGetter:  newModelConfigGetter,

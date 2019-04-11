@@ -44,6 +44,7 @@ func RepoForSeries(series string) *testing.Repo {
 // Only methods that are relied upon by the testcharms package are exposed here.
 type CharmstoreClient interface {
 	// Put enables "raw HTTP" calls
+	// TODO - this needs to be removed
 	Put(path string, value interface{}) error
 	// Publish publishes an object representable by `id`, which could be a bundle, charm or resource
 	Publish(id *charm.URL, channels []params.Channel, resources map[string]int) error

@@ -138,8 +138,13 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 		apiOpen,
 		s.deployResources,
 		s.resolveCharm,
-		func(conn api.Connection, bakeryClient *httpbakery.Client, csURL string, channel csclientparams.Channel) CharmAdder {
-			s.AddCall("NewCharmAdder", conn, bakeryClient, csURL, channel)
+		func(conn api.Connection) CharmAdderAPI {
+			s.AddCall("NewCharmAdder", conn)
+			s.PopNoErr()
+			return &s.charmAdder
+		},
+		func(bakeryClient *httpbakery.Client, csURL string, channel csclientparams.Channel) charmAuthorizer {
+			s.AddCall("NewCharmAuth", bakeryClient, csURL, channel)
 			s.PopNoErr()
 			return &s.charmAdder
 		},
@@ -194,8 +199,8 @@ func (s *UpgradeCharmSuite) TestUseConfiguredCharmStoreURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var csURL string
 	for _, call := range s.Calls() {
-		if call.FuncName == "NewCharmAdder" {
-			csURL = call.Args[2].(string)
+		if call.FuncName == "NewCharmAuth" {
+			csURL = call.Args[1].(string)
 			break
 		}
 	}
@@ -884,8 +889,12 @@ func (*mockAPIConnection) Close() error {
 }
 
 type mockCharmAdder struct {
-	CharmAdder
+	CharmAdderAPI
 	testing.Stub
+}
+
+func (m *mockCharmAdder) AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error) {
+	return nil, errors.New("unexpected call")
 }
 
 func (m *mockCharmAdder) AddCharm(curl *charm.URL, channel csclientparams.Channel, force bool) error {

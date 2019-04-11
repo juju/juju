@@ -57,13 +57,13 @@ func resolveCharm(
 // given charm URL to state. For non-public charm URLs, this function also
 // handles the macaroon authorization process using the given csClient.
 // The resulting charm URL of the added charm is displayed on stdout.
-func addCharmFromURL(client CharmAdder, curl *charm.URL, channel csparams.Channel, force bool) (*charm.URL, *macaroon.Macaroon, error) {
+func addCharmFromURL(client CharmAdderAPI, auth charmAuthorizer, curl *charm.URL, channel csparams.Channel, force bool) (*charm.URL, *macaroon.Macaroon, error) {
 	var csMac *macaroon.Macaroon
 	if err := client.AddCharm(curl, channel, force); err != nil {
 		if !params.IsCodeUnauthorized(err) {
 			return nil, nil, errors.Trace(err)
 		}
-		m, err := client.AuthorizeCharmstoreEntity(curl)
+		m, err := auth.AuthorizeCharmstoreEntity(curl)
 		if err != nil {
 			return nil, nil, common.MaybeTermsAgreementError(err)
 		}

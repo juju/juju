@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v3"
 
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
@@ -161,20 +160,13 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		bakeryClient, err := deployCmd.BakeryClient()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cstoreClient := newCharmStoreClient(bakeryClient, s.srv.URL).WithChannel(deployCmd.Channel)
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
 			apiClient:         &apiClient{Client: apiRoot.Client()},
 			charmsClient:      &charmsClient{Client: charms.NewClient(apiRoot)},
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			charmstoreClient:  &charmstoreClient{&charmstoreClientShim{cstoreClient}},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
 		}, nil
 	}
 

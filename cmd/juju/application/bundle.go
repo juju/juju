@@ -113,6 +113,8 @@ func deployBundle(
 	bundleOverlayFile []string,
 	channel csparams.Channel,
 	apiRoot DeployAPI,
+	charmAuth charmAuthorizer,
+	urlResolver URLResolver,
 	ctx *cmd.Context,
 	bundleStorage map[string]map[string]storage.Constraints,
 	bundleDevices map[string]map[string]devices.Constraints,
@@ -129,7 +131,8 @@ func deployBundle(
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleURL, bundleStorage, bundleDevices)
+	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, charmAuth, urlResolver,
+		ctx, data, bundleURL, bundleStorage, bundleDevices)
 	if err := h.makeModel(useExistingMachines, bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -177,6 +180,12 @@ type bundleHandler struct {
 
 	// api is used to interact with the environment.
 	api DeployAPI
+
+	// charmAuth is used to authorize access to charms.
+	charmAuth charmAuthorizer
+
+	// urlResolver is used to resolve charm URLs.
+	urlResolver URLResolver
 
 	// bundleStorage contains a mapping of application-specific storage
 	// constraints. For each application, the storage constraints in the
@@ -230,6 +239,8 @@ func makeBundleHandler(
 	bundleDir string,
 	channel csparams.Channel,
 	api DeployAPI,
+	charmAuth charmAuthorizer,
+	urlResolver URLResolver,
 	ctx *cmd.Context,
 	data *charm.BundleData,
 	bundleURL *charm.URL,
@@ -247,6 +258,8 @@ func makeBundleHandler(
 		results:       make(map[string]string),
 		channel:       channel,
 		api:           api,
+		charmAuth:     charmAuth,
+		urlResolver:   urlResolver,
 		bundleStorage: bundleStorage,
 		bundleDevices: bundleDevices,
 		ctx:           ctx,
@@ -330,7 +343,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := resolveCharm(h.api.ResolveWithChannel, ch)
+		url, _, _, err := resolveCharm(h.urlResolver.ResolveWithChannel, ch)
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -477,7 +490,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := resolveCharm(h.api.ResolveWithChannel, ch)
+	url, channel, _, err := resolveCharm(h.urlResolver.ResolveWithChannel, ch)
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -485,7 +498,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var macaroon *macaroon.Macaroon
-	url, macaroon, err = addCharmFromURL(h.api, url, channel, false)
+	url, macaroon, err = addCharmFromURL(h.api, h.charmAuth, url, channel, false)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
