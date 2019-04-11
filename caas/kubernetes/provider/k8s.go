@@ -841,12 +841,20 @@ func getLoadBalancerAddress(svc *core.Service) string {
 	return lpAdd
 }
 
-func getSvcAddresses(svc *core.Service) []network.Address {
+func getSvcAddresses(svc *core.Service, restrict bool) []network.Address {
 	var netAddrs []network.Address
 
-	appendAddrs := func(scope network.Scope, addrs ...string) {
+	addressExist := func(addr string) bool {
+		for _, v := range netAddrs {
+			if addr == v.Value {
+				return true
+			}
+		}
+		return false
+	}
+	appendUniqueAddrs := func(scope network.Scope, addrs ...string) {
 		for _, v := range addrs {
-			if v != "" {
+			if v != "" && !addressExist(v) {
 				netAddrs = append(netAddrs, network.Address{
 					Value: v,
 					Type:  network.DeriveAddressType(v),
@@ -860,19 +868,25 @@ func getSvcAddresses(svc *core.Service) []network.Address {
 	clusterIP := svc.Spec.ClusterIP
 	switch t {
 	case core.ServiceTypeClusterIP:
-		appendAddrs(network.ScopeCloudLocal, clusterIP)
+		appendUniqueAddrs(network.ScopeCloudLocal, clusterIP)
 	case core.ServiceTypeExternalName:
-		appendAddrs(network.ScopePublic, svc.Spec.ExternalName)
+		appendUniqueAddrs(network.ScopePublic, svc.Spec.ExternalName)
 	case core.ServiceTypeNodePort:
-		appendAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)
+		appendUniqueAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)
 	case core.ServiceTypeLoadBalancer:
-		appendAddrs(network.ScopePublic, getLoadBalancerAddress(svc))
+		appendUniqueAddrs(network.ScopePublic, getLoadBalancerAddress(svc))
+	}
+	if !restrict {
+		// restrict mode only returns address related with current service
+		// type (this is used for bootstrapping process to ensure service has been fully provisioned).
+		// Non restricted mode returns expected result with one more clusterIP (we need ClusterIP for operators).
+		appendUniqueAddrs(network.ScopeCloudLocal, clusterIP)
 	}
 	return netAddrs
 }
 
 // GetService returns the service for the specified application.
-func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
+func (k *kubernetesClient) GetService(appName string, restrict bool) (*caas.Service, error) {
 	services := k.CoreV1().Services(k.namespace)
 	servicesList, err := services.List(v1.ListOptions{
 		LabelSelector:        applicationSelector(appName),
@@ -886,7 +900,7 @@ func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 	if len(servicesList.Items) > 0 {
 		service := servicesList.Items[0]
 		result.Id = string(service.GetUID())
-		result.Addresses = getSvcAddresses(&servicesList.Items[0])
+		result.Addresses = getSvcAddresses(&service, restrict)
 	}
 
 	deploymentName := k.deploymentName(appName)
