@@ -5,8 +5,6 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	provisioner "github.com/juju/juju/api/provisioner"
 	params "github.com/juju/juju/apiserver/params"
@@ -15,6 +13,7 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	version "github.com/juju/version"
 	names_v2 "gopkg.in/juju/names.v2"
+	reflect "reflect"
 )
 
 // MockMachineProvisioner is a mock of MachineProvisioner interface
@@ -379,6 +378,20 @@ func (m *MockMachineProvisioner) String() string {
 // String indicates an expected call of String
 func (mr *MockMachineProvisionerMockRecorder) String() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockMachineProvisioner)(nil).String))
+}
+
+// SupportedContainers mocks base method
+func (m *MockMachineProvisioner) SupportedContainers() ([]instance.ContainerType, bool, error) {
+	ret := m.ctrl.Call(m, "SupportedContainers")
+	ret0, _ := ret[0].([]instance.ContainerType)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// SupportedContainers indicates an expected call of SupportedContainers
+func (mr *MockMachineProvisionerMockRecorder) SupportedContainers() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedContainers", reflect.TypeOf((*MockMachineProvisioner)(nil).SupportedContainers))
 }
 
 // SupportsNoContainers mocks base method
