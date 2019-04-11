@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
@@ -137,6 +138,30 @@ func (s *store) ControllerByName(name string) (*ControllerDetails, error) {
 		return &result, nil
 	}
 	return nil, errors.NotFoundf("controller %s", name)
+}
+
+// ControllerByEndpoints implements ControllersGetter.
+func (s *store) ControllerByAPIEndpoints(endpoints ...string) (*ControllerDetails, string, error) {
+	releaser, err := s.acquireLock()
+	if err != nil {
+		return nil, "", errors.Annotatef(err, "cannot acquire lock file to read controllers")
+	}
+	defer releaser.Release()
+
+	controllers, err := ReadControllersFile(JujuControllersPath())
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+
+	matchEps := set.NewStrings(endpoints...)
+	for name, ctrl := range controllers.Controllers {
+		if matchEps.Intersection(set.NewStrings(ctrl.APIEndpoints...)).IsEmpty() {
+			continue
+		}
+
+		return &ctrl, name, nil
+	}
+	return nil, "", errors.NotFoundf("controller with API endpoints %v", endpoints)
 }
 
 // AddController implements ControllerUpdater.
