@@ -22,7 +22,7 @@ import (
 //go:generate mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/instancemutater MutaterMachine
 
 type InstanceMutaterAPI interface {
-	WatchModelMachines() (watcher.StringsWatcher, error)
+	WatchMachines() (watcher.StringsWatcher, error)
 	Machine(tag names.MachineTag) (instancemutater.MutaterMachine, error)
 }
 
@@ -83,7 +83,7 @@ func (config Config) Validate() error {
 // the machines in the state and polls their instance
 // for addition or removal changes.
 func NewEnvironWorker(config Config) (worker.Worker, error) {
-	config.GetMachineWatcher = config.Facade.WatchModelMachines
+	config.GetMachineWatcher = config.Facade.WatchMachines
 	return newWorker(config)
 }
 
