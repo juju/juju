@@ -227,10 +227,14 @@ func BaseKubeCloudOpenParams(cloud jujucloud.Cloud, credential jujucloud.Credent
 
 // FinalizeCloud is part of the environs.CloudFinalizer interface.
 func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudContext, cld cloud.Cloud) (cloud.Cloud, error) {
-	cloudName := cld.Name
-	if cloudName != caas.K8sCloudMicrok8s {
+	if cld.Name != caas.K8sCloudMicrok8s {
 		return cld, nil
 	}
+
+	if cld.Config["operator-storage"] != nil && cld.Config["workload-storage"] != nil {
+		return cld, nil
+	}
+
 	// Need the credentials, need to query for those details
 	mk8sCloud, credential, _, err := p.builtinCloudGetter(p.cmdRunner)
 	if err != nil {
