@@ -16,10 +16,27 @@ import (
 
 // ManifoldConfig describes the resources used by a Tracker.
 type ManifoldConfig struct {
+	AgentName     string
 	APICallerName string
-	Agent         agent.Agent
 	MachineLock   machinelock.Lock
 	NewBrokerFunc func(broker.Config) (environs.InstanceBroker, error)
+}
+
+// Validate validates the manifold configuration.
+func (config ManifoldConfig) Validate() error {
+	if config.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if config.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName")
+	}
+	if config.MachineLock == nil {
+		return errors.NotValidf("nil MachineLock")
+	}
+	if config.NewBrokerFunc == nil {
+		return errors.NotValidf("nil NewBrokerFunc")
+	}
+	return nil
 }
 
 // Manifold returns a Manifold that encapsulates a *Tracker and exposes it as
@@ -27,17 +44,26 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			config.AgentName,
 			config.APICallerName,
 		},
 		Output: manifoldOutput,
 		Start: func(context dependency.Context) (worker.Worker, error) {
+			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			var agent agent.Agent
+			if err := context.Get(config.AgentName, &agent); err != nil {
+				return nil, errors.Trace(err)
+			}
 			var apiCaller base.APICaller
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 			w, err := NewTracker(Config{
 				APICaller:     apiCaller,
-				AgentConfig:   config.Agent.CurrentConfig(),
+				AgentConfig:   agent.CurrentConfig(),
 				MachineLock:   config.MachineLock,
 				NewBrokerFunc: config.NewBrokerFunc,
 			})

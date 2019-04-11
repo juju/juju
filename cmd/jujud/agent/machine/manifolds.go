@@ -939,7 +939,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	if utilsfeatureflag.Enabled(feature.InstanceMutater) {
 		manifolds[brokerTrackerName] = ifNotMigrating(broker.Manifold(broker.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Agent:         config.Agent,
+			AgentName:     agentName,
 			MachineLock:   config.MachineLock,
 			NewBrokerFunc: config.NewBrokerFunc,
 		}))
