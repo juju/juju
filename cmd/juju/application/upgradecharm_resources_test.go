@@ -22,6 +22,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmstore.v5"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -126,6 +127,15 @@ resources:
 	})
 }
 
+type charmstoreClientToTestcharmsClientShim struct {
+	*csclient.Client
+}
+
+func (c charmstoreClientToTestcharmsClientShim) WithChannel(channel params.Channel) testcharms.CharmstoreClient {
+	client := c.Client.WithChannel(channel)
+	return charmstoreClientToTestcharmsClientShim{client}
+}
+
 // charmStoreSuite is a suite fixture that puts the machinery in
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
@@ -133,7 +143,7 @@ type charmStoreSuite struct {
 	handler    charmstore.HTTPCloseHandler
 	srv        *httptest.Server
 	srvSession *mgo.Session
-	client     *csclient.Client
+	client     charmstoreClientToTestcharmsClientShim
 }
 
 func (s *charmStoreSuite) SetUpTest(c *gc.C) {
@@ -151,11 +161,12 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.srv = httptest.NewServer(handler)
-	s.client = csclient.New(csclient.Params{
+	client := csclient.New(csclient.Params{
 		URL:      s.srv.URL,
 		User:     params.AuthUsername,
 		Password: params.AuthPassword,
 	})
+	s.client = charmstoreClientToTestcharmsClientShim{client}
 
 	// Set charmstore URL config so the config is set during bootstrap
 	if s.ControllerConfigAttrs == nil {
