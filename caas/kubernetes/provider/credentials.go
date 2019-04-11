@@ -121,7 +121,7 @@ func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredenti
 // RegisterCredentials is part of the environs.ProviderCredentialsRegister interface.
 func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
 	cloudName := cld.Name
-	if cloudName != caas.Microk8s {
+	if cloudName != caas.K8sCloudMicrok8s {
 		return make(map[string]*cloud.CloudCredential), nil
 	}
 	_, cred, _, err := p.builtinCloudGetter(p.cmdRunner)

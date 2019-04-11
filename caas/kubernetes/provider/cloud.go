@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -180,6 +181,9 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Cred
 	if _, ok := k8sCloud.Config[OperatorStorageKey]; !ok {
 		k8sCloud.Config[OperatorStorageKey] = operatorStorageName
 	}
+	if _, ok := k8sCloud.Config[bootstrap.ControllerServiceTypeKey]; !ok {
+		k8sCloud.Config[bootstrap.ControllerServiceTypeKey] = clusterMetadata.PreferredServiceType
+	}
 
 	return storageMsg, nil
 }
@@ -224,7 +228,7 @@ func BaseKubeCloudOpenParams(cloud jujucloud.Cloud, credential jujucloud.Credent
 // FinalizeCloud is part of the environs.CloudFinalizer interface.
 func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudContext, cld cloud.Cloud) (cloud.Cloud, error) {
 	cloudName := cld.Name
-	if cloudName != caas.Microk8s {
+	if cloudName != caas.K8sCloudMicrok8s {
 		return cld, nil
 	}
 	// Need the credentials, need to query for those details

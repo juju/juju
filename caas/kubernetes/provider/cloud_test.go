@@ -28,7 +28,7 @@ type cloudSuite struct {
 }
 
 var defaultK8sCloud = jujucloud.Cloud{
-	Name:           caas.Microk8s,
+	Name:           caas.K8sCloudMicrok8s,
 	Endpoint:       "http://1.1.1.1:8080",
 	Type:           cloud.CloudTypeCAAS,
 	AuthTypes:      []cloud.AuthType{cloud.UserPassAuthType},
@@ -36,7 +36,7 @@ var defaultK8sCloud = jujucloud.Cloud{
 }
 
 var defaultClusterMetadata = &caas.ClusterMetadata{
-	Cloud:                caas.Microk8s,
+	Cloud:                caas.K8sCloudMicrok8s,
 	Regions:              set.NewStrings(caas.Microk8sRegion),
 	OperatorStorageClass: &caas.StorageProvisioner{Name: "operator-sc"},
 }
@@ -74,13 +74,13 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, defaultK8sCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, jc.DeepEquals, jujucloud.Cloud{
-		Name:            caas.Microk8s,
+		Name:            caas.K8sCloudMicrok8s,
 		Type:            jujucloud.CloudTypeCAAS,
 		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",
-		HostCloudRegion: fmt.Sprintf("%s/%s", caas.Microk8s, caas.Microk8sRegion),
-		Config:          map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
+		HostCloudRegion: fmt.Sprintf("%s/%s", caas.K8sCloudMicrok8s, caas.Microk8sRegion),
+		Config:          map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": "", "controller-service-type": ""},
 		Regions:         []jujucloud.Region{{Name: caas.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	})
 }

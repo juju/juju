@@ -26,7 +26,7 @@ func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Crede
 
 	cloudParams := KubeCloudParams{
 		ClusterName: caas.MicroK8sClusterName,
-		CaasName:    caas.Microk8s,
+		CaasName:    caas.K8sCloudMicrok8s,
 		CaasType:    CAASProviderType,
 		ClientConfigGetter: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)

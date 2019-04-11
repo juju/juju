@@ -104,10 +104,10 @@ func (s *credentialsSuite) TestRegisterCredentialsMicrok8s(c *gc.C) {
 	credentials, err := p.RegisterCredentials(defaultK8sCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.HasLen, 1)
-	c.Assert(credentials[caas.Microk8s], gc.DeepEquals, &cloud.CloudCredential{
-		DefaultCredential: caas.Microk8s,
+	c.Assert(credentials[caas.K8sCloudMicrok8s], gc.DeepEquals, &cloud.CloudCredential{
+		DefaultCredential: caas.K8sCloudMicrok8s,
 		AuthCredentials: map[string]cloud.Credential{
-			caas.Microk8s: getDefaultCredential(),
+			caas.K8sCloudMicrok8s: getDefaultCredential(),
 		},
 	})
 }

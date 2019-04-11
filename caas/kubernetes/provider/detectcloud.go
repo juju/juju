@@ -27,7 +27,7 @@ func (p kubernetesEnvironProvider) DetectClouds() ([]cloud.Cloud, error) {
 
 // DetectCloud implements environs.CloudDetector.
 func (p kubernetesEnvironProvider) DetectCloud(name string) (cloud.Cloud, error) {
-	if name != caas.Microk8s {
+	if name != caas.K8sCloudMicrok8s {
 		return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
 	}
 
