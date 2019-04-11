@@ -229,6 +229,8 @@ func BaseKubeCloudOpenParams(cloud jujucloud.Cloud, credential jujucloud.Credent
 
 // FinalizeCloud is part of the environs.CloudFinalizer interface.
 func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudContext, cld cloud.Cloud) (cloud.Cloud, error) {
+	// We special case Microk8s here as we need to query the cluster for the
+	// storage details with no input from the user
 	if cld.Name != caas.K8sCloudMicrok8s {
 		return cld, nil
 	}
@@ -239,12 +241,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 
 	// if storage is already defined there is no need to query the cluster
 	if opStorage, ok := cld.Config[OperatorStorageKey]; ok {
-		if opStorage == nil || opStorage == "" {
-			return cld, nil
-		}
-	}
-	if workStorage, ok := cld.Config[WorkloadStorageKey]; ok {
-		if workStorage == nil || workStorage == "" {
+		if opStorage != nil && opStorage != "" {
 			return cld, nil
 		}
 	}
