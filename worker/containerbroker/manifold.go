@@ -14,12 +14,20 @@ import (
 	"github.com/juju/juju/environs"
 )
 
+//go:generate mockgen -package mocks -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
+//go:generate mockgen -package mocks -destination mocks/dependency_mock.go gopkg.in/juju/worker.v1/dependency Context
+//go:generate mockgen -package mocks -destination mocks/environs_mock.go github.com/juju/juju/environs LXDProfiler,InstanceBroker
+//go:generate mockgen -package mocks -destination mocks/machine_lock_mock.go github.com/juju/juju/core/machinelock Lock
+//go:generate mockgen -package mocks -destination mocks/base_mock.go github.com/juju/juju/api/base APICaller
+//go:generate mockgen -package mocks -destination mocks/agent_mock.go github.com/juju/juju/agent Agent,Config
+
 // ManifoldConfig describes the resources used by a Tracker.
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	MachineLock   machinelock.Lock
 	NewBrokerFunc func(broker.Config) (environs.InstanceBroker, error)
+	NewTracker    func(Config) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -35,6 +43,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewBrokerFunc == nil {
 		return errors.NotValidf("nil NewBrokerFunc")
+	}
+	if config.NewTracker == nil {
+		return errors.NotValidf("nil NewTracker")
 	}
 	return nil
 }
@@ -61,7 +72,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
-			w, err := NewTracker(Config{
+			w, err := config.NewTracker(Config{
 				APICaller:     apiCaller,
 				AgentConfig:   agent.CurrentConfig(),
 				MachineLock:   config.MachineLock,
