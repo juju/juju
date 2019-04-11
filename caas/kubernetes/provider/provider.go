@@ -9,12 +9,14 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
+	"github.com/juju/utils/exec"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -22,14 +24,38 @@ import (
 
 type kubernetesEnvironProvider struct {
 	environProviderCredentials
+	cmdRunner          CommandRunner
+	builtinCloudGetter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error)
+	brokerGetter       func(environs.OpenParams) (caas.ClusterMetadataChecker, error)
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
-var providerInstance = kubernetesEnvironProvider{}
+var providerInstance = kubernetesEnvironProvider{
+	environProviderCredentials: environProviderCredentials{
+		cmdRunner:          defaultRunner{},
+		builtinCloudGetter: attemptMicroK8sCloud,
+	},
+	cmdRunner:          defaultRunner{},
+	builtinCloudGetter: attemptMicroK8sCloud,
+	brokerGetter: func(args environs.OpenParams) (caas.ClusterMetadataChecker, error) {
+		return caas.New(args)
+	},
+}
 
 // Version is part of the EnvironProvider interface.
 func (kubernetesEnvironProvider) Version() int {
 	return 0
+}
+
+// CommandRunner allows to run commands on the underlying system
+type CommandRunner interface {
+	RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
+}
+
+type defaultRunner struct{}
+
+func (defaultRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error) {
+	return exec.RunCommands(run)
 }
 
 func newK8sClient(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
