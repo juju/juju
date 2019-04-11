@@ -168,7 +168,14 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 	case c.controllerName == "":
 		c.controllerName = c.domain
 	}
+
 	if strings.Contains(c.controllerName, ":") {
+		// Check if user is trying to login to a registered controller
+		// by providing the IP of one of its endpoints.
+		if err := ensureNotKnownEndpoint(store, c.controllerName); err != nil {
+			return err
+		}
+
 		return errors.Errorf("cannot use %q as a controller name - use -c option to choose a different one", c.controllerName)
 	}
 
@@ -201,6 +208,12 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 	}
 	switch {
 	case c.domain != "":
+		// Check if user is trying to login to a registered controller
+		// by providing the IP of one of its endpoints as the domain.
+		if err := ensureNotKnownEndpoint(store, c.domain); err != nil {
+			return err
+		}
+
 		// Note: the controller name is guaranteed to be non-empty
 		// in this case via the test at the start of this function.
 		conn, publicControllerDetails, accountDetails, err = c.publicControllerLogin(ctx, c.domain, c.controllerName, oldAccountDetails)
@@ -579,4 +592,34 @@ func friendlyUserName(user string) string {
 		return u.Name()
 	}
 	return u.Id()
+}
+
+// ensureNotKnownEndpoint checks whether any controllers in the local client
+// cache contain the provided endpoint and returns an error if that is the
+// case.
+func ensureNotKnownEndpoint(store jujuclient.ClientStore, endpoint string) error {
+	existingDetails, existingName, err := store.ControllerByAPIEndpoints(endpoint)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
+	if existingDetails == nil {
+		return nil
+	}
+
+	// Check if we know the username for this controller
+	accountDetails, err := store.AccountDetails(existingName)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
+	if accountDetails != nil {
+		logger.Warningf(`This controller has already been registered on this client as %q
+To login user %q run 'juju login -u %s -c %s'.`, existingName, accountDetails.User, accountDetails.User, existingName)
+	} else {
+		logger.Warningf(`This controller has already been registered on this client as %q
+To login run 'juju login -c %s'.`, existingName, existingName)
+	}
+
+	return errors.Errorf("controller is already registered as %q", existingName)
 }

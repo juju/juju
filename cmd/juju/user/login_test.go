@@ -338,6 +338,58 @@ ERROR cannot log into "127.0.0.1:443": controller CA not trusted
 	}
 }
 
+func (s *LoginCommandSuite) TestLoginUsingKnownControllerEndpoint(c *gc.C) {
+	var (
+		existingName string
+		details      jujuclient.ControllerDetails
+	)
+	for existingName, details = range s.store.Controllers {
+		break
+	}
+
+	s.store.Controllers["controller-with-no-account"] = jujuclient.ControllerDetails{
+		APIEndpoints:   []string{"1.1.1.1:12345"},
+		CACert:         testing.CACert,
+		ControllerUUID: testing.ControllerTag.Id(),
+	}
+
+	specs := []struct {
+		descr  string
+		cmd    []string
+		expErr string
+	}{
+		{
+			descr: "user provides an endpoint as the controller name and has a local account for the controller",
+			cmd:   []string{details.APIEndpoints[0]},
+			expErr: `
+ERROR controller is already registered as "` + existingName + `"
+`,
+		},
+		{
+			descr: "user provides an endpoint as the controller name and does not have a local account for the controller",
+			cmd:   []string{"1.1.1.1:12345"},
+			expErr: `
+ERROR controller is already registered as "controller-with-no-account"
+`,
+		},
+		{
+			descr: "user provides an endpoint and overrides the controller name",
+			cmd:   []string{details.APIEndpoints[0], "-c", "some-controller-name"},
+			expErr: `
+ERROR controller is already registered as "` + existingName + `"
+`,
+		},
+	}
+
+	for specIndex, spec := range specs {
+		c.Logf("test %d: %s (juju login %s)", specIndex, spec.descr, spec.cmd)
+		stdout, stderr, code := runLogin(c, "", spec.cmd...)
+		c.Check(stdout, gc.Equals, ``)
+		c.Check(stderr, gc.Equals, spec.expErr[1:])
+		c.Assert(code, gc.Equals, 1)
+	}
+}
+
 func runLogin(c *gc.C, stdin string, args ...string) (stdout, stderr string, errCode int) {
 	c.Logf("in LoginControllerSuite.run")
 	var stdoutBuf, stderrBuf bytes.Buffer
