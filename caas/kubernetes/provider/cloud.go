@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/exec"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -235,6 +237,9 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 		return cld, nil
 	}
 
+	if !microK8sStorageEnabled(p.cmdRunner) {
+		return cld, errors.New("storage is not enabled for microk8s, run 'microk8s.enable storage'")
+	}
 	// Need the credentials, need to query for those details
 	mk8sCloud, credential, _, err := p.builtinCloudGetter(p.cmdRunner)
 	if err != nil {
@@ -260,13 +265,37 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 		},
 	}
 	_, err = UpdateKubeCloudWithStorage(&mk8sCloud, credential, storageUpdateParams)
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
 	for i := range mk8sCloud.Regions {
 		if mk8sCloud.Regions[i].Endpoint == "" {
 			mk8sCloud.Regions[i].Endpoint = mk8sCloud.Endpoint
 		}
 	}
-	if err != nil {
-		return cloud.Cloud{}, errors.Trace(err)
-	}
 	return mk8sCloud, nil
+}
+
+func microK8sStorageEnabled(cmdRunner CommandRunner) bool {
+	result, err := cmdRunner.RunCommands(exec.RunParams{
+		Commands: "microk8s.status --yaml",
+	})
+	if err != nil || result.Code != 0 {
+		return false
+	}
+
+	var status microk8sStatus
+	err = yaml.Unmarshal(result.Stdout, &status)
+	if err != nil {
+		return false
+	}
+	if storageStatus, ok := status.Addons["storage"]; ok {
+		return storageStatus == "enabled"
+	}
+	return false
+}
+
+type microk8sStatus struct {
+	Microk8s map[string]string `yaml:"microk8s"`
+	Addons   map[string]string `yaml:"addons"`
 }

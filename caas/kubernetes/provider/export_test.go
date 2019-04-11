@@ -32,6 +32,7 @@ var (
 	ControllerCorelation     = controllerCorelation
 	GetLocalMicroK8sConfig   = getLocalMicroK8sConfig
 	AttemptMicroK8sCloud     = attemptMicroK8sCloud
+	MicroK8sStorageEnabled   = microK8sStorageEnabled
 )
 
 type (
