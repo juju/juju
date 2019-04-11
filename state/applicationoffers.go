@@ -206,8 +206,8 @@ func (op *RemoveOfferOperation) Done(err error) error {
 func (s *applicationOffers) Remove(offerName string, force bool) error {
 	op := s.RemoveOfferOperation(offerName, force)
 	err := s.st.ApplyOperation(op)
-	// TODO (anastasiamac 2019-04-10) we can surfaing these erros to the user.
-	// These are non-fatal operational errors that ocurred during force and are
+	// TODO (anastasiamac 2019-04-10) we can surfacing these errors to the user.
+	// These are non-fatal operational errors that occurred during force and are
 	// collected in the operation, op.Errors.
 	return err
 }
