@@ -233,13 +233,22 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 		return cld, nil
 	}
 
-	if cld.Config["operator-storage"] != nil && cld.Config["workload-storage"] != nil {
-		return cld, nil
+	if err := ensureMicroK8sSuitable(p.cmdRunner); err != nil {
+		return cld, errors.Trace(err)
 	}
 
-	if !microK8sStorageEnabled(p.cmdRunner) {
-		return cld, errors.New("storage is not enabled for microk8s, run 'microk8s.enable storage'")
+	// if storage is already defined there is no need to query the cluster
+	if opStorage, ok := cld.Config[OperatorStorageKey]; ok {
+		if opStorage == nil || opStorage == "" {
+			return cld, nil
+		}
 	}
+	if workStorage, ok := cld.Config[WorkloadStorageKey]; ok {
+		if workStorage == nil || workStorage == "" {
+			return cld, nil
+		}
+	}
+
 	// Need the credentials, need to query for those details
 	mk8sCloud, credential, _, err := p.builtinCloudGetter(p.cmdRunner)
 	if err != nil {
@@ -276,23 +285,42 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	return mk8sCloud, nil
 }
 
-func microK8sStorageEnabled(cmdRunner CommandRunner) bool {
+func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
+	status, err := microK8sStatus(cmdRunner)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if storageStatus, ok := status.Addons["storage"]; ok {
+		if storageStatus != "enabled" {
+			return errors.New("storage is not enabled for microk8s, run 'microk8s.enable storage'")
+		}
+	}
+	if dns, ok := status.Addons["dns"]; ok {
+		if dns != "enabled" {
+			return errors.New("dns is not enabled for microk8s, run 'microk8s.enable dns'")
+		}
+	}
+	return nil
+}
+
+func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
+	var status microk8sStatus
 	result, err := cmdRunner.RunCommands(exec.RunParams{
 		Commands: "microk8s.status --yaml",
 	})
-	if err != nil || result.Code != 0 {
-		return false
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	if result.Code != 0 {
+		return status, errors.New(string(result.Stderr))
 	}
 
-	var status microk8sStatus
 	err = yaml.Unmarshal(result.Stdout, &status)
 	if err != nil {
-		return false
+		return status, errors.Trace(err)
 	}
-	if storageStatus, ok := status.Addons["storage"]; ok {
-		return storageStatus == "enabled"
-	}
-	return false
+	return status, nil
 }
 
 type microk8sStatus struct {

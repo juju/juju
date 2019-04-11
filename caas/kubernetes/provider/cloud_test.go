@@ -41,7 +41,7 @@ addons:
   dashboard: disabled
 `
 
-var microk8sStatusDisabled = `
+var microk8sStatusStorageDisabled = `
 microk8s:
   running: true
 addons:
@@ -52,6 +52,22 @@ addons:
   registry: disabled
   ingress: disabled
   dns: enabled
+  metrics-server: disabled
+  prometheus: disabled
+  istio: disabled
+  dashboard: disabled
+`
+var microk8sStatusDNSDisabled = `
+microk8s:
+  running: true
+addons:
+  jaeger: disabled
+  fluentd: disabled
+  gpu: disabled
+  storage: enabled
+  registry: disabled
+  ingress: disabled
+  dns: disabled
   metrics-server: disabled
   prometheus: disabled
   istio: disabled
@@ -172,28 +188,28 @@ func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 	)
 }
 
-func (s *cloudSuite) TestMicroK8sStorageEnabledSuccessEnabled(c *gc.C) {
+func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
-	c.Assert(provider.MicroK8sStorageEnabled(s.runner), gc.Equals, true)
+	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), jc.ErrorIsNil)
 }
 
-func (s *cloudSuite) TestMicroK8sStorageEnabledSuccessDisabled(c *gc.C) {
+func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
-		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusDisabled)}, nil)
-	c.Assert(provider.MicroK8sStorageEnabled(s.runner), gc.Equals, false)
+		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusStorageDisabled)}, nil)
+	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `storage is not enabled for microk8s, run 'microk8s.enable storage'`)
 }
 
-func (s *cloudSuite) TestMicroK8sStorageEnabledError(c *gc.C) {
+func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
-		&exec.ExecResponse{Code: 1}, nil)
-	c.Assert(provider.MicroK8sStorageEnabled(s.runner), gc.Equals, false)
+		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusDNSDisabled)}, nil)
+	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `dns is not enabled for microk8s, run 'microk8s.enable dns'`)
 }
 
 type mockContext struct {
