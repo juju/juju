@@ -252,13 +252,14 @@ func copyAttributes(values attributeMap) attributeMap {
 func (s *RemoteApplication) DestroyRemoteApplicationOperation(force bool) *DestroyRemoteApplicationOperation {
 	return &DestroyRemoteApplicationOperation{
 		app:             &RemoteApplication{st: s.st, doc: s.doc},
-		ForcedOperation: &ForcedOperation{Force: force},
+		ForcedOperation: ForcedOperation{Force: force},
 	}
 }
 
 // LeaveScopeOperation is a model operation to destroy remote application.
 type DestroyRemoteApplicationOperation struct {
-	*ForcedOperation
+	// ForcedOperation stores needed information to force this operation.
+	ForcedOperation
 
 	// app holds the remote application to destroy.
 	app *RemoteApplication
@@ -394,7 +395,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 			// When 'force' is set, this call will return both needed operations
 			// as well as all operational errors encountered.
 			// If the 'force' is not set, any error will be fatal and no operations will be returned.
-			relOps, isRemove, err := rel.destroyOps(op.app.doc.Name, op.ForcedOperation)
+			relOps, isRemove, err := rel.destroyOps(op.app.doc.Name, &op.ForcedOperation)
 			if err == errAlreadyDying {
 				relOps = []txn.Op{{
 					C:      relationsC,

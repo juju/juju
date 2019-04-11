@@ -283,13 +283,14 @@ func (ru *RelationUnit) LeaveScopeOperation(force bool) *LeaveScopeOperation {
 			scope:       ru.scope,
 			isLocalUnit: ru.isLocalUnit,
 		},
-		ForcedOperation: &ForcedOperation{Force: force},
+		ForcedOperation: ForcedOperation{Force: force},
 	}
 }
 
 // LeaveScopeOperation is a model operation for relation to leave scope.
 type LeaveScopeOperation struct {
-	*ForcedOperation
+	// ForcedOperation stores needed information to force this operation.
+	ForcedOperation
 
 	// ru holds the unit relation that wants to leave scope.
 	ru *RelationUnit
@@ -422,7 +423,7 @@ func (op *LeaveScopeOperation) internalLeaveScope() ([]txn.Op, error) {
 		// When 'force' is set, this call will return needed operations
 		// and accumulate all operational errors encountered in the operation.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
-		relOps, err := op.ru.relation.removeOps("", op.ru.unitName, op.ForcedOperation)
+		relOps, err := op.ru.relation.removeOps("", op.ru.unitName, &op.ForcedOperation)
 		if err != nil {
 			if !op.Force {
 				return nil, err

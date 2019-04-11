@@ -218,7 +218,7 @@ func (a *Application) Destroy() (err error) {
 func (a *Application) DestroyOperation() *DestroyApplicationOperation {
 	return &DestroyApplicationOperation{
 		app:             &Application{st: a.st, doc: a.doc},
-		ForcedOperation: &ForcedOperation{},
+		ForcedOperation: ForcedOperation{},
 	}
 }
 
@@ -238,7 +238,8 @@ type DestroyApplicationOperation struct {
 	// fail if there are any offers remaining.
 	RemoveOffers bool
 
-	*ForcedOperation
+	// ForcedOperation stores needed information to force this operation.
+	ForcedOperation
 }
 
 // Build is part of the ModelOperation interface.
@@ -315,7 +316,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		// relation as well as all operational errors encountered.
 		// If the 'force' is not set and the call came across some errors,
 		// these errors will be fatal and no operations will be returned.
-		relOps, isRemove, err := rel.destroyOps(op.app.doc.Name, op.ForcedOperation)
+		relOps, isRemove, err := rel.destroyOps(op.app.doc.Name, &op.ForcedOperation)
 		if err == errAlreadyDying {
 			relOps = []txn.Op{{
 				C:      relationsC,
@@ -374,7 +375,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		// application and accumulate all operational errors encountered in the operation.
 		// If the 'force' is not set and the call came across some errors,
 		// these errors will be fatal and no operations will be returned.
-		removeOps, err := op.app.removeOps(hasLastRefs, op.ForcedOperation)
+		removeOps, err := op.app.removeOps(hasLastRefs, &op.ForcedOperation)
 		if err != nil {
 			if !op.Force {
 				return nil, errors.Trace(err)
@@ -1602,11 +1603,11 @@ type applicationAddUnitOpsArgs struct {
 // addApplicationUnitOps is just like addUnitOps but explicitly takes a
 // constraints value (this is used at application creation time).
 func (a *Application) addApplicationUnitOps(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
-	names, ops, err := a.addUnitOpsWithCons(args)
+	result, ops, err := a.addUnitOpsWithCons(args)
 	if err == nil {
 		ops = append(ops, a.incUnitCountOp(nil))
 	}
-	return names, ops, err
+	return result, ops, err
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.

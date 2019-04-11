@@ -148,13 +148,14 @@ func (s *applicationOffers) RemoveOfferOperation(offerName string, force bool) *
 	return &RemoveOfferOperation{
 		offers:          &applicationOffers{s.st},
 		offerName:       offerName,
-		ForcedOperation: &ForcedOperation{Force: force},
+		ForcedOperation: ForcedOperation{Force: force},
 	}
 }
 
 // RemoveOfferOperation is a model operation to remove application offer.
 type RemoveOfferOperation struct {
-	*ForcedOperation
+	// ForcedOperation stores needed information to force this operation.
+	ForcedOperation
 
 	// offers holds the application offers to remove.
 	offers *applicationOffers
@@ -283,7 +284,7 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			// When 'force' is set, this call will return needed operations
 			// and accumulate all operational errors encountered in the operation.
 			// If the 'force' is not set, any error will be fatal and no operations will be returned.
-			relOps, _, err := rel.destroyOps("", op.ForcedOperation)
+			relOps, _, err := rel.destroyOps("", &op.ForcedOperation)
 			if err == errAlreadyDying {
 				continue
 			} else if err != nil {

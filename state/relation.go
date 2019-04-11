@@ -253,13 +253,14 @@ func (r *Relation) checkConsumePermission(offerUUID, userId string) (bool, error
 func (r *Relation) DestroyOperation(force bool) *DestroyRelationOperation {
 	return &DestroyRelationOperation{
 		r:               &Relation{r.st, r.doc},
-		ForcedOperation: &ForcedOperation{Force: force},
+		ForcedOperation: ForcedOperation{Force: force},
 	}
 }
 
 // DestroyRelationOperation is a model operation destroy relation.
 type DestroyRelationOperation struct {
-	*ForcedOperation
+	// ForcedOperation stores needed information to force this operation.
+	ForcedOperation
 
 	// r holds the relation to destroy.
 	r *Relation
@@ -387,7 +388,7 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 	// When 'force' is set, this call will return  needed operations
 	// and accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	ops, _, err = rel.destroyOps("", op.ForcedOperation)
+	ops, _, err = rel.destroyOps("", &op.ForcedOperation)
 	if err == errAlreadyDying {
 		return nil, jujutxn.ErrNoOperations
 	} else if err != nil {

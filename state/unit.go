@@ -490,13 +490,14 @@ func (u *Unit) DestroyWithForce(force bool) (errs []error, err error) {
 func (u *Unit) DestroyOperation() *DestroyUnitOperation {
 	return &DestroyUnitOperation{
 		unit:            &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
-		ForcedOperation: &ForcedOperation{},
+		ForcedOperation: ForcedOperation{},
 	}
 }
 
 // DestroyUnitOperation is a model operation for destroying a unit.
 type DestroyUnitOperation struct {
-	*ForcedOperation
+	// ForcedOperation stores needed information to force this operation.
+	ForcedOperation
 
 	// unit holds the unit to destroy.
 	unit *Unit
@@ -689,7 +690,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// When 'force' is set, this call will return some, if not all, needed operations.
 	//  All operational errors encountered will be added to the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	removeOps, err := op.unit.removeOps(removeAsserts, op.ForcedOperation)
+	removeOps, err := op.unit.removeOps(removeAsserts, &op.ForcedOperation)
 	if err == errAlreadyRemoved {
 		return nil, errAlreadyDying
 	} else if err != nil {
