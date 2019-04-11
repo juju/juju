@@ -212,6 +212,15 @@ func (st *State) filterHostPortsForManagementSpace(apiHostPorts [][]network.Host
 
 // APIHostPortsForClients returns the collection of *all* known API addresses.
 func (st *State) APIHostPortsForClients() ([][]network.HostPort, error) {
+	isCAASCtrl, err := st.isCAASController()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if isCAASCtrl {
+		// TODO(caas): add test for this once we have the replacement for Jujuconnsuite.
+		return st.apiHostPortsForCAAS(true)
+	}
+
 	hp, err := st.apiHostPortsForKey(apiHostPortsKey)
 	if err != nil {
 		err = errors.Trace(err)
@@ -229,21 +238,13 @@ func (st *State) APIHostPortsForClients() ([][]network.HostPort, error) {
 // Otherwise the returned addresses will correspond with the management net space.
 // If there is no document at all, we simply fall back to APIHostPortsForClients.
 func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
-	controllerSt, err := st.newStateNoWorkers(st.ControllerModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer controllerSt.Close()
-
-	isCAASCtrl, err := controllerSt.isCAASController()
+	isCAASCtrl, err := st.isCAASController()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if isCAASCtrl {
 		// TODO(caas): add test for this once we have the replacement for Jujuconnsuite.
-		hps, err := controllerSt.apiHostPortsForOperator()
-		logger.Debugf("K8s controller hostports for CAAS operator %v, err %v", hps, err)
-		return hps, err
+		return st.apiHostPortsForCAAS(false)
 	}
 
 	hps, err := st.apiHostPortsForKey(apiHostPortsForAgentsKey)
@@ -258,27 +259,57 @@ func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
 }
 
 func (st *State) isCAASController() (bool, error) {
-	m, err := st.Model()
+	ctrlSt, err := st.newStateNoWorkers(st.ControllerModelUUID())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	defer ctrlSt.Close()
+
+	m, err := ctrlSt.Model()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	return m.IsControllerModel() && m.Type() == ModelTypeCAAS, nil
 }
 
-func (st *State) apiHostPortsForOperator() ([][]network.HostPort, error) {
-	controllerConfig, err := st.ControllerConfig()
+func (st *State) apiHostPortsForCAAS(public bool) (addresses [][]network.HostPort, err error) {
+	defer func() {
+		logger.Debugf("getting api hostports for CAAS: public %t, addresses %v", public, addresses)
+	}()
+
+	ctrlSt, err := st.newStateNoWorkers(st.ControllerModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer ctrlSt.Close()
+
+	controllerConfig, err := ctrlSt.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	apiPort := controllerConfig.APIPort()
-	svc, err := st.CloudService(st.ControllerUUID())
+	svc, err := ctrlSt.CloudService(controllerConfig.ControllerUUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return [][]network.HostPort{
-		network.AddressesWithPort(svc.Addresses(), apiPort),
-	}, nil
+	addrs := svc.Addresses()
+
+	addrsToHostPorts := func(addrs ...network.Address) [][]network.HostPort {
+		return [][]network.HostPort{network.AddressesWithPort(addrs, apiPort)}
+	}
+
+	if len(addrs) < 2 {
+		return addrsToHostPorts(addrs...), nil
+	}
+
+	// select public address.
+	if public {
+		addr, _ := network.SelectPublicAddress(addrs)
+		return addrsToHostPorts(addr), nil
+	}
+	// select private address.
+	return addrsToHostPorts(network.SelectInternalAddresses(addrs, false)...), nil
 }
 
 // apiHostPortsForKey returns API addresses extracted from the document

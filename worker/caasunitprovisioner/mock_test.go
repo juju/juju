@@ -66,7 +66,7 @@ func (m *mockServiceBroker) EnsureCustomResourceDefinition(appName string, podSp
 	return m.NextErr()
 }
 
-func (m *mockServiceBroker) GetService(appName string) (*caas.Service, error) {
+func (m *mockServiceBroker) GetService(appName string, restrict bool) (*caas.Service, error) {
 	m.MethodCall(m, "Service", appName)
 	scale := 4
 	return &caas.Service{
