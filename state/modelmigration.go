@@ -806,24 +806,19 @@ func checkTargetController(st *State, targetControllerTag names.ControllerTag) e
 	return nil
 }
 
-// LatestMigration returns the most recent ModelMigration for a model
-// (if any).
+// LatestMigration returns the most recent ModelMigration (if any) for a model
+// that has not been removed from the state. Callers interested in
+// ModelMigrations for models that have been removed after a successful
+// migration to another controller should use LatestRemovedModelMigration
+// instead.
 func (st *State) LatestMigration() (ModelMigration, error) {
-	migColl, closer := st.db().GetCollection(migrationsC)
-	defer closer()
-	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
-	query = query.Sort("-attempt").Limit(1)
-	mig, err := st.migrationFromQuery(query)
+	mig, phase, err := st.latestMigration()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
 	// Hide previous migrations for models which have been migrated
 	// away from a model and then migrated back.
-	phase, err := mig.Phase()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	if phase == migration.DONE {
 		model, err := st.Model()
 		if err != nil {
@@ -837,8 +832,48 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 	return mig, nil
 }
 
+// LatestRemovedModelMigration returns the most recent ModelMigration (if any)
+// for a model that has been removed from the state after a successful
+// migration to another controller.
+func (st *State) LatestRemovedModelMigration() (ModelMigration, error) {
+	mig, phase, err := st.latestMigration()
+	if err != nil {
+		return nil, err
+	}
+
+	// Return NotFound if the model still exists or the migration is not
+	// flagged as completed.
+	model, _ := st.Model()
+	if phase != migration.DONE || model != nil {
+		return nil, errors.NotFoundf("migration")
+	}
+
+	return mig, nil
+}
+
+// latestMigration returns the most recent ModelMigration for a model
+// (if any).
+func (st *State) latestMigration() (ModelMigration, migration.Phase, error) {
+	migColl, closer := st.db().GetCollection(migrationsC)
+	defer closer()
+	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
+	query = query.Sort("-attempt").Limit(1)
+	mig, err := st.migrationFromQuery(query)
+	if err != nil {
+		return nil, migration.UNKNOWN, errors.Trace(err)
+	}
+
+	// Hide previous migrations for models which have been migrated
+	// away from a model and then migrated back.
+	phase, err := mig.Phase()
+	if err != nil {
+		return nil, migration.UNKNOWN, errors.Trace(err)
+	}
+	return mig, phase, nil
+}
+
 // Migration retrieves a specific ModelMigration by its id. See also
-// LatestMigration.
+// LatestMigration and LatestCompletedMigration.
 func (st *State) Migration(id string) (ModelMigration, error) {
 	migColl, closer := st.db().GetCollection(migrationsC)
 	defer closer()

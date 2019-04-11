@@ -320,6 +320,32 @@ func (s *MigrationSuite) TestLatestMigrationWithPrevious(c *gc.C) {
 	c.Check(phase, gc.Equals, migration.QUIESCE)
 }
 
+func (s *MigrationSuite) TestLatestRemovedModelMigration(c *gc.C) {
+	model, err := s.State2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mig1, err := s.State2.CreateMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Cycle through the phases and complete the migration
+	phases := []migration.Phase{migration.IMPORT, migration.VALIDATION, migration.SUCCESS, migration.LOGTRANSFER, migration.REAP, migration.DONE}
+	for _, phase := range phases {
+		c.Assert(mig1.SetPhase(phase), jc.ErrorIsNil)
+	}
+
+	// LatestRemovedModelMigration should fail as the model docs are still there
+	_, err = s.State2.LatestRemovedModelMigration()
+	c.Assert(errors.IsNotFound(err), gc.Equals, true)
+
+	// Delete the model and check that we get back the MigrationModel
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(s.State2.RemoveDyingModel(), jc.ErrorIsNil)
+
+	mig2, err := s.State2.LatestRemovedModelMigration()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mig2, jc.DeepEquals, mig1)
+}
+
 func (s *MigrationSuite) TestMigration(c *gc.C) {
 	mig1, err := s.State2.CreateMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
