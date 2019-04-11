@@ -321,6 +321,10 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 
 	s.containerBroker.ResetCalls()
 	s.serviceBroker.ResetCalls()
+	s.serviceBroker.serviceStatus = status.StatusInfo{
+		Status:  status.Active,
+		Message: "working",
+	}
 
 	select {
 	case s.caasServiceChanges <- struct{}{}:
@@ -355,6 +359,10 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 		params.UpdateApplicationUnits{
 			ApplicationTag: names.NewApplicationTag("gitlab").String(),
 			Scale:          &scale,
+			Status: params.EntityStatus{
+				Status: status.Active,
+				Info:   "working",
+			},
 			Units: []params.ApplicationUnitParams{
 				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil),
 					Stateful: true,
@@ -785,7 +793,7 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 	})
 }
 
-func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expected status.Status) {
+func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expectedUnitStatus status.Status) {
 	s.containerBroker.ResetCalls()
 	s.unitUpdater.ResetCalls()
 	s.containerBroker.reportedUnitStatus = reported
@@ -816,7 +824,7 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expected status.Status
 			ApplicationTag: names.NewApplicationTag("gitlab").String(),
 			Scale:          &scale,
 			Units: []params.ApplicationUnitParams{
-				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: expected.String(),
+				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: expectedUnitStatus.String(),
 					Stateful: true,
 					FilesystemInfo: []params.KubernetesFilesystemInfo{
 						{StorageName: "database", MountPoint: "/path-to-here", ReadOnly: true,

@@ -923,6 +923,10 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if api.modelType == state.ModelTypeCAAS {
+		return api.applicationSetCharm(params, newCharm)
+	}
+
 	application := params.Application
 	// Check if the controller agent tools version is greater than the
 	// version we support for the new LXD profiles.

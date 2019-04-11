@@ -386,7 +386,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 	}
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(2)},
+			{ApplicationTag: "application-gitlab",
+				Units: units, Scale: intPtr(2),
+				Status: params.EntityStatus{Status: status.Active, Info: "working"}},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
@@ -396,8 +398,11 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 			{nil},
 		},
 	})
-	s.st.application.CheckCallNames(c, "Life", "Name", "GetScale", "SetScale")
-	s.st.application.CheckCall(c, 3, "SetScale", 2)
+	s.st.application.CheckCallNames(c, "SetStatus", "Life", "Name", "GetScale", "SetScale")
+	now := s.clock.Now()
+	s.st.application.CheckCall(c, 0, "SetStatus",
+		status.StatusInfo{Status: status.Active, Message: "working", Since: &now})
+	s.st.application.CheckCall(c, 4, "SetScale", 2)
 
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	// CloudContainer message is not overwritten based on agent status

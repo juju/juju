@@ -489,6 +489,20 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
+		appStatus := appUpdate.Status
+		if appStatus.Status != "" && appStatus.Status != status.Unknown {
+			now := a.clock.Now()
+			err = app.SetStatus(status.StatusInfo{
+				Status:  appStatus.Status,
+				Message: appStatus.Info,
+				Data:    appStatus.Data,
+				Since:   &now,
+			})
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+		}
 		err = a.updateUnitsFromCloud(app, appUpdate.Scale, appUpdate.Units)
 		if err != nil {
 			// Mask any not found errors as the worker (caller) treats them specially

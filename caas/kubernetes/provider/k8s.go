@@ -881,14 +881,13 @@ func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(servicesList.Items) == 0 {
-		return nil, errors.NotFoundf("service for %q", appName)
+	var result caas.Service
+	// We may have the stateful set or deployment but service not done yet.
+	if len(servicesList.Items) > 0 {
+		service := servicesList.Items[0]
+		result.Id = string(service.GetUID())
+		result.Addresses = getSvcAddresses(&servicesList.Items[0])
 	}
-	service := servicesList.Items[0]
-	result := caas.Service{
-		Id: string(service.GetUID()),
-	}
-	result.Addresses = getSvcAddresses(&servicesList.Items[0])
 
 	deploymentName := k.deploymentName(appName)
 	statefulsets := k.AppsV1().StatefulSets(k.namespace)
@@ -897,6 +896,14 @@ func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 		if ss.Spec.Replicas != nil {
 			scale := int(*ss.Spec.Replicas)
 			result.Scale = &scale
+		}
+		message, ssStatus, err := k.getStatefulSetStatus(ss)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
+		}
+		result.Status = status.StatusInfo{
+			Status:  ssStatus,
+			Message: message,
 		}
 		return &result, nil
 	}
@@ -913,6 +920,14 @@ func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 		if deployment.Spec.Replicas != nil {
 			scale := int(*deployment.Spec.Replicas)
 			result.Scale = &scale
+		}
+		message, ssStatus, err := k.getDeploymentStatus(deployment)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
+		}
+		result.Status = status.StatusInfo{
+			Status:  ssStatus,
+			Message: message,
 		}
 	}
 
@@ -2111,6 +2126,53 @@ func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, st
 	}
 
 	return statusMessage, jujuStatus, since, nil
+}
+
+func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, status.Status, error) {
+	terminated := ss.DeletionTimestamp != nil
+	jujuStatus := status.Waiting
+	if terminated {
+		jujuStatus = status.Terminated
+	}
+	if ss.Status.ReadyReplicas == ss.Status.Replicas {
+		jujuStatus = status.Active
+	}
+	return k.getStatusFromEvents(ss.Name, jujuStatus)
+}
+
+func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (string, status.Status, error) {
+	terminated := deployment.DeletionTimestamp != nil
+	jujuStatus := status.Waiting
+	if terminated {
+		jujuStatus = status.Terminated
+	}
+	if deployment.Status.ReadyReplicas == deployment.Status.Replicas {
+		jujuStatus = status.Active
+	}
+	return k.getStatusFromEvents(deployment.Name, jujuStatus)
+}
+
+func (k *kubernetesClient) getStatusFromEvents(parentName string, jujuStatus status.Status) (string, status.Status, error) {
+	events := k.CoreV1().Events(k.namespace)
+	eventList, err := events.List(v1.ListOptions{
+		IncludeUninitialized: true,
+		FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", parentName).String(),
+	})
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	var statusMessage string
+	// Take the most recent event.
+	if count := len(eventList.Items); count > 0 {
+		evt := eventList.Items[count-1]
+		if jujuStatus == "" {
+			if evt.Type == core.EventTypeWarning && evt.Reason == "FailedCreate" {
+				jujuStatus = status.Blocked
+				statusMessage = evt.Message
+			}
+		}
+	}
+	return statusMessage, jujuStatus, nil
 }
 
 func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) status.Status {

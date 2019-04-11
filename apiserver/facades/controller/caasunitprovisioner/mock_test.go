@@ -207,6 +207,11 @@ func (m *mockApplication) SetOperatorStatus(sInfo status.StatusInfo) error {
 	return nil
 }
 
+func (m *mockApplication) SetStatus(sInfo status.StatusInfo) error {
+	m.MethodCall(m, "SetStatus", sInfo)
+	return nil
+}
+
 type mockContainerInfo struct {
 	state.CloudContainer
 	providerId string
