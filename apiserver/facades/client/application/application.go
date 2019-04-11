@@ -823,8 +823,11 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := application.SetCharmProfile(args.CharmURL); err != nil {
-		return errors.Annotatef(err, "unable to set charm profile")
+	// Only look at a charm's lxd profile data for non CAAS models.
+	if api.modelType == state.ModelTypeIAAS {
+		if err := application.SetCharmProfile(args.CharmURL); err != nil {
+			return errors.Annotatef(err, "unable to set charm profile")
+		}
 	}
 
 	channel := csparams.Channel(args.Channel)
