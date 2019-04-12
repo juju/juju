@@ -544,6 +544,16 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 		m.callContext,
 		environs.CreateParams{ControllerUUID: controllerConfig.ControllerUUID()},
 	); err != nil {
+		if errors.IsAlreadyExists(err) {
+			// Retain the error stack but with a better message.
+			return nil, errors.Wrap(err, errors.NewAlreadyExists(nil,
+				`
+the model cannot be created because a namespace with the proposed
+model name already exists in the k8s cluster.
+Please choose a different model name.
+`[1:],
+			))
+		}
 		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
 	}
 
