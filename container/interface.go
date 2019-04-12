@@ -83,10 +83,10 @@ func (m ManagerConfig) WarnAboutUnused() {
 // LXDProfileManager defines an interface for dealing with lxd profiles used to
 // deploy juju containers.
 type LXDProfileManager interface {
-	// AssignProfiles assigns the given profile names to the lxd instance
+	// AssignLXDProfiles assigns the given profile names to the lxd instance
 	// provided.  The slice of ProfilePosts provides details for adding to
 	// and removing profiles from the lxd server.
-	AssignProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error)
+	AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error)
 
 	// MaybeWriteLXDProfile, write given LXDProfile to machine if not already
 	// there.

@@ -246,11 +246,11 @@ func (broker *lxdBroker) ReplaceOrAddInstanceProfile(instId, oldProfile, newProf
 	return profileMgr.ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile, put)
 }
 
-// AssignProfiles implements environs.LXDProfiler.
-func (broker *lxdBroker) AssignProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error) {
+// AssignLXDProfiles implements environs.LXDProfiler.
+func (broker *lxdBroker) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error) {
 	profileMgr, ok := broker.manager.(container.LXDProfileManager)
 	if !ok {
 		return []string{}, nil
 	}
-	return profileMgr.AssignProfiles(instId, profilesNames, profilePosts)
+	return profileMgr.AssignLXDProfiles(instId, profilesNames, profilePosts)
 }

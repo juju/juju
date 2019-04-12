@@ -379,8 +379,8 @@ func (env *environ) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile s
 	return env.LXDProfileNames(instId)
 }
 
-// AssignProfiles implements environs.LXDProfiler.
-func (env *environ) AssignProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+// AssignLXDProfiles implements environs.LXDProfiler.
+func (env *environ) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
 	report := func(err error) ([]string, error) {
 		// Always return the current profiles assigned to the instance.
 		currentProfiles, err2 := env.LXDProfileNames(instId)

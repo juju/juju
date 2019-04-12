@@ -182,7 +182,7 @@ func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 
 	m.logger.Tracef("machine-%s (%s) assign profiles %q, %#v", m.id, string(info.InstanceId), expectedProfiles, post)
 	broker := m.context.getBroker()
-	currentProfiles, err := broker.AssignProfiles(string(info.InstanceId), expectedProfiles, post)
+	currentProfiles, err := broker.AssignLXDProfiles(string(info.InstanceId), expectedProfiles, post)
 	if err != nil {
 		m.logger.Errorf("failure to assign profiles %s to machine-%s: %s", expectedProfiles, m.id, err)
 		return report(err)
