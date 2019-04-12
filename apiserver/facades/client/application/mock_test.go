@@ -167,7 +167,7 @@ func (a *mockApplication) SetCharm(cfg state.SetCharmConfig) error {
 
 func (a *mockApplication) DestroyOperation() *state.DestroyApplicationOperation {
 	a.MethodCall(a, "DestroyOperation")
-	return &state.DestroyApplicationOperation{ForcedOperation: &state.ForcedOperation{}}
+	return &state.DestroyApplicationOperation{}
 }
 
 func (a *mockApplication) AddUnit(args state.AddUnitParams) (application.Unit, error) {
@@ -766,7 +766,7 @@ func (u *mockUnit) IsPrincipal() bool {
 
 func (u *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
 	u.MethodCall(u, "DestroyOperation")
-	return &state.DestroyUnitOperation{ForcedOperation: &state.ForcedOperation{}}
+	return &state.DestroyUnitOperation{}
 }
 
 func (u *mockUnit) AssignWithPolicy(policy state.AssignmentPolicy) error {
