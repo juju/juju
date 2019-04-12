@@ -349,6 +349,9 @@ func NewRepository() *Repository {
 
 func (r *Repository) addRevision(ref *charm.URL) *charm.URL {
 	revision := r.revisions[r.channel][*ref]
+	if revision == 0 {
+		revision = 1
+	}
 	return ref.WithRevision(revision)
 }
 
@@ -401,6 +404,8 @@ func (r Repository) CharmInfo(charmURL string) (*charms.CharmInfo, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Infof("getting charm info for %+v (parsed as %v)", charmURL, charmId)
+	logger.Infof("uploaded charms: %+v", r.channel, r.charms)
 	charmDetails, err := r.Get(charmId)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -421,7 +426,7 @@ func (r Repository) CharmInfo(charmURL string) (*charms.CharmInfo, error) {
 //
 // Part of the charmrepo.Interface
 func (r Repository) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries []string, err error) {
-	return r.addRevision(ref), []string{"trusty", "wily", "quantal"}, nil
+	return r.addRevision(ref), []string{"trusty", "wily", "quantal", "kubernetes"}, nil
 }
 
 // ResolveWithChannel disambiguates a charm to a specific revision.

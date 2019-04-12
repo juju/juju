@@ -708,7 +708,9 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
-	err = runDeploy(c, "bitcoin-miner", "-m", m.Name(), "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
+
+	logger.Infof("charmrepo state %#v", s.charmrepo)
+	err = s.runDeploy(c, "bitcoin-miner", "-m", m.Name(), "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertCharmsUploaded(c, "cs:kubernetes/bitcoin-miner-1")
@@ -1502,7 +1504,8 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, ch := testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-extra-bindings-1", "wordpress-extra-bindings")
-	err = runDeploy(c, "cs:quantal/wordpress-extra-bindings-1", "--bind", "db=db db-client=db public admin-api=public")
+
+	err = s.runDeploy(c, "cs:quantal/wordpress-extra-bindings-1", "--bind", "db=db db-client=db public admin-api=public")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"wordpress-extra-bindings": {charm: "cs:quantal/wordpress-extra-bindings-1", config: ch.Config().DefaultSettings()},

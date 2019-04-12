@@ -9,6 +9,7 @@ import (
 	"github.com/juju/romulus"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/juju/charmrepo.v3/csclient/params"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
@@ -93,6 +94,22 @@ func NewDeployCommandForTest(api *fakeDeployAPI, steps []DeployStep) modelcmd.Mo
 			}
 			return &charmstoreClient{&charmstoreClientShim{csClient}}, nil
 		}
+
+		deployCmd.NewCharmAdder = func() (CharmAdderAPI, error) {
+			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return &apiClient{Client: apiRoot.Client()}, nil
+		}
+
+		deployCmd.NewCharmDeployer = func() (CharmDeployAPI, error) {
+			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return &charmsClient{Client: apicharms.NewClient(apiRoot)}, nil
+		}
 	}
 	return modelcmd.Wrap(deployCmd)
 }
@@ -143,6 +160,14 @@ func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo *charmst
 
 	deployCmd.NewCharmAuthorizer = func() (charmAuthorizer, error) {
 		return &charmstoreClient{charmstore}, nil
+	}
+
+	deployCmd.NewCharmAdder = func() (CharmAdderAPI, error ) {
+		return &addCharmClient{charmrepo}, nil
+	}
+
+	deployCmd.NewCharmDeployer = func() (CharmDeployAPI, error ) {
+		return charmrepo, nil
 	}
 
 	return modelcmd.Wrap(deployCmd)

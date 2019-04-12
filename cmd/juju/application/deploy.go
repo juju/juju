@@ -90,6 +90,10 @@ type CharmDeployAPI interface {
 	CharmInfo(string) (*apicharms.CharmInfo, error)
 }
 
+type charmDeployClient struct {
+	CharmDeployAPI
+}
+
 // DeployAPI represents the methods of the API the deploy
 // command needs.
 type DeployAPI interface {
@@ -132,6 +136,13 @@ type applicationClient struct {
 type modelConfigClient struct {
 	*modelconfig.Client
 }
+
+type addCharmClient struct {
+	CharmAdderAPI
+}
+
+// TODO(tsm) rename charmrepoForDeploy. Its main purpose is ResolveWithChannel, potentially also Resolve.
+// TODO(tsm) add CharmInfo to interface
 
 // charmrepoForDeploy is a stripped-down version of the
 // gopkg.in/juju/charmrepo.v3 Interface interface. It is
@@ -285,6 +296,22 @@ func NewDeployCommand() modelcmd.ModelCommand {
 		return &charmstoreClient{&charmstoreClientShim{csClient}}, nil
 	}
 
+	deployCmd.NewCharmAdder = func() (CharmAdderAPI, error) {
+		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &apiClient{apiRoot.Client()}, nil
+	}
+
+	deployCmd.NewCharmDeployer = func() (CharmDeployAPI, error) {
+		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &charmsClient{Client: apicharms.NewClient(apiRoot)}, nil
+	}
+
 	return modelcmd.Wrap(deployCmd)
 }
 
@@ -360,6 +387,12 @@ type DeployCommand struct {
 
 	// NewCharmAuthorizer stores a function which returns a charmAuthorizer.
 	NewCharmAuthorizer func() (charmAuthorizer, error)
+
+	// NewCharmAdder stores a function that returns a CharmAdder.
+	NewCharmAdder func() (CharmAdderAPI, error)
+
+	// NewCharmDeployer stores a function that returns a CharmDeployAPI implementation.
+	NewCharmDeployer func() (CharmDeployAPI, error)
 
 	// Trust signifies that the charm should be deployed with access to
 	// trusted credentials. That is, hooks run by the charm can access
@@ -906,11 +939,12 @@ func (c *DeployCommand) deployCharm(
 	csMac *macaroon.Macaroon,
 	series string,
 	ctx *cmd.Context,
+	charmDeployer CharmDeployAPI,
 	apiRoot DeployAPI,
 ) (rErr error) {
-	charmInfo, err := apiRoot.CharmInfo(id.URL.String())
+	charmInfo, err := charmDeployer.CharmInfo(id.URL.String())
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if len(c.AttachStorage) > 0 && apiRoot.BestFacadeVersion("Application") < 5 {
@@ -1149,7 +1183,17 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	adder, err := c.NewCharmAdder()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	auth, err := c.NewCharmAuthorizer()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deployer, err := c.NewCharmDeployer()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1169,7 +1213,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(deploy(ctx, repo, auth, apiRoot), block.BlockChange)
+	return block.ProcessBlockedError(deploy(ctx, repo, adder, auth, deployer, apiRoot), block.BlockChange)
 }
 
 func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, error) {
@@ -1183,7 +1227,7 @@ func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, err
 	return nil, errors.NotFoundf("suitable deployer")
 }
 
-type deployFn func(*cmd.Context, URLResolver, charmAuthorizer, DeployAPI) error
+type deployFn func(*cmd.Context, URLResolver, CharmAdderAPI, charmAuthorizer, CharmDeployAPI, DeployAPI) error
 
 func (c *DeployCommand) validateBundleFlags() error {
 	if flags := getFlags(c.flagSet, charmOnlyFlags()); len(flags) > 0 {
@@ -1246,11 +1290,11 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return func(ctx *cmd.Context, _ URLResolver, _ charmAuthorizer, api DeployAPI) error {
+	return func(ctx *cmd.Context, _ URLResolver, _ CharmAdderAPI, _ charmAuthorizer, deployer CharmDeployAPI, api DeployAPI) error {
 		if err := c.validateCharmFlags(); err != nil {
 			return errors.Trace(err)
 		}
-		charmInfo, err := api.CharmInfo(userCharmURL.String())
+		charmInfo, err := deployer.CharmInfo(userCharmURL.String())
 		if err != nil {
 			return err
 		}
@@ -1265,6 +1309,7 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 			(*macaroon.Macaroon)(nil),
 			userCharmURL.Series,
 			ctx,
+			deployer,
 			api,
 		))
 	}, nil
@@ -1338,7 +1383,7 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 		return nil, errors.Trace(err)
 	}
 
-	return func(ctx *cmd.Context, urlResolver URLResolver, auth charmAuthorizer, apiRoot DeployAPI) error {
+	return func(ctx *cmd.Context, urlResolver URLResolver, adder CharmAdderAPI, auth charmAuthorizer, deployer CharmDeployAPI, apiRoot DeployAPI) error {
 		return errors.Trace(c.deployBundle(
 			ctx,
 			bundleDir,
@@ -1421,7 +1466,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 		return nil, errors.Trace(err)
 	}
 
-	return func(ctx *cmd.Context, _ URLResolver, _ charmAuthorizer, apiRoot DeployAPI) error {
+	return func(ctx *cmd.Context, _ URLResolver, _ CharmAdderAPI, _ charmAuthorizer, deployer CharmDeployAPI, apiRoot DeployAPI) error {
 		if err := c.validateCharmFlags(); err != nil {
 			return errors.Trace(err)
 		}
@@ -1441,6 +1486,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 			(*macaroon.Macaroon)(nil), // local charms don't need one.
 			curl.Series,
 			ctx,
+			deployer,
 			apiRoot,
 		))
 	}, nil
@@ -1495,7 +1541,7 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(repo charmrepoForDeploy) fun
 			return nil, errors.Trace(err)
 		}
 
-		return func(ctx *cmd.Context, urlResolver URLResolver, auth charmAuthorizer, apiRoot DeployAPI) error {
+		return func(ctx *cmd.Context, urlResolver URLResolver, _ CharmAdderAPI, auth charmAuthorizer, _ CharmDeployAPI, apiRoot DeployAPI) error {
 			bundle, err := repo.GetBundle(bundleURL)
 			if err != nil {
 				return errors.Trace(err)
@@ -1534,7 +1580,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return func(ctx *cmd.Context, resolver URLResolver, auth charmAuthorizer, apiRoot DeployAPI) error {
+	return func(ctx *cmd.Context, resolver URLResolver, adder CharmAdderAPI, auth charmAuthorizer, deployer CharmDeployAPI, apiRoot DeployAPI) error {
 		// resolver.resolve potentially updates the series of anything
 		// passed in. Store this for use in seriesSelector.
 		userRequestedSeries := userRequestedURL.Series
@@ -1583,7 +1629,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		}
 
 		// Store the charm in the controller
-		curl, csMac, err := addCharmFromURL(apiRoot, auth, storeCharmOrBundleURL, channel, c.Force)
+		curl, csMac, err := addCharmFromURL(adder, auth, storeCharmOrBundleURL, channel, c.Force)
 		if err != nil {
 			if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 				return errors.Trace(termErr.UserErr())
@@ -1603,6 +1649,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			csMac,
 			series,
 			ctx,
+			deployer,
 			apiRoot,
 		))
 	}, nil
