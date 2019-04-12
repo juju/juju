@@ -20,11 +20,19 @@ import (
 type cleanupKind string
 
 const (
+	// forceTimeout is how far in the future the backstop force
+	// cleanup will be scheduled.
+	forceTimeout = time.Minute
+)
+
+const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
 	cleanupRelationSettings              cleanupKind = "settings"
 	cleanupUnitsForDyingApplication      cleanupKind = "units"
 	cleanupCharm                         cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
+	cleanupForceDestroyedUnit            cleanupKind = "forceDestroyUnit"
+	cleanupForceRemoveUnit               cleanupKind = "forceRemoveUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
 	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
@@ -87,7 +95,7 @@ func newCleanupAtOp(when time.Time, kind cleanupKind, prefix string, args ...int
 	doc := &cleanupDoc{
 		DocID:  bson.NewObjectId().Hex(),
 		Kind:   kind,
-		When:   time.Now(),
+		When:   when,
 		Prefix: prefix,
 		Args:   cleanupArgs,
 	}
@@ -143,6 +151,10 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupUnitsForDyingApplication(doc.Prefix, args)
 		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix, args)
+		case cleanupForceDestroyedUnit:
+			err = st.cleanupForceDestroyedUnit(doc.Prefix)
+		case cleanupForceRemoveUnit:
+			err = st.cleanupForceRemoveUnit(doc.Prefix)
 		case cleanupDyingUnitResources:
 			err = st.cleanupDyingUnitResources(doc.Prefix, args)
 		case cleanupRemovedUnit:
@@ -533,6 +545,13 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 		}
 	}
 
+	// If we're forcing, set up a backstop cleanup to really remove
+	// the unit in the case that the unit and machine agents don't for
+	// some reason.
+	if force {
+		st.scheduleForceCleanup(cleanupForceDestroyedUnit, name)
+	}
+
 	if destroyStorage {
 		// Detach and mark storage instances as dying, allowing the
 		// unit to terminate.
@@ -542,6 +561,105 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 		// and removed from state, allowing the unit to terminate.
 		return st.cleanupUnitStorageAttachments(unit.UnitTag(), false, force)
 	}
+}
+
+func (st *State) scheduleForceCleanup(kind cleanupKind, name string) {
+	deadline := time.Now().Add(forceTimeout)
+	op := newCleanupAtOp(deadline, kind, name)
+	err := st.db().Run(func(int) ([]txn.Op, error) {
+		return []txn.Op{op}, nil
+	})
+	if err != nil {
+		logger.Warningf("couldn't schedule %s cleanup: %v", kind, err)
+	}
+}
+
+func (st *State) cleanupForceDestroyedUnit(unitId string) error {
+	unit, err := st.Unit(unitId)
+	if errors.IsNotFound(err) {
+		logger.Debugf("no need to force unit to dead %q", unitId)
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If we're here then the usual unit cleanup hasn't happened but
+	// since force was specified we still want the machine to go to
+	// dead.
+
+	// Destroy all subordinates.
+	for _, subName := range unit.SubordinateNames() {
+		subUnit, err := st.Unit(subName)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			logger.Warningf("couldn't get subordinate %q to force destroy: %v", subName, err)
+		}
+		opErrs, err := subUnit.DestroyWithForce(true)
+		if len(opErrs) != 0 || err != nil {
+			logger.Warningf("errors while destroying subordinate %q: %v, %v", subName, err, opErrs)
+		}
+	}
+
+	// LeaveScope on all of the unit's relations.
+	relations, err := unit.RelationsInScope()
+	if err == nil {
+		for _, relation := range relations {
+			ru, err := relation.Unit(unit)
+			if err != nil {
+				logger.Warningf("couldn't get relation unit for %q in %q: %v", unit, relation, err)
+				continue
+			}
+			err = ru.LeaveScope()
+			if err != nil {
+				logger.Warningf("unit %q couldn't leave scope of relation %q: %v", unitId, relation, err)
+			}
+		}
+	} else {
+		logger.Warningf("couldn't get in-scope relations for unit %q: %v", unitId, err)
+	}
+
+	// Detach all storage.
+	storageBackend, err := NewStorageBackend(st)
+	if err == nil {
+		err := storageBackend.DestroyUnitStorageAttachments(names.NewUnitTag(unitId))
+		if err != nil {
+			logger.Warningf("error destroying storage attachments for %q: %v", unitId, err)
+		}
+	} else {
+		logger.Warningf("couldn't get storage backend: %v", err)
+	}
+
+	// Mark the unit dead.
+	err = unit.EnsureDead()
+	if err == ErrUnitHasSubordinates || err == ErrUnitHasStorageAttachments {
+		// In this case we do want to die and try again - we can't set
+		// the unit to dead until the subordinates and storage are
+		// gone, so we should give them time to be removed.
+		return err
+	} else if err != nil {
+		logger.Warningf("couldn't set unit %q dead: %v", unitId, err)
+	}
+
+	// Set up another cleanup to remove the unit in a minute if the
+	// deployer doesn't do it.
+	st.scheduleForceCleanup(cleanupForceRemoveUnit, unitId)
+	return nil
+}
+
+func (st *State) cleanupForceRemoveUnit(unitId string) error {
+	unit, err := st.Unit(unitId)
+	if errors.IsNotFound(err) {
+		logger.Debugf("no need to force remove unit %q", unitId)
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	opErrs, err := unit.RemoveWithForce(true)
+	if len(opErrs) != 0 {
+		logger.Warningf("errors encountered force-removing unit %q: %v", opErrs)
+	}
+	return errors.Trace(err)
 }
 
 func (st *State) cleanupDyingUnitResources(unitId string, cleanupArgs []bson.Raw) error {
