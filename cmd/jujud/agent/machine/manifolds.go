@@ -942,6 +942,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			MachineLock:   config.MachineLock,
 			NewBrokerFunc: config.NewBrokerFunc,
+			NewTracker:    lxdbroker.NewWorkerTracker,
 		}))
 		manifolds[instanceMutaterName] = ifNotMigrating(instancemutater.MachineManifold(instancemutater.MachineManifoldConfig{
 			AgentName:     agentName,

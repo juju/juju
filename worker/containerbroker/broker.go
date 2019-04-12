@@ -5,6 +5,7 @@ package containerbroker
 import (
 	"github.com/juju/errors"
 	names "gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -60,6 +61,12 @@ func (config Config) Validate() error {
 		return errors.NotValidf("nil NewStateFunc")
 	}
 	return nil
+}
+
+// NewWorkerTracker defines a function that is covariant in the return type
+// so that the manifold can use the covariance of the function as an alias.
+func NewWorkerTracker(config Config) (worker.Worker, error) {
+	return NewTracker(config)
 }
 
 // Tracker loads a broker, makes it available to clients, and updates
