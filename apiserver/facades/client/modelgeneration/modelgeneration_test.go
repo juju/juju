@@ -6,6 +6,7 @@ package modelgeneration_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/settings"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -131,38 +132,39 @@ func (s *modelGenerationSuite) TestCommitGeneration(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.IntResult{Result: 3, Error: nil})
 }
 
-func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
+func (s *modelGenerationSuite) TestBranchInfo(c *gc.C) {
 	units := []string{"redis/0", "redis/1", "redis/2"}
 
 	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, st *mocks.MockState, mod *mocks.MockModel) {
 		gen := mocks.NewMockGeneration(ctrl)
 		gExp := gen.EXPECT()
+		gExp.Config().Return(map[string]settings.ItemChanges{"redis": {
+			settings.MakeAddition("password", "added-pass"),
+			settings.MakeDeletion("databases", 100),
+			settings.MakeModification("ignored-key", "unchanged", "unchanged"),
+		}})
 		gExp.BranchName().Return(s.newBranchName)
 		gExp.AssignedUnits().Return(map[string][]string{"redis": units})
 		gExp.Created().Return(int64(666))
 		gExp.CreatedBy().Return(s.apiUser)
 
-		mod.EXPECT().Branch(s.newBranchName).Return(gen, nil)
+		mod.EXPECT().Branches().Return([]modelgeneration.Generation{gen}, nil)
 
 		app := mocks.NewMockApplication(ctrl)
-		app.EXPECT().CharmConfig(model.GenerationMaster).Return(map[string]interface{}{
+		app.EXPECT().DefaultCharmConfig().Return(map[string]interface{}{
 			"databases": 16,
-			"password":  "current",
-		}, nil)
-		app.EXPECT().CharmConfig(s.newBranchName).Return(map[string]interface{}{
-			"databases": 16,
-			"password":  "next",
+			"password":  "",
 		}, nil)
 
 		st.EXPECT().Application("redis").Return(app, nil)
-
 	}).Finish()
 
-	result, err := s.api.BranchInfo(s.newBranchArg())
+	result, err := s.api.BranchInfo(params.BranchArgs{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Generations, gc.HasLen, 1)
 
-	gen := result.Generation
+	gen := result.Generations[0]
 	c.Assert(gen.BranchName, gc.Equals, s.newBranchName)
 	c.Assert(gen.Created, gc.Equals, int64(666))
 	c.Assert(gen.CreatedBy, gc.Equals, s.apiUser)
@@ -171,7 +173,10 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 	app := gen.Applications[0]
 	c.Assert(app.ApplicationName, gc.Equals, "redis")
 	c.Assert(app.Units, jc.SameContents, units)
-	c.Assert(app.ConfigChanges, gc.DeepEquals, map[string]interface{}{"password": "next"})
+	c.Assert(app.ConfigChanges, gc.DeepEquals, map[string]interface{}{
+		"password":  "added-pass",
+		"databases": 16,
+	})
 }
 
 func (s *modelGenerationSuite) TestHasActiveBranchTrue(c *gc.C) {
@@ -206,6 +211,7 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) *g
 	sExp.ControllerTag().Return(names.NewControllerTag(s.modelUUID))
 
 	mockModel := mocks.NewMockModel(ctrl)
+	mockModel.EXPECT().ModelTag().Return(names.NewModelTag(s.modelUUID))
 
 	mockAuthorizer := facademocks.NewMockAuthorizer(ctrl)
 	aExp := mockAuthorizer.EXPECT()
