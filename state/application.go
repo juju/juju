@@ -217,8 +217,7 @@ func (a *Application) Destroy() (err error) {
 // DestroyOperation returns a model operation that will destroy the application.
 func (a *Application) DestroyOperation() *DestroyApplicationOperation {
 	return &DestroyApplicationOperation{
-		app:             &Application{st: a.st, doc: a.doc},
-		ForcedOperation: ForcedOperation{},
+		app: &Application{st: a.st, doc: a.doc},
 	}
 }
 

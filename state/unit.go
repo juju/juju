@@ -489,8 +489,7 @@ func (u *Unit) DestroyWithForce(force bool) (errs []error, err error) {
 // DestroyOperation returns a model operation that will destroy the unit.
 func (u *Unit) DestroyOperation() *DestroyUnitOperation {
 	return &DestroyUnitOperation{
-		unit:            &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
-		ForcedOperation: ForcedOperation{},
+		unit: &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
 	}
 }
 
