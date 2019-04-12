@@ -785,6 +785,20 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChanne
 	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines")
 }
 
+func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesModelCacheError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectAuthController,
+		s.expectWatchMachinesError,
+	)
+
+	result, err := facade.WatchMachines()
+	c.Assert(err, gc.ErrorMatches, "error from model cache")
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
+}
+
 func (s *InstanceMutaterAPIWatchMachinesSuite) expectAuthController() {
 	s.authorizer.EXPECT().AuthController().Return(true)
 }
@@ -800,7 +814,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithNotify(tim
 			close(s.notifyDone)
 		}()
 
-		s.model.EXPECT().WatchMachines().Return(s.watcher)
+		s.model.EXPECT().WatchMachines().Return(s.watcher, nil)
 		s.watcher.EXPECT().Changes().Return(ch)
 		s.resources.EXPECT().Register(s.watcher).Return("1")
 	}
@@ -810,8 +824,12 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithClosedChan
 	ch := make(chan []string)
 	close(ch)
 
-	s.model.EXPECT().WatchMachines().Return(s.watcher)
+	s.model.EXPECT().WatchMachines().Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
+}
+
+func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesError() {
+	s.model.EXPECT().WatchMachines().Return(s.watcher, errors.New("error from model cache"))
 }
 
 type InstanceMutaterAPIWatchApplicationLXDProfilesSuite struct {

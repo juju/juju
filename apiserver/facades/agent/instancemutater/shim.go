@@ -117,7 +117,7 @@ type modelCacheShim struct {
 	*cache.Model
 }
 
-func (s *modelCacheShim) WatchMachines() cache.StringsWatcher {
+func (s *modelCacheShim) WatchMachines() (cache.StringsWatcher, error) {
 	return s.Model.WatchMachines()
 }
 
