@@ -9,9 +9,6 @@ apps:
   juju:
     command: juju
 
-  cache-images:
-    command: cache-images
-
 parts:
   wrappers:
     plugin: dump
