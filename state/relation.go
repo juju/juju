@@ -365,14 +365,12 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 				logger.Debugf("got %v relation units to clean", len(remoteUnits))
 				failRemoteUnits := false
 				for _, ru := range remoteUnits {
-					// This will try to get relation unit to leave scope - it has its own transacation and
-					// will not return operations.
-					opErrs, err := ru.LeaveScopeWithForce(op.Force)
+					leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
 					if err != nil {
 						op.AddError(err)
 						failRemoteUnits = true
 					}
-					op.AddError(opErrs...)
+					ops = append(ops, leaveScopeOps...)
 				}
 				if !op.Force && failRemoteUnits {
 					return nil, errors.Trace(op.LastError())

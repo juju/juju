@@ -358,6 +358,16 @@ func (ru *RelationUnit) LeaveScope() error {
 	return err
 }
 
+// leaveScopeForcedOps is an internal method used by other state objects when they just want
+// to get database operations that are involved in leaving scop without
+// the actual immeiate act of leaving scope.
+func (ru *RelationUnit) leaveScopeForcedOps(existingOperation *ForcedOperation) ([]txn.Op, error) {
+	// It does not matter that we are say false to force here- we'll overwrite the whole ForcedOperation.
+	leaveScopeOperation := ru.LeaveScopeOperation(false)
+	leaveScopeOperation.ForcedOperation = *existingOperation
+	return leaveScopeOperation.internalLeaveScope()
+}
+
 // When 'force' is set, this call will return needed operations
 // and will accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be applied.

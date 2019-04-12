@@ -381,14 +381,13 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 				if countRemoteUnits := len(remoteUnits); countRemoteUnits != 0 {
 					logger.Debugf("got %v relation units to clean", countRemoteUnits)
 					for _, ru := range remoteUnits {
-						// This call will not construct operations but will try to leave scope immediately.
-						opErrs, err := ru.LeaveScopeWithForce(op.Force)
-						op.AddError(opErrs...)
+						leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
 						if err != nil {
 							op.AddError(err)
 							failRels = true
 							continue
 						}
+						ops = append(ops, leaveScopeOps...)
 					}
 				}
 			}

@@ -271,14 +271,14 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			}
 			logger.Debugf("got %v relation units to clean", len(remoteUnits))
 			for _, ru := range remoteUnits {
-				opErrs, err := ru.LeaveScopeWithForce(op.Force)
+				leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
 				if err != nil {
 					if !op.Force {
 						return nil, errors.Trace(err)
 					}
 					op.AddError(err)
 				}
-				op.AddError(opErrs...)
+				ops = append(ops, leaveScopeOps...)
 			}
 
 			// When 'force' is set, this call will return needed operations

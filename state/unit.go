@@ -980,7 +980,7 @@ func (u *Unit) EnsureDead() (err error) {
 func (u *Unit) RemoveOperation(force bool) *RemoveUnitOperation {
 	return &RemoveUnitOperation{
 		unit:            &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
-		ForcedOperation: &ForcedOperation{Force: force},
+		ForcedOperation: ForcedOperation{Force: force},
 	}
 }
 
@@ -1010,7 +1010,8 @@ func (op *ForcedOperation) LastError() error {
 
 // RemoveUnitOperation is a model operation for removing a unit.
 type RemoveUnitOperation struct {
-	*ForcedOperation
+	// ForcedOperation stores needed information to force this operation.
+	ForcedOperation
 
 	// unit holds the unit to remove.
 	unit *Unit
@@ -1076,7 +1077,7 @@ func (u *Unit) RemoveWithForce(force bool) ([]error, error) {
 // When 'force' is set, this call will return needed operations
 // and all operational errors will be accumulated in operation itself.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (op *RemoveUnitOperation) removeOps() ([]txn.Op, error) {
+func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	if op.unit.doc.Life != Dead {
 		return nil, errors.New("unit is not dead")
 	}
@@ -1100,12 +1101,12 @@ func (op *RemoveUnitOperation) removeOps() ([]txn.Op, error) {
 				failRelations = true
 				continue
 			}
-			opErrs, err := ru.LeaveScopeWithForce(op.Force)
-			op.AddError(opErrs...)
-			if err != nil {
+			leaveScopOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
+			if err != nil && err != jujutxn.ErrNoOperations {
 				op.AddError(err)
 				failRelations = true
 			}
+			ops = append(ops, leaveScopOps...)
 		}
 		if !op.Force && failRelations {
 			return nil, op.LastError()
@@ -1114,14 +1115,14 @@ func (op *RemoveUnitOperation) removeOps() ([]txn.Op, error) {
 
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
-	ops, err := op.unit.removeOps(isDeadDoc, op.ForcedOperation)
+	unitRemoveOps, err := op.unit.removeOps(isDeadDoc, &op.ForcedOperation)
 	if err != nil {
 		if !op.Force {
 			return nil, err
 		}
 		op.AddError(err)
 	}
-	return ops, nil
+	return append(ops, unitRemoveOps...), nil
 }
 
 // Resolved returns the resolved mode for the unit.
