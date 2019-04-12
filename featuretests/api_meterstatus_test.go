@@ -75,6 +75,12 @@ func (s *meterStatusIntegrationSuite) TestWatchMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mm.SetLastSuccessfulSend(time.Now())
 	c.Assert(err, jc.ErrorIsNil)
+	// While in theory it is only one event, when the metrics manager is first
+	// asked for, if it doesn't exist it adds a document. Then the set last
+	// successful send changes that document, so there are actually two changes
+	// from the database perspective. Here we wait for the model to be idle
+	// before checking for one change.
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	wc.AssertOneChange()
 
 	// meter status does not change on every failed

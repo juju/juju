@@ -228,7 +228,7 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 func (s *WorkerSuite) TestDisappearingAddresses(c *gc.C) {
 	// If we had 3 servers but the peergrouper publishes an update
 	// that sets all of their addresses to "", ignore that change.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "1", &jujuraft.SimpleFSM{})
+	_, _, transport1, _, _ := s.NewRaft(c, "1", &jujuraft.SimpleFSM{})
 	_, _, transport2, _, _ := s.NewRaft(c, "2", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1, transport2)
 	machine0Address := string(s.Transport.LocalAddr())
@@ -253,7 +253,7 @@ func (s *WorkerSuite) TestDisappearingAddresses(c *gc.C) {
 		Address:  raft.ServerAddress(machine2Address),
 		Suffrage: raft.Voter,
 	}}
-	rafttest.CheckConfiguration(c, raft1, expectedConfiguration)
+	rafttest.CheckConfiguration(c, s.Raft, expectedConfiguration)
 
 	s.publishDetails(c, map[string]string{
 		"0": "",
@@ -262,7 +262,7 @@ func (s *WorkerSuite) TestDisappearingAddresses(c *gc.C) {
 	})
 	// Check that it ignores the update - removing all servers isn't
 	// something that we should allow.
-	rafttest.CheckConfiguration(c, raft1, expectedConfiguration)
+	rafttest.CheckConfiguration(c, s.Raft, expectedConfiguration)
 
 	// But publishing an update with one machines with a blank address
 	// should still remove it.
@@ -271,7 +271,9 @@ func (s *WorkerSuite) TestDisappearingAddresses(c *gc.C) {
 		"1": "",
 		"2": machine2Address,
 	})
-	rafttest.CheckConfiguration(c, raft1, []raft.Server{
+	// Machine "2" should be demoted to keep an odd number of voters.
+	expectedConfiguration[2].Suffrage = raft.Nonvoter
+	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{
 		expectedConfiguration[0],
 		expectedConfiguration[2],
 	})

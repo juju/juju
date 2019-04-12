@@ -21,6 +21,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -335,9 +336,13 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 
 func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	// Let's add a machine with an LXC container.
-	cons := constraints.MustParse("arch=amd64 mem=8G")
+	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=bunyan")
+	source := "bunyan"
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: cons,
+		Characteristics: &instance.HardwareCharacteristics{
+			RootDiskSource: &source,
+		},
 	})
 	err := s.Model.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
@@ -387,6 +392,10 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	modStatus, err := parent.ModificationStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modStatus.Status, gc.Equals, status.Idle)
+
+	characteristics, err := parent.HardwareCharacteristics()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*characteristics.RootDiskSource, gc.Equals, "bunyan")
 }
 
 func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
@@ -535,7 +544,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 }
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
-	cons := constraints.MustParse("arch=amd64 mem=8G")
+	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
 	charm, application, pwd := s.setupSourceApplications(c, s.State, cons, true)
 
 	allApplications, err := s.State.AllApplications()

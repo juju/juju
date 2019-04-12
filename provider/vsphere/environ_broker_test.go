@@ -255,17 +255,27 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
+	cfg := s.env.Config()
+	cfg, err := cfg.Apply(map[string]interface{}{
+		"datastore": "datastore0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
 	startInstArgs := s.createStartInstanceArgs(c)
 	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
-		arch     = "amd64"
-		rootDisk = common.MinRootDiskSizeGiB("trusty") * 1024
+		arch      = "amd64"
+		rootDisk  = common.MinRootDiskSizeGiB("trusty") * 1024
+		datastore = "datastore0"
 	)
 	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
-		Arch:     &arch,
-		RootDisk: &rootDisk,
+		Arch:           &arch,
+		RootDisk:       &rootDisk,
+		RootDiskSource: &datastore,
 	})
 }
 
@@ -275,23 +285,26 @@ func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) 
 		cpuPower uint64 = 2001
 		mem      uint64 = 2002
 		rootDisk uint64 = 10003
+		source          = "datastore1"
 	)
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.Constraints.CpuCores = &cpuCores
 	startInstArgs.Constraints.CpuPower = &cpuPower
 	startInstArgs.Constraints.Mem = &mem
 	startInstArgs.Constraints.RootDisk = &rootDisk
+	startInstArgs.Constraints.RootDiskSource = &source
 
 	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := "amd64"
 	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
-		Arch:     &arch,
-		CpuCores: &cpuCores,
-		CpuPower: &cpuPower,
-		Mem:      &mem,
-		RootDisk: &rootDisk,
+		Arch:           &arch,
+		CpuCores:       &cpuCores,
+		CpuPower:       &cpuPower,
+		Mem:            &mem,
+		RootDisk:       &rootDisk,
+		RootDiskSource: &source,
 	})
 }
 
@@ -341,7 +354,7 @@ func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C)
 	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0])
 }
 
-func (s *environBrokerSuite) TestStartInstanceDatastore(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
 	cfg := s.env.Config()
 	cfg, err := cfg.Apply(map[string]interface{}{
 		"datastore": "datastore0",
@@ -355,7 +368,29 @@ func (s *environBrokerSuite) TestStartInstanceDatastore(c *gc.C) {
 
 	call := s.client.Calls()[3]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.Datastore, gc.Equals, "datastore0")
+	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "datastore0")
+}
+
+func (s *environBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
+	cfg := s.env.Config()
+	cfg, err := cfg.Apply(map[string]interface{}{
+		"datastore": "datastore0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := s.createStartInstanceArgs(c)
+	datastore := "zebras"
+	args.Constraints.RootDiskSource = &datastore
+	result, err := s.env.StartInstance(s.callCtx, args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(*result.Hardware.RootDiskSource, gc.Equals, "zebras")
+
+	call := s.client.Calls()[3]
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "zebras")
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
