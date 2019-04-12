@@ -272,17 +272,17 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 	if err = checkVersionValidity(v); err != nil {
 		return err
 	}
-	result := &tools.Tools{Version: v}
+	versionedTool := &tools.Tools{Version: v}
 	ops := []txn.Op{{
 		C:      unitsC,
 		Id:     u.doc.DocID,
 		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"tools", result}}}},
+		Update: bson.D{{"$set", bson.D{{"tools", versionedTool}}}},
 	}}
 	if err := u.st.db().RunTransaction(ops); err != nil {
 		return onAbort(err, ErrDead)
 	}
-	u.doc.Tools = result
+	u.doc.Tools = versionedTool
 	return nil
 }
 

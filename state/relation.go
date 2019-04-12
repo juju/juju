@@ -366,7 +366,7 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 				failRemoteUnits := false
 				for _, ru := range remoteUnits {
 					leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
-					if err != nil {
+					if err != nil && err != jujutxn.ErrNoOperations {
 						op.AddError(err)
 						failRemoteUnits = true
 					}

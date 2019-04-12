@@ -382,7 +382,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 					logger.Debugf("got %v relation units to clean", countRemoteUnits)
 					for _, ru := range remoteUnits {
 						leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
-						if err != nil {
+						if err != nil && err != jujutxn.ErrNoOperations {
 							op.AddError(err)
 							failRels = true
 							continue

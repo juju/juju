@@ -272,7 +272,7 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			logger.Debugf("got %v relation units to clean", len(remoteUnits))
 			for _, ru := range remoteUnits {
 				leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
-				if err != nil {
+				if err != nil && err != jujutxn.ErrNoOperations {
 					if !op.Force {
 						return nil, errors.Trace(err)
 					}
