@@ -38,17 +38,17 @@ func (m *MockLXDProfiler) EXPECT() *MockLXDProfilerMockRecorder {
 	return m.recorder
 }
 
-// AssignProfiles mocks base method
-func (m *MockLXDProfiler) AssignProfiles(arg0 string, arg1 []string, arg2 []lxdprofile.ProfilePost) ([]string, error) {
-	ret := m.ctrl.Call(m, "AssignProfiles", arg0, arg1, arg2)
+// AssignLXDProfiles mocks base method
+func (m *MockLXDProfiler) AssignLXDProfiles(arg0 string, arg1 []string, arg2 []lxdprofile.ProfilePost) ([]string, error) {
+	ret := m.ctrl.Call(m, "AssignLXDProfiles", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AssignProfiles indicates an expected call of AssignProfiles
-func (mr *MockLXDProfilerMockRecorder) AssignProfiles(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignProfiles", reflect.TypeOf((*MockLXDProfiler)(nil).AssignProfiles), arg0, arg1, arg2)
+// AssignLXDProfiles indicates an expected call of AssignLXDProfiles
+func (mr *MockLXDProfilerMockRecorder) AssignLXDProfiles(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignLXDProfiles", reflect.TypeOf((*MockLXDProfiler)(nil).AssignLXDProfiles), arg0, arg1, arg2)
 }
 
 // LXDProfileNames mocks base method
