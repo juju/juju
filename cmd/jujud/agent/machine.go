@@ -852,7 +852,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		return errors.Annotatef(err, "cannot load machine %s from state", tag)
 	}
 	if len(result) != 1 {
-		return errors.Annotatef(err, "expected 1 result, got %d", len(result))
+		return errors.Errorf("expected 1 result, got %d", len(result))
 	}
 	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == params.Dead) {
 		return jworker.ErrTerminateAgent
