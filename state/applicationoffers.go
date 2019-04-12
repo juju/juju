@@ -143,122 +143,173 @@ func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.Applica
 	return offers, nil
 }
 
-// Remove deletes the application offer for offerName immediately.
-func (s *applicationOffers) Remove(offerName string, force bool) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot delete application offer %q", offerName)
-
-	offer, err := s.ApplicationOffer(offerName)
-	if err != nil {
-		return errors.Trace(err)
+// RemoveOfferOperation returns a model operation that will allow relation to leave scope.
+func (s *applicationOffers) RemoveOfferOperation(offerName string, force bool) *RemoveOfferOperation {
+	return &RemoveOfferOperation{
+		offers:          &applicationOffers{s.st},
+		offerName:       offerName,
+		ForcedOperation: ForcedOperation{Force: force},
 	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			offer, err = s.ApplicationOffer(offerName)
-			if errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			}
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+}
+
+// RemoveOfferOperation is a model operation to remove application offer.
+type RemoveOfferOperation struct {
+	// ForcedOperation stores needed information to force this operation.
+	ForcedOperation
+
+	// offers holds the application offers to remove.
+	offers *applicationOffers
+
+	// offerName is the offer name to remove.
+	offerName string
+}
+
+// Build is part of the ModelOperation interface.
+func (op *RemoveOfferOperation) Build(attempt int) ([]txn.Op, error) {
+	offer, err := op.offers.ApplicationOffer(op.offerName)
+	if errors.IsNotFound(err) {
+		return nil, jujutxn.ErrNoOperations
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// When 'force' is set on the operation, this call will return needed operations
+	// and accumulate all operational errors encountered in the operation.
+	// If the 'force' is not set, any error will be fatal and no operations will be returned.
+	switch ops, err := op.internalRemove(offer); err {
+	case errRefresh:
+	case errAlreadyDying:
+		return nil, jujutxn.ErrNoOperations
+	case nil:
+		return ops, nil
+	default:
+		if op.Force {
+			logger.Warningf("force removing offer %v despite error %v", op.offerName, err)
+			return ops, nil
 		}
-		// Load the application before counting the connections
-		// so we can do a consistency check on relation count.
-		app, err := s.st.Application(offer.ApplicationName)
+		return nil, err
+	}
+	return nil, jujutxn.ErrNoOperations
+}
+
+// Done is part of the ModelOperation interface.
+func (op *RemoveOfferOperation) Done(err error) error {
+	if err != nil {
+		if !op.Force {
+			return errors.Annotatef(err, "cannot delete application offer %q", op.offerName)
+		}
+		op.AddError(errors.Errorf("forced offer %v removal but proceeded despite encountering ERROR %v", op.offerName, err))
+	}
+	return nil
+}
+
+// Remove deletes the application offer for offerName immediately.
+func (s *applicationOffers) Remove(offerName string, force bool) error {
+	op := s.RemoveOfferOperation(offerName, force)
+	err := s.st.ApplyOperation(op)
+	// TODO (anastasiamac 2019-04-10) we can surfacing these errors to the user.
+	// These are non-fatal operational errors that occurred during force and are
+	// collected in the operation, op.Errors.
+	return err
+}
+
+func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffer) ([]txn.Op, error) {
+	// Load the application before counting the connections
+	// so we can do a consistency check on relation count.
+	app, err := op.offers.st.Application(offer.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conns, err := op.offers.st.OfferConnections(offer.OfferUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(conns) > 0 && !op.Force {
+		return nil, errors.Errorf("offer has %d relation%s", len(conns), plural(len(conns)))
+	}
+	// Because we don't refcount offer connections, we instead either
+	// assert here that the relation count doesn't change, and that the
+	// specific relations that make up that count aren't removed, or we
+	// remove the relations, depending on whether force=true.
+	rels, err := app.Relations()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(rels) != app.doc.RelationCount {
+		return nil, jujutxn.ErrTransientFailure
+	}
+	ops := []txn.Op{{
+		C:      applicationsC,
+		Id:     offer.ApplicationName,
+		Assert: bson.D{{"relationcount", app.doc.RelationCount}},
+	}}
+	for _, rel := range rels {
+		remoteApp, isCrossModel, err := rel.RemoteApplication()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		conns, err := s.st.OfferConnections(offer.OfferUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(conns) > 0 && !force {
-			return nil, errors.Errorf("offer has %d relation%s", len(conns), plural(len(conns)))
-		}
-		// Because we don't refcount offer connections, we instead either
-		// assert here that the relation count doesn't change, and that the
-		// specific relations that make up that count aren't removed, or we
-		// remove the relations, depending on whether force=true.
-		rels, err := app.Relations()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(rels) != app.doc.RelationCount {
+		if isCrossModel && !op.Force {
 			return nil, jujutxn.ErrTransientFailure
 		}
-		ops := []txn.Op{{
-			C:      applicationsC,
-			Id:     offer.ApplicationName,
-			Assert: bson.D{{"relationcount", app.doc.RelationCount}},
-		}}
-		for _, rel := range rels {
-			remoteApp, isCrossModel, err := rel.RemoteApplication()
+		if op.Force {
+			// We only force delete cross model relations (connections).
+			if !isCrossModel {
+				continue
+			}
+			if err := rel.Refresh(); errors.IsNotFound(err) {
+				continue
+			} else if err != nil {
+				return nil, err
+			}
+
+			// Force any remote units to leave scope so the offer
+			// can be cleaned up.
+			logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
+			remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if isCrossModel && !force {
-				return nil, jujutxn.ErrTransientFailure
-			}
-			if force {
-				// We only force delete cross model relations (connections).
-				if !isCrossModel {
-					continue
-				}
-				if attempt > 0 {
-					if err := rel.Refresh(); errors.IsNotFound(err) {
-						continue
-					} else if err != nil {
-						return nil, err
-					}
-				}
-
-				// Force any remote units to leave scope so the offer
-				// can be cleaned up.
-				logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
-				remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				logger.Debugf("got %v relation units to clean", len(remoteUnits))
-				for _, ru := range remoteUnits {
-					if err := ru.LeaveScope(); err != nil {
+			logger.Debugf("got %v relation units to clean", len(remoteUnits))
+			for _, ru := range remoteUnits {
+				leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
+				if err != nil && err != jujutxn.ErrNoOperations {
+					if !op.Force {
 						return nil, errors.Trace(err)
 					}
+					op.AddError(err)
 				}
-
-				// When 'force' is set, this call will return both needed operations
-				// as well as all operational errors encountered.
-				// If the 'force' is not set, any error will be fatal and no operations will be returned.
-				relOps, _, opErrs, err := rel.destroyOps("", force)
-				if len(opErrs) != 0 {
-					logger.Warningf("errors while getting operations to destroy remote application relation %v: %v", remoteApp.Name(), opErrs)
-				}
-				if err == errAlreadyDying {
-					continue
-				} else if err != nil {
-					return nil, errors.Trace(err)
-				}
-				ops = append(ops, relOps...)
-			} else {
-				ops = append(ops, txn.Op{
-					C:      relationsC,
-					Id:     rel.doc.DocID,
-					Assert: txn.DocExists,
-				})
+				ops = append(ops, leaveScopeOps...)
 			}
+
+			// When 'force' is set, this call will return needed operations
+			// and accumulate all operational errors encountered in the operation.
+			// If the 'force' is not set, any error will be fatal and no operations will be returned.
+			relOps, _, err := rel.destroyOps("", &op.ForcedOperation)
+			if err == errAlreadyDying {
+				continue
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, relOps...)
+		} else {
+			ops = append(ops, txn.Op{
+				C:      relationsC,
+				Id:     rel.doc.DocID,
+				Assert: txn.DocExists,
+			})
 		}
-		decRefOp, err := decApplicationOffersRefOp(s.st, offer.ApplicationName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, txn.Op{
-			C:      applicationOffersC,
-			Id:     offer.OfferName,
-			Assert: txn.DocExists,
-			Remove: true,
-		}, decRefOp)
-		return ops, nil
 	}
-	return errors.Trace(s.st.db().Run(buildTxn))
+	decRefOp, err := decApplicationOffersRefOp(op.offers.st, offer.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, txn.Op{
+		C:      applicationOffersC,
+		Id:     offer.OfferName,
+		Assert: txn.DocExists,
+		Remove: true,
+	}, decRefOp)
+	return ops, nil
 }
 
 // removeApplicationOffersOps returns txn.Ops that will remove all offers for

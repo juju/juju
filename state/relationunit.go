@@ -271,14 +271,81 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 	return ru.st.db().RunTransaction(ops)
 }
 
+// LeaveScopeOperation returns a model operation that will allow relation to leave scope.
+func (ru *RelationUnit) LeaveScopeOperation(force bool) *LeaveScopeOperation {
+	return &LeaveScopeOperation{
+		ru: &RelationUnit{
+			st:          ru.st,
+			relation:    ru.relation,
+			unitName:    ru.unitName,
+			isPrincipal: ru.isPrincipal,
+			endpoint:    ru.endpoint,
+			scope:       ru.scope,
+			isLocalUnit: ru.isLocalUnit,
+		},
+		ForcedOperation: ForcedOperation{Force: force},
+	}
+}
+
+// LeaveScopeOperation is a model operation for relation to leave scope.
+type LeaveScopeOperation struct {
+	// ForcedOperation stores needed information to force this operation.
+	ForcedOperation
+
+	// ru holds the unit relation that wants to leave scope.
+	ru *RelationUnit
+}
+
+// Build is part of the ModelOperation interface.
+func (op *LeaveScopeOperation) Build(attempt int) ([]txn.Op, error) {
+	if attempt > 0 {
+		if err := op.ru.relation.Refresh(); errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	// When 'force' is set on the operation, this call will return needed operations
+	// and accumulate all operational errors encountered in the operation.
+	// If the 'force' is not set, any error will be fatal and no operations will be returned.
+	switch ops, err := op.internalLeaveScope(); err {
+	case errRefresh:
+	case errAlreadyDying:
+		return nil, jujutxn.ErrNoOperations
+	case nil:
+		return ops, nil
+	default:
+		if op.Force {
+			logger.Warningf("forcing %v to leave scope despite error %v", op.Description(), err)
+			return ops, nil
+		}
+		return nil, err
+	}
+	return nil, jujutxn.ErrNoOperations
+}
+
+func (op *LeaveScopeOperation) Description() string {
+	return fmt.Sprintf("unit %q in relation %q", op.ru.unitName, op.ru.relation)
+}
+
+// Done is part of the ModelOperation interface.
+func (op *LeaveScopeOperation) Done(err error) error {
+	if err != nil {
+		if !op.Force {
+			return errors.Annotatef(err, "%v cannot leave scope", op.Description())
+		}
+		op.AddError(errors.Errorf("%v tried to forcefully leave scope but proceeded despite encountering ERROR %v", op.Description(), err))
+	}
+	return nil
+}
+
 // LeaveScopeWithForce in addition to doing what LeaveScope() does,
 // when force is passed in as 'true', forces relation unit to leave scope,
 // ignoring errors.
-// TODO (anastasiamac) Need to consider to do this an Operation,
-// similar to Unit and Apllication DestroyOperation to better differentiate between
-// business logic and opeational errors and database errors.
 func (ru *RelationUnit) LeaveScopeWithForce(force bool) ([]error, error) {
-	return ru.internalLeaveScope(force)
+	op := ru.LeaveScopeOperation(force)
+	err := ru.st.ApplyOperation(op)
+	return op.Errors, err
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -291,14 +358,24 @@ func (ru *RelationUnit) LeaveScope() error {
 	return err
 }
 
-// When 'force' is set, this call will construct and apply needed operations
-// and return all operational errors encountered.
+// leaveScopeForcedOps is an internal method used by other state objects when they just want
+// to get database operations that are involved in leaving scop without
+// the actual immeiate act of leaving scope.
+func (ru *RelationUnit) leaveScopeForcedOps(existingOperation *ForcedOperation) ([]txn.Op, error) {
+	// It does not matter that we are say false to force here- we'll overwrite the whole ForcedOperation.
+	leaveScopeOperation := ru.LeaveScopeOperation(false)
+	leaveScopeOperation.ForcedOperation = *existingOperation
+	return leaveScopeOperation.internalLeaveScope()
+}
+
+// When 'force' is set, this call will return needed operations
+// and will accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be applied.
-func (ru *RelationUnit) internalLeaveScope(force bool) ([]error, error) {
-	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
+func (op *LeaveScopeOperation) internalLeaveScope() ([]txn.Op, error) {
+	relationScopes, closer := op.ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
-	key := ru.key()
+	key := op.ru.key()
 	// The logic below is involved because we remove a dying relation
 	// with the last unit that leaves a scope in it. It handles three
 	// possible cases:
@@ -321,67 +398,51 @@ func (ru *RelationUnit) internalLeaveScope(force bool) ([]error, error) {
 	// to have a Dying relation with a smaller-than-real unit count, because
 	// Destroy changes the Life attribute in memory (units could join before
 	// the database is actually changed).
-	desc := fmt.Sprintf("unit %q in relation %q", ru.unitName, ru.relation)
-	logger.Debugf("%v leaving scope", desc)
-	errs := []error{}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := ru.relation.Refresh(); errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
+	logger.Debugf("%v leaving scope", op.Description())
+	count, err := relationScopes.FindId(key).Count()
+	if err != nil {
+		err := fmt.Errorf("cannot examine scope for %s: %v", op.Description(), err)
+		if !op.Force {
+			return nil, err
+		}
+		op.AddError(err)
+	} else if count == 0 {
+		return nil, jujutxn.ErrNoOperations
+	}
+	ops := []txn.Op{{
+		C:      relationScopesC,
+		Id:     key,
+		Assert: txn.DocExists,
+		Remove: true,
+	}}
+	if op.ru.relation.doc.Life == Alive {
+		ops = append(ops, txn.Op{
+			C:      relationsC,
+			Id:     op.ru.relation.doc.DocID,
+			Assert: bson.D{{"life", Alive}},
+			Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
+		})
+	} else if op.ru.relation.doc.UnitCount > 1 {
+		ops = append(ops, txn.Op{
+			C:      relationsC,
+			Id:     op.ru.relation.doc.DocID,
+			Assert: bson.D{{"unitcount", bson.D{{"$gt", 1}}}},
+			Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
+		})
+	} else {
+		// When 'force' is set, this call will return needed operations
+		// and accumulate all operational errors encountered in the operation.
+		// If the 'force' is not set, any error will be fatal and no operations will be returned.
+		relOps, err := op.ru.relation.removeOps("", op.ru.unitName, &op.ForcedOperation)
+		if err != nil {
+			if !op.Force {
 				return nil, err
 			}
+			op.AddError(err)
 		}
-		count, err := relationScopes.FindId(key).Count()
-		if err != nil {
-			if !force {
-				return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
-			}
-			// When forcing, we still want to leave the scope so will fall through to the rest of
-			// the logic from here.
-		} else if count == 0 {
-			return nil, jujutxn.ErrNoOperations
-		}
-		ops := []txn.Op{{
-			C:      relationScopesC,
-			Id:     key,
-			Assert: txn.DocExists,
-			Remove: true,
-		}}
-		if ru.relation.doc.Life == Alive {
-			ops = append(ops, txn.Op{
-				C:      relationsC,
-				Id:     ru.relation.doc.DocID,
-				Assert: bson.D{{"life", Alive}},
-				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
-			})
-		} else if ru.relation.doc.UnitCount > 1 {
-			ops = append(ops, txn.Op{
-				C:      relationsC,
-				Id:     ru.relation.doc.DocID,
-				Assert: bson.D{{"unitcount", bson.D{{"$gt", 1}}}},
-				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
-			})
-		} else {
-			// When 'force' is set, this call will return both needed operations
-			// as well as all operational errors encountered.
-			// If the 'force' is not set, any error will be fatal and no operations will be returned.
-			relOps, opErrs, err := ru.relation.removeOps("", ru.unitName, force)
-			errs = append(errs, opErrs...)
-			if err != nil {
-				if !force {
-					return nil, err
-				}
-				errs = append(errs, err)
-			}
-			ops = append(ops, relOps...)
-		}
-		return ops, nil
+		ops = append(ops, relOps...)
 	}
-	if err := ru.st.db().Run(buildTxn); err != nil {
-		return errs, errors.Annotatef(err, "cannot leave scope for %s", desc)
-	}
-	return errs, nil
+	return ops, nil
 }
 
 // Valid returns whether this RelationUnit is one that can actually
