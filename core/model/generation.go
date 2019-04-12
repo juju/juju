@@ -26,15 +26,29 @@ func ValidateBranchName(name string) error {
 	return nil
 }
 
+// GenerationUnits indicates which units from an application are and are not
+// tracking a model branch.
+type GenerationUnits struct {
+	// UnitsTracking is the names of application units that have been set to
+	// track the branch.
+	UnitsTracking []string `yaml:"tracking,omitempty"`
+
+	// UnitsPending is the names of application units that are still tracking
+	// the master generation.
+	UnitsPending []string `yaml:"incomplete,omitempty"`
+}
+
 // GenerationApplication represents changes to an application
 // made under a generation.
 type GenerationApplication struct {
 	// ApplicationsName is the name of the application.
 	ApplicationName string `yaml:"application"`
 
-	// Units are the names of units of the application that have been
-	// moved to the generation.
-	Units []string `yaml:"units"`
+	// UnitProgress is summary information about units tracking the branch.
+	UnitProgress string `yaml:"progress"`
+
+	// UnitDetail specifies which units are and are not tracking the branch.
+	UnitDetail *GenerationUnits `yaml:"units,omitempty"`
 
 	// Config changes are the differing configuration values between this
 	// generation and the current.
