@@ -192,7 +192,7 @@ func (s *trackerSuite) TestNewTrackerWithNoContainers(c *gc.C) {
 		s.expectMachines,
 		s.expectNoSupportedContainers,
 	)
-	c.Assert(err, gc.ErrorMatches, "no container types determined")
+	c.Assert(err, gc.ErrorMatches, "resource permanently unavailable")
 }
 
 func (s *trackerSuite) TestNewTrackerWithNoDeterminedContainers(c *gc.C) {

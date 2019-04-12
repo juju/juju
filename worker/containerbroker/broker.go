@@ -104,8 +104,11 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving supported container types")
 	}
-	if len(instanceContainers) == 0 || !determined {
+	if !determined {
 		return nil, errors.Errorf("no container types determined")
+	}
+	if len(instanceContainers) == 0 {
+		return nil, dependency.ErrUninstall
 	}
 	// we only work on LXD, so check for that.
 	for _, containerType := range instanceContainers {
