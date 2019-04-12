@@ -53,7 +53,7 @@ type provisionerSuite struct {
 
 	authorizer  apiservertesting.FakeAuthorizer
 	resources   *common.Resources
-	provisioner *provisioner.ProvisionerAPIV8
+	provisioner *provisioner.ProvisionerAPIV9
 }
 
 var _ = gc.Suite(&provisionerSuite{})
@@ -94,7 +94,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	s.resources = common.NewResources()
 
 	// Create a provisioner API for the machine.
-	provisionerAPI, err := provisioner.NewProvisionerAPIV8(
+	provisionerAPI, err := provisioner.NewProvisionerAPIV9(
 		s.State,
 		s.resources,
 		s.authorizer,
@@ -1695,6 +1695,67 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+}
+
+func (s *withoutControllerSuite) TestSupportedContainers(c *gc.C) {
+	setArgs := params.MachineContainersParams{Params: []params.MachineContainers{{
+		MachineTag:     "machine-0",
+		ContainerTypes: []instance.ContainerType{instance.LXD},
+	}, {
+		MachineTag:     "machine-1",
+		ContainerTypes: []instance.ContainerType{instance.LXD, instance.KVM},
+	}}}
+	_, err := s.provisioner.SetSupportedContainers(setArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: "machine-0",
+	}, {
+		Tag: "machine-1",
+	}}}
+	results, err := s.provisioner.SupportedContainers(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	for _, result := range results.Results {
+		c.Assert(result.Error, gc.IsNil)
+	}
+	m0, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	containers, ok := m0.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, results.Results[0].ContainerTypes)
+	m1, err := s.State.Machine("1")
+	c.Assert(err, jc.ErrorIsNil)
+	containers, ok = m1.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, results.Results[1].ContainerTypes)
+}
+
+func (s *withoutControllerSuite) TestSupportedContainersWithoutBeingSet(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: "machine-0",
+	}, {
+		Tag: "machine-1",
+	}}}
+	results, err := s.provisioner.SupportedContainers(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	for _, result := range results.Results {
+		c.Assert(result.Error, gc.IsNil)
+		c.Assert(result.ContainerTypes, gc.HasLen, 0)
+	}
+}
+
+func (s *withoutControllerSuite) TestSupportedContainersWithInvalidTag(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: "user-0",
+	}}}
+	results, err := s.provisioner.SupportedContainers(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	for _, result := range results.Results {
+		c.Assert(result.Error, gc.ErrorMatches, "permission denied")
+	}
 }
 
 func (s *withoutControllerSuite) TestSupportsNoContainers(c *gc.C) {

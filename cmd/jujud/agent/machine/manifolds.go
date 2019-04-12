@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub"
+	utilsfeatureflag "github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,6 +28,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	containerbroker "github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
@@ -48,6 +50,7 @@ import (
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/common"
+	lxdbroker "github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/controllerport"
 	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/dblogpruner"
@@ -63,6 +66,7 @@ import (
 	"github.com/juju/juju/worker/httpserver"
 	"github.com/juju/juju/worker/httpserverargs"
 	"github.com/juju/juju/worker/identityfilewriter"
+	"github.com/juju/juju/worker/instancemutater"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -252,6 +256,9 @@ type ManifoldsConfig struct {
 
 	// NewContainerBrokerFunc is a function opens a CAAS provider.
 	NewContainerBrokerFunc caas.NewContainerBrokerFunc
+
+	// NewBrokerFunc is a function opens a instance broker (LXD/KVM)
+	NewBrokerFunc containerbroker.NewBrokerFunc
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -844,7 +851,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	if runtime.GOOS == "linux" {
 		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
 	}
-	return mergeManifolds(config, dependency.Manifolds{
+	manifolds := dependency.Manifolds{
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -927,7 +934,27 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                        config.Clock,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
-	})
+	}
+
+	if utilsfeatureflag.Enabled(feature.InstanceMutater) {
+		manifolds[brokerTrackerName] = ifNotMigrating(lxdbroker.Manifold(lxdbroker.ManifoldConfig{
+			APICallerName: apiCallerName,
+			AgentName:     agentName,
+			MachineLock:   config.MachineLock,
+			NewBrokerFunc: config.NewBrokerFunc,
+			NewTracker:    lxdbroker.NewWorkerTracker,
+		}))
+		manifolds[instanceMutaterName] = ifNotMigrating(instancemutater.MachineManifold(instancemutater.MachineManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			BrokerName:    brokerTrackerName,
+			Logger:        loggo.GetLogger("juju.worker.instancemutater"),
+			NewClient:     instancemutater.NewClient,
+			NewWorker:     instancemutater.NewContainerWorker,
+		}))
+	}
+
+	return mergeManifolds(config, manifolds)
 }
 
 // CAASManifolds returns a set of co-configured manifolds covering the
@@ -1053,6 +1080,7 @@ const (
 	leaseClockUpdaterName         = "lease-clock-updater"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
+	instanceMutaterName           = "instance-mutater"
 	logPrunerName                 = "log-pruner"
 	txnPrunerName                 = "transaction-pruner"
 	certificateWatcherName        = "certificate-watcher"
@@ -1079,4 +1107,6 @@ const (
 	raftForwarderName = "raft-forwarder"
 
 	validCredentialFlagName = "valid-credential-flag"
+
+	brokerTrackerName = "broker-tracker"
 )

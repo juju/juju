@@ -8,7 +8,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
-	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/instancemutater"
@@ -42,7 +41,7 @@ type Config struct {
 	// Logger is the logger for this worker.
 	Logger Logger
 
-	Environ environs.Environ
+	Broker environs.LXDProfiler
 
 	AgentConfig agent.Config
 
@@ -61,8 +60,8 @@ func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
 	}
-	if config.Environ == nil {
-		return errors.NotValidf("nil Environ")
+	if config.Broker == nil {
+		return errors.NotValidf("nil Broker")
 	}
 	if config.AgentConfig == nil {
 		return errors.NotValidf("nil AgentConfig")
@@ -103,13 +102,6 @@ func newWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	broker, ok := config.Environ.(environs.LXDProfiler)
-	if !ok {
-		// If we don't have an LXDProfiler broker, there is no need to
-		// run this worker.
-		config.Logger.Debugf("uninstalling, not an LXD capable broker")
-		return nil, dependency.ErrUninstall
-	}
 	watcher, err := config.GetMachineWatcher()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -117,7 +109,7 @@ func newWorker(config Config) (worker.Worker, error) {
 	w := &mutaterWorker{
 		logger:         config.Logger,
 		facade:         config.Facade,
-		broker:         broker,
+		broker:         config.Broker,
 		machineTag:     config.Tag.(names.MachineTag),
 		machineWatcher: watcher,
 	}
