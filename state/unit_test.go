@@ -2015,8 +2015,6 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql0ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	//c.Assert(mysql.Refresh(), jc.ErrorIsNil)
-	//c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 
 	// Destroy wordpress, and remove its last unit.
 	err = wordpress.Destroy()
@@ -2037,11 +2035,8 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	// removal causes the relation and the other application to be cleaned up.
 	err = mysql0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	//c.Assert(mysql.Refresh(), jc.ErrorIsNil)
-	//c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 	err = mysql0.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	//c.Assert(mysql.Refresh(), jc.ErrorIsNil)
 	err = wordpress.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rel.Refresh()
