@@ -31,6 +31,7 @@ type lifetimeContext interface {
 type machineContext interface {
 	lifetimeContext
 	getBroker() environs.LXDProfiler
+	getRequiredLXDProfiles(string) []string
 }
 
 type mutaterMachine struct {
@@ -162,9 +163,7 @@ func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 		return report(errors.Annotatef(err, "%s", m.id))
 	}
 
-	// All juju lxd machines use these 2 profiles, independent of charm
-	// profiles.
-	expectedProfiles := []string{"default", "juju-" + info.ModelName}
+	expectedProfiles := m.context.getRequiredLXDProfiles(info.ModelName)
 	for _, p := range post {
 		if p.Profile != nil {
 			expectedProfiles = append(expectedProfiles, p.Name)
