@@ -892,6 +892,17 @@ func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXD, instance.KVM})
 }
 
+func (s *provisionerSuite) TestSupportedContainers(c *gc.C) {
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+	err := apiMachine.SetSupportedContainers(instance.LXD, instance.KVM)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containers, ok, err := apiMachine.SupportedContainers()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXD, instance.KVM})
+}
+
 func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
 	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 	err := apiMachine.SupportsNoContainers()
