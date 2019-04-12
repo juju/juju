@@ -41,5 +41,9 @@ type Generation interface {
 
 // Application describes application state used by the model generation API.
 type Application interface {
+	UnitNames() ([]string, error)
+
+	// DefaultCharmConfig is the only abstraction in these shims.
+	// It saves us having to shim out Charm as well.
 	DefaultCharmConfig() (charm.Settings, error)
 }

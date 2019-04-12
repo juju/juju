@@ -302,3 +302,16 @@ func (m *MockApplication) DefaultCharmConfig() (charm_v6.Settings, error) {
 func (mr *MockApplicationMockRecorder) DefaultCharmConfig() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultCharmConfig", reflect.TypeOf((*MockApplication)(nil).DefaultCharmConfig))
 }
+
+// UnitNames mocks base method
+func (m *MockApplication) UnitNames() ([]string, error) {
+	ret := m.ctrl.Call(m, "UnitNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnitNames indicates an expected call of UnitNames
+func (mr *MockApplicationMockRecorder) UnitNames() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitNames", reflect.TypeOf((*MockApplication)(nil).UnitNames))
+}
