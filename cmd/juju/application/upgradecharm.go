@@ -43,6 +43,7 @@ func NewUpgradeCharmCommand() cmd.Command {
 		DeployResources: resourceadapters.DeployResources,
 		ResolveCharm:    resolveCharm,
 		NewCharmAdder:   newCharmAdder,
+		NewCharmAuth:    newCharmAuth,
 		NewCharmClient: func(conn base.APICallCloser) CharmClient {
 			return charms.NewClient(conn)
 		},
@@ -91,13 +92,18 @@ type ResourceLister interface {
 }
 
 // NewCharmAdderFunc is the type of a function used to construct
-// a new CharmAdder.
+// a new CharmAdderAPI.
 type NewCharmAdderFunc func(
 	api.Connection,
+) CharmAdderAPI
+
+// NewCharmAuthFunc is the type of a function used to construct
+// a new charmAuthorizer.
+type NewCharmAuthFunc func(
 	*httpbakery.Client,
 	string, // Charmstore API URL
 	csclientparams.Channel,
-) CharmAdder
+) charmAuthorizer
 
 // UpgradeCharm is responsible for upgrading an application's charm.
 type upgradeCharmCommand struct {
@@ -106,6 +112,7 @@ type upgradeCharmCommand struct {
 	DeployResources       resourceadapters.DeployResourcesFunc
 	ResolveCharm          ResolveCharmFunc
 	NewCharmAdder         NewCharmAdderFunc
+	NewCharmAuth          NewCharmAuthFunc
 	NewCharmClient        func(base.APICallCloser) CharmClient
 	NewCharmUpgradeClient func(base.APICallCloser) CharmAPIClient
 	NewModelConfigGetter  func(base.APICallCloser) ModelConfigGetter
@@ -341,12 +348,13 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if c.Channel == "" {
 		c.Channel = csclientparams.Channel(applicationInfo.Channel)
 	}
-	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, csURL, c.Channel)
+	charmAdder := c.NewCharmAdder(apiRoot)
+	charmAuth := c.NewCharmAuth(bakeryClient, csURL, c.Channel)
 	charmRepo := c.getCharmStore(bakeryClient, csURL, modelConfig)
 
 	deployedSeries := applicationInfo.Series
 
-	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef, deployedSeries, c.Force)
+	chID, csMac, err := c.addCharm(charmAdder, charmAuth, charmRepo, modelConfig, oldURL, newRef, deployedSeries, c.Force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
@@ -505,22 +513,17 @@ func shouldUpgradeResource(res charmresource.Meta, uploads map[string]string, cu
 
 func newCharmAdder(
 	api api.Connection,
+) CharmAdderAPI {
+	return &apiClient{Client: api.Client()}
+}
+
+func newCharmAuth(
 	bakeryClient *httpbakery.Client,
 	csURL string,
 	channel csclientparams.Channel,
-) CharmAdder {
+) charmAuthorizer {
 	csClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
-
-	// TODO(katco): This anonymous adapter should go away in favor of
-	// a comprehensive API passed into the upgrade-charm command.
-	charmstoreAdapter := &struct {
-		*charmstoreClient
-		*apiClient
-	}{
-		charmstoreClient: &charmstoreClient{&charmstoreClientShim{csClient}},
-		apiClient:        &apiClient{Client: api.Client()},
-	}
-	return charmstoreAdapter
+	return &charmstoreClient{&charmstoreClientShim{csClient}}
 }
 
 func (c *upgradeCharmCommand) getCharmStore(
@@ -549,7 +552,8 @@ var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
 // the new charm is different to what's already deployed as specified by
 // oldURL.
 func (c *upgradeCharmCommand) addCharm(
-	charmAdder CharmAdder,
+	charmAdder CharmAdderAPI,
+	auth charmAuthorizer,
 	charmRepo *charmrepo.CharmStore,
 	config *config.Config,
 	oldURL *charm.URL,
@@ -613,7 +617,7 @@ func (c *upgradeCharmCommand) addCharm(
 		return id, nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, err := addCharmFromURL(charmAdder, newURL, channel, force)
+	curl, csMac, err := addCharmFromURL(charmAdder, auth, newURL, channel, force)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}

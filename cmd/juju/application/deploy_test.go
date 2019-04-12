@@ -178,6 +178,8 @@ func runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
 
 // runDeploy executes the deploy command in order to deploy the given
 // charm or bundle. The deployment stderr output and error are returned.
+// TODO - this runs the *real* deploy with the *real* apiroot etc
+// TODO - no surprise that tests which call it will fail without a real charmstore!
 func runDeploy(c *gc.C, args ...string) error {
 	_, _, err := runDeployWithOutput(c, args...)
 	return err
@@ -564,7 +566,7 @@ func (*fakeBroker) ValidateStorageClass(_ map[string]interface{}) error {
 }
 
 type CAASDeploySuiteBase struct {
-	legacyCharmStoreSuite
+	charmstoreSuite
 
 	series     string
 	CharmsPath string
@@ -574,7 +576,7 @@ func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
 	s.series = "kubernetes"
 	s.CharmsPath = c.MkDir()
 
-	s.legacyCharmStoreSuite.SetUpTest(c)
+	s.charmstoreSuite.SetUpTest(c)
 
 	unregister := caas.RegisterContainerProvider("kubernetes-test", &fakeProvider{})
 	s.AddCleanup(func(_ *gc.C) { unregister() })
@@ -954,13 +956,6 @@ func (s *charmstoreSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-// changeReadPerm changes the read permission of the given charm URL.
-// The charm must be present in the testing charm store.
-func (s *charmstoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...string) {
-	err := s.client.Put("/"+url.Path()+"/meta/perm/read", perms)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 // assertCharmsUploaded checks that the given charm ids have been uploaded.
 func (s *charmstoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
 	charms, err := s.State.AllCharms()
@@ -1021,6 +1016,34 @@ func (s *charmstoreSuite) assertDeployedApplicationBindings(c *gc.C, info map[st
 	}
 }
 
+// assertRelationsEstablished checks that the given relations have been set.
+func (s *charmstoreSuite) assertRelationsEstablished(c *gc.C, relations ...string) {
+	rs, err := s.State.AllRelations()
+	c.Assert(err, jc.ErrorIsNil)
+	established := make([]string, len(rs))
+	for i, r := range rs {
+		established[i] = r.String()
+	}
+	c.Assert(established, jc.SameContents, relations)
+}
+
+// assertUnitsCreated checks that the given units have been created. The
+// expectedUnits argument maps unit names to machine names.
+func (s *charmstoreSuite) assertUnitsCreated(c *gc.C, expectedUnits map[string]string) {
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	created := make(map[string]string)
+	for _, m := range machines {
+		id := m.Id()
+		units, err := s.State.UnitsFor(id)
+		c.Assert(err, jc.ErrorIsNil)
+		for _, u := range units {
+			created[u.Name()] = id
+		}
+	}
+	c.Assert(created, jc.DeepEquals, expectedUnits)
+}
+
 func (s *charmstoreSuite) runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
 	ctx, err := cmdtesting.RunCommand(c, NewDeployCommandForTest2(s.charmstore, s.charmrepo), args...)
 	return strings.Trim(cmdtesting.Stdout(ctx), "\n"),
@@ -1034,140 +1057,16 @@ func (s *charmstoreSuite) runDeploy(c *gc.C, args ...string) error {
 }
 
 type DeployCharmStoreSuite struct {
-	legacyCharmStoreSuite
+	charmstoreSuite
 }
 
 var _ = gc.Suite(&DeployCharmStoreSuite{})
 
-var deployAuthorizationTests = []struct {
-	about        string
-	uploadURL    string
-	deployURL    string
-	readPermUser string
-	expectError  string
-	expectOutput string
-}{{
-	about:     "public charm, success",
-	uploadURL: "cs:~bob/trusty/wordpress1-10",
-	deployURL: "cs:~bob/trusty/wordpress1",
-}, {
-	about:     "public charm, fully resolved, success",
-	uploadURL: "cs:~bob/trusty/wordpress2-10",
-	deployURL: "cs:~bob/trusty/wordpress2-10",
-}, {
-	about:        "non-public charm, success",
-	uploadURL:    "cs:~bob/trusty/wordpress3-10",
-	deployURL:    "cs:~bob/trusty/wordpress3",
-	readPermUser: clientUserName,
-}, {
-	about:        "non-public charm, fully resolved, success",
-	uploadURL:    "cs:~bob/trusty/wordpress4-10",
-	deployURL:    "cs:~bob/trusty/wordpress4-10",
-	readPermUser: clientUserName,
-}, {
-	about:        "non-public charm, access denied",
-	uploadURL:    "cs:~bob/trusty/wordpress5-10",
-	deployURL:    "cs:~bob/trusty/wordpress5",
-	readPermUser: "bob",
-	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
-}, {
-	about:        "non-public charm, fully resolved, access denied",
-	uploadURL:    "cs:~bob/trusty/wordpress6-47",
-	deployURL:    "cs:~bob/trusty/wordpress6-47",
-	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
-}, {
-	about:     "public bundle, success",
-	uploadURL: "cs:~bob/bundle/wordpress-simple1-42",
-	deployURL: "cs:~bob/bundle/wordpress-simple1",
-}, {
-	about:        "non-public bundle, success",
-	uploadURL:    "cs:~bob/bundle/wordpress-simple2-0",
-	deployURL:    "cs:~bob/bundle/wordpress-simple2-0",
-	readPermUser: clientUserName,
-}, {
-	about:        "non-public bundle, access denied",
-	uploadURL:    "cs:~bob/bundle/wordpress-simple3-47",
-	deployURL:    "cs:~bob/bundle/wordpress-simple3",
-	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
-}}
-
-func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
-	// Upload the two charms required to upload the bundle.
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-0", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-1", "wordpress")
-
-	// Run the tests.
-	for i, test := range deployAuthorizationTests {
-		c.Logf("test %d: %s", i, test.about)
-
-		// Upload the charm or bundle under test.
-		url := charm.MustParseURL(test.uploadURL)
-		if url.Series == "bundle" {
-			url, _ = testcharms.UploadBundle(c, s.client, test.uploadURL, "wordpress-simple")
-		} else {
-			url, _ = testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
-		}
-
-		// Change the ACL of the uploaded entity if required in this case.
-		if test.readPermUser != "" {
-			s.changeReadPerm(c, url, test.readPermUser)
-		}
-		err := runDeploy(c, test.deployURL, fmt.Sprintf("wordpress%d", i))
-		if test.expectError != "" {
-			c.Check(err, gc.ErrorMatches, test.expectError)
-			continue
-		}
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
-	_, ch := testcharms.UploadCharm(c, s.client, "trusty/terms1-1", "terms1")
-	_, stdErr, err := runDeployWithOutput(c, "trusty/terms1")
-	c.Assert(err, jc.ErrorIsNil)
-	expectedOutput := `
-Located charm "cs:trusty/terms1-1".
-Deploying charm "cs:trusty/terms1-1".
-Deployment under prior agreement to terms: term1/1 term3/1
-`
-	c.Assert(stdErr, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:trusty/terms1-1")
-	s.assertApplicationsDeployed(c, map[string]applicationInfo{
-		"terms1": {charm: "cs:trusty/terms1-1", config: ch.Config().DefaultSettings()},
-	})
-	_, err = s.State.Unit("terms1/0")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
-	s.termsDischargerError = &httpbakery.Error{
-		Message: "term agreement required: term/1 term/2",
-		Code:    "term agreement required",
-	}
-	testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
-	err := runDeploy(c, "quantal/terms1")
-	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
-	c.Assert(err, gc.ErrorMatches, expectedError)
-}
-
-func (s *DeployCharmStoreSuite) TestDeployWithChannel(c *gc.C) {
-	ch := testcharms.Repo.CharmArchive(c.MkDir(), "wordpress")
-	id := charm.MustParseURL("cs:~client-username/precise/wordpress-0")
-	err := s.client.UploadCharmWithRevision(id, ch, -1)
-	c.Assert(err, gc.IsNil)
-
-	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.EdgeChannel}, nil)
-	c.Assert(err, gc.IsNil)
-
-	err = runDeploy(c, "--channel", "edge", "~client-username/wordpress")
-	c.Assert(err, gc.IsNil)
-	s.assertCharmsUploaded(c, "cs:~client-username/precise/wordpress-0")
-	s.assertApplicationsDeployed(c, map[string]applicationInfo{
-		"wordpress": {charm: "cs:~client-username/precise/wordpress-0", config: ch.Config().DefaultSettings()},
-	})
-}
+// TODO
+//func (s *DeployCharmStoreSuite) TestDeployWithChannel(c *gc.C) {
+//	err := runDeploy(c, "--channel", "edge", "cs:somecharm")
+//	c.Assert(err, gc.IsNil)
+//}
 
 const (
 	// clientUserCookie is the name of the cookie which is
@@ -1432,13 +1331,8 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
 	setMetricCredentialsCall := fakeAPI.Call("SetMetricCredentials", meteredURL.Name, creds).Returns(error(nil))
 
-	deploy := &DeployCommand{
-		Steps: []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}},
-		NewAPIRoot: func() (DeployAPI, error) {
-			return fakeAPI, nil
-		},
-	}
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
+	deploy := NewDeployCommandForTest(fakeAPI, []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}})
+	_, err := cmdtesting.RunCommand(c, deploy, "cs:quantal/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
@@ -1477,13 +1371,8 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
 	setMetricCredentialsCall := fakeAPI.Call("SetMetricCredentials", meteredURL.Name, creds).Returns(error(nil))
 
-	deploy := &DeployCommand{
-		Steps: []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}},
-		NewAPIRoot: func() (DeployAPI, error) {
-			return fakeAPI, nil
-		},
-	}
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1")
+	deploy := NewDeployCommandForTest(fakeAPI, nil)
+	_, err := cmdtesting.RunCommand(c, deploy, "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
@@ -1515,14 +1404,8 @@ func (s *DeployCharmStoreSuite) TestSetMetricCredentialsNotCalledForUnmeteredCha
 	withCharmRepoResolvable(fakeAPI, charmURL)
 	withCharmDeployable(fakeAPI, charmURL, "quantal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	deploy := &DeployCommand{
-		Steps: []DeployStep{&RegisterMeteredCharm{}},
-		NewAPIRoot: func() (DeployAPI, error) {
-			return fakeAPI, nil
-		},
-	}
-
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/dummy-1")
+	deploy := NewDeployCommandForTest(fakeAPI, nil)
+	_, err := cmdtesting.RunCommand(c, deploy, "cs:quantal/dummy-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, call := range fakeAPI.Calls() {
@@ -1561,14 +1444,8 @@ summary: summary
 	handler := &testMetricsRegistrationHandler{Stub: stub}
 	server := httptest.NewServer(handler)
 	defer server.Close()
-	deploy := &DeployCommand{
-		Steps: []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}},
-		NewAPIRoot: func() (DeployAPI, error) {
-			return fakeAPI, nil
-		},
-	}
-
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String())
+	deploy := NewDeployCommandForTest(fakeAPI, nil)
+	_, err := cmdtesting.RunCommand(c, deploy, url.String())
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckNoCalls(c)
 }
@@ -1604,14 +1481,8 @@ summary: summary
 	withCharmRepoResolvable(fakeAPI, url)
 	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, false, 1, nil, nil)
 
-	deploy := &DeployCommand{
-		Steps: []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}},
-		NewAPIRoot: func() (DeployAPI, error) {
-			return fakeAPI, nil
-		},
-	}
-
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String(), "--plan", "someplan")
+	deploy := NewDeployCommandForTest(fakeAPI, []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}})
+	_, err := cmdtesting.RunCommand(c, deploy, url.String(), "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{metricRegistrationPost{
@@ -1680,13 +1551,8 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
 	fakeAPI.Call("SetMetricCredentials", meteredCharmURL.Name, creds).Returns(errors.New("IsMetered"))
 
-	deploy := &DeployCommand{
-		Steps: []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}},
-		NewAPIRoot: func() (DeployAPI, error) {
-			return fakeAPI, nil
-		},
-	}
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
+	deploy := NewDeployCommandForTest(fakeAPI, []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}})
+	_, err := cmdtesting.RunCommand(c, deploy, "cs:quantal/metered-1", "--plan", "someplan")
 
 	c.Check(err, gc.ErrorMatches, "IsMetered")
 }
@@ -1839,9 +1705,7 @@ func (s *DeployUnitTestSuite) makeCharmDir(c *gc.C, cloneCharm string) *charm.Ch
 }
 
 func (s *DeployUnitTestSuite) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ...string) (*cmd.Context, error) {
-	cmd := NewDeployCommandForTest(func() (DeployAPI, error) {
-		return fakeAPI, nil
-	}, nil)
+	cmd := NewDeployCommandForTest(fakeAPI, nil)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
@@ -1871,7 +1735,7 @@ func (s *DeployUnitTestSuite) TestDeployApplicationConfig(c *gc.C) {
 		map[string]string{"foo": "bar"},
 	)
 
-	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
+	cmd := NewDeployCommandForTest(fakeAPI, nil)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(),
 		"--config", "foo=bar",
@@ -1930,7 +1794,7 @@ func (s *DeployUnitTestSuite) TestRedeployLocalCharmSucceedsWhenDeployed(c *gc.C
 	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir, false)
 	withCharmDeployable(fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	context, err := s.runDeploy(c, fakeAPI, dummyURL.String())
+	context, err := s.runDeploy(c, fakeAPI, dummyURL.String(), "--channel", "edge")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stderr(context), gc.Equals, ""+
@@ -2002,9 +1866,7 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		error(nil),
 	)
 
-	deployCmd := NewDeployCommandForTest(func() (DeployAPI, error) {
-		return fakeAPI, nil
-	}, nil)
+	deployCmd := NewDeployCommandForTest(fakeAPI, nil)
 	deployCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	context, err := cmdtesting.RunCommand(c, deployCmd, "cs:bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2046,7 +1908,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorage(c *gc.C) {
 		fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, []string{"foo/0", "bar/1", "baz/2"}, nil,
 	)
 
-	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
+	cmd := NewDeployCommandForTest(fakeAPI, nil)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(),
 		"--attach-storage", "foo/0",
@@ -2071,7 +1933,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorageFailContainer(c *gc.C) {
 		fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, []string{"foo/0", "bar/1", "baz/2"}, nil,
 	)
 
-	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
+	cmd := NewDeployCommandForTest(fakeAPI, nil)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(),
 		"--attach-storage", "foo/0", "--to", "lxd",
@@ -2095,7 +1957,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorageNotSupported(c *gc.C) {
 		fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, []string{"foo/0", "bar/1", "baz/2"}, nil,
 	)
 
-	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
+	cmd := NewDeployCommandForTest(fakeAPI, nil)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(), "--attach-storage", "foo/0")
 	c.Assert(err, gc.ErrorMatches, "this juju controller does not support --attach-storage")
@@ -2108,6 +1970,10 @@ type fakeDeployAPI struct {
 	DeployAPI
 	*jujutesting.CallMocker
 	planURL string
+}
+
+func (f *fakeDeployAPI) AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error) {
+	return nil, errors.New("unexpected call")
 }
 
 func (f *fakeDeployAPI) IsMetered(charmURL string) (bool, error) {
@@ -2349,10 +2215,14 @@ func withCharmRepoResolvable(
 	fakeAPI *fakeDeployAPI,
 	url *charm.URL,
 ) {
+	series := url.Series
+	if series == "" {
+		series = "quantal"
+	}
 	fakeAPI.Call("ResolveWithChannel", url).Returns(
 		url,
 		csclientparams.Channel(""),
-		[]string{"quantal"}, // Supported series
+		[]string{series}, // Supported series
 		error(nil),
 	)
 }

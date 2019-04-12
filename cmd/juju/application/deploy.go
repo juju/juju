@@ -18,6 +18,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
+	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
@@ -47,11 +48,12 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-type CharmAdder interface {
+// The following API interfaces represent clients to the Juju controller/model API facades.
+
+type CharmAdderAPI interface {
 	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error)
 	AddCharm(*charm.URL, params.Channel, bool) error
 	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon, bool) error
-	AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error)
 }
 
 type ApplicationAPI interface {
@@ -91,10 +93,8 @@ type CharmDeployAPI interface {
 // DeployAPI represents the methods of the API the deploy
 // command needs.
 type DeployAPI interface {
-	// TODO(katco): Pair DeployAPI down to only the methods required
-	// by the deploy command.
 	api.Connection
-	CharmAdder
+	CharmAdderAPI
 	MeteredDeployAPI
 	CharmDeployAPI
 	ApplicationAPI
@@ -103,10 +103,6 @@ type DeployAPI interface {
 	// ApplicationClient
 	Deploy(application.DeployArgs) error
 	Status(patterns []string) (*apiparams.FullStatus, error)
-
-	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
-
-	GetBundle(*charm.URL) (charm.Bundle, error)
 
 	WatchAll() (*api.AllWatcher, error)
 
@@ -141,7 +137,6 @@ type modelConfigClient struct {
 // gopkg.in/juju/charmrepo.v3 Interface interface. It is
 // used by tests that embed a DeploySuiteBase.
 type charmrepoForDeploy interface {
-	Get(charmURL *charm.URL) (charm.Charm, error)
 	GetBundle(bundleURL *charm.URL) (charm.Bundle, error)
 	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
 }
@@ -162,16 +157,20 @@ type charmstoreClient struct {
 	charmstoreForDeploy
 }
 
+type charmAuthorizer interface {
+	AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error)
+}
+
+func (a *charmstoreClient) AuthorizeCharmstoreEntity(url *charm.URL) (*macaroon.Macaroon, error) {
+	return authorizeCharmStoreEntity(a, url)
+}
+
 type annotationsClient struct {
 	*annotations.Client
 }
 
 type plansClient struct {
 	planURL string
-}
-
-func (a *charmstoreClient) AuthorizeCharmstoreEntity(url *charm.URL) (*macaroon.Macaroon, error) {
-	return authorizeCharmStoreEntity(a, url)
 }
 
 func (c *plansClient) PlanURL() string {
@@ -184,8 +183,6 @@ type deployAPIAdapter struct {
 	*charmsClient
 	*applicationClient
 	*modelConfigClient
-	*charmRepoClient
-	*charmstoreClient
 	*annotationsClient
 	*plansClient
 }
@@ -207,19 +204,6 @@ func (a *deployAPIAdapter) Deploy(args application.DeployArgs) error {
 	}
 
 	return errors.Trace(a.applicationClient.Deploy(args))
-}
-
-func (a *deployAPIAdapter) Resolve(cfg *config.Config, url *charm.URL) (
-	*charm.URL,
-	params.Channel,
-	[]string,
-	error,
-) {
-	return resolveCharm(a.charmRepoClient.ResolveWithChannel, url)
-}
-
-func (a *deployAPIAdapter) Get(url *charm.URL) (charm.Charm, error) {
-	return a.charmRepoClient.Get(url)
 }
 
 func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error) {
@@ -253,19 +237,10 @@ func NewDeployCommand() modelcmd.ModelCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		bakeryClient, err := deployCmd.BakeryClient()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
 
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
@@ -273,11 +248,41 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			charmstoreClient:  &charmstoreClient{&charmstoreClientShim{cstoreClient}},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
 			plansClient:       &plansClient{planURL: mURL},
 		}, nil
+	}
+
+	csClient := func(deployCmd *DeployCommand) (*csclient.Client, error) {
+		bakeryClient, err := deployCmd.BakeryClient()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel), nil
+	}
+
+	deployCmd.NewCharmRepo = func() (charmrepoForDeploy, error) {
+		csClient, err := csClient(deployCmd)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &charmRepoClient{charmrepo.NewCharmStoreFromClient(csClient)}, nil
+	}
+
+	deployCmd.NewCharmAuthorizer = func() (charmAuthorizer, error) {
+		csClient, err := csClient(deployCmd)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &charmstoreClient{&charmstoreClientShim{csClient}}, nil
 	}
 
 	return modelcmd.Wrap(deployCmd)
@@ -349,6 +354,12 @@ type DeployCommand struct {
 
 	// NewAPIRoot stores a function which returns a new API root.
 	NewAPIRoot func() (DeployAPI, error)
+
+	// NewCharmRepo stores a function which returns a CharmRepo.
+	NewCharmRepo func() (charmrepoForDeploy, error)
+
+	// NewCharmAuthorizer stores a function which returns a charmAuthorizer.
+	NewCharmAuthorizer func() (charmAuthorizer, error)
 
 	// Trust signifies that the charm should be deployed with access to
 	// trusted credentials. That is, hooks run by the charm can access
@@ -820,6 +831,8 @@ func (c *DeployCommand) deployBundle(
 	bundleURL *charm.URL,
 	channel params.Channel,
 	apiRoot DeployAPI,
+	charmAuth charmAuthorizer,
+	urlResolver URLResolver,
 	bundleStorage map[string]map[string]storage.Constraints,
 	bundleDevices map[string]map[string]devices.Constraints,
 ) (rErr error) {
@@ -874,6 +887,8 @@ func (c *DeployCommand) deployBundle(
 		c.BundleOverlayFile,
 		channel,
 		apiRoot,
+		charmAuth,
+		urlResolver,
 		ctx,
 		bundleStorage,
 		bundleDevices,
@@ -1129,6 +1144,16 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiRoot.Close()
 
+	repo, err := c.NewCharmRepo()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	auth, err := c.NewCharmAuthorizer()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, step := range c.Steps {
 		step.SetPlanURL(apiRoot.PlanURL())
 	}
@@ -1137,14 +1162,14 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		func() (deployFn, error) { return c.maybeReadLocalBundle(ctx) },
 		func() (deployFn, error) { return c.maybeReadLocalCharm(apiRoot) },
 		c.maybePredeployedLocalCharm,
-		c.maybeReadCharmstoreBundleFn(apiRoot),
+		c.maybeReadCharmstoreBundleFn(repo),
 		c.charmStoreCharm, // This always returns a deployer
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(deploy(ctx, apiRoot), block.BlockChange)
+	return block.ProcessBlockedError(deploy(ctx, repo, auth, apiRoot), block.BlockChange)
 }
 
 func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, error) {
@@ -1158,7 +1183,7 @@ func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, err
 	return nil, errors.NotFoundf("suitable deployer")
 }
 
-type deployFn func(*cmd.Context, DeployAPI) error
+type deployFn func(*cmd.Context, URLResolver, charmAuthorizer, DeployAPI) error
 
 func (c *DeployCommand) validateBundleFlags() error {
 	if flags := getFlags(c.flagSet, charmOnlyFlags()); len(flags) > 0 {
@@ -1221,7 +1246,7 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return func(ctx *cmd.Context, api DeployAPI) error {
+	return func(ctx *cmd.Context, _ URLResolver, _ charmAuthorizer, api DeployAPI) error {
 		if err := c.validateCharmFlags(); err != nil {
 			return errors.Trace(err)
 		}
@@ -1313,7 +1338,7 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 		return nil, errors.Trace(err)
 	}
 
-	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
+	return func(ctx *cmd.Context, urlResolver URLResolver, auth charmAuthorizer, apiRoot DeployAPI) error {
 		return errors.Trace(c.deployBundle(
 			ctx,
 			bundleDir,
@@ -1321,6 +1346,8 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 			nil,
 			c.Channel,
 			apiRoot,
+			auth,
+			urlResolver,
 			c.BundleStorage,
 			c.BundleDevices,
 		))
@@ -1394,7 +1421,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 		return nil, errors.Trace(err)
 	}
 
-	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
+	return func(ctx *cmd.Context, _ URLResolver, _ charmAuthorizer, apiRoot DeployAPI) error {
 		if err := c.validateCharmFlags(); err != nil {
 			return errors.Trace(err)
 		}
@@ -1451,9 +1478,9 @@ func resolveBundleURL(store URLResolver, maybeBundle string) (*charm.URL, params
 	return storeCharmOrBundleURL, channel, nil
 }
 
-func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (deployFn, error) {
+func (c *DeployCommand) maybeReadCharmstoreBundleFn(repo charmrepoForDeploy) func() (deployFn, error) {
 	return func() (deployFn, error) {
-		bundleURL, channel, err := resolveBundleURL(apiRoot, c.CharmOrBundle)
+		bundleURL, channel, err := resolveBundleURL(repo, c.CharmOrBundle)
 		if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 			return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}
@@ -1468,8 +1495,8 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 			return nil, errors.Trace(err)
 		}
 
-		return func(ctx *cmd.Context, apiRoot DeployAPI) error {
-			bundle, err := apiRoot.GetBundle(bundleURL)
+		return func(ctx *cmd.Context, urlResolver URLResolver, auth charmAuthorizer, apiRoot DeployAPI) error {
+			bundle, err := repo.GetBundle(bundleURL)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -1483,6 +1510,8 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 				bundleURL,
 				channel,
 				apiRoot,
+				auth,
+				urlResolver,
 				c.BundleStorage,
 				c.BundleDevices,
 			))
@@ -1505,7 +1534,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
+	return func(ctx *cmd.Context, resolver URLResolver, auth charmAuthorizer, apiRoot DeployAPI) error {
 		// resolver.resolve potentially updates the series of anything
 		// passed in. Store this for use in seriesSelector.
 		userRequestedSeries := userRequestedURL.Series
@@ -1517,7 +1546,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 
 		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
 		storeCharmOrBundleURL, channel, supportedSeries, err := resolveCharm(
-			apiRoot.ResolveWithChannel, userRequestedURL,
+			resolver.ResolveWithChannel, userRequestedURL,
 		)
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
@@ -1554,7 +1583,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		}
 
 		// Store the charm in the controller
-		curl, csMac, err := addCharmFromURL(apiRoot, storeCharmOrBundleURL, channel, c.Force)
+		curl, csMac, err := addCharmFromURL(apiRoot, auth, storeCharmOrBundleURL, channel, c.Force)
 		if err != nil {
 			if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 				return errors.Trace(termErr.UserErr())
