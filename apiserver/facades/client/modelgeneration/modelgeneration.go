@@ -4,8 +4,11 @@
 package modelgeneration
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -162,7 +165,7 @@ func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 // including units on the branch and the configuration disjoint with the
 // master generation.
 // An error is returned if no in-flight branch matching in input is found.
-func (api *API) BranchInfo(args params.BranchArgs) (params.GenerationResults, error) {
+func (api *API) BranchInfo(args params.BranchInfoArgs) (params.GenerationResults, error) {
 	result := params.GenerationResults{}
 
 	isModelAdmin, err := api.hasAdminAccess()
@@ -176,13 +179,11 @@ func (api *API) BranchInfo(args params.BranchArgs) (params.GenerationResults, er
 	// From clients, we expect a single branch name or none,
 	// but we accommodate any number - they all must exist to avoid an error.
 	// If no branch is supplied, get them all.
-	// TODO (manadart 2019-04-11): Needs slight rework when model UUID
-	// is removed from args for this API.
 	var branches []Generation
-	if len(args.Args) > 0 {
-		branches := make([]Generation, len(args.Args))
-		for i, arg := range args.Args {
-			b, err := api.model.Branch(arg.BranchName)
+	if len(args.BranchNames) > 0 {
+		branches := make([]Generation, len(args.BranchNames))
+		for i, name := range args.BranchNames {
+			b, err := api.model.Branch(name)
 			if err != nil {
 				return generationInfoError(err)
 			}
@@ -197,7 +198,7 @@ func (api *API) BranchInfo(args params.BranchArgs) (params.GenerationResults, er
 
 	results := make([]params.Generation, len(branches))
 	for i, b := range branches {
-		if results[i], err = api.oneBranchInfo(b); err != nil {
+		if results[i], err = api.oneBranchInfo(b, args.Detailed); err != nil {
 			return generationInfoError(err)
 		}
 	}
@@ -205,28 +206,43 @@ func (api *API) BranchInfo(args params.BranchArgs) (params.GenerationResults, er
 	return result, nil
 }
 
-func (api *API) oneBranchInfo(branch Generation) (params.Generation, error) {
+func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generation, error) {
 	delta := branch.Config()
 
 	var apps []params.GenerationApplication
-	for appName, units := range branch.AssignedUnits() {
+	for appName, tracking := range branch.AssignedUnits() {
 		app, err := api.st.Application(appName)
 		if err != nil {
 			return params.Generation{}, errors.Trace(err)
 		}
-
-		// TODO (manadart 2019-02-22): As more aspects are made generational,
-		// each should go into its own method - charm, resources etc.
-		defaults, err := app.DefaultCharmConfig()
+		allUnits, err := app.UnitNames()
 		if err != nil {
 			return params.Generation{}, errors.Trace(err)
 		}
 
 		branchApp := params.GenerationApplication{
 			ApplicationName: appName,
-			Units:           units,
-			ConfigChanges:   delta[appName].CurrentSettings(defaults),
+			UnitProgress:    fmt.Sprintf("%d/%d", len(tracking), len(allUnits)),
 		}
+
+		// Determine the effective charm configuration changes.
+		defaults, err := app.DefaultCharmConfig()
+		if err != nil {
+			return params.Generation{}, errors.Trace(err)
+		}
+		branchApp.ConfigChanges = delta[appName].CurrentSettings(defaults)
+
+		// TODO (manadart 2019-04-12): Charm URL.
+
+		// TODO (manadart 2019-04-12): Resources.
+
+		// Only include unit names if detailed info was requested.
+		if detailed {
+			trackingSet := set.NewStrings(tracking...)
+			branchApp.UnitsTracking = trackingSet.SortedValues()
+			branchApp.UnitsPending = set.NewStrings(allUnits...).Difference(trackingSet).SortedValues()
+		}
+
 		apps = append(apps, branchApp)
 	}
 
