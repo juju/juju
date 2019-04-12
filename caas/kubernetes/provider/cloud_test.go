@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
@@ -23,8 +24,59 @@ var (
 	_ = gc.Suite(&cloudSuite{})
 )
 
+var microk8sStatusEnabled = `
+microk8s:
+  running: true
+addons:
+  jaeger: disabled
+  fluentd: disabled
+  gpu: disabled
+  storage: enabled
+  registry: disabled
+  ingress: disabled
+  dns: enabled
+  metrics-server: disabled
+  prometheus: disabled
+  istio: disabled
+  dashboard: disabled
+`
+
+var microk8sStatusStorageDisabled = `
+microk8s:
+  running: true
+addons:
+  jaeger: disabled
+  fluentd: disabled
+  gpu: disabled
+  storage: disabled
+  registry: disabled
+  ingress: disabled
+  dns: enabled
+  metrics-server: disabled
+  prometheus: disabled
+  istio: disabled
+  dashboard: disabled
+`
+var microk8sStatusDNSDisabled = `
+microk8s:
+  running: true
+addons:
+  jaeger: disabled
+  fluentd: disabled
+  gpu: disabled
+  storage: enabled
+  registry: disabled
+  ingress: disabled
+  dns: disabled
+  metrics-server: disabled
+  prometheus: disabled
+  istio: disabled
+  dashboard: disabled
+`
+
 type cloudSuite struct {
 	fakeBroker fakeK8sClusterMetadataChecker
+	runner     dummyRunner
 }
 
 var defaultK8sCloud = jujucloud.Cloud{
@@ -50,6 +102,7 @@ func getDefaultCredential() cloud.Credential {
 func (s *cloudSuite) SetUpTest(c *gc.C) {
 	var logger loggo.Logger
 	s.fakeBroker = fakeK8sClusterMetadataChecker{CallMocker: testing.NewCallMocker(logger)}
+	s.runner = dummyRunner{CallMocker: testing.NewCallMocker(logger)}
 }
 
 func (s *cloudSuite) TestFinalizeCloudNotMicrok8s(c *gc.C) {
@@ -70,6 +123,11 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 	p := s.getProvider()
 	cloudFinalizer := p.(environs.CloudFinalizer)
 
+	s.runner.Call(
+		"RunCommands",
+		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
+		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
+
 	var ctx mockContext
 	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, defaultK8sCloud)
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,14 +143,73 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
+	preparedCloud := jujucloud.Cloud{
+		Name:            caas.K8sCloudMicrok8s,
+		Type:            jujucloud.CloudTypeCAAS,
+		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
+		CACertificates:  []string{""},
+		Endpoint:        "http://1.1.1.1:8080",
+		HostCloudRegion: fmt.Sprintf("%s/%s", caas.K8sCloudMicrok8s, caas.Microk8sRegion),
+		Config:          map[string]interface{}{"operator-storage": "something-else", "workload-storage": "", "controller-service-type": ""},
+		Regions:         []jujucloud.Region{{Name: caas.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
+	}
+
+	p := s.getProvider()
+	cloudFinalizer := p.(environs.CloudFinalizer)
+
+	s.runner.Call(
+		"RunCommands",
+		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
+		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
+
+	var ctx mockContext
+	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, preparedCloud)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloud, jc.DeepEquals, jujucloud.Cloud{
+		Name:            caas.K8sCloudMicrok8s,
+		Type:            jujucloud.CloudTypeCAAS,
+		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
+		CACertificates:  []string{""},
+		Endpoint:        "http://1.1.1.1:8080",
+		HostCloudRegion: fmt.Sprintf("%s/%s", caas.K8sCloudMicrok8s, caas.Microk8sRegion),
+		Config:          map[string]interface{}{"operator-storage": "something-else", "workload-storage": "", "controller-service-type": ""},
+		Regions:         []jujucloud.Region{{Name: caas.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
+	})
+}
+
 func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 	s.fakeBroker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 	s.fakeBroker.Call("CheckDefaultWorkloadStorage").Returns(nil)
 	return provider.NewProviderWithFakes(
-		dummyRunner{},
+		s.runner,
 		getterFunc(builtinCloudRet{cloud: defaultK8sCloud, credential: getDefaultCredential(), err: nil}),
 		func(environs.OpenParams) (caas.ClusterMetadataChecker, error) { return &s.fakeBroker, nil },
 	)
+}
+
+func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
+	s.runner.Call(
+		"RunCommands",
+		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
+		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
+	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), jc.ErrorIsNil)
+}
+
+func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
+	s.runner.Call(
+		"RunCommands",
+		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
+		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusStorageDisabled)}, nil)
+	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `storage is not enabled for microk8s, run 'microk8s.enable storage'`)
+}
+
+func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
+	s.runner.Call(
+		"RunCommands",
+		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
+		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusDNSDisabled)}, nil)
+	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `dns is not enabled for microk8s, run 'microk8s.enable dns'`)
 }
 
 type mockContext struct {

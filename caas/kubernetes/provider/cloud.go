@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/exec"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -227,10 +229,21 @@ func BaseKubeCloudOpenParams(cloud jujucloud.Cloud, credential jujucloud.Credent
 
 // FinalizeCloud is part of the environs.CloudFinalizer interface.
 func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudContext, cld cloud.Cloud) (cloud.Cloud, error) {
-	cloudName := cld.Name
-	if cloudName != caas.K8sCloudMicrok8s {
+	// We special case Microk8s here as we need to query the cluster for the
+	// storage details with no input from the user
+	if cld.Name != caas.K8sCloudMicrok8s {
 		return cld, nil
 	}
+
+	if err := ensureMicroK8sSuitable(p.cmdRunner); err != nil {
+		return cld, errors.Trace(err)
+	}
+
+	// if storage is already defined there is no need to query the cluster
+	if opStorage, ok := cld.Config[OperatorStorageKey]; ok && opStorage != "" {
+		return cld, nil
+	}
+
 	// Need the credentials, need to query for those details
 	mk8sCloud, credential, _, err := p.builtinCloudGetter(p.cmdRunner)
 	if err != nil {
@@ -256,13 +269,55 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 		},
 	}
 	_, err = UpdateKubeCloudWithStorage(&mk8sCloud, credential, storageUpdateParams)
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
 	for i := range mk8sCloud.Regions {
 		if mk8sCloud.Regions[i].Endpoint == "" {
 			mk8sCloud.Regions[i].Endpoint = mk8sCloud.Endpoint
 		}
 	}
-	if err != nil {
-		return cloud.Cloud{}, errors.Trace(err)
-	}
 	return mk8sCloud, nil
+}
+
+func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
+	status, err := microK8sStatus(cmdRunner)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if storageStatus, ok := status.Addons["storage"]; ok {
+		if storageStatus != "enabled" {
+			return errors.New("storage is not enabled for microk8s, run 'microk8s.enable storage'")
+		}
+	}
+	if dns, ok := status.Addons["dns"]; ok {
+		if dns != "enabled" {
+			return errors.New("dns is not enabled for microk8s, run 'microk8s.enable dns'")
+		}
+	}
+	return nil
+}
+
+func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
+	var status microk8sStatus
+	result, err := cmdRunner.RunCommands(exec.RunParams{
+		Commands: "microk8s.status --yaml",
+	})
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	if result.Code != 0 {
+		return status, errors.New(string(result.Stderr))
+	}
+
+	err = yaml.Unmarshal(result.Stdout, &status)
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	return status, nil
+}
+
+type microk8sStatus struct {
+	Addons map[string]string `yaml:"addons"`
 }

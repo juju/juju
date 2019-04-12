@@ -32,7 +32,15 @@ func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Crede
 			return clientconfig.NewClientConfigReader(caasType)
 		},
 	}
-	return CloudFromKubeConfig(rdr, cloudParams)
+	newCloud, credential, credentialName, err := CloudFromKubeConfig(rdr, cloudParams)
+	if err != nil {
+		return newCloud, jujucloud.Credential{}, "", err
+	}
+	newCloud.Regions = []jujucloud.Region{{
+		Name: caas.Microk8sRegion,
+	}}
+	newCloud.Description = cloud.DefaultCloudDescription(cloud.CloudTypeCAAS)
+	return newCloud, credential, credentialName, nil
 }
 
 func getLocalMicroK8sConfig(cmdRunner CommandRunner) ([]byte, error) {
