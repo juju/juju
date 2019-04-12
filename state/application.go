@@ -1372,9 +1372,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 				{"unitcount", a.doc.UnitCount}},
 			Update: bson.D{{"$set", bson.D{{"series", series}}}},
 		}}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+
 		if unit != nil {
 			ops = append(ops, txn.Op{
 				C:  unitsC,
@@ -1383,6 +1381,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 					{"subordinates", unit.SubordinateNames()}},
 			})
 		}
+
 		for _, sub := range subApps {
 			ops = append(ops, txn.Op{
 				C:  applicationsC,
@@ -1626,7 +1625,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	if err != nil {
 		return "", nil, err
 	}
-
 	storageOps, numStorageAttachments, err := a.addUnitStorageOps(
 		args, unitTag, appCharm,
 	)
@@ -1726,13 +1724,9 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	if unitStatusDoc != nil {
-		probablyUpdateStatusHistory(a.st.db(), globalKey, *unitStatusDoc)
-	}
-	if workloadVersionDoc != nil {
-		probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), *workloadVersionDoc)
-	}
-	probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), globalKey, *unitStatusDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), *workloadVersionDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
 	return name, ops, nil
 }
 
@@ -1741,7 +1735,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 func (a *Application) addUnitSubordinateCharmProfileOp(subName, principalName string, profile *charm.LXDProfile) ([]txn.Op, error) {
 	// Because this is not part of a charm upgrade path, it is okay to
 	// short circuit here.
-	if profile == nil || (profile != nil && profile.Empty()) {
+	if profile == nil || profile.Empty() {
 		return nil, nil
 	}
 
@@ -3042,4 +3036,29 @@ func (a *Application) ServiceInfo() (CloudService, error) {
 		return CloudService{}, errors.Trace(err)
 	}
 	return *svc, nil
+}
+
+// UnitNames returns the of this application's units.
+func (a *Application) UnitNames() ([]string, error) {
+	u, err := appUnitNames(a.st, a.Name())
+	return u, errors.Trace(err)
+}
+
+func appUnitNames(st *State, appName string) ([]string, error) {
+	unitsCollection, closer := st.db().GetCollection(unitsC)
+	defer closer()
+
+	var docs []struct {
+		Name string `bson:"name"`
+	}
+	err := unitsCollection.Find(bson.D{{"application", appName}}).Select(bson.D{{"name", 1}}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	unitNames := make([]string, len(docs))
+	for i, doc := range docs {
+		unitNames[i] = doc.Name
+	}
+	return unitNames, nil
 }

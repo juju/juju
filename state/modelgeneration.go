@@ -440,25 +440,6 @@ func (g *Generation) CheckNotComplete() error {
 	return errors.New("branch was already " + msg)
 }
 
-func appUnitNames(st *State, appName string) ([]string, error) {
-	unitsCollection, closer := st.db().GetCollection(unitsC)
-	defer closer()
-
-	var docs []struct {
-		Name string `bson:"name"`
-	}
-	err := unitsCollection.Find(bson.D{{"application", appName}}).Select(bson.D{{"name", 1}}).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	unitNames := make([]string, len(docs))
-	for i, doc := range docs {
-		unitNames[i] = doc.Name
-	}
-	return unitNames, nil
-}
-
 // Refresh refreshes the contents of the generation from the underlying state.
 func (g *Generation) Refresh() error {
 	col, closer := g.st.db().GetCollection(generationsC)
