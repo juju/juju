@@ -197,6 +197,7 @@ func (s *workerEnvironSuite) TestFullWorkflow(c *gc.C) {
 		s.expectSetCharmProfiles,
 		s.expectAssignLXDProfiles,
 		s.expectModificationStatusIdle,
+		s.expectModificationStatusApplied,
 	)
 	s.cleanKill(c, w)
 }
@@ -215,6 +216,7 @@ func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 		s.expectMachineCharmProfilingInfo(2),
 		s.expectLXDProfileNames,
 		s.expectModificationStatusIdle,
+		s.expectModificationStatusApplied,
 	)
 	s.cleanKill(c, w)
 }
@@ -391,6 +393,10 @@ func (s *workerSuite) expectModificationStatusIdle() {
 	s.machine.EXPECT().SetModificationStatus(status.Idle, "", nil).Return(nil)
 }
 
+func (s *workerSuite) expectModificationStatusApplied() {
+	s.machine.EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil)
+}
+
 func (s *workerSuite) expectAssignLXDProfiles() {
 	profiles := []string{"default", "juju-testing", "juju-testing-one-3"}
 	s.broker.EXPECT().AssignLXDProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
@@ -550,6 +556,7 @@ func (s *workerContainerSuite) TestFullWorkflow(c *gc.C) {
 		s.expectContainerSetCharmProfiles,
 		s.expectAssignLXDProfiles,
 		s.expectContainerModificationStatusIdle,
+		s.expectContainerModificationStatusApplied,
 	)
 	s.cleanKill(c, w)
 }
@@ -575,6 +582,10 @@ func (s *workerContainerSuite) expectContainerCharmProfilingInfo(rev int) func()
 
 func (s *workerContainerSuite) expectContainerModificationStatusIdle() {
 	s.container.EXPECT().SetModificationStatus(status.Idle, "", nil).Return(nil)
+}
+
+func (s *workerContainerSuite) expectContainerModificationStatusApplied() {
+	s.container.EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil)
 }
 
 func (s *workerContainerSuite) expectAssignLXDProfiles() {
