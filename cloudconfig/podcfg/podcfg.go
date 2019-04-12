@@ -267,8 +267,10 @@ func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {
 	if cfg.Bootstrap.ControllerServiceType == "" {
 		return errors.New(`
 controller service type is missing.
-The k8s cloud might be staled, please try to re-import k8s cloud using
-	juju add-k8s <cloud-name> --cluster-name <cluster-name> --local
+The k8s cloud definition might be stale, please try to re-import the k8s cloud using
+    juju add-k8s <cloud-name> --cluster-name <cluster-name> --local
+
+See juju help add-k8s for more information.
 `[1:])
 	}
 	return nil

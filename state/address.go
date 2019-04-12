@@ -259,14 +259,8 @@ func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
 }
 
 func (st *State) isCAASController() (bool, error) {
-	ctrlSt, err := st.newStateNoWorkers(st.ControllerModelUUID())
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	defer ctrlSt.Close()
-
-	m, err := ctrlSt.Model()
-	if err != nil {
+	m := &Model{st: st}
+	if err := m.refresh(st.ControllerModelUUID()); err != nil {
 		return false, errors.Trace(err)
 	}
 	return m.IsControllerModel() && m.Type() == ModelTypeCAAS, nil

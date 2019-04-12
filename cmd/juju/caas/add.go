@@ -273,16 +273,16 @@ func getStdinPipe(ctx *cmd.Context) (io.Reader, error) {
 
 func (c *AddCAASCommand) getConfigReader(ctx *cmd.Context) (io.Reader, string, error) {
 	if c.gke {
-		return c.getGKEKubeConfg(ctx)
+		return c.getGKEKubeConfig(ctx)
 	}
 	if c.aks {
-		return c.getAKSKubeConfg(ctx)
+		return c.getAKSKubeConfig(ctx)
 	}
 	rdr, err := getStdinPipe(ctx)
 	return rdr, c.clusterName, err
 }
 
-func (c *AddCAASCommand) getGKEKubeConfg(ctx *cmd.Context) (io.Reader, string, error) {
+func (c *AddCAASCommand) getGKEKubeConfig(ctx *cmd.Context) (io.Reader, string, error) {
 	p := &clusterParams{
 		name:       c.clusterName,
 		region:     c.hostCloudRegion,
@@ -303,7 +303,7 @@ func (c *AddCAASCommand) getGKEKubeConfg(ctx *cmd.Context) (io.Reader, string, e
 	return c.k8sCluster.getKubeConfig(p)
 }
 
-func (c *AddCAASCommand) getAKSKubeConfg(ctx *cmd.Context) (io.Reader, string, error) {
+func (c *AddCAASCommand) getAKSKubeConfig(ctx *cmd.Context) (io.Reader, string, error) {
 	p := &clusterParams{
 		name:          c.clusterName,
 		resourceGroup: c.resourceGroup,
