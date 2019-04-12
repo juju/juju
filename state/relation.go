@@ -386,7 +386,7 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 	// When 'force' is set, this call will return  needed operations
 	// and accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	ops, _, err = rel.destroyOps("", &op.ForcedOperation)
+	destroyOps, _, err := rel.destroyOps("", &op.ForcedOperation)
 	if err == errAlreadyDying {
 		return nil, jujutxn.ErrNoOperations
 	} else if err != nil {
@@ -395,7 +395,7 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 		}
 		op.AddError(err)
 	}
-	return ops, nil
+	return append(ops, destroyOps...), nil
 }
 
 // destroyOps returns the operations necessary to destroy the relation, and
