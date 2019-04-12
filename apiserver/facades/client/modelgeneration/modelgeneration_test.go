@@ -6,7 +6,6 @@ package modelgeneration_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/settings"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/settings"
 )
 
 type modelGenerationSuite struct {
