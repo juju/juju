@@ -523,6 +523,9 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudIns
 	if rootDisk := inst.RootDisk(); rootDisk != 0 {
 		doc.RootDisk = &rootDisk
 	}
+	if rootDiskSource := inst.RootDiskSource(); rootDiskSource != "" {
+		doc.RootDiskSource = &rootDiskSource
+	}
 	if cores := inst.CpuCores(); cores != 0 {
 		doc.CpuCores = &cores
 	}
@@ -1588,6 +1591,9 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 	}
 	if disk := cons.RootDisk(); disk != 0 {
 		result.RootDisk = &disk
+	}
+	if source := cons.RootDiskSource(); source != "" {
+		result.RootDiskSource = &source
 	}
 	if spaces := cons.Spaces(); len(spaces) > 0 {
 		result.Spaces = &spaces

@@ -223,7 +223,8 @@ func (s *clientSuite) TestCreateVirtualMachineDiskAlreadyCached(c *gc.C) {
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
-	args.Datastore = "datastore1"
+	datastore := "datastore1"
+	args.Constraints.RootDiskSource = &datastore
 	args.ComputeResource.Datastore = []types.ManagedObjectReference{{
 		Type:  "Datastore",
 		Value: "FakeDatastore2",
@@ -245,7 +246,8 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFound(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
-	args.Datastore = "datastore3"
+	datastore := "datastore3"
+	args.Constraints.RootDiskSource = &datastore
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)

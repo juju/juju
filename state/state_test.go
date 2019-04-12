@@ -1331,6 +1331,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	arch := "amd64"
 	mem := uint64(1024)
 	disk := uint64(1024)
+	source := "loveshack"
 	tags := []string{"foo", "bar"}
 	template := state.MachineTemplate{
 		Series:      "quantal",
@@ -1339,10 +1340,11 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 		InstanceId:  "i-mindustrious",
 		Nonce:       agent.BootstrapNonce,
 		HardwareCharacteristics: instance.HardwareCharacteristics{
-			Arch:     &arch,
-			Mem:      &mem,
-			RootDisk: &disk,
-			Tags:     &tags,
+			Arch:           &arch,
+			Mem:            &mem,
+			RootDisk:       &disk,
+			RootDiskSource: &source,
+			Tags:           &tags,
 		},
 	}
 	m, err := s.State.AddOneMachine(template)
