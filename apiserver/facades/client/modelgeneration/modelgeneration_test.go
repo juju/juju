@@ -155,14 +155,14 @@ func (s *modelGenerationSuite) TestHasActiveBranchFalse(c *gc.C) {
 }
 
 func (s *modelGenerationSuite) TestBranchInfoDetailed(c *gc.C) {
-	s.testBranchInfo(c, true)
+	s.testBranchInfo(c, nil, true)
 }
 
 func (s *modelGenerationSuite) TestBranchInfoSummary(c *gc.C) {
-	s.testBranchInfo(c, false)
+	s.testBranchInfo(c, []string{s.newBranchName}, false)
 }
 
-func (s *modelGenerationSuite) testBranchInfo(c *gc.C, detailed bool) {
+func (s *modelGenerationSuite) testBranchInfo(c *gc.C, branchNames []string, detailed bool) {
 	units := []string{"redis/0", "redis/1", "redis/2"}
 
 	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, st *mocks.MockState, mod *mocks.MockModel) {
@@ -178,7 +178,13 @@ func (s *modelGenerationSuite) testBranchInfo(c *gc.C, detailed bool) {
 		gExp.Created().Return(int64(666))
 		gExp.CreatedBy().Return(s.apiUser)
 
-		mod.EXPECT().Branches().Return([]modelgeneration.Generation{gen}, nil)
+		// Flex the code path based on whether we are getting all branches
+		// or a sub-set.
+		if len(branchNames) > 0 {
+			mod.EXPECT().Branch(s.newBranchName).Return(gen, nil)
+		} else {
+			mod.EXPECT().Branches().Return([]modelgeneration.Generation{gen}, nil)
+		}
 
 		app := mocks.NewMockApplication(ctrl)
 		app.EXPECT().DefaultCharmConfig().Return(map[string]interface{}{
@@ -190,7 +196,10 @@ func (s *modelGenerationSuite) testBranchInfo(c *gc.C, detailed bool) {
 		st.EXPECT().Application("redis").Return(app, nil)
 	}).Finish()
 
-	result, err := s.api.BranchInfo(params.BranchInfoArgs{Detailed: detailed})
+	result, err := s.api.BranchInfo(params.BranchInfoArgs{
+		BranchNames: branchNames,
+		Detailed:    detailed,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Generations, gc.HasLen, 1)

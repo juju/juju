@@ -124,7 +124,7 @@ func (c *Client) BranchInfo(
 	if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	return generationInfoFromResult(result.Generations[0], detailed, formatTime), nil
+	return generationInfoFromResult(result, detailed, formatTime), nil
 }
 
 func argForBranch(modelUUID, branchName string) params.BranchArg {
@@ -139,27 +139,30 @@ func argForModel(modelUUID string) params.Entity {
 }
 
 func generationInfoFromResult(
-	res params.Generation, detailed bool, formatTime func(time.Time) string,
+	results params.GenerationResults, detailed bool, formatTime func(time.Time) string,
 ) model.GenerationSummaries {
-	appDeltas := make([]model.GenerationApplication, len(res.Applications))
-	for i, a := range res.Applications {
-		bApp := model.GenerationApplication{
-			ApplicationName: a.ApplicationName,
-			UnitProgress:    a.UnitProgress,
-			ConfigChanges:   a.ConfigChanges,
-		}
-		if detailed {
-			bApp.UnitDetail = &model.GenerationUnits{
-				UnitsTracking: a.UnitsTracking,
-				UnitsPending:  a.UnitsPending,
+	summaries := make(model.GenerationSummaries)
+	for _, res := range results.Generations {
+		appDeltas := make([]model.GenerationApplication, len(res.Applications))
+		for i, a := range res.Applications {
+			bApp := model.GenerationApplication{
+				ApplicationName: a.ApplicationName,
+				UnitProgress:    a.UnitProgress,
+				ConfigChanges:   a.ConfigChanges,
 			}
+			if detailed {
+				bApp.UnitDetail = &model.GenerationUnits{
+					UnitsTracking: a.UnitsTracking,
+					UnitsPending:  a.UnitsPending,
+				}
+			}
+			appDeltas[i] = bApp
 		}
-		appDeltas[i] = bApp
+		summaries[res.BranchName] = model.Generation{
+			Created:      formatTime(time.Unix(res.Created, 0)),
+			CreatedBy:    res.CreatedBy,
+			Applications: appDeltas,
+		}
 	}
-	gen := model.Generation{
-		Created:      formatTime(time.Unix(res.Created, 0)),
-		CreatedBy:    res.CreatedBy,
-		Applications: appDeltas,
-	}
-	return map[string]model.Generation{res.BranchName: gen}
+	return summaries
 }

@@ -181,17 +181,14 @@ func (api *API) BranchInfo(args params.BranchInfoArgs) (params.GenerationResults
 	// If no branch is supplied, get them all.
 	var branches []Generation
 	if len(args.BranchNames) > 0 {
-		branches := make([]Generation, len(args.BranchNames))
+		branches = make([]Generation, len(args.BranchNames))
 		for i, name := range args.BranchNames {
-			b, err := api.model.Branch(name)
-			if err != nil {
+			if branches[i], err = api.model.Branch(name); err != nil {
 				return generationInfoError(err)
 			}
-			branches[i] = b
 		}
 	} else {
-		branches, err = api.model.Branches()
-		if err != nil {
+		if branches, err = api.model.Branches(); err != nil {
 			return generationInfoError(err)
 		}
 	}
