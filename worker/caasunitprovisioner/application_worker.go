@@ -155,7 +155,7 @@ func (aw *applicationWorker) loop() error {
 				brokerUnitsWatcher = nil
 				continue
 			}
-			service, err := aw.serviceBroker.GetService(aw.application)
+			service, err := aw.serviceBroker.GetService(aw.application, false)
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
@@ -171,7 +171,7 @@ func (aw *applicationWorker) loop() error {
 				appDeploymentWatcher = nil
 				continue
 			}
-			service, err := aw.serviceBroker.GetService(aw.application)
+			service, err := aw.serviceBroker.GetService(aw.application, false)
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}

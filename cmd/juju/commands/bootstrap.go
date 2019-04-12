@@ -769,7 +769,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		} else if env, ok := environ.(caas.ServiceGetterSetter); ok {
 			// CAAS.
 			var svc *caas.Service
-			svc, err = env.GetService(k8sprovider.JujuControllerStackName)
+			svc, err = env.GetService(k8sprovider.JujuControllerStackName, false)
 			if err != nil {
 				return errors.Trace(err)
 			}

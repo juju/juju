@@ -425,7 +425,7 @@ func initControllerCloudService(
 		// this should never happen.
 		return errors.Errorf("environ %T does not implement ServiceGetterSetter interface", env)
 	}
-	svc, err := broker.GetService(k8sprovider.JujuControllerStackName)
+	svc, err := broker.GetService(k8sprovider.JujuControllerStackName, true)
 	if err != nil {
 		return errors.Trace(err)
 	}

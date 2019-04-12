@@ -327,7 +327,7 @@ func (c controllerStack) createControllerService() error {
 
 	publicAddressPoller := func() error {
 		// get the service by app name;
-		svc, err := c.broker.GetService(c.stackName)
+		svc, err := c.broker.GetService(c.stackName, false)
 		if err != nil {
 			return errors.Annotate(err, "getting controller service")
 		}
