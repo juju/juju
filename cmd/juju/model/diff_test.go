@@ -48,12 +48,16 @@ func (s *diffSuite) TestRunCommandNextGenExists(c *gc.C) {
 			CreatedBy: "test-user",
 			Applications: []coremodel.GenerationApplication{{
 				ApplicationName: "redis",
-				Units:           []string{"redis/0"},
-				ConfigChanges:   map[string]interface{}{"databases": 8},
+				UnitProgress:    "1/2",
+				UnitDetail: &coremodel.GenerationUnits{
+					UnitsTracking: []string{"redis/0"},
+					UnitsPending:  []string{"redis/1"},
+				},
+				ConfigChanges: map[string]interface{}{"databases": 8},
 			}},
 		},
 	}
-	s.api.EXPECT().BranchInfo(gomock.Any(), s.branchName, false, gomock.Any()).Return(result, nil)
+	s.api.EXPECT().BranchInfo(gomock.Any(), s.branchName, true, gomock.Any()).Return(result, nil)
 
 	ctx, err := s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,21 +67,24 @@ new-branch:
   created-by: test-user
   applications:
   - application: redis
+    progress: 1/2
     units:
-    - redis/0
+      tracking:
+      - redis/0
+      incomplete:
+      - redis/1
     config:
       databases: 8
 `[1:])
 }
 
-func (s *diffSuite) TestRunCommandNextNoGenError(c *gc.C) {
+func (s *diffSuite) TestRunCommandAPIError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.api.EXPECT().BranchInfo(gomock.Any(), s.branchName, false, gomock.Any()).Return(
-		nil, errors.New("this model has no next generation"))
+	s.api.EXPECT().BranchInfo(gomock.Any(), s.branchName, true, gomock.Any()).Return(nil, errors.New("boom"))
 
 	_, err := s.runCommand(c)
-	c.Assert(err, gc.ErrorMatches, "this model has no next generation")
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (s *diffSuite) runInit(args ...string) error {
@@ -85,7 +92,7 @@ func (s *diffSuite) runInit(args ...string) error {
 }
 
 func (s *diffSuite) runCommand(c *gc.C) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, model.NewDiffCommandForTest(s.api, s.store), s.branchName)
+	return cmdtesting.RunCommand(c, model.NewDiffCommandForTest(s.api, s.store), s.branchName, "--all")
 }
 
 func (s *diffSuite) setup(c *gc.C) *gomock.Controller {
