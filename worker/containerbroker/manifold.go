@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/environs"
@@ -77,6 +78,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				AgentConfig:   agent.CurrentConfig(),
 				MachineLock:   config.MachineLock,
 				NewBrokerFunc: config.NewBrokerFunc,
+				NewStateFunc: func(apiCaller base.APICaller) State {
+					return provisioner.NewState(apiCaller)
+				},
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

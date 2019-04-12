@@ -20,6 +20,9 @@ import (
 	"github.com/juju/juju/environs"
 )
 
+//go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/worker/containerbroker State
+//go:generate mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/api/provisioner MachineProvisioner
+
 // Config describes the dependencies of a Tracker.
 //
 // It's arguable that it should be called TrackerConfig, because of the heavy
@@ -29,6 +32,14 @@ type Config struct {
 	AgentConfig   agent.Config
 	MachineLock   machinelock.Lock
 	NewBrokerFunc func(broker.Config) (environs.InstanceBroker, error)
+	NewStateFunc  func(base.APICaller) State
+}
+
+// State represents the interaction for the apiserver
+type State interface {
+	broker.APICalls
+	Machines(...names.MachineTag) ([]provisioner.MachineResult, error)
+	ContainerManagerConfig(params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)
 }
 
 // Validate returns an error if the config cannot be used to start a Tracker.
@@ -44,6 +55,9 @@ func (config Config) Validate() error {
 	}
 	if config.NewBrokerFunc == nil {
 		return errors.NotValidf("nil NewBrokerFunc")
+	}
+	if config.NewStateFunc == nil {
+		return errors.NotValidf("nil NewStateFunc")
 	}
 	return nil
 }
@@ -67,13 +81,13 @@ func NewTracker(config Config) (*Tracker, error) {
 	}
 
 	machineTag := config.AgentConfig.Tag().(names.MachineTag)
-	provisioner := provisioner.NewState(config.APICaller)
+	provisioner := config.NewStateFunc(config.APICaller)
 	result, err := provisioner.Machines(machineTag)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot load machine %s from state", machineTag)
 	}
 	if len(result) != 1 {
-		return nil, errors.Annotatef(err, "expected 1 result, got %d", len(result))
+		return nil, errors.Errorf("expected 1 result, got %d", len(result))
 	}
 	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == params.Dead) {
 		return nil, dependency.ErrUninstall
@@ -84,7 +98,7 @@ func NewTracker(config Config) (*Tracker, error) {
 		return nil, errors.Annotate(err, "retrieving supported container types")
 	}
 	if len(instanceContainers) == 0 || !determined {
-		return nil, errors.Annotate(err, "no container types determined")
+		return nil, errors.Errorf("no container types determined")
 	}
 	// we only work on LXD, so check for that.
 	for _, containerType := range instanceContainers {
