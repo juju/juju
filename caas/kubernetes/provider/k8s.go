@@ -841,7 +841,7 @@ func getLoadBalancerAddress(svc *core.Service) string {
 	return lpAdd
 }
 
-func getSvcAddresses(svc *core.Service, restrict bool) []network.Address {
+func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Address {
 	var netAddrs []network.Address
 
 	addressExist := func(addr string) bool {
@@ -876,17 +876,15 @@ func getSvcAddresses(svc *core.Service, restrict bool) []network.Address {
 	case core.ServiceTypeLoadBalancer:
 		appendUniqueAddrs(network.ScopePublic, getLoadBalancerAddress(svc))
 	}
-	if !restrict {
-		// restrict mode only returns address related with current service
-		// type (this is used for bootstrapping process to ensure service has been fully provisioned).
-		// Non restricted mode returns expected result with one more clusterIP (we need ClusterIP for operators).
+	if includeClusterIP {
+		// append clusterIP as a fixed internal address.
 		appendUniqueAddrs(network.ScopeCloudLocal, clusterIP)
 	}
 	return netAddrs
 }
 
 // GetService returns the service for the specified application.
-func (k *kubernetesClient) GetService(appName string, restrict bool) (*caas.Service, error) {
+func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*caas.Service, error) {
 	services := k.CoreV1().Services(k.namespace)
 	servicesList, err := services.List(v1.ListOptions{
 		LabelSelector:        applicationSelector(appName),
@@ -900,7 +898,7 @@ func (k *kubernetesClient) GetService(appName string, restrict bool) (*caas.Serv
 	if len(servicesList.Items) > 0 {
 		service := servicesList.Items[0]
 		result.Id = string(service.GetUID())
-		result.Addresses = getSvcAddresses(&service, restrict)
+		result.Addresses = getSvcAddresses(&service, includeClusterIP)
 	}
 
 	deploymentName := k.deploymentName(appName)
