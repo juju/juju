@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/instancemutater"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -56,9 +57,14 @@ type mutater struct {
 
 func (m *mutater) startMachines(tags []names.MachineTag) error {
 	for _, tag := range tags {
+		select {
+		case <-m.context.dying():
+			return m.context.errDying()
+		default:
+		}
+		m.logger.Debugf("received tag %q", tag.String())
 		if c := m.machines[tag]; c == nil {
-			m.logger.Warningf("received tag %q", tag.String())
-
+			// First time we recieve the tag, setup watchers.
 			api, err := m.context.getMachine(tag)
 			if err != nil {
 				return errors.Trace(err)
@@ -77,26 +83,25 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 
 			go runMachine(machine, c, m.machineDead)
 		} else {
-			select {
-			case <-m.context.dying():
-				return m.context.errDying()
-			case c <- struct{}{}:
-			}
+			// We've received this tag before, therefore
+			// the machine has been removed from the model
+			// cache and no longer needed
+			c <- struct{}{}
 		}
 	}
 	return nil
 }
 
-func runMachine(machine mutaterMachine, changed <-chan struct{}, died chan<- instancemutater.MutaterMachine) {
+func runMachine(machine mutaterMachine, removed <-chan struct{}, died chan<- instancemutater.MutaterMachine) {
 	defer func() {
 		// We can't just send on the dead channel because the
 		// central loop might be trying to write to us on the
-		// changed channel.
+		// removed channel.
 		for {
 			select {
 			case died <- machine.machineApi:
 				return
-			case <-changed:
+			case <-removed:
 			}
 		}
 	}()
@@ -108,16 +113,16 @@ func runMachine(machine mutaterMachine, changed <-chan struct{}, died chan<- ins
 		return
 	}
 	if err := machine.context.add(profileChangeWatcher); err != nil {
+		machine.context.kill(err)
 		return
 	}
-
-	if err := machine.watchProfileChangesLoop(profileChangeWatcher); err != nil {
+	if err := machine.watchProfileChangesLoop(removed, profileChangeWatcher); err != nil {
 		machine.context.kill(err)
 	}
 }
 
 // watchProfileChanges, any error returned will cause the worker to restart.
-func (m mutaterMachine) watchProfileChangesLoop(profileChangeWatcher watcher.NotifyWatcher) error {
+func (m mutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profileChangeWatcher watcher.NotifyWatcher) error {
 	m.logger.Tracef("watching change on mutaterMachine %s", m.id)
 	for {
 		select {
@@ -128,18 +133,32 @@ func (m mutaterMachine) watchProfileChangesLoop(profileChangeWatcher watcher.Not
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err = m.processMachineProfileChanges(info); err != nil {
+			if err = m.processMachineProfileChanges(info); err != nil && errors.IsNotValid(err) {
+				// Return to stop mutating the machine, but no need to restart
+				// the worker.
+				return nil
+			} else if err != nil {
 				return errors.Trace(err)
 			}
+		case <-removed:
+			return nil
 		}
 	}
 }
 
 func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitProfileInfo) error {
-	m.logger.Tracef("%s.processMachineProfileChanges(%#v)", m.id, info)
 	if len(info.CurrentProfiles) == 0 && len(info.ProfileChanges) == 0 {
 		// no changes to be made, return now.
 		return nil
+	}
+
+	if err := m.machineApi.Refresh(); err != nil {
+		return err
+	}
+	if m.machineApi.Life() == params.Dead {
+		// Machine is dead, continue onwards as we can't do anything in this
+		// position.
+		return errors.NotValidf("machine %q", m.id)
 	}
 
 	// Set the modification status to idle, that way we have a baseline for
@@ -150,7 +169,7 @@ func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 
 	report := func(retErr error) error {
 		if retErr != nil {
-			m.logger.Errorf("cannot upgrade machine-%s lxd profile: %s", m.id, retErr.Error())
+			m.logger.Errorf("cannot upgrade machine-%s lxd profiles: %s", m.id, retErr.Error())
 			if err := m.machineApi.SetModificationStatus(status.Error, fmt.Sprintf("cannot upgrade machine's lxd profile: %s", retErr.Error()), nil); err != nil {
 				m.logger.Errorf("cannot set modification status of machine %q error: %v", m.id, err)
 			}
@@ -186,11 +205,11 @@ func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 		return report(nil)
 	}
 
-	m.logger.Tracef("machine-%s (%s) assign profiles %q, %#v", m.id, string(info.InstanceId), expectedProfiles, post)
+	m.logger.Tracef("machine-%s (%s) assign lxd profiles %q, %#v", m.id, string(info.InstanceId), expectedProfiles, post)
 	broker := m.context.getBroker()
 	currentProfiles, err := broker.AssignLXDProfiles(string(info.InstanceId), expectedProfiles, post)
 	if err != nil {
-		m.logger.Errorf("failure to assign profiles %s to machine-%s: %s", expectedProfiles, m.id, err)
+		m.logger.Errorf("failure to assign lxd profiles %s to machine-%s: %s", expectedProfiles, m.id, err)
 		return report(err)
 	}
 
@@ -222,7 +241,6 @@ func (m mutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo)
 		}
 		result = append(result, add)
 	}
-	m.logger.Tracef("%s.data gathered %#v", m.id, result)
 	return result, nil
 }
 
@@ -230,7 +248,7 @@ func (m mutaterMachine) verifyCurrentProfiles(instId string, expectedProfiles []
 	broker := m.context.getBroker()
 	obtainedProfiles, err := broker.LXDProfileNames(instId)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 	obtainedSet := set.NewStrings(obtainedProfiles...)
 

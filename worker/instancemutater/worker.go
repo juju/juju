@@ -162,14 +162,6 @@ func (w *mutaterWorker) loop() error {
 		machines:    make(map[names.MachineTag]chan struct{}),
 		machineDead: make(chan instancemutater.MutaterMachine),
 	}
-	defer func() {
-		// TODO(fwereade): is this a home-grown sync.WaitGroup or something?
-		// strongly suspect these mutaterMachine goroutines could be managed rather
-		// less opaquely if we made them all workers.
-		for len(m.machines) > 0 {
-			delete(m.machines, (<-m.machineDead).Tag())
-		}
-	}()
 	for {
 		select {
 		case <-m.context.dying():
@@ -201,14 +193,14 @@ func (w *mutaterWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// Stop stops the upgradeseriesworker and returns any
+// Stop stops the instancemutaterworker and returns any
 // error it encountered when running.
 func (w *mutaterWorker) Stop() error {
 	w.Kill()
 	return w.Wait()
 }
 
-// newMachineContext is part of the updaterContext interface.
+// newMachineContext is part of the mutaterContext interface.
 func (w *mutaterWorker) newMachineContext() machineContext {
 	return w
 }
