@@ -62,9 +62,9 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 			return m.context.errDying()
 		default:
 		}
-		m.logger.Debugf("received tag %q", tag.String())
+		m.logger.Tracef("received tag %q", tag.String())
 		if c := m.machines[tag]; c == nil {
-			// First time we recieve the tag, setup watchers.
+			// First time we receive the tag, setup watchers.
 			api, err := m.context.getMachine(tag)
 			if err != nil {
 				return errors.Trace(err)
@@ -141,7 +141,12 @@ func (m mutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profile
 				return errors.Trace(err)
 			}
 		case <-removed:
-			return nil
+			if err := m.machineApi.Refresh(); err != nil {
+				return errors.Trace(err)
+			}
+			if m.machineApi.Life() == params.Dead {
+				return nil
+			}
 		}
 	}
 }
@@ -156,8 +161,6 @@ func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 		return err
 	}
 	if m.machineApi.Life() == params.Dead {
-		// Machine is dead, continue onwards as we can't do anything in this
-		// position.
 		return errors.NotValidf("machine %q", m.id)
 	}
 
