@@ -6,15 +6,15 @@ package instancemutater
 import (
 	"fmt"
 
-	"github.com/juju/juju/core/lxdprofile"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -38,6 +38,12 @@ type MutaterMachine interface {
 
 	// Tag returns the current machine tag
 	Tag() names.MachineTag
+
+	// Life returns the machine's lifecycle value.
+	Life() params.Life
+
+	// Refresh updates the cached local copy of the machine's data.
+	Refresh() error
 
 	// RemoveUpgradeCharmProfileData completely removes the instance charm
 	// profile data for a machine and the given unit, even if the machine
@@ -147,6 +153,21 @@ func (m *Machine) SetUpgradeCharmProfileComplete(unitName string, message string
 // Tag implements MutaterMachine.Tag.
 func (m *Machine) Tag() names.MachineTag {
 	return m.tag
+}
+
+// Life implements MutaterMachine.Life.
+func (m *Machine) Life() params.Life {
+	return m.life
+}
+
+// Refresh implements MutaterMachine.Refresh.
+func (m *Machine) Refresh() error {
+	life, err := common.OneLife(m.facade, m.tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	m.life = life
+	return nil
 }
 
 // WatchUnits implements MutaterMachine.WatchUnits.
