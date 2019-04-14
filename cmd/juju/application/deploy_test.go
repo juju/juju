@@ -709,7 +709,7 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 
 	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
 
-	logger.Infof("charmrepo state %#v", s.charmrepo)
+	//TODO(tsm) interpret the --series flag in fakeclient
 	err = s.runDeploy(c, "bitcoin-miner", "-m", m.Name(), "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
 	c.Assert(err, jc.ErrorIsNil)
 

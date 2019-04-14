@@ -347,10 +347,14 @@ func NewRepository() *Repository {
 	return &repo
 }
 
-func (r *Repository) addRevision(ref *charm.URL) *charm.URL {
+func (r *Repository) fillCharmDetails(ref *charm.URL) *charm.URL {
+	logger.Infof("filling details for %+V", ref)
 	revision := r.revisions[r.channel][*ref]
 	if revision == 0 {
 		revision = 1
+	}
+	if ref.User == "" && ref.Schema != "local" {
+		ref.User = "who"
 	}
 	return ref.WithRevision(revision)
 }
@@ -361,7 +365,7 @@ func (r *Repository) addRevision(ref *charm.URL) *charm.URL {
 //
 // In this implementation, the force parameter is ignored.
 func (r Repository) AddCharm(id *charm.URL, channel params.Channel, force bool) error {
-	withRevision := r.addRevision(id)
+	withRevision := r.fillCharmDetails(id)
 	alreadyAdded := r.added[string(channel)]
 
 	for _, charm := range alreadyAdded {
@@ -402,7 +406,7 @@ func (r Repository) AuthorizeCharmstoreEntity(id *charm.URL) (*macaroon.Macaroon
 func (r Repository) CharmInfo(charmURL string) (*charms.CharmInfo, error) {
 	charmId, err := charm.ParseURL(charmURL)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "parsing %+v", charmURL)
 	}
 	logger.Infof("getting charm info for %+v (parsed as %v)", charmURL, charmId)
 	logger.Infof("uploaded charms: %+v", r.channel, r.charms)
@@ -426,7 +430,7 @@ func (r Repository) CharmInfo(charmURL string) (*charms.CharmInfo, error) {
 //
 // Part of the charmrepo.Interface
 func (r Repository) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries []string, err error) {
-	return r.addRevision(ref), []string{"trusty", "wily", "quantal", "kubernetes"}, nil
+	return r.fillCharmDetails(ref), []string{"trusty", "wily", "quantal", "kubernetes"}, nil
 }
 
 // ResolveWithChannel disambiguates a charm to a specific revision.
@@ -441,7 +445,7 @@ func (r Repository) ResolveWithChannel(ref *charm.URL) (*charm.URL, params.Chann
 //
 // Part of the charmrepo.Interface
 func (r Repository) Get(id *charm.URL) (charm.Charm, error) {
-	withRevision := r.addRevision(id)
+	withRevision := r.fillCharmDetails(id)
 	charmData := r.charms[r.channel][*withRevision]
 	if charmData == nil {
 		return charmData, errors.NotFoundf("cannot retrieve \"%v\": charm", id.String())
@@ -486,7 +490,7 @@ func (r Repository) UploadCharm(id *charm.URL, charmData charm.Charm) (*charm.UR
 	if len(r.charms[r.channel]) == 0 {
 		r.charms[r.channel] = make(map[charm.URL]charm.Charm)
 	}
-	withRevision := r.addRevision(id)
+	withRevision := r.fillCharmDetails(id)
 	r.charms[r.channel][*withRevision] = charmData
 	return withRevision, nil
 }
@@ -514,6 +518,7 @@ func (r Repository) UploadCharmWithRevision(id *charm.URL, charmData charm.Charm
 // the new revision, which will be 0 for the first revision or
 // current revision in the store, plus 1.
 func (r Repository) UploadBundle(id *charm.URL, bundleData charm.Bundle) (*charm.URL, error) {
+	id = r.fillCharmDetails(id)
 	r.bundles[r.channel][*id] = bundleData
 	return id, nil
 }

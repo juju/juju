@@ -162,11 +162,11 @@ func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo *charmst
 		return &charmstoreClient{charmstore}, nil
 	}
 
-	deployCmd.NewCharmAdder = func() (CharmAdderAPI, error ) {
-		return &addCharmClient{charmrepo}, nil
+	deployCmd.NewCharmAdder = func() (CharmAdderAPI, error) {
+		return charmrepo, nil
 	}
 
-	deployCmd.NewCharmDeployer = func() (CharmDeployAPI, error ) {
+	deployCmd.NewCharmDeployer = func() (CharmDeployAPI, error) {
 		return charmrepo, nil
 	}
 

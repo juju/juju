@@ -137,10 +137,6 @@ type modelConfigClient struct {
 	*modelconfig.Client
 }
 
-type addCharmClient struct {
-	CharmAdderAPI
-}
-
 // TODO(tsm) rename charmrepoForDeploy. Its main purpose is ResolveWithChannel, potentially also Resolve.
 // TODO(tsm) add CharmInfo to interface
 
