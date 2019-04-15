@@ -252,6 +252,12 @@ type ModelSummary struct {
 }
 
 func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary, now time.Time) (ModelSummary, error) {
+	var statusSince string
+	if c.exactTime {
+		statusSince = apiSummary.Status.Since.String()
+	} else {
+		statusSince = common.FriendlyDuration(apiSummary.Status.Since, now)
+	}
 	summary := ModelSummary{
 		ShortName:      apiSummary.Name,
 		Name:           jujuclient.JoinOwnerModelName(names.NewUserTag(apiSummary.Owner), apiSummary.Name),
@@ -267,7 +273,7 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 		Status: &common.ModelStatus{
 			Current: apiSummary.Status.Status,
 			Message: apiSummary.Status.Info,
-			Since:   common.FriendlyDuration(apiSummary.Status.Since, now),
+			Since:   statusSince,
 		},
 	}
 	if apiSummary.AgentVersion != nil {
@@ -300,7 +306,11 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 		}
 	}
 	if apiSummary.UserLastConnection != nil {
-		summary.UserLastConnection = common.UserFriendlyDuration(*apiSummary.UserLastConnection, now)
+		if c.exactTime {
+			summary.UserLastConnection = apiSummary.UserLastConnection.String()
+		} else {
+			summary.UserLastConnection = common.UserFriendlyDuration(*apiSummary.UserLastConnection, now)
+		}
 	} else {
 		summary.UserLastConnection = "never connected"
 	}
