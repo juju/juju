@@ -264,10 +264,20 @@ func (mi *maas1Instance) hostname() (string, error) {
 	return mi.maasObject.GetField("hostname")
 }
 
+func (mi *maas1Instance) fqdn() (string, error) {
+	return mi.maasObject.GetField("fqdn")
+}
+
 func (mi *maas1Instance) displayName() (string, error) {
 	displayName, err := mi.hostname()
 	if err != nil {
 		logger.Infof("error detecting hostname for %s", mi)
+	}
+	if displayName == "" {
+		displayName, err = mi.fqdn()
+	}
+	if err != nil {
+		logger.Infof("error detecting fqdn for %s", mi)
 	}
 	return displayName, err
 }

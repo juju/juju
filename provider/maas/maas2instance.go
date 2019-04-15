@@ -48,10 +48,7 @@ func (mi *maas2Instance) hardwareCharacteristics() (*instance.HardwareCharacteri
 }
 
 func (mi *maas2Instance) displayName() (string, error) {
-	hostname, err := mi.hostname()
-	if err != nil {
-		return "", err
-	}
+	hostname := mi.machine.Hostname()
 	if hostname != "" {
 		return hostname, nil
 	}
@@ -59,8 +56,7 @@ func (mi *maas2Instance) displayName() (string, error) {
 }
 
 func (mi *maas2Instance) String() string {
-	hostname, _ := mi.hostname()
-	return fmt.Sprintf("%s:%s", hostname, mi.machine.SystemID())
+	return fmt.Sprintf("%s:%s", mi.machine.Hostname(), mi.machine.SystemID())
 }
 
 func (mi *maas2Instance) Id() instance.Id {

@@ -126,7 +126,7 @@ func (s *maas2InstanceSuite) TestDisplayNameFallsBackToFQDN(c *gc.C) {
 	thing := &maas2Instance{machine: machine}
 	result, err := thing.displayName()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, thing.machine.FQDN()) //TODO(tsm) fix to use non-empty string
+	c.Assert(result, gc.Equals, thing.machine.FQDN())
 }
 
 func (s *maas2InstanceSuite) TestHardwareCharacteristics(c *gc.C) {
