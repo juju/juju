@@ -6,7 +6,13 @@ package caas
 var (
 	// JujudStartUpSh is the exec script for CAAS controller.
 	JujudStartUpSh = `
-cp /opt/jujud $(pwd)/jujud
-%s
+
+export JUJU_HOME=%[1]s
+export JUJU_TOOLS_DIR=%[2]s
+
+mkdir -p $JUJU_TOOLS_DIR
+cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+
+%[3]s
 `[1:]
 )

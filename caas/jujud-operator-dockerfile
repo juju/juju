@@ -11,7 +11,7 @@ RUN apt-get update \
     python3-pip \
     python3-distutils \
     # below apt dependencies are required by controller pod.
-    iproute2 \ 
+    iproute2 \
     && pip3 install --upgrade pip setuptools \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /root/.cache
@@ -24,9 +24,8 @@ ENV PIP_FIND_LINKS=/tmp/wheelhouse
 COPY jujud-operator-requirements.txt /tmp/wheelhouse/jujud-operator-requirements.txt
 RUN pip3 install -r /tmp/wheelhouse/jujud-operator-requirements.txt
 
-# Finally jujud
-ARG JUJUD_DIR=/var/lib/juju/tools
-WORKDIR $JUJUD_DIR
+# copy jujud
+WORKDIR /var/lib/juju
 COPY jujud /opt/
 
 ENTRYPOINT ["sh", "-c"]

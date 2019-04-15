@@ -349,7 +349,7 @@ func (c controllerStack) createControllerService() error {
 			return !errors.IsNotProvisioned(err)
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("polling k8s controller svc DNS, in %d attempt, got error %v", attempt, err)
+			logger.Debugf("polling k8s controller svc DNS, in %d attempt, %v", attempt, err)
 		},
 	}
 	return errors.Trace(retry.Call(retryCallArgs))
@@ -697,9 +697,9 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 			},
 			Args: []string{
 				"-c",
-				fmt.Sprintf(caas.JujudStartUpSh, jujudCmd),
+				fmt.Sprintf(caas.JujudStartUpSh, c.pcfg.DataDir, jujudToolDir, jujudCmd),
 			},
-			WorkingDir: jujudToolDir,
+			WorkingDir: jujuHome,
 			VolumeMounts: []core.VolumeMount{
 				{
 					Name:      c.pvcNameControllerPodStorage,
@@ -755,17 +755,15 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 	if c.pcfg.MachineId == "0" {
 		// only do bootstrap-state on the bootstrap machine - machine-0.
 		jujudCmd += "\n" + fmt.Sprintf(
-			"test -e %s || ./jujud bootstrap-state %s --data-dir %s %s --timeout %s",
+			"test -e %s || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_HOME/%s --data-dir $JUJU_HOME %s --timeout %s",
 			agentCfgPath,
-			filepath.Join(c.pcfg.DataDir, c.fileNameBootstrapParams),
-			c.pcfg.DataDir,
+			c.fileNameBootstrapParams,
 			loggingOption,
 			c.pcfg.Bootstrap.Timeout.String(),
 		)
 	}
 	jujudCmd += "\n" + fmt.Sprintf(
-		"./jujud machine --data-dir %s --machine-id %s %s",
-		c.pcfg.DataDir,
+		"$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_HOME --machine-id %s %s",
 		c.pcfg.MachineId,
 		loggingOption,
 	)

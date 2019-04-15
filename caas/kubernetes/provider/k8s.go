@@ -72,7 +72,8 @@ const (
 
 	gpuAffinityNodeSelectorKey = "gpu"
 
-	jujudToolDir = "/var/lib/juju/tools"
+	jujuHome     = "/var/lib/juju"
+	jujudToolDir = jujuHome + "/tools"
 
 	annotationPrefix = "juju.io"
 )
@@ -2296,7 +2297,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 	}
 
 	appTag := names.NewApplicationTag(appName)
-	jujudCmd := fmt.Sprintf("./jujud caasoperator --application-name=%s --debug", appName)
+	jujudCmd := fmt.Sprintf("%s/jujud caasoperator --application-name=%s --debug", jujudToolDir, appName)
 
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -2310,13 +2311,13 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				Name:            "juju-operator",
 				ImagePullPolicy: core.PullIfNotPresent,
 				Image:           operatorImagePath,
-				WorkingDir:      jujudToolDir,
+				WorkingDir:      jujuHome,
 				Command: []string{
 					"/bin/sh",
 				},
 				Args: []string{
 					"-c",
-					fmt.Sprintf(caas.JujudStartUpSh, jujudCmd),
+					fmt.Sprintf(caas.JujudStartUpSh, jujuHome, jujudToolDir, jujudCmd),
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
