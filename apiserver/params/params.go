@@ -1123,6 +1123,16 @@ type BranchArg struct {
 	BranchName string `json:"branch"`
 }
 
+// BranchInfoArgs transports arguments to the BranchInfo method
+type BranchInfoArgs struct {
+	// BranchNames is the names of branches for which info is being requested.
+	BranchNames []string `json:"branches"`
+
+	// Detailed indicates whether full unit tracking detail should returned,
+	// or a summary.
+	Detailed bool `json:"detailed"`
+}
+
 // BranchTrackArg identifies an in-flight branch and a collection of
 // entities that should be set to track changes made under the branch.
 type BranchTrackArg struct {
@@ -1132,17 +1142,24 @@ type BranchTrackArg struct {
 }
 
 // GenerationApplication represents changes to an application
-// made under a generation.
+// made under a branch.
 type GenerationApplication struct {
 	// ApplicationsName is the name of the application.
 	ApplicationName string `json:"application"`
 
-	// Units are the names of units of the application that have been
-	// moved to the generation.
-	Units []string `json:"units"`
+	// UnitProgress is summary information about units tracking the branch.
+	UnitProgress string `json:"progress"`
 
-	// Config changes are the differing configuration values between this
-	// generation and the current.
+	// UnitsTracking is the names of application units that have been set to
+	// track the branch.
+	UnitsTracking []string `json:"tracking,omitempty"`
+
+	// UnitsPending is the names of application units that are still tracking
+	// the master generation.
+	UnitsPending []string `json:"pending,omitempty"`
+
+	// Config changes are the effective new configuration values resulting from
+	// changes made under this branch.
 	ConfigChanges map[string]interface{} `json:"config"`
 }
 
@@ -1162,10 +1179,10 @@ type Generation struct {
 	Applications []GenerationApplication `json:"applications"`
 }
 
-// GenerationResult transports the result of the show-generation command.
-type GenerationResult struct {
-	// Generation holds the details of the requested generation.
-	Generation Generation `json:"generation"`
+// GenerationResults transports a collection of generation details.
+type GenerationResults struct {
+	// Generations holds the details of the requested generations.
+	Generations []Generation `json:"generations"`
 
 	// Error holds the value of any error that occurred processing the request.
 	Error *Error `json:"error,omitempty"`

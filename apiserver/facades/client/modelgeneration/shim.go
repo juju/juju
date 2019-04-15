@@ -3,28 +3,69 @@
 
 package modelgeneration
 
-import "github.com/juju/juju/state"
+import (
+	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6"
 
-type modelGenerationStateShim struct {
-	*state.State
-}
+	"github.com/juju/juju/state"
+)
 
-func (m *modelGenerationStateShim) Model() (Model, error) {
-	model, err := m.State.Model()
-	if err != nil {
-		return nil, err
-	}
-	return &generationModelShim{Model: model}, nil
-}
-
-func (m *modelGenerationStateShim) Application(name string) (Application, error) {
-	return m.State.Application(name)
-}
-
-type generationModelShim struct {
+type modelShim struct {
 	*state.Model
 }
 
-func (g *generationModelShim) Branch(name string) (Generation, error) {
-	return g.Model.Branch(name)
+// Branch wraps the state model branch method,
+// returning the locally defined Generation interface.
+func (g *modelShim) Branch(name string) (Generation, error) {
+	m, err := g.Model.Branch(name)
+	return m, errors.Trace(err)
+}
+
+// Branches wraps the state model branches method,
+// returning a collection of the Generation interface.
+func (g *modelShim) Branches() ([]Generation, error) {
+	branches, err := g.Model.Branches()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	res := make([]Generation, len(branches))
+	for i, b := range branches {
+		res[i] = b
+	}
+	return res, nil
+}
+
+type applicationShim struct {
+	*state.Application
+}
+
+// DefaultCharmConfig returns the default configuration
+// for this application's charm.
+func (a *applicationShim) DefaultCharmConfig() (charm.Settings, error) {
+	ch, _, err := a.Charm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ch.Config().DefaultSettings(), nil
+}
+
+type stateShim struct {
+	*state.State
+}
+
+func (st *stateShim) Model() (Model, error) {
+	model, err := st.State.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &modelShim{Model: model}, nil
+}
+
+func (st *stateShim) Application(name string) (Application, error) {
+	app, err := st.State.Application(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &applicationShim{Application: app}, nil
 }

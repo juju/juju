@@ -104,21 +104,27 @@ func (c *Client) HasActiveBranch(modelUUID, branchName string) (bool, error) {
 	return result.Result, nil
 }
 
-// GenerationInfo returns a list of application with changes in the "next"
-// generation, with units moved to the generation, and any generational
-// configuration changes.
-func (c *Client) GenerationInfo(
-	modelUUID, branchName string, formatTime func(time.Time) string,
+// BranchInfo returns information about "in-flight" branches.
+// If a non-empty string is supplied for branch name, then only information
+// for that branch is returned.
+// Supplying true for detailed returns extra unit detail for the branch.
+func (c *Client) BranchInfo(
+	modelUUID, branchName string, detailed bool, formatTime func(time.Time) string,
 ) (model.GenerationSummaries, error) {
-	var result params.GenerationResult
-	err := c.facade.FacadeCall("BranchInfo", argForBranch(modelUUID, branchName), &result)
+	arg := params.BranchInfoArgs{Detailed: detailed}
+	if branchName != "" {
+		arg.BranchNames = []string{branchName}
+	}
+
+	var result params.GenerationResults
+	err := c.facade.FacadeCall("BranchInfo", arg, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	return generationInfoFromResult(result.Generation, formatTime), nil
+	return generationInfoFromResult(result, detailed, formatTime), nil
 }
 
 func argForBranch(modelUUID, branchName string) params.BranchArg {
@@ -132,19 +138,31 @@ func argForModel(modelUUID string) params.Entity {
 	return params.Entity{Tag: names.NewModelTag(modelUUID).String()}
 }
 
-func generationInfoFromResult(res params.Generation, formatTime func(time.Time) string) model.GenerationSummaries {
-	appDeltas := make([]model.GenerationApplication, len(res.Applications))
-	for i, a := range res.Applications {
-		appDeltas[i] = model.GenerationApplication{
-			ApplicationName: a.ApplicationName,
-			Units:           a.Units,
-			ConfigChanges:   a.ConfigChanges,
+func generationInfoFromResult(
+	results params.GenerationResults, detailed bool, formatTime func(time.Time) string,
+) model.GenerationSummaries {
+	summaries := make(model.GenerationSummaries)
+	for _, res := range results.Generations {
+		appDeltas := make([]model.GenerationApplication, len(res.Applications))
+		for i, a := range res.Applications {
+			bApp := model.GenerationApplication{
+				ApplicationName: a.ApplicationName,
+				UnitProgress:    a.UnitProgress,
+				ConfigChanges:   a.ConfigChanges,
+			}
+			if detailed {
+				bApp.UnitDetail = &model.GenerationUnits{
+					UnitsTracking: a.UnitsTracking,
+					UnitsPending:  a.UnitsPending,
+				}
+			}
+			appDeltas[i] = bApp
+		}
+		summaries[res.BranchName] = model.Generation{
+			Created:      formatTime(time.Unix(res.Created, 0)),
+			CreatedBy:    res.CreatedBy,
+			Applications: appDeltas,
 		}
 	}
-	gen := model.Generation{
-		Created:      formatTime(time.Unix(res.Created, 0)),
-		CreatedBy:    res.CreatedBy,
-		Applications: appDeltas,
-	}
-	return map[string]model.Generation{res.BranchName: gen}
+	return summaries
 }

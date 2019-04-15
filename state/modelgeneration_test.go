@@ -261,6 +261,37 @@ func (s *generationSuite) TestBranchCharmConfigDeltas(c *gc.C) {
 	}})
 }
 
+func (s *generationSuite) TestBranches(c *gc.C) {
+	s.setupTestingClock(c)
+
+	branches, err := s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 0)
+
+	_ = s.addBranch(c)
+	branches, err = s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 1)
+	c.Check(branches[0].BranchName(), gc.Equals, newBranchName)
+
+	const otherBranchName = "other-branch"
+	c.Assert(s.Model.AddBranch(otherBranchName, newBranchCreator), jc.ErrorIsNil)
+	branches, err = s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 2)
+
+	// Commit the newly added branch. Branches call should not return it.
+	branch, err := s.Model.Branch(otherBranchName)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = branch.Commit(newBranchCreator)
+	c.Assert(err, jc.ErrorIsNil)
+
+	branches, err = s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 1)
+	c.Check(branches[0].BranchName(), gc.Equals, newBranchName)
+}
+
 func (s *generationSuite) setupAssignAllUnits(c *gc.C) *state.Generation {
 	ch := s.AddTestingCharm(c, "riak")
 	riak := s.AddTestingApplication(c, "riak", ch)

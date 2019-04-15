@@ -5,8 +5,10 @@ package settings
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6"
 )
 
 const (
@@ -144,6 +146,27 @@ func (c ItemChanges) ApplyDeltaSource(oldChanges ItemChanges) (ItemChanges, erro
 	}
 
 	return res, nil
+}
+
+// CurrentSettings returns the current effective values indicated by this set
+// of changes. It uses the input default settings to return a value for items
+// that have been deleted.
+func (c ItemChanges) CurrentSettings(defaults charm.Settings) map[string]interface{} {
+	result := make(map[string]interface{})
+	for _, change := range c {
+		key := change.Key
+
+		switch {
+		case change.IsModification() && reflect.DeepEqual(change.OldValue, change.NewValue):
+			// These are placeholders that we do not apply.
+			// See comment in ApplyDeltaSource, above.
+		case change.IsDeletion():
+			result[key] = defaults[key]
+		default:
+			result[key] = change.NewValue
+		}
+	}
+	return result
 }
 
 // Map is a convenience method for working with collections of changes.
