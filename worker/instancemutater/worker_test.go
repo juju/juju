@@ -4,6 +4,7 @@
 package instancemutater_test
 
 import (
+	"sync"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -138,9 +139,12 @@ type workerSuite struct {
 	machineTag          names.Tag
 	machinesWorker      *workermocks.MockWorker
 	appLXDProfileWorker *workermocks.MockWorker
+
 	// The done channel is used by tests to indicate that
 	// the worker has accomplished the scenario and can be stopped.
+	// It is protected by a mutex.
 	done chan struct{}
+	mu   sync.Mutex
 
 	newWorkerFunc func(instancemutater.Config) (worker.Worker, error)
 }
@@ -150,7 +154,10 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.mu.Lock()
 	s.done = make(chan struct{})
+	s.mu.Unlock()
+
 	s.machineTag = names.NewMachineTag("0")
 	s.newWorkerFunc = instancemutater.NewEnvironWorker
 }
@@ -278,7 +285,9 @@ func (s *workerSuite) noopDone() {
 }
 
 func (s *workerSuite) closeDone() {
+	s.mu.Lock()
 	close(s.done)
+	s.mu.Unlock()
 }
 
 // workerForScenario creates worker config based on the suite's mocks.
