@@ -404,6 +404,7 @@ func (r *mockRaft) setValues(state raft.RaftState, cf *mockConfigFuture) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.state = state
+	cf.mu = &r.mu
 	r.cf = cf
 }
 
@@ -419,6 +420,7 @@ var _ raft.Future = (*mockFuture)(nil)
 
 type mockConfigFuture struct {
 	raft.IndexFuture
+	mu *sync.Mutex // Shared mutex passed in from mockRaft
 	testing.Stub
 	conf raft.Configuration
 }
@@ -430,7 +432,9 @@ func (f *mockConfigFuture) Error() error {
 
 func (f *mockConfigFuture) Configuration() raft.Configuration {
 	f.AddCall("Configuration")
-	return f.conf
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.conf.Clone()
 }
 
 type mockLogStore struct {
