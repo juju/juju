@@ -38,14 +38,14 @@ type Logger interface {
 type Config struct {
 	Facade InstanceMutaterAPI
 
-	// Logger is the logger for this worker.
+	// Logger is the Logger for this worker.
 	Logger Logger
 
 	Broker environs.LXDProfiler
 
 	AgentConfig agent.Config
 
-	// Tag is the current mutaterMachine tag
+	// Tag is the current MutaterMachine tag
 	Tag names.Tag
 
 	// GetMachineWatcher allows the worker to watch different "machines"
@@ -201,22 +201,22 @@ func (w *mutaterWorker) Stop() error {
 }
 
 // newMachineContext is part of the mutaterContext interface.
-func (w *mutaterWorker) newMachineContext() machineContext {
+func (w *mutaterWorker) newMachineContext() MachineContext {
 	return w
 }
 
-// getMachine is part of the machineContext interface.
+// getMachine is part of the MachineContext interface.
 func (w *mutaterWorker) getMachine(tag names.MachineTag) (instancemutater.MutaterMachine, error) {
 	m, err := w.facade.Machine(tag)
 	return m, err
 }
 
-// getBroker is part of the machineContext interface.
+// getBroker is part of the MachineContext interface.
 func (w *mutaterWorker) getBroker() environs.LXDProfiler {
 	return w.broker
 }
 
-// getRequiredLXDProfiles part of the machineContext interface.
+// getRequiredLXDProfiles part of the MachineContext interface.
 func (w *mutaterWorker) getRequiredLXDProfiles(modelName string) []string {
 	return w.getRequiredLXDProfilesFunc(modelName)
 }
