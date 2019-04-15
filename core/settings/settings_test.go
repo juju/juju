@@ -92,3 +92,24 @@ func (*settingsSuite) TestApplyDeltaSource(c *gc.C) {
 		c.Check(got, gc.DeepEquals, exp[i])
 	}
 }
+
+func (*settingsSuite) TestCurrentSettings(c *gc.C) {
+	changes := ItemChanges{
+		MakeAddition("key1", "new-val"),
+		MakeModification("key2", "old-val", "other-val"),
+		MakeDeletion("key3", "old-deleted-val"),
+		MakeModification("key4", "same-value-ignored", "same-value-ignored"),
+	}
+
+	defaults := map[string]interface{}{
+		"key2": "default-key2-val",
+		"key3": "default-deleted-val",
+	}
+
+	exp := map[string]interface{}{
+		"key1": "new-val",
+		"key2": "other-val",
+		"key3": "default-deleted-val",
+	}
+	c.Check(changes.CurrentSettings(defaults), gc.DeepEquals, exp)
+}

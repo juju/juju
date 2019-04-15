@@ -4,6 +4,9 @@
 package modelgeneration
 
 import (
+	"fmt"
+
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -31,7 +34,7 @@ type API struct {
 // NewModelGenerationFacade provides the signature required for facade registration.
 func NewModelGenerationFacade(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
-	st := &modelGenerationStateShim{State: ctx.State()}
+	st := &stateShim{State: ctx.State()}
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -67,8 +70,8 @@ func NewModelGenerationAPI(
 	}, nil
 }
 
-func (m *API) hasAdminAccess(modelTag names.ModelTag) (bool, error) {
-	canWrite, err := m.authorizer.HasPermission(permission.AdminAccess, modelTag)
+func (api *API) hasAdminAccess() (bool, error) {
+	canWrite, err := api.authorizer.HasPermission(permission.AdminAccess, api.model.ModelTag())
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
@@ -76,38 +79,36 @@ func (m *API) hasAdminAccess(modelTag names.ModelTag) (bool, error) {
 }
 
 // AddBranch adds a new branch with the input name to the model.
-func (m *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
+func (api *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
-	modelTag, err := names.ParseModelTag(arg.Model.Tag)
+	isModelAdmin, err := api.hasAdminAccess()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	isModelAdmin, err := m.hasAdminAccess(modelTag)
-	if !isModelAdmin && !m.isControllerAdmin {
+	if !isModelAdmin && !api.isControllerAdmin {
 		return result, common.ErrPerm
 	}
 
 	if err := model.ValidateBranchName(arg.BranchName); err != nil {
 		result.Error = common.ServerError(err)
 	} else {
-		result.Error = common.ServerError(m.model.AddBranch(arg.BranchName, m.apiUser.Name()))
+		result.Error = common.ServerError(api.model.AddBranch(arg.BranchName, api.apiUser.Name()))
 	}
 	return result, nil
 }
 
 // TrackBranch marks the input units and/or applications as tracking the input
 // branch, causing them to realise changes made under that branch.
-func (m *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, error) {
-	modelTag, err := names.ParseModelTag(arg.Model.Tag)
+func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, error) {
+	isModelAdmin, err := api.hasAdminAccess()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	isModelAdmin, err := m.hasAdminAccess(modelTag)
-	if !isModelAdmin && !m.isControllerAdmin {
+	if !isModelAdmin && !api.isControllerAdmin {
 		return params.ErrorResults{}, common.ErrPerm
 	}
 
-	branch, err := m.model.Branch(arg.BranchName)
+	branch, err := api.model.Branch(arg.BranchName)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -136,24 +137,23 @@ func (m *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, error
 
 // CommitBranch commits the input branch, making its changes applicable to
 // the whole model and marking it complete.
-func (m *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
+func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 	result := params.IntResult{}
 
-	modelTag, err := names.ParseModelTag(arg.Model.Tag)
+	isModelAdmin, err := api.hasAdminAccess()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	isModelAdmin, err := m.hasAdminAccess(modelTag)
-	if !isModelAdmin && !m.isControllerAdmin {
+	if !isModelAdmin && !api.isControllerAdmin {
 		return result, common.ErrPerm
 	}
 
-	generation, err := m.model.Branch(arg.BranchName)
+	generation, err := api.model.Branch(arg.BranchName)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	if genId, err := generation.Commit(m.apiUser.Name()); err != nil {
+	if genId, err := generation.Commit(api.apiUser.Name()); err != nil {
 		result.Error = common.ServerError(err)
 	} else {
 		result.Result = genId
@@ -165,75 +165,105 @@ func (m *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 // including units on the branch and the configuration disjoint with the
 // master generation.
 // An error is returned if no in-flight branch matching in input is found.
-func (m *API) BranchInfo(arg params.BranchArg) (params.GenerationResult, error) {
-	modelTag, err := names.ParseModelTag(arg.Model.Tag)
+func (api *API) BranchInfo(args params.BranchInfoArgs) (params.GenerationResults, error) {
+	result := params.GenerationResults{}
+
+	isModelAdmin, err := api.hasAdminAccess()
 	if err != nil {
-		return params.GenerationResult{}, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
-	isModelAdmin, err := m.hasAdminAccess(modelTag)
-	if !isModelAdmin && !m.isControllerAdmin {
-		return params.GenerationResult{}, common.ErrPerm
-	}
-
-	gen, err := m.model.Branch(arg.BranchName)
-	if err != nil {
-		return generationInfoError(err)
+	if !isModelAdmin && !api.isControllerAdmin {
+		return result, common.ErrPerm
 	}
 
-	var apps []params.GenerationApplication
-	for appName, units := range gen.AssignedUnits() {
-		app, err := m.st.Application(appName)
-		if err != nil {
-			return generationInfoError(err)
-		}
-
-		// TODO (manadart 2019-02-22): As more aspects are made generational,
-		// each should go into its own method - charm, resources etc.
-		cfgCurrent, err := app.CharmConfig(model.GenerationMaster)
-		if err != nil {
-			return generationInfoError(err)
-		}
-		cfgNext, err := app.CharmConfig(arg.BranchName)
-		if err != nil {
-			return generationInfoError(err)
-		}
-		cfgDelta := make(map[string]interface{})
-		for k, v := range cfgNext {
-			if cfgCurrent[k] != v {
-				cfgDelta[k] = v
+	// From clients, we expect a single branch name or none,
+	// but we accommodate any number - they all must exist to avoid an error.
+	// If no branch is supplied, get them all.
+	var branches []Generation
+	if len(args.BranchNames) > 0 {
+		branches = make([]Generation, len(args.BranchNames))
+		for i, name := range args.BranchNames {
+			if branches[i], err = api.model.Branch(name); err != nil {
+				return generationInfoError(err)
 			}
 		}
-
-		genAppDelta := params.GenerationApplication{
-			ApplicationName: appName,
-			Units:           units,
-			ConfigChanges:   cfgDelta,
+	} else {
+		if branches, err = api.model.Branches(); err != nil {
+			return generationInfoError(err)
 		}
-		apps = append(apps, genAppDelta)
 	}
 
-	return params.GenerationResult{Generation: params.Generation{
-		BranchName:   gen.BranchName(),
-		Created:      gen.Created(),
-		CreatedBy:    gen.CreatedBy(),
+	results := make([]params.Generation, len(branches))
+	for i, b := range branches {
+		if results[i], err = api.oneBranchInfo(b, args.Detailed); err != nil {
+			return generationInfoError(err)
+		}
+	}
+	result.Generations = results
+	return result, nil
+}
+
+func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generation, error) {
+	delta := branch.Config()
+
+	var apps []params.GenerationApplication
+	for appName, tracking := range branch.AssignedUnits() {
+		app, err := api.st.Application(appName)
+		if err != nil {
+			return params.Generation{}, errors.Trace(err)
+		}
+		allUnits, err := app.UnitNames()
+		if err != nil {
+			return params.Generation{}, errors.Trace(err)
+		}
+
+		branchApp := params.GenerationApplication{
+			ApplicationName: appName,
+			UnitProgress:    fmt.Sprintf("%d/%d", len(tracking), len(allUnits)),
+		}
+
+		// Determine the effective charm configuration changes.
+		defaults, err := app.DefaultCharmConfig()
+		if err != nil {
+			return params.Generation{}, errors.Trace(err)
+		}
+		branchApp.ConfigChanges = delta[appName].CurrentSettings(defaults)
+
+		// TODO (manadart 2019-04-12): Charm URL.
+
+		// TODO (manadart 2019-04-12): Resources.
+
+		// Only include unit names if detailed info was requested.
+		if detailed {
+			trackingSet := set.NewStrings(tracking...)
+			branchApp.UnitsTracking = trackingSet.SortedValues()
+			branchApp.UnitsPending = set.NewStrings(allUnits...).Difference(trackingSet).SortedValues()
+		}
+
+		apps = append(apps, branchApp)
+	}
+
+	return params.Generation{
+		BranchName:   branch.BranchName(),
+		Created:      branch.Created(),
+		CreatedBy:    branch.CreatedBy(),
 		Applications: apps,
-	}}, nil
+	}, nil
 }
 
 // HasActiveBranch returns a true result if the input model has an "in-flight"
 // branch matching the input name.
-func (m *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error) {
+func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error) {
 	result := params.BoolResult{}
-	modelTag, err := names.ParseModelTag(arg.Model.Tag)
+	isModelAdmin, err := api.hasAdminAccess()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	isModelAdmin, err := m.hasAdminAccess(modelTag)
-	if !isModelAdmin && !m.isControllerAdmin {
+	if !isModelAdmin && !api.isControllerAdmin {
 		return result, common.ErrPerm
 	}
 
-	if _, err := m.model.Branch(arg.BranchName); err != nil {
+	if _, err := api.model.Branch(arg.BranchName); err != nil {
 		if errors.IsNotFound(err) {
 			result.Result = false
 		} else {
@@ -245,6 +275,6 @@ func (m *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error) {
 	return result, nil
 }
 
-func generationInfoError(err error) (params.GenerationResult, error) {
-	return params.GenerationResult{Error: common.ServerError(err)}, nil
+func generationInfoError(err error) (params.GenerationResults, error) {
+	return params.GenerationResults{Error: common.ServerError(err)}, nil
 }
