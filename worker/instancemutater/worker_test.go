@@ -156,12 +156,9 @@ type workerSuite struct {
 	appLXDProfileWorker    map[int]*workermocks.MockWorker
 	getRequiredLXDProfiles instancemutater.RequiredLXDProfilesFunc
 
-	// The done channel is used by tests to indicate that
-	// the worker has accomplished the scenario and can be stopped.
-	done chan struct{}
-	mu   sync.Mutex
-
-	closedCount int
+	// doneWG is a collection of things each test needs to wait to
+	// be completed within the test.
+	doneWG sync.WaitGroup
 
 	newWorkerFunc func(instancemutater.Config) (worker.Worker, error)
 }
@@ -171,9 +168,6 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.mu.Lock()
-	s.done = make(chan struct{})
-	s.mu.Unlock()
 	s.newWorkerFunc = instancemutater.NewEnvironWorker
 	s.machineTag = names.NewMachineTag("0")
 	s.getRequiredLXDProfiles = func(modelName string) []string {
@@ -195,18 +189,15 @@ func (s *workerEnvironSuite) TestFullWorkflow(c *gc.C) {
 
 	w := s.workerForScenario(c,
 		s.ignoreLogging(c),
-		s.notifyMachines([][]string{
-			{"0"},
-		}, s.noopDone),
+		s.notifyMachines([][]string{{"0"}}),
 		s.expectFacadeMachineTag(0),
-		s.notifyMachineAppLXDProfile(0, 1, s.noopDone),
-		s.expectMachineTag(0),
+		s.notifyMachineAppLXDProfile(0, 1),
 		s.expectMachineCharmProfilingInfo(0, 3),
 		s.expectLXDProfileNamesTrue,
 		s.expectSetCharmProfiles(0),
 		s.expectAssignLXDProfiles,
 		s.expectAliveAndSetModificationStatusIdle(0),
-		s.expectModificationStatusAppliedDoCloseDone(0, s.closeDone),
+		s.expectModificationStatusApplied(0),
 	)
 	s.cleanKill(c, w)
 }
@@ -216,16 +207,13 @@ func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 
 	w := s.workerForScenario(c,
 		s.ignoreLogging(c),
-		s.notifyMachines([][]string{
-			{"0"},
-		}, s.noopDone),
+		s.notifyMachines([][]string{{"0"}}),
 		s.expectFacadeMachineTag(0),
-		s.notifyMachineAppLXDProfile(0, 1, s.noopDone),
-		s.expectMachineTag(0),
+		s.notifyMachineAppLXDProfile(0, 1),
 		s.expectAliveAndSetModificationStatusIdle(0),
 		s.expectMachineCharmProfilingInfo(0, 2),
 		s.expectLXDProfileNamesTrue,
-		s.expectModificationStatusAppliedDoCloseDone(0, s.closeDone),
+		s.expectModificationStatusApplied(0),
 	)
 	s.cleanKill(c, w)
 }
@@ -233,26 +221,23 @@ func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 func (s *workerEnvironSuite) TestMachineNotifyTwice(c *gc.C) {
 	defer s.setup(c, 2).Finish()
 
+	// A WaitGroup for this test to synchronize when the
+	// machine notifications are sent.  The 2nd group must
+	// be after machine 0 gets Life() == Alive.
+	var group sync.WaitGroup
 	w := s.workerForScenario(c,
 		s.ignoreLogging(c),
-		s.notifyMachines([][]string{
-			{"0", "1", "0"},
-		}, s.noopDone),
+		s.notifyMachinesWaitGroup([][]string{{"0", "1"}, {"0"}}, &group),
 		s.expectFacadeMachineTag(0),
 		s.expectFacadeMachineTag(1),
-		s.notifyMachineAppLXDProfile(0, 1, s.noopDone),
-		s.notifyMachineAppLXDProfile(1, 1, s.noopDone),
-		s.expectMachineTag(0),
-		s.expectMachineTag(1),
-		s.expectAliveAndSetModificationStatusIdle(0),
+		s.notifyMachineAppLXDProfile(0, 1),
+		s.notifyMachineAppLXDProfile(1, 1),
 		s.expectAliveAndSetModificationStatusIdle(1),
 		s.expectMachineCharmProfilingInfo(0, 2),
 		s.expectMachineCharmProfilingInfo(1, 2),
 		s.expectLXDProfileNamesTrue,
 		s.expectLXDProfileNamesTrue,
-		s.expectModificationStatusAppliedDoCloseDone(0, s.noopDone),
-		s.expectModificationStatusAppliedDoCloseDone(1, s.noopDone),
-		s.expectMachineDead(0, s.closeDone),
+		s.expectMachineAliveStatusIdleMachineDead(0, &group),
 	)
 	s.cleanKill(c, w)
 }
@@ -262,12 +247,9 @@ func (s *workerEnvironSuite) TestNoChangeFoundOne(c *gc.C) {
 
 	w := s.workerForScenario(c,
 		s.ignoreLogging(c),
-		s.notifyMachines([][]string{
-			{"0"},
-		}, s.noopDone),
+		s.notifyMachines([][]string{{"0"}}),
 		s.expectFacadeMachineTag(0),
-		s.notifyMachineAppLXDProfile(0, 1, s.closeDone),
-		s.expectMachineTag(0),
+		s.notifyMachineAppLXDProfile(0, 1),
 		s.expectCharmProfilingInfoSimpleNoChange(0),
 	)
 	s.cleanKill(c, w)
@@ -278,11 +260,13 @@ func (s *workerEnvironSuite) TestNoMachineFound(c *gc.C) {
 
 	w, err := s.workerErrorForScenario(c,
 		s.ignoreLogging(c),
-		s.notifyMachines([][]string{
-			{"0"},
-		}, s.closeDone),
+		s.notifyMachines([][]string{{"0"}}),
 		s.expectFacadeReturnsNoMachine,
 	)
+
+	// Since we don't use cleanKill() nor errorKill()
+	// here, but do waitDone() before checking errors.
+	s.waitDone(c)
 
 	// This test had intermittent failures, one of the
 	// two following would occur.  The 2nd is what we're
@@ -301,12 +285,9 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
 
 	w := s.workerForScenario(c,
 		s.ignoreLogging(c),
-		s.notifyMachines([][]string{
-			{"0"},
-		}, s.noopDone),
+		s.notifyMachines([][]string{{"0"}}),
 		s.expectFacadeMachineTag(0),
-		s.notifyMachineAppLXDProfile(0, 1, s.closeDone),
-		s.expectMachineTag(0),
+		s.notifyMachineAppLXDProfile(0, 1),
 		s.expectCharmProfileInfoNotProvisioned(0),
 	)
 
@@ -332,16 +313,6 @@ func (s *workerSuite) setup(c *gc.C, machineCount int) *gomock.Controller {
 	}
 
 	return ctrl
-}
-
-func (s *workerSuite) noopDone() {
-	// do nothing with the done channel
-}
-
-func (s *workerSuite) closeDone() {
-	s.mu.Lock()
-	close(s.done)
-	s.mu.Unlock()
 }
 
 // workerForScenario creates worker config based on the suite's mocks.
@@ -394,20 +365,20 @@ func (s *workerSuite) expectFacadeMachineTag(machine int) func() {
 }
 
 func (s *workerSuite) expectFacadeReturnsNoMachine() {
-	s.facade.EXPECT().Machine(s.machineTag).Return(nil, errors.NewNotFound(nil, "machine"))
-}
-
-func (s *workerSuite) expectMachineTag(machine int) func() {
-	return func() {
-		tag := names.NewMachineTag(strconv.Itoa(machine))
-		s.machine[machine].EXPECT().Tag().Return(tag).AnyTimes()
-	}
+	do := s.workGroupAddGetDoneFunc()
+	s.facade.EXPECT().Machine(s.machineTag).Return(nil, errors.NewNotFound(nil, "machine")).Do(do)
 }
 
 func (s *workerSuite) expectCharmProfilingInfoSimpleNoChange(machine int) func() {
 	return func() {
-		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, nil)
+		do := s.workGroupAddGetDoneFunc()
+		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, nil).Do(do)
 	}
+}
+
+func (s *workerSuite) workGroupAddGetDoneFunc() func(_ ...interface{}) {
+	s.doneWG.Add(1)
+	return func(_ ...interface{}) { s.doneWG.Done() }
 }
 
 func (s *workerSuite) expectLXDProfileNamesTrue() {
@@ -439,7 +410,8 @@ func (s *workerSuite) expectCharmProfilingInfo(mock *mocks.MockMutaterMachine, r
 
 func (s *workerSuite) expectCharmProfileInfoNotProvisioned(machine int) func() {
 	return func() {
-		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, errors.NotProvisionedf("machine 0"))
+		do := s.workGroupAddGetDoneFunc()
+		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, errors.NotProvisionedf("machine 0")).Do(do)
 	}
 }
 
@@ -452,24 +424,30 @@ func (s *workerSuite) expectAliveAndSetModificationStatusIdle(machine int) func(
 	}
 }
 
-func (s *workerSuite) expectMachineDead(machine int, fn func()) func() {
+func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group *sync.WaitGroup) func() {
 	return func() {
 		mExp := s.machine[machine].EXPECT()
-		mExp.Refresh().Return(nil)
-		do := func(_ status.Status, _ string, _ map[string]interface{}) { fn() }
-		mExp.Life().Return(params.Dead).Do(do)
+
+		group.Add(1)
+		notificationSync := func(_ ...interface{}) { group.Done() }
+
+		mExp.Refresh().Return(nil).Times(2)
+		o1 := mExp.Life().Return(params.Alive).Do(notificationSync)
+
+		mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
+
+		do := s.workGroupAddGetDoneFunc()
+		s.machine[0].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil)
+		s.machine[1].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
+
+		s.doneWG.Add(1)
+		mExp.Life().Return(params.Dead).After(o1).Do(do)
 	}
 }
 
 func (s *workerSuite) expectModificationStatusApplied(machine int) func() {
 	return func() {
-		s.machine[machine].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil)
-	}
-}
-
-func (s *workerSuite) expectModificationStatusAppliedDoCloseDone(machine int, fn func()) func() {
-	return func() {
-		do := func(_ status.Status, _ string, _ map[string]interface{}) { fn() }
+		do := s.workGroupAddGetDoneFunc()
 		s.machine[machine].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
 	}
 }
@@ -488,15 +466,40 @@ func (s *workerSuite) expectSetCharmProfiles(machine int) func() {
 // notifyMachines returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
-func (s *workerSuite) notifyMachines(values [][]string, doneFn func()) func() {
+func (s *workerSuite) notifyMachines(values [][]string) func() {
 	ch := make(chan []string)
 
 	return func() {
+		s.doneWG.Add(1)
 		go func() {
 			for _, v := range values {
 				ch <- v
 			}
-			doneFn()
+			s.doneWG.Done()
+		}()
+
+		s.machinesWorker.EXPECT().Kill().AnyTimes()
+		s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
+
+		s.facade.EXPECT().WatchMachines().Return(
+			&fakeStringsWatcher{
+				Worker: s.machinesWorker,
+				ch:     ch,
+			}, nil)
+	}
+}
+
+func (s *workerSuite) notifyMachinesWaitGroup(values [][]string, group *sync.WaitGroup) func() {
+	ch := make(chan []string)
+
+	return func() {
+		s.doneWG.Add(1)
+		go func() {
+			for _, v := range values {
+				ch <- v
+				group.Wait()
+			}
+			s.doneWG.Done()
 		}()
 
 		s.machinesWorker.EXPECT().Kill().AnyTimes()
@@ -513,23 +516,24 @@ func (s *workerSuite) notifyMachines(values [][]string, doneFn func()) func() {
 // notifyAppLXDProfile returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
-func (s *workerSuite) notifyMachineAppLXDProfile(machine, times int, doneFn func()) func() {
-	return s.notifyAppLXDProfile(s.machine[machine], machine, times, doneFn)
+func (s *workerSuite) notifyMachineAppLXDProfile(machine, times int) func() {
+	return s.notifyAppLXDProfile(s.machine[machine], machine, times)
 }
 
-func (s *workerContainerSuite) notifyContainerAppLXDProfile(times int, doneFn func()) func() {
-	return s.notifyAppLXDProfile(s.container, 0, times, doneFn)
+func (s *workerContainerSuite) notifyContainerAppLXDProfile(times int) func() {
+	return s.notifyAppLXDProfile(s.container, 0, times)
 }
 
-func (s *workerSuite) notifyAppLXDProfile(mock *mocks.MockMutaterMachine, which, times int, doneFn func()) func() {
+func (s *workerSuite) notifyAppLXDProfile(mock *mocks.MockMutaterMachine, which, times int) func() {
 	ch := make(chan struct{})
 
 	return func() {
+		s.doneWG.Add(1)
 		go func() {
 			for i := 0; i < times; i += 1 {
 				ch <- struct{}{}
 			}
-			doneFn()
+			s.doneWG.Done()
 		}()
 
 		w := s.appLXDProfileWorker[which]
@@ -547,11 +551,7 @@ func (s *workerSuite) notifyAppLXDProfile(mock *mocks.MockMutaterMachine, which,
 // cleanKill waits for notifications to be processed, then waits for the input
 // worker to be killed cleanly. If either ops time out, the test fails.
 func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
-	select {
-	case <-s.done:
-	case <-time.After(testing.LongWait * 20):
-		c.Errorf("timed out waiting for notifications to be consumed")
-	}
+	s.waitDone(c)
 	workertest.CleanKill(c, w)
 }
 
@@ -559,12 +559,22 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 // worker to be killed.  Any error is returned to the caller. If either ops
 // time out, the test fails.
 func (s *workerSuite) errorKill(c *gc.C, w worker.Worker) error {
+	s.waitDone(c)
+	return workertest.CheckKill(c, w)
+}
+
+func (s *workerSuite) waitDone(c *gc.C) {
+	ch := make(chan struct{})
+	go func() {
+		s.doneWG.Wait()
+		ch <- struct{}{}
+	}()
+
 	select {
-	case <-s.done:
+	case <-ch:
 	case <-time.After(testing.LongWait):
 		c.Errorf("timed out waiting for notifications to be consumed")
 	}
-	return workertest.CheckKill(c, w)
 }
 
 // ignoreLogging turns the suite's mock logger into a sink, with no validation.
@@ -624,19 +634,17 @@ func (s *workerContainerSuite) TestFullWorkflow(c *gc.C) {
 
 	w := s.workerForScenario(c,
 		s.ignoreLogging(c),
-		s.notifyContainers(0, [][]string{
-			{"0/lxd/0"},
-		}, s.noopDone),
+		s.notifyContainers(0, [][]string{{"0/lxd/0"}}),
 		s.expectFacadeMachineTag(0),
 		s.expectFacadeContainerTag,
-		s.notifyContainerAppLXDProfile(1, s.noopDone),
+		s.notifyContainerAppLXDProfile(1),
 		s.expectContainerTag,
 		s.expectContainerCharmProfilingInfo(3),
 		s.expectLXDProfileNamesTrue,
 		s.expectContainerSetCharmProfiles,
 		s.expectAssignLXDProfiles,
 		s.expectContainerAliveAndSetModificationStatusIdle,
-		s.expectContainerModificationStatusAppliedDoCloseDone,
+		s.expectContainerModificationStatusApplied,
 	)
 	s.cleanKill(c, w)
 }
@@ -668,11 +676,7 @@ func (s *workerContainerSuite) expectContainerAliveAndSetModificationStatusIdle(
 }
 
 func (s *workerContainerSuite) expectContainerModificationStatusApplied() {
-	s.container.EXPECT().SetModificationStatus(status.Applied, gomock.Any(), gomock.Any()).Return(nil)
-}
-
-func (s *workerContainerSuite) expectContainerModificationStatusAppliedDoCloseDone() {
-	do := func(_ status.Status, _ string, _ map[string]interface{}) { s.closeDone() }
+	do := s.workGroupAddGetDoneFunc()
 	s.container.EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
 }
 
@@ -688,15 +692,16 @@ func (s *workerContainerSuite) expectContainerSetCharmProfiles() {
 // notifyContainers returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
-func (s *workerContainerSuite) notifyContainers(machine int, values [][]string, doneFn func()) func() {
+func (s *workerContainerSuite) notifyContainers(machine int, values [][]string) func() {
 	ch := make(chan []string)
 
 	return func() {
+		s.doneWG.Add(1)
 		go func() {
 			for _, v := range values {
 				ch <- v
 			}
-			doneFn()
+			s.doneWG.Done()
 		}()
 
 		s.machinesWorker.EXPECT().Kill().AnyTimes()
