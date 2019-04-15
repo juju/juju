@@ -21,7 +21,6 @@ import (
 
 var preferredControllerServiceTypes = map[string]core.ServiceType{
 	caas.K8sCloudAzure:    core.ServiceTypeLoadBalancer,
-	caas.K8sCloudCDK:      core.ServiceTypeLoadBalancer,
 	caas.K8sCloudEC2:      core.ServiceTypeLoadBalancer,
 	caas.K8sCloudGCE:      core.ServiceTypeLoadBalancer,
 	caas.K8sCloudMicrok8s: core.ServiceTypeClusterIP,

@@ -18,8 +18,6 @@ const (
 	K8sCloudAzure = "azure"
 	// K8sCloudEC2 is the name used for AWS k8s clouds.
 	K8sCloudEC2 = "ec2"
-	// K8sCloudCDK is the name used for CDK k8s clouds.
-	K8sCloudCDK = "cdk"
 	// Microk8sRegion is the single microk8s cloud region.
 	Microk8sRegion = "localhost"
 	// MicroK8sClusterName is the cluster named used by microk8s.
