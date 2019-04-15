@@ -5,6 +5,7 @@ package instancemutater
 
 import (
 	"fmt"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
