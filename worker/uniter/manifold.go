@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/resolver"
@@ -93,6 +94,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			uniter, err := NewUniter(&UniterParams{
 				UniterFacade:         uniterFacade,
 				UnitTag:              unitTag,
+				ModelType:            model.IAAS,
 				LeadershipTracker:    leadershipTracker,
 				DataDir:              agentConfig.DataDir(),
 				Downloader:           downloader,

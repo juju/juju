@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
@@ -480,6 +481,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	uniterParams := uniter.UniterParams{
 		UniterFacade:         ctx.api,
 		UnitTag:              tag,
+		ModelType:            model.IAAS,
 		LeadershipTracker:    ctx.leaderTracker,
 		CharmDirGuard:        ctx.charmDirGuard,
 		DataDir:              ctx.dataDir,
