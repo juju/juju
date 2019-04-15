@@ -23,6 +23,7 @@ import (
 type maasInstance interface {
 	instances.Instance
 	zone() (string, error)
+	displayName() (string, error)
 	hostname() (string, error)
 	hardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	volumes(names.MachineTag, []names.VolumeTag) ([]storage.Volume, []storage.VolumeAttachment, error)
@@ -261,4 +262,12 @@ func (mi *maas1Instance) hardwareCharacteristics() (*instance.HardwareCharacteri
 func (mi *maas1Instance) hostname() (string, error) {
 	// A MAAS instance has its DNS name immediately.
 	return mi.maasObject.GetField("hostname")
+}
+
+func (mi *maas1Instance) displayName() (string, error) {
+	displayName, err := mi.hostname()
+	if err != nil {
+		logger.Infof("error detecting hostname for %s", mi)
+	}
+	return displayName, err
 }

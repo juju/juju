@@ -103,6 +103,19 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 	c.Assert(fmt.Sprint(instance), gc.Equals, expected)
 }
 
+func (s *instanceTest) TestDisplayNameIsHostname(c *gc.C) {
+	jsonValue := `{"system_id": "system_id", "test": "test", "hostname": "abc.internal"}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+
+	instance := &maas1Instance{&obj, nil, nil}
+	displayName, err := instance.displayName()
+	c.Assert(err, gc.IsNil)
+	c.Assert(displayName, gc.Equals, "abc.internal")
+}
+
+// Note: no need to test displayName() without hostname, as Juju defaults to presenting the
+// instance.Id() when a display name is unavailable
+
 func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 	server := s.testMAASObject.TestServer
 	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
