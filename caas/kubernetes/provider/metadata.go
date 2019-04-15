@@ -50,6 +50,8 @@ type requirementParams struct {
 	strValues []string
 }
 
+const regionLabelName = "failure-domain.beta.kubernetes.io/region"
+
 func getCloudRegionFromNodeMeta(node core.Node) (string, string) {
 	for k, checker := range k8sCloudCheckers {
 		if checker.Matches(k8slabels.Set(node.GetLabels())) {
@@ -181,8 +183,6 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 	}
 	return &result, nil
 }
-
-const regionLabelName = "failure-domain.beta.kubernetes.io/region"
 
 // listHostCloudRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
 func (k *kubernetesClient) listHostCloudRegions() (string, set.Strings, error) {

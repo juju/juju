@@ -64,7 +64,8 @@ func compileK8sCloudCheckers() map[string]k8slabels.Selector {
 		caas.K8sCloudAzure: newLabelRequirements(
 			requirementParams{"kubernetes.azure.com/cluster", selection.Exists, nil},
 		),
-		// format - cloudType: requirements.
-		// TODO(caas): add support for cdk, etc.
+		caas.K8sCloudCDK: newLabelRequirements(
+			requirementParams{"juju-application", selection.Equals, []string{"kubernetes-worker"}},
+		),
 	}
 }
