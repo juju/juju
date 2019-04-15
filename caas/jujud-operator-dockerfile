@@ -24,8 +24,8 @@ ENV PIP_FIND_LINKS=/tmp/wheelhouse
 COPY jujud-operator-requirements.txt /tmp/wheelhouse/jujud-operator-requirements.txt
 RUN pip3 install -r /tmp/wheelhouse/jujud-operator-requirements.txt
 
-# copy jujud
 WORKDIR /var/lib/juju
+# copy jujud
 COPY jujud /opt/
 
 ENTRYPOINT ["sh", "-c"]

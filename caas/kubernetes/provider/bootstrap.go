@@ -697,9 +697,14 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 			},
 			Args: []string{
 				"-c",
-				fmt.Sprintf(caas.JujudStartUpSh, c.pcfg.DataDir, jujudToolDir, jujudCmd),
+				fmt.Sprintf(
+					caas.JujudStartUpSh,
+					c.pcfg.DataDir,
+					fmt.Sprintf("%s/tools", c.pcfg.DataDir),
+					jujudCmd,
+				),
 			},
-			WorkingDir: jujuHome,
+			WorkingDir: c.pcfg.DataDir,
 			VolumeMounts: []core.VolumeMount{
 				{
 					Name:      c.pvcNameControllerPodStorage,
@@ -745,18 +750,13 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 		loggingOption = "--debug"
 	}
 
-	agentCfgPath := filepath.Join(
-		c.pcfg.DataDir,
-		"agents",
-		"machine-"+c.pcfg.MachineId,
-		c.fileNameAgentConf,
-	)
+	agentConfigRelativePath := fmt.Sprintf("agents/machine-%s/%s", c.pcfg.MachineId, c.fileNameAgentConf)
 	var jujudCmd string
 	if c.pcfg.MachineId == "0" {
 		// only do bootstrap-state on the bootstrap machine - machine-0.
 		jujudCmd += "\n" + fmt.Sprintf(
-			"test -e %s || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_HOME/%s --data-dir $JUJU_HOME %s --timeout %s",
-			agentCfgPath,
+			"test -e $JUJU_HOME/%s || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_HOME/%s --data-dir $JUJU_HOME %s --timeout %s",
+			agentConfigRelativePath,
 			c.fileNameBootstrapParams,
 			loggingOption,
 			c.pcfg.Bootstrap.Timeout.String(),
