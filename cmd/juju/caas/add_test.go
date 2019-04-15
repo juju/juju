@@ -561,7 +561,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
 	storage defaults are available and to detect the cluster's cloud/region.
 	This was not possible in this case so run add-k8s again, using
 	--storage=<name> to specify the storage class to use and
-	--region=<cloud>/<region> to specify the cloud/region.
+	--region=<cloudType>/<region> to specify the cloud/region.
 : oops`[1:]
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -577,7 +577,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *gc.C) {
 	storage defaults are available and to detect the cluster's cloud/region.
 	This was not possible in this case so run add-k8s again, using
 	--storage=<name> to specify the storage class to use and
-	--region=<cloud>/<region> to specify the cloud/region.
+	--region=<cloudType>/<region> to specify the cloud/region.
 `[1:]
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
