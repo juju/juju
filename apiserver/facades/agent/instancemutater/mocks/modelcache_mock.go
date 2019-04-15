@@ -88,10 +88,11 @@ func (mr *MockModelCacheMockRecorder) Name() *gomock.Call {
 }
 
 // WatchMachines mocks base method
-func (m *MockModelCache) WatchMachines() cache.StringsWatcher {
+func (m *MockModelCache) WatchMachines() (cache.StringsWatcher, error) {
 	ret := m.ctrl.Call(m, "WatchMachines")
 	ret0, _ := ret[0].(cache.StringsWatcher)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // WatchMachines indicates an expected call of WatchMachines
