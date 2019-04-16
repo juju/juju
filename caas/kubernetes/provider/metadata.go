@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 
 	"github.com/juju/juju/caas"
+	// k8sannotations "github.com/juju/juju/core/annotations"
 )
 
 var preferredControllerServiceTypes = map[string]core.ServiceType{

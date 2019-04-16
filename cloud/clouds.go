@@ -49,7 +49,7 @@ const (
 	// UserPassAuthType is an authentication type using a username and password.
 	UserPassAuthType AuthType = "userpass"
 
-	// UserPassAuthType is an authentication type using a username and password and a client certificate
+	// UserPassWithCertAuthType is an authentication type using a username and password and a client certificate
 	UserPassWithCertAuthType AuthType = "userpasswithcert"
 
 	// OAuth1AuthType is an authentication type using oauth1.
@@ -72,7 +72,7 @@ const (
 	// https://tools.ietf.org/html/draft-cavage-http-signatures-06
 	HTTPSigAuthType AuthType = "httpsig"
 
-	// interactiveAuthType is a credential auth-type provided as an option to
+	// InteractiveAuthType is a credential auth-type provided as an option to
 	// "juju add-credential", which takes the user through the process of
 	// adding credentials.  e.g. for lxd: generating a certificate credential.
 	// This authType should used in a CredentialSchema, not a CloudSchema.
@@ -121,7 +121,7 @@ type Cloud struct {
 	// environs.RegisterProvider.
 	Type string
 
-	// HostCloudRegion represents the k8s host cloud. The format is <cloudName>/<region>.
+	// HostCloudRegion represents the k8s host cloud. The format is <cloudType>/<region>.
 	HostCloudRegion string
 
 	// Description describes the type of cloud.

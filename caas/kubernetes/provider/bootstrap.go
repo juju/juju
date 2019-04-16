@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
@@ -301,10 +302,14 @@ func (c controllerStack) createControllerService() error {
 			Name:      svcName,
 			Labels:    c.stackLabels,
 			Namespace: c.broker.GetCurrentNamespace(),
+			Annotations: k8sannotations.New(nil).
+				Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp").
+				ToMap(),
 		},
 		Spec: core.ServiceSpec{
 			Selector: c.stackLabels,
-			Type:     core.ServiceType(c.pcfg.Bootstrap.ControllerServiceType),
+			// TODO: introduce hostcloudregion from cloud then decide which service type & annotations to use.
+			Type: core.ServiceType(c.pcfg.Bootstrap.ControllerServiceType),
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
