@@ -495,13 +495,17 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Args: []string{
 				"-c",
 				`
-cp /opt/jujud $(pwd)/jujud
+export JUJU_DATA_DIR=/var/lib/juju
+export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
-test -e /var/lib/juju/agents/machine-0/agent.conf || ./jujud bootstrap-state /var/lib/juju/bootstrap-params --data-dir /var/lib/juju --debug --timeout 0s
-./jujud machine --data-dir /var/lib/juju --machine-id 0 --debug
+mkdir -p $JUJU_TOOLS_DIR
+cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+
+test -e $JUJU_DATA_DIR/agents/machine-0/agent.conf || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 0s
+$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 `[1:],
 			},
-			WorkingDir: "/var/lib/juju/tools",
+			WorkingDir: "/var/lib/juju",
 			VolumeMounts: []core.VolumeMount{
 				{
 					Name:      "storage",

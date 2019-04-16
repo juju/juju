@@ -349,7 +349,7 @@ func (c controllerStack) createControllerService() error {
 			return !errors.IsNotProvisioned(err)
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("polling k8s controller svc DNS, in %d attempt, got error %v", attempt, err)
+			logger.Debugf("polling k8s controller svc DNS, in %d attempt, %v", attempt, err)
 		},
 	}
 	return errors.Trace(retry.Call(retryCallArgs))
@@ -697,9 +697,14 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 			},
 			Args: []string{
 				"-c",
-				fmt.Sprintf(caas.JujudStartUpSh, jujudCmd),
+				fmt.Sprintf(
+					caas.JujudStartUpSh,
+					c.pcfg.DataDir,
+					"tools",
+					jujudCmd,
+				),
 			},
-			WorkingDir: jujudToolDir,
+			WorkingDir: c.pcfg.DataDir,
 			VolumeMounts: []core.VolumeMount{
 				{
 					Name:      c.pvcNameControllerPodStorage,
@@ -745,27 +750,24 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 		loggingOption = "--debug"
 	}
 
-	agentCfgPath := filepath.Join(
-		c.pcfg.DataDir,
+	agentConfigRelativePath := filepath.Join(
 		"agents",
-		"machine-"+c.pcfg.MachineId,
+		fmt.Sprintf("machine-%s", c.pcfg.MachineId),
 		c.fileNameAgentConf,
 	)
 	var jujudCmd string
 	if c.pcfg.MachineId == "0" {
 		// only do bootstrap-state on the bootstrap machine - machine-0.
 		jujudCmd += "\n" + fmt.Sprintf(
-			"test -e %s || ./jujud bootstrap-state %s --data-dir %s %s --timeout %s",
-			agentCfgPath,
-			filepath.Join(c.pcfg.DataDir, c.fileNameBootstrapParams),
-			c.pcfg.DataDir,
+			"test -e $JUJU_DATA_DIR/%s || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/%s --data-dir $JUJU_DATA_DIR %s --timeout %s",
+			agentConfigRelativePath,
+			c.fileNameBootstrapParams,
 			loggingOption,
 			c.pcfg.Bootstrap.Timeout.String(),
 		)
 	}
 	jujudCmd += "\n" + fmt.Sprintf(
-		"./jujud machine --data-dir %s --machine-id %s %s",
-		c.pcfg.DataDir,
+		"$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id %s %s",
 		c.pcfg.MachineId,
 		loggingOption,
 	)

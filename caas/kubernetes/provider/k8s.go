@@ -72,8 +72,6 @@ const (
 
 	gpuAffinityNodeSelectorKey = "gpu"
 
-	jujudToolDir = "/var/lib/juju/tools"
-
 	annotationPrefix = "juju.io"
 )
 
@@ -553,7 +551,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			Annotations: resourceTagsToAnnotations(config.CharmStorage.ResourceTags).ToMap()},
 		Spec: *pvcSpec,
 	}
-	pod := operatorPod(
+	pod, err := operatorPod(
 		operatorName,
 		appName,
 		agentPath,
@@ -561,6 +559,9 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		config.Version.String(),
 		annotations.Copy(),
 	)
+	if err != nil {
+		return errors.Annotate(err, "generating operator podspec")
+	}
 	// Take a copy for use with statefulset.
 	podWithoutStorage := pod
 
@@ -2287,7 +2288,7 @@ func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) 
 
 // operatorPod returns a *core.Pod for the operator pod
 // of the specified application.
-func operatorPod(podName, appName, agentPath, operatorImagePath, version string, annotations k8sannotations.Annotation) *core.Pod {
+func operatorPod(podName, appName, agentPath, operatorImagePath, version string, annotations k8sannotations.Annotation) (*core.Pod, error) {
 	configMapName := operatorConfigMapName(podName)
 	configVolName := configMapName
 
@@ -2296,8 +2297,11 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 	}
 
 	appTag := names.NewApplicationTag(appName)
-	jujudCmd := fmt.Sprintf("./jujud caasoperator --application-name=%s --debug", appName)
-
+	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
+	jujuDataDir, err := paths.DataDir("kubernetes")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name: podName,
@@ -2310,13 +2314,18 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				Name:            "juju-operator",
 				ImagePullPolicy: core.PullIfNotPresent,
 				Image:           operatorImagePath,
-				WorkingDir:      jujudToolDir,
+				WorkingDir:      jujuDataDir,
 				Command: []string{
 					"/bin/sh",
 				},
 				Args: []string{
 					"-c",
-					fmt.Sprintf(caas.JujudStartUpSh, jujudCmd),
+					fmt.Sprintf(
+						caas.JujudStartUpSh,
+						jujuDataDir,
+						"tools",
+						jujudCmd,
+					),
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
@@ -2342,7 +2351,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				},
 			}},
 		},
-	}
+	}, nil
 }
 
 // operatorConfigMap returns a *core.ConfigMap for the operator pod
