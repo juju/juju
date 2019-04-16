@@ -246,6 +246,7 @@ func AllFacades() *facade.Registry {
 	reg("ModelManager", 4, modelmanager.NewFacadeV4)
 	reg("ModelManager", 5, modelmanager.NewFacadeV5) // adds ChangeModelCredential
 	reg("ModelManager", 6, modelmanager.NewFacadeV6) // adds cloud specific default config
+	reg("ModelManager", 7, modelmanager.NewFacadeV7) // DestroyModels gains 'force' and max-wait' parameters.
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
 
 	reg("Payloads", 1, payloads.NewFacade)
