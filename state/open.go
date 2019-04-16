@@ -175,7 +175,11 @@ func newState(
 			logger.Warningf("user requested server-side transactions, but they are not supported\n"+
 				" consider using the '%s' feature flag", feature.MongoDbSnap)
 			sstxn = false
+		} else {
+			logger.Infof("using server-side transactions")
 		}
+	} else {
+		logger.Infof("using client-side transactions")
 	}
 	db := &database{
 		raw:                    mongodb,
