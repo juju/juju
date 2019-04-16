@@ -143,27 +143,30 @@ func (w *MachineAppLXDProfileWatcher) unitChange(topic string, value interface{}
 
 	names, okString := value.([]string)
 	unit, okUnit := value.(*Unit)
+	isSubordinate := unit.Subordinate()
+	unitMachineId := unit.MachineId()
+
 	switch {
 	case okString:
 		logger.Tracef("stop watching %q on machine-%s", names, w.machineId)
 		notify = w.removeUnit(names)
 	case okUnit:
 		switch {
-		case unit.MachineId() == "" && !unit.Subordinate():
+		case unitMachineId == "" && !isSubordinate:
 			logger.Tracef("%s has no machineId and not a sub", unit.Name())
 			return
-		case unit.Subordinate():
+		case isSubordinate:
 			principal, err := w.modeler.Unit(unit.Principal())
 			if err != nil {
-				logger.Tracef("unit %s is subordinate, principal %s not found", unit.Name(), principal)
+				logger.Tracef("unit %s is subordinate, principal %s not found", unit.Name(), unit.Principal())
 				return
 			}
 			if w.machineId != principal.MachineId() {
-				logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unit.MachineId())
+				logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unitMachineId)
 				return
 			}
-		case w.machineId != unit.MachineId():
-			logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unit.MachineId())
+		case w.machineId != unitMachineId:
+			logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unitMachineId)
 			return
 		}
 		logger.Tracef("start watching %q on machine-%s", unit.Name(), w.machineId)
