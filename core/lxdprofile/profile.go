@@ -10,10 +10,6 @@ import (
 	"github.com/juju/collections/set"
 )
 
-func NewLXDCharmProfiler(profile Profile) LXDProfiler {
-	return LXDProfiles{Profile: profile}
-}
-
 type LXDProfiles struct {
 	Profile Profile
 }
