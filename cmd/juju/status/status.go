@@ -83,14 +83,14 @@ machines, applications, and units will also be displayed. If a subordinate unit
 is matched, then its principal unit will be displayed. If a principal unit is
 matched, then all of its subordinates will be displayed.
 
-Machine numbers may also be used as output filters. This will only display data 
-in each section relevant to the specified machines. For example, application 
+Machine numbers may also be used as output filters. This will only display data
+in each section relevant to the specified machines. For example, application
 section will only contain the applications that have units on these machines, etc.
 
 The available output formats are:
 
 - tabular (default): Displays status in a tabular format with a separate table
-	  for the model, machines, applications, relations (if any), storage (if any) 
+	  for the model, machines, applications, relations (if any), storage (if any)
 	  and units.
       Note: in this format, the AZ column refers to the cloud region's
       availability zone.
@@ -105,9 +105,9 @@ The available output formats are:
       in structured YAML format.
 - json: Displays information about the model, machines, applications, and units
       in structured JSON format.
-      
-In tabular format, 'Relations' section is not displayed by default. 
-Use --relations option to see this section. This option is ignored in all other 
+
+In tabular format, 'Relations' section is not displayed by default.
+Use --relations option to see this section. This option is ignored in all other
 formats.
 
 Examples:
@@ -312,7 +312,9 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		formatterParams.storage = storageInfo
+		if storageInfo != nil && !storageInfo.Empty() {
+			formatterParams.storage = storageInfo
+		}
 	}
 
 	formatted, err := newStatusFormatter(formatterParams).format()

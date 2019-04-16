@@ -102,7 +102,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if combined.empty() {
+	if combined.Empty() {
 		if c.out.Name() == "tabular" {
 			ctx.Infof("No storage to display.")
 		}
@@ -173,7 +173,8 @@ type CombinedStorage struct {
 	Volumes          map[string]VolumeInfo     `yaml:"volumes,omitempty" json:"volumes,omitempty"`
 }
 
-func (c *CombinedStorage) empty() bool {
+// Empty checks if CombinedStorage is empty.
+func (c *CombinedStorage) Empty() bool {
 	return len(c.StorageInstances) == 0 && len(c.Filesystems) == 0 && len(c.Volumes) == 0
 }
 
