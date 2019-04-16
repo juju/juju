@@ -501,8 +501,7 @@ export JUJU_TOOLS_DIR=/var/lib/juju/tools
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 
-
-test -e /var/lib/juju/agents/machine-0/agent.conf || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_HOME/bootstrap-params --data-dir $JUJU_HOME --debug --timeout 0s
+test -e $JUJU_HOME/agents/machine-0/agent.conf || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_HOME/bootstrap-params --data-dir $JUJU_HOME --debug --timeout 0s
 $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_HOME --machine-id 0 --debug
 `[1:],
 			},
