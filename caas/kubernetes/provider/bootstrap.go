@@ -6,6 +6,7 @@ package provider
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -304,6 +305,7 @@ func (c controllerStack) createControllerService() error {
 			Namespace: c.broker.GetCurrentNamespace(),
 			Annotations: k8sannotations.New(nil).
 				Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp").
+				Add("service.beta.kubernetes.io/aws-load-balancer-ssl-ports", strconv.Itoa(c.portAPIServer)).
 				ToMap(),
 		},
 		Spec: core.ServiceSpec{
