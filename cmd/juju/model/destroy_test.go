@@ -61,8 +61,8 @@ func (f *fakeAPI) BestAPIVersion() int {
 	return f.bestAPIVersion
 }
 
-func (f *fakeAPI) DestroyModel(tag names.ModelTag, destroyStorage *bool) error {
-	f.MethodCall(f, "DestroyModel", tag, destroyStorage)
+func (f *fakeAPI) DestroyModel(tag names.ModelTag, destroyStorage *bool, force *bool, maxWait *time.Duration) error {
+	f.MethodCall(f, "DestroyModel", tag, destroyStorage, force, maxWait)
 	return f.NextErr()
 }
 
@@ -169,6 +169,11 @@ func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
+func (s *DestroySuite) TestDestroyMaxWaitWithoutForce(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "model", "--max-wait", "3m")
+	c.Assert(err, gc.ErrorMatches, `--max-wait duration without --force not valid`)
+}
+
 func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 	called := false
 	refresh := func(jujuclient.ClientStore, string) error {
@@ -202,7 +207,31 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil)}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil)}},
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithForceDefaultMaxWait(c *gc.C) {
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	_, err := s.runDestroyCommand(c, "test2", "-y", "--force")
+	c.Assert(err, jc.ErrorIsNil)
+	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
+	force := true
+	maxWait := 1 * time.Minute
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, &maxWait}},
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithForceCustomMaxWait(c *gc.C) {
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	_, err := s.runDestroyCommand(c, "test2", "-y", "--force", "--max-wait", "1h20m45s")
+	c.Assert(err, jc.ErrorIsNil)
+	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
+	force := true
+	maxWait := 1*time.Hour + 20*time.Minute + 45*time.Second
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, &maxWait}},
 	})
 }
 
@@ -234,7 +263,7 @@ func (s *DestroySuite) TestDestroyWithSupportedSLA(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil)}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil)}},
 		{"DeleteBudget", []interface{}{"test2-uuid"}},
 	})
 }
@@ -245,7 +274,7 @@ func (s *DestroySuite) TestDestroyWithSupportedSLAFailure(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil)}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil)}},
 		{"DeleteBudget", []interface{}{"test2-uuid"}},
 	})
 }
@@ -255,7 +284,7 @@ func (s *DestroySuite) TestDestroyDestroyStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := true
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil)}},
 	})
 }
 
@@ -264,7 +293,7 @@ func (s *DestroySuite) TestDestroyReleaseStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := false
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil)}},
 	})
 }
 

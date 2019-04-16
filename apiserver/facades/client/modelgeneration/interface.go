@@ -6,6 +6,8 @@ package modelgeneration
 import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/core/settings"
 )
 
 //go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration State,Model,Generation,Application
@@ -19,8 +21,10 @@ type State interface {
 
 // Model describes model state used by the model generation API.
 type Model interface {
+	ModelTag() names.ModelTag
 	AddBranch(string, string) error
 	Branch(string) (Generation, error)
+	Branches() ([]Generation, error)
 }
 
 // Generation defines the methods used by a generation.
@@ -32,10 +36,14 @@ type Generation interface {
 	AssignUnit(string) error
 	AssignedUnits() map[string][]string
 	Commit(string) (int, error)
-	Refresh() error
+	Config() map[string]settings.ItemChanges
 }
 
 // Application describes application state used by the model generation API.
 type Application interface {
-	CharmConfig(string) (charm.Settings, error)
+	UnitNames() ([]string, error)
+
+	// DefaultCharmConfig is the only abstraction in these shims.
+	// It saves us having to shim out Charm as well.
+	DefaultCharmConfig() (charm.Settings, error)
 }

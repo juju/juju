@@ -440,25 +440,6 @@ func (g *Generation) CheckNotComplete() error {
 	return errors.New("branch was already " + msg)
 }
 
-func appUnitNames(st *State, appName string) ([]string, error) {
-	unitsCollection, closer := st.db().GetCollection(unitsC)
-	defer closer()
-
-	var docs []struct {
-		Name string `bson:"name"`
-	}
-	err := unitsCollection.Find(bson.D{{"application", appName}}).Select(bson.D{{"name", 1}}).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	unitNames := make([]string, len(docs))
-	for i, doc := range docs {
-		unitNames[i] = doc.Name
-	}
-	return unitNames, nil
-}
-
 // Refresh refreshes the contents of the generation from the underlying state.
 func (g *Generation) Refresh() error {
 	col, closer := g.st.db().GetCollection(generationsC)
@@ -526,6 +507,29 @@ func insertGenerationTxnOps(id, branchName, userName string, now *time.Time) []t
 	}
 }
 
+// Branches returns all "in-flight" branches for the model.
+func (m *Model) Branches() ([]*Generation, error) {
+	b, err := m.st.Branches()
+	return b, errors.Trace(err)
+}
+
+// Branches returns all "in-flight" branches.
+func (st *State) Branches() ([]*Generation, error) {
+	col, closer := st.db().GetCollection(generationsC)
+	defer closer()
+
+	var docs []generationDoc
+	if err := col.Find(bson.M{"completed": 0}).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	branches := make([]*Generation, len(docs))
+	for i, d := range docs {
+		branches[i] = newGeneration(st, &d)
+	}
+	return branches, nil
+}
+
 // Branch retrieves the generation with the the input branch name from the
 // collection of not-yet-completed generations.
 func (m *Model) Branch(name string) (*Generation, error) {
@@ -547,9 +551,8 @@ func (st *State) getBranchDoc(name string) (*generationDoc, error) {
 	col, closer := st.db().GetCollection(generationsC)
 	defer closer()
 
-	var err error
 	doc := &generationDoc{}
-	err = col.Find(bson.M{
+	err := col.Find(bson.M{
 		"name":      name,
 		"completed": 0,
 	}).One(doc)

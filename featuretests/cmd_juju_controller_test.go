@@ -108,6 +108,17 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 		"\n")
 }
 
+func (s *cmdControllerSuite) TestListModelsExactTimeFlag(c *gc.C) {
+	s.createModelNormalUser(c, "new-model", false)
+	context := s.run(c, "list-models", "--exact-time")
+	c.Assert(cmdtesting.Stdout(context), gc.Matches, ""+
+		"Controller: kontroll\n"+
+		"\n"+
+		"Model        Cloud/Region        Type   Status     Access  Last connection\n"+
+		`controller\*  dummy/dummy-region  dummy  available  admin   20[0-9-]{8} [0-9:]{8} [-+][0-9]+ [A-Z]+\n`+
+		"\n") // 2019-04-15 16:37:43 +1200 NZST
+}
+
 func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
 	s.Factory.MakeMachine(c, nil)
 	two := uint64(2)
@@ -133,9 +144,44 @@ models:
   life: alive
   status:
     current: available
-    since: .*
+    since: just now
   access: admin
   last-connection: just now
+  sla-owner: admin
+  agent-version: %v
+current-model: controller
+`[1:]
+	c.Assert(cmdtesting.Stdout(context), gc.Matches, fmt.Sprintf(expectedOutput, version.Current))
+}
+
+func (s *cmdControllerSuite) TestListModelsYAMLWithExactTime(c *gc.C) {
+	s.Factory.MakeMachine(c, nil)
+	two := uint64(2)
+	s.Factory.MakeMachine(c, &factory.MachineParams{Characteristics: &instance.HardwareCharacteristics{CpuCores: &two}})
+	context := s.run(c, "list-models", "--exact-time", "--format=yaml")
+	expectedOutput := `
+models:
+- name: admin/controller
+  short-name: controller
+  model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
+  controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
+  controller-name: kontroll
+  is-controller: true
+  owner: admin
+  cloud: dummy
+  region: dummy-region
+  credential:
+    name: cred
+    owner: admin
+    cloud: dummy
+  type: dummy
+  life: alive
+  status:
+    current: available
+    since: 20[0-9-]{8} [0-9:]{8}[.0-9]* [-+][0-9]+ [A-Z]+
+  access: admin
+  last-connection: 20[0-9-]{8} [0-9:]{8} [-+][0-9]+ [A-Z]+
   sla-owner: admin
   agent-version: %v
 current-model: controller

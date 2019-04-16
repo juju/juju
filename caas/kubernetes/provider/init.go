@@ -64,5 +64,6 @@ func compileK8sCloudCheckers() map[string]k8slabels.Selector {
 		caas.K8sCloudAzure: newLabelRequirements(
 			requirementParams{"kubernetes.azure.com/cluster", selection.Exists, nil},
 		),
+		// format - cloudType: requirements.
 	}
 }

@@ -131,21 +131,23 @@ func (s *modelGenerationSuite) TestHasActiveBranch(c *gc.C) {
 func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	resultSource := params.GenerationResult{Generation: params.Generation{
+	resultSource := params.GenerationResults{Generations: []params.Generation{{
 		BranchName: "new-branch",
 		Created:    time.Time{}.Unix(),
 		CreatedBy:  "test-user",
 		Applications: []params.GenerationApplication{
 			{
 				ApplicationName: "redis",
-				Units:           []string{"redis/0"},
+				UnitProgress:    "1/2",
+				UnitsTracking:   []string{"redis/0"},
+				UnitsPending:    []string{"redis/1"},
 				ConfigChanges:   map[string]interface{}{"databases": 8},
 			},
 		},
-	}}
-	arg := params.BranchArg{
-		Model:      params.Entity{Tag: s.tag.String()},
-		BranchName: s.branchName,
+	}}}
+	arg := params.BranchInfoArgs{
+		BranchNames: []string{s.branchName},
+		Detailed:    true,
 	}
 
 	s.fCaller.EXPECT().FacadeCall("BranchInfo", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
@@ -156,7 +158,7 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 		return t.UTC().Format("2006-01-02 15:04:05")
 	}
 
-	apps, err := api.GenerationInfo(s.tag.Id(), s.branchName, formatTime)
+	apps, err := api.BranchInfo(s.tag.Id(), s.branchName, true, formatTime)
 	c.Assert(err, gc.IsNil)
 	c.Check(apps, jc.DeepEquals, map[string]model.Generation{
 		s.branchName: {
@@ -164,8 +166,12 @@ func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
 			CreatedBy: "test-user",
 			Applications: []model.GenerationApplication{{
 				ApplicationName: "redis",
-				Units:           []string{"redis/0"},
-				ConfigChanges:   map[string]interface{}{"databases": 8},
+				UnitProgress:    "1/2",
+				UnitDetail: &model.GenerationUnits{
+					UnitsTracking: []string{"redis/0"},
+					UnitsPending:  []string{"redis/1"},
+				},
+				ConfigChanges: map[string]interface{}{"databases": 8},
 			}},
 		},
 	})

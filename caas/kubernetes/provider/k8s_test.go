@@ -268,15 +268,19 @@ var operatorPodspec = core.PodSpec{
 		Name:            "juju-operator",
 		ImagePullPolicy: core.PullIfNotPresent,
 		Image:           "/path/to/image",
-		WorkingDir:      "/var/lib/juju/tools",
+		WorkingDir:      "/var/lib/juju",
 		Command: []string{
 			"/bin/sh",
 		},
 		Args: []string{
 			"-c",
 			`
-cp /opt/jujud $(pwd)/jujud
-./jujud caasoperator --application-name=test --debug
+export JUJU_DATA_DIR=/var/lib/juju
+export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
+
+mkdir -p $JUJU_TOOLS_DIR
+cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+$JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 `[1:],
 		},
 		Env: []core.EnvVar{
@@ -388,7 +392,8 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	tags := map[string]string{
 		"fred": "mary",
 	}
-	pod := provider.OperatorPod("gitlab", "gitlab", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", tags)
+	pod, err := provider.OperatorPod("gitlab", "gitlab", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", tags)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Name, gc.Equals, "gitlab")
 	c.Assert(pod.Labels, jc.DeepEquals, map[string]string{
 		"juju-operator": "gitlab",

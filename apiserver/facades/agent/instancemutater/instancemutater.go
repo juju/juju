@@ -188,7 +188,10 @@ func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error
 		return result, common.ErrPerm
 	}
 
-	watch := api.model.WatchMachines()
+	watch, err := api.model.WatchMachines()
+	if err != nil {
+		return result, err
+	}
 	if changes, ok := <-watch.Changes(); ok {
 		result.StringsWatcherId = api.resources.Register(watch)
 		result.Changes = changes
