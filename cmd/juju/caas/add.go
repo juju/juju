@@ -328,7 +328,7 @@ var clusterQueryErrMsg = `
 	storage defaults are available and to detect the cluster's cloud/region.
 	This was not possible in this case so run add-k8s again, using
 	--storage=<name> to specify the storage class to use and
-	--region=<cloud>/<region> to specify the cloud/region.
+	--region=<cloudType>/<region> to specify the cloud/region.
 `[1:]
 
 var unknownClusterErrMsg = `
