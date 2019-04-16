@@ -92,7 +92,7 @@ Model destruction is a multi-step process and when forcing this process, users c
 specify for how long each step will wait to complete cleanly before forcing the next step to start.
 When --max-wait is not explicitly specified, a default wait of 1 minute will be used.
 --max-wait is a duration and can be specified with suffixes such as 'h' for 'hours',
-'m' for 'minutes' and 's' for 'seconds'. For example, '--max-wait 1h20ms45s' is painfully
+'m' for 'minutes' and 's' for 'seconds'. For example, '--max-wait 1h20m45s' is painfully
 long but completely valid.
 
 Examples:
