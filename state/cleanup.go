@@ -25,6 +25,15 @@ const (
 	forceTimeout = time.Minute
 )
 
+var (
+	// asap is the earliest possible time - cleanups scheduled at this
+	// time will run now. Used instead of time.Now() (hard to test) or
+	// some contextual clock now (requires that a clock or now value
+	// be passed through layers of functions from state to
+	// newCleanupOp).
+	asap = time.Time{}
+)
+
 const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
 	cleanupRelationSettings              cleanupKind = "settings"
@@ -81,7 +90,7 @@ func (a *cleanupArg) SetBSON(raw bson.Raw) error {
 // newCleanupOp returns a txn.Op that creates a cleanup document with a unique
 // id and the supplied kind and prefix.
 func newCleanupOp(kind cleanupKind, prefix string, args ...interface{}) txn.Op {
-	return newCleanupAtOp(time.Now(), kind, prefix, args...)
+	return newCleanupAtOp(asap, kind, prefix, args...)
 }
 
 func newCleanupAtOp(when time.Time, kind cleanupKind, prefix string, args ...interface{}) txn.Op {
@@ -130,7 +139,7 @@ func (st *State) Cleanup() (err error) {
 
 	// Only look at cleanups that should be run now.
 	query := bson.M{"$or": []bson.M{
-		{"when": bson.M{"$lte": time.Now()}},
+		{"when": bson.M{"$lte": st.stateClock.Now()}},
 		{"when": bson.M{"$exists": false}},
 	}}
 	iter := cleanups.Find(query).Iter()
@@ -564,7 +573,7 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 }
 
 func (st *State) scheduleForceCleanup(kind cleanupKind, name string) {
-	deadline := time.Now().Add(forceTimeout)
+	deadline := st.stateClock.Now().Add(forceTimeout)
 	op := newCleanupAtOp(deadline, kind, name)
 	err := st.db().Run(func(int) ([]txn.Op, error) {
 		return []txn.Op{op}, nil
