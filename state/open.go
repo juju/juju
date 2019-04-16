@@ -4,18 +4,18 @@
 package state
 
 import (
-	"github.com/juju/juju/feature"
-	"github.com/juju/txn"
-	"github.com/juju/utils/featureflag"
 	"runtime/pprof"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/txn"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 )
 
