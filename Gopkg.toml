@@ -114,9 +114,8 @@
   name = "github.com/juju/romulus"
 
 [[constraint]]
-  branch="mgo-with-replSet"
+  branch="master"
   name = "github.com/juju/testing"
-  source = "github.com/jameinel/juju-testing"
 
 [[constraint]]
   revision = "bf9cc5bdd62dabc40b7f634b39a5e2dc44d44c45"
@@ -345,9 +344,7 @@
 
 [[constraint]]
   name = "github.com/juju/txn"
-  branch = "txn-with-sstxn"
-  source = "github.com/jameinel/juju-txn"
-#  revision = "8b04e13fed503681d54b660dbf536336ae62ce6a"
+  branch = "master"
 
 [[override]]
   name = "github.com/juju/usso"
@@ -519,9 +516,8 @@
 
 [[constraint]]
   name = "gopkg.in/mgo.v2"
-#  revision = "05866bc74f4d4664be53205ca9e4789302a1cc9d"
-  branch = "mgo-sstxn"
-  source = "github.com/jameinel/mgo"
+  branch = "master"
+  source = "github.com/juju/mgo"
 
 [[constraint]]
   name = "gopkg.in/natefinch/lumberjack.v2"

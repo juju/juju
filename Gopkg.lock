@@ -731,8 +731,8 @@
   revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
 
 [[projects]]
-  branch = "mgo-with-replSet"
-  digest = "1:d4c573e8cdb72246a3ab8ee3f1f5449a542194e6c2b0a9a5971d62b8c457b67f"
+  branch = "master"
+  digest = "1:096e6a7b449f6e06ff5738796ff4619ea0a28e1805670f18f114048a707901de"
   name = "github.com/juju/testing"
   packages = [
     ".",
@@ -741,20 +741,18 @@
     "httptesting",
   ]
   pruneopts = ""
-  revision = "0d8516c13e109e2dd102ddaabf085f32c436a4a6"
-  source = "github.com/jameinel/juju-testing"
+  revision = "a282c42ba059f163ede45e0bc755517e15120523"
 
 [[projects]]
-  branch = "txn-with-sstxn"
-  digest = "1:ac47edb13bd6f4f9327be59b34615203bedc245703bb37589b88accefa2be779"
+  branch = "master"
+  digest = "1:c43a754dcd24720e8f651933c9685511be5cba937faabaf6abbc4360b5b1f228"
   name = "github.com/juju/txn"
   packages = [
     ".",
     "testing",
   ]
   pruneopts = ""
-  revision = "5ddefd7d401932671d88fc8b7e29ab827b5672d4"
-  source = "github.com/jameinel/juju-txn"
+  revision = "5f348e78887d8757a402c7bb81e707c3b244c6da"
 
 [[projects]]
   digest = "1:cf637806c17846b1660d388cfbee501ed64734526fe2e6176f16f9cd950e7c62"
@@ -1624,8 +1622,8 @@
   revision = "66ab28d0d56f39a383f7cf5cf3ac9a4e9ab32865"
 
 [[projects]]
-  branch = "mgo-sstxn"
-  digest = "1:74fe65cba48e6543320b8fad4134daf99a9d9dbdb322ad26b72feacc54224206"
+  branch = "master"
+  digest = "1:081960156f5b98277d71dae28be0a9aeb41efa9d07f53650a90e2d907a3fbf40"
   name = "gopkg.in/mgo.v2"
   packages = [
     ".",
@@ -1637,8 +1635,8 @@
     "txn",
   ]
   pruneopts = ""
-  revision = "b083885f668b51f6e40e504d7319c9e241131a53"
-  source = "github.com/jameinel/mgo"
+  revision = "8d6748476efef25475f4af621615cde61968c051"
+  source = "github.com/juju/mgo"
 
 [[projects]]
   digest = "1:b3754795e3fee393109402432c80f9771e13118efa63da5a022028ca68fc1887"
