@@ -11,17 +11,16 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// TODO(ericsnow) While not strictly config-related, we could use some
-// mechanism by which we can validate the values we've hard-coded in
-// this provider match up with the external authoritative sources. One
-// example of this is the data stored in instancetypes.go. Similarly
-// we should also ensure the cloud-images metadata is correct and
-// up-to-date, though that is more the responsibility of that team.
-// Regardless, it may be useful to include a tool somewhere in juju
-// that we can use to validate this provider's potentially out-of-date
-// data.
+const (
+	cfgBaseImagePath = "base-image-path"
+)
 
-var configSchema = environschema.Fields{}
+var configSchema = environschema.Fields{
+	cfgBaseImagePath: {
+		Description: "Base path to look for machine disk images.",
+		Type:        environschema.Tstring,
+	},
+}
 
 // configFields is the spec for each GCE config value's type.
 var configFields = func() schema.Fields {
@@ -34,7 +33,9 @@ var configFields = func() schema.Fields {
 
 var configImmutableFields = []string{}
 
-var configDefaults = schema.Defaults{}
+var configDefaults = schema.Defaults{
+	cfgBaseImagePath: schema.Omit,
+}
 
 type environConfig struct {
 	config *config.Config
@@ -78,4 +79,9 @@ func newConfig(cfg, old *config.Config) (*environConfig, error) {
 		attrs:  attrs,
 	}
 	return ecfg, nil
+}
+
+func (c *environConfig) baseImagePath() (string, bool) {
+	path, ok := c.attrs[cfgBaseImagePath].(string)
+	return path, ok
 }

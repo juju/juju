@@ -131,6 +131,28 @@ func (env *environ) findInstanceSpec(
 	return spec, errors.Trace(err)
 }
 
+func (env *environ) imageURLBase(os jujuos.OSType) (string, error) {
+	base, useCustomPath := env.ecfg.baseImagePath()
+	if useCustomPath {
+		return base, nil
+	}
+
+	switch os {
+	case jujuos.Ubuntu:
+		if env.Config().ImageStream() == "daily" {
+			base = ubuntuDailyImageBasePath
+		} else {
+			base = ubuntuImageBasePath
+		}
+	case jujuos.Windows:
+		base = windowsImageBasePath
+	default:
+		return "", errors.Errorf("os %s is not supported on the gce provider", os.String())
+	}
+
+	return base, nil
+}
+
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
@@ -155,11 +177,16 @@ func (env *environ) newRawInstance(ctx context.ProviderCallContext, args environ
 		hostname,
 	}
 
+	imageURLBase, err := env.imageURLBase(os)
+	if err != nil {
+		return nil, common.ZoneIndependentError(err)
+	}
+
 	disks, err := getDisks(
 		spec, args.Constraints,
 		args.InstanceConfig.Series,
 		env.Config().UUID(),
-		env.Config().ImageStream() == "daily",
+		imageURLBase,
 	)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
@@ -231,32 +258,20 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID string, daily bool) ([]google.DiskSpec, error) {
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID string, imageURLBase string) ([]google.DiskSpec, error) {
 	size := common.MinRootDiskSizeGiB(ser)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
 	}
-	var imageURL string
-	os, err := series.GetOSFromSeries(ser)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if imageURLBase == "" {
+		return nil, errors.NotValidf("imageURLBase must be set")
 	}
-	switch os {
-	case jujuos.Ubuntu:
-		if daily {
-			imageURL = ubuntuDailyImageBasePath
-		} else {
-			imageURL = ubuntuImageBasePath
-		}
-	case jujuos.Windows:
-		imageURL = windowsImageBasePath
-	default:
-		return nil, errors.Errorf("os %s is not supported on the gce provider", os.String())
-	}
+	imageURL := imageURLBase + spec.Image.Id
+	logger.Infof("fetching disk image from %v", imageURL)
 	dSpec := google.DiskSpec{
 		Series:     ser,
 		SizeHintGB: size,
-		ImageURL:   imageURL + spec.Image.Id,
+		ImageURL:   imageURL,
 		Boot:       true,
 		AutoDelete: true,
 	}
