@@ -4,6 +4,8 @@
 package modelmanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -387,7 +389,7 @@ func (c *Client) DumpModelDB(model names.ModelTag) (map[string]interface{}, erro
 // DestroyModel puts the specified model into a "dying" state, which will
 // cause the model's resources to be cleaned up, after which the model will
 // be removed.
-func (c *Client) DestroyModel(tag names.ModelTag, destroyStorage *bool) error {
+func (c *Client) DestroyModel(tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration) error {
 	var args interface{}
 	if c.BestAPIVersion() < 4 {
 		if destroyStorage == nil || !*destroyStorage {
@@ -395,12 +397,15 @@ func (c *Client) DestroyModel(tag names.ModelTag, destroyStorage *bool) error {
 		}
 		args = params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
 	} else {
-		args = params.DestroyModelsParams{
-			Models: []params.DestroyModelParams{{
-				ModelTag:       tag.String(),
-				DestroyStorage: destroyStorage,
-			}},
+		arg := params.DestroyModelParams{
+			ModelTag:       tag.String(),
+			DestroyStorage: destroyStorage,
 		}
+		if c.BestAPIVersion() > 6 {
+			arg.Force = force
+			arg.MaxWait = maxWait
+		}
+		args = params.DestroyModelsParams{Models: []params.DestroyModelParams{arg}}
 	}
 	var results params.ErrorResults
 	if err := c.facade.FacadeCall("DestroyModels", args, &results); err != nil {

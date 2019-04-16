@@ -65,6 +65,9 @@ type destroyCommand struct {
 	api            DestroyModelAPI
 	configAPI      ModelConfigAPI
 	storageAPI     StorageAPI
+
+	Force   bool
+	MaxWait time.Duration
 }
 
 var destroyDoc = `
@@ -77,6 +80,20 @@ action.
 If there is persistent storage in any of the models managed by the
 controller, then you must choose to either destroy or release the
 storage, using --destroy-storage or --release-storage respectively.
+
+Sometimes, the destruction of the model may fail as Juju encounters errors
+and failures that need to be dealt with before a model can be destroyed.
+However, at times, there is a need to destroy a model ignoring
+all operational errors. In these rare cases, use --force option but note 
+that --force will also remove all units of the application, its subordinates
+and, potentially, machines without given them the opportunity to shutdown cleanly.
+
+Model destruction is a multi-step process and when forcing this process, users can also 
+specify for how long each step will wait to complete cleanly before forcing the next step to start.
+When --max-wait is not explicitly specified, a default wait of 1 minute will be used.
+--max-wait is a duration and can be specified with suffixes such as 'h' for 'hours',
+'m' for 'minutes' and 's' for 'seconds'. For example, '--max-wait 1h20m45s' is painfully
+long but completely valid.
 
 Examples:
 
@@ -105,7 +122,7 @@ Continue [y/N]? `[1:]
 type DestroyModelAPI interface {
 	Close() error
 	BestAPIVersion() int
-	DestroyModel(tag names.ModelTag, destroyStorage *bool) error
+	DestroyModel(tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration) error
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 }
 
@@ -135,12 +152,18 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.DurationVar(&c.timeout, "timeout", 30*time.Minute, "")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances in the model")
 	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from the model, and management of the controller, without destroying them")
+	f.BoolVar(&c.Force, "force", false, "Force destroy model ignoring any errors")
+	f.DurationVar(&c.MaxWait, "max-wait", 1*time.Minute, "Time interval to wait for each step to complete")
 }
 
 // Init implements Command.Init.
 func (c *destroyCommand) Init(args []string) error {
 	if c.destroyStorage && c.releaseStorage {
 		return errors.New("--destroy-storage and --release-storage cannot both be specified")
+	}
+
+	if !c.Force && c.MaxWait != 1*time.Minute {
+		return errors.NotValidf("--max-wait duration without --force")
 	}
 	switch len(args) {
 	case 0:
@@ -287,8 +310,15 @@ upgrade the controller to version 2.3 or greater.
 	if c.destroyStorage || c.releaseStorage {
 		destroyStorage = &c.destroyStorage
 	}
+	var force *bool
+	var maxWait *time.Duration
+	if c.Force {
+		force = &c.Force
+		// max wait only makes sense if c.force is set.
+		maxWait = &c.MaxWait
+	}
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
-	if err := api.DestroyModel(modelTag, destroyStorage); err != nil {
+	if err := api.DestroyModel(modelTag, destroyStorage, force, maxWait); err != nil {
 		return c.handleError(
 			modelTag, modelName, api,
 			errors.Annotate(err, "cannot destroy model"),

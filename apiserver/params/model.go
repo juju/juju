@@ -398,6 +398,15 @@ type DestroyModelParams struct {
 	// storage in the model, an error with the code
 	// params.CodeHasPersistentStorage will be returned.
 	DestroyStorage *bool `json:"destroy-storage,omitempty"`
+
+	// Force specifies whether model destruction will be forced, i.e.
+	// keep going despite operational errors.
+	Force *bool `json:"force,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in model destroy process
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
 // ModelCredential stores information about cloud credential that a model uses:
