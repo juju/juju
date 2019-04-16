@@ -620,14 +620,9 @@ func (st *State) cleanupForceDestroyedUnit(unitId string) error {
 	}
 
 	// Detach all storage.
-	storageBackend, err := NewStorageBackend(st)
-	if err == nil {
-		err := storageBackend.DestroyUnitStorageAttachments(names.NewUnitTag(unitId))
-		if err != nil {
-			logger.Warningf("error destroying storage attachments for %q: %v", unitId, err)
-		}
-	} else {
-		logger.Warningf("couldn't get storage backend: %v", err)
+	err = st.forceRemoveUnitStorageAttachments(unit)
+	if err != nil {
+		logger.Warningf("couldn't remove storage attachments for %q: %v", unitId, err)
 	}
 
 	// Mark the unit dead.
@@ -644,6 +639,29 @@ func (st *State) cleanupForceDestroyedUnit(unitId string) error {
 	// Set up another cleanup to remove the unit in a minute if the
 	// deployer doesn't do it.
 	st.scheduleForceCleanup(cleanupForceRemoveUnit, unitId)
+	return nil
+}
+
+func (st *State) forceRemoveUnitStorageAttachments(unit *Unit) error {
+	sb, err := NewStorageBackend(st)
+	if err != nil {
+		return errors.Annotate(err, "couldn't get storage backend")
+	}
+	err = sb.DestroyUnitStorageAttachments(unit.UnitTag())
+	if err != nil {
+		return errors.Annotatef(err, "destroying storage attachments for %q", unit.Tag().Id())
+	}
+	attachments, err := sb.UnitStorageAttachments(unit.UnitTag())
+	if err != nil {
+		return errors.Annotatef(err, "getting storage attachments for %q", unit.Tag().Id())
+	}
+	for _, attachment := range attachments {
+		err := sb.RemoveStorageAttachment(
+			attachment.StorageInstance(), unit.UnitTag(), true)
+		if err != nil {
+			logger.Warningf("couldn't remove storage attachment %q for %q: %v", attachment.StorageInstance(), unit, err)
+		}
+	}
 	return nil
 }
 
