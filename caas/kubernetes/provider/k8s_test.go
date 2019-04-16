@@ -275,12 +275,12 @@ var operatorPodspec = core.PodSpec{
 		Args: []string{
 			"-c",
 			`
-export JUJU_HOME=/var/lib/juju
-export JUJU_TOOLS_DIR=/var/lib/juju/tools
+export JUJU_DATA_DIR=/var/lib/juju
+export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
-/var/lib/juju/tools/jujud caasoperator --application-name=test --debug
+$JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 `[1:],
 		},
 		Env: []core.EnvVar{

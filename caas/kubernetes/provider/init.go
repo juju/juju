@@ -65,6 +65,5 @@ func compileK8sCloudCheckers() map[string]k8slabels.Selector {
 			requirementParams{"kubernetes.azure.com/cluster", selection.Exists, nil},
 		),
 		// format - cloudType: requirements.
-		// TODO(caas): add support for cdk, etc.
 	}
 }

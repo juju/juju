@@ -700,7 +700,7 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 				fmt.Sprintf(
 					caas.JujudStartUpSh,
 					c.pcfg.DataDir,
-					fmt.Sprintf("%s/tools", c.pcfg.DataDir),
+					"tools",
 					jujudCmd,
 				),
 			},
@@ -750,12 +750,16 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 		loggingOption = "--debug"
 	}
 
-	agentConfigRelativePath := fmt.Sprintf("agents/machine-%s/%s", c.pcfg.MachineId, c.fileNameAgentConf)
+	agentConfigRelativePath := filepath.Join(
+		"agents",
+		fmt.Sprintf("machine-%s", c.pcfg.MachineId),
+		c.fileNameAgentConf,
+	)
 	var jujudCmd string
 	if c.pcfg.MachineId == "0" {
 		// only do bootstrap-state on the bootstrap machine - machine-0.
 		jujudCmd += "\n" + fmt.Sprintf(
-			"test -e $JUJU_HOME/%s || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_HOME/%s --data-dir $JUJU_HOME %s --timeout %s",
+			"test -e $JUJU_DATA_DIR/%s || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/%s --data-dir $JUJU_DATA_DIR %s --timeout %s",
 			agentConfigRelativePath,
 			c.fileNameBootstrapParams,
 			loggingOption,
@@ -763,7 +767,7 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 		)
 	}
 	jujudCmd += "\n" + fmt.Sprintf(
-		"$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_HOME --machine-id %s %s",
+		"$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id %s %s",
 		c.pcfg.MachineId,
 		loggingOption,
 	)

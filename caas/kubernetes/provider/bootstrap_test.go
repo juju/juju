@@ -495,14 +495,14 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Args: []string{
 				"-c",
 				`
-export JUJU_HOME=/var/lib/juju
-export JUJU_TOOLS_DIR=/var/lib/juju/tools
+export JUJU_DATA_DIR=/var/lib/juju
+export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 
-test -e $JUJU_HOME/agents/machine-0/agent.conf || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_HOME/bootstrap-params --data-dir $JUJU_HOME --debug --timeout 0s
-$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_HOME --machine-id 0 --debug
+test -e $JUJU_DATA_DIR/agents/machine-0/agent.conf || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 0s
+$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 `[1:],
 			},
 			WorkingDir: "/var/lib/juju",
