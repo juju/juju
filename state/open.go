@@ -4,6 +4,9 @@
 package state
 
 import (
+	"github.com/juju/juju/feature"
+	"github.com/juju/txn"
+	"github.com/juju/utils/featureflag"
 	"runtime/pprof"
 
 	"github.com/juju/clock"
@@ -165,11 +168,21 @@ func newState(
 		}
 	}()
 
+	mongodb := session.DB(jujuDB)
+	sstxn := featureflag.Enabled(feature.MongoDbSSTXN)
+	if sstxn {
+		if !txn.SupportsServerSideTransactions(mongodb) {
+			logger.Warningf("user requested server-side transactions, but they are not supported\n"+
+				" consider using the '%s' feature flag", feature.MongoDbSnap)
+			sstxn = false
+		}
+	}
 	db := &database{
-		raw:                    session.DB(jujuDB),
+		raw:                    mongodb,
 		schema:                 allCollections(),
 		modelUUID:              modelTag.Id(),
 		runTransactionObserver: runTransactionObserver,
+		serverSideTransactions: sstxn,
 		clock:                  clock,
 	}
 

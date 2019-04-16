@@ -247,6 +247,10 @@ type database struct {
 	// resulting from Copy.
 	ownSession bool
 
+	// serverSideTransactions can be set to request that we use server-side
+	// transactions instead of client-side transactions when applying changes
+	serverSideTransactions bool
+
 	// runTransactionObserver is passed on to txn.TransactionRunner, to be
 	// invoked after calls to Run and RunTransaction.
 	runTransactionObserver RunTransactionObserverFunc
@@ -262,12 +266,13 @@ type RunTransactionObserverFunc func(dbName, modelUUID string, ops []txn.Op, err
 func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 	session := db.raw.Session.Copy()
 	return &database{
-		raw:        db.raw.With(session),
-		schema:     db.schema,
-		modelUUID:  modelUUID,
-		runner:     db.runner,
-		ownSession: true,
-		clock:      db.clock,
+		raw:                    db.raw.With(session),
+		schema:                 db.schema,
+		modelUUID:              modelUUID,
+		runner:                 db.runner,
+		ownSession:             true,
+		serverSideTransactions: db.serverSideTransactions,
+		clock:                  db.clock,
 	}, session.Close
 }
 
@@ -357,15 +362,11 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 				)
 			}
 		}
-		sstxn := false
-		if featureflag.Enabled(feature.MongoDbSnap) && featureflag.Enabled(feature.MongoDbSSTXN) {
-			sstxn = true
-		}
 		params := jujutxn.RunnerParams{
 			Database:               raw,
 			RunTransactionObserver: observer,
 			Clock:                  db.clock,
-			ServerSideTransactions: sstxn,
+			ServerSideTransactions: db.serverSideTransactions,
 		}
 		runner = jujutxn.NewRunner(params)
 	}
