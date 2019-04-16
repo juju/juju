@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-// lifetimeContext was extracted to allow the various context clients to get
+// lifetimeContext was extracted to allow the various Context clients to get
 // the benefits of the catacomb encapsulating everything that should happen
 // here. A clean implementation would almost certainly not need this.
 type lifetimeContext interface {
@@ -29,22 +29,22 @@ type lifetimeContext interface {
 	errDying() error
 }
 
-type machineContext interface {
+type MachineContext interface {
 	lifetimeContext
 	getBroker() environs.LXDProfiler
 	getRequiredLXDProfiles(string) []string
 }
 
-type mutaterMachine struct {
-	context    machineContext
+type MutaterMachine struct {
+	context    MachineContext
 	logger     Logger
 	machineApi instancemutater.MutaterMachine
 	id         string
 }
 
 type mutaterContext interface {
-	machineContext
-	newMachineContext() machineContext
+	MachineContext
+	newMachineContext() MachineContext
 	getMachine(tag names.MachineTag) (instancemutater.MutaterMachine, error)
 }
 
@@ -74,7 +74,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 			c = make(chan struct{})
 			m.machines[tag] = c
 
-			machine := mutaterMachine{
+			machine := MutaterMachine{
 				context:    m.context.newMachineContext(),
 				logger:     m.logger,
 				machineApi: api,
@@ -92,7 +92,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 	return nil
 }
 
-func runMachine(machine mutaterMachine, removed <-chan struct{}, died chan<- instancemutater.MutaterMachine) {
+func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- instancemutater.MutaterMachine) {
 	defer func() {
 		// We can't just send on the dead channel because the
 		// central loop might be trying to write to us on the
@@ -122,8 +122,8 @@ func runMachine(machine mutaterMachine, removed <-chan struct{}, died chan<- ins
 }
 
 // watchProfileChanges, any error returned will cause the worker to restart.
-func (m mutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profileChangeWatcher watcher.NotifyWatcher) error {
-	m.logger.Tracef("watching change on mutaterMachine %s", m.id)
+func (m MutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profileChangeWatcher watcher.NotifyWatcher) error {
+	m.logger.Tracef("watching change on MutaterMachine %s", m.id)
 	for {
 		select {
 		case <-m.context.dying():
@@ -151,7 +151,7 @@ func (m mutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profile
 	}
 }
 
-func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitProfileInfo) error {
+func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitProfileInfo) error {
 	if len(info.CurrentProfiles) == 0 && len(info.ProfileChanges) == 0 {
 		// no changes to be made, return now.
 		return nil
@@ -219,7 +219,7 @@ func (m mutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 	return report(m.machineApi.SetCharmProfiles(currentProfiles))
 }
 
-func (m mutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo) ([]lxdprofile.ProfilePost, error) {
+func (m MutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo) ([]lxdprofile.ProfilePost, error) {
 	var result []lxdprofile.ProfilePost
 	for _, pu := range info.ProfileChanges {
 		oldName, err := lxdprofile.MatchProfileNameByAppName(info.CurrentProfiles, pu.ApplicationName)
@@ -247,7 +247,7 @@ func (m mutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo)
 	return result, nil
 }
 
-func (m mutaterMachine) verifyCurrentProfiles(instId string, expectedProfiles []string) (bool, error) {
+func (m MutaterMachine) verifyCurrentProfiles(instId string, expectedProfiles []string) (bool, error) {
 	broker := m.context.getBroker()
 	obtainedProfiles, err := broker.LXDProfileNames(instId)
 	if err != nil {

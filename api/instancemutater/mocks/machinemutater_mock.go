@@ -7,6 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/api/instancemutater"
+	params "github.com/juju/juju/apiserver/params"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	names_v2 "gopkg.in/juju/names.v2"
@@ -60,6 +61,30 @@ func (m *MockMutaterMachine) InstanceId() (string, error) {
 // InstanceId indicates an expected call of InstanceId
 func (mr *MockMutaterMachineMockRecorder) InstanceId() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMutaterMachine)(nil).InstanceId))
+}
+
+// Life mocks base method
+func (m *MockMutaterMachine) Life() params.Life {
+	ret := m.ctrl.Call(m, "Life")
+	ret0, _ := ret[0].(params.Life)
+	return ret0
+}
+
+// Life indicates an expected call of Life
+func (mr *MockMutaterMachineMockRecorder) Life() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockMutaterMachine)(nil).Life))
+}
+
+// Refresh mocks base method
+func (m *MockMutaterMachine) Refresh() error {
+	ret := m.ctrl.Call(m, "Refresh")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Refresh indicates an expected call of Refresh
+func (mr *MockMutaterMachineMockRecorder) Refresh() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockMutaterMachine)(nil).Refresh))
 }
 
 // RemoveUpgradeCharmProfileData mocks base method
@@ -133,6 +158,19 @@ func (m *MockMutaterMachine) WatchApplicationLXDProfiles() (watcher.NotifyWatche
 // WatchApplicationLXDProfiles indicates an expected call of WatchApplicationLXDProfiles
 func (mr *MockMutaterMachineMockRecorder) WatchApplicationLXDProfiles() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationLXDProfiles", reflect.TypeOf((*MockMutaterMachine)(nil).WatchApplicationLXDProfiles))
+}
+
+// WatchContainers mocks base method
+func (m *MockMutaterMachine) WatchContainers() (watcher.StringsWatcher, error) {
+	ret := m.ctrl.Call(m, "WatchContainers")
+	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchContainers indicates an expected call of WatchContainers
+func (mr *MockMutaterMachineMockRecorder) WatchContainers() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockMutaterMachine)(nil).WatchContainers))
 }
 
 // WatchUnits mocks base method

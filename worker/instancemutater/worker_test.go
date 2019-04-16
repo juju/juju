@@ -53,7 +53,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			err:         "nil Logger not valid",
 		},
 		{
-			description: "Test no logger",
+			description: "Test no Logger",
 			config:      instancemutater.Config{},
 			err:         "nil Logger not valid",
 		},
@@ -144,9 +144,8 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 }
 
 type workerSuite struct {
-	testing.IsolationSuite
+	loggerSuite
 
-	logger                 *mocks.MockLogger
 	facade                 *mocks.MockInstanceMutaterAPI
 	broker                 *mocks.MockLXDProfiler
 	agentConfig            *mocks.MockConfig
@@ -307,7 +306,6 @@ func (s *workerSuite) setup(c *gc.C, machineCount int) *gomock.Controller {
 	s.machine = make(map[int]*mocks.MockMutaterMachine, machineCount)
 	s.appLXDProfileWorker = make(map[int]*workermocks.MockWorker)
 	for i := 0; i < machineCount; i += 1 {
-		c.Logf("new machine %d", i)
 		s.machine[i] = mocks.NewMockMutaterMachine(ctrl)
 		s.appLXDProfileWorker[i] = workermocks.NewMockWorker(ctrl)
 	}
@@ -577,9 +575,17 @@ func (s *workerSuite) waitDone(c *gc.C) {
 	}
 }
 
-// ignoreLogging turns the suite's mock logger into a sink, with no validation.
-// Logs are still emitted via the test logger.
-func (s *workerSuite) ignoreLogging(c *gc.C) func() {
+type loggerSuite struct {
+	testing.IsolationSuite
+
+	logger *mocks.MockLogger
+}
+
+var _ = gc.Suite(&loggerSuite{})
+
+// ignoreLogging turns the suite's mock Logger into a sink, with no validation.
+// Logs are still emitted via the test Logger.
+func (s *loggerSuite) ignoreLogging(c *gc.C) func() {
 	warnIt := func(message string, args ...interface{}) { logIt(c, loggo.WARNING, message, args) }
 	debugIt := func(message string, args ...interface{}) { logIt(c, loggo.DEBUG, message, args) }
 	errorIt := func(message string, args ...interface{}) { logIt(c, loggo.ERROR, message, args) }

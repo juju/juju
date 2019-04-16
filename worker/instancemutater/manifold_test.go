@@ -39,7 +39,7 @@ func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			err:         "nil Logger not valid",
 		},
 		{
-			description: "Test no logger",
+			description: "Test no Logger",
 			config:      instancemutater.ModelManifoldConfig{},
 			err:         "nil Logger not valid",
 		},
@@ -378,7 +378,7 @@ func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			err:         "nil Logger not valid",
 		},
 		{
-			description: "Test no logger",
+			description: "Test no Logger",
 			config:      instancemutater.MachineManifoldConfig{},
 			err:         "nil Logger not valid",
 		},
