@@ -46,7 +46,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	defer m.mu.Unlock()
 
 	if m.details.InstanceId == "" {
-		return "", errors.NotProvisionedf("machine %v", m.Id())
+		return "", errors.NotProvisionedf("machine %v", m.details.Id)
 	}
 	return instance.Id(m.details.InstanceId), nil
 }
