@@ -189,7 +189,7 @@ type ServiceGetterSetter interface {
 	UnexposeService(appName string) error
 
 	// GetService returns the service for the specified application.
-	GetService(appName string) (*Service, error)
+	GetService(appName string, includeClusterIP bool) (*Service, error)
 }
 
 // NamespaceGetterSetter provides the API to get/set namespace.
@@ -229,6 +229,7 @@ type Service struct {
 	Id        string
 	Addresses []network.Address
 	Scale     *int
+	Status    status.StatusInfo
 }
 
 // FilesystemInfo represents information about a filesystem

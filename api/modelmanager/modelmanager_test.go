@@ -159,15 +159,25 @@ func (s *modelmanagerSuite) TestListModels(c *gc.C) {
 func (s *modelmanagerSuite) TestDestroyModel(c *gc.C) {
 	true_ := true
 	false_ := false
-	s.testDestroyModel(c, nil)
-	s.testDestroyModel(c, &true_)
-	s.testDestroyModel(c, &false_)
+	defaultMin := 1 * time.Minute
+	for _, v := range []int{4, 7} {
+		s.testDestroyModel(c, v, nil, nil, nil)
+		s.testDestroyModel(c, v, nil, &true_, nil)
+		s.testDestroyModel(c, v, nil, &true_, &defaultMin)
+		s.testDestroyModel(c, v, nil, &false_, nil)
+		s.testDestroyModel(c, v, &true_, nil, nil)
+		s.testDestroyModel(c, v, &true_, &false_, nil)
+		s.testDestroyModel(c, v, &true_, &true_, &defaultMin)
+		s.testDestroyModel(c, v, &false_, nil, nil)
+		s.testDestroyModel(c, v, &false_, &false_, nil)
+		s.testDestroyModel(c, v, &false_, &true_, &defaultMin)
+	}
 }
 
-func (s *modelmanagerSuite) testDestroyModel(c *gc.C, destroyStorage *bool) {
+func (s *modelmanagerSuite) testDestroyModel(c *gc.C, v int, destroyStorage, force *bool, maxWait *time.Duration) {
 	var called bool
 	apiCaller := basetesting.BestVersionCaller{
-		BestVersion: 4,
+		BestVersion: v,
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
 				version int,
@@ -177,12 +187,23 @@ func (s *modelmanagerSuite) testDestroyModel(c *gc.C, destroyStorage *bool) {
 				c.Check(objType, gc.Equals, "ModelManager")
 				c.Check(id, gc.Equals, "")
 				c.Check(req, gc.Equals, "DestroyModels")
-				c.Check(args, jc.DeepEquals, params.DestroyModelsParams{
-					Models: []params.DestroyModelParams{{
-						ModelTag:       coretesting.ModelTag.String(),
-						DestroyStorage: destroyStorage,
-					}},
-				})
+				if v == 4 {
+					c.Check(args, jc.DeepEquals, params.DestroyModelsParams{
+						Models: []params.DestroyModelParams{{
+							ModelTag:       coretesting.ModelTag.String(),
+							DestroyStorage: destroyStorage,
+						}},
+					})
+				} else {
+					c.Check(args, jc.DeepEquals, params.DestroyModelsParams{
+						Models: []params.DestroyModelParams{{
+							ModelTag:       coretesting.ModelTag.String(),
+							DestroyStorage: destroyStorage,
+							Force:          force,
+							MaxWait:        maxWait,
+						}},
+					})
+				}
 				results := resp.(*params.ErrorResults)
 				*results = params.ErrorResults{
 					Results: []params.ErrorResult{{}},
@@ -193,7 +214,7 @@ func (s *modelmanagerSuite) testDestroyModel(c *gc.C, destroyStorage *bool) {
 		),
 	}
 	client := modelmanager.NewClient(apiCaller)
-	err := client.DestroyModel(coretesting.ModelTag, destroyStorage)
+	err := client.DestroyModel(coretesting.ModelTag, destroyStorage, force, maxWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -222,7 +243,7 @@ func (s *modelmanagerSuite) TestDestroyModelV3(c *gc.C) {
 	)
 	client := modelmanager.NewClient(apiCaller)
 	destroyStorage := true
-	err := client.DestroyModel(coretesting.ModelTag, &destroyStorage)
+	err := client.DestroyModel(coretesting.ModelTag, &destroyStorage, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -230,7 +251,7 @@ func (s *modelmanagerSuite) TestDestroyModelV3(c *gc.C) {
 func (s *modelmanagerSuite) TestDestroyModelV3DestroyStorageNotTrue(c *gc.C) {
 	client := modelmanager.NewClient(basetesting.BestVersionCaller{})
 	for _, destroyStorage := range []*bool{nil, new(bool)} {
-		err := client.DestroyModel(coretesting.ModelTag, destroyStorage)
+		err := client.DestroyModel(coretesting.ModelTag, destroyStorage, nil, nil)
 		c.Assert(err, gc.ErrorMatches, "this Juju controller requires destroyStorage to be true")
 	}
 }

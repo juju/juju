@@ -572,13 +572,13 @@ func (root *Root) assertServerNotified(c *gc.C, p testCallParams, requestId uint
 		c.Assert(serverReply.body, gc.Equals, stringVal{p.request().Action + " ret"})
 	}
 	if p.retErr && p.testErr {
-		c.Assert(serverReply.hdr, gc.Equals, rpc.Header{
+		c.Assert(serverReply.hdr, jc.DeepEquals, rpc.Header{
 			RequestId: requestId,
 			Error:     p.errorMessage(),
 			Version:   1,
 		})
 	} else {
-		c.Assert(serverReply.hdr, gc.Equals, rpc.Header{
+		c.Assert(serverReply.hdr, jc.DeepEquals, rpc.Header{
 			RequestId: requestId,
 			Version:   1,
 		})
@@ -756,6 +756,19 @@ func (e *codedError) ErrorCode() string {
 	return e.code
 }
 
+type moreInfoError struct {
+	m    string
+	info map[string]interface{}
+}
+
+func (e *moreInfoError) Error() string {
+	return e.m
+}
+
+func (e *moreInfoError) ErrorInfo() map[string]interface{} {
+	return e.info
+}
+
 func (*rpcSuite) TestErrorCode(c *gc.C) {
 	root := &Root{
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
@@ -765,6 +778,21 @@ func (*rpcSuite) TestErrorCode(c *gc.C) {
 	err := client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `message \(code\)`)
 	c.Assert(errors.Cause(err).(rpc.ErrorCoder).ErrorCode(), gc.Equals, "code")
+}
+
+func (*rpcSuite) TestErrorInfo(c *gc.C) {
+	info := map[string]interface{}{
+		"foo": "bar",
+		"baz": true,
+	}
+	root := &Root{
+		errorInst: &ErrorMethods{&moreInfoError{"message", info}},
+	}
+	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+	err := client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `message`)
+	c.Assert(errors.Cause(err).(rpc.ErrorInfoProvider).ErrorInfo(), jc.DeepEquals, info)
 }
 
 func (*rpcSuite) TestTransformErrors(c *gc.C) {
@@ -1210,6 +1238,60 @@ func (s *rpcSuite) TestRecorderErrorPreventsRequest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(root.calls, gc.HasLen, 0)
+}
+
+func (s *rpcSuite) TestRequestErrorInfoUnmarshaling(c *gc.C) {
+	type nestedStruct struct {
+		Baz bool
+	}
+	type someStruct struct {
+		Foo    string
+		Nested nestedStruct
+	}
+
+	specs := []struct {
+		descr string
+		info  map[string]interface{}
+		to    interface{}
+		exp   interface{}
+		err   string
+	}{
+		{
+			descr: "unmarshal to struct",
+			info: map[string]interface{}{
+				"Foo": "bar",
+				"Nested": map[string]interface{}{
+					"Baz": true,
+				},
+			},
+			to: new(someStruct),
+			exp: &someStruct{
+				Foo:    "bar",
+				Nested: nestedStruct{Baz: true},
+			},
+		},
+		{
+			descr: "unmarshal to non-pointer",
+			info:  map[string]interface{}{"Foo": "bar"},
+			to:    42,
+			err:   "UnmarshalInfo expects a pointer as an argument",
+		},
+	}
+
+	for specIndex, spec := range specs {
+		c.Logf("test %d: %s", specIndex, spec.descr)
+
+		re := &rpc.RequestError{
+			Info: spec.info,
+		}
+		err := re.UnmarshalInfo(spec.to)
+		if spec.err == "" {
+			c.Assert(err, gc.IsNil)
+			c.Assert(spec.to, jc.DeepEquals, spec.exp)
+		} else {
+			c.Assert(err, gc.ErrorMatches, spec.err)
+		}
+	}
 }
 
 func chanReadError(c *gc.C, ch <-chan error, what string) error {

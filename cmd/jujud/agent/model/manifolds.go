@@ -400,13 +400,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 
 	if utilsfeatureflag.Enabled(feature.InstanceMutater) {
-		manifolds[instanceMutaterName] = ifNotMigrating(instancemutater.Manifold(instancemutater.ManifoldConfig{
+		manifolds[instanceMutaterName] = ifNotMigrating(instancemutater.ModelManifold(instancemutater.ModelManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 			Logger:        loggo.GetLogger("juju.worker.instancemutater"),
 			NewClient:     instancemutater.NewClient,
-			NewWorker:     instancemutater.NewWorker,
+			NewWorker:     instancemutater.NewEnvironWorker,
 		}))
 	}
 

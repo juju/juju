@@ -121,6 +121,9 @@ type MachineProvisioner interface {
 	// SupportsNoContainers records the fact that this machine doesn't support any containers.
 	SupportsNoContainers() error
 
+	// SupportedContainers returns a list of containers supported by this machine.
+	SupportedContainers() ([]instance.ContainerType, bool, error)
+
 	// WatchContainers returns a StringsWatcher that notifies of
 	// changes to the upgrade charm profile charm url for all
 	// containers of the specified type  on the machine.
@@ -606,6 +609,29 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 // SupportsNoContainers implements MachineProvisioner.SupportsNoContainers.
 func (m *Machine) SupportsNoContainers() error {
 	return m.SetSupportedContainers([]instance.ContainerType{}...)
+}
+
+// SupportedContainers implements MachineProvisioner.SupportedContainers.
+func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool, error) {
+	var results params.MachineContainerResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: m.tag.String()},
+		},
+	}
+	err := m.st.facade.FacadeCall("SupportedContainers", args, &results)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(results.Results) != 1 {
+		return nil, false, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	apiError := results.Results[0].Error
+	if apiError != nil {
+		return nil, false, apiError
+	}
+	result := results.Results[0]
+	return result.ContainerTypes, result.Determined, nil
 }
 
 type CharmProfileChangeInfo struct {

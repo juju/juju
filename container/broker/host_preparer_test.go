@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner_test
+package broker_test
 
 import (
 	"time"
@@ -15,9 +15,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/provisioner"
 )
 
 type fakePrepareAPI struct {
@@ -26,7 +26,7 @@ type fakePrepareAPI struct {
 	reconfigureDelay int
 }
 
-var _ provisioner.PrepareAPI = (*fakePrepareAPI)(nil)
+var _ broker.PrepareAPI = (*fakePrepareAPI)(nil)
 
 func (api *fakePrepareAPI) HostChangesForContainer(tag names.MachineTag) ([]network.DeviceToBridge, int, error) {
 	api.Stub.MethodCall(api, "HostChangesForContainer", tag)
@@ -110,12 +110,12 @@ func (cno *cannedNetworkObserver) ObserveNetwork() ([]params.NetworkConfig, erro
 	return cno.config, nil
 }
 
-func (s *hostPreparerSuite) createPreparerParams(bridges []network.DeviceToBridge, observed []params.NetworkConfig) provisioner.HostPreparerParams {
+func (s *hostPreparerSuite) createPreparerParams(bridges []network.DeviceToBridge, observed []params.NetworkConfig) broker.HostPreparerParams {
 	observer := &cannedNetworkObserver{
 		Stub:   s.Stub,
 		config: observed,
 	}
-	return provisioner.HostPreparerParams{
+	return broker.HostPreparerParams{
 		API: &fakePrepareAPI{
 			Stub:             s.Stub,
 			requestedBridges: bridges,
@@ -128,9 +128,9 @@ func (s *hostPreparerSuite) createPreparerParams(bridges []network.DeviceToBridg
 	}
 }
 
-func (s *hostPreparerSuite) createPreparer(bridges []network.DeviceToBridge, observed []params.NetworkConfig) *provisioner.HostPreparer {
+func (s *hostPreparerSuite) createPreparer(bridges []network.DeviceToBridge, observed []params.NetworkConfig) *broker.HostPreparer {
 	params := s.createPreparerParams(bridges, observed)
-	return provisioner.NewHostPreparer(params)
+	return broker.NewHostPreparer(params)
 }
 
 func (s *hostPreparerSuite) TestPrepareHostNoChanges(c *gc.C) {
@@ -431,7 +431,7 @@ func (s *hostPreparerSuite) TestPrepareHostCancel(c *gc.C) {
 			return nil, errors.Errorf("timeout triggered")
 		}
 	}
-	preparer := provisioner.NewHostPreparer(params)
+	preparer := broker.NewHostPreparer(params)
 	// Now when we prepare, we should fail with 'canceled'
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)

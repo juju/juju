@@ -207,6 +207,11 @@ func (m *mockApplication) SetOperatorStatus(sInfo status.StatusInfo) error {
 	return nil
 }
 
+func (m *mockApplication) SetStatus(sInfo status.StatusInfo) error {
+	m.MethodCall(m, "SetStatus", sInfo)
+	return nil
+}
+
 type mockContainerInfo struct {
 	state.CloudContainer
 	providerId string
@@ -295,8 +300,8 @@ func (m *mockStorage) AllFilesystems() ([]state.Filesystem, error) {
 	return result, nil
 }
 
-func (m *mockStorage) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error) {
-	m.MethodCall(m, "DestroyStorageInstance", tag, destroyAttachments)
+func (m *mockStorage) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool) (err error) {
+	m.MethodCall(m, "DestroyStorageInstance", tag, destroyAttachments, force)
 	return nil
 }
 

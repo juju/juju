@@ -79,10 +79,6 @@ type CreateVirtualMachineParams struct {
 	// created in.
 	ResourcePool types.ManagedObjectReference
 
-	// Datastore is the name of the datastore in which to create the VM.
-	// If this is empty, any accessible datastore will be used.
-	Datastore string
-
 	// Metadata are metadata key/value pairs to apply to the VM as
 	// "extra config".
 	Metadata map[string]string
@@ -406,13 +402,16 @@ func (c *Client) selectDatastore(
 	if err := c.client.Retrieve(ctx, refs, nil, &datastores); err != nil {
 		return nil, errors.Annotate(err, "retrieving datastore details")
 	}
-	if args.Datastore != "" {
+	if args.Constraints.RootDiskSource != nil {
+		dsName := *args.Constraints.RootDiskSource
+		c.logger.Debugf("desired datasource %q", dsName)
 		for _, ds := range datastores {
-			if ds.Name == args.Datastore {
+			c.logger.Debugf("seen %q", ds.Name)
+			if ds.Name == dsName {
 				return &ds, nil
 			}
 		}
-		return nil, errors.Errorf("could not find datastore %q", args.Datastore)
+		return nil, errors.Errorf("could not find datastore %q", dsName)
 	}
 	for _, ds := range datastores {
 		if ds.Summary.Accessible {

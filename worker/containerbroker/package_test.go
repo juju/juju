@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
-// Licensed under the LGPLv3, see LICENSE file for details.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
-package caascontrollerupgrader_test
+package containerbroker_test
 
 import (
 	stdtesting "testing"

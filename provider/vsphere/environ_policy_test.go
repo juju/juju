@@ -5,9 +5,13 @@ package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/environs"
 )
 
 type environPolSuite struct {
@@ -55,4 +59,80 @@ func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *gc.C) {
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
 	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
+}
+
+func (s *environPolSuite) TestPrecheckInstanceChecksPlacementZone(c *gc.C) {
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+		Placement: "zone=some-zone",
+	})
+	c.Assert(err, gc.ErrorMatches, `availability zone "some-zone" not found`)
+
+	s.client.computeResources = []*mo.ComputeResource{
+		newComputeResource("z1"),
+		newComputeResource("z2"),
+	}
+	s.client.resourcePools = map[string][]*object.ResourcePool{
+		"z1/...": {makeResourcePool("pool-1", "/DC/host/z1/Resources")},
+	}
+	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+		Placement: "zone=z1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environPolSuite) TestPrecheckInstanceChecksConstraintZones(c *gc.C) {
+	s.client.computeResources = []*mo.ComputeResource{
+		newComputeResource("z1"),
+		newComputeResource("z2"),
+	}
+	s.client.resourcePools = map[string][]*object.ResourcePool{
+		"z1/...": {makeResourcePool("pool-1", "/DC/host/z1/Resources")},
+		"z2/...": {
+			// Check we don't get broken by trailing slashes.
+			makeResourcePool("pool-2", "/DC/host/z2/Resources/"),
+			makeResourcePool("pool-3", "/DC/host/z2/Resources/child"),
+			makeResourcePool("pool-4", "/DC/host/z2/Resources/child/nested"),
+			makeResourcePool("pool-5", "/DC/host/z2/Resources/child/nested/other/"),
+		},
+	}
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("zones=z1,z2/child,z2/fish"),
+	})
+	c.Assert(err, gc.ErrorMatches, `availability zone "z2/fish" not found`)
+
+	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("zones=z2/fish"),
+	})
+	c.Assert(err, gc.ErrorMatches, `availability zone "z2/fish" not found`)
+
+	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("zones=z1,z2/child"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environPolSuite) TestPrecheckInstanceChecksConstraintDatastore(c *gc.C) {
+	s.client.datastores = []*mo.Datastore{{
+		ManagedEntity: mo.ManagedEntity{Name: "foo"},
+	}, {
+		ManagedEntity: mo.ManagedEntity{Name: "bar"},
+		Summary: types.DatastoreSummary{
+			Accessible: true,
+		},
+	}}
+
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("root-disk-source=blam"),
+	})
+	c.Assert(err, gc.ErrorMatches, `datastore "blam" not found`)
+
+	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("root-disk-source=foo"),
+	})
+	c.Assert(err, gc.ErrorMatches, `datastore "foo" not found`)
+
+	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("root-disk-source=bar"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }

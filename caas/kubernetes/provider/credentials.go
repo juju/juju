@@ -6,6 +6,7 @@ package provider
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -71,7 +72,10 @@ var k8sCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
 	},
 }
 
-type environProviderCredentials struct{}
+type environProviderCredentials struct {
+	cmdRunner          CommandRunner
+	builtinCloudGetter func(CommandRunner) (cloud.Cloud, cloud.Credential, string, error)
+}
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
@@ -112,4 +116,26 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
 	return &args.Credential, nil
+}
+
+// RegisterCredentials is part of the environs.ProviderCredentialsRegister interface.
+func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
+	cloudName := cld.Name
+	if cloudName != caas.K8sCloudMicrok8s {
+		return make(map[string]*cloud.CloudCredential), nil
+	}
+	_, cred, _, err := p.builtinCloudGetter(p.cmdRunner)
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return map[string]*cloud.CloudCredential{
+		cloudName: {
+			DefaultCredential: cloudName,
+			AuthCredentials: map[string]cloud.Credential{
+				cloudName: cred,
+			},
+		},
+	}, nil
 }

@@ -117,7 +117,7 @@ type modelCacheShim struct {
 	*cache.Model
 }
 
-func (s *modelCacheShim) WatchMachines() cache.StringsWatcher {
+func (s *modelCacheShim) WatchMachines() (cache.StringsWatcher, error) {
 	return s.Model.WatchMachines()
 }
 
@@ -157,6 +157,10 @@ type modelCacheMachine struct {
 
 func (m *modelCacheMachine) WatchApplicationLXDProfiles() (cache.NotifyWatcher, error) {
 	return m.Machine.WatchApplicationLXDProfiles()
+}
+
+func (m *modelCacheMachine) WatchContainers() (cache.StringsWatcher, error) {
+	return m.Machine.WatchContainers()
 }
 
 func (m *modelCacheMachine) Units() ([]ModelCacheUnit, error) {

@@ -53,7 +53,7 @@ type provisionerSuite struct {
 
 	authorizer  apiservertesting.FakeAuthorizer
 	resources   *common.Resources
-	provisioner *provisioner.ProvisionerAPIV8
+	provisioner *provisioner.ProvisionerAPIV9
 }
 
 var _ = gc.Suite(&provisionerSuite{})
@@ -94,7 +94,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	s.resources = common.NewResources()
 
 	// Create a provisioner API for the machine.
-	provisionerAPI, err := provisioner.NewProvisionerAPIV8(
+	provisionerAPI, err := provisioner.NewProvisionerAPIV9(
 		s.State,
 		s.resources,
 		s.authorizer,
@@ -1697,6 +1697,67 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	})
 }
 
+func (s *withoutControllerSuite) TestSupportedContainers(c *gc.C) {
+	setArgs := params.MachineContainersParams{Params: []params.MachineContainers{{
+		MachineTag:     "machine-0",
+		ContainerTypes: []instance.ContainerType{instance.LXD},
+	}, {
+		MachineTag:     "machine-1",
+		ContainerTypes: []instance.ContainerType{instance.LXD, instance.KVM},
+	}}}
+	_, err := s.provisioner.SetSupportedContainers(setArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: "machine-0",
+	}, {
+		Tag: "machine-1",
+	}}}
+	results, err := s.provisioner.SupportedContainers(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	for _, result := range results.Results {
+		c.Assert(result.Error, gc.IsNil)
+	}
+	m0, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	containers, ok := m0.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, results.Results[0].ContainerTypes)
+	m1, err := s.State.Machine("1")
+	c.Assert(err, jc.ErrorIsNil)
+	containers, ok = m1.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, results.Results[1].ContainerTypes)
+}
+
+func (s *withoutControllerSuite) TestSupportedContainersWithoutBeingSet(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: "machine-0",
+	}, {
+		Tag: "machine-1",
+	}}}
+	results, err := s.provisioner.SupportedContainers(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	for _, result := range results.Results {
+		c.Assert(result.Error, gc.IsNil)
+		c.Assert(result.ContainerTypes, gc.HasLen, 0)
+	}
+}
+
+func (s *withoutControllerSuite) TestSupportedContainersWithInvalidTag(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: "user-0",
+	}}}
+	results, err := s.provisioner.SupportedContainers(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	for _, result := range results.Results {
+		c.Assert(result.Error, gc.ErrorMatches, "permission denied")
+	}
+}
+
 func (s *withoutControllerSuite) TestSupportsNoContainers(c *gc.C) {
 	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{
@@ -1828,14 +1889,14 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 	results := res.Results
 	c.Assert(results, gc.HasLen, 6)
 	c.Check(results[0].Error, gc.IsNil)
-	c.Check(*results[1].Error, gc.Equals,
+	c.Check(*results[1].Error, jc.DeepEquals,
 		*common.ServerError(errors.NotFoundf("machine 100")))
 	c.Check(*results[1].Error, jc.Satisfies, params.IsCodeNotFound)
 	c.Check(results[2].Error, gc.IsNil)
-	c.Check(*results[3].Error, gc.Equals,
+	c.Check(*results[3].Error, jc.DeepEquals,
 		*common.ServerError(errors.New("cannot remove machine 1: machine is not dead")))
-	c.Check(*results[4].Error, gc.Equals, *apiservertesting.ErrUnauthorized)
-	c.Check(*results[5].Error, gc.Equals,
+	c.Check(*results[4].Error, jc.DeepEquals, *apiservertesting.ErrUnauthorized)
+	c.Check(*results[5].Error, jc.DeepEquals,
 		*common.ServerError(errors.New(`"application-thing" is not a valid machine tag`)))
 
 	removals, err := s.State.AllMachineRemovals()

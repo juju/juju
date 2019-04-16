@@ -23,6 +23,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -292,10 +293,18 @@ func (s *MigrationExportSuite) TestMachinesWithVirtConstraint(c *gc.C) {
 	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
 }
 
+func (s *MigrationExportSuite) TestMachinesWithRootDiskSourceConstraint(c *gc.C) {
+	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G root-disk-source=aldous"))
+}
+
 func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.Value) {
 	// Add a machine with an LXC container.
+	source := "vashti"
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: cons,
+		Characteristics: &instance.HardwareCharacteristics{
+			RootDiskSource: &source,
+		},
 	})
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 
@@ -320,6 +329,9 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	if cons.HasVirtType() {
 		c.Assert(constraints.VirtType(), gc.Equals, *cons.VirtType)
 	}
+	if cons.HasRootDiskSource() {
+		c.Assert(constraints.RootDiskSource(), gc.Equals, *cons.RootDiskSource)
+	}
 
 	tools, err := machine1.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
@@ -339,6 +351,7 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	// ensure that a new machine has a modification set to it's initial state.
 	instance := exported.Instance()
 	c.Assert(instance.ModificationStatus().Value(), gc.Equals, "idle")
+	c.Assert(instance.RootDiskSource(), gc.Equals, "vashti")
 }
 
 func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
@@ -401,6 +414,10 @@ func (s *MigrationExportSuite) TestCAASApplications(c *gc.C) {
 
 func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
 	s.assertMigrateApplications(c, s.State, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+}
+
+func (s *MigrationExportSuite) TestApplicationsWithRootDiskSourceConstraint(c *gc.C) {
+	s.assertMigrateApplications(c, s.State, constraints.MustParse("arch=amd64 mem=8G root-disk-source=vonnegut"))
 }
 
 func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.State, cons constraints.Value) {
@@ -479,6 +496,9 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(constraints.Memory(), gc.Equals, *cons.Mem)
 	if cons.HasVirtType() {
 		c.Assert(constraints.VirtType(), gc.Equals, *cons.VirtType)
+	}
+	if cons.HasRootDiskSource() {
+		c.Assert(constraints.RootDiskSource(), gc.Equals, *cons.RootDiskSource)
 	}
 
 	history := exported.StatusHistory()

@@ -7,10 +7,12 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -25,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -1074,4 +1077,124 @@ func (a *fakeUpgradeJujuAPINoState) ModelGet() (map[string]interface{}, error) {
 		"controller-uuid": a.controllerUUID,
 		"agent-version":   a.agentVersion,
 	}), nil
+}
+
+type UpgradeCAASModelSuite struct {
+	UpgradeBaseSuite
+}
+
+func (s *UpgradeCAASModelSuite) SetUpTest(c *gc.C) {
+	s.UpgradeBaseSuite.SetUpTest(c)
+	s.resources = common.NewResources()
+	s.authoriser = apiservertesting.FakeAuthorizer{
+		Tag: s.AdminUserTag(c),
+	}
+
+	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+}
+
+var _ = gc.Suite(&UpgradeCAASModelSuite{})
+
+var upgradeCAASModelTests = []upgradeTest{{
+	about:          "unwanted extra argument",
+	currentVersion: "1.0.0",
+	args:           []string{"foo"},
+	expectInitErr:  "unrecognized args:.*",
+}, {
+	about:          "invalid --agent-version value",
+	currentVersion: "1.0.0",
+	args:           []string{"--agent-version", "invalid-version"},
+	expectInitErr:  "invalid version .*",
+}, {
+	about:          "latest supported stable release",
+	available:      []string{"2.1.0", "2.1.2", "2.1.3", "2.1-dev1"},
+	currentVersion: "2.0.0",
+	agentVersion:   "2.0.0",
+	expectVersion:  "2.1.3",
+}, {
+	about:          "latest supported stable release increments by one minor version number",
+	available:      []string{"1.21.3", "1.22.1"},
+	currentVersion: "1.22.1",
+	agentVersion:   "1.20.14",
+	expectVersion:  "1.21.3",
+}, {
+	about:          "latest supported stable release from custom version",
+	available:      []string{"1.21.3", "1.22.1"},
+	currentVersion: "1.22.1",
+	agentVersion:   "1.20.14.1",
+	expectVersion:  "1.21.3",
+}}
+
+func (s *UpgradeCAASModelSuite) upgradeModelCommand(minUpgradeVers map[int]version.Number) cmd.Command {
+	return newUpgradeJujuCommandForTest(s.ControllerStore, minUpgradeVers, nil, nil, nil)
+}
+
+func (s *UpgradeCAASModelSuite) TestUpgrade(c *gc.C) {
+	s.assertUpgradeTests(c, upgradeCAASModelTests, s.upgradeModelCommand)
+}
+
+func (s *UpgradeCAASModelSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgradeJujuCommand upgradeCommandFunc) {
+	type info struct {
+		Tag string `json:"name"`
+	}
+	var tagInfo []info
+
+	s.PatchValue(&docker.HttpGet, func(url string, timeout time.Duration) ([]byte, error) {
+		c.Assert(url, gc.Equals, "https://registry.hub.docker.com/v1/repositories/jujusolutions/jujud-operator/tags")
+		c.Assert(timeout, gc.Equals, 30*time.Second)
+		return json.Marshal(tagInfo)
+	})
+
+	for i, test := range tests {
+		c.Logf("\ntest %d: %s", i, test.about)
+		s.Reset(c)
+		tools.DefaultBaseURL = ""
+		err := s.ControllerStore.UpdateModel(jujutesting.ControllerName, "admin/dummy-model", jujuclient.ModelDetails{
+			ModelType: model.CAAS,
+			ModelUUID: coretesting.ModelTag.Id(),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+
+		// Set up apparent CLI version and initialize the command.
+		current := version.MustParse(test.currentVersion)
+		s.PatchValue(&jujuversion.Current, current)
+		com := upgradeJujuCommand(nil)
+		args := append(test.args, "-m", "admin/dummy-model")
+		if err := cmdtesting.InitCommand(com, args); err != nil {
+			if test.expectInitErr != "" {
+				c.Check(err, gc.ErrorMatches, test.expectInitErr)
+			} else {
+				c.Check(err, jc.ErrorIsNil)
+			}
+			continue
+		}
+
+		// Set up state and environ, and run the command.
+		updateAttrs := map[string]interface{}{
+			"agent-version": test.agentVersion,
+		}
+		err = s.Model.UpdateModelConfig(updateAttrs, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		tagInfo = make([]info, len(test.available))
+		for i, v := range test.available {
+			tagInfo[i] = info{v}
+		}
+
+		err = com.Run(cmdtesting.Context(c))
+		if test.expectErr != "" {
+			c.Check(err, gc.ErrorMatches, test.expectErr)
+			continue
+		} else if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
+
+		// Check expected changes to environ/state.
+		cfg, err := s.Model.ModelConfig()
+		c.Check(err, jc.ErrorIsNil)
+		agentVersion, ok := cfg.AgentVersion()
+		c.Check(ok, jc.IsTrue)
+		c.Check(agentVersion, gc.Equals, version.MustParse(test.expectVersion))
+	}
 }

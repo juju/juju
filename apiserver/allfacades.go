@@ -75,6 +75,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
+	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
@@ -173,6 +174,7 @@ func AllFacades() *facade.Registry {
 	reg("CAASOperator", 1, caasoperator.NewStateFacade)
 	reg("CAASAgent", 1, caasagent.NewStateFacade)
 	reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
+	reg("CAASOperatorUpgrader", 1, caasoperatorupgrader.NewStateCAASOperatorUpgraderAPI)
 	reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
@@ -244,6 +246,7 @@ func AllFacades() *facade.Registry {
 	reg("ModelManager", 4, modelmanager.NewFacadeV4)
 	reg("ModelManager", 5, modelmanager.NewFacadeV5) // adds ChangeModelCredential
 	reg("ModelManager", 6, modelmanager.NewFacadeV6) // adds cloud specific default config
+	reg("ModelManager", 7, modelmanager.NewFacadeV7) // DestroyModels gains 'force' and max-wait' parameters.
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
 
 	reg("Payloads", 1, payloads.NewFacade)
@@ -260,6 +263,7 @@ func AllFacades() *facade.Registry {
 	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6) // v6 adds more proxy settings
 	reg("Provisioner", 7, provisioner.NewProvisionerAPIV7) // v7 adds charm profile watcher
 	reg("Provisioner", 8, provisioner.NewProvisionerAPIV8) // v8 adds changes charm profile and modification status
+	reg("Provisioner", 9, provisioner.NewProvisionerAPIV9) // v9 adds supported containers
 
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)

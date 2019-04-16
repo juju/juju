@@ -507,7 +507,7 @@ func (s *ApplicationSuite) assertDestroyApplication(c *gc.C, force bool) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyApplicationOperation{Force: force})
+	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyApplicationOperation{ForcedOperation: state.ForcedOperation{Force: force}})
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
@@ -638,7 +638,7 @@ func (s *ApplicationSuite) assertDestroyUnit(c *gc.C, force bool) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyUnitOperation{Force: force})
+	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyUnitOperation{ForcedOperation: state.ForcedOperation{Force: force}})
 	s.backend.CheckCall(c, 9, "ApplyOperation", &state.DestroyUnitOperation{
 		DestroyStorage: true,
 	})
@@ -1513,7 +1513,7 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
 			Options:         []string{"juju-external-hostname", "stringVal"},
-			Generation:      "new-branch",
+			BranchName:      "new-branch",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)

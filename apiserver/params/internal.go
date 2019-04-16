@@ -28,6 +28,20 @@ type MachineContainers struct {
 	ContainerTypes []instance.ContainerType `json:"container-types"`
 }
 
+// MachineContainerResults holds the results from making the call to SupportedContainers
+// on a given machine.
+type MachineContainerResults struct {
+	Results []MachineContainerResult `json:"results"`
+}
+
+// MachineContainerResult holds the result of making the call to SupportedContainers
+// on a given machine.
+type MachineContainerResult struct {
+	Error          *Error                   `json:"error,omitempty"`
+	ContainerTypes []instance.ContainerType `json:"container-types"`
+	Determined     bool                     `json:"determined"`
+}
+
 // WatchContainer identifies a single container type within a machine.
 type WatchContainer struct {
 	MachineTag    string `json:"machine-tag"`
@@ -643,8 +657,7 @@ type CharmsResponse struct {
 	ErrorCode string `json:"error-code,omitempty"`
 
 	// ErrorInfo holds extra information associated with the error.
-	// Like ErrorCode, this should really be in an Error object.
-	ErrorInfo *ErrorInfo `json:"error-info,omitempty"`
+	ErrorInfo map[string]interface{} `json:"error-info,omitempty"`
 
 	CharmURL string   `json:"charm-url,omitempty"`
 	Files    []string `json:"files,omitempty"`

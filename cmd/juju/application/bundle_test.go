@@ -26,7 +26,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -539,7 +538,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharmUnauthorized(c *
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
-	testcharms.UploadCharm(c, s.Client(), "trusty/starsay-42", "starsay")
+	testcharms.UploadCharm(c, s.client, "trusty/starsay-42", "starsay")
 	bundleMeta := `
         applications:
             starsay:
@@ -635,7 +634,7 @@ func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, serviceapplication
 }
 
 type BundleDeployCharmStoreSuite struct {
-	charmStoreSuite
+	legacyCharmStoreSuite
 
 	stub   *testing.Stub
 	server *httptest.Server
@@ -644,7 +643,7 @@ type BundleDeployCharmStoreSuite struct {
 var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
 
 func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
-	s.charmStoreSuite.SetUpSuite(c)
+	s.legacyCharmStoreSuite.SetUpSuite(c)
 	s.PatchValue(&watcher.Period, 10*time.Millisecond)
 }
 
@@ -658,7 +657,7 @@ func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
 	}
 	s.ControllerConfigAttrs[controller.MeteringURL] = s.server.URL
 
-	s.charmStoreSuite.SetUpTest(c)
+	s.legacyCharmStoreSuite.SetUpTest(c)
 	logger.SetLogLevel(loggo.TRACE)
 }
 
@@ -666,11 +665,7 @@ func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {
 	if s.server != nil {
 		s.server.Close()
 	}
-	s.charmStoreSuite.TearDownTest(c)
-}
-
-func (s *BundleDeployCharmStoreSuite) Client() *csclient.Client {
-	return s.client
+	s.legacyCharmStoreSuite.TearDownTest(c)
 }
 
 // DeployBundleYAML uses the given bundle content to create a bundle in the

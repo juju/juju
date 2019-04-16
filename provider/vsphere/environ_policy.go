@@ -4,6 +4,7 @@
 package vsphere
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/core/constraints"
@@ -13,7 +14,7 @@ import (
 
 // PrecheckInstance is part of the environs.Environ interface.
 func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
-	if args.Placement == "" {
+	if args.Placement == "" && args.Constraints.String() == "" {
 		return nil
 	}
 	return env.withSession(ctx, func(env *sessionEnviron) error {
@@ -23,8 +24,51 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 
 // PrecheckInstance is part of the environs.Environ interface.
 func (env *sessionEnviron) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
-	_, err := env.parsePlacement(ctx, args.Placement)
-	return err
+	if _, err := env.parsePlacement(ctx, args.Placement); err != nil {
+		return errors.Trace(err)
+	}
+	if err := env.checkZones(ctx, args.Constraints.Zones); err != nil {
+		return errors.Trace(err)
+	}
+	err := env.checkDatastore(ctx, args.Constraints.RootDiskSource)
+	return errors.Trace(err)
+}
+
+func (env *sessionEnviron) checkZones(ctx context.ProviderCallContext, zones *[]string) error {
+	if zones == nil || len(*zones) == 0 {
+		return nil
+	}
+	foundZones, err := env.AvailabilityZones(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+constraintZones:
+	for _, zone := range *zones {
+		for _, foundZone := range foundZones {
+			if zone == foundZone.Name() {
+				continue constraintZones
+			}
+		}
+		return errors.NotFoundf("availability zone %q", zone)
+	}
+	return nil
+}
+
+func (env *sessionEnviron) checkDatastore(ctx context.ProviderCallContext, datastore *string) error {
+	if datastore == nil || *datastore == "" {
+		return nil
+	}
+	name := *datastore
+	datastores, err := env.accessibleDatastores(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, ds := range datastores {
+		if name == ds.Name {
+			return nil
+		}
+	}
+	return errors.NotFoundf("datastore %q", name)
 }
 
 var unsupportedConstraints = []string{

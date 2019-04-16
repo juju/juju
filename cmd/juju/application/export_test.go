@@ -8,6 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/romulus"
 	"gopkg.in/juju/charmrepo.v3"
+	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/juju/charmrepo.v3/csclient/params"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
@@ -15,9 +17,11 @@ import (
 	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/testcharms"
 )
 
 // NewDeployCommandForTest returns a command to deploy applications intended to be used only in tests.
@@ -68,7 +72,7 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 
 // NewDeployCommandForTest2 returns a command to deploy applications intended to be used only in tests
 // that do not use gomock.
-func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo charmrepoForDeploy) modelcmd.ModelCommand {
+func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo *charmstore.Repository) modelcmd.ModelCommand {
 	deployCmd := &DeployCommand{
 		Steps: []DeployStep{
 			&RegisterMeteredCharm{
@@ -274,4 +278,13 @@ func NewShowCommandForTest(api ApplicationsInfoAPI, store jujuclient.ClientStore
 	}}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
+}
+
+type charmstoreClientToTestcharmsClientShim struct {
+	*csclient.Client
+}
+
+func (c charmstoreClientToTestcharmsClientShim) WithChannel(channel params.Channel) testcharms.CharmstoreClient {
+	client := c.Client.WithChannel(channel)
+	return charmstoreClientToTestcharmsClientShim{client}
 }

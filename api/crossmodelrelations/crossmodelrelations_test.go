@@ -120,9 +120,9 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChangeDischargeRequired(c 
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
-				Info: &params.ErrorInfo{
+				Info: params.DischargeRequiredErrorInfo{
 					Macaroon: mac,
-				},
+				}.AsMap(),
 			}
 		}
 		argParam := arg.(params.RemoteRelationsChanges)
@@ -228,9 +228,9 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
-				Info: &params.ErrorInfo{
+				Info: params.DischargeRequiredErrorInfo{
 					Macaroon: mac,
-				},
+				}.AsMap(),
 			}
 		}
 		argParam := arg.(params.RegisterRemoteRelationArgs)
@@ -317,9 +317,9 @@ func (s *CrossModelRelationsSuite) TestWatchRelationUnitsDischargeRequired(c *gc
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
-				Info: &params.ErrorInfo{
+				Info: params.DischargeRequiredErrorInfo{
 					Macaroon: mac,
-				},
+				}.AsMap(),
 			}
 		case 1:
 			argParam := arg.(params.RemoteEntityArgs)
@@ -401,9 +401,9 @@ func (s *CrossModelRelationsSuite) TestRelationUnitSettingsDischargeRequired(c *
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
-				Info: &params.ErrorInfo{
+				Info: params.DischargeRequiredErrorInfo{
 					Macaroon: mac,
-				},
+				}.AsMap(),
 			}
 		}
 		argParam := arg.(params.RemoteRelationUnits)
@@ -489,9 +489,9 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *g
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
-				Info: &params.ErrorInfo{
+				Info: params.DischargeRequiredErrorInfo{
 					Macaroon: mac,
-				},
+				}.AsMap(),
 			}
 		case 1:
 			argParam := arg.(params.RemoteEntityArgs)
@@ -572,9 +572,9 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChangeDischargeRequi
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
-				Info: &params.ErrorInfo{
+				Info: params.DischargeRequiredErrorInfo{
 					Macaroon: mac,
-				},
+				}.AsMap(),
 			}
 		}
 		argParam := arg.(params.IngressNetworksChanges)
@@ -657,9 +657,9 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeR
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
-				Info: &params.ErrorInfo{
+				Info: params.DischargeRequiredErrorInfo{
 					Macaroon: mac,
-				},
+				}.AsMap(),
 			}
 		case 1:
 			argParam := arg.(params.RemoteEntityArgs)
@@ -743,9 +743,9 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *gc.C
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
-				Info: &params.ErrorInfo{
+				Info: params.DischargeRequiredErrorInfo{
 					Macaroon: mac,
-				},
+				}.AsMap(),
 			}
 		case 1:
 			argParam := arg.(params.OfferArgs)

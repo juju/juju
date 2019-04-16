@@ -296,7 +296,7 @@ type StateInitializationParams struct {
 	// machine.
 	BootstrapMachineConstraints constraints.Value
 
-	// BootstrapMachineHardwareCharacteristics contains the harrdware
+	// BootstrapMachineHardwareCharacteristics contains the hardware
 	// characteristics of the bootstrap machine instance being initialized.
 	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics
 

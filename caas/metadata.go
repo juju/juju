@@ -10,11 +10,18 @@ import (
 )
 
 const (
-	// Microk8s is the nme use dfor microk8s clouds.
-	Microk8s = "microk8s"
-
+	// K8sCloudMicrok8s is the name used for microk8s k8s clouds.
+	K8sCloudMicrok8s = "microk8s"
+	// K8sCloudGCE is the name used for GCE k8s clouds.
+	K8sCloudGCE = "gce"
+	// K8sCloudAzure is the name used for Azure k8s clouds.
+	K8sCloudAzure = "azure"
+	// K8sCloudEC2 is the name used for AWS k8s clouds.
+	K8sCloudEC2 = "ec2"
 	// Microk8sRegion is the single microk8s cloud region.
 	Microk8sRegion = "localhost"
+	// MicroK8sClusterName is the cluster named used by microk8s.
+	MicroK8sClusterName = "microk8s-cluster"
 )
 
 // PreferredStorage defines preferred storage
@@ -40,6 +47,7 @@ type ClusterMetadata struct {
 	OperatorStorageClass  *StorageProvisioner
 	Cloud                 string
 	Regions               set.Strings
+	PreferredServiceType  string
 }
 
 // NonPreferredStorageError is raised when a cluster does not have

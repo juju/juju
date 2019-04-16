@@ -121,24 +121,6 @@ func applicationCharmConfigKey(appName string, curl *charm.URL) string {
 	return fmt.Sprintf("a#%s#%s", appName, curl)
 }
 
-// charmConfigKeyGeneration returns the charm-version-specific settings
-// collection key and possibly a fallback for the application, based on the
-// input generation.
-// If the next generation is requested, the fallback is the standard key.
-// If the current generation is requested, there is no fallback.
-// TODO (manadart 2019-02-21) This will eventually strangle out usage of the
-// standard charmConfigKey at which point it should replace it.
-func (a *Application) charmConfigKeyGeneration(gen string) (string, string) {
-	key := applicationCharmConfigKey(a.doc.Name, a.doc.CharmURL)
-	if gen == model.GenerationMaster {
-		return key, ""
-	}
-	// TODO (manadart 2019-02-21) If specific generation version tracking is
-	// required in future, here we will retrieve the generation document and
-	// suffix the key with some pattern including the generation ID.
-	return model.NextGenerationKey(key), key
-}
-
 // charmConfigKey returns the charm-version-specific settings collection
 // key for the application.
 func (a *Application) charmConfigKey() string {
@@ -192,8 +174,8 @@ func (a *Application) AgentTools() (*tools.Tools, error) {
 	if a.doc.Tools == nil {
 		return nil, errors.NotFoundf("operator image metadata for application %q", a)
 	}
-	tools := *a.doc.Tools
-	return &tools, nil
+	result := *a.doc.Tools
+	return &result, nil
 }
 
 // SetAgentVersion sets the Tools value in applicationDoc.
@@ -202,17 +184,17 @@ func (a *Application) SetAgentVersion(v version.Binary) (err error) {
 	if err = checkVersionValidity(v); err != nil {
 		return errors.Trace(err)
 	}
-	tools := &tools.Tools{Version: v}
+	versionedTool := &tools.Tools{Version: v}
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
 		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
+		Update: bson.D{{"$set", bson.D{{"tools", versionedTool}}}},
 	}}
 	if err := a.st.db().RunTransaction(ops); err != nil {
 		return onAbort(err, ErrDead)
 	}
-	a.doc.Tools = tools
+	a.doc.Tools = versionedTool
 	return nil
 
 }
@@ -255,25 +237,8 @@ type DestroyApplicationOperation struct {
 	// fail if there are any offers remaining.
 	RemoveOffers bool
 
-	// Force controls whether or not the destruction of an application
-	// will be forced, i.e. ignore operational errors.
-	Force bool
-
-	// Errors contains errors encountered while applying this operation.
-	// Generally, these are non-fatal errors that have been encountered
-	// during, say, force. They may not have prevented the operation from being
-	// aborted but the user might still want to know about them.
-	Errors []error
-}
-
-// AddError adds an error to the collection of errors for this operation.
-func (op *DestroyApplicationOperation) AddError(one ...error) {
-	op.Errors = append(op.Errors, one...)
-}
-
-// LastError returns last added error for this operation.
-func (op *DestroyApplicationOperation) LastError() error {
-	return op.Errors[len(op.Errors)-1]
+	// ForcedOperation stores needed information to force this operation.
+	ForcedOperation
 }
 
 // Build is part of the ModelOperation interface.
@@ -285,6 +250,11 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 			return nil, err
 		}
 	}
+	// This call returns needed operations to destroy an application.
+	// All operational errors are added to 'op' struct
+	// and may be of interest to the user. Without 'force', these errors are considered fatal.
+	// If 'force' is specified, they are treated as non-fatal - they will not prevent further
+	// processing: we'll still try to remove application.
 	ops, err := op.destroyOps()
 	switch err {
 	case errRefresh:
@@ -309,6 +279,13 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 // destroyOps returns the operations required to destroy the application. If it
 // returns errRefresh, the application should be refreshed and the destruction
 // operations recalculated.
+//
+// When this operation has 'force' set, all operational errors are considered non-fatal
+// and are accumulated on the operation.
+// This method will return all operations we can construct despite errors.
+//
+// When the 'force' is not set, any operational errors will be considered fatal. All operations
+// constructed up until the error will be discarded and the error will be returned.
 func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	if op.app.doc.Life == Dying {
 		if !op.Force {
@@ -334,8 +311,11 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	removeCount := 0
 	failedRels := false
 	for _, rel := range rels {
-		relOps, isRemove, opErrs, err := rel.destroyOps(op.app.doc.Name, op.Force)
-		op.AddError(opErrs...)
+		// When forced, this call will return both operations to remove this
+		// relation as well as all operational errors encountered.
+		// If the 'force' is not set and the call came across some errors,
+		// these errors will be fatal and no operations will be returned.
+		relOps, isRemove, err := rel.destroyOps(op.app.doc.Name, &op.ForcedOperation)
 		if err == errAlreadyDying {
 			relOps = []txn.Op{{
 				C:      relationsC,
@@ -390,8 +370,11 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	// removed, the application can also be removed.
 	if op.app.doc.UnitCount == 0 && op.app.doc.RelationCount == removeCount {
 		hasLastRefs := bson.D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
-		removeOps, opErrs, err := op.app.removeOps(hasLastRefs, op.Force)
-		op.AddError(opErrs...)
+		// When forced, this call will return operations to remove this
+		// application and accumulate all operational errors encountered in the operation.
+		// If the 'force' is not set and the call came across some errors,
+		// these errors will be fatal and no operations will be returned.
+		removeOps, err := op.app.removeOps(hasLastRefs, &op.ForcedOperation)
 		if err != nil {
 			if !op.Force {
 				return nil, errors.Trace(err)
@@ -463,7 +446,10 @@ func removeResourcesOps(st *State, applicationID string) ([]txn.Op, error) {
 // When force is set, the operation will proceed regardless of the errors,
 // and if any errors are encountered, all possible accumulated operations
 // as well as all encountered errors will be returned.
-func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, []error, error) {
+// When 'force' is set, this call will return operations to remove this
+// application and will accumulate all operational errors encountered in the operation.
+// If the 'force' is not set, any error will be fatal and no operations will be returned.
+func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, error) {
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
@@ -471,14 +457,13 @@ func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, []error, 
 		Remove: true,
 	}}
 
-	errs := []error{}
 	// Remove application offers.
 	removeOfferOps, err := removeApplicationOffersOps(a.st, a.doc.Name)
 	if err != nil {
-		if !force {
-			return nil, errs, errors.Trace(err)
+		if !op.Force {
+			return nil, errors.Trace(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 	}
 	ops = append(ops, removeOfferOps...)
 
@@ -488,13 +473,15 @@ func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, []error, 
 	// do it explicitly below.
 	name := a.doc.Name
 	curl := a.doc.CharmURL
-	charmOps, opErrs, err := appCharmDecRefOps(a.st, name, curl, false, force)
-	errs = append(errs, opErrs...)
+	// When 'force' is set, this call will return operations to delete application references
+	// to this charm as well as accumulate all operational errors encountered in the operation.
+	// If the 'force' is not set, any error will be fatal and no operations will be returned.
+	charmOps, err := appCharmDecRefOps(a.st, name, curl, false, op)
 	if err != nil {
-		if !force {
-			return nil, errs, errors.Trace(err)
+		if !op.Force {
+			return nil, errors.Trace(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 	}
 	ops = append(ops, charmOps...)
 	// By the time we get to here, all units and charm refs have been removed,
@@ -514,7 +501,7 @@ func (a *Application) removeOps(asserts bson.D, force bool) ([]txn.Op, []error, 
 		removeModelApplicationRefOp(a.st, name),
 		removePodSpecOp(a.ApplicationTag()),
 	)
-	return ops, errs, nil
+	return ops, nil
 }
 
 // IsExposed returns whether this application is exposed. The explicitly open
@@ -867,13 +854,13 @@ func (a *Application) changeCharmOps(
 	if oldKey != nil {
 		// Since we can force this now, let's.. There is no point hanging on
 		// to the old key.
-		var opErrs []error
-		decOps, opErrs, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true, true) // current charm
+		op := &ForcedOperation{Force: true}
+		decOps, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true, op) // current charm
 		if err != nil {
 			return nil, errors.Annotatef(err, "could not remove old charm references for %v", oldKey)
 		}
-		if len(opErrs) != 0 {
-			logger.Errorf("could not remove old charm references for %v:%v", oldKey, opErrs)
+		if len(op.Errors) != 0 {
+			logger.Errorf("could not remove old charm references for %v:%v", oldKey, op.Errors)
 		}
 	}
 
@@ -1207,8 +1194,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 	} else if !cfg.ForceSeries {
 		supported := false
-		for _, series := range cfg.Charm.Meta().Series {
-			if series == a.doc.Series {
+		for _, oneSeries := range cfg.Charm.Meta().Series {
+			if oneSeries == a.doc.Series {
 				supported = true
 				break
 			}
@@ -1385,9 +1372,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 				{"unitcount", a.doc.UnitCount}},
 			Update: bson.D{{"$set", bson.D{{"series", series}}}},
 		}}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+
 		if unit != nil {
 			ops = append(ops, txn.Op{
 				C:  unitsC,
@@ -1396,6 +1381,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 					{"subordinates", unit.SubordinateNames()}},
 			})
 		}
+
 		for _, sub := range subApps {
 			ops = append(ops, txn.Op{
 				C:  applicationsC,
@@ -1582,7 +1568,7 @@ func (a *Application) addUnitOps(
 	if err != nil {
 		return "", nil, err
 	}
-	names, ops, err := a.addUnitOpsWithCons(applicationAddUnitOpsArgs{
+	uNames, ops, err := a.addUnitOpsWithCons(applicationAddUnitOpsArgs{
 		cons:          cons,
 		principalName: principalName,
 		storageCons:   storageCons,
@@ -1592,12 +1578,12 @@ func (a *Application) addUnitOps(
 		ports:         args.Ports,
 	})
 	if err != nil {
-		return names, ops, err
+		return uNames, ops, err
 	}
 	// we verify the application is alive
 	asserts = append(isAliveDoc, asserts...)
 	ops = append(ops, a.incUnitCountOp(asserts))
-	return names, ops, err
+	return uNames, ops, err
 }
 
 type applicationAddUnitOpsArgs struct {
@@ -1615,11 +1601,11 @@ type applicationAddUnitOpsArgs struct {
 // addApplicationUnitOps is just like addUnitOps but explicitly takes a
 // constraints value (this is used at application creation time).
 func (a *Application) addApplicationUnitOps(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
-	names, ops, err := a.addUnitOpsWithCons(args)
+	result, ops, err := a.addUnitOpsWithCons(args)
 	if err == nil {
 		ops = append(ops, a.incUnitCountOp(nil))
 	}
-	return names, ops, err
+	return result, ops, err
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
@@ -1635,13 +1621,12 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	}
 	unitTag := names.NewUnitTag(name)
 
-	charm, _, err := a.Charm()
+	appCharm, _, err := a.Charm()
 	if err != nil {
 		return "", nil, err
 	}
-
 	storageOps, numStorageAttachments, err := a.addUnitStorageOps(
-		args, unitTag, charm,
+		args, unitTag, appCharm,
 	)
 	if err != nil {
 		return "", nil, errors.Trace(err)
@@ -1665,7 +1650,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Updated: now.UnixNano(),
 	}
 
-	model, err := a.st.Model()
+	m, err := a.st.Model()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -1680,11 +1665,11 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Status:  status.Unknown,
 		Updated: now.UnixNano(),
 	}
-	if model.Type() != ModelTypeCAAS {
+	if m.Type() != ModelTypeCAAS {
 		unitStatusDoc.StatusInfo = status.MessageWaitForMachine
 	}
 	var containerDoc *cloudContainerDoc
-	if model.Type() == ModelTypeCAAS {
+	if m.Type() == ModelTypeCAAS {
 		if args.providerId != nil || args.address != nil || args.ports != nil {
 			containerDoc = &cloudContainerDoc{
 				Id: globalKey,
@@ -1726,7 +1711,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 			}),
 			Update: bson.D{{"$addToSet", bson.D{{"subordinates", name}}}},
 		})
-		subCharmProfileOps, err := a.addUnitSubordinateCharmProfileOp(name, args.principalName, charm.LXDProfile())
+		subCharmProfileOps, err := a.addUnitSubordinateCharmProfileOp(name, args.principalName, appCharm.LXDProfile())
 		if err != nil && err != jujutxn.ErrNoOperations {
 			return "", nil, errors.Trace(err)
 		}
@@ -1739,13 +1724,9 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	if unitStatusDoc != nil {
-		probablyUpdateStatusHistory(a.st.db(), globalKey, *unitStatusDoc)
-	}
-	if workloadVersionDoc != nil {
-		probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), *workloadVersionDoc)
-	}
-	probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), globalKey, *unitStatusDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), *workloadVersionDoc)
+	_, _ = probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
 	return name, ops, nil
 }
 
@@ -1754,7 +1735,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 func (a *Application) addUnitSubordinateCharmProfileOp(subName, principalName string, profile *charm.LXDProfile) ([]txn.Op, error) {
 	// Because this is not part of a charm upgrade path, it is okay to
 	// short circuit here.
-	if profile == nil || (profile != nil && profile.Empty()) {
+	if profile == nil || profile.Empty() {
 		return nil, nil
 	}
 
@@ -1961,29 +1942,31 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
-func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.Op, []error, error) {
+// When 'force' is set, this call will always return some needed operations
+// and accumulate all operational errors encountered in the operation.
+// If the 'force' is not set, any error will be fatal and no operations will be returned.
+func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation) ([]txn.Op, error) {
 	errs := []error{}
-	hostOps, opErrs, err := u.destroyHostOps(a, force)
-	errs = append(errs, opErrs...)
+	hostOps, err := u.destroyHostOps(a, op)
 	if err != nil {
-		if !force {
-			return nil, errs, errors.Trace(err)
+		if !op.Force {
+			return nil, errors.Trace(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 	}
 	portsOps, err := removePortsForUnitOps(a.st, u)
 	if err != nil {
-		if !force {
-			return nil, errs, errors.Trace(err)
+		if !op.Force {
+			return nil, errors.Trace(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 	}
 	resOps, err := removeUnitResourcesOps(a.st, u.doc.Name)
 	if err != nil {
-		if !force {
-			return nil, errs, errors.Trace(err)
+		if !op.Force {
+			return nil, errors.Trace(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 	}
 
 	observedFieldsMatch := bson.D{
@@ -2003,39 +1986,37 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 		removeStatusOp(a.st, u.globalCloudContainerKey()),
 		removeConstraintsOp(u.globalAgentKey()),
 		annotationRemoveOp(a.st, u.globalKey()),
-		newCleanupOp(cleanupRemovedUnit, u.doc.Name, force),
+		newCleanupOp(cleanupRemovedUnit, u.doc.Name, op.Force),
 	}
 	ops = append(ops, portsOps...)
 	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
 
-	model, err := a.st.Model()
+	m, err := a.st.Model()
 	if err != nil {
-		if !force {
-			return nil, errs, errors.Trace(err)
+		if !op.Force {
+			return nil, errors.Trace(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 	} else {
-		if model.Type() == ModelTypeCAAS {
+		if m.Type() == ModelTypeCAAS {
 			ops = append(ops, u.removeCloudContainerOps()...)
 		}
 	}
 
 	sb, err := NewStorageBackend(a.st)
 	if err != nil {
-		if !force {
-			return nil, errs, errors.Trace(err)
+		if !op.Force {
+			return nil, errors.Trace(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 	} else {
-		// TODO (anastasiamac 2019-03-29) There is a lot of logic in here...
-		// Should this also accept a force flag?
-		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag())
+		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag(), op.Force)
 		if err != nil {
-			if !force {
-				return nil, errs, errors.Trace(err)
+			if !op.Force {
+				return nil, errors.Trace(err)
 			}
-			errs = append(errs, err)
+			op.AddError(err)
 		}
 		ops = append(ops, storageInstanceOps...)
 	}
@@ -2044,29 +2025,33 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 		// If the unit has a different URL to the application, allow any final
 		// cleanup to happen; otherwise we just do it when the app itself is removed.
 		maybeDoFinal := u.doc.CharmURL != a.doc.CharmURL
-		decOps, opErrs, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, force)
-		errs = append(errs, opErrs...)
+		// When 'force' is set, this call will return both needed operations
+		// as well as all operational errors encountered.
+		// If the 'force' is not set, any error will be fatal and no operations will be returned.
+		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, op)
 		if errors.IsNotFound(err) {
-			return nil, errs, errRefresh
+			return nil, errRefresh
 		} else if err != nil {
-			if !force {
-				return nil, errs, errors.Trace(err)
+			if !op.Force {
+				return nil, errors.Trace(err)
 			}
-			errs = append(errs, err)
+			op.AddError(err)
 		}
 		ops = append(ops, decOps...)
 	}
 	if a.doc.Life == Dying && a.doc.RelationCount == 0 && a.doc.UnitCount == 1 {
 		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 0}, {"unitcount", 1}}
-		removeOps, opErrs, err := a.removeOps(hasLastRef, force)
-		errs = append(errs, opErrs...)
+		// When 'force' is set, this call will return some, if not all, needed operations
+		// and accumulate all operational errors encountered in the operation.
+		// If the 'force' is not set, any error will be fatal and no operations will be returned.
+		removeOps, err := a.removeOps(hasLastRef, op)
 		if err != nil {
-			if !force {
-				return nil, errs, errors.Trace(err)
+			if !op.Force {
+				return nil, errors.Trace(err)
 			}
 			errs = append(errs, err)
 		}
-		return append(ops, removeOps...), errs, nil
+		return append(ops, removeOps...), nil
 	}
 	appOp := txn.Op{
 		C:      applicationsC,
@@ -2084,7 +2069,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, force bool) ([]txn.
 			}},
 		}
 	}
-	return append(ops, appOp), errs, nil
+	return append(ops, appOp), nil
 }
 
 func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {
@@ -2117,12 +2102,12 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all units from application %q", application)
 	}
-	model, err := st.Model()
+	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	for i := range docs {
-		units = append(units, newUnit(st, model.Type(), &docs[i]))
+		units = append(units, newUnit(st, m.Type(), &docs[i]))
 	}
 	return units, nil
 }
@@ -2148,40 +2133,55 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 	return relations, nil
 }
 
-func charmSettingsWithDefaults(st *State, curl *charm.URL, requestKey, fallbackKey string) (charm.Settings, error) {
-	settings, err := readSettingsOrCreateFromFallback(st.db(), settingsC, requestKey, fallbackKey)
-	if err != nil {
-		return nil, err
+// CharmConfig returns the raw user configuration for the application's charm.
+func (a *Application) CharmConfig(branchName string) (charm.Settings, error) {
+	if a.doc.CharmURL == nil {
+		return nil, fmt.Errorf("application charm not set")
 	}
-	result := settings.Map()
 
-	chrm, err := st.Charm(curl)
+	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.Name(), branchName)
+	return s, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
+}
+
+func charmSettingsWithDefaults(st *State, cURL *charm.URL, appName, branchName string) (charm.Settings, error) {
+	cfg, err := branchCharmSettings(st, cURL, appName, branchName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	result = chrm.Config().DefaultSettings()
-	for name, value := range settings.Map() {
+
+	ch, err := st.Charm(cURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := ch.Config().DefaultSettings()
+	for name, value := range cfg.Map() {
 		result[name] = value
 	}
 	return result, nil
 }
 
-// CharmConfig returns the raw user configuration for the application's charm.
-func (a *Application) CharmConfig(gen string) (charm.Settings, error) {
-	if a.doc.CharmURL == nil {
-		return nil, fmt.Errorf("application charm not set")
-	}
-	k1, k2 := a.charmConfigKeyGeneration(gen)
-	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, k1, k2)
+func branchCharmSettings(st *State, cURL *charm.URL, appName, branchName string) (*Settings, error) {
+	key := applicationCharmConfigKey(appName, cURL)
+	cfg, err := readSettings(st.db(), settingsC, key)
 	if err != nil {
-		return nil, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
+		return nil, errors.Trace(err)
 	}
-	return s, nil
+
+	if branchName != model.GenerationMaster {
+		branch, err := st.Branch(branchName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cfg.applyChanges(branch.Config()[appName])
+	}
+
+	return cfg, nil
 }
 
 // UpdateCharmConfig changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
-func (a *Application) UpdateCharmConfig(gen string, changes charm.Settings) error {
+func (a *Application) UpdateCharmConfig(branchName string, changes charm.Settings) error {
 	ch, _, err := a.Charm()
 	if err != nil {
 		return errors.Trace(err)
@@ -2195,21 +2195,41 @@ func (a *Application) UpdateCharmConfig(gen string, changes charm.Settings) erro
 	// about every use case. This needs to be resolved some time; but at
 	// least the settings docs are keyed by charm url as well as application
 	// name, so the actual impact of a race is non-threatening.
-
-	k1, k2 := a.charmConfigKeyGeneration(gen)
-	node, err := readSettingsOrCreateFromFallback(a.st.db(), settingsC, k1, k2)
+	current, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
 	if err != nil {
 		return errors.Annotatef(err, "charm config for application %q", a.doc.Name)
 	}
-	for name, value := range changes {
+
+	if branchName == model.GenerationMaster {
+		return errors.Trace(a.updateMasterConfig(current, changes))
+	}
+	return errors.Trace(a.updateBranchConfig(branchName, current, changes))
+}
+
+// TODO (manadart 2019-04-03): Implement master config changes as
+// instantly committed branches.
+func (a *Application) updateMasterConfig(current *Settings, validChanges charm.Settings) error {
+	for name, value := range validChanges {
 		if value == nil {
-			node.Delete(name)
+			current.Delete(name)
 		} else {
-			node.Set(name, value)
+			current.Set(name, value)
 		}
 	}
-	_, err = node.Write()
+	_, err := current.Write()
 	return errors.Trace(err)
+}
+
+// updateBranchConfig compares the incoming charm settings to the current
+// settings to generate a collection of changes, which is used to update the
+// branch with the input name.
+func (a *Application) updateBranchConfig(branchName string, current *Settings, validChanges charm.Settings) error {
+	branch, err := a.st.Branch(branchName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(branch.UpdateCharmConfig(a.Name(), current, validChanges))
 }
 
 // ApplicationConfig returns the configuration for the application itself.
@@ -2412,12 +2432,12 @@ func (a *Application) defaultEndpointBindings() (map[string]string, error) {
 		return map[string]string{}, nil
 	}
 
-	charm, _, err := a.Charm()
+	appCharm, _, err := a.Charm()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return DefaultEndpointBindingsForCharm(charm.Meta()), nil
+	return DefaultEndpointBindingsForCharm(appCharm.Meta()), nil
 }
 
 // MetricCredentials returns any metric credentials associated with this application.
@@ -2523,11 +2543,11 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 	}
 
 	var newHistory *statusDoc
-	model, err := a.st.Model()
+	m, err := a.st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if model.Type() == ModelTypeCAAS {
+	if m.Type() == ModelTypeCAAS {
 		// Application status for a caas model needs to consider status
 		// info coming from the operator pod as well; It may need to
 		// override what is set here.
@@ -2556,11 +2576,11 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 // SetOperatorStatus sets the operator status for an application.
 // This is used on CAAS models.
 func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
-	model, err := a.st.Model()
+	m, err := a.st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if model.Type() != ModelTypeCAAS {
+	if m.Type() != ModelTypeCAAS {
 		return errors.NotSupportedf("caas operation on non-caas model")
 	}
 
@@ -2695,11 +2715,11 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		createStatusOp(mb, globalKey, args.statusDoc),
 		addModelApplicationRefOp(mb, app.Name()),
 	}
-	model, err := app.st.Model()
+	m, err := app.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() == ModelTypeCAAS {
+	if m.Type() == ModelTypeCAAS {
 		operatorStatusDoc := args.statusDoc
 		if args.operatorStatus != nil {
 			operatorStatusDoc = *args.operatorStatus
@@ -2983,11 +3003,11 @@ func (a *Application) WaitAgentPresence(timeout time.Duration) (err error) {
 func (a *Application) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := a.st.getPresenceCollection()
 	recorder := a.st.getPingBatcher()
-	model, err := a.st.Model()
+	m, err := a.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	p := presence.NewPinger(presenceCollection, model.ModelTag(), a.globalKey(),
+	p := presence.NewPinger(presenceCollection, m.ModelTag(), a.globalKey(),
 		func() presence.PingRecorder { return a.st.getPingBatcher() })
 	err = p.Start()
 	if err != nil {
@@ -2999,25 +3019,46 @@ func (a *Application) SetAgentPresence() (*presence.Pinger, error) {
 }
 
 // UpdateCloudService updates the cloud service details for the application.
-func (a *Application) UpdateCloudService(providerId string, addreses []network.Address) error {
-	doc := cloudServiceDoc{
-		Id:         a.globalKey(),
+func (a *Application) UpdateCloudService(providerId string, addresses []network.Address) error {
+	_, err := a.st.SaveCloudService(SaveCloudServiceArgs{
+		Id:         a.Name(),
 		ProviderId: providerId,
-		Addresses:  fromNetworkAddresses(addreses, OriginProvider),
-	}
-	ops, err := a.saveServiceOps(doc)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return a.st.db().RunTransaction(ops)
+		Addresses:  addresses,
+	})
+	return errors.Trace(err)
 }
 
 // ServiceInfo returns information about this application's cloud service.
 // This is only used for CAAS models.
 func (a *Application) ServiceInfo() (CloudService, error) {
-	doc, err := a.cloudService()
+	svc, err := a.st.CloudService(a.Name())
+	if err != nil {
+		return CloudService{}, errors.Trace(err)
+	}
+	return *svc, nil
+}
+
+// UnitNames returns the of this application's units.
+func (a *Application) UnitNames() ([]string, error) {
+	u, err := appUnitNames(a.st, a.Name())
+	return u, errors.Trace(err)
+}
+
+func appUnitNames(st *State, appName string) ([]string, error) {
+	unitsCollection, closer := st.db().GetCollection(unitsC)
+	defer closer()
+
+	var docs []struct {
+		Name string `bson:"name"`
+	}
+	err := unitsCollection.Find(bson.D{{"application", appName}}).Select(bson.D{{"name", 1}}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &cloudService{*doc}, nil
+
+	unitNames := make([]string, len(docs))
+	for i, doc := range docs {
+		unitNames[i] = doc.Name
+	}
+	return unitNames, nil
 }

@@ -4,6 +4,8 @@
 package rpc
 
 import (
+	"encoding/json"
+	"reflect"
 	"strings"
 
 	"github.com/juju/errors"
@@ -28,6 +30,7 @@ type Call struct {
 type RequestError struct {
 	Message string
 	Code    string
+	Info    map[string]interface{}
 }
 
 func (e *RequestError) Error() string {
@@ -39,6 +42,31 @@ func (e *RequestError) Error() string {
 
 func (e *RequestError) ErrorCode() string {
 	return e.Code
+}
+
+func (e *RequestError) ErrorInfo() map[string]interface{} {
+	return e.Info
+}
+
+// UnmarshalInfo attempts to unmarshal the information contained in the Info
+// field of a RequestError into an object instance a pointer to which is passed
+// via the to argument. The method will return an error if a non-pointer arg
+// is provided.
+func (e *RequestError) UnmarshalInfo(to interface{}) error {
+	if reflect.ValueOf(to).Kind() != reflect.Ptr {
+		return errors.New("UnmarshalInfo expects a pointer as an argument")
+	}
+
+	data, err := json.Marshal(e.Info)
+	if err != nil {
+		return errors.Annotate(err, "could not marshal error information")
+	}
+	err = json.Unmarshal(data, to)
+	if err != nil {
+		return errors.Annotate(err, "could not unmarshal error information to provided target")
+	}
+
+	return nil
 }
 
 func (conn *Conn) send(call *Call) {
@@ -111,6 +139,7 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		call.Error = &RequestError{
 			Message: hdr.Error,
 			Code:    hdr.ErrorCode,
+			Info:    hdr.ErrorInfo,
 		}
 		err = conn.readBody(nil, false)
 		call.done()

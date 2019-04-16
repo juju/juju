@@ -444,16 +444,16 @@ func (s *environProfileSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, []string{"default", "juju-default", new})
 }
 
-func (s *environProfileSuite) TestAssignProfiles(c *gc.C) {
+func (s *environProfileSuite) TestAssignLXDProfiles(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	instId := "testme"
 	old := "old-profile"
 	new := "new-profile"
 	expectedProfiles := []string{"default", "juju-default", new}
-	s.expectAssignProfiles(instId, old, new, []string{}, expectedProfiles, nil)
+	s.expectAssignLXDProfiles(instId, old, new, []string{}, expectedProfiles, nil)
 
-	obtained, err := s.lxdEnv.AssignProfiles(instId, expectedProfiles, []lxdprofile.ProfilePost{
+	obtained, err := s.lxdEnv.AssignLXDProfiles(instId, expectedProfiles, []lxdprofile.ProfilePost{
 		{
 			Name:    old,
 			Profile: nil,
@@ -471,7 +471,7 @@ func (s *environProfileSuite) TestAssignProfiles(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, expectedProfiles)
 }
 
-func (s *environProfileSuite) TestAssignProfilesErrorReturnsCurrent(c *gc.C) {
+func (s *environProfileSuite) TestAssignLXDProfilesErrorReturnsCurrent(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	instId := "testme"
@@ -480,9 +480,9 @@ func (s *environProfileSuite) TestAssignProfilesErrorReturnsCurrent(c *gc.C) {
 	expectedProfiles := []string{"default", "juju-default", old}
 	newProfiles := []string{"default", "juju-default", new}
 	expectedErr := "fail UpdateContainerProfiles"
-	s.expectAssignProfiles(instId, old, new, expectedProfiles, newProfiles, errors.New(expectedErr))
+	s.expectAssignLXDProfiles(instId, old, new, expectedProfiles, newProfiles, errors.New(expectedErr))
 
-	obtained, err := s.lxdEnv.AssignProfiles(instId, newProfiles, []lxdprofile.ProfilePost{
+	obtained, err := s.lxdEnv.AssignLXDProfiles(instId, newProfiles, []lxdprofile.ProfilePost{
 		{
 			Name:    old,
 			Profile: nil,
@@ -534,7 +534,7 @@ func (s *environProfileSuite) expectReplaceOrAddInstanceProfile(instId, old, new
 	exp.GetContainerProfiles(instId).Return([]string{"default", "juju-default", new}, nil)
 }
 
-func (s *environProfileSuite) expectAssignProfiles(instId, old, new string, oldProfiles, newProfiles []string, updateErr error) {
+func (s *environProfileSuite) expectAssignLXDProfiles(instId, old, new string, oldProfiles, newProfiles []string, updateErr error) {
 	s.expectMaybeWriteLXDProfile(false, new)
 	exp := s.svr.EXPECT()
 	exp.UpdateContainerProfiles(instId, newProfiles).Return(updateErr)

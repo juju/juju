@@ -917,7 +917,9 @@ func (a *StorageAPI) remove(args params.RemoveStorage) (params.ErrorResults, err
 			remove = a.storageAccess.ReleaseStorageInstance
 		}
 		result[i].Error = common.ServerError(
-			remove(tag, arg.DestroyAttachments),
+			// TODO (anastasiamac 2019-04-04) We can now force storage removal
+			// but for now, while we have not an arg passed in, just hardcode.
+			remove(tag, arg.DestroyAttachments, false),
 		)
 	}
 	return params.ErrorResults{result}, nil
@@ -963,7 +965,9 @@ func (a *StorageAPI) detachStorage(storageTag names.StorageTag, unitTag names.Un
 	if unitTag != (names.UnitTag{}) {
 		// The caller has specified a unit explicitly. Do
 		// not filter out "not found" errors in this case.
-		return a.storageAccess.DetachStorage(storageTag, unitTag)
+		// TODO (anastasiamac 2019-04-04) We can now force storage removal
+		// but for now, while we have not an arg passed in, just hardcode.
+		return a.storageAccess.DetachStorage(storageTag, unitTag, false)
 	}
 	attachments, err := a.storageAccess.StorageAttachments(storageTag)
 	if err != nil {
@@ -979,7 +983,9 @@ func (a *StorageAPI) detachStorage(storageTag names.StorageTag, unitTag names.Un
 		if att.Life() != state.Alive {
 			continue
 		}
-		err := a.storageAccess.DetachStorage(storageTag, att.Unit())
+		// TODO (anastasiamac 2019-04-04) We can now force storage removal
+		// but for now, while we have not an arg passed in, just hardcode.
+		err := a.storageAccess.DetachStorage(storageTag, att.Unit(), false)
 		if err != nil && !errors.IsNotFound(err) {
 			// We only care about NotFound errors if
 			// the user specified a unit explicitly.

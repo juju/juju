@@ -8,7 +8,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
-	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/instancemutater"
@@ -22,7 +21,7 @@ import (
 //go:generate mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/instancemutater MutaterMachine
 
 type InstanceMutaterAPI interface {
-	WatchModelMachines() (watcher.StringsWatcher, error)
+	WatchMachines() (watcher.StringsWatcher, error)
 	Machine(tag names.MachineTag) (instancemutater.MutaterMachine, error)
 }
 
@@ -42,13 +41,25 @@ type Config struct {
 	// Logger is the logger for this worker.
 	Logger Logger
 
-	Environ environs.Environ
+	Broker environs.LXDProfiler
 
 	AgentConfig agent.Config
 
 	// Tag is the current mutaterMachine tag
 	Tag names.Tag
+
+	// GetMachineWatcher allows the worker to watch different "machines"
+	// depending on whether this work is running with an environ broker
+	// or a container broker.
+	GetMachineWatcher func() (watcher.StringsWatcher, error)
+
+	// GetRequiredLXPprofiles provides a slice of strings representing the
+	// lxd profiles to be included on every LXD machine used given the
+	// current model name.
+	GetRequiredLXDProfiles RequiredLXDProfilesFunc
 }
+
+type RequiredLXDProfilesFunc func(string) []string
 
 // Validate checks for missing values from the configuration and checks that
 // they conform to a given type.
@@ -59,8 +70,8 @@ func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
 	}
-	if config.Environ == nil {
-		return errors.NotValidf("nil Environ")
+	if config.Broker == nil {
+		return errors.NotValidf("nil Broker")
 	}
 	if config.AgentConfig == nil {
 		return errors.NotValidf("nil AgentConfig")
@@ -71,33 +82,54 @@ func (config Config) Validate() error {
 	if _, ok := config.Tag.(names.MachineTag); !ok {
 		return errors.NotValidf("Tag")
 	}
+	if config.GetMachineWatcher == nil {
+		return errors.NotValidf("nil GetMachineWatcher")
+	}
+	if config.GetRequiredLXDProfiles == nil {
+		return errors.NotValidf("nil GetRequiredLXDProfiles")
+	}
 	return nil
 }
 
-// NewWorker returns a worker that keeps track of
-// the machines/containers in the state and polls their instance
-// for any changes.
-func NewWorker(config Config) (worker.Worker, error) {
+// NewEnvironWorker returns a worker that keeps track of
+// the machines in the state and polls their instance
+// for addition or removal changes.
+func NewEnvironWorker(config Config) (worker.Worker, error) {
+	config.GetMachineWatcher = config.Facade.WatchMachines
+	config.GetRequiredLXDProfiles = func(modelName string) []string {
+		return []string{"default", "juju-" + modelName}
+	}
+	return newWorker(config)
+}
+
+// NewContainerWorker returns a worker that keeps track of
+// the containers in the state for this machine agent and
+// polls their instance for addition or removal changes.
+func NewContainerWorker(config Config) (worker.Worker, error) {
+	m, err := config.Facade.Machine(config.Tag.(names.MachineTag))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	config.GetRequiredLXDProfiles = func(_ string) []string { return []string{"default"} }
+	config.GetMachineWatcher = m.WatchContainers
+	return newWorker(config)
+}
+
+func newWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	broker, ok := config.Environ.(environs.LXDProfiler)
-	if !ok {
-		// If we don't have an LXDProfiler broker, there is no need to
-		// run this worker.
-		config.Logger.Debugf("uninstalling, not an LXD capable broker")
-		return nil, dependency.ErrUninstall
-	}
-	watcher, err := config.Facade.WatchModelMachines()
+	watcher, err := config.GetMachineWatcher()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	w := &mutaterWorker{
-		logger:         config.Logger,
-		facade:         config.Facade,
-		broker:         broker,
-		machineTag:     config.Tag.(names.MachineTag),
-		machineWatcher: watcher,
+		logger:                     config.Logger,
+		facade:                     config.Facade,
+		broker:                     config.Broker,
+		machineTag:                 config.Tag.(names.MachineTag),
+		machineWatcher:             watcher,
+		getRequiredLXDProfilesFunc: config.GetRequiredLXDProfiles,
 	}
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -115,11 +147,12 @@ func NewWorker(config Config) (worker.Worker, error) {
 type mutaterWorker struct {
 	catacomb catacomb.Catacomb
 
-	logger         Logger
-	broker         environs.LXDProfiler
-	machineTag     names.MachineTag
-	facade         InstanceMutaterAPI
-	machineWatcher watcher.StringsWatcher
+	logger                     Logger
+	broker                     environs.LXDProfiler
+	machineTag                 names.MachineTag
+	facade                     InstanceMutaterAPI
+	machineWatcher             watcher.StringsWatcher
+	getRequiredLXDProfilesFunc RequiredLXDProfilesFunc
 }
 
 func (w *mutaterWorker) loop() error {
@@ -186,8 +219,14 @@ func (w *mutaterWorker) getMachine(tag names.MachineTag) (instancemutater.Mutate
 	return m, err
 }
 
+// getBroker is part of the machineContext interface.
 func (w *mutaterWorker) getBroker() environs.LXDProfiler {
 	return w.broker
+}
+
+// getRequiredLXDProfiles part of the machineContext interface.
+func (w *mutaterWorker) getRequiredLXDProfiles(modelName string) []string {
+	return w.getRequiredLXDProfilesFunc(modelName)
 }
 
 // kill is part of the lifetimeContext interface.

@@ -50,6 +50,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"migration-inactive-flag",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+		"upgrader",
 		// TODO(caas)
 		//"metric-spool",
 		//"meter-status",
@@ -180,6 +181,11 @@ var expectedOperatorManifoldsWithDependencies = map[string][]string{
 	"upgrade-steps-flag": {"upgrade-steps-gate"},
 
 	"upgrade-steps-gate": {},
+
+	"upgrader": {
+		"agent",
+		"api-caller",
+		"api-config-watcher"},
 
 	"clock": {},
 

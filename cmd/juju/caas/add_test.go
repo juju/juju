@@ -465,7 +465,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
+				Config:           map[string]interface{}{"operator-storage": "operator-sc", "controller-service-type": "", "workload-storage": ""},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
 			},
@@ -489,7 +489,7 @@ func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion, workloadStorag
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": workloadStorage},
+				Config:           map[string]interface{}{"operator-storage": "operator-sc", "controller-service-type": "", "workload-storage": workloadStorage},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
 			},
@@ -531,7 +531,7 @@ func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion, workloadStorag
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": workloadStorage},
+				Config:           map[string]interface{}{"operator-storage": "operator-sc", "controller-service-type": "", "workload-storage": workloadStorage},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
 			},
@@ -561,7 +561,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
 	storage defaults are available and to detect the cluster's cloud/region.
 	This was not possible in this case so run add-k8s again, using
 	--storage=<name> to specify the storage class to use and
-	--region=<cloud>/<region> to specify the cloud/region.
+	--region=<cloudType>/<region> to specify the cloud/region.
 : oops`[1:]
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -577,7 +577,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *gc.C) {
 	storage defaults are available and to detect the cluster's cloud/region.
 	This was not possible in this case so run add-k8s again, using
 	--storage=<name> to specify the storage class to use and
-	--region=<cloud>/<region> to specify the cloud/region.
+	--region=<cloudType>/<region> to specify the cloud/region.
 `[1:]
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -714,9 +714,13 @@ func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
 				StorageEndpoint:  "",
 				HostCloudRegion:  hostCloud,
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
-				RegionConfig:     cloud.RegionConfig(nil),
-				CACertificates:   []string{"A"},
+				Config: map[string]interface{}{
+					"operator-storage":        "operator-sc",
+					"controller-service-type": "",
+					"workload-storage":        "",
+				},
+				RegionConfig:   cloud.RegionConfig(nil),
+				CACertificates: []string{"A"},
 			},
 			"mrcloud1": {
 				Name:             "mrcloud1",
@@ -788,7 +792,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
+				Config:           map[string]interface{}{"operator-storage": "operator-sc", "controller-service-type": "", "workload-storage": ""},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata1"},
 			},
@@ -838,7 +842,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1"}},
-				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
+				Config:           map[string]interface{}{"operator-storage": "operator-sc", "controller-service-type": "", "workload-storage": ""},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
 			},

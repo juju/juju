@@ -4,10 +4,13 @@
 package cache
 
 import (
+	"fmt"
+	"regexp"
 	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	"gopkg.in/juju/names.v2"
 )
 
 const (
@@ -128,19 +131,26 @@ func (m *Model) Machine(machineId string) (*Machine, error) {
 
 // WatchMachines returns a PredicateStringsWatcher to notify about
 // added and removed machines in the model.  The initial event contains
-// a slice of the current machine ids.
-func (m *Model) WatchMachines() *PredicateStringsWatcher {
+// a slice of the current machine ids.  Containers are excluded.
+func (m *Model) WatchMachines() (*PredicateStringsWatcher, error) {
 	m.mu.Lock()
 
+	// Create a compiled regexp to match machines not containers.
+	compiled, err := m.machineRegexp()
+	if err != nil {
+		return nil, err
+	}
+	fn := regexpPredicate(compiled)
+
 	// Gather initial slice of machines in this model.
-	machines := make([]string, len(m.machines))
-	i := 0
+	machines := make([]string, 0)
 	for k := range m.machines {
-		machines[i] = k
-		i += 1
+		if fn(k) {
+			machines = append(machines, k)
+		}
 	}
 
-	w := newChangeWatcher(machines...)
+	w := newPredicateStringsWatcher(fn, machines...)
 	unsub := m.hub.Subscribe(m.topic(modelAddRemoveMachine), w.changed)
 
 	w.tomb.Go(func() error {
@@ -150,7 +160,7 @@ func (m *Model) WatchMachines() *PredicateStringsWatcher {
 	})
 
 	m.mu.Unlock()
-	return w
+	return w, nil
 }
 
 // Unit returns the unit with the input name.
@@ -278,4 +288,9 @@ func (m *Model) setDetails(details ModelChange) {
 	}
 
 	m.mu.Unlock()
+}
+
+func (m *Model) machineRegexp() (*regexp.Regexp, error) {
+	regExp := fmt.Sprintf("^%s$", names.NumberSnippet)
+	return regexp.Compile(regExp)
 }

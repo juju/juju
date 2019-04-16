@@ -8,11 +8,13 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 const (
@@ -208,9 +210,91 @@ func (s *generationSuite) TestCommitNoChangesEffectivelyAborted(c *gc.C) {
 
 // TODO (manadart 2019-03-21): Tests for abort.
 
+func (s *generationSuite) TestBranchCharmConfigDeltas(c *gc.C) {
+	gen := s.setupAssignAllUnits(c)
+	c.Assert(gen.Config(), gc.HasLen, 0)
+
+	current := state.GetPopulatedSettings(map[string]interface{}{
+		"http_port":    8098,
+		"handoff_port": 8099,
+		"riak_version": "1.1.4-1",
+	})
+
+	// Process a modification, deletion, and addition.
+	changes := charm.Settings{
+		"http_port":    8100,
+		"handoff_port": nil,
+		"node_name":    "nodey-node",
+	}
+	c.Assert(gen.UpdateCharmConfig("riak", current, changes), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.Config(), gc.DeepEquals, map[string]settings.ItemChanges{"riak": {
+		settings.MakeDeletion("handoff_port", 8099),
+		settings.MakeModification("http_port", 8098, 8100),
+		settings.MakeAddition("node_name", "nodey-node"),
+	}})
+
+	// Now simulate node_name being set on master in the meantime,
+	// along with changes to http_port and handoff_port.
+	current = state.GetPopulatedSettings(map[string]interface{}{
+		"http_port":    100,
+		"handoff_port": 100,
+		"riak_version": "1.1.4-1",
+		"node_name":    "come-lately",
+	})
+
+	// Re-set previously deleted handoff_port, update node_name.
+	changes = charm.Settings{
+		"handoff_port": 9000,
+		"node_name":    "latest-nodey-node",
+	}
+	c.Assert(gen.UpdateCharmConfig("riak", current, changes), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+
+	// handoff_port old value is the original.
+	// http_port unchanged.
+	// node_name remains as an addition.
+	c.Check(gen.Config(), gc.DeepEquals, map[string]settings.ItemChanges{"riak": {
+		settings.MakeModification("handoff_port", 8099, 9000),
+		settings.MakeModification("http_port", 8098, 8100),
+		settings.MakeAddition("node_name", "latest-nodey-node"),
+	}})
+}
+
+func (s *generationSuite) TestBranches(c *gc.C) {
+	s.setupTestingClock(c)
+
+	branches, err := s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 0)
+
+	_ = s.addBranch(c)
+	branches, err = s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 1)
+	c.Check(branches[0].BranchName(), gc.Equals, newBranchName)
+
+	const otherBranchName = "other-branch"
+	c.Assert(s.Model.AddBranch(otherBranchName, newBranchCreator), jc.ErrorIsNil)
+	branches, err = s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 2)
+
+	// Commit the newly added branch. Branches call should not return it.
+	branch, err := s.Model.Branch(otherBranchName)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = branch.Commit(newBranchCreator)
+	c.Assert(err, jc.ErrorIsNil)
+
+	branches, err = s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 1)
+	c.Check(branches[0].BranchName(), gc.Equals, newBranchName)
+}
+
 func (s *generationSuite) setupAssignAllUnits(c *gc.C) *state.Generation {
-	charm := s.AddTestingCharm(c, "riak")
-	riak := s.AddTestingApplication(c, "riak", charm)
+	ch := s.AddTestingCharm(c, "riak")
+	riak := s.AddTestingApplication(c, "riak", ch)
 	for i := 0; i < 4; i++ {
 		_, err := riak.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)

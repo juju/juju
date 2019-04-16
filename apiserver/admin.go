@@ -148,8 +148,8 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	recorderFactory := observer.NewRecorderFactory(
-		a.apiObserver, auditRecorder, auditConfig.CaptureAPIArgs)
-
+		a.apiObserver, auditRecorder, auditConfig.CaptureAPIArgs,
+	)
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
 	return params.LoginResult{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),

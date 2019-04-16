@@ -171,10 +171,10 @@ type InstanceBroker interface {
 // LXDProfiler defines an interface for dealing with lxd profiles used to
 // deploy juju machines and containers.
 type LXDProfiler interface {
-	// AssignProfiles assigns the given profile names to the lxd instance
+	// AssignLXDProfiles assigns the given profile names to the lxd instance
 	// provided.  The slice of ProfilePosts provides details for adding to
 	// and removing profiles from the lxd server.
-	AssignProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error)
+	AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error)
 
 	// MaybeWriteLXDProfile, write given LXDProfile to if not already there.
 	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error

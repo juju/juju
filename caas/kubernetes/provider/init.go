@@ -24,19 +24,19 @@ func init() {
 	// jujuPreferredWorkloadStorage defines the opinionated storage
 	// that Juju requires to be available on supported clusters.
 	jujuPreferredWorkloadStorage = map[string]caas.PreferredStorage{
-		"microk8s": {
+		caas.K8sCloudMicrok8s: {
 			Name:        "hostpath",
 			Provisioner: "microk8s.io/hostpath",
 		},
-		"gce": {
+		caas.K8sCloudGCE: {
 			Name:        "GCE Persistent Disk",
 			Provisioner: "kubernetes.io/gce-pd",
 		},
-		"azure": {
+		caas.K8sCloudAzure: {
 			Name:        "Azure Disk",
 			Provisioner: "kubernetes.io/azure-disk",
 		},
-		"ec2": {
+		caas.K8sCloudEC2: {
 			Name:        "EBS Volume",
 			Provisioner: "kubernetes.io/aws-ebs",
 		},
@@ -54,17 +54,16 @@ func init() {
 // cloud provider from node labels.
 func compileK8sCloudCheckers() map[string]k8slabels.Selector {
 	return map[string]k8slabels.Selector{
-		"gce": newLabelRequirements(
+		caas.K8sCloudGCE: newLabelRequirements(
 			requirementParams{"cloud.google.com/gke-nodepool", selection.Exists, nil},
 			requirementParams{"cloud.google.com/gke-os-distribution", selection.Exists, nil},
 		),
-		"ec2": newLabelRequirements(
+		caas.K8sCloudEC2: newLabelRequirements(
 			requirementParams{"manufacturer", selection.Equals, []string{"amazon_ec2"}},
 		),
-		"azure": newLabelRequirements(
+		caas.K8sCloudAzure: newLabelRequirements(
 			requirementParams{"kubernetes.azure.com/cluster", selection.Exists, nil},
 		),
 		// format - cloudType: requirements.
-		// TODO(caas): add support for cdk, etc.
 	}
 }

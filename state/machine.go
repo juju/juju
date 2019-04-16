@@ -220,18 +220,19 @@ func (m *Machine) globalKey() string {
 
 // instanceData holds attributes relevant to a provisioned machine.
 type instanceData struct {
-	DocID       string      `bson:"_id"`
-	MachineId   string      `bson:"machineid"`
-	InstanceId  instance.Id `bson:"instanceid"`
-	DisplayName string      `bson:"display-name"`
-	ModelUUID   string      `bson:"model-uuid"`
-	Arch        *string     `bson:"arch,omitempty"`
-	Mem         *uint64     `bson:"mem,omitempty"`
-	RootDisk    *uint64     `bson:"rootdisk,omitempty"`
-	CpuCores    *uint64     `bson:"cpucores,omitempty"`
-	CpuPower    *uint64     `bson:"cpupower,omitempty"`
-	Tags        *[]string   `bson:"tags,omitempty"`
-	AvailZone   *string     `bson:"availzone,omitempty"`
+	DocID          string      `bson:"_id"`
+	MachineId      string      `bson:"machineid"`
+	InstanceId     instance.Id `bson:"instanceid"`
+	DisplayName    string      `bson:"display-name"`
+	ModelUUID      string      `bson:"model-uuid"`
+	Arch           *string     `bson:"arch,omitempty"`
+	Mem            *uint64     `bson:"mem,omitempty"`
+	RootDisk       *uint64     `bson:"rootdisk,omitempty"`
+	RootDiskSource *string     `bson:"rootdisksource,omitempty"`
+	CpuCores       *uint64     `bson:"cpucores,omitempty"`
+	CpuPower       *uint64     `bson:"cpupower,omitempty"`
+	Tags           *[]string   `bson:"tags,omitempty"`
+	AvailZone      *string     `bson:"availzone,omitempty"`
 
 	// KeepInstance is set to true if, on machine removal from Juju,
 	// the cloud instance should be retained.
@@ -247,6 +248,7 @@ func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteri
 		Arch:             instData.Arch,
 		Mem:              instData.Mem,
 		RootDisk:         instData.RootDisk,
+		RootDiskSource:   instData.RootDiskSource,
 		CpuCores:         instData.CpuCores,
 		CpuPower:         instData.CpuPower,
 		Tags:             instData.Tags,
@@ -573,7 +575,7 @@ func (m *Machine) PasswordValid(password string) bool {
 // If the machine has assigned units, Destroy will return
 // a HasAssignedUnitsError.
 func (m *Machine) Destroy() error {
-	return m.advanceLifecycle(Dying)
+	return m.advanceLifecycle(Dying, false)
 }
 
 // ForceDestroy queues the machine for complete removal, including the
@@ -645,7 +647,7 @@ func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 // If the machine has assigned units, EnsureDead will return
 // a HasAssignedUnitsError.
 func (m *Machine) EnsureDead() error {
-	return m.advanceLifecycle(Dead)
+	return m.advanceLifecycle(Dead, false)
 }
 
 type HasAssignedUnitsError struct {
@@ -735,7 +737,7 @@ func IsHasAttachmentsError(err error) bool {
 // value, or a later one, no changes will be made to remote state. If
 // the machine has any responsibilities that preclude a valid change in
 // lifecycle, it will return an error.
-func (original *Machine) advanceLifecycle(life Life) (err error) {
+func (original *Machine) advanceLifecycle(life Life, force bool) (err error) {
 	containers, err := original.Containers()
 	if err != nil {
 		return err
@@ -773,7 +775,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			{{"principals", bson.D{{"$exists", false}}}},
 		},
 	}
-	cleanupOp := newCleanupOp(cleanupDyingMachine, m.doc.Id)
+	cleanupOp := newCleanupOp(cleanupDyingMachine, m.doc.Id, force)
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -1416,18 +1418,19 @@ func (m *Machine) SetProvisioned(
 		characteristics = &instance.HardwareCharacteristics{}
 	}
 	instData := &instanceData{
-		DocID:       m.doc.DocID,
-		MachineId:   m.doc.Id,
-		InstanceId:  id,
-		DisplayName: displayName,
-		ModelUUID:   m.doc.ModelUUID,
-		Arch:        characteristics.Arch,
-		Mem:         characteristics.Mem,
-		RootDisk:    characteristics.RootDisk,
-		CpuCores:    characteristics.CpuCores,
-		CpuPower:    characteristics.CpuPower,
-		Tags:        characteristics.Tags,
-		AvailZone:   characteristics.AvailabilityZone,
+		DocID:          m.doc.DocID,
+		MachineId:      m.doc.Id,
+		InstanceId:     id,
+		DisplayName:    displayName,
+		ModelUUID:      m.doc.ModelUUID,
+		Arch:           characteristics.Arch,
+		Mem:            characteristics.Mem,
+		RootDisk:       characteristics.RootDisk,
+		RootDiskSource: characteristics.RootDiskSource,
+		CpuCores:       characteristics.CpuCores,
+		CpuPower:       characteristics.CpuPower,
+		Tags:           characteristics.Tags,
+		AvailZone:      characteristics.AvailabilityZone,
 	}
 
 	ops := []txn.Op{

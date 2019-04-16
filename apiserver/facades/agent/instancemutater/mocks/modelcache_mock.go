@@ -88,10 +88,11 @@ func (mr *MockModelCacheMockRecorder) Name() *gomock.Call {
 }
 
 // WatchMachines mocks base method
-func (m *MockModelCache) WatchMachines() cache.StringsWatcher {
+func (m *MockModelCache) WatchMachines() (cache.StringsWatcher, error) {
 	ret := m.ctrl.Call(m, "WatchMachines")
 	ret0, _ := ret[0].(cache.StringsWatcher)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // WatchMachines indicates an expected call of WatchMachines
@@ -171,6 +172,19 @@ func (m *MockModelCacheMachine) WatchApplicationLXDProfiles() (cache.NotifyWatch
 // WatchApplicationLXDProfiles indicates an expected call of WatchApplicationLXDProfiles
 func (mr *MockModelCacheMachineMockRecorder) WatchApplicationLXDProfiles() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationLXDProfiles", reflect.TypeOf((*MockModelCacheMachine)(nil).WatchApplicationLXDProfiles))
+}
+
+// WatchContainers mocks base method
+func (m *MockModelCacheMachine) WatchContainers() (cache.StringsWatcher, error) {
+	ret := m.ctrl.Call(m, "WatchContainers")
+	ret0, _ := ret[0].(cache.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchContainers indicates an expected call of WatchContainers
+func (mr *MockModelCacheMachineMockRecorder) WatchContainers() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockModelCacheMachine)(nil).WatchContainers))
 }
 
 // MockModelCacheApplication is a mock of ModelCacheApplication interface

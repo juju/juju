@@ -116,13 +116,14 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv9 {
 func (s *applicationSuite) TestCharmConfig(c *gc.C) {
 	s.setUpConfigTest(c)
 
-	// TODO (manadart 2019-02-04): When upstream methods receive a generation,
-	// refactor these tests to account for it.
+	branchName := "test-branch"
+	c.Assert(s.State.AddBranch(branchName, "test-user"), jc.ErrorIsNil)
+
 	results, err := s.applicationAPI.CharmConfig(params.ApplicationGetArgs{
 		Args: []params.ApplicationGet{
-			{ApplicationName: "foo", Generation: model.GenerationMaster},
-			{ApplicationName: "bar", Generation: model.GenerationMaster},
-			{ApplicationName: "wat", Generation: model.GenerationMaster},
+			{ApplicationName: "foo", BranchName: branchName},
+			{ApplicationName: "bar", BranchName: branchName},
+			{ApplicationName: "wat", BranchName: branchName},
 		},
 	})
 	assertConfigTest(c, results, err, []params.ConfigResult{})
@@ -1878,7 +1879,7 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
-func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLNextGen(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLBranch(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
 
@@ -2030,7 +2031,6 @@ func (s *applicationSuite) TestApplicationSet(c *gc.C) {
 			"title":    "foobar",
 			"username": validSetTestValue,
 		},
-		Generation: model.GenerationMaster,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err := dummy.CharmConfig(model.GenerationMaster)
@@ -2045,7 +2045,6 @@ func (s *applicationSuite) TestApplicationSet(c *gc.C) {
 			"title":    "barfoo",
 			"username": "",
 		},
-		Generation: model.GenerationMaster,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err = dummy.CharmConfig(model.GenerationMaster)
@@ -2072,7 +2071,6 @@ func (s *applicationSuite) assertApplicationSet(c *gc.C, dummy *state.Applicatio
 			"title":    "foobar",
 			"username": validSetTestValue,
 		},
-		Generation: model.GenerationMaster,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err := dummy.CharmConfig(model.GenerationMaster)
@@ -2113,7 +2111,6 @@ func (s *applicationSuite) TestServerUnset(c *gc.C) {
 			"title":    "foobar",
 			"username": "user name",
 		},
-		Generation: model.GenerationMaster,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err := dummy.CharmConfig(model.GenerationMaster)
@@ -2126,7 +2123,6 @@ func (s *applicationSuite) TestServerUnset(c *gc.C) {
 	err = s.applicationAPI.Unset(params.ApplicationUnset{
 		ApplicationName: "dummy",
 		Options:         []string{"username"},
-		Generation:      model.GenerationMaster,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err = dummy.CharmConfig(model.GenerationMaster)
@@ -2145,7 +2141,6 @@ func (s *applicationSuite) setupServerUnsetBlocked(c *gc.C) *state.Application {
 			"title":    "foobar",
 			"username": "user name",
 		},
-		Generation: model.GenerationMaster,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err := dummy.CharmConfig(model.GenerationMaster)
@@ -2163,7 +2158,6 @@ func (s *applicationSuite) assertServerUnset(c *gc.C, dummy *state.Application) 
 	err := s.applicationAPI.Unset(params.ApplicationUnset{
 		ApplicationName: "dummy",
 		Options:         []string{"username"},
-		Generation:      model.GenerationMaster,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err := dummy.CharmConfig(model.GenerationMaster)

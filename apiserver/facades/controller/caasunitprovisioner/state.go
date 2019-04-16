@@ -45,7 +45,7 @@ type StorageBackend interface {
 	// These are for cleanup up orphaned filesystems when pods are recreated.
 	// TODO(caas) - record unit id on the filesystem so we can query by unit
 	AllFilesystems() ([]state.Filesystem, error)
-	DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error)
+	DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool) (err error)
 	DestroyFilesystem(tag names.FilesystemTag) (err error)
 }
 
@@ -81,6 +81,7 @@ type Application interface {
 	Constraints() (constraints.Value, error)
 	GetPlacement() string
 	SetOperatorStatus(sInfo status.StatusInfo) error
+	SetStatus(statusInfo status.StatusInfo) error
 }
 
 type stateShim struct {

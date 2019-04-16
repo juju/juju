@@ -175,7 +175,8 @@ func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {
 	m, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := m.WatchMachines()
+	w, err := m.WatchMachines()
+	c.Assert(err, jc.ErrorIsNil)
 	wc := NewStringsWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange([]string{machineChange.Id})
@@ -195,6 +196,24 @@ func (s *ControllerSuite) TestWatchMachineAddMachine(c *gc.C) {
 	}
 	s.processChange(c, change, events)
 	wc.AssertOneChange([]string{change.Id})
+}
+
+func (s *ControllerSuite) TestWatchMachineAddContainerNoChange(c *gc.C) {
+	w, events := s.setupWithWatchMachine(c)
+	defer workertest.CleanKill(c, w)
+	wc := NewStringsWatcherC(c, w)
+	// Sends initial event.
+	wc.AssertOneChange([]string{machineChange.Id})
+
+	change := cache.MachineChange{
+		ModelUUID: modelChange.ModelUUID,
+		Id:        "2/lxd/0",
+	}
+	s.processChange(c, change, events)
+	change2 := change
+	change2.Id = "3"
+	s.processChange(c, change2, events)
+	wc.AssertOneChange([]string{change2.Id})
 }
 
 func (s *ControllerSuite) TestWatchMachineRemoveMachine(c *gc.C) {
@@ -260,7 +279,14 @@ func (s *ControllerSuite) setupWithWatchMachine(c *gc.C) (*cache.PredicateString
 	m, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := m.WatchMachines()
+	containerChange := cache.MachineChange{
+		ModelUUID: modelChange.ModelUUID,
+		Id:        "2/lxd/0",
+	}
+	s.processChange(c, containerChange, events)
+
+	w, err := m.WatchMachines()
+	c.Assert(err, jc.ErrorIsNil)
 	return w, events
 }
 

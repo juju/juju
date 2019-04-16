@@ -1118,6 +1118,42 @@ var (
 	errLocalApplicationExists          = errors.Errorf("application already exists")
 )
 
+// SaveCloudServiceArgs defines the arguments for SaveCloudService method.
+type SaveCloudServiceArgs struct {
+	// Id will be the application Name if it's a part of application,
+	// and will be controller UUID for k8s a controller(controller does not have an application),
+	// then is wrapped with applicationGlobalKey.
+	Id         string
+	ProviderId string
+	Addresses  []network.Address
+}
+
+// SaveCloudService creates a cloud service.
+func (st *State) SaveCloudService(args SaveCloudServiceArgs) (_ *CloudService, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add cloud service %q", args.ProviderId)
+
+	doc := cloudServiceDoc{
+		DocID:      applicationGlobalKey(args.Id),
+		ProviderId: args.ProviderId,
+		Addresses:  fromNetworkAddresses(args.Addresses, OriginProvider),
+	}
+	svc := newCloudService(st, &doc)
+	buildTxn := func(int) ([]txn.Op, error) {
+		return svc.saveServiceOps(doc)
+	}
+
+	if err := st.db().Run(buildTxn); err != nil {
+		return nil, errors.Annotate(err, "failed to save cloud service")
+	}
+	return svc, nil
+}
+
+// CloudService returns a cloud service state by Id.
+func (st *State) CloudService(id string) (*CloudService, error) {
+	svc := newCloudService(st, &cloudServiceDoc{DocID: st.docID(applicationGlobalKey(id))})
+	return svc.CloudService()
+}
+
 type AddApplicationArgs struct {
 	Name              string
 	Series            string
@@ -1464,6 +1500,44 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 		storagePools.Add(storageParams.Pool)
 	}
 
+	// Obtain volume attachment params corresponding to storage being
+	// attached. We need to pass them along to precheckInstance, in
+	// case the volumes cannot be attached to a machine with the given
+	// placement directive.
+	sb, err := NewStorageBackend(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
+	for _, storageTag := range args.AttachStorage {
+		v, err := sb.StorageInstanceVolume(storageTag)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		volumeInfo, err := v.Info()
+		if err != nil {
+			// Volume has not been provisioned yet,
+			// so it cannot be attached.
+			continue
+		}
+		providerType, _, _, err := poolStorageProvider(sb, volumeInfo.Pool)
+		if err != nil {
+			return errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
+		}
+		storageName, _ := names.StorageName(storageTag.Id())
+		volumeAttachments = append(volumeAttachments, storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: providerType,
+				ReadOnly: args.Charm.Meta().Storage[storageName].ReadOnly,
+			},
+			Volume:   v.VolumeTag(),
+			VolumeId: volumeInfo.VolumeId,
+		})
+	}
+
+	// Collect distinct placements that need to be checked.
 	for _, placement := range args.Placement {
 		data, err := st.parsePlacement(placement)
 		if err != nil {
@@ -1484,44 +1558,11 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 					err, "cannot deploy to machine %s", m,
 				)
 			}
+			// This placement directive indicates that we're putting a
+			// unit on a pre-existing machine. There's no need to
+			// precheck the args since we're not starting an instance.
 
 		case directivePlacement:
-			// Obtain volume attachment params corresponding to storage being
-			// attached. We need to pass them along to precheckInstance, in
-			// case the volumes cannot be attached to a machine with the given
-			// placement directive.
-			sb, err := NewStorageBackend(st)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
-			for _, storageTag := range args.AttachStorage {
-				v, err := sb.StorageInstanceVolume(storageTag)
-				if errors.IsNotFound(err) {
-					continue
-				} else if err != nil {
-					return errors.Trace(err)
-				}
-				volumeInfo, err := v.Info()
-				if err != nil {
-					// Volume has not been provisioned yet,
-					// so it cannot be attached.
-					continue
-				}
-				providerType, _, _, err := poolStorageProvider(sb, volumeInfo.Pool)
-				if err != nil {
-					return errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
-				}
-				storageName, _ := names.StorageName(storageTag.Id())
-				volumeAttachments = append(volumeAttachments, storage.VolumeAttachmentParams{
-					AttachmentParams: storage.AttachmentParams{
-						Provider: providerType,
-						ReadOnly: args.Charm.Meta().Storage[storageName].ReadOnly,
-					},
-					Volume:   v.VolumeTag(),
-					VolumeId: volumeInfo.VolumeId,
-				})
-			}
 			if err := st.precheckInstance(
 				args.Series,
 				args.Constraints,
@@ -1532,6 +1573,18 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 			}
 		}
 	}
+	// We want to check the constraints if there's no placement at all.
+	if len(args.Placement) == 0 {
+		if err := st.precheckInstance(
+			args.Series,
+			args.Constraints,
+			"",
+			volumeAttachments,
+		); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return nil
 }
 

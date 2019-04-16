@@ -54,6 +54,10 @@ type MutaterMachine interface {
 	//  - unit is add or removed and there is a lxd profile
 	WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error)
 
+	// WatchContainers returns a watcher.StringsWatcher for watching
+	// containers of a given machine.
+	WatchContainers() (watcher.StringsWatcher, error)
+
 	// SetModificationStatus sets the provider specific modification status
 	// for a machine. Allowing the propagation of status messages to the
 	// operator.
@@ -184,6 +188,20 @@ func (m *Machine) WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error) {
 		return nil, result.Error
 	}
 	return apiwatcher.NewNotifyWatcher(m.facade.RawAPICaller(), result), nil
+}
+
+// WatchContainers returns a StringsWatcher reporting changes to containers.
+func (m *Machine) WatchContainers() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	arg := params.Entity{Tag: m.tag.String()}
+	err := m.facade.FacadeCall("WatchContainers", arg, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return apiwatcher.NewStringsWatcher(m.facade.RawAPICaller(), result), nil
 }
 
 type UnitProfileInfo struct {

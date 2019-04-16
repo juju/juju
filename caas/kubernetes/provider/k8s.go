@@ -72,8 +72,6 @@ const (
 
 	gpuAffinityNodeSelectorKey = "gpu"
 
-	jujudToolDir = "/var/lib/juju/tools"
-
 	annotationPrefix = "juju.io"
 )
 
@@ -553,7 +551,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			Annotations: resourceTagsToAnnotations(config.CharmStorage.ResourceTags).ToMap()},
 		Spec: *pvcSpec,
 	}
-	pod := operatorPod(
+	pod, err := operatorPod(
 		operatorName,
 		appName,
 		agentPath,
@@ -561,6 +559,9 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		config.Version.String(),
 		annotations.Copy(),
 	)
+	if err != nil {
+		return errors.Annotate(err, "generating operator podspec")
+	}
 	// Take a copy for use with statefulset.
 	podWithoutStorage := pod
 
@@ -817,12 +818,44 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	return errors.Trace(k.deleteDeployment(operatorName))
 }
 
-func getSvcAddresses(svc *core.Service) []network.Address {
+func getLoadBalancerAddress(svc *core.Service) string {
+	// different cloud providers have a different way to report back the Load Balancer address.
+	// This covers the cases we know about so far.
+	lpAdd := svc.Spec.LoadBalancerIP
+	if lpAdd != "" {
+		return lpAdd
+	}
+
+	ing := svc.Status.LoadBalancer.Ingress
+	if len(ing) == 0 {
+		return ""
+	}
+
+	// It usually has only one record.
+	firstOne := ing[0]
+	if firstOne.IP != "" {
+		return firstOne.IP
+	}
+	if firstOne.Hostname != "" {
+		return firstOne.Hostname
+	}
+	return lpAdd
+}
+
+func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Address {
 	var netAddrs []network.Address
 
-	appendAddrs := func(scope network.Scope, addrs ...string) {
+	addressExist := func(addr string) bool {
+		for _, v := range netAddrs {
+			if addr == v.Value {
+				return true
+			}
+		}
+		return false
+	}
+	appendUniqueAddrs := func(scope network.Scope, addrs ...string) {
 		for _, v := range addrs {
-			if v != "" {
+			if v != "" && !addressExist(v) {
 				netAddrs = append(netAddrs, network.Address{
 					Value: v,
 					Type:  network.DeriveAddressType(v),
@@ -831,28 +864,28 @@ func getSvcAddresses(svc *core.Service) []network.Address {
 			}
 		}
 	}
+
 	t := svc.Spec.Type
 	clusterIP := svc.Spec.ClusterIP
 	switch t {
 	case core.ServiceTypeClusterIP:
-		appendAddrs(network.ScopeCloudLocal, clusterIP)
+		appendUniqueAddrs(network.ScopeCloudLocal, clusterIP)
 	case core.ServiceTypeExternalName:
-		appendAddrs(network.ScopeCloudLocal, svc.Spec.ExternalName)
+		appendUniqueAddrs(network.ScopePublic, svc.Spec.ExternalName)
 	case core.ServiceTypeNodePort:
-		appendAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)
+		appendUniqueAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)
 	case core.ServiceTypeLoadBalancer:
-		appendAddrs(network.ScopePublic, svc.Spec.LoadBalancerIP)
+		appendUniqueAddrs(network.ScopePublic, getLoadBalancerAddress(svc))
 	}
-	if len(netAddrs) == 0 && clusterIP != "" {
-		// fallback to ClusterIP, usually it's not empty.
-		logger.Debugf("fallback to clusterIP %q, desired IP was empty for %q type service %q", clusterIP, t, svc.Name)
-		appendAddrs(network.ScopeCloudLocal, clusterIP)
+	if includeClusterIP {
+		// append clusterIP as a fixed internal address.
+		appendUniqueAddrs(network.ScopeCloudLocal, clusterIP)
 	}
 	return netAddrs
 }
 
 // GetService returns the service for the specified application.
-func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
+func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*caas.Service, error) {
 	services := k.CoreV1().Services(k.namespace)
 	servicesList, err := services.List(v1.ListOptions{
 		LabelSelector:        applicationSelector(appName),
@@ -861,14 +894,13 @@ func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(servicesList.Items) == 0 {
-		return nil, errors.NotFoundf("service for %q", appName)
+	var result caas.Service
+	// We may have the stateful set or deployment but service not done yet.
+	if len(servicesList.Items) > 0 {
+		service := servicesList.Items[0]
+		result.Id = string(service.GetUID())
+		result.Addresses = getSvcAddresses(&service, includeClusterIP)
 	}
-	service := servicesList.Items[0]
-	result := caas.Service{
-		Id: string(service.UID),
-	}
-	result.Addresses = getSvcAddresses(&servicesList.Items[0])
 
 	deploymentName := k.deploymentName(appName)
 	statefulsets := k.AppsV1().StatefulSets(k.namespace)
@@ -877,6 +909,14 @@ func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 		if ss.Spec.Replicas != nil {
 			scale := int(*ss.Spec.Replicas)
 			result.Scale = &scale
+		}
+		message, ssStatus, err := k.getStatefulSetStatus(ss)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
+		}
+		result.Status = status.StatusInfo{
+			Status:  ssStatus,
+			Message: message,
 		}
 		return &result, nil
 	}
@@ -893,6 +933,14 @@ func (k *kubernetesClient) GetService(appName string) (*caas.Service, error) {
 		if deployment.Spec.Replicas != nil {
 			scale := int(*deployment.Spec.Replicas)
 			result.Scale = &scale
+		}
+		message, ssStatus, err := k.getDeploymentStatus(deployment)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
+		}
+		result.Status = status.StatusInfo{
+			Status:  ssStatus,
+			Message: message,
 		}
 	}
 
@@ -1638,11 +1686,11 @@ func (k *kubernetesClient) configureService(
 			ExternalName:             config.GetString(serviceExternalNameKey, ""),
 		},
 	}
-	return k.ensureService(service)
+	return k.ensureK8sService(service)
 }
 
-// ensureService ensures a service resource.
-func (k *kubernetesClient) ensureService(spec *core.Service) error {
+// ensureK8sService ensures a k8s service resource.
+func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
 	services := k.CoreV1().Services(k.namespace)
 	// Set any immutable fields if the service already exists.
 	existing, err := services.Get(spec.Name, v1.GetOptions{IncludeUninitialized: true})
@@ -2093,6 +2141,53 @@ func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, st
 	return statusMessage, jujuStatus, since, nil
 }
 
+func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, status.Status, error) {
+	terminated := ss.DeletionTimestamp != nil
+	jujuStatus := status.Waiting
+	if terminated {
+		jujuStatus = status.Terminated
+	}
+	if ss.Status.ReadyReplicas == ss.Status.Replicas {
+		jujuStatus = status.Active
+	}
+	return k.getStatusFromEvents(ss.Name, jujuStatus)
+}
+
+func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (string, status.Status, error) {
+	terminated := deployment.DeletionTimestamp != nil
+	jujuStatus := status.Waiting
+	if terminated {
+		jujuStatus = status.Terminated
+	}
+	if deployment.Status.ReadyReplicas == deployment.Status.Replicas {
+		jujuStatus = status.Active
+	}
+	return k.getStatusFromEvents(deployment.Name, jujuStatus)
+}
+
+func (k *kubernetesClient) getStatusFromEvents(parentName string, jujuStatus status.Status) (string, status.Status, error) {
+	events := k.CoreV1().Events(k.namespace)
+	eventList, err := events.List(v1.ListOptions{
+		IncludeUninitialized: true,
+		FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", parentName).String(),
+	})
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	var statusMessage string
+	// Take the most recent event.
+	if count := len(eventList.Items); count > 0 {
+		evt := eventList.Items[count-1]
+		if jujuStatus == "" {
+			if evt.Type == core.EventTypeWarning && evt.Reason == "FailedCreate" {
+				jujuStatus = status.Blocked
+				statusMessage = evt.Message
+			}
+		}
+	}
+	return statusMessage, jujuStatus, nil
+}
+
 func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) status.Status {
 	if terminated {
 		return status.Terminated
@@ -2193,7 +2288,7 @@ func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) 
 
 // operatorPod returns a *core.Pod for the operator pod
 // of the specified application.
-func operatorPod(podName, appName, agentPath, operatorImagePath, version string, annotations k8sannotations.Annotation) *core.Pod {
+func operatorPod(podName, appName, agentPath, operatorImagePath, version string, annotations k8sannotations.Annotation) (*core.Pod, error) {
 	configMapName := operatorConfigMapName(podName)
 	configVolName := configMapName
 
@@ -2202,8 +2297,11 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 	}
 
 	appTag := names.NewApplicationTag(appName)
-	jujudCmd := fmt.Sprintf("./jujud caasoperator --application-name=%s --debug", appName)
-
+	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
+	jujuDataDir, err := paths.DataDir("kubernetes")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name: podName,
@@ -2216,13 +2314,18 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				Name:            "juju-operator",
 				ImagePullPolicy: core.PullIfNotPresent,
 				Image:           operatorImagePath,
-				WorkingDir:      jujudToolDir,
+				WorkingDir:      jujuDataDir,
 				Command: []string{
 					"/bin/sh",
 				},
 				Args: []string{
 					"-c",
-					fmt.Sprintf(caas.JujudStartUpSh, jujudCmd),
+					fmt.Sprintf(
+						caas.JujudStartUpSh,
+						jujuDataDir,
+						"tools",
+						jujudCmd,
+					),
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
@@ -2248,7 +2351,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				},
 			}},
 		},
-	}
+	}, nil
 }
 
 // operatorConfigMap returns a *core.ConfigMap for the operator pod

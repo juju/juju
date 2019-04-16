@@ -259,7 +259,7 @@ settings:
 	modelDetails := jujuclient.ModelDetails{
 		ModelUUID:    st.ModelUUID(),
 		ModelType:    "caas",
-		ActiveBranch: "current",
+		ActiveBranch: coremodel.GenerationMaster,
 	}
 	c.Assert(s.ControllerStore.UpdateModel("kontroll", "admin/caas-model", modelDetails), jc.ErrorIsNil)
 

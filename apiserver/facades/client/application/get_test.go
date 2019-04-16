@@ -61,7 +61,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	s.applicationAPI = &application.APIv9{api}
 }
 
-func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	v4 := &application.APIv4{&application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{s.applicationAPI}}}}}
 	results, err := v4.Get(params.ApplicationGet{ApplicationName: "wordpress"})
@@ -81,7 +81,7 @@ func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetSmokeTestV5(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	v5 := &application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{s.applicationAPI}}}}
 	results, err := v5.Get(params.ApplicationGet{ApplicationName: "wordpress"})
@@ -102,7 +102,7 @@ func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestClientApplicationGetIAASModelSmoketest(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	results, err := s.applicationAPI.Get(params.ApplicationGet{ApplicationName: "wordpress"})
@@ -131,7 +131,7 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmoketest(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -184,14 +184,14 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 	storageAccess, err := application.GetStorageState(st)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
-	model, err := st.Model()
+	mod, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := application.NewAPIBase(
 		application.GetState(st),
 		storageAccess,
 		s.authorizer,
 		blockChecker,
-		model,
+		mod,
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		&mockStoragePoolManager{},

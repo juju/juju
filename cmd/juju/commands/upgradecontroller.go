@@ -186,7 +186,8 @@ func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error
 		return err
 	}
 
-	context, err := c.initCAASVersions(controllerCfg, currentAgentVersion, warnCompat)
+	c.upgradeMessage = "upgrade to this version by running\n    juju upgrade-controller"
+	context, err := initCAASVersions(controllerCfg, c.Version, currentAgentVersion, warnCompat)
 	if err != nil {
 		return err
 	}
@@ -215,17 +216,16 @@ func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error
 // agent and client versions, and the list of currently available operator images, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
-func (c *upgradeControllerCommand) initCAASVersions(
-	controllerCfg controller.Config, agentVersion version.Number, filterOnPrior bool,
+func initCAASVersions(
+	controllerCfg controller.Config, desiredVersion, agentVersion version.Number, filterOnPrior bool,
 ) (*upgradeContext, error) {
-	if c.Version == agentVersion {
+	if desiredVersion == agentVersion {
 		return nil, errUpToDate
 	}
-	c.upgradeMessage = "upgrade to this version by running\n    juju upgrade-controller"
 
 	filterVersion := jujuversion.Current
-	if c.Version != version.Zero {
-		filterVersion = c.Version
+	if desiredVersion != version.Zero {
+		filterVersion = desiredVersion
 	} else if filterOnPrior {
 		filterVersion.Major--
 	}
@@ -249,7 +249,7 @@ func (c *upgradeControllerCommand) initCAASVersions(
 	if len(matchingTags) == 0 {
 		// No images found, so if we are not asking for a major upgrade,
 		// pretend there is no more recent version available.
-		if c.Version == version.Zero && agentVersion.Major == filterVersion.Major {
+		if desiredVersion == version.Zero && agentVersion.Major == filterVersion.Major {
 			return nil, errUpToDate
 		}
 		return nil, err
@@ -257,7 +257,7 @@ func (c *upgradeControllerCommand) initCAASVersions(
 	return &upgradeContext{
 		agent:          agentVersion,
 		client:         jujuversion.Current,
-		chosen:         c.Version,
+		chosen:         desiredVersion,
 		packagedAgents: matchingTags,
 	}, nil
 }

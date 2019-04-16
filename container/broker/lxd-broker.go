@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -243,4 +244,13 @@ func (broker *lxdBroker) ReplaceOrAddInstanceProfile(instId, oldProfile, newProf
 		return []string{}, nil
 	}
 	return profileMgr.ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile, put)
+}
+
+// AssignLXDProfiles implements environs.LXDProfiler.
+func (broker *lxdBroker) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error) {
+	profileMgr, ok := broker.manager.(container.LXDProfileManager)
+	if !ok {
+		return []string{}, nil
+	}
+	return profileMgr.AssignLXDProfiles(instId, profilesNames, profilePosts)
 }

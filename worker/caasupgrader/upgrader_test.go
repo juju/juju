@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caascontrollerupgrader_test
+package caasupgrader_test
 
 import (
 	"github.com/juju/os/series"
@@ -15,17 +15,17 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/caascontrollerupgrader"
+	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/gate"
 )
 
 type UpgraderSuite struct {
 	coretesting.BaseSuite
 
-	confVersion version.Number
-	upgrader    *mockUpgrader
-	broker      *mockBroker
-	ch          chan struct{}
+	confVersion      version.Number
+	upgraderClient   *mockUpgraderClient
+	operatorUpgrader *mockOperatorUpgrader
+	ch               chan struct{}
 
 	upgradeStepsComplete gate.Lock
 	initialCheckComplete gate.Lock
@@ -37,10 +37,10 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.upgradeStepsComplete = gate.NewLock()
 	s.initialCheckComplete = gate.NewLock()
 	s.ch = make(chan struct{})
-	s.upgrader = &mockUpgrader{
+	s.upgraderClient = &mockUpgraderClient{
 		watcher: watchertest.NewMockNotifyWatcher(s.ch),
 	}
-	s.broker = &mockBroker{}
+	s.operatorUpgrader = &mockOperatorUpgrader{}
 }
 
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
@@ -49,14 +49,14 @@ func (s *UpgraderSuite) patchVersion(v version.Binary) {
 	s.PatchValue(&jujuversion.Current, v.Number)
 }
 
-func (s *UpgraderSuite) makeUpgrader(c *gc.C) *caascontrollerupgrader.Upgrader {
-	w, err := caascontrollerupgrader.NewControllerUpgrader(caascontrollerupgrader.Config{
-		Client:                      s.upgrader,
-		AgentTag:                    names.NewApplicationTag("app"),
+func (s *UpgraderSuite) makeUpgrader(c *gc.C, agent names.Tag) *caasupgrader.Upgrader {
+	w, err := caasupgrader.NewUpgrader(caasupgrader.Config{
+		UpgraderClient:              s.upgraderClient,
+		CAASOperatorUpgrader:        s.operatorUpgrader,
+		AgentTag:                    agent,
 		OrigAgentVersion:            s.confVersion,
 		UpgradeStepsWaiter:          s.upgradeStepsComplete,
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
-		Broker:                      s.broker,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
@@ -67,44 +67,58 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C) *caascontrollerupgrader.Upgrader {
 func (s *UpgraderSuite) TestUpgraderSetsVersion(c *gc.C) {
 	vers := version.MustParse("6.6.6")
 	s.PatchValue(&jujuversion.Current, vers)
-	s.upgrader.desired = vers
+	s.upgraderClient.desired = vers
 
-	u := s.makeUpgrader(c)
+	u := s.makeUpgrader(c, names.NewMachineTag("0"))
 	workertest.CleanKill(c, u)
 
 	s.expectInitialUpgradeCheckDone(c)
-	c.Assert(s.upgrader.actual.Number, gc.DeepEquals, vers)
+	c.Assert(s.upgraderClient.actual.Number, gc.DeepEquals, vers)
 }
 
-func (s *UpgraderSuite) TestUpgrader(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderController(c *gc.C) {
 	vers := version.MustParseBinary("6.6.6-bionic-amd64")
 	s.patchVersion(vers)
-	s.upgrader.desired = version.MustParse("6.6.7")
+	s.upgraderClient.desired = version.MustParse("6.6.7")
 
-	u := s.makeUpgrader(c)
+	u := s.makeUpgrader(c, names.NewMachineTag("0"))
 	workertest.CleanKill(c, u)
 
 	s.expectInitialUpgradeCheckNotDone(c)
-	c.Assert(s.upgrader.actual.Number, gc.DeepEquals, vers.Number)
-	s.upgrader.CheckCallNames(c, "SetVersion", "DesiredVersion")
-	s.upgrader.CheckCall(c, 0, "SetVersion", "application-app", vers)
-	s.broker.CheckCallNames(c, "Upgrade")
-	s.broker.CheckCall(c, 0, "Upgrade", "controller", s.upgrader.desired)
+	c.Assert(s.upgraderClient.actual.Number, gc.DeepEquals, vers.Number)
+	s.upgraderClient.CheckCallNames(c, "SetVersion", "DesiredVersion")
+	s.upgraderClient.CheckCall(c, 0, "SetVersion", "machine-0", vers)
+	s.operatorUpgrader.CheckCallNames(c, "Upgrade")
+	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "machine-0", s.upgraderClient.desired)
+}
+
+func (s *UpgraderSuite) TestUpgraderApplication(c *gc.C) {
+	vers := version.MustParseBinary("6.6.6-bionic-amd64")
+	s.patchVersion(vers)
+	s.upgraderClient.desired = version.MustParse("6.6.7")
+
+	u := s.makeUpgrader(c, names.NewApplicationTag("app"))
+	workertest.CleanKill(c, u)
+
+	s.expectInitialUpgradeCheckNotDone(c)
+	s.upgraderClient.CheckCallNames(c, "DesiredVersion")
+	s.operatorUpgrader.CheckCallNames(c, "Upgrade")
+	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "application-app", s.upgraderClient.desired)
 }
 
 func (s *UpgraderSuite) TestUpgraderDowngradePatch(c *gc.C) {
 	vers := version.MustParse("6.6.7")
 	s.PatchValue(&jujuversion.Current, vers)
-	s.upgrader.desired = version.MustParse("6.6.6")
+	s.upgraderClient.desired = version.MustParse("6.6.6")
 
-	u := s.makeUpgrader(c)
+	u := s.makeUpgrader(c, names.NewMachineTag("0"))
 	workertest.CleanKill(c, u)
 
 	s.expectInitialUpgradeCheckNotDone(c)
-	c.Assert(s.upgrader.actual.Number, gc.DeepEquals, vers)
-	s.upgrader.CheckCallNames(c, "SetVersion", "DesiredVersion")
-	s.broker.CheckCallNames(c, "Upgrade")
-	s.broker.CheckCall(c, 0, "Upgrade", "controller", s.upgrader.desired)
+	c.Assert(s.upgraderClient.actual.Number, gc.DeepEquals, vers)
+	s.upgraderClient.CheckCallNames(c, "SetVersion", "DesiredVersion")
+	s.operatorUpgrader.CheckCallNames(c, "Upgrade")
+	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "machine-0", s.upgraderClient.desired)
 }
 
 func (s *UpgraderSuite) expectInitialUpgradeCheckDone(c *gc.C) {

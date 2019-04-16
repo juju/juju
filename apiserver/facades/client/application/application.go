@@ -923,6 +923,10 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if api.modelType == state.ModelTypeCAAS {
+		return api.applicationSetCharm(params, newCharm)
+	}
+
 	application := params.Application
 	// Check if the controller agent tools version is greater than the
 	// version we support for the new LXD profiles.
@@ -1098,8 +1102,7 @@ func (api *APIBase) Set(p params.ApplicationSet) error {
 		return err
 	}
 
-	return app.UpdateCharmConfig(p.Generation, changes)
-
+	return app.UpdateCharmConfig(model.GenerationMaster, changes)
 }
 
 // Unset implements the server side of Client.Unset.
@@ -1118,7 +1121,13 @@ func (api *APIBase) Unset(p params.ApplicationUnset) error {
 	for _, option := range p.Options {
 		settings[option] = nil
 	}
-	return app.UpdateCharmConfig(p.Generation, settings)
+
+	// We need a guard on the API server-side for direct API callers such as
+	// python-libjuju. Always default to the master branch.
+	if p.BranchName == "" {
+		p.BranchName = model.GenerationMaster
+	}
+	return app.UpdateCharmConfig(p.BranchName, settings)
 }
 
 // CharmRelations implements the server side of Application.CharmRelations.
@@ -1128,11 +1137,11 @@ func (api *APIBase) CharmRelations(p params.ApplicationCharmRelations) (params.A
 		return results, errors.Trace(err)
 	}
 
-	application, err := api.backend.Application(p.ApplicationName)
+	app, err := api.backend.Application(p.ApplicationName)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	endpoints, err := application.Endpoints()
+	endpoints, err := app.Endpoints()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -1379,6 +1388,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		// At the moment, this only returns the intent not the actual result.
 		// However, there is a provision for this functionality for the near-future: destroy operation itself
 		// contains Errors that have been encountered during its application.
+		logger.Warningf("operational errors destroying unit %v: %v", unit.Name(), op.Errors)
 		return &info, nil
 	}
 	results := make([]params.DestroyUnitResult, len(args.Units))
@@ -1510,6 +1520,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		// At the moment, this only returns the intent not the actual result.
 		// However, there is a provision for this functionality for the near-future: destroy operation itself
 		// contains Errors that have been encountered during its application.
+		logger.Warningf("operational errors destroying application %v: %v", tag.Id(), op.Errors)
 		return &info, nil
 	}
 	results := make([]params.DestroyApplicationResult, len(args.Applications))
@@ -2024,7 +2035,7 @@ func (api *APIBase) CharmConfig(args params.ApplicationGetArgs) (params.Applicat
 		Results: make([]params.ConfigResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		config, err := api.getCharmConfig(arg.Generation, arg.ApplicationName)
+		config, err := api.getCharmConfig(arg.BranchName, arg.ApplicationName)
 		results.Results[i].Config = config
 		results.Results[i].Error = common.ServerError(err)
 	}
@@ -2051,6 +2062,7 @@ func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfig
 			continue
 		}
 
+		// Always deal with the master branch version of config.
 		config, err := api.getCharmConfig(model.GenerationMaster, tag.Id())
 		results.Results[i].Config = config
 		results.Results[i].Error = common.ServerError(err)
@@ -2194,8 +2206,14 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 			return errors.Annotate(err, "updating application config values")
 		}
 	}
+
 	if len(charmSettings) > 0 {
-		if err := app.UpdateCharmConfig(arg.Generation, charmSettings); err != nil {
+		// We need a guard on the API server-side for direct API callers such as
+		// python-libjuju. Always default to the master branch.
+		if arg.BranchName == "" {
+			arg.BranchName = model.GenerationMaster
+		}
+		if err := app.UpdateCharmConfig(arg.BranchName, charmSettings); err != nil {
 			return errors.Annotate(err, "updating application charm settings")
 		}
 	}

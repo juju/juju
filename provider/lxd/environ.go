@@ -45,6 +45,9 @@ type environ struct {
 	lock           sync.Mutex
 	ecfgUnlocked   *environConfig
 	serverUnlocked Server
+
+	// profileMutex is used when writing profiles via the server.
+	profileMutex sync.Mutex
 }
 
 func newEnviron(
@@ -326,6 +329,8 @@ func (env *environ) DeriveAvailabilityZones(
 // an arg.
 // MaybeWriteLXDProfile implements environs.LXDProfiler.
 func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	env.profileMutex.Lock()
+	defer env.profileMutex.Unlock()
 	server := env.server()
 	hasProfile, err := server.HasProfile(pName)
 	if err != nil {
@@ -374,13 +379,13 @@ func (env *environ) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile s
 	return env.LXDProfileNames(instId)
 }
 
-// AssignProfiles implements environs.LXDProfiler.
-func (env *environ) AssignProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+// AssignLXDProfiles implements environs.LXDProfiler.
+func (env *environ) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
 	report := func(err error) ([]string, error) {
 		// Always return the current profiles assigned to the instance.
 		currentProfiles, err2 := env.LXDProfileNames(instId)
 		if err != nil && err2 != nil {
-			logger.Errorf("secondary error, retrieving profile names: %s", err2)
+			logger.Errorf("retrieving profile names for %q: %s", instId, err2)
 		}
 		return currentProfiles, err
 	}

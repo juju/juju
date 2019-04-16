@@ -114,7 +114,7 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.Cha
 	}
 	lxdProfileInfo, err := api.machineLXDProfileInfo(m)
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = common.ServerError(errors.Annotatef(err, "%s", tag))
 	}
 
 	// use the results from the machineLXDProfileInfo and apply them to the
@@ -188,12 +188,44 @@ func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error
 		return result, common.ErrPerm
 	}
 
-	watch := api.model.WatchMachines()
+	watch, err := api.model.WatchMachines()
+	if err != nil {
+		return result, err
+	}
 	if changes, ok := <-watch.Changes(); ok {
 		result.StringsWatcherId = api.resources.Register(watch)
 		result.Changes = changes
 	} else {
 		return result, errors.Errorf("cannot obtain initial model machines")
+	}
+	return result, nil
+}
+
+// WatchContainers starts a watcher to track Containers on a given
+// machine.
+func (api *InstanceMutaterAPI) WatchContainers(arg params.Entity) (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	canAccess, err := api.getAuthFunc()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	tag, err := names.ParseMachineTag(arg.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	machine, err := api.getCacheMachine(canAccess, tag)
+	if err != nil {
+		return result, err
+	}
+	watch, err := machine.WatchContainers()
+	if err != nil {
+		return result, err
+	}
+	if changes, ok := <-watch.Changes(); ok {
+		result.StringsWatcherId = api.resources.Register(watch)
+		result.Changes = changes
+	} else {
+		return result, errors.Errorf("cannot obtain initial machine containers")
 	}
 	return result, nil
 }
@@ -285,11 +317,8 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m ModelCacheMachine) (lxdPr
 	var empty lxdProfileInfo
 
 	instId, err := m.InstanceId()
-	if err != nil && params.IsCodeNotProvisioned(err) {
-		// There is nothing we can do with this machine at this point. The
-		// profiles will be applied when the machine is provisioned.
-		logger.Tracef("Attempting to apply a profile to a machine that isn't provisioned %q", instId)
-		return empty, nil
+	if err != nil {
+		return empty, errors.Trace(errors.Annotate(err, "attempting to get instanceId"))
 	}
 
 	units, err := m.Units()

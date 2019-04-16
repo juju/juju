@@ -673,7 +673,9 @@ func (s *modelManagerSuite) TestDumpModelV2(c *gc.C) {
 		&modelmanager.ModelManagerAPIV3{
 			&modelmanager.ModelManagerAPIV4{
 				&modelmanager.ModelManagerAPIV5{
-					s.api,
+					&modelmanager.ModelManagerAPIV6{
+						s.api,
+					},
 				},
 			},
 		},
@@ -837,7 +839,9 @@ func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
 	api := &modelmanager.ModelManagerAPIV3{
 		&modelmanager.ModelManagerAPIV4{
 			&modelmanager.ModelManagerAPIV5{
-				s.api,
+				&modelmanager.ModelManagerAPIV6{
+					s.api,
+				},
 			},
 		},
 	}
@@ -1605,7 +1609,9 @@ func (s *modelManagerSuite) TestModelStatusV2(c *gc.C) {
 		&modelmanager.ModelManagerAPIV3{
 			&modelmanager.ModelManagerAPIV4{
 				&modelmanager.ModelManagerAPIV5{
-					s.api,
+					&modelmanager.ModelManagerAPIV6{
+						s.api,
+					},
 				},
 			},
 		},
@@ -1640,7 +1646,9 @@ func (s *modelManagerSuite) TestModelStatusV3(c *gc.C) {
 	api := &modelmanager.ModelManagerAPIV3{
 		&modelmanager.ModelManagerAPIV4{
 			&modelmanager.ModelManagerAPIV5{
-				s.api,
+				&modelmanager.ModelManagerAPIV6{
+					s.api,
+				},
 			},
 		},
 	}

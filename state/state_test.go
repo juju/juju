@@ -1331,6 +1331,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	arch := "amd64"
 	mem := uint64(1024)
 	disk := uint64(1024)
+	source := "loveshack"
 	tags := []string{"foo", "bar"}
 	template := state.MachineTemplate{
 		Series:      "quantal",
@@ -1339,10 +1340,11 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 		InstanceId:  "i-mindustrious",
 		Nonce:       agent.BootstrapNonce,
 		HardwareCharacteristics: instance.HardwareCharacteristics{
-			Arch:     &arch,
-			Mem:      &mem,
-			RootDisk: &disk,
-			Tags:     &tags,
+			Arch:           &arch,
+			Mem:            &mem,
+			RootDisk:       &disk,
+			RootDiskSource: &source,
+			Tags:           &tags,
 		},
 	}
 	m, err := s.State.AddOneMachine(template)
@@ -1508,6 +1510,75 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 		c.Assert(relation.Id(), gc.Equals, i)
 		c.Assert(relation, gc.Matches, fmt.Sprintf("wordpress%d:.+ mysql:.+", i))
 	}
+}
+
+func (s *StateSuite) TestSaveCloudService(c *gc.C) {
+	svc, err := s.State.SaveCloudService(
+		state.SaveCloudServiceArgs{
+			Id:         "cloud-svc-ID",
+			ProviderId: "provider-id",
+			Addresses:  network.NewAddresses("1.1.1.1"),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svc.Refresh(), jc.ErrorIsNil)
+	c.Assert(state.LocalID(s.State, svc.Id()), gc.Equals, "a#cloud-svc-ID")
+	c.Assert(svc.ProviderId(), gc.Equals, "provider-id")
+	c.Assert(svc.Addresses(), gc.DeepEquals, network.NewAddresses("1.1.1.1"))
+
+	getResult, err := s.State.CloudService("cloud-svc-ID")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state.LocalID(s.State, getResult.Id()), gc.Equals, "a#cloud-svc-ID")
+	c.Assert(getResult.ProviderId(), gc.Equals, "provider-id")
+	c.Assert(getResult.Addresses(), gc.DeepEquals, network.NewAddresses("1.1.1.1"))
+}
+
+func (s *StateSuite) TestSaveCloudServiceChangeAddressesAllGood(c *gc.C) {
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.State.SaveCloudService(
+			state.SaveCloudServiceArgs{
+				Id:         "cloud-svc-ID",
+				ProviderId: "provider-id",
+				Addresses:  network.NewAddresses("1.1.1.1"),
+			},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	svc, err := s.State.SaveCloudService(
+		state.SaveCloudServiceArgs{
+			Id:         "cloud-svc-ID",
+			ProviderId: "provider-id",
+			Addresses:  network.NewAddresses("2.2.2.2"),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svc.Refresh(), jc.ErrorIsNil)
+	c.Assert(state.LocalID(s.State, svc.Id()), gc.Equals, "a#cloud-svc-ID")
+	c.Assert(svc.ProviderId(), gc.Equals, "provider-id")
+	c.Assert(svc.Addresses(), gc.DeepEquals, network.NewAddresses("2.2.2.2"))
+}
+
+func (s *StateSuite) TestSaveCloudServiceChangeProviderIdFailed(c *gc.C) {
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.State.SaveCloudService(
+			state.SaveCloudServiceArgs{
+				Id:         "cloud-svc-ID",
+				ProviderId: "provider-id-existing",
+				Addresses:  network.NewAddresses("1.1.1.1"),
+			},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	_, err := s.State.SaveCloudService(
+		state.SaveCloudServiceArgs{
+			Id:         "cloud-svc-ID",
+			ProviderId: "provider-id-new", // ProviderId is immutable, changing this will get assert error.
+			Addresses:  network.NewAddresses("1.1.1.1"),
+		},
+	)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot add cloud service "provider-id-new": failed to save cloud service: state changing too quickly; try again soon`,
+	)
 }
 
 func (s *StateSuite) TestAddApplication(c *gc.C) {
@@ -3572,6 +3643,9 @@ func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsW
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteApp.Refresh(), jc.ErrorIsNil)
+	c.Assert(app.Refresh(), jc.ErrorIsNil)
+
 	wc.AssertChange("wordpress:db mysql:database")
 	wc.AssertNoChange()
 	return remoteApp, app, rel

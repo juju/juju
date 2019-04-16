@@ -159,6 +159,36 @@ func (s *instanceMutaterMachineSuite) TestWatchApplicationLXDProfilesServerError
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
+func (s *instanceMutaterMachineSuite) TestWatchContainers(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	api := s.machineForScenario(c,
+		s.expectWatchContainers,
+		s.expectStringsWatcher,
+	)
+	ch, err := api.WatchContainers()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// watch for the changes
+	for i := 0; i < 2; i++ {
+		select {
+		case <-ch.Changes():
+		case <-time.After(jujutesting.LongWait):
+			c.Fail()
+		}
+	}
+}
+
+func (s *instanceMutaterMachineSuite) TestWatchContainersServerError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	api := s.machineForScenario(c,
+		s.expectWatchContainersWithErrors(errors.New("failed")),
+	)
+	_, err := api.WatchContainers()
+	c.Assert(err, gc.ErrorMatches, "failed")
+}
+
 func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -413,8 +443,38 @@ func (s *instanceMutaterMachineSuite) expectWatchApplicationLXDProfilesWithError
 	}
 }
 
+func (s *instanceMutaterMachineSuite) expectWatchContainers() {
+	arg := params.Entity{Tag: s.tag.String()}
+	result := params.StringsWatchResult{
+		StringsWatcherId: "1",
+		Changes:          []string{"0/lxd/0"},
+	}
+	fExp := s.fCaller.EXPECT()
+	fExp.FacadeCall("WatchContainers", arg, gomock.Any()).SetArg(2, result).Return(nil)
+	fExp.RawAPICaller().Return(s.apiCaller)
+}
+
+func (s *instanceMutaterMachineSuite) expectWatchContainersWithErrors(err error) func() {
+	return func() {
+		arg := params.Entity{Tag: s.tag.String()}
+		result := params.StringsWatchResult{
+			Error: &params.Error{
+				Message: err.Error(),
+			},
+		}
+		aExp := s.fCaller.EXPECT()
+		aExp.FacadeCall("WatchContainers", arg, gomock.Any()).SetArg(2, result).Return(nil)
+	}
+}
+
 func (s *instanceMutaterMachineSuite) expectNotifyWatcher() {
 	aExp := s.apiCaller.EXPECT()
 	aExp.BestFacadeVersion("NotifyWatcher").Return(1)
 	aExp.APICall("NotifyWatcher", 1, "1", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
+}
+
+func (s *instanceMutaterMachineSuite) expectStringsWatcher() {
+	aExp := s.apiCaller.EXPECT()
+	aExp.BestFacadeVersion("StringsWatcher").Return(1)
+	aExp.APICall("StringsWatcher", 1, "1", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
 }

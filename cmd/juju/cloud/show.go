@@ -101,7 +101,7 @@ func (c *showCloudCommand) Init(args []string) error {
 	var err error
 	c.controllerName, err = c.ControllerNameFromArg()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Wrap(err, errors.New(err.Error()+"\nUse --local to query the local cache."))
 	}
 	return cmd.CheckEmpty(args[1:])
 }

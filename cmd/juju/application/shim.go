@@ -12,6 +12,7 @@ type charmstoreClientShim struct {
 	*csclient.Client
 }
 
-func (c *charmstoreClientShim) WithChannel(channel params.Channel) charmstoreForDeploy {
-	return c.WithChannel(channel)
+func (c charmstoreClientShim) WithChannel(channel params.Channel) charmstoreForDeploy {
+	client := c.Client.WithChannel(channel)
+	return charmstoreClientShim{client}
 }

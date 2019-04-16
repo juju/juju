@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
@@ -582,6 +583,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			NewModelWorker:                    a.startModelWorkers,
 			MuxShutdownWait:                   1 * time.Minute,
 			NewContainerBrokerFunc:            newCAASBroker,
+			NewBrokerFunc:                     newBroker,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasMachineAgent {
@@ -641,6 +643,7 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 var (
 	newEnvirons   = environs.New
 	newCAASBroker = caas.New
+	newBroker     = broker.New
 )
 
 // startAPIWorkers is called to start workers which rely on the
@@ -849,7 +852,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		return errors.Annotatef(err, "cannot load machine %s from state", tag)
 	}
 	if len(result) != 1 {
-		return errors.Annotatef(err, "expected 1 result, got %d", len(result))
+		return errors.Errorf("expected 1 result, got %d", len(result))
 	}
 	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == params.Dead) {
 		return jworker.ErrTerminateAgent

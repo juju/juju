@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmstore.v5"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
@@ -20,6 +21,15 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 )
+
+type charmSuiteClientShim struct {
+	*csclient.Client
+}
+
+func (c charmSuiteClientShim) WithChannel(channel params.Channel) testcharms.CharmstoreClient {
+	client := c.Client.WithChannel(channel)
+	return charmSuiteClientShim{client}
+}
 
 // CharmSuite provides infrastructure to set up and perform tests associated
 // with charm versioning. A testing charm store server is created and populated
@@ -62,7 +72,8 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 		"logging":   "quantal/logging-27",
 	}
 	for name, url := range urls {
-		testcharms.UploadCharm(c, s.Client, url, name)
+		client := &charmSuiteClientShim{s.Client}
+		testcharms.UploadCharm(c, client, url, name)
 	}
 	s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	// Patch the charm repo initializer function: it is replaced with a charm

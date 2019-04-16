@@ -109,7 +109,7 @@ func (c *updateCloudCommand) Init(args []string) error {
 
 	var err error
 	c.controllerName, err = c.ControllerNameFromArg()
-	if err != nil {
+	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
 
@@ -148,6 +148,10 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *updateCloudCommand) updateLocalCacheFromFile(ctxt *cmd.Context) error {
+	if !c.Local {
+		ctxt.Infof(
+			"There are no controllers running.\nUpdating cloud in local cache so you can use it to bootstrap a controller.\n")
+	}
 	r := cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,
 	}
@@ -166,7 +170,7 @@ func (c *updateCloudCommand) updateControllerFromFile(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.updateController(newCloud)
+	return c.updateController(ctxt, newCloud)
 }
 
 func (c *updateCloudCommand) updateControllerCacheFromLocalCache(ctxt *cmd.Context) error {
@@ -174,14 +178,19 @@ func (c *updateCloudCommand) updateControllerCacheFromLocalCache(ctxt *cmd.Conte
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.updateController(newCloud)
+	return c.updateController(ctxt, newCloud)
 }
 
-func (c updateCloudCommand) updateController(cloud *jujucloud.Cloud) error {
+func (c updateCloudCommand) updateController(ctxt *cmd.Context, cloud *jujucloud.Cloud) error {
 	api, err := c.updateCloudAPIFunc(c.controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
-	return api.UpdateCloud(*cloud)
+	err = api.UpdateCloud(*cloud)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ctxt.Infof("Cloud %q updated on controller %q.", c.Cloud, c.controllerName)
+	return nil
 }

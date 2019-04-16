@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -154,11 +155,12 @@ func (aw *applicationWorker) loop() error {
 				brokerUnitsWatcher = nil
 				continue
 			}
-			scale, err := aw.getScale()
-			if err != nil {
+			service, err := aw.serviceBroker.GetService(aw.application, false)
+			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
-			if err := aw.clusterChanged(scale, lastReportedStatus); err != nil {
+			logger.Debugf("service for %v: %+v", aw.application, service)
+			if err := aw.clusterChanged(service, lastReportedStatus); err != nil {
 				return errors.Trace(err)
 			}
 		case _, ok := <-appDeploymentWatcher.Changes():
@@ -169,15 +171,32 @@ func (aw *applicationWorker) loop() error {
 				appDeploymentWatcher = nil
 				continue
 			}
-			scale, err := aw.getScale()
-			if err != nil {
+			service, err := aw.serviceBroker.GetService(aw.application, false)
+			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
-			if scale == nil || *scale == lastReportedScale {
-				continue
+			haveNewStatus := true
+			if service.Id != "" {
+				lastStatus, ok := lastReportedStatus[service.Id]
+				lastReportedStatus[service.Id] = service.Status
+				if ok {
+					// If we've seen the same status value previously,
+					// report as unknown as this value is ignored.
+					if reflect.DeepEqual(lastStatus, service.Status) {
+						service.Status = status.StatusInfo{
+							Status: status.Unknown,
+						}
+						haveNewStatus = false
+					}
+				}
 			}
-			lastReportedScale = *scale
-			if err := aw.clusterChanged(scale, lastReportedStatus); err != nil {
+			if service != nil && service.Scale != nil {
+				if *service.Scale == lastReportedScale && !haveNewStatus {
+					continue
+				}
+				lastReportedScale = *service.Scale
+			}
+			if err := aw.clusterChanged(service, lastReportedStatus); err != nil {
 				return errors.Trace(err)
 			}
 		case _, ok := <-appOperatorWatcher.Changes():
@@ -206,27 +225,25 @@ func (aw *applicationWorker) loop() error {
 	}
 }
 
-func (aw *applicationWorker) getScale() (*int, error) {
-	service, err := aw.serviceBroker.GetService(aw.application)
-	if errors.IsNotFound(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	logger.Debugf("service for %v: %+v", aw.application, service)
-	return service.Scale, nil
-}
-
-func (aw *applicationWorker) clusterChanged(scale *int, lastReportedStatus map[string]status.StatusInfo) error {
+func (aw *applicationWorker) clusterChanged(service *caas.Service, lastReportedStatus map[string]status.StatusInfo) error {
 	units, err := aw.containerBroker.Units(aw.application)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("units for %v: %+v", aw.application, units)
+	serviceStatus := service.Status
+	var scale *int
+	if service != nil {
+		scale = service.Scale
+	}
 	args := params.UpdateApplicationUnits{
 		ApplicationTag: names.NewApplicationTag(aw.application).String(),
 		Scale:          scale,
+		Status: params.EntityStatus{
+			Status: serviceStatus.Status,
+			Info:   serviceStatus.Message,
+			Data:   serviceStatus.Data,
+		},
 	}
 	for _, u := range units {
 		// For pods managed by the substrate, any marked as dying

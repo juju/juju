@@ -34,15 +34,17 @@ type instanceMutaterAPISuite struct {
 	model      *mocks.MockModelCache
 	resources  *mocks.MockResources
 
-	machineTag names.Tag
-	done       chan struct{}
+	machineTag  names.Tag
+	notifyDone  chan struct{}
+	stringsDone chan []string
 }
 
 func (s *instanceMutaterAPISuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.machineTag = names.NewMachineTag("0")
-	s.done = make(chan struct{})
+	s.notifyDone = make(chan struct{})
+	s.stringsDone = make(chan []string)
 }
 
 func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
@@ -89,9 +91,17 @@ func (s *instanceMutaterAPISuite) expectAuthMachineAgent() {
 	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
 }
 
-func (s *instanceMutaterAPISuite) assertStop(c *gc.C) {
+func (s *instanceMutaterAPISuite) assertNotifyStop(c *gc.C) {
 	select {
-	case <-s.done:
+	case <-s.notifyDone:
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for notifications to be consumed")
+	}
+}
+
+func (s *instanceMutaterAPISuite) assertStringsStop(c *gc.C) {
+	select {
+	case <-s.stringsDone:
 	case <-time.After(testing.LongWait):
 		c.Errorf("timed out waiting for notifications to be consumed")
 	}
@@ -362,7 +372,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMa
 
 	results, err := facade.CharmProfilingInfo(params.Entity{Tag: "machine-0"})
 	c.Assert(err, gc.IsNil)
-	c.Assert(results.Error, gc.IsNil)
+	c.Assert(results.Error, gc.ErrorMatches, "machine-0: attempting to get instanceId: ")
 	c.Assert(results.InstanceId, gc.Equals, instance.Id(""))
 	c.Assert(results.ModelName, gc.Equals, "")
 	c.Assert(results.ProfileChanges, gc.HasLen, 0)
@@ -759,7 +769,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *gc.C) {
 		StringsWatcherId: "1",
 		Changes:          []string{"0"},
 	})
-	s.assertStop(c)
+	s.assertNotifyStop(c)
 }
 
 func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChannel(c *gc.C) {
@@ -775,6 +785,20 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChanne
 	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines")
 }
 
+func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesModelCacheError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectAuthController,
+		s.expectWatchMachinesError,
+	)
+
+	result, err := facade.WatchMachines()
+	c.Assert(err, gc.ErrorMatches, "error from model cache")
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
+}
+
 func (s *InstanceMutaterAPIWatchMachinesSuite) expectAuthController() {
 	s.authorizer.EXPECT().AuthController().Return(true)
 }
@@ -787,10 +811,10 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithNotify(tim
 			for i := 0; i < times; i++ {
 				ch <- []string{fmt.Sprintf("%d", i)}
 			}
-			close(s.done)
+			close(s.notifyDone)
 		}()
 
-		s.model.EXPECT().WatchMachines().Return(s.watcher)
+		s.model.EXPECT().WatchMachines().Return(s.watcher, nil)
 		s.watcher.EXPECT().Changes().Return(ch)
 		s.resources.EXPECT().Register(s.watcher).Return("1")
 	}
@@ -800,8 +824,12 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesWithClosedChan
 	ch := make(chan []string)
 	close(ch)
 
-	s.model.EXPECT().WatchMachines().Return(s.watcher)
+	s.model.EXPECT().WatchMachines().Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
+}
+
+func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesError() {
+	s.model.EXPECT().WatchMachines().Return(s.watcher, errors.New("error from model cache"))
 }
 
 type InstanceMutaterAPIWatchApplicationLXDProfilesSuite struct {
@@ -840,7 +868,7 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicatio
 			NotifyWatcherId: "1",
 		}},
 	})
-	s.assertStop(c)
+	s.assertNotifyStop(c)
 }
 
 func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicationLXDProfilesWithInvalidTag(c *gc.C) {
@@ -914,7 +942,7 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicat
 			for i := 0; i < times; i++ {
 				ch <- struct{}{}
 			}
-			close(s.done)
+			close(s.notifyDone)
 		}()
 
 		s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
@@ -938,14 +966,122 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicat
 	s.machine.EXPECT().WatchApplicationLXDProfiles().Return(s.watcher, errors.New("error from model cache"))
 }
 
-type machineEntityShim struct {
-	instancemutater.Machine
-	state.Entity
-	state.Lifer
+type InstanceMutaterAPIWatchContainersSuite struct {
+	instanceMutaterAPISuite
+
+	machine *mocks.MockModelCacheMachine
+	watcher *mocks.MockStringsWatcher
 }
 
-type modelCacheMachineEntityShim struct {
-	instancemutater.ModelCacheMachine
+var _ = gc.Suite(&InstanceMutaterAPIWatchContainersSuite{})
+
+func (s *InstanceMutaterAPIWatchContainersSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := s.instanceMutaterAPISuite.setup(c)
+
+	s.machine = mocks.NewMockModelCacheMachine(ctrl)
+	s.watcher = mocks.NewMockStringsWatcher(ctrl)
+
+	return ctrl
+}
+
+func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainers(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectWatchContainersWithNotify(1),
+	)
+
+	result, err := facade.WatchContainers(params.Entity{Tag: s.machineTag.String()})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
+		StringsWatcherId: "1",
+		Changes:          []string{"0"},
+	})
+	s.assertStringsStop(c)
+}
+
+func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithInvalidTag(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+	)
+
+	result, err := facade.WatchContainers(params.Entity{Tag: names.NewUserTag("bob@local").String()})
+	c.Logf("%#v", err)
+	c.Assert(err, gc.ErrorMatches, "\"user-bob\" is not a valid machine tag")
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
+}
+
+func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithClosedChannel(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectWatchContainersWithClosedChannel,
+	)
+
+	result, err := facade.WatchContainers(params.Entity{Tag: s.machineTag.String()})
+	c.Assert(err, gc.ErrorMatches, "cannot obtain initial machine containers")
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
+}
+
+func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersModelCacheError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	facade := s.facadeAPIForScenario(c,
+		s.expectAuthMachineAgent,
+		s.expectLife(s.machineTag),
+		s.expectWatchContainersError,
+	)
+
+	result, err := facade.WatchContainers(params.Entity{Tag: s.machineTag.String()})
+	c.Assert(err, gc.ErrorMatches, "error from model cache")
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
+}
+
+func (s *InstanceMutaterAPIWatchContainersSuite) expectAuthController() {
+	s.authorizer.EXPECT().AuthController().Return(true)
+}
+
+func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersWithNotify(times int) func() {
+	return func() {
+		ch := make(chan []string)
+
+		go func() {
+			for i := 0; i < times; i++ {
+				ch <- []string{fmt.Sprintf("%d", i)}
+			}
+			close(s.stringsDone)
+		}()
+
+		s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+		s.machine.EXPECT().WatchContainers().Return(s.watcher, nil)
+		s.watcher.EXPECT().Changes().Return(ch)
+		s.resources.EXPECT().Register(s.watcher).Return("1")
+	}
+}
+
+func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersWithClosedChannel() {
+	ch := make(chan []string)
+	close(ch)
+
+	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().WatchContainers().Return(s.watcher, nil)
+	s.watcher.EXPECT().Changes().Return(ch)
+}
+
+func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersError() {
+	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().WatchContainers().Return(s.watcher, errors.New("error from model cache"))
+}
+
+type machineEntityShim struct {
+	instancemutater.Machine
 	state.Entity
 	state.Lifer
 }

@@ -66,23 +66,25 @@ func appCharmIncRefOps(mb modelBackend, appName string, curl *charm.URL, canCrea
 // storage constraints documents for that pair, and schedule a cleanup
 // to see if the charm itself is now unreferenced and can be tidied
 // away itself.
-func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDoFinal, force bool) ([]txn.Op, []error, error) {
+// When 'force' is set, this call will return some, if not all, needed operations
+// and will accumulate operational errors encountered in the operation.
+// If the 'force' is not set, any error will be fatal and no operations will be returned.
+func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDoFinal bool, op *ForcedOperation) ([]txn.Op, error) {
 	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
-	errs := []error{}
-	fail := func(e error) ([]txn.Op, []error, error) {
-		return nil, errs, errors.Trace(e)
+	fail := func(e error) ([]txn.Op, error) {
+		return nil, errors.Trace(e)
 	}
 	ops := []txn.Op{}
 	charmKey := charmGlobalKey(curl)
 	charmOp, err := nsRefcounts.AliveDecRefOp(refcounts, charmKey)
 	if err != nil {
 		err = errors.Annotate(err, "charm reference")
-		if !force {
+		if !op.Force {
 			return fail(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 	} else {
 		ops = append(ops, charmOp)
 	}
@@ -91,10 +93,10 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDo
 	settingsOp, isFinal, err := nsRefcounts.DyingDecRefOp(refcounts, settingsKey)
 	if err != nil {
 		err = errors.Annotatef(err, "settings reference %s", settingsKey)
-		if !force {
+		if !op.Force {
 			return fail(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 	} else {
 		ops = append(ops, settingsOp)
 	}
@@ -103,10 +105,10 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDo
 	storageConstraintsOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, storageConstraintsKey)
 	if err != nil {
 		err = errors.Annotatef(err, "storage constraints reference %s", storageConstraintsKey)
-		if !force {
+		if !op.Force {
 			return fail(err)
 		}
-		errs = append(errs, err)
+		op.AddError(err)
 	} else {
 		ops = append(ops, storageConstraintsOp)
 	}
@@ -119,7 +121,7 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDo
 		// see `Application.removeOps` for the workaround.
 		ops = append(ops, finalAppCharmRemoveOps(appName, curl)...)
 	}
-	return ops, errs, nil
+	return ops, nil
 }
 
 // finalAppCharmRemoveOps returns operations to delete the settings

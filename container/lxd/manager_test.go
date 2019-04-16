@@ -561,7 +561,7 @@ func (s *managerSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, newProfiles)
 }
 
-func (s *managerSuite) TestAssignProfiles(c *gc.C) {
+func (s *managerSuite) TestAssignLXDProfiles(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 	s.expectUpdateOp(ctrl, "Updating container", nil)
@@ -590,7 +590,7 @@ func (s *managerSuite) TestAssignProfiles(c *gc.C) {
 	proMgr, ok := s.manager.(container.LXDProfileManager)
 	c.Assert(ok, jc.IsTrue)
 
-	obtained, err := proMgr.AssignProfiles("testme", newProfiles, profilePosts)
+	obtained, err := proMgr.AssignLXDProfiles("testme", newProfiles, profilePosts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, newProfiles)
 }

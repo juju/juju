@@ -244,6 +244,23 @@ var parseHardwareTests = []parseHardwareTestSpec{
 		err:     `bad "root-disk" characteristic: already set`,
 	},
 
+	// root-disk-source in detail.
+	{
+		summary: "set root-disk-source empty",
+		args:    []string{"root-disk-source="},
+	}, {
+		summary: "set root-disk-source",
+		args:    []string{"root-disk-source=something"},
+	}, {
+		summary: "double set root-disk-source together",
+		args:    []string{"root-disk-source=something root-disk-source=something-else"},
+		err:     `bad "root-disk-source" characteristic: already set`,
+	}, {
+		summary: "doubles set root-disk-source separately",
+		args:    []string{"root-disk-source=something", "root-disk-source=something-else"},
+		err:     `bad "root-disk-source" characteristic: already set`,
+	},
+
 	// "availability-zone" in detail.
 	{
 		summary: "set availability-zone empty",

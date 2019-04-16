@@ -152,7 +152,7 @@ func (w *srvNotifyWatcher) Next() error {
 // sending the changes as a list of strings.
 type srvStringsWatcher struct {
 	watcherCommon
-	watcher state.StringsWatcher
+	watcher cache.StringsWatcher
 }
 
 func newStringsWatcher(context facade.Context) (facade.Facade, error) {
@@ -165,7 +165,7 @@ func newStringsWatcher(context facade.Context) (facade.Facade, error) {
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(state.StringsWatcher)
+	watcher, ok := resources.Get(id).(cache.StringsWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
@@ -184,7 +184,10 @@ func (w *srvStringsWatcher) Next() (params.StringsWatchResult, error) {
 			Changes: changes,
 		}, nil
 	}
-	err := w.watcher.Err()
+	var err error
+	if e, ok := w.watcher.(hasErr); ok {
+		err = e.Err()
+	}
 	if err == nil {
 		err = common.ErrStoppedWatcher
 	}

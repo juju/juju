@@ -254,7 +254,7 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 }
 
 func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
-	setMock := func(st *mockStorageState, f func(s names.StorageTag, u names.UnitTag) error) {
+	setMock := func(st *mockStorageState, f func(s names.StorageTag, u names.UnitTag, force bool) error) {
 		st.remove = f
 	}
 
@@ -271,7 +271,7 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 	}
 
 	st := &mockStorageState{}
-	setMock(st, func(s names.StorageTag, u names.UnitTag) error {
+	setMock(st, func(s names.StorageTag, u names.UnitTag, force bool) error {
 		c.Assert(u, gc.DeepEquals, unitTag0)
 		if s == storageTag1 {
 			return errors.New("badness")
@@ -482,7 +482,7 @@ type mockStorageState struct {
 	uniter.StorageVolumeInterface
 	uniter.StorageFilesystemInterface
 	destroyUnitStorageAttachments func(names.UnitTag) error
-	remove                        func(names.StorageTag, names.UnitTag) error
+	remove                        func(names.StorageTag, names.UnitTag, bool) error
 	storageInstance               func(names.StorageTag) (state.StorageInstance, error)
 	storageInstanceFilesystem     func(names.StorageTag) (state.Filesystem, error)
 	storageInstanceVolume         func(names.StorageTag) (state.Volume, error)
@@ -512,8 +512,8 @@ func (m *mockStorageState) DestroyUnitStorageAttachments(u names.UnitTag) error 
 	return m.destroyUnitStorageAttachments(u)
 }
 
-func (m *mockStorageState) RemoveStorageAttachment(s names.StorageTag, u names.UnitTag) error {
-	return m.remove(s, u)
+func (m *mockStorageState) RemoveStorageAttachment(s names.StorageTag, u names.UnitTag, force bool) error {
+	return m.remove(s, u, force)
 }
 
 func (m *mockStorageState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {

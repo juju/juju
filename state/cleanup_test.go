@@ -133,11 +133,13 @@ func (s *CleanupSuite) TestCleanupRemoteApplicationWithRelations(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteApp.Refresh(), jc.ErrorIsNil)
+	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
 
 	err = remoteApp.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -703,7 +705,7 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	c.Assert(si.Life(), gc.Equals, state.Alive)
 
 	// destroy storage instance and run cleanups
-	err = s.storageBackend.DestroyStorageInstance(storageTag, true)
+	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	si, err = s.storageBackend.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)

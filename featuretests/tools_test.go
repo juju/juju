@@ -228,7 +228,7 @@ func (s *toolsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredErr
 	c.Assert(charmResponse.Error.Message, gc.Equals, "verification failed: no macaroons")
 	c.Assert(charmResponse.Error.Code, gc.Equals, params.CodeDischargeRequired)
 	c.Assert(charmResponse.Error.Info, gc.NotNil)
-	c.Assert(charmResponse.Error.Info.Macaroon, gc.NotNil)
+	c.Assert(charmResponse.Error.Info["macaroon"], gc.NotNil)
 }
 
 func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
@@ -348,12 +348,17 @@ func bakeryGetError(resp *http.Response) error {
 	}
 	// It's a discharge-required error, so make an appropriate httpbakery
 	// error from it.
+	var info params.DischargeRequiredErrorInfo
+	if errUnmarshal := errResp.Error.UnmarshalInfo(&info); errUnmarshal != nil {
+		return errors.Annotatef(err, "unable to extract macaroon details from discharge-required response error")
+	}
+
 	return &httpbakery.Error{
 		Message: errResp.Error.Message,
 		Code:    httpbakery.ErrDischargeRequired,
 		Info: &httpbakery.ErrorInfo{
-			Macaroon:     errResp.Error.Info.Macaroon,
-			MacaroonPath: errResp.Error.Info.MacaroonPath,
+			Macaroon:     info.Macaroon,
+			MacaroonPath: info.MacaroonPath,
 		},
 	}
 }

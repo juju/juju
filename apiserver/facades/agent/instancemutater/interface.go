@@ -71,7 +71,7 @@ type ModelCache interface {
 	Application(appName string) (ModelCacheApplication, error)
 	Charm(charmURL string) (ModelCacheCharm, error)
 	Machine(machineId string) (ModelCacheMachine, error)
-	WatchMachines() cache.StringsWatcher
+	WatchMachines() (cache.StringsWatcher, error)
 }
 
 // ModelCacheApplication represents a point of use Application from the cache
@@ -85,6 +85,7 @@ type ModelCacheMachine interface {
 	InstanceId() (instance.Id, error)
 	CharmProfiles() []string
 	WatchApplicationLXDProfiles() (cache.NotifyWatcher, error)
+	WatchContainers() (cache.StringsWatcher, error)
 	Units() ([]ModelCacheUnit, error)
 }
 

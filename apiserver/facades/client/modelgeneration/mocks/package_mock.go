@@ -7,6 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
+	settings "github.com/juju/juju/core/settings"
 	charm_v6 "gopkg.in/juju/charm.v6"
 	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
@@ -121,6 +122,31 @@ func (mr *MockModelMockRecorder) Branch(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Branch", reflect.TypeOf((*MockModel)(nil).Branch), arg0)
 }
 
+// Branches mocks base method
+func (m *MockModel) Branches() ([]modelgeneration.Generation, error) {
+	ret := m.ctrl.Call(m, "Branches")
+	ret0, _ := ret[0].([]modelgeneration.Generation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Branches indicates an expected call of Branches
+func (mr *MockModelMockRecorder) Branches() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Branches", reflect.TypeOf((*MockModel)(nil).Branches))
+}
+
+// ModelTag mocks base method
+func (m *MockModel) ModelTag() names_v2.ModelTag {
+	ret := m.ctrl.Call(m, "ModelTag")
+	ret0, _ := ret[0].(names_v2.ModelTag)
+	return ret0
+}
+
+// ModelTag indicates an expected call of ModelTag
+func (mr *MockModelMockRecorder) ModelTag() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockModel)(nil).ModelTag))
+}
+
 // MockGeneration is a mock of Generation interface
 type MockGeneration struct {
 	ctrl     *gomock.Controller
@@ -205,6 +231,18 @@ func (mr *MockGenerationMockRecorder) Commit(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockGeneration)(nil).Commit), arg0)
 }
 
+// Config mocks base method
+func (m *MockGeneration) Config() map[string]settings.ItemChanges {
+	ret := m.ctrl.Call(m, "Config")
+	ret0, _ := ret[0].(map[string]settings.ItemChanges)
+	return ret0
+}
+
+// Config indicates an expected call of Config
+func (mr *MockGenerationMockRecorder) Config() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockGeneration)(nil).Config))
+}
+
 // Created mocks base method
 func (m *MockGeneration) Created() int64 {
 	ret := m.ctrl.Call(m, "Created")
@@ -227,18 +265,6 @@ func (m *MockGeneration) CreatedBy() string {
 // CreatedBy indicates an expected call of CreatedBy
 func (mr *MockGenerationMockRecorder) CreatedBy() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatedBy", reflect.TypeOf((*MockGeneration)(nil).CreatedBy))
-}
-
-// Refresh mocks base method
-func (m *MockGeneration) Refresh() error {
-	ret := m.ctrl.Call(m, "Refresh")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Refresh indicates an expected call of Refresh
-func (mr *MockGenerationMockRecorder) Refresh() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockGeneration)(nil).Refresh))
 }
 
 // MockApplication is a mock of Application interface
@@ -264,15 +290,28 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
 }
 
-// CharmConfig mocks base method
-func (m *MockApplication) CharmConfig(arg0 string) (charm_v6.Settings, error) {
-	ret := m.ctrl.Call(m, "CharmConfig", arg0)
+// DefaultCharmConfig mocks base method
+func (m *MockApplication) DefaultCharmConfig() (charm_v6.Settings, error) {
+	ret := m.ctrl.Call(m, "DefaultCharmConfig")
 	ret0, _ := ret[0].(charm_v6.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CharmConfig indicates an expected call of CharmConfig
-func (mr *MockApplicationMockRecorder) CharmConfig(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmConfig", reflect.TypeOf((*MockApplication)(nil).CharmConfig), arg0)
+// DefaultCharmConfig indicates an expected call of DefaultCharmConfig
+func (mr *MockApplicationMockRecorder) DefaultCharmConfig() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultCharmConfig", reflect.TypeOf((*MockApplication)(nil).DefaultCharmConfig))
+}
+
+// UnitNames mocks base method
+func (m *MockApplication) UnitNames() ([]string, error) {
+	ret := m.ctrl.Call(m, "UnitNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnitNames indicates an expected call of UnitNames
+func (mr *MockApplicationMockRecorder) UnitNames() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitNames", reflect.TypeOf((*MockApplication)(nil).UnitNames))
 }

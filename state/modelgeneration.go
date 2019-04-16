@@ -5,17 +5,41 @@ package state
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/mongo/utils"
 )
+
+// itemChange is the state representation of a core settings ItemChange.
+type itemChange struct {
+	Type     int         `bson:"type"`
+	Key      string      `bson:"key"`
+	OldValue interface{} `bson:"old,omitempty"`
+	NewValue interface{} `bson:"new,omitempty"`
+}
+
+// coreChange returns the core package representation of this change.
+// Stored keys are unescaped.
+func (c *itemChange) coreChange() settings.ItemChange {
+	return settings.ItemChange{
+		Type:     c.Type,
+		Key:      utils.UnescapeKey(c.Key),
+		OldValue: c.OldValue,
+		NewValue: c.NewValue,
+	}
+}
 
 // generationDoc represents the state of a model generation in MongoDB.
 type generationDoc struct {
@@ -42,6 +66,11 @@ type generationDoc struct {
 	// which indicates that it has configuration changes applied in the
 	// generation, but no units currently set to be in it.
 	AssignedUnits map[string][]string `bson:"assigned-units"`
+
+	// Config is all changes made to charm configuration under this branch.
+	Config map[string][]itemChange `bson:"charm-config"`
+
+	// TODO (manadart 2019-04-02): CharmURLs, Resources.
 
 	// Created is a Unix timestamp indicating when this generation was created.
 	Created int64 `bson:"created"`
@@ -82,6 +111,21 @@ func (g *Generation) ModelUUID() string {
 // that have been assigned to this generation.
 func (g *Generation) AssignedUnits() map[string][]string {
 	return g.doc.AssignedUnits
+}
+
+// Config returns all changed charm configuration for the generation.
+// The persisted objects are converted to core changes.
+func (g *Generation) Config() map[string]settings.ItemChanges {
+	changes := make(map[string]settings.ItemChanges, len(g.doc.Config))
+	for appName, appCfg := range g.doc.Config {
+		appChanges := make(settings.ItemChanges, len(appCfg))
+		for i, ch := range appCfg {
+			appChanges[i] = ch.coreChange()
+		}
+		sort.Sort(appChanges)
+		changes[appName] = appChanges
+	}
+	return changes
 }
 
 // Created returns the Unix timestamp at generation creation.
@@ -251,6 +295,64 @@ func assignGenerationUnitTxnOps(id, appName string, unit *Unit) []txn.Op {
 	}
 }
 
+// UpdateCharmConfig applies the input changes to the input application's
+// charm configuration under this branch.
+// the incoming charm settings are assumed to have been validated.
+func (g *Generation) UpdateCharmConfig(appName string, master *Settings, validChanges charm.Settings) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := g.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if err := g.CheckNotComplete(); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// Apply the current branch deltas to the master settings.
+		branchChanges := g.Config()
+		branchDelta, branchHasDelta := branchChanges[appName]
+		if branchHasDelta {
+			master.applyChanges(branchDelta)
+		}
+
+		// Now apply the incoming changes on top and generate a new delta.
+		for k, v := range validChanges {
+			if v == nil {
+				master.Delete(k)
+			} else {
+				master.Set(k, v)
+			}
+		}
+		newDelta := master.changes()
+
+		// Ensure that the delta represents a change from master settings
+		// as they were when each setting was first modified under the branch.
+		if branchHasDelta {
+			var err error
+			if newDelta, err = newDelta.ApplyDeltaSource(branchDelta); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		return []txn.Op{
+			{
+				C:  generationsC,
+				Id: g.doc.DocId,
+				Assert: bson.D{{"$and", []bson.D{
+					{{"completed", 0}},
+					{{"txn-revno", g.doc.TxnRevno}},
+				}}},
+				Update: bson.D{
+					{"$set", bson.D{{"charm-config." + appName, makeItemChanges(newDelta)}}},
+				},
+			},
+		}, nil
+	}
+
+	return errors.Trace(g.st.db().Run(buildTxn))
+}
+
 // Commit marks the generation as completed and assigns it the next value from
 // the generation sequence. The new generation ID is returned.
 func (g *Generation) Commit(userName string) (int, error) {
@@ -338,25 +440,6 @@ func (g *Generation) CheckNotComplete() error {
 	return errors.New("branch was already " + msg)
 }
 
-func appUnitNames(st *State, appName string) ([]string, error) {
-	unitsCollection, closer := st.db().GetCollection(unitsC)
-	defer closer()
-
-	var docs []struct {
-		Name string `bson:"name"`
-	}
-	err := unitsCollection.Find(bson.D{{"application", appName}}).Select(bson.D{{"name", 1}}).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	unitNames := make([]string, len(docs))
-	for i, doc := range docs {
-		unitNames[i] = doc.Name
-	}
-	return unitNames, nil
-}
-
 // Refresh refreshes the contents of the generation from the underlying state.
 func (g *Generation) Refresh() error {
 	col, closer := g.st.db().GetCollection(generationsC)
@@ -424,6 +507,29 @@ func insertGenerationTxnOps(id, branchName, userName string, now *time.Time) []t
 	}
 }
 
+// Branches returns all "in-flight" branches for the model.
+func (m *Model) Branches() ([]*Generation, error) {
+	b, err := m.st.Branches()
+	return b, errors.Trace(err)
+}
+
+// Branches returns all "in-flight" branches.
+func (st *State) Branches() ([]*Generation, error) {
+	col, closer := st.db().GetCollection(generationsC)
+	defer closer()
+
+	var docs []generationDoc
+	if err := col.Find(bson.M{"completed": 0}).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	branches := make([]*Generation, len(docs))
+	for i, d := range docs {
+		branches[i] = newGeneration(st, &d)
+	}
+	return branches, nil
+}
+
 // Branch retrieves the generation with the the input branch name from the
 // collection of not-yet-completed generations.
 func (m *Model) Branch(name string) (*Generation, error) {
@@ -445,9 +551,8 @@ func (st *State) getBranchDoc(name string) (*generationDoc, error) {
 	col, closer := st.db().GetCollection(generationsC)
 	defer closer()
 
-	var err error
 	doc := &generationDoc{}
-	err = col.Find(bson.M{
+	err := col.Find(bson.M{
 		"name":      name,
 		"completed": 0,
 	}).One(doc)
@@ -469,4 +574,19 @@ func newGeneration(st *State, doc *generationDoc) *Generation {
 		st:  st,
 		doc: *doc,
 	}
+}
+
+// makeItemChanges generates a persistable collection of changes from a core
+// settings representation, with keys escaped for Mongo.
+func makeItemChanges(coreChanges settings.ItemChanges) []itemChange {
+	changes := make([]itemChange, len(coreChanges))
+	for i, c := range coreChanges {
+		changes[i] = itemChange{
+			Type:     c.Type,
+			Key:      utils.EscapeKey(c.Key),
+			OldValue: c.OldValue,
+			NewValue: c.NewValue,
+		}
+	}
+	return changes
 }

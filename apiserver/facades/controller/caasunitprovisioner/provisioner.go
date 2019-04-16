@@ -489,6 +489,20 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
+		appStatus := appUpdate.Status
+		if appStatus.Status != "" && appStatus.Status != status.Unknown {
+			now := a.clock.Now()
+			err = app.SetStatus(status.StatusInfo{
+				Status:  appStatus.Status,
+				Message: appStatus.Info,
+				Data:    appStatus.Data,
+				Since:   &now,
+			})
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+		}
 		err = a.updateUnitsFromCloud(app, appUpdate.Scale, appUpdate.Units)
 		if err != nil {
 			// Mask any not found errors as the worker (caller) treats them specially
@@ -1041,7 +1055,9 @@ func (a *Facade) cleaupOrphanedFilesystems(processedFilesystemIds set.Strings) e
 		}
 
 		logger.Debugf("found orphaned filesystem %v", fs.FilesystemTag())
-		err = a.storage.DestroyStorageInstance(storageTag, false)
+		// TODO (anastasiamac 2019-04-04) We can now force storage removal
+		// but for now, while we have not an arg passed in, just hardcode.
+		err = a.storage.DestroyStorageInstance(storageTag, false, false)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
