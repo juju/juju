@@ -111,7 +111,6 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllers(c *gc.C) {
 		}
 	}
 
-	workertest.CleanKill(c, w)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"NextExternalControllerWatcherClient",
 		[]interface{}{&api.Info{
@@ -142,15 +141,21 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllers(c *gc.C) {
 			CACert:        s.updater.info.CACert,
 		}},
 	}})
-	s.watcher.Stub.CheckCallNames(c,
-		"WatchControllerInfo",
-		"ControllerInfo",
-		"Close",
-		"WatchControllerInfo",
-		"ControllerInfo", // no change
-		"ControllerInfo", // no change
-		"Close",
-	)
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if len(s.watcher.Stub.Calls()) < 6 {
+			continue
+		}
+		s.watcher.Stub.CheckCallNames(c,
+			"WatchControllerInfo",
+			"ControllerInfo",
+			"Close", // close watcher and restart when a change arrives
+			"WatchControllerInfo",
+			"ControllerInfo", // no change
+			"ControllerInfo", // no change
+		)
+		return
+	}
+	c.Fatal("time out waiting for worker api calls")
 }
 
 func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorsContained(c *gc.C) {
