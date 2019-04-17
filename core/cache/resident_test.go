@@ -4,6 +4,7 @@
 package cache
 
 import (
+	"reflect"
 	"sync"
 
 	"github.com/golang/mock/gomock"
@@ -63,17 +64,15 @@ func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
 
 	r := s.manager.new()
 
-	var id1, id2 uint64
-
 	// Register some workers concurrently.
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		id1 = r.registerWorker(w1)
+		_ = r.registerWorker(w1)
 		wg.Done()
 	}()
 	go func() {
-		id2 = r.registerWorker(w2)
+		_ = r.registerWorker(w2)
 		wg.Done()
 	}()
 	wg.Wait()
@@ -83,15 +82,11 @@ func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
 
 	// Check that the workers have IDs,
 	// and that they are registered with the resident.
-	switch id1 {
-	case 1:
-		c.Check(id2, gc.Equals, uint64(2))
-		c.Check(r.workers, gc.DeepEquals, map[uint64]worker.Worker{1: w1, 2: w2})
-	case 2:
-		c.Check(id2, gc.Equals, uint64(1))
-		c.Check(r.workers, gc.DeepEquals, map[uint64]worker.Worker{1: w2, 2: w1})
+	switch {
+	case reflect.DeepEqual(r.workers, map[uint64]worker.Worker{1: w1, 2: w2}):
+	case reflect.DeepEqual(r.workers, map[uint64]worker.Worker{2: w1, 1: w2}):
 	default:
-		c.Errorf("expected id1 to be either 1 or 2, got %d", id1)
+		c.Errorf("expected correctly registered workers, got %v", r.workers)
 	}
 
 	// Call cleanup, which should stop and deregister the workers.
@@ -106,18 +101,18 @@ func (s *residentSuite) TestResidentWorkerConcurrentDeregister(c *gc.C) {
 	r := s.manager.new()
 
 	// Note that we do not expect deregister to stop the worker.
-	id1 := r.registerWorker(mocks.NewMockWorker(ctrl))
-	id2 := r.registerWorker(mocks.NewMockWorker(ctrl))
+	deregister1 := r.registerWorker(mocks.NewMockWorker(ctrl))
+	deregister2 := r.registerWorker(mocks.NewMockWorker(ctrl))
 
 	// Unregister concurrently.
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		r.deregisterWorker(id1)
+		deregister1()
 		wg.Done()
 	}()
 	go func() {
-		r.deregisterWorker(id2)
+		deregister2()
 		wg.Done()
 	}()
 	wg.Wait()

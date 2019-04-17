@@ -45,6 +45,7 @@ type MachineAppLXDProfileConfig struct {
 	modeler      MachineAppModeler
 	metrics      *ControllerGauges
 	hub          *pubsub.SimpleHub
+	resident     *resident
 }
 
 func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) *MachineAppLXDProfileWatcher {
@@ -56,12 +57,14 @@ func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) *MachineA
 		metrics:           config.metrics,
 	}
 
+	deregister := config.resident.registerWorker(w)
 	unsubApp := config.hub.Subscribe(config.appTopic, w.applicationCharmURLChange)
 	unsubUnit := config.hub.Subscribe(config.unitTopic, w.unitChange)
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
 		unsubApp()
 		unsubUnit()
+		deregister()
 		return nil
 	})
 

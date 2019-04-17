@@ -114,6 +114,7 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 		return nil
 	})
 
+	m.registerWorker(w)
 	return w, nil
 }
 
@@ -172,6 +173,7 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 		}
 		applications[appName] = info
 	}
+
 	w := newMachineAppLXDProfileWatcher(MachineAppLXDProfileConfig{
 		appTopic:     m.model.topic(applicationCharmURLChange),
 		unitTopic:    m.model.topic(modelUnitLXDProfileChange),
@@ -180,6 +182,7 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 		modeler:      m.model,
 		metrics:      m.model.metrics,
 		hub:          m.model.hub,
+		resident:     m.resident,
 	})
 	return w, nil
 }

@@ -105,15 +105,15 @@ type resident struct {
 
 // registerWorker is used to indicate that the input worker needs to be stopped
 // when this resident is evicted from the cache.
-// The unique ID assigned to the worker resource is returned.
+// The deregistration method is returned.
 // TODO (manadart 2019-04-16): Handle case where registration is called
 // on a stale resident.
-func (r *resident) registerWorker(w worker.Worker) uint64 {
+func (r *resident) registerWorker(w worker.Worker) func() {
 	id := r.manager.resourceCount.next()
 	r.mu.Lock()
 	r.workers[id] = w
 	r.mu.Unlock()
-	return id
+	return func() { r.deregisterWorker(id) }
 }
 
 // evict cleans up

@@ -92,15 +92,15 @@ func (c *Controller) loop() error {
 			case CharmChange:
 				c.updateCharm(ch)
 			case RemoveCharm:
-				c.removeCharm(ch)
+				err = c.removeCharm(ch)
 			case MachineChange:
 				c.updateMachine(ch)
 			case RemoveMachine:
-				c.removeMachine(ch)
+				err = c.removeMachine(ch)
 			case UnitChange:
 				c.updateUnit(ch)
 			case RemoveUnit:
-				c.removeUnit(ch)
+				err = c.removeUnit(ch)
 			}
 			if c.config.Notify != nil {
 				c.config.Notify(change)
@@ -188,15 +188,7 @@ func (c *Controller) updateApplication(ch ApplicationChange) {
 // If the cache does not have the model loaded for the application yet,
 // then it will not have the application cached.
 func (c *Controller) removeApplication(ch RemoveApplication) error {
-	c.mu.Lock()
-
-	var err error
-	if model, ok := c.models[ch.ModelUUID]; ok {
-		err = model.removeApplication(ch)
-	}
-
-	c.mu.Unlock()
-	return errors.Trace(err)
+	return errors.Trace(c.removeResident(ch.ModelUUID, func(m *Model) error { return m.removeApplication(ch) }))
 }
 
 func (c *Controller) updateCharm(ch CharmChange) {
@@ -205,12 +197,8 @@ func (c *Controller) updateCharm(ch CharmChange) {
 	c.mu.Unlock()
 }
 
-func (c *Controller) removeCharm(ch RemoveCharm) {
-	c.mu.Lock()
-	if model, ok := c.models[ch.ModelUUID]; ok {
-		model.removeCharm(ch)
-	}
-	c.mu.Unlock()
+func (c *Controller) removeCharm(ch RemoveCharm) error {
+	return errors.Trace(c.removeResident(ch.ModelUUID, func(m *Model) error { return m.removeCharm(ch) }))
 }
 
 // updateUnit adds or updates the unit in the specified model.
@@ -223,12 +211,8 @@ func (c *Controller) updateUnit(ch UnitChange) {
 // removeUnit removes the unit from the cached model.
 // If the cache does not have the model loaded for the unit yet,
 // then it will not have the unit cached.
-func (c *Controller) removeUnit(ch RemoveUnit) {
-	c.mu.Lock()
-	if model, ok := c.models[ch.ModelUUID]; ok {
-		model.removeUnit(ch)
-	}
-	c.mu.Unlock()
+func (c *Controller) removeUnit(ch RemoveUnit) error {
+	return errors.Trace(c.removeResident(ch.ModelUUID, func(m *Model) error { return m.removeUnit(ch) }))
 }
 
 // updateMachine adds or updates the machine in the specified model.
@@ -241,12 +225,20 @@ func (c *Controller) updateMachine(ch MachineChange) {
 // removeMachine removes the machine from the cached model.
 // If the cache does not have the model loaded for the machine yet,
 // then it will not have the machine cached.
-func (c *Controller) removeMachine(ch RemoveMachine) {
+func (c *Controller) removeMachine(ch RemoveMachine) error {
+	return errors.Trace(c.removeResident(ch.ModelUUID, func(m *Model) error { return m.removeMachine(ch) }))
+}
+
+func (c *Controller) removeResident(modelUUID string, delete func(m *Model) error) error {
 	c.mu.Lock()
-	if model, ok := c.models[ch.ModelUUID]; ok {
-		model.removeMachine(ch)
+
+	var err error
+	if model, ok := c.models[modelUUID]; ok {
+		err = delete(model)
 	}
+
 	c.mu.Unlock()
+	return errors.Trace(err)
 }
 
 // ensureModel retrieves the cached model for the input UUID,
