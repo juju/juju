@@ -73,6 +73,9 @@ var controllerServiceSpecs = map[string]*controllerServiceSpec{
 	caas.K8sCloudLXD: {
 		serviceType: core.ServiceTypeClusterIP, // TODO(caas): test and verify this.
 	},
+	caas.K8sCloudOther: {
+		serviceType: core.ServiceTypeLoadBalancer, // Default svc spec for any other cloud is not listed above.
+	},
 }
 
 type controllerStack struct {
@@ -330,14 +333,16 @@ func (c controllerStack) Deploy() (err error) {
 }
 
 func (c controllerStack) getControllerSvcSpec(cloudType string) (*controllerServiceSpec, error) {
-	if spec, ok := controllerServiceSpecs[cloudType]; ok {
-		if spec.serviceType == "" {
-			// serviceType is required.
-			return nil, errors.NotValidf("serviceType is empty for %q", cloudType)
-		}
-		return spec, nil
+	spec, ok := controllerServiceSpecs[cloudType]
+	if !ok {
+		logger.Debugf("fallback to default svc spec for %q", cloudType)
+		spec, _ = controllerServiceSpecs[caas.K8sCloudOther]
 	}
-	return nil, errors.NotValidf("cloudType %q", cloudType)
+	if spec.serviceType == "" {
+		// serviceType is required.
+		return nil, errors.NotValidf("serviceType is empty for %q", cloudType)
+	}
+	return spec, nil
 }
 
 func (c controllerStack) createControllerService() error {

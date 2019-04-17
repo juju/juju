@@ -25,6 +25,8 @@ const (
 	K8sCloudMAAS = "maas"
 	// K8sCloudLXD is the name used for LXD k8s clouds(Kubernetes Core).
 	K8sCloudLXD = "lxd"
+	// K8sCloudOther is the name used for any other k8s cloud is not listed above.
+	K8sCloudOther = "other"
 
 	// Microk8sRegion is the single microk8s cloud region.
 	Microk8sRegion = "localhost"
