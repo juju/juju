@@ -42,10 +42,6 @@ const (
 	// BootstrapAddressesDelayKey is the attribute key for the amount of
 	// time in between refreshing the bootstrap machine addresses.
 	BootstrapAddressesDelayKey = "bootstrap-addresses-delay"
-
-	// ControllerServiceTypeKey is the attribute key for the service type
-	// to use for a k8s controller.
-	ControllerServiceTypeKey = "controller-service-type"
 )
 
 const (
@@ -75,7 +71,6 @@ var BootstrapConfigAttributes = []string{
 	BootstrapTimeoutKey,
 	BootstrapRetryDelayKey,
 	BootstrapAddressesDelayKey,
-	ControllerServiceTypeKey,
 }
 
 // IsBootstrapAttribute reports whether or not the specified
@@ -97,10 +92,6 @@ type Config struct {
 	BootstrapTimeout        time.Duration
 	BootstrapRetryDelay     time.Duration
 	BootstrapAddressesDelay time.Duration
-
-	// ControllerServiceType is the service type to use for a k8s controller.
-	// Optional: only for k8s controller.
-	ControllerServiceType string
 }
 
 // Validate validates the controller configuration.
@@ -142,9 +133,6 @@ func NewConfig(attrs map[string]interface{}) (Config, error) {
 		BootstrapTimeout:        time.Duration(attrs[BootstrapTimeoutKey].(int)) * time.Second,
 		BootstrapRetryDelay:     time.Duration(attrs[BootstrapRetryDelayKey].(int)) * time.Second,
 		BootstrapAddressesDelay: time.Duration(attrs[BootstrapAddressesDelayKey].(int)) * time.Second,
-	}
-	if svcType, ok := attrs[ControllerServiceTypeKey].(string); ok {
-		config.ControllerServiceType = svcType
 	}
 	if adminSecret, ok := attrs[AdminSecretKey].(string); ok {
 		config.AdminSecret = adminSecret
@@ -231,7 +219,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CACertKey + "-path":        schema.String(),
 	CAPrivateKeyKey:            schema.String(),
 	CAPrivateKeyKey + "-path":  schema.String(),
-	ControllerServiceTypeKey:   schema.String(),
 	BootstrapTimeoutKey:        schema.ForceInt(),
 	BootstrapRetryDelayKey:     schema.ForceInt(),
 	BootstrapAddressesDelayKey: schema.ForceInt(),
@@ -241,7 +228,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CACertKey + "-path":        schema.Omit,
 	CAPrivateKeyKey:            schema.Omit,
 	CAPrivateKeyKey + "-path":  schema.Omit,
-	ControllerServiceTypeKey:   schema.Omit,
 	BootstrapTimeoutKey:        DefaultBootstrapSSHTimeout,
 	BootstrapRetryDelayKey:     DefaultBootstrapSSHRetryDelay,
 	BootstrapAddressesDelayKey: DefaultBootstrapSSHAddressesDelay,
