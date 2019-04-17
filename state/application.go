@@ -3038,6 +3038,11 @@ func (a *Application) ServiceInfo() (CloudService, error) {
 	return *svc, nil
 }
 
+// UnitCount returns the of numbr of units for this application.
+func (a *Application) UnitCount() int {
+	return a.doc.UnitCount
+}
+
 // UnitNames returns the of this application's units.
 func (a *Application) UnitNames() ([]string, error) {
 	u, err := appUnitNames(a.st, a.Name())

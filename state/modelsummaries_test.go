@@ -47,8 +47,11 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
 	st2 := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:  "user2model",
 		Owner: user2.Tag(),
+		Type:  state.ModelTypeCAAS,
 	})
 	modelUUIDs["user2model"] = st2.ModelUUID()
+	f2 := factory.NewFactory(st2, s.StatePool)
+	f2.MakeUnit(c, nil)
 	st2.Close()
 	user3 := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "user3admin",
@@ -447,4 +450,16 @@ func (s *ModelSummariesSuite) TestModelsWithNoSettings(c *gc.C) {
 	userSummary = summaryMap["user2model"]
 	c.Assert(userSummary, gc.NotNil)
 	c.Check(userSummary.Status.Message, gc.Equals, "stopping")
+}
+
+func (s *ModelSummariesSuite) TestCAASModel(c *gc.C) {
+	s.Setup4Models(c)
+
+	summaryMap := s.namedSummariesForUser(c, "user2read")
+	c.Check(summaryMap, gc.HasLen, 2)
+	userSummary := summaryMap["user2model"]
+	c.Assert(userSummary, gc.NotNil)
+	c.Assert(userSummary.MachineCount, gc.Equals, int64(0))
+	c.Assert(userSummary.CoreCount, gc.Equals, int64(0))
+	c.Assert(userSummary.UnitCount, gc.Equals, int64(1))
 }

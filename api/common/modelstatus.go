@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
 // ModelStatusAPI provides common client-side API functions
@@ -63,7 +64,7 @@ func (c *ModelStatusAPI) processModelStatusResults(rs []params.ModelStatus) ([]b
 	return results, nil
 }
 
-func constructModelStatus(model names.ModelTag, owner names.UserTag, r params.ModelStatus) base.ModelStatus {
+func constructModelStatus(m names.ModelTag, owner names.UserTag, r params.ModelStatus) base.ModelStatus {
 	volumes := make([]base.Volume, len(r.Volumes))
 	for i, in := range r.Volumes {
 		volumes[i] = base.Volume{
@@ -87,11 +88,13 @@ func constructModelStatus(model names.ModelTag, owner names.UserTag, r params.Mo
 	}
 
 	result := base.ModelStatus{
-		UUID:               model.Id(),
+		UUID:               m.Id(),
 		Life:               string(r.Life),
 		Owner:              owner.Id(),
+		ModelType:          model.ModelType(r.Type),
 		HostedMachineCount: r.HostedMachineCount,
 		ApplicationCount:   r.ApplicationCount,
+		UnitCount:          r.UnitCount,
 		TotalMachineCount:  len(r.Machines),
 		Volumes:            volumes,
 		Filesystems:        filesystems,

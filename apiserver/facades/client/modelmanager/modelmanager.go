@@ -884,6 +884,10 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
 		}
 
+		if mi.UnitCount > 0 {
+			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Units, mi.UnitCount})
+		}
+
 		access, err := common.StateToParamsUserAccessPermission(mi.Access)
 		if err == nil {
 			summary.UserAccess = access

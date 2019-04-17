@@ -48,6 +48,7 @@ type fakeModelMgrAPIClient struct {
 
 	err   error
 	infos []params.ModelInfoResult
+	units map[string]int
 
 	version int
 }
@@ -163,6 +164,9 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(user string, all bool) ([]bas
 				results[i].Counts = append(results[i].Counts, base.EntityCount{string(params.Cores), int64(cores)})
 			}
 		}
+		if count, ok := f.units[info.Result.Name]; ok && count > 0 {
+			results[i].Counts = append(results[i].Counts, base.EntityCount{string(params.Units), int64(count)})
+		}
 	}
 	return results, nil
 }
@@ -209,7 +213,7 @@ func (s *BaseModelsSuite) SetUpTest(c *gc.C) {
 			Name:  "test-model2",
 			Owner: "carlotta",
 			UUID:  "test-model2-UUID",
-			Type:  model.IAAS,
+			Type:  model.CAAS,
 		}, {
 			Name:  "test-model3",
 			Owner: "daiwik@external",
@@ -570,7 +574,7 @@ func (s *ModelsSuiteV3) TestModelsWithOneUnauthorised(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(s.store.Models["fake"].Models, gc.DeepEquals, map[string]jujuclient.ModelDetails{
 		"admin/test-model1":    {ModelUUID: "test-model1-UUID", ModelType: model.IAAS},
-		"carlotta/test-model2": {ModelUUID: "test-model2-UUID", ModelType: model.IAAS},
+		"carlotta/test-model2": {ModelUUID: "test-model2-UUID", ModelType: model.CAAS},
 	})
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
@@ -578,7 +582,7 @@ func (s *ModelsSuiteV3) TestModelsWithOneUnauthorised(c *gc.C) {
 func (s *ModelsSuiteV3) TestModelsJson(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"admin","cloud":"dummy","type":"local","life":"","status":{"current":"active"},"users":{"admin":{"access":"read","last-connection":"2015-03-20"}},"agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"carlotta","cloud":"dummy","type":"local","life":"","status":{"current":"active"},"users":{"admin":{"access":"write","last-connection":"2015-03-01"}},"agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"daiwik@external","cloud":"dummy","type":"local","life":"","status":{"current":"destroying"},"agent-version":"2.55.5"}],"current-model":"test-model1"}
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"admin","cloud":"dummy","type":"local","life":"","status":{"current":"active"},"users":{"admin":{"access":"read","last-connection":"2015-03-20"}},"agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"caas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"carlotta","cloud":"dummy","type":"local","life":"","status":{"current":"active"},"users":{"admin":{"access":"write","last-connection":"2015-03-01"}},"agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"daiwik@external","cloud":"dummy","type":"local","life":"","status":{"current":"destroying"},"agent-version":"2.55.5"}],"current-model":"test-model1"}
 `)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
@@ -610,7 +614,7 @@ models:
 - name: carlotta/test-model2
   short-name: test-model2
   model-uuid: test-model2-UUID
-  model-type: iaas
+  model-type: caas
   controller-uuid: ""
   controller-name: fake
   is-controller: false
@@ -660,7 +664,7 @@ func (s *ModelsSuiteV3) TestAllModels(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(s.store.Models["fake"].Models, gc.DeepEquals, map[string]jujuclient.ModelDetails{
 		"admin/test-model1":           {ModelUUID: "test-model1-UUID", ModelType: model.IAAS},
-		"carlotta/test-model2":        {ModelUUID: "test-model2-UUID", ModelType: model.IAAS},
+		"carlotta/test-model2":        {ModelUUID: "test-model2-UUID", ModelType: model.CAAS},
 		"daiwik@external/test-model3": {ModelUUID: "test-model3-UUID", ModelType: model.IAAS},
 	})
 	s.api.CheckCallNames(c, "BestAPIVersion", "AllModels", "Close", "ModelInfo", "Close")
@@ -672,10 +676,27 @@ func (s *ModelsSuiteV4) SetUpTest(c *gc.C) {
 	s.BaseModelsSuite.api.version = 4
 }
 
+func (s *ModelsSuiteV4) TestModelWithUnits(c *gc.C) {
+	s.api.units = map[string]int{"test-model2": 3}
+
+	context, err := cmdtesting.RunCommand(c, s.newCommand())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
+		"Controller: fake\n"+
+		"\n"+
+		"Model                        Cloud/Region  Type   Status      Units  Access  Last connection\n"+
+		"test-model1*                 dummy         local  active      -        read  2015-03-20\n"+
+		"carlotta/test-model2         dummy         local  active      3       write  2015-03-01\n"+
+		"daiwik@external/test-model3  dummy         local  destroying  -           -  never connected\n"+
+		"\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
+}
+
 func (s *ModelsSuiteV4) TestModelsJson(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"admin","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"read","last-connection":"2015-03-20","agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"carlotta","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"write","last-connection":"2015-03-01","agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"daiwik@external","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"destroying"},"access":"","last-connection":"never connected","agent-version":"2.55.5"}],"current-model":"test-model1"}
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"admin","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"read","last-connection":"2015-03-20","agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"caas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"carlotta","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"write","last-connection":"2015-03-01","agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"daiwik@external","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"destroying"},"access":"","last-connection":"never connected","agent-version":"2.55.5"}],"current-model":"test-model1"}
 `)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
@@ -709,7 +730,7 @@ models:
 - name: carlotta/test-model2
   short-name: test-model2
   model-uuid: test-model2-UUID
-  model-type: iaas
+  model-type: caas
   controller-uuid: ""
   controller-name: fake
   is-controller: false
@@ -770,7 +791,7 @@ func (s *ModelsSuiteV4) TestModelsWithOneModelInError(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "some model error\n")
 	c.Assert(s.store.Models["fake"].Models, gc.DeepEquals, map[string]jujuclient.ModelDetails{
 		"admin/test-model1":    {ModelUUID: "test-model1-UUID", ModelType: model.IAAS},
-		"carlotta/test-model2": {ModelUUID: "test-model2-UUID", ModelType: model.IAAS},
+		"carlotta/test-model2": {ModelUUID: "test-model2-UUID", ModelType: model.CAAS},
 	})
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }

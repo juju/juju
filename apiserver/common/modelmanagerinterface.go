@@ -216,7 +216,9 @@ func (st modelManagerStateShim) AllMachines() ([]Machine, error) {
 }
 
 // Application defines methods provided by a state.Application instance.
-type Application interface{}
+type Application interface {
+	UnitCount() int
+}
 
 type applicationShim struct {
 	*state.Application

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cert"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
@@ -261,6 +262,9 @@ type ShowControllerDetails struct {
 	// Machines is a collection of all machines forming the controller cluster.
 	Machines map[string]MachineDetails `yaml:"controller-machines,omitempty" json:"controller-machines,omitempty"`
 
+	// Nodes is a collection of all k8s pods forming the controller cluster.
+	Nodes map[string]MachineDetails `yaml:"controller-nodes,omitempty" json:"controller-nodes,omitempty"`
+
 	// Models is a collection of all models for this controller.
 	Models map[string]ModelDetails `yaml:"models,omitempty" json:"models,omitempty"`
 
@@ -339,6 +343,9 @@ type ModelDetails struct {
 
 	// CoreCount holds the number of cores across the machines in the model.
 	CoreCount *int `yaml:"core-count,omitempty" json:"core-count,omitempty"`
+
+	// UnitCount holds the number of units in the model.
+	UnitCount *int `yaml:"unit-count,omitempty" json:"unit-count,omitempty"`
 }
 
 // AccountDetails holds details of an account to show.
@@ -433,24 +440,31 @@ func (c *showControllerCommand) convertModelsForShow(
 	modelStatus []base.ModelStatus,
 ) {
 	controller.Models = make(map[string]ModelDetails)
-	for i, model := range models {
-		modelDetails := ModelDetails{ModelUUID: model.UUID, OldModelUUID: model.UUID}
+	for i, m := range models {
+		modelDetails := ModelDetails{ModelUUID: m.UUID, OldModelUUID: m.UUID}
 		result := modelStatus[i]
 		if result.Error != nil {
 			if !errors.IsNotFound(result.Error) {
-				controller.Errors = append(controller.Errors, errors.Annotatef(result.Error, "model uuid %v", model.UUID).Error())
+				controller.Errors = append(controller.Errors, errors.Annotatef(result.Error, "model uuid %v", m.UUID).Error())
 			}
 		} else {
-			if result.TotalMachineCount > 0 {
-				modelDetails.MachineCount = new(int)
-				*modelDetails.MachineCount = result.TotalMachineCount
-			}
-			if result.CoreCount > 0 {
-				modelDetails.CoreCount = new(int)
-				*modelDetails.CoreCount = result.CoreCount
+			if m.Type == model.CAAS {
+				if result.UnitCount > 0 {
+					modelDetails.UnitCount = new(int)
+					*modelDetails.UnitCount = result.UnitCount
+				}
+			} else {
+				if result.TotalMachineCount > 0 {
+					modelDetails.MachineCount = new(int)
+					*modelDetails.MachineCount = result.TotalMachineCount
+				}
+				if result.CoreCount > 0 {
+					modelDetails.CoreCount = new(int)
+					*modelDetails.CoreCount = result.CoreCount
+				}
 			}
 		}
-		controller.Models[model.Name] = modelDetails
+		controller.Models[m.Name] = modelDetails
 	}
 	var err error
 	controller.CurrentModel, err = c.store.CurrentModel(controllerName)
@@ -464,7 +478,15 @@ func (c *showControllerCommand) convertMachinesForShow(
 	controller *ShowControllerDetails,
 	controllerModel base.ModelStatus,
 ) {
-	controller.Machines = make(map[string]MachineDetails)
+	var nodes map[string]MachineDetails
+	if controllerModel.ModelType == model.CAAS {
+		controller.Nodes = make(map[string]MachineDetails)
+		nodes = controller.Nodes
+	} else {
+		controller.Machines = make(map[string]MachineDetails)
+		nodes = controller.Machines
+	}
+
 	numControllers := 0
 	for _, m := range controllerModel.Machines {
 		if !m.WantsVote {
@@ -485,7 +507,7 @@ func (c *showControllerCommand) convertMachinesForShow(
 		if numControllers > 1 {
 			details.HAStatus = haStatus(m.HasVote, m.WantsVote, m.Status)
 		}
-		controller.Machines[m.Id] = details
+		nodes[m.Id] = details
 	}
 }
 
