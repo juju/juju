@@ -315,6 +315,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		formatterParams.storage = storageInfo
 		if storageInfo == nil || storageInfo.Empty() {
 			if c.out.Name() == "tabular" {
+				// hide storage section for tabular view if nothing to show.
 				formatterParams.storage = nil
 			}
 		}

@@ -113,7 +113,7 @@ func WaitForAgentInitialisation(
 		errorMessage := errors.Cause(err).Error()
 		switch {
 		case errors.Cause(err) == io.EOF,
-			strings.HasSuffix(errorMessage, "no such host"), // wait for dns resolvable, aws elb for example.
+			strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
 			strings.HasSuffix(errorMessage, "connection is shut down"),
 			strings.HasSuffix(errorMessage, "no api connection available"),
 			strings.Contains(errorMessage, "spaces are still being discovered"):
