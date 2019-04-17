@@ -33,7 +33,7 @@ type MachineAppModeler interface {
 
 type appInfo struct {
 	charmURL     string
-	charmProfile *lxdprofile.Profile
+	charmProfile lxdprofile.Profile
 	units        set.Strings
 }
 
@@ -98,21 +98,19 @@ func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, va
 			w.logError(fmt.Sprintf("error getting charm %s to evaluate for lxd profile notification: %s", chURL, err))
 			return
 		}
+
 		// notify if:
 		// 1. the prior charm had a profile and the new one does not.
 		// 2. the new profile is not empty.
-		if (info.charmProfile != nil && ch.details.LXDProfile.Empty()) ||
-			!ch.details.LXDProfile.Empty() {
+		lxdProfile := ch.LXDProfile()
+		if (!info.charmProfile.Empty() && lxdProfile.Empty()) || !lxdProfile.Empty() {
 			logger.Tracef("notifying due to change of charm lxd profile for %s, machine-%s", appName, w.machineId)
 			notify = true
 		} else {
 			logger.Tracef("no notification of charm lxd profile needed for %s, machine-%s", appName, w.machineId)
 		}
-		if ch.details.LXDProfile.Empty() {
-			info.charmProfile = nil
-		} else {
-			info.charmProfile = &ch.details.LXDProfile
-		}
+
+		info.charmProfile = lxdProfile
 		info.charmURL = chURL
 		w.applications[appName] = info
 	} else {
@@ -147,25 +145,29 @@ func (w *MachineAppLXDProfileWatcher) unitChange(topic string, value interface{}
 		logger.Tracef("stop watching %q on machine-%s", names, w.machineId)
 		notify = w.removeUnit(names)
 	case okUnit:
+		isSubordinate := unit.Subordinate()
+		unitMachineId := unit.MachineId()
+		unitName := unit.Name()
+
 		switch {
-		case unit.details.MachineId == "" && !unit.details.Subordinate:
-			logger.Tracef("%s has no machineId and not a sub", unit.details.Name)
+		case unitMachineId == "" && !isSubordinate:
+			logger.Tracef("%s has no machineId and not a sub", unitName)
 			return
-		case unit.details.Subordinate:
-			principal, err := w.modeler.Unit(unit.details.Principal)
+		case isSubordinate:
+			principal, err := w.modeler.Unit(unit.Principal())
 			if err != nil {
-				logger.Tracef("unit %s is subordinate, principal %s not found", unit.details.Name, unit.details.Principal)
+				logger.Tracef("unit %s is subordinate, principal %s not found", unitName, unit.Principal())
 				return
 			}
-			if w.machineId != principal.details.MachineId {
-				logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unit.details.MachineId)
+			if w.machineId != principal.MachineId() {
+				logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unitMachineId)
 				return
 			}
-		case w.machineId != unit.details.MachineId:
-			logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unit.details.MachineId)
+		case w.machineId != unitMachineId:
+			logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unitMachineId)
 			return
 		}
-		logger.Tracef("start watching %q on machine-%s", unit.details.Name, w.machineId)
+		logger.Tracef("start watching %q on machine-%s", unitName, w.machineId)
 		notify = w.addUnit(unit)
 	default:
 		w.logError("programming error, value not of type *Unit or []string")
@@ -174,35 +176,40 @@ func (w *MachineAppLXDProfileWatcher) unitChange(topic string, value interface{}
 }
 
 func (w *MachineAppLXDProfileWatcher) addUnit(unit *Unit) bool {
-	_, ok := w.applications[unit.details.Application]
+	unitName := unit.Name()
+	appName := unit.Application()
+
+	_, ok := w.applications[appName]
 	if !ok {
-		curl := unit.details.CharmURL
+		curl := unit.CharmURL()
 		if curl == "" {
 			// this happens for new units to existing machines.
-			app, err := w.modeler.Application(unit.details.Application)
+			app, err := w.modeler.Application(appName)
 			if err != nil {
-				w.logError(fmt.Sprintf("failed to get application %s for machine-%s", unit.details.Application, w.machineId))
+				w.logError(fmt.Sprintf("failed to get application %s for machine-%s", appName, w.machineId))
 				return false
 			}
-			curl = app.details.CharmURL
+			curl = app.CharmURL()
 		}
 		ch, err := w.modeler.Charm(curl)
 		if err != nil {
-			w.logError(fmt.Sprintf("failed to get charm %q for %s on machine-%s", curl, unit.details.Name, w.machineId))
+			w.logError(fmt.Sprintf("failed to get charm %q for %s on machine-%s", curl, appName, w.machineId))
 			return false
 		}
 		info := appInfo{
 			charmURL: curl,
-			units:    set.NewStrings(unit.details.Name),
+			units:    set.NewStrings(unitName),
 		}
-		if !ch.details.LXDProfile.Empty() {
-			info.charmProfile = &ch.details.LXDProfile
+
+		lxdProfile := ch.LXDProfile()
+		if !lxdProfile.Empty() {
+			info.charmProfile = lxdProfile
 		}
-		w.applications[unit.details.Application] = info
+		w.applications[appName] = info
 	} else {
-		w.applications[unit.details.Application].units.Add(unit.details.Name)
+		w.applications[appName].units.Add(unitName)
 	}
-	if w.applications[unit.details.Application].charmProfile != nil {
+	if !w.applications[appName].charmProfile.Empty() {
 		return true
 	}
 	return false
@@ -233,7 +240,7 @@ func (w *MachineAppLXDProfileWatcher) removeUnit(names []string) bool {
 	// If there are additional units on the machine and the current
 	// application has an lxd profile, notify so it can be removed
 	// from the machine.
-	if len(w.applications) > 0 && profile != nil && !profile.Empty() {
+	if len(w.applications) > 0 && !profile.Empty() {
 		return true
 	}
 	return false

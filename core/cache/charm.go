@@ -31,6 +31,8 @@ type Charm struct {
 
 // LXDProfile returns the lxd profile of this charm.
 func (c *Charm) LXDProfile() lxdprofile.Profile {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.details.LXDProfile
 }
 

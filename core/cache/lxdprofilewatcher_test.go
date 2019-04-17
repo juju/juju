@@ -76,7 +76,7 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherAddUnit(c *gc.C)
 			Application: "application-name",
 			Series:      "bionic",
 		})
-	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 0, 1)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 0, 0)
 
 	// Add the machine id, this time we should get a notification.
 	s.model.UpdateUnit(cache.UnitChange{
@@ -86,7 +86,7 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherAddUnit(c *gc.C)
 		Series:      "bionic",
 		MachineId:   "0",
 	})
-	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 1)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 0)
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherAddUnitWrongMachine(c *gc.C) {

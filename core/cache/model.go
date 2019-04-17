@@ -116,6 +116,19 @@ func (m *Model) Charm(charmURL string) (*Charm, error) {
 	return charm, nil
 }
 
+// Machines makes a copy of the model's machine collection and returns it.
+func (m *Model) Machines() map[string]*Machine {
+	machines := make(map[string]*Machine)
+
+	m.mu.Lock()
+	for k, v := range m.machines {
+		machines[k] = v
+	}
+	m.mu.Unlock()
+
+	return machines
+}
+
 // Machine returns the machine with the input id.
 // If the machine is not found, a NotFoundError is returned.
 func (m *Model) Machine(machineId string) (*Machine, error) {
@@ -134,6 +147,7 @@ func (m *Model) Machine(machineId string) (*Machine, error) {
 // a slice of the current machine ids.  Containers are excluded.
 func (m *Model) WatchMachines() (*PredicateStringsWatcher, error) {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	// Create a compiled regexp to match machines not containers.
 	compiled, err := m.machineRegexp()
@@ -159,7 +173,6 @@ func (m *Model) WatchMachines() (*PredicateStringsWatcher, error) {
 		return nil
 	})
 
-	m.mu.Unlock()
 	return w, nil
 }
 
@@ -226,7 +239,6 @@ func (m *Model) updateUnit(ch UnitChange) {
 	if !found {
 		unit = newUnit(m.metrics, m.hub)
 		m.units[ch.Name] = unit
-		m.hub.Publish(m.topic(modelUnitLXDProfileChange), unit)
 	}
 	unit.setDetails(ch)
 
