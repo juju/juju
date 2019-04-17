@@ -314,6 +314,10 @@ func (c *loginCommand) publicControllerLogin(
 		host += ":443"
 	}
 
+	ctrlDetails := &jujuclient.ControllerDetails{
+		APIEndpoints: []string{host},
+	}
+
 	// Make a direct API connection because we don't yet know the
 	// controller UUID so can't store the thus-incomplete controller
 	// details to make a conventional connection.
@@ -327,7 +331,7 @@ func (c *loginCommand) publicControllerLogin(
 	}
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bclient
-	dialOpts.VerifyCA = c.promptUserToTrustCA(ctx)
+	dialOpts.VerifyCA = c.promptUserToTrustCA(ctx, ctrlDetails)
 
 	// Keep track of existing visitors as the dial callback will create
 	// a new visitor each time it gets invoked.
@@ -372,11 +376,9 @@ func (c *loginCommand) publicControllerLogin(
 			logger.Errorf("failed to clear macaroon: %v", err)
 		}
 	}
-	return conn,
-		&jujuclient.ControllerDetails{
-			APIEndpoints:   []string{host},
-			ControllerUUID: conn.ControllerTag().Id(),
-		}, accountDetails, nil
+
+	ctrlDetails.ControllerUUID = conn.ControllerTag().Id()
+	return conn, ctrlDetails, accountDetails, nil
 }
 
 // login logs into a controller using the given account details by
@@ -547,7 +549,7 @@ func (c *loginCommand) getKnownControllerDomain(name, controllerName string) (st
 	return resp.Host, nil
 }
 
-func (c *loginCommand) promptUserToTrustCA(ctx *cmd.Context) func(host, endpoint string, caCert *x509.Certificate) error {
+func (c *loginCommand) promptUserToTrustCA(ctx *cmd.Context, ctrlDetails *jujuclient.ControllerDetails) func(host, endpoint string, caCert *x509.Certificate) error {
 	trustedCache := make(map[string]struct{})
 
 	return func(host, endpoint string, caCert *x509.Certificate) error {
@@ -580,8 +582,10 @@ func (c *loginCommand) promptUserToTrustCA(ctx *cmd.Context) func(host, endpoint
 		}
 
 		// memoize user response so we don't prompt them again if we
-		// try to dial again the same endpoint
+		// try to dial again the same endpoint and save the CA cert
+		// into the passed controller details.
 		trustedCache[fingerprint] = struct{}{}
+		ctrlDetails.CACert = buf.String()
 		return nil
 	}
 }

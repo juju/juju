@@ -335,6 +335,14 @@ ERROR cannot log into "127.0.0.1:443": controller CA not trusted
 		c.Check(stdout, gc.Equals, ``)
 		c.Check(stderr, gc.Equals, spec.expRegex[1:])
 		c.Assert(code, gc.Equals, spec.expCode)
+
+		// For successful login make sure that the controller CA cert
+		// gets persisted in the controller store
+		if code == 0 {
+			ctrl, err := s.store.ControllerByName("foo")
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ctrl.CACert, gc.Equals, testing.CACert)
+		}
 	}
 }
 
