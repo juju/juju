@@ -14,7 +14,7 @@ import (
 )
 
 type lxdProfileWatcherSuite struct {
-	entitySuite
+	cache.EntitySuite
 
 	model    *cache.Model
 	machine0 *cache.Machine
@@ -25,7 +25,7 @@ type lxdProfileWatcherSuite struct {
 var _ = gc.Suite(&lxdProfileWatcherSuite{})
 
 func (s *lxdProfileWatcherSuite) SetUpTest(c *gc.C) {
-	s.entitySuite.SetUpTest(c)
+	s.EntitySuite.SetUpTest(c)
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcher(c *gc.C) {
@@ -188,7 +188,7 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherAppChangeCharmUR
 		ModelUUID: "model-uuid",
 		Name:      "application-name",
 		CharmURL:  "charm-url-does-not-exist",
-	})
+	}, s.Manager)
 	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 1, 0, 1)
 }
 
@@ -209,7 +209,7 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherUnitChangeCharmU
 		ModelUUID: "model-uuid",
 		Name:      "new-application-name",
 		CharmURL:  "charm-url-does-not-exist",
-	})
+	}, s.Manager)
 	s.model.UpdateUnit(cache.UnitChange{
 		ModelUUID:   "model-uuid",
 		Name:        "testme/0",
@@ -250,7 +250,7 @@ func (s *lxdProfileWatcherSuite) updateCharmForMachineAppLXDProfileWatcher(rev s
 		ModelUUID: "model-uuid",
 		Name:      "application-name",
 		CharmURL:  curl,
-	})
+	}, s.Manager)
 }
 
 func (s *lxdProfileWatcherSuite) newUnitForMachineAppLXDProfileWatcherNoProfile(c *gc.C, machineId, principal string) {
@@ -278,7 +278,7 @@ func (s *lxdProfileWatcherSuite) newUnit(c *gc.C, machineId, principal string, c
 	ac := appChange
 	ac.CharmURL = cc.CharmURL
 	ac.Name = "name-me"
-	s.model.UpdateApplication(ac)
+	s.model.UpdateApplication(ac, s.Manager)
 	_, err = s.model.Application(ac.Name)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -298,7 +298,7 @@ func (s *lxdProfileWatcherSuite) newUnit(c *gc.C, machineId, principal string, c
 }
 
 func (s *lxdProfileWatcherSuite) setupOneMachineAppLXDProfileWatcherScenario(c *gc.C) {
-	s.model = s.newModel(modelChange)
+	s.model = s.NewModel(modelChange)
 
 	s.model.UpdateMachine(machineChange)
 	machine, err := s.model.Machine(machineChange.Id)
@@ -306,7 +306,7 @@ func (s *lxdProfileWatcherSuite) setupOneMachineAppLXDProfileWatcherScenario(c *
 	c.Assert(machine.Id(), gc.Equals, machineChange.Id)
 	s.machine0 = machine
 
-	s.model.UpdateApplication(appChange)
+	s.model.UpdateApplication(appChange, s.Manager)
 	s.model.UpdateUnit(unitChange)
 	s.model.UpdateCharm(charmChange)
 }
@@ -347,7 +347,7 @@ func (s *lxdProfileWatcherSuite) assertStartOneMachineWatcher(c *gc.C) *cache.Ma
 
 func (s *lxdProfileWatcherSuite) assertChangeValidateMetrics(c *gc.C, assert func(), err, hit, miss int) {
 	assert()
-	c.Check(testutil.ToFloat64(s.gauges.LXDProfileChangeError), gc.Equals, float64(err))
-	c.Check(testutil.ToFloat64(s.gauges.LXDProfileChangeHit), gc.Equals, float64(hit))
-	c.Check(testutil.ToFloat64(s.gauges.LXDProfileChangeMiss), gc.Equals, float64(miss))
+	c.Check(testutil.ToFloat64(s.Gauges.LXDProfileChangeError), gc.Equals, float64(err))
+	c.Check(testutil.ToFloat64(s.Gauges.LXDProfileChangeHit), gc.Equals, float64(hit))
+	c.Check(testutil.ToFloat64(s.Gauges.LXDProfileChangeMiss), gc.Equals, float64(miss))
 }

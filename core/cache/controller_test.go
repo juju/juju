@@ -16,7 +16,7 @@ import (
 )
 
 type ControllerSuite struct {
-	baseSuite
+	cache.BaseSuite
 
 	changes chan interface{}
 	config  cache.ControllerConfig
@@ -25,7 +25,7 @@ type ControllerSuite struct {
 var _ = gc.Suite(&ControllerSuite{})
 
 func (s *ControllerSuite) SetUpTest(c *gc.C) {
-	s.baseSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.changes = make(chan interface{})
 	s.config = cache.ControllerConfig{
 		Changes: s.changes,

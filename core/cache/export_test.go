@@ -4,9 +4,7 @@
 package cache
 
 var (
-	CreateControllerGauges = createControllerGauges
-	NewApplication         = newApplication
-	NewModel               = newModel
+	NewApplication = newApplication
 )
 
 // Expose Remove* for testing.

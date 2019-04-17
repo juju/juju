@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cache_test
+package cache
 
 import (
 	"testing"
@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/cache"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -21,38 +20,46 @@ func TestPackage(t *testing.T) {
 }
 
 // baseSuite is the foundation for test suites in this package.
-type baseSuite struct {
+type BaseSuite struct {
 	jujutesting.IsolationSuite
 
-	gauges *cache.ControllerGauges
+	Manager *residentManager
 }
 
-func (s *baseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.gauges = cache.CreateControllerGauges()
+
+	s.Manager = newResidentManager()
+}
+
+func (s *BaseSuite) NewResident() *resident {
+	return s.Manager.new()
 }
 
 // entitySuite is the base suite for testing cached entities
 // (models, applications, machines).
-type entitySuite struct {
-	baseSuite
+type EntitySuite struct {
+	BaseSuite
 
-	hub *pubsub.SimpleHub
+	Gauges *ControllerGauges
+	Hub    *pubsub.SimpleHub
 }
 
-func (s *entitySuite) SetUpTest(c *gc.C) {
-	s.baseSuite.SetUpTest(c)
+func (s *EntitySuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.TRACE)
-	s.hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
+	s.Hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
 		Logger: logger,
 	})
+
+	s.Gauges = createControllerGauges()
 }
 
-func (s *entitySuite) newModel(details cache.ModelChange) *cache.Model {
-	m := cache.NewModel(s.gauges, s.hub)
-	m.SetDetails(details)
+func (s *EntitySuite) NewModel(details ModelChange) *Model {
+	m := newModel(s.Gauges, s.Hub, s.Manager.new())
+	m.setDetails(details)
 	return m
 }
 

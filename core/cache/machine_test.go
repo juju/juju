@@ -18,7 +18,7 @@ import (
 )
 
 type machineSuite struct {
-	entitySuite
+	cache.EntitySuite
 
 	model    *cache.Model
 	machine0 *cache.Machine
@@ -28,8 +28,8 @@ type machineSuite struct {
 var _ = gc.Suite(&machineSuite{})
 
 func (s *machineSuite) SetUpTest(c *gc.C) {
-	s.entitySuite.SetUpTest(c)
-	s.model = s.newModel(modelChange)
+	s.EntitySuite.SetUpTest(c)
+	s.model = s.NewModel(modelChange)
 }
 
 func (s *machineSuite) TestInstanceId(c *gc.C) {
