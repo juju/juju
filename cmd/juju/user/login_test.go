@@ -370,21 +370,24 @@ func (s *LoginCommandSuite) TestLoginUsingKnownControllerEndpoint(c *gc.C) {
 			descr: "user provides an endpoint as the controller name and has a local account for the controller",
 			cmd:   []string{details.APIEndpoints[0]},
 			expErr: `
-ERROR controller is already registered as "` + existingName + `"
+ERROR This controller has already been registered on this client as "` + existingName + `"
+To login as user "current-user" run 'juju login -u current-user -c ` + existingName + `'.
 `,
 		},
 		{
 			descr: "user provides an endpoint as the controller name and does not have a local account for the controller",
 			cmd:   []string{"1.1.1.1:12345"},
 			expErr: `
-ERROR controller is already registered as "controller-with-no-account"
+ERROR This controller has already been registered on this client as "controller-with-no-account"
+To login run 'juju login -c controller-with-no-account'.
 `,
 		},
 		{
 			descr: "user provides an endpoint and overrides the controller name",
 			cmd:   []string{details.APIEndpoints[0], "-c", "some-controller-name"},
 			expErr: `
-ERROR controller is already registered as "` + existingName + `"
+ERROR This controller has already been registered on this client as "` + existingName + `"
+To login as user "current-user" run 'juju login -u current-user -c ` + existingName + `'.
 `,
 		},
 	}

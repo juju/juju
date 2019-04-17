@@ -618,12 +618,10 @@ func ensureNotKnownEndpoint(store jujuclient.ClientStore, endpoint string) error
 	}
 
 	if accountDetails != nil {
-		logger.Warningf(`This controller has already been registered on this client as %q
-To login user %q run 'juju login -u %s -c %s'.`, existingName, accountDetails.User, accountDetails.User, existingName)
-	} else {
-		logger.Warningf(`This controller has already been registered on this client as %q
-To login run 'juju login -c %s'.`, existingName, existingName)
+		return errors.Errorf(`This controller has already been registered on this client as %q
+To login as user %q run 'juju login -u %s -c %s'.`, existingName, accountDetails.User, accountDetails.User, existingName)
 	}
 
-	return errors.Errorf("controller is already registered as %q", existingName)
+	return errors.Errorf(`This controller has already been registered on this client as %q
+To login run 'juju login -c %s'.`, existingName, existingName)
 }
