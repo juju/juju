@@ -66,8 +66,9 @@ type destroyCommand struct {
 	configAPI      ModelConfigAPI
 	storageAPI     StorageAPI
 
-	Force   bool
-	MaxWait time.Duration
+	Force  bool
+	NoWait bool
+	fs     *gnuflag.FlagSet
 }
 
 var destroyDoc = `
@@ -88,12 +89,10 @@ all operational errors. In these rare cases, use --force option but note
 that --force will also remove all units of the application, its subordinates
 and, potentially, machines without given them the opportunity to shutdown cleanly.
 
-Model destruction is a multi-step process and when forcing this process, users can also 
-specify for how long each step will wait to complete cleanly before forcing the next step to start.
-When --max-wait is not explicitly specified, a default wait of 1 minute will be used.
---max-wait is a duration and can be specified with suffixes such as 'h' for 'hours',
-'m' for 'minutes' and 's' for 'seconds'. For example, '--max-wait 1h20m45s' is painfully
-long but completely valid.
+Model destruction is a multi-step process. Under normal circumstances, Juju will not
+proceed to a next step until the current step finished. 
+However, when using --force, users can also specify --no-wait to progress through steps 
+without delay waiting for each step to complete.
 
 Examples:
 
@@ -101,6 +100,8 @@ Examples:
     juju destroy-model -y mymodel
     juju destroy-model -y mymodel --destroy-storage
     juju destroy-model -y mymodel --release-storage
+    juju destroy-model -y mymodel --force
+    juju destroy-model -y mymodel --force --no-wait
 
 See also:
     destroy-controller
@@ -153,7 +154,8 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances in the model")
 	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from the model, and management of the controller, without destroying them")
 	f.BoolVar(&c.Force, "force", false, "Force destroy model ignoring any errors")
-	f.DurationVar(&c.MaxWait, "max-wait", 1*time.Minute, "Time interval to wait for each step to complete")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through model destruction without waiting for each individual step to complete")
+	c.fs = f
 }
 
 // Init implements Command.Init.
@@ -162,9 +164,6 @@ func (c *destroyCommand) Init(args []string) error {
 		return errors.New("--destroy-storage and --release-storage cannot both be specified")
 	}
 
-	if !c.Force && c.MaxWait != 1*time.Minute {
-		return errors.NotValidf("--max-wait duration without --force")
-	}
 	switch len(args) {
 	case 0:
 		return errors.New("no model specified")
@@ -210,6 +209,19 @@ func (c *destroyCommand) getStorageAPI() (StorageAPI, error) {
 
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
+	noWaitSet := false
+	forceSet := false
+	c.fs.Visit(func(flag *gnuflag.Flag) {
+		if flag.Name == "no-wait" {
+			noWaitSet = true
+		} else if flag.Name == "force" {
+			forceSet = true
+		}
+	})
+	if !forceSet && noWaitSet {
+		return errors.NotValidf("--no-wait without --force")
+	}
+
 	store := c.ClientStore()
 	controllerName, err := c.ControllerName()
 	if err != nil {
@@ -281,11 +293,11 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 			defer storageAPI.Close()
 
-			storage, err := storageAPI.ListStorageDetails()
+			storageDetails, err := storageAPI.ListStorageDetails()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if len(storage) > 0 {
+			if len(storageDetails) > 0 {
 				return errors.Errorf(`cannot destroy model %q
 
 Destroying this model will destroy the storage, but you
@@ -314,8 +326,13 @@ upgrade the controller to version 2.3 or greater.
 	var maxWait *time.Duration
 	if c.Force {
 		force = &c.Force
-		// max wait only makes sense if c.force is set.
-		maxWait = &c.MaxWait
+		if c.NoWait {
+			zeroSec := 0 * time.Second
+			maxWait = &zeroSec
+		} else {
+			oneMin := 1 * time.Minute
+			maxWait = &oneMin
+		}
 	}
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
 	if err := api.DestroyModel(modelTag, destroyStorage, force, maxWait); err != nil {
