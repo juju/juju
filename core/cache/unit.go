@@ -9,7 +9,7 @@ import (
 	"github.com/juju/pubsub"
 )
 
-// Unit represents an unit in a cached model.
+// Unit represents a unit in a cached model.
 type Unit struct {
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
@@ -71,10 +71,12 @@ func (u *Unit) CharmURL() string {
 
 func (u *Unit) setDetails(details UnitChange) {
 	u.mu.Lock()
-	if u.details.MachineId != details.MachineId {
+
+	machineChange := u.details.MachineId != details.MachineId
+	u.details = details
+	if machineChange {
 		u.hub.Publish(u.modelTopic(modelUnitLXDProfileChange), u)
 	}
-	u.details = details
 
 	// TODO (manadart 2019-02-11): Maintain hash and publish changes.
 	u.mu.Unlock()

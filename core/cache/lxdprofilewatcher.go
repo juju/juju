@@ -109,11 +109,8 @@ func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, va
 		} else {
 			logger.Tracef("no notification of charm lxd profile needed for %s, machine-%s", appName, w.machineId)
 		}
-		if lxdProfile.Empty() {
-			info.charmProfile = lxdprofile.Profile{}
-		} else {
-			info.charmProfile = lxdProfile
-		}
+
+		info.charmProfile = lxdProfile
 		info.charmURL = chURL
 		w.applications[appName] = info
 	} else {
@@ -143,22 +140,23 @@ func (w *MachineAppLXDProfileWatcher) unitChange(topic string, value interface{}
 
 	names, okString := value.([]string)
 	unit, okUnit := value.(*Unit)
-	isSubordinate := unit.Subordinate()
-	unitMachineId := unit.MachineId()
-
 	switch {
 	case okString:
 		logger.Tracef("stop watching %q on machine-%s", names, w.machineId)
 		notify = w.removeUnit(names)
 	case okUnit:
+		isSubordinate := unit.Subordinate()
+		unitMachineId := unit.MachineId()
+		unitName := unit.Name()
+
 		switch {
 		case unitMachineId == "" && !isSubordinate:
-			logger.Tracef("%s has no machineId and not a sub", unit.Name())
+			logger.Tracef("%s has no machineId and not a sub", unitName)
 			return
 		case isSubordinate:
 			principal, err := w.modeler.Unit(unit.Principal())
 			if err != nil {
-				logger.Tracef("unit %s is subordinate, principal %s not found", unit.Name(), unit.Principal())
+				logger.Tracef("unit %s is subordinate, principal %s not found", unitName, unit.Principal())
 				return
 			}
 			if w.machineId != principal.MachineId() {
@@ -169,7 +167,7 @@ func (w *MachineAppLXDProfileWatcher) unitChange(topic string, value interface{}
 			logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unitMachineId)
 			return
 		}
-		logger.Tracef("start watching %q on machine-%s", unit.Name(), w.machineId)
+		logger.Tracef("start watching %q on machine-%s", unitName, w.machineId)
 		notify = w.addUnit(unit)
 	default:
 		w.logError("programming error, value not of type *Unit or []string")

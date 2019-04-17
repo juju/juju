@@ -239,7 +239,6 @@ func (m *Model) updateUnit(ch UnitChange) {
 	if !found {
 		unit = newUnit(m.metrics, m.hub)
 		m.units[ch.Name] = unit
-		m.hub.Publish(m.topic(modelUnitLXDProfileChange), unit)
 	}
 	unit.setDetails(ch)
 
