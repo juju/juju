@@ -167,6 +167,16 @@ type Cloud struct {
 	CACertificates []string
 }
 
+// SplitHostCloudRegion splits host cloud region to cloudType and region.
+func SplitHostCloudRegion(hostCloudRegion string) []string {
+	return strings.Split(hostCloudRegion, "/")
+}
+
+// BuildHostCloudRegion combines cloudType with region to host cloud region.
+func BuildHostCloudRegion(cloudType, region string) string {
+	return cloudType + "/" + region
+}
+
 // Region is a cloud region.
 type Region struct {
 	// Name is the name of the region.
@@ -197,6 +207,7 @@ type cloudSet struct {
 type cloud struct {
 	Name             string                 `yaml:"name,omitempty"`
 	Type             string                 `yaml:"type"`
+	HostCloudRegion  string                 `yaml:"host-cloud-region,omitempty"`
 	Description      string                 `yaml:"description,omitempty"`
 	AuthTypes        []AuthType             `yaml:"auth-types,omitempty,flow"`
 	Endpoint         string                 `yaml:"endpoint,omitempty"`
@@ -430,10 +441,11 @@ func cloudToInternal(in Cloud, withName bool) *cloud {
 	var regions regions
 	for _, r := range in.Regions {
 		regions.Slice = append(regions.Slice, yaml.MapItem{
-			r.Name, region{
-				r.Endpoint,
-				r.IdentityEndpoint,
-				r.StorageEndpoint,
+			Key: r.Name,
+			Value: region{
+				Endpoint:         r.Endpoint,
+				IdentityEndpoint: r.IdentityEndpoint,
+				StorageEndpoint:  r.StorageEndpoint,
 			},
 		})
 	}
@@ -444,6 +456,7 @@ func cloudToInternal(in Cloud, withName bool) *cloud {
 	return &cloud{
 		Name:             name,
 		Type:             in.Type,
+		HostCloudRegion:  in.HostCloudRegion,
 		AuthTypes:        in.AuthTypes,
 		Endpoint:         in.Endpoint,
 		IdentityEndpoint: in.IdentityEndpoint,
@@ -478,6 +491,7 @@ func cloudFromInternal(in *cloud) Cloud {
 	meta := Cloud{
 		Name:             in.Name,
 		Type:             in.Type,
+		HostCloudRegion:  in.HostCloudRegion,
 		AuthTypes:        in.AuthTypes,
 		Endpoint:         in.Endpoint,
 		IdentityEndpoint: in.IdentityEndpoint,
