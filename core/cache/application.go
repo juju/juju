@@ -16,16 +16,21 @@ const (
 	applicationConfigChange = "application-config-change"
 )
 
-func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Application {
+func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *resident) *Application {
 	a := &Application{
-		metrics: metrics,
-		hub:     hub,
+		resident: res,
+		metrics:  metrics,
+		hub:      hub,
 	}
 	return a
 }
 
 // Application represents an application in a model.
 type Application struct {
+	// resident identifies the application as a type-agnostic cached entity
+	// and tracks resources that it is responsible for cleaning up.
+	*resident
+
 	// Link to model?
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
@@ -71,7 +76,10 @@ func (a *Application) setDetails(details ApplicationChange) {
 	a.mu.Lock()
 
 	if a.details.CharmURL != details.CharmURL {
-		a.hub.Publish(a.modelTopic(applicationCharmURLChange), appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL})
+		a.hub.Publish(
+			a.modelTopic(applicationCharmURLChange),
+			appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL},
+		)
 	}
 
 	a.details = details

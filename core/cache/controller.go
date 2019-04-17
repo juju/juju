@@ -38,15 +38,20 @@ func (c *ControllerConfig) Validate() error {
 
 // Controller is the primary cached object.
 type Controller struct {
-	config  ControllerConfig
+	// manager is used to work with cache residents
+	// from a type-agnostic viewpoint.
+	manager *residentManager
+
+	config ControllerConfig
+	models map[string]*Model
+
 	tomb    tomb.Tomb
 	mu      sync.Mutex
-	models  map[string]*Model
 	hub     *pubsub.SimpleHub
 	metrics *ControllerGauges
 }
 
-// NewController creates a new cached controller intance.
+// NewController creates a new cached controller instance.
 // The changes channel is what is used to supply the cache with the changes
 // in order for the cache to be kept up to date.
 func NewController(config ControllerConfig) (*Controller, error) {
@@ -54,8 +59,9 @@ func NewController(config ControllerConfig) (*Controller, error) {
 		return nil, errors.Trace(err)
 	}
 	c := &Controller{
-		config: config,
-		models: make(map[string]*Model),
+		manager: newResidentManager(),
+		config:  config,
+		models:  make(map[string]*Model),
 		hub: pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
 			// TODO: (thumper) add a get child method to loggers.
 			Logger: loggo.GetLogger("juju.core.cache.hub"),
@@ -72,6 +78,8 @@ func (c *Controller) loop() error {
 		case <-c.tomb.Dying():
 			return nil
 		case change := <-c.config.Changes:
+			var err error
+
 			switch ch := change.(type) {
 			case ModelChange:
 				c.updateModel(ch)
@@ -80,7 +88,7 @@ func (c *Controller) loop() error {
 			case ApplicationChange:
 				c.updateApplication(ch)
 			case RemoveApplication:
-				c.removeApplication(ch)
+				err = c.removeApplication(ch)
 			case CharmChange:
 				c.updateCharm(ch)
 			case RemoveCharm:
@@ -96,6 +104,10 @@ func (c *Controller) loop() error {
 			}
 			if c.config.Notify != nil {
 				c.config.Notify(change)
+			}
+
+			if err != nil {
+				return errors.Trace(err)
 			}
 		}
 	}
@@ -168,24 +180,28 @@ func (c *Controller) removeModel(ch RemoveModel) {
 // updateApplication adds or updates the application in the specified model.
 func (c *Controller) updateApplication(ch ApplicationChange) {
 	c.mu.Lock()
-	c.ensureModel(ch.ModelUUID).updateApplication(ch)
+	c.ensureModel(ch.ModelUUID).updateApplication(ch, c.manager)
 	c.mu.Unlock()
 }
 
 // removeApplication removes the application for the cached model.
 // If the cache does not have the model loaded for the application yet,
 // then it will not have the application cached.
-func (c *Controller) removeApplication(ch RemoveApplication) {
+func (c *Controller) removeApplication(ch RemoveApplication) error {
 	c.mu.Lock()
+
+	var err error
 	if model, ok := c.models[ch.ModelUUID]; ok {
-		model.removeApplication(ch)
+		err = model.removeApplication(ch)
 	}
+
 	c.mu.Unlock()
+	return errors.Trace(err)
 }
 
 func (c *Controller) updateCharm(ch CharmChange) {
 	c.mu.Lock()
-	c.ensureModel(ch.ModelUUID).updateCharm(ch)
+	c.ensureModel(ch.ModelUUID).updateCharm(ch, c.manager)
 	c.mu.Unlock()
 }
 
@@ -200,7 +216,7 @@ func (c *Controller) removeCharm(ch RemoveCharm) {
 // updateUnit adds or updates the unit in the specified model.
 func (c *Controller) updateUnit(ch UnitChange) {
 	c.mu.Lock()
-	c.ensureModel(ch.ModelUUID).updateUnit(ch)
+	c.ensureModel(ch.ModelUUID).updateUnit(ch, c.manager)
 	c.mu.Unlock()
 }
 
@@ -218,7 +234,7 @@ func (c *Controller) removeUnit(ch RemoveUnit) {
 // updateMachine adds or updates the machine in the specified model.
 func (c *Controller) updateMachine(ch MachineChange) {
 	c.mu.Lock()
-	c.ensureModel(ch.ModelUUID).updateMachine(ch)
+	c.ensureModel(ch.ModelUUID).updateMachine(ch, c.manager)
 	c.mu.Unlock()
 }
 
@@ -241,7 +257,7 @@ func (c *Controller) removeMachine(ch RemoveMachine) {
 func (c *Controller) ensureModel(modelUUID string) *Model {
 	model, found := c.models[modelUUID]
 	if !found {
-		model = newModel(c.metrics, c.hub)
+		model = newModel(c.metrics, c.hub, c.manager.new())
 		c.models[modelUUID] = model
 	}
 	return model

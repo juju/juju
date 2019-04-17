@@ -1,5 +1,6 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package cache_test
 
 import (
@@ -56,7 +57,7 @@ func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
 }
 
 func (s *ApplicationSuite) newApplication(details cache.ApplicationChange) *cache.Application {
-	a := cache.NewApplication(s.Gauges, s.Hub)
+	a := cache.NewApplication(s.Gauges, s.Hub, s.NewResident())
 	a.SetDetails(details)
 	return a
 }

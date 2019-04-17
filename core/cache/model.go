@@ -23,9 +23,10 @@ const (
 	modelUnitLXDProfileChange = "model-unit-lxd-profile-change"
 )
 
-func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
+func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *resident) *Model {
 	m := &Model{
-		metrics: metrics,
+		resident: res,
+		metrics:  metrics,
 		// TODO: consider a separate hub per model for better scalability
 		// when many models.
 		hub:          hub,
@@ -40,6 +41,10 @@ func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Model {
 // Model is a cached model in the controller. The model is kept up to
 // date with changes flowing into the cached controller.
 type Model struct {
+	// resident identifies the model as a type-agnostic cached entity
+	// and tracks resources that it is responsible for cleaning up.
+	*resident
+
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
 	mu      sync.Mutex
@@ -77,8 +82,7 @@ func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
 
 // Report returns information that is used in the dependency engine report.
 func (m *Model) Report() map[string]interface{} {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.doLocked()()
 
 	return map[string]interface{}{
 		"name":              m.details.Owner + "/" + m.details.Name,
@@ -93,8 +97,7 @@ func (m *Model) Report() map[string]interface{} {
 // Application returns the application for the input name.
 // If the application is not found, a NotFoundError is returned.
 func (m *Model) Application(appName string) (*Application, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.doLocked()()
 
 	app, found := m.applications[appName]
 	if !found {
@@ -106,8 +109,7 @@ func (m *Model) Application(appName string) (*Application, error) {
 // Charm returns the charm for the input charmURL.
 // If the charm is not found, a NotFoundError is returned.
 func (m *Model) Charm(charmURL string) (*Charm, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.doLocked()()
 
 	charm, found := m.charms[charmURL]
 	if !found {
@@ -132,8 +134,7 @@ func (m *Model) Machines() map[string]*Machine {
 // Machine returns the machine with the input id.
 // If the machine is not found, a NotFoundError is returned.
 func (m *Model) Machine(machineId string) (*Machine, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.doLocked()()
 
 	machine, found := m.machines[machineId]
 	if !found {
@@ -146,8 +147,7 @@ func (m *Model) Machine(machineId string) (*Machine, error) {
 // added and removed machines in the model.  The initial event contains
 // a slice of the current machine ids.  Containers are excluded.
 func (m *Model) WatchMachines() (*PredicateStringsWatcher, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.doLocked()()
 
 	// Create a compiled regexp to match machines not containers.
 	compiled, err := m.machineRegexp()
@@ -179,8 +179,7 @@ func (m *Model) WatchMachines() (*PredicateStringsWatcher, error) {
 // Unit returns the unit with the input name.
 // If the unit is not found, a NotFoundError is returned.
 func (m *Model) Unit(unitName string) (*Unit, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.doLocked()()
 
 	unit, found := m.units[unitName]
 	if !found {
@@ -190,12 +189,12 @@ func (m *Model) Unit(unitName string) (*Unit, error) {
 }
 
 // updateApplication adds or updates the application in the model.
-func (m *Model) updateApplication(ch ApplicationChange) {
+func (m *Model) updateApplication(ch ApplicationChange, rm *residentManager) {
 	m.mu.Lock()
 
 	app, found := m.applications[ch.Name]
 	if !found {
-		app = newApplication(m.metrics, m.hub)
+		app = newApplication(m.metrics, m.hub, rm.new())
 		m.applications[ch.Name] = app
 	}
 	app.setDetails(ch)
@@ -204,19 +203,26 @@ func (m *Model) updateApplication(ch ApplicationChange) {
 }
 
 // removeApplication removes the application from the model.
-func (m *Model) removeApplication(ch RemoveApplication) {
-	m.mu.Lock()
-	delete(m.applications, ch.Name)
-	m.mu.Unlock()
+func (m *Model) removeApplication(ch RemoveApplication) error {
+	defer m.doLocked()()
+
+	app, ok := m.applications[ch.Name]
+	if ok {
+		if err := app.evict(); err != nil {
+			return errors.Trace(err)
+		}
+		delete(m.applications, ch.Name)
+	}
+	return nil
 }
 
 // updateCharm adds or updates the charm in the model.
-func (m *Model) updateCharm(ch CharmChange) {
+func (m *Model) updateCharm(ch CharmChange, rm *residentManager) {
 	m.mu.Lock()
 
 	charm, found := m.charms[ch.CharmURL]
 	if !found {
-		charm = newCharm(m.metrics, m.hub)
+		charm = newCharm(m.metrics, m.hub, rm.new())
 		m.charms[ch.CharmURL] = charm
 	}
 	charm.setDetails(ch)
@@ -232,12 +238,12 @@ func (m *Model) removeCharm(ch RemoveCharm) {
 }
 
 // updateUnit adds or updates the unit in the model.
-func (m *Model) updateUnit(ch UnitChange) {
+func (m *Model) updateUnit(ch UnitChange, rm *residentManager) {
 	m.mu.Lock()
 
 	unit, found := m.units[ch.Name]
 	if !found {
-		unit = newUnit(m.metrics, m.hub)
+		unit = newUnit(m.metrics, m.hub, rm.new())
 		m.units[ch.Name] = unit
 	}
 	unit.setDetails(ch)
@@ -257,12 +263,12 @@ func (m *Model) removeUnit(ch RemoveUnit) {
 }
 
 // updateMachine adds or updates the machine in the model.
-func (m *Model) updateMachine(ch MachineChange) {
+func (m *Model) updateMachine(ch MachineChange, rm *residentManager) {
 	m.mu.Lock()
 
 	machine, found := m.machines[ch.Id]
 	if !found {
-		machine = newMachine(m)
+		machine = newMachine(m, rm.new())
 		m.machines[ch.Id] = machine
 		m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
 	}
@@ -305,4 +311,9 @@ func (m *Model) setDetails(details ModelChange) {
 func (m *Model) machineRegexp() (*regexp.Regexp, error) {
 	regExp := fmt.Sprintf("^%s$", names.NumberSnippet)
 	return regexp.Compile(regExp)
+}
+
+func (m *Model) doLocked() func() {
+	m.mu.Lock()
+	return m.mu.Unlock
 }

@@ -44,7 +44,7 @@ func (s *machineSuite) TestEmptyInstanceId(c *gc.C) {
 	mc := cache.MachineChange{
 		Id: "0",
 	}
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 
 	machine, err := s.model.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,7 +58,7 @@ func (s *machineSuite) TestCharmProfiles(c *gc.C) {
 		Id:            "0",
 		CharmProfiles: []string{"charm-profile-1"},
 	}
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 
 	machine, err := s.model.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -86,7 +86,7 @@ func (s *machineSuite) TestUnitsSubordinate(c *gc.C) {
 	uc.Application = "test5"
 	uc.Principal = "test1/0"
 	uc.Subordinate = true
-	s.model.UpdateUnit(uc)
+	s.model.UpdateUnit(uc, s.Manager)
 	unit, err := s.model.Unit(uc.Name)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedUnits = append(expectedUnits, unit)
@@ -131,7 +131,7 @@ func (s *machineSuite) TestWatchContainersAddContainer(c *gc.C) {
 	// Add a container to the machine
 	mc := machineChange
 	mc.Id = "0/lxd/0"
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 	s.wc0.AssertOneChange([]string{mc.Id})
 }
 
@@ -141,7 +141,7 @@ func (s *machineSuite) TestWatchContainersOnlyThisMachinesAddContainers(c *gc.C)
 	// Add a container to a different machine
 	mc := machineChange
 	mc.Id = "1/lxd/0"
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 	s.wc0.AssertNoChange()
 }
 
@@ -170,7 +170,7 @@ func (s *machineSuite) TestWatchContainersRemoveContainer(c *gc.C) {
 }
 
 func (s *machineSuite) setupMachine0(c *gc.C) {
-	s.model.UpdateMachine(machineChange)
+	s.model.UpdateMachine(machineChange, s.Manager)
 	machine, err := s.model.Machine(machineChange.Id)
 	c.Assert(err, jc.ErrorIsNil)
 	s.machine0 = machine
@@ -201,13 +201,13 @@ func (s *machineSuite) setupMachine0Container(c *gc.C) {
 	// Add a container to the machine
 	mc := machineChange
 	mc.Id = "0/lxd/0"
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 }
 
 func (s *machineSuite) setupMachineWithUnits(c *gc.C, machineId string, apps []string) (*cache.Machine, []*cache.Unit) {
 	mc := machineChange
 	mc.Id = machineId
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 	machine, err := s.model.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -217,7 +217,7 @@ func (s *machineSuite) setupMachineWithUnits(c *gc.C, machineId string, apps []s
 		uc.MachineId = machineId
 		uc.Name = name + "/" + machineId
 		uc.Application = name
-		s.model.UpdateUnit(uc)
+		s.model.UpdateUnit(uc, s.Manager)
 		unit, err := s.model.Unit(uc.Name)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit

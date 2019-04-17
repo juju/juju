@@ -15,15 +15,20 @@ import (
 	"github.com/juju/juju/core/instance"
 )
 
-func newMachine(model *Model) *Machine {
+func newMachine(model *Model, res *resident) *Machine {
 	m := &Machine{
-		model: model,
+		resident: res,
+		model:    model,
 	}
 	return m
 }
 
 // Machine represents a machine in a model.
 type Machine struct {
+	// resident identifies the machine as a type-agnostic cached entity
+	// and tracks resources that it is responsible for cleaning up.
+	*resident
+
 	model *Model
 	mu    sync.Mutex
 
