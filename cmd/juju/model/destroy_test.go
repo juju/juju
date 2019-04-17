@@ -134,8 +134,8 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, s.clock, noOpRefresh, s.store)
-	return cmdtesting.RunCommand(c, cmd, args...)
+	command := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, s.clock, noOpRefresh, s.store)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func (s *DestroySuite) NewDestroyCommand() cmd.Command {
@@ -143,14 +143,14 @@ func (s *DestroySuite) NewDestroyCommand() cmd.Command {
 }
 
 func checkModelExistsInStore(c *gc.C, name string, store jujuclient.ClientStore) {
-	controller, model := modelcmd.SplitModelName(name)
-	_, err := store.ModelByName(controller, model)
+	controller, amodel := modelcmd.SplitModelName(name)
+	_, err := store.ModelByName(controller, amodel)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func checkModelRemovedFromStore(c *gc.C, name string, store jujuclient.ClientStore) {
-	controller, model := modelcmd.SplitModelName(name)
-	_, err := store.ModelByName(controller, model)
+	controller, amodel := modelcmd.SplitModelName(name)
+	_, err := store.ModelByName(controller, amodel)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -170,8 +170,8 @@ func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyMaxWaitWithoutForce(c *gc.C) {
-	_, err := s.runDestroyCommand(c, "model", "--max-wait", "3m")
-	c.Assert(err, gc.ErrorMatches, `--max-wait duration without --force not valid`)
+	_, err := s.runDestroyCommand(c, "model", "--no-wait")
+	c.Assert(err, gc.ErrorMatches, `--no-wait without --force not valid`)
 }
 
 func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
@@ -181,8 +181,8 @@ func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 		return nil
 	}
 
-	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, s.clock, refresh, s.store)
-	_, err := cmdtesting.RunCommand(c, cmd, "foo")
+	command := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, s.clock, refresh, s.store)
+	_, err := cmdtesting.RunCommand(c, command, "foo")
 	c.Check(called, jc.IsTrue)
 	c.Check(err, gc.ErrorMatches, `model test1:admin/foo not found`)
 }
@@ -211,7 +211,7 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	})
 }
 
-func (s *DestroySuite) TestDestroyWithForceDefaultMaxWait(c *gc.C) {
+func (s *DestroySuite) TestDestroyWithForce(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
 	_, err := s.runDestroyCommand(c, "test2", "-y", "--force")
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,13 +223,13 @@ func (s *DestroySuite) TestDestroyWithForceDefaultMaxWait(c *gc.C) {
 	})
 }
 
-func (s *DestroySuite) TestDestroyWithForceCustomMaxWait(c *gc.C) {
+func (s *DestroySuite) TestDestroyWithForceNoWait(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
-	_, err := s.runDestroyCommand(c, "test2", "-y", "--force", "--max-wait", "1h20m45s")
+	_, err := s.runDestroyCommand(c, "test2", "-y", "--force", "--no-wait")
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	force := true
-	maxWait := 1*time.Hour + 20*time.Minute + 45*time.Second
+	maxWait := 0 * time.Second
 	s.stub.CheckCalls(c, []jutesting.StubCall{
 		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, &maxWait}},
 	})
