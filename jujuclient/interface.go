@@ -186,6 +186,12 @@ type ControllerGetter interface {
 	// satisfying errors.IsNotFound will be returned.
 	ControllerByName(controllerName string) (*ControllerDetails, error)
 
+	// ControllerByAPIEndpoints returns the details and name of the
+	// controller where the set of API endpoints contains any of the
+	// provided endpoints. If no controller can be located, an error
+	// satisfying errors.IsNotFound will be returned.
+	ControllerByAPIEndpoints(endpoints ...string) (*ControllerDetails, string, error)
+
 	// CurrentController returns the name of the current controller.
 	// If there is no current controller, an error satisfying
 	// errors.IsNotFound will be returned.

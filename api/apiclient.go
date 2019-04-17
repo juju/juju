@@ -593,14 +593,21 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Encourage load balancing by shuffling controller addresses.
+	addrs := info.Addrs[:]
+	rand.Shuffle(len(addrs), func(i, j int) { addrs[i], addrs[j] = addrs[j], addrs[i] })
+
+	if opts.VerifyCA != nil {
+		if err := verifyCAMulti(ctx, addrs, &opts); err != nil {
+			return nil, err
+		}
+	}
+
 	if opts.DialTimeout > 0 {
 		ctx1, cancel := utils.ContextWithTimeout(ctx, opts.Clock, opts.DialTimeout)
 		defer cancel()
 		ctx = ctx1
 	}
-	// Encourage load balancing by shuffling controller addresses.
-	addrs := info.Addrs[:]
-	rand.Shuffle(len(addrs), func(i, j int) { addrs[i], addrs[j] = addrs[j], addrs[i] })
 	dialInfo, err := dialWebsocketMulti(ctx, addrs, path, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -662,6 +669,228 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 	return jsoncodec.NewWebsocketConn(c), nil
 }
 
+type resolvedAddress struct {
+	host string
+	ip   string
+	port string
+}
+
+type addressProvider struct {
+	dnsCache       DNSCache
+	ipAddrResolver IPAddrResolver
+
+	// A pool of host addresses to be resolved to one or more IP addresses.
+	addrPool []string
+
+	// A pool of host addresses that got resolved via the DNS cache; these
+	// are kept separate so we can attempt to resolve them without the DNS
+	// cache when we run out of entries in AddrPool.
+	cachedAddrPool []string
+	resolvedAddrs  []*resolvedAddress
+}
+
+func newAddressProvider(initialAddrs []string, dnsCache DNSCache, ipAddrResolver IPAddrResolver) *addressProvider {
+	return &addressProvider{
+		dnsCache:       dnsCache,
+		ipAddrResolver: ipAddrResolver,
+		addrPool:       initialAddrs,
+	}
+}
+
+// next returns back either a successfully resolved address or the error that
+// occurred while attempting to resolve the next address candidate. Calls to
+// next return io.EOF to indicate that no more addresses are available.
+func (ap *addressProvider) next(ctx context.Context) (*resolvedAddress, error) {
+	if len(ap.resolvedAddrs) == 0 {
+		// If we have ran out of addresses to resolve but we have
+		// resolved some via the DNS cache, make another pass for
+		// those with an empty DNS cache to refresh any stale entries.
+		if len(ap.addrPool) == 0 && len(ap.cachedAddrPool) > 0 {
+			ap.addrPool = ap.cachedAddrPool
+			ap.cachedAddrPool = nil
+			ap.dnsCache = emptyDNSCache{ap.dnsCache}
+		}
+
+		// Resolve the next host from the address pool
+		if len(ap.addrPool) != 0 {
+			next := ap.addrPool[0]
+			ap.addrPool = ap.addrPool[1:]
+
+			host, port, err := net.SplitHostPort(next)
+			if err != nil {
+				return nil, errors.Errorf("invalid address %q: %v", next, err)
+			}
+
+			ips := ap.dnsCache.Lookup(host)
+			if len(ips) > 0 {
+				ap.cachedAddrPool = append(ap.cachedAddrPool, next)
+			} else if isNumericHost(host) {
+				ips = []string{host}
+			} else {
+				var err error
+				ips, err = lookupIPAddr(ctx, host, ap.ipAddrResolver)
+				if err != nil {
+					return nil, errors.Errorf("cannot resolve %q: %v", host, err)
+				}
+				ap.dnsCache.Add(host, ips)
+				logger.Debugf("looked up %v -> %v", host, ips)
+			}
+
+			for _, ip := range ips {
+				ap.resolvedAddrs = append(ap.resolvedAddrs, &resolvedAddress{
+					host: next,
+					ip:   ip,
+					port: port,
+				})
+			}
+		}
+	}
+
+	// Ran out of resolved addresses and cached addresses
+	if len(ap.resolvedAddrs) == 0 {
+		return nil, io.EOF
+	}
+
+	next := ap.resolvedAddrs[0]
+	ap.resolvedAddrs = ap.resolvedAddrs[1:]
+	return next, nil
+}
+
+// caRetrieveRes is an adaptor for returning CA certificate lookup results via
+// calls to parallel.Try.
+type caRetrieveRes struct {
+	host     string
+	endpoint string
+	caCert   *x509.Certificate
+}
+
+func (caRetrieveRes) Close() error { return nil }
+
+// verifyCAMulti attempts to establish a TLS connection with one of the
+// provided addresses, retrieve the CA certificate and validate it using the
+// system root CAs. If that is not possible, the certificate verification will
+// be delegated to the VerifyCA implementation specified in opts.DialOpts.
+//
+// If VerifyCA does not return an error, the CA cert is assumed to be trusted
+// and will be appended to opt's certificate pool allowing secure websocket
+// connections to proceed without certificate verification errors. Otherwise,
+// the error reported by VerifyCA is returned back to the caller.
+//
+// For load-balancing purposes, all addresses are tested concurrently with the
+// first retrieved CA cert being used for the verification tests. In addition,
+// apart from the initial TLS handshake with the remote server, no other data
+// is exchanged with the remote server.
+func verifyCAMulti(ctx context.Context, addrs []string, opts *dialOpts) error {
+	dOpts := opts.DialOpts
+	if dOpts.DialTimeout > 0 {
+		ctx1, cancel := utils.ContextWithTimeout(ctx, dOpts.Clock, dOpts.DialTimeout)
+		defer cancel()
+		ctx = ctx1
+	}
+
+	try := parallel.NewTry(0, nil)
+	defer try.Kill()
+
+	addrProvider := newAddressProvider(addrs, opts.DNSCache, opts.IPAddrResolver)
+	tryRetrieveCaCertFn := func(ctx context.Context, addr *resolvedAddress) func(<-chan struct{}) (io.Closer, error) {
+		ipStr := net.JoinHostPort(addr.ip, addr.port)
+		return func(<-chan struct{}) (io.Closer, error) {
+			caCert, err := retrieveCACert(ctx, ipStr)
+			if err != nil {
+				return nil, err
+			}
+
+			return caRetrieveRes{
+				host:     addr.host,
+				endpoint: ipStr,
+				caCert:   caCert,
+			}, nil
+		}
+	}
+
+	for {
+		resolvedAddr, err := addrProvider.next(ctx)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			recordTryError(try, err)
+			continue
+		}
+
+		err = try.Start(tryRetrieveCaCertFn(ctx, resolvedAddr))
+		if err == parallel.ErrStopped {
+			break
+		} else if err != nil {
+			continue
+		}
+
+		select {
+		case <-opts.Clock.After(dOpts.DialAddressInterval):
+		case <-try.Dead():
+		}
+	}
+
+	try.Close()
+
+	// If we are unable to fetch the CA either because it is not presented
+	// by the remote server OR due to an unsuccessful connection attempt
+	// we should skip the verification path and dial the server as if no
+	// VerifyCA implementation was provided.
+	result, err := try.Result()
+	if err != nil || result == nil {
+		logger.Debugf("unable to retrieve CA cert from remote host; skipping CA verification")
+		return nil
+	}
+
+	// Try to verify CA cert using the system roots. If the verification
+	// succeeds then we are done; tls connections will work out of the box.
+	res := result.(caRetrieveRes)
+	if _, err = res.caCert.Verify(x509.VerifyOptions{}); err == nil {
+		logger.Debugf("remote CA certificate trusted by system roots")
+		return nil
+	}
+
+	// Invoke the CA verifier; if the CA should be trusted, append it to
+	// the dialOpts certPool and proceed with the actual connection attempt.
+	err = opts.VerifyCA(res.host, res.endpoint, res.caCert)
+	if err == nil {
+		if opts.certPool == nil {
+			opts.certPool = x509.NewCertPool()
+		}
+		opts.certPool.AddCert(res.caCert)
+	}
+
+	return err
+}
+
+// retrieveCACert establishes an insecure TLS connection to addr and attempts
+// to retrieve the CA cert presented by the server. If no CA cert is presented,
+// retrieveCACert will returns nil, nil.
+func retrieveCACert(ctx context.Context, addr string) (*x509.Certificate, error) {
+	netConn, err := new(net.Dialer).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	conn := tls.Client(netConn, &tls.Config{InsecureSkipVerify: true})
+	if err = conn.Handshake(); err != nil {
+		_ = netConn.Close()
+		return nil, err
+	}
+	defer func() {
+		_ = conn.Close()
+		_ = netConn.Close()
+	}()
+
+	for _, cert := range conn.ConnectionState().PeerCertificates {
+		if cert.IsCA {
+			return cert, nil
+		}
+	}
+
+	return nil, errors.New("no CA certificate presented by remote server")
+}
+
 // dialWebsocketMulti dials a websocket with one of the provided addresses, the
 // specified URL path, TLS configuration, and dial options. Each of the
 // specified addresses will be attempted concurrently, and the first
@@ -696,65 +925,31 @@ func dialWebsocketMulti(ctx context.Context, addrs []string, path string, opts d
 		cancel()
 	}()
 	tried := make(map[string]bool)
-	var cacheUsed []string
+	addrProvider := newAddressProvider(addrs, opts.DNSCache, opts.IPAddrResolver)
 	for {
-		if len(addrs) == 0 && len(cacheUsed) > 0 {
-			// We've tried all the addresses but for some
-			// of them we used cached values which might
-			// have become out of date, so retry them
-			// with no cache.
-			addrs = cacheUsed
-			cacheUsed = nil
-			opts.DNSCache = emptyDNSCache{opts.DNSCache}
-		}
-
-		if len(addrs) == 0 {
+		resolvedAddr, err := addrProvider.next(ctx)
+		if err == io.EOF {
 			break
-		}
-		addr := addrs[0]
-		addrs = addrs[1:]
-		host, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			// Defensive - this should never happen because
-			// the addresses are checked with Info.Validate
-			// beforehand.
-			err := errors.Errorf("invalid address %q: %v", addr, err)
+		} else if err != nil {
 			recordTryError(try, err)
 			continue
 		}
-		ips := opts.DNSCache.Lookup(host)
-		if len(ips) > 0 {
-			cacheUsed = append(cacheUsed, addr)
-		} else if isNumericHost(host) {
-			ips = []string{host}
-		} else {
-			var err error
-			ips, err = lookupIPAddr(ctx, host, opts.IPAddrResolver)
-			if err != nil {
-				err := errors.Errorf("cannot resolve %q: %v", host, err)
-				recordTryError(try, err)
-				continue
-			}
-			opts.DNSCache.Add(host, ips)
-			logger.Debugf("looked up %v -> %v", host, ips)
+
+		ipStr := net.JoinHostPort(resolvedAddr.ip, resolvedAddr.port)
+		if tried[ipStr] {
+			continue
 		}
-		for _, ip := range ips {
-			ipStr := net.JoinHostPort(ip, port)
-			if tried[ipStr] {
-				continue
-			}
-			tried[ipStr] = true
-			err := startDialWebsocket(ctx, try, ipStr, addr, path, opts)
-			if err == parallel.ErrStopped {
-				break
-			}
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			select {
-			case <-opts.Clock.After(opts.DialAddressInterval):
-			case <-try.Dead():
-			}
+		tried[ipStr] = true
+		err = startDialWebsocket(ctx, try, ipStr, resolvedAddr.host, path, opts)
+		if err == parallel.ErrStopped {
+			break
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		select {
+		case <-opts.Clock.After(opts.DialAddressInterval):
+		case <-try.Dead():
 		}
 	}
 	try.Close()

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -193,7 +194,11 @@ func IsCodeUnauthorized(err error) bool {
 }
 
 func IsCodeNoCreds(err error) bool {
-	return ErrCode(err) == CodeNoCreds
+	// When we receive this error from an rpc call, rpc.RequestError
+	// is populated with a CodeUnauthorized code and a message that
+	// is formatted as "$CodeNoCreds ($CodeUnauthorized)".
+	ec := ErrCode(err)
+	return ec == CodeNoCreds || (ec == CodeUnauthorized && strings.HasPrefix(errors.Cause(err).Error(), CodeNoCreds))
 }
 
 func IsCodeLoginExpired(err error) bool {

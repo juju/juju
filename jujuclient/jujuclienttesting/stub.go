@@ -13,13 +13,14 @@ import (
 type StubStore struct {
 	*testing.Stub
 
-	AllControllersFunc       func() (map[string]jujuclient.ControllerDetails, error)
-	ControllerByNameFunc     func(name string) (*jujuclient.ControllerDetails, error)
-	AddControllerFunc        func(name string, one jujuclient.ControllerDetails) error
-	UpdateControllerFunc     func(name string, one jujuclient.ControllerDetails) error
-	RemoveControllerFunc     func(name string) error
-	SetCurrentControllerFunc func(name string) error
-	CurrentControllerFunc    func() (string, error)
+	AllControllersFunc           func() (map[string]jujuclient.ControllerDetails, error)
+	ControllerByNameFunc         func(name string) (*jujuclient.ControllerDetails, error)
+	ControllerByAPIEndpointsFunc func(endpoints ...string) (*jujuclient.ControllerDetails, string, error)
+	AddControllerFunc            func(name string, one jujuclient.ControllerDetails) error
+	UpdateControllerFunc         func(name string, one jujuclient.ControllerDetails) error
+	RemoveControllerFunc         func(name string) error
+	SetCurrentControllerFunc     func(name string) error
+	CurrentControllerFunc        func() (string, error)
 
 	UpdateModelFunc     func(controller, model string, details jujuclient.ModelDetails) error
 	SetCurrentModelFunc func(controller, model string) error
@@ -52,6 +53,9 @@ func NewStubStore() *StubStore {
 	}
 	result.ControllerByNameFunc = func(name string) (*jujuclient.ControllerDetails, error) {
 		return nil, result.Stub.NextErr()
+	}
+	result.ControllerByAPIEndpointsFunc = func(endpoints ...string) (*jujuclient.ControllerDetails, string, error) {
+		return nil, "", result.Stub.NextErr()
 	}
 	result.AddControllerFunc = func(name string, one jujuclient.ControllerDetails) error {
 		return result.Stub.NextErr()
@@ -130,6 +134,7 @@ func WrapClientStore(underlying jujuclient.ClientStore) *StubStore {
 	stub := NewStubStore()
 	stub.AllControllersFunc = underlying.AllControllers
 	stub.ControllerByNameFunc = underlying.ControllerByName
+	stub.ControllerByAPIEndpointsFunc = underlying.ControllerByAPIEndpoints
 	stub.AddControllerFunc = underlying.AddController
 	stub.UpdateControllerFunc = underlying.UpdateController
 	stub.RemoveControllerFunc = underlying.RemoveController
@@ -161,6 +166,12 @@ func (c *StubStore) AllControllers() (map[string]jujuclient.ControllerDetails, e
 func (c *StubStore) ControllerByName(name string) (*jujuclient.ControllerDetails, error) {
 	c.MethodCall(c, "ControllerByName", name)
 	return c.ControllerByNameFunc(name)
+}
+
+// ControllerByAPIEndpoints implements ControllersGetter.ControllerByAPIEndpoints
+func (c *StubStore) ControllerByAPIEndpoints(endpoints ...string) (*jujuclient.ControllerDetails, string, error) {
+	c.MethodCall(c, "ControllerByAPIEndpoints", endpoints)
+	return c.ControllerByAPIEndpointsFunc(endpoints...)
 }
 
 // AddController implements ControllerUpdater.AddController

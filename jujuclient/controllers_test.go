@@ -62,6 +62,23 @@ func (s *ControllersSuite) TestControllerByName(c *gc.C) {
 	c.Assert(found, jc.DeepEquals, &expected)
 }
 
+func (s *ControllersSuite) TestControllerByAPIEndpoints(c *gc.C) {
+	name := firstTestControllerName(c)
+	expected := s.getControllers(c)[name]
+	found, foundName, err := s.store.ControllerByAPIEndpoints(expected.APIEndpoints...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, jc.DeepEquals, &expected)
+	c.Assert(foundName, gc.Equals, name)
+}
+
+func (s *ControllersSuite) TestControllerByAPIEndpointsNoneExists(c *gc.C) {
+	writeTestControllersFile(c)
+	found, foundName, err := s.store.ControllerByAPIEndpoints("1.1.1.1:17070")
+	c.Assert(err, gc.ErrorMatches, "controller with API endpoints .* not found")
+	c.Assert(found, gc.IsNil)
+	c.Assert(foundName, gc.Equals, "")
+}
+
 func (s *ControllersSuite) TestAddController(c *gc.C) {
 	err := s.store.AddController(s.controllerName, s.controller)
 	c.Assert(err, jc.ErrorIsNil)

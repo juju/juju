@@ -37,7 +37,8 @@ var (
 	Certs = serverCerts()
 
 	// Other valid test certs different from the default.
-	OtherCACert, OtherCAKey = mustNewCA()
+	OtherCACert, OtherCAKey        = mustNewCA()
+	OtherCACertX509, OtherCAKeyRSA = mustParseCertAndKey(OtherCACert, OtherCAKey)
 )
 
 func verifyCertificates() error {

@@ -63,6 +63,22 @@ func (c *MemStore) ControllerByName(name string) (*ControllerDetails, error) {
 	return nil, errors.NotFoundf("controller %s", name)
 }
 
+// ControllerByAPIEndpoints implements ControllersGetter.ControllerByAPIEndpoints
+func (c *MemStore) ControllerByAPIEndpoints(endpoints ...string) (*ControllerDetails, string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	matchEps := set.NewStrings(endpoints...)
+	for name, ctrl := range c.Controllers {
+		if matchEps.Intersection(set.NewStrings(ctrl.APIEndpoints...)).IsEmpty() {
+			continue
+		}
+
+		return &ctrl, name, nil
+	}
+	return nil, "", errors.NotFoundf("controller with API endpoints %v", endpoints)
+}
+
 // CurrentController implements ControllerGetter.CurrentController
 func (c *MemStore) CurrentController() (string, error) {
 	c.mu.Lock()
