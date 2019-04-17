@@ -43,38 +43,38 @@ var (
 )
 
 type controllerServiceSpec struct {
-	// serviceType is required.
-	serviceType core.ServiceType
-	// annotations is optional.
-	annotations k8sannotations.Annotation
+	// ServiceType is required.
+	ServiceType core.ServiceType
+	// Annotations is optional.
+	Annotations k8sannotations.Annotation
 }
 
 var controllerServiceSpecs = map[string]*controllerServiceSpec{
 	caas.K8sCloudAzure: {
-		serviceType: core.ServiceTypeLoadBalancer,
+		ServiceType: core.ServiceTypeLoadBalancer,
 	},
 	caas.K8sCloudEC2: {
-		serviceType: core.ServiceTypeLoadBalancer,
-		annotations: k8sannotations.New(nil).
+		ServiceType: core.ServiceTypeLoadBalancer,
+		Annotations: k8sannotations.New(nil).
 			Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp"),
 	},
 	caas.K8sCloudGCE: {
-		serviceType: core.ServiceTypeLoadBalancer,
+		ServiceType: core.ServiceTypeLoadBalancer,
 	},
 	caas.K8sCloudMicrok8s: {
-		serviceType: core.ServiceTypeClusterIP,
+		ServiceType: core.ServiceTypeClusterIP,
 	},
 	caas.K8sCloudOpenStack: {
-		serviceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.
+		ServiceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.
 	},
 	caas.K8sCloudMAAS: {
-		serviceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.
+		ServiceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.
 	},
 	caas.K8sCloudLXD: {
-		serviceType: core.ServiceTypeClusterIP, // TODO(caas): test and verify this.
+		ServiceType: core.ServiceTypeClusterIP, // TODO(caas): test and verify this.
 	},
 	caas.K8sCloudOther: {
-		serviceType: core.ServiceTypeLoadBalancer, // Default svc spec for any other cloud is not listed above.
+		ServiceType: core.ServiceTypeLoadBalancer, // Default svc spec for any other cloud is not listed above.
 	},
 }
 
@@ -338,9 +338,9 @@ func (c controllerStack) getControllerSvcSpec(cloudType string) (*controllerServ
 		logger.Debugf("fallback to default svc spec for %q", cloudType)
 		spec, _ = controllerServiceSpecs[caas.K8sCloudOther]
 	}
-	if spec.serviceType == "" {
-		// serviceType is required.
-		return nil, errors.NotValidf("serviceType is empty for %q", cloudType)
+	if spec.ServiceType == "" {
+		// ServiceType is required.
+		return nil, errors.NotValidf("service type is empty for %q", cloudType)
 	}
 	return spec, nil
 }
@@ -361,7 +361,7 @@ func (c controllerStack) createControllerService() error {
 		},
 		Spec: core.ServiceSpec{
 			Selector: c.stackLabels,
-			Type:     controllerSvcSpec.serviceType,
+			Type:     controllerSvcSpec.ServiceType,
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
@@ -371,8 +371,8 @@ func (c controllerStack) createControllerService() error {
 			},
 		},
 	}
-	if controllerSvcSpec.annotations != nil {
-		spec.SetAnnotations(controllerSvcSpec.annotations.ToMap())
+	if controllerSvcSpec.Annotations != nil {
+		spec.SetAnnotations(controllerSvcSpec.Annotations.ToMap())
 	}
 
 	logger.Debugf("creating controller service: \n%+v", spec)

@@ -318,29 +318,6 @@ func (s *K8sMetadataSuite) TestOperatorStorageClassNoDefault(c *gc.C) {
 	})
 }
 
-func (s *K8sMetadataSuite) TestServiceTypePreferredForAWS(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
-			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
-				Labels: map[string]string{"manufacturer": "amazon_ec2"},
-			}}}}, nil),
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
-				Provisioner: "kubernetes.io/aws-ebs",
-			}, {
-				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
-				Provisioner: "kubernetes.io/aws-ebs",
-				Parameters:  map[string]string{"foo": "bar"},
-			}}}, nil),
-	)
-	metadata, err := s.broker.GetClusterMetadata("")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.PreferredServiceType, jc.DeepEquals, string(core.ServiceTypeLoadBalancer))
-}
-
 func (s *K8sMetadataSuite) TestOperatorStorageClassPrefersDefault(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()

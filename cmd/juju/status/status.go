@@ -312,8 +312,11 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if storageInfo != nil && !storageInfo.Empty() {
-			formatterParams.storage = storageInfo
+		formatterParams.storage = storageInfo
+		if storageInfo == nil || storageInfo.Empty() {
+			if c.out.Name() == "tabular" {
+				formatterParams.storage = nil
+			}
 		}
 	}
 
