@@ -2343,6 +2343,50 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						},
 					}}}
 		},
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "no change if instanceData is not in backing",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
+					ModelUUID: st.ModelUUID(),
+					Id:        "0",
+				}},
+				change: watcher.Change{
+					C:  "instanceData",
+					Id: st.docID("0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						ModelUUID: st.ModelUUID(),
+						Id:        "0",
+					}}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, jc.ErrorIsNil)
+			err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
+			c.Assert(err, jc.ErrorIsNil)
+
+			profiles := []string{"default, juju-default"}
+			err = m.SetCharmProfiles(profiles)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "instanceData is changed (CharmProfiles) if the machine exists in the store",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
+					ModelUUID: st.ModelUUID(),
+					Id:        "0",
+				}},
+				change: watcher.Change{
+					C:  "instanceData",
+					Id: st.docID("0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						ModelUUID:     st.ModelUUID(),
+						Id:            "0",
+						CharmProfiles: profiles,
+					}}}
+		},
 	}
 	runChangeTests(c, changeTestFuncs)
 }

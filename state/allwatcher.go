@@ -68,6 +68,9 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 			collection.docType = reflect.TypeOf(backingModel{})
 		case machinesC:
 			collection.docType = reflect.TypeOf(backingMachine{})
+		case instanceDataC:
+			collection.docType = reflect.TypeOf(backingInstanceData{})
+			collection.subsidiary = true
 		case unitsC:
 			collection.docType = reflect.TypeOf(backingUnit{})
 		case applicationsC:
@@ -309,6 +312,45 @@ func (m *backingMachine) removed(store *multiwatcherStore, modelUUID, id string,
 
 func (m *backingMachine) mongoId() string {
 	return m.DocID
+}
+
+type backingInstanceData instanceData
+
+func (i *backingInstanceData) updated(st *State, store *multiwatcherStore, id string) error {
+	parentID, ok := backingEntityIdForGlobalKey(st.ModelUUID(), machineGlobalKey(id))
+	if !ok {
+		return nil
+	}
+
+	info0 := store.Get(parentID)
+	switch info := info0.(type) {
+	case nil:
+		// The parent info doesn't exist. Ignore the status until it does.
+		return nil
+	case *multiwatcher.MachineInfo:
+		newInfo := *info
+		instanceData, err := getInstanceData(st, newInfo.Id)
+		if err != nil {
+			return err
+		}
+		newInfo.HardwareCharacteristics = hardwareCharacteristics(instanceData)
+		newInfo.CharmProfiles = instanceData.CharmProfiles
+		info0 = &newInfo
+	default:
+		return errors.Errorf("instanceData for unexpected entity with id %q; type %T", id, info)
+	}
+	store.Update(info0)
+	return nil
+}
+
+func (i *backingInstanceData) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
+	// If the instanceData is removed, the machine will follow not long
+	// after so do nothing.
+	return nil
+}
+
+func (i *backingInstanceData) mongoId() string {
+	return i.DocID
 }
 
 type backingUnit unitDoc
@@ -1305,19 +1347,20 @@ type backingEntityDoc interface {
 
 func newAllWatcherStateBacking(st *State, params WatchParams) Backing {
 	collectionNames := []string{
-		machinesC,
-		unitsC,
-		applicationsC,
-		charmsC,
-		relationsC,
-		annotationsC,
-		statusesC,
-		constraintsC,
-		settingsC,
-		openedPortsC,
 		actionsC,
+		annotationsC,
+		applicationsC,
 		blocksC,
+		charmsC,
+		constraintsC,
+		instanceDataC,
+		machinesC,
+		openedPortsC,
+		relationsC,
 		remoteApplicationsC,
+		statusesC,
+		settingsC,
+		unitsC,
 	}
 	if params.IncludeOffers {
 		collectionNames = append(collectionNames, applicationOffersC)
@@ -1395,6 +1438,7 @@ func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
 		applicationsC,
 		charmsC,
 		constraintsC,
+		instanceDataC,
 		modelsC,
 		machinesC,
 		openedPortsC,
