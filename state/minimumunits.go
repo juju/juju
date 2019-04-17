@@ -115,7 +115,7 @@ func doesMinUnitsExist(unit *Unit) (bool, error) {
 
 // minUnitsTriggerOp returns the operation required to increase the minimum
 // units revno for the application in MongoDB. Note that this doesn't mean the
-// minumum number of units is changing, just the evaluation revno is being
+// minimum number of units is changing, just the evaluation revno is being
 // incremented, so things maintaining stasis will wake up and respond.
 // This is included in the operations performed when a unit is
 // destroyed: if the document exists, then we need to update the Revno.
