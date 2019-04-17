@@ -244,7 +244,7 @@ type ModelSummary struct {
 	UserLastConnection string                  `yaml:"last-connection" json:"last-connection"`
 
 	// Counts is the map of different counts where key is the entity that was counted
-	// and value is the number, for e.g. {"machines":10,"cores":3}.
+	// and value is the number, for e.g. {"machines":10,"cores":3, "units:4}.
 	Counts       map[string]int64 `json:"-" yaml:"-"`
 	SLA          string           `json:"sla,omitempty" yaml:"sla,omitempty"`
 	SLAOwner     string           `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
@@ -336,6 +336,13 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 			c.runVars.hasCoresCount = true
 		}
 	}
+
+	// If hasUnitsCounts is not yet set, check if we should set it based on this model summary.
+	if !c.runVars.hasUnitsCount {
+		if _, ok := summary.Counts[string(params.Units)]; ok {
+			c.runVars.hasUnitsCount = true
+		}
+	}
 	return summary, nil
 }
 
@@ -345,6 +352,7 @@ type modelsRunValues struct {
 	controllerName   string
 	hasMachinesCount bool
 	hasCoresCount    bool
+	hasUnitsCount    bool
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
@@ -384,6 +392,11 @@ func (c *modelsCommand) tabularColumns(tw *ansiterm.TabWriter, w output.Wrapper)
 	if c.runVars.hasCoresCount {
 		printColumnHeader("Cores", 5)
 	}
+
+	if c.runVars.hasUnitsCount {
+		printColumnHeader("Units", 5)
+	}
+
 	w.Println("Access", "Last connection")
 }
 
@@ -424,6 +437,13 @@ func (c *modelsCommand) tabularSummaries(writer io.Writer, modelSet ModelSummary
 		}
 		if c.runVars.hasCoresCount {
 			if v, ok := model.Counts[string(params.Cores)]; ok {
+				w.Print(v)
+			} else {
+				w.Print("-")
+			}
+		}
+		if c.runVars.hasUnitsCount {
+			if v, ok := model.Counts[string(params.Units)]; ok {
 				w.Print(v)
 			} else {
 				w.Print("-")

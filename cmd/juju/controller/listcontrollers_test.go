@@ -49,10 +49,11 @@ func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
 Use --refresh option with this command to see the latest information.
 
-Controller           Model             User   Access     Cloud/Region        Models  Machines  HA  Version
-aws-test             admin/controller  -      -          aws/us-east-1            1         5   -  2.0.1      
-mallards*            my-model          admin  superuser  mallards/mallards1       2         -   -  (unknown)  
-mark-test-prodstack  -                 admin  (unknown)  prodstack                -         -   -  (unknown)  
+Controller           Model             User   Access     Cloud/Region        Models  Nodes  HA  Version
+aws-test             admin/controller  -      -          aws/us-east-1            1      5   -  2.0.1      
+k8s-controller       my-k8s-model      admin  superuser  microk8s/localhost       2      3   -  6.6.6      
+mallards*            my-model          admin  superuser  mallards/mallards1       2      -   -  (unknown)  
+mark-test-prodstack  -                 admin  (unknown)  prodstack                -      -   -  (unknown)  
 
 `[1:]
 
@@ -76,10 +77,11 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
 		return fakeController
 	}
 	s.expectedOutput = `
-Controller           Model       User   Access     Cloud/Region        Models  Machines  HA  Version
-aws-test             controller  admin  (unknown)  aws/us-east-1            1         2   -  2.0.1      
-mallards*            my-model    admin  superuser  mallards/mallards1       2         4   -  (unknown)  
-mark-test-prodstack  -           admin  (unknown)  prodstack                -         -   -  (unknown)  
+Controller           Model         User   Access     Cloud/Region        Models  Nodes  HA  Version
+aws-test             controller    admin  (unknown)  aws/us-east-1            1      2   -  2.0.1      
+k8s-controller       my-k8s-model  admin  superuser  microk8s/localhost       2      4   -  6.6.6      
+mallards*            my-model      admin  superuser  mallards/mallards1       2      4   -  (unknown)  
+mark-test-prodstack  -             admin  (unknown)  prodstack                -      -   -  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
@@ -111,7 +113,16 @@ func (s *ListControllersSuite) setupAPIForControllerMachines() {
 					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
 				},
 				"def": {
+					{Id: "2", HasVote: true, WantsVote: true, Status: "active"},
+				},
+			}
+		case "k8s-controller":
+			fakeController.machines = map[string][]base.Machine{
+				"xyz": {
 					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
+				},
+				"def": {
+					{Id: "2", HasVote: true, WantsVote: true, Status: "active"},
 				},
 			}
 		}
@@ -123,10 +134,11 @@ func (s *ListControllersSuite) TestListControllersKnownHAStatus(c *gc.C) {
 	s.createTestClientStore(c)
 	s.setupAPIForControllerMachines()
 	s.expectedOutput = `
-Controller           Model       User   Access     Cloud/Region        Models  Machines    HA  Version
-aws-test             controller  admin  (unknown)  aws/us-east-1            1         2   1/3  2.0.1      
-mallards*            my-model    admin  superuser  mallards/mallards1       2         4  none  (unknown)  
-mark-test-prodstack  -           admin  (unknown)  prodstack                -         -     -  (unknown)  
+Controller           Model         User   Access     Cloud/Region        Models  Nodes    HA  Version
+aws-test             controller    admin  (unknown)  aws/us-east-1            1      2   1/3  2.0.1      
+k8s-controller       my-k8s-model  admin  superuser  microk8s/localhost       2      4     -  6.6.6      
+mallards*            my-model      admin  superuser  mallards/mallards1       2      4  none  (unknown)  
+mark-test-prodstack  -             admin  (unknown)  prodstack                -      -     -  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
@@ -151,6 +163,23 @@ controllers:
     controller-machines:
       active: 1
       total: 3
+  k8s-controller:
+    current-model: my-k8s-model
+    user: admin
+    access: superuser
+    recent-server: this-is-one-of-many-k8s-api-endpoints
+    uuid: this-is-a-k8s-uuid
+    controller-uuid: this-is-a-k8s-uuid
+    api-endpoints: [this-is-one-of-many-k8s-api-endpoints]
+    ca-cert: this-is-a-k8s-ca-cert
+    cloud: microk8s
+    region: localhost
+    agent-version: 6.6.6
+    model-count: 2
+    node-count: 4
+    controller-nodes:
+      active: 1
+      total: 1
   mallards:
     current-model: my-model
     user: admin
@@ -219,6 +248,20 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 				CACert:         "this-is-another-ca-cert",
 				Cloud:          "mallards",
 				CloudRegion:    "mallards1",
+				ModelCount:     intPtr(2),
+			},
+			"k8s-controller": {
+				ControllerUUID: "this-is-a-k8s-uuid",
+				ModelName:      "my-k8s-model",
+				User:           "admin",
+				Access:         "superuser",
+				Server:         "this-is-one-of-many-k8s-api-endpoints",
+				APIEndpoints:   []string{"this-is-one-of-many-k8s-api-endpoints"},
+				CACert:         "this-is-a-k8s-ca-cert",
+				Cloud:          "microk8s",
+				CloudRegion:    "localhost",
+				AgentVersion:   "6.6.6",
+				NodeCount:      intPtr(3),
 				ModelCount:     intPtr(2),
 			},
 			"mark-test-prodstack": {

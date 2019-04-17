@@ -40,7 +40,12 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 				{Id: "2", InstanceId: "id-2", HasVote: true, WantsVote: true, Status: "active"},
 				{Id: "3", InstanceId: "id-3", HasVote: false, WantsVote: false, Status: "active"},
 			},
+			"xyz": {
+				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active"},
+			},
 		},
+		modelTypes:     map[string]model.ModelType{"def": model.CAAS, "xyz": model.CAAS},
+		units:          map[string]int{"def": 4},
 		access:         permission.SuperuserAccess,
 		bestAPIVersion: 8,
 	}
@@ -93,6 +98,39 @@ mallards:
 `[1:]
 
 	s.assertShowController(c, "mallards")
+}
+
+func (s *ShowControllerSuite) TestShowK8sController(c *gc.C) {
+	s.createTestClientStore(c)
+	s.expectedOutput = `
+k8s-controller:
+  details:
+    uuid: this-is-a-k8s-uuid
+    controller-uuid: this-is-a-k8s-uuid
+    api-endpoints: [this-is-one-of-many-k8s-api-endpoints]
+    cloud: microk8s
+    region: localhost
+    agent-version: 999.99.99
+    mongo-version: 3.5.12
+    ca-cert: this-is-a-k8s-ca-cert
+  controller-nodes:
+    "0":
+      instance-id: id-0
+  models:
+    controller:
+      uuid: xyz
+      model-uuid: xyz
+    my-k8s-model:
+      uuid: def
+      model-uuid: def
+      unit-count: 4
+  current-model: admin/my-k8s-model
+  account:
+    user: admin
+    access: superuser
+`[1:]
+
+	s.assertShowController(c, "k8s-controller")
 }
 
 func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *gc.C) {
@@ -557,6 +595,8 @@ func (s *ShowControllerSuite) assertShowController(c *gc.C, args ...string) {
 type fakeController struct {
 	controllerName string
 	machines       map[string][]base.Machine
+	units          map[string]int
+	modelTypes     map[string]model.ModelType
 	access         permission.Access
 	bestAPIVersion int
 	identityURL    string
@@ -577,6 +617,8 @@ func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.Mo
 			TotalMachineCount: 2,
 			CoreCount:         4,
 			Machines:          c.machines[mtag.Id()],
+			UnitCount:         c.units[mtag.Id()],
+			ModelType:         c.modelTypes[mtag.Id()],
 		})
 	}
 	return result, nil
@@ -597,6 +639,10 @@ func (c *fakeController) AllModels() (result []base.UserModel, _ error) {
 		"mallards": {
 			{Name: "controller", UUID: "abc", Owner: "admin", Type: model.IAAS},
 			{Name: "my-model", UUID: "def", Owner: "admin", Type: model.IAAS},
+		},
+		"k8s-controller": {
+			{Name: "controller", UUID: "xyz", Owner: "admin", Type: model.CAAS},
+			{Name: "my-k8s-model", UUID: "def", Owner: "admin", Type: model.CAAS},
 		},
 	}
 	all, exists := models[c.controllerName]

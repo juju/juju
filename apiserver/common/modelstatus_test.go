@@ -193,6 +193,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 			ApplicationCount:   1,
 			OwnerTag:           s.Owner.String(),
 			Life:               params.Alive,
+			Type:               string(state.ModelTypeIAAS),
 			Machines: []params.ModelMachineInfo{
 				{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", DisplayName: "snowflake", Status: "pending", WantsVote: true},
 				{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
@@ -212,6 +213,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 			ApplicationCount:   1,
 			OwnerTag:           otherModelOwner.UserTag.String(),
 			Life:               params.Alive,
+			Type:               string(state.ModelTypeIAAS),
 			Machines: []params.ModelMachineInfo{
 				{Id: "0", Hardware: stdHw, InstanceId: "id-8", Status: "pending"},
 				{Id: "1", Hardware: stdHw, InstanceId: "id-9", Status: "pending"},
@@ -231,8 +233,11 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	defer otherSt.Close()
 
 	otherFactory := factory.NewFactory(otherSt, s.StatePool)
-	otherFactory.MakeApplication(c, &factory.ApplicationParams{
+	app := otherFactory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: otherFactory.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"}),
+	})
+	otherFactory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
 	})
 
 	otherModel, err := otherSt.Model()
@@ -254,13 +259,16 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 			ApplicationCount:   0,
 			OwnerTag:           s.Owner.String(),
 			Life:               params.Alive,
+			Type:               string(state.ModelTypeIAAS),
 		},
 		{
 			ModelTag:           hostedModelTag,
 			HostedMachineCount: 0,
 			ApplicationCount:   1,
+			UnitCount:          1,
 			OwnerTag:           otherModelOwner.UserTag.String(),
 			Life:               params.Alive,
+			Type:               string(state.ModelTypeCAAS),
 		},
 	})
 }
@@ -280,6 +288,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 				ModelTag: s.Model.ModelTag().String(),
 				Life:     params.Life(s.Model.Life().String()),
 				OwnerTag: s.Model.Owner().String(),
+				Type:     string(state.ModelTypeIAAS),
 			},
 		},
 	}

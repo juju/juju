@@ -45,8 +45,10 @@ type RemoveBlocksArgs struct {
 type ModelStatus struct {
 	ModelTag           string                `json:"model-tag"`
 	Life               Life                  `json:"life"`
+	Type               string                `json:"type"`
 	HostedMachineCount int                   `json:"hosted-machine-count"`
 	ApplicationCount   int                   `json:"application-count"`
+	UnitCount          int                   `json:"unit-count"`
 	OwnerTag           string                `json:"owner-tag"`
 	Machines           []ModelMachineInfo    `json:"machines,omitempty"`
 	Volumes            []ModelVolumeInfo     `json:"volumes,omitempty"`

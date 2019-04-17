@@ -1983,8 +1983,12 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 
 func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	// Check that principal units can be added on their own.
+	c.Assert(s.mysql.UnitCount(), gc.Equals, 0)
 	unitZero, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.UnitCount(), gc.Equals, 1)
 	c.Assert(unitZero.Name(), gc.Equals, "mysql/0")
 	c.Assert(unitZero.IsPrincipal(), jc.IsTrue)
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)

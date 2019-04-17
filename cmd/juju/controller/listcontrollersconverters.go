@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/jujuclient"
 )
@@ -45,6 +46,10 @@ type ControllerItem struct {
 	ModelCount         *int                `yaml:"model-count,omitempty" json:"model-count,omitempty"`
 	MachineCount       *int                `yaml:"machine-count,omitempty" json:"machine-count,omitempty"`
 	ControllerMachines *ControllerMachines `yaml:"controller-machines,omitempty" json:"controller-machines,omitempty"`
+
+	// k8s controllers are not called machines
+	NodeCount       *int                `yaml:"node-count,omitempty" json:"node-count,omitempty"`
+	ControllerNodes *ControllerMachines `yaml:"controller-nodes,omitempty" json:"controller-nodes,omitempty"`
 }
 
 // convertControllerDetails takes a map of Controllers and
@@ -119,16 +124,28 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			CloudRegion:       details.CloudRegion,
 			AgentVersion:      details.AgentVersion,
 		}
+		isCaas := details.CloudType == string(provider.K8s_ProviderType)
 		if details.MachineCount != nil && *details.MachineCount > 0 {
-			item.MachineCount = details.MachineCount
+			if isCaas {
+				item.NodeCount = details.MachineCount
+			} else {
+				item.MachineCount = details.MachineCount
+			}
 		}
 		if modelCount > 0 {
 			item.ModelCount = &modelCount
 		}
 		if details.ControllerMachineCount > 0 {
-			item.ControllerMachines = &ControllerMachines{
-				Total:  details.ControllerMachineCount,
-				Active: details.ActiveControllerMachineCount,
+			if isCaas {
+				item.ControllerNodes = &ControllerMachines{
+					Total:  details.ControllerMachineCount,
+					Active: details.ActiveControllerMachineCount,
+				}
+			} else {
+				item.ControllerMachines = &ControllerMachines{
+					Total:  details.ControllerMachineCount,
+					Active: details.ActiveControllerMachineCount,
+				}
 			}
 		}
 		controllers[controllerName] = item

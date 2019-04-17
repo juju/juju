@@ -220,6 +220,9 @@ func (st *State) ModelSummariesForUser(user names.UserTag, all bool) ([]ModelSum
 	if err := p.fillInMachineSummary(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := p.fillInApplicationSummary(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := p.fillInMigration(); err != nil {
 		return nil, errors.Trace(err)
 	}

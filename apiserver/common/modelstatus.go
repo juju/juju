@@ -87,6 +87,10 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 	if err != nil {
 		return status, errors.Trace(err)
 	}
+	var unitCount int
+	for _, app := range applications {
+		unitCount += app.UnitCount()
+	}
 
 	modelMachines, err := ModelMachineInfo(st)
 	if err != nil {
@@ -97,8 +101,10 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		ModelTag:           tag,
 		OwnerTag:           model.Owner().String(),
 		Life:               params.Life(model.Life().String()),
+		Type:               string(model.Type()),
 		HostedMachineCount: len(hostedMachines),
 		ApplicationCount:   len(applications),
+		UnitCount:          unitCount,
 		Machines:           modelMachines,
 	}
 
