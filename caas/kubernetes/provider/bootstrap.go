@@ -6,7 +6,6 @@ package provider
 import (
 	"fmt"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +21,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -41,6 +41,39 @@ var (
 	// TemplateFileNameAgentConf is the template agent.conf file name.
 	TemplateFileNameAgentConf = "template-" + agent.AgentConfigFilename
 )
+
+type controllerServiceSpec struct {
+	// serviceType is required.
+	serviceType core.ServiceType
+	// annotations is optional.
+	annotations k8sannotations.Annotation
+}
+
+var controllerServiceSpecs = map[string]*controllerServiceSpec{
+	caas.K8sCloudAzure: {
+		serviceType: core.ServiceTypeLoadBalancer,
+	},
+	caas.K8sCloudEC2: {
+		serviceType: core.ServiceTypeLoadBalancer,
+		annotations: k8sannotations.New(nil).
+			Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp"),
+	},
+	caas.K8sCloudGCE: {
+		serviceType: core.ServiceTypeLoadBalancer,
+	},
+	caas.K8sCloudMicrok8s: {
+		serviceType: core.ServiceTypeClusterIP,
+	},
+	caas.K8sCloudOpenStack: {
+		serviceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.
+	},
+	caas.K8sCloudMAAS: {
+		serviceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.
+	},
+	caas.K8sCloudLXD: {
+		serviceType: core.ServiceTypeClusterIP, // TODO(caas): test and verify this.
+	},
+}
 
 type controllerStack struct {
 	ctx environs.BootstrapContext
@@ -296,22 +329,34 @@ func (c controllerStack) Deploy() (err error) {
 	return nil
 }
 
+func (c controllerStack) getControllerSvcSpec(cloudType string) (*controllerServiceSpec, error) {
+	if spec, ok := controllerServiceSpecs[cloudType]; ok {
+		if spec.serviceType == "" {
+			// serviceType is required.
+			return nil, errors.NotValidf("serviceType is empty for %q", cloudType)
+		}
+		return spec, nil
+	}
+	return nil, errors.NotValidf("cloudType %q", cloudType)
+}
+
 func (c controllerStack) createControllerService() error {
 	svcName := c.resourceNameService
+
+	cloudType := cloud.SplitHostCloudRegion(c.pcfg.Bootstrap.ControllerCloud.HostCloudRegion)[0]
+	controllerSvcSpec, err := c.getControllerSvcSpec(cloudType)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	spec := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      svcName,
 			Labels:    c.stackLabels,
 			Namespace: c.broker.GetCurrentNamespace(),
-			Annotations: k8sannotations.New(nil).
-				Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp").
-				Add("service.beta.kubernetes.io/aws-load-balancer-ssl-ports", strconv.Itoa(c.portAPIServer)).
-				ToMap(),
 		},
 		Spec: core.ServiceSpec{
 			Selector: c.stackLabels,
-			// TODO: introduce hostcloudregion from cloud then decide which service type & annotations to use.
-			Type: core.ServiceType(c.pcfg.Bootstrap.ControllerServiceType),
+			Type:     controllerSvcSpec.serviceType,
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
@@ -320,6 +365,9 @@ func (c controllerStack) createControllerService() error {
 				},
 			},
 		},
+	}
+	if controllerSvcSpec.annotations != nil {
+		spec.SetAnnotations(controllerSvcSpec.annotations.ToMap())
 	}
 
 	logger.Debugf("creating controller service: \n%+v", spec)
