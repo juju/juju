@@ -73,8 +73,19 @@ var _ = (*apiHandler)(nil)
 func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string) (*apiHandler, error) {
 	m, err := st.Model()
 	if err != nil {
-		return nil, errors.Trace(err)
+		if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+
+		// If this model used to be hosted on this controller but got
+		// migrated allow clients to connect and wait for a login
+		// request to decide whether the users should be redirected to
+		// the new controller for this model or not.
+		if _, migErr := st.LatestRemovedModelMigration(); migErr != nil {
+			return nil, errors.Trace(err) // return original NotFound error
+		}
 	}
+
 	r := &apiHandler{
 		state:        st,
 		model:        m,

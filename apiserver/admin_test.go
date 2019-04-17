@@ -35,6 +35,7 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/migration"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -675,6 +676,68 @@ func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
+}
+
+func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
+	modelOwner := s.Factory.MakeUser(c, &factory.UserParams{
+		Password: "secret",
+	})
+	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
+		Owner: modelOwner.UserTag(),
+	})
+	defer modelState.Close()
+	model, err := modelState.Model()
+
+	// Migrate the model and delete it from the state
+	mig, err := modelState.CreateMigration(state.MigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+			Addrs:         []string{"1.2.3.4:5555"},
+			CACert:        coretesting.CACert,
+			AuthTag:       names.NewUserTag("user2"),
+			Password:      "secret",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	phases := []migration.Phase{migration.IMPORT, migration.VALIDATION, migration.SUCCESS, migration.LOGTRANSFER, migration.REAP, migration.DONE}
+	for _, phase := range phases {
+		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+	}
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
+
+	info, srv := s.newServer(c)
+	info.ModelTag = model.ModelTag()
+	defer assertStop(c, srv)
+
+	// Attempt to open an API connection to the migrated model as a user
+	// that had access to the model before it got migrated. We should still
+	// be able to connect to the API but we should get back a Redirect
+	// error when we actually try to login.
+	info.Tag = modelOwner.Tag()
+	info.Password = "secret"
+	_, err = api.Open(info, fastDialOpts)
+	redirErr, ok := errors.Cause(err).(*api.RedirectError)
+	c.Assert(ok, gc.Equals, true)
+
+	nhp := network.NewHostPorts(5555, "1.2.3.4")
+	c.Assert(redirErr.Servers, jc.DeepEquals, [][]network.HostPort{nhp})
+	c.Assert(redirErr.CACert, gc.Equals, coretesting.CACert)
+	c.Assert(redirErr.FollowRedirect, gc.Equals, false)
+
+	// Attempt to open an API connection to the migrated model as a user
+	// that had NO access to the model before it got migrated. The server
+	// should return a not-authorized error when attempting to log in.
+	info.Tag = names.NewUserTag("some-other-user")
+	_, err = api.Open(info, fastDialOpts)
+	c.Assert(params.ErrCode(errors.Cause(err)), gc.Equals, params.CodeUnauthorized)
+
+	// Attempt to open an API connection to the migrated model as the
+	// anonymous user; this should also fail with a not-authorized error
+	info.Tag = names.NewUserTag(api.AnonymousUsername)
+	_, err = api.Open(info, fastDialOpts)
+	c.Assert(params.ErrCode(errors.Cause(err)), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {

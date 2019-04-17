@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -252,10 +253,25 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 		// don't maintain presence information for them.
 		startPinger = !result.anonymousLogin
 	)
+
 	if !result.anonymousLogin {
+		// If the user attempted to login to a migrated model,
+		// a.root.model will be nil as the model document does not
+		// exist on this controller and a.root.modelUUID cannot be
+		// resolved. In this case use the requested model UUID to check
+		// if we need to redirect the user.
+		modelUUID := a.root.modelUUID
+		if a.root.model != nil {
+			modelUUID = a.root.model.UUID()
+		}
+
+		if err := a.maybeEmitRedirectError(modelUUID, result.tag); err != nil {
+			return nil, err
+		}
+
 		authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(
 			a.root.serverHost,
-			a.root.model.UUID(),
+			modelUUID,
 			req,
 		)
 		if err != nil {
@@ -279,6 +295,9 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 			controllerConn,
 			req.UserData,
 		)
+	} else if a.root.model == nil { // anonymous login to unknown model
+		// Hide the fact that the model does not exist
+		return nil, errors.Unauthorizedf("invalid entity name or password")
 	}
 	a.loggedIn = true
 
@@ -299,6 +318,50 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 		return nil, errors.Trace(err)
 	}
 	return result, nil
+}
+
+func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) error {
+	userTag, ok := authTag.(names.UserTag)
+	if !ok {
+		return nil
+	}
+
+	st, err := a.root.shared.statePool.Get(modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() { _ = st.Release() }()
+
+	// If the model exists on this controller then no redirect is possible.
+	if _, err := st.Model(); err == nil || !errors.IsNotFound(err) {
+		return nil
+	}
+
+	// Check if the model was not found because it was migrated to another
+	// controller. If that is the case and the user was able to access it
+	// before the migration return back a RedirectError.
+	mig, err := st.LatestRemovedModelMigration()
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
+	if mig == nil || mig.ModelUserAccess(userTag) == permission.NoAccess {
+		return nil
+	}
+
+	target, err := mig.TargetInfo()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	hps, err := network.ParseHostPorts(target.Addrs...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return &common.RedirectError{
+		Servers: [][]network.HostPort{hps},
+		CACert:  target.CACert,
+	}
 }
 
 func (a *admin) handleAuthError(err error) error {
