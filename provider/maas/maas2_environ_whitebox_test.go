@@ -348,7 +348,7 @@ func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
 	result, err := jujutesting.StartInstanceWithParams(env, suite.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
-	c.Assert(result.DisplayName, gc.Equals, "")
+	c.Assert(result.DisplayName, gc.Equals, "example.com.")
 }
 
 func (suite *maas2EnvironSuite) TestStartInstanceReturnsHostnameAsDisplayName(c *gc.C) {
@@ -365,6 +365,22 @@ func (suite *maas2EnvironSuite) TestStartInstanceReturnsHostnameAsDisplayName(c 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
 	c.Assert(result.DisplayName, gc.Equals, machine.Hostname())
+}
+
+func (suite *maas2EnvironSuite) TestStartInstanceReturnsFQDNAsDisplayNameWhenHostnameUnavailable(c *gc.C) {
+	machine := &fakeMachine{
+		systemID:     "Bruce Sterling",
+		architecture: arch.HostArch(),
+		hostname:     "",
+		Stub:         &testing.Stub{},
+		statusName:   "",
+	}
+	env, _ := suite.injectControllerWithMachine(c, machine, nil, gomaasapi.AllocateMachineArgs{})
+	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
+	result, err := jujutesting.StartInstanceWithParams(env, suite.callCtx, "0", params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
+	c.Assert(result.DisplayName, gc.Equals, machine.FQDN())
 }
 
 func (suite *maas2EnvironSuite) TestStartInstanceAppliesResourceTags(c *gc.C) {

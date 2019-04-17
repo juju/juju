@@ -113,6 +113,22 @@ func (s *maas2InstanceSuite) TestHostname(c *gc.C) {
 	c.Assert(result, gc.Equals, "saul-goodman")
 }
 
+func (s *maas2InstanceSuite) TestHostnameIsDisplayName(c *gc.C) {
+	machine := &fakeMachine{hostname: "saul-goodman"}
+	thing := &maas2Instance{machine: machine}
+	result, err := thing.displayName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, "saul-goodman")
+}
+
+func (s *maas2InstanceSuite) TestDisplayNameFallsBackToFQDN(c *gc.C) {
+	machine := newFakeMachine("abc123", "amd64", "ok")
+	thing := &maas2Instance{machine: machine}
+	result, err := thing.displayName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, thing.machine.FQDN())
+}
+
 func (s *maas2InstanceSuite) TestHardwareCharacteristics(c *gc.C) {
 	machine := &fakeMachine{
 		cpuCount:     3,

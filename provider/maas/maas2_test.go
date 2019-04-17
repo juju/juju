@@ -288,6 +288,15 @@ func (m *fakeMachine) Hostname() string {
 	return m.hostname
 }
 
+func (m *fakeMachine) FQDN() string {
+	domain := "example.com."
+	host := m.Hostname()
+	if host == "" {
+		return domain
+	}
+	return host + "." + domain
+}
+
 func (m *fakeMachine) IPAddresses() []string {
 	return m.ipAddresses
 }
