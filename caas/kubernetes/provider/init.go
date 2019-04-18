@@ -54,7 +54,7 @@ func init() {
 // cloud provider from node labels.
 func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 	return map[string][]k8slabels.Selector{
-		caas.K8sCloudGCE: []k8slabels.Selector{
+		caas.K8sCloudGCE: {
 			// GKE.
 			newLabelRequirements(
 				requirementParams{"cloud.google.com/gke-nodepool", selection.Exists, nil},
@@ -65,7 +65,7 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 				requirementParams{"juju.io/cloud", selection.Equals, []string{"gce"}},
 			),
 		},
-		caas.K8sCloudEC2: []k8slabels.Selector{
+		caas.K8sCloudEC2: {
 			// EKS.
 			newLabelRequirements(
 				requirementParams{"manufacturer", selection.Equals, []string{"amazon_ec2"}},
@@ -75,7 +75,7 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 				requirementParams{"juju.io/cloud", selection.Equals, []string{"ec2"}},
 			),
 		},
-		caas.K8sCloudAzure: []k8slabels.Selector{
+		caas.K8sCloudAzure: {
 			// AKS.
 			newLabelRequirements(
 				requirementParams{"kubernetes.azure.com/cluster", selection.Exists, nil},
