@@ -692,8 +692,9 @@ func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 
 	hps, _ := network.ParseHostPorts(redirectToHosts...)
 	c.Assert(errors.Cause(err), jc.DeepEquals, &api.RedirectError{
-		Servers: [][]network.HostPort{hps},
-		CACert:  redirectToCACert,
+		Servers:        [][]network.HostPort{hps},
+		CACert:         redirectToCACert,
+		FollowRedirect: true,
 	})
 }
 
