@@ -119,6 +119,9 @@ func (s *binaryStorageSuite) TestGUIArchiveStorageParams(c *gc.C) {
 
 func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage storageOpener) {
 	session := s.State.MongoSession()
+	// if the collection didn't exist, we will create it on demand.
+	err := session.DB("juju").C(collName).DropCollection()
+	c.Assert(err, jc.ErrorIsNil)
 	collectionNames, err := session.DB("juju").CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
 	nameSet := set.NewStrings(collectionNames...)
