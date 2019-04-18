@@ -114,7 +114,7 @@
   name = "github.com/juju/romulus"
 
 [[constraint]]
-  revision = "a282c42ba059f163ede45e0bc755517e15120523"
+  revision = "6570bd8f8541d15ce654437084f8edcd7b76637b"
   name = "github.com/juju/testing"
 
 [[constraint]]
@@ -515,9 +515,9 @@
   revision = "ab3940c6c16510a850e1c2dd628b919f0f3f1464"
 
 [[constraint]]
-  revision = "8d6748476efef25475f4af621615cde61968c051"
   name = "gopkg.in/mgo.v2"
   source = "github.com/juju/mgo"
+  branch = "master"
 
 [[constraint]]
   name = "gopkg.in/natefinch/lumberjack.v2"

@@ -731,8 +731,7 @@
   revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
 
 [[projects]]
-  branch = "master"
-  digest = "1:096e6a7b449f6e06ff5738796ff4619ea0a28e1805670f18f114048a707901de"
+  digest = "1:4cb2e360aaa18a7369e22b26d997dc141ad7f336d964fadeaeca0976611d9995"
   name = "github.com/juju/testing"
   packages = [
     ".",
@@ -741,10 +740,9 @@
     "httptesting",
   ]
   pruneopts = ""
-  revision = "a282c42ba059f163ede45e0bc755517e15120523"
+  revision = "6570bd8f8541d15ce654437084f8edcd7b76637b"
 
 [[projects]]
-  branch = "master"
   digest = "1:c43a754dcd24720e8f651933c9685511be5cba937faabaf6abbc4360b5b1f228"
   name = "github.com/juju/txn"
   packages = [
@@ -1623,7 +1621,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:081960156f5b98277d71dae28be0a9aeb41efa9d07f53650a90e2d907a3fbf40"
+  digest = "1:a7f2de5691fffc2b714d284fcab4fe6031a7eb3d2be6c0cbe8c5e468c7ab1512"
   name = "gopkg.in/mgo.v2"
   packages = [
     ".",
@@ -1635,7 +1633,7 @@
     "txn",
   ]
   pruneopts = ""
-  revision = "8d6748476efef25475f4af621615cde61968c051"
+  revision = "e9d4866cb7fc522aa9ade16c668ae9fae40cba66"
   source = "github.com/juju/mgo"
 
 [[projects]]
