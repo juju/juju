@@ -92,7 +92,7 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 }
 
 // UpdateKubeCloudWithStorage updates the passed Cloud with storage details retrieved from the clouds' cluster.
-func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential cloud.Credential, storageParams KubeCloudStorageParams) (string, error) {
+func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudStorageParams) (string, error) {
 	fail := func(e error) (string, error) {
 		return "", e
 	}
@@ -101,7 +101,12 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential cloud.Credenti
 	clusterMetadata, err := storageParams.GetClusterMetadataFunc(storageParams.MetadataChecker)
 
 	if err != nil || clusterMetadata == nil {
-		return fail(ClusterQueryError{Message: err.Error()})
+		// err will be nil if user hit Ctrl+C.
+		msg := "cannot get cluster metadata"
+		if err != nil {
+			msg = err.Error()
+		}
+		return fail(ClusterQueryError{Message: msg})
 	}
 
 	if storageParams.HostCloudRegion == "" && clusterMetadata.Regions != nil && clusterMetadata.Regions.Size() > 0 {
@@ -125,31 +130,45 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential cloud.Credenti
 	// If the user has not specified storage, check that the cluster has Juju's opinionated defaults.
 	cloudType := cloud.SplitHostCloudRegion(storageParams.HostCloudRegion)[0]
 	err = storageParams.MetadataChecker.CheckDefaultWorkloadStorage(cloudType, clusterMetadata.NominatedStorageClass)
-	if errors.IsNotFound(err) {
-		return fail(UnknownClusterError{CloudName: cloudType})
-	}
-	if storageParams.WorkloadStorage == "" && caas.IsNonPreferredStorageError(err) {
-		npse := err.(*caas.NonPreferredStorageError)
-		return fail(NoRecommendedStorageError{Message: err.Error(), ProviderName: npse.Name})
-	}
-	if err != nil && !caas.IsNonPreferredStorageError(err) {
-		return fail(errors.Trace(err))
-	}
 
-	// If no storage class exists, we need to create one with the opinionated defaults.
+	if storageParams.WorkloadStorage == "" {
+		if errors.IsNotFound(err) {
+			return fail(UnknownClusterError{CloudName: cloudType})
+		}
+		if caas.IsNonPreferredStorageError(err) {
+			npse := err.(*caas.NonPreferredStorageError)
+			return fail(NoRecommendedStorageError{Message: err.Error(), ProviderName: npse.Name})
+		}
+		if err != nil {
+			return fail(errors.Trace(err))
+		}
+	}
+	// If no storage class exists, we need to create one with the opinionated defaults,
+	// or use an existing one.
 	var storageMsg string
-	if storageParams.WorkloadStorage != "" && caas.IsNonPreferredStorageError(err) {
-		preferredStorage := errors.Cause(err).(*caas.NonPreferredStorageError).PreferredStorage
+	if storageParams.WorkloadStorage != "" {
+		var (
+			provisioner string
+			params      map[string]string
+		)
+		nonPreferredStorageErr, ok := errors.Cause(err).(*caas.NonPreferredStorageError)
+		if ok {
+			provisioner = nonPreferredStorageErr.Provisioner
+			params = nonPreferredStorageErr.Parameters
+		}
 		sp, err := storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
 			Name:        storageParams.WorkloadStorage,
-			Provisioner: preferredStorage.Provisioner,
-			Parameters:  preferredStorage.Parameters,
+			Provisioner: provisioner,
+			Parameters:  params,
 		})
+		if errors.IsNotFound(err) {
+			return fail(errors.Wrap(err, errors.NotFoundf("storage class %q", storageParams.WorkloadStorage)))
+		}
 		if err != nil {
 			return fail(errors.Annotatef(err, "creating storage class %q", storageParams.WorkloadStorage))
 		}
-		if sp.Provisioner == preferredStorage.Provisioner {
-			storageMsg = fmt.Sprintf(" with %s default storage", preferredStorage.Name)
+		if nonPreferredStorageErr != nil && sp.Provisioner == provisioner {
+			storageMsg = fmt.Sprintf(" with %s default storage", nonPreferredStorageErr.Name)
 			if storageParams.WorkloadStorage != "" {
 				storageMsg = fmt.Sprintf("%s provisioned\nby the existing %q storage class", storageMsg, storageParams.WorkloadStorage)
 			}
@@ -165,6 +184,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential cloud.Credenti
 	var operatorStorageName string
 	if clusterMetadata.OperatorStorageClass != nil {
 		operatorStorageName = clusterMetadata.OperatorStorageClass.Name
+		storageMsg += "."
 	} else {
 		operatorStorageName = storageParams.WorkloadStorage
 		if storageMsg == "" {
@@ -172,7 +192,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential cloud.Credenti
 		} else {
 			storageMsg += "\n"
 		}
-		storageMsg += fmt.Sprintf("operator storage provisioned by the workload storage class")
+		storageMsg += fmt.Sprintf("operator storage provisioned by the workload storage class.")
 	}
 
 	if k8sCloud.Config == nil {
@@ -265,7 +285,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 			return clusterMetadata, nil
 		},
 	}
-	_, err = UpdateKubeCloudWithStorage(&mk8sCloud, credential, storageUpdateParams)
+	_, err = UpdateKubeCloudWithStorage(&mk8sCloud, storageUpdateParams)
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
@@ -305,7 +325,14 @@ func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 		return status, errors.Trace(err)
 	}
 	if result.Code != 0 {
-		return status, errors.New(string(result.Stderr))
+		msg := string(result.Stderr)
+		if msg == "" {
+			msg = string(result.Stdout)
+		}
+		if msg == "" {
+			msg = "unknown error running microk8s.status"
+		}
+		return status, errors.New(msg)
 	}
 
 	err = yaml.Unmarshal(result.Stdout, &status)
