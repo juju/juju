@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -28,8 +30,20 @@ type removeCommand struct {
 	apiRoot      api.Connection
 	machineAPI   RemoveMachineAPI
 	MachineIds   []string
-	Force        bool
 	KeepInstance bool
+
+	// Force carries out all steps required to remove a
+	// machine, without halting when any of the intermediate
+	// steps encounters an error.
+	Force bool
+
+	// NoWait instructs Juju that it should proceed from
+	// step to step in the remove process as quickly as
+	// possible, without waiting for intermediate steps
+	// to be finished.
+	//
+	// Ignored when Force is false.
+	NoWait bool
 }
 
 const destroyMachineDoc = `
@@ -92,7 +106,7 @@ func (c *removeCommand) Init(args []string) error {
 type RemoveMachineAPI interface {
 	DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error)
 	ForceDestroyMachines(machines ...string) ([]params.DestroyMachineResult, error)
-	DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error)
+	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	Close() error
 }
 
@@ -110,7 +124,7 @@ func (a removeMachineAdapter) ForceDestroyMachines(machines ...string) ([]params
 	return a.destroyMachines(a.Client.ForceDestroyMachines, machines)
 }
 
-func (a removeMachineAdapter) DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error) {
+func (a removeMachineAdapter) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	return a.destroyMachines(a.Client.ForceDestroyMachines, machines)
 }
 
@@ -157,9 +171,15 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
+	var maxWait *time.Duration
+	if !c.NoWait { // sorry about the double negative
+		oneMinute := time.Minute
+		maxWait = &oneMinute
+	}
+
 	var results []params.DestroyMachineResult
 	if c.KeepInstance {
-		results, err = client.DestroyMachinesWithParams(c.Force, c.KeepInstance, c.MachineIds...)
+		results, err = client.DestroyMachinesWithParams(c.Force, c.KeepInstance, maxWait, c.MachineIds...)
 	} else {
 		destroy := client.DestroyMachines
 		if c.Force {

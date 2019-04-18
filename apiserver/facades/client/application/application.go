@@ -1512,6 +1512,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		op := app.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force
+		op.MaxWait = arg.MaxWait
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, err
 		}

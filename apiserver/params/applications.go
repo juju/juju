@@ -4,6 +4,8 @@
 package params
 
 import (
+	"time"
+
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -294,7 +296,12 @@ type DestroyApplicationParams struct {
 
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
-	Force bool
+	Force bool `json:"force,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in application destroy process
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
 // DestroyConsumedApplicationsParams holds bulk parameters for the

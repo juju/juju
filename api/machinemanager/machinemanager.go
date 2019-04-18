@@ -4,6 +4,8 @@
 package machinemanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -60,11 +62,14 @@ func (client *Client) ForceDestroyMachines(machines ...string) ([]params.Destroy
 // DestroyMachinesWithParams removes the given set of machines, the semantics of which
 // is determined by the force and keep parameters.
 // TODO(wallyworld) - for Juju 3.0, this should be the preferred api to use.
-func (client *Client) DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error) {
+func (client *Client) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	args := params.DestroyMachinesParams{
 		Force:       force,
 		Keep:        keep,
 		MachineTags: make([]string, 0, len(machines)),
+	}
+	if client.BestAPIVersion() > 5 {
+		args.MaxWait = maxWait
 	}
 	allResults := make([]params.DestroyMachineResult, len(machines))
 	index := make([]int, 0, len(machines))

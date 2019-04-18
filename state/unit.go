@@ -983,7 +983,7 @@ func (u *Unit) RemoveOperation(force bool) *RemoveUnitOperation {
 	}
 }
 
-// ForcedOperation that allowas accumulation of operational errors and
+// ForcedOperation that allows accumulation of operational errors and
 // can be forced.
 type ForcedOperation struct {
 	// Force controls whether or not the removal of a unit
@@ -995,6 +995,10 @@ type ForcedOperation struct {
 	// during, say, force. They may not have prevented the operation from being
 	// aborted but the user might still want to know about them.
 	Errors []error
+
+	// MaxWait indicates how long the operation will wait for a step to
+	// complete before before proceeding to the next one.
+	MaxWait *time.Duration
 }
 
 // AddError adds an error to the collection of errors for this operation.

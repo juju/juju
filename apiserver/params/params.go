@@ -246,6 +246,11 @@ type DestroyMachinesParams struct {
 	MachineTags []string `json:"machine-tags"`
 	Force       bool     `json:"force,omitempty"`
 	Keep        bool     `json:"keep,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in model destroy process
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
 // UpdateSeriesArg holds the parameters for updating the series for the
@@ -414,7 +419,12 @@ type DestroyUnitParams struct {
 
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
-	Force bool
+	Force bool `json:"force,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in unit during
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 
 	// Errors contains errors encountered while applying this operation.
 	// Generally, these are non-fatal errors that have been encountered
