@@ -21,8 +21,10 @@ type cleanupKind string
 
 const (
 	// forceTimeout is how far in the future the backstop force
-	// cleanup will be scheduled.
-	forceTimeout = time.Minute
+	// cleanup will be scheduled. This will be hard-coded to 0 for now
+	// until the no-wait flag is wired through, then we can change it
+	// to time.Minute.
+	forceTimeout = time.Duration(0)
 )
 
 var (
