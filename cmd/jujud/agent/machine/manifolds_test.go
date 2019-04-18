@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 )
@@ -52,7 +51,6 @@ func (*ManifoldsSuite) assertStartFuncs(c *gc.C, manifolds dependency.Manifolds)
 }
 
 func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
-	ms.SetFeatureFlags(feature.InstanceMutater)
 	ms.assertManifoldNames(c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent: &mockAgent{},
@@ -217,7 +215,6 @@ func (*ManifoldsSuite) TestUpgradesBlockMigration(c *gc.C) {
 }
 
 func (ms *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
-	ms.SetFeatureFlags(feature.InstanceMutater)
 	exempt := set.NewStrings(
 		"agent",
 		"api-caller",
@@ -366,7 +363,6 @@ func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 }
 
 func (ms *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
-	ms.SetFeatureFlags(feature.InstanceMutater)
 	agenttest.AssertManifoldsDependencies(c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent: &mockAgent{},

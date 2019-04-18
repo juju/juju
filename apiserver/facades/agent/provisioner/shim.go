@@ -36,7 +36,6 @@ type profileMachineShim struct {
 
 //go:generate mockgen -package mocks -destination mocks/profile_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner ProfileMachine,ProfileBackend,ProfileCharm
 type ProfileMachine interface {
-	UpgradeCharmProfileCharmURL(string) (string, error)
 	CharmProfiles() ([]string, error)
 	ModelName() string
 	Id() string

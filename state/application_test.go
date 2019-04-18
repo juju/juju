@@ -2101,68 +2101,6 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	})
 }
 
-func (s *ApplicationSuite) TestAddSubordinateUnitCharmProfile(c *gc.C) {
-	m, _, subApp := s.assertCharmProfileSubordinate(c)
-
-	subCharm, _, err := subApp.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	assertUpgradeCharmProfile(c, m, subApp.Name(), subCharm.URL().String())
-}
-
-func (s *ApplicationSuite) TestSetCharmProfile(c *gc.C) {
-	machine, profileApp, subApp := s.assertCharmProfileSubordinate(c)
-
-	err := machine.RemoveUpgradeCharmProfileData(profileApp.Name())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = profileApp.SetCharmProfile("local:quantal/quantal-lxd-profile-0")
-	c.Assert(err, jc.ErrorIsNil)
-	assertUpgradeCharmProfile(c, machine, profileApp.Name(), "local:quantal/quantal-lxd-profile-0")
-
-	err = machine.RemoveUpgradeCharmProfileData(subApp.Name() + "/0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = subApp.SetCharmProfile("local:quantal/quantal-lxd-profile-subordinate-0")
-	c.Assert(err, jc.ErrorIsNil)
-	assertUpgradeCharmProfile(c, machine, subApp.Name(), "local:quantal/quantal-lxd-profile-subordinate-0")
-}
-
-func (s *ApplicationSuite) assertCharmProfileSubordinate(c *gc.C) (*state.Machine, *state.Application, *state.Application) {
-	profileCharm := s.AddTestingCharm(c, "lxd-profile")
-	profileApp := s.AddTestingApplication(c, "lxd-profile", profileCharm)
-
-	unitZero, err := profileApp.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = unitZero.AssignToMachine(m)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subCharm := s.AddTestingCharm(c, "lxd-profile-subordinate")
-	subApp := s.AddTestingApplication(c, "lxd-profile-subordinate", subCharm)
-
-	eps, err := s.State.InferEndpoints("lxd-profile", "lxd-profile-subordinate")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(unitZero)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return m, profileApp, subApp
-}
-
-func assertUpgradeCharmProfile(c *gc.C, m *state.Machine, appName, charmURL string) {
-	err := m.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	chCharmURL, err := m.UpgradeCharmProfileCharmURL(appName + "/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chCharmURL, gc.Equals, charmURL)
-}
-
 func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",

@@ -82,7 +82,6 @@ type Application interface {
 	SetCharm(state.SetCharmConfig) error
 	SetConstraints(constraints.Value) error
 	SetExposed() error
-	SetCharmProfile(string) error
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
@@ -108,8 +107,6 @@ type Charm interface {
 type Machine interface {
 	IsLockedForSeriesUpgrade() (bool, error)
 	IsParentLockedForSeriesUpgrade() (bool, error)
-	UpgradeCharmProfileComplete(string) (string, error)
-	RemoveUpgradeCharmProfileData(string) error
 }
 
 // Relation defines a subset of the functionality provided by the

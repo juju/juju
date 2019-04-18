@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub"
-	utilsfeatureflag "github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -934,24 +933,21 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                        config.Clock,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
-	}
-
-	if utilsfeatureflag.Enabled(feature.InstanceMutater) {
-		manifolds[brokerTrackerName] = ifNotMigrating(lxdbroker.Manifold(lxdbroker.ManifoldConfig{
+		brokerTrackerName: ifNotMigrating(lxdbroker.Manifold(lxdbroker.ManifoldConfig{
 			APICallerName: apiCallerName,
 			AgentName:     agentName,
 			MachineLock:   config.MachineLock,
 			NewBrokerFunc: config.NewBrokerFunc,
 			NewTracker:    lxdbroker.NewWorkerTracker,
-		}))
-		manifolds[instanceMutaterName] = ifNotMigrating(instancemutater.MachineManifold(instancemutater.MachineManifoldConfig{
+		})),
+		instanceMutaterName: ifNotMigrating(instancemutater.MachineManifold(instancemutater.MachineManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			BrokerName:    brokerTrackerName,
 			Logger:        loggo.GetLogger("juju.worker.instancemutater"),
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewContainerWorker,
-		}))
+		})),
 	}
 
 	return mergeManifolds(config, manifolds)

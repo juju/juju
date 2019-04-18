@@ -867,15 +867,6 @@ func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, er
 	return getStatus(st.db(), applicationGlobalOperatorKey(appName), "operator")
 }
 
-type (
-	InstanceCharmProfileDataDoc = instanceCharmProfileData
-	ApplicationDoc              = applicationDoc
-)
-
-func NewInstanceCharmProfileDataWatcher(backend ModelBackendShim, memberId string) StringsWatcher {
-	return watchInstanceCharmProfileData(backend, memberId)
-}
-
 func NewInstanceCharmProfileDataCompatibilityWatcher(backend ModelBackendShim, memberId string) StringsWatcher {
 	return watchInstanceCharmProfileCompatibilityData(backend, memberId)
 }

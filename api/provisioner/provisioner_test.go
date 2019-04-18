@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -134,23 +133,6 @@ func (s *provisionerSuite) TestGetSetInstanceStatus(c *gc.C) {
 	c.Assert(instanceStatus, gc.Equals, status.Running)
 	c.Assert(info, gc.Equals, "blah")
 	statusInfo, err := s.machine.InstanceStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-}
-
-func (s *provisionerSuite) TestGetSetModificationStatus(c *gc.C) {
-	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
-	modificationStatus, info, err := apiMachine.ModificationStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modificationStatus, gc.Equals, status.Idle)
-	c.Assert(info, gc.Equals, "")
-	err = apiMachine.SetModificationStatus(status.Running, "blah", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	modificationStatus, info, err = apiMachine.ModificationStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modificationStatus, gc.Equals, status.Running)
-	c.Assert(info, gc.Equals, "blah")
-	statusInfo, err := s.machine.ModificationStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }
@@ -428,119 +410,6 @@ func (s *provisionerSuite) TestSetCharmProfiles(c *gc.C) {
 	c.Assert(profiles, jc.SameContents, obtainedProfiles)
 }
 
-func (s *provisionerSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
-	application := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
-	curl, _ := application.CharmURL()
-	unit, err := application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.machine.SetUpgradeCharmProfile(unit.Name(), curl.String())
-
-	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
-
-	profiles := []string{"juju-default-profile-0", "juju-default-lxd-2"}
-	err = apiMachine.SetCharmProfiles(profiles)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = apiMachine.SetUpgradeCharmProfileComplete(unit.Name(), "testme")
-	c.Assert(err, jc.ErrorIsNil)
-
-	mach, err := s.State.Machine(apiMachine.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	status, err := mach.UpgradeCharmProfileComplete(unit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, "testme")
-}
-
-func (s *provisionerSuite) TestCharmProfileChangeInfo(c *gc.C) {
-	application := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
-	curl, _ := application.CharmURL()
-	unit, err := application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.machine.SetUpgradeCharmProfile(unit.Name(), curl.String())
-
-	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
-
-	info, err := apiMachine.CharmProfileChangeInfo(unit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, provisioner.CharmProfileChangeInfo{
-		OldProfileName: "",
-		NewProfileName: "juju-controller-lxd-profile-0",
-		LXDProfile: &charm.LXDProfile{
-			Config: map[string]string{
-				"security.nesting":       "true",
-				"security.privileged":    "true",
-				"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
-				"environment.http_proxy": "",
-			},
-			Description: "lxd profile for testing, will pass validation",
-			Devices: map[string]map[string]string{
-				"tun": {
-					"path": "/dev/net/tun",
-					"type": "unix-char",
-				},
-				"sony": {
-					"type":      "usb",
-					"vendorid":  "0fce",
-					"productid": "51da",
-				},
-				"bdisk": {
-					"source": "/dev/loop0",
-					"type":   "unix-block",
-				},
-				"gpu": {
-					"type": "gpu",
-				},
-			},
-		},
-		Subordinate: false,
-	})
-}
-
-func (s *provisionerSuite) TestCharmProfileChangeInfoSubordinate(c *gc.C) {
-	application := s.AddTestingApplication(c, "lxd-profile-subordinate", s.AddTestingCharm(c, "lxd-profile-subordinate"))
-	curl, _ := application.CharmURL()
-	s.machine.SetUpgradeCharmProfile("lxd-profile-subordinate/0", curl.String())
-
-	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
-
-	info, err := apiMachine.CharmProfileChangeInfo("lxd-profile-subordinate/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, provisioner.CharmProfileChangeInfo{
-		OldProfileName: "",
-		NewProfileName: "juju-controller-lxd-profile-subordinate-0",
-		LXDProfile: &charm.LXDProfile{
-			Config: map[string]string{
-				"security.nesting":       "false",
-				"security.privileged":    "true",
-				"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables,iptable_nat",
-				"environment.http_proxy": "",
-			},
-			Description: "lxd profile subordinate for testing",
-			Devices: map[string]map[string]string{
-				"sandisk": {
-					"type":      "usb",
-					"vendorid":  "0781",
-					"productid": "8181",
-				},
-			},
-		},
-		Subordinate: true,
-	})
-}
-
-func (s *provisionerSuite) TestRemoveUpgradeCharmProfileData(c *gc.C) {
-	application := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
-	curl, _ := application.CharmURL()
-	unit, err := application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.machine.SetUpgradeCharmProfile(unit.Name(), curl.String())
-
-	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
-
-	err = apiMachine.RemoveUpgradeCharmProfileData(application.Name())
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *provisionerSuite) TestKeepInstance(c *gc.C) {
 	err := s.machine.SetKeepInstance(true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -741,32 +610,6 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(container.Id())
-}
-
-func (s *provisionerSuite) TestWatchContainersCharmProfiles(c *gc.C) {
-	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
-
-	// Add one LXD container.
-	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}
-	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
-
-	w, err := apiMachine.WatchContainersCharmProfiles(instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
-	defer wc.AssertStops()
-
-	// Update the upgrade-charm charm profile to trigger watcher.
-	container.SetUpgradeCharmProfile(unit.Name(), "local:quantal/lxd-profile-0")
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(container.Id() + "#" + unit.Name())
 }
 
 func (s *provisionerSuite) TestWatchContainersAcceptsSupportedContainers(c *gc.C) {
@@ -1022,22 +865,6 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 		DeviceName: "ens3",
 	}})
 	c.Check(reconfigureDelay, gc.Equals, 0)
-}
-
-func (s *provisionerSuite) TestWatchModelMachinesCharmProfiles(c *gc.C) {
-	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	w, err := s.provisioner.WatchModelMachinesCharmProfiles()
-	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
-	defer wc.AssertStops()
-
-	// Trigger the watcher.
-	err = s.machine.SetUpgradeCharmProfile(unit.Name(), "local:quantal/lxd-profile-0")
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(s.machine.Id() + "#" + unit.Name())
 }
 
 var _ = gc.Suite(&provisionerContainerSuite{})

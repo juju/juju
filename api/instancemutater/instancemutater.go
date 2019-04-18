@@ -34,20 +34,6 @@ func NewClientFromFacade(facadeCaller base.FacadeCaller) *Client {
 	}
 }
 
-// WatchModelMachines returns a StringsWatcher reporting waiting for the
-// model configuration to change.
-func (c *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
-	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchModelMachines", nil, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result), nil
-}
-
 // WatchMachines returns a StringsWatcher reporting changes to machines.
 func (c *Client) WatchMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult

@@ -34,7 +34,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// machine
 		instanceDataC,
-		instanceCharmProfileDataC,
 		machineUpgradeSeriesLocksC,
 		machinesC,
 		openedPortsC,
@@ -371,20 +370,6 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"CharmProfiles",
 	)
 	s.AssertExportedFields(c, instanceData{}, migrated.Union(ignored))
-}
-
-func (s *MigrationSuite) TestInstanceCharmProfileDataFields(c *gc.C) {
-	ignored := set.NewStrings(
-		// DocID is the model + unit name
-		"DocID",
-		"MachineId",
-		"UpgradeCharmProfileUnit",
-		"UpgradeCharmProfileCharmURL",
-		"UpgradeCharmProfileComplete",
-		"BeingUsed",
-	)
-	migrated := set.NewStrings()
-	s.AssertExportedFields(c, instanceCharmProfileData{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {

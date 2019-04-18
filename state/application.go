@@ -949,31 +949,6 @@ func (a *Application) changeCharmOps(
 	return append(ops, decOps...), nil
 }
 
-// SetCharmProfile updates each machine the application is deployed
-// on with the name and charm url for a profile update of that machine.
-// If the application is a subordinate, the charm profile is applied
-// to the machine of the principal's unit.
-func (a *Application) SetCharmProfile(charmURL string) error {
-	units, err := a.AllUnits()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, u := range units {
-		id, err := u.AssignedMachineId()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		m, err := a.st.Machine(id)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := m.SetUpgradeCharmProfile(u.Name(), charmURL); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 // Deployed machines returns the collection of machines
 // that this application has units deployed to.
 func (a *Application) DeployedMachines() ([]*Machine, error) {
@@ -1711,11 +1686,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 			}),
 			Update: bson.D{{"$addToSet", bson.D{{"subordinates", name}}}},
 		})
-		subCharmProfileOps, err := a.addUnitSubordinateCharmProfileOp(name, args.principalName, appCharm.LXDProfile())
-		if err != nil && err != jujutxn.ErrNoOperations {
-			return "", nil, errors.Trace(err)
-		}
-		ops = append(ops, subCharmProfileOps...)
 	} else {
 		ops = append(ops, createConstraintsOp(agentGlobalKey, args.cons))
 	}
@@ -1728,30 +1698,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	_, _ = probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), *workloadVersionDoc)
 	_, _ = probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
 	return name, ops, nil
-}
-
-// addUnitSubordinateCharmProfileOp returns a transaction to an LXD profile
-// to the principal's machine if the charm has a non-empty charm profile.
-func (a *Application) addUnitSubordinateCharmProfileOp(subName, principalName string, profile *charm.LXDProfile) ([]txn.Op, error) {
-	// Because this is not part of a charm upgrade path, it is okay to
-	// short circuit here.
-	if profile == nil || profile.Empty() {
-		return nil, nil
-	}
-
-	// a subordinate doesn't have a machine, so add the application's
-	// charm profile to the machine of the unit's principal.
-	unit, err := a.st.Unit(principalName)
-	if err != nil {
-		return nil, err
-	}
-	machine, err := unit.machine()
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Tracef("Set up to add new subordinate charm profile to existing machine %s for %s", machine.Id(), subName)
-	return machine.SetUpgradeCharmProfileTxns(subName, a.doc.CharmURL.String())
 }
 
 func (a *Application) addUnitStorageOps(

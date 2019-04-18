@@ -17,7 +17,7 @@ import (
 )
 
 //go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Context,Resources,Authorizer
-//go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Model,Machine,Unit,Application,Charm,LXDProfile
+//go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Machine,LXDProfile
 //go:generate mockgen -package mocks -destination mocks/modelcache_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater ModelCache,ModelCacheMachine,ModelCacheApplication,ModelCacheUnit,ModelCacheCharm
 //go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
 //go:generate mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/cache NotifyWatcher,StringsWatcher
@@ -26,20 +26,16 @@ var logger = loggo.GetLogger("juju.apiserver.instancemutater")
 
 // InstanceMutaterV1 defines the methods on the instance mutater API facade, version 1.
 type InstanceMutaterV1 interface {
-	WatchModelMachines() (params.StringsWatchResult, error)
-	WatchUnits(args params.Entities) (params.StringsWatchResults, error)
 	Life(args params.Entities) (params.LifeResults, error)
 
 	CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error)
-	SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error)
 	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
+	SetModificationStatus(args params.SetStatus) (params.ErrorResults, error)
 	WatchMachines() (params.StringsWatchResult, error)
 	WatchApplicationLXDProfiles(args params.Entities) (params.NotifyWatchResults, error)
 }
 
 type InstanceMutaterAPI struct {
-	*common.ModelMachinesWatcher
-	*common.UnitsWatcher
 	*common.LifeGetter
 
 	st          InstanceMutaterState
@@ -80,14 +76,12 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
 	return &InstanceMutaterAPI{
-		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
-		UnitsWatcher:         common.NewUnitsWatcher(st, resources, getAuthFunc),
-		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
-		st:                   st,
-		model:                model,
-		resources:            resources,
-		authorizer:           authorizer,
-		getAuthFunc:          getAuthFunc,
+		LifeGetter:  common.NewLifeGetter(st, getAuthFunc),
+		st:          st,
+		model:       model,
+		resources:   resources,
+		authorizer:  authorizer,
+		getAuthFunc: getAuthFunc,
 	}, nil
 }
 
@@ -148,21 +142,6 @@ func (api *InstanceMutaterAPI) SetModificationStatus(args params.SetStatus) (par
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
-}
-
-// SetUpgradeCharmProfileComplete recorded that the result of updating
-// the machine's charm profile(s)
-func (api *InstanceMutaterAPI) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
-	results := make([]params.ErrorResult, len(args.Args))
-	canAccess, err := api.getAuthFunc()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	for i, a := range args.Args {
-		err := api.oneUpgradeCharmProfileComplete(a.Entity.Tag, a.UnitName, a.Message, canAccess)
-		results[i].Error = common.ServerError(err)
-	}
-	return params.ErrorResults{Results: results}, nil
 }
 
 // SetCharmProfiles records the given slice of charm profile names.
@@ -367,18 +346,6 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m ModelCacheMachine) (lxdPr
 		MachineProfiles: machineProfiles,
 		ProfileUnits:    changeResults,
 	}, nil
-}
-
-func (api *InstanceMutaterAPI) oneUpgradeCharmProfileComplete(machineTag, unitName, msg string, canAccess common.AuthFunc) error {
-	mTag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	machine, err := api.getMachine(canAccess, mTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.SetUpgradeCharmProfileComplete(unitName, msg)
 }
 
 func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(machineTag string, profiles []string, canAccess common.AuthFunc) error {

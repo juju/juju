@@ -131,31 +131,6 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 	c.Assert(machine.Placement(), gc.Equals, "zone=test")
 }
 
-func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementAddCharmProfile(c *gc.C) {
-	machine, err := s.State.AddMachine("xenial", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	name := "lxd-profile"
-	charm := state.AddTestingCharmForSeries(c, s.State, "xenial", name)
-	application := s.AddTestingApplication(c, name, charm)
-	c.Assert(err, jc.ErrorIsNil)
-	unit, err := application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.AssignUnitWithPlacement(unit,
-		&instance.Placement{
-			instance.MachineScope, machine.Id(),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	chCharmURL, err := machine.UpgradeCharmProfileCharmURL(unit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chCharmURL, gc.Equals, charm.URL().String())
-}
-
 func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c *gc.C) {
 	s.addLockedMachine(c, true)
 

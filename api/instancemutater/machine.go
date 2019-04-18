@@ -32,10 +32,6 @@ type MutaterMachine interface {
 	// SetCharmProfiles records the given slice of charm profile names.
 	SetCharmProfiles([]string) error
 
-	// SetUpgradeCharmProfileComplete records the result of updating
-	// the machine's charm profile(s), for the given unit.
-	SetUpgradeCharmProfileComplete(unitName string, message string) error
-
 	// Tag returns the current machine tag
 	Tag() names.MachineTag
 
@@ -44,11 +40,6 @@ type MutaterMachine interface {
 
 	// Refresh updates the cached local copy of the machine's data.
 	Refresh() error
-
-	// RemoveUpgradeCharmProfileData completely removes the instance charm
-	// profile data for a machine and the given unit, even if the machine
-	// is dead.
-	RemoveUpgradeCharmProfileData(string) error
 
 	// WatchUnits returns a watcher.StringsWatcher for watching units of a given
 	// machine.
@@ -116,32 +107,6 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 	}
 	if len(results.Results) != 1 {
 		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
-}
-
-// SetUpgradeCharmProfileComplete implements MutaterMachine.SetUpgradeCharmProfileComplete.
-func (m *Machine) SetUpgradeCharmProfileComplete(unitName string, message string) error {
-	var results params.ErrorResults
-	args := params.SetProfileUpgradeCompleteArgs{
-		Args: []params.SetProfileUpgradeCompleteArg{
-			{
-				Entity:   params.Entity{Tag: m.tag.String()},
-				UnitName: unitName,
-				Message:  message,
-			},
-		},
-	}
-	err := m.facade.FacadeCall("SetUpgradeCharmProfileComplete", args, &results)
-	if err != nil {
-		return err
-	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -275,11 +240,6 @@ func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
 	}
 	returnResult.ProfileChanges = profileChanges
 	return returnResult, nil
-}
-
-// RemoveUpgradeCharmProfileData implements MutaterMachine.RemoveUpgradeCharmProfileData.
-func (m *Machine) RemoveUpgradeCharmProfileData(string) error {
-	return nil
 }
 
 // SetModificationStatus implements MutaterMachine.SetModificationStatus.

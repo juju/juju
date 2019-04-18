@@ -396,6 +396,8 @@ func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
 	app := ctx.s.AddTestingApplicationWithStorage(c, csau.applicationName, sch, csau.storage)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetCharmURL(curl(0))
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the unit to a provisioned machine to match expected state.
 	assertAssignUnit(c, ctx.st, unit)
@@ -414,12 +416,14 @@ type createUniter struct {
 func (s createUniter) step(c *gc.C, ctx *context) {
 	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createApplicationAndUnit{})
+	//step(c, ctx, createApplicationAndUnit{applicationName: "wordpress"})
 	if s.minion {
 		step(c, ctx, forceMinion{})
 	}
 	step(c, ctx, startUniter{
 		newExecutorFunc:      s.executorFunc,
 		translateResolverErr: s.translateResolverErr,
+		unitTag:              ctx.unit.Tag().String(),
 	})
 	step(c, ctx, waitAddresses{})
 }
@@ -990,8 +994,6 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 	}
 	// Make sure we upload the charm before changing it in the DB.
 	serveCharm{}.step(c, ctx)
-	err = ctx.application.SetCharmProfile(sch.URL().String())
-	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1127,7 +1129,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 	if ctx.relatedSvc == nil {
 		ctx.relatedSvc = ctx.s.AddTestingApplication(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
-	eps, err := ctx.st.InferEndpoints("u", "mysql")
+	eps, err := ctx.st.InferEndpoints(ctx.application.Name(), "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.relation, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)

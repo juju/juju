@@ -59,6 +59,7 @@ var (
 		"compute-provisioner",
 		"environ-tracker",
 		"firewaller",
+		"instance-mutater",
 		"instance-poller",
 		"log-forwarder",
 		"machine-undertaker",

@@ -35,35 +35,6 @@ func (s *instanceMutaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *instanceMutaterSuite) TestWatchModelMachines(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	api := s.clientForScenario(c,
-		s.expectWatchModelMachines,
-		s.expectStringsWatcher,
-	)
-	ch, err := api.WatchModelMachines()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// watch for the changes
-	for i := 0; i < 2; i++ {
-		select {
-		case <-ch.Changes():
-		case <-time.After(jujutesting.LongWait):
-			c.Fail()
-		}
-	}
-}
-
-func (s *instanceMutaterSuite) TestWatchModelMachinesServerError(c *gc.C) {
-	apiCaller := clientErrorAPICaller(c, "WatchModelMachines", nil)
-	api := instancemutater.NewClient(apiCaller)
-	w, err := api.WatchModelMachines()
-	c.Assert(err, gc.ErrorMatches, "client error!")
-	c.Assert(w, gc.IsNil)
-	c.Assert(apiCaller.CallCount, gc.Equals, 1)
-}
-
 func (s *instanceMutaterSuite) TestMachineCallsLife(c *gc.C) {
 	// We have tested separately the Life method, here we just check
 	// it's called internally.
@@ -130,12 +101,6 @@ func (s *instanceMutaterSuite) clientForScenario(c *gc.C, behaviours ...func()) 
 	return instancemutater.NewClient(s.apiCaller)
 }
 
-func (s *instanceMutaterSuite) expectWatchModelMachines() {
-	aExp := s.apiCaller.EXPECT()
-	aExp.BestFacadeVersion("InstanceMutater").Return(1)
-	aExp.APICall("InstanceMutater", 1, "", "WatchModelMachines", nil, gomock.Any()).Return(nil)
-}
-
 func (s *instanceMutaterSuite) expectWatchMachines() {
 	aExp := s.apiCaller.EXPECT()
 	aExp.BestFacadeVersion("InstanceMutater").Return(1)
@@ -158,17 +123,6 @@ func (s *instanceMutaterSuite) expectNotifyWatcher() {
 	aExp := s.apiCaller.EXPECT()
 	aExp.BestFacadeVersion("NotifyWatcher").Return(1)
 	aExp.APICall("NotifyWatcher", 1, "", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
-}
-
-func clientErrorAPICaller(c *gc.C, method string, expectArgs interface{}) *apitesting.CallChecker {
-	return apitesting.APICallChecker(c, apitesting.APICall{
-		Facade:        "InstanceMutater",
-		VersionIsZero: true,
-		IdIsEmpty:     true,
-		Method:        method,
-		Args:          expectArgs,
-		Error:         errors.New("client error!"),
-	})
 }
 
 func successAPICaller(c *gc.C, method string, expectArgs, useResults interface{}) *apitesting.CallChecker {
