@@ -4,11 +4,9 @@
 package podcfg
 
 import (
-	"fmt"
 	"net"
 	"path"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -30,12 +28,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
-
-const (
-	jujudOCINamespace = "jujusolutions"
-	jujudOCIName      = "jujud-operator"
-	jujudbOCIName     = "juju-db"
-)
 
 // jujudbVersion is the version of juju-db to use.
 var jujudbVersion = mongo.Mongo40wt
@@ -210,43 +202,6 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 		}
 	}
 	return nil
-}
-
-// GetControllerImagePath returns oci image path of jujud for a controller.
-func (cfg *ControllerPodConfig) GetControllerImagePath() string {
-	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion)
-}
-
-// GetJujuDbOCIImagePath returns the juju-db oci image path.
-func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() string {
-	imageRepo := cfg.Controller.Config.CAASImageRepo()
-	if imageRepo == "" {
-		imageRepo = jujudOCINamespace
-	}
-	v := jujudbVersion
-	return fmt.Sprintf("%s/%s:%d.%d", imageRepo, jujudbOCIName, v.Major, v.Minor)
-}
-
-// IsJujuOCIImage returns true if the image path is for a Juju operator.
-func IsJujuOCIImage(imagePath string) bool {
-	return strings.Contains(imagePath, jujudOCIName+":")
-}
-
-// GetJujuOCIImagePath returns the jujud oci image path.
-func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) string {
-	// First check the deprecated "caas-operator-image-path" config.
-	imagePath := controllerCfg.CAASOperatorImagePath()
-	if imagePath != "" {
-		return imagePath
-	}
-	imageRepo := controllerCfg.CAASImageRepo()
-	if imageRepo == "" {
-		imageRepo = jujudOCINamespace
-	}
-	if ver == version.Zero {
-		return fmt.Sprintf("%s/%s", imageRepo, jujudOCIName)
-	}
-	return fmt.Sprintf("%s/%s:%s", imageRepo, jujudOCIName, ver.String())
 }
 
 func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {
