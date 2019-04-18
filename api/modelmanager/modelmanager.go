@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/rpc"
 )
 
 var logger = loggo.GetLogger("juju.api.modelmanager")
@@ -74,6 +75,10 @@ func (c *Client) CreateModel(
 	var modelInfo params.ModelInfo
 	err := c.facade.FacadeCall("CreateModel", createArgs, &modelInfo)
 	if err != nil {
+		// We don't want the message to contain the "(already exists)" suffix.
+		if rpcErr, ok := errors.Cause(err).(*rpc.RequestError); ok {
+			return result, errors.New(rpcErr.Message)
+		}
 		return result, errors.Trace(err)
 	}
 	return convertParamsModelInfo(modelInfo)

@@ -383,7 +383,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 		GetClusterMetadataFunc: c.getClusterMetadataFunc(ctx),
 	}
 
-	storageMsg, err := provider.UpdateKubeCloudWithStorage(&newCloud, credential, storageParams)
+	storageMsg, err := provider.UpdateKubeCloudWithStorage(&newCloud, storageParams)
 	if err != nil {
 		if provider.IsClusterQueryError(err) {
 			if err.Error() == "" {
@@ -410,6 +410,9 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 
 	if clusterName == "" {
 		clusterName = c.hostCloudRegion
+		if clusterName == "" {
+			clusterName = newCloud.HostCloudRegion
+		}
 	}
 	if c.controllerName == "" {
 		successMsg := fmt.Sprintf("k8s substrate %q added as cloud %q%s", clusterName, c.caasName, storageMsg)
