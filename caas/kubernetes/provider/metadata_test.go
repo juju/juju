@@ -85,6 +85,27 @@ var hostRegionsTestCases = []hostRegionTestcase{
 		}),
 	},
 	{
+		expectedCloud:   "gce",
+		expectedRegions: set.NewStrings(""),
+		nodes: newNodeList(map[string]string{
+			"juju.io/cloud": "gce",
+		}),
+	},
+	{
+		expectedCloud:   "ec2",
+		expectedRegions: set.NewStrings(""),
+		nodes: newNodeList(map[string]string{
+			"juju.io/cloud": "ec2",
+		}),
+	},
+	{
+		expectedCloud:   "azure",
+		expectedRegions: set.NewStrings(""),
+		nodes: newNodeList(map[string]string{
+			"juju.io/cloud": "azure",
+		}),
+	},
+	{
 		expectedCloud:   "azure",
 		expectedRegions: set.NewStrings(""),
 		nodes: newNodeList(map[string]string{

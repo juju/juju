@@ -45,10 +45,12 @@ type requirementParams struct {
 const regionLabelName = "failure-domain.beta.kubernetes.io/region"
 
 func getCloudRegionFromNodeMeta(node core.Node) (string, string) {
-	for k, checker := range k8sCloudCheckers {
-		if checker.Matches(k8slabels.Set(node.GetLabels())) {
-			region := node.Labels[regionLabelName]
-			return k, region
+	for k, checkers := range k8sCloudCheckers {
+		for _, checker := range checkers {
+			if checker.Matches(k8slabels.Set(node.GetLabels())) {
+				region := node.Labels[regionLabelName]
+				return k, region
+			}
 		}
 	}
 	// TODO - add microk8s node label check when available
