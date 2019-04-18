@@ -217,6 +217,23 @@ func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 	s.cleanKill(c, w)
 }
 
+func (s *workerEnvironSuite) TestRemoveAllCharmProfiles(c *gc.C) {
+	defer s.setup(c, 1).Finish()
+
+	w := s.workerForScenario(c,
+		s.ignoreLogging(c),
+		s.notifyMachines([][]string{{"0"}}),
+		s.expectFacadeMachineTag(0),
+		s.notifyMachineAppLXDProfile(0, 1),
+		s.expectAliveAndSetModificationStatusIdle(0),
+		s.expectCharmProfilingInfoRemove(0),
+		s.expectLXDProfileNamesTrue,
+		s.expectRemoveAllCharmProfiles(0),
+		s.expectModificationStatusApplied(0),
+	)
+	s.cleanKill(c, w)
+}
+
 func (s *workerEnvironSuite) TestMachineNotifyTwice(c *gc.C) {
 	defer s.setup(c, 2).Finish()
 
@@ -406,6 +423,17 @@ func (s *workerSuite) expectCharmProfilingInfo(mock *mocks.MockMutaterMachine, r
 	}
 }
 
+func (s *workerSuite) expectCharmProfilingInfoRemove(machine int) func() {
+	return func() {
+		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{
+			CurrentProfiles: []string{"default", "juju-testing", "juju-testing-one-2"},
+			InstanceId:      "juju-23423-0",
+			ModelName:       "testing",
+			ProfileChanges:  []apiinstancemutater.UnitProfileChanges{},
+		}, nil)
+	}
+}
+
 func (s *workerSuite) expectCharmProfileInfoNotProvisioned(machine int) func() {
 	return func() {
 		do := s.workGroupAddGetDoneFunc()
@@ -458,6 +486,14 @@ func (s *workerSuite) expectAssignLXDProfiles() {
 func (s *workerSuite) expectSetCharmProfiles(machine int) func() {
 	return func() {
 		s.machine[machine].EXPECT().SetCharmProfiles([]string{"default", "juju-testing", "juju-testing-one-3"})
+	}
+}
+
+func (s *workerSuite) expectRemoveAllCharmProfiles(machine int) func() {
+	return func() {
+		profiles := []string{"default", "juju-testing"}
+		s.machine[machine].EXPECT().SetCharmProfiles(profiles)
+		s.broker.EXPECT().AssignLXDProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
 	}
 }
 
